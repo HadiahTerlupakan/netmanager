@@ -1,35 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { hasPermission, getCurrentUser } from "@/lib/rbac";
-import { getMitraService } from "@/modules/mitra";
-import { checkSiteRestriction } from "@/modules/roles";
-
-const mitraService = getMitraService();
-
-async function validateMitraSiteAccess(
-  mitraId: string,
-  user: { id: string; name?: string | null },
-): Promise<{ allowed: boolean; error?: string }> {
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user } as never,
-    "mitra",
-  );
-  if (!isRestricted) return { allowed: true };
-
-  const mitra = await mitraService.getMitraById(mitraId);
-  if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
-
-  if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
-    return {
-      allowed: false,
-      error: "Anda tidak dapat mengakses mitra di luar scope Anda",
-    };
-  }
-
-  return { allowed: true };
-}
+import {
+  validateMitraSiteAccess,
+  validateNewSiteId,
+  unauthorizedResponse,
+  accessDeniedResponse,
+  notFoundResponse,
+  badRequestResponse,
+  successResponse,
+  mitraService,
+} from "./route.helpers";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getCurrentUser();
@@ -38,10 +21,7 @@ export async function GET(
     !user.id ||
     !(await hasPermission("mitra:read", user, { silent: true }))
   ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
+    return unauthorizedResponse();
   }
 
   const { id } = await params;
@@ -51,22 +31,16 @@ export async function GET(
     name: user.name,
   });
   if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
+    return accessDeniedResponse(access.error);
   }
 
   const result = await mitraService.getMitraById(id);
 
   if (!result.success) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 404 },
-    );
+    return notFoundResponse(result.error);
   }
 
-  return NextResponse.json({ success: true, data: result.data });
+  return successResponse(result.data);
 }
 
 export async function PUT(
@@ -79,10 +53,7 @@ export async function PUT(
     !user.id ||
     !(await hasPermission("mitra:update", user, { silent: true }))
   ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
+    return unauthorizedResponse();
   }
 
   const { id } = await params;
@@ -92,51 +63,31 @@ export async function PUT(
     name: user.name,
   });
   if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
+    return accessDeniedResponse(access.error);
   }
 
   try {
     const body = await request.json();
 
-    // Validate new siteId if being changed
-    const { isRestricted, siteIds } = checkSiteRestriction(
-      { user } as never,
-      "mitra",
-    );
-    if (isRestricted && body.siteId && !siteIds.includes(body.siteId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Anda tidak dapat memindahkan mitra ke site di luar scope Anda",
-        },
-        { status: 403 },
-      );
+    const siteValidation = await validateNewSiteId(user, body.siteId);
+    if (!siteValidation.valid) {
+      return accessDeniedResponse(siteValidation.error);
     }
 
     const result = await mitraService.updateMitra(id, body, user.id!);
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 },
-      );
+      return badRequestResponse(result.error);
     }
 
-    return NextResponse.json({ success: true });
+    return successResponse();
   } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request body" },
-      { status: 400 },
-    );
+    return badRequestResponse("Invalid request body");
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getCurrentUser();
@@ -145,10 +96,7 @@ export async function DELETE(
     !user.id ||
     !(await hasPermission("mitra:delete", user, { silent: true }))
   ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
+    return unauthorizedResponse();
   }
 
   const { id } = await params;
@@ -158,22 +106,16 @@ export async function DELETE(
     name: user.name,
   });
   if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
+    return accessDeniedResponse(access.error);
   }
 
   const result = await mitraService.deleteMitra(id, user.id!);
 
   if (!result.success) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 400 },
-    );
+    return badRequestResponse(result.error);
   }
 
-  return NextResponse.json({ success: true });
+  return successResponse();
 }
 
 export async function PATCH(
@@ -186,10 +128,7 @@ export async function PATCH(
     !user.id ||
     !(await hasPermission("mitra:update", user, { silent: true }))
   ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
+    return unauthorizedResponse();
   }
 
   const { id } = await params;
@@ -199,50 +138,28 @@ export async function PATCH(
     name: user.name,
   });
   if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
+    return accessDeniedResponse(access.error);
   }
 
   try {
     const body = await request.json();
 
-    // Validate new siteId if being changed
-    const { isRestricted, siteIds } = checkSiteRestriction(
-      { user } as never,
-      "mitra",
-    );
-    if (isRestricted && body.siteId && !siteIds.includes(body.siteId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Anda tidak dapat memindahkan mitra ke site di luar scope Anda",
-        },
-        { status: 403 },
-      );
+    const siteValidation = await validateNewSiteId(user, body.siteId);
+    if (!siteValidation.valid) {
+      return accessDeniedResponse(siteValidation.error);
     }
 
     const result = await mitraService.updateMitra(id, body, user.id!);
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 },
-      );
+      return badRequestResponse(result.error);
     }
 
-    // Push real-time profile refresh to mobile app via Socket.IO
-    // This replaces the need for polling on the mobile side
     const { socketEmitter } = await import("@/lib/websocket/emitter");
     socketEmitter.profileRefresh(id);
 
-    return NextResponse.json({ success: true });
+    return successResponse();
   } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request body" },
-      { status: 400 },
-    );
+    return badRequestResponse("Invalid request body");
   }
 }

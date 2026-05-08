@@ -5,14 +5,13 @@ import {
   MdCheckCircle,
   MdCancel,
   MdPending,
-  MdTimer,
   MdDoneAll,
   MdPlayArrow,
   MdLocationOn,
   MdDelete,
   MdEdit,
 } from "react-icons/md";
-import { FaSearch, FaBuilding } from "react-icons/fa";
+import { FaBuilding } from "react-icons/fa";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -36,38 +35,13 @@ import {
   validateRejectionReason,
   validateTimeRange,
 } from "@/lib/utils/validation";
-import { Modal, ModalFooter } from "@/components/ui/Modal";
-
-interface OvertimeUser {
-  name: string | null;
-  email: string;
-  image?: string | null;
-  workDays?: string | null;
-  workingHourMode?: string | null;
-  sites?: { name: string } | null;
-  departments?: { name: string } | null;
-}
-
-interface Overtime {
-  id: string;
-  createdAt: string;
-  duration: number | null;
-  reason: string;
-  status: "PENDING" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "REJECTED";
-  rejectionReason?: string;
-  startTime?: string;
-  endTime?: string;
-  startPhoto?: string;
-  endPhoto?: string;
-  startLocation?: string;
-  endLocation?: string;
-  // Holiday/Off-day tracking
-  isHolidayOvertime?: boolean;
-  isNationalHoliday?: boolean;
-  isOffDay?: boolean;
-  holidayDescription?: string;
-  user: OvertimeUser | null;
-}
+import type { Overtime } from "./types";
+import { RateLimitWarning } from "./components/RateLimitWarning";
+import { OvertimeSummaryCards } from "./components/OvertimeSummaryCards";
+import { OvertimeFilters } from "./components/OvertimeFilters";
+import { RejectModal } from "./components/RejectModal";
+import { EditModal } from "./components/EditModal";
+import { PhotoModal } from "./components/PhotoModal";
 
 export function ClientComponent() {
   const { hasPermission } = usePermission();
@@ -685,165 +659,46 @@ export function ClientComponent() {
         Manajemen Lembur
       </h1>
 
-      {/* Rate Limit Warning */}
-      {retryCountdown !== null && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
-          <MdTimer className="text-yellow-600 text-xl" />
-          <div>
-            <p className="font-medium text-yellow-800 dark:text-yellow-200">
-              Terlalu Banyak Permintaan
-            </p>
-            <p className="text-sm text-yellow-600 dark:text-yellow-400">
-              Coba lagi dalam {retryCountdown} detik...
-            </p>
-          </div>
-        </div>
-      )}
+      <RateLimitWarning retryCountdown={retryCountdown} />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {Object.entries(summary).map(([key, count]) => (
-          <div
-            key={key}
-            className="bg-white p-4 rounded-lg shadow border border-gray-100 dark:bg-gray-800 dark:border-gray-700"
-          >
-            <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">
-              {key.toLowerCase().replace("_", " ")}
-            </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {count}
-            </div>
-          </div>
-        ))}
-        <div className="bg-indigo-50 p-4 rounded-lg shadow border border-indigo-100 dark:bg-indigo-900/20">
-          <div className="text-sm text-indigo-600 dark:text-indigo-400">
-            Total Filtered
-          </div>
-          <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-            {totalItems}
-          </div>
-        </div>
-      </div>
+      <OvertimeSummaryCards summary={summary} totalItems={totalItems} />
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow dark:bg-gray-800 flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Dari Tanggal
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Sampai Tanggal
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Site
-          </label>
-          <select
-            value={siteId}
-            onChange={(e) => {
-              setSiteId(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="">Semua Site</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Departemen
-          </label>
-          <select
-            value={departmentId}
-            onChange={(e) => {
-              setDepartmentId(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="">Semua Dept</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Status
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="">Semua Status</option>
-            <option value="PENDING">Pending</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Tipe Hari
-          </label>
-          <select
-            value={holidayFilter}
-            onChange={(e) => {
-              setHolidayFilter(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded px-3 py-2 text-sm w-44 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="">Semua Hari</option>
-            <option value="REGULAR">Hari Kerja</option>
-            <option value="ALL_HOLIDAY">Semua Libur</option>
-            <option value="NATIONAL">🎌 Libur Nasional</option>
-            <option value="COLLECTIVE">🏖️ Cuti Bersama</option>
-            <option value="OFFDAY">📅 Hari Libur Karyawan</option>
-          </select>
-        </div>
-        <Button
-          onClick={() => fetchRequests()}
-          disabled={retryCountdown !== null}
-          variant="default"
-          className="px-4 py-2 rounded-lg text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 transition-all font-medium shadow-sm hover:shadow-md active:scale-95"
-        >
-          <FaSearch className="w-3.5 h-3.5" /> Cari
-        </Button>
-      </div>
+      <OvertimeFilters
+        startDate={startDate}
+        endDate={endDate}
+        siteId={siteId}
+        departmentId={departmentId}
+        statusFilter={statusFilter}
+        holidayFilter={holidayFilter}
+        sites={sites}
+        departments={departments}
+        retryCountdown={retryCountdown}
+        onStartDateChange={(value) => {
+          setStartDate(value);
+          setPage(1);
+        }}
+        onEndDateChange={(value) => {
+          setEndDate(value);
+          setPage(1);
+        }}
+        onSiteIdChange={(value) => {
+          setSiteId(value);
+          setPage(1);
+        }}
+        onDepartmentIdChange={(value) => {
+          setDepartmentId(value);
+          setPage(1);
+        }}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value);
+          setPage(1);
+        }}
+        onHolidayFilterChange={(value) => {
+          setHolidayFilter(value);
+          setPage(1);
+        }}
+        onSearch={() => fetchRequests()}
+      />
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -879,167 +734,43 @@ export function ClientComponent() {
         </div>
       </div>
 
-      {/* Reject Modal */}
-      <Modal
+      <RejectModal
         isOpen={!!rejectId}
+        rejectReason={rejectReason}
+        rejectError={rejectError}
+        processingId={processingId}
+        rejectId={rejectId}
+        onReasonChange={(value) => {
+          setRejectReason(value);
+          setRejectError(null);
+        }}
         onClose={() => {
           setRejectId(null);
           setRejectReason("");
           setRejectError(null);
         }}
-        title="Alasan Penolakan"
-        size="sm"
-      >
-        <div>
-          <textarea
-            className={`w-full p-2 border rounded-lg mb-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${rejectError ? "border-red-500" : ""}`}
-            rows={3}
-            placeholder="Minimal 5 karakter..."
-            value={rejectReason}
-            onChange={(e) => {
-              setRejectReason(e.target.value);
-              setRejectError(null);
-            }}
-          />
-          {rejectError && (
-            <p className="text-xs text-red-500 mb-2">{rejectError}</p>
-          )}
-          <p className="text-xs text-gray-500 mb-3">
-            {rejectReason.length}/500 karakter
-          </p>
-        </div>
-        <ModalFooter>
-          <Button
-            onClick={() => {
-              setRejectId(null);
-              setRejectReason("");
-              setRejectError(null);
-            }}
-            className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Batal
-          </Button>
-          <Button
-            onClick={() => handleAction(rejectId!, "reject", rejectReason)}
-            disabled={!rejectReason.trim() || processingId === rejectId}
-            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-          >
-            Tolak
-          </Button>
-        </ModalFooter>
-      </Modal>
+        onSubmit={() => handleAction(rejectId!, "reject", rejectReason)}
+      />
 
-      {/* Edit Modal */}
-      <Modal
+      <EditModal
         isOpen={!!editId}
+        editForm={editForm}
+        editErrors={editErrors}
+        processingId={processingId}
+        editId={editId}
+        onFormChange={setEditForm}
+        onErrorChange={setEditErrors}
         onClose={() => {
           setEditId(null);
           setEditErrors({});
         }}
-        title="Edit Data Lembur"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-              Alasan Lembur
-            </label>
-            <textarea
-              className={`w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white ${editErrors.reason ? "border-red-500" : ""}`}
-              rows={3}
-              value={editForm.reason}
-              onChange={(e) => {
-                setEditForm({ ...editForm, reason: e.target.value });
-                if (editErrors.reason) {
-                  setEditErrors({ ...editErrors, reason: "" });
-                }
-              }}
-            />
-            {editErrors.reason && (
-              <p className="text-xs text-red-500 mt-1">{editErrors.reason}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              {editForm.reason.length}/500 karakter (min 10)
-            </p>
-          </div>
+        onSubmit={handleEditSubmit}
+      />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-                Jam Mulai
-              </label>
-              <input
-                type="datetime-local"
-                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                value={editForm.startTime}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, startTime: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-                Jam Selesai
-              </label>
-              <input
-                type="datetime-local"
-                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                value={editForm.endTime}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, endTime: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          {editErrors.time && (
-            <p className="text-xs text-red-500">{editErrors.time}</p>
-          )}
-        </div>
-        <ModalFooter>
-          <Button
-            onClick={() => {
-              setEditId(null);
-              setEditErrors({});
-            }}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Batal
-          </Button>
-          <Button onClick={handleEditSubmit} disabled={processingId === editId}>
-            Simpan Perubahan
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Photo Modal */}
-      <Modal
-        isOpen={!!selectedPhoto}
+      <PhotoModal
+        photoUrl={selectedPhoto}
         onClose={() => setSelectedPhoto(null)}
-        title="Preview Foto"
-        size="4xl"
-        padding={false}
-        showCloseButton={true}
-      >
-        <div className="relative w-full h-[80vh] flex items-center justify-center bg-black/90">
-          {selectedPhoto && (
-            <Image
-              src={selectedPhoto}
-              alt="Full view"
-              fill
-              sizes="(max-width: 1024px) 100vw, 1024px"
-              className="object-contain"
-            />
-          )}
-        </div>
-        <ModalFooter className="bg-black/90 border-t border-white/10">
-          <Button
-            onClick={() => setSelectedPhoto(null)}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
-          >
-            Tutup
-          </Button>
-        </ModalFooter>
-      </Modal>
+      />
     </div>
   );
 }

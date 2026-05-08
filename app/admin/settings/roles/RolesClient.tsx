@@ -12,9 +12,7 @@ interface Role {
   id: string;
   name: string;
   description: string;
-  _count?: {
-    user: number; // Note: 'user' not 'users' - matches Prisma relation name
-  };
+  userCount: number; // Matches RoleListItemDTO from backend
 }
 
 export function ClientComponent() {
@@ -127,13 +125,13 @@ export function ClientComponent() {
               ),
             },
             {
-              key: "_count",
+              key: "userCount",
               header: "Users",
               priority: "secondary",
               align: "center",
               render: (item) => (
                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
-                  {item._count?.user || 0} User
+                  {item.userCount || 0} User
                 </span>
               ),
             },
@@ -154,14 +152,14 @@ export function ClientComponent() {
                 <button
                   type="button"
                   onClick={() => handleDelete(item.id, item.name)}
-                  disabled={(item._count?.user || 0) > 0}
+                  disabled={item.userCount > 0}
                   className={`p-2 rounded-lg transition-colors ${
-                    (item._count?.user || 0) > 0
+                    item.userCount > 0
                       ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                       : "text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                   }`}
                   title={
-                    (item._count?.user || 0) > 0
+                    item.userCount > 0
                       ? "Tidak dapat menghapus role yang memiliki user aktif"
                       : "Hapus Role"
                   }

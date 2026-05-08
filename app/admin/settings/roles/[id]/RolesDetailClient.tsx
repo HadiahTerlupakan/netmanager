@@ -166,16 +166,15 @@ export function ClientComponent() {
               canApproveRab: roleData.canApproveRab || false,
               canReceiveWhatsappApproval:
                 roleData.canReceiveWhatsappApproval || false,
-              // Convert backend permissions (objects) to string format resource:action
-              permissions: roleData.permissions.map(
-                (p: { resource: string; action: string }) =>
-                  `${p.resource}:${p.action}`,
-              ),
+              // Use permissionList which is already in "resource:action" format
+              permissions: roleData.permissionList || [],
             });
 
             // Calculate expanded groups based on active resources
             const activeResources = new Set(
-              roleData.permissions.map((p: { resource: string }) => p.resource),
+              (roleData.permissionList || []).map(
+                (p: string) => p.split(":")[0],
+              ),
             );
             const groupsToExpand: string[] = [];
 

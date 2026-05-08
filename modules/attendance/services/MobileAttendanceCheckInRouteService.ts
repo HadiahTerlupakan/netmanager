@@ -12,6 +12,7 @@ import type {
   MobileCheckInParsedPayload,
   MobileCheckInRouteInput,
 } from "./MobileAttendanceCheckInTypes";
+import { logger } from "@/lib/logger";
 export type {
   MobileAttendanceCheckInRouteFailure,
   MobileAttendanceCheckInRouteResult,
@@ -55,14 +56,39 @@ export class MobileAttendanceCheckInRouteService {
     let resolvedRequestId: string | null = null;
 
     try {
+      logger.info("MobileCheckInRouteService: Starting check-in", {
+        userId,
+        tenantId: input.user.tenantId,
+      });
+
       const timezone = await this.timezone.getTimezone(
         input.user.tenantId as string,
       );
+      logger.info("MobileCheckInRouteService: Timezone resolved", {
+        userId,
+        timezone,
+      });
+
       const parsedPayload = await this.payloadParser.parsePayload(
         input.request,
         userId,
       );
-      if (!parsedPayload.success) return parsedPayload;
+      if (!parsedPayload.success) {
+        logger.warn("MobileCheckInRouteService: Payload parsing failed", {
+          userId,
+          errorDetails: parsedPayload,
+        });
+        return parsedPayload;
+      }
+
+      logger.info("MobileCheckInRouteService: Payload parsed successfully", {
+        userId,
+        hasPhotoUrl: !!parsedPayload.data.photoUrl,
+        hasCoordinates: !!(
+          parsedPayload.data.latitude && parsedPayload.data.longitude
+        ),
+        hasOfflineTime: !!parsedPayload.data.offlineCapturedAt,
+      });
 
       const payload = parsedPayload.data;
       resolvedRequestId = this.idempotencyService.resolveRequestId(
@@ -92,9 +118,21 @@ export class MobileAttendanceCheckInRouteService {
         responsePayload,
       });
 
+      logger.info("MobileCheckInRouteService: Check-in completed", {
+        userId,
+      });
+
       return { success: true, data: responsePayload };
     } catch (error) {
       await this.idempotencyService.release(userId, resolvedRequestId);
+
+      logger.error("MobileCheckInRouteService: Check-in error", {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: error?.constructor?.name,
+        resolvedRequestId,
+      });
 
       return this.mapCheckInError(error);
     }
@@ -162,6 +200,15 @@ export class MobileAttendanceCheckInRouteService {
         },
       );
     }
+
+    logger.error(
+      "MobileCheckInRouteService: Unhandled error in mapCheckInError",
+      {
+        errorMessage: error.message,
+        errorName: error.name,
+        errorStack: error.stack,
+      },
+    );
 
     throw error;
   }

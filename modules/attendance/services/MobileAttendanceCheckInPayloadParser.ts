@@ -5,6 +5,7 @@ import type {
   MobileAttendanceCheckInRouteFailure,
   ParsedPayloadResult,
 } from "./MobileAttendanceCheckInTypes";
+import { logger } from "@/lib/logger";
 
 const LOCAL_PHOTO_PATH_PREFIX = "/uploads/";
 const TRUSTED_PHOTO_DOMAINS = [
@@ -31,6 +32,26 @@ type ParsedPhotoUrlResult = {
   error?: MobileAttendanceCheckInRouteFailure;
   data: string | null;
 };
+
+type MobileAttendanceJsonPayload = {
+  latitude?: unknown;
+  longitude?: unknown;
+  photoUrl?: unknown;
+  capturedAt?: unknown;
+  location?: unknown;
+  notes?: unknown;
+  requestId?: unknown;
+};
+
+function isMobileAttendanceJsonPayload(
+  value: unknown,
+): value is MobileAttendanceJsonPayload {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 
 export class MobileAttendanceCheckInPayloadParser {
   constructor(
@@ -84,25 +105,94 @@ export class MobileAttendanceCheckInPayloadParser {
   private async parseJsonPayload(
     request: Request,
   ): Promise<ParsedPayloadResult> {
-    const body = await request.json();
+    let rawBody: unknown;
+
+    try {
+      rawBody = await request.json();
+    } catch (error) {
+      logger.error("Mobile check-in JSON parsing failed", {
+        error: error instanceof Error ? error.message : String(error),
+        contentType: request.headers.get("content-type"),
+      });
+      return this.fail(
+        "Format JSON tidak valid",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+      );
+    }
+
+    if (!isMobileAttendanceJsonPayload(rawBody)) {
+      return this.fail(
+        "Format JSON tidak valid",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+      );
+    }
+
+    const body = rawBody;
+
+    logger.info("Mobile check-in JSON payload received", {
+      hasLatitude: body.latitude !== undefined,
+      hasLongitude: body.longitude !== undefined,
+      hasPhotoUrl: !!body.photoUrl,
+      hasCapturedAt: !!body.capturedAt,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      photoUrl: body.photoUrl,
+      latitudeType: typeof body.latitude,
+      longitudeType: typeof body.longitude,
+      photoUrlType: typeof body.photoUrl,
+      capturedAtType: typeof body.capturedAt,
+    });
+
     const offlineCapturedAt = this.parseCapturedAt(body.capturedAt);
-    if (offlineCapturedAt.error) return offlineCapturedAt.error;
+    if (offlineCapturedAt.error) {
+      logger.warn("Mobile check-in capturedAt validation failed", {
+        capturedAt: body.capturedAt,
+        capturedAtType: typeof body.capturedAt,
+        error: offlineCapturedAt.error.error,
+        code: offlineCapturedAt.error.code,
+        status: offlineCapturedAt.error.status,
+      });
+      return offlineCapturedAt.error;
+    }
 
     const coordinates = this.parseCoordinates(body.latitude, body.longitude);
-    if (coordinates.error) return coordinates.error;
+    if (coordinates.error) {
+      logger.warn("Mobile check-in coordinates validation failed", {
+        latitude: body.latitude,
+        longitude: body.longitude,
+        latitudeType: typeof body.latitude,
+        longitudeType: typeof body.longitude,
+        error: coordinates.error.error,
+        code: coordinates.error.code,
+        status: coordinates.error.status,
+      });
+      return coordinates.error;
+    }
 
     const photoUrl = this.resolvePhotoUrl(
       body.photoUrl,
       request.headers.get("host"),
     );
-    if (photoUrl.error) return photoUrl.error;
+    if (photoUrl.error) {
+      logger.warn("Mobile check-in photoUrl validation failed", {
+        photoUrl: body.photoUrl,
+        photoUrlType: typeof body.photoUrl,
+        host: request.headers.get("host"),
+        error: photoUrl.error.error,
+        code: photoUrl.error.code,
+        status: photoUrl.error.status,
+      });
+      return photoUrl.error;
+    }
 
     return {
       success: true,
       data: {
-        location: body.location || "",
-        notes: body.notes || "",
-        bodyRequestId: body.requestId,
+        location: getOptionalString(body.location) || "",
+        notes: getOptionalString(body.notes) || "",
+        bodyRequestId: getOptionalString(body.requestId),
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         photoUrl: photoUrl.data,

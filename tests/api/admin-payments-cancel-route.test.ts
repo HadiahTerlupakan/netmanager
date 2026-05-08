@@ -7,6 +7,8 @@ const mockFns = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   sendCustomerPushNotification: vi.fn(),
   updateStatusPelanggan: vi.fn(),
+  checkSiteRestriction: vi.fn(),
+  cancelPaidPayment: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({
@@ -34,6 +36,23 @@ vi.mock("@/modules/pelanggan", () => ({
   PelangganBillingBridgeService: class MockPelangganBillingBridgeService {},
 }));
 
+vi.mock("@/modules/roles", () => ({
+  checkSiteRestriction: (...args: unknown[]) =>
+    mockFns.checkSiteRestriction(...args),
+}));
+
+vi.mock("@/modules/finance", () => ({
+  cancelPaidPayment: (...args: unknown[]) => mockFns.cancelPaidPayment(...args),
+  PaymentCancellationError: class PaymentCancellationError extends Error {
+    constructor(
+      message: string,
+      public status: number,
+    ) {
+      super(message);
+    }
+  },
+}));
+
 import { POST } from "@/app/api/admin/payments/[id]/cancel/route";
 
 describe("admin payments cancel route", () => {
@@ -44,6 +63,11 @@ describe("admin payments cancel route", () => {
     });
     mockFns.sendCustomerPushNotification.mockResolvedValue(undefined);
     mockFns.updateStatusPelanggan.mockResolvedValue(undefined);
+    mockFns.checkSiteRestriction.mockReturnValue({
+      isRestricted: false,
+      siteIds: [],
+    });
+    mockFns.cancelPaidPayment.mockResolvedValue(undefined);
     prismaMock.payment.findUnique.mockResolvedValue({
       id: "pay-1",
       gatewayStatus: "PAID",
@@ -73,10 +97,10 @@ describe("admin payments cancel route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockFns.updateStatusPelanggan).toHaveBeenCalledWith(
-      "cust-1",
-      "ISOLIR",
-    );
-    expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+    expect(mockFns.cancelPaidPayment).toHaveBeenCalledWith({
+      paymentId: "pay-1",
+      adminLabel: "Admin",
+      allowedSiteIds: undefined,
+    });
   });
 });

@@ -50,7 +50,9 @@ function normalizeBrandingValue(value: unknown): string {
   return value.trim();
 }
 
-function parsePublicBrandingPayload(payload: unknown): PublicBranding | null {
+export function parsePublicBrandingPayload(
+  payload: unknown,
+): PublicBranding | null {
   const unwrappedPayload = unwrapPayload(payload);
   const namaAplikasi = normalizeBrandingValue(unwrappedPayload.namaAplikasi);
   const appLogoUrl = normalizeBrandingValue(unwrappedPayload.appLogoUrl);

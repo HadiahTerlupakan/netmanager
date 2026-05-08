@@ -97,6 +97,12 @@ describe("CanvasingRepository", () => {
             name: true,
             email: true,
             siteId: true,
+            sites: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         workOrder: {

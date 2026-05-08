@@ -8,7 +8,6 @@ import { clientLogger } from "@/lib/client-logger";
 export function ServerClock() {
   const [time, setTime] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState<string>("Asia/Jakarta");
-  const [offset, setOffset] = useState<number>(0);
   const [mounted, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -34,7 +33,6 @@ export function ServerClock() {
 
           // Offset = Server Time - Local Time
           const calculatedOffset = serverTime + latency - localTime;
-          setOffset(calculatedOffset);
           setTimezone(json.data.timezone);
 
           // 2. Update time every second locally using the calculated offset
