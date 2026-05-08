@@ -42,8 +42,13 @@ export function usePermission() {
   );
 
   useEffect(() => {
+    // Keep loading state until we have session
+    if (isAuthLoading) {
+      return;
+    }
+
     if (!isAuthenticated || !session?.user) {
-      requestAnimationFrame(() => {
+      queueMicrotask(() => {
         setPermissionState(EMPTY_PERMISSION_STATE);
       });
       return;
@@ -51,11 +56,16 @@ export function usePermission() {
 
     const user = session.user as { role?: string; isSuperAdmin?: boolean };
     if (isSuperAdmin(user)) {
-      requestAnimationFrame(() => {
+      queueMicrotask(() => {
         setPermissionState(SUPER_ADMIN_PERMISSION_STATE);
       });
       return;
     }
+
+    // Keep loading state true while fetching
+    queueMicrotask(() => {
+      setPermissionState(INITIAL_PERMISSION_STATE);
+    });
 
     async function fetchPermissions(): Promise<void> {
       try {
@@ -88,7 +98,7 @@ export function usePermission() {
     }
 
     void fetchPermissions();
-  }, [isAuthenticated, session]);
+  }, [isAuthenticated, session, isAuthLoading]);
 
   const hasPermission = useCallback(
     (requiredPermission: string) => {
