@@ -19,8 +19,18 @@ export async function jwtCallback({
   trigger?: "signIn" | "signUp" | "update";
   session?: unknown;
 }) {
+  logger.info(
+    "[JWT CALLBACK] Called with trigger:",
+    trigger,
+    "user:",
+    !!user,
+    "token.id:",
+    token.id,
+  );
+
   if (user) {
     token.id = user.id;
+    logger.info("[JWT CALLBACK] Processing new user login:", user.id);
 
     try {
       const dbUser = await prismaAuth.user.findUnique({
@@ -104,6 +114,7 @@ export async function jwtCallback({
   }
 
   if (trigger === "update") {
+    logger.info("[JWT CALLBACK] Update trigger for user:", token.id);
     const dbUser = await prismaAuth.user.findUnique({
       where: { id: token.id as string },
       include: {
