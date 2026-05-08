@@ -1,8 +1,8 @@
 # Infinite Loop API Calls Investigation - 2026-05-08
 
-**Date:** 2026-05-08  
-**Issue:** `/api/health/time` dan `/api/user/permissions` dipanggil berkali-kali  
-**Severity:** HIGH - Performance & Server Load  
+**Date:** 2026-05-08
+**Issue:** `/api/health/time` dan `/api/user/permissions` dipanggil berkali-kali
+**Severity:** HIGH - Performance & Server Load
 **Status:** ✅ FIXED
 
 ---
@@ -40,16 +40,16 @@
 // ❌ BEFORE (BROKEN)
 useEffect(() => {
   const syncTime = async () => {
-    // ... fetch time
+    // ... Fetch time
     setOffset(serverTime + latency - localTime); // ← Changes offset
   };
-  
+
   syncTime(); // ← Calls setOffset
-  
+
   const interval = setInterval(() => {
     setTime(new Date(now + offset)); // ← Uses offset
   }, 1000);
-  
+
   return () => clearInterval(interval);
 }, [offset]); // ← Depends on offset = INFINITE LOOP
 ```
@@ -74,27 +74,27 @@ useEffect(() => {
 // ✅ AFTER (FIXED)
 useEffect(() => {
   const syncTime = async () => {
-    // ... fetch time
+    // ... Fetch time
     const calculatedOffset = serverTime + latency - localTime;
     setOffset(calculatedOffset);
-    
+
     // Move interval inside syncTime to use calculated offset directly
     const interval = setInterval(() => {
       const now = Date.now();
       setTime(new Date(now + calculatedOffset)); // ← Use local variable
     }, 1000);
-    
+
     return interval;
   };
-  
+
   let intervalId: NodeJS.Timeout | null = null;
-  
+
   syncTime().then((interval) => {
     if (interval) {
       intervalId = interval;
     }
   });
-  
+
   return () => {
     if (intervalId) {
       clearInterval(intervalId);
@@ -129,22 +129,22 @@ useEffect(() => {
 ```typescript
 // ❌ BEFORE (BROKEN)
 useEffect(() => {
-  if (!isAuthenticated || !session?.user) {
+  if (!isAuthenticated || !session.user) {
     return;
   }
-  
+
   async function fetchPermissions() {
     const response = await fetch("/api/user/permissions");
-    // ... process response
+    // ... Process response
   }
-  
+
   fetchPermissions();
 }, [isAuthenticated, session, isAuthLoading]); // ← session object changes every render
 ```
 
 **Why `session` object changes:**
 
-NextAuth's `useSession()` returns a new object reference on every render, even if the data inside is the same:
+NextAuth's `useSession()` returns new object reference on every render, even if data inside is same:
 
 ```typescript
 // Render 1
@@ -176,15 +176,15 @@ session1 === session2 // false ← Different object reference
 ```typescript
 // ✅ AFTER (FIXED)
 useEffect(() => {
-  if (!isAuthenticated || !session?.user) {
+  if (!isAuthenticated || !session.user) {
     return;
   }
-  
+
   async function fetchPermissions() {
     const response = await fetch("/api/user/permissions");
-    // ... process response
+    // ... Process response
   }
-  
+
   fetchPermissions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [isAuthenticated, isAuthLoading]); // ← Only depend on auth status
@@ -327,10 +327,10 @@ useEffect(() => {
 // ✅ GOOD - primitive dependency
 useEffect(() => {
   // ...
-}, [session?.user?.id]); // string value, stable
+}, [session.user.id]); // string value, stable
 
 // ✅ BETTER - derived boolean
-const isAuthenticated = !!session?.user;
+const isAuthenticated = !!session.user;
 useEffect(() => {
   // ...
 }, [isAuthenticated]); // boolean, stable
@@ -371,16 +371,16 @@ useEffect(() => {
 ```typescript
 useEffect(() => {
   let cancelled = false;
-  
+
   async function fetchData() {
     const data = await fetch('/api/data');
     if (!cancelled) {
       setState(data);
     }
   }
-  
+
   fetchData();
-  
+
   return () => {
     cancelled = true; // Cleanup: prevent setState after unmount
   };
@@ -399,11 +399,11 @@ useEffect(() => {
 ```typescript
 useEffect(() => {
   console.log('[ComponentName] useEffect called', { deps });
-  // ... rest of effect
+  // ... Rest of effect
 }, [deps]);
 ```
 
-If you see the log repeating rapidly → infinite loop
+If you see log repeating rapidly → infinite loop
 
 ---
 
@@ -435,17 +435,17 @@ If you see the log repeating rapidly → infinite loop
 Already covers network request monitoring:
 ```typescript
 test('should not call getUserPermissions multiple times', async ({ page }) => {
-  // ... login and navigate
-  
-  const apiRequests = allRequests.filter(req => 
-    req.url.includes('/api/') && 
+  // ... Login and navigate
+
+  const apiRequests = allRequests.filter(req =>
+    req.url.includes('/api/') &&
     !req.url.includes('_next')
   );
-  
+
   // Check for duplicate calls
   const duplicateEndpoints = Object.entries(requestsByEndpoint)
     .filter(([_, requests]) => requests.length > 1);
-  
+
   expect(duplicateEndpoints.length).toBe(0); // No duplicates
 });
 ```
@@ -519,7 +519,7 @@ test('should not call getUserPermissions multiple times', async ({ page }) => {
 
 ---
 
-**Investigated by:** Claude (AI Assistant)  
+**Investigated by:** Claude (AI Assistant)
 **Commits:**
 - `9b553ac6` - fix(performance): eliminate infinite loops in ServerClock and usePermission
 - `7294c9f3` - docs(investigation): complete permission N+1 query root cause analysis
