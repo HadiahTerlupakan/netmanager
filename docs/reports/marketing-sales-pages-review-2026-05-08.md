@@ -202,24 +202,54 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 - `getSalesOverview()` tidak filter berdasarkan `allowedSiteIds`
 - `getSalesDashboard()` tidak filter sites dropdown dan aggregate data
 - Weekly trend dan site stats menghitung data global tanpa scope restriction
+- **Deeper issue:** Restriction bergantung pada permission `sales:site_only` yang belum tentu aktif di role existing
 
-**Solusi yang Diterapkan (Commit: 1a51fa08):**
-1. Extract `allowedSiteIds` dari `checkSiteRestriction()` di route layer
-2. Pass `allowedSiteIds` ke service methods
-3. Filter sales users berdasarkan `siteId: { in: allowedSiteIds }`
-4. Filter sites dropdown hanya menampilkan allowed sites
-5. Scope `siteStats` dan `weeklyTrend` hanya untuk allowed sales users
+**Solusi yang Diterapkan:**
+
+**Commit 1 (1a51fa08):** Permission-based restriction
+- Extract `allowedSiteIds` dari `checkSiteRestriction()` di route layer
+- Pass `allowedSiteIds` ke service methods
+- Filter sales users, sites dropdown, dan aggregate data
+
+**Commit 2 (17f451b5):** Session-based restriction (final fix)
+- Ubah dari permission-based ke session-based restriction
+- Non-super-admin users dengan `siteIds` otomatis restricted
+- Tidak lagi bergantung pada `sales:site_only` permission
+- Backward compatible dengan role existing yang belum punya permission `site_only`
+- Tambahkan MARKETING permission constants ke `lib/permissions.ts`
+
+**Implementation:**
+```typescript
+// Route layer - enforce restriction berdasarkan session
+const user = ctx.session.user as {
+  id: string;
+  siteIds?: string[];
+  isSuperAdmin?: boolean;
+};
+const allowedSiteIds =
+  !isSuperAdmin(user) && user.siteIds && user.siteIds.length > 0
+    ? user.siteIds
+    : undefined;
+
+// Service layer - filter berdasarkan allowedSiteIds
+const siteFilter =
+  input?.allowedSiteIds && input.allowedSiteIds.length > 0
+    ? { siteId: { in: input.allowedSiteIds } }
+    : {};
+```
 
 **Files Modified:**
 - `app/api/admin/marketing/sales/route.ts`
 - `app/api/admin/marketing/sales-dashboard/route.ts`
 - `modules/marketing/services/AdminSalesRouteService.ts`
+- `lib/permissions.ts`
 
 **Verification:**
 - ✅ Typecheck passed
 - ✅ Architecture compliance maintained
 - ✅ Thin controller pattern preserved
-- ✅ Site restriction logic centralized di route layer
+- ✅ Backward compatible dengan role existing
+- ✅ Restriction enforcement tidak bergantung pada permission matrix
 
 **Rekomendasi:**
 - Monitor query performance untuk dashboard (banyak aggregate)
@@ -228,5 +258,5 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 ---
 
 *Generated: 2026-05-08*
-*Updated: 2026-05-08 04:00 (Scope leakage fix)*
+*Updated: 2026-05-08 04:07 (Session-based restriction)*
 *Reviewer: Claude (Autonomous)*
