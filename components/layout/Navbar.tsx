@@ -160,7 +160,7 @@ export default function Navbar() {
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-2 z-50 transform origin-top-right transition-all duration-200">
                   <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                      {session.user.name}
+                      {session.user.name || "User"}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {session.user.email}

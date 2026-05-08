@@ -1191,12 +1191,12 @@ export default function MitraListClient() {
                             .toLowerCase()
                             .includes(ownerSearchTerm.toLowerCase()),
                         )
-                        .map((owner) => {
+                        .map((owner, index) => {
                           const isSelected =
                             form.mixradiusOwnerNames.includes(owner);
                           return (
                             <label
-                              key={owner}
+                              key={`${owner}-${index}`}
                               className={`flex items-start gap-2 p-2 rounded cursor-pointer border hover:border-indigo-400 transition-colors ${
                                 isSelected
                                   ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800"

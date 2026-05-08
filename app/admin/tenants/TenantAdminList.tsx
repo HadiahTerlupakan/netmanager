@@ -58,7 +58,7 @@ export default function TenantAdminList({
 
   const fetchTenants = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/tenants?isActive=true");
+      const res = await fetch("/api/admin/tenants?active=true");
       const data = await res.json();
       if (res.ok) {
         const list = data.data || [];

@@ -58,16 +58,27 @@ export class OvertimeRouteService {
   /** Ambil daftar overtime admin sesuai scope permission. */
   async getAdminList(input: AdminOvertimeListInput) {
     const filters = await this.buildScopedFilters(input);
-    const result = await this.overtimeService.getAllRequests(filters);
+    const [entities, total, summary] = await Promise.all([
+      this.overtimeService.findAll(filters),
+      this.overtimeService.count(filters),
+      this.overtimeService.countByStatus(filters),
+    ]);
+
+    const enrichedEntities = await this.overtimeService.enrichOvertimeFlags(
+      entities,
+      input.session.user.tenantId ?? undefined,
+    );
 
     return {
-      data: result.data,
-      summary: result.summary,
+      data: enrichedEntities.map((entity) =>
+        OvertimeMapper.toAdminDetailPayload(entity),
+      ),
+      summary,
       pagination: {
         page: input.page,
         limit: input.limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / input.limit),
+        total,
+        totalPages: Math.ceil(total / input.limit),
       },
     };
   }

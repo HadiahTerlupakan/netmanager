@@ -81,8 +81,8 @@ export function IzinClient() {
 
   const filteredUsers = (users || []).filter(
     (u) =>
-      (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())),
+      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const fetchLeaves = useCallback(async () => {
@@ -92,9 +92,7 @@ export function IzinClient() {
       const res = await fetch(`/api/admin/leaves${query}`);
       if (res.ok) {
         const data = await res.json();
-        // apiSuccess returns { success: true, data: [...] }
-        // Check if data.data exists (wrapped) or use data directly (unwrapped legacy)
-        const leavesData = Array.isArray(data) ? data : data.data || [];
+        const leavesData = data.data || [];
         setLeaves(leavesData);
       }
     } catch (error) {
@@ -113,11 +111,7 @@ export function IzinClient() {
       const res = await fetch("/api/admin/users?limit=1000");
       if (res.ok) {
         const data = await res.json();
-        // apiSuccess returns { success: true, data: { users: [...] } }
-        // Need to unwrap properly. data.data.users might be where the array is.
-        const usersList = Array.isArray(data)
-          ? data
-          : data.users || data.data?.users || [];
+        const usersList = data.data?.users || [];
         setUsers(usersList);
       }
     } catch (error) {
@@ -347,7 +341,7 @@ export function IzinClient() {
           </div>
           <div>
             <div className="font-bold text-gray-900 dark:text-white">
-              {req.user.name}
+              {req.user.name || "Tidak diketahui"}
             </div>
             <div className="text-xs text-gray-500">
               {req.user.department?.name} - {req.user.site?.name}

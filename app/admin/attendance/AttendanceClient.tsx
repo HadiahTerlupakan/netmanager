@@ -492,7 +492,7 @@ export function ClientComponent() {
             <Image
               src={
                 item.user.image ||
-                `https://ui-avatars.com/api/?name=${item.user.name}&background=random`
+                `https://ui-avatars.com/api/?name=${item.user.name || "User"}&background=random`
               }
               alt=""
               fill
@@ -502,7 +502,7 @@ export function ClientComponent() {
           </div>
           <div className="ml-4">
             <div className="text-sm font-medium text-gray-900 dark:text-white">
-              {item.user.name}
+              {item.user.name || "Tidak diketahui"}
             </div>
             <div className="text-xs text-gray-500">{item.user.email}</div>
           </div>

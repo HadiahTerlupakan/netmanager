@@ -4,6 +4,7 @@ import type {
   IOvertimeRepository,
   OvertimeQueryFilters,
 } from "../domain/ports/IOvertimeRepository";
+import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 import { OvertimeAttendanceStateService } from "./OvertimeAttendanceStateService";
 import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSchedulerService";
@@ -170,6 +171,26 @@ export class OvertimeService {
   /** Get overtime requests for admin listing. */
   async getAllRequests(filters?: OvertimeQueryFilters) {
     return this.queryReportService.getAllRequests(filters);
+  }
+
+  /** Ambil entitas overtime mentah untuk kebutuhan route admin. */
+  async findAll(filters?: OvertimeQueryFilters) {
+    return this.repository.findAll(filters);
+  }
+
+  /** Hitung total overtime sesuai filter route admin. */
+  async count(filters?: OvertimeQueryFilters) {
+    return this.repository.count(filters);
+  }
+
+  /** Hitung summary status overtime sesuai filter route admin. */
+  async countByStatus(filters?: OvertimeQueryFilters) {
+    return this.repository.countByStatus(filters);
+  }
+
+  /** Enrich flag libur/offday untuk list overtime mentah. */
+  async enrichOvertimeFlags(data: OvertimeEntity[], tenantId?: string) {
+    return this.attendanceStateService.enrichOvertimeFlags(data, tenantId);
   }
 
   /** Approve pending overtime request. */

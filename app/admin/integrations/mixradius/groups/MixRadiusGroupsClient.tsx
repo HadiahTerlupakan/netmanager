@@ -399,9 +399,9 @@ export default function MixRadiusGroupsClient() {
                     Memuat owners...
                   </div>
                 ) : (
-                  owners.map((owner) => (
+                  owners.map((owner, index) => (
                     <label
-                      key={owner}
+                      key={`${owner}-${index}`}
                       className="flex items-center gap-2 p-2 hover:bg-white dark:hover:bg-gray-700/50 rounded cursor-pointer transition"
                     >
                       <input
