@@ -64,12 +64,9 @@ export async function jwtCallback({
           ?.canApproveRab ?? false;
 
       token.permissionsCount = dbUser?.role?.permission.length || 0;
-      token.permissions =
-        dbUser?.role?.isSuperAdmin || isSuperAdminRole(dbUser?.role?.name)
-          ? ["*"]
-          : (dbUser?.role?.permission || []).map(
-              (permission) => `${permission.resource}:${permission.action}`,
-            );
+      // Don't store permissions array in JWT - it's fetched separately via /api/user/permissions
+      // This prevents JWT token from becoming too large (>4KB cookie limit)
+      token.permissions = undefined;
 
       token.departmentName = dbUser?.departments?.name;
       token.isSales = dbUser?.isSales ?? false;
@@ -152,12 +149,8 @@ export async function jwtCallback({
       }
 
       token.permissionsCount = dbUser.role?.permission.length || 0;
-      token.permissions =
-        dbUser.role?.isSuperAdmin || isSuperAdminRole(dbUser.role?.name)
-          ? ["*"]
-          : (dbUser.role?.permission || []).map(
-              (permission) => `${permission.resource}:${permission.action}`,
-            );
+      // Don't store permissions array in JWT - it's fetched separately via /api/user/permissions
+      token.permissions = undefined;
     }
   }
 

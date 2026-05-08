@@ -58,7 +58,9 @@ export function buildSessionFromToken(token: JWT): Session {
       role: token.role || "USER",
       tenantId: token.tenantId || null,
       siteId: token.siteId || null,
-      permissions: token.permissions || [],
+      // Permissions are fetched separately via /api/user/permissions
+      // Not stored in JWT to keep token size small
+      permissions: [],
     },
     expires: new Date(expTimestamp * 1000).toISOString(),
   };
