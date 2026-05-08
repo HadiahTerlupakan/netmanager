@@ -9,13 +9,16 @@ import { useCanvasingPageState } from "./useCanvasingPageState";
 export default function CanvasingList() {
   const viewModel = useCanvasingPageState();
 
-  if (
-    (viewModel.loading && viewModel.items.length === 0) ||
-    viewModel.permissionLoading
-  ) {
+  // Show loader while permissions or initial data is loading
+  if (viewModel.permissionLoading) {
     return <PageLoader />;
   }
 
+  if (viewModel.loading && viewModel.items.length === 0) {
+    return <PageLoader />;
+  }
+
+  // Only check access after permissions are loaded
   if (!viewModel.permissions.canRead) return <CanvasingAccessDenied />;
 
   return <CanvasingListContent viewModel={viewModel} />;
