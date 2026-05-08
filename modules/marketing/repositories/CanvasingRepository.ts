@@ -117,8 +117,12 @@ export class CanvasingRepository implements ICanvasingRepository {
       ...(page && limit ? { skip: (page - 1) * limit, take: limit } : {}),
     });
     const summary = await buildCanvasingSummary(this.db, summaryScope);
-    const data = canvasings.map((item) =>
-      MarketingMapper.toCanvasingDomain(item),
+
+    const data = await Promise.all(
+      canvasings.map(async (item) => {
+        const mitra = await findMitraReference(this.mitraLookup, item.mitraId);
+        return MarketingMapper.toCanvasingDomainWithSite(item, mitra);
+      }),
     );
 
     return { data, total, summary };
