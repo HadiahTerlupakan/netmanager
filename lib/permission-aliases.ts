@@ -91,6 +91,20 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   "holiday:create": ["izin:create"],
   "holiday:delete": ["izin:delete"],
 
+  // ====== LEAVE MODULE ======
+  // UI uses 'izin:*', API uses 'leave:*'
+  "leave:read": ["izin:read"],
+  "leave:create": ["izin:create"],
+  "leave:update": ["izin:update"],
+  "leave:delete": ["izin:delete"],
+  "leave:verify": ["izin:verify"],
+
+  "izin:read": ["leave:read"],
+  "izin:create": ["leave:create"],
+  "izin:update": ["leave:update"],
+  "izin:delete": ["leave:delete"],
+  "izin:verify": ["leave:verify"],
+
   // ====== ASSETS MODULE ======
   // Menu uses 'assets' (plural), API uses 'asset' (singular)
   "asset:read": ["assets:read"],
