@@ -66,7 +66,9 @@ export class SiteAccessRouteService {
       return { id: { in: siteIds } };
     }
 
-    return dbUser?.siteId ? { id: dbUser.siteId } : {};
+    // User restricted tapi tidak punya site access → return filter yang tidak match apapun
+    // Jangan return {} karena artinya "tidak ada filter" = tampilkan semua
+    return { id: { in: [] } };
   }
 
   private isRestricted(
