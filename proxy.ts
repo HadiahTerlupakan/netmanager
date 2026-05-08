@@ -48,8 +48,8 @@ export async function proxy(request: NextRequest) {
 
   // SKIP Rewrite/Auth for: API, Next.js Internals, Static Files
   if (
-    pathname.startsWith("/api") ||
     pathname === "/api/settings/backup/import" || // Bypass untuk upload besar (>10MB)
+    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname.includes(".") // public files
