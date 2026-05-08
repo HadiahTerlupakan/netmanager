@@ -48,7 +48,6 @@ export async function proxy(request: NextRequest) {
 
   // SKIP Rewrite/Auth for: API, Next.js Internals, Static Files
   if (
-    pathname === "/api/settings/backup/import" || // Bypass untuk upload besar (>10MB)
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
@@ -209,5 +208,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Match ALL routes so we can handle API CORS and Page Rewrites in one place
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Exclude backup import endpoint from proxy to avoid body cloning limit for large uploads (>10MB)
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/settings/backup/import).*)",
+  ],
 };

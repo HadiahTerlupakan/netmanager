@@ -21,19 +21,12 @@ describe("backup import body limit", () => {
     expect(nextConfig).not.toContain("middlewareClientMaxBodySize");
   });
 
-  it("bypasses proxy for backup import endpoint to avoid body cloning limit", () => {
+  it("excludes backup import endpoint from proxy matcher to avoid body cloning", () => {
     const proxyContent = readProxyFile();
 
-    // Verify backup import endpoint is explicitly bypassed
-    expect(proxyContent).toContain(BACKUP_IMPORT_ENDPOINT);
-
-    // Verify bypass happens early in file (before line 100, in the API bypass section)
-    const lines = proxyContent.split("\n");
-    const bypassLineIndex = lines.findIndex((line) =>
-      line.includes(BACKUP_IMPORT_ENDPOINT),
-    );
-
-    expect(bypassLineIndex).toBeGreaterThan(-1);
-    expect(bypassLineIndex).toBeLessThan(100); // Early return section is within first 100 lines
+    // Verify exclusion is in matcher config (not in conditional logic)
+    const matcherConfig = proxyContent.match(/matcher:\s*\[["'](.+?)["']\]/);
+    expect(matcherConfig).toBeTruthy();
+    expect(matcherConfig![1]).toContain("api/settings/backup/import");
   });
 });

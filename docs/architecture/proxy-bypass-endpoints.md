@@ -21,22 +21,21 @@ Beberapa endpoint di-bypass dari `proxy.ts` untuk menghindari body cloning overh
 ## How Proxy Bypass Works
 
 Endpoint yang di-bypass akan:
-1. Skip proxy body cloning
-2. Langsung ke route handler
-3. Tidak lewat proxy auth check (route handler harus punya auth sendiri)
-4. Tidak ada CORS handling dari proxy (route handler handle sendiri jika perlu)
+1. **Excluded dari `config.matcher`** - request tidak masuk proxy runtime sama sekali
+2. Langsung ke route handler tanpa melewati proxy function
+3. Tidak ada body cloning overhead
+4. Route handler harus punya auth check sendiri
+5. Route handler handle CORS sendiri jika perlu
 
 ## Adding New Bypass
 
 Jika perlu bypass endpoint lain:
 
-1. Tambahkan kondisi di `proxy.ts`:
+1. Tambahkan exclusion di `proxy.ts` config.matcher:
    ```typescript
-   if (
-     pathname === "/api/your/endpoint" || // Reason: ...
-     pathname.startsWith("/api") ||
-     // ...
-   )
+   export const config = {
+     matcher: ["/((?!_next/static|_next/image|favicon.ico|api/your/endpoint).*)"],
+   };
    ```
 
 2. Pastikan route handler punya:
@@ -44,6 +43,6 @@ Jika perlu bypass endpoint lain:
    - CORS handling jika perlu
    - Input validation
 
-3. Tambahkan test di `tests/ci/backup-import-body-limit.test.ts`
+3. Tambahkan test di `tests/ci/backup-import-body-limit.test.ts` untuk verify matcher exclusion
 
 4. Document di file ini
