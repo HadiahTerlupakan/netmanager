@@ -11,8 +11,6 @@ function readNextConfig(): string {
   return readFileSync(resolve(process.cwd(), "next.config.ts"), "utf8");
 }
 
-const BACKUP_IMPORT_ENDPOINT = "/api/settings/backup/import";
-
 describe("backup import body limit", () => {
   it("raises Next proxy body limit above the default 10MB upload cutoff", () => {
     const nextConfig = readNextConfig();
@@ -25,7 +23,9 @@ describe("backup import body limit", () => {
     const proxyContent = readProxyFile();
 
     // Verify exclusion is in matcher config (not in conditional logic)
-    const matcherConfig = proxyContent.match(/matcher:\s*\[["'](.+?)["']\]/);
+    const matcherConfig = proxyContent.match(
+      /matcher:\s*\[[\s\S]*?"(.+?)"[\s\S]*?\]/,
+    );
     expect(matcherConfig).toBeTruthy();
     expect(matcherConfig![1]).toContain("api/settings/backup/import");
   });
