@@ -14,8 +14,7 @@ export interface CanvasingItem {
   paket: string;
   alamat: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  sales?: { name: string } | null;
-  user?: { name: string; email: string } | null;
+  salesName: string | null;
   createdAt: string;
   pointClaims?: PointClaim[] | PointClaim | null;
 }

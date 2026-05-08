@@ -40,11 +40,7 @@ function renderCustomer(item: CanvasingItem) {
 }
 
 function renderSales(item: CanvasingItem) {
-  return (
-    <span className="text-sm">
-      {item.user?.name || item.sales?.name || "-"}
-    </span>
-  );
+  return <span className="text-sm">{item.salesName || "-"}</span>;
 }
 
 function renderAddress(item: CanvasingItem) {
