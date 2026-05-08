@@ -169,6 +169,7 @@ export class AttendanceSessionRepository {
       userId: input.userId,
       checkOut: null,
       correctedAt: null,
+      status: { notIn: [...AUTO_CHECKOUT_INACTIVE_STATUSES] },
       ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     };
   }

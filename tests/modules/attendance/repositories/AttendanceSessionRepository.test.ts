@@ -34,6 +34,9 @@ describe("AttendanceSessionRepository", () => {
           userId: "user-1",
           checkOut: null,
           correctedAt: null,
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
           tenantId: "tenant-1",
         },
         orderBy: { checkIn: "desc" },
@@ -61,6 +64,9 @@ describe("AttendanceSessionRepository", () => {
           userId: "user-1",
           checkOut: null,
           correctedAt: null,
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
         },
         orderBy: { checkIn: "desc" },
         include: {
@@ -142,6 +148,9 @@ describe("AttendanceSessionRepository", () => {
           userId: "user-1",
           checkOut: null,
           correctedAt: null,
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
           tenantId: "tenant-1",
         },
         orderBy: { checkIn: "desc" },
