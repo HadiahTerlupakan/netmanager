@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { exec } from "node:child_process";
 
+import { logger } from "@/lib/logger";
 import type { BackupImportResult, BackupResultItem } from "./backupService";
 import {
   buildRestoreError,
@@ -134,6 +135,7 @@ async function restoreResolvedDatabase(
   dbConfig: ResolvedDbConfig,
 ) {
   const psqlCommand = buildPsqlCommand(getPostgresClient(dbName), dbConfig);
+
   await replaceDatabaseSchema(context.execAsync, psqlCommand);
   await importSqlDump(context, psqlCommand, sqlGzFile);
   await pushPrismaSchema({
@@ -177,5 +179,10 @@ async function importSqlDump(
 function removeTempDir(tmpDir: string) {
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch {}
+  } catch (error) {
+    logger.error(
+      `[backup:import] Failed to remove temporary restore directory ${tmpDir}:`,
+      error,
+    );
+  }
 }

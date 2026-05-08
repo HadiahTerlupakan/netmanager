@@ -1,4 +1,3 @@
-import path from "node:path";
 import { logger } from "@/lib/logger";
 
 import type { exec } from "node:child_process";
@@ -18,17 +17,25 @@ export async function backfillTenantId(
 ) {
   if (!context.tenantId) return;
 
-  try {
-    const tables = await findTenantTables(context.execAsync, psqlCommand);
-    for (const table of tables) {
-      await backfillTenantTable(context, psqlCommand, table);
-    }
-  } catch (backfillError) {
-    logger.warn(
-      `[backup:import] Auto-backfill warning for ${dbName}:`,
-      String(backfillError).substring(0, 300),
+  logger.info(`[backup:import] Starting tenantId backfill for ${dbName}...`);
+  const tables = await findTenantTables(context.execAsync, psqlCommand);
+
+  if (tables.length === 0) {
+    logger.info(
+      `[backup:import] No tables with tenantId column found in ${dbName}`,
     );
+    return;
   }
+
+  logger.info(
+    `[backup:import] Found ${tables.length} tables to backfill in ${dbName}`,
+  );
+
+  for (const table of tables) {
+    await backfillTenantTable(context, psqlCommand, table);
+  }
+
+  logger.info(`[backup:import] TenantId backfill completed for ${dbName}`);
 }
 
 async function findTenantTables(execAsync: ExecAsync, psqlCommand: string) {
@@ -42,10 +49,20 @@ async function backfillTenantTable(
   psqlCommand: string,
   table: string,
 ) {
-  const sqlFilePath = path.join(context.extractDir, `${table}.sql.gz`);
-  void sqlFilePath;
-  const command = `${psqlCommand} -c "UPDATE \\"${table}\\" SET \\"tenantId\\" = '${String(
-    context.tenantId ?? "",
-  ).replace(/'/g, "''")}' WHERE \\"tenantId\\" IS NULL;"`;
-  await context.execAsync(command, { shell: "/bin/sh" });
+  const escapedTenantId = String(context.tenantId ?? "").replace(/'/g, "''");
+  const command = `${psqlCommand} -c "UPDATE \\"${table}\\" SET \\"tenantId\\" = '${escapedTenantId}' WHERE \\"tenantId\\" IS NULL;"`;
+
+  try {
+    await context.execAsync(command, { shell: "/bin/sh" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes("duplicate key value violates unique constraint")) {
+      throw new Error(
+        `Backfill tenantId gagal pada tabel ${table} karena konflik unique constraint: ${message}`,
+      );
+    }
+
+    throw error;
+  }
 }
