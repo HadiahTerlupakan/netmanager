@@ -134,6 +134,7 @@ export class AttendanceSessionRepository {
   }): Prisma.AttendanceWhereInput {
     return {
       checkOut: null,
+      correctedAt: null,
       checkIn: { lte: input.endOfToday },
       ...(input.tenantId ? { tenantId: input.tenantId } : {}),
       status: { notIn: [...getInactiveSessionStatuses()] },
@@ -167,6 +168,7 @@ export class AttendanceSessionRepository {
     return {
       userId: input.userId,
       checkOut: null,
+      correctedAt: null,
       ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     };
   }
