@@ -22,11 +22,22 @@ describe("backup import body limit", () => {
   it("excludes backup import endpoint from proxy matcher to avoid body cloning", () => {
     const proxyContent = readProxyFile();
 
-    // Verify exclusion is in matcher config (not in conditional logic)
+    // Verify matcher config exists
     const matcherConfig = proxyContent.match(
       /matcher:\s*\[[\s\S]*?"(.+?)"[\s\S]*?\]/,
     );
     expect(matcherConfig).toBeTruthy();
-    expect(matcherConfig![1]).toContain("api/settings/backup/import");
+
+    const matcherPattern = matcherConfig![1];
+
+    // Verify endpoint is in negative lookahead (excluded from matching)
+    // Pattern should be: /((?!...excluded-paths...).*)/
+    expect(matcherPattern).toMatch(/\(\?\!/); // Has negative lookahead
+    expect(matcherPattern).toContain("api/settings/backup/import"); // Endpoint is in the exclusion list
+
+    // Verify the exclusion is in the negative lookahead group
+    const negativeLookahead = matcherPattern.match(/\(\?\!([^)]+)\)/);
+    expect(negativeLookahead).toBeTruthy();
+    expect(negativeLookahead![1]).toContain("api/settings/backup/import");
   });
 });
