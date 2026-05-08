@@ -126,22 +126,25 @@ export class AttendanceReadService {
       attendance,
       now: new Date(),
       scheduleEndTime: null,
+      timezone,
     });
     const warningMessage = getCurrentAttendanceWarningMessage(evaluation, null);
     if (decision.isStaleFlexibleSession) {
       return this.mapStaleSession(attendance, evaluation, timezone);
     }
 
+    // Konsisten dengan guard: cek apakah sesi masih aktif
+    const isSessionStillActive =
+      decision.isOvernightShiftActive ||
+      (!decision.isStaleFlexibleSession && !decision.shouldAutoCheckout);
+
     const sameDay = isSameAttendanceDay(
       attendance.checkIn,
       new Date(),
       timezone,
     );
-    const shouldAppearActive =
-      decision.isOvernightShiftActive ||
-      attendance.user?.workingHourMode === "FLEXIBLE" ||
-      sameDay;
-    if (!attendance.checkOut && shouldAppearActive) {
+
+    if (!attendance.checkOut && isSessionStillActive) {
       return mapCurrentAttendanceStatusResult({
         attendance,
         evaluation,

@@ -395,7 +395,7 @@ Logika lama throw error untuk **semua sesi yang belum eligible auto-checkout**, 
 
 ## Solution Applied
 
-### Fix di AttendanceSessionGuardService.ts
+### Fix 1: AttendanceSessionGuardService.ts (Guard Logic)
 
 **Sebelum:**
 ```typescript
@@ -418,6 +418,38 @@ if (isSessionStillActive) {
   throw new Error("DUPLICATE_ENTRY");
 }
 ```
+
+### Fix 2: AttendanceReadService.ts (Status Endpoint Consistency)
+
+**Masalah:** Endpoint `/status` return "idle" untuk sesi kemarin yang belum di-auto-checkout, padahal guard akan tolak check-in.
+
+**Sebelum:**
+```typescript
+const shouldAppearActive =
+  decision.isOvernightShiftActive ||
+  attendance.user?.workingHourMode === "FLEXIBLE" ||
+  sameDay;
+
+if (!attendance.checkOut && shouldAppearActive) {
+  return "checked-in";
+}
+```
+
+**Sesudah:**
+```typescript
+// Konsisten dengan guard: cek apakah sesi masih aktif
+const isSessionStillActive =
+  decision.isOvernightShiftActive ||
+  (!decision.isStaleFlexibleSession && !decision.shouldAutoCheckout);
+
+if (!attendance.checkOut && isSessionStillActive) {
+  return "checked-in";
+}
+```
+
+**Perubahan Tambahan:**
+- Tambahkan `timezone` parameter ke `sessionPolicyService.resolve()` untuk perhitungan yang akurat
+- Gunakan logika yang sama dengan guard untuk konsistensi
 
 ### Penjelasan Fix
 
@@ -548,9 +580,9 @@ Edukasi user untuk:
 
 ## Related Files
 
-- `modules/attendance/services/AttendanceSessionGuardService.ts` (Fixed)
+- `modules/attendance/services/AttendanceSessionGuardService.ts` (Fixed - guard logic)
+- `modules/attendance/services/AttendanceReadService.ts` (Fixed - status endpoint consistency)
 - `modules/attendance/services/AttendanceSessionPolicyService.ts` (Policy logic)
-- `modules/attendance/services/AttendanceReadService.ts` (Status endpoint)
 - `modules/attendance/services/AttendanceMutationService.ts` (Check-in flow)
 - `modules/attendance/repositories/AttendanceSessionRepository.ts` (Queries)
 
@@ -558,8 +590,18 @@ Edukasi user untuk:
 
 ## Conclusion
 
-Bug ini disebabkan oleh **logika guard yang terlalu ketat** dalam menolak check-in. Logika lama menolak semua sesi yang belum eligible auto-checkout, termasuk sesi hari ini yang masih dalam jam kerja normal.
+Bug ini disebabkan oleh **inkonsistensi antara endpoint status dan guard check-in** dalam menentukan apakah sesi masih aktif.
 
-Fix yang diterapkan membuat logika lebih eksplisit: hanya tolak check-in jika sesi **benar-benar masih aktif** (overnight shift aktif, atau belum melewati grace period untuk sesi yang seharusnya sudah selesai).
+**Root Cause:**
+1. Endpoint `/status` hanya cek `sameDay` tanpa mempertimbangkan grace period
+2. Guard check-in menggunakan policy lengkap dengan grace period
+3. Hasilnya: status bilang "idle" tapi guard tolak check-in
 
-Dengan fix ini, user dengan FIXED mode yang lupa checkout kemarin bisa check-in lagi hari berikutnya setelah grace period habis (auto-checkout eligible).
+**Fix yang diterapkan:**
+1. **Guard logic** diperbaiki agar lebih eksplisit: hanya tolak jika sesi benar-benar masih aktif
+2. **Status endpoint** diperbaiki agar konsisten dengan guard: gunakan logika policy yang sama
+
+Dengan fix ini:
+- User tidak akan melihat status "idle" jika masih ada sesi aktif
+- Guard dan status endpoint konsisten dalam menentukan apakah boleh check-in
+- Sesi lama yang sudah eligible auto-checkout akan ditutup otomatis saat check-in baru
