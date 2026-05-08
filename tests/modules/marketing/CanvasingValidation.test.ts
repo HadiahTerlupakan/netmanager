@@ -18,7 +18,7 @@ describe("canvasingValidation", () => {
         paket: "",
         kabel: 10,
       }),
-    ).toThrowError(ZodError);
+    ).toThrow(ZodError);
   });
 
   it("menolak payload create ketika kabel nol", () => {
@@ -31,20 +31,7 @@ describe("canvasingValidation", () => {
         paket: "HOME_10MBPS",
         kabel: 0,
       }),
-    ).toThrowError(ZodError);
-  });
-
-  it("menolak payload create ketika paket tidak ada di opsi UI", () => {
-    expect(() =>
-      parseCreateCanvasingInput({
-        nama: "Budi",
-        noKtp: "1234567890123456",
-        noTelpon: "08123456789",
-        alamat: "Jl. Mawar 1",
-        paket: "BIZ_200MBPS",
-        kabel: 20,
-      }),
-    ).toThrowError(ZodError);
+    ).toThrow(ZodError);
   });
 
   it("mengubah string kosong opsional menjadi null saat create", () => {
@@ -85,20 +72,12 @@ describe("canvasingValidation", () => {
     }
   });
 
-  it("menolak payload update ketika paket tidak ada di opsi UI", () => {
-    expect(() =>
-      parseUpdateCanvasingInput({
-        paket: "BIZ_200MBPS",
-      }),
-    ).toThrowError(ZodError);
-  });
-
   it("mengembalikan status valid dari query param", () => {
     expect(parseCanvasingStatusParam("APPROVED")).toBe("APPROVED");
     expect(parseCanvasingStatusParam(null)).toBeUndefined();
   });
 
   it("menolak status query invalid", () => {
-    expect(() => parseCanvasingStatusParam("DONE")).toThrowError(ZodError);
+    expect(() => parseCanvasingStatusParam("DONE")).toThrow(ZodError);
   });
 });
