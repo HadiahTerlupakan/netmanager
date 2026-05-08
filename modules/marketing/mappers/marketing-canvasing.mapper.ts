@@ -49,10 +49,16 @@ export type PrismaCanvasingWithSite = Canvasing & {
     name: string | null;
     email: string | null;
     siteId: string | null;
-    sites?: {
-      id: string;
-      name: string;
-    } | null;
+    sites?:
+      | {
+          id: string;
+          name: string;
+        }
+      | Array<{
+          id: string;
+          name: string;
+        }>
+      | null;
   } | null;
 };
 
@@ -186,7 +192,11 @@ export function toCanvasingDomainWithSite(
           name: entity.user.name,
           email: entity.user.email,
           siteId: entity.user.siteId,
-          site: toSiteReference(entity.user.sites),
+          site: toSiteReference(
+            Array.isArray(entity.user.sites)
+              ? entity.user.sites[0]
+              : entity.user.sites,
+          ),
         }
       : null,
     mitra,
