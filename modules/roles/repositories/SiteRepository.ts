@@ -168,6 +168,10 @@ export class SiteRepository implements ISiteRepository {
       where.isActive = true;
     }
 
+    if (filter?.allowedSiteIds && filter.allowedSiteIds.length > 0) {
+      where.id = { in: filter.allowedSiteIds };
+    }
+
     if (filter?.search) {
       where.OR = [
         { name: { contains: filter.search, mode: "insensitive" } },

@@ -26,6 +26,7 @@ export interface SiteUpdateRepositoryInput {
 export interface SiteFilterOptions {
   search?: string;
   activeOnly?: boolean;
+  allowedSiteIds?: string[];
 }
 
 export interface ISiteRepository {

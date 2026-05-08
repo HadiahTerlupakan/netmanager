@@ -8,29 +8,36 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { checkSiteRestriction } from "@/modules/roles";
 
 const siteService = new SiteService();
 
 /**
  * GET /api/admin/sites - List all sites
  */
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
   const search = searchParams.get("search") || undefined;
   const activeOnly = searchParams.get("activeOnly") === "true";
 
   // Permission check
-  // If requesting activeOnly (usually for dropdowns), allow any authenticated user
-  // Otherwise (full management list), require site:read
-  if (!activeOnly && !(await hasPermission("site:read"))) {
+  if (!(await hasPermission("site:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat site (Butuh: site:read)",
     );
   }
 
+  // Apply scope restriction even for activeOnly (dropdown)
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    ctx.session as never,
+    "site",
+  );
+  const allowedSiteIds = isRestricted ? siteIds : undefined;
+
   const sites = await siteService.getSites({
     ...(search ? { search } : {}),
     activeOnly,
+    allowedSiteIds,
   });
 
   return apiSuccess(sites);
