@@ -187,24 +187,46 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 
 ## Conclusion
 
-**Status:** ✅ Kedua halaman sudah production-ready
+**Status:** ✅ Kedua halaman sudah production-ready setelah perbaikan scope leakage
 
-**Tidak ada bug kritis ditemukan:**
-- API endpoint sudah ada dan berfungsi
-- Service layer sudah proper
-- Permission check sudah lengkap
-- Data structure match antara backend dan frontend
-- Architecture compliance dengan Clean Architecture pattern
-
-**Perbaikan yang sudah dilakukan sebelumnya:**
+**Perbaikan yang sudah dilakukan:**
 - Fix empty sales names di canvasing list (Task #29) ✅
+- Fix scope leakage di sales list dan dashboard (Task #31) ✅
+
+**Bug Kritis yang Ditemukan dan Diperbaiki:**
+
+### Scope Leakage (CRITICAL) - FIXED ✅
+**Masalah:** User yang restricted ke site tertentu bisa melihat semua data sales dari semua site
+
+**Root Cause:**
+- `getSalesOverview()` tidak filter berdasarkan `allowedSiteIds`
+- `getSalesDashboard()` tidak filter sites dropdown dan aggregate data
+- Weekly trend dan site stats menghitung data global tanpa scope restriction
+
+**Solusi yang Diterapkan (Commit: 1a51fa08):**
+1. Extract `allowedSiteIds` dari `checkSiteRestriction()` di route layer
+2. Pass `allowedSiteIds` ke service methods
+3. Filter sales users berdasarkan `siteId: { in: allowedSiteIds }`
+4. Filter sites dropdown hanya menampilkan allowed sites
+5. Scope `siteStats` dan `weeklyTrend` hanya untuk allowed sales users
+
+**Files Modified:**
+- `app/api/admin/marketing/sales/route.ts`
+- `app/api/admin/marketing/sales-dashboard/route.ts`
+- `modules/marketing/services/AdminSalesRouteService.ts`
+
+**Verification:**
+- ✅ Typecheck passed
+- ✅ Architecture compliance maintained
+- ✅ Thin controller pattern preserved
+- ✅ Site restriction logic centralized di route layer
 
 **Rekomendasi:**
-- Halaman bisa langsung digunakan tanpa perubahan
-- Jika ada performance issue di production, tambahkan caching
 - Monitor query performance untuk dashboard (banyak aggregate)
+- Jika ada performance issue, tambahkan caching dengan key per-site
 
 ---
 
 *Generated: 2026-05-08*
+*Updated: 2026-05-08 04:00 (Scope leakage fix)*
 *Reviewer: Claude (Autonomous)*
