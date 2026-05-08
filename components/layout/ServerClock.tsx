@@ -17,7 +17,7 @@ export function ServerClock() {
   }, []);
 
   useEffect(() => {
-    // 1. Fetch server time to calculate offset
+    // 1. Fetch server time to calculate offset (only once on mount)
     const syncTime = async () => {
       try {
         const start = Date.now();
@@ -33,24 +33,38 @@ export function ServerClock() {
           const localTime = end;
 
           // Offset = Server Time - Local Time
-          setOffset(serverTime + latency - localTime);
+          const calculatedOffset = serverTime + latency - localTime;
+          setOffset(calculatedOffset);
           setTimezone(json.data.timezone);
+
+          // 2. Update time every second locally using the calculated offset
+          const interval = setInterval(() => {
+            const now = Date.now();
+            setTime(new Date(now + calculatedOffset));
+          }, 1000);
+
+          return interval;
         }
       } catch (error) {
         clientLogger.error("[ServerClock] Failed to sync time:", error);
       }
+      return null;
     };
 
-    syncTime();
+    let intervalId: NodeJS.Timeout | null = null;
 
-    // 2. Update time every second locally
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setTime(new Date(now + offset));
-    }, 1000);
+    syncTime().then((interval) => {
+      if (interval) {
+        intervalId = interval;
+      }
+    });
 
-    return () => clearInterval(interval);
-  }, [offset]);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, []); // Empty dependency - only run once on mount
 
   if (!mounted || !time) {
     return (

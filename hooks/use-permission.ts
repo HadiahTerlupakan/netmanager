@@ -98,7 +98,8 @@ export function usePermission() {
     }
 
     void fetchPermissions();
-  }, [isAuthenticated, session, isAuthLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isAuthLoading]); // Remove `session` from deps - only depend on auth status
 
   const hasPermission = useCallback(
     (requiredPermission: string) => {
