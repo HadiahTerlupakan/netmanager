@@ -42,7 +42,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const tenantId = user.tenantId;
 
-  if (!(await hasPermission("izin:read"))) {
+  if (!(await hasPermission("leave:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat data izin/cuti",
     );
@@ -68,7 +68,7 @@ export const POST = createHandler(
     schema: createLeaveSchema,
   },
   async (_req, ctx) => {
-    if (!(await hasPermission("izin:create"))) {
+    if (!(await hasPermission("leave:create"))) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk membuat izin/cuti",
       );

@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 const holidayService = new AdminHolidayRouteService();
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("holiday:update"))) {
+  if (!(await hasPermission("holidays:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk mengubah hari libur",
     );
@@ -46,7 +46,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 });
 
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("holiday:delete"))) {
+  if (!(await hasPermission("holidays:delete"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menghapus hari libur",
     );

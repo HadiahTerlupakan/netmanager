@@ -27,7 +27,7 @@ const createHolidaySchema = z.object({
  * GET /api/admin/holidays - List holidays by year
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("holiday:read"))) {
+  if (!(await hasPermission("holidays:read"))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -61,7 +61,7 @@ export const POST = createHandler(
     schema: createHolidaySchema,
   },
   async (req, ctx) => {
-    if (!(await hasPermission("holiday:create"))) {
+    if (!(await hasPermission("holidays:create"))) {
       return ApiErrors.forbidden("Akses ditolak");
     }
 

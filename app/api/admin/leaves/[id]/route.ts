@@ -17,7 +17,7 @@ export const PATCH = createHandler(
     schema: updateLeaveStatusSchema,
   },
   async (_req, ctx) => {
-    if (!(await hasPermission("izin:verify"))) {
+    if (!(await hasPermission("leave:verify"))) {
       return ApiErrors.forbidden("Anda membutuhkan permission verify");
     }
 
@@ -48,7 +48,7 @@ export const PATCH = createHandler(
 );
 
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("izin:delete"))) {
+  if (!(await hasPermission("leave:delete"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menghapus izin",
     );
