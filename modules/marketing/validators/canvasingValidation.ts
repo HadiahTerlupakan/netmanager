@@ -64,9 +64,7 @@ const integerCableField = z.coerce
   .int(INVALID_NUMBER_MESSAGE)
   .min(1, INVALID_CABLE_MESSAGE);
 
-const canvasingPackageField = z.enum(CANVASING_PACKAGE_VALUES, {
-  error: INVALID_PACKAGE_MESSAGE,
-});
+const canvasingPackageField = z.string().trim().min(1, INVALID_PACKAGE_MESSAGE);
 
 const canvasingStatusField = z.enum(CANVASING_STATUS_VALUES, {
   error: INVALID_STATUS_MESSAGE,
