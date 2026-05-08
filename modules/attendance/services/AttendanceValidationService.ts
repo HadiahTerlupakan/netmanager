@@ -1,7 +1,19 @@
 import { toDate, toZonedTime } from "date-fns-tz";
-import { endOfDay as fnsEndOfDay, startOfDay as fnsStartOfDay } from "date-fns";
+import {
+  endOfDay as fnsEndOfDay,
+  startOfDay as fnsStartOfDay,
+  isBefore,
+  isAfter,
+  format,
+} from "date-fns";
 
 import { UserLookupService } from "@/modules/users";
+import { toStartOfDay } from "@/lib/utils/server-datetime";
+import {
+  buildScheduleWindow,
+  parseTime,
+  type AttendanceSchedule,
+} from "../utils/attendance-window-utils";
 
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
@@ -187,5 +199,81 @@ export class AttendanceValidationService {
     }
 
     return { isValid: true };
+  }
+
+  /** Validasi check-in berada dalam window waktu yang diizinkan (3 jam sebelum jam kerja sampai jam akhir kerja). */
+  async validateCheckInTimeWindow(
+    userId: string,
+    checkInTime: Date,
+    timezone: string,
+  ): Promise<{
+    isValid: boolean;
+    reason?: string;
+    windowStart?: Date;
+    windowEnd?: Date;
+  }> {
+    const user = await this.userRepo.findAttendanceSettingsById(userId);
+
+    // FLEXIBLE users tidak ada batasan waktu
+    if (!user || user.workingHourMode === "FLEXIBLE") {
+      return { isValid: true };
+    }
+
+    // Resolve schedule (FIXED: startWorkTime/endWorkTime, SHIFT: shift times)
+    const schedule = this.resolveUserSchedule(user);
+    if (!schedule) {
+      return {
+        isValid: false,
+        reason: "Jadwal kerja Anda belum lengkap, silakan hubungi admin",
+      };
+    }
+
+    // Build window menggunakan shared utility
+    const workDate = toStartOfDay(checkInTime, timezone);
+    const window = buildScheduleWindow(workDate, schedule, timezone);
+
+    // Validate check-in within window
+    if (isBefore(checkInTime, window.windowStart)) {
+      const windowStartFormatted = format(window.windowStart, "HH:mm");
+      return {
+        isValid: false,
+        reason: `Check-in terlalu awal. Waktu check-in paling awal: ${windowStartFormatted}`,
+        windowStart: window.windowStart,
+        windowEnd: window.endAt,
+      };
+    }
+
+    if (isAfter(checkInTime, window.endAt)) {
+      const windowEndFormatted = format(window.endAt, "HH:mm");
+      return {
+        isValid: false,
+        reason: `Check-in terlalu malam. Waktu check-in paling akhir: ${windowEndFormatted}`,
+        windowStart: window.windowStart,
+        windowEnd: window.endAt,
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  private resolveUserSchedule(user: {
+    workingHourMode: string;
+    startWorkTime: string | null;
+    endWorkTime: string | null;
+    shift: { startTime: string; endTime: string } | null;
+  }): AttendanceSchedule | null {
+    const startTime =
+      user.workingHourMode === "SHIFT"
+        ? parseTime(user.shift?.startTime ?? user.startWorkTime)
+        : parseTime(user.startWorkTime);
+
+    const endTime =
+      user.workingHourMode === "SHIFT"
+        ? parseTime(user.shift?.endTime ?? user.endWorkTime)
+        : parseTime(user.endWorkTime);
+
+    if (!startTime || !endTime) return null;
+
+    return { startTime, endTime };
   }
 }

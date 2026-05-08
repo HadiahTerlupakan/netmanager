@@ -1,22 +1,12 @@
 import { ValidationError } from "@/lib/errors";
 import type { AttendanceStatus } from "../types/attendance.enums";
-import {
-  addDays,
-  differenceInMinutes,
-  isAfter,
-  isBefore,
-  setHours,
-  setMilliseconds,
-  setMinutes,
-  setSeconds,
-  startOfDay as fnsStartOfDay,
-  subHours,
-} from "date-fns";
-import { toDate, toZonedTime } from "date-fns-tz";
+import { differenceInMinutes, isBefore, isAfter } from "date-fns";
 import type { AttendanceCorrectionSource } from "../repositories/AttendanceRepository";
 import type { CorrectionSchedule } from "./AttendanceCorrectionTypes";
-
-const CHECK_IN_WINDOW_HOURS = 3;
+import {
+  buildScheduleWindow,
+  parseTime,
+} from "../utils/attendance-window-utils";
 
 export class AttendanceCorrectionScheduleService {
   /** Resolve jadwal kerja source attendance untuk koreksi manual. */
@@ -47,14 +37,7 @@ export class AttendanceCorrectionScheduleService {
     schedule: CorrectionSchedule,
     timezone: string,
   ) {
-    const startAt = this.buildClockTime(workDate, schedule.startTime, timezone);
-    let endAt = this.buildClockTime(workDate, schedule.endTime, timezone);
-    if (!isAfter(endAt, startAt)) endAt = addDays(endAt, 1);
-    return {
-      startAt,
-      endAt,
-      windowStart: subHours(startAt, CHECK_IN_WINDOW_HOURS),
-    };
+    return buildScheduleWindow(workDate, schedule, timezone);
   }
 
   /** Validasi check-in berada dalam window koreksi. */
@@ -77,18 +60,6 @@ export class AttendanceCorrectionScheduleService {
   }
 
   private parseTime(value: string | null | undefined): string | null {
-    if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
-    return value;
-  }
-
-  private buildClockTime(workDate: Date, time: string, timezone: string): Date {
-    const [hour = 0, minute = 0] = time.split(":").map(Number);
-    const zonedDate = toZonedTime(workDate, timezone);
-    let candidate = fnsStartOfDay(zonedDate);
-    candidate = setHours(candidate, hour);
-    candidate = setMinutes(candidate, minute);
-    candidate = setSeconds(candidate, 0);
-    candidate = setMilliseconds(candidate, 0);
-    return toDate(candidate, { timeZone: timezone });
+    return parseTime(value);
   }
 }

@@ -15,8 +15,6 @@ import {
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 import type { CheckInParams } from "./attendance-service.contracts";
 import type {
-  CheckInContext,
-  CheckInEvaluationContext,
   CheckoutParams,
   CheckoutResult,
   CheckoutSourceAttendance,
@@ -46,16 +44,30 @@ export class AttendanceMutationService {
     this.validateCoordinates(params.latitude, params.longitude);
 
     const context = await this.prepareCheckInContext(params);
+
+    // Auto-checkout stale sessions
     await this.sessionGuardService.processAutoCheckout({
       ...context,
       userId: params.userId,
       tenantId: params.tenantId,
     });
+
+    // Assert no active session conflict (DUPLICATE_ENTRY has priority over window validation)
     await this.sessionGuardService.assertNoActiveSessionConflict({
       ...context,
       userId: params.userId,
       tenantId: params.tenantId,
     });
+
+    // Validate time window AFTER session guard to preserve error priority
+    const windowCheck = await this.validationService.validateCheckInTimeWindow(
+      params.userId,
+      context.checkInTime,
+      context.timezone,
+    );
+    if (!windowCheck.isValid)
+      throw new Error(`CHECKIN_REJECTED:${windowCheck.reason}`);
+
     const geofenceResult = await this.geofenceService.resolveCheckInGeofence(
       params,
       context.userDetails,
@@ -117,6 +129,8 @@ export class AttendanceMutationService {
       tenantId: params.tenantId,
       timezoneService: this.timezoneService,
     });
+
+    // Validate eligibility (leave, holiday, off-day)
     const eligibility = await this.validationService.validateCheckInEligibility(
       params.userId,
       timeContext.timezone,
@@ -125,16 +139,18 @@ export class AttendanceMutationService {
     );
     if (!eligibility.isValid)
       throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`);
+
     const userDetails = await getCachedUserAttendanceSettings({
       userId: params.userId,
       userRepo: this.userRepo,
     });
+
     return { ...timeContext, userDetails };
   }
 
   private async createCheckInAttendance(
     params: CheckInParams,
-    context: CheckInContext,
+    context: { checkInTime: Date; effectiveToday: Date },
     geofence: MutationGeofence,
     status: AttendanceStatus,
   ) {
@@ -159,7 +175,7 @@ export class AttendanceMutationService {
 
   private buildCheckInCreateData(
     params: CheckInParams,
-    context: CheckInContext,
+    context: { checkInTime: Date; effectiveToday: Date },
     geofence: MutationGeofence,
     status: AttendanceStatus,
   ): Prisma.AttendanceUncheckedCreateInput {
@@ -190,7 +206,10 @@ export class AttendanceMutationService {
   private async evaluateCreatedAttendance(
     attendance: EvaluationAttendance,
     params: CheckInParams,
-    context: CheckInEvaluationContext,
+    context: {
+      timezone: string;
+      userDetails: { workingHourMode: string | null } | null;
+    },
   ) {
     const tenantId = attendance.tenantId ?? params.tenantId;
     if (!tenantId) throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
