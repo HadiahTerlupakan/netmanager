@@ -54,6 +54,12 @@ export async function jwtCallback({
           ?.canApproveRab ?? false;
 
       token.permissionsCount = dbUser?.role?.permission.length || 0;
+      token.permissions =
+        dbUser?.role?.isSuperAdmin || isSuperAdminRole(dbUser?.role?.name)
+          ? ["*"]
+          : (dbUser?.role?.permission || []).map(
+              (permission) => `${permission.resource}:${permission.action}`,
+            );
 
       token.departmentName = dbUser?.departments?.name;
       token.isSales = dbUser?.isSales ?? false;
@@ -135,6 +141,12 @@ export async function jwtCallback({
       }
 
       token.permissionsCount = dbUser.role?.permission.length || 0;
+      token.permissions =
+        dbUser.role?.isSuperAdmin || isSuperAdminRole(dbUser.role?.name)
+          ? ["*"]
+          : (dbUser.role?.permission || []).map(
+              (permission) => `${permission.resource}:${permission.action}`,
+            );
     }
   }
 
@@ -277,7 +289,9 @@ export async function sessionCallback({
         sessionUser.canApproveRab = dbUser.role?.canApproveRab ?? false;
       }
 
-      sessionUser.permissions = await getUserPermissions(userId);
+      sessionUser.permissions =
+        (token.permissions as string[] | undefined) ||
+        (await getUserPermissions(userId));
       sessionUser.permissionsCount = dbUser.role?.permission.length || 0;
       sessionUser.departmentId = token.departmentId;
       sessionUser.departmentName = dbUser.departments?.name;

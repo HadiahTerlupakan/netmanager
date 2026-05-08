@@ -87,7 +87,12 @@ export async function verifyAuth(
     }
 
     const userId = (token.id as string) || "";
-    const permissions = userId ? await getUserPermissions(userId) : [];
+
+    // Ambil permissions dari token jika sudah ada, baru fetch jika belum
+    // Ini menghindari N+1 query karena session callback sudah populate permissions
+    const permissions =
+      (token.permissions as string[] | undefined) ||
+      (userId ? await getUserPermissions(userId) : []);
 
     return {
       id: userId,
