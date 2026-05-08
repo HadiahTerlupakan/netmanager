@@ -24,8 +24,16 @@ export async function GET(req: NextRequest) {
       isSuperAdmin ||
       permissions.includes("canvasing:read") ||
       permissions.includes("canvasing:verify");
+
+    // Session-based site restriction (consistent with sales routes)
+    const user = session as {
+      id: string;
+      siteId?: string;
+      siteIds?: string[];
+      role: string;
+    };
     const isSiteRestricted =
-      permissions.includes("canvasing:site_only") && !isSuperAdmin;
+      !isSuperAdmin && user.siteIds && user.siteIds.length > 0;
 
     const { searchParams } = new URL(req.url);
     const status = parseCanvasingStatusParam(searchParams.get("status"));
@@ -42,8 +50,28 @@ export async function GET(req: NextRequest) {
     if (!canViewOthers) {
       salesId = session.id;
     } else if (isSiteRestricted) {
-      if (session.siteId) {
-        filterSiteId = session.siteId;
+      // Enforce site restriction: only show data from user's allowed sites
+      if (user.siteIds && user.siteIds.length > 0) {
+        // If user provides siteId filter, validate it's in their allowed sites
+        if (filterSiteId && !user.siteIds.includes(filterSiteId)) {
+          return NextResponse.json({
+            data: [],
+            total: 0,
+            page,
+            limit,
+            summary: {
+              total: 0,
+              pending: 0,
+              approved: 0,
+              rejected: 0,
+              pendingClaims: 0,
+            },
+          });
+        }
+        // If no siteId filter provided, restrict to first allowed site
+        if (!filterSiteId) {
+          filterSiteId = user.siteIds[0];
+        }
       } else {
         return NextResponse.json({
           data: [],
