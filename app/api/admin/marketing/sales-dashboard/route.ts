@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Enforce site restriction for non-super-admin users
+  // Site restriction only applies if user has sales_dashboard:site_only permission
   const user = session.user as {
     id: string;
     siteIds?: string[];
     isSuperAdmin?: boolean;
   };
   const allowedSiteIds =
-    !isSuperAdmin(user) && user.siteIds && user.siteIds.length > 0
+    !isSuperAdmin(user) && (await hasPermission("sales_dashboard:site_only"))
       ? user.siteIds
       : undefined;
 

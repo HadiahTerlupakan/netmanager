@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       permissions.includes("canvasing:read") ||
       permissions.includes("canvasing:verify");
 
-    // Session-based site restriction (consistent with sales routes)
+    // Site restriction only applies if user has canvasing:site_only permission
     const user = session as {
       id: string;
       siteId?: string;
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       role: string;
     };
     const isSiteRestricted =
-      !isSuperAdmin && user.siteIds && user.siteIds.length > 0;
+      !isSuperAdmin && permissions.includes("canvasing:site_only");
 
     const { searchParams } = new URL(req.url);
     const status = parseCanvasingStatusParam(searchParams.get("status"));

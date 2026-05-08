@@ -13,14 +13,14 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  // Enforce site restriction for non-super-admin users
+  // Site restriction only applies if user has sales:site_only permission
   const user = ctx.session.user as {
     id: string;
     siteIds?: string[];
     isSuperAdmin?: boolean;
   };
   const allowedSiteIds =
-    !isSuperAdmin(user) && user.siteIds && user.siteIds.length > 0
+    !isSuperAdmin(user) && (await hasPermission("sales:site_only"))
       ? user.siteIds
       : undefined;
 
