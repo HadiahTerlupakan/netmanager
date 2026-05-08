@@ -314,19 +314,18 @@ if (isSiteRestricted) {
 - Tambahkan `sites: { select: { id: true, name: true } }` ke `canvasingUserSelect`
 - Prisma sekarang query relasi sites saat fetch canvasing list
 - Mapper `toCanvasingDomainWithSite` bisa akses `entity.user.sites` dengan benar
-- `toSiteReference` return site data yang valid
+- ~~`toSiteReference` return site data yang valid~~ (masih ada issue)
+
+**Commit 5 (bb3e831c):** Handle sites as array in mapper (final fix)
+- **Actual root cause:** User.sites adalah relasi many-to-many (array), bukan one-to-one
+- `toSiteReference` expect single object tapi `entity.user.sites` adalah array
+- Mapper sekarang handle both array dan single object: `Array.isArray(sites) ? sites[0] : sites`
+- Ambil site pertama dari array jika available
+- Update type `PrismaCanvasingWithSite.user.sites` jadi union: `object | array | null`
 
 **Implementation:**
 ```typescript
-// Before (missing sites relation)
-const canvasingUserSelect = {
-  id: true,
-  name: true,
-  email: true,
-  siteId: true,
-} satisfies Prisma.UserSelect;
-
-// After (include sites relation)
+// Step 1: Include sites relation in Prisma query
 const canvasingUserSelect = {
   id: true,
   name: true,
@@ -339,10 +338,36 @@ const canvasingUserSelect = {
     },
   },
 } satisfies Prisma.UserSelect;
+
+// Step 2: Handle sites as array in mapper
+export function toCanvasingDomainWithSite(
+  entity: PrismaCanvasingWithSite,
+  mitra?: MitraReferenceEntity | null,
+): CanvasingEntity {
+  const detail = toCanvasingDomain(entity as PrismaCanvasingDetail);
+  return {
+    ...detail,
+    user: entity.user
+      ? {
+          id: entity.user.id,
+          name: entity.user.name,
+          email: entity.user.email,
+          siteId: entity.user.siteId,
+          site: toSiteReference(
+            Array.isArray(entity.user.sites)
+              ? entity.user.sites[0]  // Take first site from array
+              : entity.user.sites,
+          ),
+        }
+      : null,
+    mitra,
+  };
+}
 ```
 
 **Files Modified:**
 - `modules/marketing/repositories/canvasing.repository.helpers.ts`
+- `modules/marketing/mappers/marketing-canvasing.mapper.ts`
 
 **Verification:**
 - ✅ Typecheck passed
@@ -353,5 +378,5 @@ const canvasingUserSelect = {
 ---
 
 *Generated: 2026-05-08*
-*Updated: 2026-05-08 04:23 (Blank sales names fix - sites relation)*
+*Updated: 2026-05-08 04:37 (Blank sales names fix - array handling)*
 *Reviewer: Claude (Autonomous)*
