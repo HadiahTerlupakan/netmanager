@@ -71,7 +71,16 @@ export class AttendanceSessionGuardService {
       ),
       timezone: input.timezone,
     });
-    if (decision.isStaleFlexibleSession || !decision.shouldAutoCheckout) {
+
+    // Tolak check-in hanya jika sesi masih aktif dan valid (belum eligible untuk auto-checkout)
+    // - Flexible: tolak jika belum 24 jam (isStaleFlexibleSession = false)
+    // - Fixed/Shift: tolak jika belum melewati grace period (shouldAutoCheckout = false)
+    // - Overnight shift: tolak jika masih dalam periode shift (isOvernightShiftActive = true)
+    const isSessionStillActive =
+      decision.isOvernightShiftActive ||
+      (!decision.isStaleFlexibleSession && !decision.shouldAutoCheckout);
+
+    if (isSessionStillActive) {
       throw new Error("DUPLICATE_ENTRY");
     }
   }
