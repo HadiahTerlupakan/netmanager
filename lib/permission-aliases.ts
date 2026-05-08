@@ -87,9 +87,16 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   "mixradius_expenses:delete": ["expense:delete"],
 
   // ====== HOLIDAY MODULE ======
-  // Beberapa komponen menggunakan 'izin:*' untuk holiday
-  "holiday:create": ["izin:create"],
-  "holiday:delete": ["izin:delete"],
+  // UI uses 'holiday:*' (singular), API uses 'holidays:*' (plural)
+  "holiday:read": ["holidays:read"],
+  "holiday:create": ["holidays:create", "izin:create"],
+  "holiday:update": ["holidays:update"],
+  "holiday:delete": ["holidays:delete", "izin:delete"],
+
+  "holidays:read": ["holiday:read"],
+  "holidays:create": ["holiday:create"],
+  "holidays:update": ["holiday:update"],
+  "holidays:delete": ["holiday:delete"],
 
   // ====== LEAVE MODULE ======
   // UI uses 'izin:*', API uses 'leave:*'
