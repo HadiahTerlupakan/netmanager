@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { AdminSalesRouteService } from "@/modules/marketing";
-import { checkSiteRestriction } from "@/modules/roles";
+import { isSuperAdmin } from "@/lib/auth";
 
 const adminSalesRouteService = new AdminSalesRouteService();
 
@@ -13,11 +13,16 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user: ctx.session.user } as never,
-    "sales",
-  );
-  const allowedSiteIds = isRestricted ? siteIds : undefined;
+  // Enforce site restriction for non-super-admin users
+  const user = ctx.session.user as {
+    id: string;
+    siteIds?: string[];
+    isSuperAdmin?: boolean;
+  };
+  const allowedSiteIds =
+    !isSuperAdmin(user) && user.siteIds && user.siteIds.length > 0
+      ? user.siteIds
+      : undefined;
 
   try {
     return apiSuccess(

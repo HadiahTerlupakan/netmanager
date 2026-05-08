@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
 import { AdminSalesRouteService } from "@/modules/marketing";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { checkSiteRestriction } from "@/modules/roles";
+import { isSuperAdmin } from "@/lib/auth";
 
 const adminSalesRouteService = new AdminSalesRouteService();
 
@@ -17,11 +17,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user: session.user } as never,
-    "sales_dashboard",
-  );
-  const allowedSiteIds = isRestricted ? siteIds : undefined;
+  // Enforce site restriction for non-super-admin users
+  const user = session.user as {
+    id: string;
+    siteIds?: string[];
+    isSuperAdmin?: boolean;
+  };
+  const allowedSiteIds =
+    !isSuperAdmin(user) && user.siteIds && user.siteIds.length > 0
+      ? user.siteIds
+      : undefined;
 
   const { searchParams } = new URL(request.url);
   const period = (searchParams.get("period") || "month") as
