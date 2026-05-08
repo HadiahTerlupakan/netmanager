@@ -108,6 +108,8 @@ export class AttendanceSessionRepository {
     return prisma.attendance.findFirst({
       where: {
         userId: input.userId,
+        correctedAt: null,
+        status: { notIn: [...AUTO_CHECKOUT_INACTIVE_STATUSES] },
         ...(input.tenantId ? { tenantId: input.tenantId } : {}),
       },
       orderBy: { checkIn: "desc" },
