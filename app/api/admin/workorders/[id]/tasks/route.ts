@@ -18,7 +18,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     ctx.permissions,
   );
 
-  if (!(await hasPermission("list:read"))) {
+  if (!(await hasPermission("workorders:read"))) {
     return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat tasks");
   }
 
@@ -54,7 +54,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const body = await req.json();
 
-  if (!(await hasPermission("list:update"))) {
+  if (!(await hasPermission("workorders:update"))) {
     return ApiErrors.forbidden("Anda tidak memiliki akses untuk menambah task");
   }
 

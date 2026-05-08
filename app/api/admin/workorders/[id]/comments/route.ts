@@ -13,7 +13,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const { id } = ctx.params;
 
-  if (!(await hasPermission("list:update"))) {
+  if (!(await hasPermission("workorders:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menambah komentar",
     );

@@ -14,7 +14,7 @@ import { logActivitySafe } from "@/lib/logger";
 
 /** POST /api/admin/workorders/[id]/attachments */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("list:update"))) {
+  if (!(await hasPermission("workorders:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menambah attachment",
     );

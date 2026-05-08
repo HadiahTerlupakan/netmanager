@@ -13,7 +13,7 @@ import {
 
 /** POST /api/admin/workorders/[id]/assign */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("list:update"))) {
+  if (!(await hasPermission("workorders:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk assign work order",
     );

@@ -13,7 +13,7 @@ import {
 
 /** GET /api/admin/workorders/{id} */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("list:read"))) {
+  if (!(await hasPermission("workorders:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat work order",
     );
@@ -66,8 +66,8 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
   const requiredPermission =
     body.status === "VERIFIED" || body.rejectionReason
-      ? "list:verify"
-      : "list:update";
+      ? "workorders:verify"
+      : "workorders:update";
 
   if (!(await hasPermission(requiredPermission))) {
     return ApiErrors.forbidden(
@@ -141,7 +141,9 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const reason = req.nextUrl.searchParams.get("reason") || "Cancelled by admin";
   const isPermanent = req.nextUrl.searchParams.get("permanent") === "true";
-  const requiredPermission = isPermanent ? "list:delete" : "list:cancel";
+  const requiredPermission = isPermanent
+    ? "workorders:delete"
+    : "workorders:cancel";
 
   if (!(await hasPermission(requiredPermission))) {
     return ApiErrors.forbidden(

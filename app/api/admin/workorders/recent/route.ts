@@ -10,7 +10,7 @@ import {
 
 /** GET /api/admin/workorders/recent */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("list:read"))) {
+  if (!(await hasPermission("workorders:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat work order",
     );

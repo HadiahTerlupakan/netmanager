@@ -13,7 +13,7 @@ import {
 
 /** DELETE /api/admin/workorders/[id]/attachments/[attachmentId] */
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("list:update"))) {
+  if (!(await hasPermission("workorders:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menghapus attachment",
     );
