@@ -187,16 +187,17 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 
 ## Conclusion
 
-**Status:** ✅ Semua halaman sudah production-ready setelah perbaikan scope leakage
+**Status:** ✅ Semua halaman sudah production-ready setelah perbaikan scope leakage dan nama sales
 
 **Perbaikan yang sudah dilakukan:**
 - Fix empty sales names di canvasing list (Task #29) ✅
 - Fix scope leakage di sales list dan dashboard (Task #31) ✅
 - Fix scope leakage di canvasing list endpoint (Task #31 - final) ✅
+- Fix blank sales names - missing sites relation (Final fix) ✅
 
 **Bug Kritis yang Ditemukan dan Diperbaiki:**
 
-### Scope Leakage (CRITICAL) - FIXED ✅
+### 1. Scope Leakage (CRITICAL) - FIXED ✅
 **Masalah:** User yang restricted ke site tertentu bisa melihat semua data sales dari semua site
 
 **Root Cause:**
@@ -296,6 +297,61 @@ if (isSiteRestricted) {
 
 ---
 
+### 2. Blank Sales Names (CRITICAL) - FIXED ✅
+
+**Masalah:** Nama sales tidak muncul di canvasing list, kolom salesName kosong
+
+**Root Cause:**
+- `canvasingUserSelect` di repository helpers tidak include relasi `sites`
+- Hanya query `id, name, email, siteId` tapi tidak include `user.sites`
+- Mapper `toCanvasingDomainWithSite` mencoba akses `entity.user.sites` yang tidak pernah di-query
+- `toSiteReference(entity.user.sites)` return null karena `sites` undefined
+- Meskipun data user ada di database, relasi sites tidak ter-populate di Prisma query
+
+**Solusi yang Diterapkan:**
+
+**Commit 4 (db7011c8):** Include sites relation in canvasing user select
+- Tambahkan `sites: { select: { id: true, name: true } }` ke `canvasingUserSelect`
+- Prisma sekarang query relasi sites saat fetch canvasing list
+- Mapper `toCanvasingDomainWithSite` bisa akses `entity.user.sites` dengan benar
+- `toSiteReference` return site data yang valid
+
+**Implementation:**
+```typescript
+// Before (missing sites relation)
+const canvasingUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  siteId: true,
+} satisfies Prisma.UserSelect;
+
+// After (include sites relation)
+const canvasingUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  siteId: true,
+  sites: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} satisfies Prisma.UserSelect;
+```
+
+**Files Modified:**
+- `modules/marketing/repositories/canvasing.repository.helpers.ts`
+
+**Verification:**
+- ✅ Typecheck passed
+- ✅ Database query confirmed: user names exist in database
+- ✅ Prisma query now includes sites relation
+- ✅ Mapper can access entity.user.sites correctly
+
+---
+
 *Generated: 2026-05-08*
-*Updated: 2026-05-08 04:13 (Canvasing endpoint restriction)*
+*Updated: 2026-05-08 04:23 (Blank sales names fix - sites relation)*
 *Reviewer: Claude (Autonomous)*
