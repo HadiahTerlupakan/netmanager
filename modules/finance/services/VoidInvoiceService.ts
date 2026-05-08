@@ -19,15 +19,17 @@ export class VoidInvoiceService {
     invoiceId: string,
     reason: string,
     adminUserId: string,
+    allowedSiteIds?: string[],
   ) {
     const service = new VoidInvoiceService();
-    return service.executeVoid(invoiceId, reason, adminUserId);
+    return service.executeVoid(invoiceId, reason, adminUserId, allowedSiteIds);
   }
 
   private async executeVoid(
     invoiceId: string,
     reason: string,
     adminUserId: string,
+    allowedSiteIds?: string[],
   ) {
     try {
       const invoice = await this.invoiceRepo.findUnique(invoiceId);
@@ -38,6 +40,22 @@ export class VoidInvoiceService {
         throw new Error(
           "FORBIDDEN: Hanya invoice PAID atau PARTIAL_PAID yang dapat dibatalkan melalui fitur ini",
         );
+      }
+
+      // Scope validation
+      if (allowedSiteIds && allowedSiteIds.length > 0) {
+        const pelanggan = await this.pelangganBridge.findById(
+          invoice.pelangganId,
+        );
+        if (
+          !pelanggan ||
+          !pelanggan.siteId ||
+          !allowedSiteIds.includes(pelanggan.siteId)
+        ) {
+          throw new Error(
+            "FORBIDDEN: Anda tidak dapat membatalkan invoice untuk pelanggan di luar scope Anda",
+          );
+        }
       }
 
       await this.invoiceRepo.voidInvoiceTransaction(

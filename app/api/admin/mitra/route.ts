@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission, getCurrentUser } from "@/lib/rbac";
 import { getMitraService } from "@/modules/mitra";
+import { checkSiteRestriction } from "@/modules/roles";
 
 const mitraService = getMitraService();
 type EmployeeTypeValue = "KARYAWAN";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || !(await hasPermission("users:read", user, { silent: true }))) {
+  if (!user || !(await hasPermission("mitra:read", user, { silent: true }))) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 403 },
@@ -26,8 +27,14 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
 
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    { user } as never,
+    "mitra",
+  );
+  const allowedSiteIds = isRestricted ? siteIds : undefined;
+
   const result = await mitraService.getMitras(
-    { search, employeeType, isActive },
+    { search, employeeType, isActive, allowedSiteIds },
     page,
     limit,
   );
@@ -44,7 +51,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || !(await hasPermission("users:create", user, { silent: true }))) {
+  if (!user || !(await hasPermission("mitra:create", user, { silent: true }))) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 403 },
@@ -53,6 +60,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+
+    // Validate scope if user is restricted
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      { user } as never,
+      "mitra",
+    );
+    if (isRestricted && body.siteId) {
+      if (!siteIds.includes(body.siteId)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Anda tidak dapat membuat mitra untuk site di luar scope Anda",
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     const result = await mitraService.createMitra(body, user.id!);
 
     if (!result.success) {

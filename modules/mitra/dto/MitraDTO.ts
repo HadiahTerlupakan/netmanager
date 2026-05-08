@@ -87,6 +87,7 @@ export interface MitraFilters {
   isActive?: boolean;
   departmentId?: string;
   siteId?: string;
+  allowedSiteIds?: string[];
   tenantId?: string;
 }
 
