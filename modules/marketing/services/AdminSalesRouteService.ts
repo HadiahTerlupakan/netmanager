@@ -16,9 +16,14 @@ import {
 
 export class AdminSalesRouteService {
   /** Get aggregate monthly sales overview for admin list route. */
-  async getSalesOverview() {
+  async getSalesOverview(input?: { allowedSiteIds?: string[] }) {
+    const siteFilter =
+      input?.allowedSiteIds && input.allowedSiteIds.length > 0
+        ? { siteId: { in: input.allowedSiteIds } }
+        : {};
+
     const salesUsers = await prisma.user.findMany({
-      where: { isSales: true, isActive: true },
+      where: { isSales: true, isActive: true, ...siteFilter },
       select: {
         id: true,
         name: true,
@@ -52,17 +57,31 @@ export class AdminSalesRouteService {
     siteId?: string | null;
     customStart?: string | null;
     customEnd?: string | null;
+    allowedSiteIds?: string[];
   }) {
+    const siteFilter =
+      input.allowedSiteIds && input.allowedSiteIds.length > 0
+        ? { id: { in: input.allowedSiteIds } }
+        : {};
+
     const sites = await prisma.sites.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...siteFilter },
       select: { id: true, code: true, name: true },
       orderBy: { code: "asc" },
     });
+
     const { startDate, endDate } = buildDashboardRange(input);
+
+    const userSiteFilter =
+      input.allowedSiteIds && input.allowedSiteIds.length > 0
+        ? { siteId: { in: input.allowedSiteIds } }
+        : {};
+
     const salesUsers = await prisma.user.findMany({
       where: {
         isSales: true,
         isActive: true,
+        ...userSiteFilter,
         ...(input.siteId ? { siteId: input.siteId } : {}),
       },
       select: {
@@ -74,6 +93,9 @@ export class AdminSalesRouteService {
       },
       orderBy: { name: "asc" },
     });
+
+    const salesUserIds = salesUsers.map((user) => user.id);
+
     const leaderboard = await Promise.all(
       salesUsers.map(async (user) => {
         const dateFilter = getDateFilter(input.period, startDate, endDate);
@@ -96,11 +118,14 @@ export class AdminSalesRouteService {
         });
       }),
     );
+
     const rankedLeaderboard = buildRankedLeaderboard(leaderboard);
+
     const siteStats = await prisma.canvasing.groupBy({
       by: ["salesId"],
       where: {
         status: "APPROVED",
+        salesId: { in: salesUserIds },
         ...getDateFilter(input.period, startDate, endDate),
       },
       _count: { _all: true },
@@ -116,7 +141,11 @@ export class AdminSalesRouteService {
       leaderboard: rankedLeaderboard,
       weeklyTrend: await buildWeeklyTrend((date, nextDate) =>
         prisma.canvasing.count({
-          where: { status: "APPROVED", createdAt: { gte: date, lt: nextDate } },
+          where: {
+            status: "APPROVED",
+            salesId: { in: salesUserIds },
+            createdAt: { gte: date, lt: nextDate },
+          },
         }),
       ),
     };

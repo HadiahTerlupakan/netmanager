@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
 import { AdminSalesRouteService } from "@/modules/marketing";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { checkSiteRestriction } from "@/modules/roles";
 
 const adminSalesRouteService = new AdminSalesRouteService();
 
@@ -15,6 +16,13 @@ export async function GET(request: NextRequest) {
       "Anda tidak memiliki akses untuk melihat sales dashboard",
     );
   }
+
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    { user: session.user } as never,
+    "sales_dashboard",
+  );
+  const allowedSiteIds = isRestricted ? siteIds : undefined;
+
   const { searchParams } = new URL(request.url);
   const period = (searchParams.get("period") || "month") as
     | "day"
@@ -28,6 +36,7 @@ export async function GET(request: NextRequest) {
       siteId: searchParams.get("siteId"),
       customStart: searchParams.get("startDate"),
       customEnd: searchParams.get("endDate"),
+      allowedSiteIds,
     });
     return apiSuccess(result);
   } catch (error: unknown) {
