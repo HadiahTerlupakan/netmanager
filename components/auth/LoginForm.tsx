@@ -75,13 +75,12 @@ export default function LoginForm() {
       }
 
       if (res.error) {
-        clientLogger.error("[LoginForm] Login error:", res.error);
-
         // Jika error terkait rate limiting, redirect ke halaman error
         if (
           res.error.includes("Terlalu banyak percobaan") ||
           res.error.includes("rate limit")
         ) {
+          clientLogger.warn("[LoginForm] Rate limit exceeded");
           const errorUrl = `/error?error=${encodeURIComponent(res.error)}`;
           router.push(errorUrl);
           return;
@@ -89,6 +88,7 @@ export default function LoginForm() {
 
         // Error database connection
         if (res.error.includes("Database connection error")) {
+          clientLogger.error("[LoginForm] Database connection error");
           setError("password", {
             message:
               "Tidak dapat terhubung ke database. Silakan coba lagi beberapa saat.",
@@ -96,13 +96,16 @@ export default function LoginForm() {
           return;
         }
 
-        // Error lainnya (email/password salah atau error umum)
+        // Error credentials (wrong email/password) - don't log to console
         if (
+          res.error.includes("CredentialsSignin") ||
           res.error.includes("credentials") ||
           res.error.includes("password")
         ) {
           setError("password", { message: "Email atau password salah" });
         } else {
+          // Unknown error - log it
+          clientLogger.error("[LoginForm] Login error:", res.error);
           setError("password", {
             message:
               res.error || "Login gagal. Silakan periksa kredensial Anda.",
