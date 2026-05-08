@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const AVAILABLE_WORK_ORDER_STATUS = "OPEN";
+export const AVAILABLE_WORK_ORDER_STATUS = "PENDING";
 export const CLAIMED_WORK_ORDER_STATUS = "IN_PROGRESS";
 export const MOBILE_AVAILABLE_WORK_ORDER_LIMIT = 50;
 export const MOBILE_CLAIM_ROLE = "PIC";
