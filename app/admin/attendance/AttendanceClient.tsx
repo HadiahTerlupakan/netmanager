@@ -123,7 +123,7 @@ export function ClientComponent() {
       const response = await fetchWithHandling<{
         sites: { id: string; name: string }[];
         departments: { id: string; name: string }[];
-      }>("/api/admin/options");
+      }>("/api/admin/options?resource=attendance");
       if (response.data) {
         setSites(response.data.sites || []);
         setDepartments(response.data.departments || []);
