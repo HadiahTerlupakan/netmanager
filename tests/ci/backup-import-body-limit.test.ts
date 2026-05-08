@@ -19,25 +19,18 @@ describe("backup import body limit", () => {
     expect(nextConfig).not.toContain("middlewareClientMaxBodySize");
   });
 
-  it("excludes backup import endpoint from proxy matcher to avoid body cloning", () => {
+  it("bypasses proxy for backup import endpoint to avoid body cloning limit", () => {
     const proxyContent = readProxyFile();
 
-    // Verify matcher config exists
-    const matcherConfig = proxyContent.match(
-      /matcher:\s*\[[\s\S]*?"(.+?)"[\s\S]*?\]/,
+    // Verify backup import endpoint is explicitly bypassed
+    expect(proxyContent).toContain("/api/settings/backup/import");
+
+    // Verify bypass happens in the early return section (before proxy logic)
+    const apiBypassSection = proxyContent.match(
+      /if\s*\(\s*pathname\.startsWith\("\/api"\)[\s\S]*?\)/,
     );
-    expect(matcherConfig).toBeTruthy();
 
-    const matcherPattern = matcherConfig![1];
-
-    // Verify endpoint is in negative lookahead (excluded from matching)
-    // Pattern should be: /((?!...excluded-paths...).*)/
-    expect(matcherPattern).toMatch(/\(\?\!/); // Has negative lookahead
-    expect(matcherPattern).toContain("api/settings/backup/import"); // Endpoint is in the exclusion list
-
-    // Verify the exclusion is in the negative lookahead group
-    const negativeLookahead = matcherPattern.match(/\(\?\!([^)]+)\)/);
-    expect(negativeLookahead).toBeTruthy();
-    expect(negativeLookahead![1]).toContain("api/settings/backup/import");
+    expect(apiBypassSection).toBeTruthy();
+    expect(apiBypassSection![0]).toContain("/api/settings/backup/import");
   });
 });
