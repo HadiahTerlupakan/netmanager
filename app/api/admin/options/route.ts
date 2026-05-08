@@ -11,6 +11,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     ctx.session as never,
     resource,
   );
+
+  // Jika restricted tapi tidak punya site access, return empty options
+  if (isRestricted && siteIds.length === 0) {
+    return apiSuccess({ sites: [], departments: [] });
+  }
+
   const allowedSiteIds = isRestricted ? siteIds : undefined;
 
   const options = await adminOptionsRouteService.getOptions(allowedSiteIds);

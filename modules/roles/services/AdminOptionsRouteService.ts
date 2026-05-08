@@ -38,8 +38,11 @@ export class AdminOptionsRouteService {
     ]);
 
     // Filter sites by scope if restricted
+    // allowedSiteIds === undefined → tidak restricted, tampilkan semua
+    // allowedSiteIds === [] → restricted tapi tidak punya akses, return kosong
+    // allowedSiteIds === [id1, id2] → restricted, filter sesuai akses
     const filteredSites =
-      allowedSiteIds && allowedSiteIds.length > 0
+      allowedSiteIds !== undefined
         ? sites.filter((site) => allowedSiteIds.includes(site.id))
         : sites;
 
