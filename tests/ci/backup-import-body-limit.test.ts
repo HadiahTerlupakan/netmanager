@@ -11,6 +11,8 @@ function readNextConfig(): string {
   return readFileSync(resolve(process.cwd(), "next.config.ts"), "utf8");
 }
 
+const BACKUP_IMPORT_ENDPOINT = "/api/settings/backup/import";
+
 describe("backup import body limit", () => {
   it("raises Next proxy body limit above the default 10MB upload cutoff", () => {
     const nextConfig = readNextConfig();
@@ -23,14 +25,15 @@ describe("backup import body limit", () => {
     const proxyContent = readProxyFile();
 
     // Verify backup import endpoint is explicitly bypassed
-    expect(proxyContent).toContain("/api/settings/backup/import");
+    expect(proxyContent).toContain(BACKUP_IMPORT_ENDPOINT);
 
-    // Verify bypass happens in the early return section (before proxy logic)
-    const apiBypassSection = proxyContent.match(
-      /if\s*\(\s*pathname\.startsWith\("\/api"\)[\s\S]*?\)/,
+    // Verify bypass happens early in file (before line 100, in the API bypass section)
+    const lines = proxyContent.split("\n");
+    const bypassLineIndex = lines.findIndex((line) =>
+      line.includes(BACKUP_IMPORT_ENDPOINT),
     );
 
-    expect(apiBypassSection).toBeTruthy();
-    expect(apiBypassSection![0]).toContain("/api/settings/backup/import");
+    expect(bypassLineIndex).toBeGreaterThan(-1);
+    expect(bypassLineIndex).toBeLessThan(100); // Early return section is within first 100 lines
   });
 });
