@@ -3,6 +3,7 @@ export * from "./services/AbsenceService";
 export * from "./services/LeaveService";
 export * from "./services/LocationTrackingService";
 export * from "./services/AttendancePhotoService";
+export * from "./services/AttendancePhotoValidationService";
 export * from "./services/AttendanceAlertService";
 export * from "./services/AttendanceIdempotencyService";
 export * from "./services/GeofenceService";

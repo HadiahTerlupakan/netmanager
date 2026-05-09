@@ -15,6 +15,19 @@ export const ATTENDANCE_CONSTANTS = {
   GEOFENCE_DEFAULT_RADIUS: 100, // meters
   GEOFENCE_MAX_DISTANCE: 1000, // meters
   AUTO_CHECKOUT_NOTE: "(Auto-Checkout: Lupa Absen Pulang)",
+
+  // Photo validation constants
+  ALLOWED_PHOTO_TYPES: [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+  ] as const,
+  MAX_PHOTO_DIMENSION: 4096, // 4K max
+  MIN_PHOTO_DIMENSION: 200, // minimum 200px
+  PHOTO_COMPRESSION_QUALITY: 85, // 85% quality
+  PHOTO_MAX_WIDTH: 1920, // Full HD width
+  PHOTO_MAX_HEIGHT: 1920, // Full HD height
 } as const;
 
 // Type-safe access to constants

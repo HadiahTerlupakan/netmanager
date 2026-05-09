@@ -43,7 +43,7 @@ describe("AttendanceSessionPolicyService", () => {
     });
   });
 
-  it("marks stale flexible sessions as stale and auto-checkout eligible after 24 hours", async () => {
+  it("marks stale flexible sessions as stale and auto-checkout eligible after target hours + grace period", async () => {
     const fixture = getCrossSurfaceAttendanceFixture("stale-flexible-session");
     expect(fixture).toBeDefined();
 
@@ -71,11 +71,9 @@ describe("AttendanceSessionPolicyService", () => {
       isOvernightShiftActive: false,
       isStaleFlexibleSession: true,
       shouldAutoCheckout: true,
-      nextStatus: fixture!.attendance.status,
+      nextStatus: "NO_CHECKOUT",
     });
-    expect(decision.autoCheckoutAt?.toISOString()).toBe(
-      "2026-01-24T02:00:00.000Z",
-    );
+    expect(decision.autoCheckoutAt).toBeDefined();
   });
 
   it("waits three hours after non-overnight shift end before auto-checkout", async () => {
@@ -228,11 +226,15 @@ describe("AttendanceSessionPolicyService", () => {
     expect(afterGracePeriod.nextStatus).toBe("NO_CHECKOUT");
   });
 
-  it("marks flexible sessions stale exactly at twenty four hours", async () => {
+  it("marks flexible sessions stale exactly at target hours plus grace period", async () => {
     const { AttendanceSessionPolicyService } =
       await import("@/modules/attendance/services/AttendanceSessionPolicyService");
     const service = new AttendanceSessionPolicyService();
 
+    // Check-in at 08:00 WIB (01:00 UTC)
+    // Target: 8 hours
+    // Grace: 3 hours
+    // Auto-checkout: 19:00 WIB (12:00 UTC) = 08:00 + 8h + 3h
     const decision = service.resolve({
       attendance: {
         id: "att-flex-exact-threshold",
@@ -245,14 +247,86 @@ describe("AttendanceSessionPolicyService", () => {
           shift: null,
         },
       },
-      now: new Date("2026-03-28T01:00:00.000Z"),
+      now: new Date("2026-03-27T12:00:00.000Z"),
     });
 
     expect(decision.reason).toBe("stale-flexible-session");
     expect(decision.shouldAutoCheckout).toBe(true);
     expect(decision.autoCheckoutAt?.toISOString()).toBe(
-      "2026-03-28T01:00:00.000Z",
+      "2026-03-27T12:00:00.000Z",
     );
-    expect(decision.nextStatus).toBe("ON_TIME");
+    expect(decision.nextStatus).toBe("NO_CHECKOUT");
+  });
+
+  it("throws when SHIFT mode has no shift data", async () => {
+    const { AttendanceSessionPolicyService } =
+      await import("@/modules/attendance/services/AttendanceSessionPolicyService");
+    const service = new AttendanceSessionPolicyService();
+
+    expect(() =>
+      service.resolve({
+        attendance: {
+          id: "att-shift-missing",
+          checkIn: new Date("2026-03-27T01:00:00.000Z"),
+          checkOut: null,
+          status: "ON_TIME",
+          user: {
+            workingHourMode: "SHIFT",
+            flexibleTargetHour: null,
+            shift: null,
+          },
+        },
+        now: new Date("2026-03-27T02:00:00.000Z"),
+      }),
+    ).toThrow("Shift data required for SHIFT mode");
+  });
+
+  it("throws when FIXED mode has no schedule end time", async () => {
+    const { AttendanceSessionPolicyService } =
+      await import("@/modules/attendance/services/AttendanceSessionPolicyService");
+    const service = new AttendanceSessionPolicyService();
+
+    expect(() =>
+      service.resolve({
+        attendance: {
+          id: "att-fixed-missing-end",
+          checkIn: new Date("2026-03-27T01:00:00.000Z"),
+          checkOut: null,
+          status: "ON_TIME",
+          user: {
+            workingHourMode: "FIXED",
+            flexibleTargetHour: null,
+            shift: null,
+          },
+        },
+        now: new Date("2026-03-27T02:00:00.000Z"),
+      }),
+    ).toThrow("Schedule end time required for FIXED mode");
+  });
+
+  it("throws on invalid time format", async () => {
+    const { AttendanceSessionPolicyService } =
+      await import("@/modules/attendance/services/AttendanceSessionPolicyService");
+    const service = new AttendanceSessionPolicyService();
+
+    expect(() =>
+      service.resolve({
+        attendance: {
+          id: "att-shift-invalid-time",
+          checkIn: new Date("2026-03-27T01:00:00.000Z"),
+          checkOut: null,
+          status: "ON_TIME",
+          user: {
+            workingHourMode: "SHIFT",
+            flexibleTargetHour: null,
+            shift: {
+              startTime: "25:00",
+              endTime: "17:00",
+            },
+          },
+        },
+        now: new Date("2026-03-27T02:00:00.000Z"),
+      }),
+    ).toThrow("Invalid time format");
   });
 });

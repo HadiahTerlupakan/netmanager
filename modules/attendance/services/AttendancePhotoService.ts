@@ -6,10 +6,14 @@
 
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { ATTENDANCE_CONSTANTS } from "../utils/constants";
+import { AttendancePhotoValidationService } from "./AttendancePhotoValidationService";
+import { logger } from "@/lib/logger";
 
 const BYTES_PER_MEGABYTE = 1024 * 1024;
 
 export class AttendancePhotoService {
+  private validationService = new AttendancePhotoValidationService();
+
   /**
    * Process and upload attendance photo
    * Handles both File objects and base64 strings
@@ -38,7 +42,30 @@ export class AttendancePhotoService {
     userId: string,
     type: "checkin" | "checkout",
   ): Promise<string> {
+    // Enhanced validation
+    const validationResult =
+      await this.validationService.validatePhoto(photoFile);
+
+    if (!validationResult.isValid) {
+      logger.warn("Photo validation failed", {
+        userId,
+        type,
+        error: validationResult.error,
+        fileName: photoFile.name,
+        fileSize: photoFile.size,
+      });
+      throw new Error(validationResult.error || "Validasi foto gagal");
+    }
+
+    logger.info("Photo validated successfully", {
+      userId,
+      type,
+      metadata: validationResult.metadata,
+    });
+
+    // Legacy validation (kept for backward compatibility)
     this.validatePhotoFile(photoFile);
+
     const uploadDir = this.buildUploadDirectory();
     const fileName = `${userId}_${type}_${Date.now()}`;
 

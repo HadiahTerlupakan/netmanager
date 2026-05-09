@@ -53,9 +53,21 @@ function parseTimeParts(time: string | null | undefined): {
     return null;
   }
 
+  // Validate time format: HH:mm or H:mm
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+  if (!timeRegex.test(time)) {
+    throw new Error(
+      `Invalid time format: "${time}". Expected HH:mm (e.g., "08:30", "17:00")`,
+    );
+  }
+
   const [hours, minutes = 0] = time.split(":").map(Number);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return null;
+
+  // Additional validation (redundant but safe)
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    throw new Error(
+      `Invalid time values: ${hours}:${minutes}. Hours must be 0-23, minutes 0-59`,
+    );
   }
 
   return { hours, minutes };
@@ -188,9 +200,25 @@ export class AttendanceSessionPolicyService {
 
     const workingHourMode = attendance.user?.workingHourMode ?? null;
 
+    if (workingHourMode === "SHIFT") {
+      if (
+        !attendance.user?.shift?.startTime ||
+        !attendance.user?.shift?.endTime
+      ) {
+        throw new Error("Shift data required for SHIFT mode");
+      }
+    }
+
+    if (workingHourMode === "FIXED" && !scheduleEndTime) {
+      throw new Error("Schedule end time required for FIXED mode");
+    }
+
     if (workingHourMode === "FLEXIBLE") {
+      const targetHours = attendance.user?.flexibleTargetHour ?? 8;
+      const gracePeriodHours = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_GRACE_HOURS;
       const threshold = new Date(
-        attendance.checkIn.getTime() + 24 * 60 * 60 * 1000,
+        attendance.checkIn.getTime() +
+          (targetHours + gracePeriodHours) * 60 * 60 * 1000,
       );
       const isStale = now >= threshold;
 
@@ -200,7 +228,7 @@ export class AttendanceSessionPolicyService {
         isStaleFlexibleSession: isStale,
         shouldAutoCheckout: isStale,
         autoCheckoutAt: isStale ? threshold : null,
-        nextStatus: isStale ? attendance.status : null,
+        nextStatus: isStale ? "NO_CHECKOUT" : null,
       };
     }
 
