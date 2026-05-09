@@ -116,7 +116,6 @@ export class MobileAvailableWorkOrderService {
       return ApiErrors.notFound("Work order tidak ditemukan");
     }
 
-    await this.repository.createAssignment(workOrderId, user.id, isMitra);
     await this.repository.createClaimUpdate({
       workOrderId,
       userId: user.id,

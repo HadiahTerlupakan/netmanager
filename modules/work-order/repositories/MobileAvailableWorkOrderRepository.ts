@@ -118,55 +118,62 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
 
   /** Claim a pending work order atomically for one actor. */
   async claimWorkOrder(input: ClaimAvailableWorkOrderData) {
-    const result = await prisma.workOrders.updateMany({
-      where: {
-        id: input.workOrderId,
-        tenantId: input.tenantId,
-        status: AVAILABLE_WORK_ORDER_STATUS as WorkOrderStatus,
-        assignedToId: null,
-        assignedMitraId: null,
-      },
-      data: {
-        ...(input.isMitra
-          ? { assignedMitraId: input.userId }
-          : { assignedToId: input.userId }),
-        status: CLAIMED_WORK_ORDER_STATUS,
-        scheduledDate: input.claimedAt,
-        scheduledTimeStart: input.scheduledTimeStart,
-      },
-    });
-
-    return result.count > 0;
-  }
-
-  /** Create an assignment row if it does not already exist. */
-  async createAssignment(
-    workOrderId: string,
-    userId: string,
-    isMitra: boolean,
-  ) {
     try {
-      await prisma.workOrderAssignments.create({
-        data: isMitra
-          ? {
-              id: randomUUID(),
-              workOrderId,
-              mitraId: userId,
-              role: MOBILE_CLAIM_ROLE,
-              status: "PENDING",
-            }
-          : {
-              id: randomUUID(),
-              workOrderId,
-              userId,
-              role: MOBILE_CLAIM_ROLE,
-              status: "PENDING",
-            },
+      const result = await prisma.$transaction(async (tx) => {
+        const updateResult = await tx.workOrders.updateMany({
+          where: {
+            id: input.workOrderId,
+            tenantId: input.tenantId,
+            status: AVAILABLE_WORK_ORDER_STATUS as WorkOrderStatus,
+            assignedToId: null,
+            assignedMitraId: null,
+          },
+          data: {
+            ...(input.isMitra
+              ? { assignedMitraId: input.userId }
+              : { assignedToId: input.userId }),
+            status: CLAIMED_WORK_ORDER_STATUS,
+            scheduledDate: input.claimedAt,
+            scheduledTimeStart: input.scheduledTimeStart,
+          },
+        });
+
+        if (updateResult.count === 0) {
+          return false;
+        }
+
+        await tx.workOrderAssignments.create({
+          data: input.isMitra
+            ? {
+                id: randomUUID(),
+                workOrderId: input.workOrderId,
+                mitraId: input.userId,
+                role: MOBILE_CLAIM_ROLE,
+                status: "PENDING",
+              }
+            : {
+                id: randomUUID(),
+                workOrderId: input.workOrderId,
+                userId: input.userId,
+                role: MOBILE_CLAIM_ROLE,
+                status: "PENDING",
+              },
+        });
+
+        return true;
       });
-    } catch (error) {
-      if (!this.isDuplicateAssignmentError(error)) {
-        throw error;
+
+      return result;
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "P2002"
+      ) {
+        return false;
       }
+      throw error;
     }
   }
 
@@ -185,16 +192,6 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
         newStatus: "ASSIGNED",
       },
     });
-  }
-
-  /** Check whether the database error is a duplicate assignment violation. */
-  private isDuplicateAssignmentError(error: unknown) {
-    return !!(
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P2002"
-    );
   }
 }
 

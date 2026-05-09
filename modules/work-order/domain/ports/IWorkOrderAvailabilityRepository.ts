@@ -48,13 +48,6 @@ export interface IWorkOrderAvailabilityRepository {
   /** Claim a work order atomically. */
   claimWorkOrder(input: ClaimAvailableWorkOrderData): Promise<boolean>;
 
-  /** Create assignment row for a claim. */
-  createAssignment(
-    workOrderId: string,
-    userId: string,
-    isMitra: boolean,
-  ): Promise<void>;
-
   /** Append claim update to timeline. */
   createClaimUpdate(data: CreateClaimUpdateData): Promise<void>;
 }

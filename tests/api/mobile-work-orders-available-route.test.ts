@@ -39,6 +39,15 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/modules/database", () => ({
   prisma: {
+    $transaction: async (callback: (tx: unknown) => unknown) =>
+      callback({
+        workOrders: {
+          updateMany: mockFns.workOrdersUpdateMany,
+        },
+        workOrderAssignments: {
+          create: mockFns.workOrderAssignmentsCreate,
+        },
+      }),
     user: {
       findFirst: mockFns.userFindFirst,
     },
