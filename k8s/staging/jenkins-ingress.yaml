@@ -22,7 +22,7 @@ metadata:
   name: jenkins-ingress
   namespace: netmanager-staging
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/cluster-issuer: letsencrypt-production
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: netmanager-staging-jenkins-proxy-headers@kubernetescrd
