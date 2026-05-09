@@ -150,6 +150,9 @@ export class MobileLeaveRequestService {
     const tukarLiburError = await this.validateTukarLibur(context);
     if (tukarLiburError) return tukarLiburError;
 
+    const overlapError = await this.validateOverlap(context);
+    if (overlapError) return overlapError;
+
     const quotaError = await this.validateQuota(context);
     if (quotaError) return quotaError;
 
@@ -159,6 +162,44 @@ export class MobileLeaveRequestService {
     ) {
       return apiError(
         "Foto bukti wajib diupload",
+        ErrorCodes.VALIDATION_ERROR,
+        {
+          status: BAD_REQUEST_STATUS,
+        },
+      );
+    }
+
+    return null;
+  }
+
+  private async validateOverlap(
+    context: MobileLeaveProcessContext,
+  ): Promise<NextResponse | null> {
+    const existingLeave =
+      await this.leaveRepository.findActiveLeaveForUserOnDate(
+        context.input.userId,
+        context.dateRange.startDate,
+        context.dateRange.endDate,
+        context.input.tenantId,
+      );
+
+    if (existingLeave) {
+      const startDate = context.dateRange.startDate.toLocaleDateString(
+        "id-ID",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        },
+      );
+      const endDate = context.dateRange.endDate.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      return apiError(
+        `Anda sudah punya pengajuan ${existingLeave.type} di tanggal ${startDate} - ${endDate}. Tidak bisa submit leave yang overlap.`,
         ErrorCodes.VALIDATION_ERROR,
         {
           status: BAD_REQUEST_STATUS,

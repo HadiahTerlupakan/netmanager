@@ -1,30 +1,24 @@
 import { describe, it, expect } from "vitest";
 import { MarketingMapper } from "@/modules/marketing/mappers/MarketingMapper";
 import type { CanvasingEntity } from "@/modules/marketing/domain/entities/CanvasingEntity";
-import type { PointClaimEntity } from "@/modules/marketing/domain/entities/PointClaimEntity";
+import type { PointClaimReferenceEntity } from "@/modules/marketing/domain/entities/CanvasingEntity";
 
 describe("MarketingMapper", () => {
   describe("toCanvasingDetailDTO", () => {
     it("should map canvasing entity to DTO with pointClaims field", () => {
-      const mockPointClaim: PointClaimEntity = {
+      const mockPointClaim: PointClaimReferenceEntity = {
         id: "claim-1",
-        canvasingId: "canv-1",
-        salesId: "sales-1",
+        status: "PENDING",
         buktiUrls: [
           "https://example.com/bukti1.jpg",
           "https://example.com/bukti2.jpg",
         ],
-        buktiMetadata: null,
         keterangan: "Instalasi selesai dengan baik",
-        status: "PENDING",
         pointValue: 2,
         reviewNotes: null,
-        reviewedById: null,
-        reviewedBy: null,
+        reviewedByName: null,
         reviewedAt: null,
-        tenantId: "tenant-1",
         createdAt: new Date("2026-05-09T10:00:00Z"),
-        updatedAt: new Date("2026-05-09T10:00:00Z"),
       };
 
       const mockCanvasing: CanvasingEntity = {
@@ -132,25 +126,16 @@ describe("MarketingMapper", () => {
     });
 
     it("should map approved pointClaim with review info correctly", () => {
-      const mockPointClaim: PointClaimEntity = {
+      const mockPointClaim: PointClaimReferenceEntity = {
         id: "claim-2",
-        canvasingId: "canv-3",
-        salesId: "sales-3",
-        buktiUrls: ["https://example.com/bukti.jpg"],
-        buktiMetadata: null,
-        keterangan: "Semua sesuai prosedur",
         status: "APPROVED",
+        buktiUrls: ["https://example.com/bukti.jpg"],
+        keterangan: "Semua sesuai prosedur",
         pointValue: 2,
         reviewNotes: "Approved by admin",
-        reviewedById: "admin-1",
-        reviewedBy: {
-          id: "admin-1",
-          name: "Admin User",
-        },
+        reviewedByName: "Admin User",
         reviewedAt: new Date("2026-05-09T12:00:00Z"),
-        tenantId: "tenant-1",
         createdAt: new Date("2026-05-09T11:00:00Z"),
-        updatedAt: new Date("2026-05-09T12:00:00Z"),
       };
 
       const mockCanvasing: CanvasingEntity = {
