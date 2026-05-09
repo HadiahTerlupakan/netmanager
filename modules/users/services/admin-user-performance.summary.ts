@@ -67,6 +67,6 @@ function mapRecentActivities(
     status: activity.status,
     createdAt: activity.createdAt,
     address: activity.alamat,
-    pointClaim: activity.pointClaims || null,
+    pointClaims: activity.pointClaims || null,
   }));
 }

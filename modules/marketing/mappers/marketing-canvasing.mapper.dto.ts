@@ -75,7 +75,7 @@ function buildCanvasingDetailRelationsDTO(entity: CanvasingEntity) {
         }
       : null,
     approvedAt: entity.approvedAt?.toISOString() ?? null,
-    pointClaim: mapCanvasingPointClaimDTO(entity),
+    pointClaims: mapCanvasingPointClaimDTO(entity),
   };
 }
 

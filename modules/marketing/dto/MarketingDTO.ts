@@ -56,7 +56,7 @@ export interface CanvasingDetailDTO {
   } | null;
   approvedAt: string | null;
   workOrderId: string | null;
-  pointClaim: PointClaimDTO | null;
+  pointClaims: PointClaimDTO | null;
 }
 
 // ==================== Point Claim DTOs ====================

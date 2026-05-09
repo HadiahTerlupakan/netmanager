@@ -41,7 +41,7 @@ interface SalesPerformanceData {
     status: string;
     createdAt: string;
     address: string;
-    pointClaim?: { status: string; pointValue: number } | null;
+    pointClaims?: { status: string; pointValue: number } | null;
   }>;
 }
 
@@ -256,17 +256,17 @@ export default function SalesPerformanceStats({ userId }: { userId: string }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {activity.pointClaim && (
+                  {activity.pointClaims && (
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
-                        activity.pointClaim.status === "APPROVED"
+                        activity.pointClaims.status === "APPROVED"
                           ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                          : activity.pointClaim.status === "PENDING"
+                          : activity.pointClaims.status === "PENDING"
                             ? "bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-300"
                             : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                       }`}
                     >
-                      ⭐ {activity.pointClaim.pointValue} pts
+                      ⭐ {activity.pointClaims.pointValue} pts
                     </span>
                   )}
                   <span
