@@ -9,6 +9,7 @@ import {
   idSchema,
   optionalIdSchema,
 } from "@/lib/validations/common";
+import { workDaysSchema, workDaysOptionalSchema } from "./workDays.validator";
 
 /**
  * User list filters schema
@@ -99,7 +100,7 @@ export const createUserSchema = z.object({
     .string()
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
     .default("17:00"),
-  workDays: z.string().default("Mon,Tue,Wed,Thu,Fri"),
+  workDays: workDaysSchema.default("Mon,Tue,Wed,Thu,Fri"),
   flexibleTargetHour: z.number().int().min(1).max(24).default(8),
   shiftId: optionalIdSchema,
 
@@ -168,7 +169,7 @@ export const updateUserSchema = z
       .string()
       .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
       .optional(),
-    workDays: z.string().optional(),
+    workDays: workDaysOptionalSchema,
     flexibleTargetHour: z.number().int().min(1).max(24).optional(),
     shiftId: optionalIdSchema,
 
