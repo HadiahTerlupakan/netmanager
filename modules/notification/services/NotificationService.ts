@@ -6,6 +6,12 @@ import {
   notifyNewCanvasingRecipients,
   notifyNewPointClaimRecipients,
 } from "./NotificationService.marketing";
+import {
+  buildHolidayNotificationLink,
+  buildHolidayNotificationMessage,
+  buildHolidayNotificationTitle,
+  type HolidayNotificationData,
+} from "./NotificationService.holiday";
 import { findCanvasingVerifiers } from "./NotificationService.recipients";
 import type {
   CanvasingNotificationData,
@@ -214,6 +220,40 @@ export async function notifyNewPointClaim(data: PointClaimNotificationData) {
   });
 }
 
+export async function notifyHolidayCreated(
+  data: HolidayNotificationData,
+): Promise<void> {
+  const userLookupService = getUserLookupService();
+
+  const activeUsers = await userLookupService.findAllActiveInTenant(
+    data.tenantId,
+  );
+
+  const title = buildHolidayNotificationTitle();
+  const message = buildHolidayNotificationMessage(
+    data.holidayName,
+    data.holidayDate,
+    data.description,
+  );
+  const link = buildHolidayNotificationLink();
+
+  const notifications = activeUsers.map((user) =>
+    createNotification({
+      type: "HOLIDAY_CREATED",
+      priority: "NORMAL",
+      title,
+      message,
+      link,
+      userId: user.id,
+      sourceType: "Holiday",
+      sourceId: data.holidayId,
+      tenantId: data.tenantId,
+    }),
+  );
+
+  await Promise.all(notifications);
+}
+
 export type {
   CanvasingNotificationData,
   CreateNotificationData,
@@ -222,3 +262,4 @@ export type {
   PointClaimNotificationData,
   WorkOrderNotificationData,
 } from "./NotificationService.types";
+export type { HolidayNotificationData } from "./NotificationService.holiday";

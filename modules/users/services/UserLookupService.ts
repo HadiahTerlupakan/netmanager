@@ -158,6 +158,11 @@ export class UserLookupService {
       excludeUserId,
     );
   }
+
+  /** Find all active users in tenant for broadcast notifications. */
+  findAllActiveInTenant(tenantId: string) {
+    return this.lookupRepository.findAllActiveInTenant(tenantId);
+  }
 }
 
 let userLookupServiceInstance: UserLookupService | null = null;

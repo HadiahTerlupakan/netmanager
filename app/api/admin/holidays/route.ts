@@ -1,4 +1,5 @@
 import { AdminHolidayRouteService } from "@/modules/attendance";
+import { notifyHolidayCreated } from "@/modules/notification";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
@@ -60,7 +61,7 @@ export const POST = createHandler(
     auth: true,
     schema: createHolidaySchema,
   },
-  async (req, ctx) => {
+  async (_req, ctx) => {
     if (!(await hasPermission("holidays:create"))) {
       return ApiErrors.forbidden("Akses ditolak");
     }
@@ -86,6 +87,15 @@ export const POST = createHandler(
         description: holiday.description,
       },
       userId: ctx.session!.user.id,
+      tenantId,
+    });
+
+    await notifyHolidayCreated({
+      holidayId: holiday.id,
+      holidayName: holiday.description,
+      holidayDate: new Date(holiday.date),
+      holidayType: holiday.isNational ? "NATIONAL" : "COMPANY",
+      description: holiday.description,
       tenantId,
     });
 

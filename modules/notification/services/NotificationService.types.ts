@@ -3,7 +3,8 @@ export type NotificationType =
   | "SYSTEM"
   | "TICKET"
   | "ALERT"
-  | "ANNOUNCEMENT";
+  | "ANNOUNCEMENT"
+  | "HOLIDAY_CREATED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 

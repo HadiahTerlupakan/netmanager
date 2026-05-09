@@ -70,6 +70,21 @@ export function clearPushTokens(tokens: string[]) {
   });
 }
 
+/** Ambil semua user aktif di tenant untuk broadcast notification. */
+export function findAllActiveInTenant(tenantId: string) {
+  return prisma.user.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+}
+
 function buildActivePushTokenWhere(
   departmentId?: string,
   siteId?: string,

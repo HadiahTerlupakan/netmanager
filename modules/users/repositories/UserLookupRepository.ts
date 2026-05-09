@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import {
   clearPushTokens,
   findAdminsForNotification,
+  findAllActiveInTenant,
   findByIdWithPushToken,
   findManyActiveWithPushTokenAndSite,
   findManyByDepartmentWithPushToken,
@@ -148,5 +149,9 @@ export class UserLookupRepository {
     excludeUserId?: string,
   ) {
     return findManyByDepartmentAndSite(departmentId, siteId, excludeUserId);
+  }
+
+  findAllActiveInTenant(tenantId: string) {
+    return findAllActiveInTenant(tenantId);
   }
 }
