@@ -309,7 +309,7 @@ function getCheckInScheduleTime(
   userDetails: CachedUserAttendanceSettings | null,
 ) {
   return userDetails?.workingHourMode === "SHIFT"
-    ? userDetails.shift?.startTime
+    ? userDetails?.shift?.startTime
     : userDetails?.startWorkTime;
 }
 
