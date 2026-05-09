@@ -6,7 +6,9 @@ import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceValidationService } from "./AttendanceValidationService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import {
+  buildFixedCheckoutWarning,
   buildFlexibleCheckoutWarning,
+  buildShiftCheckoutWarning,
   getCachedUserAttendanceSettings,
   mergeAttendanceNotes,
   resolveCheckInStatus,
@@ -277,14 +279,35 @@ export class AttendanceMutationService {
     evaluation: AttendanceEvaluationResult,
     checkOutTime: Date,
   ): CheckoutResult {
-    const warning =
-      attendance.user.workingHourMode === "FLEXIBLE"
-        ? buildFlexibleCheckoutWarning({
-            checkIn: attendance.checkIn,
-            checkOutTime,
-            targetHours: attendance.user.flexibleTargetHour || 8,
-          })
-        : undefined;
+    let warning: string | undefined;
+
+    // FLEXIBLE mode warning
+    if (attendance.user.workingHourMode === "FLEXIBLE") {
+      warning = buildFlexibleCheckoutWarning({
+        checkIn: attendance.checkIn,
+        checkOutTime,
+        targetHours: attendance.user.flexibleTargetHour || 8,
+      });
+    }
+
+    // FIXED mode warning
+    if (attendance.user.workingHourMode === "FIXED") {
+      warning = buildFixedCheckoutWarning({
+        checkOutTime,
+        scheduleEndTime: attendance.user.endWorkTime,
+        timezone: attendance.user.timezone || "Asia/Jakarta",
+      });
+    }
+
+    // SHIFT mode warning
+    if (attendance.user.workingHourMode === "SHIFT") {
+      warning = buildShiftCheckoutWarning({
+        checkOutTime,
+        shiftEndTime: attendance.user.shift?.endTime,
+        timezone: attendance.user.timezone || "Asia/Jakarta",
+      });
+    }
+
     const result: {
       attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>;
       evaluation: AttendanceEvaluationResult;

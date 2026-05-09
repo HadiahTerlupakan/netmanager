@@ -4,6 +4,8 @@ import { toStartOfDay } from "@/lib/utils/server-datetime";
 import type { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import type { UserLookupService } from "@/modules/users";
+import { startOfDay, setHours, setMinutes, addDays, getHours } from "date-fns";
+import { toZonedTime, toDate, format } from "date-fns-tz";
 
 export type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
 
@@ -187,6 +189,87 @@ export function buildFlexibleCheckoutWarning(input: {
   const remainingMinutes = Math.round((remainingHours % 1) * 60);
 
   return `Jam kerja Anda baru ${workedHours} jam ${workedMinutes} menit. Target kerja: ${input.targetHours} jam. Kurang ${remainingHoursInt} jam ${remainingMinutes} menit.`;
+}
+
+/** Build warning message untuk FIXED mode checkout sebelum jam pulang. */
+export function buildFixedCheckoutWarning(input: {
+  checkOutTime: Date;
+  scheduleEndTime: string | null | undefined;
+  timezone: string;
+}): string | undefined {
+  if (!input.scheduleEndTime) return undefined;
+
+  // Parse schedule end time (format: "HH:mm")
+  const [endHour, endMinute] = input.scheduleEndTime.split(":").map(Number);
+  if (isNaN(endHour) || isNaN(endMinute)) return undefined;
+
+  // Build schedule end datetime
+  const checkOutDate = toZonedTime(input.checkOutTime, input.timezone);
+  let scheduleEnd = startOfDay(checkOutDate);
+  scheduleEnd = setHours(scheduleEnd, endHour);
+  scheduleEnd = setMinutes(scheduleEnd, endMinute);
+  scheduleEnd = toDate(scheduleEnd, { timeZone: input.timezone });
+
+  // Check if checkout is before schedule end
+  if (input.checkOutTime >= scheduleEnd) {
+    return undefined; // No warning, checkout after schedule end
+  }
+
+  // Calculate difference
+  const diffMs = scheduleEnd.getTime() - input.checkOutTime.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const hours = Math.floor(diffHours);
+  const minutes = Math.round((diffHours % 1) * 60);
+
+  const checkOutFormatted = format(input.checkOutTime, "HH:mm", {
+    timeZone: input.timezone,
+  });
+
+  return `Jam pulang Anda: ${input.scheduleEndTime}. Checkout sekarang: ${checkOutFormatted}. Lebih awal ${hours} jam ${minutes} menit.`;
+}
+
+/** Build warning message untuk SHIFT mode checkout sebelum shift selesai. */
+export function buildShiftCheckoutWarning(input: {
+  checkOutTime: Date;
+  shiftEndTime: string | null | undefined;
+  timezone: string;
+}): string | undefined {
+  if (!input.shiftEndTime) return undefined;
+
+  // Parse shift end time (format: "HH:mm")
+  const [endHour, endMinute] = input.shiftEndTime.split(":").map(Number);
+  if (isNaN(endHour) || isNaN(endMinute)) return undefined;
+
+  // Build shift end datetime
+  const checkOutDate = toZonedTime(input.checkOutTime, input.timezone);
+  let shiftEnd = startOfDay(checkOutDate);
+  shiftEnd = setHours(shiftEnd, endHour);
+  shiftEnd = setMinutes(shiftEnd, endMinute);
+  shiftEnd = toDate(shiftEnd, { timeZone: input.timezone });
+
+  // Handle overnight shift (e.g., 21:00 - 04:00)
+  // If shift end hour is small (< 12) and checkout is after noon, shift end is next day
+  const checkOutHour = getHours(checkOutDate);
+  if (endHour < 12 && checkOutHour >= 12) {
+    shiftEnd = addDays(shiftEnd, 1);
+  }
+
+  // Check if checkout is before shift end
+  if (input.checkOutTime >= shiftEnd) {
+    return undefined; // No warning, checkout after shift end
+  }
+
+  // Calculate difference
+  const diffMs = shiftEnd.getTime() - input.checkOutTime.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const hours = Math.floor(diffHours);
+  const minutes = Math.round((diffHours % 1) * 60);
+
+  const checkOutFormatted = format(input.checkOutTime, "HH:mm", {
+    timeZone: input.timezone,
+  });
+
+  return `Shift Anda selesai: ${input.shiftEndTime}. Checkout sekarang: ${checkOutFormatted}. Lebih awal ${hours} jam ${minutes} menit.`;
 }
 
 /** Gabungkan catatan check-in lama dengan catatan checkout baru. */

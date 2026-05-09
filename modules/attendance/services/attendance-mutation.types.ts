@@ -56,5 +56,10 @@ export type CheckoutWarningAttendance = {
   user: {
     workingHourMode?: string | null;
     flexibleTargetHour?: number | null;
+    endWorkTime?: string | null;
+    timezone?: string | null;
+    shift?: {
+      endTime: string;
+    } | null;
   };
 };
