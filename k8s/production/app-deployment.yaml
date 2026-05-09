@@ -5,6 +5,7 @@ metadata:
   namespace: netmanager-production
 spec:
   replicas: 2
+  revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
