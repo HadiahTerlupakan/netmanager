@@ -138,7 +138,7 @@ export class AttendancePhotoValidationService {
   private validateFileType(photo: File): PhotoValidationResult {
     const allowedTypes = ATTENDANCE_CONSTANTS.ALLOWED_PHOTO_TYPES;
 
-    if (!allowedTypes.includes(photo.type)) {
+    if (!allowedTypes.includes(photo.type as (typeof allowedTypes)[number])) {
       return {
         isValid: false,
         error: `Format file tidak didukung. Gunakan: ${allowedTypes.join(", ")}`,

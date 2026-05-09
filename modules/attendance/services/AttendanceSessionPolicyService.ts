@@ -200,25 +200,9 @@ export class AttendanceSessionPolicyService {
 
     const workingHourMode = attendance.user?.workingHourMode ?? null;
 
-    if (workingHourMode === "SHIFT") {
-      if (
-        !attendance.user?.shift?.startTime ||
-        !attendance.user?.shift?.endTime
-      ) {
-        throw new Error("Shift data required for SHIFT mode");
-      }
-    }
-
-    if (workingHourMode === "FIXED" && !scheduleEndTime) {
-      throw new Error("Schedule end time required for FIXED mode");
-    }
-
     if (workingHourMode === "FLEXIBLE") {
-      const targetHours = attendance.user?.flexibleTargetHour ?? 8;
-      const gracePeriodHours = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_GRACE_HOURS;
       const threshold = new Date(
-        attendance.checkIn.getTime() +
-          (targetHours + gracePeriodHours) * 60 * 60 * 1000,
+        attendance.checkIn.getTime() + 24 * 60 * 60 * 1000,
       );
       const isStale = now >= threshold;
 
@@ -228,7 +212,7 @@ export class AttendanceSessionPolicyService {
         isStaleFlexibleSession: isStale,
         shouldAutoCheckout: isStale,
         autoCheckoutAt: isStale ? threshold : null,
-        nextStatus: isStale ? "NO_CHECKOUT" : null,
+        nextStatus: isStale ? attendance.status : null,
       };
     }
 
