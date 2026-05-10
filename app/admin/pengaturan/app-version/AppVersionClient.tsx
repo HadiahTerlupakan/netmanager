@@ -41,17 +41,6 @@ interface Pagination {
   totalPages: number;
 }
 
-function unwrapApiData<T>(payload: T | { data?: T }): T {
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const nested = (payload as { data?: T }).data;
-    if (nested !== undefined) {
-      return nested;
-    }
-  }
-
-  return payload as T;
-}
-
 export function AppVersionClient() {
   // Permission checks
   const { hasPermission } = usePermission();
@@ -95,7 +84,7 @@ export function AppVersionClient() {
       const res = await fetch("/api/admin/app-version/stats");
       const payload = await res.json();
       if (payload && !payload.error) {
-        setStats(unwrapApiData(payload));
+        setStats(payload.data || payload);
         setStatsError(null);
       } else {
         setStatsError(payload.error || "Gagal memuat statistik");
@@ -305,14 +294,23 @@ export function AppVersionClient() {
           <HiOutlinePencil className="h-4 w-4" />
         </Button>
       )}
-      {canDelete && item.isActive && (
+      {canDelete && (
         <Button
           type="button"
-          onClick={() => handleDelete(item)}
+          onClick={() => item.isActive && handleDelete(item)}
           variant="ghost"
           size="icon-sm"
-          title="Hapus permanen"
-          className="text-red-600 hover:bg-red-50"
+          title={
+            item.isActive
+              ? "Hapus permanen"
+              : "Tidak bisa hapus versi yang sedang aktif"
+          }
+          className={
+            item.isActive
+              ? "text-red-600 hover:bg-red-50"
+              : "text-gray-400 cursor-not-allowed"
+          }
+          disabled={!item.isActive}
         >
           <HiOutlineTrash className="h-4 w-4" />
         </Button>
@@ -738,82 +736,86 @@ function UploadVersionModal({
             )}
           </div>
 
-          {/* Manual input - hanya tampil jika tidak ada APK */}
-          {!hasApk && (
-            <>
-              {/* Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                    Atau isi manual
-                  </span>
-                </div>
+          {/* Manual input - selalu tampil, disabled jika APK terdeteksi */}
+          <>
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
               </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
+                  {hasApk ? "Terdeteksi dari APK" : "Atau isi manual"}
+                </span>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label
-                    htmlFor="upload-version"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Versi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="upload-version"
-                    type="text"
-                    placeholder="1.0.54"
-                    value={formData.version}
-                    onChange={(e) =>
-                      setFormData({ ...formData, version: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    disabled={loading}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="upload-build-number"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Build <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="upload-build-number"
-                    type="number"
-                    placeholder="47"
-                    value={formData.buildNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, buildNumber: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    disabled={loading}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="upload-version-code"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="upload-version-code"
-                    type="number"
-                    placeholder="47"
-                    value={formData.versionCode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, versionCode: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    disabled={loading}
-                  />
-                </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label
+                  htmlFor="upload-version"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Versi <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="upload-version"
+                  type="text"
+                  placeholder={hasApk ? "Auto-detected" : "1.0.54"}
+                  value={formData.version}
+                  onChange={(e) =>
+                    setFormData({ ...formData, version: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
+                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                  disabled={hasApk || loading}
+                />
               </div>
-            </>
-          )}
+              <div>
+                <label
+                  htmlFor="upload-build-number"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Build <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="upload-build-number"
+                  type="number"
+                  placeholder={hasApk ? "Auto-detected" : "47"}
+                  value={formData.buildNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, buildNumber: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
+                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                  disabled={hasApk || loading}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="upload-version-code"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="upload-version-code"
+                  type="number"
+                  placeholder={hasApk ? "Auto-detected" : "47"}
+                  value={formData.versionCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, versionCode: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
+                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                  disabled={hasApk || loading}
+                />
+              </div>
+            </div>
+          </>
 
           <div>
             <label
