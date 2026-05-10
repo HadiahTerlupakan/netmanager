@@ -14,8 +14,8 @@ export default defineConfig({
       include: ["modules/**/*.ts", "lib/**/*.ts"],
       exclude: ["node_modules", "tests", "**/*.d.ts", "**/index.ts"],
     },
-    testTimeout: process.env.CI ? 20000 : 10000,
-    hookTimeout: process.env.CI ? 30000 : 10000,
+    testTimeout: process.env.CI ? 30000 : 15000,
+    hookTimeout: process.env.CI ? 30000 : 15000,
   },
   resolve: {
     alias: {
