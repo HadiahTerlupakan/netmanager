@@ -13,6 +13,7 @@ const mockFns = vi.hoisted(() => ({
   createNotification: vi.fn().mockResolvedValue({ id: "notif-1" }),
   convertAndSaveBase64: vi.fn(),
   mobileLeaveRequestServiceCreate: vi.fn(),
+  findActiveLeaveForUserOnDate: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
@@ -26,6 +27,7 @@ vi.mock("@/modules/attendance/repositories/LeaveRepository", () => ({
     findRequesterContext = mockFns.findRequesterContext;
     findApproverIdsForMobileLeaveNotification =
       mockFns.findApproverIdsForMobileLeaveNotification;
+    findActiveLeaveForUserOnDate = mockFns.findActiveLeaveForUserOnDate;
   },
 }));
 
@@ -38,6 +40,16 @@ vi.mock("@/modules/attendance/repositories/LeaveBalanceRepository", () => ({
 
 vi.mock("@/modules/notification/services/NotificationService", () => ({
   createNotification: mockFns.createNotification,
+}));
+
+vi.mock("@/modules/attendance/repositories/HolidayRepository", () => ({
+  HolidayRepository: class MockHolidayRepository {
+    findHolidaysInRange = vi.fn().mockResolvedValue([]);
+  },
+}));
+
+vi.mock("@/modules/attendance/utils/calculateWorkingDays", () => ({
+  calculateWorkingDays: vi.fn().mockResolvedValue(1),
 }));
 
 vi.mock("@/lib/utils/image-upload", () => ({
@@ -67,6 +79,8 @@ describe("mobile leaves route", () => {
     mockFns.findApproverIdsForMobileLeaveNotification.mockResolvedValue([
       { id: "admin-1", phone: "628123456789" },
     ]);
+    mockFns.findActiveLeaveForUserOnDate.mockResolvedValue(null);
+    mockFns.convertAndSaveBase64.mockResolvedValue("photo-url.jpg");
   });
 
   it("scopes admin leave notifications to the requester site", async () => {
