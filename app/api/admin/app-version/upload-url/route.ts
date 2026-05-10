@@ -47,14 +47,12 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     );
   }
 
-  // Validate size if needed (e.g. limit to 500MB)
-  const MAX_SIZE = 500 * 1024 * 1024; // 500MB
+  // Validate size if needed (e.g. limit to 100MB)
+  const MAX_SIZE = 100 * 1024 * 1024; // 100MB
   if (size && size > MAX_SIZE) {
-    return apiError(
-      "Ukuran file melebihi batas 500MB",
-      ErrorCodes.VALIDATION_ERROR,
-      { status: 400 },
-    );
+    return apiError("Ukuran APK maksimal 100MB", ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
   }
 
   const service = await getAppVersionService();

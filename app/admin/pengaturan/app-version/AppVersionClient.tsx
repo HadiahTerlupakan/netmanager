@@ -60,6 +60,8 @@ export function AppVersionClient() {
   // State
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 10,
@@ -85,18 +87,20 @@ export function AppVersionClient() {
       const payload = await res.json();
       if (payload && !payload.error) {
         setStats(unwrapApiData(payload));
+        setStatsError(null);
+      } else {
+        setStatsError(payload.error || "Gagal memuat statistik");
       }
     } catch (error: unknown) {
       clientLogger.error("Failed to fetch stats:", error);
+      setStatsError("Gagal memuat statistik. Silakan refresh halaman.");
     }
   }, []);
 
   // Fetch versions
   const fetchVersions = useCallback(async () => {
-    // Fetch stats as well
-    fetchStats();
-
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/admin/app-version?page=${pagination.page}&limit=${pagination.limit}`,
@@ -118,17 +122,30 @@ export function AppVersionClient() {
             ...data.pagination,
           }));
         }
+      } else {
+        setError(data.error || "Gagal memuat daftar versi");
       }
     } catch (error: unknown) {
       clientLogger.error("Error fetching versions:", error);
+      setError("Gagal memuat daftar versi. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
-  }, [fetchStats, pagination.page, pagination.limit]);
+  }, [pagination.page, pagination.limit]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchVersions();
   }, [fetchVersions]);
+
+  // Refresh both stats and versions after mutations
+  const refreshData = useCallback(() => {
+    fetchStats();
+    fetchVersions();
+  }, [fetchStats, fetchVersions]);
 
   // Format file size
   const formatFileSize = (bytes: number | null) => {
@@ -250,7 +267,7 @@ export function AppVersionClient() {
       });
       const data = await res.json();
       if (data.success) {
-        fetchVersions();
+        refreshData();
       } else {
         alert(data.error || "Gagal menghapus versi");
       }
@@ -312,8 +329,14 @@ export function AppVersionClient() {
           </Button>
         )}
       </div>
+      {/* Stats Error */}
+      {statsError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-600 dark:text-red-400">{statsError}</p>
+        </div>
+      )}
       {/* Stats Cards */}
-      {stats && (
+      {stats && !statsError && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-4">
@@ -375,6 +398,12 @@ export function AppVersionClient() {
           </div>
         </div>
       )}
+      {/* Versions List Error */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
       {/* List Versions */} {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <ResponsiveTable
@@ -426,7 +455,7 @@ export function AppVersionClient() {
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
             setShowUploadModal(false);
-            fetchVersions();
+            refreshData();
           }}
         />
       )}
@@ -441,7 +470,7 @@ export function AppVersionClient() {
           onSuccess={() => {
             setShowEditModal(false);
             setSelectedVersion(null);
-            fetchVersions();
+            refreshData();
           }}
         />
       )}
@@ -474,6 +503,13 @@ function UploadVersionModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validasi ukuran file APK (max 100MB)
+    const MAX_APK_SIZE = 100 * 1024 * 1024; // 100MB
+    if (apkFile && apkFile.size > MAX_APK_SIZE) {
+      alert("Ukuran APK maksimal 100MB");
+      return;
+    }
 
     // Jika tidak ada APK dan field kosong, tampilkan error
     if (
