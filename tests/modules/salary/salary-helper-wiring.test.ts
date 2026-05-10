@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
 import type { SalaryWithDetailsEntity } from "@/modules/salary/domain/entities/SalaryEntity";
@@ -10,6 +10,10 @@ describe("salary helper wiring", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
   });
 
   it("SalaryService.calculateSingle delegates to SalaryService.commands", async () => {

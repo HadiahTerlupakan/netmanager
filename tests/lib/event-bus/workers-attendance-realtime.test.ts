@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
   publish: vi.fn().mockResolvedValue(undefined),
@@ -71,6 +71,10 @@ describe("event-bus attendance realtime publishing", () => {
     vi.resetModules();
     vi.clearAllMocks();
     mockFns.processors.length = 0;
+  });
+
+  afterEach(() => {
+    vi.resetModules();
   });
 
   it("publishes attendance check-ins to the admin notifications Firebase stream", async () => {

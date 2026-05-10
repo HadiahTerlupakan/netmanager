@@ -54,13 +54,13 @@ export class LeaveLifecycleService {
     data: CreateLeaveData,
     createdById: string,
     tenantId: string,
-    autoApprove: boolean,
+    bypassManualApproval: boolean = false,
   ): Promise<LeaveResult> {
     try {
       return await this.createLeaveUnsafe(data, {
         actorId: createdById,
         tenantId,
-        autoApprove,
+        autoApprove: bypassManualApproval,
       });
     } catch (error) {
       return handleLeaveError(

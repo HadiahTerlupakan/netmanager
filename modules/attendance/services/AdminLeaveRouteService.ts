@@ -38,13 +38,12 @@ export class AdminLeaveRouteService {
     return this.leaveService.getLeaves(filters);
   }
 
-  /** Buat leave manual oleh admin dengan auto approve. */
+  /** Buat leave manual oleh admin. */
   async createLeave(input: AdminLeaveCreateInput) {
     return this.leaveService.createLeave(
       this.buildCreateLeaveData(input),
       input.session.user.id,
       input.session.user.tenantId as string,
-      true,
     );
   }
 

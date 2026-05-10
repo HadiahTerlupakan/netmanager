@@ -571,6 +571,15 @@ model LeaveRequest {
   updatedAt       DateTime
   replacementDate DateTime?
   tenantId        String?
+
+  // Timeline tracking fields
+  submittedAt              DateTime  @default(now())
+  firstReminderSentAt      DateTime?
+  secondReminderSentAt     DateTime?
+  finalReminderSentAt      DateTime?
+  autoRejectedAt           DateTime?
+  autoRejectionReason      String?
+
   tenant          Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user            User        @relation(fields: [userId], references: [id])
 
@@ -3313,6 +3322,7 @@ model Tenant {
   workOrders              WorkOrders[]
   whatsAppAccounts        WhatsAppAccount[]
   whatsAppMessages        WhatsAppMessage[]
+  tenantSettings          TenantSettings?
 }
 
 enum MaterialReturnStatus {
@@ -3819,4 +3829,51 @@ model WhatsAppMessage {
   @@index([accountId])
   @@index([status])
   @@index([tenantId])
+}
+
+model TenantSettings {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique
+
+  // Auto-reject toggles
+  autoRejectInsufficientQuota   Boolean @default(true)
+  autoRejectBackdate            Boolean @default(true)
+  autoRejectOverlap             Boolean @default(true)
+  autoRejectTooLong             Boolean @default(true)
+  autoRejectSakitNoDocument     Boolean @default(true)
+  autoRejectCutiNoAdvance       Boolean @default(true)
+  autoRejectTukarLiburNoDate    Boolean @default(true)
+  autoRejectBlackoutPeriod      Boolean @default(true)
+
+  // Thresholds
+  maxDaysPerRequest             Int     @default(14)
+  minAdvanceNoticeDays          Int     @default(3)
+  sakitDocumentRequiredDays     Int     @default(2)
+
+  // Blackout periods (JSON array)
+  blackoutPeriods               Json    @default("[]")
+
+  // Timeline-based auto-reject
+  enableTimelineAutoReject      Boolean @default(true)
+
+  // Mendadak (< 24h)
+  mendadakDeadlineHours         Int     @default(8)
+  mendadakReminder1Hours        Int     @default(4)
+  mendadakReminder2Hours        Int     @default(6)
+
+  // Normal (1-7 days)
+  normalDeadlineDays            Int     @default(1)
+  normalReminder1Days           Int     @default(3)
+  normalReminder2Days           Int     @default(2)
+
+  // Advance (> 7 days)
+  advanceDeadlineDays           Int     @default(1)
+  advanceReminder1Days          Int     @default(7)
+  advanceReminder2Days          Int     @default(3)
+  advanceReminder3Days          Int     @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 }

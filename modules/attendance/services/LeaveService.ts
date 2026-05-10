@@ -172,13 +172,12 @@ export class LeaveService {
     data: CreateLeaveData,
     createdById: string,
     tenantId: string,
-    autoApprove: boolean = true,
   ): Promise<LeaveResult> {
     return this.lifecycleService.createLeave(
       data,
       createdById,
       tenantId,
-      autoApprove,
+      false,
     );
   }
 

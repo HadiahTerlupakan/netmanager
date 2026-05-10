@@ -84,7 +84,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(false);
@@ -102,7 +101,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(false);
@@ -118,7 +116,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(false);
@@ -141,7 +138,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(false);
@@ -164,7 +160,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(false);
@@ -190,7 +185,6 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
       expect(result.success).toBe(true);
@@ -211,12 +205,7 @@ describe("LeaveService", () => {
         tenantId,
       });
 
-      const result = await service.createLeave(
-        createData,
-        "admin-1",
-        tenantId,
-        false,
-      );
+      const result = await service.createLeave(createData, "admin-1", tenantId);
 
       expect(result.success).toBe(true);
       expect(mockLeaveRepo.create).toHaveBeenCalledWith(
@@ -228,7 +217,7 @@ describe("LeaveService", () => {
       expect(mockBalanceRepo.incrementUsed).not.toHaveBeenCalled();
     });
 
-    it("should create approved leave and deduct balance if autoApprove is true", async () => {
+    it("should create pending leave without deducting balance", async () => {
       // Mock user to have fixed schedule
       mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
         id: "user-1",
@@ -240,35 +229,24 @@ describe("LeaveService", () => {
       mockLeaveRepo.create.mockResolvedValue({
         id: "leave-1",
         ...createData,
-        status: "APPROVED",
+        status: "PENDING",
         tenantId,
       });
 
-      const result = await service.createLeave(
-        createData,
-        "admin-1",
-        tenantId,
-        true,
-      );
+      const result = await service.createLeave(createData, "admin-1", tenantId);
 
       expect(result.success).toBe(true);
       expect(mockLeaveRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: "APPROVED",
+          status: "PENDING",
           tenantId,
         }),
       );
-      // 2 days (Mon, Tue)
-      expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith(
-        "user-1",
-        2024,
-        "CUTI",
-        2,
-        tenantId,
-      );
+      // Balance tidak dikurangi karena masih PENDING
+      expect(mockBalanceRepo.incrementUsed).not.toHaveBeenCalled();
     });
 
-    it("should fail if balance is insufficient for auto-approved leave", async () => {
+    it("should fail if balance is insufficient when creating leave", async () => {
       mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
         id: "user-1",
         workingHourMode: "FIXED",
@@ -278,12 +256,7 @@ describe("LeaveService", () => {
 
       mockBalanceRepo.hasEnoughDays.mockResolvedValue(false);
 
-      const result = await service.createLeave(
-        createData,
-        "admin-1",
-        tenantId,
-        true,
-      );
+      const result = await service.createLeave(createData, "admin-1", tenantId);
 
       expect(result.success).toBe(false);
       expect(result.code).toBe("INSUFFICIENT_BALANCE");
@@ -484,7 +457,7 @@ describe("LeaveService", () => {
         tenantId,
       });
 
-      mockLeaveRepo.create.mockResolvedValue({ status: "APPROVED", tenantId });
+      mockLeaveRepo.create.mockResolvedValue({ status: "PENDING", tenantId });
 
       await service.createLeave(
         {
@@ -496,16 +469,10 @@ describe("LeaveService", () => {
         },
         "admin-1",
         tenantId,
-        true,
       );
 
-      expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith(
-        "user-1",
-        2024,
-        "CUTI",
-        4,
-        tenantId,
-      );
+      // Balance tidak dikurangi karena status PENDING
+      expect(mockBalanceRepo.incrementUsed).not.toHaveBeenCalled();
     });
   });
 });
