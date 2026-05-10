@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -10,20 +10,27 @@ import {
   MdPending,
   MdAdd,
   MdDelete,
+  MdViewList,
+  MdCalendarToday,
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { LeaveCalendarView } from "./LeaveCalendarView";
+import { transformLeaveToCalendarEvent } from "./utils";
+import type { LeaveCalendarEvent } from "./types";
+import type { LeaveType, LeaveStatus } from "@prisma/client";
 
 interface LeaveRequest {
   id: string;
-  type: string;
+  userId: string;
+  type: LeaveType;
   startDate: string;
   endDate: string;
   reason: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: LeaveStatus;
   attachmentUrl?: string;
   attachments?: string[];
   rejectionReason?: string;
@@ -54,6 +61,7 @@ export function IzinClient() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("PENDING");
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
 
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(
@@ -84,6 +92,10 @@ export function IzinClient() {
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const calendarEvents = useMemo<LeaveCalendarEvent[]>(() => {
+    return leaves.map((leave) => transformLeaveToCalendarEvent(leave));
+  }, [leaves]);
 
   const fetchLeaves = useCallback(async () => {
     setLoading(true);
@@ -432,36 +444,67 @@ export function IzinClient() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex gap-2 overflow-x-auto">
-        {["PENDING", "APPROVED", "REJECTED", "ALL"].map((status) => (
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-col md:flex-row gap-4">
+        <div className="flex gap-2 overflow-x-auto">
+          {["PENDING", "APPROVED", "REJECTED", "ALL"].map((status) => (
+            <Button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              variant={filterStatus === status ? "default" : "secondary"}
+              className="rounded-lg whitespace-nowrap"
+            >
+              {status === "ALL"
+                ? "Semua"
+                : status === "PENDING"
+                  ? "Menunggu Konfirmasi"
+                  : status === "APPROVED"
+                    ? "Disetujui"
+                    : "Ditolak"}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 md:ml-auto">
           <Button
-            key={status}
-            onClick={() => setFilterStatus(status)}
-            variant={filterStatus === status ? "default" : "secondary"}
+            onClick={() => setViewMode("table")}
+            variant={viewMode === "table" ? "default" : "secondary"}
             className="rounded-lg whitespace-nowrap"
           >
-            {status === "ALL"
-              ? "Semua"
-              : status === "PENDING"
-                ? "Menunggu Konfirmasi"
-                : status === "APPROVED"
-                  ? "Disetujui"
-                  : "Ditolak"}
+            <MdViewList className="size-5 mr-1" /> Tabel
           </Button>
-        ))}
+          <Button
+            onClick={() => setViewMode("calendar")}
+            variant={viewMode === "calendar" ? "default" : "secondary"}
+            className="rounded-lg whitespace-nowrap"
+          >
+            <MdCalendarToday className="size-5 mr-1" /> Kalender
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <ResponsiveTable
-          data={leaves}
-          columns={columns}
-          keyField="id"
-          loading={loading}
-          emptyMessage="Tidak ada pengajuan ditemukan."
-          loadingMessage="Memuat data..."
-          renderActions={renderActions}
+      {viewMode === "table" ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <ResponsiveTable
+            data={leaves}
+            columns={columns}
+            keyField="id"
+            loading={loading}
+            emptyMessage="Tidak ada pengajuan ditemukan."
+            loadingMessage="Memuat data..."
+            renderActions={renderActions}
+          />
+        </div>
+      ) : (
+        <LeaveCalendarView
+          events={calendarEvents}
+          onSelectEvent={(event) => {
+            const leave = leaves.find((l) => l.id === event.id);
+            if (leave) {
+              openActionModal(leave);
+            }
+          }}
         />
-      </div>
+      )}
       {/* Action Modal (Detail & Approval) */}
       <Modal
         isOpen={isActionModalOpen}
