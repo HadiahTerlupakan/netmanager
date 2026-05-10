@@ -14,6 +14,8 @@ import { usePermission } from "@/hooks/use-permission";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 interface AppVersion {
   id: string;
@@ -57,6 +59,9 @@ export function AppVersionClient() {
   const canUpdate = hasPermission("app_version:update");
   const canDelete = hasPermission("app_version:delete");
 
+  // Toast
+  const { showToast } = useToast();
+
   // State
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +78,10 @@ export function AppVersionClient() {
   const [selectedVersion, setSelectedVersion] = useState<AppVersion | null>(
     null,
   );
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    version: string;
+  } | null>(null);
   const [stats, setStats] = useState<{
     updatedCount: number;
     outdatedCount: number;
@@ -253,27 +262,32 @@ export function AppVersionClient() {
   };
 
   // Handle delete
-  const handleDelete = async (id: string) => {
-    if (
-      !confirm(
-        "Apakah Anda yakin ingin menghapus versi ini secara permanen? File APK yang terkait juga akan dihapus.",
-      )
-    )
-      return;
+  const handleDelete = (item: AppVersion) => {
+    setDeleteConfirm({
+      id: item.id,
+      version: item.version,
+    });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteConfirm) return;
 
     try {
-      const res = await fetch(`/api/admin/app-version/${id}`, {
+      const res = await fetch(`/api/admin/app-version/${deleteConfirm.id}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
+        showToast("success", "Versi berhasil dihapus");
         refreshData();
       } else {
-        alert(data.error || "Gagal menghapus versi");
+        showToast("error", data.error || "Gagal menghapus versi");
       }
     } catch (error: unknown) {
       clientLogger.error("Error deleting version:", error);
-      alert("Terjadi kesalahan");
+      showToast("error", "Terjadi kesalahan saat menghapus versi");
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -294,7 +308,7 @@ export function AppVersionClient() {
       {canDelete && item.isActive && (
         <Button
           type="button"
-          onClick={() => handleDelete(item.id)}
+          onClick={() => handleDelete(item)}
           variant="ghost"
           size="icon-sm"
           title="Hapus permanen"
@@ -474,6 +488,16 @@ export function AppVersionClient() {
           }}
         />
       )}
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Hapus Versi Aplikasi"
+        description={`Apakah Anda yakin ingin menghapus versi ${deleteConfirm?.version}? File APK yang terkait juga akan dihapus secara permanen.`}
+        confirmText="Hapus"
+        cancelText="Batal"
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }
@@ -486,6 +510,7 @@ function UploadVersionModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
@@ -501,13 +526,20 @@ function UploadVersionModal({
   const [apkFile, setApkFile] = useState<File | null>(null);
   const [isForceLocal, setIsForceLocal] = useState(false);
 
+  // Reset upload state when modal opens
+  useEffect(() => {
+    setUploadProgress(0);
+    setStatus("");
+    setLoading(false);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validasi ukuran file APK (max 100MB)
     const MAX_APK_SIZE = 100 * 1024 * 1024; // 100MB
     if (apkFile && apkFile.size > MAX_APK_SIZE) {
-      alert("Ukuran APK maksimal 100MB");
+      showToast("error", "Ukuran APK maksimal 100MB");
       return;
     }
 
@@ -516,7 +548,8 @@ function UploadVersionModal({
       !apkFile &&
       (!formData.version || !formData.buildNumber || !formData.versionCode)
     ) {
-      alert(
+      showToast(
+        "error",
         "Upload APK untuk auto-detect versi, atau isi manual field Versi, Build, dan Code",
       );
       return;
@@ -621,14 +654,15 @@ function UploadVersionModal({
 
       const data = await res.json();
       if (data.success) {
+        showToast("success", "Versi aplikasi berhasil diupload");
         onSuccess();
       } else {
-        alert(data.error || "Gagal menyimpan versi");
+        showToast("error", data.error || "Gagal menyimpan versi");
       }
     } catch (error: unknown) {
       clientLogger.error("Error uploading version:", error);
       const msg = error instanceof Error ? error.message : "Terjadi kesalahan";
-      alert(msg);
+      showToast("error", msg);
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -922,6 +956,7 @@ function EditVersionModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     releaseNotes: version.releaseNotes || "",
@@ -943,13 +978,14 @@ function EditVersionModal({
 
       const data = await res.json();
       if (data.success) {
+        showToast("success", "Versi berhasil diperbarui");
         onSuccess();
       } else {
-        alert(data.error || "Gagal update versi");
+        showToast("error", data.error || "Gagal update versi");
       }
     } catch (error: unknown) {
       clientLogger.error("Error updating version:", error);
-      alert("Terjadi kesalahan");
+      showToast("error", "Terjadi kesalahan saat update versi");
     } finally {
       setLoading(false);
     }
