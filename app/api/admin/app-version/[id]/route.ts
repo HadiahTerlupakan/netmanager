@@ -47,7 +47,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   if (!parseResult.success) {
     return apiError("Data input tidak valid", ErrorCodes.VALIDATION_ERROR, {
       status: 400,
-      details: parseResult.error.issues,
+      details: { issues: parseResult.error.issues },
     });
   }
 

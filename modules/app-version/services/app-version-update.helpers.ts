@@ -36,7 +36,11 @@ export function buildEmptyVersionStats(): AppVersionStatsResult {
 /** Gabungkan rollout stats dengan metadata versi terbaru. */
 export function buildVersionStatsResult(
   latestVersion: AppVersion,
-  rolloutStats: AppVersionStatsResult,
+  rolloutStats: {
+    updatedCount: number;
+    outdatedCount: number;
+    unknownCount: number;
+  },
 ): AppVersionStatsResult {
   return {
     ...rolloutStats,

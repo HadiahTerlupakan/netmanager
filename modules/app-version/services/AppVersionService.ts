@@ -102,10 +102,7 @@ export class AppVersionService {
     const rolloutStats = await this.repository.getRolloutStatsByVersionCode(
       latestVersion.versionCode,
     );
-    return buildVersionStatsResult(latestVersion, {
-      ...rolloutStats,
-      latestVersion: null,
-    });
+    return buildVersionStatsResult(latestVersion, rolloutStats);
   }
 
   /** Simpan laporan versi aplikasi mobile dari aktor yang login. */

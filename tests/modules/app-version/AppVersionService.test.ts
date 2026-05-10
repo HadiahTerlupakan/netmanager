@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppVersionService } from "@/modules/app-version/services/AppVersionService";
 import type { IAppVersionRepository } from "@/modules/app-version/domain/ports/IAppVersionRepository";
-import type { AppVersionWithUser } from "@/modules/app-version/repositories/AppVersionRepository";
+import type { AppVersionWithUser } from "@/modules/app-version/domain/entities/AppVersionEntity";
 
 const {
   mockUnlink,

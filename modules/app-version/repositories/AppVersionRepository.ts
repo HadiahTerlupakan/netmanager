@@ -10,14 +10,6 @@ import type {
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
 
-export type {
-  AppVersion,
-  AppVersionRolloutStats,
-  AppVersionWithUser,
-  CreateAppVersionDTO,
-  UpdateAppVersionDTO,
-} from "../domain/entities/AppVersionEntity";
-
 export class AppVersionRepository implements IAppVersionRepository {
   /**
    * Find all app versions with pagination
