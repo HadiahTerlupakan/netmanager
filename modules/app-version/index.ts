@@ -8,3 +8,7 @@ export type {
 export { AppVersionService } from "./services/AppVersionService";
 export { getAppVersionService } from "./services/getAppVersionService";
 export { parseAppVersionUploadForm } from "./services/parseUploadVersionForm";
+
+// Validators
+export { updateAppVersionSchema } from "./validators";
+export type { UpdateAppVersionInput } from "./validators";

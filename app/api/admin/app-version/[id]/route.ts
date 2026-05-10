@@ -1,6 +1,15 @@
 import { hasPermission } from "@/lib/rbac";
-import { getAppVersionService } from "@/modules/app-version";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  getAppVersionService,
+  updateAppVersionSchema,
+} from "@/modules/app-version";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
 
 // GET /api/admin/app-version/[id] - Get version detail
@@ -33,13 +42,17 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const body = await req.json();
 
+  // Validate input with Zod
+  const parseResult = updateAppVersionSchema.safeParse(body);
+  if (!parseResult.success) {
+    return apiError("Data input tidak valid", ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+      details: parseResult.error.issues,
+    });
+  }
+
   const service = await getAppVersionService();
-  const version = await service.updateVersion(id, {
-    releaseNotes: body.releaseNotes,
-    isForceUpdate: body.isForceUpdate,
-    isActive: body.isActive,
-    minVersion: body.minVersion,
-  });
+  const version = await service.updateVersion(id, parseResult.data);
 
   // System Log
   logActivitySafe({
