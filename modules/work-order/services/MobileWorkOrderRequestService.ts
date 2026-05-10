@@ -48,6 +48,7 @@ export class MobileWorkOrderRequestService {
       body.departmentId,
       userId,
       tenantId,
+      body.type,
     );
 
     const workOrder = await this.workOrderRepo.createRequest({
@@ -80,9 +81,21 @@ export class MobileWorkOrderRequestService {
     departmentId: string | undefined,
     userId: string,
     tenantId: string,
+    workOrderType?: CreateWorkOrderData["type"],
   ): Promise<string | undefined> {
     if (departmentId) {
       return departmentId;
+    }
+
+    // Auto-route specific work order types to appropriate departments
+    if (workOrderType) {
+      const deptId = await this.getDepartmentByWorkOrderType(
+        workOrderType,
+        tenantId,
+      );
+      if (deptId) {
+        return deptId;
+      }
     }
 
     const dbUser = await this.prisma.user.findFirst({
@@ -100,6 +113,54 @@ export class MobileWorkOrderRequestService {
     });
 
     return firstDept?.id;
+  }
+
+  /**
+   * Map work order type to appropriate department
+   */
+  private async getDepartmentByWorkOrderType(
+    type: CreateWorkOrderData["type"],
+    tenantId: string,
+  ): Promise<string | undefined> {
+    // DISCONNECTION (dismantle) should go to Technical department
+    if (type === "DISCONNECTION") {
+      const technicalDept = await this.prisma.departments.findFirst({
+        where: {
+          name: "Technical",
+          tenantId,
+        },
+        select: { id: true },
+      });
+      return technicalDept?.id;
+    }
+
+    // INSTALLATION should also go to Technical department
+    if (type === "INSTALLATION") {
+      const technicalDept = await this.prisma.departments.findFirst({
+        where: {
+          name: "Technical",
+          tenantId,
+        },
+        select: { id: true },
+      });
+      return technicalDept?.id;
+    }
+
+    // TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION also go to Technical
+    if (
+      ["TROUBLESHOOT", "MAINTENANCE", "UPGRADE", "RELOCATION"].includes(type)
+    ) {
+      const technicalDept = await this.prisma.departments.findFirst({
+        where: {
+          name: "Technical",
+          tenantId,
+        },
+        select: { id: true },
+      });
+      return technicalDept?.id;
+    }
+
+    return undefined;
   }
 
   private async broadcastNewWorkOrder(

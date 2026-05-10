@@ -17,7 +17,15 @@ const mockFns = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/database", () => ({
-  prisma: {},
+  prisma: {
+    user: {
+      findFirst: (...args: unknown[]) => mockFns.userFindFirst(...args),
+      findMany: (...args: unknown[]) => mockFns.userFindMany(...args),
+    },
+    departments: {
+      findFirst: (...args: unknown[]) => mockFns.departmentsFindFirst(...args),
+    },
+  },
 }));
 
 vi.mock("@/modules/work-order/repositories/WorkOrderRepository", () => ({
@@ -205,11 +213,11 @@ describe("MobileWorkOrderRequestService", () => {
       },
     );
 
-    await flushPromises();
+    await flushPromises(20);
 
     const resolutionProbe = vi.fn();
     pendingRequest.then(resolutionProbe);
-    await flushPromises();
+    await flushPromises(20);
 
     expect(resolutionProbe).toHaveBeenCalledWith(
       expect.objectContaining({ id: "wo-1" }),
