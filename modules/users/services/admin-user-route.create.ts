@@ -22,16 +22,23 @@ export class AdminUserRouteCreateService {
   async createUser(session: AdminSession, payload: CreateAdminUserInput) {
     const scopedPayload = this.applyCreateSiteRestriction(session, payload);
     const context = await this.buildCreationContext(session, scopedPayload);
-    const user = await this.createUserEntity(scopedPayload, context);
 
     const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
     const allowedSiteIds = isRestricted ? siteIds : undefined;
 
-    await this.syncNewUserSites(
-      user.id,
+    // Validate dan prepare userSites
+    const validUserSites = this.validateAndPrepareUserSites(
       scopedPayload.userSites,
       allowedSiteIds,
     );
+
+    // Create user dengan sites dalam satu transaksi
+    const user = await this.createUserEntityWithSites(
+      scopedPayload,
+      context,
+      validUserSites,
+    );
+
     await this.initializeLeaveQuotas(
       user.id,
       scopedPayload.leaveQuotas,
@@ -41,19 +48,18 @@ export class AdminUserRouteCreateService {
     return user;
   }
 
-  /** Sinkronkan assignment site untuk user baru. */
-  async syncNewUserSites(
-    userId: string,
+  /** Validasi dan prepare userSites sebelum create. */
+  private validateAndPrepareUserSites(
     userSites?: NewUserSiteAssignment[],
     allowedSiteIds?: string[],
-  ) {
+  ): Array<{ siteId: string; isPrimary?: boolean }> {
     const validUserSites = (userSites ?? []).filter(
       (userSite): userSite is { siteId: string; isPrimary?: boolean } =>
         Boolean(userSite.siteId),
     );
 
     if (validUserSites.length === 0) {
-      return;
+      return [];
     }
 
     // Validate each siteId against allowed scope
@@ -68,7 +74,7 @@ export class AdminUserRouteCreateService {
       }
     }
 
-    await this.userRepository.syncUserSites(userId, validUserSites);
+    return validUserSites;
   }
 
   private applyCreateSiteRestriction(
@@ -123,22 +129,31 @@ export class AdminUserRouteCreateService {
     return (await getTenantAdminRoleId(prismaAuth, tenantId)) || undefined;
   }
 
-  private createUserEntity(
+  private async createUserEntityWithSites(
     payload: CreateAdminUserInput,
     context: {
       targetTenantId?: string;
       effectiveRoleId?: string;
       flexibleTargetHour: number;
     },
+    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
   ) {
     const userService = new UserService(this.userRepository);
 
-    return userService.createUser({
+    const userData = {
       ...payload,
       roleId: context.effectiveRoleId || payload.roleId,
       tenantId: context.targetTenantId || payload.tenantId || null,
       flexibleTargetHour: context.flexibleTargetHour,
-    });
+    };
+
+    // Jika ada userSites, gunakan createWithSites untuk transaksi atomik
+    if (userSites.length > 0) {
+      return userService.createUserWithSites(userData, userSites);
+    }
+
+    // Jika tidak ada userSites, gunakan create biasa
+    return userService.createUser(userData);
   }
 
   private async initializeLeaveQuotas(

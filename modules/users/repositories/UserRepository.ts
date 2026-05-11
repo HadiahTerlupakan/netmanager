@@ -85,9 +85,10 @@ export class UserRepository implements IUserRepository {
 
   /** Buat user baru. */
   async create(data: CreateUserRepositoryInput): Promise<UserEntity> {
+    const userId = randomUUID();
     const user = await prisma.user.create({
       data: {
-        id: randomUUID(),
+        id: userId,
         updatedAt: new Date(),
         ...UserMapper.toRepositoryCreateInput(data),
         workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
@@ -101,8 +102,63 @@ export class UserRepository implements IUserRepository {
         overtimeCalcTypeHoliday:
           data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
         overtimeCalcTypeNational:
-          data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNational"],
+          data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
       },
+    });
+
+    return UserMapper.toDomain(user);
+  }
+
+  /** Buat user baru dengan sites dalam satu transaksi. */
+  async createWithSites(
+    data: CreateUserRepositoryInput,
+    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+  ): Promise<UserEntity> {
+    const userId = randomUUID();
+
+    const user = await prisma.$transaction(async (tx) => {
+      // 1. Create user
+      const newUser = await tx.user.create({
+        data: {
+          id: userId,
+          updatedAt: new Date(),
+          ...UserMapper.toRepositoryCreateInput(data),
+          workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
+          attendanceGeofencePolicy: data.attendanceGeofencePolicy as
+            | AttendanceGeofencePolicy
+            | undefined,
+          targetSchema:
+            data.targetSchema as Prisma.UserCreateInput["targetSchema"],
+          overtimeCalcTypeNormal:
+            data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+          overtimeCalcTypeHoliday:
+            data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
+          overtimeCalcTypeNational:
+            data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNational"],
+        },
+      });
+
+      // 2. Create userSites if provided
+      if (userSites.length > 0) {
+        await tx.userSite.createMany({
+          data: userSites.map((userSite) => ({
+            userId,
+            siteId: userSite.siteId,
+            isPrimary: userSite.isPrimary || false,
+          })),
+        });
+
+        // 3. Update user.siteId with primary site
+        const primarySite = userSites.find((us) => us.isPrimary);
+        if (primarySite) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { siteId: primarySite.siteId },
+          });
+        }
+      }
+
+      return newUser;
     });
 
     return UserMapper.toDomain(user);

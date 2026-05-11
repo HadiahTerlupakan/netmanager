@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/Button";
 import {
   DEFAULT_PUBLIC_APP_LOGO_URL,
   DEFAULT_PUBLIC_APP_NAME,
-  usePublicBranding,
 } from "@/hooks/usePublicBranding";
 
 type LandingPageProps = {
@@ -31,12 +30,8 @@ export default function LandingPage({
   brandingName,
   brandingLogoUrl,
 }: LandingPageProps) {
-  const { branding, loading: isBrandingLoading } = usePublicBranding();
-  const appName =
-    branding?.namaAplikasi || brandingName || DEFAULT_PUBLIC_APP_NAME;
-  const landingLogoUrl = brandingLogoUrl || null;
-  const shouldShowLogoSkeleton = isBrandingLoading && !landingLogoUrl;
-  const displayLogoUrl = landingLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
+  const appName = brandingName || DEFAULT_PUBLIC_APP_NAME;
+  const displayLogoUrl = brandingLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
 
   return (
     <div className="bg-slate-50 dark:bg-[#101922] text-slate-900 dark:text-white font-sans antialiased overflow-x-hidden min-h-screen">
@@ -57,21 +52,14 @@ export default function LandingPage({
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <div className="h-12 w-[152px]">
-                  {shouldShowLogoSkeleton ? (
-                    <div
-                      data-testid="landing-page-logo-skeleton"
-                      className="h-full w-full animate-pulse rounded-2xl bg-slate-200/80"
-                    />
-                  ) : (
-                    <Image
-                      src={displayLogoUrl}
-                      alt={appName}
-                      width={152}
-                      height={48}
-                      className="h-12 w-auto object-contain"
-                      priority
-                    />
-                  )}
+                  <Image
+                    src={displayLogoUrl}
+                    alt={appName}
+                    width={152}
+                    height={48}
+                    className="h-12 w-auto object-contain"
+                    priority
+                  />
                 </div>
               </div>
               <Link

@@ -79,6 +79,21 @@ export class UserService {
     return user;
   }
 
+  /** Create a user with sites in a single transaction. */
+  async createUserWithSites(
+    data: CreateUserInput,
+    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+  ): Promise<UserEntity> {
+    await this.ensureEmailAvailable(data.email);
+    const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
+    const user = await this.userRepository.createWithSites(
+      buildCreateUserInput(data, passwordHash),
+      userSites,
+    );
+    await invalidatePermissionCache(user.id);
+    return user;
+  }
+
   /** Update a user and return domain entity. */
   async updateUser(id: string, data: UpdateUserInput): Promise<UserEntity> {
     const existingUser = await this.getRequiredUser(id);

@@ -77,6 +77,11 @@ export interface IUserRepository {
   ): Promise<UploadPermissionContext | null>;
   /** Create a user and return its domain entity. */
   create(data: CreateUserRepositoryInput): Promise<UserEntity>;
+  /** Create a user with sites in a single transaction. */
+  createWithSites(
+    data: CreateUserRepositoryInput,
+    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+  ): Promise<UserEntity>;
   /** Update a user and return its domain entity. */
   update(id: string, data: UpdateUserRepositoryInput): Promise<UserEntity>;
   /** Delete a user and return its domain entity. */
