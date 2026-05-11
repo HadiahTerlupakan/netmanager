@@ -173,7 +173,7 @@ function buildUserFindAllWhere(params: FindUsersParams): Prisma.UserWhereInput {
       { phone: { contains: params.search, mode: "insensitive" } },
       {
         departments: {
-          name: { contains: params.search, mode: "insensitive" },
+          is: { name: { contains: params.search, mode: "insensitive" } },
         },
       },
     ];

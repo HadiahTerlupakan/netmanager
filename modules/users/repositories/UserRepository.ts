@@ -117,30 +117,8 @@ export class UserRepository implements IUserRepository {
     const userId = randomUUID();
 
     const user = await prisma.$transaction(async (tx) => {
-      // 1. Create user
-      const newUser = await tx.user.create({
-        data: {
-          id: userId,
-          updatedAt: new Date(),
-          ...UserMapper.toRepositoryCreateInput(data),
-          workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
-          attendanceGeofencePolicy: data.attendanceGeofencePolicy as
-            | AttendanceGeofencePolicy
-            | undefined,
-          targetSchema:
-            data.targetSchema as Prisma.UserCreateInput["targetSchema"],
-          overtimeCalcTypeNormal:
-            data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
-          overtimeCalcTypeHoliday:
-            data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
-          overtimeCalcTypeNational:
-            data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNational"],
-        },
-      });
-
-      // 2. Create userSites if provided
+      // 1. Validate that all siteIds exist before creating user
       if (userSites.length > 0) {
-        // 2a. Validate that all siteIds exist before creating userSites
         const siteIds = userSites.map((us) => us.siteId);
         const existingSites = await tx.sites.findMany({
           where: { id: { in: siteIds } },
@@ -153,8 +131,36 @@ export class UserRepository implements IUserRepository {
         if (missingSiteIds.length > 0) {
           throw new Error(`Site tidak ditemukan: ${missingSiteIds.join(", ")}`);
         }
+      }
 
-        // 2b. Create userSites
+      // 2. Determine primary siteId for user creation
+      const primarySite = userSites.find((us) => us.isPrimary);
+      const primarySiteId = primarySite?.siteId;
+
+      // 3. Create user with primary siteId
+      const newUser = await tx.user.create({
+        data: {
+          id: userId,
+          updatedAt: new Date(),
+          ...UserMapper.toRepositoryCreateInput(data),
+          siteId: primarySiteId,
+          workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
+          attendanceGeofencePolicy: data.attendanceGeofencePolicy as
+            | AttendanceGeofencePolicy
+            | undefined,
+          targetSchema:
+            data.targetSchema as Prisma.UserCreateInput["targetSchema"],
+          overtimeCalcTypeNormal:
+            data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+          overtimeCalcTypeHoliday:
+            data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
+          overtimeCalcTypeNational:
+            data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+        },
+      });
+
+      // 4. Create userSites if provided
+      if (userSites.length > 0) {
         await tx.userSite.createMany({
           data: userSites.map((userSite) => ({
             userId,
@@ -162,15 +168,6 @@ export class UserRepository implements IUserRepository {
             isPrimary: userSite.isPrimary || false,
           })),
         });
-
-        // 3. Update user.siteId with primary site
-        const primarySite = userSites.find((us) => us.isPrimary);
-        if (primarySite) {
-          await tx.user.update({
-            where: { id: userId },
-            data: { siteId: primarySite.siteId },
-          });
-        }
       }
 
       return newUser;
