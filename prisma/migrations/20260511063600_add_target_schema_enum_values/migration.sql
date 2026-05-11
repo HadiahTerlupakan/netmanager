@@ -1,0 +1,4 @@
+-- AlterEnum
+ALTER TYPE "TargetSchema" ADD VALUE 'REVENUE';
+ALTER TYPE "TargetSchema" ADD VALUE 'QUANTITY';
+ALTER TYPE "TargetSchema" ADD VALUE 'POINTS';

@@ -4,7 +4,7 @@ import {
   UserService,
   type CreateUserInput,
 } from "@/modules/users/services/UserService";
-import { WorkingHourMode, type User } from "@prisma/client";
+import { WorkingHourMode, TargetSchema, type User } from "@prisma/client";
 
 vi.mock("bcryptjs", () => ({
   hash: vi.fn().mockResolvedValue("hashed_password"),
@@ -199,6 +199,115 @@ describe("UserService", () => {
       const result = await service.deleteUser("user-1");
 
       expect(result.id).toBe("user-1");
+    });
+  });
+
+  describe("createUser with targetSchema", () => {
+    it("should accept REVENUE as valid targetSchema", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-revenue",
+        email: "revenue@example.com",
+        targetSchema: TargetSchema.REVENUE,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "revenue@example.com",
+        name: "Revenue User",
+        password: "password123",
+        targetSchema: TargetSchema.REVENUE,
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.REVENUE);
+    });
+
+    it("should accept QUANTITY as valid targetSchema", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-quantity",
+        email: "quantity@example.com",
+        targetSchema: TargetSchema.QUANTITY,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "quantity@example.com",
+        name: "Quantity User",
+        password: "password123",
+        targetSchema: TargetSchema.QUANTITY,
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.QUANTITY);
+    });
+
+    it("should accept POINTS as valid targetSchema", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-points",
+        email: "points@example.com",
+        targetSchema: TargetSchema.POINTS,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "points@example.com",
+        name: "Points User",
+        password: "password123",
+        targetSchema: TargetSchema.POINTS,
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.POINTS);
+    });
+
+    it("should accept MONTHLY_RESET as valid targetSchema", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-monthly",
+        email: "monthly@example.com",
+        targetSchema: TargetSchema.MONTHLY_RESET,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "monthly@example.com",
+        name: "Monthly User",
+        password: "password123",
+        targetSchema: TargetSchema.MONTHLY_RESET,
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.MONTHLY_RESET);
+    });
+
+    it("should accept ACCUMULATED as valid targetSchema", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-accumulated",
+        email: "accumulated@example.com",
+        targetSchema: TargetSchema.ACCUMULATED,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "accumulated@example.com",
+        name: "Accumulated User",
+        password: "password123",
+        targetSchema: TargetSchema.ACCUMULATED,
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.ACCUMULATED);
+    });
+
+    it("should default to MONTHLY_RESET when targetSchema not provided", async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: "user-default",
+        email: "default@example.com",
+        targetSchema: TargetSchema.MONTHLY_RESET,
+      } as unknown as User);
+
+      const result = await service.createUser({
+        email: "default@example.com",
+        name: "Default User",
+        password: "password123",
+      });
+
+      expect(result.targetSchema).toBe(TargetSchema.MONTHLY_RESET);
     });
   });
 

@@ -3736,6 +3736,9 @@ enum PaymentStatus {
 }
 
 enum TargetSchema {
+  REVENUE
+  QUANTITY
+  POINTS
   MONTHLY_RESET
   ACCUMULATED
 }
