@@ -4,12 +4,56 @@ import type {
   CanvasingEntity,
 } from "../domain/entities/CanvasingEntity";
 import type { ICanvasingRepository } from "../domain/ports/ICanvasingRepository";
+import { prisma } from "@/modules/database";
 
 export const NORMAL_PRIORITY = "NORMAL" as const;
 export const INSTALLATION_TYPE = "INSTALLATION" as const;
 export const PENDING_STATUS = "PENDING" as const;
 export const APPROVED_STATUS = "APPROVED" as const;
 export const REJECTED_STATUS = "REJECTED" as const;
+
+/**
+ * Get Technical department ID based on site's tenantId.
+ * INSTALLATION work orders should be routed to Technical department.
+ */
+async function getTechnicalDepartmentId(
+  siteId: string | undefined,
+): Promise<string | undefined> {
+  if (!siteId) {
+    // Fallback: get first Technical department without tenant filter
+    const technicalDept = await prisma.departments.findFirst({
+      where: { name: "Technical" },
+      select: { id: true },
+    });
+    return technicalDept?.id;
+  }
+
+  // Get tenantId from site
+  const site = await prisma.sites.findUnique({
+    where: { id: siteId },
+    select: { tenantId: true },
+  });
+
+  if (!site?.tenantId) {
+    // Fallback: get first Technical department without tenant filter
+    const technicalDept = await prisma.departments.findFirst({
+      where: { name: "Technical" },
+      select: { id: true },
+    });
+    return technicalDept?.id;
+  }
+
+  // Get Technical department for this tenant
+  const technicalDept = await prisma.departments.findFirst({
+    where: {
+      name: "Technical",
+      tenantId: site.tenantId,
+    },
+    select: { id: true },
+  });
+
+  return technicalDept?.id;
+}
 
 export function buildCompletionSummaryRange(now: Date): Pick<
   CanvasingCompletionSummaryEntity,
@@ -67,12 +111,13 @@ export function ensurePendingCanvasingStatus(
   throw new Error(`Hanya request PENDING yang bisa ${action}`);
 }
 
-export function buildWorkOrderCreateInput(
+export async function buildWorkOrderCreateInput(
   request: CanvasingEntity,
   approverId: string,
   workOrderNumber: string,
 ) {
   const siteId = request.user?.siteId ?? request.mitra?.siteId ?? undefined;
+  const departmentId = await getTechnicalDepartmentId(siteId);
 
   return {
     workOrderNumber,
@@ -81,6 +126,7 @@ export function buildWorkOrderCreateInput(
     priority: NORMAL_PRIORITY,
     type: INSTALLATION_TYPE,
     ...(siteId ? { siteId } : {}),
+    ...(departmentId ? { departmentId } : {}),
     contactName: request.nama,
     contactPhone: request.noTelpon,
     locationAddress: request.alamat,

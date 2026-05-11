@@ -114,9 +114,12 @@ export class CanvasingService {
       id,
     );
     const workOrderNumber = await this.woRepository.generateWorkOrderNumber();
-    const workOrder = await this.woRepository.create(
-      buildWorkOrderCreateInput(request, approverId, workOrderNumber),
+    const workOrderInput = await buildWorkOrderCreateInput(
+      request,
+      approverId,
+      workOrderNumber,
     );
+    const workOrder = await this.woRepository.create(workOrderInput);
 
     await Promise.all(
       buildInstallationTasks(request).map((task) =>

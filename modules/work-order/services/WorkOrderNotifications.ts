@@ -166,7 +166,9 @@ async function notifyCanvasingSalesOnWOStatusChange(
         sourceType: "CANVASING",
         sourceId: canvasing.id,
       });
-      // logger.info(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
+      logger.info(
+        `[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`,
+      );
     } else if (["COMPLETED", "VERIFIED", "CLOSED"].includes(newStatus)) {
       await createNotification({
         type: "ANNOUNCEMENT",
@@ -178,7 +180,24 @@ async function notifyCanvasingSalesOnWOStatusChange(
         sourceType: "CANVASING",
         sourceId: canvasing.id,
       });
-      // logger.info(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
+
+      // Send explicit push notification to ensure mobile receives it
+      await sendPushToUsers(
+        [canvasing.salesId],
+        "✅ Instalasi Selesai",
+        `Instalasi untuk ${canvasing.nama} selesai. Anda bisa claim poin sekarang!`,
+        {
+          canvasingId: canvasing.id,
+          type: "CANVASING_COMPLETED",
+          screen: "CanvasingDetail",
+        },
+      ).catch((error) =>
+        logger.error("[Push] Error sending canvasing completion push:", error),
+      );
+
+      logger.info(
+        `[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`,
+      );
     }
   } catch (error) {
     logger.error("[Notification] Error notifying canvasing sales:", error);
