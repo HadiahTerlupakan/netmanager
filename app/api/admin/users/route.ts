@@ -4,6 +4,8 @@ import { createUserSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 import type { Session } from "next-auth";
 
+export const dynamic = "force-dynamic";
+
 /**
  * @swagger
  * /api/admin/users:
