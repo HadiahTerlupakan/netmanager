@@ -4,6 +4,21 @@ import { handleCors, addCorsHeaders } from "./lib/middleware/cors";
 import { getToken } from "next-auth/jwt";
 import { isSuperAdmin } from "./lib/auth";
 
+const FIREBASE_RTDB_HOST_PATTERN =
+  "https://*.asia-southeast1.firebasedatabase.app";
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com ${FIREBASE_RTDB_HOST_PATTERN}`,
+  `script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com ${FIREBASE_RTDB_HOST_PATTERN}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https: blob:",
+  "media-src 'self' blob: data:",
+  `connect-src 'self' https: http: ws: wss: capacitor: ${FIREBASE_RTDB_HOST_PATTERN}`,
+  `frame-src 'self' ${FIREBASE_RTDB_HOST_PATTERN}`,
+  "worker-src 'self' blob:",
+].join("; ");
+
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
@@ -27,10 +42,7 @@ export async function proxy(request: NextRequest) {
   responseHeaders.set("X-Frame-Options", "DENY");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
   responseHeaders.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  responseHeaders.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https: http: ws: wss: capacitor:; worker-src 'self' blob:;",
-  ); // Added http: and capacitor: for mobile dev
+  responseHeaders.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
 
   // ----------------------------------------------------------------------------
   // 3. SUBDOMAIN & REWRITE LOGIC
@@ -199,10 +211,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https: http: ws: wss: capacitor:; worker-src 'self' blob:;",
-  );
+  response.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
 
   return response;
 }

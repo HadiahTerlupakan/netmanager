@@ -139,6 +139,7 @@ export async function getNotificationsForUser(
     excludeTypes?: NotificationType[];
     siteId?: string;
     departmentId?: string;
+    includeTotal?: boolean;
   },
 ) {
   return getNotificationsForUserAccess({
@@ -167,12 +168,14 @@ export async function getUnreadCount(
   userId: string,
   excludeTypes?: NotificationType[],
   siteId?: string,
+  departmentId?: string,
 ): Promise<number> {
   return getUnreadCountAccess({
     repository: getNotificationRepository(),
     userId,
     excludeTypes,
     siteId,
+    departmentId,
   });
 }
 
@@ -237,7 +240,7 @@ export async function notifyHolidayCreated(
   );
   const link = buildHolidayNotificationLink();
 
-  const notifications = activeUsers.map((user) =>
+  const notifications = activeUsers.map((user: { id: string }) =>
     createNotification({
       type: "HOLIDAY_CREATED",
       priority: "NORMAL",

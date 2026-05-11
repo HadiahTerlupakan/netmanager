@@ -58,8 +58,8 @@ export async function authenticateMobileRequest(
 
   const payload =
     versionCodeOverride === undefined
-      ? await verifyMobileToken(token)
-      : await verifyMobileToken(token, versionCodeOverride);
+      ? await verifyMobileToken(token, undefined, details)
+      : await verifyMobileToken(token, versionCodeOverride, details);
   if (!payload) {
     return { response: unauthorizedResponse("Token tidak valid") };
   }

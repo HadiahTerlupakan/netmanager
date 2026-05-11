@@ -1,5 +1,4 @@
 import type { NextAuthOptions } from "next-auth";
-import _NextAuth from "next-auth";
 import _CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
@@ -14,32 +13,11 @@ import { cookies } from "./cookies";
 import { isSuperAdminRole } from "./helpers";
 import { jwtCallback, sessionCallback } from "./callbacks";
 
-const NextAuth =
-  ((_NextAuth as { default?: unknown }).default as typeof _NextAuth) ||
-  _NextAuth;
-
 const CredentialsProvider =
   ((_CredentialsProvider as { default?: unknown })
     .default as typeof _CredentialsProvider) || _CredentialsProvider;
 
-async function validateDatabaseConnection(): Promise<boolean> {
-  try {
-    logger.info("[AUTH] Validating database connection...");
-    logger.info("[AUTH] ENV check:", {
-      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-      COOKIE_DOMAIN: process.env.COOKIE_DOMAIN,
-    });
-    await prismaAuth.$queryRaw`SELECT 1`;
-    logger.info("[AUTH] Database connection: OK");
-    return true;
-  } catch (error) {
-    logger.error("[AUTH] Database connection failed:", error);
-    return false;
-  }
-}
-
-export const authConfig: NextAuthOptions = {
-  adapter: PrismaAdapter(prismaAuth as never) as NextAuthOptions["adapter"],
+const baseAuthConfig: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "",
   debug: process.env.NODE_ENV === "development",
   session: {
@@ -192,53 +170,30 @@ export const authConfig: NextAuthOptions = {
     jwt: jwtCallback,
     session: sessionCallback,
   },
-  events: {
-    async signIn({ user, account, isNewUser }) {
-      const { logger } = await import("@/lib/logger");
-
-      let roleName = "Unknown";
-      let portal = "Unknown";
-      try {
-        const dbUser = await prismaAuth.user.findUnique({
-          where: { id: user.id },
-          include: { role: true },
-        });
-        roleName = dbUser?.role?.name || "No Role";
-        portal = dbUser?.role?.accessAdminPanel
-          ? "Admin Portal"
-          : dbUser?.role?.accessEmployeePanel
-            ? "Employee Portal"
-            : "Unknown";
-
-        await prismaAuth.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
-      } catch (e) {
-        logger.error("[AUTH] Failed to fetch user role for logging:", e);
-      }
-
-      await logger.logAuth({
-        action: "LOGIN",
-        userId: user.id,
-        details: {
-          email: user.email,
-          name: user.name || "N/A",
-          role: roleName,
-          portal: portal,
-          provider: account?.provider || "credentials",
-          isNewUser: isNewUser || false,
-          loginTime: new Date().toISOString(),
-        },
-      });
-    },
-  },
 };
 
-export async function createAuthConfig(): Promise<NextAuthOptions> {
-  return authConfig;
+async function validateDatabaseConnection(): Promise<boolean> {
+  try {
+    logger.info("[AUTH] Validating database connection...");
+    logger.info("[AUTH] ENV check:", {
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+      COOKIE_DOMAIN: process.env.COOKIE_DOMAIN,
+    });
+    await prismaAuth.$queryRaw`SELECT 1`;
+    logger.info("[AUTH] Database connection: OK");
+    return true;
+  } catch (error) {
+    logger.error("[AUTH] Database connection failed:", error);
+    return false;
+  }
 }
 
+export const authConfig: NextAuthOptions = baseAuthConfig;
 export const authOptions = authConfig;
 
-export const handler = NextAuth(authConfig);
+export async function createAuthConfig(): Promise<NextAuthOptions> {
+  return {
+    ...baseAuthConfig,
+    adapter: PrismaAdapter(prismaAuth as never) as NextAuthOptions["adapter"],
+  };
+}

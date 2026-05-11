@@ -73,6 +73,8 @@ const withPWA = withPWAInit({
 });
 
 const isDev = process.env.NODE_ENV === "development";
+const firebaseRtdbHostPattern =
+  "https://*.asia-southeast1.firebasedatabase.app";
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -297,12 +299,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${firebaseRtdbHostPattern}`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              `script-src-elem 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${firebaseRtdbHostPattern}`,
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https: ws: wss: localhost:* 127.0.0.1:*",
+              `connect-src 'self' https: ws: wss: localhost:* 127.0.0.1:* ${firebaseRtdbHostPattern}`,
+              `frame-src 'self' ${firebaseRtdbHostPattern}`,
               "frame-ancestors 'self'",
               "base-uri 'self'",
               "form-action 'self'",

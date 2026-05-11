@@ -4,10 +4,10 @@ import {
   getReadableNotificationForUser,
   getUnreadCount,
   markAsRead,
-} from "@/modules/notification";
+} from "@/modules/notification/api";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { requireAuth } from "@/lib/auth-helpers";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getNotificationRouteScope } from "../route-helpers";
 
 // PATCH /api/notifications/[id] - Mark single notification as read
 export async function PATCH(
@@ -21,17 +21,13 @@ export async function PATCH(
     }
     const { id } = await params;
 
-    const permissions = await getUserPermissions(session.user.id);
-    const siteId =
-      !isSuperAdmin(session.user) && permissions.includes("site_only")
-        ? session.user.siteId || undefined
-        : undefined;
+    const { siteId, departmentId } = getNotificationRouteScope(session.user);
 
     const notification = await getReadableNotificationForUser(
       id,
       session.user.id,
       {
-        departmentId: session.user.departmentId || undefined,
+        departmentId,
         siteId,
       },
     );
@@ -48,6 +44,7 @@ export async function PATCH(
       session.user.id,
       undefined,
       siteId,
+      departmentId,
     );
     socketEmitter.updateNotificationCount(session.user.id, unreadCount);
 

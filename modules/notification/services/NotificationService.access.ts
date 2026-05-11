@@ -1,6 +1,5 @@
-import type { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { UserLookupService } from "@/modules/users";
+import { UserLookupService } from "@/modules/users/api";
 import {
   buildExcludedTypesSqlCondition,
   buildNotificationAccessWhere,
@@ -23,7 +22,10 @@ type NotificationAccessOptions = {
   excludeTypes?: NotificationType[];
   siteId?: string;
   departmentId?: string;
+  includeTotal?: boolean;
 };
+
+type NotificationWhere = ReturnType<typeof buildNotificationAccessWhere>;
 
 export async function getNotificationsForUserAccess(input: {
   repository: NotificationRepository;
@@ -60,11 +62,13 @@ export async function getUnreadCountAccess(input: {
   userId: string;
   excludeTypes?: NotificationType[];
   siteId?: string;
+  departmentId?: string;
 }): Promise<number> {
   const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
 
   return input.repository.getUnreadCountRaw(
     input.userId,
+    input.departmentId,
     buildExcludedTypesSqlCondition(input.excludeTypes),
     buildSiteSqlCondition(input.siteId),
     buildTenantSqlCondition(isSuperAdmin, tenantId),
@@ -94,7 +98,7 @@ async function buildScopedNotificationWhere(
     | NotificationAccessOptions
     | undefined,
   userLookupService: UserLookupService,
-): Promise<Prisma.NotificationsWhereInput> {
+): Promise<NotificationWhere> {
   const accessInput = buildNotificationAccessInput(userId, options);
   const scope = await resolveNotificationAccessScope(
     accessInput,
@@ -115,7 +119,7 @@ function buildNotificationAccessInput(
 }
 
 function applyNotificationListFilters(
-  where: Prisma.NotificationsWhereInput,
+  where: NotificationWhere,
   options?: NotificationAccessOptions,
 ) {
   if (options?.unreadOnly) {
@@ -131,13 +135,19 @@ function applyNotificationListFilters(
 
 async function findNotificationPage(
   repository: NotificationRepository,
-  where: Prisma.NotificationsWhereInput,
+  where: NotificationWhere,
   options?: NotificationAccessOptions,
 ) {
-  const [notifications, total] = await Promise.all([
-    repository.findManyForUser(where, resolveNotificationQueryOptions(options)),
-    repository.countWhere(where),
-  ]);
+  const notifications = await repository.findManyForUser(
+    where,
+    resolveNotificationQueryOptions(options),
+  );
+
+  if (options?.includeTotal === false) {
+    return { notifications, total: undefined };
+  }
+
+  const total = await repository.countWhere(where);
   return { notifications, total };
 }
 
@@ -146,7 +156,7 @@ async function buildUnreadNotificationWhere(
   siteId: string | undefined,
   userLookupService: UserLookupService,
   type?: NotificationType,
-): Promise<Prisma.NotificationsWhereInput> {
+): Promise<NotificationWhere> {
   const where = await buildScopedNotificationWhere(
     userId,
     { siteId },

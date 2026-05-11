@@ -1,17 +1,16 @@
 import { logger } from "@/lib/logger";
-import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
 import {
   getReadableNotificationForUser,
   markAsRead,
-} from "@/modules/notification";
+} from "@/modules/notification/api";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getNotificationRouteScope } from "../../route-helpers";
 
 // PATCH /api/notifications/[id]/read - Mark notification as read
 export async function PATCH(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -23,17 +22,13 @@ export async function PATCH(
 
     const { id } = await params;
 
-    const permissions = await getUserPermissions(session.user.id);
-    const siteId =
-      !isSuperAdmin(session.user) && permissions.includes("site_only")
-        ? session.user.siteId || undefined
-        : undefined;
+    const { siteId, departmentId } = getNotificationRouteScope(session.user);
 
     const notification = await getReadableNotificationForUser(
       id,
       session.user.id,
       {
-        departmentId: session.user.departmentId || undefined,
+        departmentId,
         siteId,
       },
     );

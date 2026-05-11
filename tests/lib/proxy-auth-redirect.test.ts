@@ -58,4 +58,27 @@ describe("proxy admin auth redirect", () => {
       "https://admin-staging.radpro.id/login?error=AccessDenied",
     );
   });
+
+  it("allows Firebase Realtime Database dynamic script and frame hosts in CSP", async () => {
+    mockGetToken.mockResolvedValueOnce({
+      role: "ADMIN",
+      accessAdminPanel: true,
+    });
+
+    const { proxy } = await import("@/proxy");
+
+    const request = new NextRequest("https://admin-staging.radpro.id/admin", {
+      headers: {
+        host: "admin-staging.radpro.id",
+      },
+    });
+
+    const response = await proxy(request);
+    const csp = response.headers.get("Content-Security-Policy");
+
+    expect(csp).toContain("https://*.asia-southeast1.firebasedatabase.app");
+    expect(csp).toContain(
+      "frame-src 'self' https://*.asia-southeast1.firebasedatabase.app",
+    );
+  });
 });

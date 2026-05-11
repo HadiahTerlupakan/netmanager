@@ -95,8 +95,8 @@ const eslintConfig = [
         {
           patterns: [
             {
-              group: ["@/modules/*/**"],
-              message: "API route wajib import module via public entrypoint (@/modules/<module>)."
+              group: ["@/modules/*/**", "!@/modules/*/api"],
+              message: "API route wajib import module via public entrypoint (@/modules/<module>) atau sub-entrypoint publik yang disepakati."
             },
             {
               group: ["@/lib/prisma", "@/lib/prisma*"],

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
-const mitraService = getMitraService();
+function getMitraRouteService() {
+  return getMitraService();
+}
 
 export async function validateMitraSiteAccess(
   mitraId: string,
@@ -16,7 +18,7 @@ export async function validateMitraSiteAccess(
   );
   if (!isRestricted) return { allowed: true };
 
-  const mitra = await mitraService.getMitraById(mitraId);
+  const mitra = await getMitraRouteService().getMitraById(mitraId);
   if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
@@ -76,4 +78,14 @@ export function successResponse(data?: unknown) {
   return NextResponse.json({ success: true, ...(data ? { data } : {}) });
 }
 
-export { mitraService };
+export const mitraService = {
+  getMitraById: (
+    ...args: Parameters<ReturnType<typeof getMitraRouteService>["getMitraById"]>
+  ) => getMitraRouteService().getMitraById(...args),
+  updateMitra: (
+    ...args: Parameters<ReturnType<typeof getMitraRouteService>["updateMitra"]>
+  ) => getMitraRouteService().updateMitra(...args),
+  deleteMitra: (
+    ...args: Parameters<ReturnType<typeof getMitraRouteService>["deleteMitra"]>
+  ) => getMitraRouteService().deleteMitra(...args),
+};

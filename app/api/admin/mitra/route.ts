@@ -3,8 +3,11 @@ import { hasPermission, getCurrentUser } from "@/lib/rbac";
 import { getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
-const mitraService = getMitraService();
 type EmployeeTypeValue = "KARYAWAN";
+
+function getMitraRouteService() {
+  return getMitraService();
+}
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
   );
   const allowedSiteIds = isRestricted ? siteIds : undefined;
 
-  const result = await mitraService.getMitras(
+  const result = await getMitraRouteService().getMitras(
     { search, employeeType, isActive, allowedSiteIds },
     page,
     limit,
@@ -61,25 +64,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate scope if user is restricted
     const { isRestricted, siteIds } = checkSiteRestriction(
       { user } as never,
       "mitra",
     );
-    if (isRestricted && body.siteId) {
-      if (!siteIds.includes(body.siteId)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Anda tidak dapat membuat mitra untuk site di luar scope Anda",
-          },
-          { status: 403 },
-        );
-      }
+    if (isRestricted && body.siteId && !siteIds.includes(body.siteId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Anda tidak dapat membuat mitra untuk site di luar scope Anda",
+        },
+        { status: 403 },
+      );
     }
 
-    const result = await mitraService.createMitra(body, user.id!);
+    const result = await getMitraRouteService().createMitra(body, user.id!);
 
     if (!result.success) {
       return NextResponse.json(

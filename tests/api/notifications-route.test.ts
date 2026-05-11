@@ -15,7 +15,7 @@ vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: routeMocks.requireAuth,
 }));
 
-vi.mock("@/modules/notification", () => ({
+vi.mock("@/modules/notification/api", () => ({
   getNotificationsForUser: routeMocks.getNotificationsForUser,
   getUnreadCount: routeMocks.getUnreadCount,
   markAllAsRead: routeMocks.markAllAsRead,
@@ -32,7 +32,7 @@ vi.mock("@/lib/websocket/emitter", () => ({
   },
 }));
 
-import { PATCH } from "@/app/api/notifications/route";
+import { GET, PATCH } from "@/app/api/notifications/route";
 
 describe("notifications route", () => {
   beforeEach(() => {
@@ -43,11 +43,90 @@ describe("notifications route", () => {
         departmentId: "dept-1",
         siteId: "site-1",
         role: "ADMIN",
+        permissions: [],
       },
     });
     routeMocks.getUserPermissions.mockResolvedValue([]);
     routeMocks.isSuperAdmin.mockReturnValue(false);
     routeMocks.getUnreadCount.mockResolvedValue(3);
+  });
+
+  it("returns notifications and reuses permissions from session for GET", async () => {
+    routeMocks.requireAuth.mockResolvedValueOnce({
+      user: {
+        id: "user-1",
+        departmentId: "dept-1",
+        siteId: "site-1",
+        role: "ADMIN",
+        permissions: ["site_only"],
+      },
+    });
+    routeMocks.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [{ id: "notif-1" }],
+      total: 1,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/notifications?limit=5&excludeTypes=WORK_ORDER",
+      ),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
+    expect(routeMocks.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
+      unreadOnly: false,
+      limit: 5,
+      offset: 0,
+      excludeTypes: ["WORK_ORDER"],
+      siteId: "site-1",
+      departmentId: "dept-1",
+    });
+    expect(routeMocks.getUnreadCount).toHaveBeenCalledWith(
+      "user-1",
+      ["WORK_ORDER"],
+      "site-1",
+      "dept-1",
+    );
+    expect(json.notifications).toEqual([{ id: "notif-1" }]);
+    expect(json.unreadCount).toBe(3);
+  });
+
+  it("skips total count for lightweight GET requests", async () => {
+    routeMocks.requireAuth.mockResolvedValueOnce({
+      user: {
+        id: "user-1",
+        departmentId: "dept-1",
+        siteId: "site-1",
+        role: "ADMIN",
+        permissions: ["site_only"],
+      },
+    });
+    routeMocks.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [{ id: "notif-1" }],
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/notifications?limit=5&excludeTypes=WORK_ORDER&includeTotal=false",
+      ),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
+      unreadOnly: false,
+      limit: 5,
+      offset: 0,
+      excludeTypes: ["WORK_ORDER"],
+      siteId: "site-1",
+      departmentId: "dept-1",
+      includeTotal: false,
+    });
+    expect(json.notifications).toEqual([{ id: "notif-1" }]);
+    expect(json.unreadCount).toBe(3);
+    expect(json).not.toHaveProperty("total");
   });
 
   it("emits the latest unread count after marking all notifications as read", async () => {
@@ -59,6 +138,7 @@ describe("notifications route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
     expect(routeMocks.markAllAsRead).toHaveBeenCalledWith(
       "user-1",
       undefined,
@@ -68,6 +148,7 @@ describe("notifications route", () => {
       "user-1",
       undefined,
       undefined,
+      "dept-1",
     );
     expect(routeMocks.updateNotificationCount).toHaveBeenCalledWith(
       "user-1",
@@ -76,7 +157,15 @@ describe("notifications route", () => {
   });
 
   it("emits site-scoped unread count for site-only users after mark all read", async () => {
-    routeMocks.getUserPermissions.mockResolvedValueOnce(["site_only"]);
+    routeMocks.requireAuth.mockResolvedValueOnce({
+      user: {
+        id: "user-1",
+        departmentId: "dept-1",
+        siteId: "site-1",
+        role: "ADMIN",
+        permissions: ["site_only"],
+      },
+    });
 
     const response = await PATCH(
       new NextRequest("http://localhost/api/notifications", {
@@ -86,6 +175,7 @@ describe("notifications route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
     expect(routeMocks.markAllAsRead).toHaveBeenCalledWith(
       "user-1",
       undefined,
@@ -95,6 +185,7 @@ describe("notifications route", () => {
       "user-1",
       undefined,
       "site-1",
+      "dept-1",
     );
     expect(routeMocks.updateNotificationCount).toHaveBeenCalledWith(
       "user-1",

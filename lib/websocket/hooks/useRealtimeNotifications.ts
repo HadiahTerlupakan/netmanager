@@ -18,15 +18,11 @@ export interface Notification {
   createdAt: string;
 }
 
-async function buildNotificationFetchError(
-  countRes: Response,
-  listRes: Response,
-) {
-  const failedResponse = !countRes.ok ? countRes : listRes;
-  const responseBody = await failedResponse.text().catch(() => "");
+async function buildNotificationFetchError(response: Response) {
+  const responseBody = await response.text().catch(() => "");
 
   return new Error(
-    `Gagal mengambil notifikasi: ${failedResponse.url} ${failedResponse.status} ${responseBody}`,
+    `Gagal mengambil notifikasi: ${response.url} ${response.status} ${responseBody}`,
   );
 }
 
@@ -81,22 +77,16 @@ export function useRealtimeNotifications(
     try {
       setLoading(true);
       setError(null);
-      const [countRes, listRes] = await Promise.all([
-        fetch(
-          `/api/notifications/unread-count${excludeParam ? `?excludeTypes=${stableExcludeTypes.join(",")}` : ""}`,
-        ),
-        fetch(`/api/notifications?limit=${limit}${excludeParam}`),
-      ]);
+      const listRes = await fetch(
+        `/api/notifications?limit=${limit}${excludeParam}&includeTotal=false`,
+      );
 
-      if (!countRes.ok || !listRes.ok) {
-        throw await buildNotificationFetchError(countRes, listRes);
+      if (!listRes.ok) {
+        throw await buildNotificationFetchError(listRes);
       }
 
-      const [countData, listData] = await Promise.all([
-        countRes.json(),
-        listRes.json(),
-      ]);
-      setUnreadCount(countData.count || 0);
+      const listData = await listRes.json();
+      setUnreadCount(listData.unreadCount || 0);
       setNotifications(listData.notifications || []);
     } catch (error) {
       clientLogger.error("[Notifications] Error fetching:", error);
@@ -104,7 +94,7 @@ export function useRealtimeNotifications(
     } finally {
       setLoading(false);
     }
-  }, [limit, excludeParam, stableExcludeTypes]);
+  }, [limit, excludeParam]);
 
   // Initial fetch - only once on mount
   useEffect(() => {

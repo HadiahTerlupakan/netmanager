@@ -5,12 +5,7 @@
  * Semua logic auth sudah dipecah ke subfolder lib/auth/
  */
 
-export {
-  authConfig,
-  authOptions,
-  handler,
-  createAuthConfig,
-} from "./auth/config";
+export { authConfig, authOptions, createAuthConfig } from "./auth/config";
 export { cookies } from "./auth/cookies";
 export { jwtCallback, sessionCallback } from "./auth/callbacks";
 export {

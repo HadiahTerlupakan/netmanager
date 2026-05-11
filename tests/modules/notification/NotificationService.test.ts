@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Notifications } from "@prisma/client";
 import { prismaMock } from "../../setup";
 
 vi.mock("@/modules/notification/services/ExpoPushService", () => ({
@@ -48,7 +47,7 @@ describe("NotificationService", () => {
       prismaMock.notifications.findFirst.mockResolvedValueOnce({
         id: "notif-1",
         userId: "user-1",
-      } as Notifications);
+      } as unknown as { id: string });
 
       const result = await getReadableNotificationForUser("notif-1", "user-1", {
         departmentId: "dept-1",
@@ -78,7 +77,7 @@ describe("NotificationService", () => {
       });
       prismaMock.notifications.findFirst.mockResolvedValueOnce({
         id: "notif-2",
-      } as Notifications);
+      } as unknown as { id: string });
 
       await getReadableNotificationForUser("notif-2", "user-2");
 
@@ -126,7 +125,7 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-tenant-1",
         createdAt: new Date("2026-04-25T00:00:00.000Z"),
-      } as Notifications);
+      } as unknown as { id: string });
 
       await createNotification({
         type: "SYSTEM",
@@ -156,7 +155,7 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-2",
         createdAt: new Date("2026-03-08T12:10:00.000Z"),
-      } as Notifications);
+      } as unknown as { id: string });
 
       await createNotification({
         type: "SYSTEM",
@@ -187,7 +186,7 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-fcm-1",
         createdAt: new Date("2026-03-08T12:20:00.000Z"),
-      } as Notifications);
+      } as unknown as { id: string });
       prismaMock.user.findUnique.mockResolvedValueOnce({
         id: "user-fcm-1",
         fcmTokens: ["fcm-token-1", "fcm-token-2"],
@@ -228,7 +227,7 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-fcm-dept-1",
         createdAt: new Date("2026-03-08T12:30:00.000Z"),
-      } as Notifications);
+      } as unknown as { id: string });
       prismaMock.user.findMany.mockResolvedValueOnce([
         { id: "dept-user-1", fcmTokens: ["dept-token-1"] },
         { id: "dept-user-2", fcmTokens: ["dept-token-2", "dept-token-3"] },
@@ -269,7 +268,7 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-fcm-admin-1",
         createdAt: new Date("2026-03-08T12:40:00.000Z"),
-      } as Notifications);
+      } as unknown as { id: string });
       firebaseMessagingMocks.getAdminTokens.mockResolvedValueOnce([
         "admin-token-1",
         "admin-token-2",
@@ -312,11 +311,11 @@ describe("NotificationService", () => {
         .mockResolvedValueOnce({
           id: "notif-1",
           createdAt: new Date(),
-        } as Notifications)
+        } as unknown as { id: string })
         .mockResolvedValueOnce({
           id: "notif-2",
           createdAt: new Date(),
-        } as Notifications);
+        } as unknown as { id: string });
 
       const result = await notifyNewPointClaim({
         claimId: "claim-1",
@@ -451,6 +450,43 @@ describe("NotificationService", () => {
         },
       });
     });
+
+    it("skips total count when lightweight notification queries do not need pagination metadata", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        departmentId: "dept-1",
+      });
+      prismaMock.notifications.findMany.mockResolvedValueOnce([]);
+
+      const result = await getNotificationsForUser("user-1", {
+        limit: 5,
+        siteId: "site-9",
+        includeTotal: false,
+      });
+
+      expect(prismaMock.notifications.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          OR: [
+            { userId: "user-1" },
+            {
+              AND: [
+                { departmentId: "dept-1" },
+                { OR: [{ siteId: "site-9" }, { siteId: null }] },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        skip: 0,
+      });
+      expect(prismaMock.notifications.count).not.toHaveBeenCalled();
+      expect(result).toEqual({ notifications: [], total: undefined });
+    });
   });
 
   describe("getUnreadCount", () => {
@@ -461,7 +497,12 @@ describe("NotificationService", () => {
       });
       prismaMock.$queryRaw.mockResolvedValueOnce([{ count: BigInt(2) }]);
 
-      const count = await getUnreadCount("user-1", undefined, "site-9");
+      const count = await getUnreadCount(
+        "user-1",
+        undefined,
+        "site-9",
+        "dept-1",
+      );
 
       expect(count).toBe(2);
       expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
@@ -472,7 +513,7 @@ describe("NotificationService", () => {
         values: ["tenant-1"],
       });
       expect(unreadRawCall[3]).toBe("user-1");
-      expect(unreadRawCall[4]).toBe("user-1");
+      expect(unreadRawCall[4]).toBe("dept-1");
       expect(unreadRawCall[5]).toMatchObject({
         strings: ['AND ("siteId" = ', ' OR "siteId" IS NULL)'],
         values: ["site-9"],
@@ -560,7 +601,7 @@ describe("NotificationService", () => {
       prismaMock.notifications.update.mockResolvedValueOnce({
         id: "notif-1",
         isRead: true,
-      } as Notifications);
+      } as unknown as { id: string });
 
       const result = await markAsRead("notif-1");
 

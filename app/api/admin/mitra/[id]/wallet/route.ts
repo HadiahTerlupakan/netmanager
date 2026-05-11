@@ -3,8 +3,13 @@ import { hasPermission, getCurrentUser } from "@/lib/rbac";
 import { getMitraWalletService, getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
-const walletService = getMitraWalletService();
-const mitraService = getMitraService();
+function getWalletRouteService() {
+  return getMitraWalletService();
+}
+
+function getMitraRouteService() {
+  return getMitraService();
+}
 
 async function validateMitraAccess(
   mitraId: string,
@@ -16,7 +21,7 @@ async function validateMitraAccess(
   );
   if (!isRestricted) return { allowed: true };
 
-  const mitra = await mitraService.getMitraById(mitraId);
+  const mitra = await getMitraRouteService().getMitraById(mitraId);
   if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
@@ -62,8 +67,8 @@ export async function GET(
   const page = parseInt(searchParams.get("page") || "1");
 
   const [balanceResult, transactionsResult] = await Promise.all([
-    walletService.getBalance(id, user.tenantId as string),
-    walletService.getTransactions(id, user.tenantId as string, page),
+    getWalletRouteService().getBalance(id, user.tenantId as string),
+    getWalletRouteService().getTransactions(id, user.tenantId as string, page),
   ]);
 
   if (!balanceResult.success) {
@@ -125,7 +130,7 @@ export async function POST(
       );
     }
 
-    const result = await walletService.addAdjustment(
+    const result = await getWalletRouteService().addAdjustment(
       id,
       amount,
       description,

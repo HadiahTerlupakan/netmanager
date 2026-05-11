@@ -1,7 +1,7 @@
 import { beforeEach, vi } from "vitest";
 
 export const mockUseState = vi.fn((value: unknown) => [value, vi.fn()]);
-const mockUseEffect = vi.fn();
+export const mockUseEffect = vi.fn();
 const mockUseCallback = vi.fn(
   (fn: (...args: unknown[]) => unknown, _deps?: unknown[]) => fn,
 );

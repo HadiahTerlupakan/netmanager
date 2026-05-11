@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
     const session = await verifyAuth(req);
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    const permissions = await getUserPermissions(session.id);
+    const permissions =
+      session.permissions ?? (await getUserPermissions(session.id));
     const canReadAll =
       isSuperAdminRole(session.role) || permissions.includes("canvasing:read");
     const summary = await canvasingService.getCompletionSummary({

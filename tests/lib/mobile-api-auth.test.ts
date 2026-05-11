@@ -6,8 +6,11 @@ const mockVerifyMobileToken = vi.fn();
 vi.mock("@/lib/mobile-auth", () => ({
   getMobileTokenDetails: (token: string, versionCodeOverride?: number | null) =>
     mockGetMobileTokenDetails(token, versionCodeOverride),
-  verifyMobileToken: (token: string, versionCodeOverride?: number | null) =>
-    mockVerifyMobileToken(token, versionCodeOverride),
+  verifyMobileToken: (
+    token: string,
+    versionCodeOverride?: number | null,
+    preloadedDetails?: unknown,
+  ) => mockVerifyMobileToken(token, versionCodeOverride, preloadedDetails),
 }));
 
 import { ErrorCodes } from "@/lib/api-response";
@@ -92,7 +95,11 @@ describe("Mobile API auth helper", () => {
       "old-token",
       undefined,
     );
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith("old-token", undefined);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("old-token", undefined, {
+      payload: { sub: "user-1", userId: "user-1" },
+      versionCode: 1,
+      versionAccess,
+    });
   });
 
   it("returns payload when token is valid and supported", async () => {
@@ -125,6 +132,42 @@ describe("Mobile API auth helper", () => {
     }
   });
 
+  it("reuses preloaded token details during verification", async () => {
+    const payload = {
+      sub: "user-1",
+      userId: "user-1",
+      email: "test@example.com",
+    };
+    const versionAccess: MockVersionAccess = {
+      isSupported: true,
+      minimumVersion: null,
+      latestVersion: null,
+      updateAvailable: false,
+      isForceUpdate: false,
+      currentVersionCode: 100,
+    };
+    mockGetMobileTokenDetails.mockResolvedValueOnce({
+      payload,
+      versionCode: 100,
+      versionAccess,
+    });
+    mockVerifyMobileToken.mockResolvedValueOnce(payload);
+
+    const request = createRequest({ Authorization: "Bearer valid-token" });
+    const result = await authenticateMobileRequest(request);
+
+    expect("payload" in result).toBe(true);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith(
+      "valid-token",
+      undefined,
+      {
+        payload,
+        versionCode: 100,
+        versionAccess,
+      },
+    );
+  });
+
   it("meneruskan request version header untuk authenticated requests", async () => {
     const payload = {
       sub: "user-1",
@@ -154,6 +197,10 @@ describe("Mobile API auth helper", () => {
 
     expect("payload" in result).toBe(true);
     expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token", 100);
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100, {
+      payload,
+      versionCode: 100,
+      versionAccess,
+    });
   });
 });

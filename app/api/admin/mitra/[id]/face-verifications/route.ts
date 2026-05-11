@@ -3,7 +3,9 @@ import { hasPermission, getCurrentUser } from "@/lib/rbac";
 import { getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
-const mitraService = getMitraService();
+function getMitraRouteService() {
+  return getMitraService();
+}
 
 async function validateMitraAccess(
   mitraId: string,
@@ -15,7 +17,7 @@ async function validateMitraAccess(
   );
   if (!isRestricted) return { allowed: true };
 
-  const mitra = await mitraService.getMitraById(mitraId);
+  const mitra = await getMitraRouteService().getMitraById(mitraId);
   if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
@@ -61,7 +63,7 @@ export async function GET(
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-  const result = await mitraService.getFaceVerificationLogs(
+  const result = await getMitraRouteService().getFaceVerificationLogs(
     id,
     user.tenantId as string,
     page,

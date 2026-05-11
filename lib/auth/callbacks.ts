@@ -19,15 +19,6 @@ export async function jwtCallback({
   trigger?: "signIn" | "signUp" | "update";
   session?: unknown;
 }) {
-  logger.info(
-    "[JWT CALLBACK] Called with trigger:",
-    trigger,
-    "user:",
-    !!user,
-    "token.id:",
-    token.id,
-  );
-
   if (user) {
     token.id = user.id;
     logger.info("[JWT CALLBACK] Processing new user login:", user.id);
@@ -77,10 +68,13 @@ export async function jwtCallback({
         token.isSuperAdmin = true;
       }
 
-      const userSites = dbUser?.userSites || [];
-      token.siteIds = userSites.map((us) => us.siteId);
+      const userSites =
+        (dbUser?.userSites as
+          | { siteId: string; isPrimary: boolean }[]
+          | undefined) || [];
+      token.siteIds = userSites.map((site) => site.siteId);
       token.primarySiteId =
-        userSites.find((us) => us.isPrimary)?.siteId ||
+        userSites.find((site) => site.isPrimary)?.siteId ||
         userSites[0]?.siteId ||
         null;
 
@@ -111,7 +105,9 @@ export async function jwtCallback({
   }
 
   if (trigger === "update") {
-    logger.info("[JWT CALLBACK] Update trigger for user:", token.id);
+    logger.info("[JWT CALLBACK] Refreshing token from update trigger", {
+      userId: token.id,
+    });
     const dbUser = await prismaAuth.user.findUnique({
       where: { id: token.id as string },
       include: {
@@ -308,11 +304,11 @@ export async function sessionCallback({
 
       sessionUser.isSales = dbUser.isSales;
 
-      if (process.env.NODE_ENV === "development") {
-        logger.info(
-          `[AUTH SESSION] Session created for ${sessionUser.email}. Tenant: ${sessionUser.tenantId}, isSuper: ${sessionUser.isSuperAdmin}`,
-        );
-      }
+      logger.debug("[AUTH SESSION] Session hydrated", {
+        userId,
+        tenantId: sessionUser.tenantId,
+        isSuperAdmin: sessionUser.isSuperAdmin,
+      });
     } catch (error) {
       logger.error("[AUTH SESSION] Error validating tokenVersion:", error);
       logger.warn(

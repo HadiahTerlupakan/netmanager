@@ -1,9 +1,13 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
-import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getUnreadCount, type NotificationType } from "@/modules/notification";
+import { authConfig } from "@/lib/auth";
+import {
+  getUnreadCount,
+  type NotificationType,
+} from "@/modules/notification/api";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { getNotificationRouteScope } from "../route-helpers";
 
 // GET /api/notifications/unread-count - Get unread notification count
 export async function GET(request: NextRequest) {
@@ -19,17 +23,22 @@ export async function GET(request: NextRequest) {
       | NotificationType[]
       | undefined;
 
-    const permissions = await getUserPermissions(session.user.id);
     const user = session.user as {
-      role?: string;
-      siteId?: string;
-      departmentId?: string;
+      id: string;
+      role?: string | null;
+      siteId?: string | null;
+      departmentId?: string | null;
+      permissions?: string[];
+      isSuperAdmin?: boolean | null;
     };
-    const isSuper = isSuperAdmin(user);
-    const siteId =
-      !isSuper && permissions.includes("site_only") ? user.siteId : undefined;
+    const { siteId, departmentId } = getNotificationRouteScope(user);
 
-    const count = await getUnreadCount(session.user.id, excludeTypes, siteId);
+    const count = await getUnreadCount(
+      session.user.id,
+      excludeTypes,
+      siteId,
+      departmentId,
+    );
 
     return apiSuccess({ count });
   } catch (error) {

@@ -156,15 +156,17 @@ export class NotificationRepository implements INotificationRepository {
   /** Count unread notifications through the optimized raw query. */
   async getUnreadCountRaw(
     userId: string,
+    departmentId: string | undefined,
     typeCondition: Prisma.Sql,
     siteCondition: Prisma.Sql,
     tenantCondition: Prisma.Sql,
   ): Promise<number> {
+    const effectiveDepartmentId = departmentId ?? "NONE";
     const result = await prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(*) as count FROM "notifications" n
       WHERE n."isRead" = false ${typeCondition}
       ${tenantCondition}
-      AND (n."userId" = ${userId} OR (n."departmentId" = (SELECT "departmentId" FROM "User" WHERE "id" = ${userId}) ${siteCondition}))
+      AND (n."userId" = ${userId} OR (n."departmentId" = ${effectiveDepartmentId} ${siteCondition}))
     `;
 
     return Number(result[0]?.count || 0);

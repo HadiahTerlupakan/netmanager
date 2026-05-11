@@ -212,9 +212,12 @@ async function verifyValidatedMobileToken(
   token: string,
   expectedType: "access" | "refresh",
   versionCodeOverride?: number | null,
+  preloadedDetails?: MobileTokenDetails | null,
 ): Promise<MobileTokenPayload | null> {
   try {
-    const details = await getMobileTokenDetails(token, versionCodeOverride);
+    const details =
+      preloadedDetails ??
+      (await getMobileTokenDetails(token, versionCodeOverride));
     if (!details) {
       return null;
     }
@@ -350,13 +353,25 @@ async function verifyValidatedMobileToken(
 export async function verifyMobileToken(
   token: string,
   versionCodeOverride?: number | null,
+  preloadedDetails?: MobileTokenDetails | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "access", versionCodeOverride);
+  return verifyValidatedMobileToken(
+    token,
+    "access",
+    versionCodeOverride,
+    preloadedDetails,
+  );
 }
 
 export async function verifyMobileRefreshToken(
   token: string,
   versionCodeOverride?: number | null,
+  preloadedDetails?: MobileTokenDetails | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "refresh", versionCodeOverride);
+  return verifyValidatedMobileToken(
+    token,
+    "refresh",
+    versionCodeOverride,
+    preloadedDetails,
+  );
 }

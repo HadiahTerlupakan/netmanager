@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchMock,
   mockIo,
+  mockUseEffect,
   mockUseState,
   useRealtimeEventMock,
   useRealtimeScopeMock,
@@ -22,6 +23,31 @@ describe("realtime notifications announcements", () => {
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "notification.count",
       expect.any(Function),
+    );
+  });
+
+  it("loads admin bell notifications from the list endpoint only on initial fetch", async () => {
+    const { useRealtimeNotifications } =
+      await import("@/lib/realtime/hooks/useRealtimeNotifications");
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        notifications: [],
+        unreadCount: 4,
+      }),
+    });
+    mockUseEffect.mockImplementation((effect: () => void | (() => void)) => {
+      effect();
+    });
+
+    useRealtimeNotifications({ limit: 5, excludeTypes: ["WORK_ORDER"] });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/notifications?limit=5&excludeTypes=WORK_ORDER&includeTotal=false",
     );
   });
 

@@ -15,7 +15,7 @@ vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: mockFns.requireAuth,
 }));
 
-vi.mock("@/modules/notification", () => ({
+vi.mock("@/modules/notification/api", () => ({
   getReadableNotificationForUser: mockFns.getReadableNotificationForUser,
   getUnreadCount: mockFns.getUnreadCount,
   markAsRead: mockFns.markAsRead,
@@ -43,6 +43,7 @@ describe("web notifications id route", () => {
         departmentId: "dept-1",
         siteId: "site-1",
         role: "USER",
+        permissions: [],
       },
     });
     mockFns.getUserPermissions.mockResolvedValue([]);
@@ -76,13 +77,22 @@ describe("web notifications id route", () => {
       "user-1",
       undefined,
       undefined,
+      "dept-1",
     );
     expect(mockFns.updateNotificationCount).toHaveBeenCalledWith("user-1", 4);
     expect(json.success).toBe(true);
   });
 
-  it("emits site-scoped unread count for site-only users after mark read", async () => {
-    mockFns.getUserPermissions.mockResolvedValueOnce(["site_only"]);
+  it("reuses session permissions for site-only users after mark read", async () => {
+    mockFns.requireAuth.mockResolvedValueOnce({
+      user: {
+        id: "user-1",
+        departmentId: "dept-1",
+        siteId: "site-1",
+        role: "USER",
+        permissions: ["site_only"],
+      },
+    });
     mockFns.getReadableNotificationForUser.mockResolvedValueOnce({
       id: "notif-site-1",
     });
@@ -95,6 +105,7 @@ describe("web notifications id route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockFns.getUserPermissions).not.toHaveBeenCalled();
     expect(mockFns.getReadableNotificationForUser).toHaveBeenCalledWith(
       "notif-site-1",
       "user-1",
@@ -107,6 +118,7 @@ describe("web notifications id route", () => {
       "user-1",
       undefined,
       "site-1",
+      "dept-1",
     );
     expect(mockFns.updateNotificationCount).toHaveBeenCalledWith("user-1", 4);
   });

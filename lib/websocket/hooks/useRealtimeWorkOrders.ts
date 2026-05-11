@@ -79,7 +79,7 @@ export function useRealtimeWorkOrders(
 
       // Checking route.ts, filtering is supported in GET /api/notifications
       const listRes = await fetch(
-        `/api/notifications?limit=${limit}&type=WORK_ORDER`,
+        `/api/notifications?limit=${limit}&type=WORK_ORDER&includeTotal=false`,
       );
 
       if (listRes.ok) {

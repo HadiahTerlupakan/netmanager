@@ -5,19 +5,18 @@ import {
   getUnreadCount,
   markAllAsRead,
   type NotificationType,
-} from "@/modules/notification";
+} from "@/modules/notification/api";
 import { requireAuth } from "@/lib/auth-helpers";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
+import {
+  getNotificationRouteScope,
+  type NotificationRouteUser,
+} from "./route-helpers";
 
-interface ExtendedUser {
+interface ExtendedUser extends NotificationRouteUser {
   id: string;
-  role: string;
-  siteId?: string;
-  departmentId?: string;
-  tenantId?: string | null;
-  isSuperAdmin?: boolean;
 }
 
 function runNotificationRouteWithTenant<T>(
@@ -53,13 +52,9 @@ export async function GET(request: NextRequest) {
       const excludeTypes = searchParams.get("excludeTypes")?.split(",") as
         | NotificationType[]
         | undefined;
+      const includeTotal = searchParams.get("includeTotal") !== "false";
 
-      const permissions = await getUserPermissions(user.id);
-      const siteId =
-        !isSuperAdmin(user) && permissions.includes("site_only")
-          ? user.siteId
-          : undefined;
-      const departmentId = user.departmentId || undefined;
+      const { siteId, departmentId } = getNotificationRouteScope(user);
 
       const options: Parameters<typeof getNotificationsForUser>[1] = {
         unreadOnly,
@@ -71,16 +66,19 @@ export async function GET(request: NextRequest) {
       if (excludeTypes) options.excludeTypes = excludeTypes;
       if (siteId) options.siteId = siteId;
       if (departmentId) options.departmentId = departmentId;
+      if (!includeTotal) options.includeTotal = false;
 
       const [notificationData, unreadCount] = await Promise.all([
         getNotificationsForUser(user.id, options),
-        getUnreadCount(user.id, excludeTypes, siteId),
+        getUnreadCount(user.id, excludeTypes, siteId, departmentId),
       ]);
 
       return NextResponse.json({
         success: true,
         notifications: notificationData.notifications,
-        total: notificationData.total,
+        ...(notificationData.total !== undefined
+          ? { total: notificationData.total }
+          : {}),
         unreadCount,
       });
     });
@@ -105,17 +103,22 @@ export async function PATCH(request: NextRequest) {
     const user = session.user as ExtendedUser;
 
     return runNotificationRouteWithTenant(user, async () => {
-      const body = await request.json().catch(() => ({}));
-      const type = body.type as NotificationType | undefined;
+      const body = (await request
+        .json()
+        .catch(() => ({}) as { type?: NotificationType })) as {
+        type?: NotificationType;
+      };
+      const type = body.type;
 
-      const permissions = await getUserPermissions(user.id);
-      const siteId =
-        !isSuperAdmin(user) && permissions.includes("site_only")
-          ? user.siteId
-          : undefined;
+      const { siteId, departmentId } = getNotificationRouteScope(user);
 
       await markAllAsRead(user.id, type, siteId);
-      const unreadCount = await getUnreadCount(user.id, undefined, siteId);
+      const unreadCount = await getUnreadCount(
+        user.id,
+        undefined,
+        siteId,
+        departmentId,
+      );
       socketEmitter.updateNotificationCount(user.id, unreadCount);
 
       return NextResponse.json({

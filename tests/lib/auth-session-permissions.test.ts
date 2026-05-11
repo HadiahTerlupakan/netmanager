@@ -11,6 +11,10 @@ const mockFns = vi.hoisted(() => ({
   getToken: vi.fn(),
   verifyMobileToken: vi.fn(),
   prismaAdapter: vi.fn(),
+  loggerInfo: vi.fn(),
+  loggerDebug: vi.fn(),
+  loggerWarn: vi.fn(),
+  loggerError: vi.fn(),
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -31,6 +35,15 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       findUnique: mockFns.userFindUnique,
     },
+  },
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: mockFns.loggerInfo,
+    debug: mockFns.loggerDebug,
+    warn: mockFns.loggerWarn,
+    error: mockFns.loggerError,
   },
 }));
 
@@ -148,5 +161,70 @@ describe("auth session permissions", () => {
     );
 
     expect(session?.permissions).toEqual(["users:read"]);
+  });
+
+  it("does not emit noisy info logs for routine jwt and session callbacks", async () => {
+    mockFns.userFindUnique.mockResolvedValueOnce({
+      tokenVersion: 1,
+      isActive: true,
+      role: {
+        name: "ADMIN",
+        accessAdminPanel: true,
+        accessEmployeePanel: true,
+        isSuperAdmin: false,
+        canApproveRab: false,
+        canReceiveWhatsappApproval: false,
+        permission: [{ id: "perm-1" }],
+      },
+      departments: { name: "Ops" },
+      isSales: false,
+      siteId: "site-1",
+      tenantId: "tenant-1",
+      tenant: { name: "Tenant One" },
+      userSites: [{ siteId: "site-1" }],
+    });
+    mockFns.userFindUnique.mockResolvedValueOnce({
+      role: {
+        isSuperAdmin: false,
+        name: "ADMIN",
+        permission: [{ resource: "users", action: "read" }],
+      },
+    });
+
+    const { authConfig } = await import("@/lib/auth");
+
+    await authConfig.callbacks?.jwt?.({
+      token: {
+        id: "user-1",
+      },
+      trigger: undefined,
+    } as never);
+
+    await authConfig.callbacks?.session?.({
+      session: {
+        user: {
+          email: "admin@example.com",
+        },
+        expires: new Date(Date.now() + 60_000).toISOString(),
+      },
+      token: {
+        id: "user-1",
+        tokenVersion: 1,
+        siteIds: ["site-1"],
+        departmentId: "dept-1",
+      },
+    } as never);
+
+    expect(mockFns.loggerInfo).not.toHaveBeenCalledWith(
+      "[JWT CALLBACK] Called with trigger:",
+      undefined,
+      "user:",
+      false,
+      "token.id:",
+      "user-1",
+    );
+    expect(mockFns.loggerInfo).not.toHaveBeenCalledWith(
+      "[AUTH SESSION] Session created for admin@example.com. Tenant: tenant-1, isSuper: false",
+    );
   });
 });
