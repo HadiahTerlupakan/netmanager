@@ -10,6 +10,8 @@ import type { PointClaimStatus } from "@prisma/client";
 export function toCanvasingListItemDTO(
   entity: CanvasingEntity,
 ): CanvasingListItemDTO {
+  const pointClaim = mapCanvasingPointClaimDTO(entity);
+
   return {
     id: entity.id,
     nama: entity.nama,
@@ -19,6 +21,14 @@ export function toCanvasingListItemDTO(
     status: entity.status,
     salesName: entity.user?.name ?? entity.mitra?.name ?? null,
     createdAt: entity.createdAt.toISOString(),
+    workOrder: entity.workOrder
+      ? {
+          id: entity.workOrder.id,
+          workOrderNumber: entity.workOrder.workOrderNumber,
+          status: entity.workOrder.status,
+        }
+      : null,
+    pointClaims: pointClaim,
   };
 }
 

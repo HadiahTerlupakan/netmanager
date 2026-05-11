@@ -21,6 +21,12 @@ export interface CanvasingListItemDTO {
   status: CanvasingStatus;
   salesName: string | null;
   createdAt: string;
+  workOrder: {
+    id: string;
+    workOrderNumber: string;
+    status: string;
+  } | null;
+  pointClaims: PointClaimDTO | null;
 }
 
 /**
