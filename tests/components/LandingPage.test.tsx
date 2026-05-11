@@ -1,8 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockUsePublicBranding = vi.fn();
-
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => {
     const { alt, ...rest } = props;
@@ -12,12 +10,6 @@ vi.mock("next/image", () => ({
 
 vi.mock("next/link", () => ({
   default: ({ children }: { children: unknown }) => children,
-}));
-
-vi.mock("@/hooks/usePublicBranding", () => ({
-  DEFAULT_PUBLIC_APP_NAME: "NetManager",
-  DEFAULT_PUBLIC_APP_LOGO_URL: "/images/logo-sbl.png",
-  usePublicBranding: () => mockUsePublicBranding(),
 }));
 
 vi.mock("@/components/ui/Button", () => ({
@@ -31,33 +23,7 @@ describe("LandingPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders logo skeleton instead of default logo while client branding is still loading", () => {
-    mockUsePublicBranding.mockReturnValue({
-      branding: null,
-      loading: true,
-      error: null,
-    });
-
-    const markup = renderToStaticMarkup(
-      <LandingPage brandingName="SBLNET Public" brandingLogoUrl={undefined} />,
-    );
-
-    expect(markup).toContain('data-testid="landing-page-logo-skeleton"');
-    expect(markup).not.toContain(
-      "&quot;src&quot;:&quot;/images/logo-sbl.png&quot;",
-    );
-  });
-
-  it("keeps SSR landing logo when public branding hook only provides app logo", () => {
-    mockUsePublicBranding.mockReturnValue({
-      branding: {
-        namaAplikasi: "SBLNET Public",
-        appLogoUrl: "/uploads/logos/logo-aplikasi.png",
-      },
-      loading: false,
-      error: null,
-    });
-
+  it("renders with provided branding name and logo", () => {
     const markup = renderToStaticMarkup(
       <LandingPage
         brandingName="SBLNET Public"
@@ -65,33 +31,34 @@ describe("LandingPage", () => {
       />,
     );
 
+    expect(markup).toContain("SBLNET Public");
     expect(markup).toContain(
       "&quot;src&quot;:&quot;https://cdn.radpro.id/uploads/logos/logo-landing-page.png&quot;",
-    );
-    expect(markup).not.toContain(
-      "&quot;src&quot;:&quot;/uploads/logos/logo-aplikasi.png&quot;",
     );
   });
 
   it("falls back to default logo when landing logo is unavailable", () => {
-    mockUsePublicBranding.mockReturnValue({
-      branding: {
-        namaAplikasi: "SBLNET Public",
-        appLogoUrl: "https://cdn.radpro.id/uploads/logos/logo-aplikasi.png",
-      },
-      loading: false,
-      error: null,
-    });
-
     const markup = renderToStaticMarkup(
       <LandingPage brandingName="SBLNET Public" brandingLogoUrl={undefined} />,
     );
 
+    expect(markup).toContain("SBLNET Public");
     expect(markup).toContain(
       "&quot;src&quot;:&quot;/images/logo-sbl.png&quot;",
     );
-    expect(markup).not.toContain(
-      "&quot;src&quot;:&quot;https://cdn.radpro.id/uploads/logos/logo-aplikasi.png&quot;",
+  });
+
+  it("renders all expected sections", () => {
+    const markup = renderToStaticMarkup(
+      <LandingPage brandingName="SBLNET Public" brandingLogoUrl={undefined} />,
     );
+
+    expect(markup).toContain("Internet");
+    expect(markup).toContain("Ngebut");
+    expect(markup).toContain("Gbps");
+    expect(markup).toContain("Koneksi Hyper-Speed");
+    expect(markup).toContain("Anti Badai");
+    expect(markup).toContain("Layanan CS 24/7");
+    expect(markup).toContain("Hubungi Kami");
   });
 });
