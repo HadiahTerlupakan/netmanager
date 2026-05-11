@@ -140,6 +140,21 @@ export class UserRepository implements IUserRepository {
 
       // 2. Create userSites if provided
       if (userSites.length > 0) {
+        // 2a. Validate that all siteIds exist before creating userSites
+        const siteIds = userSites.map((us) => us.siteId);
+        const existingSites = await tx.sites.findMany({
+          where: { id: { in: siteIds } },
+          select: { id: true },
+        });
+
+        const existingSiteIds = new Set(existingSites.map((s) => s.id));
+        const missingSiteIds = siteIds.filter((id) => !existingSiteIds.has(id));
+
+        if (missingSiteIds.length > 0) {
+          throw new Error(`Site tidak ditemukan: ${missingSiteIds.join(", ")}`);
+        }
+
+        // 2b. Create userSites
         await tx.userSite.createMany({
           data: userSites.map((userSite) => ({
             userId,
