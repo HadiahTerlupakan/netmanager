@@ -62,7 +62,7 @@ export function createCanvasingDetailInclude(): Prisma.CanvasingInclude {
   return {
     user: { select: canvasingUserSelect },
     approver: { select: { id: true, name: true } },
-    workOrder: { select: { workOrderNumber: true, status: true } },
+    workOrder: { select: { id: true, workOrderNumber: true, status: true } },
     pointClaims: { select: pointClaimSelect },
   };
 }

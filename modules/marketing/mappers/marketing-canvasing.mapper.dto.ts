@@ -75,6 +75,13 @@ function buildCanvasingDetailRelationsDTO(entity: CanvasingEntity) {
         }
       : null,
     approvedAt: entity.approvedAt?.toISOString() ?? null,
+    workOrder: entity.workOrder
+      ? {
+          id: entity.workOrder.id,
+          workOrderNumber: entity.workOrder.workOrderNumber,
+          status: entity.workOrder.status,
+        }
+      : null,
     pointClaims: mapCanvasingPointClaimDTO(entity),
   };
 }

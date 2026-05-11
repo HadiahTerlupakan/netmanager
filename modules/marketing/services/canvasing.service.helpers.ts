@@ -4,7 +4,7 @@ import type {
   CanvasingEntity,
 } from "../domain/entities/CanvasingEntity";
 import type { ICanvasingRepository } from "../domain/ports/ICanvasingRepository";
-import { prisma } from "@/modules/database";
+import { prismaAuth } from "@/modules/database";
 
 export const NORMAL_PRIORITY = "NORMAL" as const;
 export const INSTALLATION_TYPE = "INSTALLATION" as const;
@@ -15,36 +15,39 @@ export const REJECTED_STATUS = "REJECTED" as const;
 /**
  * Get Technical department ID based on site's tenantId.
  * INSTALLATION work orders should be routed to Technical department.
+ *
+ * Uses prismaAuth to bypass tenant isolation since we need to query
+ * departments across tenants based on the site's tenantId.
  */
 async function getTechnicalDepartmentId(
   siteId: string | undefined,
 ): Promise<string | undefined> {
   if (!siteId) {
     // Fallback: get first Technical department without tenant filter
-    const technicalDept = await prisma.departments.findFirst({
+    const technicalDept = await prismaAuth.departments.findFirst({
       where: { name: "Technical" },
       select: { id: true },
     });
     return technicalDept?.id;
   }
 
-  // Get tenantId from site
-  const site = await prisma.sites.findUnique({
+  // Get tenantId from site using prismaAuth to bypass tenant isolation
+  const site = await prismaAuth.sites.findUnique({
     where: { id: siteId },
     select: { tenantId: true },
   });
 
   if (!site?.tenantId) {
     // Fallback: get first Technical department without tenant filter
-    const technicalDept = await prisma.departments.findFirst({
+    const technicalDept = await prismaAuth.departments.findFirst({
       where: { name: "Technical" },
       select: { id: true },
     });
     return technicalDept?.id;
   }
 
-  // Get Technical department for this tenant
-  const technicalDept = await prisma.departments.findFirst({
+  // Get Technical department for this tenant using prismaAuth
+  const technicalDept = await prismaAuth.departments.findFirst({
     where: {
       name: "Technical",
       tenantId: site.tenantId,
