@@ -14,9 +14,25 @@ export async function runTenantBackfillJob(
 ): Promise<BackupBackfillResult> {
   const scriptPath = getBackfillScriptPath();
   ensureBackfillScriptExists(scriptPath);
-  const { stdout, stderr } = await execAsync(buildBackfillCommand(scriptPath));
-  logBackfillErrorOutput(stderr);
-  return buildBackfillResult(stdout);
+
+  try {
+    const { stdout, stderr } = await execAsync(
+      buildBackfillCommand(scriptPath),
+    );
+    logBackfillErrorOutput(stderr);
+    return buildBackfillResult(stdout);
+  } catch (error) {
+    const commandError = error as Error & { stdout?: string; stderr?: string };
+    const stdout = commandError.stdout || "";
+    const stderr = commandError.stderr || "";
+
+    if (stdout.includes("Optional failures:")) {
+      logBackfillErrorOutput(stderr);
+      return buildBackfillResult(stdout);
+    }
+
+    throw error;
+  }
 }
 
 function getBackfillScriptPath() {

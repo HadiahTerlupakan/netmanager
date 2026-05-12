@@ -235,13 +235,32 @@ describe("UserRepository", () => {
   });
 
   describe("delete", () => {
-    it("harus delete user", async () => {
-      vi.mocked(prismaMock.user.delete).mockResolvedValue(mockUser);
+    it("menghapus leave balance terkait sebelum delete user untuk menghindari foreign key violation", async () => {
+      const tx = {
+        leaveBalance: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+        },
+        user: {
+          delete: vi.fn().mockResolvedValue(mockUser),
+        },
+      };
+
+      vi.mocked(prismaMock.$transaction).mockImplementation(
+        async (callback) => {
+          if (typeof callback === "function") {
+            return callback(tx as never);
+          }
+          return Promise.resolve(callback);
+        },
+      );
 
       const result = await repository.delete("user-1");
 
       expect(result).toEqual(mockUser);
-      expect(prismaMock.user.delete).toHaveBeenCalledWith({
+      expect(tx.leaveBalance.deleteMany).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+      });
+      expect(tx.user.delete).toHaveBeenCalledWith({
         where: { id: "user-1" },
       });
     });

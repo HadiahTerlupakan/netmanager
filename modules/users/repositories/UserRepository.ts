@@ -191,7 +191,11 @@ export class UserRepository implements IUserRepository {
 
   /** Hapus user dan kembalikan entity terakhirnya. */
   async delete(id: string): Promise<UserEntity> {
-    const user = await prisma.user.delete({ where: { id } });
+    const user = await prisma.$transaction(async (tx) => {
+      await tx.leaveBalance.deleteMany({ where: { userId: id } });
+      return tx.user.delete({ where: { id } });
+    });
+
     return UserMapper.toDomain(user);
   }
 

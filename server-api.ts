@@ -68,21 +68,20 @@ const server = serve(
 
 startPushRetryProcessor();
 
-import("./modules/network/services/RadiusMonitor")
-  .then(({ startRadiusMonitoring }) => {
-    startRadiusMonitoring();
-  })
-  .catch((err) =>
-    logger.error("[Server] Failed to start Radius monitoring:", err),
-  );
+void import("./modules/network/services/monitorBootstrap")
+  .then(async ({ waitForDatabaseReady }) => {
+    await waitForDatabaseReady();
+    const [{ startRadiusMonitoring }, { mikroTikMonitor }] = await Promise.all([
+      import("./modules/network/services/RadiusMonitor"),
+      import("./modules/network/services/MikroTikMonitor"),
+    ]);
 
-import("./modules/network/services/MikroTikMonitor")
-  .then(({ mikroTikMonitor }) => {
+    startRadiusMonitoring();
     mikroTikMonitorRef = mikroTikMonitor;
     mikroTikMonitor.start();
   })
   .catch((err) =>
-    logger.error("[Server] Failed to start MikroTik monitoring:", err),
+    logger.error("[Server] Failed to start monitoring services:", err),
   );
 
 if (startInternalCronIfEnabled({ startAll: () => {} })) {
