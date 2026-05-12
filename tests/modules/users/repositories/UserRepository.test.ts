@@ -88,11 +88,25 @@ describe("UserRepository", () => {
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
 
-    it("harus filter by siteId", async () => {
+    it("harus filter by siteId termasuk relasi userSites", async () => {
       vi.mocked(prismaMock.$transaction).mockResolvedValue([[], 0, 0, 0]);
 
       await repository.findAll({ siteId: "site-1" });
 
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { siteId: "site-1" },
+                  { userSites: { some: { siteId: "site-1" } } },
+                ],
+              },
+            ],
+          },
+        }),
+      );
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
   });

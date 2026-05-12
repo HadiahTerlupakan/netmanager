@@ -149,7 +149,14 @@ function buildUserFindAllWhere(params: FindUsersParams): Prisma.UserWhereInput {
   const where: Prisma.UserWhereInput = {};
 
   if (params.siteId) {
-    where.siteId = params.siteId;
+    where.AND = [
+      {
+        OR: [
+          { siteId: params.siteId },
+          { userSites: { some: { siteId: params.siteId } } },
+        ],
+      },
+    ];
   }
 
   if (params.tenantId) {

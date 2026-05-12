@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
@@ -96,17 +96,58 @@ let referenceDataPromise: Promise<{
 }> | null = null;
 let tenantsPromise: Promise<Tenant[]> | null = null;
 
+function normalizeArrayPayload<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: T[] }).data;
+  }
+
+  return [];
+}
+
 async function loadReferenceData() {
   if (!referenceDataPromise) {
-    referenceDataPromise = Promise.all([
-      fetch("/api/admin/departments").then((res) => res.json()),
-      fetch("/api/roles?filterRestricted=true").then((res) => res.json()),
-      fetch("/api/admin/sites?activeOnly=true").then((res) => res.json()),
-    ]).then(([departmentsData, rolesData, sitesData]) => ({
-      departments: departmentsData.data || [],
-      roles: Array.isArray(rolesData) ? rolesData : [],
-      sites: sitesData.data || [],
-    }));
+    referenceDataPromise = Promise.allSettled([
+      fetch("/api/admin/departments").then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error("departments failed")),
+      ),
+      fetch("/api/roles?filterRestricted=true").then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error("roles failed")),
+      ),
+      fetch("/api/admin/sites?activeOnly=true").then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error("sites failed")),
+      ),
+    ]).then(([departmentsResult, rolesResult, sitesResult]) => {
+      const hasFailedEndpoint =
+        departmentsResult.status === "rejected" ||
+        rolesResult.status === "rejected" ||
+        sitesResult.status === "rejected";
+
+      if (hasFailedEndpoint) {
+        referenceDataPromise = null;
+      }
+
+      const departmentsData =
+        departmentsResult.status === "fulfilled" ? departmentsResult.value : [];
+      const rolesData =
+        rolesResult.status === "fulfilled" ? rolesResult.value : [];
+      const sitesData =
+        sitesResult.status === "fulfilled" ? sitesResult.value : [];
+
+      return {
+        departments: normalizeArrayPayload<Department>(departmentsData),
+        roles: normalizeArrayPayload<Role>(rolesData),
+        sites: normalizeArrayPayload<Site>(sitesData),
+      };
+    });
   }
 
   return referenceDataPromise;
@@ -139,8 +180,6 @@ export function ClientComponent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({});
-  const hasLoadedReferenceData = useRef(false);
-  const hasLoadedTenants = useRef(false);
 
   const [formData, setFormData] = useState({
     // Account Information
@@ -195,32 +234,26 @@ export function ClientComponent() {
   useEffect(() => {
     let isMounted = true;
 
-    if (!hasLoadedReferenceData.current) {
-      hasLoadedReferenceData.current = true;
-      loadReferenceData()
-        .then(({ departments, roles, sites }) => {
-          if (!isMounted) return;
-          setDepartments(departments);
-          setRoles(roles);
-          setSites(sites);
-        })
-        .catch((error) => {
-          hasLoadedReferenceData.current = false;
-          referenceDataPromise = null;
-          if (!isMounted) return;
-          clientLogger.error("Error fetching reference data:", error);
-          toast.error("Gagal memuat data referensi pengguna");
-        });
-    }
+    loadReferenceData()
+      .then(({ departments, roles, sites }) => {
+        if (!isMounted) return;
+        setDepartments(departments);
+        setRoles(roles);
+        setSites(sites);
+      })
+      .catch((error) => {
+        referenceDataPromise = null;
+        if (!isMounted) return;
+        clientLogger.error("Error fetching reference data:", error);
+        toast.error("Gagal memuat data referensi pengguna");
+      });
 
-    if (canReadTenants && !hasLoadedTenants.current) {
-      hasLoadedTenants.current = true;
+    if (canReadTenants) {
       loadTenants()
         .then((tenants) => {
           if (isMounted) setTenants(tenants);
         })
         .catch((error) => {
-          hasLoadedTenants.current = false;
           tenantsPromise = null;
           if (!isMounted) return;
           clientLogger.error("Error fetching tenants:", error);
@@ -233,10 +266,12 @@ export function ClientComponent() {
   }, [canReadTenants]);
 
   useEffect(() => {
-    if (tenantIdParam) {
-      setFormData((prev) => ({ ...prev, tenantId: tenantIdParam }));
+    if (!canReadTenants || !tenantIdParam) {
+      return;
     }
-  }, [tenantIdParam]);
+
+    setFormData((prev) => ({ ...prev, tenantId: tenantIdParam }));
+  }, [canReadTenants, tenantIdParam]);
 
   const generatePassword = () => {
     const chars =
@@ -340,6 +375,10 @@ export function ClientComponent() {
       newErrors.email = "Email wajib diisi";
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       newErrors.email = "Format email tidak valid";
+    } else if (formData.isCheckingEmail) {
+      newErrors.email = "Validasi email sedang diproses";
+    } else if (!formData.emailChecked) {
+      newErrors.email = "Mohon tunggu validasi email selesai";
     } else if (formData.emailExists) {
       newErrors.email = `Email sudah terdaftar sebagai ${formData.emailRole}`;
     }
@@ -377,8 +416,12 @@ export function ClientComponent() {
 
     try {
       // Clean up data before sending
+      const tenantScopedFormData = canReadTenants
+        ? formData
+        : { ...formData, tenantId: undefined };
+
       const submitData = {
-        ...formData,
+        ...tenantScopedFormData,
         ...workingHoursData,
         // Convert empty strings to undefined/null for optional fields
         departmentId: formData.departmentId || null,
@@ -488,7 +531,7 @@ export function ClientComponent() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Tenant Selection (Super Admin only) */}
-              {hasPermission("tenants:read") && (
+              {canReadTenants && (
                 <div className="md:col-span-2">
                   <label
                     htmlFor="tenantId"
@@ -1142,7 +1185,7 @@ export function ClientComponent() {
           {canCreate && (
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || formData.isCheckingEmail}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

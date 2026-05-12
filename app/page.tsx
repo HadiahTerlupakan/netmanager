@@ -6,24 +6,24 @@ import { getPublicPortalSettings } from "@/modules/settings";
 import { DEFAULT_PUBLIC_APP_NAME } from "@/lib/settings/publicBranding";
 
 export const metadata: Metadata = {
-  title: "SBLNET.ID - Provider Internet Fiber Optik Unlimited Tercepat",
+  title: "RADPRO.ID - Provider Internet Fiber Optik Unlimited Tercepat",
   description:
-    "Rasakan pengalaman internet ngebut tanpa ribet dengan SBLNET.ID. Provider fiber optik dengan koneksi stabil, unlimited tanpa FUP, dan dukungan 24/7 untuk rumah & bisnis.",
+    "Rasakan pengalaman internet ngebut tanpa ribet dengan RADPRO.ID. Provider fiber optik dengan koneksi stabil, unlimited tanpa FUP, dan dukungan 24/7 untuk rumah & bisnis.",
   keywords: [
     "internet wifi",
     "fiber optik",
     "provider internet jakarta",
     "wifi murah",
     "pasang wifi",
-    "sblnet",
+    "radpro",
     "internet stabil",
   ],
   openGraph: {
-    title: "SBLNET.ID - Internet Fiber Optik Ngebut Tanpa Ribet",
+    title: "RADPRO.ID - Internet Fiber Optik Ngebut Tanpa Ribet",
     description:
       "Internet unlimited stabil untuk produktivitas digital Anda. Support 24/7, Anti Badai, Tanpa FUP.",
-    url: "https://sblnet.id",
-    siteName: "SBLNET.ID",
+    url: "https://radpro.id",
+    siteName: "RADPRO.ID",
     locale: "id_ID",
     type: "website",
   },

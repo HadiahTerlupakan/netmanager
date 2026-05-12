@@ -21,9 +21,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const activeOnly = searchParams.get("activeOnly") === "true";
 
   // Permission check
-  if (!(await hasPermission("site:read"))) {
+  const canReadSite = await hasPermission("site:read");
+  const canCreateUser = await hasPermission("users:create");
+
+  if (!canReadSite && !canCreateUser) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat site (Butuh: site:read)",
+      "Anda tidak memiliki akses untuk melihat site (Butuh: site:read atau users:create)",
     );
   }
 

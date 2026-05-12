@@ -128,7 +128,7 @@ export default function LandingPage({
         <section className="px-6 pb-2">
           <h2 className="font-bold text-slate-900 dark:text-white text-lg mb-2 flex items-center gap-2">
             <span className="w-1 h-6 bg-[#0f62fe] rounded-full"></span>
-            Tentang SBLNET.ID
+            Tentang RADPRO.ID
           </h2>
           <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 leading-relaxed">
             Kami adalah penyedia layanan internet fiber optik terdepan yang
@@ -276,7 +276,7 @@ export default function LandingPage({
                       Email Support
                     </p>
                     <p className="text-xs text-slate-300 mt-1 opacity-80">
-                      care@sblnet.id
+                      care@radpro.id
                     </p>
                   </div>
                 </li>
@@ -299,7 +299,7 @@ export default function LandingPage({
           </a>
           <div className="mt-8 text-[11px] text-slate-400 leading-relaxed flex flex-col items-center gap-2">
             <div>
-              © 2023 SBLNET.ID. All rights reserved.
+              © 2023 RADPRO.ID. All rights reserved.
               <br />
               <span className="opacity-70">
                 Terdaftar dan diawasi oleh Kominfo.

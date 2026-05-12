@@ -23,6 +23,11 @@ export class AdminUserRouteCreateService {
     const scopedPayload = this.applyCreateSiteRestriction(session, payload);
     const context = await this.buildCreationContext(session, scopedPayload);
 
+    await this.assertScopedSitesBelongToTenant(
+      scopedPayload,
+      context.targetTenantId,
+    );
+
     const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
     const allowedSiteIds = isRestricted ? siteIds : undefined;
 
@@ -105,9 +110,7 @@ export class AdminUserRouteCreateService {
     session: AdminSession,
     payload: CreateAdminUserInput,
   ) {
-    const targetTenantId = session.user.isSuperAdmin
-      ? payload.tenantId || undefined
-      : undefined;
+    const targetTenantId = this.resolveTargetTenantId(session, payload);
     const effectiveRoleId = await this.resolveRoleId(
       payload.roleId,
       targetTenantId,
@@ -121,12 +124,66 @@ export class AdminUserRouteCreateService {
     };
   }
 
+  private resolveTargetTenantId(
+    session: AdminSession,
+    payload: CreateAdminUserInput,
+  ) {
+    if (session.user.isSuperAdmin) {
+      return payload.tenantId ?? undefined;
+    }
+
+    const sessionTenantId = session.user.tenantId;
+    if (!sessionTenantId) {
+      throw new Error("Tenant context wajib tersedia");
+    }
+
+    return sessionTenantId;
+  }
+
   private async resolveRoleId(roleId: string | undefined, tenantId?: string) {
     if (roleId || !tenantId) {
       return roleId;
     }
 
     return (await getTenantAdminRoleId(prismaAuth, tenantId)) || undefined;
+  }
+
+  private async assertScopedSitesBelongToTenant(
+    payload: CreateAdminUserInput,
+    tenantId?: string,
+  ) {
+    if (!tenantId) {
+      return;
+    }
+
+    if (payload.siteId) {
+      const siteCount = await prismaAuth.sites.count({
+        where: { id: payload.siteId, tenantId },
+      });
+
+      if (siteCount === 0) {
+        throw new Error("Site tidak ditemukan di tenant ini");
+      }
+    }
+
+    const userSiteIds = (payload.userSites ?? [])
+      .map((userSite) => userSite.siteId)
+      .filter((siteId): siteId is string => Boolean(siteId));
+
+    if (userSiteIds.length === 0) {
+      return;
+    }
+
+    const siteCount = await prismaAuth.sites.count({
+      where: {
+        id: { in: userSiteIds },
+        tenantId,
+      },
+    });
+
+    if (siteCount !== userSiteIds.length) {
+      throw new Error("Satu atau lebih site tidak ditemukan di tenant ini");
+    }
   }
 
   private async createUserEntityWithSites(

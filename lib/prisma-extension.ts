@@ -2,6 +2,151 @@
  * Prisma Extension for Multi-tenancy isolation.
  * Based on Prisma 7 best practices (2025/2026).
  */
+const READ_OPERATIONS = new Set([
+  "findUnique",
+  "findUniqueOrThrow",
+  "findFirst",
+  "findFirstOrThrow",
+  "findMany",
+  "count",
+  "groupBy",
+  "aggregate",
+]);
+
+const WRITE_OPERATIONS = new Set([
+  "update",
+  "updateMany",
+  "delete",
+  "deleteMany",
+]);
+
+const GLOBAL_REFERENCE_MODELS = new Set(["Role", "Departments", "Sites"]);
+
+function hasRelationPayload(obj: Record<string, unknown> | null | undefined) {
+  if (!obj || typeof obj !== "object") {
+    return false;
+  }
+
+  for (const key in obj) {
+    const value = obj[key];
+    if (
+      value &&
+      typeof value === "object" &&
+      ("connect" in value || "create" in value || "connectOrCreate" in value)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function buildTenantReadWhere(
+  model: string | undefined,
+  where: Record<string, unknown> | undefined,
+  tenantId: string,
+) {
+  if (model && GLOBAL_REFERENCE_MODELS.has(model)) {
+    return {
+      AND: [
+        where ?? {},
+        {
+          OR: [{ tenantId }, { tenantId: null }],
+        },
+      ],
+    };
+  }
+
+  return {
+    ...(where ?? {}),
+    tenantId,
+  };
+}
+
+function applyTenantToCreateData(
+  data: Record<string, unknown> | undefined,
+  tenantId: string,
+) {
+  if (!data) {
+    return data;
+  }
+
+  const nextData = { ...data };
+  delete nextData.tenantId;
+  delete nextData.tenant;
+
+  if (hasRelationPayload(nextData)) {
+    return {
+      ...nextData,
+      tenant: { connect: { id: tenantId } },
+    };
+  }
+
+  return {
+    ...nextData,
+    tenantId,
+  };
+}
+
+function removeTenantMutationFields(data: Record<string, unknown> | undefined) {
+  if (!data) {
+    return data;
+  }
+
+  const nextData = { ...data };
+  delete nextData.tenantId;
+  delete nextData.tenant;
+  return nextData;
+}
+
+function applyTenantToCreateManyData(
+  data: Record<string, unknown> | Record<string, unknown>[] | undefined,
+  tenantId: string,
+) {
+  if (!data) {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item) => {
+      const nextItem = { ...item };
+      delete nextItem.tenant;
+      return { ...nextItem, tenantId };
+    });
+  }
+
+  const nextItem = { ...data };
+  delete nextItem.tenant;
+  return { ...nextItem, tenantId };
+}
+
+function buildTenantUpsertWhere(
+  where: Record<string, unknown> | undefined,
+  tenantId: string,
+) {
+  return {
+    ...(where ?? {}),
+    tenantId,
+  };
+}
+
+function buildTenantWriteWhere(
+  where: Record<string, unknown> | undefined,
+  tenantId: string,
+) {
+  return {
+    ...(where ?? {}),
+    tenantId,
+  };
+}
+
+function isNonSuperAdminTenant(
+  tenantId: string | null,
+  isSuperAdmin: boolean,
+): tenantId is string {
+  return Boolean(tenantId) && !isSuperAdmin;
+}
+
 export function withTenantIsolation(ignoreModels: string[] = []) {
   return {
     name: "tenantIsolation",
@@ -51,94 +196,73 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
 
           // 5. Automatic Filter Injection
           if (tenantId) {
-            const isReadOp = [
-              "findUnique",
-              "findUniqueOrThrow",
-              "findFirst",
-              "findFirstOrThrow",
-              "findMany",
-              "count",
-              "groupBy",
-              "aggregate",
-            ].includes(operation);
+            const isReadOp = READ_OPERATIONS.has(operation);
+            const isWriteOp = WRITE_OPERATIONS.has(operation);
 
-            const isWriteOp = [
-              "update",
-              "updateMany",
-              "delete",
-              "deleteMany",
-            ].includes(operation);
-
-            // For reads and updates/deletes, ONLY filter if NOT superadmin.
-            // SuperAdmins can read/write across all tenants.
-            if (!isSuperAdmin) {
-              if (isReadOp || isWriteOp) {
-                // Inject tenantId filter to ensure user only sees/touches their own data
-                args.where = {
-                  ...(args.where as Record<string, unknown>),
+            if (isNonSuperAdminTenant(tenantId, isSuperAdmin)) {
+              if (isReadOp) {
+                args.where = buildTenantReadWhere(
+                  model,
+                  args.where as Record<string, unknown> | undefined,
                   tenantId,
-                };
+                );
+              } else if (isWriteOp) {
+                args.where = buildTenantWriteWhere(
+                  args.where as Record<string, unknown> | undefined,
+                  tenantId,
+                );
               }
 
               if (operation === "upsert") {
-                args.where = {
-                  ...(args.where as Record<string, unknown>),
+                args.where = buildTenantUpsertWhere(
+                  args.where as Record<string, unknown> | undefined,
                   tenantId,
-                };
+                );
               }
 
-              // 6. Immutability Protection: Mencegah perubahan tenantId pada operasi update
               if (operation === "update" || operation === "updateMany") {
-                const dataArgs = args.data as
-                  | Record<string, unknown>
-                  | undefined;
-                if (dataArgs && dataArgs.tenantId !== undefined) {
-                  // Hapus upaya pengubahan tenantId jika bukan superadmin
-                  delete dataArgs.tenantId;
-                }
+                args.data = removeTenantMutationFields(
+                  args.data as Record<string, unknown> | undefined,
+                );
               }
-            }
 
-            // For creates, ALWAYS inject the tenantId if it's not explicitly provided,
-            // even for SuperAdmins, so newly created records belong to their active tenant context.
-            if (operation === "create") {
+              if (operation === "create") {
+                args.data = applyTenantToCreateData(
+                  args.data as Record<string, unknown> | undefined,
+                  tenantId,
+                );
+              } else if (operation === "createMany") {
+                args.data = applyTenantToCreateManyData(
+                  args.data as
+                    | Record<string, unknown>
+                    | Record<string, unknown>[]
+                    | undefined,
+                  tenantId,
+                );
+              } else if (operation === "upsert") {
+                args.create = applyTenantToCreateData(
+                  args.create as Record<string, unknown> | undefined,
+                  tenantId,
+                );
+                args.update = removeTenantMutationFields(
+                  args.update as Record<string, unknown> | undefined,
+                );
+              }
+            } else if (operation === "create") {
               const dataArgs = args.data as Record<string, unknown> | undefined;
-              // Add tenant relation, unless they already provided tenant or tenantId
               if (
                 dataArgs &&
                 dataArgs.tenantId === undefined &&
                 dataArgs.tenant === undefined
               ) {
-                // Determine if we need to use relation syntax (CreateInput) or scalar flat syntax (UncheckedCreateInput)
-                const hasRelationPayload = (
-                  obj: Record<string, unknown> | null | undefined,
-                ): boolean => {
-                  if (!obj || typeof obj !== "object") return false;
-                  for (const key in obj) {
-                    if (obj[key] && typeof obj[key] === "object") {
-                      if (
-                        "connect" in obj[key] ||
-                        "create" in obj[key] ||
-                        "connectOrCreate" in obj[key]
-                      ) {
-                        return true;
-                      }
+                args.data = hasRelationPayload(dataArgs)
+                  ? {
+                      ...dataArgs,
+                      tenant: { connect: { id: tenantId } },
                     }
-                  }
-                  return false;
-                };
-
-                if (hasRelationPayload(dataArgs)) {
-                  args.data = {
-                    ...dataArgs,
-                    tenant: { connect: { id: tenantId } },
-                  };
-                } else {
-                  args.data = { ...dataArgs, tenantId };
-                }
+                  : { ...dataArgs, tenantId };
               }
             } else if (operation === "createMany") {
-              // createMany only takes scalars, so tenantId is strictly required here
               if (Array.isArray(args.data)) {
                 args.data = (args.data as Record<string, unknown>[]).map((d) =>
                   d.tenantId === undefined ? { ...d, tenantId } : d,
@@ -160,43 +284,18 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
                 createArgs.tenantId === undefined &&
                 createArgs.tenant === undefined
               ) {
-                const hasRelationPayload = (
-                  obj: Record<string, unknown> | null | undefined,
-                ): boolean => {
-                  if (!obj || typeof obj !== "object") return false;
-                  for (const key in obj) {
-                    if (obj[key] && typeof obj[key] === "object") {
-                      if (
-                        "connect" in obj[key] ||
-                        "create" in obj[key] ||
-                        "connectOrCreate" in obj[key]
-                      ) {
-                        return true;
-                      }
+                args.create = hasRelationPayload(createArgs)
+                  ? {
+                      ...createArgs,
+                      tenant: { connect: { id: tenantId } },
                     }
-                  }
-                  return false;
-                };
-                if (hasRelationPayload(createArgs)) {
-                  args.create = {
-                    ...createArgs,
-                    tenant: { connect: { id: tenantId } },
-                  };
-                } else {
-                  args.create = { ...createArgs, tenantId };
-                }
+                  : { ...createArgs, tenantId };
               }
 
               if (!isSuperAdmin) {
-                const updateArgs = args.update as
-                  | Record<string, unknown>
-                  | undefined;
-                if (updateArgs && updateArgs.tenantId !== undefined) {
-                  delete updateArgs.tenantId;
-                }
-                if (updateArgs && updateArgs.tenant !== undefined) {
-                  delete updateArgs.tenant;
-                }
+                args.update = removeTenantMutationFields(
+                  args.update as Record<string, unknown> | undefined,
+                );
               }
             }
           }

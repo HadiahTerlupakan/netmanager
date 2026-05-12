@@ -55,6 +55,265 @@ describe("prisma extension tenant-context alias", () => {
     (globalThis as Record<string, unknown>).IS_CUSTOM_SERVER = false;
   });
 
+  it("mempertahankan filter bisnis dan menambahkan visibilitas data referensi global untuk tenant", async () => {
+    const tenantContextStorage = new AsyncLocalStorage<{
+      tenantId: string | null;
+      isSuperAdmin: boolean;
+    }>();
+
+    vi.doMock("@/lib/tenant-context", () => ({
+      getTenantIdFromContext: vi.fn(async () => {
+        return (
+          tenantContextStorage.getStore() ?? {
+            tenantId: null,
+            isSuperAdmin: false,
+          }
+        );
+      }),
+      runWithRequestTenantContext: (
+        tenantContext: { tenantId: string | null; isSuperAdmin: boolean },
+        callback: () => Promise<unknown>,
+      ) => tenantContextStorage.run(tenantContext, callback),
+    }));
+
+    const { withTenantIsolation } = await import("@/lib/prisma-extension");
+    const tenantExtension = withTenantIsolation([]);
+    const runTenantQuery = tenantExtension.query.$allModels.$allOperations as ({
+      model,
+      operation,
+      args,
+      query,
+    }: {
+      model?: string;
+      operation: string;
+      args: Record<string, unknown>;
+      query: (args: unknown) => Promise<unknown>;
+    }) => Promise<unknown>;
+
+    const result = await tenantContextStorage.run(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      async () =>
+        runTenantQuery({
+          model: "Departments",
+          operation: "findMany",
+          args: {
+            where: {
+              OR: [
+                { name: { contains: "Teknik", mode: "insensitive" } },
+                {
+                  description: {
+                    contains: "Lapangan",
+                    mode: "insensitive",
+                  },
+                },
+              ],
+              isReminderTarget: true,
+            },
+          },
+          query: async (queryArgs) => queryArgs,
+        }),
+    );
+
+    expect(result).toEqual({
+      where: {
+        AND: [
+          {
+            OR: [
+              { name: { contains: "Teknik", mode: "insensitive" } },
+              {
+                description: {
+                  contains: "Lapangan",
+                  mode: "insensitive",
+                },
+              },
+            ],
+            isReminderTarget: true,
+          },
+          {
+            OR: [{ tenantId: "tenant-1" }, { tenantId: null }],
+          },
+        ],
+      },
+    });
+  });
+
+  it("tetap membatasi model non referensi ke tenant aktif saja", async () => {
+    const tenantContextStorage = new AsyncLocalStorage<{
+      tenantId: string | null;
+      isSuperAdmin: boolean;
+    }>();
+
+    vi.doMock("@/lib/tenant-context", () => ({
+      getTenantIdFromContext: vi.fn(async () => {
+        return (
+          tenantContextStorage.getStore() ?? {
+            tenantId: null,
+            isSuperAdmin: false,
+          }
+        );
+      }),
+      runWithRequestTenantContext: (
+        tenantContext: { tenantId: string | null; isSuperAdmin: boolean },
+        callback: () => Promise<unknown>,
+      ) => tenantContextStorage.run(tenantContext, callback),
+    }));
+
+    const { withTenantIsolation } = await import("@/lib/prisma-extension");
+    const tenantExtension = withTenantIsolation([]);
+    const runTenantQuery = tenantExtension.query.$allModels.$allOperations as ({
+      model,
+      operation,
+      args,
+      query,
+    }: {
+      model?: string;
+      operation: string;
+      args: Record<string, unknown>;
+      query: (args: unknown) => Promise<unknown>;
+    }) => Promise<unknown>;
+
+    const result = await tenantContextStorage.run(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      async () =>
+        runTenantQuery({
+          model: "User",
+          operation: "findMany",
+          args: { where: { isActive: true } },
+          query: async (queryArgs) => queryArgs,
+        }),
+    );
+
+    expect(result).toEqual({
+      where: {
+        isActive: true,
+        tenantId: "tenant-1",
+      },
+    });
+  });
+
+  it("memaksa create tenant non-superadmin tetap memakai tenant aktif", async () => {
+    const tenantContextStorage = new AsyncLocalStorage<{
+      tenantId: string | null;
+      isSuperAdmin: boolean;
+    }>();
+
+    vi.doMock("@/lib/tenant-context", () => ({
+      getTenantIdFromContext: vi.fn(async () => {
+        return (
+          tenantContextStorage.getStore() ?? {
+            tenantId: null,
+            isSuperAdmin: false,
+          }
+        );
+      }),
+      runWithRequestTenantContext: (
+        tenantContext: { tenantId: string | null; isSuperAdmin: boolean },
+        callback: () => Promise<unknown>,
+      ) => tenantContextStorage.run(tenantContext, callback),
+    }));
+
+    const { withTenantIsolation } = await import("@/lib/prisma-extension");
+    const tenantExtension = withTenantIsolation([]);
+    const runTenantQuery = tenantExtension.query.$allModels.$allOperations as ({
+      model,
+      operation,
+      args,
+      query,
+    }: {
+      model?: string;
+      operation: string;
+      args: Record<string, unknown>;
+      query: (args: unknown) => Promise<unknown>;
+    }) => Promise<unknown>;
+
+    const result = await tenantContextStorage.run(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      async () =>
+        runTenantQuery({
+          model: "User",
+          operation: "create",
+          args: {
+            data: {
+              name: "Teknisi",
+              tenantId: "tenant-lain",
+            },
+          },
+          query: async (queryArgs) => queryArgs,
+        }),
+    );
+
+    expect(result).toEqual({
+      data: {
+        name: "Teknisi",
+        tenantId: "tenant-1",
+      },
+    });
+  });
+
+  it("membersihkan percobaan mutasi relasi tenant pada update non-superadmin", async () => {
+    const tenantContextStorage = new AsyncLocalStorage<{
+      tenantId: string | null;
+      isSuperAdmin: boolean;
+    }>();
+
+    vi.doMock("@/lib/tenant-context", () => ({
+      getTenantIdFromContext: vi.fn(async () => {
+        return (
+          tenantContextStorage.getStore() ?? {
+            tenantId: null,
+            isSuperAdmin: false,
+          }
+        );
+      }),
+      runWithRequestTenantContext: (
+        tenantContext: { tenantId: string | null; isSuperAdmin: boolean },
+        callback: () => Promise<unknown>,
+      ) => tenantContextStorage.run(tenantContext, callback),
+    }));
+
+    const { withTenantIsolation } = await import("@/lib/prisma-extension");
+    const tenantExtension = withTenantIsolation([]);
+    const runTenantQuery = tenantExtension.query.$allModels.$allOperations as ({
+      model,
+      operation,
+      args,
+      query,
+    }: {
+      model?: string;
+      operation: string;
+      args: Record<string, unknown>;
+      query: (args: unknown) => Promise<unknown>;
+    }) => Promise<unknown>;
+
+    const result = await tenantContextStorage.run(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      async () =>
+        runTenantQuery({
+          model: "User",
+          operation: "update",
+          args: {
+            where: { id: "user-1" },
+            data: {
+              name: "Teknisi Baru",
+              tenantId: "tenant-lain",
+              tenant: { connect: { id: "tenant-lain" } },
+            },
+          },
+          query: async (queryArgs) => queryArgs,
+        }),
+    );
+
+    expect(result).toEqual({
+      where: {
+        id: "user-1",
+        tenantId: "tenant-1",
+      },
+      data: {
+        name: "Teknisi Baru",
+      },
+    });
+  });
+
   it("tetap memakai cached tenant context saat prisma extension dan handler memakai module tenant-context yang sama", async () => {
     const tenantContextStorage = new AsyncLocalStorage<{
       tenantId: string | null;

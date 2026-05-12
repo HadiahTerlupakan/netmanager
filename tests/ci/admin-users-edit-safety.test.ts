@@ -203,8 +203,10 @@ describe("admin users edit safety", () => {
     expect(newClientFile).toMatch(
       /const canReadTenants = hasPermission\((["'])tenants:read\1\)/,
     );
-    expect(newClientFile).toContain("hasLoadedReferenceData");
-    expect(newClientFile).toContain("hasLoadedTenants");
+    expect(newClientFile).toContain("let referenceDataPromise");
+    expect(newClientFile).toContain("let tenantsPromise");
+    expect(newClientFile).toContain("if (!referenceDataPromise)");
+    expect(newClientFile).toContain("if (!tenantsPromise)");
     expect(newClientFile).toContain("}, [canReadTenants])");
     expect(newClientFile).not.toContain("}, [hasPermission])");
   });
