@@ -124,6 +124,22 @@ export async function getGeneralSettings(
   return mapGeneralSettingsResponse(records);
 }
 
+/** Gets auto-isolation scheduler settings in normalized form. */
+export async function getAutoIsolationSettings(
+  repository: ISettingsRepository = defaultSettingsRepository,
+): Promise<{ enabled: boolean; toleranceDays: number }> {
+  const settings = await getGeneralSettings(repository);
+  const toleranceDays = Number.parseInt(
+    settings.autoIsolirHariToleransi ?? "1",
+    10,
+  );
+
+  return {
+    enabled: settings.autoIsolirEnabled !== false,
+    toleranceDays: Number.isNaN(toleranceDays) ? 1 : Math.max(toleranceDays, 0),
+  };
+}
+
 /** Updates global general settings. */
 export async function updateGeneralSettings(
   payload: GeneralSettingsPayload,

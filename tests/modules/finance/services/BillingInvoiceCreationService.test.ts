@@ -35,6 +35,18 @@ vi.mock("@/lib/event-bus", () => ({
   },
 }));
 
+const mockSyncInvoiceBillingSchedules = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve()),
+);
+const mockCancelInvoiceBillingSchedules = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve()),
+);
+
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockSyncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockCancelInvoiceBillingSchedules,
+}));
+
 describe("BillingInvoiceCreationService", () => {
   let service: BillingInvoiceCreationService;
   let mockInvoiceRepo: InvoiceRepository;
@@ -73,6 +85,8 @@ describe("BillingInvoiceCreationService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSyncInvoiceBillingSchedules.mockClear();
+    mockCancelInvoiceBillingSchedules.mockClear();
 
     mockInvoiceRepo = {
       create: vi.fn(),
@@ -262,6 +276,17 @@ describe("BillingInvoiceCreationService", () => {
         amount: 555000,
         dueDate: dueDate.toISOString(),
       });
+    });
+
+    it("harus sinkronkan billing schedule setelah invoice berhasil dibuat", async () => {
+      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+      await service.createInvoiceForCustomer(
+        mockCustomer,
+        new Date("2026-05-31"),
+      );
+
+      expect(mockSyncInvoiceBillingSchedules).toHaveBeenCalledWith(mockInvoice);
     });
 
     it("harus handle error saat notification gagal tanpa throw", async () => {

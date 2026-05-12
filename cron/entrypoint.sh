@@ -30,7 +30,10 @@ cat > /etc/crontabs/root <<CRON_EOF
 # RAB Status Evaluation
 0 1 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/rab-status-eval" >> /var/log/cron.log 2>&1
 
-# Daily Overdue Isolation - process pada jam 00:01 setiap hari
+# Billing Schedule Reconciliation - recovery schedule hilang atau terlewat setiap menit
+* * * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/reconcile-billing-schedules" >> /var/log/cron.log 2>&1
+
+# Process Overdue compatibility - tetap tersedia untuk deployment lama
 1 0 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/process-overdue" >> /var/log/cron.log 2>&1
 CRON_EOF
 

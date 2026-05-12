@@ -134,6 +134,9 @@ async function syncPaidInvoiceCustomerState(
     },
     nextDueDate,
   );
+  const { cancelInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await cancelInvoiceBillingSchedules(invoice.id);
   await publishPaidInvoiceEvent(invoice, customer.id);
 }
 

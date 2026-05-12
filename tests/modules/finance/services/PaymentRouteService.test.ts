@@ -19,9 +19,19 @@ const mockInvoiceRepository = {
   updatePaymentStatus: vi.fn(),
 };
 
+const mockSyncInvoiceBillingSchedules = vi.fn();
+const mockCancelInvoiceBillingSchedules = vi.fn();
+const mockHandleInvoicePaid = vi.hoisted(() => vi.fn());
+
 const mockPelangganService = {
   getPelanggan: vi.fn(),
 };
+
+vi.mock("@/modules/finance/services/AutomaticBillingService", () => ({
+  AutomaticBillingService: {
+    handleInvoicePaid: mockHandleInvoicePaid,
+  },
+}));
 
 vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
   PaymentRepository: class {
@@ -56,6 +66,11 @@ vi.mock("@/lib/logger", () => ({
     dbOperation: vi.fn(),
   },
   logActivitySafe: vi.fn(),
+}));
+
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockSyncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockCancelInvoiceBillingSchedules,
 }));
 
 describe("PaymentRouteService", () => {
@@ -286,12 +301,36 @@ describe("PaymentRouteService", () => {
       expect(result).toEqual({ status: "invoice-not-found" });
     });
 
+    it("harus return invoice-not-found jika invoice bukan milik pelanggan", async () => {
+      mockPelangganService.getPelanggan.mockResolvedValue({
+        id: "customer-1",
+      });
+      mockInvoiceRepository.findRawById.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-2",
+      });
+
+      const result = await PaymentRouteService.createPaymentForRoute({
+        input: {
+          pelangganId: "customer-1",
+          invoiceId: "invoice-1",
+          amount: 100000,
+          paymentMethod: PaymentMethod.BANK_TRANSFER,
+        },
+        user: { id: "user-1" },
+      });
+
+      expect(result).toEqual({ status: "invoice-not-found" });
+      expect(mockPaymentRepository.createWithInvoice).not.toHaveBeenCalled();
+    });
+
     it("harus create payment successfully", async () => {
       mockPelangganService.getPelanggan.mockResolvedValue({
         id: "customer-1",
       });
       mockInvoiceRepository.findRawById.mockResolvedValue({
         id: "invoice-1",
+        pelangganId: "customer-1",
       });
       mockPaymentRepository.createWithInvoice.mockResolvedValue({
         id: "payment-1",
@@ -299,9 +338,17 @@ describe("PaymentRouteService", () => {
       });
       mockInvoiceRepository.findWithPayment.mockResolvedValue({
         id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
         totalAmount: 100000n,
         status: "UNPAID",
         payment: [{ amount: 100000n }],
+      });
+      mockInvoiceRepository.updatePaymentStatus.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
+        status: "PAID",
       });
 
       const result = await PaymentRouteService.createPaymentForRoute({
@@ -323,6 +370,10 @@ describe("PaymentRouteService", () => {
           status: "PAID",
         }),
       );
+      expect(mockCancelInvoiceBillingSchedules).toHaveBeenCalledWith(
+        "invoice-1",
+      );
+      expect(mockHandleInvoicePaid).toHaveBeenCalledWith("invoice-1");
     });
 
     it("harus create payment tanpa invoice", async () => {
@@ -378,6 +429,7 @@ describe("PaymentRouteService", () => {
       });
       mockInvoiceRepository.findRawById.mockResolvedValue({
         id: "invoice-1",
+        pelangganId: "customer-1",
       });
       mockPaymentRepository.createWithInvoice.mockResolvedValue({
         id: "payment-1",
@@ -385,9 +437,17 @@ describe("PaymentRouteService", () => {
       });
       mockInvoiceRepository.findWithPayment.mockResolvedValue({
         id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
         totalAmount: 100000n,
         status: "UNPAID",
         payment: [{ amount: 50000n }],
+      });
+      mockInvoiceRepository.updatePaymentStatus.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
+        status: "PARTIAL_PAID",
       });
 
       await PaymentRouteService.createPaymentForRoute({
@@ -406,6 +466,67 @@ describe("PaymentRouteService", () => {
           paidAmount: 50000n,
           status: "PARTIAL_PAID",
           paidAt: null,
+        }),
+      );
+      expect(mockSyncInvoiceBillingSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "invoice-1",
+          status: "PARTIAL_PAID",
+        }),
+      );
+    });
+
+    it("harus abaikan payment non-PAID saat menghitung paidAmount invoice", async () => {
+      mockPelangganService.getPelanggan.mockResolvedValue({
+        id: "customer-1",
+      });
+      mockInvoiceRepository.findRawById.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-1",
+      });
+      mockPaymentRepository.createWithInvoice.mockResolvedValue({
+        id: "payment-1",
+        amount: 50000n,
+      });
+      mockInvoiceRepository.findWithPayment.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
+        totalAmount: 100000n,
+        status: "UNPAID",
+        payment: [
+          { id: "payment-1", amount: 50000n, gatewayStatus: "PENDING" },
+          { id: "payment-old", amount: 25000n, gatewayStatus: "PAID" },
+          {
+            id: "payment-cancelled",
+            amount: 30000n,
+            gatewayStatus: "CANCELLED",
+          },
+        ],
+      });
+      mockInvoiceRepository.updatePaymentStatus.mockResolvedValue({
+        id: "invoice-1",
+        pelangganId: "customer-1",
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
+        status: "PARTIAL_PAID",
+      });
+
+      await PaymentRouteService.createPaymentForRoute({
+        input: {
+          pelangganId: "customer-1",
+          invoiceId: "invoice-1",
+          amount: 50000,
+          paymentMethod: PaymentMethod.BANK_TRANSFER,
+          paymentStatus: GatewayPaymentStatus.PENDING,
+        },
+        user: { id: "user-1" },
+      });
+
+      expect(mockInvoiceRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        "invoice-1",
+        expect.objectContaining({
+          paidAmount: 25000n,
+          status: "PARTIAL_PAID",
         }),
       );
     });

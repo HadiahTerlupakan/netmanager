@@ -7,6 +7,8 @@ const mockFns = vi.hoisted(() => ({
   findPaginatedWithItemsAndPayments: vi.fn(),
   countInvoicesByMonth: vi.fn(),
   createInvoiceWithItems: vi.fn(),
+  syncInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
+  cancelInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/modules/users", () => ({
@@ -32,6 +34,11 @@ vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: vi.fn(),
+}));
+
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
 }));
 
 import {
@@ -104,6 +111,9 @@ describe("InvoiceCollectionRouteService", () => {
     mockFns.createInvoiceWithItems.mockResolvedValue({
       id: "inv-1",
       invoiceNumber: "INV/2026/04/0005",
+      pelangganId: "cust-1",
+      dueDate: new Date("2026-04-30T00:00:00.000Z"),
+      status: InvoiceStatus.SENT,
       subtotal: 50000n,
       taxAmount: 0n,
       discountAmount: 0n,
@@ -150,6 +160,13 @@ describe("InvoiceCollectionRouteService", () => {
         invoiceItem: [{ unitPrice: "50000", totalPrice: "50000" }],
       },
     });
+    expect(mockFns.syncInvoiceBillingSchedules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "inv-1",
+        pelangganId: "cust-1",
+        status: InvoiceStatus.SENT,
+      }),
+    );
   });
 
   it("rejects restricted creation for customers outside user site", async () => {

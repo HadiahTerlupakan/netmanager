@@ -41,6 +41,9 @@ export class BillingInvoiceCreationService {
     await this.notifyInvoiceCreated(customer, invoice, dueDate);
     await this.logInvoiceCreated(customer, invoice);
     await this.publishInvoiceCreated(customer, invoice, dueDate);
+    const { syncInvoiceBillingSchedules } =
+      await import("./billingScheduleLifecycle");
+    await syncInvoiceBillingSchedules(invoice);
     return invoice;
   }
 

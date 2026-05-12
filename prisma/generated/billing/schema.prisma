@@ -8,28 +8,29 @@ datasource db {
 }
 
 model Invoice {
-  id             String        @id
-  invoiceNumber  String
-  pelangganId    String
-  issueDate      DateTime      @default(now())
-  dueDate        DateTime
-  status         InvoiceStatus @default(DRAFT)
-  subtotal       BigInt        @default(0)
-  taxAmount      BigInt        @default(0)
-  discountAmount BigInt        @default(0)
-  totalAmount    BigInt        @default(0)
-  paidAmount     BigInt        @default(0)
-  notes          String?
-  terms          String?
-  sentAt         DateTime?
-  paidAt         DateTime?
-  createdBy      String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime
-  siteId         String?
-  invoiceItem    InvoiceItem[]
-  payment        Payment[]
-  tenantId       String?
+  id               String            @id
+  invoiceNumber    String
+  pelangganId      String
+  issueDate        DateTime          @default(now())
+  dueDate          DateTime
+  status           InvoiceStatus     @default(DRAFT)
+  subtotal         BigInt            @default(0)
+  taxAmount        BigInt            @default(0)
+  discountAmount   BigInt            @default(0)
+  totalAmount      BigInt            @default(0)
+  paidAmount       BigInt            @default(0)
+  notes            String?
+  terms            String?
+  sentAt           DateTime?
+  paidAt           DateTime?
+  createdBy        String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  siteId           String?
+  invoiceItem      InvoiceItem[]
+  payment          Payment[]
+  billingSchedules BillingSchedule[]
+  tenantId         String?
 
   @@unique([tenantId, invoiceNumber])
   @@index([dueDate])
@@ -38,6 +39,38 @@ model Invoice {
   @@index([pelangganId])
   @@index([status])
   @@index([siteId])
+  @@index([tenantId])
+}
+
+model BillingSchedule {
+  id            String                 @id @default(cuid())
+  dedupeKey     String                 @unique
+  jobType       BillingScheduleJobType
+  invoiceId     String?
+  pelangganId   String?
+  runAt         DateTime
+  status        BillingScheduleStatus  @default(PENDING)
+  queueJobId    String?
+  payload       Json?
+  version       Int                    @default(1)
+  attemptCount  Int                    @default(0)
+  queuedAt      DateTime?
+  processingAt  DateTime?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  failedAt      DateTime?
+  lastAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  tenantId      String?
+  invoice       Invoice?               @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([jobType, runAt])
+  @@index([status, runAt])
+  @@index([invoiceId])
+  @@index([pelangganId])
+  @@index([queueJobId])
   @@index([tenantId])
 }
 
@@ -218,6 +251,20 @@ enum InvoiceStatus {
   PAID
   PARTIAL_PAID
   CANCELLED
+}
+
+enum BillingScheduleJobType {
+  INVOICE_MARK_OVERDUE
+  CUSTOMER_AUTO_ISOLIR
+}
+
+enum BillingScheduleStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  FAILED
 }
 
 enum ItemType {

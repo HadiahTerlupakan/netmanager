@@ -127,6 +127,23 @@ export class InvoiceRepository implements IInvoiceRepository {
     return mapInvoiceEntity(invoice) as InvoiceEntity;
   }
 
+  /** Menandai invoice menjadi overdue hanya bila masih eligible. */
+  async markOverdueIfEligible(id: string, now: Date): Promise<boolean> {
+    const result = await prismaBilling.invoice.updateMany({
+      where: {
+        id,
+        dueDate: { lte: now },
+        status: { in: ["SENT", "PARTIAL_PAID"] },
+      },
+      data: {
+        status: "OVERDUE",
+        updatedAt: now,
+      },
+    });
+
+    return result.count > 0;
+  }
+
   /** Memperbarui status pembayaran invoice. */
   async updatePaymentStatus(
     id: string,

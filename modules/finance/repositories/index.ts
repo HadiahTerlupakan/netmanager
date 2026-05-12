@@ -15,5 +15,6 @@ export * from "./PurchaseOrderRepository";
 export * from "./InvestorRepository";
 export * from "./InvestorPortalRepository";
 export * from "./BillingAnalyticsRepository";
+export * from "./BillingScheduleRepository";
 export * from "./PaymentGatewayConfigRepository";
 export * from "./UnmatchedMutationRepository";

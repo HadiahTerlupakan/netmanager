@@ -1,5 +1,5 @@
 import { InvoiceStatus } from "../types/invoice.enums";
-import { prisma, prismaBilling } from "@/modules/database";
+import { prismaBilling } from "@/modules/database";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { getPelangganService } from "@/modules/pelanggan";
 
@@ -46,8 +46,14 @@ export async function cancelPaidPayment(options: {
   );
 
   await cancelPayment(options.paymentId, options.adminLabel);
-  await updateInvoice(invoice.id, newPaidAmount, newStatus);
-  await isolateCustomerIfNeeded(invoice, newStatus);
+  const updatedInvoice = await updateInvoice(
+    invoice.id,
+    newPaidAmount,
+    newStatus,
+  );
+  const { syncInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await syncInvoiceBillingSchedules(updatedInvoice);
   await notifyCustomer(payment.id, invoice.id, invoice.pelangganId);
 }
 
@@ -115,38 +121,18 @@ function updateInvoice(
 ) {
   return prismaBilling.invoice.update({
     where: { id: invoiceId },
-    data: { paidAmount, status },
+    data: {
+      paidAmount,
+      status,
+      ...(status !== InvoiceStatus.PAID ? { paidAt: null } : {}),
+    },
+    select: {
+      id: true,
+      pelangganId: true,
+      dueDate: true,
+      status: true,
+    },
   });
-}
-
-type InvoiceForCancellation = {
-  id: string;
-  pelangganId: string;
-  status: InvoiceStatus;
-};
-
-async function isolateCustomerIfNeeded(
-  invoice: InvoiceForCancellation,
-  newStatus: InvoiceStatus,
-) {
-  if (invoice.status !== InvoiceStatus.PAID) {
-    return;
-  }
-
-  if (
-    newStatus !== InvoiceStatus.SENT &&
-    newStatus !== InvoiceStatus.PARTIAL_PAID
-  ) {
-    return;
-  }
-
-  const customer = await prisma.pelanggan.findUnique({
-    where: { id: invoice.pelangganId },
-  });
-
-  if (customer && customer.status !== "ISOLIR") {
-    await getPelangganService().updateStatusPelanggan(customer.id, "ISOLIR");
-  }
 }
 
 function notifyCustomer(

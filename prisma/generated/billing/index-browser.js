@@ -143,6 +143,30 @@ exports.Prisma.InvoiceScalarFieldEnum = {
   tenantId: 'tenantId'
 };
 
+exports.Prisma.BillingScheduleScalarFieldEnum = {
+  id: 'id',
+  dedupeKey: 'dedupeKey',
+  jobType: 'jobType',
+  invoiceId: 'invoiceId',
+  pelangganId: 'pelangganId',
+  runAt: 'runAt',
+  status: 'status',
+  queueJobId: 'queueJobId',
+  payload: 'payload',
+  version: 'version',
+  attemptCount: 'attemptCount',
+  queuedAt: 'queuedAt',
+  processingAt: 'processingAt',
+  completedAt: 'completedAt',
+  cancelledAt: 'cancelledAt',
+  failedAt: 'failedAt',
+  lastAttemptAt: 'lastAttemptAt',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
+};
+
 exports.Prisma.InvoiceItemScalarFieldEnum = {
   id: 'id',
   invoiceId: 'invoiceId',
@@ -344,6 +368,20 @@ exports.InvoiceStatus = exports.$Enums.InvoiceStatus = {
   CANCELLED: 'CANCELLED'
 };
 
+exports.BillingScheduleJobType = exports.$Enums.BillingScheduleJobType = {
+  INVOICE_MARK_OVERDUE: 'INVOICE_MARK_OVERDUE',
+  CUSTOMER_AUTO_ISOLIR: 'CUSTOMER_AUTO_ISOLIR'
+};
+
+exports.BillingScheduleStatus = exports.$Enums.BillingScheduleStatus = {
+  PENDING: 'PENDING',
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  FAILED: 'FAILED'
+};
+
 exports.ItemType = exports.$Enums.ItemType = {
   SERVICE: 'SERVICE',
   PRODUCT: 'PRODUCT',
@@ -386,6 +424,7 @@ exports.WebhookEventStatus = exports.$Enums.WebhookEventStatus = {
 
 exports.Prisma.ModelName = {
   Invoice: 'Invoice',
+  BillingSchedule: 'BillingSchedule',
   InvoiceItem: 'InvoiceItem',
   Payment: 'Payment',
   PaymentGatewayConfig: 'PaymentGatewayConfig',

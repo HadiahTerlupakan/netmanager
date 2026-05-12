@@ -15,6 +15,7 @@ const mockFns = vi.hoisted(() => ({
   notifyCustomerFinanceNotification: vi.fn(),
   logActivity: vi.fn(),
   onInvoicePaid: vi.fn(),
+  reconcile: vi.fn(),
 }));
 
 vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
@@ -76,6 +77,15 @@ vi.mock("@/modules/events", () => ({
   },
 }));
 
+vi.mock(
+  "@/modules/finance/services/BillingScheduleReconciliationService",
+  () => ({
+    BillingScheduleReconciliationService: class MockBillingScheduleReconciliationService {
+      reconcile = mockFns.reconcile;
+    },
+  }),
+);
+
 import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
 import { AutomaticIsolationService } from "@/modules/finance/services/AutomaticIsolationService";
 import { VoidInvoiceService } from "@/modules/finance/services/VoidInvoiceService";
@@ -94,6 +104,15 @@ describe("finance customer status sync delegation", () => {
     mockFns.onInvoicePaid.mockResolvedValue(undefined);
     mockFns.findSetting.mockResolvedValue({ value: "true" });
     mockFns.findOverdueInvoices.mockResolvedValue([{ pelangganId: "cust-1" }]);
+    mockFns.reconcile.mockResolvedValue({
+      scanned: 1,
+      requeued: 1,
+      pendingRequeued: 1,
+      queuedRequeued: 0,
+      failedRetried: 0,
+      staleProcessingRecovered: 0,
+      errors: 0,
+    });
   });
 
   it("delegates invoice-paid activation through pelanggan service instead of bridge status update", async () => {
@@ -120,24 +139,22 @@ describe("finance customer status sync delegation", () => {
     expect(mockFns.handleStatusChange).not.toHaveBeenCalled();
   });
 
-  it("delegates auto isolation through pelanggan service instead of manual bridge and radius sync", async () => {
-    mockFns.bridgeFindById.mockResolvedValue({
-      id: "cust-1",
-      nama: "Customer 1",
-      userId: "user-1",
-      status: "AKTIF",
-      autoIsolir: true,
-      jatuhTempo: new Date("2026-04-01T00:00:00.000Z"),
-    });
+  it("delegates legacy overdue check to billing schedule reconciliation", async () => {
+    const result = await AutomaticIsolationService.runDailyCheck();
 
-    await AutomaticIsolationService.runDailyCheck();
-
-    expect(mockFns.updateStatusPelanggan).toHaveBeenCalledWith(
-      "cust-1",
-      "ISOLIR",
-    );
+    expect(mockFns.reconcile).toHaveBeenCalledOnce();
+    expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
     expect(mockFns.bridgeUpdate).not.toHaveBeenCalled();
     expect(mockFns.handleStatusChange).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      scanned: 1,
+      requeued: 1,
+      pendingRequeued: 1,
+      queuedRequeued: 0,
+      failedRetried: 0,
+      staleProcessingRecovered: 0,
+      errors: 0,
+    });
   });
 
   it("delegates void-invoice isolation through pelanggan service and keeps jatuh tempo update separate", async () => {

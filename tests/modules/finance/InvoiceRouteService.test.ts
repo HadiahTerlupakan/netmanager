@@ -9,6 +9,8 @@ const mockFns = vi.hoisted(() => ({
   deleteInvoice: vi.fn(),
   findInvoiceForSend: vi.fn(),
   markInvoiceSent: vi.fn(),
+  syncInvoiceBillingSchedules: vi.fn(),
+  cancelInvoiceBillingSchedules: vi.fn(),
 }));
 
 vi.mock("@/modules/users/repositories/UserRepository", () => ({
@@ -32,6 +34,11 @@ vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
     findInvoiceForSend = mockFns.findInvoiceForSend;
     markAsSent = mockFns.markInvoiceSent;
   },
+}));
+
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
 }));
 
 import {
@@ -142,7 +149,7 @@ describe("InvoiceRouteService", () => {
     });
   });
 
-  it("deletes an existing invoice through repository", async () => {
+  it("cancels billing schedules before deleting an existing invoice", async () => {
     mockFns.findInvoiceWithRelations.mockResolvedValue(baseInvoice);
 
     await deleteInvoiceForRoute({
@@ -151,6 +158,7 @@ describe("InvoiceRouteService", () => {
       isRestricted: false,
     });
 
+    expect(mockFns.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
     expect(mockFns.deleteInvoice).toHaveBeenCalledWith("inv-1");
   });
 
@@ -164,7 +172,28 @@ describe("InvoiceRouteService", () => {
       status: "DRAFT",
       pelangganId: "cust-1",
       siteId: "site-1",
+      dueDate: new Date("2026-05-20T00:00:00.000Z"),
+      totalAmount: 1100n,
+      paidAmount: 0n,
+      subtotal: 1000n,
+      taxAmount: 100n,
+      discountAmount: 0n,
       invoiceItem: [],
+      payment: [],
+    });
+    mockFns.markInvoiceSent.mockResolvedValue({
+      id: "inv-1",
+      status: "SENT",
+      pelangganId: "cust-1",
+      siteId: "site-1",
+      dueDate: new Date("2026-05-20T00:00:00.000Z"),
+      totalAmount: 1100n,
+      paidAmount: 0n,
+      subtotal: 1000n,
+      taxAmount: 100n,
+      discountAmount: 0n,
+      invoiceItem: [],
+      payment: [],
     });
     mockFns.findPelangganById.mockResolvedValue({
       id: "cust-1",
@@ -181,5 +210,12 @@ describe("InvoiceRouteService", () => {
     ).resolves.toEqual({ status: "sent", sentVia: ["EMAIL", "WHATSAPP"] });
 
     expect(mockFns.markInvoiceSent).toHaveBeenCalledWith("inv-1");
+    expect(mockFns.syncInvoiceBillingSchedules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "inv-1",
+        status: "SENT",
+        pelangganId: "cust-1",
+      }),
+    );
   });
 });

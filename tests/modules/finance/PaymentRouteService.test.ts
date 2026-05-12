@@ -8,6 +8,9 @@ const mockFns = vi.hoisted(() => ({
   createPaymentWithInvoice: vi.fn(),
   updateInvoicePaymentStatus: vi.fn(),
   findPaymentWithInvoice: vi.fn(),
+  syncInvoiceBillingSchedules: vi.fn(),
+  cancelInvoiceBillingSchedules: vi.fn(),
+  handleInvoicePaid: vi.fn(),
 }));
 
 vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
@@ -45,6 +48,17 @@ vi.mock("@/lib/logger", () => ({
     dbOperation: vi.fn(),
   },
   logActivitySafe: vi.fn(),
+}));
+
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
+}));
+
+vi.mock("@/modules/finance/services/AutomaticBillingService", () => ({
+  AutomaticBillingService: {
+    handleInvoicePaid: mockFns.handleInvoicePaid,
+  },
 }));
 
 import {
@@ -91,7 +105,10 @@ describe("PaymentRouteService", () => {
 
   it("creates payment and updates linked invoice status", async () => {
     mockFns.findPelangganById.mockResolvedValue({ id: "cust-1" });
-    mockFns.findInvoice.mockResolvedValue({ id: "inv-1" });
+    mockFns.findInvoice.mockResolvedValue({
+      id: "inv-1",
+      pelangganId: "cust-1",
+    });
     mockFns.createPaymentWithInvoice.mockResolvedValue({
       id: "pay-1",
       invoice: { id: "inv-1" },
@@ -102,6 +119,14 @@ describe("PaymentRouteService", () => {
       status: "SENT",
       payment: [{ amount: 50000n }, { amount: 50000n }],
     });
+    mockFns.updateInvoicePaymentStatus.mockResolvedValue({
+      id: "inv-1",
+      pelangganId: "cust-1",
+      dueDate: new Date("2026-04-30T00:00:00.000Z"),
+      status: "PAID",
+    });
+    mockFns.cancelInvoiceBillingSchedules.mockResolvedValue(undefined);
+    mockFns.handleInvoicePaid.mockResolvedValue(undefined);
 
     const result = await createPaymentForRoute({
       input: {

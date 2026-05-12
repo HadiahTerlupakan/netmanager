@@ -8,6 +8,7 @@ import type {
   OutboxJobData,
   OvertimeAutoCheckoutJobData,
   AttendanceAutoCheckoutJobData,
+  BillingScheduleJobData,
 } from "./queues";
 import { QUEUE_NAMES } from "./types";
 import { createWorkerRedis } from "./redis-connection";
@@ -23,11 +24,17 @@ import {
   processOutboxJob,
   processOvertimeAutoCheckoutJob,
   processAttendanceAutoCheckoutJob,
+  processBillingScheduleJob,
   rehydrateOvertimeAutoCheckoutJobs,
+  rehydrateBillingScheduleJobs,
 } from "./worker-processors";
 
 // Re-export for backward compatibility
-export { registerEventHandler, rehydrateOvertimeAutoCheckoutJobs };
+export {
+  registerEventHandler,
+  rehydrateOvertimeAutoCheckoutJobs,
+  rehydrateBillingScheduleJobs,
+};
 
 // ============================================
 // WORKER INSTANCES
@@ -165,6 +172,19 @@ export function startWorkers(): void {
         },
       );
 
+    // Billing Schedule Worker
+    const billingScheduleWorker = new Worker<BillingScheduleJobData>(
+      QUEUE_NAMES.BILLING_SCHEDULE,
+      processBillingScheduleJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 5,
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    );
+
     workers = [
       eventWorker,
       notificationWorker,
@@ -172,6 +192,7 @@ export function startWorkers(): void {
       outboxWorker,
       overtimeAutoCheckoutWorker,
       attendanceAutoCheckoutWorker,
+      billingScheduleWorker,
     ];
 
     // Event listeners for monitoring

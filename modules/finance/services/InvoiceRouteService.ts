@@ -107,6 +107,9 @@ async function performInvoiceUpdate(
     invoiceItem: options.input.invoiceItem,
     updateData: buildInvoiceUpdateData(options.input, restrictedSiteId),
   });
+  const { syncInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await syncInvoiceBillingSchedules(updatedInvoice);
   return buildInvoiceWithPelanggan(updatedInvoice);
 }
 
@@ -171,7 +174,10 @@ async function executeSendInvoice(
   );
   if (sentVia.status !== "ok") return sentVia;
 
-  await invoiceRepository.markAsSent(options.invoiceId);
+  const invoice = await invoiceRepository.markAsSent(options.invoiceId);
+  const { syncInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await syncInvoiceBillingSchedules(invoice);
   return { status: "sent" as const, sentVia: sentVia.sentVia };
 }
 
@@ -212,6 +218,9 @@ export async function deleteInvoiceForRoute(options: {
     return false;
   }
 
+  const { cancelInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await cancelInvoiceBillingSchedules(options.invoiceId);
   await invoiceRepository.deleteById(options.invoiceId);
   return true;
 }

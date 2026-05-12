@@ -44,6 +44,7 @@ export interface IInvoiceRepository {
   count(where: InvoiceWhereInput): Promise<number>;
   countByMonth(date: Date): Promise<number>;
   update(id: string, data: InvoiceUpdateInput): Promise<InvoiceEntity>;
+  markOverdueIfEligible(id: string, now: Date): Promise<boolean>;
   updatePaymentStatus(
     id: string,
     data: InvoiceUpdateInput,

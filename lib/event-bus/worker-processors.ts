@@ -7,6 +7,7 @@ import type {
   OutboxJobData,
   OvertimeAutoCheckoutJobData,
   AttendanceAutoCheckoutJobData,
+  BillingScheduleJobData,
 } from "./queues";
 import { getEventHandlers } from "./event-handlers";
 import { firebaseRealtimeService } from "@/lib/realtime";
@@ -173,6 +174,15 @@ export async function processAttendanceAutoCheckoutJob(
   await AutoCheckoutService.runAutoCheckoutJob(job.data);
 }
 
+export async function processBillingScheduleJob(
+  job: Job<BillingScheduleJobData>,
+): Promise<void> {
+  const { BillingScheduleService } = await import("@/modules/finance");
+  await new BillingScheduleService().executeScheduledJob(job.data.scheduleId, {
+    version: job.data.version,
+  });
+}
+
 export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
   try {
     const { rehydrateOvertimeAutoCheckoutJobs: rehydrateJobs } =
@@ -190,7 +200,28 @@ export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
   }
 }
 
+export async function rehydrateBillingScheduleJobs(): Promise<void> {
+  try {
+    const { rehydrateBillingScheduleJobs: rehydrateJobs } =
+      await import("@/modules/finance");
+    await rehydrateJobs();
+  } catch (error) {
+    if (isMissingScheduleTable(error)) {
+      logger.warn(
+        "[EventBus] Skipping billing schedule rehydration because database migration is pending",
+      );
+      return;
+    }
+
+    throw error;
+  }
+}
+
 function isMissingOvertimeAutoCheckoutScheduleTable(error: unknown): boolean {
+  return isMissingScheduleTable(error);
+}
+
+function isMissingScheduleTable(error: unknown): boolean {
   return (
     error instanceof Error &&
     (error as Error & { code?: string }).code === "P2021"

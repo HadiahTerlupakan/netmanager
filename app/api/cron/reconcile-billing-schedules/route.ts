@@ -9,10 +9,11 @@ import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
-import { AutomaticIsolationService } from "@/modules/finance";
+import { BillingScheduleReconciliationService } from "@/modules/finance";
 
 export const dynamic = "force-dynamic";
 
+/** Menjalankan recovery schedule billing yang hilang atau terlewat secara aman. */
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const lockResult = await acquireCronLock(
-      "route:processOverdueCompatibility",
+      "route:billingScheduleReconciliation",
       55,
     );
     if (lockResult === "unavailable") {
@@ -39,27 +40,19 @@ export async function GET(request: NextRequest) {
         {
           skipped: true,
           reason: "Lock already held",
-          mode: "compatibility",
         },
         {
           message:
-            "Process overdue compatibility sedang berjalan di runtime lain",
+            "Billing schedule reconciliation sedang berjalan di runtime lain",
         },
       );
     }
 
-    const result = await AutomaticIsolationService.runDailyCheck();
+    const result = await new BillingScheduleReconciliationService().reconcile();
 
-    return apiSuccess(
-      {
-        mode: "compatibility",
-        ...result,
-      },
-      {
-        message:
-          "Process overdue compatibility berhasil meneruskan ke billing schedule reconciliation",
-      },
-    );
+    return apiSuccess(result, {
+      message: "Billing schedule reconciliation berhasil dijalankan",
+    });
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";

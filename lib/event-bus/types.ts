@@ -304,6 +304,7 @@ export const QUEUE_NAMES = {
   OUTBOX: "radpro-outbox",
   OVERTIME_AUTO_CHECKOUT: "radpro-overtime-auto-checkout",
   ATTENDANCE_AUTO_CHECKOUT: "radpro-attendance-auto-checkout",
+  BILLING_SCHEDULE: "radpro-billing-schedule",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

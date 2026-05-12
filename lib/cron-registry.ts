@@ -44,17 +44,21 @@ export class CronRegistry {
         ),
       );
 
-    // Start Automatic Isolation Service (Daily at 00:00 AM)
+    // Start Billing Schedule Reconciliation (Every minute)
     import("../modules/finance")
       .then(({ AutomaticIsolationService }) => {
-        const isolationTask = cron.schedule("0 0 * * *", async () => {
-          if (!(await canRunCronJob("isolation", 82800))) return;
-          logger.info("[Cron] Running daily isolation check");
+        const isolationTask = cron.schedule("* * * * *", async () => {
+          if (
+            !(await canRunCronJob("route:billingScheduleReconciliation", 55))
+          ) {
+            return;
+          }
+          logger.info("[Cron] Running billing schedule reconciliation");
           AutomaticIsolationService.runDailyCheck();
         });
-        this.tasks.set("isolation", isolationTask);
+        this.tasks.set("billingScheduleReconciliation", isolationTask);
         logger.info(
-          "[CronRegistry] Automatic isolation cron scheduled (00:00)",
+          "[CronRegistry] Billing schedule reconciliation cron scheduled (Every minute)",
         );
       })
       .catch((err) =>

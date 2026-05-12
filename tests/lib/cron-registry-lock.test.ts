@@ -68,4 +68,15 @@ describe("cron registry lock helper", () => {
     expect(file).not.toContain('cron.schedule("59 23 * * *"');
     expect(file).not.toContain("Auto checkout cron scheduled (23:59)");
   });
+
+  it("uses the same reconciliation lock key as the HTTP cron route", () => {
+    const file = readFileSync(
+      resolve(process.cwd(), "lib/cron-registry.ts"),
+      "utf8",
+    );
+
+    expect(file).toContain(
+      'canRunCronJob("route:billingScheduleReconciliation", 55)',
+    );
+  });
 });

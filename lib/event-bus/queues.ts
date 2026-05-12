@@ -61,6 +61,7 @@ let _webhookQueue: Queue | null = null;
 let _outboxQueue: Queue | null = null;
 let _overtimeAutoCheckoutQueue: Queue | null = null;
 let _attendanceAutoCheckoutQueue: Queue | null = null;
+let _billingScheduleQueue: Queue | null = null;
 
 function getQueue(name: QueueName): Queue {
   switch (name) {
@@ -154,6 +155,20 @@ function getQueue(name: QueueName): Queue {
       }
       return _attendanceAutoCheckoutQueue;
 
+    case QUEUE_NAMES.BILLING_SCHEDULE:
+      if (!_billingScheduleQueue) {
+        _billingScheduleQueue = new Queue(QUEUE_NAMES.BILLING_SCHEDULE, {
+          connection: createRedisConnection(),
+          defaultJobOptions: {
+            attempts: 5,
+            backoff: { type: "exponential", delay: 1000 },
+            removeOnComplete: { age: 3600 * 24 },
+            removeOnFail: { age: 3600 * 24 * 7 },
+          },
+        });
+      }
+      return _billingScheduleQueue;
+
     default:
       throw new Error(`Unknown queue: ${name}`);
   }
@@ -210,6 +225,11 @@ export interface AttendanceAutoCheckoutJobData {
   mode: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
   expectedAutoCheckoutAt: string;
   sourceCheckInDate: string;
+}
+
+export interface BillingScheduleJobData {
+  scheduleId: string;
+  version: number;
 }
 
 /**
@@ -393,6 +413,33 @@ export async function removeOvertimeAutoCheckoutJob(
   }
 }
 
+export async function addBillingScheduleJob(
+  data: BillingScheduleJobData,
+  options: { delay: number; jobId: string },
+): Promise<void> {
+  const queue = getQueue(QUEUE_NAMES.BILLING_SCHEDULE);
+  await queue.add("billing-schedule", data, {
+    jobId: options.jobId,
+    delay: options.delay,
+    attempts: 5,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: { age: 3600 * 24 },
+    removeOnFail: { age: 3600 * 24 * 7 },
+  });
+}
+
+export async function getBillingScheduleJob(jobId: string) {
+  const queue = getQueue(QUEUE_NAMES.BILLING_SCHEDULE);
+  return queue.getJob(jobId);
+}
+
+export async function removeBillingScheduleJob(jobId: string): Promise<void> {
+  const job = await getBillingScheduleJob(jobId);
+  if (job) {
+    await job.remove();
+  }
+}
+
 // ============================================
 // QUEUE STATISTICS
 // ============================================
@@ -461,6 +508,9 @@ export async function closeAllQueues(): Promise<void> {
   if (_attendanceAutoCheckoutQueue) {
     closePromises.push(_attendanceAutoCheckoutQueue.close());
   }
+  if (_billingScheduleQueue) {
+    closePromises.push(_billingScheduleQueue.close());
+  }
 
   await Promise.allSettled(closePromises);
 
@@ -470,6 +520,7 @@ export async function closeAllQueues(): Promise<void> {
   _outboxQueue = null;
   _overtimeAutoCheckoutQueue = null;
   _attendanceAutoCheckoutQueue = null;
+  _billingScheduleQueue = null;
 
   logger.info("[BullMQ] All queues closed");
 }

@@ -17,6 +17,12 @@ export type PrismaPromise<T> = $Public.PrismaPromise<T>;
  */
 export type Invoice = $Result.DefaultSelection<Prisma.$InvoicePayload>;
 /**
+ * Model BillingSchedule
+ *
+ */
+export type BillingSchedule =
+  $Result.DefaultSelection<Prisma.$BillingSchedulePayload>;
+/**
  * Model InvoiceItem
  *
  */
@@ -109,6 +115,26 @@ export namespace $Enums {
   export type InvoiceStatus =
     (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 
+  export const BillingScheduleJobType: {
+    INVOICE_MARK_OVERDUE: "INVOICE_MARK_OVERDUE";
+    CUSTOMER_AUTO_ISOLIR: "CUSTOMER_AUTO_ISOLIR";
+  };
+
+  export type BillingScheduleJobType =
+    (typeof BillingScheduleJobType)[keyof typeof BillingScheduleJobType];
+
+  export const BillingScheduleStatus: {
+    PENDING: "PENDING";
+    QUEUED: "QUEUED";
+    PROCESSING: "PROCESSING";
+    COMPLETED: "COMPLETED";
+    CANCELLED: "CANCELLED";
+    FAILED: "FAILED";
+  };
+
+  export type BillingScheduleStatus =
+    (typeof BillingScheduleStatus)[keyof typeof BillingScheduleStatus];
+
   export const ItemType: {
     SERVICE: "SERVICE";
     PRODUCT: "PRODUCT";
@@ -192,6 +218,14 @@ export const UnmatchedStatus: typeof $Enums.UnmatchedStatus;
 export type InvoiceStatus = $Enums.InvoiceStatus;
 
 export const InvoiceStatus: typeof $Enums.InvoiceStatus;
+
+export type BillingScheduleJobType = $Enums.BillingScheduleJobType;
+
+export const BillingScheduleJobType: typeof $Enums.BillingScheduleJobType;
+
+export type BillingScheduleStatus = $Enums.BillingScheduleStatus;
+
+export const BillingScheduleStatus: typeof $Enums.BillingScheduleStatus;
 
 export type ItemType = $Enums.ItemType;
 
@@ -393,6 +427,16 @@ export class PrismaClient<
    * ```
    */
   get invoice(): Prisma.InvoiceDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.billingSchedule`: Exposes CRUD operations for the **BillingSchedule** model.
+   * Example usage:
+   * ```ts
+   * // Fetch zero or more BillingSchedules
+   * const billingSchedules = await prisma.billingSchedule.findMany()
+   * ```
+   */
+  get billingSchedule(): Prisma.BillingScheduleDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.invoiceItem`: Exposes CRUD operations for the **InvoiceItem** model.
@@ -964,6 +1008,7 @@ export namespace Prisma {
 
   export const ModelName: {
     Invoice: "Invoice";
+    BillingSchedule: "BillingSchedule";
     InvoiceItem: "InvoiceItem";
     Payment: "Payment";
     PaymentGatewayConfig: "PaymentGatewayConfig";
@@ -998,6 +1043,7 @@ export namespace Prisma {
     meta: {
       modelProps:
         | "invoice"
+        | "billingSchedule"
         | "invoiceItem"
         | "payment"
         | "paymentGatewayConfig"
@@ -1082,6 +1128,82 @@ export namespace Prisma {
           count: {
             args: Prisma.InvoiceCountArgs<ExtArgs>;
             result: $Utils.Optional<InvoiceCountAggregateOutputType> | number;
+          };
+        };
+      };
+      BillingSchedule: {
+        payload: Prisma.$BillingSchedulePayload<ExtArgs>;
+        fields: Prisma.BillingScheduleFieldRefs;
+        operations: {
+          findUnique: {
+            args: Prisma.BillingScheduleFindUniqueArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload> | null;
+          };
+          findUniqueOrThrow: {
+            args: Prisma.BillingScheduleFindUniqueOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          findFirst: {
+            args: Prisma.BillingScheduleFindFirstArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload> | null;
+          };
+          findFirstOrThrow: {
+            args: Prisma.BillingScheduleFindFirstOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          findMany: {
+            args: Prisma.BillingScheduleFindManyArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>[];
+          };
+          create: {
+            args: Prisma.BillingScheduleCreateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          createMany: {
+            args: Prisma.BillingScheduleCreateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          createManyAndReturn: {
+            args: Prisma.BillingScheduleCreateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>[];
+          };
+          delete: {
+            args: Prisma.BillingScheduleDeleteArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          update: {
+            args: Prisma.BillingScheduleUpdateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          deleteMany: {
+            args: Prisma.BillingScheduleDeleteManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateMany: {
+            args: Prisma.BillingScheduleUpdateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateManyAndReturn: {
+            args: Prisma.BillingScheduleUpdateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>[];
+          };
+          upsert: {
+            args: Prisma.BillingScheduleUpsertArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$BillingSchedulePayload>;
+          };
+          aggregate: {
+            args: Prisma.BillingScheduleAggregateArgs<ExtArgs>;
+            result: $Utils.Optional<AggregateBillingSchedule>;
+          };
+          groupBy: {
+            args: Prisma.BillingScheduleGroupByArgs<ExtArgs>;
+            result: $Utils.Optional<BillingScheduleGroupByOutputType>[];
+          };
+          count: {
+            args: Prisma.BillingScheduleCountArgs<ExtArgs>;
+            result:
+              | $Utils.Optional<BillingScheduleCountAggregateOutputType>
+              | number;
           };
         };
       };
@@ -1956,6 +2078,7 @@ export namespace Prisma {
   }
   export type GlobalOmitConfig = {
     invoice?: InvoiceOmit;
+    billingSchedule?: BillingScheduleOmit;
     invoiceItem?: InvoiceItemOmit;
     payment?: PaymentOmit;
     paymentGatewayConfig?: PaymentGatewayConfigOmit;
@@ -2050,6 +2173,7 @@ export namespace Prisma {
   export type InvoiceCountOutputType = {
     invoiceItem: number;
     payment: number;
+    billingSchedules: number;
   };
 
   export type InvoiceCountOutputTypeSelect<
@@ -2057,6 +2181,9 @@ export namespace Prisma {
   > = {
     invoiceItem?: boolean | InvoiceCountOutputTypeCountInvoiceItemArgs;
     payment?: boolean | InvoiceCountOutputTypeCountPaymentArgs;
+    billingSchedules?:
+      | boolean
+      | InvoiceCountOutputTypeCountBillingSchedulesArgs;
   };
 
   // Custom InputTypes
@@ -2088,6 +2215,15 @@ export namespace Prisma {
     ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
   > = {
     where?: PaymentWhereInput;
+  };
+
+  /**
+   * InvoiceCountOutputType without action
+   */
+  export type InvoiceCountOutputTypeCountBillingSchedulesArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    where?: BillingScheduleWhereInput;
   };
 
   /**
@@ -2436,6 +2572,7 @@ export namespace Prisma {
       tenantId?: boolean;
       invoiceItem?: boolean | Invoice$invoiceItemArgs<ExtArgs>;
       payment?: boolean | Invoice$paymentArgs<ExtArgs>;
+      billingSchedules?: boolean | Invoice$billingSchedulesArgs<ExtArgs>;
       _count?: boolean | InvoiceCountOutputTypeDefaultArgs<ExtArgs>;
     },
     ExtArgs["result"]["invoice"]
@@ -2550,6 +2687,7 @@ export namespace Prisma {
   > = {
     invoiceItem?: boolean | Invoice$invoiceItemArgs<ExtArgs>;
     payment?: boolean | Invoice$paymentArgs<ExtArgs>;
+    billingSchedules?: boolean | Invoice$billingSchedulesArgs<ExtArgs>;
     _count?: boolean | InvoiceCountOutputTypeDefaultArgs<ExtArgs>;
   };
   export type InvoiceIncludeCreateManyAndReturn<
@@ -2566,6 +2704,7 @@ export namespace Prisma {
     objects: {
       invoiceItem: Prisma.$InvoiceItemPayload<ExtArgs>[];
       payment: Prisma.$PaymentPayload<ExtArgs>[];
+      billingSchedules: Prisma.$BillingSchedulePayload<ExtArgs>[];
     };
     scalars: $Extensions.GetPayloadResult<
       {
@@ -3157,6 +3296,17 @@ export namespace Prisma {
         >
       | Null
     >;
+    billingSchedules<T extends Invoice$billingSchedulesArgs<ExtArgs> = {}>(
+      args?: Subset<T, Invoice$billingSchedulesArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<
+      | $Result.GetResult<
+          Prisma.$BillingSchedulePayload<ExtArgs>,
+          T,
+          "findMany",
+          GlobalOmitOptions
+        >
+      | Null
+    >;
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3699,6 +3849,36 @@ export namespace Prisma {
   };
 
   /**
+   * Invoice.billingSchedules
+   */
+  export type Invoice$billingSchedulesArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    where?: BillingScheduleWhereInput;
+    orderBy?:
+      | BillingScheduleOrderByWithRelationInput
+      | BillingScheduleOrderByWithRelationInput[];
+    cursor?: BillingScheduleWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?:
+      | BillingScheduleScalarFieldEnum
+      | BillingScheduleScalarFieldEnum[];
+  };
+
+  /**
    * Invoice without action
    */
   export type InvoiceDefaultArgs<
@@ -3716,6 +3896,1620 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: InvoiceInclude<ExtArgs> | null;
+  };
+
+  /**
+   * Model BillingSchedule
+   */
+
+  export type AggregateBillingSchedule = {
+    _count: BillingScheduleCountAggregateOutputType | null;
+    _avg: BillingScheduleAvgAggregateOutputType | null;
+    _sum: BillingScheduleSumAggregateOutputType | null;
+    _min: BillingScheduleMinAggregateOutputType | null;
+    _max: BillingScheduleMaxAggregateOutputType | null;
+  };
+
+  export type BillingScheduleAvgAggregateOutputType = {
+    version: number | null;
+    attemptCount: number | null;
+  };
+
+  export type BillingScheduleSumAggregateOutputType = {
+    version: number | null;
+    attemptCount: number | null;
+  };
+
+  export type BillingScheduleMinAggregateOutputType = {
+    id: string | null;
+    dedupeKey: string | null;
+    jobType: $Enums.BillingScheduleJobType | null;
+    invoiceId: string | null;
+    pelangganId: string | null;
+    runAt: Date | null;
+    status: $Enums.BillingScheduleStatus | null;
+    queueJobId: string | null;
+    version: number | null;
+    attemptCount: number | null;
+    queuedAt: Date | null;
+    processingAt: Date | null;
+    completedAt: Date | null;
+    cancelledAt: Date | null;
+    failedAt: Date | null;
+    lastAttemptAt: Date | null;
+    lastError: string | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    tenantId: string | null;
+  };
+
+  export type BillingScheduleMaxAggregateOutputType = {
+    id: string | null;
+    dedupeKey: string | null;
+    jobType: $Enums.BillingScheduleJobType | null;
+    invoiceId: string | null;
+    pelangganId: string | null;
+    runAt: Date | null;
+    status: $Enums.BillingScheduleStatus | null;
+    queueJobId: string | null;
+    version: number | null;
+    attemptCount: number | null;
+    queuedAt: Date | null;
+    processingAt: Date | null;
+    completedAt: Date | null;
+    cancelledAt: Date | null;
+    failedAt: Date | null;
+    lastAttemptAt: Date | null;
+    lastError: string | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    tenantId: string | null;
+  };
+
+  export type BillingScheduleCountAggregateOutputType = {
+    id: number;
+    dedupeKey: number;
+    jobType: number;
+    invoiceId: number;
+    pelangganId: number;
+    runAt: number;
+    status: number;
+    queueJobId: number;
+    payload: number;
+    version: number;
+    attemptCount: number;
+    queuedAt: number;
+    processingAt: number;
+    completedAt: number;
+    cancelledAt: number;
+    failedAt: number;
+    lastAttemptAt: number;
+    lastError: number;
+    createdAt: number;
+    updatedAt: number;
+    tenantId: number;
+    _all: number;
+  };
+
+  export type BillingScheduleAvgAggregateInputType = {
+    version?: true;
+    attemptCount?: true;
+  };
+
+  export type BillingScheduleSumAggregateInputType = {
+    version?: true;
+    attemptCount?: true;
+  };
+
+  export type BillingScheduleMinAggregateInputType = {
+    id?: true;
+    dedupeKey?: true;
+    jobType?: true;
+    invoiceId?: true;
+    pelangganId?: true;
+    runAt?: true;
+    status?: true;
+    queueJobId?: true;
+    version?: true;
+    attemptCount?: true;
+    queuedAt?: true;
+    processingAt?: true;
+    completedAt?: true;
+    cancelledAt?: true;
+    failedAt?: true;
+    lastAttemptAt?: true;
+    lastError?: true;
+    createdAt?: true;
+    updatedAt?: true;
+    tenantId?: true;
+  };
+
+  export type BillingScheduleMaxAggregateInputType = {
+    id?: true;
+    dedupeKey?: true;
+    jobType?: true;
+    invoiceId?: true;
+    pelangganId?: true;
+    runAt?: true;
+    status?: true;
+    queueJobId?: true;
+    version?: true;
+    attemptCount?: true;
+    queuedAt?: true;
+    processingAt?: true;
+    completedAt?: true;
+    cancelledAt?: true;
+    failedAt?: true;
+    lastAttemptAt?: true;
+    lastError?: true;
+    createdAt?: true;
+    updatedAt?: true;
+    tenantId?: true;
+  };
+
+  export type BillingScheduleCountAggregateInputType = {
+    id?: true;
+    dedupeKey?: true;
+    jobType?: true;
+    invoiceId?: true;
+    pelangganId?: true;
+    runAt?: true;
+    status?: true;
+    queueJobId?: true;
+    payload?: true;
+    version?: true;
+    attemptCount?: true;
+    queuedAt?: true;
+    processingAt?: true;
+    completedAt?: true;
+    cancelledAt?: true;
+    failedAt?: true;
+    lastAttemptAt?: true;
+    lastError?: true;
+    createdAt?: true;
+    updatedAt?: true;
+    tenantId?: true;
+    _all?: true;
+  };
+
+  export type BillingScheduleAggregateArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Filter which BillingSchedule to aggregate.
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of BillingSchedules to fetch.
+     */
+    orderBy?:
+      | BillingScheduleOrderByWithRelationInput
+      | BillingScheduleOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the start position
+     */
+    cursor?: BillingScheduleWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` BillingSchedules from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` BillingSchedules.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Count returned BillingSchedules
+     **/
+    _count?: true | BillingScheduleCountAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to average
+     **/
+    _avg?: BillingScheduleAvgAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to sum
+     **/
+    _sum?: BillingScheduleSumAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the minimum value
+     **/
+    _min?: BillingScheduleMinAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the maximum value
+     **/
+    _max?: BillingScheduleMaxAggregateInputType;
+  };
+
+  export type GetBillingScheduleAggregateType<
+    T extends BillingScheduleAggregateArgs,
+  > = {
+    [P in keyof T & keyof AggregateBillingSchedule]: P extends
+      | "_count"
+      | "count"
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateBillingSchedule[P]>
+      : GetScalarType<T[P], AggregateBillingSchedule[P]>;
+  };
+
+  export type BillingScheduleGroupByArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    where?: BillingScheduleWhereInput;
+    orderBy?:
+      | BillingScheduleOrderByWithAggregationInput
+      | BillingScheduleOrderByWithAggregationInput[];
+    by: BillingScheduleScalarFieldEnum[] | BillingScheduleScalarFieldEnum;
+    having?: BillingScheduleScalarWhereWithAggregatesInput;
+    take?: number;
+    skip?: number;
+    _count?: BillingScheduleCountAggregateInputType | true;
+    _avg?: BillingScheduleAvgAggregateInputType;
+    _sum?: BillingScheduleSumAggregateInputType;
+    _min?: BillingScheduleMinAggregateInputType;
+    _max?: BillingScheduleMaxAggregateInputType;
+  };
+
+  export type BillingScheduleGroupByOutputType = {
+    id: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    invoiceId: string | null;
+    pelangganId: string | null;
+    runAt: Date;
+    status: $Enums.BillingScheduleStatus;
+    queueJobId: string | null;
+    payload: JsonValue | null;
+    version: number;
+    attemptCount: number;
+    queuedAt: Date | null;
+    processingAt: Date | null;
+    completedAt: Date | null;
+    cancelledAt: Date | null;
+    failedAt: Date | null;
+    lastAttemptAt: Date | null;
+    lastError: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    tenantId: string | null;
+    _count: BillingScheduleCountAggregateOutputType | null;
+    _avg: BillingScheduleAvgAggregateOutputType | null;
+    _sum: BillingScheduleSumAggregateOutputType | null;
+    _min: BillingScheduleMinAggregateOutputType | null;
+    _max: BillingScheduleMaxAggregateOutputType | null;
+  };
+
+  type GetBillingScheduleGroupByPayload<T extends BillingScheduleGroupByArgs> =
+    Prisma.PrismaPromise<
+      Array<
+        PickEnumerable<BillingScheduleGroupByOutputType, T["by"]> & {
+          [P in keyof T &
+            keyof BillingScheduleGroupByOutputType]: P extends "_count"
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], BillingScheduleGroupByOutputType[P]>
+            : GetScalarType<T[P], BillingScheduleGroupByOutputType[P]>;
+        }
+      >
+    >;
+
+  export type BillingScheduleSelect<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      dedupeKey?: boolean;
+      jobType?: boolean;
+      invoiceId?: boolean;
+      pelangganId?: boolean;
+      runAt?: boolean;
+      status?: boolean;
+      queueJobId?: boolean;
+      payload?: boolean;
+      version?: boolean;
+      attemptCount?: boolean;
+      queuedAt?: boolean;
+      processingAt?: boolean;
+      completedAt?: boolean;
+      cancelledAt?: boolean;
+      failedAt?: boolean;
+      lastAttemptAt?: boolean;
+      lastError?: boolean;
+      createdAt?: boolean;
+      updatedAt?: boolean;
+      tenantId?: boolean;
+      invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+    },
+    ExtArgs["result"]["billingSchedule"]
+  >;
+
+  export type BillingScheduleSelectCreateManyAndReturn<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      dedupeKey?: boolean;
+      jobType?: boolean;
+      invoiceId?: boolean;
+      pelangganId?: boolean;
+      runAt?: boolean;
+      status?: boolean;
+      queueJobId?: boolean;
+      payload?: boolean;
+      version?: boolean;
+      attemptCount?: boolean;
+      queuedAt?: boolean;
+      processingAt?: boolean;
+      completedAt?: boolean;
+      cancelledAt?: boolean;
+      failedAt?: boolean;
+      lastAttemptAt?: boolean;
+      lastError?: boolean;
+      createdAt?: boolean;
+      updatedAt?: boolean;
+      tenantId?: boolean;
+      invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+    },
+    ExtArgs["result"]["billingSchedule"]
+  >;
+
+  export type BillingScheduleSelectUpdateManyAndReturn<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      dedupeKey?: boolean;
+      jobType?: boolean;
+      invoiceId?: boolean;
+      pelangganId?: boolean;
+      runAt?: boolean;
+      status?: boolean;
+      queueJobId?: boolean;
+      payload?: boolean;
+      version?: boolean;
+      attemptCount?: boolean;
+      queuedAt?: boolean;
+      processingAt?: boolean;
+      completedAt?: boolean;
+      cancelledAt?: boolean;
+      failedAt?: boolean;
+      lastAttemptAt?: boolean;
+      lastError?: boolean;
+      createdAt?: boolean;
+      updatedAt?: boolean;
+      tenantId?: boolean;
+      invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+    },
+    ExtArgs["result"]["billingSchedule"]
+  >;
+
+  export type BillingScheduleSelectScalar = {
+    id?: boolean;
+    dedupeKey?: boolean;
+    jobType?: boolean;
+    invoiceId?: boolean;
+    pelangganId?: boolean;
+    runAt?: boolean;
+    status?: boolean;
+    queueJobId?: boolean;
+    payload?: boolean;
+    version?: boolean;
+    attemptCount?: boolean;
+    queuedAt?: boolean;
+    processingAt?: boolean;
+    completedAt?: boolean;
+    cancelledAt?: boolean;
+    failedAt?: boolean;
+    lastAttemptAt?: boolean;
+    lastError?: boolean;
+    createdAt?: boolean;
+    updatedAt?: boolean;
+    tenantId?: boolean;
+  };
+
+  export type BillingScheduleOmit<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = $Extensions.GetOmit<
+    | "id"
+    | "dedupeKey"
+    | "jobType"
+    | "invoiceId"
+    | "pelangganId"
+    | "runAt"
+    | "status"
+    | "queueJobId"
+    | "payload"
+    | "version"
+    | "attemptCount"
+    | "queuedAt"
+    | "processingAt"
+    | "completedAt"
+    | "cancelledAt"
+    | "failedAt"
+    | "lastAttemptAt"
+    | "lastError"
+    | "createdAt"
+    | "updatedAt"
+    | "tenantId",
+    ExtArgs["result"]["billingSchedule"]
+  >;
+  export type BillingScheduleInclude<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+  };
+  export type BillingScheduleIncludeCreateManyAndReturn<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+  };
+  export type BillingScheduleIncludeUpdateManyAndReturn<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    invoice?: boolean | BillingSchedule$invoiceArgs<ExtArgs>;
+  };
+
+  export type $BillingSchedulePayload<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    name: "BillingSchedule";
+    objects: {
+      invoice: Prisma.$InvoicePayload<ExtArgs> | null;
+    };
+    scalars: $Extensions.GetPayloadResult<
+      {
+        id: string;
+        dedupeKey: string;
+        jobType: $Enums.BillingScheduleJobType;
+        invoiceId: string | null;
+        pelangganId: string | null;
+        runAt: Date;
+        status: $Enums.BillingScheduleStatus;
+        queueJobId: string | null;
+        payload: Prisma.JsonValue | null;
+        version: number;
+        attemptCount: number;
+        queuedAt: Date | null;
+        processingAt: Date | null;
+        completedAt: Date | null;
+        cancelledAt: Date | null;
+        failedAt: Date | null;
+        lastAttemptAt: Date | null;
+        lastError: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
+      },
+      ExtArgs["result"]["billingSchedule"]
+    >;
+    composites: {};
+  };
+
+  type BillingScheduleGetPayload<
+    S extends boolean | null | undefined | BillingScheduleDefaultArgs,
+  > = $Result.GetResult<Prisma.$BillingSchedulePayload, S>;
+
+  type BillingScheduleCountArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = Omit<
+    BillingScheduleFindManyArgs,
+    "select" | "include" | "distinct" | "omit"
+  > & {
+    select?: BillingScheduleCountAggregateInputType | true;
+  };
+
+  export interface BillingScheduleDelegate<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+    GlobalOmitOptions = {},
+  > {
+    [K: symbol]: {
+      types: Prisma.TypeMap<ExtArgs>["model"]["BillingSchedule"];
+      meta: { name: "BillingSchedule" };
+    };
+    /**
+     * Find zero or one BillingSchedule that matches the filter.
+     * @param {BillingScheduleFindUniqueArgs} args - Arguments to find a BillingSchedule
+     * @example
+     * // Get one BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends BillingScheduleFindUniqueArgs>(
+      args: SelectSubset<T, BillingScheduleFindUniqueArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "findUnique",
+        GlobalOmitOptions
+      > | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find one BillingSchedule that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {BillingScheduleFindUniqueOrThrowArgs} args - Arguments to find a BillingSchedule
+     * @example
+     * // Get one BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends BillingScheduleFindUniqueOrThrowArgs>(
+      args: SelectSubset<T, BillingScheduleFindUniqueOrThrowArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "findUniqueOrThrow",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first BillingSchedule that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleFindFirstArgs} args - Arguments to find a BillingSchedule
+     * @example
+     * // Get one BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends BillingScheduleFindFirstArgs>(
+      args?: SelectSubset<T, BillingScheduleFindFirstArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "findFirst",
+        GlobalOmitOptions
+      > | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first BillingSchedule that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleFindFirstOrThrowArgs} args - Arguments to find a BillingSchedule
+     * @example
+     * // Get one BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends BillingScheduleFindFirstOrThrowArgs>(
+      args?: SelectSubset<T, BillingScheduleFindFirstOrThrowArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "findFirstOrThrow",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find zero or more BillingSchedules that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all BillingSchedules
+     * const billingSchedules = await prisma.billingSchedule.findMany()
+     *
+     * // Get first 10 BillingSchedules
+     * const billingSchedules = await prisma.billingSchedule.findMany({ take: 10 })
+     *
+     * // Only select the `id`
+     * const billingScheduleWithIdOnly = await prisma.billingSchedule.findMany({ select: { id: true } })
+     *
+     */
+    findMany<T extends BillingScheduleFindManyArgs>(
+      args?: SelectSubset<T, BillingScheduleFindManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "findMany",
+        GlobalOmitOptions
+      >
+    >;
+
+    /**
+     * Create a BillingSchedule.
+     * @param {BillingScheduleCreateArgs} args - Arguments to create a BillingSchedule.
+     * @example
+     * // Create one BillingSchedule
+     * const BillingSchedule = await prisma.billingSchedule.create({
+     *   data: {
+     *     // ... data to create a BillingSchedule
+     *   }
+     * })
+     *
+     */
+    create<T extends BillingScheduleCreateArgs>(
+      args: SelectSubset<T, BillingScheduleCreateArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "create",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Create many BillingSchedules.
+     * @param {BillingScheduleCreateManyArgs} args - Arguments to create many BillingSchedules.
+     * @example
+     * // Create many BillingSchedules
+     * const billingSchedule = await prisma.billingSchedule.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     */
+    createMany<T extends BillingScheduleCreateManyArgs>(
+      args?: SelectSubset<T, BillingScheduleCreateManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Create many BillingSchedules and returns the data saved in the database.
+     * @param {BillingScheduleCreateManyAndReturnArgs} args - Arguments to create many BillingSchedules.
+     * @example
+     * // Create many BillingSchedules
+     * const billingSchedule = await prisma.billingSchedule.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Create many BillingSchedules and only return the `id`
+     * const billingScheduleWithIdOnly = await prisma.billingSchedule.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    createManyAndReturn<T extends BillingScheduleCreateManyAndReturnArgs>(
+      args?: SelectSubset<T, BillingScheduleCreateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "createManyAndReturn",
+        GlobalOmitOptions
+      >
+    >;
+
+    /**
+     * Delete a BillingSchedule.
+     * @param {BillingScheduleDeleteArgs} args - Arguments to delete one BillingSchedule.
+     * @example
+     * // Delete one BillingSchedule
+     * const BillingSchedule = await prisma.billingSchedule.delete({
+     *   where: {
+     *     // ... filter to delete one BillingSchedule
+     *   }
+     * })
+     *
+     */
+    delete<T extends BillingScheduleDeleteArgs>(
+      args: SelectSubset<T, BillingScheduleDeleteArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "delete",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Update one BillingSchedule.
+     * @param {BillingScheduleUpdateArgs} args - Arguments to update one BillingSchedule.
+     * @example
+     * // Update one BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    update<T extends BillingScheduleUpdateArgs>(
+      args: SelectSubset<T, BillingScheduleUpdateArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "update",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Delete zero or more BillingSchedules.
+     * @param {BillingScheduleDeleteManyArgs} args - Arguments to filter BillingSchedules to delete.
+     * @example
+     * // Delete a few BillingSchedules
+     * const { count } = await prisma.billingSchedule.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     *
+     */
+    deleteMany<T extends BillingScheduleDeleteManyArgs>(
+      args?: SelectSubset<T, BillingScheduleDeleteManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more BillingSchedules.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many BillingSchedules
+     * const billingSchedule = await prisma.billingSchedule.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    updateMany<T extends BillingScheduleUpdateManyArgs>(
+      args: SelectSubset<T, BillingScheduleUpdateManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more BillingSchedules and returns the data updated in the database.
+     * @param {BillingScheduleUpdateManyAndReturnArgs} args - Arguments to update many BillingSchedules.
+     * @example
+     * // Update many BillingSchedules
+     * const billingSchedule = await prisma.billingSchedule.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Update zero or more BillingSchedules and only return the `id`
+     * const billingScheduleWithIdOnly = await prisma.billingSchedule.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    updateManyAndReturn<T extends BillingScheduleUpdateManyAndReturnArgs>(
+      args: SelectSubset<T, BillingScheduleUpdateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "updateManyAndReturn",
+        GlobalOmitOptions
+      >
+    >;
+
+    /**
+     * Create or update one BillingSchedule.
+     * @param {BillingScheduleUpsertArgs} args - Arguments to update or create a BillingSchedule.
+     * @example
+     * // Update or create a BillingSchedule
+     * const billingSchedule = await prisma.billingSchedule.upsert({
+     *   create: {
+     *     // ... data to create a BillingSchedule
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the BillingSchedule we want to update
+     *   }
+     * })
+     */
+    upsert<T extends BillingScheduleUpsertArgs>(
+      args: SelectSubset<T, BillingScheduleUpsertArgs<ExtArgs>>,
+    ): Prisma__BillingScheduleClient<
+      $Result.GetResult<
+        Prisma.$BillingSchedulePayload<ExtArgs>,
+        T,
+        "upsert",
+        GlobalOmitOptions
+      >,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Count the number of BillingSchedules.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleCountArgs} args - Arguments to filter BillingSchedules to count.
+     * @example
+     * // Count the number of BillingSchedules
+     * const count = await prisma.billingSchedule.count({
+     *   where: {
+     *     // ... the filter for the BillingSchedules we want to count
+     *   }
+     * })
+     **/
+    count<T extends BillingScheduleCountArgs>(
+      args?: Subset<T, BillingScheduleCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<"select", any>
+        ? T["select"] extends true
+          ? number
+          : GetScalarType<T["select"], BillingScheduleCountAggregateOutputType>
+        : number
+    >;
+
+    /**
+     * Allows you to perform aggregations operations on a BillingSchedule.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+     **/
+    aggregate<T extends BillingScheduleAggregateArgs>(
+      args: Subset<T, BillingScheduleAggregateArgs>,
+    ): Prisma.PrismaPromise<GetBillingScheduleAggregateType<T>>;
+
+    /**
+     * Group by BillingSchedule.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BillingScheduleGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     *
+     **/
+    groupBy<
+      T extends BillingScheduleGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<"skip", Keys<T>>,
+        Extends<"take", Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: BillingScheduleGroupByArgs["orderBy"] }
+        : { orderBy?: BillingScheduleGroupByArgs["orderBy"] },
+      OrderFields extends ExcludeUnderscoreKeys<
+        Keys<MaybeTupleToUnion<T["orderBy"]>>
+      >,
+      ByFields extends MaybeTupleToUnion<T["by"]>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T["having"]>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T["by"] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+        ? `Error: "by" must not be empty.`
+        : HavingValid extends False
+          ? {
+              [P in HavingFields]: P extends ByFields
+                ? never
+                : P extends string
+                  ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+                  : [
+                      Error,
+                      "Field ",
+                      P,
+                      ` in "having" needs to be provided in "by"`,
+                    ];
+            }[HavingFields]
+          : "take" extends Keys<T>
+            ? "orderBy" extends Keys<T>
+              ? ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields
+                      ? never
+                      : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields]
+              : 'Error: If you provide "take", you also need to provide "orderBy"'
+            : "skip" extends Keys<T>
+              ? "orderBy" extends Keys<T>
+                ? ByValid extends True
+                  ? {}
+                  : {
+                      [P in OrderFields]: P extends ByFields
+                        ? never
+                        : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                    }[OrderFields]
+                : 'Error: If you provide "skip", you also need to provide "orderBy"'
+              : ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields
+                      ? never
+                      : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields],
+    >(
+      args: SubsetIntersection<T, BillingScheduleGroupByArgs, OrderByArg> &
+        InputErrors,
+    ): {} extends InputErrors
+      ? GetBillingScheduleGroupByPayload<T>
+      : Prisma.PrismaPromise<InputErrors>;
+    /**
+     * Fields of the BillingSchedule model
+     */
+    readonly fields: BillingScheduleFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for BillingSchedule.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__BillingScheduleClient<
+    T,
+    Null = never,
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+    GlobalOmitOptions = {},
+  > extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise";
+    invoice<T extends BillingSchedule$invoiceArgs<ExtArgs> = {}>(
+      args?: Subset<T, BillingSchedule$invoiceArgs<ExtArgs>>,
+    ): Prisma__InvoiceClient<
+      $Result.GetResult<
+        Prisma.$InvoicePayload<ExtArgs>,
+        T,
+        "findUniqueOrThrow",
+        GlobalOmitOptions
+      > | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(
+      onfulfilled?:
+        | ((value: T) => TResult1 | PromiseLike<TResult1>)
+        | undefined
+        | null,
+      onrejected?:
+        | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+        | undefined
+        | null,
+    ): $Utils.JsPromise<TResult1 | TResult2>;
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(
+      onrejected?:
+        | ((reason: any) => TResult | PromiseLike<TResult>)
+        | undefined
+        | null,
+    ): $Utils.JsPromise<T | TResult>;
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>;
+  }
+
+  /**
+   * Fields of the BillingSchedule model
+   */
+  interface BillingScheduleFieldRefs {
+    readonly id: FieldRef<"BillingSchedule", "String">;
+    readonly dedupeKey: FieldRef<"BillingSchedule", "String">;
+    readonly jobType: FieldRef<"BillingSchedule", "BillingScheduleJobType">;
+    readonly invoiceId: FieldRef<"BillingSchedule", "String">;
+    readonly pelangganId: FieldRef<"BillingSchedule", "String">;
+    readonly runAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly status: FieldRef<"BillingSchedule", "BillingScheduleStatus">;
+    readonly queueJobId: FieldRef<"BillingSchedule", "String">;
+    readonly payload: FieldRef<"BillingSchedule", "Json">;
+    readonly version: FieldRef<"BillingSchedule", "Int">;
+    readonly attemptCount: FieldRef<"BillingSchedule", "Int">;
+    readonly queuedAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly processingAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly completedAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly cancelledAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly failedAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly lastAttemptAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly lastError: FieldRef<"BillingSchedule", "String">;
+    readonly createdAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly updatedAt: FieldRef<"BillingSchedule", "DateTime">;
+    readonly tenantId: FieldRef<"BillingSchedule", "String">;
+  }
+
+  // Custom InputTypes
+  /**
+   * BillingSchedule findUnique
+   */
+  export type BillingScheduleFindUniqueArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter, which BillingSchedule to fetch.
+     */
+    where: BillingScheduleWhereUniqueInput;
+  };
+
+  /**
+   * BillingSchedule findUniqueOrThrow
+   */
+  export type BillingScheduleFindUniqueOrThrowArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter, which BillingSchedule to fetch.
+     */
+    where: BillingScheduleWhereUniqueInput;
+  };
+
+  /**
+   * BillingSchedule findFirst
+   */
+  export type BillingScheduleFindFirstArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter, which BillingSchedule to fetch.
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of BillingSchedules to fetch.
+     */
+    orderBy?:
+      | BillingScheduleOrderByWithRelationInput
+      | BillingScheduleOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for BillingSchedules.
+     */
+    cursor?: BillingScheduleWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` BillingSchedules from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` BillingSchedules.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of BillingSchedules.
+     */
+    distinct?:
+      | BillingScheduleScalarFieldEnum
+      | BillingScheduleScalarFieldEnum[];
+  };
+
+  /**
+   * BillingSchedule findFirstOrThrow
+   */
+  export type BillingScheduleFindFirstOrThrowArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter, which BillingSchedule to fetch.
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of BillingSchedules to fetch.
+     */
+    orderBy?:
+      | BillingScheduleOrderByWithRelationInput
+      | BillingScheduleOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for BillingSchedules.
+     */
+    cursor?: BillingScheduleWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` BillingSchedules from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` BillingSchedules.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of BillingSchedules.
+     */
+    distinct?:
+      | BillingScheduleScalarFieldEnum
+      | BillingScheduleScalarFieldEnum[];
+  };
+
+  /**
+   * BillingSchedule findMany
+   */
+  export type BillingScheduleFindManyArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter, which BillingSchedules to fetch.
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of BillingSchedules to fetch.
+     */
+    orderBy?:
+      | BillingScheduleOrderByWithRelationInput
+      | BillingScheduleOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for listing BillingSchedules.
+     */
+    cursor?: BillingScheduleWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` BillingSchedules from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` BillingSchedules.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of BillingSchedules.
+     */
+    distinct?:
+      | BillingScheduleScalarFieldEnum
+      | BillingScheduleScalarFieldEnum[];
+  };
+
+  /**
+   * BillingSchedule create
+   */
+  export type BillingScheduleCreateArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * The data needed to create a BillingSchedule.
+     */
+    data: XOR<BillingScheduleCreateInput, BillingScheduleUncheckedCreateInput>;
+  };
+
+  /**
+   * BillingSchedule createMany
+   */
+  export type BillingScheduleCreateManyArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * The data used to create many BillingSchedules.
+     */
+    data: BillingScheduleCreateManyInput | BillingScheduleCreateManyInput[];
+    skipDuplicates?: boolean;
+  };
+
+  /**
+   * BillingSchedule createManyAndReturn
+   */
+  export type BillingScheduleCreateManyAndReturnArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelectCreateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * The data used to create many BillingSchedules.
+     */
+    data: BillingScheduleCreateManyInput | BillingScheduleCreateManyInput[];
+    skipDuplicates?: boolean;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleIncludeCreateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * BillingSchedule update
+   */
+  export type BillingScheduleUpdateArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * The data needed to update a BillingSchedule.
+     */
+    data: XOR<BillingScheduleUpdateInput, BillingScheduleUncheckedUpdateInput>;
+    /**
+     * Choose, which BillingSchedule to update.
+     */
+    where: BillingScheduleWhereUniqueInput;
+  };
+
+  /**
+   * BillingSchedule updateMany
+   */
+  export type BillingScheduleUpdateManyArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * The data used to update BillingSchedules.
+     */
+    data: XOR<
+      BillingScheduleUpdateManyMutationInput,
+      BillingScheduleUncheckedUpdateManyInput
+    >;
+    /**
+     * Filter which BillingSchedules to update
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * Limit how many BillingSchedules to update.
+     */
+    limit?: number;
+  };
+
+  /**
+   * BillingSchedule updateManyAndReturn
+   */
+  export type BillingScheduleUpdateManyAndReturnArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelectUpdateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * The data used to update BillingSchedules.
+     */
+    data: XOR<
+      BillingScheduleUpdateManyMutationInput,
+      BillingScheduleUncheckedUpdateManyInput
+    >;
+    /**
+     * Filter which BillingSchedules to update
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * Limit how many BillingSchedules to update.
+     */
+    limit?: number;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleIncludeUpdateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * BillingSchedule upsert
+   */
+  export type BillingScheduleUpsertArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * The filter to search for the BillingSchedule to update in case it exists.
+     */
+    where: BillingScheduleWhereUniqueInput;
+    /**
+     * In case the BillingSchedule found by the `where` argument doesn't exist, create a new BillingSchedule with this data.
+     */
+    create: XOR<
+      BillingScheduleCreateInput,
+      BillingScheduleUncheckedCreateInput
+    >;
+    /**
+     * In case the BillingSchedule was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<
+      BillingScheduleUpdateInput,
+      BillingScheduleUncheckedUpdateInput
+    >;
+  };
+
+  /**
+   * BillingSchedule delete
+   */
+  export type BillingScheduleDeleteArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
+    /**
+     * Filter which BillingSchedule to delete.
+     */
+    where: BillingScheduleWhereUniqueInput;
+  };
+
+  /**
+   * BillingSchedule deleteMany
+   */
+  export type BillingScheduleDeleteManyArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Filter which BillingSchedules to delete
+     */
+    where?: BillingScheduleWhereInput;
+    /**
+     * Limit how many BillingSchedules to delete.
+     */
+    limit?: number;
+  };
+
+  /**
+   * BillingSchedule.invoice
+   */
+  export type BillingSchedule$invoiceArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the Invoice
+     */
+    select?: InvoiceSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the Invoice
+     */
+    omit?: InvoiceOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InvoiceInclude<ExtArgs> | null;
+    where?: InvoiceWhereInput;
+  };
+
+  /**
+   * BillingSchedule without action
+   */
+  export type BillingScheduleDefaultArgs<
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+  > = {
+    /**
+     * Select specific fields to fetch from the BillingSchedule
+     */
+    select?: BillingScheduleSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the BillingSchedule
+     */
+    omit?: BillingScheduleOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BillingScheduleInclude<ExtArgs> | null;
   };
 
   /**
@@ -17978,6 +19772,33 @@ export namespace Prisma {
   export type InvoiceScalarFieldEnum =
     (typeof InvoiceScalarFieldEnum)[keyof typeof InvoiceScalarFieldEnum];
 
+  export const BillingScheduleScalarFieldEnum: {
+    id: "id";
+    dedupeKey: "dedupeKey";
+    jobType: "jobType";
+    invoiceId: "invoiceId";
+    pelangganId: "pelangganId";
+    runAt: "runAt";
+    status: "status";
+    queueJobId: "queueJobId";
+    payload: "payload";
+    version: "version";
+    attemptCount: "attemptCount";
+    queuedAt: "queuedAt";
+    processingAt: "processingAt";
+    completedAt: "completedAt";
+    cancelledAt: "cancelledAt";
+    failedAt: "failedAt";
+    lastAttemptAt: "lastAttemptAt";
+    lastError: "lastError";
+    createdAt: "createdAt";
+    updatedAt: "updatedAt";
+    tenantId: "tenantId";
+  };
+
+  export type BillingScheduleScalarFieldEnum =
+    (typeof BillingScheduleScalarFieldEnum)[keyof typeof BillingScheduleScalarFieldEnum];
+
   export const InvoiceItemScalarFieldEnum: {
     id: "id";
     invoiceId: "invoiceId";
@@ -18283,6 +20104,46 @@ export namespace Prisma {
   >;
 
   /**
+   * Reference to a field of type 'BillingScheduleJobType'
+   */
+  export type EnumBillingScheduleJobTypeFieldRefInput<$PrismaModel> =
+    FieldRefInputType<$PrismaModel, "BillingScheduleJobType">;
+
+  /**
+   * Reference to a field of type 'BillingScheduleJobType[]'
+   */
+  export type ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel> =
+    FieldRefInputType<$PrismaModel, "BillingScheduleJobType[]">;
+
+  /**
+   * Reference to a field of type 'BillingScheduleStatus'
+   */
+  export type EnumBillingScheduleStatusFieldRefInput<$PrismaModel> =
+    FieldRefInputType<$PrismaModel, "BillingScheduleStatus">;
+
+  /**
+   * Reference to a field of type 'BillingScheduleStatus[]'
+   */
+  export type ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel> =
+    FieldRefInputType<$PrismaModel, "BillingScheduleStatus[]">;
+
+  /**
+   * Reference to a field of type 'Json'
+   */
+  export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<
+    $PrismaModel,
+    "Json"
+  >;
+
+  /**
+   * Reference to a field of type 'QueryMode'
+   */
+  export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<
+    $PrismaModel,
+    "QueryMode"
+  >;
+
+  /**
    * Reference to a field of type 'Int'
    */
   export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<
@@ -18346,22 +20207,6 @@ export namespace Prisma {
   export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<
     $PrismaModel,
     "Boolean"
-  >;
-
-  /**
-   * Reference to a field of type 'Json'
-   */
-  export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<
-    $PrismaModel,
-    "Json"
-  >;
-
-  /**
-   * Reference to a field of type 'QueryMode'
-   */
-  export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<
-    $PrismaModel,
-    "QueryMode"
   >;
 
   /**
@@ -18450,6 +20295,7 @@ export namespace Prisma {
     tenantId?: StringNullableFilter<"Invoice"> | string | null;
     invoiceItem?: InvoiceItemListRelationFilter;
     payment?: PaymentListRelationFilter;
+    billingSchedules?: BillingScheduleListRelationFilter;
   };
 
   export type InvoiceOrderByWithRelationInput = {
@@ -18475,6 +20321,7 @@ export namespace Prisma {
     tenantId?: SortOrderInput | SortOrder;
     invoiceItem?: InvoiceItemOrderByRelationAggregateInput;
     payment?: PaymentOrderByRelationAggregateInput;
+    billingSchedules?: BillingScheduleOrderByRelationAggregateInput;
   };
 
   export type InvoiceWhereUniqueInput = Prisma.AtLeast<
@@ -18505,6 +20352,7 @@ export namespace Prisma {
       tenantId?: StringNullableFilter<"Invoice"> | string | null;
       invoiceItem?: InvoiceItemListRelationFilter;
       payment?: PaymentListRelationFilter;
+      billingSchedules?: BillingScheduleListRelationFilter;
     },
     "id" | "tenantId_invoiceNumber"
   >;
@@ -18575,6 +20423,247 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"Invoice"> | Date | string;
     siteId?: StringNullableWithAggregatesFilter<"Invoice"> | string | null;
     tenantId?: StringNullableWithAggregatesFilter<"Invoice"> | string | null;
+  };
+
+  export type BillingScheduleWhereInput = {
+    AND?: BillingScheduleWhereInput | BillingScheduleWhereInput[];
+    OR?: BillingScheduleWhereInput[];
+    NOT?: BillingScheduleWhereInput | BillingScheduleWhereInput[];
+    id?: StringFilter<"BillingSchedule"> | string;
+    dedupeKey?: StringFilter<"BillingSchedule"> | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFilter<"BillingSchedule">
+      | $Enums.BillingScheduleJobType;
+    invoiceId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    pelangganId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    runAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFilter<"BillingSchedule">
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    payload?: JsonNullableFilter<"BillingSchedule">;
+    version?: IntFilter<"BillingSchedule"> | number;
+    attemptCount?: IntFilter<"BillingSchedule"> | number;
+    queuedAt?: DateTimeNullableFilter<"BillingSchedule"> | Date | string | null;
+    processingAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    failedAt?: DateTimeNullableFilter<"BillingSchedule"> | Date | string | null;
+    lastAttemptAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    lastError?: StringNullableFilter<"BillingSchedule"> | string | null;
+    createdAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    updatedAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    tenantId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    invoice?: XOR<
+      InvoiceNullableScalarRelationFilter,
+      InvoiceWhereInput
+    > | null;
+  };
+
+  export type BillingScheduleOrderByWithRelationInput = {
+    id?: SortOrder;
+    dedupeKey?: SortOrder;
+    jobType?: SortOrder;
+    invoiceId?: SortOrderInput | SortOrder;
+    pelangganId?: SortOrderInput | SortOrder;
+    runAt?: SortOrder;
+    status?: SortOrder;
+    queueJobId?: SortOrderInput | SortOrder;
+    payload?: SortOrderInput | SortOrder;
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+    queuedAt?: SortOrderInput | SortOrder;
+    processingAt?: SortOrderInput | SortOrder;
+    completedAt?: SortOrderInput | SortOrder;
+    cancelledAt?: SortOrderInput | SortOrder;
+    failedAt?: SortOrderInput | SortOrder;
+    lastAttemptAt?: SortOrderInput | SortOrder;
+    lastError?: SortOrderInput | SortOrder;
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+    tenantId?: SortOrderInput | SortOrder;
+    invoice?: InvoiceOrderByWithRelationInput;
+  };
+
+  export type BillingScheduleWhereUniqueInput = Prisma.AtLeast<
+    {
+      id?: string;
+      dedupeKey?: string;
+      AND?: BillingScheduleWhereInput | BillingScheduleWhereInput[];
+      OR?: BillingScheduleWhereInput[];
+      NOT?: BillingScheduleWhereInput | BillingScheduleWhereInput[];
+      jobType?:
+        | EnumBillingScheduleJobTypeFilter<"BillingSchedule">
+        | $Enums.BillingScheduleJobType;
+      invoiceId?: StringNullableFilter<"BillingSchedule"> | string | null;
+      pelangganId?: StringNullableFilter<"BillingSchedule"> | string | null;
+      runAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+      status?:
+        | EnumBillingScheduleStatusFilter<"BillingSchedule">
+        | $Enums.BillingScheduleStatus;
+      queueJobId?: StringNullableFilter<"BillingSchedule"> | string | null;
+      payload?: JsonNullableFilter<"BillingSchedule">;
+      version?: IntFilter<"BillingSchedule"> | number;
+      attemptCount?: IntFilter<"BillingSchedule"> | number;
+      queuedAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      processingAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      completedAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      cancelledAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      failedAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      lastAttemptAt?:
+        | DateTimeNullableFilter<"BillingSchedule">
+        | Date
+        | string
+        | null;
+      lastError?: StringNullableFilter<"BillingSchedule"> | string | null;
+      createdAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+      updatedAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+      tenantId?: StringNullableFilter<"BillingSchedule"> | string | null;
+      invoice?: XOR<
+        InvoiceNullableScalarRelationFilter,
+        InvoiceWhereInput
+      > | null;
+    },
+    "id" | "dedupeKey"
+  >;
+
+  export type BillingScheduleOrderByWithAggregationInput = {
+    id?: SortOrder;
+    dedupeKey?: SortOrder;
+    jobType?: SortOrder;
+    invoiceId?: SortOrderInput | SortOrder;
+    pelangganId?: SortOrderInput | SortOrder;
+    runAt?: SortOrder;
+    status?: SortOrder;
+    queueJobId?: SortOrderInput | SortOrder;
+    payload?: SortOrderInput | SortOrder;
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+    queuedAt?: SortOrderInput | SortOrder;
+    processingAt?: SortOrderInput | SortOrder;
+    completedAt?: SortOrderInput | SortOrder;
+    cancelledAt?: SortOrderInput | SortOrder;
+    failedAt?: SortOrderInput | SortOrder;
+    lastAttemptAt?: SortOrderInput | SortOrder;
+    lastError?: SortOrderInput | SortOrder;
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+    tenantId?: SortOrderInput | SortOrder;
+    _count?: BillingScheduleCountOrderByAggregateInput;
+    _avg?: BillingScheduleAvgOrderByAggregateInput;
+    _max?: BillingScheduleMaxOrderByAggregateInput;
+    _min?: BillingScheduleMinOrderByAggregateInput;
+    _sum?: BillingScheduleSumOrderByAggregateInput;
+  };
+
+  export type BillingScheduleScalarWhereWithAggregatesInput = {
+    AND?:
+      | BillingScheduleScalarWhereWithAggregatesInput
+      | BillingScheduleScalarWhereWithAggregatesInput[];
+    OR?: BillingScheduleScalarWhereWithAggregatesInput[];
+    NOT?:
+      | BillingScheduleScalarWhereWithAggregatesInput
+      | BillingScheduleScalarWhereWithAggregatesInput[];
+    id?: StringWithAggregatesFilter<"BillingSchedule"> | string;
+    dedupeKey?: StringWithAggregatesFilter<"BillingSchedule"> | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeWithAggregatesFilter<"BillingSchedule">
+      | $Enums.BillingScheduleJobType;
+    invoiceId?:
+      | StringNullableWithAggregatesFilter<"BillingSchedule">
+      | string
+      | null;
+    pelangganId?:
+      | StringNullableWithAggregatesFilter<"BillingSchedule">
+      | string
+      | null;
+    runAt?: DateTimeWithAggregatesFilter<"BillingSchedule"> | Date | string;
+    status?:
+      | EnumBillingScheduleStatusWithAggregatesFilter<"BillingSchedule">
+      | $Enums.BillingScheduleStatus;
+    queueJobId?:
+      | StringNullableWithAggregatesFilter<"BillingSchedule">
+      | string
+      | null;
+    payload?: JsonNullableWithAggregatesFilter<"BillingSchedule">;
+    version?: IntWithAggregatesFilter<"BillingSchedule"> | number;
+    attemptCount?: IntWithAggregatesFilter<"BillingSchedule"> | number;
+    queuedAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | DateTimeNullableWithAggregatesFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    lastError?:
+      | StringNullableWithAggregatesFilter<"BillingSchedule">
+      | string
+      | null;
+    createdAt?: DateTimeWithAggregatesFilter<"BillingSchedule"> | Date | string;
+    updatedAt?: DateTimeWithAggregatesFilter<"BillingSchedule"> | Date | string;
+    tenantId?:
+      | StringNullableWithAggregatesFilter<"BillingSchedule">
+      | string
+      | null;
   };
 
   export type InvoiceItemWhereInput = {
@@ -19956,6 +22045,7 @@ export namespace Prisma {
     tenantId?: string | null;
     invoiceItem?: InvoiceItemCreateNestedManyWithoutInvoiceInput;
     payment?: PaymentCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceUncheckedCreateInput = {
@@ -19981,6 +22071,7 @@ export namespace Prisma {
     tenantId?: string | null;
     invoiceItem?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput;
     payment?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleUncheckedCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceUpdateInput = {
@@ -20006,6 +22097,7 @@ export namespace Prisma {
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     invoiceItem?: InvoiceItemUpdateManyWithoutInvoiceNestedInput;
     payment?: PaymentUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type InvoiceUncheckedUpdateInput = {
@@ -20031,6 +22123,7 @@ export namespace Prisma {
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput;
     payment?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUncheckedUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type InvoiceCreateManyInput = {
@@ -20099,6 +22192,285 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     siteId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleCreateInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+    invoice?: InvoiceCreateNestedOneWithoutBillingSchedulesInput;
+  };
+
+  export type BillingScheduleUncheckedCreateInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    invoiceId?: string | null;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+  };
+
+  export type BillingScheduleUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    invoice?: InvoiceUpdateOneWithoutBillingSchedulesNestedInput;
+  };
+
+  export type BillingScheduleUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    invoiceId?: NullableStringFieldUpdateOperationsInput | string | null;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleCreateManyInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    invoiceId?: string | null;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+  };
+
+  export type BillingScheduleUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    invoiceId?: NullableStringFieldUpdateOperationsInput | string | null;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
   };
 
@@ -21542,6 +23914,12 @@ export namespace Prisma {
     none?: PaymentWhereInput;
   };
 
+  export type BillingScheduleListRelationFilter = {
+    every?: BillingScheduleWhereInput;
+    some?: BillingScheduleWhereInput;
+    none?: BillingScheduleWhereInput;
+  };
+
   export type SortOrderInput = {
     sort: SortOrder;
     nulls?: NullsOrder;
@@ -21552,6 +23930,10 @@ export namespace Prisma {
   };
 
   export type PaymentOrderByRelationAggregateInput = {
+    _count?: SortOrder;
+  };
+
+  export type BillingScheduleOrderByRelationAggregateInput = {
     _count?: SortOrder;
   };
 
@@ -21750,6 +24132,70 @@ export namespace Prisma {
     _max?: NestedDateTimeNullableFilter<$PrismaModel>;
   };
 
+  export type EnumBillingScheduleJobTypeFilter<$PrismaModel = never> = {
+    equals?:
+      | $Enums.BillingScheduleJobType
+      | EnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>
+      | $Enums.BillingScheduleJobType;
+  };
+
+  export type EnumBillingScheduleStatusFilter<$PrismaModel = never> = {
+    equals?:
+      | $Enums.BillingScheduleStatus
+      | EnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleStatusFilter<$PrismaModel>
+      | $Enums.BillingScheduleStatus;
+  };
+  export type JsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<
+          Required<JsonNullableFilterBase<$PrismaModel>>,
+          Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, "path">
+        >,
+        Required<JsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<
+        Omit<Required<JsonNullableFilterBase<$PrismaModel>>, "path">
+      >;
+
+  export type JsonNullableFilterBase<$PrismaModel = never> = {
+    equals?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
+    path?: string[];
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
+    string_contains?: string | StringFieldRefInput<$PrismaModel>;
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    not?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
+  };
+
   export type IntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>;
     in?: number[] | ListIntFieldRefInput<$PrismaModel>;
@@ -21759,6 +24205,190 @@ export namespace Prisma {
     gt?: number | IntFieldRefInput<$PrismaModel>;
     gte?: number | IntFieldRefInput<$PrismaModel>;
     not?: NestedIntFilter<$PrismaModel> | number;
+  };
+
+  export type InvoiceNullableScalarRelationFilter = {
+    is?: InvoiceWhereInput | null;
+    isNot?: InvoiceWhereInput | null;
+  };
+
+  export type BillingScheduleCountOrderByAggregateInput = {
+    id?: SortOrder;
+    dedupeKey?: SortOrder;
+    jobType?: SortOrder;
+    invoiceId?: SortOrder;
+    pelangganId?: SortOrder;
+    runAt?: SortOrder;
+    status?: SortOrder;
+    queueJobId?: SortOrder;
+    payload?: SortOrder;
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+    queuedAt?: SortOrder;
+    processingAt?: SortOrder;
+    completedAt?: SortOrder;
+    cancelledAt?: SortOrder;
+    failedAt?: SortOrder;
+    lastAttemptAt?: SortOrder;
+    lastError?: SortOrder;
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+    tenantId?: SortOrder;
+  };
+
+  export type BillingScheduleAvgOrderByAggregateInput = {
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+  };
+
+  export type BillingScheduleMaxOrderByAggregateInput = {
+    id?: SortOrder;
+    dedupeKey?: SortOrder;
+    jobType?: SortOrder;
+    invoiceId?: SortOrder;
+    pelangganId?: SortOrder;
+    runAt?: SortOrder;
+    status?: SortOrder;
+    queueJobId?: SortOrder;
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+    queuedAt?: SortOrder;
+    processingAt?: SortOrder;
+    completedAt?: SortOrder;
+    cancelledAt?: SortOrder;
+    failedAt?: SortOrder;
+    lastAttemptAt?: SortOrder;
+    lastError?: SortOrder;
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+    tenantId?: SortOrder;
+  };
+
+  export type BillingScheduleMinOrderByAggregateInput = {
+    id?: SortOrder;
+    dedupeKey?: SortOrder;
+    jobType?: SortOrder;
+    invoiceId?: SortOrder;
+    pelangganId?: SortOrder;
+    runAt?: SortOrder;
+    status?: SortOrder;
+    queueJobId?: SortOrder;
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+    queuedAt?: SortOrder;
+    processingAt?: SortOrder;
+    completedAt?: SortOrder;
+    cancelledAt?: SortOrder;
+    failedAt?: SortOrder;
+    lastAttemptAt?: SortOrder;
+    lastError?: SortOrder;
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+    tenantId?: SortOrder;
+  };
+
+  export type BillingScheduleSumOrderByAggregateInput = {
+    version?: SortOrder;
+    attemptCount?: SortOrder;
+  };
+
+  export type EnumBillingScheduleJobTypeWithAggregatesFilter<
+    $PrismaModel = never,
+  > = {
+    equals?:
+      | $Enums.BillingScheduleJobType
+      | EnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleJobTypeWithAggregatesFilter<$PrismaModel>
+      | $Enums.BillingScheduleJobType;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>;
+    _max?: NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>;
+  };
+
+  export type EnumBillingScheduleStatusWithAggregatesFilter<
+    $PrismaModel = never,
+  > = {
+    equals?:
+      | $Enums.BillingScheduleStatus
+      | EnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleStatusWithAggregatesFilter<$PrismaModel>
+      | $Enums.BillingScheduleStatus;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedEnumBillingScheduleStatusFilter<$PrismaModel>;
+    _max?: NestedEnumBillingScheduleStatusFilter<$PrismaModel>;
+  };
+  export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<
+          Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
+          Exclude<
+            keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
+            "path"
+          >
+        >,
+        Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<
+        Omit<
+          Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
+          "path"
+        >
+      >;
+
+  export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
+    equals?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
+    path?: string[];
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
+    string_contains?: string | StringFieldRefInput<$PrismaModel>;
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    not?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
+    _count?: NestedIntNullableFilter<$PrismaModel>;
+    _min?: NestedJsonNullableFilter<$PrismaModel>;
+    _max?: NestedJsonNullableFilter<$PrismaModel>;
+  };
+
+  export type IntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>;
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _avg?: NestedFloatFilter<$PrismaModel>;
+    _sum?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedIntFilter<$PrismaModel>;
+    _max?: NestedIntFilter<$PrismaModel>;
   };
 
   export type EnumItemTypeFilter<$PrismaModel = never> = {
@@ -21818,22 +24448,6 @@ export namespace Prisma {
     totalPrice?: SortOrder;
   };
 
-  export type IntWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>;
-    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
-    lt?: number | IntFieldRefInput<$PrismaModel>;
-    lte?: number | IntFieldRefInput<$PrismaModel>;
-    gt?: number | IntFieldRefInput<$PrismaModel>;
-    gte?: number | IntFieldRefInput<$PrismaModel>;
-    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number;
-    _count?: NestedIntFilter<$PrismaModel>;
-    _avg?: NestedFloatFilter<$PrismaModel>;
-    _sum?: NestedIntFilter<$PrismaModel>;
-    _min?: NestedIntFilter<$PrismaModel>;
-    _max?: NestedIntFilter<$PrismaModel>;
-  };
-
   export type EnumItemTypeWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.ItemType | EnumItemTypeFieldRefInput<$PrismaModel>;
     in?: $Enums.ItemType[] | ListEnumItemTypeFieldRefInput<$PrismaModel>;
@@ -21876,11 +24490,6 @@ export namespace Prisma {
       | NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel>
       | $Enums.GatewayPaymentStatus
       | null;
-  };
-
-  export type InvoiceNullableScalarRelationFilter = {
-    is?: InvoiceWhereInput | null;
-    isNot?: InvoiceWhereInput | null;
   };
 
   export type UnmatchedMutationNullableScalarRelationFilter = {
@@ -22014,40 +24623,6 @@ export namespace Prisma {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>;
     not?: NestedBoolFilter<$PrismaModel> | boolean;
   };
-  export type JsonNullableFilter<$PrismaModel = never> =
-    | PatchUndefined<
-        Either<
-          Required<JsonNullableFilterBase<$PrismaModel>>,
-          Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, "path">
-        >,
-        Required<JsonNullableFilterBase<$PrismaModel>>
-      >
-    | OptionalFlat<
-        Omit<Required<JsonNullableFilterBase<$PrismaModel>>, "path">
-      >;
-
-  export type JsonNullableFilterBase<$PrismaModel = never> = {
-    equals?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
-    path?: string[];
-    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
-    string_contains?: string | StringFieldRefInput<$PrismaModel>;
-    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
-    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
-    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    not?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
-  };
 
   export type PaymentGatewayConfigProviderTenantIdCompoundUniqueInput = {
     provider: string;
@@ -22132,49 +24707,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>;
     _min?: NestedBoolFilter<$PrismaModel>;
     _max?: NestedBoolFilter<$PrismaModel>;
-  };
-  export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
-    | PatchUndefined<
-        Either<
-          Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
-          Exclude<
-            keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
-            "path"
-          >
-        >,
-        Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
-      >
-    | OptionalFlat<
-        Omit<
-          Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>,
-          "path"
-        >
-      >;
-
-  export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
-    equals?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
-    path?: string[];
-    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
-    string_contains?: string | StringFieldRefInput<$PrismaModel>;
-    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
-    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
-    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    not?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
-    _count?: NestedIntNullableFilter<$PrismaModel>;
-    _min?: NestedJsonNullableFilter<$PrismaModel>;
-    _max?: NestedJsonNullableFilter<$PrismaModel>;
   };
 
   export type DecimalFilter<$PrismaModel = never> = {
@@ -22807,6 +25339,23 @@ export namespace Prisma {
     connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[];
   };
 
+  export type BillingScheduleCreateNestedManyWithoutInvoiceInput = {
+    create?:
+      | XOR<
+          BillingScheduleCreateWithoutInvoiceInput,
+          BillingScheduleUncheckedCreateWithoutInvoiceInput
+        >
+      | BillingScheduleCreateWithoutInvoiceInput[]
+      | BillingScheduleUncheckedCreateWithoutInvoiceInput[];
+    connectOrCreate?:
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput[];
+    createMany?: BillingScheduleCreateManyInvoiceInputEnvelope;
+    connect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+  };
+
   export type InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput = {
     create?:
       | XOR<
@@ -22835,6 +25384,23 @@ export namespace Prisma {
       | PaymentCreateOrConnectWithoutInvoiceInput[];
     createMany?: PaymentCreateManyInvoiceInputEnvelope;
     connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[];
+  };
+
+  export type BillingScheduleUncheckedCreateNestedManyWithoutInvoiceInput = {
+    create?:
+      | XOR<
+          BillingScheduleCreateWithoutInvoiceInput,
+          BillingScheduleUncheckedCreateWithoutInvoiceInput
+        >
+      | BillingScheduleCreateWithoutInvoiceInput[]
+      | BillingScheduleUncheckedCreateWithoutInvoiceInput[];
+    connectOrCreate?:
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput[];
+    createMany?: BillingScheduleCreateManyInvoiceInputEnvelope;
+    connect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
   };
 
   export type StringFieldUpdateOperationsInput = {
@@ -22921,6 +25487,42 @@ export namespace Prisma {
     deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[];
   };
 
+  export type BillingScheduleUpdateManyWithoutInvoiceNestedInput = {
+    create?:
+      | XOR<
+          BillingScheduleCreateWithoutInvoiceInput,
+          BillingScheduleUncheckedCreateWithoutInvoiceInput
+        >
+      | BillingScheduleCreateWithoutInvoiceInput[]
+      | BillingScheduleUncheckedCreateWithoutInvoiceInput[];
+    connectOrCreate?:
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput[];
+    upsert?:
+      | BillingScheduleUpsertWithWhereUniqueWithoutInvoiceInput
+      | BillingScheduleUpsertWithWhereUniqueWithoutInvoiceInput[];
+    createMany?: BillingScheduleCreateManyInvoiceInputEnvelope;
+    set?: BillingScheduleWhereUniqueInput | BillingScheduleWhereUniqueInput[];
+    disconnect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    delete?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    connect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    update?:
+      | BillingScheduleUpdateWithWhereUniqueWithoutInvoiceInput
+      | BillingScheduleUpdateWithWhereUniqueWithoutInvoiceInput[];
+    updateMany?:
+      | BillingScheduleUpdateManyWithWhereWithoutInvoiceInput
+      | BillingScheduleUpdateManyWithWhereWithoutInvoiceInput[];
+    deleteMany?:
+      | BillingScheduleScalarWhereInput
+      | BillingScheduleScalarWhereInput[];
+  };
+
   export type InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput = {
     create?:
       | XOR<
@@ -22977,13 +25579,57 @@ export namespace Prisma {
     deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[];
   };
 
-  export type InvoiceCreateNestedOneWithoutInvoiceItemInput = {
+  export type BillingScheduleUncheckedUpdateManyWithoutInvoiceNestedInput = {
+    create?:
+      | XOR<
+          BillingScheduleCreateWithoutInvoiceInput,
+          BillingScheduleUncheckedCreateWithoutInvoiceInput
+        >
+      | BillingScheduleCreateWithoutInvoiceInput[]
+      | BillingScheduleUncheckedCreateWithoutInvoiceInput[];
+    connectOrCreate?:
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput
+      | BillingScheduleCreateOrConnectWithoutInvoiceInput[];
+    upsert?:
+      | BillingScheduleUpsertWithWhereUniqueWithoutInvoiceInput
+      | BillingScheduleUpsertWithWhereUniqueWithoutInvoiceInput[];
+    createMany?: BillingScheduleCreateManyInvoiceInputEnvelope;
+    set?: BillingScheduleWhereUniqueInput | BillingScheduleWhereUniqueInput[];
+    disconnect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    delete?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    connect?:
+      | BillingScheduleWhereUniqueInput
+      | BillingScheduleWhereUniqueInput[];
+    update?:
+      | BillingScheduleUpdateWithWhereUniqueWithoutInvoiceInput
+      | BillingScheduleUpdateWithWhereUniqueWithoutInvoiceInput[];
+    updateMany?:
+      | BillingScheduleUpdateManyWithWhereWithoutInvoiceInput
+      | BillingScheduleUpdateManyWithWhereWithoutInvoiceInput[];
+    deleteMany?:
+      | BillingScheduleScalarWhereInput
+      | BillingScheduleScalarWhereInput[];
+  };
+
+  export type InvoiceCreateNestedOneWithoutBillingSchedulesInput = {
     create?: XOR<
-      InvoiceCreateWithoutInvoiceItemInput,
-      InvoiceUncheckedCreateWithoutInvoiceItemInput
+      InvoiceCreateWithoutBillingSchedulesInput,
+      InvoiceUncheckedCreateWithoutBillingSchedulesInput
     >;
-    connectOrCreate?: InvoiceCreateOrConnectWithoutInvoiceItemInput;
+    connectOrCreate?: InvoiceCreateOrConnectWithoutBillingSchedulesInput;
     connect?: InvoiceWhereUniqueInput;
+  };
+
+  export type EnumBillingScheduleJobTypeFieldUpdateOperationsInput = {
+    set?: $Enums.BillingScheduleJobType;
+  };
+
+  export type EnumBillingScheduleStatusFieldUpdateOperationsInput = {
+    set?: $Enums.BillingScheduleStatus;
   };
 
   export type IntFieldUpdateOperationsInput = {
@@ -22992,6 +25638,34 @@ export namespace Prisma {
     decrement?: number;
     multiply?: number;
     divide?: number;
+  };
+
+  export type InvoiceUpdateOneWithoutBillingSchedulesNestedInput = {
+    create?: XOR<
+      InvoiceCreateWithoutBillingSchedulesInput,
+      InvoiceUncheckedCreateWithoutBillingSchedulesInput
+    >;
+    connectOrCreate?: InvoiceCreateOrConnectWithoutBillingSchedulesInput;
+    upsert?: InvoiceUpsertWithoutBillingSchedulesInput;
+    disconnect?: InvoiceWhereInput | boolean;
+    delete?: InvoiceWhereInput | boolean;
+    connect?: InvoiceWhereUniqueInput;
+    update?: XOR<
+      XOR<
+        InvoiceUpdateToOneWithWhereWithoutBillingSchedulesInput,
+        InvoiceUpdateWithoutBillingSchedulesInput
+      >,
+      InvoiceUncheckedUpdateWithoutBillingSchedulesInput
+    >;
+  };
+
+  export type InvoiceCreateNestedOneWithoutInvoiceItemInput = {
+    create?: XOR<
+      InvoiceCreateWithoutInvoiceItemInput,
+      InvoiceUncheckedCreateWithoutInvoiceItemInput
+    >;
+    connectOrCreate?: InvoiceCreateOrConnectWithoutInvoiceItemInput;
+    connect?: InvoiceWhereUniqueInput;
   };
 
   export type EnumItemTypeFieldUpdateOperationsInput = {
@@ -23390,11 +26064,111 @@ export namespace Prisma {
       _max?: NestedDateTimeNullableFilter<$PrismaModel>;
     };
 
-  export type NestedEnumItemTypeFilter<$PrismaModel = never> = {
-    equals?: $Enums.ItemType | EnumItemTypeFieldRefInput<$PrismaModel>;
-    in?: $Enums.ItemType[] | ListEnumItemTypeFieldRefInput<$PrismaModel>;
-    notIn?: $Enums.ItemType[] | ListEnumItemTypeFieldRefInput<$PrismaModel>;
-    not?: NestedEnumItemTypeFilter<$PrismaModel> | $Enums.ItemType;
+  export type NestedEnumBillingScheduleJobTypeFilter<$PrismaModel = never> = {
+    equals?:
+      | $Enums.BillingScheduleJobType
+      | EnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>
+      | $Enums.BillingScheduleJobType;
+  };
+
+  export type NestedEnumBillingScheduleStatusFilter<$PrismaModel = never> = {
+    equals?:
+      | $Enums.BillingScheduleStatus
+      | EnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleStatusFilter<$PrismaModel>
+      | $Enums.BillingScheduleStatus;
+  };
+
+  export type NestedEnumBillingScheduleJobTypeWithAggregatesFilter<
+    $PrismaModel = never,
+  > = {
+    equals?:
+      | $Enums.BillingScheduleJobType
+      | EnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleJobType[]
+      | ListEnumBillingScheduleJobTypeFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleJobTypeWithAggregatesFilter<$PrismaModel>
+      | $Enums.BillingScheduleJobType;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>;
+    _max?: NestedEnumBillingScheduleJobTypeFilter<$PrismaModel>;
+  };
+
+  export type NestedEnumBillingScheduleStatusWithAggregatesFilter<
+    $PrismaModel = never,
+  > = {
+    equals?:
+      | $Enums.BillingScheduleStatus
+      | EnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    in?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    notIn?:
+      | $Enums.BillingScheduleStatus[]
+      | ListEnumBillingScheduleStatusFieldRefInput<$PrismaModel>;
+    not?:
+      | NestedEnumBillingScheduleStatusWithAggregatesFilter<$PrismaModel>
+      | $Enums.BillingScheduleStatus;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedEnumBillingScheduleStatusFilter<$PrismaModel>;
+    _max?: NestedEnumBillingScheduleStatusFilter<$PrismaModel>;
+  };
+  export type NestedJsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<
+          Required<NestedJsonNullableFilterBase<$PrismaModel>>,
+          Exclude<
+            keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>,
+            "path"
+          >
+        >,
+        Required<NestedJsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<
+        Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, "path">
+      >;
+
+  export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
+    equals?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
+    path?: string[];
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
+    string_contains?: string | StringFieldRefInput<$PrismaModel>;
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
+    not?:
+      | InputJsonValue
+      | JsonFieldRefInput<$PrismaModel>
+      | JsonNullValueFilter;
   };
 
   export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
@@ -23411,6 +26185,13 @@ export namespace Prisma {
     _sum?: NestedIntFilter<$PrismaModel>;
     _min?: NestedIntFilter<$PrismaModel>;
     _max?: NestedIntFilter<$PrismaModel>;
+  };
+
+  export type NestedEnumItemTypeFilter<$PrismaModel = never> = {
+    equals?: $Enums.ItemType | EnumItemTypeFieldRefInput<$PrismaModel>;
+    in?: $Enums.ItemType[] | ListEnumItemTypeFieldRefInput<$PrismaModel>;
+    notIn?: $Enums.ItemType[] | ListEnumItemTypeFieldRefInput<$PrismaModel>;
+    not?: NestedEnumItemTypeFilter<$PrismaModel> | $Enums.ItemType;
   };
 
   export type NestedEnumItemTypeWithAggregatesFilter<$PrismaModel = never> = {
@@ -23514,43 +26295,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>;
     _min?: NestedBoolFilter<$PrismaModel>;
     _max?: NestedBoolFilter<$PrismaModel>;
-  };
-  export type NestedJsonNullableFilter<$PrismaModel = never> =
-    | PatchUndefined<
-        Either<
-          Required<NestedJsonNullableFilterBase<$PrismaModel>>,
-          Exclude<
-            keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>,
-            "path"
-          >
-        >,
-        Required<NestedJsonNullableFilterBase<$PrismaModel>>
-      >
-    | OptionalFlat<
-        Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, "path">
-      >;
-
-  export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
-    equals?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
-    path?: string[];
-    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>;
-    string_contains?: string | StringFieldRefInput<$PrismaModel>;
-    string_starts_with?: string | StringFieldRefInput<$PrismaModel>;
-    string_ends_with?: string | StringFieldRefInput<$PrismaModel>;
-    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null;
-    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>;
-    not?:
-      | InputJsonValue
-      | JsonFieldRefInput<$PrismaModel>
-      | JsonNullValueFilter;
   };
 
   export type NestedDecimalFilter<$PrismaModel = never> = {
@@ -23856,6 +26600,67 @@ export namespace Prisma {
     skipDuplicates?: boolean;
   };
 
+  export type BillingScheduleCreateWithoutInvoiceInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+  };
+
+  export type BillingScheduleUncheckedCreateWithoutInvoiceInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+  };
+
+  export type BillingScheduleCreateOrConnectWithoutInvoiceInput = {
+    where: BillingScheduleWhereUniqueInput;
+    create: XOR<
+      BillingScheduleCreateWithoutInvoiceInput,
+      BillingScheduleUncheckedCreateWithoutInvoiceInput
+    >;
+  };
+
+  export type BillingScheduleCreateManyInvoiceInputEnvelope = {
+    data:
+      | BillingScheduleCreateManyInvoiceInput
+      | BillingScheduleCreateManyInvoiceInput[];
+    skipDuplicates?: boolean;
+  };
+
   export type InvoiceItemUpsertWithWhereUniqueWithoutInvoiceInput = {
     where: InvoiceItemWhereUniqueInput;
     update: XOR<
@@ -23956,6 +26761,209 @@ export namespace Prisma {
     tenantId?: StringNullableFilter<"Payment"> | string | null;
   };
 
+  export type BillingScheduleUpsertWithWhereUniqueWithoutInvoiceInput = {
+    where: BillingScheduleWhereUniqueInput;
+    update: XOR<
+      BillingScheduleUpdateWithoutInvoiceInput,
+      BillingScheduleUncheckedUpdateWithoutInvoiceInput
+    >;
+    create: XOR<
+      BillingScheduleCreateWithoutInvoiceInput,
+      BillingScheduleUncheckedCreateWithoutInvoiceInput
+    >;
+  };
+
+  export type BillingScheduleUpdateWithWhereUniqueWithoutInvoiceInput = {
+    where: BillingScheduleWhereUniqueInput;
+    data: XOR<
+      BillingScheduleUpdateWithoutInvoiceInput,
+      BillingScheduleUncheckedUpdateWithoutInvoiceInput
+    >;
+  };
+
+  export type BillingScheduleUpdateManyWithWhereWithoutInvoiceInput = {
+    where: BillingScheduleScalarWhereInput;
+    data: XOR<
+      BillingScheduleUpdateManyMutationInput,
+      BillingScheduleUncheckedUpdateManyWithoutInvoiceInput
+    >;
+  };
+
+  export type BillingScheduleScalarWhereInput = {
+    AND?: BillingScheduleScalarWhereInput | BillingScheduleScalarWhereInput[];
+    OR?: BillingScheduleScalarWhereInput[];
+    NOT?: BillingScheduleScalarWhereInput | BillingScheduleScalarWhereInput[];
+    id?: StringFilter<"BillingSchedule"> | string;
+    dedupeKey?: StringFilter<"BillingSchedule"> | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFilter<"BillingSchedule">
+      | $Enums.BillingScheduleJobType;
+    invoiceId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    pelangganId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    runAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFilter<"BillingSchedule">
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: StringNullableFilter<"BillingSchedule"> | string | null;
+    payload?: JsonNullableFilter<"BillingSchedule">;
+    version?: IntFilter<"BillingSchedule"> | number;
+    attemptCount?: IntFilter<"BillingSchedule"> | number;
+    queuedAt?: DateTimeNullableFilter<"BillingSchedule"> | Date | string | null;
+    processingAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    failedAt?: DateTimeNullableFilter<"BillingSchedule"> | Date | string | null;
+    lastAttemptAt?:
+      | DateTimeNullableFilter<"BillingSchedule">
+      | Date
+      | string
+      | null;
+    lastError?: StringNullableFilter<"BillingSchedule"> | string | null;
+    createdAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    updatedAt?: DateTimeFilter<"BillingSchedule"> | Date | string;
+    tenantId?: StringNullableFilter<"BillingSchedule"> | string | null;
+  };
+
+  export type InvoiceCreateWithoutBillingSchedulesInput = {
+    id: string;
+    invoiceNumber: string;
+    pelangganId: string;
+    issueDate?: Date | string;
+    dueDate: Date | string;
+    status?: $Enums.InvoiceStatus;
+    subtotal?: bigint | number;
+    taxAmount?: bigint | number;
+    discountAmount?: bigint | number;
+    totalAmount?: bigint | number;
+    paidAmount?: bigint | number;
+    notes?: string | null;
+    terms?: string | null;
+    sentAt?: Date | string | null;
+    paidAt?: Date | string | null;
+    createdBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt: Date | string;
+    siteId?: string | null;
+    tenantId?: string | null;
+    invoiceItem?: InvoiceItemCreateNestedManyWithoutInvoiceInput;
+    payment?: PaymentCreateNestedManyWithoutInvoiceInput;
+  };
+
+  export type InvoiceUncheckedCreateWithoutBillingSchedulesInput = {
+    id: string;
+    invoiceNumber: string;
+    pelangganId: string;
+    issueDate?: Date | string;
+    dueDate: Date | string;
+    status?: $Enums.InvoiceStatus;
+    subtotal?: bigint | number;
+    taxAmount?: bigint | number;
+    discountAmount?: bigint | number;
+    totalAmount?: bigint | number;
+    paidAmount?: bigint | number;
+    notes?: string | null;
+    terms?: string | null;
+    sentAt?: Date | string | null;
+    paidAt?: Date | string | null;
+    createdBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt: Date | string;
+    siteId?: string | null;
+    tenantId?: string | null;
+    invoiceItem?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput;
+    payment?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput;
+  };
+
+  export type InvoiceCreateOrConnectWithoutBillingSchedulesInput = {
+    where: InvoiceWhereUniqueInput;
+    create: XOR<
+      InvoiceCreateWithoutBillingSchedulesInput,
+      InvoiceUncheckedCreateWithoutBillingSchedulesInput
+    >;
+  };
+
+  export type InvoiceUpsertWithoutBillingSchedulesInput = {
+    update: XOR<
+      InvoiceUpdateWithoutBillingSchedulesInput,
+      InvoiceUncheckedUpdateWithoutBillingSchedulesInput
+    >;
+    create: XOR<
+      InvoiceCreateWithoutBillingSchedulesInput,
+      InvoiceUncheckedCreateWithoutBillingSchedulesInput
+    >;
+    where?: InvoiceWhereInput;
+  };
+
+  export type InvoiceUpdateToOneWithWhereWithoutBillingSchedulesInput = {
+    where?: InvoiceWhereInput;
+    data: XOR<
+      InvoiceUpdateWithoutBillingSchedulesInput,
+      InvoiceUncheckedUpdateWithoutBillingSchedulesInput
+    >;
+  };
+
+  export type InvoiceUpdateWithoutBillingSchedulesInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    invoiceNumber?: StringFieldUpdateOperationsInput | string;
+    pelangganId?: StringFieldUpdateOperationsInput | string;
+    issueDate?: DateTimeFieldUpdateOperationsInput | Date | string;
+    dueDate?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus;
+    subtotal?: BigIntFieldUpdateOperationsInput | bigint | number;
+    taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    totalAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    paidAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    notes?: NullableStringFieldUpdateOperationsInput | string | null;
+    terms?: NullableStringFieldUpdateOperationsInput | string | null;
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    paidAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdBy?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    invoiceItem?: InvoiceItemUpdateManyWithoutInvoiceNestedInput;
+    payment?: PaymentUpdateManyWithoutInvoiceNestedInput;
+  };
+
+  export type InvoiceUncheckedUpdateWithoutBillingSchedulesInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    invoiceNumber?: StringFieldUpdateOperationsInput | string;
+    pelangganId?: StringFieldUpdateOperationsInput | string;
+    issueDate?: DateTimeFieldUpdateOperationsInput | Date | string;
+    dueDate?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus;
+    subtotal?: BigIntFieldUpdateOperationsInput | bigint | number;
+    taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    totalAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    paidAmount?: BigIntFieldUpdateOperationsInput | bigint | number;
+    notes?: NullableStringFieldUpdateOperationsInput | string | null;
+    terms?: NullableStringFieldUpdateOperationsInput | string | null;
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    paidAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdBy?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput;
+    payment?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput;
+  };
+
   export type InvoiceCreateWithoutInvoiceItemInput = {
     id: string;
     invoiceNumber: string;
@@ -23978,6 +26986,7 @@ export namespace Prisma {
     siteId?: string | null;
     tenantId?: string | null;
     payment?: PaymentCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceUncheckedCreateWithoutInvoiceItemInput = {
@@ -24002,6 +27011,7 @@ export namespace Prisma {
     siteId?: string | null;
     tenantId?: string | null;
     payment?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleUncheckedCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceCreateOrConnectWithoutInvoiceItemInput = {
@@ -24054,6 +27064,7 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     payment?: PaymentUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type InvoiceUncheckedUpdateWithoutInvoiceItemInput = {
@@ -24078,6 +27089,7 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     payment?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUncheckedUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type InvoiceCreateWithoutPaymentInput = {
@@ -24102,6 +27114,7 @@ export namespace Prisma {
     siteId?: string | null;
     tenantId?: string | null;
     invoiceItem?: InvoiceItemCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceUncheckedCreateWithoutPaymentInput = {
@@ -24126,6 +27139,7 @@ export namespace Prisma {
     siteId?: string | null;
     tenantId?: string | null;
     invoiceItem?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput;
+    billingSchedules?: BillingScheduleUncheckedCreateNestedManyWithoutInvoiceInput;
   };
 
   export type InvoiceCreateOrConnectWithoutPaymentInput = {
@@ -24224,6 +27238,7 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     invoiceItem?: InvoiceItemUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type InvoiceUncheckedUpdateWithoutPaymentInput = {
@@ -24248,6 +27263,7 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
     invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput;
+    billingSchedules?: BillingScheduleUncheckedUpdateManyWithoutInvoiceNestedInput;
   };
 
   export type UnmatchedMutationUpsertWithoutPaymentInput = {
@@ -24509,6 +27525,29 @@ export namespace Prisma {
     tenantId?: string | null;
   };
 
+  export type BillingScheduleCreateManyInvoiceInput = {
+    id?: string;
+    dedupeKey: string;
+    jobType: $Enums.BillingScheduleJobType;
+    pelangganId?: string | null;
+    runAt: Date | string;
+    status?: $Enums.BillingScheduleStatus;
+    queueJobId?: string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: number;
+    attemptCount?: number;
+    queuedAt?: Date | string | null;
+    processingAt?: Date | string | null;
+    completedAt?: Date | string | null;
+    cancelledAt?: Date | string | null;
+    failedAt?: Date | string | null;
+    lastAttemptAt?: Date | string | null;
+    lastError?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    tenantId?: string | null;
+  };
+
   export type InvoiceItemUpdateWithoutInvoiceInput = {
     id?: StringFieldUpdateOperationsInput | string;
     description?: StringFieldUpdateOperationsInput | string;
@@ -24650,6 +27689,159 @@ export namespace Prisma {
       | string
       | null;
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleUpdateWithoutInvoiceInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleUncheckedUpdateWithoutInvoiceInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type BillingScheduleUncheckedUpdateManyWithoutInvoiceInput = {
+    id?: StringFieldUpdateOperationsInput | string;
+    dedupeKey?: StringFieldUpdateOperationsInput | string;
+    jobType?:
+      | EnumBillingScheduleJobTypeFieldUpdateOperationsInput
+      | $Enums.BillingScheduleJobType;
+    pelangganId?: NullableStringFieldUpdateOperationsInput | string | null;
+    runAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    status?:
+      | EnumBillingScheduleStatusFieldUpdateOperationsInput
+      | $Enums.BillingScheduleStatus;
+    queueJobId?: NullableStringFieldUpdateOperationsInput | string | null;
+    payload?: NullableJsonNullValueInput | InputJsonValue;
+    version?: IntFieldUpdateOperationsInput | number;
+    attemptCount?: IntFieldUpdateOperationsInput | number;
+    queuedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    processingAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    completedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    cancelledAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    failedAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastAttemptAt?:
+      | NullableDateTimeFieldUpdateOperationsInput
+      | Date
+      | string
+      | null;
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
   };
 

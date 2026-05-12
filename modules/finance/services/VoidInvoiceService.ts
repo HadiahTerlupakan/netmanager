@@ -63,6 +63,9 @@ export class VoidInvoiceService {
         reason,
         invoice.notes,
       );
+      const { cancelInvoiceBillingSchedules } =
+        await import("./billingScheduleLifecycle");
+      await cancelInvoiceBillingSchedules(invoice.id);
 
       const pelanggan = await this.pelangganBridge.findById(
         invoice.pelangganId,

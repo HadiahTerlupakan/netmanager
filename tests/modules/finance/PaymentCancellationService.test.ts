@@ -7,6 +7,8 @@ const mockFns = vi.hoisted(() => ({
   pelangganFindUnique: vi.fn(),
   updateStatusPelanggan: vi.fn(),
   sendCustomerPushNotification: vi.fn(),
+  syncInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
+  cancelInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -36,6 +38,11 @@ vi.mock("@/modules/notification", () => ({
   sendCustomerPushNotification: mockFns.sendCustomerPushNotification,
 }));
 
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
+}));
+
 import {
   cancelPaidPayment,
   PaymentCancellationError,
@@ -53,6 +60,7 @@ describe("cancelPaidPayment", () => {
         pelangganId: "cust-1",
         paidAmount: 50000n,
         totalAmount: 50000n,
+        paidAt: new Date("2026-05-10T00:00:00.000Z"),
         status: "PAID",
       },
     });
@@ -60,9 +68,15 @@ describe("cancelPaidPayment", () => {
       id: "cust-1",
       status: "AKTIF",
     });
+    mockFns.invoiceUpdate.mockResolvedValue({
+      id: "inv-1",
+      pelangganId: "cust-1",
+      dueDate: new Date("2026-05-31T00:00:00.000Z"),
+      status: "SENT",
+    });
   });
 
-  it("cancels a paid payment, recalculates invoice, isolates customer, and notifies customer", async () => {
+  it("cancels a paid payment, recalculates invoice, resyncs schedule, and notifies customer", async () => {
     await cancelPaidPayment({ paymentId: "pay-1", adminLabel: "Admin" });
 
     expect(mockFns.paymentUpdate).toHaveBeenCalledWith({
@@ -71,11 +85,20 @@ describe("cancelPaidPayment", () => {
     });
     expect(mockFns.invoiceUpdate).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { paidAmount: 0n, status: "SENT" },
+      data: { paidAmount: 0n, status: "SENT", paidAt: null },
+      select: {
+        id: true,
+        pelangganId: true,
+        dueDate: true,
+        status: true,
+      },
     });
-    expect(mockFns.updateStatusPelanggan).toHaveBeenCalledWith(
-      "cust-1",
-      "ISOLIR",
+    expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
+    expect(mockFns.syncInvoiceBillingSchedules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "inv-1",
+        status: "SENT",
+      }),
     );
     expect(mockFns.sendCustomerPushNotification).toHaveBeenCalledWith(
       "cust-1",

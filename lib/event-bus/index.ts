@@ -92,6 +92,9 @@ export {
   addNotificationJob,
   addWebhookJob,
   addOutboxJob,
+  addBillingScheduleJob,
+  getBillingScheduleJob,
+  removeBillingScheduleJob,
   getQueueStats,
   closeAllQueues,
 } from "./queues";
@@ -101,6 +104,7 @@ export type {
   NotificationJobData,
   WebhookJobData,
   OutboxJobData,
+  BillingScheduleJobData,
 } from "./queues";
 
 // Workers (for startup/shutdown)
@@ -110,6 +114,7 @@ export {
   registerEventHandler,
   getWorkerStatus,
   rehydrateOvertimeAutoCheckoutJobs,
+  rehydrateBillingScheduleJobs,
 } from "./workers";
 
 // Outbox Processor (for polling)
@@ -124,16 +129,20 @@ export {
  * Call this once during application startup (in server.ts).
  */
 export async function initializeEventBus(): Promise<void> {
-  const { startWorkers, rehydrateOvertimeAutoCheckoutJobs } =
-    await import("./workers");
+  const {
+    startWorkers,
+    rehydrateOvertimeAutoCheckoutJobs,
+    rehydrateBillingScheduleJobs,
+  } = await import("./workers");
   const { startOutboxProcessor } = await import("./outbox-processor");
 
   startWorkers();
   await rehydrateOvertimeAutoCheckoutJobs();
+  await rehydrateBillingScheduleJobs();
   startOutboxProcessor();
 
   logger.info(
-    "[EventBus] Initialized: workers + overtime rehydration + outbox processor",
+    "[EventBus] Initialized: workers + overtime rehydration + billing schedule rehydration + outbox processor",
   );
 }
 

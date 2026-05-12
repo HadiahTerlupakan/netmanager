@@ -16,6 +16,7 @@ export type {
 } from "./services/generalSettings";
 export {
   getGeneralSettings,
+  getAutoIsolationSettings,
   updateGeneralSettings,
   getPublicGeneralSettings,
 } from "./services/generalSettings";

@@ -157,6 +157,9 @@ export async function createInvoiceForRoute(options: {
 
   const invoice = await createInvoiceRecord(options, siteResult.siteId);
   logCreatedInvoiceActivity(invoice, options.user.id);
+  const { syncInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+  await syncInvoiceBillingSchedules(invoice);
   return { status: "created", data: serializeCreatedInvoice(invoice) };
 }
 

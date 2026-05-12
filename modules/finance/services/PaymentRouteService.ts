@@ -9,6 +9,7 @@ import { logActivitySafe } from "@/lib/logger";
 import { getPelangganService } from "@/modules/pelanggan";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
+import { AutomaticBillingService } from "./AutomaticBillingService";
 
 type PaymentListFilters = {
   pelangganId?: string | null;
@@ -45,6 +46,10 @@ type PaymentCreateResult =
   | { status: "pelanggan-not-found" }
   | { status: "invoice-not-found" }
   | { status: "created"; data: unknown };
+
+type LinkedInvoiceValidationResult =
+  | { status: "ok" }
+  | { status: "invoice-not-found" };
 
 export type PaymentRouteError =
   | { status: "foreign-key-error" }
@@ -150,9 +155,10 @@ export async function createPaymentForRoute(options: {
     return { status: "pelanggan-not-found" };
   }
 
-  const invoiceValidation = await validateLinkedInvoice(
-    options.input.invoiceId,
-  );
+  const invoiceValidation = await validateLinkedInvoice({
+    invoiceId: options.input.invoiceId,
+    pelangganId: options.input.pelangganId,
+  });
   if (invoiceValidation.status !== "ok") {
     return invoiceValidation;
   }
@@ -171,15 +177,20 @@ async function executePaymentCreation(options: {
 }
 
 /** Validates the linked invoice before creating a manual payment. */
-async function validateLinkedInvoice(invoiceId?: string | null) {
-  if (!invoiceId) {
-    return { status: "ok" as const };
+async function validateLinkedInvoice(options: {
+  invoiceId?: string | null;
+  pelangganId: string;
+}): Promise<LinkedInvoiceValidationResult> {
+  if (!options.invoiceId) {
+    return { status: "ok" };
   }
 
-  const invoice = await getInvoiceRepository().findRawById(invoiceId);
-  return invoice
-    ? { status: "ok" as const }
-    : { status: "invoice-not-found" as const };
+  const invoice = await getInvoiceRepository().findRawById(options.invoiceId);
+  if (!invoice || invoice.pelangganId !== options.pelangganId) {
+    return { status: "invoice-not-found" };
+  }
+
+  return { status: "ok" };
 }
 
 /** Creates a payment record using route input defaults. */
@@ -277,19 +288,48 @@ async function updateLinkedInvoicePaymentStatus(invoiceId: string) {
     return;
   }
 
-  const totalPaid = invoice.payment.reduce(
-    (sum, payment) => sum + payment.amount,
-    0n,
+  const totalPaid = invoice.payment.reduce((sum, payment) => {
+    if (
+      !payment.gatewayStatus ||
+      payment.gatewayStatus === GatewayPaymentStatus.PAID
+    ) {
+      return sum + payment.amount;
+    }
+
+    return sum;
+  }, 0n);
+  const updatedInvoice = await getInvoiceRepository().updatePaymentStatus(
+    invoiceId,
+    {
+      paidAmount: totalPaid,
+      status: calculateInvoiceStatus(
+        totalPaid,
+        invoice.totalAmount,
+        invoice.status as InvoiceStatus,
+      ),
+      paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
+    },
   );
-  await getInvoiceRepository().updatePaymentStatus(invoiceId, {
-    paidAmount: totalPaid,
-    status: calculateInvoiceStatus(
-      totalPaid,
-      invoice.totalAmount,
-      invoice.status as InvoiceStatus,
-    ),
-    paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
-  });
+
+  await syncInvoiceBillingLifecycle(updatedInvoice);
+}
+
+async function syncInvoiceBillingLifecycle(invoice: {
+  id: string;
+  status: string;
+  dueDate: Date;
+  pelangganId: string | null;
+}) {
+  const { cancelInvoiceBillingSchedules, syncInvoiceBillingSchedules } =
+    await import("./billingScheduleLifecycle");
+
+  if (invoice.status === InvoiceStatus.PAID) {
+    await cancelInvoiceBillingSchedules(invoice.id);
+    await AutomaticBillingService.handleInvoicePaid(invoice.id);
+    return;
+  }
+
+  await syncInvoiceBillingSchedules(invoice);
 }
 
 function calculateInvoiceStatus(
