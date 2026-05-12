@@ -200,7 +200,7 @@ export class AdminUserRouteCreateService {
     const userData = {
       ...payload,
       roleId: context.effectiveRoleId || payload.roleId,
-      tenantId: context.targetTenantId || payload.tenantId || null,
+      tenantId: context.targetTenantId ?? null,
       flexibleTargetHour: context.flexibleTargetHour,
     };
 

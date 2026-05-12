@@ -177,4 +177,41 @@ describe("AdminUserRouteCreateService", () => {
       },
     });
   });
+
+  it("tidak fallback ke payload tenantId saat context final tidak menyediakannya", async () => {
+    const createUserSpy = vi
+      .spyOn(UserService.prototype, "createUser")
+      .mockResolvedValue({ id: "user-1" } as never);
+
+    const callCreateUserEntityWithSites = Reflect.get(
+      service,
+      "createUserEntityWithSites",
+    ) as (
+      this: AdminUserRouteCreateService,
+      payload: CreateAdminUserInput,
+      context: {
+        targetTenantId?: string;
+        effectiveRoleId?: string;
+        flexibleTargetHour: number;
+      },
+      userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+    ) => Promise<unknown>;
+
+    await callCreateUserEntityWithSites.call(
+      service,
+      createPayload({ tenantId: "tenant-from-payload" }),
+      {
+        targetTenantId: undefined,
+        effectiveRoleId: undefined,
+        flexibleTargetHour: 8,
+      },
+      [],
+    );
+
+    expect(createUserSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: null,
+      }),
+    );
+  });
 });
