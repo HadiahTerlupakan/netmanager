@@ -63,16 +63,26 @@ export class AdminUserRouteService {
     };
   }
 
-  /** Get user detail for admin route with site access enforcement. */
-  async getAdminUserById(session: AdminSession, userId: string) {
+  /** Get user detail for admin route with self-profile and site access enforcement. */
+  async getAdminUserById(
+    session: AdminSession,
+    userId: string,
+    permissions: string[] = [],
+  ) {
     const user = await this.userRepository.findByIdWithRelations(userId);
     if (!user) return fail(404, USER_NOT_FOUND);
-    if (
-      session.user.id !== userId &&
-      !canAccessSite(session, "users", user.siteId)
-    ) {
+
+    const isOwnProfile = session.user.id === userId;
+    const canReadUsers = permissions.includes("users:read");
+
+    if (!isOwnProfile && !canReadUsers) {
+      return fail(403, "Anda tidak memiliki izin untuk melihat detail user");
+    }
+
+    if (!isOwnProfile && !canAccessSite(session, "users", user.siteId)) {
       return fail(403, "Anda hanya dapat melihat user di site Anda");
     }
+
     return {
       ok: true,
       data: { user: UserMapper.toDetailDTO(user) },

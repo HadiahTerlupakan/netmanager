@@ -22,7 +22,6 @@ import type {
 import type { CreateUserRepositoryInput } from "../domain/ports/IUserRepository";
 import type { PrismaUserRelations } from "./UserMapper";
 
-const DEFAULT_SITE_NAME = "Unknown";
 const DEFAULT_WORKING_HOUR_MODE: WorkingHourMode = "FIXED";
 const DEFAULT_GEOFENCE_POLICY: AttendanceGeofencePolicy = "WARN";
 const DEFAULT_WORK_DAYS = "Mon,Tue,Wed,Thu,Fri";
@@ -175,29 +174,61 @@ export function toDetailDTO(entity: UserEntity): UserDetailDTO {
     email: entity.email,
     name: entity.name,
     phone: entity.phone,
+    departmentId: entity.departmentId,
+    siteId: entity.siteId,
+    roleId: entity.roleId,
+    tenantId: entity.tenantId,
     isActive: entity.isActive,
     isSales: entity.isSales,
     isAttendanceRequired: entity.isAttendanceRequired,
+    workingHourMode: entity.workingHourMode as WorkingHourMode,
+    attendanceGeofencePolicy: entity.attendanceGeofencePolicy,
+    startWorkTime: entity.startWorkTime,
+    endWorkTime: entity.endWorkTime,
+    workDays: entity.workDays,
+    flexibleTargetHour: entity.flexibleTargetHour,
+    shiftId: entity.shiftId,
+    canvasingTarget: entity.canvasingTarget,
+    targetSchema: entity.targetSchema,
+    basicSalary: entity.basicSalary ?? null,
+    payPeriodDay: entity.payPeriodDay ?? null,
+    payDay: entity.payDay ?? null,
+    woIncentiveEnabled: entity.woIncentiveEnabled ?? false,
+    woIncentiveRate: entity.woIncentiveRate ?? null,
+    lateDeductionRate: entity.lateDeductionRate ?? null,
+    absentDeductionRate: entity.absentDeductionRate ?? null,
+    overtimeRateNormal: entity.overtimeRateNormal ?? null,
+    overtimeRateHoliday: entity.overtimeRateHoliday ?? null,
+    overtimeRateNational: entity.overtimeRateNational ?? null,
+    overtimeCalcTypeNormal: entity.overtimeCalcTypeNormal,
+    overtimeCalcTypeHoliday: entity.overtimeCalcTypeHoliday,
+    overtimeCalcTypeNational: entity.overtimeCalcTypeNational,
     createdAt: entity.createdAt.toISOString(),
     updatedAt: entity.updatedAt.toISOString(),
     role: entity.role ? { id: entity.role.id, name: entity.role.name } : null,
     department: entity.department
       ? { id: entity.department.id, name: entity.department.name }
       : null,
-    site: entity.site ? { id: entity.site.id, name: entity.site.name } : null,
-    workingHours: {
-      mode: entity.workingHourMode as WorkingHourMode,
-      startWorkTime: entity.startWorkTime,
-      endWorkTime: entity.endWorkTime,
-      workDays: entity.workDays,
-      flexibleTargetHour: entity.flexibleTargetHour,
-      shift: entity.shift
-        ? { id: entity.shift.id, name: entity.shift.name }
-        : null,
-    },
+    site: entity.site
+      ? { id: entity.site.id, code: entity.site.code, name: entity.site.name }
+      : null,
+    tenant: entity.tenant
+      ? { id: entity.tenant.id, name: entity.tenant.name }
+      : null,
+    shift: entity.shift
+      ? { id: entity.shift.id, name: entity.shift.name }
+      : null,
     userSites: (entity.userSites ?? []).map((userSite) => ({
+      id: userSite.id,
       siteId: userSite.siteId,
-      siteName: userSite.site?.name ?? DEFAULT_SITE_NAME,
+      isPrimary: Boolean(userSite.isPrimary),
+      site: userSite.site
+        ? {
+            id: userSite.site.id,
+            code: userSite.site.code,
+            name: userSite.site.name,
+          }
+        : null,
     })),
   };
 }

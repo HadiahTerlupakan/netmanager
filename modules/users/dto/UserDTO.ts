@@ -44,12 +44,37 @@ export interface UserDetailDTO {
   email: string;
   name: string | null;
   phone: string | null;
+  departmentId: string | null;
+  siteId: string | null;
+  roleId: string | null;
+  tenantId: string | null;
   isActive: boolean;
   isSales: boolean;
   isAttendanceRequired: boolean;
+  workingHourMode: WorkingHourMode;
+  attendanceGeofencePolicy: string | null;
+  startWorkTime: string | null;
+  endWorkTime: string | null;
+  workDays: string | null;
+  flexibleTargetHour: number | null;
+  shiftId: string | null;
+  canvasingTarget: number | null;
+  targetSchema: string | null;
+  basicSalary: number | null;
+  payPeriodDay: number | null;
+  payDay: number | null;
+  woIncentiveEnabled: boolean;
+  woIncentiveRate: number | null;
+  lateDeductionRate: number | null;
+  absentDeductionRate: number | null;
+  overtimeRateNormal: number | null;
+  overtimeRateHoliday: number | null;
+  overtimeRateNational: number | null;
+  overtimeCalcTypeNormal: string | null;
+  overtimeCalcTypeHoliday: string | null;
+  overtimeCalcTypeNational: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations
   role: {
     id: string;
     name: string;
@@ -60,25 +85,27 @@ export interface UserDetailDTO {
   } | null;
   site: {
     id: string;
+    code: string;
     name: string;
   } | null;
-  // Working hours
-  workingHours: {
-    mode: WorkingHourMode;
-    startWorkTime: string | null;
-    endWorkTime: string | null;
-    workDays: string | null;
-    flexibleTargetHour: number | null;
-    shift: {
+  tenant: {
+    id: string;
+    name: string;
+  } | null;
+  shift: {
+    id: string;
+    name: string;
+  } | null;
+  userSites: Array<{
+    id: string;
+    siteId: string;
+    isPrimary: boolean;
+    site: {
       id: string;
+      code: string;
       name: string;
     } | null;
-  };
-  // Multi-site access
-  userSites: {
-    siteId: string;
-    siteName: string;
-  }[];
+  }>;
 }
 
 /**

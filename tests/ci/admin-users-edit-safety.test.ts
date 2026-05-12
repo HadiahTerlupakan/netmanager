@@ -236,6 +236,49 @@ describe("admin users edit safety", () => {
     );
   });
 
+  it("keeps edit-user password validation aligned with the server minimum", () => {
+    const detailClientFile = readUsersDetailClient();
+
+    expect(detailClientFile).toContain("formData.password.length < 8");
+    expect(detailClientFile).toContain(
+      "Password minimal 8 karakter jika diisi",
+    );
+  });
+
+  it("normalizes numeric edit-user fields before sending PATCH", () => {
+    const detailClientFile = readUsersDetailClient();
+
+    expect(detailClientFile).toContain("const numericFieldNames = new Set([");
+    expect(detailClientFile).toContain("const normalizeNumericField = (");
+    expect(detailClientFile).toContain(
+      "basicSalary: normalizeNumericField(formData.basicSalary),",
+    );
+    expect(detailClientFile).toContain(
+      "payPeriodDay: normalizeNumericField(formData.payPeriodDay),",
+    );
+    expect(detailClientFile).toContain(
+      "payDay: normalizeNumericField(formData.payDay),",
+    );
+    expect(detailClientFile).toContain(
+      "canvasingTarget: normalizeNumericField(formData.canvasingTarget),",
+    );
+  });
+
+  it("does not report full success when leave quota saving fails", () => {
+    const detailClientFile = readUsersDetailClient();
+
+    expect(detailClientFile).toContain(
+      'const leaveQuotaRes = await fetch("/api/admin/leave-balance"',
+    );
+    expect(detailClientFile).toContain("if (!leaveQuotaRes.ok)");
+    expect(detailClientFile).toContain(
+      "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui",
+    );
+    expect(detailClientFile).not.toContain(
+      "// Don't fail the whole save just because quotas failed",
+    );
+  });
+
   it("resets new-user reference caches even when request failures happen after unmount", () => {
     const newClientFile = readUsersNewClient();
     const referenceCacheResetIndex = newClientFile.indexOf(

@@ -1,5 +1,22 @@
 # TODO
 
+## Admin Users Detail Fix
+
+- [x] Align GET detail contract for `/admin/users/[id]`
+- [x] Fix GET self-profile authorization
+- [x] Normalize detail client hydration and PATCH payload
+- [x] Align password validation and numeric input handling
+- [x] Fix leave quota partial-save UX
+- [x] Run targeted verification and summarize results
+
+## Review
+
+- API contract test: PASS
+- Edit safety test: PASS
+- Typecheck: PASS
+- Browser verification: WAIVED
+- Notes: self-profile GET now works, detail contract matches edit screen, numeric payloads stay typed, leave quota failures no longer masquerade as full success.
+
 ## Durable Auto-Isolir PPP Implementation Plan
 
 - [x] Tambahkan model `BillingSchedule` di `prisma/billing.prisma` sebagai source of truth schedule durable.

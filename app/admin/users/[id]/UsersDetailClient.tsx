@@ -80,11 +80,11 @@ interface UserData {
   siteId: string | null;
   roleId?: string | null;
   isActive: boolean;
-  department?: { name: string } | null;
-  departments?: { name: string } | null;
-  site?: { code: string; name: string } | null;
-  sites?: { code: string; name: string } | null;
-  role?: { name: string } | null;
+  department?: { id?: string; name: string } | null;
+  departments?: { id?: string; name: string } | null;
+  site?: { id?: string; code: string; name: string } | null;
+  sites?: { id?: string; code: string; name: string } | null;
+  role?: { id?: string; name: string } | null;
   userSites?: UserSiteRelation[];
   // Working hours
   workingHourMode?: string;
@@ -97,15 +97,51 @@ interface UserData {
   shift?: {
     id: string;
     name: string;
-    startTime: string;
-    endTime: string;
+    startTime?: string;
+    endTime?: string;
   } | null;
-  canvasingTarget?: number;
+  canvasingTarget?: number | null;
   isSales?: boolean;
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
   tenant?: { id: string; name: string } | null;
+  targetSchema?: string | null;
+  basicSalary?: number | null;
+  payPeriodDay?: number | null;
+  payDay?: number | null;
+  woIncentiveEnabled?: boolean;
+  woIncentiveRate?: number | null;
+  lateDeductionRate?: number | null;
+  absentDeductionRate?: number | null;
+  overtimeRateNormal?: number | null;
+  overtimeRateHoliday?: number | null;
+  overtimeRateNational?: number | null;
+  overtimeCalcTypeNormal?: string | null;
+  overtimeCalcTypeHoliday?: string | null;
+  overtimeCalcTypeNational?: string | null;
 }
+
+const numericFieldNames = new Set([
+  "canvasingTarget",
+  "basicSalary",
+  "payPeriodDay",
+  "payDay",
+  "woIncentiveRate",
+  "lateDeductionRate",
+  "absentDeductionRate",
+  "overtimeRateNormal",
+  "overtimeRateHoliday",
+  "overtimeRateNational",
+  "flexibleTargetHour",
+]);
+
+const normalizeNumericField = (value: unknown): number | null => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  return typeof value === "number" ? value : Number(value);
+};
 
 export function ClientComponent({
   params,
@@ -227,40 +263,40 @@ export function ClientComponent({
       if (usr) {
         setUser(usr);
         const loadedFormData = {
-          name: usr.name || "",
-          phone: usr.phone || "",
+          name: usr.name ?? "",
+          phone: usr.phone ?? "",
           password: "",
-          departmentId: usr.department?.id || "",
-          siteId: usr.site?.id || "",
-          roleId: usr.role?.id || "",
-          isActive: usr.isActive ?? true,
+          departmentId: usr.departmentId ?? usr.department?.id ?? "",
+          siteId: usr.siteId ?? usr.site?.id ?? "",
+          roleId: usr.roleId ?? usr.role?.id ?? "",
+          isActive: usr.isActive,
           // Working Hours
-          workingHourMode: usr.workingHourMode || "FIXED",
-          attendanceGeofencePolicy: usr.attendanceGeofencePolicy || "WARN",
+          workingHourMode: usr.workingHourMode ?? "FIXED",
+          attendanceGeofencePolicy: usr.attendanceGeofencePolicy ?? "WARN",
           isAttendanceRequired: usr.isAttendanceRequired ?? true,
-          startWorkTime: usr.startWorkTime || "",
-          endWorkTime: usr.endWorkTime || "",
-          workDays: usr.workDays || "",
-          flexibleTargetHour: usr.flexibleTargetHour || 8,
-          shiftId: usr.shiftId || "",
-          isSales: usr.isSales || false,
-          canvasingTarget: usr.canvasingTarget || 0,
-          targetSchema: usr.targetSchema || "REVENUE",
-          tenantId: usr.tenantId || usr.tenant?.id || "",
+          startWorkTime: usr.startWorkTime ?? "",
+          endWorkTime: usr.endWorkTime ?? "",
+          workDays: usr.workDays ?? "",
+          flexibleTargetHour: usr.flexibleTargetHour ?? 8,
+          shiftId: usr.shiftId ?? "",
+          isSales: usr.isSales ?? false,
+          canvasingTarget: usr.canvasingTarget ?? 0,
+          targetSchema: usr.targetSchema ?? "REVENUE",
+          tenantId: usr.tenantId ?? usr.tenant?.id ?? "",
           // Salary configuration
-          basicSalary: usr.basicSalary || 0,
-          payPeriodDay: usr.payPeriodDay || 1,
-          payDay: usr.payDay || 25,
-          woIncentiveEnabled: usr.woIncentiveEnabled || false,
-          woIncentiveRate: usr.woIncentiveRate || 0,
-          lateDeductionRate: usr.lateDeductionRate || 0,
-          absentDeductionRate: usr.absentDeductionRate || 0,
-          overtimeRateNormal: usr.overtimeRateNormal || 0,
-          overtimeRateHoliday: usr.overtimeRateHoliday || 0,
-          overtimeRateNational: usr.overtimeRateNational || 0,
-          overtimeCalcTypeNormal: usr.overtimeCalcTypeNormal || "FIXED",
-          overtimeCalcTypeHoliday: usr.overtimeCalcTypeHoliday || "FIXED",
-          overtimeCalcTypeNational: usr.overtimeCalcTypeNational || "FIXED",
+          basicSalary: usr.basicSalary ?? 0,
+          payPeriodDay: usr.payPeriodDay ?? 1,
+          payDay: usr.payDay ?? 25,
+          woIncentiveEnabled: usr.woIncentiveEnabled ?? false,
+          woIncentiveRate: usr.woIncentiveRate ?? 0,
+          lateDeductionRate: usr.lateDeductionRate ?? 0,
+          absentDeductionRate: usr.absentDeductionRate ?? 0,
+          overtimeRateNormal: usr.overtimeRateNormal ?? 0,
+          overtimeRateHoliday: usr.overtimeRateHoliday ?? 0,
+          overtimeRateNational: usr.overtimeRateNational ?? 0,
+          overtimeCalcTypeNormal: usr.overtimeCalcTypeNormal ?? "FIXED",
+          overtimeCalcTypeHoliday: usr.overtimeCalcTypeHoliday ?? "FIXED",
+          overtimeCalcTypeNational: usr.overtimeCalcTypeNational ?? "FIXED",
         };
         const loadedSelectedSites = getSelectedSitesFromUser(usr);
         const loadedSites = getSitesFromUser(usr);
@@ -384,7 +420,14 @@ export function ClientComponent({
 
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : numericFieldNames.has(name)
+            ? value === ""
+              ? ""
+              : Number(value)
+            : value,
     }));
 
     if (errors[name]) {
@@ -411,8 +454,8 @@ export function ClientComponent({
       newErrors.roleId = "Peran pengguna wajib dipilih";
     }
 
-    if (formData.password && formData.password.length < 6) {
-      newErrors.password = "Password minimal 6 karakter jika diisi";
+    if (formData.password && formData.password.length < 8) {
+      newErrors.password = "Password minimal 8 karakter jika diisi";
     }
 
     setErrors(newErrors);
@@ -447,23 +490,28 @@ export function ClientComponent({
         startWorkTime: formData.startWorkTime || null,
         endWorkTime: formData.endWorkTime || null,
         workDays: formData.workDays || null,
-        flexibleTargetHour: formData.flexibleTargetHour || null,
+        flexibleTargetHour: normalizeNumericField(formData.flexibleTargetHour),
         shiftId: formData.shiftId || null,
         isSales: formData.isSales,
-        canvasingTarget: formData.canvasingTarget,
+        canvasingTarget: normalizeNumericField(formData.canvasingTarget),
         targetSchema: formData.targetSchema,
         tenantId: formData.tenantId || null,
         // Salary configuration
-        basicSalary: formData.basicSalary,
-        payPeriodDay: formData.payPeriodDay,
-        payDay: formData.payDay,
+        basicSalary: normalizeNumericField(formData.basicSalary),
+        payPeriodDay: normalizeNumericField(formData.payPeriodDay),
+        payDay: normalizeNumericField(formData.payDay),
         woIncentiveEnabled: formData.woIncentiveEnabled,
-        woIncentiveRate: formData.woIncentiveRate,
-        lateDeductionRate: formData.lateDeductionRate,
-        absentDeductionRate: formData.absentDeductionRate,
-        overtimeRateNormal: formData.overtimeRateNormal,
-        overtimeRateHoliday: formData.overtimeRateHoliday,
-        overtimeRateNational: formData.overtimeRateNational,
+        woIncentiveRate: normalizeNumericField(formData.woIncentiveRate) ?? 0,
+        lateDeductionRate:
+          normalizeNumericField(formData.lateDeductionRate) ?? 0,
+        absentDeductionRate:
+          normalizeNumericField(formData.absentDeductionRate) ?? 0,
+        overtimeRateNormal:
+          normalizeNumericField(formData.overtimeRateNormal) ?? 0,
+        overtimeRateHoliday:
+          normalizeNumericField(formData.overtimeRateHoliday) ?? 0,
+        overtimeRateNational:
+          normalizeNumericField(formData.overtimeRateNational) ?? 0,
         overtimeCalcTypeNormal: formData.overtimeCalcTypeNormal,
         overtimeCalcTypeHoliday: formData.overtimeCalcTypeHoliday,
         overtimeCalcTypeNational: formData.overtimeCalcTypeNational,
@@ -487,13 +535,14 @@ export function ClientComponent({
         throw new Error(userData.error || "Gagal mengupdate akun user");
       }
 
-      // Save leave quotas (if user is not FLEXIBLE and quotas were modified)
+      let leaveQuotaError: string | null = null;
+
       if (
         formData.workingHourMode !== "FLEXIBLE" &&
         Object.keys(leaveQuotas).length > 0
       ) {
         try {
-          await fetch("/api/admin/leave-balance", {
+          const leaveQuotaRes = await fetch("/api/admin/leave-balance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -502,10 +551,22 @@ export function ClientComponent({
               quotas: leaveQuotas,
             }),
           });
+
+          if (!leaveQuotaRes.ok) {
+            leaveQuotaError =
+              "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui";
+          }
         } catch (error) {
           console.error("Failed to save leave quotas:", error);
-          // Don't fail the whole save just because quotas failed
+          leaveQuotaError =
+            "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui";
         }
+      }
+
+      if (leaveQuotaError) {
+        setErrors({ submit: leaveQuotaError });
+        setSubmitting(false);
+        return;
       }
 
       setShowSuccess(true);

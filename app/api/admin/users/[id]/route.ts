@@ -1,4 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { getUserPermissions } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { updateUserSchema } from "@/lib/validations/user";
 import { AdminUserRouteService } from "@/modules/users";
@@ -23,19 +24,25 @@ function toApiError(code: number, message: string) {
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["users:read"],
   },
   async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, params } = ctx;
+    const { session, params, permissions } = ctx;
     const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
     if (!userId) return ApiErrors.badRequest("User ID is required");
 
+    const routePermissions = Array.isArray(permissions) ? permissions : [];
+    const resolvedPermissions =
+      routePermissions.length > 0
+        ? routePermissions
+        : await getUserPermissions(session.user.id);
+
     const result = await adminUserRouteService.getAdminUserById(
       session as Session & { user: { id: string } },
       userId,
+      resolvedPermissions,
     );
     if (result.ok === false) {
       return toApiError(result.error.code, result.error.message);
@@ -65,14 +72,24 @@ export const PATCH = createHandler(
   },
   async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, params, validated } = ctx;
+    const { session, params, validated, permissions } = ctx;
     const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
     if (!userId) return ApiErrors.badRequest("User ID is required");
 
+    const scopedSession = {
+      ...session,
+      user: {
+        ...session.user,
+        permissions: Array.isArray(permissions) ? permissions : [],
+      },
+    } as Session & {
+      user: { id: string; isSuperAdmin?: boolean; permissions?: string[] };
+    };
+
     const result = await adminUserRouteService.updateAdminUser(
-      session as Session & { user: { id: string; isSuperAdmin?: boolean } },
+      scopedSession,
       userId,
       validated,
     );
@@ -111,14 +128,24 @@ export const DELETE = createHandler(
   },
   async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, params } = ctx;
+    const { session, params, permissions } = ctx;
     const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
     if (!userId) return ApiErrors.badRequest("User ID is required");
 
+    const scopedSession = {
+      ...session,
+      user: {
+        ...session.user,
+        permissions: Array.isArray(permissions) ? permissions : [],
+      },
+    } as Session & {
+      user: { id: string; permissions?: string[] };
+    };
+
     const result = await adminUserRouteService.deleteAdminUser(
-      session as Session & { user: { id: string } },
+      scopedSession,
       userId,
     );
     if (result.ok === false) {
