@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { EVENT_NAMES } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { RadiusSyncService } from "../radius-sync-service";
+import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
 
 /**
  * Guard helper — memastikan field payload adalah string non-kosong sebelum dipakai.
@@ -27,6 +28,8 @@ function requireString(value: unknown, field: string): string {
  * - CUSTOMER_SUSPENDED / CUSTOMER_ACTIVATED / CUSTOMER_ISOLATED → handleStatusChange
  * - CUSTOMER_DELETED → removeCustomer
  *
+ * Setelah sync selesai, syncStatus pelanggan di-update ke SYNCED atau FAILED.
+ * CUSTOMER_DELETED tidak update syncStatus karena record sudah dihapus.
  * Semua error di-throw supaya BullMQ retry dengan exponential backoff.
  */
 export async function handleCustomerStatusEvent(
@@ -35,15 +38,7 @@ export async function handleCustomerStatusEvent(
   const { eventName, payload } = job.data;
   const radius = new RadiusSyncService();
 
-  if (
-    eventName === EVENT_NAMES.CUSTOMER_CREATED ||
-    eventName === EVENT_NAMES.CUSTOMER_UPDATED
-  ) {
-    const customerId = requireString(payload.customerId, "customerId");
-    await radius.syncSingleCustomer(customerId);
-    return;
-  }
-
+  // CUSTOMER_DELETED tidak punya syncStatus untuk di-update (record sudah dihapus)
   if (eventName === EVENT_NAMES.CUSTOMER_DELETED) {
     const username = requireString(payload.username, "username");
     const tenantId =
@@ -52,17 +47,44 @@ export async function handleCustomerStatusEvent(
     return;
   }
 
+  // Semua event yang punya customerId — track syncStatus setelah operasi selesai
   if (
+    eventName === EVENT_NAMES.CUSTOMER_CREATED ||
+    eventName === EVENT_NAMES.CUSTOMER_UPDATED ||
     eventName === EVENT_NAMES.CUSTOMER_ISOLATED ||
     eventName === EVENT_NAMES.CUSTOMER_SUSPENDED ||
     eventName === EVENT_NAMES.CUSTOMER_ACTIVATED
   ) {
     const customerId = requireString(payload.customerId, "customerId");
-    const newStatus = requireString(payload.newStatus, "newStatus") as Status;
-    logger.info(
-      `[CustomerStatusHandler] Sync MikroTik/RADIUS for ${customerId} → ${newStatus}`,
-    );
-    await radius.handleStatusChange(customerId, newStatus);
+    const repo = new PelangganRepository();
+
+    try {
+      if (
+        eventName === EVENT_NAMES.CUSTOMER_CREATED ||
+        eventName === EVENT_NAMES.CUSTOMER_UPDATED
+      ) {
+        await radius.syncSingleCustomer(customerId);
+      } else {
+        const newStatus = requireString(
+          payload.newStatus,
+          "newStatus",
+        ) as Status;
+        logger.info(
+          `[CustomerStatusHandler] Sync MikroTik/RADIUS for ${customerId} → ${newStatus}`,
+        );
+        await radius.handleStatusChange(customerId, newStatus);
+      }
+
+      // Sukses — tandai SYNCED, reset syncRetryCount, set lastSyncedAt
+      await repo.updateSyncStatus(customerId, "SYNCED", null);
+    } catch (err) {
+      // Gagal — tandai FAILED dengan pesan error, increment syncRetryCount, lalu re-throw supaya BullMQ retry
+      const errorMessage =
+        err instanceof Error ? err.message : "Sync ke MikroTik/RADIUS gagal";
+      await repo.updateSyncStatus(customerId, "FAILED", errorMessage);
+      throw err;
+    }
+
     return;
   }
 
