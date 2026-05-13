@@ -131,11 +131,23 @@ export class BillingScheduleService {
             "Billing schedule auto isolir kehilangan invoiceId atau pelangganId",
           );
         }
-        const { AutomaticIsolationExecutionService } =
-          await import("./AutomaticIsolationExecutionService");
-        await new AutomaticIsolationExecutionService().execute({
+        // Ambil invoiceNumber dan tenantId untuk payload event (audit trail)
+        const { prismaBilling } = await import("@/lib/prisma-billing");
+        const invoiceData = await prismaBilling.invoice.findUnique({
+          where: { id: schedule.invoiceId },
+          select: { invoiceNumber: true, tenantId: true },
+        });
+        if (!invoiceData) {
+          throw new Error(
+            `Billing schedule auto isolir: invoice ${schedule.invoiceId} tidak ditemukan`,
+          );
+        }
+        const { BillingEventDispatcher } = await import("@/modules/events");
+        await BillingEventDispatcher.onAutoIsolateRequested({
           invoiceId: schedule.invoiceId,
           pelangganId: schedule.pelangganId,
+          invoiceNumber: invoiceData.invoiceNumber,
+          tenantId: invoiceData.tenantId ?? undefined,
         });
         return;
       }
