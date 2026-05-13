@@ -1,16 +1,24 @@
-import { logger } from "@/lib/logger";
-import { ensureAdminAccess } from "@/lib/server-auth";
+import { NextRequest } from "next/server";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { prisma } from "@/modules/database";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
+
+/** Status email yang valid untuk filter. */
+const VALID_EMAIL_STATUSES = new Set(["PENDING", "SENT", "FAILED", "BOUNCED"]);
 
 /** GET /api/admin/notifications/email-logs — daftar log pengiriman email dengan filter & pagination. */
-export async function GET(request: Request) {
-  try {
-    await ensureAdminAccess();
+export const GET = createHandler(
+  { auth: true, permissions: ["notifications:read"] },
+  async (request: NextRequest, ctx) => {
+    const isSuperAdmin = ctx.session!.user.isSuperAdmin === true;
+    const tenantId = ctx.session!.user.tenantId;
+
+    if (!isSuperAdmin && !tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status"); // PENDING | SENT | FAILED | BOUNCED
-    const search = searchParams.get("search"); // filter by email tujuan
+    const statusParam = searchParams.get("status");
+    const searchParam = searchParams.get("search");
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(
       100,
@@ -18,9 +26,20 @@ export async function GET(request: Request) {
     );
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
+    // Validasi search — max 255 karakter
+    if (searchParam && searchParam.length > 255) {
+      return ApiErrors.badRequest("Search query terlalu panjang");
+    }
+
+    // Validasi status — value invalid diabaikan
+    const status =
+      statusParam && VALID_EMAIL_STATUSES.has(statusParam) ? statusParam : null;
+
+    const where: Record<string, unknown> = {
+      ...(!isSuperAdmin ? { tenantId } : {}),
+    };
     if (status) where.status = status;
-    if (search) where.to = { contains: search, mode: "insensitive" };
+    if (searchParam) where.to = { contains: searchParam, mode: "insensitive" };
 
     const [items, total] = await Promise.all([
       prisma.emailDeliveryLog.findMany({
@@ -41,11 +60,5 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error: unknown) {
-    logger.error("[API] Error fetching email delivery logs:", error);
-    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
-      throw error;
-    }
-    return ApiErrors.internalError("Gagal mengambil log pengiriman email");
-  }
-}
+  },
+);

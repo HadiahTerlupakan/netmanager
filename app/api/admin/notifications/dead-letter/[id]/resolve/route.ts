@@ -5,25 +5,34 @@ import { prisma } from "@/modules/database";
  * POST /api/admin/notifications/dead-letter/[id]/resolve
  * Tandai DLQ entry sebagai resolved tanpa melakukan retry.
  */
-export const POST = createHandler({ auth: true }, async (_req, ctx) => {
-  const { id } = ctx.params;
+export const POST = createHandler(
+  { auth: true, permissions: ["notifications:manage"] },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const isSuperAdmin = ctx.session!.user.isSuperAdmin === true;
 
-  const entry = await prisma.notificationDeadLetter.findUnique({
-    where: { id },
-  });
+    const entry = await prisma.notificationDeadLetter.findUnique({
+      where: { id },
+    });
 
-  if (!entry) {
-    return ApiErrors.notFound("Entry dead letter");
-  }
+    if (!entry) {
+      return ApiErrors.notFound("Entry dead letter");
+    }
 
-  if (entry.resolvedAt) {
-    return ApiErrors.badRequest("Entry ini sudah resolved");
-  }
+    // Tenant ownership check — cegah IDOR
+    if (!isSuperAdmin && entry.tenantId !== ctx.session!.user.tenantId) {
+      return ApiErrors.forbidden("Akses ditolak");
+    }
 
-  await prisma.notificationDeadLetter.update({
-    where: { id },
-    data: { resolvedAt: new Date() },
-  });
+    if (entry.resolvedAt) {
+      return ApiErrors.badRequest("Entry ini sudah resolved");
+    }
 
-  return apiSuccess({ resolved: true });
-});
+    await prisma.notificationDeadLetter.update({
+      where: { id },
+      data: { resolvedAt: new Date() },
+    });
+
+    return apiSuccess({ resolved: true });
+  },
+);

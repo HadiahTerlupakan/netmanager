@@ -18,12 +18,23 @@ const HISTORY_LIMIT = 50;
 
 /** Ambil riwayat notifikasi dari semua channel untuk satu pelanggan */
 export const GET = createHandler(
-  { auth: true },
+  { auth: true, permissions: ["notifications:read"] },
   async (_req: NextRequest, ctx) => {
     const pelangganId = ctx.params.id as string;
+    const isSuperAdmin = ctx.session!.user.isSuperAdmin === true;
+    const tenantId = ctx.session!.user.tenantId;
 
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
+    if (!isSuperAdmin && !tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
+
+    // Tenant filter di-spread ke setiap query — defense in depth
+    const tenantFilter = !isSuperAdmin ? { tenantId } : {};
+
+    // findFirst supaya bisa kombinasikan id + tenantId — non-super admin
+    // tidak boleh mengakses pelanggan tenant lain.
+    const pelanggan = await prisma.pelanggan.findFirst({
+      where: { id: pelangganId, ...tenantFilter },
       select: {
         id: true,
         nama: true,
@@ -41,7 +52,7 @@ export const GET = createHandler(
       await Promise.all([
         pelanggan.userId
           ? prisma.notifications.findMany({
-              where: { userId: pelanggan.userId },
+              where: { userId: pelanggan.userId, ...tenantFilter },
               orderBy: { createdAt: "desc" },
               take: HISTORY_LIMIT,
               select: {
@@ -56,7 +67,7 @@ export const GET = createHandler(
 
         pelanggan.email
           ? prisma.emailDeliveryLog.findMany({
-              where: { to: pelanggan.email },
+              where: { to: pelanggan.email, ...tenantFilter },
               orderBy: { createdAt: "desc" },
               take: HISTORY_LIMIT,
               select: {
@@ -71,7 +82,7 @@ export const GET = createHandler(
           : Promise.resolve([]),
 
         prisma.notificationDeadLetter.findMany({
-          where: { pelangganId },
+          where: { pelangganId, ...tenantFilter },
           orderBy: { createdAt: "desc" },
           take: HISTORY_LIMIT,
           select: {
@@ -86,7 +97,7 @@ export const GET = createHandler(
 
         pelanggan.noTelp
           ? prisma.whatsAppMessage.findMany({
-              where: { phone: pelanggan.noTelp },
+              where: { phone: pelanggan.noTelp, ...tenantFilter },
               orderBy: { createdAt: "desc" },
               take: HISTORY_LIMIT,
               select: {
