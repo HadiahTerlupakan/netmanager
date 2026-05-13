@@ -11,19 +11,57 @@ import { prismaMock } from "../../setup";
 const mockFns = vi.hoisted(() => ({
   processWebhook: vi.fn(),
   saveToOutboxTx: vi.fn(),
+  checkIdempotency: vi.fn(),
+  recordWebhookEvent: vi.fn(),
+  markAsProcessed: vi.fn(),
+  generateIdempotencyKey: vi.fn(),
 }));
 
 vi.mock("@/lib/event-bus/outbox", () => ({
   saveToOutboxTx: (...args: unknown[]) => mockFns.saveToOutboxTx(...args),
 }));
 
-vi.mock("@/modules/finance/services/payment-gateway/gateway-manager", () => ({
+vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   PaymentGatewayManager: class {
     processWebhook = mockFns.processWebhook;
   },
 }));
 
-import { WebhookProcessingService } from "@/modules/finance/services/payment-gateway/webhook-processing-service";
+vi.mock("@/modules/payment-gateway/services/WebhookIdempotencyService", () => ({
+  WebhookIdempotencyService: class {
+    generateIdempotencyKey = mockFns.generateIdempotencyKey;
+    checkIdempotency = mockFns.checkIdempotency;
+    recordWebhookEvent = mockFns.recordWebhookEvent;
+    markAsProcessed = mockFns.markAsProcessed;
+    markAsFailed = vi.fn();
+  },
+}));
+
+vi.mock(
+  "@/modules/payment-gateway/services/WebhookVerificationService",
+  () => ({
+    WebhookVerificationService: class {
+      extractSignature = vi.fn().mockReturnValue("sig");
+      verifySignature = vi.fn();
+    },
+    WebhookVerificationError: class extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "WebhookVerificationError";
+      }
+    },
+  }),
+);
+
+vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
+  getPaymentGatewayMetrics: () => ({
+    recordWebhookReceived: vi.fn(),
+    recordWebhookProcessed: vi.fn(),
+    recordWebhookFailed: vi.fn(),
+  }),
+}));
+
+import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 
 const BASE_PAYMENT = {
   id: "pay-1",
@@ -55,6 +93,10 @@ describe("WebhookProcessingService — outbox durability (Phase 4)", () => {
       return callback;
     });
     mockFns.saveToOutboxTx.mockResolvedValue("outbox-id-1");
+    mockFns.checkIdempotency.mockResolvedValue(null);
+    mockFns.recordWebhookEvent.mockResolvedValue({ id: "event-1" });
+    mockFns.markAsProcessed.mockResolvedValue(undefined);
+    mockFns.generateIdempotencyKey.mockReturnValue("TRIPAY:tx-1");
   });
 
   it("insert INVOICE_PAID ke outbox dalam payment transaction saat gateway return PAID", async () => {

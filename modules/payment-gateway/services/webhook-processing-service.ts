@@ -1,7 +1,10 @@
 import { logger } from "@/lib/logger";
-import type { GatewayPaymentStatus } from "@/modules/finance";
+import type { GatewayPaymentStatus, Prisma } from "@/modules/finance";
 
 import { FinanceRepositoryFacade } from "@/modules/finance";
+import { prismaBillingAuth } from "@/lib/prisma-billing";
+import { saveToOutboxTx } from "@/lib/event-bus/outbox";
+import { EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 import { WebhookInvoiceSettlementService } from "./webhook-invoice-settlement-service";
 import { WebhookPaymentLookupService } from "./webhook-payment-lookup-service";
@@ -17,7 +20,12 @@ import { PaymentStatusUpdater } from "./PaymentStatusUpdater";
 import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
-import { hasAmountMismatch } from "./webhook-utils";
+import {
+  extractInvoiceIdsFromNotes,
+  hasAmountMismatch,
+  normalizePaymentMethod,
+  hasTransactionMismatch,
+} from "./webhook-utils";
 
 type PaymentRepository = ReturnType<
   typeof FinanceRepositoryFacade.createPaymentRepository
@@ -233,26 +241,106 @@ export class WebhookProcessingService {
         };
       }
 
-      // Step 11: Update payment status
-      await this.statusUpdater.updateFromWebhook({
-        paymentId: payment.id,
-        webhookResult,
-        gatewayStatus,
-        providerType: provider,
-      });
+      // Step 11 & 12: Update payment + invoice + emit outbox secara atomik dalam satu tx.
+      // Ini memastikan: kalau tx commit → event PASTI masuk outbox → processor dispatch
+      // dengan retry. Kalau tx rollback → outbox insert juga rollback (durability Phase 4).
+      await prismaBillingAuth.$transaction(async (tx) => {
+        // Re-check idempotency di dalam tx untuk mencegah race condition
+        const currentPayment = await tx.payment.findUnique({
+          where: { id: payment.id },
+        });
 
-      // Step 12: Update invoices if paid
-      if (gatewayStatus === "PAID") {
-        await this.invoiceSettlementService.updateInvoicesOnPayment(
+        if (currentPayment?.gatewayStatus === "PAID") {
+          return;
+        }
+
+        if (
+          hasTransactionMismatch(
+            currentPayment?.transactionId ?? null,
+            webhookResult.transactionId,
+          )
+        ) {
+          return;
+        }
+
+        // Update payment status
+        const paymentUpdate: Prisma.PaymentUpdateInput = {
+          gatewayStatus,
+          transactionId:
+            webhookResult.transactionId ||
+            currentPayment?.transactionId ||
+            null,
+          gatewayProvider: provider,
+        };
+
+        const normalizedPaymentMethod = normalizePaymentMethod(
+          webhookResult.paymentMethod,
+        );
+        if (normalizedPaymentMethod) {
+          paymentUpdate.paymentMethod = normalizedPaymentMethod;
+        }
+
+        if (webhookResult.paidAt) {
+          paymentUpdate.paymentDate = webhookResult.paidAt;
+        }
+
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: paymentUpdate,
+        });
+
+        if (gatewayStatus !== "PAID") {
+          return;
+        }
+
+        // Update invoice status dalam tx yang sama
+        await this.invoiceSettlementService.updateInvoicesOnPaymentTx(
+          tx,
           payment.id,
           payment.notes,
         );
 
-        await this.invoiceSettlementService.runPostPaidSideEffects(
-          payment.invoiceId,
-          payment.notes,
-        );
-      }
+        // Emit INVOICE_PAID ke outbox secara atomik dalam tx yang sama.
+        // Kalau tx commit → event PASTI masuk outbox → processor dispatch dengan retry.
+        // Kalau tx rollback → outbox insert juga rollback.
+        const invoiceIds = extractInvoiceIdsFromNotes(payment.notes);
+        const targetIds =
+          invoiceIds.length > 0
+            ? invoiceIds
+            : payment.invoiceId
+              ? [payment.invoiceId]
+              : [];
+
+        for (const invId of targetIds) {
+          const invoice = await tx.invoice.findUnique({
+            where: { id: invId },
+            select: {
+              id: true,
+              pelangganId: true,
+              totalAmount: true,
+              status: true,
+              tenantId: true,
+            },
+          });
+          if (invoice?.status !== "PAID") continue;
+
+          await saveToOutboxTx(tx, {
+            eventName: EVENT_NAMES.INVOICE_PAID,
+            payload: {
+              invoiceId: invoice.id,
+              pelangganId: invoice.pelangganId,
+              amount: Number(invoice.totalAmount),
+              paidAt: (webhookResult.paidAt ?? new Date()).toISOString(),
+              paymentMethod: webhookResult.paymentMethod,
+              tenantId: invoice.tenantId ?? undefined,
+            },
+            priority: JOB_PRIORITIES.CRITICAL,
+            category: "billing",
+            aggregateId: invoice.id,
+            aggregateType: "Invoice",
+          });
+        }
+      });
 
       await this.idempotencyService.markAsProcessed(webhookEventId);
       this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);

@@ -1,10 +1,7 @@
 import { logger } from "@/lib/logger";
 import type { Prisma } from "@/modules/finance";
 import { InvoiceStatus } from "@/modules/finance/types/invoice.enums";
-import {
-  FinanceRepositoryFacade,
-  AutomaticBillingService,
-} from "@/modules/finance";
+import { FinanceRepositoryFacade } from "@/modules/finance";
 import { extractInvoiceIdsFromNotes } from "./webhook-utils";
 
 type BillingTx = Prisma.TransactionClient;
@@ -35,26 +32,17 @@ export class WebhookInvoiceSettlementService {
     });
   }
 
-  /** Jalankan side effects setelah invoice benar-benar paid. */
-  async runPostPaidSideEffects(invoiceId: string | null, notes: string | null) {
-    const invoiceIds = extractInvoiceIdsFromNotes(notes);
-    if (invoiceIds.length === 0 && invoiceId) {
-      invoiceIds.push(invoiceId);
-    }
-
-    for (const invId of invoiceIds) {
-      const invoice = await this.invoiceRepository.findUniqueAuth(invId);
-      if (invoice?.status !== "PAID") {
-        continue;
-      }
-
-      await AutomaticBillingService.handleInvoicePaid(invId).catch((err) => {
-        logger.error(
-          `[Webhook] Error triggering side-effects for invoice ${invId}:`,
-          err,
-        );
-      });
-    }
+  /**
+   * @deprecated Sejak Phase 4 (Event-Driven Refactor). Side effects sekarang
+   * dipicu via event INVOICE_PAID yang di-emit dalam payment transaction
+   * (saveToOutboxTx). Method ini sengaja di-kosongkan supaya call site lama
+   * tidak double-emit. Akan dihapus total di release berikutnya.
+   */
+  async runPostPaidSideEffects(
+    _invoiceId: string | null,
+    _notes: string | null,
+  ) {
+    // No-op intentional — lihat JSDoc
   }
 
   private async resolveInvoiceIds(

@@ -5,22 +5,53 @@ import { prismaMock } from "../../setup";
 
 const mockFns = vi.hoisted(() => ({
   processWebhook: vi.fn(),
-  handleInvoicePaid: vi.fn(),
+  checkIdempotency: vi.fn(),
+  recordWebhookEvent: vi.fn(),
+  markAsProcessed: vi.fn(),
+  generateIdempotencyKey: vi.fn(),
 }));
 
-vi.mock("@/modules/finance/services/AutomaticBillingService", () => ({
-  AutomaticBillingService: {
-    handleInvoicePaid: mockFns.handleInvoicePaid,
-  },
-}));
-
-vi.mock("@/modules/finance/services/payment-gateway/gateway-manager", () => ({
+vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   PaymentGatewayManager: class {
     processWebhook = mockFns.processWebhook;
   },
 }));
 
-import { WebhookProcessingService } from "@/modules/finance/services/payment-gateway/webhook-processing-service";
+vi.mock("@/modules/payment-gateway/services/WebhookIdempotencyService", () => ({
+  WebhookIdempotencyService: class {
+    generateIdempotencyKey = mockFns.generateIdempotencyKey;
+    checkIdempotency = mockFns.checkIdempotency;
+    recordWebhookEvent = mockFns.recordWebhookEvent;
+    markAsProcessed = mockFns.markAsProcessed;
+    markAsFailed = vi.fn();
+  },
+}));
+
+vi.mock(
+  "@/modules/payment-gateway/services/WebhookVerificationService",
+  () => ({
+    WebhookVerificationService: class {
+      extractSignature = vi.fn().mockReturnValue("sig");
+      verifySignature = vi.fn();
+    },
+    WebhookVerificationError: class extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "WebhookVerificationError";
+      }
+    },
+  }),
+);
+
+vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
+  getPaymentGatewayMetrics: () => ({
+    recordWebhookReceived: vi.fn(),
+    recordWebhookProcessed: vi.fn(),
+    recordWebhookFailed: vi.fn(),
+  }),
+}));
+
+import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 import { DuitkuProvider } from "@/modules/finance/services/payment-gateway/providers/duitku-provider";
 import { TripayProvider } from "@/modules/finance/services/payment-gateway/providers/tripay-provider";
 
@@ -39,7 +70,10 @@ describe("payment gateway hardening", () => {
 
       return callback;
     });
-    mockFns.handleInvoicePaid.mockResolvedValue(undefined);
+    mockFns.checkIdempotency.mockResolvedValue(null);
+    mockFns.recordWebhookEvent.mockResolvedValue({ id: "event-1" });
+    mockFns.markAsProcessed.mockResolvedValue(undefined);
+    mockFns.generateIdempotencyKey.mockReturnValue("TRIPAY:tx-1");
   });
 
   it("uses webhook route that exists for Duitku callback", async () => {
@@ -147,6 +181,11 @@ describe("payment gateway hardening", () => {
       invoiceId: "inv-1",
       notes: null,
     });
+    prismaMock.payment.findUnique.mockResolvedValue({
+      id: "pay-1",
+      transactionId: "tx-stored",
+      gatewayStatus: "PENDING",
+    });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -161,9 +200,11 @@ describe("payment gateway hardening", () => {
       tenantId: "tenant-a",
     });
 
+    // Dalam arsitektur produksi, transaction mismatch di-handle di dalam tx
+    // sehingga return 200 ok (tidak error, hanya skip)
     expect(result).toEqual({
       status: 200,
-      body: { status: "ok", message: "Payment transaction mismatch" },
+      body: { status: "ok" },
     });
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });
@@ -320,6 +361,21 @@ describe("payment gateway hardening", () => {
       invoiceId: "inv-foreign",
       notes: null,
     });
+    prismaMock.payment.findUnique.mockResolvedValue({
+      id: "pay-foreign",
+      transactionId: "tx-foreign",
+      gatewayStatus: "PENDING",
+    });
+    prismaMock.payment.update.mockResolvedValue({ id: "pay-foreign" });
+    prismaMock.invoice.findUnique.mockResolvedValue({
+      id: "inv-foreign",
+      pelangganId: "pel-1",
+      totalAmount: BigInt(100000),
+      status: "PENDING",
+      tenantId: "tenant-b",
+      payment: [{ amount: BigInt(100000), gatewayStatus: "PAID" }],
+    });
+    prismaMock.invoice.update.mockResolvedValue({ id: "inv-foreign" });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -340,11 +396,11 @@ describe("payment gateway hardening", () => {
     });
     expect(prismaMock.payment.update).toHaveBeenCalledWith({
       where: { id: "pay-foreign" },
-      data: {
+      data: expect.objectContaining({
         gatewayStatus: "PAID",
         transactionId: "tx-foreign",
         gatewayProvider: "TRIPAY",
-      },
+      }),
     });
   });
 });
