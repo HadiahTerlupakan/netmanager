@@ -39,6 +39,12 @@ export type UpdatePppByIdInput = {
   session: AdminMutationSession;
   /** Kapan perubahan paket diterapkan. Default IMMEDIATE (backward compatible). */
   upgradeApplyTime?: "IMMEDIATE" | "NEXT_CYCLE";
+  /** Opsi prorate saat paket berubah. Default NONE (tidak ada prorate). */
+  prorateOption?: "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
+  /** Perlakuan kredit saat downgrade. Default NONE. */
+  downgradeAdjustment?: "NONE" | "REFUND" | "CREDIT";
+  /** ID user yang melakukan perubahan, untuk audit log ProratePaymentLog. */
+  userId?: string;
   data: {
     idPelanggan: string;
     nama: string;
@@ -82,10 +88,35 @@ export class PelangganAdminMutationService {
         existingPelanggan,
         normalizedData,
       );
+      const packageChanged =
+        existingPelanggan.hargaPaketId !== normalizedData.hargaPaketId;
+
       const pelanggan = await this.pelangganRepository.updateAdminPppById(
         input.id,
         updatePayload.data,
       );
+
+      // Phase 7D: Handle prorate + scheduled package change
+      if (packageChanged) {
+        const { InvoiceProrateService } = await import("@/modules/finance");
+        const prorateResult =
+          await new InvoiceProrateService().applyPackageChange({
+            pelangganId: pelanggan.id,
+            oldHargaPaketId: existingPelanggan.hargaPaketId,
+            newHargaPaketId: normalizedData.hargaPaketId,
+            prorateOption: input.prorateOption ?? "NONE",
+            downgradeAdjustment: input.downgradeAdjustment ?? "NONE",
+            upgradeApplyTime: input.upgradeApplyTime ?? "IMMEDIATE",
+            userId: input.userId,
+          });
+
+        // NEXT_CYCLE: InvoiceProrateService sudah revert hargaPaketId di DB.
+        // Patch object in-memory supaya syncUpdatedCustomer tidak detect package change
+        // (PACKAGE_CHANGED tidak di-emit sekarang — PendingPackageApplier yang emit nanti).
+        if (!prorateResult.applied) {
+          pelanggan.hargaPaketId = existingPelanggan.hargaPaketId;
+        }
+      }
 
       await this.syncUpdatedCustomer(input, existingPelanggan, pelanggan);
       await this.handleInvoiceAction(

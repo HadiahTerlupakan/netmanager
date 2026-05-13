@@ -84,10 +84,31 @@ export const PUT = createHandler(
       const upgradeApplyTime: "IMMEDIATE" | "NEXT_CYCLE" =
         upgradeApplyTimeRaw === "NEXT_CYCLE" ? "NEXT_CYCLE" : "IMMEDIATE";
 
+      const prorateOptionRaw =
+        (formData.get("prorateOption") as string | null) ?? "NONE";
+      const prorateOption = (
+        ["NONE", "PRORATE_CHARGE", "PRORATE_CREDIT"] as const
+      ).includes(
+        prorateOptionRaw as "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT",
+      )
+        ? (prorateOptionRaw as "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT")
+        : ("NONE" as const);
+
+      const downgradeAdjustmentRaw =
+        (formData.get("downgradeAdjustment") as string | null) ?? "NONE";
+      const downgradeAdjustment = (
+        ["NONE", "REFUND", "CREDIT"] as const
+      ).includes(downgradeAdjustmentRaw as "NONE" | "REFUND" | "CREDIT")
+        ? (downgradeAdjustmentRaw as "NONE" | "REFUND" | "CREDIT")
+        : ("NONE" as const);
+
       const pelanggan = await pelangganAdminMutationService.updatePppById({
         id,
         session: session as never,
         upgradeApplyTime,
+        prorateOption,
+        downgradeAdjustment,
+        userId: session.user.id,
         data: {
           idPelanggan: formData.get("idPelanggan") as string,
           nama: formData.get("nama") as string,

@@ -1,4 +1,6 @@
 export * from "./services/AutomaticBillingService";
+export * from "./services/InvoiceProrateService";
+export * from "./services/PendingPackageApplierService";
 export * from "./services/budget-integration";
 export * from "./services/VoidInvoiceService";
 

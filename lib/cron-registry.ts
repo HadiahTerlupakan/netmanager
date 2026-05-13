@@ -206,6 +206,31 @@ export class CronRegistry {
     });
     this.tasks.set("rabStatusEvaluation", rabStatusTask);
     logger.info("[CronRegistry] RAB status evaluation cron scheduled (01:00)");
+
+    // Start Pending Package Applier (Daily at 00:05 AM — sebelum billing cycle lain)
+    import("../modules/finance")
+      .then(({ PendingPackageApplierService }) => {
+        const pendingPackageTask = cron.schedule("5 0 * * *", async () => {
+          if (!(await canRunCronJob("route:applyPendingPackages", 82800)))
+            return;
+          logger.info("[Cron] Running daily pending package applier");
+          new PendingPackageApplierService()
+            .applyDuePending()
+            .catch((err) =>
+              logger.error("[Cron] Pending package applier failed:", err),
+            );
+        });
+        this.tasks.set("applyPendingPackages", pendingPackageTask);
+        logger.info(
+          "[CronRegistry] Pending package applier cron scheduled (00:05)",
+        );
+      })
+      .catch((err) =>
+        logger.error(
+          "[CronRegistry] Failed to start PendingPackageApplierService:",
+          err,
+        ),
+      );
   }
 
   public stopAll() {
