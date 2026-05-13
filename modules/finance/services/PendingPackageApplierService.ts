@@ -10,7 +10,7 @@ type PendingCandidate = {
   tenantId: string | null;
 };
 
-type ApplyOutcome = "applied" | "stale" | "missing-package";
+type ApplyOutcome = "applied" | "stale";
 
 /**
  * Scan pelanggan dengan pendingPackageApplyAt <= now, apply pending package,
@@ -59,8 +59,7 @@ export class PendingPackageApplierService {
           applyAtBefore,
         );
         if (outcome === "applied") applied++;
-        else if (outcome === "stale") staleSkipped++;
-        else failed++;
+        else staleSkipped++;
       } catch (err) {
         failed++;
         logger.error(
@@ -124,10 +123,12 @@ export class PendingPackageApplierService {
     ]);
 
     if (!oldPkg || !newPkg) {
-      logger.warn(
-        `[PendingPackageApplier] Paket lama/baru tidak ditemukan untuk ${pelanggan.id} setelah apply — emit event di-skip.`,
+      // DB sudah ter-update (hargaPaketId berubah) tapi paket reference hilang.
+      // Ini HARUS throw supaya BullMQ retry — kalau silent skip, MikroTik
+      // tidak pernah tahu paket berubah dan pelanggan dapat bandwidth salah.
+      throw new Error(
+        `[PendingPackageApplier] CRITICAL: Paket lama/baru tidak ditemukan untuk ${pelanggan.id} setelah DB update — MikroTik tidak di-sync. Perlu manual intervention.`,
       );
-      return "missing-package";
     }
 
     await BillingEventDispatcher.onPackageChanged({
