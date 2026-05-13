@@ -78,19 +78,12 @@ export async function isolateCustomerOnRouter(
       pelanggan.username,
       deps.expiredProfile,
     );
-    if (
-      !profileResult.success &&
-      profileResult.error !== "PPP Secret tidak ditemukan"
-    ) {
+    // Jika PPP Secret tidak ditemukan, kembalikan failure agar BullMQ retry
+    // dan masuk dead letter queue untuk intervensi manual admin
+    if (!profileResult.success) {
       return buildProfileFailureResult(logs, profileResult.error);
     }
-    if (profileResult.success) {
-      logs.push(`Profile diubah ke "${deps.expiredProfile}"`);
-    } else {
-      logs.push(
-        "Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...",
-      );
-    }
+    logs.push(`Profile diubah ke "${deps.expiredProfile}"`);
 
     const disconnectResult = await deps.disconnectSession(
       routerId,
@@ -127,19 +120,12 @@ export async function unIsolateCustomerOnRouter(
       pelanggan.username,
       profileName,
     );
-    if (
-      !profileResult.success &&
-      profileResult.error !== "PPP Secret tidak ditemukan"
-    ) {
+    // Jika PPP Secret tidak ditemukan, kembalikan failure agar BullMQ retry
+    // dan masuk dead letter queue untuk intervensi manual admin
+    if (!profileResult.success) {
       return buildProfileFailureResult(logs, profileResult.error);
     }
-    if (profileResult.success) {
-      logs.push(`Profile dikembalikan ke "${profileName}"`);
-    } else {
-      logs.push(
-        "Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...",
-      );
-    }
+    logs.push(`Profile dikembalikan ke "${profileName}"`);
 
     const disconnectResult = await deps.disconnectSession(
       routerId,
