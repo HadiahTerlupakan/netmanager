@@ -3,12 +3,6 @@ import { hash } from "bcryptjs";
 import { logger } from "@/lib/logger";
 import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import { CustomerEventDispatcher } from "@/modules/events";
-
-import {
-  afterCustomerCreate,
-  afterCustomerUpdate,
-  beforeCustomerDelete,
-} from "@/lib/hooks/radius-sync-hooks";
 import type {
   PelangganEntity,
   PelangganWithPackageEntity,
@@ -17,7 +11,6 @@ import type {
   CreatePelangganDTO,
   IPelangganRepository,
 } from "../domain/ports/IPelangganRepository";
-import type { Status } from "@prisma/client";
 import type { CreatePelangganInput } from "./pelanggan-service.contracts";
 
 export async function validateCreatePelangganInput(
@@ -98,26 +91,22 @@ export async function syncCreatedCustomerToRadius(
   pelanggan: PelangganWithPackageEntity,
 ) {
   try {
-    const syncResult = await afterCustomerCreate(undefined, pelanggan.id);
-    if (!syncResult.success) {
-      logger.warn(
-        "[RADIUS] Auto-sync failed for customer:",
-        pelanggan.username,
-        syncResult.error,
-      );
-      await repository.updateSyncStatus(
-        pelanggan.id,
-        "FAILED",
-        syncResult.error,
-      );
-      return;
-    }
-
-    await repository.updateSyncStatus(pelanggan.id, "SYNCED", null);
-  } catch (syncError: unknown) {
-    logger.error("[RADIUS] Auto-sync error:", syncError);
+    // Publish event ke BullMQ — handler async yang akan sync ke MikroTik/RADIUS
+    await CustomerEventDispatcher.onCreated({
+      customerId: pelanggan.id,
+      customerName: pelanggan.nama,
+      packageId: pelanggan.hargaPaketId,
+      tenantId: pelanggan.tenantId ?? undefined,
+    });
+    // Status PENDING karena sync dikerjakan async oleh worker
+    await repository.updateSyncStatus(pelanggan.id, "PENDING", null);
+  } catch (err) {
+    logger.error(
+      "[Pelanggan] Gagal publish CUSTOMER_CREATED event:",
+      err instanceof Error ? err : undefined,
+    );
     const errorMessage =
-      syncError instanceof Error ? syncError.message : "Terjadi kesalahan";
+      err instanceof Error ? err.message : "Terjadi kesalahan";
     await repository.updateSyncStatus(pelanggan.id, "FAILED", errorMessage);
   }
 }
@@ -148,22 +137,6 @@ export async function triggerCustomerBilling(
   }
 }
 
-export function publishCreatedCustomerEvent(
-  pelanggan: PelangganWithPackageEntity,
-) {
-  CustomerEventDispatcher.onCreated({
-    customerId: pelanggan.id,
-    customerName: pelanggan.nama,
-    packageId: pelanggan.hargaPaketId,
-    tenantId: pelanggan.tenantId ?? undefined,
-  }).catch((err) =>
-    logger.error(
-      "Failed to publish CUSTOMER_CREATED event",
-      err instanceof Error ? err : undefined,
-    ),
-  );
-}
-
 export async function validateDeletedCustomer(
   repository: IPelangganRepository,
   id: string,
@@ -172,14 +145,7 @@ export async function validateDeletedCustomer(
   if (!existing) {
     throw new Error("Pelanggan tidak ditemukan");
   }
-
-  const syncResult = await beforeCustomerDelete(undefined, existing.username);
-  if (!syncResult.success) {
-    throw new Error(
-      syncResult.error || "Gagal menghapus pelanggan dari RADIUS",
-    );
-  }
-
+  // Event CUSTOMER_DELETED di-emit oleh caller setelah record benar-benar terhapus
   return existing;
 }
 
@@ -191,22 +157,50 @@ export async function syncUpdatedCustomerStatus(
     pelanggan: PelangganEntity;
   },
 ) {
-  const syncResult = await afterCustomerUpdate(undefined, input.id, {
-    statusChanged: input.existing.status !== input.pelanggan.status,
-    oldStatus: input.existing.status as Status,
-    newStatus: input.pelanggan.status as Status,
-  });
+  try {
+    const statusChanged = input.existing.status !== input.pelanggan.status;
 
-  if (!syncResult.success) {
-    await repository.updateSyncStatus(
-      input.id,
-      "FAILED",
-      syncResult.error || "Gagal sinkronisasi pelanggan ke RADIUS",
+    if (!statusChanged) {
+      // Tidak ada perubahan status — emit generic update event
+      await CustomerEventDispatcher.onUpdated({
+        customerId: input.pelanggan.id,
+        customerName: input.pelanggan.nama,
+        packageId: input.pelanggan.hargaPaketId,
+        tenantId: input.pelanggan.tenantId ?? undefined,
+      });
+      await repository.updateSyncStatus(input.id, "PENDING", null);
+      return;
+    }
+
+    const newStatus = input.pelanggan.status;
+    const basePayload = {
+      customerId: input.pelanggan.id,
+      customerName: input.pelanggan.nama,
+      oldStatus: input.existing.status,
+      tenantId: input.pelanggan.tenantId ?? undefined,
+    };
+
+    // Pilih dispatcher sesuai transisi status
+    if (newStatus === "ISOLIR") {
+      await CustomerEventDispatcher.onIsolated({ ...basePayload, newStatus });
+    } else if (newStatus === "AKTIF") {
+      await CustomerEventDispatcher.onActivated({ ...basePayload, newStatus });
+    } else {
+      // NONAKTIF, DISMANTLE, MAINTENANCE → suspended
+      await CustomerEventDispatcher.onSuspended({ ...basePayload, newStatus });
+    }
+
+    // Status PENDING karena sync dikerjakan async oleh worker
+    await repository.updateSyncStatus(input.id, "PENDING", null);
+  } catch (err) {
+    logger.error(
+      "[Pelanggan] Gagal publish customer lifecycle event:",
+      err instanceof Error ? err : undefined,
     );
-    return;
+    const errorMessage =
+      err instanceof Error ? err.message : "Terjadi kesalahan";
+    await repository.updateSyncStatus(input.id, "FAILED", errorMessage);
   }
-
-  await repository.updateSyncStatus(input.id, "SYNCED", null);
 }
 
 async function validateGlobalIdentifier(value: string, label: string) {

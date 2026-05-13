@@ -19,6 +19,7 @@ export const adminDeleteSelect = {
   nama: true,
   username: true,
   siteId: true,
+  tenantId: true,
 } satisfies Prisma.PelangganSelect;
 
 export const adminMutationContextSelect = {

@@ -1,10 +1,7 @@
 import { Status, TipePelanggan } from "../types/pelanggan.enums";
 
-import {
-  afterCustomerUpdate,
-  beforeCustomerDelete,
-} from "@/lib/hooks/radius-sync-hooks";
-import { prisma } from "@/modules/database";
+import { CustomerEventDispatcher } from "@/modules/events";
+import { logger } from "@/lib/logger";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 import {
@@ -188,15 +185,51 @@ export class PelangganAdminMutationService {
     pelanggan: Awaited<ReturnType<IPelangganRepository["updateAdminPppById"]>>,
     updatePayload: { packageChanged: boolean; passwordChanged: boolean },
   ) {
-    await afterCustomerUpdate(prisma, input.id, {
-      statusChanged: existingPelanggan.status !== pelanggan.status,
-      oldStatus: (input.existingStatus ?? existingPelanggan.status) as Status,
-      newStatus: pelanggan.status as Status,
-      oldUsername: existingPelanggan.username,
-      newUsername: pelanggan.username,
-      packageChanged: updatePayload.packageChanged,
-      passwordChanged: updatePayload.passwordChanged,
-    });
+    try {
+      const statusChanged = existingPelanggan.status !== pelanggan.status;
+      const oldStatus = (input.existingStatus ??
+        existingPelanggan.status) as string;
+      const newStatus = pelanggan.status as string;
+
+      if (!statusChanged) {
+        // Tidak ada perubahan status — emit generic update event
+        await CustomerEventDispatcher.onUpdated({
+          customerId: pelanggan.id,
+          customerName: pelanggan.nama,
+          packageId: pelanggan.hargaPaketId,
+          tenantId: pelanggan.tenantId ?? undefined,
+        });
+        return;
+      }
+
+      const basePayload = {
+        customerId: pelanggan.id,
+        customerName: pelanggan.nama,
+        oldStatus,
+        tenantId: pelanggan.tenantId ?? undefined,
+      };
+
+      // Pilih dispatcher sesuai transisi status
+      if (newStatus === "ISOLIR") {
+        await CustomerEventDispatcher.onIsolated({ ...basePayload, newStatus });
+      } else if (newStatus === "AKTIF") {
+        await CustomerEventDispatcher.onActivated({
+          ...basePayload,
+          newStatus,
+        });
+      } else {
+        // NONAKTIF, DISMANTLE, MAINTENANCE → suspended
+        await CustomerEventDispatcher.onSuspended({
+          ...basePayload,
+          newStatus,
+        });
+      }
+    } catch (err) {
+      logger.error(
+        "[Pelanggan] Gagal publish customer update event (admin mutation):",
+        err instanceof Error ? err : undefined,
+      );
+    }
   }
 
   /** Run optional invoice action after customer update. */
@@ -223,7 +256,7 @@ export class PelangganAdminMutationService {
     return new PelangganAdminMutationError(message, "BAD_REQUEST");
   }
 
-  /** Delete PPP customer from admin flow after access and sync checks. */
+  /** Delete PPP customer from admin flow after access checks. */
   async deletePppById(input: DeletePppByIdInput) {
     const { id, session } = input;
 
@@ -244,18 +277,20 @@ export class PelangganAdminMutationService {
       throw new PelangganAdminMutationError("Akses ditolak", "FORBIDDEN");
     }
 
-    const deleteSyncResult = await beforeCustomerDelete(
-      prisma,
-      pelanggan.username,
-    );
-    if (!deleteSyncResult.success) {
-      throw new PelangganAdminMutationError(
-        deleteSyncResult.error ?? "Gagal menghapus pelanggan dari RADIUS",
-        "BAD_REQUEST",
-      );
-    }
-
     await this.pelangganRepository.delete(id);
+
+    // Emit event setelah record terhapus — handler async cleanup MikroTik/RADIUS
+    CustomerEventDispatcher.onDeleted({
+      customerId: pelanggan.id,
+      customerName: pelanggan.nama,
+      username: pelanggan.username,
+      tenantId: pelanggan.tenantId ?? undefined,
+    }).catch((err) =>
+      logger.error(
+        "[Pelanggan] Gagal publish CUSTOMER_DELETED event (admin mutation):",
+        err instanceof Error ? err : undefined,
+      ),
+    );
 
     return {
       nama: pelanggan.nama,

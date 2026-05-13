@@ -16,9 +16,10 @@ import { PelangganRepository } from "../repositories/PelangganRepository";
  */
 import type { Status } from "@prisma/client";
 import type { CreatePelangganInput } from "./pelanggan-service.contracts";
+import { CustomerEventDispatcher } from "@/modules/events";
+import { logger } from "@/lib/logger";
 import {
   buildCreatePelangganData,
-  publishCreatedCustomerEvent,
   syncCreatedCustomerToRadius,
   syncUpdatedCustomerStatus,
   triggerCustomerBilling,
@@ -73,17 +74,35 @@ export class PelangganService {
     const createData = await buildCreatePelangganData(data);
     const pelanggan = await this.pelangganRepository.create(createData);
 
+    // syncCreatedCustomerToRadius sudah emit CUSTOMER_CREATED event ke BullMQ
     await syncCreatedCustomerToRadius(this.pelangganRepository, pelanggan);
     await triggerCustomerBilling(pelanggan.id, data.billingAction);
-    publishCreatedCustomerEvent(pelanggan);
 
     return pelanggan;
   }
 
-  /** Delete customer after validating radius cleanup. */
+  /** Delete customer setelah validasi, lalu emit event CUSTOMER_DELETED. */
   async deletePelanggan(id: string): Promise<PelangganEntity> {
-    await validateDeletedCustomer(this.pelangganRepository, id);
-    return this.pelangganRepository.delete(id);
+    const existing = await validateDeletedCustomer(
+      this.pelangganRepository,
+      id,
+    );
+    const deleted = await this.pelangganRepository.delete(id);
+
+    // Emit event setelah record terhapus — handler async cleanup MikroTik/RADIUS
+    CustomerEventDispatcher.onDeleted({
+      customerId: existing.id,
+      customerName: existing.nama,
+      username: existing.username,
+      tenantId: existing.tenantId ?? undefined,
+    }).catch((err) =>
+      logger.error(
+        "[Pelanggan] Gagal publish CUSTOMER_DELETED event:",
+        err instanceof Error ? err : undefined,
+      ),
+    );
+
+    return deleted;
   }
 
   /** Update customer status and trigger radius synchronization. */

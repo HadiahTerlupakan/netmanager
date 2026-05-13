@@ -134,6 +134,7 @@ export interface PelangganAdminDeleteEntity {
   nama: string;
   username: string;
   siteId: string | null;
+  tenantId: string | null;
 }
 
 export interface PelangganAdminMutationContextEntity {

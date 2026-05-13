@@ -10,10 +10,7 @@ import {
   PelangganAdminQueryService,
 } from "@/modules/pelanggan";
 import type { Pelanggan, HargaPaket, Status } from "@prisma/client";
-import {
-  afterCustomerUpdate,
-  beforeCustomerDelete,
-} from "@/lib/hooks/radius-sync-hooks";
+import { CustomerEventDispatcher } from "@/modules/events";
 import { compare } from "bcryptjs";
 
 // Mock bcryptjs
@@ -22,11 +19,16 @@ vi.mock("bcryptjs", () => ({
   compare: vi.fn().mockResolvedValue(true),
 }));
 
-// Mock radius-sync-hooks
-vi.mock("@/lib/hooks/radius-sync-hooks", () => ({
-  afterCustomerCreate: vi.fn().mockResolvedValue({ success: true }),
-  afterCustomerUpdate: vi.fn().mockResolvedValue({ success: true }),
-  beforeCustomerDelete: vi.fn().mockResolvedValue({ success: true }),
+// Mock CustomerEventDispatcher — semua method resolve void
+vi.mock("@/modules/events", () => ({
+  CustomerEventDispatcher: {
+    onCreated: vi.fn().mockResolvedValue(undefined),
+    onUpdated: vi.fn().mockResolvedValue(undefined),
+    onSuspended: vi.fn().mockResolvedValue(undefined),
+    onActivated: vi.fn().mockResolvedValue(undefined),
+    onIsolated: vi.fn().mockResolvedValue(undefined),
+    onDeleted: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 vi.mock("@/modules/finance", () => ({
@@ -193,6 +195,7 @@ describe("PelangganService", () => {
         id: "pelanggan-id",
         nama: "Test",
         username: "testuser",
+        tenantId: "tenant-1",
       };
       prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
         mockPelanggan as unknown as Pelanggan,
@@ -203,9 +206,13 @@ describe("PelangganService", () => {
 
       const result = await service.deletePelanggan("pelanggan-id");
 
-      expect(vi.mocked(beforeCustomerDelete)).toHaveBeenCalledWith(
-        undefined,
-        "testuser",
+      // Setelah refactor: event CUSTOMER_DELETED di-emit via dispatcher, bukan hook langsung
+      expect(vi.mocked(CustomerEventDispatcher.onDeleted)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerId: "pelanggan-id",
+          username: "testuser",
+          tenantId: "tenant-1",
+        }),
       );
       expect(result.id).toBe("pelanggan-id");
       expect(prismaMock.pelanggan.delete).toHaveBeenCalledWith({
@@ -213,22 +220,11 @@ describe("PelangganService", () => {
       });
     });
 
-    it("should not delete pelanggan when radius cleanup fails", async () => {
-      const mockPelanggan = {
-        id: "pelanggan-id",
-        nama: "Test",
-        username: "testuser",
-      };
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
-        mockPelanggan as unknown as Pelanggan,
-      );
-      vi.mocked(beforeCustomerDelete).mockResolvedValueOnce({
-        success: false,
-        error: "radius delete gagal",
-      });
+    it("should not delete pelanggan when pelanggan not found", async () => {
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(null);
 
       await expect(service.deletePelanggan("pelanggan-id")).rejects.toThrow(
-        "radius delete gagal",
+        "Pelanggan tidak ditemukan",
       );
       expect(prismaMock.pelanggan.delete).not.toHaveBeenCalled();
     });
@@ -279,15 +275,10 @@ describe("PelangganService", () => {
       });
 
       expect(result.id).toBe("pelanggan-id");
-      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
-        prismaMock,
-        "pelanggan-id",
+      // Status tidak berubah → onUpdated (generic update event)
+      expect(vi.mocked(CustomerEventDispatcher.onUpdated)).toHaveBeenCalledWith(
         expect.objectContaining({
-          statusChanged: false,
-          packageChanged: false,
-          passwordChanged: false,
-          oldStatus: "AKTIF",
-          newStatus: "AKTIF",
+          customerId: "pelanggan-id",
         }),
       );
     });
@@ -339,11 +330,10 @@ describe("PelangganService", () => {
         },
       });
 
-      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
-        prismaMock,
-        "pelanggan-id",
+      // Password berubah tapi status tidak → onUpdated
+      expect(vi.mocked(CustomerEventDispatcher.onUpdated)).toHaveBeenCalledWith(
         expect.objectContaining({
-          passwordChanged: true,
+          customerId: "pelanggan-id",
         }),
       );
     });
@@ -391,19 +381,17 @@ describe("PelangganService", () => {
         },
       });
 
-      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
-        prismaMock,
-        "pelanggan-id",
+      // Username berubah tapi status tidak → onUpdated
+      expect(vi.mocked(CustomerEventDispatcher.onUpdated)).toHaveBeenCalledWith(
         expect.objectContaining({
-          oldUsername: "olduser",
-          newUsername: "newuser",
+          customerId: "pelanggan-id",
         }),
       );
     });
   });
 
   describe("updateStatusPelanggan", () => {
-    it("should update status and trigger radius sync hook", async () => {
+    it("should update status and trigger event dispatch", async () => {
       const existing = {
         id: "pelanggan-id",
         username: "testuser",
@@ -434,18 +422,19 @@ describe("PelangganService", () => {
         where: { id: "pelanggan-id" },
         data: { status: "AKTIF" },
       });
-      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
-        undefined,
-        "pelanggan-id",
+      // Status berubah ISOLIR → AKTIF → onActivated
+      expect(
+        vi.mocked(CustomerEventDispatcher.onActivated),
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
-          statusChanged: true,
+          customerId: "pelanggan-id",
           oldStatus: "ISOLIR",
           newStatus: "AKTIF",
         }),
       );
     });
 
-    it("should persist failed sync status and still return updated pelanggan when radius sync fails", async () => {
+    it("should persist PENDING sync status and still return updated pelanggan after event dispatch", async () => {
       const existing = {
         id: "pelanggan-id",
         username: "testuser",
@@ -465,10 +454,6 @@ describe("PelangganService", () => {
         ...existing,
         status: "AKTIF",
       } as unknown as Pelanggan);
-      vi.mocked(afterCustomerUpdate).mockResolvedValueOnce({
-        success: false,
-        error: "radius sync gagal",
-      });
 
       const result = await service.updateStatusPelanggan(
         "pelanggan-id",
@@ -476,16 +461,13 @@ describe("PelangganService", () => {
       );
 
       expect(result.status).toBe("AKTIF");
-      expect(prismaMock.pelanggan.update).toHaveBeenNthCalledWith(1, {
-        where: { id: "pelanggan-id" },
-        data: { status: "AKTIF" },
-      });
+      // Setelah refactor: sync status PENDING (async worker yang update ke SYNCED/FAILED)
+      // PENDING tidak increment syncRetryCount
       expect(prismaMock.pelanggan.update).toHaveBeenNthCalledWith(2, {
         where: { id: "pelanggan-id" },
         data: {
-          syncStatus: "FAILED",
-          syncError: "radius sync gagal",
-          syncRetryCount: { increment: 1 },
+          syncStatus: "PENDING",
+          syncError: null,
           updatedAt: expect.any(Date),
         },
       });
