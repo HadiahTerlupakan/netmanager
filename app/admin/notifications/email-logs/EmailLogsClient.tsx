@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { clientLogger } from "@/lib/client-logger";
+import {
+  TablePaginationFooter,
+  type PaginationState,
+} from "../_components/TablePaginationFooter";
+import { TableEmptyRow, TableLoadingRow } from "../_components/TableStateRows";
 
 type EmailStatus = "PENDING" | "SENT" | "FAILED" | "BOUNCED";
 
@@ -19,12 +24,7 @@ interface EmailLog {
   createdAt: string;
 }
 
-interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+type Pagination = PaginationState;
 
 const STATUS_BADGE: Record<EmailStatus, string> = {
   PENDING:
@@ -182,26 +182,9 @@ export default function EmailLogsClient() {
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {loading ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
-                    Memuat data...
-                  </div>
-                </td>
-              </tr>
+              <TableLoadingRow colSpan={6} />
             ) : logs.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                >
-                  Tidak ada log ditemukan
-                </td>
-              </tr>
+              <TableEmptyRow colSpan={6} message="Tidak ada log ditemukan" />
             ) : (
               logs.map((log) => (
                 <tr
@@ -244,28 +227,11 @@ export default function EmailLogsClient() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-        <span>
-          Halaman {pagination.page} dari {pagination.totalPages} &middot;{" "}
-          {pagination.total} total
-        </span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => goToPage(pagination.page - 1)}
-            disabled={pagination.page <= 1 || loading}
-            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            ‹ Sebelumnya
-          </button>
-          <button
-            onClick={() => goToPage(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages || loading}
-            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Selanjutnya ›
-          </button>
-        </div>
-      </div>
+      <TablePaginationFooter
+        pagination={pagination}
+        loading={loading}
+        onPageChange={goToPage}
+      />
     </div>
   );
 }

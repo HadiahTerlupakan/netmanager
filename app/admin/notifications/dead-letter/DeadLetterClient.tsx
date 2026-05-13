@@ -3,6 +3,11 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { clientLogger } from "@/lib/client-logger";
+import {
+  TablePaginationFooter,
+  type PaginationState,
+} from "../_components/TablePaginationFooter";
+import { TableEmptyRow, TableLoadingRow } from "../_components/TableStateRows";
 
 type NotifChannel = "inApp" | "push" | "whatsapp" | "email";
 
@@ -19,12 +24,7 @@ interface DeadLetterEntry {
   createdAt: string;
 }
 
-interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+type Pagination = PaginationState;
 
 const CHANNEL_BADGE: Record<NotifChannel, string> = {
   inApp: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
@@ -237,28 +237,16 @@ export default function DeadLetterClient() {
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {loading ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
-                    Memuat data...
-                  </div>
-                </td>
-              </tr>
+              <TableLoadingRow colSpan={7} />
             ) : entries.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                >
-                  {showResolved
+              <TableEmptyRow
+                colSpan={7}
+                message={
+                  showResolved
                     ? "Tidak ada entry resolved"
-                    : "Tidak ada entry yang pending — semua notifikasi berhasil terkirim"}
-                </td>
-              </tr>
+                    : "Tidak ada entry yang pending — semua notifikasi berhasil terkirim"
+                }
+              />
             ) : (
               entries.map((entry) => (
                 <Fragment key={entry.id}>
@@ -353,28 +341,11 @@ export default function DeadLetterClient() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-        <span>
-          Halaman {pagination.page} dari {pagination.totalPages} &middot;{" "}
-          {pagination.total} total
-        </span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => goToPage(pagination.page - 1)}
-            disabled={pagination.page <= 1 || loading}
-            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            ‹ Sebelumnya
-          </button>
-          <button
-            onClick={() => goToPage(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages || loading}
-            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Selanjutnya ›
-          </button>
-        </div>
-      </div>
+      <TablePaginationFooter
+        pagination={pagination}
+        loading={loading}
+        onPageChange={goToPage}
+      />
     </div>
   );
 }
