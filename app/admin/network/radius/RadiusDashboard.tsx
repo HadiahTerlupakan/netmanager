@@ -7,6 +7,7 @@ import { SessionHistoryModal } from "@/components/admin/radius/session-history-m
 import { StatsCards } from "@/components/admin/radius/stats-cards";
 import { SyncControls } from "@/components/admin/radius/sync-controls";
 import { InlineAlert } from "@/components/admin/radius/inline-alert";
+import { OrphanCleanupPanel } from "@/components/admin/radius/orphan-cleanup-panel";
 import { useRadiusDashboardData } from "@/app/admin/network/radius/hooks/useRadiusDashboardData";
 
 export default function RadiusDashboard() {
@@ -19,6 +20,7 @@ export default function RadiusDashboard() {
     setDashboardError,
     isConnected,
     resettingUsername,
+    deletingUsername,
     viewingHistoryUsername,
     historyModalOpen,
     historyLoading,
@@ -38,6 +40,7 @@ export default function RadiusDashboard() {
     changeHistoryPage,
     closeHistoryModal,
     resetConnection,
+    forceDeleteUser,
     refresh,
   } = useRadiusDashboardData();
 
@@ -68,7 +71,22 @@ export default function RadiusDashboard() {
             />
             Refresh
           </button>
-          <SyncControls />
+          <SyncControls
+            onSynced={(stats) => {
+              setActionSuccess(
+                `Sync selesai (Created: ${stats.created}, Updated: ${stats.updated}, Deleted: ${stats.deleted})`,
+              );
+              void refresh();
+            }}
+            onError={(message) => setActionError(message)}
+          />
+          <OrphanCleanupPanel
+            onSuccess={(message) => {
+              setActionSuccess(message);
+              void refresh();
+            }}
+            onError={(message) => setActionError(message)}
+          />
         </div>
       </div>
 
@@ -142,7 +160,9 @@ export default function RadiusDashboard() {
             loading={loading}
             onViewHistory={viewHistory}
             onResetConnection={resetConnection}
+            onForceDelete={forceDeleteUser}
             resettingUsername={resettingUsername}
+            deletingUsername={deletingUsername}
             viewingHistoryUsername={viewingHistoryUsername}
           />
         </div>

@@ -1,47 +1,51 @@
 import { RadiusAdminService, RadiusAdminServiceError } from "@/modules/network";
-import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, apiError, createHandler } from "@/lib/api";
 
 const radiusAdminService = new RadiusAdminService();
 
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("radius:read"))) {
-    return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat NAS");
-  }
+export const GET = createHandler(
+  { auth: true, permissions: ["radius:read"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
-  try {
-    const tenantId = ctx.session!.user.tenantId;
-    const result = await radiusAdminService.getNasList(tenantId);
+    try {
+      const result = await radiusAdminService.getNasList(tenantId);
+      return apiSuccess(result);
+    } catch (error) {
+      return mapRadiusAdminError(error);
+    }
+  },
+);
 
-    return apiSuccess(result);
-  } catch (error) {
-    return mapRadiusAdminError(error);
-  }
-});
+export const POST = createHandler(
+  { auth: true, permissions: ["radius:create"] },
+  async (req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    const userId = ctx.session?.user.id;
+    if (!tenantId || !userId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("radius:create"))) {
-    return ApiErrors.forbidden("Anda tidak memiliki akses untuk membuat NAS");
-  }
+    try {
+      const payload = await req.json();
+      const createdNas = await radiusAdminService.createNas({
+        tenantId,
+        userId,
+        payload,
+      });
 
-  try {
-    const tenantId = ctx.session!.user.tenantId;
-    const userId = ctx.session!.user.id;
-    const payload = await req.json();
-    const createdNas = await radiusAdminService.createNas({
-      tenantId,
-      userId,
-      payload,
-    });
-
-    return apiSuccess(createdNas, {
-      status: 201,
-      message: "NAS berhasil dibuat",
-    });
-  } catch (error) {
-    return mapRadiusAdminError(error);
-  }
-});
+      return apiSuccess(createdNas, {
+        status: 201,
+        message: "NAS berhasil dibuat",
+      });
+    } catch (error) {
+      return mapRadiusAdminError(error);
+    }
+  },
+);
 
 function mapRadiusAdminError(error: unknown) {
   if (error instanceof RadiusAdminServiceError) {

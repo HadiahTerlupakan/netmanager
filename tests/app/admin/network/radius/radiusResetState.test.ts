@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let currentState: {
   resettingUsername: string | null;
+  deletingUsername: string | null;
   actionError: string | null;
   actionSuccess: string | null;
 };
@@ -26,6 +27,7 @@ describe("useRadiusResetState", () => {
   beforeEach(() => {
     currentState = {
       resettingUsername: null,
+      deletingUsername: null,
       actionError: null,
       actionSuccess: null,
     };
@@ -61,7 +63,11 @@ describe("useRadiusResetState", () => {
     });
     const refreshDashboard = vi.fn(() => refreshDeferred.promise);
 
-    const hook = useRadiusResetState({ resetConnection, refreshDashboard });
+    const hook = useRadiusResetState({
+      resetConnection,
+      forceDeleteUser: vi.fn(),
+      refreshDashboard,
+    });
     const actionPromise = hook.resetConnection("alice");
 
     await Promise.resolve();
@@ -90,7 +96,11 @@ describe("useRadiusResetState", () => {
       .fn()
       .mockRejectedValue(new Error("refresh failed"));
 
-    const hook = useRadiusResetState({ resetConnection, refreshDashboard });
+    const hook = useRadiusResetState({
+      resetConnection,
+      forceDeleteUser: vi.fn(),
+      refreshDashboard,
+    });
     await hook.resetConnection("alice");
 
     expect(currentState.actionSuccess).toBeNull();

@@ -1,5 +1,4 @@
 import { RadiusAdminService, RadiusAdminServiceError } from "@/modules/network";
-import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
   ApiErrors,
@@ -10,60 +9,67 @@ import {
 
 const radiusAdminService = new RadiusAdminService();
 
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("radius:read"))) {
-    return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat NAS");
-  }
+export const GET = createHandler(
+  { auth: true, permissions: ["radius:read"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
-  try {
-    const id = parseNasId(ctx.params.id);
-    const tenantId = ctx.session!.user.tenantId;
-    const nas = await radiusAdminService.getNasById(id, tenantId);
+    try {
+      const id = parseNasId(ctx.params.id);
+      const nas = await radiusAdminService.getNasById(id, tenantId);
+      return apiSuccess(nas);
+    } catch (error) {
+      return mapRadiusAdminError(error);
+    }
+  },
+);
 
-    return apiSuccess(nas);
-  } catch (error) {
-    return mapRadiusAdminError(error);
-  }
-});
+export const PUT = createHandler(
+  { auth: true, permissions: ["radius:update"] },
+  async (req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
-export const PUT = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("radius:update"))) {
-    return ApiErrors.forbidden("Anda tidak memiliki akses untuk mengubah NAS");
-  }
+    try {
+      const id = parseNasId(ctx.params.id);
+      const payload = await req.json();
+      const updatedNas = await radiusAdminService.updateNas({
+        id,
+        tenantId,
+        payload,
+      });
 
-  try {
-    const id = parseNasId(ctx.params.id);
-    const tenantId = ctx.session!.user.tenantId;
-    const payload = await req.json();
-    const updatedNas = await radiusAdminService.updateNas({
-      id,
-      tenantId,
-      payload,
-    });
+      return apiSuccess(updatedNas, { message: "NAS berhasil diperbarui" });
+    } catch (error) {
+      return mapRadiusAdminError(error);
+    }
+  },
+);
 
-    return apiSuccess(updatedNas, { message: "NAS berhasil diperbarui" });
-  } catch (error) {
-    return mapRadiusAdminError(error);
-  }
-});
+export const DELETE = createHandler(
+  { auth: true, permissions: ["radius:delete"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
+    }
 
-export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("radius:delete"))) {
-    return ApiErrors.forbidden("Anda tidak memiliki akses untuk menghapus NAS");
-  }
+    try {
+      const id = parseNasId(ctx.params.id);
+      await radiusAdminService.deleteNas(id, tenantId);
 
-  try {
-    const id = parseNasId(ctx.params.id);
-    const tenantId = ctx.session!.user.tenantId;
-    await radiusAdminService.deleteNas(id, tenantId);
+      return apiSuccess(null, { message: "NAS berhasil dihapus" });
+    } catch (error) {
+      return mapRadiusAdminError(error);
+    }
+  },
+);
 
-    return apiSuccess(null, { message: "NAS berhasil dihapus" });
-  } catch (error) {
-    return mapRadiusAdminError(error);
-  }
-});
-
-/** Parse route param into NAS id. */
 function parseNasId(idParam: string) {
   const id = Number.parseInt(idParam, 10);
   if (Number.isNaN(id)) {

@@ -273,8 +273,11 @@ describe("UserRepository", () => {
           update: vi.fn().mockResolvedValue({ ...mockUser, siteId: "site-2" }),
         },
         userSite: {
-          deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
-          createMany: vi.fn().mockResolvedValue({ count: 2 }),
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ siteId: "site-1" }, { siteId: "site-2" }]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          upsert: vi.fn().mockResolvedValue({}),
         },
       };
 
@@ -299,14 +302,27 @@ describe("UserRepository", () => {
           updatedAt: expect.any(Date),
         }),
       });
-      expect(tx.userSite.deleteMany).toHaveBeenCalledWith({
+      expect(tx.userSite.findMany).toHaveBeenCalledWith({
         where: { userId: "user-1" },
+        select: { siteId: true },
       });
-      expect(tx.userSite.createMany).toHaveBeenCalledWith({
-        data: [
-          { userId: "user-1", siteId: "site-2", isPrimary: true },
-          { userId: "user-1", siteId: "site-3", isPrimary: false },
-        ],
+      expect(tx.userSite.deleteMany).toHaveBeenCalledWith({
+        where: { userId: "user-1", siteId: { in: ["site-1"] } },
+      });
+      expect(tx.userSite.upsert).toHaveBeenCalledTimes(2);
+      expect(tx.userSite.upsert).toHaveBeenNthCalledWith(1, {
+        where: {
+          userId_siteId: { userId: "user-1", siteId: "site-2" },
+        },
+        update: { isPrimary: true },
+        create: { userId: "user-1", siteId: "site-2", isPrimary: true },
+      });
+      expect(tx.userSite.upsert).toHaveBeenNthCalledWith(2, {
+        where: {
+          userId_siteId: { userId: "user-1", siteId: "site-3" },
+        },
+        update: { isPrimary: false },
+        create: { userId: "user-1", siteId: "site-3", isPrimary: false },
       });
       expect(tx.user.update).toHaveBeenNthCalledWith(2, {
         where: { id: "user-1" },
@@ -320,8 +336,9 @@ describe("UserRepository", () => {
           update: vi.fn().mockResolvedValue({ ...mockUser, siteId: "site-2" }),
         },
         userSite: {
-          deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
-          createMany: vi.fn().mockResolvedValue({ count: 2 }),
+          findMany: vi.fn().mockResolvedValue([]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+          upsert: vi.fn().mockResolvedValue({}),
         },
       };
 
@@ -339,6 +356,8 @@ describe("UserRepository", () => {
         { siteId: "site-3", isPrimary: false },
       ]);
 
+      expect(tx.userSite.deleteMany).not.toHaveBeenCalled();
+      expect(tx.userSite.upsert).toHaveBeenCalledTimes(2);
       expect(tx.user.update).toHaveBeenNthCalledWith(2, {
         where: { id: "user-1" },
         data: { siteId: "site-2" },

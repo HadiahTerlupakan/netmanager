@@ -90,6 +90,7 @@ export function useRadiusDashboardData() {
   const historyState = useRadiusHistoryState({ fetchHistory: api.getHistory });
   const resetState = useRadiusResetState({
     resetConnection: api.resetConnection,
+    forceDeleteUser: api.forceDeleteUser,
     refreshDashboard,
   });
 
@@ -144,6 +145,7 @@ export function useRadiusDashboardData() {
     setDashboardError,
     isConnected,
     resettingUsername: resetState.resettingUsername,
+    deletingUsername: resetState.deletingUsername,
     viewingHistoryUsername: historyState.viewingHistoryUsername,
     historyModalOpen: historyState.historyModalOpen,
     historyLoading: historyState.historyLoading,
@@ -163,6 +165,7 @@ export function useRadiusDashboardData() {
     resetHistoryFilter: historyState.resetHistoryFilter,
     closeHistoryModal: historyState.closeHistoryModal,
     resetConnection: resetState.resetConnection,
+    forceDeleteUser: resetState.forceDeleteUser,
     refresh: refreshDashboard,
   };
 }

@@ -6,24 +6,28 @@ import { RADIUS_MESSAGES } from "../constants";
 
 export interface RadiusResetState {
   resettingUsername: string | null;
+  deletingUsername: string | null;
   actionError: string | null;
   actionSuccess: string | null;
 }
 
 export interface RadiusResetDependencies {
   resetConnection: RadiusDashboardApi["resetConnection"];
+  forceDeleteUser: RadiusDashboardApi["forceDeleteUser"];
   refreshDashboard: () => Promise<void>;
 }
 
 /**
- * Manage reset action state and trigger a dashboard refresh after success.
+ * Manage reset/delete action state and trigger a dashboard refresh after success.
  */
 export function useRadiusResetState({
   resetConnection,
+  forceDeleteUser,
   refreshDashboard,
 }: RadiusResetDependencies) {
   const [state, setState] = useState<RadiusResetState>({
     resettingUsername: null,
+    deletingUsername: null,
     actionError: null,
     actionSuccess: null,
   });
@@ -72,6 +76,42 @@ export function useRadiusResetState({
     [refreshDashboard, resetConnection],
   );
 
+  const forceDeleteUserAction = useCallback(
+    async (username: string) => {
+      if (!username) return;
+
+      setState((previous) => ({
+        ...previous,
+        actionError: null,
+        actionSuccess: null,
+        deletingUsername: username,
+      }));
+
+      try {
+        await forceDeleteUser(username);
+        await refreshDashboard();
+        setState((previous) => ({
+          ...previous,
+          actionSuccess: `User ${username} berhasil dihapus dari RADIUS`,
+        }));
+      } catch (error) {
+        setState((previous) => ({
+          ...previous,
+          actionError: getRadiusErrorMessage(
+            error,
+            RADIUS_MESSAGES.ERROR.DELETE_USER,
+          ),
+        }));
+      } finally {
+        setState((previous) => ({
+          ...previous,
+          deletingUsername: null,
+        }));
+      }
+    },
+    [forceDeleteUser, refreshDashboard],
+  );
+
   return {
     ...state,
     setActionError: (value: string | null) => {
@@ -82,5 +122,6 @@ export function useRadiusResetState({
     },
     clearActionMessages,
     resetConnection: resetConnectionAction,
+    forceDeleteUser: forceDeleteUserAction,
   };
 }

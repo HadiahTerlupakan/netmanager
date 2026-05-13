@@ -14,6 +14,8 @@ export const RADIUS_API = {
   SESSION_HISTORY: (username: string) =>
     `/api/admin/radius/sessions/${encodeURIComponent(username)}/history`,
   RESET_CONNECTION: "/api/admin/radius/sessions/reset",
+  FORCE_DELETE_USER: (username: string) =>
+    `/api/admin/radius/users/${encodeURIComponent(username)}`,
 } as const;
 
 export const RADIUS_MESSAGES = {
@@ -21,5 +23,6 @@ export const RADIUS_MESSAGES = {
     DASHBOARD: "Gagal memuat dashboard RADIUS",
     HISTORY: "Gagal memuat history sesi",
     RESET: "Gagal reset koneksi",
+    DELETE_USER: "Gagal menghapus user dari RADIUS",
   },
 } as const;

@@ -77,14 +77,14 @@ export class RadiusSyncService {
   }
 
   /**
-   * Sync all active customers to RADIUS
+   * Sync all active customers to RADIUS, optionally scoped to a tenant
    */
-  async syncAllActiveCustomers(): Promise<{
+  async syncAllActiveCustomers(tenantId?: string): Promise<{
     created: number;
     updated: number;
     deleted: number;
   }> {
-    return this.radiusRepo.syncAllActiveCustomers();
+    return this.radiusRepo.syncAllActiveCustomers(tenantId);
   }
 
   async deleteRadiusUserByUsername(
@@ -164,6 +164,16 @@ export class RadiusSyncService {
       tenantId,
     );
     return Boolean(pelanggan);
+  }
+
+  async ensurePelangganIdBelongsToTenant(
+    pelangganId: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    const pelanggan = await this.networkRepo.findPelangganBasic(pelangganId);
+    if (!pelanggan) return false;
+    if (!pelanggan.tenantId) return false;
+    return pelanggan.tenantId === tenantId;
   }
 
   async getSessionHistoryView(
@@ -284,6 +294,39 @@ export class RadiusSyncService {
       tenantId,
       nasIpAddress,
     );
+  }
+
+  /** List orphan RADIUS usernames (no matching pelanggan). */
+  async listOrphanRadiusUsers(tenantId: string): Promise<string[]> {
+    return this.radiusRepo.findOrphanUsernames(tenantId);
+  }
+
+  /** Delete orphan RADIUS users. If usernames provided, only delete those. */
+  async cleanupOrphanRadiusUsers(
+    tenantId: string,
+    usernames?: string[],
+  ): Promise<{ deleted: number }> {
+    const targets =
+      usernames && usernames.length > 0
+        ? usernames
+        : await this.radiusRepo.findOrphanUsernames(tenantId);
+
+    if (targets.length === 0) return { deleted: 0 };
+
+    const deleted = await this.radiusRepo.deleteOrphanUsers(targets, tenantId);
+    return { deleted };
+  }
+
+  /** Force remove a RADIUS user (credentials + close active sessions). */
+  async forceRemoveRadiusUser(
+    username: string,
+    tenantId: string,
+  ): Promise<{ deleted: number }> {
+    const deleted = await this.radiusRepo.deleteOrphanUsers(
+      [username],
+      tenantId,
+    );
+    return { deleted };
   }
 }
 

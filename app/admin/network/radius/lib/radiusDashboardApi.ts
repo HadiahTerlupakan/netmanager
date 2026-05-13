@@ -208,6 +208,10 @@ export type RadiusResetResult = {
   pelangganId?: string;
 };
 
+export type RadiusForceDeleteResult = {
+  deleted: number;
+};
+
 export interface RadiusDashboardApi {
   getStats: () => Promise<RadiusDashboardStatsViewModel>;
   getRecentSessions: () => Promise<RadiusRecentSessionsViewModel>;
@@ -219,6 +223,7 @@ export interface RadiusDashboardApi {
     endDate?: string;
   }) => Promise<RadiusSessionHistoryData>;
   resetConnection: (username: string) => Promise<RadiusResetResult>;
+  forceDeleteUser: (username: string) => Promise<RadiusForceDeleteResult>;
 }
 
 function buildRecentSessionsUrl(): string {
@@ -257,6 +262,10 @@ const radiusResetResultSchema = z.object({
   pelangganId: z.string().optional(),
 }) satisfies z.ZodType<RadiusResetResult>;
 
+const radiusForceDeleteResultSchema = z.object({
+  deleted: z.number(),
+}) satisfies z.ZodType<RadiusForceDeleteResult>;
+
 /**
  * Create typed dashboard API for RADIUS dashboard consumers.
  */
@@ -282,6 +291,12 @@ export function createRadiusDashboardApi(): RadiusDashboardApi {
         RADIUS_API.RESET_CONNECTION,
         radiusResetResultSchema,
         buildResetRequestBody(username),
+      ),
+    forceDeleteUser: async (username) =>
+      fetchDashboardResource(
+        RADIUS_API.FORCE_DELETE_USER(username),
+        radiusForceDeleteResultSchema,
+        { method: "DELETE" },
       ),
   };
 }

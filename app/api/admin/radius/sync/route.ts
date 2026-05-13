@@ -1,23 +1,28 @@
-import { RadiusSyncService } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+import { RadiusSyncService } from "@/modules/network";
+import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
 
-export const POST = createHandler({ auth: true }, async (_req, _ctx) => {
-    if (!await hasPermission('radius:update')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk sinkronisasi RADIUS');
+const radiusSyncService = new RadiusSyncService();
+
+export const POST = createHandler(
+  { auth: true, permissions: ["radius:update"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
     }
 
-    const syncService = new RadiusSyncService();
+    const result = await radiusSyncService.syncAllActiveCustomers(tenantId);
 
-    // Sync all active customers
-    const result = await syncService.syncAllActiveCustomers();
-
-    return apiSuccess({
+    return apiSuccess(
+      {
         stats: {
-            created: result.created,
-            updated: result.updated,
-            deleted: result.deleted,
-            total: result.created + result.updated + result.deleted,
-        }
-    }, { message: 'Sinkronisasi RADIUS selesai' });
-})
+          created: result.created,
+          updated: result.updated,
+          deleted: result.deleted,
+          total: result.created + result.updated + result.deleted,
+        },
+      },
+      { message: "Sinkronisasi RADIUS selesai" },
+    );
+  },
+);

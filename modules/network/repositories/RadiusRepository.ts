@@ -62,6 +62,64 @@ export class RadiusRepository
   ): Promise<void> {
     await this.ipPoolRepository.syncIpPoolToRadius(poolName, ipRange, tenantId);
   }
+
+  /** Find RADIUS usernames that have no matching pelanggan record. */
+  async findOrphanUsernames(tenantId: string): Promise<string[]> {
+    const radcheckUsers = await this.radiusClient.radcheck.findMany({
+      where: { tenantId, attribute: "Cleartext-Password" },
+      select: { username: true },
+      distinct: ["username"],
+    });
+
+    if (radcheckUsers.length === 0) return [];
+
+    const usernames = radcheckUsers.map((r) => r.username);
+
+    const existingPelanggans = await this.prisma.pelanggan.findMany({
+      where: {
+        username: { in: usernames },
+        OR: [{ tenantId }, { tenantId: null }],
+      },
+      select: { username: true },
+    });
+
+    const existingSet = new Set(existingPelanggans.map((p) => p.username));
+    return usernames.filter((u) => !existingSet.has(u));
+  }
+
+  /** Delete multiple orphan RADIUS users in bulk and close their active sessions. */
+  async deleteOrphanUsers(
+    usernames: string[],
+    tenantId: string,
+  ): Promise<number> {
+    if (usernames.length === 0) return 0;
+
+    const now = new Date();
+    const [checkResult] = await this.radiusClient.$transaction([
+      this.radiusClient.radcheck.deleteMany({
+        where: { username: { in: usernames }, tenantId },
+      }),
+      this.radiusClient.radreply.deleteMany({
+        where: { username: { in: usernames }, tenantId },
+      }),
+      this.radiusClient.radusergroup.deleteMany({
+        where: { username: { in: usernames }, tenantId },
+      }),
+      this.radiusClient.radacct.updateMany({
+        where: {
+          username: { in: usernames },
+          tenantId,
+          acctstoptime: null,
+        },
+        data: {
+          acctstoptime: now,
+          acctterminatecause: "Admin-Reset",
+        },
+      }),
+    ]);
+
+    return checkResult.count;
+  }
 }
 
 export default RadiusRepository;
