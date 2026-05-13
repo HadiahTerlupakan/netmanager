@@ -8,7 +8,6 @@ import type {
   IInvoiceRepository,
   InvoiceWithPayment,
 } from "../domain/ports/IInvoiceRepository";
-import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { Status } from "../types/invoice.enums";
 
@@ -65,17 +64,6 @@ export class AutomaticIsolationExecutionService {
       pelanggan.id,
       Status.ISOLIR,
     );
-
-    await notifyCustomerFinanceNotification({
-      userId: pelanggan.userId,
-      title: "Layanan Diisolir",
-      message:
-        "Layanan internet Anda telah diisolir karena melewati batas pembayaran. Mohon segera lakukan pembayaran.",
-      link: "/tagihan",
-      sourceType: "BILLING",
-      sourceId: pelanggan.id,
-      priority: "HIGH",
-    });
 
     await logger.logActivity({
       action: "UPDATE",

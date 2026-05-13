@@ -45,7 +45,6 @@ export class AutomaticBillingService {
     if (!this.invoiceCreationService) {
       this.invoiceCreationService = new BillingInvoiceCreationService(
         this.invoiceRepo,
-        this.getSettingsRepo(),
       );
     }
 

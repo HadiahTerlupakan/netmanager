@@ -10,6 +10,15 @@ interface CustomerFinanceNotificationInput {
   priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
 }
 
+/**
+ * @deprecated Sejak Phase 6 (Event-Driven Refactor). Notifikasi pelanggan sekarang
+ * dipicu via event bus (CUSTOMER_ISOLATED, INVOICE_PAID, INVOICE_REMINDER_DUE, dll)
+ * dan di-dispatch ke multi-channel (WA/Email/Push/In-App) oleh
+ * `NotificationDispatcher`.
+ *
+ * JANGAN tambah caller baru. Gunakan event emission via `BillingEventDispatcher`
+ * atau `CustomerEventDispatcher`.
+ */
 export async function notifyCustomerFinanceNotification(
   input: CustomerFinanceNotificationInput,
 ): Promise<boolean> {

@@ -1,8 +1,5 @@
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
-import { sendCustomerPushNotification } from "@/modules/notification";
-import { AttendanceSettingsService } from "@/modules/attendance";
-import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
 type BillingCustomerPayload = {
@@ -21,10 +18,7 @@ type BillingCustomerPayload = {
 };
 
 export class BillingInvoiceCreationService {
-  constructor(
-    private readonly invoiceRepo = new InvoiceRepository(),
-    private readonly settingsRepo = new AttendanceSettingsService(),
-  ) {}
+  constructor(private readonly invoiceRepo = new InvoiceRepository()) {}
 
   /** Create invoice and send customer notifications. */
   async createInvoiceForCustomer(
@@ -38,7 +32,6 @@ export class BillingInvoiceCreationService {
       },
     });
 
-    await this.notifyInvoiceCreated(customer, invoice, dueDate);
     await this.logInvoiceCreated(customer, invoice);
     await this.publishInvoiceCreated(customer, invoice, dueDate);
     const { syncInvoiceBillingSchedules } =
@@ -96,59 +89,6 @@ export class BillingInvoiceCreationService {
       .toUpperCase();
 
     return `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix}`;
-  }
-
-  private async notifyInvoiceCreated(
-    customer: BillingCustomerPayload,
-    invoice: { id: string; totalAmount: bigint },
-    dueDate: Date,
-  ) {
-    const message = `Tagihan bulan ini sebesar Rp ${Number(invoice.totalAmount).toLocaleString("id-ID")} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString("id-ID")}.`;
-
-    await notifyCustomerFinanceNotification({
-      userId: customer.userId,
-      title: "Tagihan Baru Tersedia",
-      message,
-      link: "/tagihan",
-      sourceType: "INVOICE",
-      sourceId: invoice.id,
-      priority: "NORMAL",
-    }).catch((error) => {
-      logger.error(
-        `[Billing] Failed to send notification for ${customer.nama}:`,
-        error,
-      );
-    });
-
-    await this.sendPushNotification(customer, invoice.id, message);
-  }
-
-  private async sendPushNotification(
-    customer: BillingCustomerPayload,
-    invoiceId: string,
-    message: string,
-  ) {
-    try {
-      const notifAppSetting =
-        await this.settingsRepo.findByKey("GENERAL_NOTIF_APP");
-      if (notifAppSetting?.value === "false") return;
-
-      await sendCustomerPushNotification(
-        customer.id,
-        "Tagihan Baru Tersedia",
-        message,
-        {
-          type: "INVOICE_GENERATED",
-          invoiceId,
-          url: "/(customer)/tagihan",
-        },
-      );
-    } catch (error) {
-      logger.error(
-        `[Billing] Failed to send push notification for ${customer.nama}:`,
-        error,
-      );
-    }
   }
 
   private async logInvoiceCreated(

@@ -1,7 +1,6 @@
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { AttendanceSettingsService } from "@/modules/attendance";
-import { sendCustomerPushNotification } from "@/modules/notification";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
 const REMINDER_BATCH_SIZE = 50;
@@ -76,6 +75,8 @@ export class BillingReminderService {
         dueDate: true,
         totalAmount: true,
         paidAmount: true,
+        invoiceNumber: true,
+        tenantId: true,
       },
     );
   }
@@ -113,6 +114,8 @@ export class BillingReminderService {
       dueDate: Date;
       totalAmount: bigint;
       paidAmount: bigint;
+      invoiceNumber: string;
+      tenantId: string | null;
     }>,
   ) {
     for (let i = 0; i < unpaidInvoices.length; i += REMINDER_BATCH_SIZE) {
@@ -127,24 +130,35 @@ export class BillingReminderService {
     dueDate: Date;
     totalAmount: bigint;
     paidAmount: bigint;
+    invoiceNumber: string;
+    tenantId: string | null;
   }) {
     const amountDue = invoice.totalAmount - invoice.paidAmount;
-    const dueDateStr = invoice.dueDate.toLocaleDateString("id-ID");
+    const today = new Date();
+    const daysUntilDue = Math.floor(
+      (invoice.dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const reminderType: "UPCOMING" | "DUE_TODAY" | "OVERDUE" =
+      daysUntilDue < 0
+        ? "OVERDUE"
+        : daysUntilDue === 0
+          ? "DUE_TODAY"
+          : "UPCOMING";
 
     try {
-      await sendCustomerPushNotification(
-        invoice.pelangganId,
-        "Pengingat Tagihan",
-        `Tagihan sebesar Rp ${Number(amountDue).toLocaleString("id-ID")} jatuh tempo pada ${dueDateStr}. Abaikan bila sudah membayar.`,
-        {
-          type: "PAYMENT_REMINDER",
-          invoiceId: invoice.id,
-          url: "/(customer)/tagihan",
-        },
-      );
+      const { BillingEventDispatcher } = await import("@/modules/events");
+      await BillingEventDispatcher.onInvoiceReminderDue({
+        invoiceId: invoice.id,
+        pelangganId: invoice.pelangganId,
+        invoiceNumber: invoice.invoiceNumber,
+        amountDue: Number(amountDue),
+        dueDate: invoice.dueDate.toLocaleDateString("id-ID"),
+        reminderType,
+        tenantId: invoice.tenantId ?? undefined,
+      });
     } catch (error) {
       logger.error(
-        `[Billing] Error sending reminder for invoice ${invoice.id}:`,
+        `[Billing] Error emitting reminder event for invoice ${invoice.id}:`,
         error,
       );
     }

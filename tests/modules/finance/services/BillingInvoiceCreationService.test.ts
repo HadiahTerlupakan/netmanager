@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BillingInvoiceCreationService } from "@/modules/finance/services/BillingInvoiceCreationService";
 import type { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
-import type { AttendanceSettingsService } from "@/modules/attendance";
 
 // Mock dependencies
 vi.mock("@/lib/logger", () => ({
@@ -16,14 +15,6 @@ vi.mock("@/lib/logger", () => ({
     apiRequest: vi.fn(),
     dbOperation: vi.fn(),
   },
-}));
-
-vi.mock("@/modules/notification", () => ({
-  sendCustomerPushNotification: vi.fn(() => Promise.resolve()),
-}));
-
-vi.mock("@/modules/finance/utils/customerFinanceNotifications", () => ({
-  notifyCustomerFinanceNotification: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/lib/event-bus", () => ({
@@ -50,7 +41,6 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
 describe("BillingInvoiceCreationService", () => {
   let service: BillingInvoiceCreationService;
   let mockInvoiceRepo: InvoiceRepository;
-  let mockSettingsRepo: AttendanceSettingsService;
 
   const mockCustomer = {
     id: "customer-1",
@@ -94,23 +84,12 @@ describe("BillingInvoiceCreationService", () => {
       update: vi.fn(),
     } as unknown as InvoiceRepository;
 
-    mockSettingsRepo = {
-      findByKey: vi.fn(),
-    } as unknown as AttendanceSettingsService;
-
-    service = new BillingInvoiceCreationService(
-      mockInvoiceRepo,
-      mockSettingsRepo,
-    );
+    service = new BillingInvoiceCreationService(mockInvoiceRepo);
   });
 
   describe("createInvoiceForCustomer", () => {
     it("harus membuat invoice dengan PPN 11%", async () => {
       vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
-      vi.mocked(mockSettingsRepo.findByKey).mockResolvedValue({
-        key: "GENERAL_NOTIF_APP",
-        value: "true",
-      } as never);
 
       const dueDate = new Date("2026-05-31");
       const result = await service.createInvoiceForCustomer(
@@ -180,69 +159,6 @@ describe("BillingInvoiceCreationService", () => {
       expect(invoiceNumber).toMatch(/^INV\/\d{4}\/\d{2}\/\d{2}-[A-Z0-9]{12}$/);
     });
 
-    it("harus mengirim notifikasi ke customer", async () => {
-      const { notifyCustomerFinanceNotification } =
-        await import("@/modules/finance/utils/customerFinanceNotifications");
-
-      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
-      vi.mocked(mockSettingsRepo.findByKey).mockResolvedValue({
-        key: "GENERAL_NOTIF_APP",
-        value: "true",
-      } as never);
-
-      const dueDate = new Date("2026-05-31");
-      await service.createInvoiceForCustomer(mockCustomer, dueDate);
-
-      expect(notifyCustomerFinanceNotification).toHaveBeenCalledWith({
-        userId: "user-1",
-        title: "Tagihan Baru Tersedia",
-        message: expect.stringContaining("Tagihan bulan ini sebesar"),
-        link: "/tagihan",
-        sourceType: "INVOICE",
-        sourceId: "invoice-1",
-        priority: "NORMAL",
-      });
-    });
-
-    it("harus mengirim push notification jika setting enabled", async () => {
-      const { sendCustomerPushNotification } =
-        await import("@/modules/notification");
-
-      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
-      vi.mocked(mockSettingsRepo.findByKey).mockResolvedValue({
-        key: "GENERAL_NOTIF_APP",
-        value: "true",
-      } as never);
-
-      await service.createInvoiceForCustomer(mockCustomer, new Date());
-
-      expect(sendCustomerPushNotification).toHaveBeenCalledWith(
-        "customer-1",
-        "Tagihan Baru Tersedia",
-        expect.any(String),
-        {
-          type: "INVOICE_GENERATED",
-          invoiceId: "invoice-1",
-          url: "/(customer)/tagihan",
-        },
-      );
-    });
-
-    it("harus skip push notification jika setting disabled", async () => {
-      const { sendCustomerPushNotification } =
-        await import("@/modules/notification");
-
-      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
-      vi.mocked(mockSettingsRepo.findByKey).mockResolvedValue({
-        key: "GENERAL_NOTIF_APP",
-        value: "false",
-      } as never);
-
-      await service.createInvoiceForCustomer(mockCustomer, new Date());
-
-      expect(sendCustomerPushNotification).not.toHaveBeenCalled();
-    });
-
     it("harus log activity untuk invoice creation", async () => {
       const { logger } = await import("@/lib/logger");
 
@@ -287,27 +203,6 @@ describe("BillingInvoiceCreationService", () => {
       );
 
       expect(mockSyncInvoiceBillingSchedules).toHaveBeenCalledWith(mockInvoice);
-    });
-
-    it("harus handle error saat notification gagal tanpa throw", async () => {
-      const { notifyCustomerFinanceNotification } =
-        await import("@/modules/finance/utils/customerFinanceNotifications");
-      const { logger } = await import("@/lib/logger");
-
-      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
-      vi.mocked(notifyCustomerFinanceNotification).mockRejectedValue(
-        new Error("Notification failed"),
-      );
-
-      // Should not throw
-      await expect(
-        service.createInvoiceForCustomer(mockCustomer, new Date()),
-      ).resolves.toBeDefined();
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to send notification"),
-        expect.any(Error),
-      );
     });
 
     it("harus calculate PPN dengan custom percentage", async () => {

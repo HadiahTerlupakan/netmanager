@@ -2,7 +2,6 @@ import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import { CustomerEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
-import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 
 export class VoidInvoiceService {
   private invoiceRepo: InvoiceRepository;
@@ -111,23 +110,6 @@ export class VoidInvoiceService {
             radiusErr,
           );
         }
-      }
-
-      try {
-        await notifyCustomerFinanceNotification({
-          userId: pelanggan.userId,
-          title: "Tagihan Dibatalkan",
-          message: `Tagihan ${invoice.invoiceNumber} telah dibatalkan oleh admin. Alasan: ${reason}`,
-          link: "/tagihan",
-          sourceType: "INVOICE",
-          sourceId: invoice.id,
-          priority: "HIGH",
-        });
-      } catch (notifErr) {
-        logger.error(
-          "[VoidInvoiceService] Failed to send notification:",
-          notifErr,
-        );
       }
 
       await logger.logActivity({

@@ -5,7 +5,6 @@ const mockFns = vi.hoisted(() => ({
   bridgeFindById: vi.fn(),
   getAutoIsolationSettings: vi.fn(),
   updateStatusPelanggan: vi.fn(),
-  notifyCustomerFinanceNotification: vi.fn(),
   logActivity: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
@@ -30,10 +29,6 @@ vi.mock("@/modules/settings", () => ({
   getAutoIsolationSettings: mockFns.getAutoIsolationSettings,
 }));
 
-vi.mock("@/modules/finance/utils/customerFinanceNotifications", () => ({
-  notifyCustomerFinanceNotification: mockFns.notifyCustomerFinanceNotification,
-}));
-
 vi.mock("@/lib/logger", () => ({
   logger: {
     logActivity: mockFns.logActivity,
@@ -51,7 +46,6 @@ describe("AutomaticIsolationExecutionService", () => {
       enabled: true,
       toleranceDays: 3,
     });
-    mockFns.notifyCustomerFinanceNotification.mockResolvedValue(true);
     mockFns.logActivity.mockResolvedValue(undefined);
   });
 
@@ -79,7 +73,6 @@ describe("AutomaticIsolationExecutionService", () => {
 
     expect(result).toBe(false);
     expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
-    expect(mockFns.notifyCustomerFinanceNotification).not.toHaveBeenCalled();
     expect(mockFns.logActivity).not.toHaveBeenCalled();
   });
 
@@ -110,12 +103,8 @@ describe("AutomaticIsolationExecutionService", () => {
       "cust-1",
       "ISOLIR",
     );
-    expect(mockFns.notifyCustomerFinanceNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-1",
-        sourceId: "cust-1",
-      }),
-    );
+    // Notifikasi sekarang via event CUSTOMER_ISOLATED (handler customer-notification.handler)
+    // bukan direct call — tidak perlu assert notifyCustomerFinanceNotification
     expect(mockFns.logActivity).toHaveBeenCalledWith({
       action: "UPDATE",
       subject: "Pelanggan (Auto Isolir)",
