@@ -206,38 +206,62 @@ export class UserRepository implements IUserRepository {
     data: UpdateUserRepositoryInput,
     userSites: UserSiteAssignmentInput[] | undefined,
   ): Promise<void> {
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { ...(data as Prisma.UserUpdateInput), updatedAt: new Date() },
-      });
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { ...(data as Prisma.UserUpdateInput), updatedAt: new Date() },
+        });
 
-      if (userSites === undefined) {
-        return;
-      }
+        if (userSites === undefined) {
+          return;
+        }
 
-      await tx.userSite.deleteMany({ where: { userId } });
+        if (userSites.length === 0) {
+          await tx.userSite.deleteMany({ where: { userId } });
+          await tx.user.update({
+            where: { id: userId },
+            data: { siteId: null },
+          });
+          return;
+        }
 
-      if (userSites.length === 0) {
-        await tx.user.update({ where: { id: userId }, data: { siteId: null } });
-        return;
-      }
+        const desiredSiteIds = new Set(userSites.map((us) => us.siteId));
+        const existing = await tx.userSite.findMany({
+          where: { userId },
+          select: { siteId: true },
+        });
+        const existingSiteIds = new Set(existing.map((us) => us.siteId));
 
-      await tx.userSite.createMany({
-        data: userSites.map((userSite) => ({
-          userId,
-          siteId: userSite.siteId,
-          isPrimary: userSite.isPrimary || false,
-        })),
-      });
+        const toDelete = [...existingSiteIds].filter(
+          (siteId) => !desiredSiteIds.has(siteId),
+        );
+        if (toDelete.length > 0) {
+          await tx.userSite.deleteMany({
+            where: { userId, siteId: { in: toDelete } },
+          });
+        }
 
-      const primarySite =
-        userSites.find((userSite) => userSite.isPrimary) ?? userSites[0];
-      await tx.user.update({
-        where: { id: userId },
-        data: { siteId: primarySite?.siteId ?? null },
-      });
-    });
+        for (const userSite of userSites) {
+          const isPrimary = userSite.isPrimary || false;
+          await tx.userSite.upsert({
+            where: {
+              userId_siteId: { userId, siteId: userSite.siteId },
+            },
+            update: { isPrimary },
+            create: { userId, siteId: userSite.siteId, isPrimary },
+          });
+        }
+
+        const primarySite =
+          userSites.find((userSite) => userSite.isPrimary) ?? userSites[0];
+        await tx.user.update({
+          where: { id: userId },
+          data: { siteId: primarySite?.siteId ?? null },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   /** Sinkronkan assignment multi-site user. */
@@ -249,23 +273,31 @@ export class UserRepository implements IUserRepository {
       return;
     }
 
-    await prisma.userSite.createMany({
-      data: userSites.map((userSite) => ({
-        userId,
-        siteId: userSite.siteId,
-        isPrimary: userSite.isPrimary || false,
-      })),
-    });
+    await prisma.$transaction(
+      async (tx) => {
+        for (const userSite of userSites) {
+          const isPrimary = userSite.isPrimary || false;
+          await tx.userSite.upsert({
+            where: {
+              userId_siteId: { userId, siteId: userSite.siteId },
+            },
+            update: { isPrimary },
+            create: { userId, siteId: userSite.siteId, isPrimary },
+          });
+        }
 
-    const primarySite = userSites.find((userSite) => userSite.isPrimary);
-    if (!primarySite) {
-      return;
-    }
+        const primarySite = userSites.find((userSite) => userSite.isPrimary);
+        if (!primarySite) {
+          return;
+        }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { siteId: primarySite.siteId },
-    });
+        await tx.user.update({
+          where: { id: userId },
+          data: { siteId: primarySite.siteId },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   /** Perbarui jam kerja user. */

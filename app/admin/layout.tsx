@@ -10,7 +10,6 @@ import { PushNotificationManager } from "@/components/notifications/PushNotifica
 import { PushNotificationProvider } from "@/components/notifications/PushNotificationContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { PublicBrandingProvider } from "@/contexts/PublicBrandingContext";
 import { ensureAdminAccess } from "@/lib/server-auth";
 
 export default async function AdminLayout({
@@ -37,27 +36,25 @@ export default async function AdminLayout({
     <RealtimeProviderWrapper>
       <ToastProvider>
         <SettingsProvider>
-          <PublicBrandingProvider>
-            <PermissionProvider>
-              <ForceLogoutListener />
-              <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
-                <Sidebar />
-                <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden md:pl-72">
-                  <AnnouncementBanner portal="admin" />
-                  <PushNotificationProvider>
-                    <PushNotificationManager className="mx-6 mt-4" />
-                    <Navbar />
-                  </PushNotificationProvider>
-                  <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
-                    <div className="p-6 w-full max-w-full overflow-x-hidden">
-                      <ErrorBoundary>{children}</ErrorBoundary>
-                    </div>
-                  </main>
-                  <Footer />
-                </div>
+          <PermissionProvider>
+            <ForceLogoutListener />
+            <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
+              <Sidebar />
+              <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden md:pl-72">
+                <AnnouncementBanner portal="admin" />
+                <PushNotificationProvider>
+                  <PushNotificationManager className="mx-6 mt-4" />
+                  <Navbar />
+                </PushNotificationProvider>
+                <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+                  <div className="p-6 w-full max-w-full overflow-x-hidden">
+                    <ErrorBoundary>{children}</ErrorBoundary>
+                  </div>
+                </main>
+                <Footer />
               </div>
-            </PermissionProvider>
-          </PublicBrandingProvider>
+            </div>
+          </PermissionProvider>
         </SettingsProvider>
       </ToastProvider>
     </RealtimeProviderWrapper>

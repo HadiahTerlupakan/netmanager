@@ -1,20 +1,22 @@
-'use client'
+"use client";
 
-import { Toaster } from 'react-hot-toast'
-import { ThemeProvider } from 'next-themes'
-import { SessionProvider } from 'next-auth/react'
+import { Toaster } from "react-hot-toast";
+import { ThemeProvider } from "next-themes";
+import { SessionProvider } from "next-auth/react";
+import { PublicBrandingProvider } from "@/contexts/PublicBrandingContext";
 
-export function Providers({ 
-  children,
-}: { 
-  children: React.ReactNode
-}) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} enableColorScheme={false}>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem={true}
+      enableColorScheme={false}
+    >
       <SessionProvider>
-        {children}
+        <PublicBrandingProvider>{children}</PublicBrandingProvider>
       </SessionProvider>
       <Toaster position="top-right" />
     </ThemeProvider>
-  )
+  );
 }

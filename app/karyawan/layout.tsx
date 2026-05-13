@@ -4,7 +4,6 @@ import Footer from "@/components/layout/Footer";
 import RealtimeProviderWrapper from "@/components/providers/RealtimeProviderWrapper";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { PublicBrandingProvider } from "@/contexts/PublicBrandingContext";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import AnnouncementBanner from "@/components/announcement/AnnouncementBanner";
 import ForceLogoutListener from "@/components/auth/ForceLogoutListener";
@@ -23,24 +22,22 @@ export default async function KaryawanLayout({
     <RealtimeProviderWrapper>
       <ToastProvider>
         <SettingsProvider>
-          <PublicBrandingProvider>
-            <ForceLogoutListener />
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
-              <EmployeeSidebar />
-              <div className="flex-1 flex flex-col min-w-0">
-                <AnnouncementBanner portal="employee" />
-                <PushNotificationProvider>
-                  <Navbar />
-                </PushNotificationProvider>
-                <main className="flex-1 overflow-y-auto">
-                  <div className="p-6">
-                    <ErrorBoundary>{children}</ErrorBoundary>
-                  </div>
-                </main>
-                <Footer />
-              </div>
+          <ForceLogoutListener />
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
+            <EmployeeSidebar />
+            <div className="flex-1 flex flex-col min-w-0">
+              <AnnouncementBanner portal="employee" />
+              <PushNotificationProvider>
+                <Navbar />
+              </PushNotificationProvider>
+              <main className="flex-1 overflow-y-auto">
+                <div className="p-6">
+                  <ErrorBoundary>{children}</ErrorBoundary>
+                </div>
+              </main>
+              <Footer />
             </div>
-          </PublicBrandingProvider>
+          </div>
         </SettingsProvider>
       </ToastProvider>
     </RealtimeProviderWrapper>

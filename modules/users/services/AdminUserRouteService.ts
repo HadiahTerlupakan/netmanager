@@ -119,12 +119,25 @@ export class AdminUserRouteService {
     const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
     const allowedSiteIds = isRestricted ? siteIds : undefined;
 
-    await this.updateService.persistUpdate(
-      userId,
-      data.data,
-      payload.userSites,
-      allowedSiteIds,
-    );
+    try {
+      await this.updateService.persistUpdate(
+        userId,
+        data.data,
+        payload.userSites,
+        allowedSiteIds,
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return fail(
+          409,
+          "Site sudah terdaftar untuk user ini, silakan refresh dan coba lagi",
+        );
+      }
+      throw error;
+    }
     await this.updateService.runAfterUpdate(userId, payload);
     return { ok: true, data: { ok: true } } satisfies UserRouteResult<{
       ok: true;
