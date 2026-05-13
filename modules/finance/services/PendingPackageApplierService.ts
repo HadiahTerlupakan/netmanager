@@ -2,19 +2,40 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { BillingEventDispatcher } from "@/modules/events";
 
+type PendingCandidate = {
+  id: string;
+  nama: string;
+  hargaPaketId: string;
+  pendingPackageId: string;
+  tenantId: string | null;
+};
+
+type ApplyOutcome = "applied" | "stale" | "missing-package";
+
 /**
  * Scan pelanggan dengan pendingPackageApplyAt <= now, apply pending package,
  * emit PACKAGE_CHANGED event supaya handler Phase 7B disconnect + resync MikroTik.
- * Dijalankan oleh cron harian sebelum billing cycle lain.
+ * Dijalankan oleh cron sebelum billing cycle lain.
+ *
+ * Catatan timezone: `pendingPackageApplyAt` di-store sebagai timestamp UTC
+ * (Postgres timestamptz, default Prisma). Comparison di sini juga UTC.
+ * Kalau billing cycle pelanggan mengikuti zona Asia/Jakarta, pastikan
+ * `pendingPackageApplyAt` di-set ke instant UTC yang sesuai (mis. 17:00 UTC
+ * untuk awal hari Jakarta berikutnya).
  */
 export class PendingPackageApplierService {
-  /** Apply semua pending package yang sudah jatuh tempo. */
-  async applyDuePending(): Promise<{ applied: number; failed: number }> {
-    const now = new Date();
+  /**
+   * Apply semua pending package yang sudah jatuh tempo.
+   * `applyAtBefore` opsional — default `new Date()`. Berguna untuk test
+   * deterministic dan untuk mengeksplisitkan window cron.
+   */
+  async applyDuePending(
+    applyAtBefore: Date = new Date(),
+  ): Promise<{ applied: number; failed: number; staleSkipped: number }> {
     const candidates = await prisma.pelanggan.findMany({
       where: {
         pendingPackageId: { not: null },
-        pendingPackageApplyAt: { lte: now },
+        pendingPackageApplyAt: { lte: applyAtBefore },
       },
       select: {
         id: true,
@@ -27,13 +48,19 @@ export class PendingPackageApplierService {
 
     let applied = 0;
     let failed = 0;
+    let staleSkipped = 0;
 
     for (const pelanggan of candidates) {
       if (!pelanggan.pendingPackageId) continue;
 
       try {
-        await this.applyOnePendingPackage(pelanggan);
-        applied++;
+        const outcome = await this.applyOnePendingPackage(
+          pelanggan as PendingCandidate,
+          applyAtBefore,
+        );
+        if (outcome === "applied") applied++;
+        else if (outcome === "stale") staleSkipped++;
+        else failed++;
       } catch (err) {
         failed++;
         logger.error(
@@ -44,19 +71,47 @@ export class PendingPackageApplierService {
     }
 
     logger.info(
-      `[PendingPackageApplier] Processed ${candidates.length}: ${applied} applied, ${failed} failed`,
+      `[PendingPackageApplier] at ${applyAtBefore.toISOString()} (UTC) — processed ${candidates.length}: ${applied} applied, ${staleSkipped} stale, ${failed} failed`,
     );
-    return { applied, failed };
+    return { applied, failed, staleSkipped };
   }
 
-  /** Apply satu pending package: update DB lalu emit PACKAGE_CHANGED. */
-  private async applyOnePendingPackage(pelanggan: {
-    id: string;
-    nama: string;
-    hargaPaketId: string;
-    pendingPackageId: string;
-    tenantId: string | null;
-  }) {
+  /**
+   * Apply satu pending package secara atomic via optimistic update.
+   *
+   * Mencegah TOCTOU race: kalau di antara `findMany` dan update terjadi
+   * mutasi konkuren (admin cancel pending, IMMEDIATE upgrade ke paket
+   * berbeda, atau applier paralel sudah memproses), `updateMany` akan
+   * match 0 row dan kita skip — tidak emit event dengan oldPackageId
+   * yang salah.
+   */
+  private async applyOnePendingPackage(
+    pelanggan: PendingCandidate,
+    applyAtBefore: Date,
+  ): Promise<ApplyOutcome> {
+    const updateResult = await prisma.pelanggan.updateMany({
+      where: {
+        id: pelanggan.id,
+        hargaPaketId: pelanggan.hargaPaketId,
+        pendingPackageId: pelanggan.pendingPackageId,
+        pendingPackageApplyAt: { lte: applyAtBefore },
+      },
+      data: {
+        hargaPaketId: pelanggan.pendingPackageId,
+        pendingPackageId: null,
+        pendingPackageApplyAt: null,
+      },
+    });
+
+    if (updateResult.count === 0) {
+      logger.warn(
+        `[PendingPackageApplier] State pelanggan ${pelanggan.id} berubah sebelum apply (cancelled/IMMEDIATE-overridden/already-applied), skip.`,
+      );
+      return "stale";
+    }
+
+    // Setelah update sukses, snapshot `pelanggan.hargaPaketId` valid sebagai
+    // oldPackageId — updateMany barusan match exactly nilai itu di DB.
     const [oldPkg, newPkg] = await Promise.all([
       prisma.hargaPaket.findUnique({
         where: { id: pelanggan.hargaPaketId },
@@ -70,22 +125,11 @@ export class PendingPackageApplierService {
 
     if (!oldPkg || !newPkg) {
       logger.warn(
-        `[PendingPackageApplier] Paket lama/baru tidak ditemukan untuk ${pelanggan.id}`,
+        `[PendingPackageApplier] Paket lama/baru tidak ditemukan untuk ${pelanggan.id} setelah apply — emit event di-skip.`,
       );
-      throw new Error(`Paket tidak ditemukan untuk pelanggan ${pelanggan.id}`);
+      return "missing-package";
     }
 
-    // Apply: pindahkan pending → current, null-kan pending fields
-    await prisma.pelanggan.update({
-      where: { id: pelanggan.id },
-      data: {
-        hargaPaketId: pelanggan.pendingPackageId,
-        pendingPackageId: null,
-        pendingPackageApplyAt: null,
-      },
-    });
-
-    // Emit PACKAGE_CHANGED dengan applyTime IMMEDIATE — handler disconnect + resync
     await BillingEventDispatcher.onPackageChanged({
       customerId: pelanggan.id,
       customerName: pelanggan.nama,
@@ -102,5 +146,6 @@ export class PendingPackageApplierService {
     logger.info(
       `[PendingPackageApplier] Applied pending package for ${pelanggan.id}: ${pelanggan.hargaPaketId} → ${pelanggan.pendingPackageId}`,
     );
+    return "applied";
   }
 }

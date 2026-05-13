@@ -20,7 +20,7 @@ vi.mock("@/lib/logger", () => ({
 const mockPrisma = vi.hoisted(() => ({
   pelanggan: {
     findMany: vi.fn(),
-    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   hargaPaket: {
     findUnique: vi.fn(),
@@ -73,38 +73,41 @@ describe("PendingPackageApplierService", () => {
   });
 
   describe("applyDuePending", () => {
-    it("mengembalikan zero applied/failed kalau tidak ada kandidat", async () => {
+    it("mengembalikan zero applied/failed/staleSkipped kalau tidak ada kandidat", async () => {
       mockPrisma.pelanggan.findMany.mockResolvedValue([]);
 
       const result = await service.applyDuePending();
 
       expect(result.applied).toBe(0);
       expect(result.failed).toBe(0);
-      expect(mockPrisma.pelanggan.update).not.toHaveBeenCalled();
+      expect(result.staleSkipped).toBe(0);
+      expect(mockPrisma.pelanggan.updateMany).not.toHaveBeenCalled();
       expect(mockOnPackageChanged).not.toHaveBeenCalled();
     });
 
     it("apply kandidat yang sudah jatuh tempo dan emit PACKAGE_CHANGED", async () => {
       mockPrisma.pelanggan.findMany.mockResolvedValue([candidatePelanggan]);
+      mockPrisma.pelanggan.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.hargaPaket.findUnique
         .mockResolvedValueOnce(oldPkg)
         .mockResolvedValueOnce(newPkg);
-      mockPrisma.pelanggan.update.mockResolvedValue({
-        ...candidatePelanggan,
-        hargaPaketId: "paket-baru",
-        pendingPackageId: null,
-        pendingPackageApplyAt: null,
-      });
 
       const result = await service.applyDuePending();
 
       expect(result.applied).toBe(1);
       expect(result.failed).toBe(0);
+      expect(result.staleSkipped).toBe(0);
 
-      // Verifikasi update DB
-      expect(mockPrisma.pelanggan.update).toHaveBeenCalledWith(
+      // Optimistic update — WHERE harus include id + hargaPaketId snapshot +
+      // pendingPackageId snapshot supaya atomic terhadap mutasi konkuren.
+      expect(mockPrisma.pelanggan.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "pelanggan-1" },
+          where: expect.objectContaining({
+            id: "pelanggan-1",
+            hargaPaketId: "paket-lama",
+            pendingPackageId: "paket-baru",
+            pendingPackageApplyAt: { lte: NOW },
+          }),
           data: expect.objectContaining({
             hargaPaketId: "paket-baru",
             pendingPackageId: null,
@@ -126,8 +129,23 @@ describe("PendingPackageApplierService", () => {
       );
     });
 
-    it("increment failed counter kalau paket tidak ditemukan", async () => {
+    it("skip sebagai stale (bukan failed) kalau state berubah konkuren — updateMany count 0", async () => {
       mockPrisma.pelanggan.findMany.mockResolvedValue([candidatePelanggan]);
+      mockPrisma.pelanggan.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.applyDuePending();
+
+      expect(result.applied).toBe(0);
+      expect(result.failed).toBe(0);
+      expect(result.staleSkipped).toBe(1);
+      // Tidak fetch package, tidak emit event saat stale
+      expect(mockPrisma.hargaPaket.findUnique).not.toHaveBeenCalled();
+      expect(mockOnPackageChanged).not.toHaveBeenCalled();
+    });
+
+    it("increment failed counter kalau paket tidak ditemukan setelah apply", async () => {
+      mockPrisma.pelanggan.findMany.mockResolvedValue([candidatePelanggan]);
+      mockPrisma.pelanggan.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.hargaPaket.findUnique
         .mockResolvedValueOnce(null) // oldPkg tidak ditemukan
         .mockResolvedValueOnce(null);
@@ -136,7 +154,6 @@ describe("PendingPackageApplierService", () => {
 
       expect(result.applied).toBe(0);
       expect(result.failed).toBe(1);
-      expect(mockPrisma.pelanggan.update).not.toHaveBeenCalled();
       expect(mockOnPackageChanged).not.toHaveBeenCalled();
     });
 
@@ -151,6 +168,7 @@ describe("PendingPackageApplierService", () => {
         candidatePelanggan,
         candidate2,
       ]);
+      mockPrisma.pelanggan.updateMany.mockResolvedValue({ count: 1 });
 
       // Kandidat 1: paket tidak ditemukan → fail
       // Kandidat 2: sukses
@@ -159,8 +177,6 @@ describe("PendingPackageApplierService", () => {
         .mockResolvedValueOnce(null) // newPkg kandidat 1
         .mockResolvedValueOnce(oldPkg) // oldPkg kandidat 2
         .mockResolvedValueOnce(newPkg); // newPkg kandidat 2
-
-      mockPrisma.pelanggan.update.mockResolvedValue({});
 
       const result = await service.applyDuePending();
 
@@ -179,6 +195,21 @@ describe("PendingPackageApplierService", () => {
           where: expect.objectContaining({
             pendingPackageId: { not: null },
             pendingPackageApplyAt: { lte: NOW },
+          }),
+        }),
+      );
+    });
+
+    it("hormati applyAtBefore param sebagai cutoff window", async () => {
+      const customCutoff = new Date("2026-05-13T18:00:00Z");
+      mockPrisma.pelanggan.findMany.mockResolvedValue([]);
+
+      await service.applyDuePending(customCutoff);
+
+      expect(mockPrisma.pelanggan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            pendingPackageApplyAt: { lte: customCutoff },
           }),
         }),
       );
