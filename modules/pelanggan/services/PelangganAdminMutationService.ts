@@ -96,25 +96,32 @@ export class PelangganAdminMutationService {
         updatePayload.data,
       );
 
-      // Phase 7D: Handle prorate + scheduled package change
+      // Phase 7D: Handle prorate + scheduled package change (best-effort)
       if (packageChanged) {
-        const { InvoiceProrateService } = await import("@/modules/finance");
-        const prorateResult =
-          await new InvoiceProrateService().applyPackageChange({
-            pelangganId: pelanggan.id,
-            oldHargaPaketId: existingPelanggan.hargaPaketId,
-            newHargaPaketId: normalizedData.hargaPaketId,
-            prorateOption: input.prorateOption ?? "NONE",
-            downgradeAdjustment: input.downgradeAdjustment ?? "NONE",
-            upgradeApplyTime: input.upgradeApplyTime ?? "IMMEDIATE",
-            userId: input.userId,
-          });
+        try {
+          const { InvoiceProrateService } = await import("@/modules/finance");
+          const prorateResult =
+            await new InvoiceProrateService().applyPackageChange({
+              pelangganId: pelanggan.id,
+              oldHargaPaketId: existingPelanggan.hargaPaketId,
+              newHargaPaketId: normalizedData.hargaPaketId,
+              prorateOption: input.prorateOption ?? "NONE",
+              downgradeAdjustment: input.downgradeAdjustment ?? "NONE",
+              upgradeApplyTime: input.upgradeApplyTime ?? "IMMEDIATE",
+              userId: input.userId,
+            });
 
-        // NEXT_CYCLE: InvoiceProrateService sudah revert hargaPaketId di DB.
-        // Patch object in-memory supaya syncUpdatedCustomer tidak detect package change
-        // (PACKAGE_CHANGED tidak di-emit sekarang — PendingPackageApplier yang emit nanti).
-        if (!prorateResult.applied) {
-          pelanggan.hargaPaketId = existingPelanggan.hargaPaketId;
+          // NEXT_CYCLE: InvoiceProrateService sudah revert hargaPaketId di DB.
+          // Patch object in-memory supaya syncUpdatedCustomer tidak detect package change
+          // (PACKAGE_CHANGED tidak di-emit sekarang — PendingPackageApplier yang emit nanti).
+          if (!prorateResult.applied) {
+            pelanggan.hargaPaketId = existingPelanggan.hargaPaketId;
+          }
+        } catch (prorateError) {
+          logger.error(
+            "[PelangganAdminMutationService] Prorate gagal (best-effort), update tetap dilanjutkan:",
+            prorateError instanceof Error ? prorateError : undefined,
+          );
         }
       }
 

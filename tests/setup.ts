@@ -57,6 +57,7 @@ export type MockPrismaClient = {
   pengeluaran: MockModel;
   permission: MockModel;
   profilePPP: MockModel;
+  proratePaymentLog: MockModel;
   purchaseRequest: MockModel;
   rabActualAchievement: MockModel;
   rabInvestor: MockModel;

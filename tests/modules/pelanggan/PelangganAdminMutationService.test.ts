@@ -105,17 +105,33 @@ describe("PelangganAdminMutationService — emit PACKAGE_CHANGED", () => {
   });
 
   it("emit PACKAGE_CHANGED saat hargaPaketId berubah dengan applyTime IMMEDIATE (default)", async () => {
-    prismaMock.hargaPaket.findUnique
-      .mockResolvedValueOnce({
-        id: "pkg-old",
-        harga: 100_000,
-        profilePPP: { name: "Profile-10M" },
-      })
-      .mockResolvedValueOnce({
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      id: "pel-1",
+      jatuhTempo: new Date("2026-06-01"),
+      tanggalAktif: new Date("2026-05-01"),
+      hargaPaketId: "pkg-old",
+      tenantId: "tenant-1",
+    });
+    prismaMock.hargaPaket.findUnique.mockImplementation(({ where }) => {
+      if (where.id === "pkg-old") {
+        return Promise.resolve({
+          id: "pkg-old",
+          harga: 100_000,
+          durasi: 30,
+          durasiUnit: "HARI",
+          profilePPP: { name: "Profile-10M" },
+        });
+      }
+      return Promise.resolve({
         id: "pkg-new",
         harga: 150_000,
+        durasi: 30,
+        durasiUnit: "HARI",
         profilePPP: { name: "Profile-20M" },
       });
+    });
+    prismaMock.pelanggan.update.mockResolvedValue({});
+    prismaMock.proratePaymentLog.create.mockResolvedValue({});
 
     await service.updatePppById({
       id: "pel-1",
@@ -138,18 +154,34 @@ describe("PelangganAdminMutationService — emit PACKAGE_CHANGED", () => {
     });
   });
 
-  it("emit PACKAGE_CHANGED dengan applyTime NEXT_CYCLE saat di-pass dari input", async () => {
-    prismaMock.hargaPaket.findUnique
-      .mockResolvedValueOnce({
-        id: "pkg-old",
-        harga: 100_000,
-        profilePPP: { name: "Profile-10M" },
-      })
-      .mockResolvedValueOnce({
+  it("tidak emit PACKAGE_CHANGED saat applyTime NEXT_CYCLE (handler emit oleh cron PendingPackageApplier)", async () => {
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      id: "pel-1",
+      jatuhTempo: new Date("2026-06-01"),
+      tanggalAktif: new Date("2026-05-01"),
+      hargaPaketId: "pkg-old",
+      tenantId: "tenant-1",
+    });
+    prismaMock.hargaPaket.findUnique.mockImplementation(({ where }) => {
+      if (where.id === "pkg-old") {
+        return Promise.resolve({
+          id: "pkg-old",
+          harga: 100_000,
+          durasi: 30,
+          durasiUnit: "HARI",
+          profilePPP: { name: "Profile-10M" },
+        });
+      }
+      return Promise.resolve({
         id: "pkg-new",
         harga: 150_000,
+        durasi: 30,
+        durasiUnit: "HARI",
         profilePPP: { name: "Profile-20M" },
       });
+    });
+    prismaMock.pelanggan.update.mockResolvedValue({});
+    prismaMock.proratePaymentLog.create.mockResolvedValue({});
 
     await service.updatePppById({
       id: "pel-1",
@@ -158,9 +190,9 @@ describe("PelangganAdminMutationService — emit PACKAGE_CHANGED", () => {
       data: BASE_INPUT_DATA,
     });
 
-    expect(mockFns.onPackageChanged).toHaveBeenCalledWith(
-      expect.objectContaining({ applyTime: "NEXT_CYCLE" }),
-    );
+    // NEXT_CYCLE → InvoiceProrateService revert hargaPaketId in-memory,
+    // syncUpdatedCustomer tidak detect package change.
+    expect(mockFns.onPackageChanged).not.toHaveBeenCalled();
   });
 
   it("tidak emit PACKAGE_CHANGED saat hargaPaketId tidak berubah", async () => {
@@ -179,7 +211,16 @@ describe("PelangganAdminMutationService — emit PACKAGE_CHANGED", () => {
   });
 
   it("tetap return hasil update meski resolvePackageContext gagal (best-effort)", async () => {
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      id: "pel-1",
+      jatuhTempo: new Date("2026-06-01"),
+      tanggalAktif: new Date("2026-05-01"),
+      hargaPaketId: "pkg-old",
+      tenantId: "tenant-1",
+    });
     prismaMock.hargaPaket.findUnique.mockRejectedValue(new Error("DB timeout"));
+    prismaMock.pelanggan.update.mockResolvedValue({});
+    prismaMock.proratePaymentLog.create.mockResolvedValue({});
 
     const result = await service.updatePppById({
       id: "pel-1",
