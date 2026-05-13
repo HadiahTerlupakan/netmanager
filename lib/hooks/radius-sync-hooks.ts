@@ -2,8 +2,12 @@ import { clientLogger } from "@/lib/client-logger";
 /**
  * RADIUS Auto-Sync Hooks
  *
- * Reusable functions to automatically sync customer changes to RADIUS.
- * Called after customer create/update/delete operations.
+ * @deprecated Sejak event-driven refactor (Phase 2). File ini akan dihapus di Phase 5.
+ * Sync MikroTik/RADIUS sekarang via `CustomerEventDispatcher` + handler
+ * di `modules/network/services/event-handlers/customer-status.handler.ts`.
+ *
+ * JANGAN tambah caller baru. Gunakan `CustomerEventDispatcher.onCreated/onUpdated/
+ * onSuspended/onActivated/onIsolated/onDeleted` yang sesuai.
  */
 
 import { PrismaClient, Status } from "@prisma/client";
