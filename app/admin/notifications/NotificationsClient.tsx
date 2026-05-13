@@ -10,6 +10,8 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineInformationCircle,
   HiOutlineTicket,
+  HiOutlineEnvelope,
+  HiOutlineArchiveBox,
 } from "react-icons/hi2";
 import { formatDistanceToNow, format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -197,6 +199,28 @@ export function ClientComponent() {
             Kelola dan lihat semua riwayat notifikasi Anda
           </p>
         </div>
+      </div>
+
+      {/* Observability links */}
+      <div className="flex gap-3 flex-wrap">
+        <Link
+          href="/admin/notifications/email-logs"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-sm"
+        >
+          <HiOutlineEnvelope className="w-4 h-4 text-indigo-500" />
+          Email Delivery Log
+        </Link>
+        <Link
+          href="/admin/notifications/dead-letter"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-red-300 dark:hover:border-red-600 transition-colors shadow-sm"
+        >
+          <HiOutlineArchiveBox className="w-4 h-4 text-red-500" />
+          Dead Letter Queue
+        </Link>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div />
 
         {notifications.some((n) => !n.isRead) && (
           <Button variant="outline" onClick={markAllAsRead}>
