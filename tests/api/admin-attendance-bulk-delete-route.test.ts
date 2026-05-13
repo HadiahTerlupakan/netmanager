@@ -100,21 +100,21 @@ describe("admin attendance bulk delete route", () => {
   it("returns 400 for malformed JSON before touching persistence", async () => {
     const { DELETE } = await import("@/app/api/admin/attendance/route");
 
-    const response = await DELETE(
-      new NextRequest("http://localhost/api/admin/attendance", {
-        method: "DELETE",
-        body: "{",
-        headers: { "content-type": "application/json" },
-      }),
-      {
-        session: {
-          user: {
-            id: "admin-1",
-            tenantId: "tenant-1",
-          },
-        },
-      } as never,
+    const req = new NextRequest("http://localhost/api/admin/attendance", {
+      method: "DELETE",
+    });
+    vi.spyOn(req, "json").mockRejectedValue(
+      new SyntaxError("Unexpected end of JSON input"),
     );
+
+    const response = await DELETE(req, {
+      session: {
+        user: {
+          id: "admin-1",
+          tenantId: "tenant-1",
+        },
+      },
+    } as never);
 
     const body = await response.json();
 
@@ -122,7 +122,7 @@ describe("admin attendance bulk delete route", () => {
     expect(body.error).toBe("Data tidak valid");
     expect(prismaMock.attendance.findMany).not.toHaveBeenCalled();
     expect(prismaMock.attendance.deleteMany).not.toHaveBeenCalled();
-  }, 20000);
+  });
 
   it("returns 400 for an empty ids payload before touching persistence", async () => {
     const { DELETE } = await import("@/app/api/admin/attendance/route");
