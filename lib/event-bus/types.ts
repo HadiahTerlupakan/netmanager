@@ -33,6 +33,7 @@ export const EVENT_NAMES = {
   INVOICE_CREATED: "billing:invoice.created",
   INVOICE_PAID: "billing:invoice.paid",
   INVOICE_OVERDUE: "billing:invoice.overdue",
+  INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_RECEIVED: "billing:payment.received",
   PAYMENT_FAILED: "billing:payment.failed",
 
@@ -41,6 +42,8 @@ export const EVENT_NAMES = {
   CUSTOMER_UPDATED: "customer:updated",
   CUSTOMER_SUSPENDED: "customer:suspended",
   CUSTOMER_ACTIVATED: "customer:activated",
+  CUSTOMER_ISOLATED: "customer:isolated",
+  CUSTOMER_DELETED: "customer:deleted",
 
   // Work Order Events
   WORK_ORDER_CREATED: "workorder:created",
@@ -121,6 +124,17 @@ export interface CustomerStatusPayload extends BaseEventPayload {
   customerName: string;
   oldStatus: string;
   newStatus: string;
+}
+
+export interface CustomerDeletedPayload extends BaseEventPayload {
+  customerId: string;
+  username: string;
+}
+
+export interface InvoiceAutoIsolatePayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string;
+  invoiceNumber: string;
 }
 
 export interface WorkOrderCreatedPayload extends BaseEventPayload {
@@ -262,12 +276,15 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload;
   [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
+  [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
   [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_SUSPENDED]: CustomerStatusPayload;
   [EVENT_NAMES.CUSTOMER_ACTIVATED]: CustomerStatusPayload;
+  [EVENT_NAMES.CUSTOMER_ISOLATED]: CustomerStatusPayload;
+  [EVENT_NAMES.CUSTOMER_DELETED]: CustomerDeletedPayload;
   [EVENT_NAMES.WORK_ORDER_CREATED]: WorkOrderCreatedPayload;
   [EVENT_NAMES.WORK_ORDER_ASSIGNED]: WorkOrderAssignedPayload;
   [EVENT_NAMES.WORK_ORDER_UPDATED]: WorkOrderUpdatedPayload;
@@ -357,6 +374,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     persistent: true,
     async: true,
   },
+  [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: {
+    name: EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
   [EVENT_NAMES.PAYMENT_RECEIVED]: {
     name: EVENT_NAMES.PAYMENT_RECEIVED,
     category: "billing",
@@ -395,6 +419,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.CUSTOMER_ACTIVATED]: {
     name: EVENT_NAMES.CUSTOMER_ACTIVATED,
+    category: "customer",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.CUSTOMER_ISOLATED]: {
+    name: EVENT_NAMES.CUSTOMER_ISOLATED,
+    category: "customer",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.CUSTOMER_DELETED]: {
+    name: EVENT_NAMES.CUSTOMER_DELETED,
     category: "customer",
     priority: JOB_PRIORITIES.HIGH,
     persistent: true,

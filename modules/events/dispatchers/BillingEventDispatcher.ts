@@ -1,5 +1,5 @@
-import type { Pelanggan } from '@prisma/client';
-import { eventBus, EVENT_NAMES } from '@/lib/event-bus';
+import type { Pelanggan } from "@prisma/client";
+import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 
 export class BillingEventDispatcher {
   /**
@@ -25,16 +25,24 @@ export class BillingEventDispatcher {
    * Menggunakan Outbox Pattern: event disimpan di DB dalam transaksi yang sama
    * dengan update invoice, sehingga dijamin ter-delivery meskipun BullMQ down.
    */
-  static async onInvoicePaid(invoiceId: string, pelangganId: string, amount?: number) {
-    await eventBus.publish(EVENT_NAMES.INVOICE_PAID, {
-      invoiceId,
-      pelangganId,
-      amount: amount ?? 0,
-      paidAt: new Date().toISOString(),
-    }, {
-      // Critical event — use highest priority
-      priority: 1,
-    });
+  static async onInvoicePaid(
+    invoiceId: string,
+    pelangganId: string,
+    amount?: number,
+  ) {
+    await eventBus.publish(
+      EVENT_NAMES.INVOICE_PAID,
+      {
+        invoiceId,
+        pelangganId,
+        amount: amount ?? 0,
+        paidAt: new Date().toISOString(),
+      },
+      {
+        // Critical event — use highest priority
+        priority: 1,
+      },
+    );
   }
 
   /**
@@ -47,5 +55,26 @@ export class BillingEventDispatcher {
       amount: 0,
       dueDate: new Date().toISOString(),
     });
+  }
+
+  /** Diemit oleh scheduler ketika invoice overdue + grace period habis dan pelanggan perlu di-isolir. */
+  static async onAutoIsolateRequested(data: {
+    invoiceId: string;
+    pelangganId: string;
+    invoiceNumber: string;
+    tenantId?: string;
+  }) {
+    await eventBus.publish(
+      EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED,
+      {
+        invoiceId: data.invoiceId,
+        pelangganId: data.pelangganId,
+        invoiceNumber: data.invoiceNumber,
+        tenantId: data.tenantId,
+      },
+      {
+        priority: 2,
+      },
+    );
   }
 }
