@@ -1,11 +1,10 @@
 import { logger } from "@/lib/logger";
-import { prismaBilling } from "@/lib/prisma-billing";
-import { prisma } from "@/modules/database";
+import type { IProrateRepository } from "../domain/ports/IProrateRepository";
+import { ProrateRepository } from "../repositories/ProrateRepository";
 
 /** Konstanta dan tipe pendukung. */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const PRORATE_INVOICE_DUE_DAYS = 7;
-const PROVIDER_REFUND_METHOD = "OTHER" as const;
 
 export type ProrateOption = "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
 export type DowngradeAdjustment = "NONE" | "REFUND" | "CREDIT";
@@ -73,6 +72,12 @@ type PelangganProrateContext = {
  * Untuk NEXT_CYCLE: revert hargaPaketId dan set pendingPackage fields.
  */
 export class InvoiceProrateService {
+  private readonly repo: IProrateRepository;
+
+  constructor(repo: IProrateRepository = new ProrateRepository()) {
+    this.repo = repo;
+  }
+
   /** Entry point utama — dispatch ke branch NEXT_CYCLE atau IMMEDIATE. */
   async applyPackageChange(
     input: ApplyPackageChangeInput,
@@ -112,13 +117,11 @@ export class InvoiceProrateService {
     sisaHari: number,
     totalHari: number,
   ): Promise<ApplyPackageChangeResult> {
-    await prisma.pelanggan.update({
-      where: { id: input.pelangganId },
-      data: {
-        hargaPaketId: input.oldHargaPaketId, // revert — scheduled change
-        pendingPackageId: input.newHargaPaketId,
-        pendingPackageApplyAt: pelanggan.jatuhTempo,
-      },
+    await this.repo.schedulePackageChange({
+      pelangganId: input.pelangganId,
+      oldHargaPaketId: input.oldHargaPaketId,
+      newHargaPaketId: input.newHargaPaketId,
+      applyAt: pelanggan.jatuhTempo,
     });
 
     await this.logProrateActivity({
@@ -218,11 +221,12 @@ export class InvoiceProrateService {
 
     if (charge <= 0n) return { charge: 0n };
 
-    const invoiceId = await this.createProrateInvoice({
+    const invoiceId = await this.repo.createProrateInvoice({
       pelangganId: params.pelanggan.id,
       amount: charge,
       tenantId: params.pelanggan.tenantId,
       description: `Prorate upgrade paket (${params.sisaHari} dari ${params.totalHari} hari)`,
+      dueAt: new Date(Date.now() + PRORATE_INVOICE_DUE_DAYS * MS_PER_DAY),
     });
 
     return { charge, invoiceId };
@@ -250,10 +254,7 @@ export class InvoiceProrateService {
     if (credit <= 0n) return { creditAmount: 0n };
 
     if (params.input.downgradeAdjustment === "CREDIT") {
-      await prisma.pelanggan.update({
-        where: { id: params.pelanggan.id },
-        data: { saldoKreditRupiah: { increment: credit } },
-      });
+      await this.repo.incrementSaldoKredit(params.pelanggan.id, credit);
       logger.info(
         `[InvoiceProrateService] Credit ${credit} applied to saldo for ${params.pelanggan.id}`,
       );
@@ -261,7 +262,7 @@ export class InvoiceProrateService {
     }
 
     if (params.input.downgradeAdjustment === "REFUND") {
-      const refundPaymentId = await this.createRefundPayment({
+      const refundPaymentId = await this.repo.createRefundPaymentRecord({
         pelangganId: params.pelanggan.id,
         amount: credit,
         tenantId: params.pelanggan.tenantId,
@@ -277,17 +278,7 @@ export class InvoiceProrateService {
   private async fetchPelangganContext(
     pelangganId: string,
   ): Promise<PelangganProrateContext> {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      select: {
-        id: true,
-        jatuhTempo: true,
-        tanggalAktif: true,
-        hargaPaketId: true,
-        tenantId: true,
-      },
-    });
-
+    const pelanggan = await this.repo.findPelangganProrateContext(pelangganId);
     if (!pelanggan) {
       throw new InvoiceProrateError(
         `Pelanggan ${pelangganId} tidak ditemukan`,
@@ -305,24 +296,14 @@ export class InvoiceProrateService {
     oldPackage: { id: string; harga: number };
     newPackage: { id: string; harga: number };
   }> {
-    const [oldPackage, newPackage] = await Promise.all([
-      prisma.hargaPaket.findUnique({
-        where: { id: oldId },
-        select: { id: true, harga: true },
-      }),
-      prisma.hargaPaket.findUnique({
-        where: { id: newId },
-        select: { id: true, harga: true },
-      }),
-    ]);
-
-    if (!oldPackage || !newPackage) {
+    const pair = await this.repo.findPackagePair(oldId, newId);
+    if (!pair) {
       throw new InvoiceProrateError(
         "Paket lama atau baru tidak ditemukan",
         "PACKAGE_NOT_FOUND",
       );
     }
-    return { oldPackage, newPackage };
+    return { oldPackage: pair.old, newPackage: pair.new };
   }
 
   /** Hitung sisaHari (jatuhTempo - today) dan totalHari (jatuhTempo - tanggalAktif). */
@@ -342,63 +323,7 @@ export class InvoiceProrateService {
     return { sisaHari, totalHari };
   }
 
-  /** Buat invoice prorate dengan status SENT, due 7 hari. */
-  private async createProrateInvoice(params: {
-    pelangganId: string;
-    amount: bigint;
-    tenantId: string | null;
-    description: string;
-  }): Promise<string> {
-    const invoiceNumber = `PRORATE/${Date.now()}/${params.pelangganId.slice(-6)}`;
-    const invoice = await prismaBilling.invoice.create({
-      data: {
-        id: crypto.randomUUID(),
-        invoiceNumber,
-        pelangganId: params.pelangganId,
-        issueDate: new Date(),
-        dueDate: new Date(Date.now() + PRORATE_INVOICE_DUE_DAYS * MS_PER_DAY),
-        status: "SENT",
-        subtotal: params.amount,
-        totalAmount: params.amount,
-        notes: params.description,
-        tenantId: params.tenantId,
-        updatedAt: new Date(),
-      },
-    });
-
-    logger.info(
-      `[InvoiceProrateService] Created prorate invoice ${invoiceNumber} amount=${params.amount}`,
-    );
-    return invoice.id;
-  }
-
-  /** Buat payment record negatif sebagai refund pending (admin proses manual). */
-  private async createRefundPayment(params: {
-    pelangganId: string;
-    amount: bigint;
-    tenantId: string | null;
-  }): Promise<string> {
-    const payment = await prismaBilling.payment.create({
-      data: {
-        id: crypto.randomUUID(),
-        pelangganId: params.pelangganId,
-        amount: -params.amount, // negatif = refund
-        paymentDate: new Date(),
-        paymentMethod: PROVIDER_REFUND_METHOD,
-        gatewayStatus: "PENDING",
-        notes: "Refund pending admin approval (downgrade prorate)",
-        tenantId: params.tenantId,
-        updatedAt: new Date(),
-      },
-    });
-
-    logger.info(
-      `[InvoiceProrateService] Created refund payment pending amount=${params.amount} for ${params.pelangganId}`,
-    );
-    return payment.id;
-  }
-
-  /** Log semua aktivitas prorate ke ProratePaymentLog. */
+  /** Delegasi ke repository — wrapper supaya call site lebih ringkas. */
   private async logProrateActivity(params: {
     input: ApplyPackageChangeInput;
     amount: bigint;
@@ -406,21 +331,18 @@ export class InvoiceProrateService {
     totalHari: number;
     tenantId: string | null;
   }) {
-    await prisma.proratePaymentLog.create({
-      data: {
-        id: crypto.randomUUID(),
-        pelangganId: params.input.pelangganId,
-        oldPackageId: params.input.oldHargaPaketId,
-        newPackageId: params.input.newHargaPaketId,
-        prorateOption: params.input.prorateOption,
-        downgradeAdjustment: params.input.downgradeAdjustment,
-        upgradeApplyTime: params.input.upgradeApplyTime,
-        amount: params.amount,
-        sisaHari: params.sisaHari,
-        totalHari: params.totalHari,
-        createdBy: params.input.userId ?? null,
-        tenantId: params.tenantId,
-      },
+    await this.repo.recordProrateLog({
+      pelangganId: params.input.pelangganId,
+      oldPackageId: params.input.oldHargaPaketId,
+      newPackageId: params.input.newHargaPaketId,
+      prorateOption: params.input.prorateOption,
+      downgradeAdjustment: params.input.downgradeAdjustment,
+      upgradeApplyTime: params.input.upgradeApplyTime,
+      amount: params.amount,
+      sisaHari: params.sisaHari,
+      totalHari: params.totalHari,
+      createdBy: params.input.userId ?? null,
+      tenantId: params.tenantId,
     });
   }
 }
