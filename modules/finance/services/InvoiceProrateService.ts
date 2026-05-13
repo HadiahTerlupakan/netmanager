@@ -2,13 +2,36 @@ import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { prisma } from "@/modules/database";
 
+/** Konstanta dan tipe pendukung. */
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const PRORATE_INVOICE_DUE_DAYS = 7;
+const PROVIDER_REFUND_METHOD = "OTHER" as const;
+
+export type ProrateOption = "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
+export type DowngradeAdjustment = "NONE" | "REFUND" | "CREDIT";
+export type UpgradeApplyTime = "IMMEDIATE" | "NEXT_CYCLE";
+
+export type InvoiceProrateErrorCode =
+  | "PELANGGAN_NOT_FOUND"
+  | "PACKAGE_NOT_FOUND";
+
+export class InvoiceProrateError extends Error {
+  constructor(
+    message: string,
+    public readonly code: InvoiceProrateErrorCode,
+  ) {
+    super(message);
+    this.name = "InvoiceProrateError";
+  }
+}
+
 export interface ApplyPackageChangeInput {
   pelangganId: string;
   oldHargaPaketId: string;
   newHargaPaketId: string;
-  prorateOption: "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
-  downgradeAdjustment: "NONE" | "REFUND" | "CREDIT";
-  upgradeApplyTime: "IMMEDIATE" | "NEXT_CYCLE";
+  prorateOption: ProrateOption;
+  downgradeAdjustment: DowngradeAdjustment;
+  upgradeApplyTime: UpgradeApplyTime;
   userId?: string;
 }
 
@@ -24,6 +47,27 @@ export interface ApplyPackageChangeResult {
 }
 
 /**
+ * Hitung jumlah pro-rata berdasarkan absolute price diff dan window hari.
+ * Pure function — mudah di-test tanpa I/O.
+ */
+export function calculateProratedAmount(
+  absoluteDiff: bigint,
+  sisaHari: number,
+  totalHari: number,
+): bigint {
+  if (totalHari <= 0 || sisaHari <= 0 || absoluteDiff <= 0n) return 0n;
+  return (absoluteDiff * BigInt(sisaHari)) / BigInt(totalHari);
+}
+
+type PelangganProrateContext = {
+  id: string;
+  jatuhTempo: Date;
+  tanggalAktif: Date;
+  hargaPaketId: string;
+  tenantId: string | null;
+};
+
+/**
  * Handle prorate calculation dan side-effects saat paket pelanggan berubah.
  * Support 3 skenario: NONE, PRORATE_CHARGE (upgrade), PRORATE_CREDIT (downgrade).
  * Untuk NEXT_CYCLE: revert hargaPaketId dan set pendingPackage fields.
@@ -33,35 +77,11 @@ export class InvoiceProrateService {
   async applyPackageChange(
     input: ApplyPackageChangeInput,
   ): Promise<ApplyPackageChangeResult> {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: input.pelangganId },
-      select: {
-        id: true,
-        jatuhTempo: true,
-        tanggalAktif: true,
-        hargaPaketId: true,
-        tenantId: true,
-      },
-    });
-
-    if (!pelanggan) {
-      throw new Error(`Pelanggan ${input.pelangganId} tidak ditemukan`);
-    }
-
-    const [oldPackage, newPackage] = await Promise.all([
-      prisma.hargaPaket.findUnique({
-        where: { id: input.oldHargaPaketId },
-        select: { id: true, harga: true },
-      }),
-      prisma.hargaPaket.findUnique({
-        where: { id: input.newHargaPaketId },
-        select: { id: true, harga: true },
-      }),
-    ]);
-
-    if (!oldPackage || !newPackage) {
-      throw new Error("Paket lama atau baru tidak ditemukan");
-    }
+    const pelanggan = await this.fetchPelangganContext(input.pelangganId);
+    const { oldPackage, newPackage } = await this.fetchPackagePair(
+      input.oldHargaPaketId,
+      input.newHargaPaketId,
+    );
 
     const { sisaHari, totalHari } = this.calculateDaysRemaining(
       pelanggan.tanggalAktif,
@@ -88,7 +108,7 @@ export class InvoiceProrateService {
    */
   private async handleNextCycle(
     input: ApplyPackageChangeInput,
-    pelanggan: { id: string; jatuhTempo: Date; tenantId: string | null },
+    pelanggan: PelangganProrateContext,
     sisaHari: number,
     totalHari: number,
   ): Promise<ApplyPackageChangeResult> {
@@ -103,7 +123,7 @@ export class InvoiceProrateService {
 
     await this.logProrateActivity({
       input,
-      amount: BigInt(0),
+      amount: 0n,
       sisaHari,
       totalHari,
       tenantId: pelanggan.tenantId,
@@ -115,7 +135,7 @@ export class InvoiceProrateService {
 
     return {
       applied: false,
-      prorateAmount: BigInt(0),
+      prorateAmount: 0n,
       scheduledFor: pelanggan.jatuhTempo,
     };
   }
@@ -126,17 +146,17 @@ export class InvoiceProrateService {
    */
   private async handleImmediate(
     input: ApplyPackageChangeInput,
-    pelanggan: { id: string; tenantId: string | null },
+    pelanggan: PelangganProrateContext,
     oldPackage: { harga: number },
     newPackage: { harga: number },
     sisaHari: number,
     totalHari: number,
   ): Promise<ApplyPackageChangeResult> {
     const priceDiff = BigInt(newPackage.harga) - BigInt(oldPackage.harga);
-    const isUpgrade = priceDiff > BigInt(0);
-    const isDowngrade = priceDiff < BigInt(0);
+    const isUpgrade = priceDiff > 0n;
+    const isDowngrade = priceDiff < 0n;
 
-    let prorateAmount = BigInt(0);
+    let prorateAmount = 0n;
     let prorateInvoiceId: string | undefined;
     let creditApplied: bigint | undefined;
     let refundPaymentId: string | undefined;
@@ -190,12 +210,13 @@ export class InvoiceProrateService {
     sisaHari: number;
     totalHari: number;
   }): Promise<{ charge: bigint; invoiceId?: string }> {
-    const charge =
-      (params.priceDiff * BigInt(params.sisaHari)) / BigInt(params.totalHari);
+    const charge = calculateProratedAmount(
+      params.priceDiff,
+      params.sisaHari,
+      params.totalHari,
+    );
 
-    if (charge <= BigInt(0)) {
-      return { charge: BigInt(0) };
-    }
+    if (charge <= 0n) return { charge: 0n };
 
     const invoiceId = await this.createProrateInvoice({
       pelangganId: params.pelanggan.id,
@@ -220,12 +241,13 @@ export class InvoiceProrateService {
     refundPaymentId?: string;
   }> {
     // priceDiff negatif untuk downgrade → ambil nilai absolut
-    const credit =
-      (-params.priceDiff * BigInt(params.sisaHari)) / BigInt(params.totalHari);
+    const credit = calculateProratedAmount(
+      -params.priceDiff,
+      params.sisaHari,
+      params.totalHari,
+    );
 
-    if (credit <= BigInt(0)) {
-      return { creditAmount: BigInt(0) };
-    }
+    if (credit <= 0n) return { creditAmount: 0n };
 
     if (params.input.downgradeAdjustment === "CREDIT") {
       await prisma.pelanggan.update({
@@ -248,7 +270,59 @@ export class InvoiceProrateService {
     }
 
     // NONE — log saja, tidak apply
-    return { creditAmount: BigInt(0) };
+    return { creditAmount: 0n };
+  }
+
+  /** Fetch pelanggan context atau lempar InvoiceProrateError typed. */
+  private async fetchPelangganContext(
+    pelangganId: string,
+  ): Promise<PelangganProrateContext> {
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: pelangganId },
+      select: {
+        id: true,
+        jatuhTempo: true,
+        tanggalAktif: true,
+        hargaPaketId: true,
+        tenantId: true,
+      },
+    });
+
+    if (!pelanggan) {
+      throw new InvoiceProrateError(
+        `Pelanggan ${pelangganId} tidak ditemukan`,
+        "PELANGGAN_NOT_FOUND",
+      );
+    }
+    return pelanggan;
+  }
+
+  /** Fetch paket lama dan baru paralel; lempar error kalau salah satu tidak ada. */
+  private async fetchPackagePair(
+    oldId: string,
+    newId: string,
+  ): Promise<{
+    oldPackage: { id: string; harga: number };
+    newPackage: { id: string; harga: number };
+  }> {
+    const [oldPackage, newPackage] = await Promise.all([
+      prisma.hargaPaket.findUnique({
+        where: { id: oldId },
+        select: { id: true, harga: true },
+      }),
+      prisma.hargaPaket.findUnique({
+        where: { id: newId },
+        select: { id: true, harga: true },
+      }),
+    ]);
+
+    if (!oldPackage || !newPackage) {
+      throw new InvoiceProrateError(
+        "Paket lama atau baru tidak ditemukan",
+        "PACKAGE_NOT_FOUND",
+      );
+    }
+    return { oldPackage, newPackage };
   }
 
   /** Hitung sisaHari (jatuhTempo - today) dan totalHari (jatuhTempo - tanggalAktif). */
@@ -257,14 +331,13 @@ export class InvoiceProrateService {
     jatuhTempo: Date,
   ): { sisaHari: number; totalHari: number } {
     const now = new Date();
-    const msPerDay = 1000 * 60 * 60 * 24;
     const totalHari = Math.max(
       1,
-      Math.ceil((jatuhTempo.getTime() - tanggalAktif.getTime()) / msPerDay),
+      Math.ceil((jatuhTempo.getTime() - tanggalAktif.getTime()) / MS_PER_DAY),
     );
     const sisaHari = Math.max(
       0,
-      Math.ceil((jatuhTempo.getTime() - now.getTime()) / msPerDay),
+      Math.ceil((jatuhTempo.getTime() - now.getTime()) / MS_PER_DAY),
     );
     return { sisaHari, totalHari };
   }
@@ -283,7 +356,7 @@ export class InvoiceProrateService {
         invoiceNumber,
         pelangganId: params.pelangganId,
         issueDate: new Date(),
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        dueDate: new Date(Date.now() + PRORATE_INVOICE_DUE_DAYS * MS_PER_DAY),
         status: "SENT",
         subtotal: params.amount,
         totalAmount: params.amount,
@@ -311,7 +384,7 @@ export class InvoiceProrateService {
         pelangganId: params.pelangganId,
         amount: -params.amount, // negatif = refund
         paymentDate: new Date(),
-        paymentMethod: "OTHER",
+        paymentMethod: PROVIDER_REFUND_METHOD,
         gatewayStatus: "PENDING",
         notes: "Refund pending admin approval (downgrade prorate)",
         tenantId: params.tenantId,

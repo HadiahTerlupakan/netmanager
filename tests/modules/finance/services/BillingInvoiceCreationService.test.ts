@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BillingInvoiceCreationService } from "@/modules/finance/services/BillingInvoiceCreationService";
 import type { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
+import { prismaMock } from "../../../setup";
 
 // Mock dependencies
 vi.mock("@/lib/logger", () => ({
@@ -73,6 +74,14 @@ describe("BillingInvoiceCreationService", () => {
     updatedAt: new Date(),
   };
 
+  /** Helper untuk mengatur saldo kredit pelanggan dalam mock prisma. */
+  const setSaldoKredit = (saldo: bigint) => {
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      saldoKreditRupiah: saldo,
+    });
+    prismaMock.pelanggan.updateMany.mockResolvedValue({ count: 1 });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockSyncInvoiceBillingSchedules.mockClear();
@@ -85,6 +94,9 @@ describe("BillingInvoiceCreationService", () => {
     } as unknown as InvoiceRepository;
 
     service = new BillingInvoiceCreationService(mockInvoiceRepo);
+
+    // Default: tidak ada saldo kredit
+    setSaldoKredit(0n);
   });
 
   describe("createInvoiceForCustomer", () => {
@@ -104,6 +116,7 @@ describe("BillingInvoiceCreationService", () => {
           status: "SENT",
           subtotal: 500000n,
           taxAmount: 55000n, // 11% dari 500000
+          discountAmount: 0n,
           totalAmount: 555000n,
           dueDate,
           invoiceItem: {
@@ -174,6 +187,7 @@ describe("BillingInvoiceCreationService", () => {
           invoiceNumber: mockInvoice.invoiceNumber,
           customer: "Test Customer",
           actor: "SYSTEM_CRON",
+          creditApplied: "0",
         }),
       });
     });
@@ -228,6 +242,89 @@ describe("BillingInvoiceCreationService", () => {
           totalAmount: 560000n,
         }),
       );
+    });
+
+    describe("saldo kredit konsumsi", () => {
+      it("apply discount sebesar saldo kalau saldo < total", async () => {
+        setSaldoKredit(30_000n);
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+        await service.createInvoiceForCustomer(mockCustomer, new Date());
+
+        expect(prismaMock.pelanggan.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              id: "customer-1",
+              saldoKreditRupiah: { gte: 30_000n },
+            }),
+            data: { saldoKreditRupiah: { decrement: 30_000n } },
+          }),
+        );
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            subtotal: 500_000n,
+            taxAmount: 55_000n,
+            discountAmount: 30_000n,
+            totalAmount: 525_000n, // 555000 - 30000
+            notes: "Saldo kredit terpakai: Rp 30000",
+          }),
+        );
+      });
+
+      it("cap discount = total kalau saldo > total", async () => {
+        setSaldoKredit(1_000_000n);
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+        await service.createInvoiceForCustomer(mockCustomer, new Date());
+
+        expect(prismaMock.pelanggan.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { saldoKreditRupiah: { decrement: 555_000n } },
+          }),
+        );
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            discountAmount: 555_000n,
+            totalAmount: 0n,
+          }),
+        );
+      });
+
+      it("skip discount kalau race condition (updateMany count 0)", async () => {
+        prismaMock.pelanggan.findUnique.mockResolvedValue({
+          saldoKreditRupiah: 50_000n,
+        });
+        prismaMock.pelanggan.updateMany.mockResolvedValue({ count: 0 });
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+        await service.createInvoiceForCustomer(mockCustomer, new Date());
+
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            discountAmount: 0n,
+            totalAmount: 555_000n,
+          }),
+        );
+      });
+
+      it("kembalikan saldo via increment kalau create invoice gagal", async () => {
+        setSaldoKredit(40_000n);
+        prismaMock.pelanggan.update.mockResolvedValue({});
+        const createError = new Error("DB error");
+        vi.mocked(mockInvoiceRepo.create).mockRejectedValue(createError);
+
+        await expect(
+          service.createInvoiceForCustomer(mockCustomer, new Date()),
+        ).rejects.toThrow("DB error");
+
+        // Compensating action — saldo dikembalikan
+        expect(prismaMock.pelanggan.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: "customer-1" },
+            data: { saldoKreditRupiah: { increment: 40_000n } },
+          }),
+        );
+      });
     });
   });
 });
