@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 type NotificationChannel = "inApp" | "push" | "whatsapp" | "email";
@@ -55,21 +55,49 @@ export default function NotificationHistoryClient({
   const [pelangganNama, setPelangganNama] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+
+  // AbortController-aware fetcher — cegah race condition dan setState pada
+  // unmounted component saat user navigate keluar di tengah fetch.
+  const loadHistory = useCallback(
+    (signal?: AbortSignal) => {
+      setIsLoading(true);
+      setError(null);
+      return fetch(`/api/admin/pelanggan/${pelangganId}/notification-history`, {
+        signal,
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (signal?.aborted) return;
+          if (json.success) {
+            setEntries(json.data.entries);
+            setPelangganNama(json.data.pelanggan.nama);
+            setLastFetchedAt(new Date());
+          } else {
+            setError(json.error ?? "Gagal memuat data");
+          }
+        })
+        .catch((err: unknown) => {
+          if (signal?.aborted) return;
+          if (err instanceof Error && err.name === "AbortError") return;
+          setError("Terjadi kesalahan jaringan");
+        })
+        .finally(() => {
+          if (!signal?.aborted) setIsLoading(false);
+        });
+    },
+    [pelangganId],
+  );
 
   useEffect(() => {
-    fetch(`/api/admin/pelanggan/${pelangganId}/notification-history`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success) {
-          setEntries(json.data.entries);
-          setPelangganNama(json.data.pelanggan.nama);
-        } else {
-          setError(json.error ?? "Gagal memuat data");
-        }
-      })
-      .catch(() => setError("Terjadi kesalahan jaringan"))
-      .finally(() => setIsLoading(false));
-  }, [pelangganId]);
+    const controller = new AbortController();
+    // Wrap di async IIFE supaya setState tidak ter-call sinkron dalam
+    // effect body (rule react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadHistory(controller.signal);
+    })();
+    return () => controller.abort();
+  }, [loadHistory]);
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 p-4 md:p-8">
@@ -85,13 +113,34 @@ export default function NotificationHistoryClient({
                 {pelangganNama}
               </p>
             )}
+            {lastFetchedAt && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Terakhir dimuat:{" "}
+                {lastFetchedAt.toLocaleTimeString("id-ID", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </p>
+            )}
           </div>
-          <Link
-            href={`/admin/pelanggan/ppp/${pelangganId}`}
-            className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-          >
-            ← Kembali ke Detail
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => loadHistory()}
+              disabled={isLoading}
+              className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md transition-colors"
+              title="Refresh"
+            >
+              ↻ Refresh
+            </button>
+            <Link
+              href={`/admin/pelanggan/ppp/${pelangganId}`}
+              className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              ← Kembali ke Detail
+            </Link>
+          </div>
         </div>
 
         {/* Content */}

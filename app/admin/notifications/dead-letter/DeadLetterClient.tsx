@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { clientLogger } from "@/lib/client-logger";
 
@@ -50,8 +50,16 @@ export default function DeadLetterClient() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   const fetchEntries = useCallback(
     async (page: number) => {
+      // Cancel fetch sebelumnya — race-safe untuk klik filter cepat / retry
+      // yang trigger re-fetch sementara fetch lama masih in-flight.
+      fetchAbortRef.current?.abort();
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
+
       setLoading(true);
       try {
         const params = new URLSearchParams({
@@ -63,16 +71,19 @@ export default function DeadLetterClient() {
 
         const res = await fetch(
           `/api/admin/notifications/dead-letter?${params}`,
+          { signal: controller.signal },
         );
         const json = await res.json();
+        if (controller.signal.aborted) return;
         if (json.success) {
           setEntries(json.data.items);
           setPagination(json.data.pagination);
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
         clientLogger.error("Error fetching dead letter queue:", err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     },
     [channelFilter, showResolved],
@@ -80,6 +91,7 @@ export default function DeadLetterClient() {
 
   useEffect(() => {
     fetchEntries(1);
+    return () => fetchAbortRef.current?.abort();
   }, [fetchEntries]);
 
   async function handleRetry(id: string) {
@@ -91,8 +103,10 @@ export default function DeadLetterClient() {
       );
       const json = await res.json();
       if (json.success) {
-        // Hapus dari list setelah berhasil retry
-        setEntries((prev) => prev.filter((e) => e.id !== id));
+        // Re-fetch full state — hindari race antara optimistic remove dan
+        // commit server. Kalau server belum commit, list lama di-replace
+        // oleh fresh fetch.
+        await fetchEntries(pagination.page);
       } else {
         alert(json.error ?? "Gagal melakukan retry");
       }
@@ -113,7 +127,7 @@ export default function DeadLetterClient() {
       );
       const json = await res.json();
       if (json.success) {
-        setEntries((prev) => prev.filter((e) => e.id !== id));
+        await fetchEntries(pagination.page);
       } else {
         alert(json.error ?? "Gagal menandai resolved");
       }
@@ -247,11 +261,8 @@ export default function DeadLetterClient() {
               </tr>
             ) : (
               entries.map((entry) => (
-                <>
-                  <tr
-                    key={entry.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                  >
+                <Fragment key={entry.id}>
+                  <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       {new Date(entry.createdAt).toLocaleString("id-ID", {
                         day: "2-digit",
@@ -320,7 +331,7 @@ export default function DeadLetterClient() {
                     </td>
                   </tr>
                   {expandedId === entry.id && (
-                    <tr key={entry.id + "-expand"}>
+                    <tr>
                       <td
                         colSpan={7}
                         className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50"
@@ -334,7 +345,7 @@ export default function DeadLetterClient() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))
             )}
           </tbody>

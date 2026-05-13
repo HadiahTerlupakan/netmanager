@@ -343,13 +343,17 @@ export function PppClientEditForm() {
   }, [id, loadPelangganData, loadHargaPakets, loadOdps]);
 
   /**
-   * Menentukan apakah perubahan paket merupakan downgrade
-   * berdasarkan perbandingan harga paket lama vs baru.
+   * Menentukan apakah perubahan paket merupakan downgrade berdasarkan
+   * perbandingan harga paket lama vs baru. Mengembalikan null saat data
+   * paket belum dimuat atau salah satu ID tidak ditemukan — caller harus
+   * menahan render section prorate sampai status pasti, supaya badge
+   * "Upgrade/Downgrade" tidak menyesatkan user (mis. kasus C7).
    */
-  const computeIsDowngrade = (oldId: string, newId: string): boolean => {
+  const computeIsDowngrade = (oldId: string, newId: string): boolean | null => {
+    if (hargaPakets.length === 0) return null;
     const oldPkg = hargaPakets.find((p) => p.id === oldId);
     const newPkg = hargaPakets.find((p) => p.id === newId);
-    if (!oldPkg || !newPkg) return false;
+    if (!oldPkg || !newPkg) return null;
     return newPkg.harga < oldPkg.harga;
   };
 
@@ -634,21 +638,37 @@ export function PppClientEditForm() {
                   />
 
                   {/* Section perubahan paket — muncul saat hargaPaketId berubah dari nilai awal */}
-                  {formData.hargaPaketId !== originalHargaPaketId &&
-                    originalHargaPaketId !== "" && (
+                  {(() => {
+                    const packageChanged =
+                      formData.hargaPaketId !== originalHargaPaketId &&
+                      originalHargaPaketId !== "";
+                    if (!packageChanged) return null;
+
+                    const downgradeStatus = computeIsDowngrade(
+                      originalHargaPaketId,
+                      formData.hargaPaketId,
+                    );
+
+                    if (downgradeStatus === null) {
+                      return (
+                        <div className="text-sm text-gray-500 dark:text-gray-400 italic border-t-2 border-amber-200 dark:border-amber-800 pt-4 mt-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
+                          Memuat data paket untuk menentukan opsi prorate…
+                        </div>
+                      );
+                    }
+
+                    return (
                       <PppClientPackageChangeSection
                         prorateOption={formData.prorateOption}
                         downgradeAdjustment={formData.downgradeAdjustment}
                         upgradeApplyTime={formData.upgradeApplyTime}
-                        isDowngrade={computeIsDowngrade(
-                          originalHargaPaketId,
-                          formData.hargaPaketId,
-                        )}
+                        isDowngrade={downgradeStatus}
                         loading={loading}
                         onFieldChange={handleChange}
                         roundedClassName="rounded-lg"
                       />
-                    )}
+                    );
+                  })()}
 
                   <PppClientBillingPreferencesSection
                     formData={formData}
