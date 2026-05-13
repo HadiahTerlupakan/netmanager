@@ -135,4 +135,25 @@ export class BillingEventDispatcher {
       },
     );
   }
+
+  /**
+   * Diemit saat paket pelanggan berubah (upgrade/downgrade).
+   * Handler akan disconnect active PPP session + resync MikroTik + apply prorate.
+   */
+  static async onPackageChanged(data: {
+    customerId: string;
+    customerName: string;
+    oldPackageId: string;
+    newPackageId: string;
+    oldProfileName: string;
+    newProfileName: string;
+    oldPackagePrice: number;
+    newPackagePrice: number;
+    applyTime: "IMMEDIATE" | "NEXT_CYCLE";
+    tenantId?: string;
+  }) {
+    await eventBus.publish(EVENT_NAMES.PACKAGE_CHANGED, data, {
+      priority: JOB_PRIORITIES.HIGH,
+    });
+  }
 }

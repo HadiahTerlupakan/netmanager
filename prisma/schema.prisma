@@ -398,6 +398,7 @@ model HargaPaket {
   site                 Sites?        @relation(fields: [siteId], references: [id])
   tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   pelanggan            Pelanggan[]
+  pelangganPending     Pelanggan[]         @relation("PelangganPendingPackage")
 
   @@unique([tenantId, name, siteId], name: "tenantId_name_siteId")
   @@index([bandwidthId])
@@ -906,8 +907,12 @@ model Pelanggan {
   pushToken                     String?
   pushTokenUpdatedAt            DateTime?
   tenantId                      String?
+  pendingPackageId              String?
+  pendingPackageApplyAt         DateTime?
+  saldoKreditRupiah             BigInt              @default(0)
   couponUsage                   CouponUsage[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
+  pendingPackage                HargaPaket?         @relation("PelangganPendingPackage", fields: [pendingPackageId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
   site                          Sites?              @relation(fields: [siteId], references: [id])
   tenant                        Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -931,6 +936,28 @@ model Pelanggan {
   @@index([odpId])
   @@index([syncStatus])
   @@index([tenantId, username])
+  @@index([pendingPackageApplyAt])
+}
+
+model ProratePaymentLog {
+  id                  String   @id @default(uuid())
+  pelangganId         String
+  oldPackageId        String
+  newPackageId        String
+  prorateOption       String
+  downgradeAdjustment String
+  upgradeApplyTime    String
+  amount              BigInt   @default(0)
+  sisaHari            Int
+  totalHari           Int
+  createdBy           String?
+  createdAt           DateTime @default(now())
+  tenantId            String?
+  tenant              Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([pelangganId])
+  @@index([tenantId])
+  @@index([createdAt])
 }
 
 model Permission {
@@ -3323,6 +3350,7 @@ model Tenant {
   whatsAppAccounts        WhatsAppAccount[]
   whatsAppMessages        WhatsAppMessage[]
   tenantSettings          TenantSettings?
+  proratePaymentLog       ProratePaymentLog[]
 }
 
 enum MaterialReturnStatus {

@@ -37,6 +37,7 @@ export const EVENT_NAMES = {
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_RECEIVED: "billing:payment.received",
   PAYMENT_FAILED: "billing:payment.failed",
+  PACKAGE_CHANGED: "billing:package.changed",
 
   // Customer Events
   CUSTOMER_CREATED: "customer:created",
@@ -72,6 +73,7 @@ export const EVENT_NAMES = {
   NETWORK_DEVICE_ONLINE: "network:device.online",
   NETWORK_DEVICE_OFFLINE: "network:device.offline",
   NETWORK_RADIUS_UPDATE: "network:radius.update",
+  PROFILE_PPP_UPDATED: "network:profile_ppp.updated",
 
   // Notification Events
   NOTIFICATION_CREATED: "notification:created",
@@ -279,6 +281,25 @@ export interface SystemEventPayload extends BaseEventPayload {
   details?: Record<string, unknown>;
 }
 
+export interface PackageChangedPayload extends BaseEventPayload {
+  customerId: string;
+  customerName: string;
+  oldPackageId: string;
+  newPackageId: string;
+  oldProfileName: string;
+  newProfileName: string;
+  oldPackagePrice: number;
+  newPackagePrice: number;
+  applyTime: "IMMEDIATE" | "NEXT_CYCLE";
+}
+
+export interface ProfilePppUpdatedPayload extends BaseEventPayload {
+  profileId: string;
+  profileName: string;
+  bandwidthChanged: boolean;
+  affectedCustomerCount: number;
+}
+
 // ============================================
 // PAYLOAD MAP (Type-safe event → payload mapping)
 // ============================================
@@ -320,6 +341,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.SYSTEM_USER_LOGIN]: SystemEventPayload;
   [EVENT_NAMES.SYSTEM_USER_LOGOUT]: SystemEventPayload;
   [EVENT_NAMES.SYSTEM_ERROR]: SystemEventPayload;
+  [EVENT_NAMES.PACKAGE_CHANGED]: PackageChangedPayload;
+  [EVENT_NAMES.PROFILE_PPP_UPDATED]: ProfilePppUpdatedPayload;
 }
 
 // ============================================
@@ -622,6 +645,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.SYSTEM_ERROR,
     category: "system",
     priority: JOB_PRIORITIES.CRITICAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PACKAGE_CHANGED]: {
+    name: EVENT_NAMES.PACKAGE_CHANGED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PROFILE_PPP_UPDATED]: {
+    name: EVENT_NAMES.PROFILE_PPP_UPDATED,
+    category: "network",
+    priority: JOB_PRIORITIES.HIGH,
     persistent: true,
     async: true,
   },
