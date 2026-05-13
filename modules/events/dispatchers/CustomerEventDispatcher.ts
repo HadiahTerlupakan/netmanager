@@ -1,4 +1,4 @@
-import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
+import { eventBus, EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
 
 export class CustomerEventDispatcher {
   /**
@@ -55,7 +55,7 @@ export class CustomerEventDispatcher {
         tenantId: data.tenantId,
       },
       {
-        priority: 2, // HIGH priority
+        priority: JOB_PRIORITIES.HIGH,
       },
     );
   }
@@ -80,16 +80,19 @@ export class CustomerEventDispatcher {
         tenantId: data.tenantId,
       },
       {
-        priority: 2, // HIGH priority
+        priority: JOB_PRIORITIES.HIGH,
       },
     );
   }
 
-  /** Dipanggil setelah Pelanggan diisolir karena invoice overdue atau manual isolir. */
+  /**
+   * Dipanggil setelah Pelanggan diisolir karena invoice overdue atau manual isolir.
+   */
   static async onIsolated(data: {
     customerId: string;
     customerName: string;
     oldStatus: string;
+    newStatus: string;
     tenantId?: string;
   }) {
     await eventBus.publish(
@@ -98,18 +101,21 @@ export class CustomerEventDispatcher {
         customerId: data.customerId,
         customerName: data.customerName,
         oldStatus: data.oldStatus,
-        newStatus: "ISOLIR",
+        newStatus: data.newStatus,
         tenantId: data.tenantId,
       },
       {
-        priority: 2,
+        priority: JOB_PRIORITIES.HIGH,
       },
     );
   }
 
-  /** Dipanggil setelah Pelanggan dihapus (dismantle). */
+  /**
+   * Dipanggil setelah Pelanggan dihapus (dismantle).
+   */
   static async onDeleted(data: {
     customerId: string;
+    customerName?: string;
     username: string;
     tenantId?: string;
   }) {
@@ -117,11 +123,12 @@ export class CustomerEventDispatcher {
       EVENT_NAMES.CUSTOMER_DELETED,
       {
         customerId: data.customerId,
+        customerName: data.customerName,
         username: data.username,
         tenantId: data.tenantId,
       },
       {
-        priority: 2,
+        priority: JOB_PRIORITIES.HIGH,
       },
     );
   }

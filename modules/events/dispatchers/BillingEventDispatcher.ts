@@ -1,5 +1,5 @@
 import type { Pelanggan } from "@prisma/client";
-import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
+import { eventBus, EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
 
 export class BillingEventDispatcher {
   /**
@@ -40,7 +40,7 @@ export class BillingEventDispatcher {
       },
       {
         // Critical event — use highest priority
-        priority: 1,
+        priority: JOB_PRIORITIES.CRITICAL,
       },
     );
   }
@@ -57,7 +57,9 @@ export class BillingEventDispatcher {
     });
   }
 
-  /** Diemit oleh scheduler ketika invoice overdue + grace period habis dan pelanggan perlu di-isolir. */
+  /**
+   * Diemit oleh scheduler ketika invoice overdue + grace period habis dan pelanggan perlu di-isolir.
+   */
   static async onAutoIsolateRequested(data: {
     invoiceId: string;
     pelangganId: string;
@@ -73,7 +75,7 @@ export class BillingEventDispatcher {
         tenantId: data.tenantId,
       },
       {
-        priority: 2,
+        priority: JOB_PRIORITIES.HIGH,
       },
     );
   }

@@ -128,6 +128,7 @@ export interface CustomerStatusPayload extends BaseEventPayload {
 
 export interface CustomerDeletedPayload extends BaseEventPayload {
   customerId: string;
+  customerName?: string;
   username: string;
 }
 
