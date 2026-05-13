@@ -301,6 +301,14 @@ export class RadiusSyncService {
     return this.radiusRepo.findOrphanUsernames(tenantId);
   }
 
+  /**
+   * Remove a single customer from RADIUS by username.
+   * Digunakan oleh event handler saat customer dihapus dari sistem.
+   */
+  async removeCustomer(username: string, tenantId?: string): Promise<void> {
+    await this.radiusRepo.deleteOrphanUsers([username], tenantId ?? "");
+  }
+
   /** Delete orphan RADIUS users. If usernames provided, only delete those. */
   async cleanupOrphanRadiusUsers(
     tenantId: string,

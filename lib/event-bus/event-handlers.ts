@@ -4,6 +4,7 @@ import { getPelangganService } from "@/modules/pelanggan";
 import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
+import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -85,6 +86,24 @@ export function registerDefaultHandlers(): void {
       throw error; // Let BullMQ retry
     }
   });
+
+  // --- CUSTOMER LIFECYCLE EVENTS (sync MikroTik/RADIUS) ---
+
+  registerEventHandler(EVENT_NAMES.CUSTOMER_CREATED, handleCustomerStatusEvent);
+  registerEventHandler(EVENT_NAMES.CUSTOMER_UPDATED, handleCustomerStatusEvent);
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_SUSPENDED,
+    handleCustomerStatusEvent,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ACTIVATED,
+    handleCustomerStatusEvent,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ISOLATED,
+    handleCustomerStatusEvent,
+  );
+  registerEventHandler(EVENT_NAMES.CUSTOMER_DELETED, handleCustomerStatusEvent);
 
   // --- NOTIFICATION EVENTS ---
 
