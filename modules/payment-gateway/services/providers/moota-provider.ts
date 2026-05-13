@@ -9,12 +9,12 @@ import type {
   TestResult,
 } from "../provider-interface";
 import * as crypto from "crypto";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 export class MootaProvider implements PaymentProvider {
   name = "MOOTA";
   private apiKey: string = "";
   private apiSecret: string = ""; // Digunakan sebagai webhook secret di Moota jika ada
-  private isProduction: boolean = false;
 
   // Base URL untuk API Moota V2
   private baseUrl = "https://app.moota.co/api/v2";
@@ -22,7 +22,6 @@ export class MootaProvider implements PaymentProvider {
   initialize(config: ProviderConfig): void {
     this.apiKey = config.apiKey;
     this.apiSecret = config.apiSecret || "";
-    this.isProduction = config.isProduction;
   }
 
   private getHeaders() {
@@ -92,7 +91,7 @@ export class MootaProvider implements PaymentProvider {
         .update(rawBody)
         .digest("hex");
 
-      return hash === signature;
+      return timingSafeCompare(hash, signature);
     } catch (error) {
       logger.error("[Moota Provider] Signature verification error:", error);
       return false;

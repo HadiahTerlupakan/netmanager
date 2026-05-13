@@ -26,6 +26,7 @@ import {
   resolveDanaBaseUrl,
   type DanaWebhookPayload,
 } from "./dana-provider-helpers";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 export class DANAProvider implements PaymentProvider {
   name = "DANA";
@@ -127,8 +128,9 @@ export class DANAProvider implements PaymentProvider {
     }
 
     const payloadBody = JSON.stringify(payload);
-    return (
-      createDanaSignature(this.config.apiSecret, payloadBody) === signature
+    return timingSafeCompare(
+      createDanaSignature(this.config.apiSecret, payloadBody),
+      signature,
     );
   }
 

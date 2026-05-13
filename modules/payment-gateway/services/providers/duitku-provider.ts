@@ -16,6 +16,7 @@ import {
   createDuitkuWebhookSignature,
   mapDuitkuStatus,
 } from "./duitku-provider-helpers";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 export class DuitkuProvider implements PaymentProvider {
   name = "Duitku";
@@ -175,7 +176,7 @@ export class DuitkuProvider implements PaymentProvider {
       amount: payload.amount as string,
       apiKey: config.apiKey,
     });
-    return payload.signature === expectedSignature;
+    return timingSafeCompare(payload.signature as string, expectedSignature);
   }
 
   /** Menormalkan payload webhook Duitku. */

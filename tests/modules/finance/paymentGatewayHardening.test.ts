@@ -52,8 +52,8 @@ vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
 }));
 
 import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
-import { DuitkuProvider } from "@/modules/finance/services/payment-gateway/providers/duitku-provider";
-import { TripayProvider } from "@/modules/finance/services/payment-gateway/providers/tripay-provider";
+import { DuitkuProvider } from "@/modules/payment-gateway/services/providers/duitku-provider";
+import { TripayProvider } from "@/modules/payment-gateway/services/providers/tripay-provider";
 
 describe("payment gateway hardening", () => {
   beforeEach(() => {

@@ -16,6 +16,7 @@ import {
   mapMidtransStatus,
   testMidtransConnection,
 } from "./midtrans-provider-helpers";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 export class MidtransProvider implements PaymentProvider {
   name = "Midtrans";
@@ -126,7 +127,7 @@ export class MidtransProvider implements PaymentProvider {
         )
         .digest("hex");
 
-      return hash === payload.signature_key;
+      return timingSafeCompare(hash, payload.signature_key as string);
     } catch (error) {
       logger.error("Midtrans webhook verification error:", error);
       return false;

@@ -9,6 +9,7 @@ import type {
   WebhookResult,
   TestResult,
 } from "../provider-interface";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 export class TripayProvider implements PaymentProvider {
   name = "Tripay";
@@ -189,7 +190,7 @@ export class TripayProvider implements PaymentProvider {
       .update(source)
       .digest("hex");
 
-    return calculatedSignature === signature;
+    return timingSafeCompare(calculatedSignature, signature);
   }
 
   async processWebhook(
