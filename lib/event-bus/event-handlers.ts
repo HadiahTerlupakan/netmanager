@@ -4,6 +4,8 @@ import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
 import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
+import { handlePackageChange } from "@/modules/network/services/event-handlers/package-change.handler";
+import { handleProfilePppUpdated } from "@/modules/network/services/event-handlers/profile-ppp-updated.handler";
 import { handleInvoiceAutoIsolate } from "@/modules/pelanggan/services/event-handlers/invoice-auto-isolate.handler";
 import { handleCustomerNotification } from "@/modules/notification/services/event-handlers/customer-notification.handler";
 import { handleInvoiceNotification } from "@/modules/notification/services/event-handlers/invoice-notification.handler";
@@ -420,6 +422,14 @@ export function registerDefaultHandlers(): void {
       logger.error("[Worker] Attendance absent handler error:", error);
     }
   });
+
+  // --- PACKAGE LIFECYCLE EVENTS (disconnect + resync MikroTik) ---
+
+  registerEventHandler(EVENT_NAMES.PACKAGE_CHANGED, handlePackageChange);
+  registerEventHandler(
+    EVENT_NAMES.PROFILE_PPP_UPDATED,
+    handleProfilePppUpdated,
+  );
 
   // --- NETWORK EVENTS ---
 
