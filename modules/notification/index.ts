@@ -58,6 +58,18 @@ export {
 } from "./services/ExpoPushService";
 export { enqueuePushRetry } from "./services/PushRetryQueue";
 export { WhatsAppService } from "./services/whatsapp/whatsapp-service";
+export { NotificationDispatcher } from "./services/NotificationDispatcher";
+export type {
+  NotificationChannel,
+  NotificationDispatchInput,
+} from "./services/NotificationDispatcher";
+export { resolveCustomerContact } from "./services/channel-router";
+export type { CustomerContact } from "./services/channel-router";
+export { BILLING_TEMPLATES } from "./templates/billing-templates";
+export type {
+  BillingTemplateKey,
+  BillingTemplateParams,
+} from "./templates/billing-templates";
 
 // Multi-WhatsApp Support - Services only (no repository exports)
 export { WhatsAppAccountService } from "./services/whatsapp-account.service";
