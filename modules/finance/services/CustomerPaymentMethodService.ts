@@ -1,6 +1,8 @@
 import { CompanyBankAccountRepository } from "../repositories/CompanyBankAccountRepository";
-import { PaymentGatewayManager } from "@/modules/payment-gateway";
-import { getCustomerPaymentMethodsByProvider } from "@/modules/payment-gateway/services/payment-method-catalog";
+import {
+  PaymentGatewayManager,
+  getCustomerPaymentMethodsByProvider,
+} from "@/modules/payment-gateway";
 
 interface GatewayManagerLike {
   getEnabledProviders(): Promise<Array<{ provider: string }>>;

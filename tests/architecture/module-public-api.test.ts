@@ -139,7 +139,7 @@ const dependencyInversionBaseline = new Set([
   "modules/finance/services/ExpenseCategoryRouteService.ts",
   "modules/finance/services/RabProjectRouteService.ts",
   "modules/finance/services/ReceivablesPageService.ts",
-  "modules/finance/services/payment-gateway/gateway-manager.ts",
+  "modules/finance/services/InvoiceProrateService.ts",
   "modules/payment-gateway/services/PaymentStatusUpdater.ts",
   "modules/payment-gateway/services/webhook-invoice-settlement-service.ts",
   "modules/payment-gateway/services/webhook-payment-lookup-service.ts",

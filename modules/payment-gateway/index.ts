@@ -51,3 +51,5 @@ export type {
   WebhookResult,
   TestResult,
 } from "./services/provider-interface";
+
+export { getCustomerPaymentMethodsByProvider } from "./services/payment-method-catalog";
