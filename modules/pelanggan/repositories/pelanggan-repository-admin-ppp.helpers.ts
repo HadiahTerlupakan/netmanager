@@ -54,6 +54,7 @@ function buildAdminPppDetailInclude() {
   return {
     hargaPaket: { include: buildHargaPaketInclude() },
     odp: { select: { name: true, location: true } },
+    pendingPackage: { select: { id: true, name: true } },
   };
 }
 

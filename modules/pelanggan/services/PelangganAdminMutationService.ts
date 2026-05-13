@@ -374,6 +374,37 @@ export class PelangganAdminMutationService {
     return new PelangganAdminMutationError(message, "BAD_REQUEST");
   }
 
+  /**
+   * Batalkan perubahan paket yang dijadwalkan (pending package change).
+   * Menghapus pendingPackageId dan pendingPackageApplyAt dari record pelanggan.
+   */
+  async cancelPendingPackage(input: {
+    id: string;
+    session: AdminMutationSession;
+  }) {
+    const scope = getTenantScopedWhereById(input.session, input.id);
+    const result = await this.pelangganRepository.cancelPendingPackage(
+      input.id,
+      "tenantId" in scope ? scope.tenantId : undefined,
+    );
+
+    if (!result.found) {
+      throw new PelangganAdminMutationError(
+        "Pelanggan tidak ditemukan",
+        "NOT_FOUND",
+      );
+    }
+
+    if (!result.hasPendingPackage) {
+      return {
+        cancelled: false,
+        reason: "Tidak ada perubahan paket yang dijadwalkan",
+      };
+    }
+
+    return { cancelled: true };
+  }
+
   /** Delete PPP customer from admin flow after access checks. */
   async deletePppById(input: DeletePppByIdInput) {
     const { id, session } = input;

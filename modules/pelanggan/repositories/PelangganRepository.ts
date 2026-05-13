@@ -6,6 +6,7 @@ import type {
   DurasiUnit,
 } from "@prisma/client";
 
+import { prisma } from "@/lib/prisma";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { pelangganWithPackageInclude } from "./pelanggan-repository.constants";
 import {
@@ -290,5 +291,28 @@ export class PelangganRepository implements IPelangganRepository {
   /** Clear customer push tokens. */
   async clearPushTokens(tokens: string[]) {
     return clearCustomerPushTokens(tokens);
+  }
+
+  /** Batalkan perubahan paket yang dijadwalkan. */
+  async cancelPendingPackage(id: string, tenantId?: string | null) {
+    const existing = await prisma.pelanggan.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true, pendingPackageId: true },
+    });
+
+    if (!existing) {
+      return { id, found: false, hasPendingPackage: false };
+    }
+
+    const hasPendingPackage = existing.pendingPackageId !== null;
+
+    if (hasPendingPackage) {
+      await prisma.pelanggan.update({
+        where: { id },
+        data: { pendingPackageId: null, pendingPackageApplyAt: null },
+      });
+    }
+
+    return { id, found: true, hasPendingPackage };
   }
 }

@@ -241,4 +241,10 @@ export interface IPelangganRepository {
 
   /** Clear push tokens. */
   clearPushTokens(tokens: string[]): Promise<unknown>;
+
+  /** Batalkan perubahan paket yang dijadwalkan (hapus pendingPackageId + pendingPackageApplyAt). */
+  cancelPendingPackage(
+    id: string,
+    tenantId?: string | null,
+  ): Promise<{ id: string; found: boolean; hasPendingPackage: boolean }>;
 }

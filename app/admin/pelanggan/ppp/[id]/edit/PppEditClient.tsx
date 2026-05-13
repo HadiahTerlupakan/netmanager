@@ -15,6 +15,7 @@ import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/in
 import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
 import { PppClientMapPickerModal } from "@/app/admin/pelanggan/ppp/components/modal/PppClientMapPickerModal";
 import { PppClientBillingPreferencesSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientBillingPreferencesSection";
+import { PppClientPackageChangeSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientPackageChangeSection";
 import { PppClientPackageDateSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientPackageDateSection";
 import { PppClientStatusTypeSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientStatusTypeSection";
 import { PppClientTabNavigation } from "@/app/admin/pelanggan/ppp/components/shell/PppClientTabNavigation";
@@ -74,6 +75,8 @@ export function PppClientEditForm() {
   const [originalIdPelanggan, setOriginalIdPelanggan] = useState<string | null>(
     null,
   );
+  /** ID paket saat data pertama kali dimuat — digunakan untuk deteksi perubahan paket */
+  const [originalHargaPaketId, setOriginalHargaPaketId] = useState<string>("");
   const initialFormData = {
     idPelanggan: "",
     nama: "",
@@ -132,6 +135,10 @@ export function PppClientEditForm() {
     odpId: "", // ODP yang digunakan pelanggan
     siteId: "",
     invoiceAction: "UPDATE_ONLY" as "UPDATE_ONLY" | "VOID_AND_CREATE_NEW",
+    // Opsi perubahan paket — hanya dikirim saat hargaPaketId berubah
+    prorateOption: "NONE" as "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT",
+    downgradeAdjustment: "NONE" as "NONE" | "REFUND" | "CREDIT",
+    upgradeApplyTime: "IMMEDIATE" as "IMMEDIATE" | "NEXT_CYCLE",
   };
 
   const {
@@ -268,6 +275,10 @@ export function PppClientEditForm() {
         odpId: data.odpId || "",
         siteId: data.siteId || "",
         invoiceAction: "UPDATE_ONLY",
+        // Reset opsi perubahan paket ke default saat data dimuat
+        prorateOption: "NONE",
+        downgradeAdjustment: "NONE",
+        upgradeApplyTime: "IMMEDIATE",
       });
 
       // Set existing file paths
@@ -275,6 +286,7 @@ export function PppClientEditForm() {
       setExistingFileRumahSekitar(data.fileRumahSekitar || null);
       setExistingFileBAST(data.fileBAST || null);
       setOriginalIdPelanggan(data.idPelanggan || null);
+      setOriginalHargaPaketId(data.hargaPaketId || "");
       // Reset flag manual edit saat data dimuat
       setJatuhTempoManuallyEdited(false);
     } catch (err: unknown) {
@@ -330,6 +342,17 @@ export function PppClientEditForm() {
     loadOdps();
   }, [id, loadPelangganData, loadHargaPakets, loadOdps]);
 
+  /**
+   * Menentukan apakah perubahan paket merupakan downgrade
+   * berdasarkan perbandingan harga paket lama vs baru.
+   */
+  const computeIsDowngrade = (oldId: string, newId: string): boolean => {
+    const oldPkg = hargaPakets.find((p) => p.id === oldId);
+    const newPkg = hargaPakets.find((p) => p.id === newId);
+    if (!oldPkg || !newPkg) return false;
+    return newPkg.harga < oldPkg.harga;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -352,6 +375,19 @@ export function PppClientEditForm() {
         fileRumahSekitar,
         fileBAST,
       });
+
+      // Append opsi perubahan paket jika paket berubah
+      if (
+        formData.hargaPaketId !== originalHargaPaketId &&
+        originalHargaPaketId !== ""
+      ) {
+        formDataToSend.append("prorateOption", formData.prorateOption);
+        formDataToSend.append(
+          "downgradeAdjustment",
+          formData.downgradeAdjustment,
+        );
+        formDataToSend.append("upgradeApplyTime", formData.upgradeApplyTime);
+      }
 
       // Debug: Log ID yang akan dikirim
       clientLogger.info("[Frontend PUT] ID pelanggan:", id, "Type:", typeof id);
@@ -596,6 +632,23 @@ export function PppClientEditForm() {
                       ) : null
                     }
                   />
+
+                  {/* Section perubahan paket — muncul saat hargaPaketId berubah dari nilai awal */}
+                  {formData.hargaPaketId !== originalHargaPaketId &&
+                    originalHargaPaketId !== "" && (
+                      <PppClientPackageChangeSection
+                        prorateOption={formData.prorateOption}
+                        downgradeAdjustment={formData.downgradeAdjustment}
+                        upgradeApplyTime={formData.upgradeApplyTime}
+                        isDowngrade={computeIsDowngrade(
+                          originalHargaPaketId,
+                          formData.hargaPaketId,
+                        )}
+                        loading={loading}
+                        onFieldChange={handleChange}
+                        roundedClassName="rounded-lg"
+                      />
+                    )}
 
                   <PppClientBillingPreferencesSection
                     formData={formData}

@@ -100,10 +100,18 @@ export interface PelangganEntity {
   updatedAt?: Date;
 }
 
+export interface PelangganPendingPackageEntity {
+  id: string;
+  name: string;
+}
+
 export interface PelangganWithPackageEntity extends PelangganEntity {
   site?: PelangganSiteEntity | null;
   hargaPaket?: PelangganPackageEntity | null;
   odp?: PelangganOdpEntity | null;
+  pendingPackageId?: string | null;
+  pendingPackageApplyAt?: Date | null;
+  pendingPackage?: PelangganPendingPackageEntity | null;
 }
 
 export interface PelangganAuthEntity {

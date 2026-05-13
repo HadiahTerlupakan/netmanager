@@ -3,6 +3,7 @@ import React from "react";
 import MapPreview from "@/components/common/MapPreview";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import CustomerInvoiceHistory from "./CustomerInvoiceHistory";
+import { PppPendingPackageBadge } from "./PppPendingPackageBadge";
 import {
   HiPencil,
   HiOutlineUser,
@@ -168,6 +169,22 @@ export async function PppClientDetailView({
               </div>
             </div>
           </div>
+
+          {/* Badge pending package change */}
+          {pelanggan.pendingPackageId && pelanggan.pendingPackageApplyAt && (
+            <PppPendingPackageBadge
+              pelangganId={pelanggan.id}
+              pendingPackageName={
+                (
+                  pelanggan.pendingPackage as
+                    | { name: string }
+                    | null
+                    | undefined
+                )?.name
+              }
+              pendingPackageApplyAt={pelanggan.pendingPackageApplyAt.toISOString()}
+            />
+          )}
 
           <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
             {/* LEFT COLUMN */}
