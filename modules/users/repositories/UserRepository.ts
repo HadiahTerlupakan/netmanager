@@ -18,6 +18,7 @@ import type {
   FindUsersParams,
   IUserRepository,
   UpdateUserRepositoryInput,
+  UserSiteAssignmentInput,
 } from "../domain/ports/IUserRepository";
 import { UserMapper } from "../mappers/UserMapper";
 import {
@@ -199,10 +200,50 @@ export class UserRepository implements IUserRepository {
     return UserMapper.toDomain(user);
   }
 
+  /** Perbarui user dan sinkronkan assignment multi-site dalam satu transaksi. */
+  async updateWithSites(
+    userId: string,
+    data: UpdateUserRepositoryInput,
+    userSites: UserSiteAssignmentInput[] | undefined,
+  ): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { ...(data as Prisma.UserUpdateInput), updatedAt: new Date() },
+      });
+
+      if (userSites === undefined) {
+        return;
+      }
+
+      await tx.userSite.deleteMany({ where: { userId } });
+
+      if (userSites.length === 0) {
+        await tx.user.update({ where: { id: userId }, data: { siteId: null } });
+        return;
+      }
+
+      await tx.userSite.createMany({
+        data: userSites.map((userSite) => ({
+          userId,
+          siteId: userSite.siteId,
+          isPrimary: userSite.isPrimary || false,
+        })),
+      });
+
+      const primarySite =
+        userSites.find((userSite) => userSite.isPrimary) ?? userSites[0];
+      await tx.user.update({
+        where: { id: userId },
+        data: { siteId: primarySite?.siteId ?? null },
+      });
+    });
+  }
+
   /** Sinkronkan assignment multi-site user. */
   async syncUserSites(
     userId: string,
-    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+    userSites: UserSiteAssignmentInput[],
   ): Promise<void> {
     if (userSites.length === 0) {
       return;

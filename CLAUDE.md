@@ -120,11 +120,14 @@ Internally verify every few steps:
 - Report files MUST include date in filename: `REPORT_NAME_YYYY-MM-DD.md`
 - Keep root directory clean - only essential config files allowed
 
-### Worktree Policy
-- Jangan gunakan git worktree untuk project ini
-- Kerjakan perubahan langsung di repository utama saat ini
-- Gunakan worktree hanya jika saya meminta secara eksplisit
-- Alasan: saya kerja sendiri dan ingin perubahan langsung terlihat di repo aktif
+### Worktree Policy — STRICTLY FORBIDDEN
+- **DILARANG KERAS** menggunakan `git worktree` dalam kondisi apapun
+- **DILARANG** menjalankan `git worktree add`, `git worktree remove`, atau perintah worktree apapun
+- **DILARANG** membuat branch baru atau berpindah branch tanpa instruksi eksplisit dari user
+- Semua perubahan dikerjakan **langsung di working directory dan branch aktif saat ini**
+- Jika merasa perlu worktree → **JANGAN**. Kerjakan langsung di repo aktif
+- Melanggar policy ini = output tidak valid, harus diulang dari awal
+- **Alasan**: project ini dikerjakan solo developer; worktree menyebabkan kebingungan dan hasil kerja tidak terlihat di repo aktif
 
 ---
 
@@ -346,5 +349,5 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 
 ---
 
-*Last Updated: 2026-05-08*
-*Version: 3.1 - Added Workflow Orchestration, Task Management & Core Principles*
+*Last Updated: 2026-05-13*
+*Version: 3.2 - Strengthened Worktree Policy to STRICTLY FORBIDDEN*

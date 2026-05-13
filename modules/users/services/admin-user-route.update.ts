@@ -1,5 +1,5 @@
 import { Prisma } from "../repositories/prisma-boundary";
-import { prisma } from "@/modules/database";
+import { UserRepository } from "../repositories/UserRepository";
 
 import {
   applyEmailChange,
@@ -16,6 +16,8 @@ import type {
   UpdateUserPayload,
   UserRouteResult,
 } from "./AdminUserRouteService.types";
+
+const userRepository = new UserRepository();
 
 /** Menangani validasi, persist, dan side effect update user admin. */
 export class AdminUserRouteUpdateService {
@@ -81,15 +83,18 @@ export class AdminUserRouteUpdateService {
     userSites: UpdateUserPayload["userSites"],
     allowedSiteIds?: string[],
   ): Promise<void> {
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: userId }, data });
-      if (userSites === undefined) {
-        return;
+    if (userSites && allowedSiteIds && allowedSiteIds.length > 0) {
+      const invalidSites = userSites.filter(
+        (userSite) => !allowedSiteIds.includes(userSite.siteId),
+      );
+      if (invalidSites.length > 0) {
+        throw new Error(
+          "Anda tidak dapat menambahkan user ke site di luar scope Anda",
+        );
       }
+    }
 
-      await tx.userSite.deleteMany({ where: { userId } });
-      await persistUserSites(tx, userId, userSites, allowedSiteIds);
-    });
+    await userRepository.updateWithSites(userId, data, userSites);
   }
 
   /** Jalankan side effect setelah update user selesai. */
@@ -102,46 +107,4 @@ export class AdminUserRouteUpdateService {
       await publishPermissionUpdate(userId);
     }
   }
-}
-
-async function persistUserSites(
-  tx: Prisma.TransactionClient,
-  userId: string,
-  userSites: NonNullable<UpdateUserPayload["userSites"]>,
-  allowedSiteIds?: string[],
-): Promise<void> {
-  if (userSites.length === 0) {
-    await tx.user.update({ where: { id: userId }, data: { siteId: null } });
-    return;
-  }
-
-  // Validate each siteId against allowed scope
-  if (allowedSiteIds && allowedSiteIds.length > 0) {
-    const invalidSites = userSites.filter(
-      (us) => !allowedSiteIds.includes(us.siteId),
-    );
-    if (invalidSites.length > 0) {
-      throw new Error(
-        "Anda tidak dapat menambahkan user ke site di luar scope Anda",
-      );
-    }
-  }
-
-  await tx.userSite.createMany({
-    data: userSites.map((userSite) => ({
-      userId,
-      siteId: userSite.siteId,
-      isPrimary: userSite.isPrimary || false,
-    })),
-  });
-
-  const primarySite = userSites.find((userSite) => userSite.isPrimary);
-  if (!primarySite) {
-    return;
-  }
-
-  await tx.user.update({
-    where: { id: userId },
-    data: { siteId: primarySite.siteId },
-  });
 }

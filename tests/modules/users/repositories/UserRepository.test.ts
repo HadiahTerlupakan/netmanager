@@ -266,6 +266,118 @@ describe("UserRepository", () => {
     });
   });
 
+  describe("updateWithSites", () => {
+    it("mengganti assignment multi-site user dalam satu transaksi", async () => {
+      const tx = {
+        user: {
+          update: vi.fn().mockResolvedValue({ ...mockUser, siteId: "site-2" }),
+        },
+        userSite: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+          createMany: vi.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+
+      vi.mocked(prismaMock.$transaction).mockImplementation(
+        async (callback) => {
+          if (typeof callback === "function") {
+            return callback(tx as never);
+          }
+          return Promise.resolve(callback);
+        },
+      );
+
+      await repository.updateWithSites("user-1", { name: "Updated Name" }, [
+        { siteId: "site-2", isPrimary: true },
+        { siteId: "site-3", isPrimary: false },
+      ]);
+
+      expect(tx.user.update).toHaveBeenNthCalledWith(1, {
+        where: { id: "user-1" },
+        data: expect.objectContaining({
+          name: "Updated Name",
+          updatedAt: expect.any(Date),
+        }),
+      });
+      expect(tx.userSite.deleteMany).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+      });
+      expect(tx.userSite.createMany).toHaveBeenCalledWith({
+        data: [
+          { userId: "user-1", siteId: "site-2", isPrimary: true },
+          { userId: "user-1", siteId: "site-3", isPrimary: false },
+        ],
+      });
+      expect(tx.user.update).toHaveBeenNthCalledWith(2, {
+        where: { id: "user-1" },
+        data: { siteId: "site-2" },
+      });
+    });
+
+    it("menggunakan site pertama sebagai fallback primary saat flag primary tidak ada", async () => {
+      const tx = {
+        user: {
+          update: vi.fn().mockResolvedValue({ ...mockUser, siteId: "site-2" }),
+        },
+        userSite: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+          createMany: vi.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+
+      vi.mocked(prismaMock.$transaction).mockImplementation(
+        async (callback) => {
+          if (typeof callback === "function") {
+            return callback(tx as never);
+          }
+          return Promise.resolve(callback);
+        },
+      );
+
+      await repository.updateWithSites("user-1", { name: "Updated Name" }, [
+        { siteId: "site-2", isPrimary: false },
+        { siteId: "site-3", isPrimary: false },
+      ]);
+
+      expect(tx.user.update).toHaveBeenNthCalledWith(2, {
+        where: { id: "user-1" },
+        data: { siteId: "site-2" },
+      });
+    });
+
+    it("mengosongkan primary site saat userSites dikirim kosong", async () => {
+      const tx = {
+        user: {
+          update: vi.fn().mockResolvedValue({ ...mockUser, siteId: null }),
+        },
+        userSite: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          createMany: vi.fn(),
+        },
+      };
+
+      vi.mocked(prismaMock.$transaction).mockImplementation(
+        async (callback) => {
+          if (typeof callback === "function") {
+            return callback(tx as never);
+          }
+          return Promise.resolve(callback);
+        },
+      );
+
+      await repository.updateWithSites("user-1", { name: "Updated Name" }, []);
+
+      expect(tx.userSite.deleteMany).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+      });
+      expect(tx.userSite.createMany).not.toHaveBeenCalled();
+      expect(tx.user.update).toHaveBeenNthCalledWith(2, {
+        where: { id: "user-1" },
+        data: { siteId: null },
+      });
+    });
+  });
+
   describe("updateWorkingHours", () => {
     it("harus update working hours user", async () => {
       const workingHours = {

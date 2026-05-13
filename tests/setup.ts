@@ -80,6 +80,7 @@ export type MockPrismaClient = {
   ticketReplies: MockModel;
   unmatchedMutation: MockModel;
   user: MockModel;
+  userSite: MockModel;
   userSalaryComponent: MockModel;
   workOrderAssignments: MockModel;
   workOrderAttachments: MockModel;

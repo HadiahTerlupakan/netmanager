@@ -11,6 +11,17 @@ import {
 } from "@/lib/validations/common";
 import { workDaysSchema, workDaysOptionalSchema } from "./workDays.validator";
 
+const hasUniqueUserSites = (sites: Array<{ siteId: string }>) =>
+  new Set(sites.map((site) => site.siteId)).size === sites.length;
+
+const hasSinglePrimarySite = (sites: Array<{ isPrimary?: boolean }>) => {
+  if (sites.length === 0) {
+    return true;
+  }
+
+  return sites.filter((site) => site.isPrimary).length === 1;
+};
+
 /**
  * User list filters schema
  */
@@ -156,6 +167,12 @@ export const updateUserSchema = z
           isPrimary: z.boolean().default(false),
         }),
       )
+      .refine(hasUniqueUserSites, {
+        message: "Site user tidak boleh duplikat",
+      })
+      .refine(hasSinglePrimarySite, {
+        message: "Pilih tepat satu site utama",
+      })
       .optional(),
 
     // Working hours configuration

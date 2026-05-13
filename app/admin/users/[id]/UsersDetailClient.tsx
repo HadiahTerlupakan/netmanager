@@ -35,6 +35,7 @@ import {
   getSelectedSitesFromUser,
   getSitesFromUser,
   mergeSites,
+  normalizeSelectedSites,
 } from "./user-detail-helpers";
 
 interface SelectedSite {
@@ -462,8 +463,10 @@ export function ClientComponent({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (
+    event,
+  ) => {
+    event?.preventDefault();
 
     if (!validateForm()) {
       return;
@@ -477,6 +480,7 @@ export function ClientComponent({
     setSubmitting(true);
 
     try {
+      const normalizedSelectedSites = normalizeSelectedSites(selectedSites);
       const updateBody: Record<string, unknown> = {
         name: formData.name,
         phone: formData.phone || null,
@@ -516,7 +520,7 @@ export function ClientComponent({
         overtimeCalcTypeHoliday: formData.overtimeCalcTypeHoliday,
         overtimeCalcTypeNational: formData.overtimeCalcTypeNational,
         // Multi-site support
-        userSites: selectedSites,
+        userSites: normalizedSelectedSites,
       };
 
       if (formData.password) {

@@ -5,6 +5,7 @@ import type {
 } from "../entities/UserEntity";
 
 export type UpdateUserRepositoryInput = Record<string, unknown>;
+export type UserSiteAssignmentInput = { siteId: string; isPrimary?: boolean };
 
 export interface FindUsersParams {
   siteId?: string;
@@ -86,10 +87,16 @@ export interface IUserRepository {
   update(id: string, data: UpdateUserRepositoryInput): Promise<UserEntity>;
   /** Delete a user and return its domain entity. */
   delete(id: string): Promise<UserEntity>;
+  /** Update user and synchronize multi-site assignments in one persistence boundary. */
+  updateWithSites(
+    userId: string,
+    data: UpdateUserRepositoryInput,
+    userSites: UserSiteAssignmentInput[] | undefined,
+  ): Promise<void>;
   /** Synchronize user multi-site assignments. */
   syncUserSites(
     userId: string,
-    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+    userSites: UserSiteAssignmentInput[],
   ): Promise<void>;
   /** Update working-hour settings and return its domain entity. */
   updateWorkingHours(id: string, data: UserScheduleEntity): Promise<UserEntity>;

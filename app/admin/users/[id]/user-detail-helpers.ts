@@ -24,19 +24,44 @@ interface UserDataLike {
 
 const DEFAULT_SELECTED_SITE: SelectedSite[] = [];
 
+/** Normalisasi selected sites agar tidak ada site ganda dan primary tetap konsisten. */
+export function normalizeSelectedSites(sites: SelectedSite[]): SelectedSite[] {
+  const siteMap = new Map<string, SelectedSite>();
+
+  sites.forEach((site) => {
+    if (!site.siteId) return;
+    const currentSite = siteMap.get(site.siteId);
+    siteMap.set(site.siteId, {
+      siteId: site.siteId,
+      isPrimary: Boolean(currentSite?.isPrimary || site.isPrimary),
+    });
+  });
+
+  const normalizedSites = Array.from(siteMap.values());
+  const hasPrimary = normalizedSites.some((site) => site.isPrimary);
+
+  if (!hasPrimary && normalizedSites[0]) {
+    normalizedSites[0] = { ...normalizedSites[0], isPrimary: true };
+  }
+
+  return normalizedSites;
+}
+
 /** Ambil site terpilih dari relasi multi-site atau fallback site tunggal. */
 export function getSelectedSitesFromUser(user: UserDataLike): SelectedSite[] {
   if (user.userSites?.length) {
-    return user.userSites
-      .map((userSite) => ({
-        siteId: userSite.siteId || userSite.site?.id || "",
-        isPrimary: userSite.isPrimary ?? false,
-      }))
-      .filter((site): site is SelectedSite => Boolean(site.siteId));
+    return normalizeSelectedSites(
+      user.userSites
+        .map((userSite) => ({
+          siteId: userSite.siteId || userSite.site?.id || "",
+          isPrimary: userSite.isPrimary ?? false,
+        }))
+        .filter((site): site is SelectedSite => Boolean(site.siteId)),
+    );
   }
 
   return user.siteId
-    ? [{ siteId: user.siteId, isPrimary: true }]
+    ? normalizeSelectedSites([{ siteId: user.siteId, isPrimary: true }])
     : DEFAULT_SELECTED_SITE;
 }
 
