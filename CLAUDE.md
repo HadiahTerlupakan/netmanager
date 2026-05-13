@@ -101,6 +101,7 @@ Internally verify every few steps:
 - Apakah module ini baru atau lama? Terapkan standar arsitektur yang sesuai.
 - Apakah refactor ini benar-benar menyelesaikan smell, atau hanya memecah kode besar yang masih cohesive?
 - Apakah ada kode yang salah tempat dan perlu dipindahkan ke module yang sesuai?
+- Apakah `docs/CHANGELOG.md` sudah diupdate sebelum task ditutup?
 
 ### Output Style
 - Lead with action, not questions
@@ -178,6 +179,119 @@ Internally verify every few steps:
 4. **Explain Changes**: High-level summary at each step
 5. **Document Results**: Add review section to `tasks/todo.md`
 6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+7. **Update Changelog**: Update `docs/CHANGELOG.md` sebelum task ditutup
+
+---
+
+## SOT & Changelog Policy
+
+> **Source of Truth** untuk seluruh perubahan project ada di `docs/CHANGELOG.md`.
+> Setiap pekerjaan yang mengubah kode, struktur, atau konfigurasi **WAJIB** dicatat di sana,
+> tanpa terkecuali — baik dikerjakan oleh agent maupun developer langsung.
+
+### Kapan Harus Update Changelog
+
+Wajib update `docs/CHANGELOG.md` setelah menyelesaikan task yang termasuk:
+
+| Kondisi | Tipe Label |
+|---------|-----------|
+| Menambah fitur, endpoint, atau module baru | `[ADDED]` |
+| Refactor, migrasi pola, atau update logika | `[CHANGED]` |
+| Fix bug atau code smell | `[FIXED]` |
+| Hapus fitur, modul, file, atau fungsi | `[REMOVED]` |
+| Tandai sesuatu sebagai deprecated | `[DEPRECATED]` |
+| Patch keamanan | `[SECURITY]` |
+| Perubahan infra / CI / Docker / K8s | `[INFRA]` |
+| Update dokumentasi saja | `[DOCS]` |
+| Tambah atau ubah migration Prisma | `[MIGRATION]` |
+
+> Perubahan kecil seperti typo fix atau rename variabel lokal **tidak perlu** dicatat.
+> Threshold: jika perubahan mempengaruhi behavior, API contract, struktur modul, atau skema DB → wajib dicatat.
+
+### Format Entry (wajib ikuti persis)
+
+```markdown
+### [YYYY-MM-DD] — Judul singkat perubahan
+
+- **Tipe**: [ADDED|CHANGED|FIXED|REMOVED|DEPRECATED|SECURITY|INFRA|DOCS|MIGRATION]
+- **Scope**: `modules/<nama>` | `app/api/<path>` | `lib/` | `infra/` | `docs/`
+- **Author**: agent | @<github-username>
+- **Deskripsi**: Penjelasan singkat apa yang berubah dan mengapa.
+- **Files**: (opsional) file-file utama yang terpengaruh
+- **Migration**: (opsional) nama file migration Prisma jika ada perubahan skema DB
+- **Breaking**: ✅ Ya / ❌ Tidak
+```
+
+### Aturan Penulisan Entry
+
+1. **Selalu tulis di bagian `[Unreleased]`** — bukan langsung di bawah tanggal release
+2. **Satu entry per task logis** — jangan gabungkan perubahan yang tidak related dalam satu entry
+3. **Scope wajib diisi** — gunakan path modul/file yang paling relevan
+4. **Breaking change wajib ditandai** — jika `[REMOVED]` atau API contract berubah → `Breaking: ✅ Ya`
+5. **Migration wajib dicantumkan** — jika ada perubahan skema Prisma, tulis nama file migration-nya
+6. **Entry ditulis SETELAH task selesai** — bukan sebelum atau di tengah pengerjaan
+7. **Judul singkat tapi informatif** — maksimal 10 kata, cukup untuk dipahami tanpa baca deskripsi
+
+### Contoh Entry yang Benar
+
+```markdown
+### [2026-05-14] — Migrasi module pelanggan ke Clean Architecture
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Migrasi dari pola lama (service monolitik) ke pola baru
+  (domain/repository/service/dto). Business logic dipindah dari `app/api/pelanggan/`
+  ke `modules/pelanggan/services/`. Query Prisma dipindah ke repository layer.
+- **Files**: `modules/pelanggan/services/pelanggan.service.ts`,
+  `modules/pelanggan/repositories/pelanggan.repository.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Tambah modul coupons
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/coupons`
+- **Author**: agent
+- **Deskripsi**: Modul baru untuk manajemen kupon diskon pelanggan. Mencakup CRUD,
+  validasi masa berlaku, dan integrasi ke modul finance via domain events.
+- **Migration**: `20260514120000_add_coupons_table`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Hapus endpoint legacy v1/pelanggan
+
+- **Tipe**: [REMOVED]
+- **Scope**: `app/api/v1/pelanggan`
+- **Author**: @rohadi
+- **Deskripsi**: Endpoint v1 sudah tidak digunakan sejak migrasi ke v2. Dihapus
+  untuk mengurangi maintenance surface.
+- **Breaking**: ✅ Ya
+```
+
+### Self-Check SOT Sebelum Task Ditutup
+
+Sebelum menyatakan task selesai, verifikasi:
+- [ ] Apakah perubahan ini termasuk threshold yang wajib dicatat?
+- [ ] Sudah tulis entry di bagian `[Unreleased]` di `docs/CHANGELOG.md`?
+- [ ] Scope dan tipe perubahan sudah akurat?
+- [ ] Jika ada breaking change, sudah ditandai `Breaking: ✅ Ya`?
+- [ ] Jika ada migration Prisma, sudah dicantumkan nama file-nya?
+
+### Integrasi dengan Git Commit
+
+Pesan commit mengacu pada entry changelog dengan format Conventional Commits:
+
+```
+<type>(<scope>): <judul singkat>
+
+# Contoh:
+feat(coupons): add coupon management module
+fix(pelanggan): move business logic from api route to service
+refactor(pelanggan): migrate to clean architecture pattern
+chore(infra): update docker compose for redis sentinel
+docs(changelog): add SOT policy to CLAUDE.md
+```
+
+Tipe commit yang valid: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `security`
 
 ---
 
@@ -291,6 +405,7 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 - **Transactions**: `docs/standards/transactions.md`
 - **Security & Performance**: `docs/standards/security-performance.md`
 - **Agent Collaboration**: `docs/guides/agent-collaboration.md`
+- **Changelog / SOT**: `docs/CHANGELOG.md`
 
 ### Quick Reference
 
@@ -349,5 +464,5 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 
 ---
 
-*Last Updated: 2026-05-13*
-*Version: 3.2 - Strengthened Worktree Policy to STRICTLY FORBIDDEN*
+*Last Updated: 2026-05-14*
+*Version: 3.3 - Added SOT & Changelog Policy*
