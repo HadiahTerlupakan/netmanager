@@ -50,10 +50,20 @@ export function toUserSiteRelation(
 }
 
 export function toUserShift(
-  shift?: { id: string; name: string } | null,
+  shift?: {
+    id: string;
+    name: string;
+    startTime?: string | null;
+    endTime?: string | null;
+  } | null,
 ): UserShiftEntity | null {
   if (!shift) return null;
-  return { id: shift.id, name: shift.name };
+  return {
+    id: shift.id,
+    name: shift.name,
+    startTime: shift.startTime ?? null,
+    endTime: shift.endTime ?? null,
+  };
 }
 
 export function toUserSites(userSites?: PrismaUserRelations["userSites"]) {
@@ -139,8 +149,10 @@ export function toListDTO(entity: UserEntity): UserListItemDTO {
     isAttendanceRequired: entity.isAttendanceRequired,
     lastVersionCode: entity.lastVersionCode,
     lastVersionName: entity.lastVersionName,
-    lastVersionUpdate: entity.lastVersionUpdate,
-    lastLoginAt: entity.lastLoginAt,
+    lastVersionUpdate: entity.lastVersionUpdate
+      ? entity.lastVersionUpdate.toISOString()
+      : null,
+    lastLoginAt: entity.lastLoginAt ? entity.lastLoginAt.toISOString() : null,
     departments: entity.department
       ? { id: entity.department.id, name: entity.department.name }
       : null,
@@ -216,7 +228,12 @@ export function toDetailDTO(entity: UserEntity): UserDetailDTO {
       ? { id: entity.tenant.id, name: entity.tenant.name }
       : null,
     shift: entity.shift
-      ? { id: entity.shift.id, name: entity.shift.name }
+      ? {
+          id: entity.shift.id,
+          name: entity.shift.name,
+          startTime: entity.shift.startTime ?? null,
+          endTime: entity.shift.endTime ?? null,
+        }
       : null,
     userSites: (entity.userSites ?? []).map((userSite) => ({
       id: userSite.id,

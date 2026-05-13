@@ -16,6 +16,7 @@ interface UserTableProps {
   canUpdate: boolean;
   canDelete: boolean;
   canForceLogout: boolean;
+  currentUserId: string | null;
   onlineUsers: Set<string>;
   selectedUserIds: string[];
   toggleUserSelection: (userId: string) => void;
@@ -40,6 +41,7 @@ export function UserTable({
   canUpdate,
   canDelete,
   canForceLogout,
+  currentUserId,
   onlineUsers,
   selectedUserIds,
   toggleUserSelection,
@@ -58,6 +60,7 @@ export function UserTable({
     canUpdate,
     canDelete,
     canForceLogout,
+    currentUserId,
     setDeleteUserId,
     setForceLogoutUserId,
   });
@@ -67,6 +70,7 @@ export function UserTable({
       canUpdate,
       canDelete,
       canForceLogout,
+      currentUserId,
       setDeleteUserId,
       setForceLogoutUserId,
     });

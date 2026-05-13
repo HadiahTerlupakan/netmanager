@@ -3,6 +3,7 @@ import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import { clientLogger } from "@/lib/client-logger";
 
 import {
   HiOutlineArrowLeft,
@@ -14,7 +15,6 @@ import {
   HiOutlinePhone,
   HiOutlineUser,
   HiOutlineEnvelope,
-  HiOutlineMap,
   HiOutlineCheckCircle,
   HiOutlineShieldCheck,
   HiOutlineExclamationTriangle,
@@ -26,10 +26,8 @@ import {
 } from "react-icons/hi2";
 import WorkingHoursSettings from "./WorkingHoursSettings";
 import LeaveBalanceSettings from "./LeaveBalanceSettings";
-import LeaveQuotaSummary from "./LeaveQuotaSummary";
-import UserPerformanceStats from "./UserPerformanceStats";
-import SalesPerformanceStats from "./SalesPerformanceStats";
 import MultiSiteSelect from "../components/MultiSiteSelect";
+import { UsersDetailView } from "./UsersDetailView";
 import { usePermission } from "@/hooks/use-permission";
 import {
   getSelectedSitesFromUser,
@@ -37,90 +35,31 @@ import {
   mergeSites,
   normalizeSelectedSites,
 } from "./user-detail-helpers";
+import {
+  OVERTIME_CALC_TYPE_OPTIONS,
+  OVERTIME_COLOR_CLASSES,
+  OVERTIME_CONFIGS,
+} from "../lib/overtime-config";
+import { generateStrongPassword } from "../lib/password-generator";
+import {
+  fetchAdminUserDetail,
+  saveLeaveQuotas,
+  updateAdminUser,
+} from "../lib/userDetailApi";
+import { useUserReferenceData } from "../lib/useUserDetailData";
+import type { UserDetailDTO } from "@/modules/users";
 
 interface SelectedSite {
   siteId: string;
   isPrimary: boolean;
 }
 
-interface Department {
-  id: string;
-  name: string;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-interface Site {
-  id: string;
-  code: string;
-  name: string;
-}
-
-interface Tenant {
-  id: string;
-  name: string;
-}
-
-interface UserSiteRelation {
-  id?: string;
-  siteId?: string | null;
-  isPrimary?: boolean | null;
-  site?: { id?: string | null; code: string; name: string } | null;
-}
-
-interface UserData {
-  id: string;
-  email: string;
-  name: string | null;
-  phone: string | null;
-  departmentId: string | null;
-  siteId: string | null;
-  roleId?: string | null;
-  isActive: boolean;
-  department?: { id?: string; name: string } | null;
-  departments?: { id?: string; name: string } | null;
-  site?: { id?: string; code: string; name: string } | null;
-  sites?: { id?: string; code: string; name: string } | null;
-  role?: { id?: string; name: string } | null;
-  userSites?: UserSiteRelation[];
-  // Working hours
-  workingHourMode?: string;
-  attendanceGeofencePolicy?: string | null;
-  startWorkTime?: string | null;
-  endWorkTime?: string | null;
-  workDays?: string | null;
-  flexibleTargetHour?: number | null;
-  shiftId?: string | null;
-  shift?: {
-    id: string;
-    name: string;
-    startTime?: string;
-    endTime?: string;
-  } | null;
-  canvasingTarget?: number | null;
-  isSales?: boolean;
-  isAttendanceRequired?: boolean;
-  tenantId?: string | null;
-  tenant?: { id: string; name: string } | null;
-  targetSchema?: string | null;
-  basicSalary?: number | null;
-  payPeriodDay?: number | null;
-  payDay?: number | null;
-  woIncentiveEnabled?: boolean;
-  woIncentiveRate?: number | null;
-  lateDeductionRate?: number | null;
-  absentDeductionRate?: number | null;
-  overtimeRateNormal?: number | null;
-  overtimeRateHoliday?: number | null;
-  overtimeRateNational?: number | null;
-  overtimeCalcTypeNormal?: string | null;
-  overtimeCalcTypeHoliday?: string | null;
-  overtimeCalcTypeNational?: string | null;
-}
+type UserData = UserDetailDTO & {
+  // Alias untuk backward-compat dengan form input yang lama.
+  department?: UserDetailDTO["department"];
+  sites?: UserDetailDTO["site"];
+  departments?: UserDetailDTO["department"];
+};
 
 const numericFieldNames = new Set([
   "canvasingTarget",
@@ -174,10 +113,9 @@ export function ClientComponent({
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({}); // For leave balance integration
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const { departments, roles, sites, tenants, setSites } = useUserReferenceData(
+    { canReadTenants },
+  );
   const [user, setUser] = useState<UserData | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -230,36 +168,9 @@ export function ClientComponent({
   const hasFormChanges =
     initialFormSnapshot !== "" && currentFormSnapshot !== initialFormSnapshot;
 
-  const overtimeConfigs = [
-    {
-      key: "Normal",
-      label: "Hari Kerja",
-      color: "indigo",
-      calcTypeField: "overtimeCalcTypeNormal",
-      rateField: "overtimeRateNormal",
-    },
-    {
-      key: "Holiday",
-      label: "Hari Libur",
-      color: "amber",
-      calcTypeField: "overtimeCalcTypeHoliday",
-      rateField: "overtimeRateHoliday",
-    },
-    {
-      key: "National",
-      label: "Libur Nas.",
-      color: "rose",
-      calcTypeField: "overtimeCalcTypeNational",
-      rateField: "overtimeRateNational",
-    },
-  ] as const;
-
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/users/${id}`);
-      const data = await res.json();
-      // API returns: { success: true, data: { user: UserDetailDTO } }
-      const usr = data.data?.user;
+      const usr = (await fetchAdminUserDetail(id)) as UserData | null;
 
       if (usr) {
         setUser(usr);
@@ -314,98 +225,23 @@ export function ClientComponent({
         );
       }
     } catch (error: unknown) {
-      console.error("Error fetching user:", error);
+      clientLogger.error("Error fetching user:", error);
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan";
       toast.error("Gagal memuat data user: " + message);
       setErrors({ fetch: message });
+    } finally {
+      setLoading(false);
     }
-  }, [id]);
-
-  const fetchDepartments = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/departments");
-      if (res.ok) {
-        const data = await res.json();
-        // API returns: { success: true, data: [...] }
-        const depts = data.data || [];
-        setDepartments(Array.isArray(depts) ? depts : []);
-      }
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-    }
-  }, []);
-
-  const fetchRoles = useCallback(async () => {
-    try {
-      const res = await fetch("/api/roles?filterRestricted=true");
-      if (res.ok) {
-        const data = await res.json();
-        // API returns array directly: [...]
-        setRoles(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      console.error("Error fetching roles:", error);
-    }
-  }, []);
-
-  const fetchSites = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/sites?activeOnly=true");
-      if (res.ok) {
-        const data = await res.json();
-        // API returns: { success: true, data: [...] }
-        const availableSites = data.data || [];
-        setSites((currentSites) => mergeSites(currentSites, availableSites));
-      }
-    } catch (error) {
-      console.error("Error fetching sites:", error);
-    }
-  }, []);
-
-  const fetchTenants = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/tenants");
-      if (res.ok) {
-        const data = await res.json();
-        setTenants(data.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching tenants:", error);
-    }
-  }, []);
+  }, [id, setSites]);
 
   useEffect(() => {
-    const promises = [
-      fetchUser(),
-      fetchDepartments(),
-      fetchRoles(),
-      fetchSites(),
-    ];
-
-    if (canReadTenants) {
-      promises.push(fetchTenants());
-    }
-
-    Promise.all(promises).finally(() => setLoading(false));
-  }, [
-    fetchUser,
-    fetchDepartments,
-    fetchRoles,
-    fetchSites,
-    fetchTenants,
-    canReadTenants,
-  ]);
+    void fetchUser();
+  }, [fetchUser]);
 
   const generatePassword = () => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData((prev) => ({ ...prev, password }));
-    setShowPassword(true); // Show generated password immediately
+    setFormData((prev) => ({ ...prev, password: generateStrongPassword() }));
+    setShowPassword(true);
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.password;
@@ -527,17 +363,7 @@ export function ClientComponent({
         updateBody.password = formData.password;
       }
 
-      const userRes = await fetch(`/api/admin/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateBody),
-      });
-
-      const userData = await userRes.json();
-
-      if (!userRes.ok) {
-        throw new Error(userData.error || "Gagal mengupdate akun user");
-      }
+      await updateAdminUser(id, updateBody);
 
       let leaveQuotaError: string | null = null;
 
@@ -546,22 +372,9 @@ export function ClientComponent({
         Object.keys(leaveQuotas).length > 0
       ) {
         try {
-          const leaveQuotaRes = await fetch("/api/admin/leave-balance", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: id,
-              year: new Date().getFullYear(),
-              quotas: leaveQuotas,
-            }),
-          });
-
-          if (!leaveQuotaRes.ok) {
-            leaveQuotaError =
-              "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui";
-          }
+          await saveLeaveQuotas(id, leaveQuotas);
         } catch (error) {
-          console.error("Failed to save leave quotas:", error);
+          clientLogger.error("Failed to save leave quotas:", error);
           leaveQuotaError =
             "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui";
         }
@@ -578,7 +391,7 @@ export function ClientComponent({
         router.push("/admin/users");
       }, 2000);
     } catch (error: unknown) {
-      console.error("Error in handleSubmit:", error);
+      clientLogger.error("Error in handleSubmit:", error);
       setErrors({
         submit:
           error instanceof Error ? error.message : "Gagal memperbarui pengguna",
@@ -622,354 +435,26 @@ export function ClientComponent({
   // --- VIEW MODE ---
   if (isViewMode) {
     return (
-      <div className="space-y-8 max-w-4xl mx-auto pb-10">
-        {/* Navigation & Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin/users"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-              title="Kembali"
-            >
-              <HiOutlineArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Profile Pengguna
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Detail informasi pengguna
-              </p>
-            </div>
-          </div>
-          {canUpdate && (
-            <Link
-              href={`/admin/users/${id}`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
-            >
-              <HiOutlineKey className="w-4 h-4" />
-              Edit Data
-            </Link>
-          )}
-        </div>
-
-        {/* Profile Header Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
-
-          <div className="relative flex flex-col md:flex-row gap-8 items-start">
-            {/* Avatar */}
-            <div className="shrink-0">
-              <div className="w-32 h-32 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                <span className="text-4xl font-bold text-white">
-                  {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
-                </span>
-              </div>
-            </div>
-
-            {/* Main Info */}
-            <div className="flex-1 space-y-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-                  {formData.name || "Nama Belum Diisi"}
-                </h1>
-                <div className="flex flex-wrap gap-3 mt-3">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
-                      formData.isActive
-                        ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300"
-                    }`}
-                  >
-                    <HiOutlineShieldCheck className="w-4 h-4 mr-1.5" />
-                    {formData.isActive ? "Aktif" : "Tidak Aktif"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="flex items-center text-gray-600 dark:text-gray-300">
-                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
-                    <HiOutlineEnvelope className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="font-medium">{user?.email}</span>
-                </div>
-                <div className="flex items-center text-gray-600 dark:text-gray-300">
-                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
-                    <HiOutlinePhone className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="font-medium">{formData.phone || "-"}</span>
-                </div>
-                <div className="flex items-center text-gray-600 dark:text-gray-300 sm:col-span-2">
-                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
-                    <HiOutlineIdentification className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="font-medium">
-                    {user?.role?.name || "User (Default)"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Department Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <HiOutlineBuildingOffice className="w-5 h-5 text-indigo-500" />
-              Departemen
-            </h3>
-            <p className="text-xl font-medium text-gray-900 dark:text-white">
-              {departments.find((d) => d.id === formData.departmentId)?.name ||
-                user?.department?.name ||
-                "-"}
-            </p>
-          </div>
-
-          {/* Site Card - Multi-site */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <HiOutlineMap className="w-5 h-5 text-green-500" />
-              Site / Area Kerja
-            </h3>
-            {user?.userSites && user.userSites.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {user.userSites
-                  .filter((us) => us.site)
-                  .map((us) => (
-                    <span
-                      key={us.id}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
-                        us.isPrimary
-                          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {us.isPrimary && (
-                        <HiOutlineStar className="w-3.5 h-3.5" />
-                      )}
-                      {us.site.code} - {us.site.name}
-                    </span>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {user?.site?.code
-                  ? `${user.site.code} - ${user.site.name}`
-                  : "-"}
-              </p>
-            )}
-          </div>
-
-          {/* Tenant Card (Super Admin only) */}
-          {hasPermission("tenants:read") && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <HiOutlineGlobeAlt className="w-5 h-5 text-amber-500" />
-                Tenant
-              </h3>
-              <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {user?.tenant?.name || "-"}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Working Hours Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <HiOutlineUserCircle className="w-5 h-5 text-blue-500" />
-            Pengaturan Jam Kerja
-          </h3>
-
-          {/* Mode Badge */}
-          <div className="mb-4">
-            {formData.workingHourMode === "FIXED" && (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                <HiOutlineBuildingOffice className="w-4 h-4 mr-2" />
-                Jam Kerja Tetap (FIXED)
-              </span>
-            )}
-            {formData.workingHourMode === "SHIFT" && (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                <HiOutlineUserCircle className="w-4 h-4 mr-2" />
-                Jam Kerja Shift (SHIFT)
-              </span>
-            )}
-            {formData.workingHourMode === "FLEXIBLE" && (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
-                <HiOutlineUserCircle className="w-4 h-4 mr-2" />
-                Jam Kerja Fleksibel (FLEXIBLE)
-              </span>
-            )}
-          </div>
-
-          {/* Mode Details */}
-          <div className="space-y-3 text-sm">
-            {formData.workingHourMode === "FIXED" && (
-              <>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Jam Masuk
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.startWorkTime || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Jam Pulang
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.endWorkTime || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Hari Kerja
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.workDays
-                      ? formData.workDays
-                          .split(",")
-                          .map((d) => {
-                            const dayMap: Record<string, string> = {
-                              Mon: "Sen",
-                              Tue: "Sel",
-                              Wed: "Rab",
-                              Thu: "Kam",
-                              Fri: "Jum",
-                              Sat: "Sab",
-                              Sun: "Min",
-                            };
-                            return dayMap[d.trim()] || d.trim();
-                          })
-                          .join(", ")
-                      : "-"}
-                  </span>
-                </div>
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg text-xs text-blue-700 dark:text-blue-300">
-                  ℹ️ Jika tidak check-in pada hari kerja, akan ditandai sebagai{" "}
-                  <strong>ALPHA</strong> (Tidak Masuk).
-                </div>
-              </>
-            )}
-
-            {formData.workingHourMode === "SHIFT" && (
-              <>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Shift
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {user?.shift
-                      ? user.shift.name
-                      : user?.shiftId
-                        ? "Shift Terpilih"
-                        : "Belum dipilih"}
-                  </span>
-                </div>
-                {user?.shift && (
-                  <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-gray-500 dark:text-gray-400">
-                      Jadwal Shift
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {user.shift.startTime} - {user.shift.endTime}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Hari Kerja
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.workDays
-                      ? formData.workDays
-                          .split(",")
-                          .map((d) => {
-                            const dayMap: Record<string, string> = {
-                              Mon: "Sen",
-                              Tue: "Sel",
-                              Wed: "Rab",
-                              Thu: "Kam",
-                              Fri: "Jum",
-                              Sat: "Sab",
-                              Sun: "Min",
-                            };
-                            return dayMap[d.trim()] || d.trim();
-                          })
-                          .join(", ")
-                      : "-"}
-                  </span>
-                </div>
-                <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg text-xs text-purple-700 dark:text-purple-300">
-                  ℹ️ Jadwal mengikuti pola shift. Jika tidak check-in pada hari
-                  kerja, akan ditandai sebagai <strong>ALPHA</strong>.
-                </div>
-              </>
-            )}
-
-            {formData.workingHourMode === "FLEXIBLE" && (
-              <>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Target Jam Kerja
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.flexibleTargetHour || 8} jam / hari
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Sifat Absensi
-                  </span>
-                  <span className="font-medium text-green-600 dark:text-green-400">
-                    Akumulasi Bulanan
-                  </span>
-                </div>
-                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg text-xs text-green-700 dark:text-green-300">
-                  ✅ <strong>Tidak ada ALPHA</strong> - Bebas check-in kapan
-                  saja. Yang dihitung adalah total akumulasi jam kerja dalam 1
-                  bulan.
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Status Indicators */}
-        <div className="flex flex-wrap gap-4">
-          <div
-            className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 ${formData.isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"}`}
-          >
-            <HiOutlineShieldCheck className="w-4 h-4" />
-            {formData.isActive ? "Akun Aktif" : "Akun Nonaktif"}
-          </div>
-          {formData.isSales && (
-            <div className="px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-              <HiOutlineIdentification className="w-4 h-4" />
-              Fitur Sales Aktif
-            </div>
-          )}
-        </div>
-
-        {/* User Performance Stats (New Metric Section) */}
-        <UserPerformanceStats userId={id as string} />
-
-        {/* Leave Quota Summary - Only for non-FLEXIBLE users */}
-        {canViewLeaveQuotas && (
-          <LeaveQuotaSummary
-            userId={id as string}
-            workingHourMode={formData.workingHourMode}
-          />
-        )}
-
-        {/* Sales Performance Stats - Only for Sales users */}
-        {formData.isSales && <SalesPerformanceStats userId={id as string} />}
-      </div>
+      <UsersDetailView
+        userId={id as string}
+        user={user as UserDetailDTO | null}
+        formData={{
+          name: formData.name,
+          phone: formData.phone,
+          isActive: formData.isActive,
+          isSales: formData.isSales,
+          departmentId: formData.departmentId,
+          workingHourMode: formData.workingHourMode,
+          startWorkTime: formData.startWorkTime,
+          endWorkTime: formData.endWorkTime,
+          workDays: formData.workDays,
+          flexibleTargetHour: formData.flexibleTargetHour,
+        }}
+        departments={departments}
+        canUpdate={canUpdate}
+        canViewLeaveQuotas={canViewLeaveQuotas}
+        hasPermission={hasPermission}
+      />
     );
   }
 
@@ -1536,43 +1021,47 @@ export function ClientComponent({
                     Konfigurasi Lembur
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {overtimeConfigs.map((item) => (
-                      <div
-                        key={item.key}
-                        className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}
-                      >
-                        <span
-                          className={`text-xs font-bold text-${item.color}-700 dark:text-${item.color}-400 block mb-2`}
+                    {OVERTIME_CONFIGS.map((item) => {
+                      const colorCls = OVERTIME_COLOR_CLASSES[item.color];
+                      return (
+                        <div
+                          key={item.key}
+                          className={`p-3 bg-white dark:bg-gray-800 rounded-lg border ${colorCls.border}`}
                         >
-                          {item.label}
-                        </span>
-                        <div className="space-y-2">
-                          <select
-                            name={item.calcTypeField}
-                            value={formData[item.calcTypeField]}
-                            onChange={handleChange}
-                            className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
+                          <span
+                            className={`text-xs font-bold ${colorCls.text} ${colorCls.textDark} block mb-2`}
                           >
-                            <option value="PER_HOUR">Per Jam</option>
-                            <option value="DAILY_SALARY">Gaji Harian</option>
-                            <option value="FIXED">Tetap (Rp)</option>
-                            <option value="PERCENTAGE">% Gaji Pokok</option>
-                          </select>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              name={item.rateField}
-                              value={formData[item.rateField]}
+                            {item.label}
+                          </span>
+                          <div className="space-y-2">
+                            <select
+                              name={item.calcTypeKey}
+                              value={formData[item.calcTypeKey]}
                               onChange={handleChange}
-                              className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
-                            />
-                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                              Rp
-                            </span>
+                              className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
+                            >
+                              {OVERTIME_CALC_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                name={item.rateKey}
+                                value={formData[item.rateKey]}
+                                onChange={handleChange}
+                                className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
+                              />
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                                Rp
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

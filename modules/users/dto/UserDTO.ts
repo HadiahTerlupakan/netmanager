@@ -22,8 +22,8 @@ export interface UserListItemDTO {
   isAttendanceRequired: boolean;
   lastVersionCode: number | null;
   lastVersionName: string | null;
-  lastVersionUpdate: Date | null;
-  lastLoginAt: Date | null;
+  lastVersionUpdate: string | null;
+  lastLoginAt: string | null;
   // Relations
   departments: { id: string; name: string } | null;
   sites: { id: string; code: string; name: string } | null;
@@ -95,6 +95,8 @@ export interface UserDetailDTO {
   shift: {
     id: string;
     name: string;
+    startTime?: string | null;
+    endTime?: string | null;
   } | null;
   userSites: Array<{
     id: string;

@@ -22,6 +22,7 @@ interface UserColumnsOptions {
   canUpdate: boolean;
   canDelete: boolean;
   canForceLogout: boolean;
+  currentUserId: string | null;
   setDeleteUserId: (userId: string) => void;
   setForceLogoutUserId: (userId: string) => void;
 }
@@ -260,6 +261,7 @@ export function renderUserActions(
     | "canUpdate"
     | "canDelete"
     | "canForceLogout"
+    | "currentUserId"
     | "setDeleteUserId"
     | "setForceLogoutUserId"
   >,
@@ -268,9 +270,11 @@ export function renderUserActions(
     canUpdate,
     canDelete,
     canForceLogout,
+    currentUserId,
     setDeleteUserId,
     setForceLogoutUserId,
   } = options;
+  const isSelf = currentUserId !== null && user.id === currentUserId;
 
   return (
     <>
@@ -290,7 +294,7 @@ export function renderUserActions(
           Edit
         </Link>
       )}
-      {canForceLogout && (
+      {canForceLogout && !isSelf && (
         <button
           onClick={() => setForceLogoutUserId(user.id)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
@@ -300,7 +304,7 @@ export function renderUserActions(
           <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
         </button>
       )}
-      {canDelete && (
+      {canDelete && !isSelf && (
         <button
           onClick={() => setDeleteUserId(user.id)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"

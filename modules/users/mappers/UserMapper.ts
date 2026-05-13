@@ -88,7 +88,12 @@ type PrismaUserRelations = Pick<
   sites?: { id: string; code: string; name: string } | null;
   role?: { id: string; name: string } | null;
   tenant?: { id: string; name: string } | null;
-  shift?: { id: string; name: string } | null;
+  shift?: {
+    id: string;
+    name: string;
+    startTime?: string | null;
+    endTime?: string | null;
+  } | null;
   userSites?: Array<{
     id: string;
     siteId: string;

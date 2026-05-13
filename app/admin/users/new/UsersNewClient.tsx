@@ -4,7 +4,6 @@ import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { toast } from "react-hot-toast";
 import {
   HiOutlineArrowLeft,
   HiOutlineEye,
@@ -28,139 +27,17 @@ import MultiSiteSelect from "../components/MultiSiteSelect";
 import WorkingHoursSettings from "../[id]/WorkingHoursSettings";
 import LeaveBalanceSettings from "../[id]/LeaveBalanceSettings";
 import { usePermission } from "@/hooks/use-permission";
+import {
+  OVERTIME_CALC_TYPE_OPTIONS,
+  OVERTIME_COLOR_CLASSES,
+  OVERTIME_CONFIGS,
+} from "../lib/overtime-config";
+import { generateStrongPassword } from "../lib/password-generator";
+import { useUserReferenceData } from "../lib/useUserDetailData";
 
 interface SelectedSite {
   siteId: string;
   isPrimary: boolean;
-}
-
-interface Department {
-  id: string;
-  name: string;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-interface Site {
-  id: string;
-  code: string;
-  name: string;
-}
-
-interface Tenant {
-  id: string;
-  name: string;
-}
-
-type OvertimeVariant = "Normal" | "Holiday" | "National";
-type OvertimeConfig = {
-  key: OvertimeVariant;
-  label: string;
-  color: string;
-  calcTypeKey: `overtimeCalcType${OvertimeVariant}`;
-  rateKey: `overtimeRate${OvertimeVariant}`;
-};
-
-const OVERTIME_CONFIGS: OvertimeConfig[] = [
-  {
-    key: "Normal",
-    label: "Hari Kerja",
-    color: "indigo",
-    calcTypeKey: "overtimeCalcTypeNormal",
-    rateKey: "overtimeRateNormal",
-  },
-  {
-    key: "Holiday",
-    label: "Hari Libur",
-    color: "amber",
-    calcTypeKey: "overtimeCalcTypeHoliday",
-    rateKey: "overtimeRateHoliday",
-  },
-  {
-    key: "National",
-    label: "Libur Nas.",
-    color: "rose",
-    calcTypeKey: "overtimeCalcTypeNational",
-    rateKey: "overtimeRateNational",
-  },
-];
-
-let referenceDataPromise: Promise<{
-  departments: Department[];
-  roles: Role[];
-  sites: Site[];
-}> | null = null;
-let tenantsPromise: Promise<Tenant[]> | null = null;
-
-function normalizeArrayPayload<T>(payload: unknown): T[] {
-  if (Array.isArray(payload)) {
-    return payload as T[];
-  }
-
-  if (
-    payload &&
-    typeof payload === "object" &&
-    "data" in payload &&
-    Array.isArray((payload as { data?: unknown }).data)
-  ) {
-    return (payload as { data: T[] }).data;
-  }
-
-  return [];
-}
-
-async function loadReferenceData() {
-  if (!referenceDataPromise) {
-    referenceDataPromise = Promise.allSettled([
-      fetch("/api/admin/departments").then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error("departments failed")),
-      ),
-      fetch("/api/roles?filterRestricted=true").then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error("roles failed")),
-      ),
-      fetch("/api/admin/sites?activeOnly=true").then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error("sites failed")),
-      ),
-    ]).then(([departmentsResult, rolesResult, sitesResult]) => {
-      const hasFailedEndpoint =
-        departmentsResult.status === "rejected" ||
-        rolesResult.status === "rejected" ||
-        sitesResult.status === "rejected";
-
-      if (hasFailedEndpoint) {
-        referenceDataPromise = null;
-      }
-
-      const departmentsData =
-        departmentsResult.status === "fulfilled" ? departmentsResult.value : [];
-      const rolesData =
-        rolesResult.status === "fulfilled" ? rolesResult.value : [];
-      const sitesData =
-        sitesResult.status === "fulfilled" ? sitesResult.value : [];
-
-      return {
-        departments: normalizeArrayPayload<Department>(departmentsData),
-        roles: normalizeArrayPayload<Role>(rolesData),
-        sites: normalizeArrayPayload<Site>(sitesData),
-      };
-    });
-  }
-
-  return referenceDataPromise;
-}
-
-async function loadTenants() {
-  if (!tenantsPromise) {
-    tenantsPromise = fetch("/api/admin/tenants")
-      .then((res) => res.json())
-      .then((data) => data.data || []);
-  }
-
-  return tenantsPromise;
 }
 
 export function ClientComponent() {
@@ -173,10 +50,9 @@ export function ClientComponent() {
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const { departments, roles, sites, tenants } = useUserReferenceData({
+    canReadTenants,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({});
@@ -232,40 +108,6 @@ export function ClientComponent() {
   });
 
   useEffect(() => {
-    let isMounted = true;
-
-    loadReferenceData()
-      .then(({ departments, roles, sites }) => {
-        if (!isMounted) return;
-        setDepartments(departments);
-        setRoles(roles);
-        setSites(sites);
-      })
-      .catch((error) => {
-        referenceDataPromise = null;
-        if (!isMounted) return;
-        clientLogger.error("Error fetching reference data:", error);
-        toast.error("Gagal memuat data referensi pengguna");
-      });
-
-    if (canReadTenants) {
-      loadTenants()
-        .then((tenants) => {
-          if (isMounted) setTenants(tenants);
-        })
-        .catch((error) => {
-          tenantsPromise = null;
-          if (!isMounted) return;
-          clientLogger.error("Error fetching tenants:", error);
-        });
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [canReadTenants]);
-
-  useEffect(() => {
     if (!canReadTenants || !tenantIdParam) {
       return;
     }
@@ -274,13 +116,7 @@ export function ClientComponent() {
   }, [canReadTenants, tenantIdParam]);
 
   const generatePassword = () => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData((prev) => ({ ...prev, password }));
+    setFormData((prev) => ({ ...prev, password: generateStrongPassword() }));
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.password;
@@ -329,11 +165,13 @@ export function ClientComponent() {
       return;
     }
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setFormData((prev) => ({ ...prev, isCheckingEmail: true }));
       try {
         const res = await fetch(
           `/api/admin/users/check-identifier?email=${encodeURIComponent(formData.email)}`,
+          { signal: controller.signal },
         );
         const data = await res.json();
         if (res.ok && data.data) {
@@ -359,13 +197,19 @@ export function ClientComponent() {
           }
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         clientLogger.error("Error checking email:", error);
       } finally {
-        setFormData((prev) => ({ ...prev, isCheckingEmail: false }));
+        if (!controller.signal.aborted) {
+          setFormData((prev) => ({ ...prev, isCheckingEmail: false }));
+        }
       }
     }, 800); // 800ms debounce
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [formData.email]);
 
   const validateForm = () => {
@@ -1087,43 +931,47 @@ export function ClientComponent() {
                     Konfigurasi Lembur
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {OVERTIME_CONFIGS.map((item) => (
-                      <div
-                        key={item.key}
-                        className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}
-                      >
-                        <span
-                          className={`text-xs font-bold text-${item.color}-700 dark:text-${item.color}-400 block mb-2`}
+                    {OVERTIME_CONFIGS.map((item) => {
+                      const colorCls = OVERTIME_COLOR_CLASSES[item.color];
+                      return (
+                        <div
+                          key={item.key}
+                          className={`p-3 bg-white dark:bg-gray-800 rounded-lg border ${colorCls.border}`}
                         >
-                          {item.label}
-                        </span>
-                        <div className="space-y-2">
-                          <select
-                            name={item.calcTypeKey}
-                            value={formData[item.calcTypeKey]}
-                            onChange={handleChange}
-                            className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
+                          <span
+                            className={`text-xs font-bold ${colorCls.text} ${colorCls.textDark} block mb-2`}
                           >
-                            <option value="PER_HOUR">Per Jam</option>
-                            <option value="DAILY_SALARY">Gaji Harian</option>
-                            <option value="FIXED">Tetap (Rp)</option>
-                            <option value="PERCENTAGE">% Gaji Pokok</option>
-                          </select>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              name={item.rateKey}
-                              value={formData[item.rateKey]}
+                            {item.label}
+                          </span>
+                          <div className="space-y-2">
+                            <select
+                              name={item.calcTypeKey}
+                              value={formData[item.calcTypeKey]}
                               onChange={handleChange}
-                              className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
-                            />
-                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                              Rp
-                            </span>
+                              className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
+                            >
+                              {OVERTIME_CALC_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                name={item.rateKey}
+                                value={formData[item.rateKey]}
+                                onChange={handleChange}
+                                className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
+                              />
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                                Rp
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

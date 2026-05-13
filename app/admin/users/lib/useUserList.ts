@@ -75,6 +75,16 @@ export function useUserList(tenantIdFilter?: string | null) {
     void loadUsers();
   }, [loadUsers]);
 
+  // Auto-reset page jika halaman kosong padahal ada data di halaman sebelumnya
+  // (contoh: user terakhir di halaman 2 dihapus -> page 2 jadi kosong)
+  useEffect(() => {
+    if (loading) return;
+    if (users.length > 0) return;
+    if (totalUsers === 0) return;
+    if (currentPage === 1) return;
+    setCurrentPage(1);
+  }, [loading, users.length, totalUsers, currentPage]);
+
   const handleDelete = useCallback(
     async (userId: string) => {
       setDeleting(true);

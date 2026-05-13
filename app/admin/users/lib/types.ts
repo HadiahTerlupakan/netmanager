@@ -1,34 +1,13 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  phone: string | null;
-  departmentId: string | null;
-  siteId: string | null;
-  isActive: boolean;
-  isAttendanceRequired: boolean;
-  createdAt: string;
-  departments: { id: string; name: string } | null;
-  sites?: {
-    id: string;
-    code: string;
-    name: string;
-  };
-  userSites?: Array<{
-    id: string;
-    siteId: string;
-    isPrimary: boolean;
-    site: { id: string; code: string; name: string };
-  }>;
-  role?: {
-    id: string;
-    name: string;
-  };
-  lastVersionCode?: number;
-  lastVersionName?: string;
-  lastVersionUpdate?: string;
-  lastLoginAt?: string;
-}
+import type { UserListItemDTO } from "@/modules/users";
+
+/**
+ * Tipe user di halaman list admin.
+ *
+ * Re-export dari modules/users supaya kontrak antara backend DTO dan UI tetap
+ * sinkron. Tambahan `site` dan `lastVersionUpdate`-backward-compat disimpan
+ * sebagai optional field karena masih dipakai di beberapa render lama.
+ */
+export type User = UserListItemDTO;
 
 export interface UserListResponse {
   users: User[];

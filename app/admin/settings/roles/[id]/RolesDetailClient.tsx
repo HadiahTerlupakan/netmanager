@@ -152,7 +152,8 @@ export function ClientComponent() {
         // If editing, fetch role data
         if (!isNew) {
           const roleRes = await fetch(`/api/roles/${roleId}`);
-          const roleData = await roleRes.json();
+          const rolePayload = await roleRes.json();
+          const roleData = rolePayload.data ?? rolePayload;
 
           if (roleRes.ok) {
             setFormData({

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRoleService, RolePolicyError } from "@/modules/roles";
 import * as z from "zod";
 import { logActivitySafe } from "@/lib/logger";
+import { apiSuccess } from "@/lib/api";
 import {
   ForbiddenError,
   UnauthorizedError,
@@ -122,7 +123,7 @@ const handleGet: AuthenticatedHandler = async (_authCtx, routeContext) => {
   try {
     const role = await getRoleService().getRoleWithPermissions(id);
     if (!role) return roleNotFoundResponse();
-    return NextResponse.json(role);
+    return apiSuccess(role);
   } catch (error) {
     logger.error("Error fetching role:", error);
     return NextResponse.json(
@@ -157,7 +158,7 @@ const handlePut: AuthenticatedHandler = async (
       details: { id, updates: validated },
     });
 
-    return NextResponse.json(updatedRole);
+    return apiSuccess(updatedRole);
   } catch (error: unknown) {
     logger.error("Error updating role:", error);
     return mapRoleUpdateError(error);
@@ -178,7 +179,7 @@ const handleDelete: AuthenticatedHandler = async ({ user }, routeContext) => {
       details: { id },
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ ok: true });
   } catch (error: unknown) {
     logger.error("Error deleting role:", error);
     return mapRoleDeleteError(error);

@@ -19,6 +19,8 @@ export interface UserSiteAssignmentEntity {
 export interface UserShiftEntity {
   id: string;
   name: string;
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export interface UserEntity {

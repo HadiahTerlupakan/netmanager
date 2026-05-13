@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRoleService, RolePolicyError } from "@/modules/roles";
 import * as z from "zod";
 import { logActivitySafe } from "@/lib/logger";
+import { apiSuccess } from "@/lib/api";
 import {
   ForbiddenError,
   UnauthorizedError,
@@ -37,7 +38,7 @@ const handleGet: AuthenticatedHandler = async ({ request, user }) => {
       filterRestricted,
       currentUserId,
     );
-    return NextResponse.json(roles);
+    return apiSuccess(roles);
   } catch (error) {
     logger.error("Error fetching roles:", error);
     return NextResponse.json(
@@ -65,7 +66,7 @@ const handlePost: AuthenticatedHandler = async ({ request, user }) => {
       });
     }
 
-    return NextResponse.json(newRole);
+    return apiSuccess(newRole, { status: 201 });
   } catch (error) {
     logger.error("Error creating role:", error);
     if (error instanceof z.ZodError) {

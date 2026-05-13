@@ -19,7 +19,7 @@ import { buttonVariants } from "@/components/ui/Button";
  */
 export default function UserList() {
   const { onlineUserIds } = usePresence();
-  const { hasPermission } = usePermission();
+  const { hasPermission, user } = usePermission();
   const searchParams = useSearchParams();
   const tenantIdFilter = searchParams.get("tenantId");
 
@@ -27,6 +27,9 @@ export default function UserList() {
     () => new Set(onlineUserIds as string[]),
     [onlineUserIds],
   );
+
+  const currentUserId =
+    (user as { id?: string } | null | undefined)?.id ?? null;
 
   const canCreate = hasPermission("users:create");
   const canUpdate = hasPermission("users:update");
@@ -132,6 +135,7 @@ export default function UserList() {
         canUpdate={canUpdate}
         canDelete={canDelete}
         canForceLogout={canForceLogout}
+        currentUserId={currentUserId}
         onlineUsers={onlineUsers}
         selectedUserIds={selectedUserIds}
         toggleUserSelection={toggleUserSelection}

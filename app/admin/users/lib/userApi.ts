@@ -26,8 +26,9 @@ export async function fetchUsers(
   }
 
   const data = await response.json();
-  const users = data.data?.users || data.users || [];
-  const meta = data.data?.meta || data.meta || {};
+  const payload = data.data ?? {};
+  const users = payload.users ?? [];
+  const meta = payload.meta ?? {};
 
   return {
     users,

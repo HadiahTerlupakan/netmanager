@@ -79,7 +79,7 @@ export const USER_DETAIL_SELECT = {
     },
     orderBy: { isPrimary: "desc" },
   },
-  shift: { select: { id: true, name: true } },
+  shift: { select: { id: true, name: true, startTime: true, endTime: true } },
 } satisfies Prisma.UserSelect;
 
 /** Bangun query list user admin dengan filter dan pagination. */

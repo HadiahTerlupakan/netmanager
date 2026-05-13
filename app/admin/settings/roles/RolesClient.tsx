@@ -25,7 +25,8 @@ export function ClientComponent() {
       const res = await fetch("/api/roles");
       if (res.ok) {
         const data = await res.json();
-        setRoles(data);
+        const list = data.data ?? data;
+        setRoles(Array.isArray(list) ? list : []);
       } else {
         toast.error("Gagal memuat data role");
       }

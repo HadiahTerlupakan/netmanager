@@ -1,56 +1,46 @@
 import { logger } from "@/lib/logger";
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions, isSuperAdmin } from "@/lib/auth";
-import { apiError, ErrorCodes } from "@/lib/api-response";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { isSuperAdmin } from "@/lib/auth";
 import { AdminTenantRouteService } from "@/modules/admin";
 
 const tenantService = new AdminTenantRouteService();
 
-export async function GET(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!isSuperAdmin(session?.user)) {
-      return apiError("Forbidden", ErrorCodes.UNAUTHORIZED, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const activeOnly = searchParams.get("active") === "true";
-    const tenants = await tenantService.getTenants({ activeOnly });
-    return NextResponse.json({ success: true, data: tenants });
-  } catch (error) {
-    logger.error("[TENANT_GET]", error);
-    return apiError("Failed to fetch tenants", ErrorCodes.INTERNAL_ERROR, {
-      status: 500,
-    });
+/**
+ * GET /api/admin/tenants - List tenants (super admin only)
+ */
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+  if (!isSuperAdmin(ctx.session?.user)) {
+    return ApiErrors.forbidden();
   }
-}
 
-export async function POST(request: Request) {
+  const activeOnly = req.nextUrl.searchParams.get("active") === "true";
+  const tenants = await tenantService.getTenants({ activeOnly });
+  return apiSuccess(tenants);
+});
+
+/**
+ * POST /api/admin/tenants - Create tenant (super admin only)
+ */
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  if (!isSuperAdmin(ctx.session?.user)) {
+    return ApiErrors.forbidden();
+  }
+
+  const body = await req.json();
+  const { name, domain, isActive } = body;
+
+  if (!name) {
+    return ApiErrors.badRequest("Name is required");
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!isSuperAdmin(session?.user)) {
-      return apiError("Forbidden", ErrorCodes.UNAUTHORIZED, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { name, domain, isActive } = body;
-    if (!name) {
-      return apiError("Name is required", ErrorCodes.VALIDATION_ERROR, {
-        status: 400,
-      });
-    }
-
     const tenant = await tenantService.createTenant({ name, domain, isActive });
-    return NextResponse.json({
-      success: true,
-      data: tenant,
+    return apiSuccess(tenant, {
+      status: 201,
       message: `Tenant ${tenant.name} berhasil dibuat dengan data default.`,
     });
   } catch (error) {
     logger.error("[TENANT_POST]", error);
-    return apiError("Failed to create tenant", ErrorCodes.INTERNAL_ERROR, {
-      status: 500,
-    });
+    return ApiErrors.internalError("Failed to create tenant");
   }
-}
+});
