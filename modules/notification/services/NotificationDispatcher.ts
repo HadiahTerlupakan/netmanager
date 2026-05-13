@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { redis } from "@/lib/redis";
 import { resolveCustomerContact, type CustomerContact } from "./channel-router";
 import {
   BILLING_TEMPLATES,
@@ -22,6 +23,12 @@ export interface NotificationDispatchInput {
   sourceId: string;
   /** Opsional: batasi channel yang digunakan. Default: semua 4 channel. */
   channels?: NotificationChannel[];
+  /**
+   * Opsional: idempotency token. Saat di-set, dispatcher akan SETNX di Redis
+   * dengan key `notif-dedupe:<dedupeKey>` TTL pendek; jika key sudah ada,
+   * dispatch ini di-skip. Cegah double-send saat BullMQ retry job sama.
+   */
+  dedupeKey?: string;
 }
 
 const DEFAULT_CHANNELS: NotificationChannel[] = [
@@ -30,6 +37,10 @@ const DEFAULT_CHANNELS: NotificationChannel[] = [
   "whatsapp",
   "email",
 ];
+
+const DEDUPE_KEY_PREFIX = "notif-dedupe:";
+/** TTL idempotency token — cukup untuk window retry BullMQ standar. */
+const DEDUPE_TTL_SECONDS = 600;
 
 /**
  * Orchestrator pengiriman notifikasi ke multi-channel (In-App, Push, WhatsApp, Email).
@@ -45,6 +56,13 @@ export class NotificationDispatcher {
   private readonly dlqRepo = new NotificationDeadLetterRepository();
   /** Dispatch notifikasi ke semua channel yang relevan untuk satu pelanggan. */
   async dispatch(input: NotificationDispatchInput): Promise<void> {
+    if (input.dedupeKey && (await this.isDuplicate(input.dedupeKey))) {
+      logger.info(
+        `[NotificationDispatcher] Skip duplicate dispatch (dedupeKey=${input.dedupeKey})`,
+      );
+      return;
+    }
+
     const contact = await resolveCustomerContact(input.pelangganId);
     if (!contact) {
       logger.warn(
@@ -72,6 +90,27 @@ export class NotificationDispatcher {
         this.sendChannel(channel, contact, template, enrichedParams, input),
       ),
     );
+  }
+
+  /**
+   * Cek apakah dedupeKey sudah pernah di-process. Pakai SETNX dengan TTL —
+   * race-safe; hanya satu pemanggil pertama mendapat ack 'OK'.
+   * Kalau redis error, log warning dan teruskan dispatch (fail-open) supaya
+   * outage redis tidak block notifikasi penting.
+   */
+  private async isDuplicate(dedupeKey: string): Promise<boolean> {
+    try {
+      const key = DEDUPE_KEY_PREFIX + dedupeKey;
+      const result = await redis.set(key, "1", "EX", DEDUPE_TTL_SECONDS, "NX");
+      return result === null;
+    } catch (err) {
+      logger.warn(
+        `[NotificationDispatcher] Redis dedupe check gagal, lanjut dispatch (fail-open): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return false;
+    }
   }
 
   private async sendChannel(

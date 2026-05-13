@@ -50,5 +50,8 @@ export async function handleCustomerNotification(
     params: { customerName, username, packageName },
     sourceType: "CUSTOMER_LIFECYCLE",
     sourceId: pelangganId,
+    // Idempotency: BullMQ retry pakai job.id sama, jadi dedupeKey stabil
+    // antar attempt — cegah double-send saat job di-retry.
+    dedupeKey: job.id ? `${eventName}:${job.id}` : undefined,
   });
 }

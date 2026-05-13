@@ -86,5 +86,7 @@ export async function handleInvoiceNotification(
     },
     sourceType: "BILLING",
     sourceId: invoiceId,
+    // Idempotency: cegah double-send saat BullMQ retry job sama.
+    dedupeKey: job.id ? `${eventName}:${job.id}` : undefined,
   });
 }
