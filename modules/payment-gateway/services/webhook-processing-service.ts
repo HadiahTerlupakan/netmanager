@@ -16,7 +16,6 @@ import {
   WebhookVerificationService,
   WebhookVerificationError,
 } from "./WebhookVerificationService";
-import { PaymentStatusUpdater } from "./PaymentStatusUpdater";
 import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
@@ -67,7 +66,6 @@ export class WebhookProcessingService {
   private readonly paymentLookupService: WebhookPaymentLookupService;
   private readonly payloadParser: WebhookPayloadParser;
   private readonly verificationService: WebhookVerificationService;
-  private readonly statusUpdater: PaymentStatusUpdater;
   private readonly idempotencyService: WebhookIdempotencyService;
   private readonly metrics = getPaymentGatewayMetrics();
 
@@ -80,7 +78,6 @@ export class WebhookProcessingService {
     paymentLookupService?: WebhookPaymentLookupService;
     payloadParser?: WebhookPayloadParser;
     verificationService?: WebhookVerificationService;
-    statusUpdater?: PaymentStatusUpdater;
     idempotencyService?: WebhookIdempotencyService;
   }) {
     this.gatewayManager =
@@ -103,8 +100,6 @@ export class WebhookProcessingService {
       dependencies?.payloadParser ?? new WebhookPayloadParser();
     this.verificationService =
       dependencies?.verificationService ?? new WebhookVerificationService();
-    this.statusUpdater =
-      dependencies?.statusUpdater ?? new PaymentStatusUpdater();
     this.idempotencyService =
       dependencies?.idempotencyService ?? new WebhookIdempotencyService();
   }
