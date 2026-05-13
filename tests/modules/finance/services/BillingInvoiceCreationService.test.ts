@@ -76,10 +76,8 @@ describe("BillingInvoiceCreationService", () => {
 
   /** Helper untuk mengatur saldo kredit pelanggan dalam mock prisma. */
   const setSaldoKredit = (saldo: bigint) => {
-    prismaMock.pelanggan.findUnique.mockResolvedValue({
-      saldoKreditRupiah: saldo,
-    });
-    prismaMock.pelanggan.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.$queryRaw.mockResolvedValue([{ saldoKreditRupiah: saldo }]);
+    prismaMock.pelanggan.update.mockResolvedValue({});
   };
 
   beforeEach(() => {
@@ -95,8 +93,17 @@ describe("BillingInvoiceCreationService", () => {
 
     service = new BillingInvoiceCreationService(mockInvoiceRepo);
 
-    // Default: tidak ada saldo kredit
-    setSaldoKredit(0n);
+    // Re-mock $transaction (global beforeEach di setup.ts reset semua mock)
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) => {
+        if (typeof callback === "function") return callback(prismaMock);
+        return callback;
+      },
+    );
+
+    // Default: tidak ada saldo kredit (empty array = pelanggan tidak ditemukan atau saldo 0)
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.pelanggan.update.mockResolvedValue({});
   });
 
   describe("createInvoiceForCustomer", () => {
@@ -251,12 +258,10 @@ describe("BillingInvoiceCreationService", () => {
 
         await service.createInvoiceForCustomer(mockCustomer, new Date());
 
-        expect(prismaMock.pelanggan.updateMany).toHaveBeenCalledWith(
+        // Verify pelanggan.update dipanggil di dalam $transaction (decrement)
+        expect(prismaMock.pelanggan.update).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: expect.objectContaining({
-              id: "customer-1",
-              saldoKreditRupiah: { gte: 30_000n },
-            }),
+            where: { id: "customer-1" },
             data: { saldoKreditRupiah: { decrement: 30_000n } },
           }),
         );
@@ -277,7 +282,7 @@ describe("BillingInvoiceCreationService", () => {
 
         await service.createInvoiceForCustomer(mockCustomer, new Date());
 
-        expect(prismaMock.pelanggan.updateMany).toHaveBeenCalledWith(
+        expect(prismaMock.pelanggan.update).toHaveBeenCalledWith(
           expect.objectContaining({
             data: { saldoKreditRupiah: { decrement: 555_000n } },
           }),
@@ -290,11 +295,8 @@ describe("BillingInvoiceCreationService", () => {
         );
       });
 
-      it("skip discount kalau race condition (updateMany count 0)", async () => {
-        prismaMock.pelanggan.findUnique.mockResolvedValue({
-          saldoKreditRupiah: 50_000n,
-        });
-        prismaMock.pelanggan.updateMany.mockResolvedValue({ count: 0 });
+      it("skip discount kalau saldo = 0", async () => {
+        // Default: $queryRaw return [] (no saldo)
         vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
 
         await service.createInvoiceForCustomer(mockCustomer, new Date());
@@ -309,7 +311,6 @@ describe("BillingInvoiceCreationService", () => {
 
       it("kembalikan saldo via increment kalau create invoice gagal", async () => {
         setSaldoKredit(40_000n);
-        prismaMock.pelanggan.update.mockResolvedValue({});
         const createError = new Error("DB error");
         vi.mocked(mockInvoiceRepo.create).mockRejectedValue(createError);
 
@@ -317,7 +318,7 @@ describe("BillingInvoiceCreationService", () => {
           service.createInvoiceForCustomer(mockCustomer, new Date()),
         ).rejects.toThrow("DB error");
 
-        // Compensating action — saldo dikembalikan
+        // Compensating action — saldo dikembalikan (panggilan kedua ke update)
         expect(prismaMock.pelanggan.update).toHaveBeenCalledWith(
           expect.objectContaining({
             where: { id: "customer-1" },

@@ -82,9 +82,9 @@ export class BillingInvoiceCreationService {
 
   /**
    * Decrement saldoKreditRupiah pelanggan sebesar min(saldo, capAmount).
-   * Atomic via updateMany dengan WHERE saldoKreditRupiah >= apply — kalau ada
-   * mutasi konkuren yang membuat saldo turun di bawah `apply`, count akan 0
-   * dan kita tidak apply discount apapun untuk siklus ini.
+   * Atomic via interactive transaction + SELECT FOR UPDATE — row di-lock
+   * sampai tx commit, sehingga dua billing job paralel tidak bisa baca
+   * saldo yang sama (yang kedua wait sampai yang pertama commit).
    */
   private async consumeSaldoKredit(
     pelangganId: string,
@@ -92,31 +92,28 @@ export class BillingInvoiceCreationService {
   ): Promise<bigint> {
     if (capAmount <= 0n) return 0n;
 
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      select: { saldoKreditRupiah: true },
+    const applied = await prisma.$transaction(async (tx) => {
+      // SELECT FOR UPDATE lock row — concurrent billing job akan wait di sini
+      const rows = await tx.$queryRaw<Array<{ saldoKreditRupiah: bigint }>>`
+        SELECT "saldoKreditRupiah" FROM "Pelanggan" WHERE id = ${pelangganId} FOR UPDATE
+      `;
+      const saldo = rows[0]?.saldoKreditRupiah ?? 0n;
+      if (saldo <= 0n) return 0n;
+
+      const apply = saldo > capAmount ? capAmount : saldo;
+      await tx.pelanggan.update({
+        where: { id: pelangganId },
+        data: { saldoKreditRupiah: { decrement: apply } },
+      });
+      return apply;
     });
-    const saldo = pelanggan?.saldoKreditRupiah ?? 0n;
-    if (saldo <= 0n) return 0n;
 
-    const apply = saldo > capAmount ? capAmount : saldo;
-
-    const result = await prisma.pelanggan.updateMany({
-      where: { id: pelangganId, saldoKreditRupiah: { gte: apply } },
-      data: { saldoKreditRupiah: { decrement: apply } },
-    });
-
-    if (result.count === 0) {
-      logger.warn(
-        `[BillingInvoiceCreation] Saldo kredit pelanggan ${pelangganId} berubah konkuren — skip apply discount`,
+    if (applied > 0n) {
+      logger.info(
+        `[BillingInvoiceCreation] Konsumsi saldo kredit ${applied} untuk pelanggan ${pelangganId}`,
       );
-      return 0n;
     }
-
-    logger.info(
-      `[BillingInvoiceCreation] Konsumsi saldo kredit ${apply} untuk pelanggan ${pelangganId}`,
-    );
-    return apply;
+    return applied;
   }
 
   private buildInvoicePayload(params: {
