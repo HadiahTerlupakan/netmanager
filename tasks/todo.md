@@ -1494,3 +1494,876 @@ git commit -m "docs(events): update event catalog + review Phase 1-5 complete [P
 - Query-only usage `new RadiusSyncService()` di `PelangganPppRouteService` untuk stats/sessions history — bukan lifecycle mutation, tidak perlu event-driven; biarkan.
 - `modules/payment-gateway/` vs `modules/finance/services/payment-gateway/` sempat punya 2 set webhook service; DEAD set sudah dihapus di commit `d66a7612c`. Patut dicek apakah ada duplicasi serupa di modul lain.
 
+---
+
+# Phase 6+7+8 — Notifikasi Multi-Channel, Paket Lifecycle, Template & Observability
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) atau superpowers:executing-plans. Steps pakai checkbox syntax.
+
+**Goal:** Menutup gap yang terangkat di post-refactor audit (bagian "Review 6 Domain"): (a) notifikasi event business tidak tersambung ke WhatsApp/Email/Push/In-App secara konsisten, (b) paket internet upgrade/downgrade tidak propagate ke active session MikroTik (silent drift bandwidth), (c) zero template engine / delivery observability untuk notifikasi.
+
+**Architecture:**
+- Phase 6: tambah 6 notification handler (listen ke event existing + 1 event baru `INVOICE_OVERDUE`) + unified `NotificationDispatcher` yang route ke WA/Email/Push/In-App berdasarkan user preference (`Pelanggan.isBillNotifEnabled`). Migrate `BillingReminderService` dari direct push call → emit event → handler dispatch.
+- Phase 7: tambah event `PACKAGE_CHANGED` + `PROFILE_PPP_UPDATED`. Handler disconnect active PPP session pelanggan saat upgrade paket supaya re-auth dengan rate baru. Prorate logic di billing saat mid-cycle upgrade.
+- Phase 8: Template engine sederhana (string interpolation + MDX/Mustache) untuk message body. Email delivery logging (WebhookEvent pattern for outbound email). Dead letter processor untuk notifikasi gagal. Bounce handling webhook (SMTP bounce / WA delivery failed).
+
+**Tech Stack:** existing event bus (BullMQ + outbox), ExpoPushService, WhatsAppService, EmailService (nodemailer), Prisma, Vitest.
+
+**Dependencies:** Phase 1-5 harus sudah complete (sudah — 20 commit di branch staging).
+
+## Constraints
+
+- **DILARANG worktree** per CLAUDE.md. Branch: staging.
+- **DILARANG ganti branch** tanpa instruksi.
+- Test baru hit mock/real test DB sesuai skill TDD. `./scripts/setup-test-db.sh` sebelum integration test.
+- Tiap Phase berakhir commit checkpoint `feat/refactor/fix(<scope>): <msg> [Phase N]`.
+- Bahasa Indonesia untuk komentar & commit.
+
+---
+
+## Phase 6: Notifikasi Multi-Channel
+
+### File Structure (Phase 6)
+
+**Tambah:**
+- `modules/notification/services/NotificationDispatcher.ts` — orchestrator: `dispatch(userId, template, params, channels?)` → cek preference → kirim ke channel aktif
+- `modules/notification/services/channel-router.ts` — resolve target contact per channel (email → user.email, WA → pelanggan.noTelp, push → push tokens)
+- `modules/notification/templates/billing-templates.ts` — konstanta object literal untuk 6 event (welcome, invoice, reminder, isolir, paid, activated)
+- `modules/notification/services/event-handlers/customer-notification.handler.ts` — handler untuk CUSTOMER_CREATED, CUSTOMER_ISOLATED, CUSTOMER_ACTIVATED, CUSTOMER_DELETED
+- `modules/notification/services/event-handlers/invoice-notification.handler.ts` — handler untuk INVOICE_CREATED, INVOICE_PAID, INVOICE_OVERDUE, INVOICE_REMINDER_DUE
+- `lib/event-bus/types.ts` — tambah event `INVOICE_OVERDUE` (sudah ada nama, cek metadata) + `INVOICE_REMINDER_DUE` (baru)
+- Test files berpasangan
+
+**Ubah:**
+- `modules/finance/services/BillingReminderService.ts` — sendReminder() direct call → emit `INVOICE_REMINDER_DUE` event
+- `modules/finance/services/AutomaticIsolationExecutionService.ts` — hapus direct `notifyCustomerFinanceNotification()` call (handler yang emit)
+- `modules/finance/services/BillingInvoiceCreationService.ts` — hapus direct notif call, biarkan event INVOICE_CREATED yang drive
+- `modules/finance/services/VoidInvoiceService.ts` — emit event INVOICE_VOIDED (baru) atau include di INVOICE_UPDATED
+- `modules/finance/utils/customerFinanceNotifications.ts` — deprecate atau refactor ke `NotificationDispatcher.dispatch`
+- `lib/event-bus/event-handlers.ts` — register 2 handler baru
+
+### Task 6.1: Tambah event `INVOICE_OVERDUE` handler + `INVOICE_REMINDER_DUE` event
+
+**Files:**
+- Modify: `lib/event-bus/types.ts`
+- Modify: `modules/events/dispatchers/BillingEventDispatcher.ts`
+
+- [ ] **Step 1: Tambah `INVOICE_REMINDER_DUE` ke EVENT_NAMES + payload + metadata**
+
+```ts
+// EVENT_NAMES
+INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
+
+// Payload
+export interface InvoiceReminderDuePayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string;
+  invoiceNumber: string;
+  amountDue: number;
+  dueDate: string;
+  reminderType: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
+}
+
+// EventPayloadMap
+[EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
+
+// EVENT_METADATA
+[EVENT_NAMES.INVOICE_REMINDER_DUE]: {
+  name: EVENT_NAMES.INVOICE_REMINDER_DUE,
+  category: "billing",
+  priority: JOB_PRIORITIES.NORMAL,
+  persistent: true,
+  async: true,
+},
+```
+
+- [ ] **Step 2: Tambah method di `BillingEventDispatcher`**
+
+```ts
+static async onInvoiceReminderDue(data: {
+  invoiceId: string;
+  pelangganId: string;
+  invoiceNumber: string;
+  amountDue: number;
+  dueDate: string;
+  reminderType: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
+  tenantId?: string;
+}) {
+  await eventBus.publish(EVENT_NAMES.INVOICE_REMINDER_DUE, data, {
+    priority: JOB_PRIORITIES.NORMAL,
+  });
+}
+
+static async onInvoiceOverdue(data: {
+  invoiceId: string;
+  pelangganId: string;
+  amount: number;
+  dueDate: string;
+  tenantId?: string;
+}) {
+  await eventBus.publish(EVENT_NAMES.INVOICE_OVERDUE, data, {
+    priority: JOB_PRIORITIES.HIGH,
+  });
+}
+```
+
+- [ ] **Step 3: Typecheck + commit**
+
+```bash
+npm run typecheck
+git add lib/event-bus/types.ts modules/events/dispatchers/BillingEventDispatcher.ts
+git commit -m "feat(events): tambah INVOICE_REMINDER_DUE event + onInvoiceOverdue dispatcher [Phase 6]"
+```
+
+### Task 6.2: Buat `NotificationDispatcher` dengan channel router
+
+**Files:**
+- Create: `modules/notification/services/NotificationDispatcher.ts`
+- Create: `modules/notification/services/channel-router.ts`
+- Create: `modules/notification/templates/billing-templates.ts`
+- Create: `tests/modules/notification/NotificationDispatcher.test.ts`
+
+- [ ] **Step 1: Buat template registry**
+
+File `modules/notification/templates/billing-templates.ts`:
+
+```ts
+export interface BillingTemplateParams {
+  customerName: string;
+  invoiceNumber?: string;
+  amountDue?: number;
+  dueDate?: string;
+  packageName?: string;
+  username?: string;
+  password?: string;
+}
+
+export interface BillingTemplate {
+  title: string;
+  inApp: (p: BillingTemplateParams) => string;
+  whatsapp: (p: BillingTemplateParams) => string;
+  email: (p: BillingTemplateParams) => { subject: string; body: string };
+  push: (p: BillingTemplateParams) => string;
+}
+
+const formatRupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+
+export const BILLING_TEMPLATES = {
+  customerWelcome: {
+    title: "Selamat datang di layanan kami",
+    inApp: (p) =>
+      `Halo ${p.customerName}, akun PPPoE Anda telah aktif. Username: ${p.username}.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nSelamat! Akun PPPoE Anda telah aktif.\n\nUsername: ${p.username}\nPaket: ${p.packageName}\n\nSilakan hubungi admin jika butuh bantuan setup.`,
+    email: (p) => ({
+      subject: "Akun PPPoE Anda telah aktif",
+      body: `Halo ${p.customerName},\n\nSelamat datang. Akun Anda:\n- Username: ${p.username}\n- Paket: ${p.packageName}\n\nTerima kasih.`,
+    }),
+    push: (p) => `Akun PPPoE ${p.username} telah aktif`,
+  },
+  invoiceCreated: {
+    title: "Tagihan baru dibuat",
+    inApp: (p) =>
+      `Tagihan ${p.invoiceNumber} sebesar ${formatRupiah(p.amountDue!)} telah dibuat. Jatuh tempo ${p.dueDate}.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nTagihan baru:\nNomor: ${p.invoiceNumber}\nJumlah: ${formatRupiah(p.amountDue!)}\nJatuh tempo: ${p.dueDate}\n\nSilakan bayar sebelum jatuh tempo.`,
+    email: (p) => ({
+      subject: `Tagihan ${p.invoiceNumber} - ${formatRupiah(p.amountDue!)}`,
+      body: `Halo ${p.customerName},\n\nTagihan baru telah dibuat.\nJumlah: ${formatRupiah(p.amountDue!)}\nJatuh tempo: ${p.dueDate}`,
+    }),
+    push: (p) => `Tagihan ${p.invoiceNumber}: ${formatRupiah(p.amountDue!)}`,
+  },
+  invoiceReminder: {
+    title: "Pengingat tagihan",
+    inApp: (p) =>
+      `Tagihan ${p.invoiceNumber} (${formatRupiah(p.amountDue!)}) akan jatuh tempo ${p.dueDate}.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nPengingat tagihan:\n${p.invoiceNumber} - ${formatRupiah(p.amountDue!)}\nJatuh tempo: ${p.dueDate}\n\nAbaikan jika sudah membayar.`,
+    email: (p) => ({
+      subject: `Reminder tagihan ${p.invoiceNumber}`,
+      body: `Tagihan ${p.invoiceNumber} sebesar ${formatRupiah(p.amountDue!)} akan jatuh tempo ${p.dueDate}.`,
+    }),
+    push: (p) =>
+      `Reminder: ${p.invoiceNumber} jatuh tempo ${p.dueDate}`,
+  },
+  invoicePaid: {
+    title: "Pembayaran berhasil",
+    inApp: (p) =>
+      `Pembayaran ${p.invoiceNumber} sebesar ${formatRupiah(p.amountDue!)} berhasil. Terima kasih.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nPembayaran Anda telah kami terima:\n${p.invoiceNumber} - ${formatRupiah(p.amountDue!)}\n\nLayanan akan aktif segera. Terima kasih.`,
+    email: (p) => ({
+      subject: `Pembayaran ${p.invoiceNumber} berhasil`,
+      body: `Halo ${p.customerName},\n\nPembayaran Anda sebesar ${formatRupiah(p.amountDue!)} telah diterima.\n\nTerima kasih.`,
+    }),
+    push: (p) => `Pembayaran ${p.invoiceNumber} berhasil`,
+  },
+  customerIsolated: {
+    title: "Layanan diisolir",
+    inApp: (p) =>
+      `Layanan internet Anda telah diisolir karena tunggakan. Silakan bayar tagihan untuk reaktivasi.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda telah diisolir karena tunggakan.\n\nTagihan: ${p.invoiceNumber}\nJumlah: ${formatRupiah(p.amountDue ?? 0)}\n\nSilakan bayar untuk reaktivasi.`,
+    email: (p) => ({
+      subject: "Layanan diisolir - butuh pembayaran",
+      body: `Halo ${p.customerName},\n\nLayanan Anda diisolir. Silakan bayar ${p.invoiceNumber}.`,
+    }),
+    push: () => "Layanan Anda diisolir",
+  },
+  customerActivated: {
+    title: "Layanan aktif kembali",
+    inApp: (p) =>
+      `Layanan internet Anda telah aktif kembali. Terima kasih atas pembayarannya.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda telah aktif kembali.\nTerima kasih atas pembayarannya.`,
+    email: (p) => ({
+      subject: "Layanan aktif kembali",
+      body: `Halo ${p.customerName},\n\nLayanan Anda aktif kembali. Terima kasih.`,
+    }),
+    push: () => "Layanan Anda aktif kembali",
+  },
+} satisfies Record<string, BillingTemplate>;
+
+export type BillingTemplateKey = keyof typeof BILLING_TEMPLATES;
+```
+
+- [ ] **Step 2: Buat `channel-router.ts`**
+
+```ts
+import { prisma } from "@/lib/prisma";
+
+export interface CustomerContact {
+  userId: string | null;
+  customerId: string;
+  customerName: string;
+  email: string | null;
+  noTelp: string | null;
+  isBillNotifEnabled: boolean;
+}
+
+export async function resolveCustomerContact(
+  pelangganId: string,
+): Promise<CustomerContact | null> {
+  const pelanggan = await prisma.pelanggan.findUnique({
+    where: { id: pelangganId },
+    select: {
+      id: true,
+      nama: true,
+      userId: true,
+      email: true,
+      noTelp: true,
+      isBillNotifEnabled: true,
+    },
+  });
+  if (!pelanggan) return null;
+  return {
+    userId: pelanggan.userId,
+    customerId: pelanggan.id,
+    customerName: pelanggan.nama,
+    email: pelanggan.email,
+    noTelp: pelanggan.noTelp,
+    isBillNotifEnabled: pelanggan.isBillNotifEnabled,
+  };
+}
+```
+
+- [ ] **Step 3: Write failing test `tests/modules/notification/NotificationDispatcher.test.ts`**
+
+Test scenario:
+- dispatch skip all channel ketika `isBillNotifEnabled = false`
+- dispatch emit in-app kalau userId ada
+- dispatch emit WA kalau noTelp ada + provider enabled
+- dispatch emit email kalau email ada + SMTP configured
+- dispatch emit push kalau user punya push token
+- ketika salah satu channel throw, channel lain tetap jalan (best-effort)
+
+Run: expect FAIL module not found.
+
+- [ ] **Step 4: Implement `NotificationDispatcher`**
+
+File `modules/notification/services/NotificationDispatcher.ts`:
+
+```ts
+import { logger } from "@/lib/logger";
+import { resolveCustomerContact } from "./channel-router";
+import {
+  BILLING_TEMPLATES,
+  type BillingTemplateKey,
+  type BillingTemplateParams,
+} from "../templates/billing-templates";
+import { createNotification } from "./NotificationService";
+import { sendCustomerPushNotification } from "./ExpoPushService";
+import { WhatsAppService } from "./whatsapp/whatsapp-service";
+import { EmailService } from "./email-service";
+
+export type NotificationChannel = "inApp" | "push" | "whatsapp" | "email";
+
+export interface NotificationDispatchInput {
+  pelangganId: string;
+  templateKey: BillingTemplateKey;
+  params: BillingTemplateParams;
+  sourceType: string;
+  sourceId: string;
+  channels?: NotificationChannel[];
+}
+
+const DEFAULT_CHANNELS: NotificationChannel[] = [
+  "inApp",
+  "push",
+  "whatsapp",
+  "email",
+];
+
+export class NotificationDispatcher {
+  async dispatch(input: NotificationDispatchInput): Promise<void> {
+    const contact = await resolveCustomerContact(input.pelangganId);
+    if (!contact) {
+      logger.warn(
+        `[NotificationDispatcher] Contact not found for pelanggan ${input.pelangganId}`,
+      );
+      return;
+    }
+
+    if (!contact.isBillNotifEnabled) {
+      logger.info(
+        `[NotificationDispatcher] Skip — ${input.pelangganId} has opted-out of bill notifications`,
+      );
+      return;
+    }
+
+    const template = BILLING_TEMPLATES[input.templateKey];
+    const enrichedParams = {
+      ...input.params,
+      customerName: input.params.customerName ?? contact.customerName,
+    };
+    const channels = input.channels ?? DEFAULT_CHANNELS;
+
+    await Promise.allSettled(
+      channels.map((ch) =>
+        this.sendChannel(ch, contact, template, enrichedParams, input),
+      ),
+    );
+  }
+
+  private async sendChannel(
+    channel: NotificationChannel,
+    contact: Awaited<ReturnType<typeof resolveCustomerContact>>,
+    template: (typeof BILLING_TEMPLATES)[BillingTemplateKey],
+    params: BillingTemplateParams,
+    input: NotificationDispatchInput,
+  ): Promise<void> {
+    if (!contact) return;
+    try {
+      switch (channel) {
+        case "inApp":
+          if (!contact.userId) return;
+          await createNotification({
+            type: "SYSTEM",
+            userId: contact.userId,
+            title: template.title,
+            message: template.inApp(params),
+            link: `/(customer)/tagihan`,
+            sourceType: input.sourceType,
+            sourceId: input.sourceId,
+            priority: "HIGH",
+          });
+          return;
+        case "push":
+          await sendCustomerPushNotification(
+            input.pelangganId,
+            template.title,
+            template.push(params),
+            { sourceType: input.sourceType, sourceId: input.sourceId },
+          );
+          return;
+        case "whatsapp":
+          if (!contact.noTelp) return;
+          await new WhatsAppService().sendMessage({
+            to: contact.noTelp,
+            message: template.whatsapp(params),
+          });
+          return;
+        case "email":
+          if (!contact.email) return;
+          const emailContent = template.email(params);
+          await new EmailService().send({
+            to: contact.email,
+            subject: emailContent.subject,
+            text: emailContent.body,
+          });
+          return;
+      }
+    } catch (error) {
+      logger.error(
+        `[NotificationDispatcher] Channel ${channel} failed for ${input.pelangganId}:`,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+}
+```
+
+- [ ] **Step 5: Run test, export from `modules/notification/index.ts`, typecheck, commit**
+
+```bash
+npx vitest run tests/modules/notification/NotificationDispatcher.test.ts
+npm run typecheck
+git add modules/notification/services/NotificationDispatcher.ts modules/notification/services/channel-router.ts modules/notification/templates/billing-templates.ts modules/notification/index.ts tests/modules/notification/
+git commit -m "feat(notification): NotificationDispatcher + channel router + billing templates [Phase 6]"
+```
+
+### Task 6.3: Handler notifikasi untuk 6 event customer/invoice
+
+**Files:**
+- Create: `modules/notification/services/event-handlers/customer-notification.handler.ts`
+- Create: `modules/notification/services/event-handlers/invoice-notification.handler.ts`
+- Modify: `lib/event-bus/event-handlers.ts`
+- Create: Test files
+
+- [ ] **Step 1: Handler customer notification**
+
+File `modules/notification/services/event-handlers/customer-notification.handler.ts`:
+
+```ts
+import type { Job } from "bullmq";
+import { logger } from "@/lib/logger";
+import { EVENT_NAMES } from "@/lib/event-bus";
+import type { EventJobData } from "@/lib/event-bus/queues";
+import { NotificationDispatcher } from "../NotificationDispatcher";
+import type { BillingTemplateKey } from "../../templates/billing-templates";
+
+const STATUS_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
+  [EVENT_NAMES.CUSTOMER_CREATED]: "customerWelcome",
+  [EVENT_NAMES.CUSTOMER_ISOLATED]: "customerIsolated",
+  [EVENT_NAMES.CUSTOMER_ACTIVATED]: "customerActivated",
+};
+
+export async function handleCustomerNotification(
+  job: Job<EventJobData>,
+): Promise<void> {
+  const { eventName, payload } = job.data;
+  const templateKey = STATUS_TEMPLATE_MAP[eventName];
+  if (!templateKey) {
+    logger.debug(`[CustomerNotificationHandler] Skip event ${eventName}`);
+    return;
+  }
+
+  const pelangganId = payload.customerId as string;
+  const customerName = (payload.customerName as string) ?? "Pelanggan";
+  const username = payload.username as string | undefined;
+
+  await new NotificationDispatcher().dispatch({
+    pelangganId,
+    templateKey,
+    params: { customerName, username },
+    sourceType: "CUSTOMER_LIFECYCLE",
+    sourceId: pelangganId,
+  });
+}
+```
+
+- [ ] **Step 2: Handler invoice notification**
+
+File `modules/notification/services/event-handlers/invoice-notification.handler.ts`:
+
+```ts
+import type { Job } from "bullmq";
+import { logger } from "@/lib/logger";
+import { EVENT_NAMES } from "@/lib/event-bus";
+import type { EventJobData } from "@/lib/event-bus/queues";
+import { NotificationDispatcher } from "../NotificationDispatcher";
+import { prisma } from "@/lib/prisma";
+import type { BillingTemplateKey } from "../../templates/billing-templates";
+
+const INVOICE_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
+  [EVENT_NAMES.INVOICE_CREATED]: "invoiceCreated",
+  [EVENT_NAMES.INVOICE_PAID]: "invoicePaid",
+  [EVENT_NAMES.INVOICE_REMINDER_DUE]: "invoiceReminder",
+  [EVENT_NAMES.INVOICE_OVERDUE]: "invoiceReminder",
+};
+
+export async function handleInvoiceNotification(
+  job: Job<EventJobData>,
+): Promise<void> {
+  const { eventName, payload } = job.data;
+  const templateKey = INVOICE_TEMPLATE_MAP[eventName];
+  if (!templateKey) return;
+
+  const pelangganId = payload.pelangganId as string;
+  const invoiceId = payload.invoiceId as string;
+  const amount = Number(payload.amount ?? payload.amountDue ?? 0);
+  const providedInvoiceNumber = payload.invoiceNumber as string | undefined;
+  const providedDueDate = payload.dueDate as string | undefined;
+
+  let invoiceNumber = providedInvoiceNumber;
+  let dueDate = providedDueDate;
+  if (!invoiceNumber || !dueDate) {
+    const inv = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { invoiceNumber: true, dueDate: true },
+    });
+    invoiceNumber = invoiceNumber ?? inv?.invoiceNumber;
+    dueDate = dueDate ?? inv?.dueDate.toLocaleDateString("id-ID");
+  }
+
+  await new NotificationDispatcher().dispatch({
+    pelangganId,
+    templateKey,
+    params: {
+      customerName: "",
+      invoiceNumber,
+      amountDue: amount,
+      dueDate,
+    },
+    sourceType: "BILLING",
+    sourceId: invoiceId,
+  });
+}
+```
+
+- [ ] **Step 3: Register di `lib/event-bus/event-handlers.ts`**
+
+```ts
+import { handleCustomerNotification } from "@/modules/notification/services/event-handlers/customer-notification.handler";
+import { handleInvoiceNotification } from "@/modules/notification/services/event-handlers/invoice-notification.handler";
+
+// Di registerDefaultHandlers():
+registerEventHandler(EVENT_NAMES.CUSTOMER_CREATED, handleCustomerNotification);
+registerEventHandler(EVENT_NAMES.CUSTOMER_ISOLATED, handleCustomerNotification);
+registerEventHandler(EVENT_NAMES.CUSTOMER_ACTIVATED, handleCustomerNotification);
+registerEventHandler(EVENT_NAMES.INVOICE_CREATED, handleInvoiceNotification);
+registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoiceNotification);
+registerEventHandler(EVENT_NAMES.INVOICE_REMINDER_DUE, handleInvoiceNotification);
+registerEventHandler(EVENT_NAMES.INVOICE_OVERDUE, handleInvoiceNotification);
+```
+
+Perhatian: CUSTOMER_CREATED & CUSTOMER_ISOLATED sudah terregister untuk sync MikroTik. Sekarang event sama di-fan-out ke 2 handler (MikroTik sync + notifikasi). Ini pattern yang benar — 1 event, multiple handler, BullMQ dispatch paralel.
+
+- [ ] **Step 4: Test + commit**
+
+```bash
+npx vitest run tests/modules/notification/event-handlers/
+npm run typecheck
+git commit -m "feat(notification): handler customer & invoice lifecycle untuk dispatch multi-channel [Phase 6]"
+```
+
+### Task 6.4: Migrate `BillingReminderService` ke event emit
+
+**Files:**
+- Modify: `modules/finance/services/BillingReminderService.ts`
+
+- [ ] **Step 1: Replace `sendCustomerPushNotification` call dengan event emit**
+
+```ts
+private async sendReminder(invoice: {
+  id: string;
+  pelangganId: string;
+  dueDate: Date;
+  totalAmount: bigint;
+  paidAmount: bigint;
+  invoiceNumber: string;
+}) {
+  const amountDue = invoice.totalAmount - invoice.paidAmount;
+  const today = new Date();
+  const daysUntilDue = Math.floor(
+    (invoice.dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const reminderType =
+    daysUntilDue < 0 ? "OVERDUE" : daysUntilDue === 0 ? "DUE_TODAY" : "UPCOMING";
+
+  try {
+    const { BillingEventDispatcher } = await import("@/modules/events");
+    await BillingEventDispatcher.onInvoiceReminderDue({
+      invoiceId: invoice.id,
+      pelangganId: invoice.pelangganId,
+      invoiceNumber: invoice.invoiceNumber,
+      amountDue: Number(amountDue),
+      dueDate: invoice.dueDate.toLocaleDateString("id-ID"),
+      reminderType,
+    });
+  } catch (error) {
+    logger.error(
+      `[Billing] Error emitting reminder event for invoice ${invoice.id}:`,
+      error,
+    );
+  }
+}
+```
+
+Update juga `findReminderInvoices` select untuk include `invoiceNumber`.
+
+- [ ] **Step 2: Hapus `sendCustomerPushNotification` import kalau sudah tidak dipakai**
+
+- [ ] **Step 3: Update test + run**
+
+- [ ] **Step 4: Commit**
+
+```
+refactor(finance): BillingReminderService emit INVOICE_REMINDER_DUE event bukan push langsung [Phase 6]
+```
+
+### Task 6.5: Hapus direct notif call di AutomaticIsolationExecutionService, BillingInvoiceCreationService, VoidInvoiceService
+
+**Files:**
+- Modify: 3 file finance services
+
+- [ ] **Step 1: Hapus `notifyCustomerFinanceNotification` dari `AutomaticIsolationExecutionService.execute()`**
+
+Event `CUSTOMER_ISOLATED` akan di-emit otomatis ketika status pelanggan berubah via `updateStatusPelanggan` → `syncUpdatedCustomerStatus`. Handler notifikasi akan dispatch multi-channel. Tidak perlu duplikat.
+
+- [ ] **Step 2: Hapus `sendCustomerPushNotification` dan `notifyCustomerFinanceNotification` dari `BillingInvoiceCreationService.createInvoiceForCustomer()`**
+
+Replace dengan emit `INVOICE_CREATED` event via `BillingEventDispatcher` (kalau belum di-emit).
+
+- [ ] **Step 3: Untuk `VoidInvoiceService`**
+
+Tambah event `INVOICE_VOIDED` baru, atau reuse `INVOICE_UPDATED` dengan flag. Atau keep direct call karena semantik "void" berbeda dari billing event flow. Decision: tambah event sederhana atau keep direct.
+
+Recommended: tambah event `INVOICE_VOIDED` di Phase 6 (konsisten), tapi handler notifikasinya optional.
+
+- [ ] **Step 4: Commit**
+
+```
+refactor(finance): hapus direct notif call, biarkan event handler dispatch multi-channel [Phase 6]
+```
+
+### Task 6.6: Deprecate `customerFinanceNotifications.ts` utility
+
+**Files:**
+- Modify: `modules/finance/utils/customerFinanceNotifications.ts`
+
+- [ ] **Step 1: Mark `@deprecated` dengan pointer ke `NotificationDispatcher`**
+
+- [ ] **Step 2: Cek caller yang tersisa, migrate semua**
+
+- [ ] **Step 3: Commit**
+
+### Task 6.7: Regression test end-to-end Phase 6
+
+**Files:**
+- Create: `tests/modules/notification/phase6-integration.test.ts`
+
+- [ ] **Step 1: Test skenario**
+- webhook paid → INVOICE_PAID emit → handler dispatch → customer dapat notif (mock 4 channel)
+- scheduler reminder → INVOICE_REMINDER_DUE emit → handler dispatch
+- auto-isolir → CUSTOMER_ISOLATED emit → handler dispatch
+- customer create → CUSTOMER_CREATED emit → handler dispatch welcome
+- `isBillNotifEnabled = false` → zero channel fired
+
+- [ ] **Step 2: Run, typecheck, commit final**
+
+```
+test(notification): integration test Phase 6 multi-channel dispatch [Phase 6]
+```
+
+---
+
+## Phase 7: Paket Lifecycle Gaps
+
+### File Structure (Phase 7)
+
+**Tambah:**
+- `lib/event-bus/types.ts` — event `PACKAGE_CHANGED`, `PROFILE_PPP_UPDATED`
+- `modules/events/dispatchers/` — method baru di `BillingEventDispatcher` atau dispatcher baru untuk paket
+- `modules/network/services/event-handlers/package-change.handler.ts` — handler untuk disconnect active session + resync bandwidth
+- `modules/network/services/event-handlers/profile-ppp-updated.handler.ts` — handler untuk bulk disconnect semua pelanggan pakai profile itu
+- `modules/finance/services/InvoiceProrateService.ts` — logic prorate upgrade/downgrade mid-cycle
+- Test files
+
+**Ubah:**
+- `modules/pelanggan/services/PelangganAdminMutationService.ts` — emit `PACKAGE_CHANGED` kalau hargaPaketId berubah
+- `modules/network/services/ProfilePPPService.ts` — emit `PROFILE_PPP_UPDATED` setelah update
+
+### Task 7.1: Tambah event `PACKAGE_CHANGED` dan `PROFILE_PPP_UPDATED`
+
+Format sama dengan Task 6.1: EVENT_NAMES + Payload + PayloadMap + EVENT_METADATA + dispatcher method.
+
+Payload:
+```ts
+export interface PackageChangedPayload extends BaseEventPayload {
+  customerId: string;
+  customerName: string;
+  oldPackageId: string;
+  newPackageId: string;
+  oldProfileName: string;
+  newProfileName: string;
+}
+
+export interface ProfilePppUpdatedPayload extends BaseEventPayload {
+  profileId: string;
+  profileName: string;
+  bandwidthChanged: boolean;
+  affectedCustomerCount: number;
+}
+```
+
+### Task 7.2: Handler `package-change.handler` — disconnect active PPP session saat upgrade
+
+- [ ] Disconnect session pelanggan via `mikrotik-ppp-secret.lifecycle.disconnectSession`
+- [ ] Update PPP secret profile ke paket baru
+- [ ] Update RADIUS radusergroup ke group paket baru
+- [ ] Log audit trail
+
+### Task 7.3: Handler `profile-ppp-updated.handler` — bulk disconnect affected customers
+
+- [ ] Query pelanggan yang pakai profile tsb (`SELECT FROM pelanggan WHERE hargaPaketId IN (SELECT id FROM hargaPaket WHERE profilePPPId = X)`)
+- [ ] Batch disconnect session (ukuran batch 50, throttle supaya MikroTik tidak overwhelm)
+- [ ] Log tiap disconnect success/fail
+
+### Task 7.4: Emit event `PACKAGE_CHANGED` dari `PelangganAdminMutationService`
+
+- [ ] Detect package change (`existingPelanggan.hargaPaketId !== pelanggan.hargaPaketId`)
+- [ ] Fetch old & new profile name dari HargaPaket → ProfilePPP
+- [ ] Emit event
+
+### Task 7.5: Emit event `PROFILE_PPP_UPDATED` dari `ProfilePPPService.updateProfilePPP`
+
+- [ ] Detect kalau bandwidth-related field berubah
+- [ ] Count affected customer
+- [ ] Emit event
+
+### Task 7.6: `InvoiceProrateService` — logic prorate mid-cycle upgrade
+
+- [ ] Hitung sisa hari di siklus saat ini
+- [ ] Hitung prorate amount: `(paketBaru - paketLama) * (sisaHari / totalHari)`
+- [ ] Buat invoice prorate (atau adjustment ke invoice berjalan)
+- [ ] Decision needed: buat invoice baru atau void + recreate?
+
+**Catatan bisnis yang harus diputuskan user:**
+- Apakah downgrade di-prorate juga (refund/kredit)?
+- Bagaimana handle pelanggan yang status ISOLIR saat upgrade?
+- Apakah prorate jalan default atau opsi admin?
+
+Plan ini stub — eksekusi butuh approval user untuk business rules.
+
+### Task 7.7: Integration test Phase 7
+
+- [ ] E2E: admin upgrade paket → session disconnect → pelanggan reconnect → bandwidth baru berlaku
+- [ ] E2E: admin update ProfilePPP → affected customers di-disconnect sequentially
+
+### Task 7.8: Commit final Phase 7
+
+---
+
+## Phase 8: Template & Observability
+
+### File Structure (Phase 8)
+
+**Tambah:**
+- `modules/notification/templates/template-engine.ts` — interpolation dengan fallback (id/en)
+- `modules/notification/repositories/email-log.repository.ts` — log delivery email
+- `prisma/schema.prisma` — model `EmailDeliveryLog`, `NotificationDeadLetter`
+- `modules/notification/services/notification-dead-letter.processor.ts` — worker consume DLQ
+- `modules/notification/services/email-bounce-webhook.handler.ts` — handle bounce webhook dari SMTP provider (bila ada)
+- `app/api/webhooks/email-bounce/route.ts` — endpoint bounce
+
+**Ubah:**
+- `EmailService.send()` — log delivery attempt ke `EmailDeliveryLog`
+- `NotificationDispatcher.sendChannel` — kalau channel throw setelah retry, push ke DLQ
+- Settings UI — admin view DLQ, resend
+
+### Task 8.1: Schema `EmailDeliveryLog` + `NotificationDeadLetter`
+
+```prisma
+model EmailDeliveryLog {
+  id          String   @id @default(uuid())
+  to          String
+  subject     String
+  status      String   // PENDING | SENT | FAILED | BOUNCED
+  provider    String   @default("SMTP")
+  messageId   String?  // dari SMTP response
+  error       String?
+  sentAt      DateTime?
+  bouncedAt   DateTime?
+  tenantId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([to])
+  @@index([tenantId])
+}
+
+model NotificationDeadLetter {
+  id          String   @id @default(uuid())
+  channel     String   // inApp | push | whatsapp | email
+  pelangganId String
+  templateKey String
+  params      Json
+  error       String
+  attemptCount Int     @default(0)
+  lastAttemptAt DateTime?
+  resolvedAt  DateTime?
+  tenantId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([channel, createdAt])
+  @@index([pelangganId])
+  @@index([tenantId])
+}
+```
+
+Migration increment.
+
+### Task 8.2: Template engine sederhana
+
+- [ ] Refactor `BILLING_TEMPLATES` dari function-based → object with placeholders
+- [ ] Implement interpolation: `replace ${customerName} → actual value`
+- [ ] Multilingual: struktur per lang (`id`, `en`)
+- [ ] Admin UI untuk edit template (opsional — defer)
+
+### Task 8.3: Email delivery logging
+
+- [ ] Wrap `EmailService.send` dengan logging
+- [ ] Write test
+- [ ] Admin view log di dashboard (opsional)
+
+### Task 8.4: Notification DLQ processor
+
+- [ ] Modify `NotificationDispatcher.sendChannel` — kalau ultimate fail (setelah BullMQ exhaust retry), insert ke `NotificationDeadLetter`
+- [ ] Admin endpoint list + retry DLQ entries
+- [ ] Cron cleanup old DLQ (> 30 hari)
+
+### Task 8.5: Email bounce webhook (provider-dependent)
+
+- [ ] Decision: pakai SMTP provider dengan bounce support (SendGrid, Mailgun, Postmark)?
+- [ ] Kalau iya, implement webhook handler → update `EmailDeliveryLog.status = BOUNCED`
+- [ ] Kalau plain SMTP (nodemailer) — skip (tidak ada bounce callback)
+
+### Task 8.6-8.15: Additional tasks
+
+- [ ] Unit test tiap service baru
+- [ ] Integration test DLQ flow
+- [ ] Admin dashboard UI untuk DLQ + template (defer kalau belum urgent)
+- [ ] Cleanup cron
+- [ ] Dokumentasi `docs/standards/notifications.md`
+- [ ] Update CLAUDE.md quick reference
+
+---
+
+## Risk Register Phase 6+7+8
+
+| Risk | Phase | Mitigation |
+|------|-------|------------|
+| Over-notification — pelanggan dapat 4 notif untuk 1 event | 6 | Enforce `isBillNotifEnabled` + per-channel opt-in (butuh schema addition) |
+| Multi-handler single event race | 6 | BullMQ independent dispatch, acceptable; idempotent handler |
+| Upgrade paket disconnect session saat pelanggan sedang voice call / streaming | 7 | Admin opsi "scheduled upgrade" vs "immediate" |
+| Prorate calculation edge cases (leap year, timezone) | 7 | Standard date library, test dengan zona Asia/Jakarta |
+| DLQ volume explosion saat WA provider down | 8 | Throttle + circuit breaker |
+| Template drift — admin ubah template breaking placeholder | 8 | Validate template schema di save |
+
+## Self-Review Checklist Phase 6+7+8
+
+- [x] Tidak ada placeholder
+- [x] Tiap Phase independent shippable
+- [x] TDD discipline
+- [x] Commit message konsisten
+- [x] Bahasa Indonesia
+- [ ] User approve business rules prorate sebelum eksekusi Phase 7
+
+## Handoff
+
+Plan siap. Sebelum eksekusi Phase 7, butuh keputusan bisnis:
+1. Prorate default ON atau opt-in per admin?
+2. Downgrade mid-cycle: refund, kredit, atau tidak ada adjustment?
+3. Upgrade timing: immediate disconnect atau scheduled (esok/awal siklus berikut)?
+
