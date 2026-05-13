@@ -39,15 +39,21 @@ function readLeaveBalanceSettings(): string {
   return readSourceFile("app/admin/users/[id]/LeaveBalanceSettings.tsx");
 }
 
+function readUserDetailApi(): string {
+  return readSourceFile("app/admin/users/lib/userDetailApi.ts");
+}
+
+function readUseUserDetailData(): string {
+  return readSourceFile("app/admin/users/lib/useUserDetailData.ts");
+}
+
 describe("admin users edit safety", () => {
   it("sends attendance requirement changes in the user update payload", () => {
     const clientFile = readUsersDetailClient();
     const payloadStart = clientFile.indexOf(
       "const updateBody: Record<string, unknown> = {",
     );
-    const requestIndex = clientFile.indexOf(
-      "const userRes = await fetch(`/api/admin/users/${id}`, {",
-    );
+    const requestIndex = clientFile.indexOf("await updateAdminUser(id,");
 
     expect(payloadStart).toBeGreaterThan(-1);
     expect(requestIndex).toBeGreaterThan(payloadStart);
@@ -68,7 +74,7 @@ describe("admin users edit safety", () => {
     expect(clientFile).toMatch(/hasPermission\((["'])users:read\1\)/);
     expect(clientFile).toMatch(/hasPermission\((["'])attendance:read\1\)/);
     expect(clientFile).toMatch(/hasPermission\((["'])attendance:update\1\)/);
-    expect(clientFile).toContain("{canViewLeaveQuotas && (");
+    expect(clientFile).toContain("canViewLeaveQuotas={canViewLeaveQuotas}");
     expect(clientFile).toContain("{canManageLeaveQuotas && (");
 
     expect(routeFile).toMatch(
@@ -177,6 +183,7 @@ describe("admin users edit safety", () => {
   it("keeps assigned user sites visible when custom roles cannot list every site", () => {
     const detailClientFile = readUsersDetailClient();
     const helpersFile = readUserDetailHelpers();
+    const hookFile = readUseUserDetailData();
 
     expect(helpersFile).toContain("function getSitesFromUser");
     expect(detailClientFile).toContain(
@@ -185,8 +192,10 @@ describe("admin users edit safety", () => {
     expect(detailClientFile).toContain(
       "setSites((currentSites) => mergeSites(currentSites, loadedSites))",
     );
-    expect(detailClientFile).toContain(
-      "setSites((currentSites) => mergeSites(currentSites, availableSites))",
+    // Reference-data hook dipakai untuk merge sites yang berasal dari
+    // endpoint list agar tetap terlihat bersama site yang di-assign user.
+    expect(hookFile).toContain(
+      "setSites((current) => mergeSites(current, value))",
     );
   });
 
@@ -199,16 +208,19 @@ describe("admin users edit safety", () => {
 
   it("loads new-user reference data once per tenant-read permission state", () => {
     const newClientFile = readUsersNewClient();
+    const hookFile = readUseUserDetailData();
 
     expect(newClientFile).toMatch(
       /const canReadTenants = hasPermission\((["'])tenants:read\1\)/,
     );
-    expect(newClientFile).toContain("let referenceDataPromise");
-    expect(newClientFile).toContain("let tenantsPromise");
-    expect(newClientFile).toContain("if (!referenceDataPromise)");
-    expect(newClientFile).toContain("if (!tenantsPromise)");
-    expect(newClientFile).toContain("}, [canReadTenants])");
-    expect(newClientFile).not.toContain("}, [hasPermission])");
+    expect(newClientFile).toContain(
+      "useUserReferenceData({\n    canReadTenants,\n  })",
+    );
+    expect(hookFile).toContain("if (canReadTenants)");
+    expect(hookFile).toContain("}, [canReadTenants])");
+    // Pastikan tidak ada regresi ke module-level promise cache lama.
+    expect(newClientFile).not.toContain("let referenceDataPromise");
+    expect(newClientFile).not.toContain("let tenantsPromise");
   });
 
   it("prevents no-op edit submits while allowing leave quota-only changes", () => {
@@ -266,11 +278,13 @@ describe("admin users edit safety", () => {
 
   it("does not report full success when leave quota saving fails", () => {
     const detailClientFile = readUsersDetailClient();
+    const apiFile = readUserDetailApi();
 
     expect(detailClientFile).toContain(
-      'const leaveQuotaRes = await fetch("/api/admin/leave-balance"',
+      "await saveLeaveQuotas(id, leaveQuotas)",
     );
-    expect(detailClientFile).toContain("if (!leaveQuotaRes.ok)");
+    expect(apiFile).toContain('fetch("/api/admin/leave-balance"');
+    expect(apiFile).toContain('method: "POST"');
     expect(detailClientFile).toContain(
       "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui",
     );
@@ -279,28 +293,14 @@ describe("admin users edit safety", () => {
     );
   });
 
-  it("resets new-user reference caches even when request failures happen after unmount", () => {
-    const newClientFile = readUsersNewClient();
-    const referenceCacheResetIndex = newClientFile.indexOf(
-      "referenceDataPromise = null",
-    );
-    const tenantCacheResetIndex = newClientFile.indexOf(
-      "tenantsPromise = null",
-    );
-    const unmountedReferenceReturnIndex = newClientFile.indexOf(
-      "if (!isMounted) return",
-      referenceCacheResetIndex,
-    );
-    const unmountedTenantReturnIndex = newClientFile.indexOf(
-      "if (!isMounted) return",
-      tenantCacheResetIndex,
-    );
+  it("keeps new-user reference data hook resilient to unmount and tenant permission changes", () => {
+    const hookFile = readUseUserDetailData();
 
-    expect(referenceCacheResetIndex).toBeGreaterThan(-1);
-    expect(tenantCacheResetIndex).toBeGreaterThan(-1);
-    expect(unmountedReferenceReturnIndex).toBeGreaterThan(
-      referenceCacheResetIndex,
-    );
-    expect(unmountedTenantReturnIndex).toBeGreaterThan(tenantCacheResetIndex);
+    // Hook harus punya guard `active` flag ala useEffect cleanup agar setState
+    // tidak dipanggil setelah komponen unmount.
+    expect(hookFile).toContain("let active = true");
+    expect(hookFile).toContain("if (active) setLoading(false)");
+    expect(hookFile).toContain("return () => {");
+    expect(hookFile).toContain("active = false");
   });
 });
