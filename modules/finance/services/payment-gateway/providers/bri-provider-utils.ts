@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { TransactionStatus } from "../provider-interface";
+import { timingSafeCompare } from "./signature-compare.helpers";
 
 const BRI_PAID_STATUS = "PAID";
 const BRI_EXPIRED_STATUS = "EXPIRED";
@@ -62,7 +63,7 @@ export function verifyBriWebhookSignature(input: {
     apiSecret: input.apiSecret,
   });
 
-  return input.signature === expectedSignature;
+  return timingSafeCompare(expectedSignature, input.signature);
 }
 
 export function buildBriWebhookResult(payload: Record<string, unknown>) {

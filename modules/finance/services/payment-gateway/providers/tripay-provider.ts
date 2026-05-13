@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import crypto from "crypto";
+import { timingSafeCompare } from "./signature-compare.helpers";
 import type {
   PaymentProvider,
   ProviderConfig,
@@ -189,7 +190,7 @@ export class TripayProvider implements PaymentProvider {
       .update(source)
       .digest("hex");
 
-    return calculatedSignature === signature;
+    return timingSafeCompare(calculatedSignature, signature);
   }
 
   async processWebhook(

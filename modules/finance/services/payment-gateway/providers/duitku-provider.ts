@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { timingSafeCompare } from "./signature-compare.helpers";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -175,7 +176,7 @@ export class DuitkuProvider implements PaymentProvider {
       amount: payload.amount as string,
       apiKey: config.apiKey,
     });
-    return payload.signature === expectedSignature;
+    return timingSafeCompare(expectedSignature, payload.signature as string);
   }
 
   /** Menormalkan payload webhook Duitku. */

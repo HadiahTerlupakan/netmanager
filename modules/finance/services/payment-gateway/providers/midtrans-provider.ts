@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import * as crypto from "crypto";
 import midtransClient from "midtrans-client";
+import { timingSafeCompare } from "./signature-compare.helpers";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -126,7 +127,7 @@ export class MidtransProvider implements PaymentProvider {
         )
         .digest("hex");
 
-      return hash === payload.signature_key;
+      return timingSafeCompare(hash, payload.signature_key as string);
     } catch (error) {
       logger.error("Midtrans webhook verification error:", error);
       return false;

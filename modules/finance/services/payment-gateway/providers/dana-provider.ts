@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { timingSafeCompare } from "./signature-compare.helpers";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -127,9 +128,8 @@ export class DANAProvider implements PaymentProvider {
     }
 
     const payloadBody = JSON.stringify(payload);
-    return (
-      createDanaSignature(this.config.apiSecret, payloadBody) === signature
-    );
+    const expected = createDanaSignature(this.config.apiSecret, payloadBody);
+    return timingSafeCompare(expected, signature);
   }
 
   /** Menormalkan payload webhook DANA. */

@@ -1,4 +1,6 @@
 import { logger } from "@/lib/logger";
+import * as crypto from "crypto";
+import { timingSafeCompare } from "./signature-compare.helpers";
 import type {
   PaymentProvider,
   ProviderConfig,
@@ -8,7 +10,6 @@ import type {
   WebhookResult,
   TestResult,
 } from "../provider-interface";
-import * as crypto from "crypto";
 
 export class MootaProvider implements PaymentProvider {
   name = "MOOTA";
@@ -92,7 +93,7 @@ export class MootaProvider implements PaymentProvider {
         .update(rawBody)
         .digest("hex");
 
-      return hash === signature;
+      return timingSafeCompare(hash, signature);
     } catch (error) {
       logger.error("[Moota Provider] Signature verification error:", error);
       return false;
