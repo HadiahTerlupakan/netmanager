@@ -43,6 +43,9 @@ import { logger } from "@/lib/logger";
 // Core Event Bus
 export { eventBus } from "./event-bus";
 
+// Payload helpers
+export { requirePayloadString } from "./payload-helpers";
+
 // Types & Constants
 export {
   EVENT_NAMES,

@@ -65,3 +65,9 @@ export {
   networkPerformanceQuerySchema,
 } from "./validation";
 export * from "./domain/errors/RouterErrors";
+
+// Event handlers — exposed via public API supaya lib/event-bus tidak
+// import path internal services/.
+export { handleCustomerStatusEvent } from "./services/event-handlers/customer-status.handler";
+export { handlePackageChange } from "./services/event-handlers/package-change.handler";
+export { handleProfilePppUpdated } from "./services/event-handlers/profile-ppp-updated.handler";

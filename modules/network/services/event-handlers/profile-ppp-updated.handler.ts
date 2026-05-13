@@ -1,24 +1,12 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { EVENT_NAMES } from "@/lib/event-bus";
+import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { RadiusSyncService } from "../radius-sync-service";
 
 const BATCH_SIZE = 50;
-
-/**
- * Guard helper — memastikan field payload adalah string non-kosong sebelum dipakai.
- * Throw eksplisit supaya BullMQ tidak meneruskan job dengan data malformed ke MikroTik/RADIUS.
- */
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value) {
-    throw new Error(
-      `[ProfilePppUpdatedHandler] Payload field "${field}" harus string non-kosong, dapat ${typeof value}`,
-    );
-  }
-  return value;
-}
+const SOURCE = "ProfilePppUpdatedHandler";
 
 /**
  * Handler yang subscribe ke PROFILE_PPP_UPDATED event.
@@ -36,7 +24,11 @@ export async function handleProfilePppUpdated(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { payload } = job.data;
-  const profileId = requireString(payload.profileId, "profileId");
+  const profileId = requirePayloadString(
+    payload.profileId,
+    "profileId",
+    SOURCE,
+  );
   const bandwidthChanged = payload.bandwidthChanged === true;
 
   if (!bandwidthChanged) {

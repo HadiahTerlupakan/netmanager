@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Job } from "bullmq";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
 import { EVENT_NAMES } from "@/lib/event-bus";
 
 // --- Mocks ---
 
 const mockSyncSingleCustomer = vi.fn();
 const mockHandleStatusChange = vi.fn();
+const mockUpdateSyncStatus = vi.fn();
 
 vi.mock("@/modules/network/services/radius-sync-service", () => {
   const MockRadiusSyncService = vi.fn(function (this: unknown) {
@@ -18,18 +18,11 @@ vi.mock("@/modules/network/services/radius-sync-service", () => {
   return { RadiusSyncService: MockRadiusSyncService };
 });
 
-vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
-  PelangganRepository: vi.fn(function (this: unknown) {
-    (this as Record<string, unknown>).updateSyncStatus = vi.fn();
+vi.mock("@/modules/pelanggan", () => ({
+  getPelangganService: () => ({
+    updateSyncStatus: mockUpdateSyncStatus,
   }),
 }));
-
-/** Helper untuk mengambil instance PelangganRepository yang dibuat oleh handler */
-function getRepoInstance() {
-  const MockRepo = vi.mocked(PelangganRepository);
-  const lastInstance = MockRepo.mock.results.at(-1);
-  return lastInstance?.value as { updateSyncStatus: ReturnType<typeof vi.fn> };
-}
 
 import { handlePackageChange } from "@/modules/network/services/event-handlers/package-change.handler";
 
@@ -71,11 +64,7 @@ describe("PackageChangeHandler", () => {
 
     expect(mockSyncSingleCustomer).toHaveBeenCalledWith("cust-1");
     expect(mockHandleStatusChange).toHaveBeenCalledWith("cust-1", "AKTIF");
-    expect(getRepoInstance().updateSyncStatus).toHaveBeenCalledWith(
-      "cust-1",
-      "SYNCED",
-      null,
-    );
+    expect(mockUpdateSyncStatus).toHaveBeenCalledWith("cust-1", "SYNCED", null);
   });
 
   it("NEXT_CYCLE → skip semua operasi MikroTik dan tidak update syncStatus", async () => {
@@ -85,7 +74,7 @@ describe("PackageChangeHandler", () => {
 
     expect(mockSyncSingleCustomer).not.toHaveBeenCalled();
     expect(mockHandleStatusChange).not.toHaveBeenCalled();
-    expect(vi.mocked(PelangganRepository)).not.toHaveBeenCalled();
+    expect(mockUpdateSyncStatus).not.toHaveBeenCalled();
   });
 
   it("gagal sync → mark FAILED + re-throw untuk BullMQ retry", async () => {
@@ -97,7 +86,7 @@ describe("PackageChangeHandler", () => {
       ),
     ).rejects.toThrow("MikroTik timeout");
 
-    expect(getRepoInstance().updateSyncStatus).toHaveBeenCalledWith(
+    expect(mockUpdateSyncStatus).toHaveBeenCalledWith(
       "cust-1",
       "FAILED",
       "MikroTik timeout",

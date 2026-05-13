@@ -1,26 +1,19 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
-import { EVENT_NAMES } from "@/lib/event-bus";
+import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import {
   NotificationDispatcher,
   type BillingTemplateKey,
 } from "@/modules/notification";
 
+const SOURCE = "CustomerNotificationHandler";
+
 const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.CUSTOMER_CREATED]: "customerWelcome",
   [EVENT_NAMES.CUSTOMER_ISOLATED]: "customerIsolated",
   [EVENT_NAMES.CUSTOMER_ACTIVATED]: "customerActivated",
 };
-
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value) {
-    throw new Error(
-      `[CustomerNotificationHandler] Payload field "${field}" harus string non-kosong`,
-    );
-  }
-  return value;
-}
 
 /**
  * Handler yang subscribe ke event customer lifecycle dan dispatch
@@ -39,7 +32,11 @@ export async function handleCustomerNotification(
     return;
   }
 
-  const pelangganId = requireString(payload.customerId, "customerId");
+  const pelangganId = requirePayloadString(
+    payload.customerId,
+    "customerId",
+    SOURCE,
+  );
   const customerName =
     typeof payload.customerName === "string" ? payload.customerName : "";
   const username =

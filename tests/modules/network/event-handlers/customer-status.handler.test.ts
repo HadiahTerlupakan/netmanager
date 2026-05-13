@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Job } from "bullmq";
 import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
 import { EVENT_NAMES } from "@/lib/event-bus";
 
 const mockHandleStatusChange = vi.fn();
 const mockSyncSingleCustomer = vi.fn();
 const mockRemoveCustomer = vi.fn();
+const mockUpdateSyncStatus = vi.fn();
 
 vi.mock("@/modules/network/services/radius-sync-service", () => {
   const MockRadiusSyncService = vi.fn(function (this: unknown) {
@@ -19,18 +19,11 @@ vi.mock("@/modules/network/services/radius-sync-service", () => {
   return { RadiusSyncService: MockRadiusSyncService };
 });
 
-vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
-  PelangganRepository: vi.fn(function (this: unknown) {
-    (this as Record<string, unknown>).updateSyncStatus = vi.fn();
+vi.mock("@/modules/pelanggan", () => ({
+  getPelangganService: () => ({
+    updateSyncStatus: mockUpdateSyncStatus,
   }),
 }));
-
-/** Helper untuk mengambil instance PelangganRepository yang dibuat oleh handler */
-function getRepoInstance() {
-  const MockRepo = vi.mocked(PelangganRepository);
-  const lastInstance = MockRepo.mock.results.at(-1);
-  return lastInstance?.value as { updateSyncStatus: ReturnType<typeof vi.fn> };
-}
 
 function buildJob(eventName: string, payload: Record<string, unknown>): Job {
   return {
@@ -170,11 +163,7 @@ describe("CustomerStatusEventHandler", () => {
       newStatus: "ISOLIR",
     });
     await handleCustomerStatusEvent(job);
-    expect(getRepoInstance().updateSyncStatus).toHaveBeenCalledWith(
-      "cust-1",
-      "SYNCED",
-      null,
-    );
+    expect(mockUpdateSyncStatus).toHaveBeenCalledWith("cust-1", "SYNCED", null);
   });
 
   it("update syncStatus ke SYNCED setelah CUSTOMER_CREATED berhasil", async () => {
@@ -184,11 +173,7 @@ describe("CustomerStatusEventHandler", () => {
       customerName: "Budi",
     });
     await handleCustomerStatusEvent(job);
-    expect(getRepoInstance().updateSyncStatus).toHaveBeenCalledWith(
-      "cust-1",
-      "SYNCED",
-      null,
-    );
+    expect(mockUpdateSyncStatus).toHaveBeenCalledWith("cust-1", "SYNCED", null);
   });
 
   it("update syncStatus ke FAILED dan re-throw ketika sync gagal", async () => {
@@ -202,7 +187,7 @@ describe("CustomerStatusEventHandler", () => {
     await expect(handleCustomerStatusEvent(job)).rejects.toThrow(
       "MikroTik timeout",
     );
-    expect(getRepoInstance().updateSyncStatus).toHaveBeenCalledWith(
+    expect(mockUpdateSyncStatus).toHaveBeenCalledWith(
       "cust-1",
       "FAILED",
       "MikroTik timeout",
@@ -216,13 +201,12 @@ describe("CustomerStatusEventHandler", () => {
       tenantId: "tenant-xyz",
     });
     await handleCustomerStatusEvent(job);
-    // PelangganRepository tidak boleh diinstansiasi sama sekali untuk DELETED
-    expect(vi.mocked(PelangganRepository)).not.toHaveBeenCalled();
+    expect(mockUpdateSyncStatus).not.toHaveBeenCalled();
   });
 
   it("event tidak dikenal tidak update syncStatus", async () => {
     const job = buildJob("customer:unknown", { customerId: "cust-1" });
     await handleCustomerStatusEvent(job);
-    expect(vi.mocked(PelangganRepository)).not.toHaveBeenCalled();
+    expect(mockUpdateSyncStatus).not.toHaveBeenCalled();
   });
 });

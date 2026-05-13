@@ -123,6 +123,18 @@ export class PelangganService {
     });
     return pelanggan;
   }
+
+  /**
+   * Update sync status (SYNCED | FAILED | PENDING) untuk integrasi MikroTik/RADIUS.
+   * Dipanggil oleh handler network setelah operasi sync selesai.
+   */
+  async updateSyncStatus(
+    id: string,
+    status: "PENDING" | "SYNCED" | "FAILED",
+    error?: string | null,
+  ): Promise<void> {
+    await this.pelangganRepository.updateSyncStatus(id, status, error ?? null);
+  }
 }
 
 let pelangganServiceInstance: PelangganService | null = null;

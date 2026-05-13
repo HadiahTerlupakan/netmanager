@@ -57,6 +57,10 @@ export {
 // Repository Facade - Public API for other modules
 export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
 
+// Event handlers — exposed via public API supaya lib/event-bus tidak
+// import path internal services/.
+export { handleInvoicePaidBilling } from "./services/event-handlers/invoice-paid-billing.handler";
+
 // Types from domain ports
 export type { UnpaidPurchaseOrderWithTransactions } from "./domain/ports/IUnpaidBillsReadRepository";
 

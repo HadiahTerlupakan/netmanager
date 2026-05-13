@@ -1,22 +1,11 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
-import { EVENT_NAMES } from "@/lib/event-bus";
+import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { RadiusSyncService } from "../radius-sync-service";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
+import { getPelangganService } from "@/modules/pelanggan";
 
-/**
- * Guard helper — memastikan field payload adalah string non-kosong sebelum dipakai.
- * Throw eksplisit supaya BullMQ tidak meneruskan job dengan data malformed ke MikroTik/RADIUS.
- */
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value) {
-    throw new Error(
-      `[PackageChangeHandler] Payload field "${field}" harus string non-kosong, dapat ${typeof value}`,
-    );
-  }
-  return value;
-}
+const SOURCE = "PackageChangeHandler";
 
 /**
  * Handler yang subscribe ke PACKAGE_CHANGED event.
@@ -34,10 +23,16 @@ export async function handlePackageChange(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { payload } = job.data;
-  const customerId = requireString(payload.customerId, "customerId");
-  const applyTime = requireString(payload.applyTime, "applyTime") as
-    | "IMMEDIATE"
-    | "NEXT_CYCLE";
+  const customerId = requirePayloadString(
+    payload.customerId,
+    "customerId",
+    SOURCE,
+  );
+  const applyTime = requirePayloadString(
+    payload.applyTime,
+    "applyTime",
+    SOURCE,
+  ) as "IMMEDIATE" | "NEXT_CYCLE";
 
   if (applyTime === "NEXT_CYCLE") {
     logger.info(
@@ -46,7 +41,7 @@ export async function handlePackageChange(
     return;
   }
 
-  const repo = new PelangganRepository();
+  const pelangganService = getPelangganService();
   const radius = new RadiusSyncService();
 
   try {
@@ -58,7 +53,7 @@ export async function handlePackageChange(
     // pelanggan re-auth dan mendapat rate limit dari profile baru
     await radius.handleStatusChange(customerId, "AKTIF");
 
-    await repo.updateSyncStatus(customerId, "SYNCED", null);
+    await pelangganService.updateSyncStatus(customerId, "SYNCED", null);
     logger.info(
       `[PackageChangeHandler] Applied package change for ${customerId}: ${payload.oldProfileName} → ${payload.newProfileName}`,
     );
@@ -67,7 +62,7 @@ export async function handlePackageChange(
       err instanceof Error
         ? err.message
         : "Gagal apply package change ke MikroTik";
-    await repo.updateSyncStatus(customerId, "FAILED", errorMessage);
+    await pelangganService.updateSyncStatus(customerId, "FAILED", errorMessage);
     throw err;
   }
 }

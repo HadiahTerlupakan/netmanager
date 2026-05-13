@@ -3,12 +3,20 @@ import { firebaseRealtimeService } from "@/lib/realtime";
 import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
-import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
-import { handlePackageChange } from "@/modules/network/services/event-handlers/package-change.handler";
-import { handleProfilePppUpdated } from "@/modules/network/services/event-handlers/profile-ppp-updated.handler";
-import { handleInvoiceAutoIsolate } from "@/modules/pelanggan/services/event-handlers/invoice-auto-isolate.handler";
-import { handleCustomerNotification } from "@/modules/notification/services/event-handlers/customer-notification.handler";
-import { handleInvoiceNotification } from "@/modules/notification/services/event-handlers/invoice-notification.handler";
+import {
+  handleCustomerStatusEvent,
+  handlePackageChange,
+  handleProfilePppUpdated,
+} from "@/modules/network";
+import {
+  handleInvoiceAutoIsolate,
+  handleInvoicePaidActivation,
+} from "@/modules/pelanggan";
+import {
+  handleCustomerNotification,
+  handleInvoiceNotification,
+} from "@/modules/notification";
+import { handleInvoicePaidBilling } from "@/modules/finance";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -72,55 +80,11 @@ export function registerDefaultHandlers(): void {
     handleInvoiceAutoIsolate,
   );
 
-  registerEventHandler(EVENT_NAMES.INVOICE_PAID, async (job) => {
-    const { payload } = job.data;
-    logger.info(
-      `[Worker] Invoice paid: ${payload.invoiceId} for customer ${payload.pelangganId}`,
-    );
-
-    try {
-      // 1. Update jatuh tempo + cancel scheduled overdue/isolate jobs
-      const { AutomaticBillingService } = await import("@/modules/finance");
-      await AutomaticBillingService.handleInvoicePaid(payload.invoiceId);
-
-      // 2. Activation dengan guard — cegah 2x activation bila ada unpaid lain
-      const { getPelangganService, PelangganBillingBridgeService } =
-        await import("@/modules/pelanggan");
-      const { InvoiceRepository } =
-        await import("@/modules/finance/repositories/InvoiceRepository");
-
-      const pelangganBridge = new PelangganBillingBridgeService();
-      const invoiceRepo = new InvoiceRepository();
-      const customer = await pelangganBridge.findById(payload.pelangganId);
-      if (!customer) return;
-
-      const shouldActivate =
-        customer.status !== "AKTIF" &&
-        (customer.tipe !== "REGULER" ||
-          (await invoiceRepo.countUnpaidByPelangganId(customer.id)) === 0);
-
-      if (!shouldActivate) {
-        logger.info(
-          `[Worker] Skip activation for ${payload.pelangganId}; already AKTIF or has unpaid invoice`,
-        );
-        return;
-      }
-
-      await getPelangganService().updateStatusPelanggan(
-        payload.pelangganId,
-        "AKTIF",
-      );
-      logger.info(
-        `[Worker] Customer ${payload.pelangganId} activated after payment`,
-      );
-    } catch (error) {
-      logger.error(
-        `[Worker] Failed to handle invoice paid ${payload.invoiceId}:`,
-        error,
-      );
-      throw error; // BullMQ retry
-    }
-  });
+  // INVOICE_PAID dispatched ke 2 handler paralel (BullMQ jalankan keduanya):
+  // - billing handler: update jatuh tempo + cancel scheduled overdue/isolate
+  // - activation handler: aktifkan pelanggan kalau tidak ada unpaid lain
+  registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidBilling);
+  registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidActivation);
 
   // --- CUSTOMER LIFECYCLE EVENTS (sync MikroTik/RADIUS) ---
 

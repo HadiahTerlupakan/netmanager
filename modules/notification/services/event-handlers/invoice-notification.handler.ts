@@ -1,12 +1,14 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
-import { EVENT_NAMES } from "@/lib/event-bus";
+import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import {
   NotificationDispatcher,
   type BillingTemplateKey,
 } from "@/modules/notification";
+
+const SOURCE = "InvoiceNotificationHandler";
 
 const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_CREATED]: "invoiceCreated",
@@ -14,15 +16,6 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: "invoiceReminder",
   [EVENT_NAMES.INVOICE_OVERDUE]: "invoiceReminder",
 };
-
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value) {
-    throw new Error(
-      `[InvoiceNotificationHandler] Payload field "${field}" harus string non-kosong`,
-    );
-  }
-  return value;
-}
 
 /**
  * Handler yang subscribe ke event invoice lifecycle dan dispatch
@@ -41,8 +34,16 @@ export async function handleInvoiceNotification(
     return;
   }
 
-  const invoiceId = requireString(payload.invoiceId, "invoiceId");
-  const pelangganId = requireString(payload.pelangganId, "pelangganId");
+  const invoiceId = requirePayloadString(
+    payload.invoiceId,
+    "invoiceId",
+    SOURCE,
+  );
+  const pelangganId = requirePayloadString(
+    payload.pelangganId,
+    "pelangganId",
+    SOURCE,
+  );
   const amountDue = Number(payload.amountDue ?? payload.amount ?? 0);
   const providedInvoiceNumber =
     typeof payload.invoiceNumber === "string"

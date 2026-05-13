@@ -111,3 +111,8 @@ export {
   NotificationDeadLetterRepository,
   type DeadLetterInput,
 } from "./repositories/NotificationDeadLetterRepository";
+
+// Event handlers — exposed via public API supaya lib/event-bus tidak
+// import path internal services/.
+export { handleCustomerNotification } from "./services/event-handlers/customer-notification.handler";
+export { handleInvoiceNotification } from "./services/event-handlers/invoice-notification.handler";

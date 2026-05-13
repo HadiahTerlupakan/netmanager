@@ -93,3 +93,8 @@ export {
   PelangganPppRouteService,
   RouteServiceError,
 } from "./services/PelangganPppRouteService";
+
+// Event handlers — exposed via public API supaya lib/event-bus tidak
+// import path internal services/.
+export { handleInvoiceAutoIsolate } from "./services/event-handlers/invoice-auto-isolate.handler";
+export { handleInvoicePaidActivation } from "./services/event-handlers/invoice-paid-activation.handler";
