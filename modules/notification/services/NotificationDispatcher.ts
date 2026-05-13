@@ -215,11 +215,11 @@ export class NotificationDispatcher {
   ): Promise<void> {
     if (!contact.email) return;
     const emailContent = template.email(params);
-    // EmailService.sendEmail pakai { to, subject, html } — bukan send({ text })
     await new EmailService().sendEmail({
       to: contact.email,
       subject: emailContent.subject,
       html: emailContent.body,
+      tenantId: contact.tenantId ?? null,
     });
   }
 }

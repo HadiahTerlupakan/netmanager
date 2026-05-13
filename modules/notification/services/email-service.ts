@@ -18,6 +18,7 @@ export interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  tenantId?: string | null;
   attachments?: Array<{
     filename: string;
     content: Buffer;
@@ -91,6 +92,7 @@ export class EmailService {
     const logId = await this.logRepo.logAttempt({
       to: params.to,
       subject: params.subject,
+      tenantId: params.tenantId ?? null,
     });
 
     try {
