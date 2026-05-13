@@ -1,8 +1,6 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import {
-  getPelangganService,
-  PelangganBillingBridgeService,
-} from "@/modules/pelanggan";
+import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { CustomerEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 
@@ -100,13 +98,16 @@ export class VoidInvoiceService {
 
       if (statusChanged) {
         try {
-          await getPelangganService().updateStatusPelanggan(
-            pelanggan.id,
-            "ISOLIR",
-          );
+          await CustomerEventDispatcher.onIsolated({
+            customerId: pelanggan.id,
+            customerName: pelanggan.nama ?? pelanggan.id,
+            oldStatus: pelanggan.status,
+            newStatus: "ISOLIR",
+            tenantId: pelanggan.tenantId ?? undefined,
+          });
         } catch (radiusErr) {
           logger.error(
-            "[VoidInvoiceService] Failed to sync to RADIUS:",
+            "[VoidInvoiceService] Failed to emit CUSTOMER_ISOLATED event:",
             radiusErr,
           );
         }

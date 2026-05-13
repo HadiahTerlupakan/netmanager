@@ -1,10 +1,7 @@
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { BillingEventDispatcher } from "@/modules/events";
-import {
-  getPelangganService,
-  type PelangganBillingBridgeService,
-} from "@/modules/pelanggan";
+import { type PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
 import type { PaymentRepository } from "../repositories/PaymentRepository";
 import {
@@ -96,7 +93,7 @@ function logImmediateInvoiceGeneration(customerName: string, isPaid: boolean) {
   );
 }
 
-/** Menangani update jatuh tempo dan aktivasi pelanggan setelah invoice lunas. */
+/** Menangani update jatuh tempo pelanggan setelah invoice lunas. */
 export async function handlePaidInvoiceCustomerState(options: {
   invoiceId: string;
   invoiceRepo: InvoiceRepository;
@@ -107,12 +104,14 @@ export async function handlePaidInvoiceCustomerState(options: {
     return;
   }
 
-  await syncPaidInvoiceCustomerState(options, invoice);
+  await syncPaidInvoiceCustomerState(
+    { pelangganBridge: options.pelangganBridge },
+    invoice,
+  );
 }
 
 async function syncPaidInvoiceCustomerState(
   options: {
-    invoiceRepo: InvoiceRepository;
     pelangganBridge: PelangganBillingBridgeService;
   },
   invoice: PaidInvoice,
@@ -129,7 +128,6 @@ async function syncPaidInvoiceCustomerState(
   await syncPaidCustomerDueDate(
     {
       customer,
-      invoiceRepo: options.invoiceRepo,
       pelangganBridge: options.pelangganBridge,
     },
     nextDueDate,
@@ -163,24 +161,19 @@ async function loadPaidInvoiceCustomer(
   return customer as PaidInvoiceCustomer;
 }
 
+/** Update jatuh tempo pelanggan setelah invoice lunas. Aktivasi ditangani oleh INVOICE_PAID event handler. */
 async function syncPaidCustomerDueDate(
   options: {
     customer: PaidInvoiceCustomer;
-    invoiceRepo: InvoiceRepository;
     pelangganBridge: PelangganBillingBridgeService;
   },
   nextDueDate: Date,
 ) {
-  const canActivateCustomer = await shouldActivateCustomer(
-    options.customer,
-    options.invoiceRepo,
-  );
-
   await options.pelangganBridge.updateJatuhTempo(
     options.customer.id,
     nextDueDate,
   );
-  await activateCustomerIfNeeded(options.customer.id, canActivateCustomer);
+  // Activation customer handled by INVOICE_PAID event handler di lib/event-bus/event-handlers.ts
 }
 
 async function publishPaidInvoiceEvent(
@@ -197,17 +190,6 @@ async function publishPaidInvoiceEvent(
       error instanceof Error ? error : undefined,
     ),
   );
-}
-
-async function activateCustomerIfNeeded(
-  customerId: string,
-  shouldActivate: boolean,
-) {
-  if (!shouldActivate) {
-    return;
-  }
-
-  await getPelangganService().updateStatusPelanggan(customerId, "AKTIF");
 }
 
 function calculateNextDueDate(
@@ -227,19 +209,4 @@ function calculateNextDueDate(
 
   const nextDueDate = addSafeMonth(invoiceDueDate);
   return nextDueDate < currentDueDate ? currentDueDate : nextDueDate;
-}
-
-async function shouldActivateCustomer(
-  customer: { id: string; tipe?: string; status?: string },
-  invoiceRepo: InvoiceRepository,
-) {
-  if (customer.status === "AKTIF") {
-    return false;
-  }
-
-  if (customer.tipe !== "REGULER") {
-    return true;
-  }
-
-  return (await invoiceRepo.countUnpaidByPelangganId(customer.id)) === 0;
 }

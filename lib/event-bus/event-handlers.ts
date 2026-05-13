@@ -1,6 +1,5 @@
 import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
-import { getPelangganService } from "@/modules/pelanggan";
 import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
@@ -75,8 +74,34 @@ export function registerDefaultHandlers(): void {
       `[Worker] Invoice paid: ${payload.invoiceId} for customer ${payload.pelangganId}`,
     );
 
-    // Activate customer in main DB when invoice is paid
     try {
+      // 1. Update jatuh tempo + cancel scheduled overdue/isolate jobs
+      const { AutomaticBillingService } = await import("@/modules/finance");
+      await AutomaticBillingService.handleInvoicePaid(payload.invoiceId);
+
+      // 2. Activation dengan guard — cegah 2x activation bila ada unpaid lain
+      const { getPelangganService, PelangganBillingBridgeService } =
+        await import("@/modules/pelanggan");
+      const { InvoiceRepository } =
+        await import("@/modules/finance/repositories/InvoiceRepository");
+
+      const pelangganBridge = new PelangganBillingBridgeService();
+      const invoiceRepo = new InvoiceRepository();
+      const customer = await pelangganBridge.findById(payload.pelangganId);
+      if (!customer) return;
+
+      const shouldActivate =
+        customer.status !== "AKTIF" &&
+        (customer.tipe !== "REGULER" ||
+          (await invoiceRepo.countUnpaidByPelangganId(customer.id)) === 0);
+
+      if (!shouldActivate) {
+        logger.info(
+          `[Worker] Skip activation for ${payload.pelangganId}; already AKTIF or has unpaid invoice`,
+        );
+        return;
+      }
+
       await getPelangganService().updateStatusPelanggan(
         payload.pelangganId,
         "AKTIF",
@@ -86,10 +111,10 @@ export function registerDefaultHandlers(): void {
       );
     } catch (error) {
       logger.error(
-        `[Worker] Failed to activate customer ${payload.pelangganId}:`,
+        `[Worker] Failed to handle invoice paid ${payload.invoiceId}:`,
         error,
       );
-      throw error; // Let BullMQ retry
+      throw error; // BullMQ retry
     }
   });
 

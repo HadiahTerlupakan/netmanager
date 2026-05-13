@@ -15,6 +15,7 @@ const mockFns = vi.hoisted(() => ({
   notifyCustomerFinanceNotification: vi.fn(),
   logActivity: vi.fn(),
   onInvoicePaid: vi.fn(),
+  onIsolated: vi.fn(),
   reconcile: vi.fn(),
 }));
 
@@ -75,6 +76,9 @@ vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: {
     onInvoicePaid: mockFns.onInvoicePaid,
   },
+  CustomerEventDispatcher: {
+    onIsolated: mockFns.onIsolated,
+  },
 }));
 
 vi.mock(
@@ -102,6 +106,7 @@ describe("finance customer status sync delegation", () => {
     mockFns.notifyCustomerFinanceNotification.mockResolvedValue(true);
     mockFns.logActivity.mockResolvedValue(undefined);
     mockFns.onInvoicePaid.mockResolvedValue(undefined);
+    mockFns.onIsolated.mockResolvedValue(undefined);
     mockFns.findSetting.mockResolvedValue({ value: "true" });
     mockFns.findOverdueInvoices.mockResolvedValue([{ pelangganId: "cust-1" }]);
     mockFns.reconcile.mockResolvedValue({
@@ -115,7 +120,7 @@ describe("finance customer status sync delegation", () => {
     });
   });
 
-  it("delegates invoice-paid activation through pelanggan service instead of bridge status update", async () => {
+  it("delegates invoice-paid due-date update via bridge and emits INVOICE_PAID event (activation handled by event handler)", async () => {
     mockFns.findInvoice.mockResolvedValue({
       id: "inv-1",
       status: "PAID",
@@ -131,10 +136,19 @@ describe("finance customer status sync delegation", () => {
 
     await AutomaticBillingService.handleInvoicePaid("inv-1");
 
-    expect(mockFns.updateStatusPelanggan).toHaveBeenCalledWith(
+    // Jatuh tempo diupdate via bridge
+    expect(mockFns.bridgeUpdateJatuhTempo).toHaveBeenCalledWith(
       "cust-1",
-      "AKTIF",
+      expect.any(Date),
     );
+    // INVOICE_PAID event di-emit untuk trigger activation di handler
+    expect(mockFns.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-1",
+      "cust-1",
+      expect.any(Number),
+    );
+    // Direct updateStatusPelanggan TIDAK dipanggil dari service layer
+    expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
     expect(mockFns.bridgeUpdateStatus).not.toHaveBeenCalled();
     expect(mockFns.handleStatusChange).not.toHaveBeenCalled();
   });
@@ -157,7 +171,7 @@ describe("finance customer status sync delegation", () => {
     });
   });
 
-  it("delegates void-invoice isolation through pelanggan service and keeps jatuh tempo update separate", async () => {
+  it("delegates void-invoice isolation via CustomerEventDispatcher.onIsolated and keeps jatuh tempo update separate", async () => {
     mockFns.findInvoice.mockResolvedValue({
       id: "inv-1",
       invoiceNumber: "INV-001",
@@ -180,10 +194,14 @@ describe("finance customer status sync delegation", () => {
     expect(mockFns.bridgeUpdate.mock.calls[0][1]).toEqual({
       jatuhTempo: expect.any(Date),
     });
-    expect(mockFns.updateStatusPelanggan).toHaveBeenCalledWith(
-      "cust-1",
-      "ISOLIR",
+    // Isolation via event, bukan direct call
+    expect(mockFns.onIsolated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: "cust-1",
+        newStatus: "ISOLIR",
+      }),
     );
+    expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
     expect(mockFns.handleStatusChange).not.toHaveBeenCalled();
   });
 });
