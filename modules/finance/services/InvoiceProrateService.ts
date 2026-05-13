@@ -110,6 +110,10 @@ export class InvoiceProrateService {
   /**
    * NEXT_CYCLE: set pendingPackage, revert hargaPaketId ke lama.
    * Cron PendingPackageApplierService yang akan apply saat jatuhTempo.
+   *
+   * Prorate (PRORATE_CHARGE / PRORATE_CREDIT) tidak didukung untuk NEXT_CYCLE
+   * karena perhitungan pro-rata hanya relevan saat perubahan IMMEDIATE.
+   * Kalau caller kirim prorateOption !== NONE, force ke NONE + log warning.
    */
   private async handleNextCycle(
     input: ApplyPackageChangeInput,
@@ -117,6 +121,12 @@ export class InvoiceProrateService {
     sisaHari: number,
     totalHari: number,
   ): Promise<ApplyPackageChangeResult> {
+    if (input.prorateOption !== "NONE") {
+      logger.warn(
+        `[InvoiceProrateService] prorateOption=${input.prorateOption} tidak didukung untuk NEXT_CYCLE — force ke NONE untuk pelanggan ${input.pelangganId}`,
+      );
+    }
+
     await this.repo.schedulePackageChange({
       pelangganId: input.pelangganId,
       oldHargaPaketId: input.oldHargaPaketId,
