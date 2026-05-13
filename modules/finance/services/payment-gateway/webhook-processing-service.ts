@@ -5,6 +5,8 @@ import type {
 } from "../../lib/billing-prisma-boundary";
 
 import { prismaBillingAuth } from "@/lib/prisma-billing";
+import { saveToOutboxTx } from "@/lib/event-bus/outbox";
+import { EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
 import { InvoiceRepository } from "../../repositories/InvoiceRepository";
 import { PaymentRepository } from "../../repositories/PaymentRepository";
 import { UnmatchedMutationRepository } from "../../repositories/UnmatchedMutationRepository";
@@ -13,6 +15,7 @@ import { WebhookInvoiceSettlementService } from "./webhook-invoice-settlement-se
 import { WebhookPaymentLookupService } from "./webhook-payment-lookup-service";
 import type { WebhookResult } from "./provider-interface";
 import {
+  extractInvoiceIdsFromNotes,
   hasAmountMismatch,
   hasTransactionMismatch,
   normalizePaymentMethod,
@@ -219,28 +222,58 @@ export class WebhookProcessingService {
           data: paymentUpdate,
         });
 
-        if (gatewayStatus === "PAID") {
-          await this.invoiceSettlementService.updateInvoicesOnPaymentTx(
-            tx,
-            payment.id,
-            payment.notes,
-          );
+        if (gatewayStatus !== "PAID") {
+          return;
         }
-      });
 
-      if (gatewayStatus === "PAID") {
-        await this.invoiceSettlementService.runPostPaidSideEffects(
-          payment.invoiceId,
+        // Update invoice status dalam tx yang sama
+        await this.invoiceSettlementService.updateInvoicesOnPaymentTx(
+          tx,
+          payment.id,
           payment.notes,
         );
-      }
 
-      if (
-        gatewayStatus === "EXPIRED" ||
-        gatewayStatus === "CANCELLED" ||
-        gatewayStatus === "FAILED"
-      ) {
-      }
+        // Emit INVOICE_PAID ke outbox secara atomik dalam tx yang sama.
+        // Ini memastikan: kalau tx commit → event PASTI masuk outbox → processor
+        // akan dispatch dengan retry. Kalau tx rollback → outbox insert juga rollback.
+        const invoiceIds = extractInvoiceIdsFromNotes(payment.notes);
+        const targetIds =
+          invoiceIds.length > 0
+            ? invoiceIds
+            : payment.invoiceId
+              ? [payment.invoiceId]
+              : [];
+
+        for (const invId of targetIds) {
+          const invoice = await tx.invoice.findUnique({
+            where: { id: invId },
+            select: {
+              id: true,
+              pelangganId: true,
+              totalAmount: true,
+              status: true,
+              tenantId: true,
+            },
+          });
+          if (invoice?.status !== "PAID") continue;
+
+          await saveToOutboxTx(tx, {
+            eventName: EVENT_NAMES.INVOICE_PAID,
+            payload: {
+              invoiceId: invoice.id,
+              pelangganId: invoice.pelangganId,
+              amount: Number(invoice.totalAmount),
+              paidAt: (webhookResult.paidAt ?? new Date()).toISOString(),
+              paymentMethod: webhookResult.paymentMethod,
+              tenantId: invoice.tenantId ?? undefined,
+            },
+            priority: JOB_PRIORITIES.CRITICAL,
+            category: "billing",
+            aggregateId: invoice.id,
+            aggregateType: "Invoice",
+          });
+        }
+      });
 
       return {
         status: 200,
