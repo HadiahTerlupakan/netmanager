@@ -123,6 +123,13 @@ export async function PppClientDetailView({
           </Link>
           <div className="flex gap-3">
             <Link
+              href={`/admin/pelanggan/ppp/${pelanggan.id}/notification-history`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+            >
+              <span>📋</span>
+              <span>Riwayat Notifikasi</span>
+            </Link>
+            <Link
               href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
             >
