@@ -33,6 +33,7 @@ export const EVENT_NAMES = {
   INVOICE_CREATED: "billing:invoice.created",
   INVOICE_PAID: "billing:invoice.paid",
   INVOICE_OVERDUE: "billing:invoice.overdue",
+  INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_RECEIVED: "billing:payment.received",
   PAYMENT_FAILED: "billing:payment.failed",
@@ -136,6 +137,15 @@ export interface InvoiceAutoIsolatePayload extends BaseEventPayload {
   invoiceId: string;
   pelangganId: string;
   invoiceNumber: string;
+}
+
+export interface InvoiceReminderDuePayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string;
+  invoiceNumber: string;
+  amountDue: number;
+  dueDate: string;
+  reminderType: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
 }
 
 export interface WorkOrderCreatedPayload extends BaseEventPayload {
@@ -277,6 +287,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload;
   [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
+  [EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
   [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
@@ -379,6 +390,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED,
     category: "billing",
     priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_REMINDER_DUE]: {
+    name: EVENT_NAMES.INVOICE_REMINDER_DUE,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,
   },

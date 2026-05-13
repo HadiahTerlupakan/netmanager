@@ -79,4 +79,60 @@ export class BillingEventDispatcher {
       },
     );
   }
+
+  /**
+   * Diemit saat scheduler reminder detect invoice mendekati / melewati jatuh tempo.
+   * Handler notifikasi akan dispatch ke multi-channel (WA/Email/Push/In-App).
+   */
+  static async onInvoiceReminderDue(data: {
+    invoiceId: string;
+    pelangganId: string;
+    invoiceNumber: string;
+    amountDue: number;
+    dueDate: string;
+    reminderType: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
+    tenantId?: string;
+  }) {
+    await eventBus.publish(
+      EVENT_NAMES.INVOICE_REMINDER_DUE,
+      {
+        invoiceId: data.invoiceId,
+        pelangganId: data.pelangganId,
+        invoiceNumber: data.invoiceNumber,
+        amountDue: data.amountDue,
+        dueDate: data.dueDate,
+        reminderType: data.reminderType,
+        tenantId: data.tenantId,
+      },
+      {
+        priority: JOB_PRIORITIES.NORMAL,
+      },
+    );
+  }
+
+  /**
+   * Diemit saat invoice transisi ke status OVERDUE (past due date, belum bayar).
+   * Berbeda dengan INVOICE_REMINDER_DUE yang periodic — ini one-shot saat transisi.
+   */
+  static async onInvoiceOverdue(data: {
+    invoiceId: string;
+    pelangganId: string;
+    amount: number;
+    dueDate: string;
+    tenantId?: string;
+  }) {
+    await eventBus.publish(
+      EVENT_NAMES.INVOICE_OVERDUE,
+      {
+        invoiceId: data.invoiceId,
+        pelangganId: data.pelangganId,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        tenantId: data.tenantId,
+      },
+      {
+        priority: JOB_PRIORITIES.HIGH,
+      },
+    );
+  }
 }
