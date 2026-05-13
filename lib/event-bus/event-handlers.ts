@@ -5,6 +5,8 @@ import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
 import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
 import { handleInvoiceAutoIsolate } from "@/modules/pelanggan/services/event-handlers/invoice-auto-isolate.handler";
+import { handleCustomerNotification } from "@/modules/notification/services/event-handlers/customer-notification.handler";
+import { handleInvoiceNotification } from "@/modules/notification/services/event-handlers/invoice-notification.handler";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -135,6 +137,31 @@ export function registerDefaultHandlers(): void {
     handleCustomerStatusEvent,
   );
   registerEventHandler(EVENT_NAMES.CUSTOMER_DELETED, handleCustomerStatusEvent);
+
+  // --- NOTIFICATION DISPATCH (multi-channel WA/Email/Push/In-App) ---
+  // Fan-out: CUSTOMER_* events sudah punya handler sync MikroTik di atas;
+  // handler notifikasi berjalan paralel untuk event yang sama.
+
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_CREATED,
+    handleCustomerNotification,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ISOLATED,
+    handleCustomerNotification,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ACTIVATED,
+    handleCustomerNotification,
+  );
+
+  registerEventHandler(EVENT_NAMES.INVOICE_CREATED, handleInvoiceNotification);
+  registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoiceNotification);
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_REMINDER_DUE,
+    handleInvoiceNotification,
+  );
+  registerEventHandler(EVENT_NAMES.INVOICE_OVERDUE, handleInvoiceNotification);
 
   // --- NOTIFICATION EVENTS ---
 
