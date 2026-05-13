@@ -3351,6 +3351,48 @@ model Tenant {
   whatsAppMessages        WhatsAppMessage[]
   tenantSettings          TenantSettings?
   proratePaymentLog       ProratePaymentLog[]
+  emailDeliveryLogs       EmailDeliveryLog[]
+  notificationDeadLetters NotificationDeadLetter[]
+}
+
+model EmailDeliveryLog {
+  id        String    @id @default(uuid())
+  to        String
+  subject   String
+  status    String    // PENDING | SENT | FAILED | BOUNCED
+  provider  String    @default("SMTP")
+  messageId String?
+  error     String?
+  sentAt    DateTime?
+  bouncedAt DateTime?
+  tenantId  String?
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt DateTime  @default(now())
+
+  @@index([status])
+  @@index([to])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model NotificationDeadLetter {
+  id            String    @id @default(uuid())
+  channel       String    // inApp | push | whatsapp | email
+  pelangganId   String
+  templateKey   String
+  params        Json
+  error         String
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  resolvedAt    DateTime?
+  tenantId      String?
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt     DateTime  @default(now())
+
+  @@index([channel, createdAt])
+  @@index([pelangganId])
+  @@index([tenantId])
+  @@index([resolvedAt])
 }
 
 enum MaterialReturnStatus {

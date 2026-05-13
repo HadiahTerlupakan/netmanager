@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import nodemailer from "nodemailer";
 import { AttendanceSettingsService } from "@/modules/attendance";
 import { decryptApiKey } from "@/lib/utils/encryption";
+import { EmailDeliveryLogRepository } from "../repositories/EmailDeliveryLogRepository";
 
 export interface EmailConfig {
   smtpHost: string;
@@ -32,6 +33,7 @@ export interface SendEmailResult {
 
 export class EmailService {
   private settingsRepo?: AttendanceSettingsService;
+  private readonly logRepo = new EmailDeliveryLogRepository();
 
   constructor(settingsRepo?: AttendanceSettingsService) {
     this.settingsRepo = settingsRepo;
@@ -82,9 +84,15 @@ export class EmailService {
   }
 
   /**
-   * Send email
+   * Send email dengan delivery logging ke EmailDeliveryLog.
+   * Log PENDING dibuat sebelum kirim, diupdate ke SENT/FAILED setelah selesai.
    */
   async sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+    const logId = await this.logRepo.logAttempt({
+      to: params.to,
+      subject: params.subject,
+    });
+
     try {
       const config = await this.loadConfig();
       // Create transporter
@@ -106,15 +114,19 @@ export class EmailService {
         html: params.html,
         attachments: params.attachments,
       });
+
+      await this.logRepo.markSent(logId, info.messageId);
       return {
         success: true,
         messageId: info.messageId,
       };
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       logger.error("[Email] Error:", error);
+      await this.logRepo.markFailed(logId, errMsg);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: errMsg,
       };
     }
   }

@@ -101,3 +101,13 @@ export {
   SendWhatsAppMessageSchema,
   BroadcastWhatsAppMessageSchema,
 } from "./dto/send-whatsapp-message.dto";
+
+// Phase 8 Observability — repositories
+export {
+  EmailDeliveryLogRepository,
+  type EmailLogCreateInput,
+} from "./repositories/EmailDeliveryLogRepository";
+export {
+  NotificationDeadLetterRepository,
+  type DeadLetterInput,
+} from "./repositories/NotificationDeadLetterRepository";

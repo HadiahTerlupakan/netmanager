@@ -10,6 +10,7 @@ import { createNotification } from "./NotificationService";
 import { sendCustomerPushNotification } from "./ExpoPushService";
 import { WhatsAppService } from "./whatsapp/whatsapp-service";
 import { EmailService } from "./email-service";
+import { NotificationDeadLetterRepository } from "../repositories/NotificationDeadLetterRepository";
 
 export type NotificationChannel = "inApp" | "push" | "whatsapp" | "email";
 
@@ -38,8 +39,10 @@ const DEFAULT_CHANNELS: NotificationChannel[] = [
  * - Resolve kontak per channel — skip channel jika kontak tidak tersedia
  * - Best-effort delivery — channel fail tidak mencegah channel lain dispatch
  * - Enrich params.customerName dari DB jika tidak di-pass
+ * - Channel yang ultimate fail dicatat ke NotificationDeadLetter untuk visibility admin
  */
 export class NotificationDispatcher {
+  private readonly dlqRepo = new NotificationDeadLetterRepository();
   /** Dispatch notifikasi ke semua channel yang relevan untuk satu pelanggan. */
   async dispatch(input: NotificationDispatchInput): Promise<void> {
     const contact = await resolveCustomerContact(input.pelangganId);
@@ -94,10 +97,28 @@ export class NotificationDispatcher {
           return;
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       logger.error(
         `[NotificationDispatcher] Channel ${channel} gagal untuk pelanggan ${input.pelangganId}:`,
-        error instanceof Error ? error : new Error(String(error)),
+        error instanceof Error ? error : new Error(errMsg),
       );
+
+      // Catat ke DLQ untuk visibility admin — fire-and-forget, jangan block channel lain
+      try {
+        await this.dlqRepo.record({
+          channel,
+          pelangganId: input.pelangganId,
+          templateKey: input.templateKey,
+          params: params as unknown as Record<string, unknown>,
+          error: errMsg,
+          tenantId: contact.tenantId ?? null,
+        });
+      } catch (dlqError) {
+        logger.error(
+          "[NotificationDispatcher] Gagal record ke DLQ:",
+          dlqError instanceof Error ? dlqError : new Error(String(dlqError)),
+        );
+      }
     }
   }
 
