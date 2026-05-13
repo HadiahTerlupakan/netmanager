@@ -2224,19 +2224,149 @@ export interface ProfilePppUpdatedPayload extends BaseEventPayload {
 
 ### Task 7.6: `InvoiceProrateService` — logic prorate mid-cycle upgrade
 
-- [ ] Hitung sisa hari di siklus saat ini
-- [ ] Hitung prorate amount: `(paketBaru - paketLama) * (sisaHari / totalHari)`
-- [ ] Buat invoice prorate (atau adjustment ke invoice berjalan)
-- [ ] Decision needed: buat invoice baru atau void + recreate?
+**Business rules yang sudah diputuskan user:**
+- **Prorate: opt-in admin per case** — admin pilih `prorateOption` saat update pelanggan. Opsi:
+  - `NONE` (default) — tidak ada adjustment, paket baru berlaku tanpa prorate
+  - `PRORATE_CHARGE` — tagih selisih (paketBaru − paketLama) × (sisaHari / totalHari)
+  - `PRORATE_CREDIT` — berikan kredit (paketLama − paketBaru) × (sisaHari / totalHari) untuk kasus downgrade
+- **Downgrade adjustment: pilihan admin** — param `downgradeAdjustment`:
+  - `NONE` — tidak ada adjustment
+  - `REFUND` — buat payment refund record (manual proses admin ke rekening)
+  - `CREDIT` — saldo kredit ditambahkan ke pelanggan (balance ledger) untuk potong invoice berikutnya
+- **Upgrade apply timing: pilihan admin** — param `upgradeApplyTime`:
+  - `IMMEDIATE` — disconnect session sekarang, paket baru aktif dalam hitungan detik
+  - `NEXT_CYCLE` — paket baru aktif saat siklus berikutnya (jatuh tempo baru). Session sekarang tetap berjalan dengan paket lama sampai expired.
 
-**Catatan bisnis yang harus diputuskan user:**
-- Apakah downgrade di-prorate juga (refund/kredit)?
-- Bagaimana handle pelanggan yang status ISOLIR saat upgrade?
-- Apakah prorate jalan default atau opsi admin?
+Semua 3 param ini adalah UI choice admin saat edit pelanggan yang mengubah `hargaPaketId`. Default value kalau admin tidak pilih:
+- `prorateOption = NONE`
+- `downgradeAdjustment = NONE`
+- `upgradeApplyTime = IMMEDIATE`
 
-Plan ini stub — eksekusi butuh approval user untuk business rules.
+**Schema tambahan (migration):**
 
-### Task 7.7: Integration test Phase 7
+```prisma
+model Pelanggan {
+  // ... existing fields
+  pendingPackageId          String?    // kalau scheduled NEXT_CYCLE
+  pendingPackageApplyAt     DateTime?  // kapan apply
+  saldoKreditRupiah         BigInt     @default(0)  // untuk downgrade CREDIT
+}
+
+model ProratePaymentLog {
+  id              String   @id @default(uuid())
+  pelangganId     String
+  oldPackageId    String
+  newPackageId    String
+  prorateOption   String   // NONE | PRORATE_CHARGE | PRORATE_CREDIT
+  downgradeAdjustment String // NONE | REFUND | CREDIT
+  upgradeApplyTime String  // IMMEDIATE | NEXT_CYCLE
+  amount          BigInt   @default(0)
+  sisaHari        Int
+  totalHari       Int
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  tenantId        String?
+
+  @@index([pelangganId])
+  @@index([tenantId])
+}
+```
+
+**Flow per opsi:**
+
+1. **IMMEDIATE + PRORATE_CHARGE (upgrade dengan tambahan biaya)**
+   - Hitung `charge = (newHarga − oldHarga) × (sisaHari / totalHari)`
+   - Buat Invoice prorate dengan status `SENT` (pelanggan bayar terpisah)
+   - Atau tambah line-item ke invoice berjalan (kalau masih `SENT` / `PARTIAL_PAID`)
+   - Emit `PACKAGE_CHANGED` event → handler disconnect session + update MikroTik profile
+
+2. **IMMEDIATE + PRORATE_CREDIT (downgrade dengan kredit)**
+   - Hitung `credit = (oldHarga − newHarga) × (sisaHari / totalHari)`
+   - Kalau `downgradeAdjustment = CREDIT`: tambahkan `pelanggan.saldoKreditRupiah += credit`. Saat invoice berikut generate, saldo kredit dipakai auto.
+   - Kalau `downgradeAdjustment = REFUND`: buat `Payment` record dengan `amount = −credit`, status PENDING_REFUND. Admin manual transfer ke rekening.
+   - Kalau `downgradeAdjustment = NONE`: tidak ada adjustment, hanya catat di `ProratePaymentLog` untuk audit.
+   - Emit `PACKAGE_CHANGED` event
+
+3. **NEXT_CYCLE (upgrade/downgrade scheduled)**
+   - Set `pelanggan.pendingPackageId = newPackageId`, `pendingPackageApplyAt = jatuhTempo`
+   - TIDAK emit `PACKAGE_CHANGED` sekarang
+   - Cron job harian (reuse billing scheduler): scan pelanggan dengan `pendingPackageApplyAt <= now`, apply package change + emit `PACKAGE_CHANGED` saat itu
+   - Invoice berikutnya generate dengan harga `newPackageId`
+
+**Implementation tasks:**
+
+- [ ] **Step 1: Migration schema `pendingPackageId`, `pendingPackageApplyAt`, `saldoKreditRupiah`, `ProratePaymentLog`**
+
+- [ ] **Step 2: Update `UpdatePppByIdInput` contract**
+
+```ts
+// modules/pelanggan/services/pelanggan-admin-mutation.helpers.ts
+export interface UpdatePppByIdInput {
+  // ... existing fields
+  prorateOption?: "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
+  downgradeAdjustment?: "NONE" | "REFUND" | "CREDIT";
+  upgradeApplyTime?: "IMMEDIATE" | "NEXT_CYCLE";
+}
+```
+
+- [ ] **Step 3: Extract package name + harga dari form data di route handler**
+
+`app/api/pelanggan-ppp/[id]/route-handlers-impl.ts` — parse 3 optional param dari formData.
+
+- [ ] **Step 4: Implementasi `InvoiceProrateService`**
+
+File `modules/finance/services/InvoiceProrateService.ts`:
+
+```ts
+export class InvoiceProrateService {
+  async applyPackageChange(input: {
+    pelangganId: string;
+    oldHargaPaketId: string;
+    newHargaPaketId: string;
+    prorateOption: "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
+    downgradeAdjustment: "NONE" | "REFUND" | "CREDIT";
+    upgradeApplyTime: "IMMEDIATE" | "NEXT_CYCLE";
+    userId: string;
+  }): Promise<{
+    applied: boolean;
+    prorateAmount: bigint;
+    scheduledFor?: Date;
+  }> {
+    // Load paket lama vs baru untuk harga
+    // Hitung sisaHari vs totalHari pelanggan current cycle
+    // Branch per prorateOption + downgradeAdjustment + upgradeApplyTime
+    // Return summary untuk di-log
+  }
+}
+```
+
+- [ ] **Step 5: Integration ke `PelangganAdminMutationService.updatePppById`**
+
+Setelah update DB hargaPaketId, panggil `InvoiceProrateService.applyPackageChange`. Kalau `upgradeApplyTime = NEXT_CYCLE`, JANGAN emit `PACKAGE_CHANGED` (simpan `pendingPackageId` saja). Kalau IMMEDIATE, emit event.
+
+- [ ] **Step 6: Cron job untuk apply `pendingPackageId`**
+
+File `modules/finance/services/PendingPackageApplierService.ts`:
+- Scan `pelanggan WHERE pendingPackageId IS NOT NULL AND pendingPackageApplyAt <= now()`
+- Per pelanggan: move `pendingPackageId` → `hargaPaketId`, null-kan pending, emit `PACKAGE_CHANGED`
+- Register cron di `cron-registry.ts`
+
+- [ ] **Step 7: UI — form edit pelanggan tambah 3 dropdown**
+
+Pages affected:
+- `app/admin/pelanggan/ppp/[id]/edit/page.tsx` (atau equivalent)
+- Component form — tambah section "Perubahan Paket" yang muncul conditionally ketika user ganti paket. 3 select:
+  - Prorate: None / Charge / Credit
+  - Downgrade Adjustment: None / Refund / Credit
+  - Apply Time: Immediate / Next Cycle
+
+Default semua ke NONE/IMMEDIATE supaya backward compatible.
+
+- [ ] **Step 8: Test unit + integration**
+
+- [ ] **Step 9: Commit per major step**
+
+### Task 7.7: Integration test Phase 7 (updated)
 
 - [ ] E2E: admin upgrade paket → session disconnect → pelanggan reconnect → bandwidth baru berlaku
 - [ ] E2E: admin update ProfilePPP → affected customers di-disconnect sequentially
@@ -2358,12 +2488,12 @@ Migration increment.
 - [x] TDD discipline
 - [x] Commit message konsisten
 - [x] Bahasa Indonesia
-- [ ] User approve business rules prorate sebelum eksekusi Phase 7
+- [x] Business rules prorate + downgrade + upgrade timing sudah diputuskan (opt-in admin per case)
 
 ## Handoff
 
-Plan siap. Sebelum eksekusi Phase 7, butuh keputusan bisnis:
-1. Prorate default ON atau opt-in per admin?
-2. Downgrade mid-cycle: refund, kredit, atau tidak ada adjustment?
-3. Upgrade timing: immediate disconnect atau scheduled (esok/awal siklus berikut)?
+Plan siap eksekusi. Business rules Phase 7 sudah diputuskan user:
+1. Prorate: opt-in admin per case (`NONE | PRORATE_CHARGE | PRORATE_CREDIT`)
+2. Downgrade: pilihan admin (`NONE | REFUND | CREDIT`)
+3. Upgrade timing: pilihan admin (`IMMEDIATE | NEXT_CYCLE`)
 
