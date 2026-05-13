@@ -5,6 +5,7 @@ import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
 import { handleCustomerStatusEvent } from "@/modules/network/services/event-handlers/customer-status.handler";
+import { handleInvoiceAutoIsolate } from "@/modules/pelanggan/services/event-handlers/invoice-auto-isolate.handler";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -62,6 +63,11 @@ export function getEventHandlers(eventName: string): EventHandlerFn[] {
  */
 export function registerDefaultHandlers(): void {
   // --- BILLING EVENTS ---
+
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED,
+    handleInvoiceAutoIsolate,
+  );
 
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, async (job) => {
     const { payload } = job.data;
