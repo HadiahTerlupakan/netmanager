@@ -120,7 +120,7 @@ describe("finance customer status sync delegation", () => {
     });
   });
 
-  it("delegates invoice-paid due-date update via bridge and emits INVOICE_PAID event (activation handled by event handler)", async () => {
+  it("delegates invoice-paid due-date update via bridge without re-emitting INVOICE_PAID (prevents infinite loop)", async () => {
     mockFns.findInvoice.mockResolvedValue({
       id: "inv-1",
       status: "PAID",
@@ -141,12 +141,10 @@ describe("finance customer status sync delegation", () => {
       "cust-1",
       expect.any(Date),
     );
-    // INVOICE_PAID event di-emit untuk trigger activation di handler
-    expect(mockFns.onInvoicePaid).toHaveBeenCalledWith(
-      "inv-1",
-      "cust-1",
-      expect.any(Number),
-    );
+    // INVOICE_PAID event TIDAK di-emit ulang dari dalam handler chain
+    // (mencegah infinite loop: handler → emit → handler → ...)
+    // Emit hanya terjadi di initiator: webhook, manual payment, void invoice
+    expect(mockFns.onInvoicePaid).not.toHaveBeenCalled();
     // Direct updateStatusPelanggan TIDAK dipanggil dari service layer
     expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
     expect(mockFns.bridgeUpdateStatus).not.toHaveBeenCalled();

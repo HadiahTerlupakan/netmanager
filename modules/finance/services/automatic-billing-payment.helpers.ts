@@ -1,6 +1,5 @@
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
-import { BillingEventDispatcher } from "@/modules/events";
 import { type PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
 import type { PaymentRepository } from "../repositories/PaymentRepository";
@@ -93,7 +92,14 @@ function logImmediateInvoiceGeneration(customerName: string, isPaid: boolean) {
   );
 }
 
-/** Menangani update jatuh tempo pelanggan setelah invoice lunas. */
+/**
+ * Menangani update jatuh tempo dan cancel schedule setelah invoice lunas.
+ *
+ * IMPORTANT: Fungsi ini di-invoke dari handler `INVOICE_PAID` (via
+ * `AutomaticBillingService.handleInvoicePaid`). JANGAN emit event
+ * `INVOICE_PAID` lagi di sini — akan menyebabkan infinite loop karena
+ * handler yang sama akan dipicu kembali.
+ */
 export async function handlePaidInvoiceCustomerState(options: {
   invoiceId: string;
   invoiceRepo: InvoiceRepository;
@@ -135,7 +141,6 @@ async function syncPaidInvoiceCustomerState(
   const { cancelInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
   await cancelInvoiceBillingSchedules(invoice.id);
-  await publishPaidInvoiceEvent(invoice, customer.id);
 }
 
 async function loadPaidInvoice(
@@ -174,22 +179,6 @@ async function syncPaidCustomerDueDate(
     nextDueDate,
   );
   // Activation customer handled by INVOICE_PAID event handler di lib/event-bus/event-handlers.ts
-}
-
-async function publishPaidInvoiceEvent(
-  invoice: PaidInvoice,
-  customerId: string,
-) {
-  await BillingEventDispatcher.onInvoicePaid(
-    invoice.id,
-    customerId,
-    Number(invoice.totalAmount),
-  ).catch((error) =>
-    logger.error(
-      "Failed to publish INVOICE_PAID event",
-      error instanceof Error ? error : undefined,
-    ),
-  );
 }
 
 function calculateNextDueDate(
