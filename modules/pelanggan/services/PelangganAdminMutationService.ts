@@ -2,6 +2,7 @@ import { Status, TipePelanggan } from "../types/pelanggan.enums";
 
 import { CustomerEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/modules/database";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 import {
@@ -36,6 +37,8 @@ export type UpdatePppByIdInput = {
   id: string;
   existingStatus?: Status;
   session: AdminMutationSession;
+  /** Kapan perubahan paket diterapkan. Default IMMEDIATE (backward compatible). */
+  upgradeApplyTime?: "IMMEDIATE" | "NEXT_CYCLE";
   data: {
     idPelanggan: string;
     nama: string;
@@ -185,6 +188,14 @@ export class PelangganAdminMutationService {
         existingPelanggan.status) as string;
       const newStatus = pelanggan.status as string;
 
+      // Detect package change dan emit PACKAGE_CHANGED sebelum status event
+      const packageChanged =
+        existingPelanggan.hargaPaketId !== pelanggan.hargaPaketId;
+
+      if (packageChanged) {
+        await this.emitPackageChangedEvent(input, existingPelanggan, pelanggan);
+      }
+
       if (!statusChanged) {
         // Tidak ada perubahan status — emit generic update event
         await CustomerEventDispatcher.onUpdated({
@@ -224,6 +235,81 @@ export class PelangganAdminMutationService {
         err instanceof Error ? err : undefined,
       );
     }
+  }
+
+  /**
+   * Emit PACKAGE_CHANGED event saat hargaPaketId pelanggan berubah.
+   * Fetch context paket lama dan baru untuk payload lengkap.
+   */
+  private async emitPackageChangedEvent(
+    input: UpdatePppByIdInput,
+    existingPelanggan: NonNullable<
+      Awaited<ReturnType<IPelangganRepository["findForAdminMutation"]>>
+    >,
+    pelanggan: Awaited<ReturnType<IPelangganRepository["updateAdminPppById"]>>,
+  ) {
+    try {
+      const ctx = await this.resolvePackageContext(
+        existingPelanggan.hargaPaketId,
+        pelanggan.hargaPaketId,
+      );
+
+      const applyTime = input.upgradeApplyTime ?? "IMMEDIATE";
+
+      const { BillingEventDispatcher } = await import("@/modules/events");
+      await BillingEventDispatcher.onPackageChanged({
+        customerId: pelanggan.id,
+        customerName: pelanggan.nama,
+        oldPackageId: existingPelanggan.hargaPaketId,
+        newPackageId: pelanggan.hargaPaketId,
+        oldProfileName: ctx.oldProfileName,
+        newProfileName: ctx.newProfileName,
+        oldPackagePrice: ctx.oldPackagePrice,
+        newPackagePrice: ctx.newPackagePrice,
+        applyTime,
+        tenantId: pelanggan.tenantId ?? undefined,
+      });
+    } catch (err) {
+      logger.error(
+        "[Pelanggan] Gagal publish PACKAGE_CHANGED event:",
+        err instanceof Error ? err : undefined,
+      );
+      // Tidak throw — update sudah sukses, event emit best-effort
+    }
+  }
+
+  /**
+   * Fetch nama profile PPP dan harga dari dua paket untuk payload PACKAGE_CHANGED.
+   */
+  private async resolvePackageContext(
+    oldPackageId: string,
+    newPackageId: string,
+  ) {
+    const [oldPackage, newPackage] = await Promise.all([
+      prisma.hargaPaket.findUnique({
+        where: { id: oldPackageId },
+        select: {
+          id: true,
+          harga: true,
+          profilePPP: { select: { name: true } },
+        },
+      }),
+      prisma.hargaPaket.findUnique({
+        where: { id: newPackageId },
+        select: {
+          id: true,
+          harga: true,
+          profilePPP: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      oldProfileName: oldPackage?.profilePPP?.name ?? "",
+      newProfileName: newPackage?.profilePPP?.name ?? "",
+      oldPackagePrice: oldPackage?.harga ?? 0,
+      newPackagePrice: newPackage?.harga ?? 0,
+    };
   }
 
   /** Run optional invoice action after customer update. */

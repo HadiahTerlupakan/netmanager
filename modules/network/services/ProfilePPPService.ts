@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import type { ProfilePPPSchema } from "@/lib/validations/profileppp";
 import { isSuperAdmin } from "@/lib/auth";
 import { canAccessSite } from "@/modules/roles";
+import { prisma } from "@/modules/database";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { HargaPaketRepository } from "../repositories/HargaPaketRepository";
 import { RadiusSyncService } from "./radius-sync-service";
@@ -223,7 +224,50 @@ export class ProfilePPPService {
       bandwidthId: data.bandwidthId,
     });
 
+    // Emit PROFILE_PPP_UPDATED — best-effort, tidak block return
+    await this.emitProfilePppUpdatedEvent(id, oldProfile, profilePPP);
+
     return profilePPP;
+  }
+
+  /**
+   * Emit PROFILE_PPP_UPDATED event setelah sync MikroTik/RADIUS selesai.
+   * Deteksi bandwidth change berdasarkan field yang mempengaruhi koneksi PPP.
+   */
+  private async emitProfilePppUpdatedEvent(
+    id: string,
+    oldProfile: ProfilePPPRecord,
+    profilePPP: ProfilePPPRecord,
+  ) {
+    try {
+      const bandwidthChanged =
+        oldProfile.localAddress !== profilePPP.localAddress ||
+        oldProfile.remoteAddress !== profilePPP.remoteAddress ||
+        oldProfile.sessionTimeout !== profilePPP.sessionTimeout ||
+        oldProfile.idleTimeout !== profilePPP.idleTimeout;
+
+      const affectedCustomerCount = await prisma.pelanggan.count({
+        where: {
+          status: "AKTIF",
+          hargaPaket: { profilePPPId: id },
+        },
+      });
+
+      const { NetworkEventDispatcher } = await import("@/modules/events");
+      await NetworkEventDispatcher.onProfilePppUpdated({
+        profileId: profilePPP.id,
+        profileName: profilePPP.name,
+        bandwidthChanged,
+        affectedCustomerCount,
+        tenantId: profilePPP.tenantId ?? undefined,
+      });
+    } catch (err) {
+      logger.error(
+        "[ProfilePPPService] Gagal publish PROFILE_PPP_UPDATED event:",
+        err instanceof Error ? err : undefined,
+      );
+      // Tidak throw — update sudah sukses, event emit best-effort
+    }
   }
 
   async deleteProfilePPPFromRequest(

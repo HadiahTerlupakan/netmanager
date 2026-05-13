@@ -78,9 +78,16 @@ export const PUT = createHandler(
     const formData = await req.formData();
 
     try {
+      const upgradeApplyTimeRaw = formData.get("upgradeApplyTime") as
+        | string
+        | null;
+      const upgradeApplyTime: "IMMEDIATE" | "NEXT_CYCLE" =
+        upgradeApplyTimeRaw === "NEXT_CYCLE" ? "NEXT_CYCLE" : "IMMEDIATE";
+
       const pelanggan = await pelangganAdminMutationService.updatePppById({
         id,
         session: session as never,
+        upgradeApplyTime,
         data: {
           idPelanggan: formData.get("idPelanggan") as string,
           nama: formData.get("nama") as string,
