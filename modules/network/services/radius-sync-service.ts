@@ -304,9 +304,16 @@ export class RadiusSyncService {
   /**
    * Remove a single customer from RADIUS by username.
    * Digunakan oleh event handler saat customer dihapus dari sistem.
+   * tenantId wajib diisi — tanpanya deleteOrphanUsers akan WHERE tenantId = ""
+   * yang tidak match record manapun (silent no-op, orphan credential).
    */
   async removeCustomer(username: string, tenantId?: string): Promise<void> {
-    await this.radiusRepo.deleteOrphanUsers([username], tenantId ?? "");
+    if (!tenantId) {
+      throw new Error(
+        `[RadiusSync] removeCustomer memerlukan tenantId untuk username ${username}; cegah silent no-op`,
+      );
+    }
+    await this.radiusRepo.deleteOrphanUsers([username], tenantId);
   }
 
   /** Delete orphan RADIUS users. If usernames provided, only delete those. */

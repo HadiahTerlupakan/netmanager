@@ -6,6 +6,19 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 import { RadiusSyncService } from "../radius-sync-service";
 
 /**
+ * Guard helper — memastikan field payload adalah string non-kosong sebelum dipakai.
+ * Throw eksplisit supaya BullMQ tidak meneruskan job dengan data malformed ke MikroTik/RADIUS.
+ */
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value) {
+    throw new Error(
+      `[CustomerStatusHandler] Payload field "${field}" harus string non-kosong, dapat ${typeof value}`,
+    );
+  }
+  return value;
+}
+
+/**
  * Handler yang mengkonsumsi event customer lifecycle dan mensinkronkan
  * MikroTik/RADIUS sesuai state baru pelanggan.
  *
@@ -26,12 +39,16 @@ export async function handleCustomerStatusEvent(
     eventName === EVENT_NAMES.CUSTOMER_CREATED ||
     eventName === EVENT_NAMES.CUSTOMER_UPDATED
   ) {
-    await radius.syncSingleCustomer(payload.customerId as string);
+    const customerId = requireString(payload.customerId, "customerId");
+    await radius.syncSingleCustomer(customerId);
     return;
   }
 
   if (eventName === EVENT_NAMES.CUSTOMER_DELETED) {
-    await radius.removeCustomer(payload.username as string);
+    const username = requireString(payload.username, "username");
+    const tenantId =
+      typeof payload.tenantId === "string" ? payload.tenantId : undefined;
+    await radius.removeCustomer(username, tenantId);
     return;
   }
 
@@ -40,8 +57,8 @@ export async function handleCustomerStatusEvent(
     eventName === EVENT_NAMES.CUSTOMER_SUSPENDED ||
     eventName === EVENT_NAMES.CUSTOMER_ACTIVATED
   ) {
-    const newStatus = payload.newStatus as Status;
-    const customerId = payload.customerId as string;
+    const customerId = requireString(payload.customerId, "customerId");
+    const newStatus = requireString(payload.newStatus, "newStatus") as Status;
     logger.info(
       `[CustomerStatusHandler] Sync MikroTik/RADIUS for ${customerId} → ${newStatus}`,
     );

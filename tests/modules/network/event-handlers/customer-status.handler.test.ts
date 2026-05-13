@@ -89,7 +89,37 @@ describe("CustomerStatusEventHandler", () => {
       username: "budi123",
     });
     await handleCustomerStatusEvent(job);
-    expect(mockRemoveCustomer).toHaveBeenCalledWith("budi123");
+    expect(mockRemoveCustomer).toHaveBeenCalledWith("budi123", undefined);
+  });
+
+  it("CUSTOMER_DELETED meneruskan tenantId ke removeCustomer", async () => {
+    const job = buildJob(EVENT_NAMES.CUSTOMER_DELETED, {
+      customerId: "cust-1",
+      username: "budi123",
+      tenantId: "tenant-xyz",
+    });
+    await handleCustomerStatusEvent(job);
+    expect(mockRemoveCustomer).toHaveBeenCalledWith("budi123", "tenant-xyz");
+  });
+
+  it("melempar error ketika payload.customerId bukan string", async () => {
+    const job = buildJob(EVENT_NAMES.CUSTOMER_ISOLATED, {
+      customerId: 12345,
+      customerName: "Budi",
+      oldStatus: "AKTIF",
+      newStatus: "ISOLIR",
+    });
+    await expect(handleCustomerStatusEvent(job)).rejects.toThrow(/customerId/);
+  });
+
+  it("melempar error ketika payload.newStatus kosong", async () => {
+    const job = buildJob(EVENT_NAMES.CUSTOMER_ACTIVATED, {
+      customerId: "cust-1",
+      customerName: "Budi",
+      oldStatus: "ISOLIR",
+      newStatus: "",
+    });
+    await expect(handleCustomerStatusEvent(job)).rejects.toThrow(/newStatus/);
   });
 
   it("melempar error supaya BullMQ retry ketika MikroTik sync gagal", async () => {
