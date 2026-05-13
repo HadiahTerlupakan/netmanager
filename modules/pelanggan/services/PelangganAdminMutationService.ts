@@ -84,12 +84,7 @@ export class PelangganAdminMutationService {
         updatePayload.data,
       );
 
-      await this.syncUpdatedCustomer(
-        input,
-        existingPelanggan,
-        pelanggan,
-        updatePayload,
-      );
+      await this.syncUpdatedCustomer(input, existingPelanggan, pelanggan);
       await this.handleInvoiceAction(
         normalizedData.invoiceAction,
         pelanggan.id,
@@ -183,7 +178,6 @@ export class PelangganAdminMutationService {
       Awaited<ReturnType<IPelangganRepository["findForAdminMutation"]>>
     >,
     pelanggan: Awaited<ReturnType<IPelangganRepository["updateAdminPppById"]>>,
-    updatePayload: { packageChanged: boolean; passwordChanged: boolean },
   ) {
     try {
       const statusChanged = existingPelanggan.status !== pelanggan.status;
