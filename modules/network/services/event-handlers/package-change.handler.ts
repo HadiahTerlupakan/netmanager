@@ -62,7 +62,14 @@ export async function handlePackageChange(
       err instanceof Error
         ? err.message
         : "Gagal apply package change ke MikroTik";
-    await pelangganService.updateSyncStatus(customerId, "FAILED", errorMessage);
+    await pelangganService
+      .updateSyncStatus(customerId, "FAILED", errorMessage)
+      .catch((updateErr) =>
+        logger.error(
+          `[${SOURCE}] Gagal update syncStatus ke FAILED untuk ${customerId}:`,
+          updateErr instanceof Error ? updateErr : undefined,
+        ),
+      );
     throw err;
   }
 }

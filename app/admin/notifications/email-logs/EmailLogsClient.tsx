@@ -93,7 +93,6 @@ export default function EmailLogsClient() {
 
   function goToPage(page: number) {
     fetchLogs(page);
-    setPagination((p) => ({ ...p, page }));
   }
 
   return (

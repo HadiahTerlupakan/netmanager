@@ -141,7 +141,6 @@ export default function DeadLetterClient() {
 
   function goToPage(page: number) {
     fetchEntries(page);
-    setPagination((p) => ({ ...p, page }));
   }
 
   function toggleExpand(id: string) {

@@ -30,8 +30,7 @@ export async function handleCustomerStatusEvent(
   // CUSTOMER_DELETED tidak punya syncStatus untuk di-update (record sudah dihapus)
   if (eventName === EVENT_NAMES.CUSTOMER_DELETED) {
     const username = requirePayloadString(payload.username, "username", SOURCE);
-    const tenantId =
-      typeof payload.tenantId === "string" ? payload.tenantId : undefined;
+    const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
     await radius.removeCustomer(username, tenantId);
     return;
   }
@@ -72,14 +71,18 @@ export async function handleCustomerStatusEvent(
       // Sukses — tandai SYNCED, reset syncRetryCount, set lastSyncedAt
       await pelangganService.updateSyncStatus(customerId, "SYNCED", null);
     } catch (err) {
-      // Gagal — tandai FAILED dengan pesan error, increment syncRetryCount, lalu re-throw supaya BullMQ retry
+      // Gagal — tandai FAILED. Wrap di .catch supaya throw err selalu tercapai
+      // meskipun updateSyncStatus sendiri gagal (mis. P2025 record not found).
       const errorMessage =
         err instanceof Error ? err.message : "Sync ke MikroTik/RADIUS gagal";
-      await pelangganService.updateSyncStatus(
-        customerId,
-        "FAILED",
-        errorMessage,
-      );
+      await pelangganService
+        .updateSyncStatus(customerId, "FAILED", errorMessage)
+        .catch((updateErr) =>
+          logger.error(
+            `[${SOURCE}] Gagal update syncStatus ke FAILED untuk ${customerId}:`,
+            updateErr instanceof Error ? updateErr : undefined,
+          ),
+        );
       throw err;
     }
 

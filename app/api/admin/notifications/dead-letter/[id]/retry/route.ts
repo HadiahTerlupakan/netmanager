@@ -58,6 +58,7 @@ export const POST = createHandler(
       sourceType: "RETRY_DLQ",
       sourceId: entry.id,
       channels: [entry.channel as NotificationChannel],
+      dedupeKey: `retry-dlq:${entry.id}`,
     });
 
     await prisma.notificationDeadLetter.update({
