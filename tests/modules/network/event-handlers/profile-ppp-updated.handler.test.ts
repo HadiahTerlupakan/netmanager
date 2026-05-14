@@ -98,7 +98,7 @@ describe("ProfilePppUpdatedHandler", () => {
     );
   });
 
-  it("throw partial failure kalau sebagian pelanggan gagal untuk trigger retry", async () => {
+  it("partial failure: log error tapi TIDAK throw (cegah re-disconnect pelanggan yang sudah berhasil)", async () => {
     mockFindMany.mockResolvedValueOnce([
       { id: "cust-1", username: "u1" },
       { id: "cust-2", username: "u2" },
@@ -107,9 +107,21 @@ describe("ProfilePppUpdatedHandler", () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("MikroTik unreachable"));
 
+    // Partial success → TIDAK throw (sebelumnya throw, sekarang log saja)
     await expect(
       handleProfilePppUpdated(buildJob(BASE_PAYLOAD)),
-    ).rejects.toThrow(/partial failure/);
+    ).resolves.not.toThrow();
+  });
+
+  it("total failure (semua gagal) → throw untuk BullMQ retry", async () => {
+    mockFindMany.mockResolvedValueOnce([{ id: "cust-1", username: "u1" }]);
+    mockHandleStatusChange.mockRejectedValueOnce(
+      new Error("MikroTik unreachable"),
+    );
+
+    await expect(
+      handleProfilePppUpdated(buildJob(BASE_PAYLOAD)),
+    ).rejects.toThrow(/total failure/);
   });
 
   it("throw kalau profileId bukan string", async () => {

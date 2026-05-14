@@ -55,6 +55,7 @@ describe("PackageChangeHandler", () => {
     vi.clearAllMocks();
     mockSyncSingleCustomer.mockResolvedValue(undefined);
     mockHandleStatusChange.mockResolvedValue(undefined);
+    mockUpdateSyncStatus.mockResolvedValue(undefined);
   });
 
   it("IMMEDIATE → syncSingleCustomer + handleStatusChange + mark SYNCED", async () => {

@@ -37,6 +37,7 @@ function buildJob(eventName: string, payload: Record<string, unknown>): Job {
 describe("CustomerStatusEventHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUpdateSyncStatus.mockResolvedValue(undefined);
   });
 
   it("CUSTOMER_ISOLATED memicu handleStatusChange dengan status ISOLIR", async () => {
@@ -90,16 +91,7 @@ describe("CustomerStatusEventHandler", () => {
     expect(mockSyncSingleCustomer).toHaveBeenCalledWith("cust-1");
   });
 
-  it("CUSTOMER_DELETED memicu removeCustomer dengan username", async () => {
-    const job = buildJob(EVENT_NAMES.CUSTOMER_DELETED, {
-      customerId: "cust-1",
-      username: "budi123",
-    });
-    await handleCustomerStatusEvent(job);
-    expect(mockRemoveCustomer).toHaveBeenCalledWith("budi123", undefined);
-  });
-
-  it("CUSTOMER_DELETED meneruskan tenantId ke removeCustomer", async () => {
+  it("CUSTOMER_DELETED memicu removeCustomer dengan username + tenantId", async () => {
     const job = buildJob(EVENT_NAMES.CUSTOMER_DELETED, {
       customerId: "cust-1",
       username: "budi123",
@@ -107,6 +99,14 @@ describe("CustomerStatusEventHandler", () => {
     });
     await handleCustomerStatusEvent(job);
     expect(mockRemoveCustomer).toHaveBeenCalledWith("budi123", "tenant-xyz");
+  });
+
+  it("CUSTOMER_DELETED throw kalau tenantId tidak ada di payload", async () => {
+    const job = buildJob(EVENT_NAMES.CUSTOMER_DELETED, {
+      customerId: "cust-1",
+      username: "budi123",
+    });
+    await expect(handleCustomerStatusEvent(job)).rejects.toThrow(/tenantId/);
   });
 
   it("melempar error ketika payload.customerId bukan string", async () => {
