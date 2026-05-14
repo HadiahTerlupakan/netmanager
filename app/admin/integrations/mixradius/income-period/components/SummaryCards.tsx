@@ -45,10 +45,7 @@ export default function SummaryCards(props: SummaryCardsProps) {
   const parseNumber = parseIncomePeriodNumber;
   const isDeficit = netIncome < 0;
   const shortfall = Math.abs(netIncome);
-  const grossProfit =
-    parseNumber(summary?.profit) -
-    parseNumber(summary?.feeSeller) -
-    estGatewayFee;
+  const grossProfit = parseNumber(summary?.profit) - estGatewayFee;
   const contributionMarginPerUser =
     totalRecords > 0 ? grossProfit / totalRecords : 0;
   const neededTrxToBreakEven =
@@ -199,14 +196,8 @@ export default function SummaryCards(props: SummaryCardsProps) {
                 <p className="font-semibold mb-2">Kalkulasi:</p>
                 <div className="space-y-1">
                   <div className="flex justify-between">
-                    <span>Profit</span>
+                    <span>Pendapatan (net fee)</span>
                     <span>{formatCurrency(parseNumber(summary?.profit))}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>- Fee Seller</span>
-                    <span>
-                      {formatCurrency(parseNumber(summary?.feeSeller))}
-                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>- Fee Gateway (est)</span>

@@ -135,7 +135,8 @@ export function useRoiTracking({
         return;
       }
 
-      const revenueData = await revenueRes.json();
+      const revenueJson = await revenueRes.json();
+      const revenueData = revenueJson?.data;
 
       if (!revenueData?.data) {
         clientLogger.warn("No revenue data available for ROI calculation");
@@ -151,8 +152,8 @@ export function useRoiTracking({
         : [];
 
       const roi = calculateIncomePeriodCumulativeRoi({
-        summaryProfit: revenueData.summaryProfit,
-        summarySellerFee: revenueData.summarySellerFee,
+        summaryProfit: revenueData.summary?.profit,
+        summarySellerFee: revenueData.summary?.feeSeller,
         records: revenueData.data,
         feeConfig: fees,
         specificExpenses,

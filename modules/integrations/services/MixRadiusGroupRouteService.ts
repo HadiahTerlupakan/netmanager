@@ -71,12 +71,13 @@ export class MixRadiusGroupRouteService {
   /** Get mobile MixRadius owner groups scoped by site. */
   async getMobileGroups(
     siteId?: string | null,
+    tenantId?: string,
   ): Promise<MobileMixRadiusGroupDTO[]> {
     if (!siteId) {
       return [];
     }
 
-    const groups = await this.mixRadiusService.getOwnerGroups();
+    const groups = await this.mixRadiusService.getOwnerGroups(tenantId);
     const scopedGroups = groups.filter((group) => group.siteId === siteId);
 
     return scopedGroups.map((group) => ({

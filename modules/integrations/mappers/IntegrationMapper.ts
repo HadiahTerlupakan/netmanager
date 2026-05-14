@@ -1,10 +1,4 @@
 import type {
-  MixRadiusConfig,
-  MixRadiusCustomer,
-  MixRadiusOwnerGroup,
-} from "@prisma/client-billing";
-
-import type {
   IntegrationConfigDetailDTO,
   IntegrationConfigListItemDTO,
   IntegrationSyncStatusDTO,
@@ -15,21 +9,18 @@ import type { MixRadiusOwnerGroupEntity } from "../domain/entities/MixRadiusOwne
 import type { MixRadiusSyncedCustomerEntity } from "../domain/entities/MixRadiusSyncedCustomerEntity";
 
 export class IntegrationMapper {
-  /** Map Prisma config to domain entity. */
-  static toConfigDomain(model: MixRadiusConfig): MixRadiusConfigEntity {
+  static toConfigDomain(model: MixRadiusConfigEntity): MixRadiusConfigEntity {
     return { ...model };
   }
 
-  /** Map Prisma synced customer to domain entity. */
   static toSyncedCustomerDomain(
-    model: MixRadiusCustomer,
+    model: MixRadiusSyncedCustomerEntity,
   ): MixRadiusSyncedCustomerEntity {
     return { ...model };
   }
 
-  /** Map Prisma owner group to domain entity. */
   static toOwnerGroupDomain(
-    model: MixRadiusOwnerGroup,
+    model: MixRadiusOwnerGroupEntity,
   ): MixRadiusOwnerGroupEntity {
     return { ...model };
   }

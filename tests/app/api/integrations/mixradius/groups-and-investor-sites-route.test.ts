@@ -100,6 +100,12 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: vi.fn(),
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    logActivity: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/rbac", () => ({
@@ -132,32 +138,37 @@ vi.mock("@/modules/finance", () => ({
     error instanceof Error && "status" in error,
 }));
 
-vi.mock("@/modules/integrations", () => ({
-  getMixRadiusAccessService: () => ({
-    canAccess: mockCanAccess,
-  }),
-  getMixRadiusGroupRouteService: () => ({
-    getAdminGroups: mockGetAdminGroups,
-  }),
-  getMixRadiusService: () => ({
-    getOwnerGroups: mockGetAdminGroups,
-    createOwnerGroup: mockCreateOwnerGroup,
-    updateOwnerGroup: mockUpdateOwnerGroup,
-    deleteOwnerGroup: mockDeleteOwnerGroup,
-  }),
-  MixRadiusOwnerGroupFacadeService: class MockMixRadiusOwnerGroupFacadeService {
-    createOwnerGroup = mockCreateOwnerGroup;
-    updateOwnerGroup = mockUpdateOwnerGroup;
-    deleteOwnerGroup = mockDeleteOwnerGroup;
-  },
-  MixRadiusInvestorSiteService: class MockMixRadiusInvestorSiteService {
-    getSites = mockFindManyInvestorSites;
-    getSite = mockFindUniqueInvestorSite;
-    createSite = mockCreateInvestorSite;
-    updateSite = mockUpdateInvestorSite;
-    deleteSite = mockDeleteInvestorSite;
-  },
-}));
+vi.mock("@/modules/integrations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/integrations")>();
+  return {
+    ...actual,
+    getMixRadiusAccessService: () => ({
+      canAccess: mockCanAccess,
+    }),
+    getMixRadiusGroupRouteService: () => ({
+      getAdminGroups: mockGetAdminGroups,
+    }),
+    getMixRadiusService: () => ({
+      getOwnerGroups: mockGetAdminGroups,
+      createOwnerGroup: mockCreateOwnerGroup,
+      updateOwnerGroup: mockUpdateOwnerGroup,
+      deleteOwnerGroup: mockDeleteOwnerGroup,
+    }),
+    MixRadiusOwnerGroupFacadeService: class MockMixRadiusOwnerGroupFacadeService {
+      createOwnerGroup = mockCreateOwnerGroup;
+      updateOwnerGroup = mockUpdateOwnerGroup;
+      deleteOwnerGroup = mockDeleteOwnerGroup;
+    },
+    MixRadiusInvestorSiteService: class MockMixRadiusInvestorSiteService {
+      getSites = mockFindManyInvestorSites;
+      getSite = mockFindUniqueInvestorSite;
+      createSite = mockCreateInvestorSite;
+      updateSite = mockUpdateInvestorSite;
+      deleteSite = mockDeleteInvestorSite;
+    },
+  };
+});
 
 import { GET as GET_GROUPS } from "@/app/api/integrations/mixradius/groups/route";
 import {

@@ -334,8 +334,7 @@ export default function RABView({
       const json = await res.json();
       if (json.success) {
         toast.success(`Status berhasil diubah ke ${newStatus}`);
-        // Update local data optimistically
-        Object.assign(data, { status: newStatus });
+        onRefresh?.();
       } else {
         toast.error(json.error || "Gagal mengubah status");
       }
@@ -388,7 +387,7 @@ export default function RABView({
                     const json = await res.json();
                     if (res.ok) {
                       toast.success(json.message);
-                      if (json.data) Object.assign(data, json.data);
+                      onRefresh?.();
                     } else {
                       toast.error(json.error || "Gagal menyetujui RAB");
                     }

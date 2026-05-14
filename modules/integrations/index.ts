@@ -14,3 +14,8 @@ export * from "./services/MixRadiusProfitLossService";
 export * from "./services/MixRadiusService";
 export * from "./services/MixRadiusSyncService";
 export * from "./services/ReceiptOcrService";
+export {
+  mixRadiusConfigCreateSchema,
+  mixRadiusConfigUpdateSchema,
+  investorSiteSchema,
+} from "./validators/MixRadiusConfigValidator";

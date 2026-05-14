@@ -387,11 +387,11 @@ export function useIncomePeriodData() {
                 ),
               ]);
 
-            const specificExpenseItems = Array.isArray(specificJson)
-              ? (specificJson as IncomePeriodExpenseItem[])
+            const specificExpenseItems = Array.isArray(specificJson?.data)
+              ? (specificJson.data as IncomePeriodExpenseItem[])
               : [];
-            const generalExpenseItems = Array.isArray(generalJson)
-              ? (generalJson as IncomePeriodExpenseItem[])
+            const generalExpenseItems = Array.isArray(generalJson?.data)
+              ? (generalJson.data as IncomePeriodExpenseItem[])
               : [];
 
             if (globalStatsRes.ok) {
@@ -436,9 +436,10 @@ export function useIncomePeriodData() {
             const expRes = await fetch(`/api/finance/expenses?${expParams}`);
             if (expRes.ok) {
               const expData = await expRes.json();
-              if (Array.isArray(expData)) {
+              const expItems = Array.isArray(expData?.data) ? expData.data : [];
+              if (expItems.length > 0) {
                 const allocation = calculateAllSiteExpenses(
-                  expData as IncomePeriodExpenseItem[],
+                  expItems as IncomePeriodExpenseItem[],
                 );
                 expensesTotal = allocation.totalExpenses;
                 setSpecificExpenses(allocation.specificExpenses);

@@ -78,6 +78,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: {
     logActivity: mockLogActivity,
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
@@ -101,25 +104,30 @@ const { mockCreateMixRadiusConfig, mockValidateUrl } = vi.hoisted(() => ({
   mockValidateUrl: vi.fn(() => ({ isValid: true })),
 }));
 
-vi.mock("@/modules/integrations", () => ({
-  getMixRadiusAccessService: () => ({
-    canAccess: mockCanAccess,
-  }),
-  getMixRadiusConfigService: () => ({
-    createConfig: mockCreateConfig,
-    updateConfig: mockUpdateConfig,
-    updateConfigForTenant: mockUpdateConfigForTenant,
-    deleteConfig: mockDeleteConfig,
-    deleteConfigForTenant: mockDeleteConfigForTenant,
-    getConfigs: mockGetAllConfigs,
-    getAllConfigs: mockGetAllConfigs,
-    getAllConfigsByTenant: mockGetAllConfigsByTenant,
-  }),
-  IntegrationFactory: {
-    createMixRadiusConfig: mockCreateMixRadiusConfig,
-    validateUrl: mockValidateUrl,
-  },
-}));
+vi.mock("@/modules/integrations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/integrations")>();
+  return {
+    ...actual,
+    getMixRadiusAccessService: () => ({
+      canAccess: mockCanAccess,
+    }),
+    getMixRadiusConfigService: () => ({
+      createConfig: mockCreateConfig,
+      updateConfig: mockUpdateConfig,
+      updateConfigForTenant: mockUpdateConfigForTenant,
+      deleteConfig: mockDeleteConfig,
+      deleteConfigForTenant: mockDeleteConfigForTenant,
+      getConfigs: mockGetAllConfigs,
+      getAllConfigs: mockGetAllConfigs,
+      getAllConfigsByTenant: mockGetAllConfigsByTenant,
+    }),
+    IntegrationFactory: {
+      createMixRadiusConfig: mockCreateMixRadiusConfig,
+      validateUrl: mockValidateUrl,
+    },
+  };
+});
 
 import { POST } from "@/app/api/integrations/mixradius/accounts/route";
 import {

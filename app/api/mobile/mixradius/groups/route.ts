@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const routeService = getMixRadiusGroupRouteService();
     const groups = await routeService.getMobileGroups(
       authResult.siteId as string | null | undefined,
+      authResult.tenantId ?? undefined,
     );
 
     return apiSuccess(groups);

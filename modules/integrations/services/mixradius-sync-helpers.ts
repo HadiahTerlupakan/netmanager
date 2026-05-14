@@ -3,11 +3,14 @@ import {
   getYesterdayDateString,
   parseMixRadiusDate,
 } from "./mixradius-date-utils";
+import { isMixRadiusConfigError } from "./mixradius-customer-errors";
 import type {
   MixRadiusCustomer,
   MixRadiusCustomerDetail,
   MixRadiusIncomePeriodRecord,
 } from "./mixradius-types";
+
+export { isMixRadiusConfigError };
 
 const DEFAULT_TENANT_ID = "DEFAULT";
 const DEFAULT_GLOBAL_AVERAGE = 150000;
@@ -40,15 +43,6 @@ export function resolveTenantId(tenantId?: string) {
 
 export function getMixRadiusSyncErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Terjadi kesalahan";
-}
-
-export function isMixRadiusConfigError(error: unknown) {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "name" in error &&
-    error.name === "MixRadiusConfigError"
-  );
 }
 
 export function buildCustomerPayload(

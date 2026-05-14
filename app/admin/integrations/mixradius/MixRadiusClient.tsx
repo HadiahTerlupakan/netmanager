@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   HiOutlineArrowPath,
   HiOutlineMagnifyingGlass,
@@ -80,7 +80,7 @@ export default function MixRadiusClient({
   const [selectedOwner, setSelectedOwner] = useState("all");
   const [groups, setGroups] = useState<MixRadiusGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState("expired_on");
@@ -163,7 +163,7 @@ export default function MixRadiusClient({
               body: JSON.stringify({
                 customerIds: chunkIds,
                 validationData: chunkValidationData,
-                bypassCache: isRefreshing,
+                bypassCache: isRefreshingRef.current,
               }),
             },
           );
@@ -178,12 +178,14 @@ export default function MixRadiusClient({
           );
         }
       }
-      if (isRefreshing) setIsRefreshing(false);
+      if (isRefreshingRef.current) {
+        isRefreshingRef.current = false;
+      }
     };
 
     const timer = setTimeout(fetchCountsProgressively, INVOICE_FETCH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [data, isRefreshing]);
+  }, [data]);
 
   // Fetch customer detail
   const fetchCustomerDetail = async (customerId: string) => {
@@ -403,11 +405,10 @@ export default function MixRadiusClient({
       if (Object.keys(currentCounts).length === 0) return currentCounts;
       return {};
     });
-    setIsRefreshing(
-      (currentRefreshing) => currentRefreshing || data.length > 0,
-    );
+    isRefreshingRef.current = true;
+    fetchData(true);
     toast.success("Cache dibersihkan. Memuat data terbaru dari server...");
-  }, [data.length]);
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData(false);
@@ -477,6 +478,7 @@ export default function MixRadiusClient({
           <option value="fullname">Nama</option>
           <option value="phonenumber">No. HP</option>
           <option value="address">Alamat</option>
+          <option value="mac_address">MAC / Caller ID</option>
         </select>
 
         <select
@@ -1280,8 +1282,15 @@ export default function MixRadiusClient({
                               {inv.amount}
                             </td>
                             <td className="px-3 py-3 text-sm">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                Detail
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  inv.status === "PAID" ||
+                                  inv.status === "Lunas"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                                }`}
+                              >
+                                {inv.status || "-"}
                               </span>
                             </td>
                           </tr>

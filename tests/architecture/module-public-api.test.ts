@@ -148,6 +148,8 @@ const dependencyInversionBaseline = new Set([
   "modules/payment-gateway/services/webhook-processing-service.ts",
   "modules/payment-gateway/services/webhook-utils.ts",
   "modules/integrations/services/MixRadiusInvestorSiteService.ts",
+  "modules/integrations/services/MixRadiusFeeSettingsService.ts",
+  "modules/integrations/services/MixRadiusPageService.ts",
   "modules/inventory/services/InventoryBarangService.ts",
   "modules/inventory/services/InventoryBarangRouteService.ts",
   "modules/inventory/services/InventoryGudangRouteService.ts",

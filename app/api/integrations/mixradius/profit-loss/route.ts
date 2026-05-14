@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
 import { isSuperAdmin } from "@/lib/auth";
-import { hasPermission } from "@/lib/rbac";
 import {
+  getMixRadiusAccessService,
   MixRadiusConfigError,
   MixRadiusProfitLossService,
 } from "@/modules/integrations";
-import { createHandler, ApiErrors } from "@/lib/api";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -13,14 +12,11 @@ const mixRadiusProfitLossService = new MixRadiusProfitLossService();
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
-
-  // Check permission - need access to expense OR mixradius_profit_loss
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:read")) ||
-    (await hasPermission("mixradius_expenses:read")) ||
-    (await hasPermission("mixradius_profit_loss:read"));
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius_profit_loss:read", "mixradius:read"],
+  });
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
@@ -40,10 +36,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       siteId,
     });
 
-    return NextResponse.json(report);
+    return apiSuccess(report);
   } catch (error: unknown) {
     if (error instanceof MixRadiusConfigError) {
-      return NextResponse.json(
+      return apiSuccess(
         mixRadiusProfitLossService.getConfigErrorResponse(error),
       );
     }

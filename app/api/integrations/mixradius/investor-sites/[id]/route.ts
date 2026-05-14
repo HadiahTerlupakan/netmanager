@@ -1,8 +1,11 @@
 import { logger } from "@/lib/logger";
 import { createHandler, ApiErrors, apiSuccess } from "@/lib/api";
-import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
-import { MixRadiusInvestorSiteService } from "@/modules/integrations";
+import {
+  getMixRadiusAccessService,
+  MixRadiusInvestorSiteService,
+  investorSiteSchema,
+} from "@/modules/integrations";
 import { isRouteServiceError } from "@/modules/finance";
 
 const mixRadiusInvestorSiteService = new MixRadiusInvestorSiteService();
@@ -10,11 +13,14 @@ const mixRadiusInvestorSiteService = new MixRadiusInvestorSiteService();
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
   const user = ctx.session!.user;
-
   const isSuper = isSuperAdmin(user);
-  const canRead = await hasPermission("mixradius_sites:read");
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuper,
+    requiredPermissions: ["mixradius_sites:read", "mixradius:read"],
+  });
 
-  if (!isSuper && !canRead) {
+  if (!hasAccess) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -43,11 +49,14 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const user = ctx.session!.user;
-
   const isSuper = isSuperAdmin(user);
-  const canUpdate = await hasPermission("mixradius_sites:update");
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuper,
+    requiredPermissions: ["mixradius_sites:update", "mixradius:update"],
+  });
 
-  if (!isSuper && !canUpdate) {
+  if (!hasAccess) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -59,11 +68,14 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const body = await req.json();
-    const { name, owners, isActive } = body;
+    const parsed = investorSiteSchema.safeParse(body);
 
-    if (!name || typeof name !== "string") {
-      return ApiErrors.badRequest("Nama belum diisi");
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Data tidak valid";
+      return ApiErrors.badRequest(firstError);
     }
+
+    const { name, owners, isActive } = parsed.data;
 
     const updated = await mixRadiusInvestorSiteService.updateSite(id, {
       name,
@@ -85,11 +97,14 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
   const user = ctx.session!.user;
-
   const isSuper = isSuperAdmin(user);
-  const canDelete = await hasPermission("mixradius_sites:delete");
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuper,
+    requiredPermissions: ["mixradius_sites:delete", "mixradius:delete"],
+  });
 
-  if (!isSuper && !canDelete) {
+  if (!hasAccess) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 

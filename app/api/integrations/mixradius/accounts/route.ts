@@ -10,6 +10,7 @@ import { logger } from "@/lib/logger";
 import {
   getMixRadiusAccessService,
   getMixRadiusConfigService,
+  mixRadiusConfigCreateSchema,
 } from "@/modules/integrations";
 
 const TENANT_NOT_FOUND_MESSAGE =
@@ -67,6 +68,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
+
+  const parsed = mixRadiusConfigCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message || "Data tidak valid";
+    return apiError(firstError, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
+
   const targetTenantId =
     userIsSuperAdmin && body.tenantId ? body.tenantId : user.tenantId;
 
@@ -79,7 +87,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   let newConfig;
 
   try {
-    newConfig = await mixRadiusConfigService.createConfig(targetTenantId, body);
+    newConfig = await mixRadiusConfigService.createConfig(
+      targetTenantId,
+      parsed.data,
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";

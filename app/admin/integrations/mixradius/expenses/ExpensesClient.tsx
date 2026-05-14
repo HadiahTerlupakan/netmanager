@@ -885,8 +885,24 @@ export default function ExpensesClient() {
     setIsRABModalOpen(false);
   };
 
-  const handleRABRevisionSaved = () => {
+  const handleRABRevisionSaved = async () => {
     setRabRefreshKey((prev) => prev + 1);
+    if (viewingRAB) {
+      try {
+        const res = await fetch(
+          `/api/finance/rab-projects?refreshKey=${Date.now()}`,
+        );
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const updated = json.data.find(
+            (p: RABProject) => p.id === viewingRAB.id,
+          );
+          if (updated) setViewingRAB(updated);
+        }
+      } catch {
+        // fallback: list will refresh via rabRefreshKey
+      }
+    }
   };
 
   return (

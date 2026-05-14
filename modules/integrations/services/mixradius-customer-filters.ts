@@ -73,6 +73,7 @@ function matchesAnyCustomerField(
     customer.address,
     customer.phonenumber,
     customer.owner_name,
+    customer.mac_address,
   ].some((value) => value?.toLowerCase().includes(normalizedSearch));
 }
 
@@ -85,7 +86,9 @@ function filterByAuthStatus(
   }
 
   if (authStatus === "Isolir") {
-    return customers.filter(isExpiredCustomer);
+    return customers.filter(
+      (c) => isExpiredCustomer(c) || c.auth_status === "Disabled-Users",
+    );
   }
 
   if (authStatus === "Disabled-Users") {

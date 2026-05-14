@@ -10,6 +10,7 @@ import { logger } from "@/lib/logger";
 import {
   getMixRadiusAccessService,
   getMixRadiusConfigService,
+  mixRadiusConfigUpdateSchema,
 } from "@/modules/integrations";
 
 const mixRadiusConfigService = getMixRadiusConfigService();
@@ -39,6 +40,12 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       status: 400,
     });
 
+  const parsed = mixRadiusConfigUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message || "Data tidak valid";
+    return apiError(firstError, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
+
   if (!isSuper && !user.tenantId) {
     return apiError(
       "Tenant MixRadius tidak ditemukan untuk user ini",
@@ -54,7 +61,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   try {
     updatedConfig = await mixRadiusConfigService.updateConfig(
       id,
-      body,
+      parsed.data,
       isSuper ? undefined : user.tenantId,
     );
   } catch (error) {
@@ -67,7 +74,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     userId: user.id,
     action: "UPDATE",
     subject: "mixradius_config",
-    details: { id, changes: body },
+    details: { id, changes: parsed.data },
     ipAddress: req.headers.get("x-forwarded-for") || "unknown",
     userAgent: req.headers.get("user-agent") || "unknown",
   });
@@ -106,10 +113,21 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  await mixRadiusConfigService.deleteConfig(
-    id,
-    isSuper ? undefined : user.tenantId,
-  );
+  try {
+    await mixRadiusConfigService.deleteConfig(
+      id,
+      isSuper ? undefined : user.tenantId,
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code: string }).code === "P2025"
+    ) {
+      return ApiErrors.notFound("Akun MixRadius tidak ditemukan");
+    }
+    throw error;
+  }
 
   await logger.logActivity({
     userId: user.id,

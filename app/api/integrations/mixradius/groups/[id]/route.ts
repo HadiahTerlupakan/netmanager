@@ -17,7 +17,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const hasAccess = await getMixRadiusAccessService().canAccess({
     userId: user.id,
     isSuperAdmin: isSuperAdmin(user),
-    requiredPermissions: ["mixradius:update"],
+    requiredPermissions: ["mixradius_sites:update", "mixradius:update"],
   });
 
   if (!hasAccess) {
@@ -27,6 +27,12 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const body = await req.json();
   const { name, owners, siteId, isActive } = body;
+
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return ApiErrors.badRequest(
+      "Nama group wajib diisi dan tidak boleh kosong",
+    );
+  }
   const isSuper = isSuperAdmin(user);
 
   if (!isSuper && !user.tenantId) {
@@ -63,7 +69,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const hasAccess = await getMixRadiusAccessService().canAccess({
     userId: user.id,
     isSuperAdmin: isSuperAdmin(user),
-    requiredPermissions: ["mixradius:delete"],
+    requiredPermissions: ["mixradius_sites:delete", "mixradius:delete"],
   });
 
   if (!hasAccess) {

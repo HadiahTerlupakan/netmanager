@@ -11,6 +11,7 @@ import {
   mapMixRadiusOdpItem,
   parseMixRadiusOdpCustomersHtml,
 } from "./mixradius-topology-parsers";
+import { isMixRadiusConfigError } from "./mixradius-customer-errors";
 import { MixRadiusConfigError } from "./mixradius-types";
 import type {
   MixRadiusODP,
@@ -126,11 +127,3 @@ function handleTopologyDataError(
 }
 
 export { mapMixRadiusOdpItem, parseMixRadiusOdpCustomersHtml };
-
-function isMixRadiusConfigError(message: string) {
-  return (
-    message.includes("konfigurasi") ||
-    message.includes("valid") ||
-    message.includes("Missing credentials")
-  );
-}

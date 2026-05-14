@@ -1,1 +1,1 @@
-export { GET } from "./route-handlers";
+export { GET } from "./route-handlers-impl";

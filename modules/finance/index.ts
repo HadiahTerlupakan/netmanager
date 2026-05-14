@@ -75,3 +75,9 @@ export type {
 export * from "@/modules/payment-gateway";
 export * from "./services/PaymentGatewayTestService";
 export { rabProjectCreateSchema, rabProjectUpdateSchema } from "./validation";
+
+// Duitku payment fee constants
+export {
+  DUITKU_DEFAULT_FEES,
+  normalizePaymentMethod as normalizeDuitkuPaymentMethod,
+} from "./constants/DuitkuDefaults";

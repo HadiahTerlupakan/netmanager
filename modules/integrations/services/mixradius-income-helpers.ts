@@ -1,7 +1,7 @@
 import {
   DUITKU_DEFAULT_FEES,
-  normalizePaymentMethod,
-} from "@/modules/integrations/constants/DuitkuDefaults";
+  normalizeDuitkuPaymentMethod as normalizePaymentMethod,
+} from "@/modules/finance";
 
 import type {
   MixRadiusIncomePeriodRecord,

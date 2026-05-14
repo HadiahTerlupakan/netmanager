@@ -230,6 +230,14 @@ function filterBySearch(
   );
 }
 
+const NUMERIC_SORT_COLUMNS = new Set([
+  "total",
+  "seller_fee",
+  "price",
+  "tax",
+  "fee",
+]);
+
 function sortIncomeRecords(
   records: MixRadiusIncomePeriodRecord[],
   sortBy = "renewed_on",
@@ -239,10 +247,19 @@ function sortIncomeRecords(
   return sortedRecords.sort((left, right) => {
     const leftValue = (left as unknown as Record<string, unknown>)[sortBy];
     const rightValue = (right as unknown as Record<string, unknown>)[sortBy];
+
     if (["renewed_on", "invoice_date"].includes(sortBy)) {
       const leftTime = leftValue ? new Date(String(leftValue)).getTime() : 0;
       const rightTime = rightValue ? new Date(String(rightValue)).getTime() : 0;
       return sortDir === "asc" ? leftTime - rightTime : rightTime - leftTime;
+    }
+
+    if (NUMERIC_SORT_COLUMNS.has(sortBy)) {
+      const numLeft =
+        parseFloat(String(leftValue || "0").replace(/[^0-9.-]/g, "")) || 0;
+      const numRight =
+        parseFloat(String(rightValue || "0").replace(/[^0-9.-]/g, "")) || 0;
+      return sortDir === "asc" ? numLeft - numRight : numRight - numLeft;
     }
 
     const normalizedLeft = String(leftValue || "").toLowerCase();

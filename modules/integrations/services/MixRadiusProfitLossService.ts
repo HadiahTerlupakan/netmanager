@@ -88,9 +88,11 @@ export class MixRadiusProfitLossService {
         totalTax: DEFAULT_NUMBER,
       },
       trend: Array.from(trendMap.entries())
+        .filter(([date]) => this.isWithinRange(date, startDate, endDate))
         .map(([date, value]) => ({ date, ...value }))
         .sort((left, right) => left.date.localeCompare(right.date)),
       monthlyBreakdown: Array.from(monthlyMap.entries())
+        .filter(([month]) => this.isMonthWithinRange(month, startDate, endDate))
         .map(([month, value]) => ({
           month,
           income: value.income,
@@ -148,6 +150,25 @@ export class MixRadiusProfitLossService {
     }
 
     return Number.parseFloat(value.replace(/\./g, "").replace(",", ".") || "0");
+  }
+
+  private isWithinRange(dateStr: string, start: Date, end: Date): boolean {
+    const date = new Date(dateStr);
+    return date >= start && date <= end;
+  }
+
+  private isMonthWithinRange(
+    monthStr: string,
+    start: Date,
+    end: Date,
+  ): boolean {
+    const monthStart = new Date(monthStr + "-01");
+    const monthEnd = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      0,
+    );
+    return monthEnd >= start && monthStart <= end;
   }
 
   private addIncomeToAggregates(

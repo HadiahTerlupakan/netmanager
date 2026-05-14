@@ -76,7 +76,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-  const { name, owners, siteId } = body;
+  const { name, owners, siteId, isActive } = body;
   const missingFields = getMissingGroupFields(name, owners);
 
   if (missingFields.length > 0) {
@@ -102,6 +102,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     name,
     owners,
     siteId,
+    isActive,
     tenantId: isSuper ? undefined : user.tenantId,
   });
 

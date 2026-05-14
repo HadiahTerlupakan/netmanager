@@ -47,12 +47,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   };
 
   try {
-    const [data, summary] = await Promise.all([
-      service.fetchIncomeByPeriod(params),
-      service.fetchIncomeSummary(params),
-    ]);
-
-    return apiSuccess({ ...data, summary });
+    const data = await service.fetchIncomeByPeriod(params);
+    return apiSuccess(data);
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "MixRadiusConfigError") {
       return apiSuccess({

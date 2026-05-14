@@ -1,14 +1,15 @@
-import { prisma } from "@/modules/database";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
+import { SettingsRepository } from "../repositories/SettingsRepository";
 
 export class MixRadiusPageService {
-  /**
-   * Check whether dashboard redirect is required.
-   */
-  async shouldRedirectToDashboard() {
-    const setting = await prisma.settings.findFirst({
-      where: { key: "PPP_CONNECTION_MODE" },
-    });
+  constructor(
+    private readonly settingsRepository: ISettingsRepository = new SettingsRepository(),
+  ) {}
 
+  async shouldRedirectToDashboard() {
+    const setting = await this.settingsRepository.findByKey(
+      "PPP_CONNECTION_MODE",
+    );
     return setting?.value === "MIKROTIK_API";
   }
 }
