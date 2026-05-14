@@ -449,7 +449,7 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.CUSTOMER_UPDATED,
     category: "customer",
     priority: JOB_PRIORITIES.LOW,
-    persistent: false,
+    persistent: true,
     async: true,
   },
   [EVENT_NAMES.CUSTOMER_SUSPENDED]: {
