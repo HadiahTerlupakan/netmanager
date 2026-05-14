@@ -27,10 +27,34 @@ export async function canAccessCanvasingMobile(
   return user.isSales === true;
 }
 
+/** Permission shape expected by extractMobileFeaturesFromPermissions. */
+type PermissionWithResource = { resource: string };
+
+/**
+ * Extract mobile feature flags from an already-loaded permissions array.
+ * Pure function — no DB query. Use this when the caller already has permissions loaded.
+ */
+export function extractMobileFeaturesFromPermissions(
+  permissions: PermissionWithResource[],
+): string[] {
+  // Get mobile features only (m_* prefix) from role permissions.
+  // Admin resources (non-m_*) are intentionally excluded —
+  // mobile app only needs mobile permissions, admin permissions are irrelevant here.
+  return [
+    ...new Set(
+      permissions
+        .map((p) => p.resource)
+        .filter((resource) => resource.startsWith("m_")),
+    ),
+  ];
+}
+
 /**
  * Get user features for mobile app.
  * Formerly included canvasing bypass logic, now strictly follows RBAC permissions.
  * The 'm_canvasing' feature will only be present if assigned via role permissions.
+ *
+ * @deprecated Prefer extractMobileFeaturesFromPermissions when user is already loaded.
  */
 export async function getUserFeaturesWithCanvasing(
   userId: string,
@@ -48,17 +72,5 @@ export async function getUserFeaturesWithCanvasing(
 
   if (!user?.role?.permission) return [];
 
-  // Get mobile features only (m_* prefix) from role permissions.
-  // Admin resources (non-m_*) are intentionally excluded —
-  // mobile app only needs mobile permissions, admin permissions are irrelevant here.
-  const roleFeatures = [
-    ...new Set(
-      user.role.permission
-        .map((p) => p.resource)
-        .filter((resource) => resource.startsWith("m_")),
-    ),
-  ];
-
-  // Return all mobile features (Karyawan)
-  return roleFeatures;
+  return extractMobileFeaturesFromPermissions(user.role.permission);
 }

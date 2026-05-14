@@ -1,7 +1,25 @@
 import { calculateHaversineDistance } from "@/lib/geo-utils";
+import { logger } from "@/lib/logger";
+import { redis } from "@/lib/redis";
 import { UserLookupService } from "@/modules/users";
 
 type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
+
+interface GeofenceZone {
+  siteId: string;
+  siteName: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+}
+
+interface GeofenceData {
+  zones: GeofenceZone[];
+  policy: AttendanceGeofencePolicy;
+}
+
+const GEOFENCE_CACHE_TTL_SECONDS = 900; // 15 minutes
+const GEOFENCE_CACHE_PREFIX = "geofence:user:";
 
 /**
  * GeofenceService - Validasi lokasi absensi terhadap zona geofence Sites
@@ -16,14 +34,34 @@ export class GeofenceService {
     this.userRepo = new UserLookupService();
   }
 
-  async getPolicyForUser(userId: string): Promise<AttendanceGeofencePolicy> {
-    const geofencePolicy = await this.userRepo.getGeofencePolicy(userId);
+  /**
+   * Get combined geofence data (zones + policy) for a user.
+   * Uses Redis cache with 15-minute TTL to avoid repeated DB calls.
+   */
+  async getGeofenceDataForUser(userId: string): Promise<GeofenceData> {
+    const cacheKey = `${GEOFENCE_CACHE_PREFIX}${userId}`;
 
-    return geofencePolicy === "STRICT" ||
-      geofencePolicy === "DISABLED" ||
-      geofencePolicy === "WARN"
-      ? geofencePolicy
-      : "WARN";
+    // Try cache first
+    const cached = await this.readCache(cacheKey);
+    if (cached) return cached;
+
+    // Fetch both in parallel from DB
+    const [user, rawPolicy] = await Promise.all([
+      this.userRepo.findUserWithSites(userId),
+      this.userRepo.getGeofencePolicy(userId),
+    ]);
+
+    const policy = this.normalizePolicy(rawPolicy);
+    const zones = user ? this.buildZonesFromUser(user) : [];
+
+    const data: GeofenceData = { zones, policy };
+    await this.writeCache(cacheKey, data);
+    return data;
+  }
+
+  async getPolicyForUser(userId: string): Promise<AttendanceGeofencePolicy> {
+    const { policy } = await this.getGeofenceDataForUser(userId);
+    return policy;
   }
 
   /**
@@ -184,22 +222,29 @@ export class GeofenceService {
   /**
    * Ambil geofence zones untuk user tertentu
    * Multi-site: Return semua sites dari userSites + legacy fallback
+   * Uses cached data from getGeofenceDataForUser.
    */
-  async getZonesForUser(userId: string): Promise<
-    Array<{
-      siteId: string;
-      siteName: string;
-      latitude: number;
-      longitude: number;
-      radius: number;
-    }>
-  > {
-    const user = await this.userRepo.findUserWithSites(userId);
+  async getZonesForUser(userId: string): Promise<GeofenceZone[]> {
+    const { zones } = await this.getGeofenceDataForUser(userId);
+    return zones;
+  }
 
-    if (!user) return [];
+  /** Normalize raw policy string to valid enum value. */
+  private normalizePolicy(rawPolicy: string | null): AttendanceGeofencePolicy {
+    return rawPolicy === "STRICT" ||
+      rawPolicy === "DISABLED" ||
+      rawPolicy === "WARN"
+      ? rawPolicy
+      : "WARN";
+  }
 
+  /** Build zone list from user data (multi-site + legacy fallback). */
+  private buildZonesFromUser(
+    user: NonNullable<
+      Awaited<ReturnType<typeof this.userRepo.findUserWithSites>>
+    >,
+  ): GeofenceZone[] {
     const validSites = this.collectValidSites(user);
-
     return validSites.map((site) => ({
       siteId: site.id,
       siteName: site.name,
@@ -207,5 +252,54 @@ export class GeofenceService {
       longitude: site.longitude,
       radius: site.attendanceRadius,
     }));
+  }
+
+  /** Read geofence data from Redis cache. */
+  private async readCache(cacheKey: string): Promise<GeofenceData | null> {
+    try {
+      const raw = await redis.get(cacheKey);
+      if (!raw) return null;
+      return JSON.parse(raw) as GeofenceData;
+    } catch (error) {
+      logger.error(
+        `[GeofenceService] Failed to read cache for ${cacheKey}:`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  /** Write geofence data to Redis cache with TTL. */
+  private async writeCache(
+    cacheKey: string,
+    data: GeofenceData,
+  ): Promise<void> {
+    try {
+      await redis.setex(
+        cacheKey,
+        GEOFENCE_CACHE_TTL_SECONDS,
+        JSON.stringify(data),
+      );
+    } catch (error) {
+      logger.error(
+        `[GeofenceService] Failed to write cache for ${cacheKey}:`,
+        error,
+      );
+    }
+  }
+}
+
+/**
+ * Invalidate geofence cache for a specific user.
+ * Call when user-site assignments or geofence policy change.
+ */
+export async function clearGeofenceCache(userId: string): Promise<void> {
+  try {
+    await redis.del(`${GEOFENCE_CACHE_PREFIX}${userId}`);
+  } catch (error) {
+    logger.error(
+      `[GeofenceService] Failed to clear cache for user ${userId}:`,
+      error,
+    );
   }
 }

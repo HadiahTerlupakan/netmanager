@@ -37,7 +37,7 @@ import { logger } from "@/lib/logger";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { ZodSchema, ZodError } from "zod";
+import type { ZodType, ZodError } from "zod";
 import { authOptions, getUserPermissions } from "@/lib/auth";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import type { ErrorResponse } from "@/lib/api-response";
@@ -81,7 +81,7 @@ export interface HandlerOptions<T = unknown> {
   /** Required permissions (RBAC) */
   permissions?: string[];
   /** Zod schema for request body validation */
-  schema?: ZodSchema<T>;
+  schema?: ZodType<T>;
   /** Custom rate limit (requests per minute) */
   rateLimit?: number;
 }
@@ -185,8 +185,12 @@ export function createHandler<T = unknown>(
 
               const payload =
                 versionCodeOverride === undefined
-                  ? await verifyMobileToken(token)
-                  : await verifyMobileToken(token, versionCodeOverride);
+                  ? await verifyMobileToken(token, undefined, details)
+                  : await verifyMobileToken(
+                      token,
+                      versionCodeOverride,
+                      details,
+                    );
 
               if (payload) {
                 ctx.session = {

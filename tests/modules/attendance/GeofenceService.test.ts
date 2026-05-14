@@ -212,6 +212,9 @@ describe("GeofenceService", () => {
       vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
         sites: null,
       } as unknown as User);
+      (prismaMock.$queryRaw as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+        { attendanceGeofencePolicy: "WARN" },
+      ]);
 
       const result = await service.getZonesForUser("user-1");
 
@@ -229,6 +232,9 @@ describe("GeofenceService", () => {
           isActive: true,
         },
       } as unknown as User);
+      (prismaMock.$queryRaw as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+        { attendanceGeofencePolicy: "WARN" },
+      ]);
 
       const result = await service.getZonesForUser("user-1");
 

@@ -89,7 +89,6 @@ const concreteRepositoryDependencyPattern =
 
 const largeUiFileBaseline = new Set([
   "app/admin/integrations/mixradius/expenses/RABForm.tsx",
-  "app/admin/integrations/mixradius/income-period/IncomePeriodClient.tsx",
   "app/admin/integrations/mixradius/expenses/ExpensesClient.tsx",
   "app/admin/salary/users/SalaryUsersClient.tsx",
   "app/admin/integrations/mixradius/expenses/RABView.tsx",

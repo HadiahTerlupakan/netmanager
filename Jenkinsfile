@@ -242,6 +242,9 @@ spec:
             when {
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
             steps {
                 container('docker') {
                     script {
@@ -254,16 +257,26 @@ spec:
                                 backup_image() {
                                   local source_ref="\$1"
                                   local backup_ref="\$2"
+                                  local attempt=0
+                                  local pulled=false
 
-                                  if docker pull "\$source_ref"; then
-                                    docker tag "\$source_ref" "\$backup_ref"
-                                    docker push "\$backup_ref"
-                                    if ! docker manifest inspect "\$backup_ref" >/dev/null; then
-                                      echo "⚠️ Backup ref verification timed out or failed for \$backup_ref; continuing because backup push already succeeded" >&2
+                                  while [ \$attempt -lt 3 ] && [ "\$pulled" = "false" ]; do
+                                    attempt=\$((attempt + 1))
+                                    echo "Pulling \$source_ref (attempt \$attempt/3)..."
+                                    if timeout 120 docker pull "\$source_ref"; then
+                                      pulled=true
+                                    else
+                                      echo "Pull attempt \$attempt failed for \$source_ref" >&2
+                                      [ \$attempt -lt 3 ] && sleep 5
                                     fi
+                                  done
+
+                                  if [ "\$pulled" = "true" ]; then
+                                    docker tag "\$source_ref" "\$backup_ref"
+                                    timeout 120 docker push "\$backup_ref"
                                     echo "Backed up \$source_ref -> \$backup_ref"
                                   else
-                                    echo "No existing image found for \$source_ref; backup skipped"
+                                    echo "No existing image found or pull failed for \$source_ref; backup skipped" >&2
                                   fi
                                 }
 

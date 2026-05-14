@@ -127,7 +127,23 @@ describe("createHandler mobile auth", () => {
       isSuperAdmin: false,
     });
     expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token");
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token");
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith(
+      "valid-token",
+      undefined,
+      {
+        payload: { sub: "user-1", appVersionCode: 100 },
+        versionCode: 100,
+        versionAccess: {
+          isSupported: true,
+          updateAvailable: false,
+          isForceUpdate: false,
+          currentVersion: "1.0.0",
+          currentVersionCode: 100,
+          minimumVersion: null,
+          latestVersion: null,
+        },
+      },
+    );
     expect(mockVerifyMobileToken).toHaveBeenCalledTimes(1);
   });
 
@@ -170,7 +186,19 @@ describe("createHandler mobile auth", () => {
 
     expect(response.status).toBe(200);
     expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token", 100);
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100, {
+      payload: { sub: "user-1", appVersionCode: 54 },
+      versionCode: 100,
+      versionAccess: {
+        isSupported: true,
+        updateAvailable: false,
+        isForceUpdate: false,
+        currentVersion: "1.0.100",
+        currentVersionCode: 100,
+        minimumVersion: null,
+        latestVersion: null,
+      },
+    });
   });
 
   it("tetap memakai tenant context request saat prisma tenant isolation berjalan", async () => {

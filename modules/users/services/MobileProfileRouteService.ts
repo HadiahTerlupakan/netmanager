@@ -1,6 +1,6 @@
 import { getMitraMobileFeatures } from "@/lib/mobile-auth";
 import { prisma, prismaMitra } from "@/modules/database";
-import { getUserFeaturesWithCanvasing } from "@/modules/marketing";
+import { extractMobileFeaturesFromPermissions } from "@/modules/marketing";
 
 type MobileProfileUser = {
   id?: string;
@@ -169,7 +169,9 @@ async function getRegularUserProfile(user: MobileProfileUser) {
 
   return {
     ...profile,
-    features: await getUserFeaturesWithCanvasing(profile.id),
+    features: extractMobileFeaturesFromPermissions(
+      profile.role?.permission ?? [],
+    ),
     isOnLeave: await isUserOnLeave(user),
   };
 }

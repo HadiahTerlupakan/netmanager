@@ -7,6 +7,8 @@ import type {
   UpdateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
+import { clearVersionCache } from "../repositories/AppVersionRepository";
+export { clearVersionCache };
 import { AppVersionAccessService } from "./AppVersionAccessService";
 import {
   AppVersionReportService,
@@ -138,7 +140,9 @@ export class AppVersionService {
       updateData,
       existing,
     );
-    return this.repository.update(id, updateData);
+    const result = await this.repository.update(id, updateData);
+    clearVersionCache();
+    return result;
   }
 
   /** Hapus versi aplikasi dan bersihkan APK fisiknya. */
@@ -148,6 +152,7 @@ export class AppVersionService {
 
     try {
       await this.repository.delete(id);
+      clearVersionCache();
     } catch (error) {
       if (isPrismaRecordNotFoundError(error)) {
         throw new Error("Versi tidak ditemukan");

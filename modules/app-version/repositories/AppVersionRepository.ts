@@ -10,6 +10,15 @@ import type {
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
 
+/** In-memory cache for latest version (rarely changes, queried on every mobile request) */
+let versionCache: { data: AppVersion | null; expiresAt: number } | null = null;
+const VERSION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/** Clear the cached latest version (call when app versions are created/updated/deleted) */
+export function clearVersionCache(): void {
+  versionCache = null;
+}
+
 export class AppVersionRepository implements IAppVersionRepository {
   /**
    * Find all app versions with pagination
@@ -85,18 +94,25 @@ export class AppVersionRepository implements IAppVersionRepository {
   }
 
   /**
-   * Get latest active version for a platform
+   * Get latest active version for a platform (cached, 5-min TTL)
    */
   async getLatestVersion(
     platform: string = "android",
   ): Promise<AppVersion | null> {
-    return prisma.appVersion.findFirst({
+    if (versionCache && Date.now() < versionCache.expiresAt) {
+      return versionCache.data;
+    }
+
+    const result = await prisma.appVersion.findFirst({
       where: {
         isActive: true,
         OR: [{ platform }, { platform: "all" }],
       },
       orderBy: { versionCode: "desc" },
     });
+
+    versionCache = { data: result, expiresAt: Date.now() + VERSION_CACHE_TTL };
+    return result;
   }
 
   async getRolloutStatsByVersionCode(

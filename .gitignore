@@ -65,7 +65,6 @@ uploads/
 public/uploads/*
 !public/uploads/.gitkeep
 !public/uploads/kmz/.gitkeep
-
 public/odp-photos/
 backups/
 *.sql.gz
@@ -76,8 +75,13 @@ backups/
 data/dumps/*.txt
 data/temp/
 /tmp/
-/plans/
 local_radius*.log
+
+# =========================
+# Plans (AI-generated, local only)
+# =========================
+/plans/*
+!/plans/.gitkeep
 
 # =========================
 # IDE & Editor
@@ -86,7 +90,6 @@ local_radius*.log
 !.vscode/extensions.json
 .idea/
 .agent/
-.claude/
 .cursor/
 .kilocode/
 .playwright-mcp/
@@ -95,6 +98,18 @@ local_radius*.log
 *.swp
 *.swo
 *~
+
+# =========================
+# Claude Code (AI assistant)
+# Jangan ignore seluruh .claude/ — Claude Code butuh folder ini
+# untuk project settings & memory. Hanya ignore bagian sensitif.
+# =========================
+.claude/cache/
+.claude/tmp/
+# Uncomment baris berikut kalau mau ignore semua kecuali settings:
+# .claude/*
+# !.claude/settings.json
+# !.claude/CLAUDE.md
 
 # =========================
 # OS Files
@@ -134,9 +149,9 @@ lint_report.txt
 
 # =========================
 # Screenshots (SAFE RULE)
+# Hindari global *.png karena bisa ke-ignore asset penting.
+# Gunakan hanya untuk folder tertentu jika perlu.
 # =========================
-# Hindari global *.png karena bisa ke-ignore asset penting
-# Gunakan hanya untuk folder tertentu jika perlu
 
 # =========================
 # Worktrees

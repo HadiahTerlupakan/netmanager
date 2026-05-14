@@ -8,10 +8,13 @@ import type {
   OvertimeUpdateInput,
 } from "../domain/ports/IOvertimeRepository";
 
+// Lembur hanya boleh 1x per hari (pengajuan→approval→checkin→checkout = 1 siklus penuh).
+// COMPLETED termasuk karena setelah selesai, user tidak boleh ajukan lagi di hari yang sama.
 export const ACTIVE_OVERTIME_STATUSES: OvertimeStatus[] = [
   OvertimeStatus.PENDING,
   OvertimeStatus.APPROVED,
   OvertimeStatus.IN_PROGRESS,
+  OvertimeStatus.COMPLETED,
 ];
 
 export const PAID_OVERTIME_STATUSES: OvertimeStatus[] = [

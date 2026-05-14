@@ -25,7 +25,7 @@ export class OvertimeServiceAccess {
     }
 
     throw new Error(
-      "Anda sudah memiliki pengajuan lembur aktif (Pending/Approved/Berjalan) untuk hari ini.",
+      "Anda sudah memiliki pengajuan lembur untuk hari ini. Lembur hanya dapat diajukan 1x per hari.",
     );
   }
 

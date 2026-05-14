@@ -168,6 +168,7 @@ model AttendanceEvaluation {
   @@unique([tenantId, userId, workDate])
   @@index([tenantId, workDate])
   @@index([tenantId, reviewState])
+  @@index([userId, evaluatedAt(sort: Desc)], map: "idx_eval_user_date")
 }
 
 model AttendanceEvaluationAudit {
@@ -589,6 +590,7 @@ model LeaveRequest {
   @@index([userId])
   @@index([startDate, endDate], map: "idx_leave_dates")
   @@index([tenantId])
+  @@index([userId, tenantId, createdAt(sort: Desc)], map: "idx_leave_user_tenant_date")
 }
 
 model LeaveBalance {
@@ -2302,6 +2304,7 @@ model WorkOrders {
   @@index([type, status])
   @@index([createdAt])
   @@index([tenantId])
+  @@index([tenantId, status, assignedToId, assignedMitraId], map: "idx_wo_available_lookup")
   @@map("work_orders")
 }
 

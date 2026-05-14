@@ -7,7 +7,6 @@ const mockFns = vi.hoisted(() => ({
   leaveFindFirst: vi.fn(),
   userUpdate: vi.fn(),
   getMitraMobileFeatures: vi.fn(),
-  getUserFeaturesWithCanvasing: vi.fn(),
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -29,7 +28,8 @@ vi.mock("@/lib/mobile-auth", () => ({
 }));
 
 vi.mock("@/modules/marketing", () => ({
-  getUserFeaturesWithCanvasing: mockFns.getUserFeaturesWithCanvasing,
+  extractMobileFeaturesFromPermissions: (permissions: { resource: string }[]) =>
+    permissions.map((p) => p.resource).filter((r) => r.startsWith("m_")),
 }));
 
 import {
@@ -74,8 +74,15 @@ describe("MobileProfileRouteService", () => {
   });
 
   it("returns regular user profile with leave flag", async () => {
-    mockFns.userFindFirst.mockResolvedValue({ id: "user-1", name: "User" });
-    mockFns.getUserFeaturesWithCanvasing.mockResolvedValue(["attendance"]);
+    mockFns.userFindFirst.mockResolvedValue({
+      id: "user-1",
+      name: "User",
+      role: {
+        id: "role-1",
+        name: "ADMIN",
+        permission: [{ resource: "m_attendance", action: "read" }],
+      },
+    });
     mockFns.leaveFindFirst.mockResolvedValue({ id: "leave-1" });
 
     await expect(
@@ -86,7 +93,7 @@ describe("MobileProfileRouteService", () => {
       }),
     ).resolves.toMatchObject({
       id: "user-1",
-      features: ["attendance"],
+      features: ["m_attendance"],
       isOnLeave: true,
     });
   });

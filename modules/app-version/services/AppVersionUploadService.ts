@@ -6,6 +6,7 @@ import type {
   CreateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
+import { clearVersionCache } from "../repositories/AppVersionRepository";
 import {
   deleteUploadedApkObject,
   loadUploadedApkDetails,
@@ -87,6 +88,7 @@ export class AppVersionUploadService {
       apkSize,
     );
     const version = await this.repository.create(createData);
+    clearVersionCache();
     return { version, apkResolution };
   }
 

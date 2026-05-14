@@ -156,18 +156,12 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).not.toContain("docker run --rm -i --privileged");
   });
 
-  it("does not fail backup image stage when backup ref verification times out after a successful push", () => {
+  it("does not fail backup image stage when source image cannot be pulled", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain('docker push "\\$backup_ref"');
     expect(jenkinsfile).toContain(
-      'if ! docker manifest inspect "\\$backup_ref" >/dev/null; then',
-    );
-    expect(jenkinsfile).toContain(
-      'echo "⚠️ Backup ref verification timed out or failed for \\$backup_ref; continuing because backup push already succeeded" >&2',
-    );
-    expect(jenkinsfile).not.toContain(
-      'docker manifest inspect "\\$backup_ref" >/dev/null\n',
+      'echo "No existing image found or pull failed for \\$source_ref; backup skipped" >&2',
     );
   });
 

@@ -136,7 +136,12 @@ const calculateConfiguredFee = (
   return Number((rawTotal * (config.value / 100)).toFixed(2));
 };
 
-const isOnlinePaymentMethod = (method: string, paymentType?: string | null) =>
+export const FETCH_ALL_LIMIT = 10000;
+
+export const isOnlinePaymentMethod = (
+  method: string,
+  paymentType?: string | null,
+) =>
   method.toLowerCase().includes("dtk") ||
   method.toLowerCase().includes("tripay") ||
   method.toLowerCase().includes("midtrans") ||
