@@ -45,6 +45,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-14] — Fix 9 MINOR issues (M2-M11)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`, `modules/notification`, `lib/event-bus`, `app/admin`
+- **Author**: agent
+- **Deskripsi**: Batch fix 9 MINOR issues: (M2) Date.now() consistency di ProrateRepository; (M3) test assert error.code typed; (M4) komentar INVOICE_PAID 3 handler; (M6) findUnresolved terima tenantId filter; (M7) ganti alert() dengan error banner; (M8) INVOICE_PAID metadata priority CRITICAL; (M9) EventBus singleton persist di production; (M10) formatDateId manual tanpa locale dependency; (M11) fetch error ditampilkan ke admin. Skipped: M1 (repo abstraction BillingInvoiceCreation — scope besar), M5 (EmailService cross-module dep — pre-existing), M12 (handler legacy best-effort — design decision).
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-14] — Fix 13 IMPORTANT issues dari comprehensive review
 
 - **Tipe**: [FIXED]
