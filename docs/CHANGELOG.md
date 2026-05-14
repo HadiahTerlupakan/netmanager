@@ -45,6 +45,60 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-14] — Fix 13 IMPORTANT issues dari comprehensive review
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network`, `modules/notification`, `modules/payment-gateway`, `lib/event-bus`, `app/admin`
+- **Author**: agent
+- **Deskripsi**: Batch fix 13 IMPORTANT issues (I1-I14 minus I4 yang sudah fix di B9). Termasuk: (I13) wrap updateSyncStatus di .catch supaya error asli tidak hilang; (I2) tenantId required di CUSTOMER_DELETED handler; (I12) hapus double setPagination di goToPage; (I14) pass dedupeKey saat retry DLQ; (I1) CUSTOMER_UPDATED persistent supaya masuk outbox; (I5) hapus PaymentStatusUpdater dead code; (I10) PROFILE_PPP_UPDATED partial fail tidak throw seluruh batch; (I6) markAsProcessed pindah ke dalam transaction; (I7) PACKAGE_CHANGED notification handler + template; (I8) PushRetryQueue detect DeviceNotRegistered; (I9) retention policy cron cleanup; (I11) prorate log endpoint; (I3) test handleInvoicePaid handlers.
+- **Files**: 15+ file di modules/network, modules/notification, modules/payment-gateway, lib/event-bus, app/admin, app/api/cron, tests/
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Apply timingSafeCompare ke 6 production provider + hapus legacy [B9]
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: CRITICAL FIX — commit 7b6e2bc74 sebelumnya apply timing-safe ke folder legacy yang masih ada (modules/finance/services/payment-gateway/providers/). Production providers di modules/payment-gateway/services/providers/ tetap pakai === untuk signature comparison. Fix: buat signature-compare.helpers.ts di production path (SHA-256 normalize supaya length mismatch tidak bocor), apply timingSafeCompare ke BRI/DANA/Midtrans/Duitku/Moota/Tripay. Hapus seluruh folder legacy (24 file dead code). Hapus dead field isProduction di MootaProvider.
+- **Files**: `modules/payment-gateway/services/providers/signature-compare.helpers.ts` (new), 6 provider files, `modules/finance/services/payment-gateway/` (deleted)
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Propagate tenantId ke EmailDeliveryLog [B10]
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: CRITICAL FIX — EmailDeliveryLog selalu tersimpan dengan tenantId=null karena EmailService.sendEmail tidak menerima tenantId. Multi-tenant data leak: admin tenant A bisa lihat email tenant B. Fix: tambah tenantId ke SendEmailParams, propagate dari NotificationDispatcher via contact.tenantId.
+- **Files**: `modules/notification/services/email-service.ts`, `modules/notification/services/NotificationDispatcher.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Guard prorateOption di NEXT_CYCLE + UI disable [B11]
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`, `app/admin/pelanggan`
+- **Author**: agent
+- **Deskripsi**: CRITICAL FIX — handleNextCycle abaikan prorateOption (admin pilih PRORATE_CHARGE + NEXT_CYCLE → tidak ada invoice prorate, silent revenue loss). Fix: log warning eksplisit + UI disable dropdown prorate saat NEXT_CYCLE dipilih.
+- **Files**: `modules/finance/services/InvoiceProrateService.ts`, `app/admin/pelanggan/ppp/components/package/PppClientPackageChangeSection.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Atomic consumeSaldoKredit via SELECT FOR UPDATE [B12]
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: CRITICAL FIX — consumeSaldoKredit pakai read-then-write (TOCTOU) yang rentan race condition. Dua billing job paralel bisa baca saldo sama lalu keduanya berhasil decrement. Fix: interactive $transaction + SELECT FOR UPDATE — row lock cegah concurrent read.
+- **Files**: `modules/finance/services/BillingInvoiceCreationService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — missing-package outcome harus throw [B13]
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: CRITICAL FIX — PendingPackageApplier return "missing-package" (silent) setelah DB update berhasil → MikroTik tidak tahu paket berubah. Fix: throw Error supaya BullMQ retry. Pelanggan yang bayar paket baru sekarang dijamin eventually sync ke router.
+- **Files**: `modules/finance/services/PendingPackageApplierService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-14] — Comprehensive review 43 commit + dokumentasi temuan
 
 - **Tipe**: [DOCS]
