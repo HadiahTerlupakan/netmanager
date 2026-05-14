@@ -48,10 +48,12 @@ export default function EmailLogsClient() {
   const [search, setSearch] = useState<string>("");
   const [searchInput, setSearchInput] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchLogs = useCallback(
     async (page: number) => {
       setLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({
           page: String(page),
@@ -69,7 +71,9 @@ export default function EmailLogsClient() {
           setPagination(json.data.pagination);
         }
       } catch (err) {
-        clientLogger.error("Error fetching email logs:", err);
+        const msg = "Gagal memuat log email";
+        setError(msg);
+        clientLogger.error(msg, err);
       } finally {
         setLoading(false);
       }
@@ -153,6 +157,20 @@ export default function EmailLogsClient() {
           </button>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-600 ml-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabel */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-x-auto">

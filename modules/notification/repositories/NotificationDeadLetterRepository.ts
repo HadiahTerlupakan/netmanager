@@ -37,8 +37,12 @@ export class NotificationDeadLetterRepository {
     });
   }
 
-  /** Ambil semua DLQ entry yang belum resolved, opsional filter per channel. */
-  async findUnresolved(options?: { channel?: string; limit?: number }): Promise<
+  /** Ambil semua DLQ entry yang belum resolved, opsional filter per channel + tenant. */
+  async findUnresolved(options?: {
+    channel?: string;
+    tenantId?: string | null;
+    limit?: number;
+  }): Promise<
     {
       id: string;
       channel: string;
@@ -56,6 +60,7 @@ export class NotificationDeadLetterRepository {
       where: {
         resolvedAt: null,
         ...(options?.channel ? { channel: options.channel } : {}),
+        ...(options?.tenantId ? { tenantId: options.tenantId } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: options?.limit ?? 100,

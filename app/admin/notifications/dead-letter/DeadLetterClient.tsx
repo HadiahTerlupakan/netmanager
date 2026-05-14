@@ -47,6 +47,7 @@ export default function DeadLetterClient() {
   const [channelFilter, setChannelFilter] = useState<string>("");
   const [showResolved, setShowResolved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -61,6 +62,7 @@ export default function DeadLetterClient() {
       fetchAbortRef.current = controller;
 
       setLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({
           page: String(page),
@@ -81,7 +83,9 @@ export default function DeadLetterClient() {
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;
-        clientLogger.error("Error fetching dead letter queue:", err);
+        const msg = "Gagal memuat data dead letter queue";
+        setError(msg);
+        clientLogger.error(msg, err);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -108,11 +112,11 @@ export default function DeadLetterClient() {
         // oleh fresh fetch.
         await fetchEntries(pagination.page);
       } else {
-        alert(json.error ?? "Gagal melakukan retry");
+        setError(json.error ?? "Gagal melakukan retry");
       }
     } catch (err) {
       clientLogger.error("Error retrying entry:", err);
-      alert("Terjadi kesalahan saat retry");
+      setError("Terjadi kesalahan saat retry");
     } finally {
       setActionLoading(null);
     }
@@ -129,11 +133,11 @@ export default function DeadLetterClient() {
       if (json.success) {
         await fetchEntries(pagination.page);
       } else {
-        alert(json.error ?? "Gagal menandai resolved");
+        setError(json.error ?? "Gagal menandai resolved");
       }
     } catch (err) {
       clientLogger.error("Error resolving entry:", err);
-      alert("Terjadi kesalahan saat resolve");
+      setError("Terjadi kesalahan saat resolve");
     } finally {
       setActionLoading(null);
     }
@@ -205,6 +209,20 @@ export default function DeadLetterClient() {
           ↻ Refresh
         </button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-600 ml-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabel */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-x-auto">
