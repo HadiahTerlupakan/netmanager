@@ -130,6 +130,7 @@ export class MixRadiusSyncService {
     const customers = Array.isArray(response.data) ? response.data : [];
     const stats = createNplStats();
     let totalCustomers = 0;
+    let totalNplCustomers = 0;
 
     const planAverageMap = buildPlanAverageMap(
       await this.repo.getInvoicePlanAverages(),
@@ -139,9 +140,14 @@ export class MixRadiusSyncService {
       getDefaultGlobalAverage();
 
     customers.forEach((customer) => {
+      if (!isCustomerIncludedByOwner(customer.owner_name, ownerFilter)) {
+        return;
+      }
+
+      totalCustomers += 1;
+
       const expiredDate = parseMixRadiusDate(customer.expired_on);
       if (
-        !isCustomerIncludedByOwner(customer.owner_name, ownerFilter) ||
         !isNplCustomer({
           authStatus: customer.auth_status,
           expiredDate,
@@ -151,7 +157,7 @@ export class MixRadiusSyncService {
         return;
       }
 
-      totalCustomers += 1;
+      totalNplCustomers += 1;
       if (!expiredDate) {
         return;
       }
@@ -165,7 +171,7 @@ export class MixRadiusSyncService {
       assignNplBucket(stats, diffDays, amount);
     });
 
-    return { ...stats, totalCustomers };
+    return { ...stats, totalCustomers, totalNplCustomers };
   }
 
   private async linkCustomerToPelanggan(data: MixRadiusCustomerDetail) {

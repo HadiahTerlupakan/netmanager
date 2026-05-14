@@ -187,13 +187,16 @@ export function useIncomePeriodData() {
 
   // --- Fetch filter data on mount ---
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     const fetchFilterData = async () => {
       try {
         const [groupsRes, feesRes, rabRes, mitraRes] = await Promise.all([
-          fetch("/api/integrations/mixradius/groups"),
-          fetch("/api/integrations/mixradius/fees"),
-          fetch("/api/finance/rab-projects"),
-          fetch("/api/admin/mitra?type=MITRA_SALES&limit=1000"),
+          fetch("/api/integrations/mixradius/groups", { signal }),
+          fetch("/api/integrations/mixradius/fees", { signal }),
+          fetch("/api/finance/rab-projects", { signal }),
+          fetch("/api/admin/mitra?type=MITRA_SALES&limit=1000", { signal }),
         ]);
 
         if (groupsRes.ok) {
@@ -227,6 +230,7 @@ export function useIncomePeriodData() {
         // Fetch Payout History
         const payoutRes = await fetch(
           "/api/admin/mitra/transactions?type=EARNING&limit=1000",
+          { signal },
         );
         if (payoutRes.ok) {
           const payoutData = await payoutRes.json();
@@ -238,10 +242,13 @@ export function useIncomePeriodData() {
           }
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         clientLogger.error("Failed to fetch filter data:", err);
       }
     };
     fetchFilterData();
+
+    return () => controller.abort();
   }, [parseRABProject]);
 
   // --- Handle project selection ---

@@ -35,6 +35,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         between60And90: { count: 0, sum: 0 },
         over90: { count: 0, sum: 0 },
         totalCustomers: 0,
+        totalNplCustomers: 0,
       });
     }
     throw error;

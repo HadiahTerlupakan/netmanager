@@ -69,7 +69,7 @@ export default function SummaryCards(props: SummaryCardsProps) {
           PROFIT (IDR)
         </p>
         <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-          {summary ? formatCurrency(summary.profit) : "-"}
+          {summary?.profit || "0"}
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function SummaryCards(props: SummaryCardsProps) {
           FEE SELLER (IDR)
         </p>
         <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-          {summary ? formatCurrency(summary.feeSeller) : "-"}
+          {summary?.feeSeller || "0"}
         </p>
       </div>
 
@@ -162,7 +162,7 @@ export default function SummaryCards(props: SummaryCardsProps) {
           TOTAL + PPN (IDR)
         </p>
         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-          {summary ? formatCurrency(summary.totalPlusPpn) : "-"}
+          {summary?.totalPlusPpn || "0"}
         </p>
       </div>
 
