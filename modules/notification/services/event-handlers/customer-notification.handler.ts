@@ -13,6 +13,7 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.CUSTOMER_CREATED]: "customerWelcome",
   [EVENT_NAMES.CUSTOMER_ISOLATED]: "customerIsolated",
   [EVENT_NAMES.CUSTOMER_ACTIVATED]: "customerActivated",
+  [EVENT_NAMES.PACKAGE_CHANGED]: "packageChanged",
 };
 
 /**

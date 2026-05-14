@@ -387,9 +387,10 @@ export function registerDefaultHandlers(): void {
     }
   });
 
-  // --- PACKAGE LIFECYCLE EVENTS (disconnect + resync MikroTik) ---
+  // --- PACKAGE LIFECYCLE EVENTS (disconnect + resync MikroTik + notifikasi) ---
 
   registerEventHandler(EVENT_NAMES.PACKAGE_CHANGED, handlePackageChange);
+  registerEventHandler(EVENT_NAMES.PACKAGE_CHANGED, handleCustomerNotification);
   registerEventHandler(
     EVENT_NAMES.PROFILE_PPP_UPDATED,
     handleProfilePppUpdated,

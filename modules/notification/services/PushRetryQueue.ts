@@ -75,9 +75,13 @@ function logRetryQueueError(error: unknown): void {
 }
 
 /**
- * Retry an Expo push notification
+ * Retry an Expo push notification.
+ * Returns { success, permanentFailure } — permanent failure means token
+ * is invalid and should not be retried.
  */
-async function retryExpoPush(item: PushRetryItem): Promise<boolean> {
+async function retryExpoPush(
+  item: PushRetryItem,
+): Promise<{ success: boolean; permanentFailure: boolean }> {
   return sendRetryExpoPush(item);
 }
 
@@ -141,12 +145,22 @@ async function retryQueueItem(
   }
 
   try {
-    const isSuccess = await retryExpoPush(retryItem);
+    const result = await retryExpoPush(retryItem);
     await removeProcessingItem(rawItem);
-    if (!isSuccess) {
+
+    if (result.permanentFailure) {
+      // Token invalid permanen — drop tanpa requeue
+      stats.dropped++;
+      logger.info(
+        `[PushRetry] Token invalid (DeviceNotRegistered) untuk ${retryItem.userId} — dropped`,
+      );
+      return false;
+    }
+
+    if (!result.success) {
       await requeueRetryItem(retryItem);
     }
-    return isSuccess;
+    return result.success;
   } catch (error) {
     logger.error(
       `[PushRetry] Retry attempt ${retryItem.retryCount} failed for ${retryItem.userId}:`,

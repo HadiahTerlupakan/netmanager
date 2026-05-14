@@ -335,9 +335,18 @@ export class WebhookProcessingService {
             aggregateType: "Invoice",
           });
         }
+
+        // markAsProcessed di DALAM transaction supaya atomic — kalau crash
+        // setelah outbox insert tapi sebelum mark, gateway retry tidak
+        // double-emit INVOICE_PAID.
+        if (webhookEventId) {
+          await tx.webhookEvent.update({
+            where: { id: webhookEventId },
+            data: { status: "PROCESSED", processedAt: new Date() },
+          });
+        }
       });
 
-      await this.idempotencyService.markAsProcessed(webhookEventId);
       this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
 
       return {

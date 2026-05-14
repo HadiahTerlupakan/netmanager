@@ -95,14 +95,29 @@ export async function requeueRetryItem(item: PushRetryItem): Promise<void> {
 }
 
 /** Retry one Expo push payload against the Expo API. */
-export async function sendRetryExpoPush(item: PushRetryItem): Promise<boolean> {
+export async function sendRetryExpoPush(
+  item: PushRetryItem,
+): Promise<{ success: boolean; permanentFailure: boolean }> {
   const response = await fetch(EXPO_PUSH_URL, buildExpoRetryRequest(item));
   if (!response.ok) {
-    return false;
+    return { success: false, permanentFailure: false };
   }
 
   const result = await response.json();
-  return result.data?.[0]?.status === "ok";
+  const ticketStatus = result.data?.[0]?.status;
+  const errorDetail = result.data?.[0]?.details?.error;
+
+  if (ticketStatus === "ok") {
+    return { success: true, permanentFailure: false };
+  }
+
+  // DeviceNotRegistered = token invalid permanen (app uninstall / token expired).
+  // Tidak perlu retry — langsung drop.
+  if (errorDetail === "DeviceNotRegistered") {
+    return { success: false, permanentFailure: true };
+  }
+
+  return { success: false, permanentFailure: false };
 }
 
 function buildExpoRetryRequest(item: PushRetryItem): RequestInit {

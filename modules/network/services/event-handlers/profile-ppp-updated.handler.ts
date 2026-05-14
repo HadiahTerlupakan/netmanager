@@ -86,9 +86,19 @@ export async function handleProfilePppUpdated(
     `[ProfilePppUpdatedHandler] Completed profile ${profileId}: ${successCount} sukses, ${failCount} fail`,
   );
 
-  if (failCount > 0) {
+  if (failCount > 0 && successCount === 0) {
+    // Semua gagal — throw supaya BullMQ retry seluruh batch
     throw new Error(
-      `Profile PPP update partial failure: ${failCount} dari ${affectedCustomers.length} pelanggan gagal di-resync`,
+      `Profile PPP update total failure: ${failCount} dari ${affectedCustomers.length} pelanggan gagal di-resync`,
+    );
+  }
+
+  if (failCount > 0) {
+    // Partial failure — log error tapi JANGAN throw. Kalau throw, BullMQ
+    // retry seluruh batch → pelanggan yang sudah berhasil di-disconnect ulang.
+    // Pelanggan yang gagal sudah di-log per-item di atas.
+    logger.error(
+      `[ProfilePppUpdatedHandler] Partial failure profile ${profileId}: ${failCount} gagal dari ${affectedCustomers.length}. Pelanggan yang gagal perlu manual resync.`,
     );
   }
 }

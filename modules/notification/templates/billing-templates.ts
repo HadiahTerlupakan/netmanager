@@ -115,6 +115,19 @@ export const BILLING_TEMPLATES = {
     }),
     push: () => "Layanan Anda aktif kembali",
   },
+  packageChanged: {
+    title: "Paket internet berubah",
+    inApp: (p) =>
+      `Paket internet Anda telah diubah${p.packageName ? ` ke ${p.packageName}` : ""}. Perubahan berlaku segera.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nPaket internet Anda telah diubah${p.packageName ? ` ke ${p.packageName}` : ""}.\nPerubahan berlaku segera. Hubungi kami jika ada pertanyaan.`,
+    email: (p) => ({
+      subject: "Paket internet Anda telah diubah",
+      body: `Halo ${p.customerName},\n\nPaket internet Anda telah diubah${p.packageName ? ` ke ${p.packageName}` : ""}.\nPerubahan berlaku segera.`,
+    }),
+    push: (p) =>
+      `Paket Anda diubah${p.packageName ? ` ke ${p.packageName}` : ""}`,
+  },
 } satisfies Record<string, BillingTemplate>;
 
 export type BillingTemplateKey = keyof typeof BILLING_TEMPLATES;
