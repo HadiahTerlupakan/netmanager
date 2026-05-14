@@ -130,7 +130,8 @@ export function registerDefaultHandlers(): void {
   );
   registerEventHandler(EVENT_NAMES.INVOICE_OVERDUE, handleInvoiceNotification);
 
-  // --- NOTIFICATION EVENTS ---
+  // --- NOTIFICATION EVENTS (best-effort — tidak re-throw karena WebSocket/realtime
+  // bersifat non-critical; kegagalan tidak boleh block BullMQ retry untuk event lain) ---
 
   registerEventHandler(EVENT_NAMES.NOTIFICATION_CREATED, async (job) => {
     const { payload } = job.data;

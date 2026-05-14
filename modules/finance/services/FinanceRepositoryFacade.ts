@@ -1,3 +1,5 @@
+import { prisma } from "@/modules/database";
+import { logger } from "@/lib/logger";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { UnmatchedMutationRepository } from "../repositories/UnmatchedMutationRepository";
@@ -29,5 +31,59 @@ export class FinanceRepositoryFacade {
     pelangganId: string,
   ): Promise<number> {
     return new InvoiceRepository().countUnpaidByPelangganId(pelangganId);
+  }
+
+  /**
+   * Konsumsi saldo kredit pelanggan secara atomic (SELECT FOR UPDATE).
+   * Return jumlah yang berhasil dikonsumsi (0n jika tidak ada saldo).
+   */
+  static async consumeSaldoKredit(
+    pelangganId: string,
+    capAmount: bigint,
+  ): Promise<bigint> {
+    if (capAmount <= 0n) return 0n;
+
+    const applied = await prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ saldoKreditRupiah: bigint }>>`
+        SELECT "saldoKreditRupiah" FROM "Pelanggan" WHERE id = ${pelangganId} FOR UPDATE
+      `;
+      const saldo = rows[0]?.saldoKreditRupiah ?? 0n;
+      if (saldo <= 0n) return 0n;
+
+      const apply = saldo > capAmount ? capAmount : saldo;
+      await tx.pelanggan.update({
+        where: { id: pelangganId },
+        data: { saldoKreditRupiah: { decrement: apply } },
+      });
+      return apply;
+    });
+
+    if (applied > 0n) {
+      logger.info(
+        `[FinanceRepositoryFacade] Konsumsi saldo kredit ${applied} untuk pelanggan ${pelangganId}`,
+      );
+    }
+    return applied;
+  }
+
+  /**
+   * Kembalikan saldo kredit pelanggan (compensating action).
+   * Fire-and-forget — log error tapi tidak throw.
+   */
+  static async refundSaldoKredit(
+    pelangganId: string,
+    amount: bigint,
+  ): Promise<void> {
+    await prisma.pelanggan
+      .update({
+        where: { id: pelangganId },
+        data: { saldoKreditRupiah: { increment: amount } },
+      })
+      .catch((err) =>
+        logger.error(
+          `[FinanceRepositoryFacade] Gagal kompensasi saldo kredit ${amount} untuk ${pelangganId}`,
+          err instanceof Error ? err : undefined,
+        ),
+      );
   }
 }

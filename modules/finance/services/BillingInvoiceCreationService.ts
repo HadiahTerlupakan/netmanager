@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
 
 const DEFAULT_PPN_PERCENTAGE = 11;
 
@@ -33,8 +33,8 @@ export class BillingInvoiceCreationService {
     const grossTotal = subtotal + taxAmount;
 
     // Konsumsi saldo kredit (mis. dari downgrade prorate sebelumnya).
-    // Decrement atomic via updateMany — kalau race, balik 0 dan tidak apply.
-    const creditApplied = await this.consumeSaldoKredit(
+    // Atomic via FinanceRepositoryFacade (SELECT FOR UPDATE di dalam).
+    const creditApplied = await FinanceRepositoryFacade.consumeSaldoKredit(
       customer.id,
       grossTotal,
     );
@@ -62,58 +62,14 @@ export class BillingInvoiceCreationService {
       return invoice;
     } catch (err) {
       // Compensating action — kembalikan saldo bila invoice gagal dibuat
-      // supaya pelanggan tidak kehilangan kredit.
       if (creditApplied > 0n) {
-        await prisma.pelanggan
-          .update({
-            where: { id: customer.id },
-            data: { saldoKreditRupiah: { increment: creditApplied } },
-          })
-          .catch((compensationErr) =>
-            logger.error(
-              `[BillingInvoiceCreation] Gagal kompensasi saldo kredit ${creditApplied} untuk ${customer.id}`,
-              compensationErr instanceof Error ? compensationErr : undefined,
-            ),
-          );
+        await FinanceRepositoryFacade.refundSaldoKredit(
+          customer.id,
+          creditApplied,
+        );
       }
       throw err;
     }
-  }
-
-  /**
-   * Decrement saldoKreditRupiah pelanggan sebesar min(saldo, capAmount).
-   * Atomic via interactive transaction + SELECT FOR UPDATE — row di-lock
-   * sampai tx commit, sehingga dua billing job paralel tidak bisa baca
-   * saldo yang sama (yang kedua wait sampai yang pertama commit).
-   */
-  private async consumeSaldoKredit(
-    pelangganId: string,
-    capAmount: bigint,
-  ): Promise<bigint> {
-    if (capAmount <= 0n) return 0n;
-
-    const applied = await prisma.$transaction(async (tx) => {
-      // SELECT FOR UPDATE lock row — concurrent billing job akan wait di sini
-      const rows = await tx.$queryRaw<Array<{ saldoKreditRupiah: bigint }>>`
-        SELECT "saldoKreditRupiah" FROM "Pelanggan" WHERE id = ${pelangganId} FOR UPDATE
-      `;
-      const saldo = rows[0]?.saldoKreditRupiah ?? 0n;
-      if (saldo <= 0n) return 0n;
-
-      const apply = saldo > capAmount ? capAmount : saldo;
-      await tx.pelanggan.update({
-        where: { id: pelangganId },
-        data: { saldoKreditRupiah: { decrement: apply } },
-      });
-      return apply;
-    });
-
-    if (applied > 0n) {
-      logger.info(
-        `[BillingInvoiceCreation] Konsumsi saldo kredit ${applied} untuk pelanggan ${pelangganId}`,
-      );
-    }
-    return applied;
   }
 
   private buildInvoicePayload(params: {

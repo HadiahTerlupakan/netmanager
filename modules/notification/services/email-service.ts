@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 // Email Service using Nodemailer
 import nodemailer from "nodemailer";
-import { AttendanceSettingsService } from "@/modules/attendance";
+import { prisma } from "@/modules/database";
 import { decryptApiKey } from "@/lib/utils/encryption";
 import { EmailDeliveryLogRepository } from "../repositories/EmailDeliveryLogRepository";
 
@@ -33,33 +33,24 @@ export interface SendEmailResult {
 }
 
 export class EmailService {
-  private settingsRepo?: AttendanceSettingsService;
   private readonly logRepo = new EmailDeliveryLogRepository();
 
-  constructor(settingsRepo?: AttendanceSettingsService) {
-    this.settingsRepo = settingsRepo;
-  }
-
-  private getSettingsRepo(): AttendanceSettingsService {
-    if (!this.settingsRepo) {
-      this.settingsRepo = new AttendanceSettingsService();
-    }
-
-    return this.settingsRepo;
-  }
-
-  /**
-   * Load email configuration from database
-   */
+  /** Load SMTP config langsung dari settings table. */
   private async loadConfig(): Promise<EmailConfig> {
-    const settings = await this.getSettingsRepo().findManyByKeys([
-      "SMTP_HOST",
-      "SMTP_PORT",
-      "SMTP_USER",
-      "SMTP_PASS",
-      "FROM_NAME",
-      "FROM_EMAIL",
-    ]);
+    const settings = await prisma.settings.findMany({
+      where: {
+        key: {
+          in: [
+            "SMTP_HOST",
+            "SMTP_PORT",
+            "SMTP_USER",
+            "SMTP_PASS",
+            "FROM_NAME",
+            "FROM_EMAIL",
+          ],
+        },
+      },
+    });
 
     const settingsMap: Record<string, string> = {};
     for (const setting of settings) {
