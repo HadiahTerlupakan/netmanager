@@ -10,6 +10,25 @@ import {
 
 const SOURCE = "InvoiceNotificationHandler";
 
+const MONTH_NAMES_ID = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
+function formatDateId(date: Date): string {
+  return `${date.getDate()} ${MONTH_NAMES_ID[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_CREATED]: "invoiceCreated",
   [EVENT_NAMES.INVOICE_PAID]: "invoicePaid",
@@ -64,9 +83,7 @@ export async function handleInvoiceNotification(
       select: { invoiceNumber: true, dueDate: true },
     });
     invoiceNumber = invoiceNumber ?? invoice?.invoiceNumber;
-    dueDate =
-      dueDate ??
-      (invoice ? invoice.dueDate.toLocaleDateString("id-ID") : undefined);
+    dueDate = dueDate ?? (invoice ? formatDateId(invoice.dueDate) : undefined);
   }
 
   // Default reminderType untuk INVOICE_OVERDUE kalau belum di-set

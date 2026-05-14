@@ -228,17 +228,19 @@ describe("InvoiceProrateService", () => {
     it("throw InvoiceProrateError dengan code PELANGGAN_NOT_FOUND", async () => {
       repo.findPelangganProrateContext.mockResolvedValue(null);
 
-      await expect(service.applyPackageChange(baseInput)).rejects.toThrow(
-        "tidak ditemukan",
-      );
+      const err = await service.applyPackageChange(baseInput).catch((e) => e);
+      expect(err.name).toBe("InvoiceProrateError");
+      expect(err.code).toBe("PELANGGAN_NOT_FOUND");
+      expect(err.message).toContain("tidak ditemukan");
     });
 
     it("throw InvoiceProrateError dengan code PACKAGE_NOT_FOUND", async () => {
       repo.findPackagePair.mockResolvedValue(null);
 
-      await expect(service.applyPackageChange(baseInput)).rejects.toThrow(
-        "Paket lama atau baru tidak ditemukan",
-      );
+      const err = await service.applyPackageChange(baseInput).catch((e) => e);
+      expect(err.name).toBe("InvoiceProrateError");
+      expect(err.code).toBe("PACKAGE_NOT_FOUND");
+      expect(err.message).toContain("Paket lama atau baru tidak ditemukan");
     });
   });
 });

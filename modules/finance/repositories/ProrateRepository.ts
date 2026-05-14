@@ -77,13 +77,14 @@ export class ProrateRepository implements IProrateRepository {
   async createProrateInvoice(
     input: CreateProrateInvoiceInput,
   ): Promise<string> {
-    const invoiceNumber = `PRORATE/${Date.now()}/${input.pelangganId.slice(-6)}`;
+    const now = new Date();
+    const invoiceNumber = `PRORATE/${now.getTime()}/${input.pelangganId.slice(-6)}`;
     const invoice = await prismaBilling.invoice.create({
       data: {
         id: crypto.randomUUID(),
         invoiceNumber,
         pelangganId: input.pelangganId,
-        issueDate: new Date(),
+        issueDate: now,
         dueDate: input.dueAt,
         status: "SENT",
         subtotal: input.amount,

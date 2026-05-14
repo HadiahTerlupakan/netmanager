@@ -206,11 +206,9 @@ class EventBus {
   }
 }
 
-// Singleton instance
+// Singleton instance — persist di semua environment supaya Next.js hot reload
+// atau module re-evaluation tidak menghasilkan multiple instance.
 const globalForEventBus = globalThis as unknown as { eventBus?: EventBus };
 
 export const eventBus = globalForEventBus.eventBus ?? new EventBus();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForEventBus.eventBus = eventBus;
-}
+globalForEventBus.eventBus = eventBus;

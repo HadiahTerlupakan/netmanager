@@ -398,7 +398,7 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   [EVENT_NAMES.INVOICE_PAID]: {
     name: EVENT_NAMES.INVOICE_PAID,
     category: "billing",
-    priority: JOB_PRIORITIES.HIGH,
+    priority: JOB_PRIORITIES.CRITICAL,
     persistent: true,
     async: true,
   },

@@ -80,9 +80,10 @@ export function registerDefaultHandlers(): void {
     handleInvoiceAutoIsolate,
   );
 
-  // INVOICE_PAID dispatched ke 2 handler paralel (BullMQ jalankan keduanya):
-  // - billing handler: update jatuh tempo + cancel scheduled overdue/isolate
-  // - activation handler: aktifkan pelanggan kalau tidak ada unpaid lain
+  // INVOICE_PAID dispatched ke 3 handler paralel (BullMQ jalankan semua):
+  // - billing: update jatuh tempo + cancel scheduled overdue/isolate
+  // - activation: aktifkan pelanggan kalau tidak ada unpaid lain
+  // - notification: kirim notifikasi pembayaran berhasil ke pelanggan
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidBilling);
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidActivation);
 
