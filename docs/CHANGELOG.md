@@ -45,6 +45,58 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-14] — Refactor arsitektur modul Kehadiran (Phase 1-7)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/attendance/services`, `modules/attendance/repositories`
+- **Author**: agent
+- **Deskripsi**: Refactor 7 architectural issues tersisa dari deep review:
+  - **Phase 1**: Replace mutable singletons dengan IIFE lazy getter (LeaveService, MobileCheckInRouteService)
+  - **Phase 2**: Drop interface intersection `IRepo & ConcreteRepo` di LeaveService/LeaveLifecycleService
+  - **Phase 3**: Split AttendanceQueryService.ts (4 class) ke 4 file terpisah (SRP)
+  - **Phase 4**: Decouple MobileLeaveRequestService dari NextResponse — return typed result objects
+  - **Phase 5**: Extract AdminScopeResolver utility, refactor 5 service hapus auth logic dari service layer
+  - **Phase 6**: Pindah direct Prisma ke repository layer (groupByStatus, NoCheckoutRepair, LeaveReminder, MobileHistory)
+  - **Phase 7**: Type `IAttendanceRepository` port — hapus `any`, gunakan proper Prisma types
+- **Files**: 20+ files di modules/attendance/services, repositories, dan domain/ports
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Tambah AdminScopeResolver dan refactor 5 service
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/attendance/services`
+- **Author**: agent
+- **Deskripsi**: Ekstrak pola resolusi scope admin (site/department restriction) ke utility
+  `AdminScopeResolver.resolveAdminScope`. Refactor 5 service untuk menggunakan utility ini:
+  `AdminAttendanceFilterService`, `AdminAttendanceDetailRouteService`,
+  `AdminAttendanceRouteService`, `AdminLocationRouteService`, `AdminLeaveRouteService`.
+  Hapus direct `prisma.user.findUnique` dari service layer, ganti dengan `UserLookupService`
+  via resolver. Tidak ada perubahan behavior.
+- **Files**: `modules/attendance/services/AdminScopeResolver.ts` (baru),
+  `modules/attendance/services/AdminAttendanceFilterService.ts`,
+  `modules/attendance/services/AdminAttendanceDetailRouteService.ts`,
+  `modules/attendance/services/AdminAttendanceRouteService.ts`,
+  `modules/attendance/services/AdminLocationRouteService.ts`,
+  `modules/attendance/services/AdminLeaveRouteService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-14] — Deep review & fix 34 issues modul Kehadiran
+
+- **Tipe**: [FIXED] / [SECURITY] / [CHANGED]
+- **Scope**: `modules/attendance`, `modules/shift`, `modules/overtime`, `app/api/cron/`
+- **Author**: agent
+- **Deskripsi**: Review mendalam seluruh modul Kehadiran (43+ fitur). Perbaikan mencakup:
+  - **SECURITY**: Fix CRON_SECRET bypass di 2 cron routes, tambah auth check di attendance settings
+  - **CRITICAL**: Tambah tenant isolation di reminder queries, fix timezone bug (server local → tenant TZ)
+  - **HIGH**: Fix race condition auto-reject (transaction), fix orchestrator parallel race (sequential),
+    fix N+1 query (tenant settings cache), fix geofence bypass (user not found), safety limit pagination
+  - **MEDIUM**: Tambah cron lock di 3 routes, fix orchestrator timezone, hapus sync-on-read,
+    pindah direct Prisma ke repository, fix error message leak, fix location data loss
+  - **LOW**: Hapus dead code (3 services), hapus empty stubs (shift module), fix silent error swallow,
+    fix dead ternary, fix magic string sentinel
+- **Files**: 20+ files across attendance/shift/overtime modules dan cron routes
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-14] — Fix 12 MINOR issues (M1-M12)
 
 - **Tipe**: [FIXED]

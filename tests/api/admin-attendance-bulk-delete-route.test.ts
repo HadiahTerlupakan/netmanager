@@ -384,10 +384,11 @@ describe("admin attendance bulk delete route", () => {
 
     const body = await response.json();
 
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
-      select: { siteId: true, departmentId: true },
-    });
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "admin-1" }),
+      }),
+    );
     expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

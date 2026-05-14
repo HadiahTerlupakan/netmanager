@@ -29,6 +29,9 @@ export type {
 export * from "./client";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceQueryService";
+export * from "./services/HolidayLookupService";
+export * from "./services/LeaveBalanceQueryService";
+export * from "./services/AttendancePayrollQueryService";
 export * from "./services/AttendanceTimezoneService";
 export * from "./services/AttendanceValidationService";
 export * from "./services/EmployeeLeaveQueryService";

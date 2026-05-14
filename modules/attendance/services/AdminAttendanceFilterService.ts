@@ -1,9 +1,8 @@
 import type { Prisma } from "../repositories/prisma-boundary";
 import type { AttendanceStatus } from "../types/attendance.enums";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { prisma } from "@/modules/database";
 import { isCanonicalStatusDetail } from "./AdminAttendanceEvaluationHelper";
+import { resolveAdminScope } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -91,31 +90,14 @@ function applyDateRangeFilter(
 }
 
 async function resolveRestrictionScope(user: AdminAttendanceUser) {
-  const permissions = await getUserPermissions(user.id);
-  if (isSuperAdmin(user)) return createEmptyRestrictionScope();
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { siteId: true, departmentId: true },
+  const scope = await resolveAdminScope(user, {
+    siteOnly: "attendance:site_only",
+    departmentOnly: "attendance:department_only",
   });
 
   return {
-    restrictedSiteId: permissions.includes("attendance:site_only")
-      ? dbUser?.siteId || undefined
-      : undefined,
-    restrictedDeptId: permissions.includes("attendance:department_only")
-      ? dbUser?.departmentId || undefined
-      : undefined,
-  };
-}
-
-function createEmptyRestrictionScope(): {
-  restrictedSiteId?: string;
-  restrictedDeptId?: string;
-} {
-  return {
-    restrictedSiteId: undefined,
-    restrictedDeptId: undefined,
+    restrictedSiteId: scope.isSuperAdmin ? undefined : scope.siteId,
+    restrictedDeptId: scope.isSuperAdmin ? undefined : scope.departmentId,
   };
 }
 

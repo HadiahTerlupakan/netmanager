@@ -1,5 +1,6 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { UserLookupService } from "@/modules/users";
+import { resolveAdminScope } from "./AdminScopeResolver";
 
 import {
   getLeaveService,
@@ -138,15 +139,6 @@ export class AdminLeaveRouteService {
     return this.buildResolvedScope(accessContext);
   }
 
-  /** Validasi akses admin terhadap scope site dan department. */
-  private async validateAccess(
-    session: AdminLeaveSession,
-    target: LeaveScopeTarget,
-  ): Promise<ServiceResult<never> | null> {
-    const accessContext = await this.getAccessContext(session);
-    return this.validateScopedAccess(accessContext, target);
-  }
-
   private buildLeaveFilters(
     input: AdminLeaveListInput,
     scope: Partial<LeaveScopeTarget>,
@@ -178,16 +170,23 @@ export class AdminLeaveRouteService {
   ): Promise<AccessContext> {
     if (isSuperAdmin(session.user)) return this.createSuperAdminAccessContext();
 
-    const [permissions, currentUser] = await Promise.all([
+    const [permissions, scope] = await Promise.all([
       getUserPermissions(session.user.id),
-      this.userRepository.findById(session.user.id),
+      resolveAdminScope(
+        session.user,
+        {
+          siteOnly: SITE_ONLY_PERMISSION,
+          departmentOnly: DEPARTMENT_ONLY_PERMISSION,
+        },
+        this.userRepository,
+      ),
     ]);
 
     return {
       permissions,
       currentUser: {
-        siteId: currentUser?.siteId,
-        departmentId: currentUser?.departmentId,
+        siteId: scope.siteId ?? null,
+        departmentId: scope.departmentId ?? null,
       },
     };
   }

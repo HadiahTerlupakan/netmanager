@@ -59,8 +59,11 @@ export function isInReminderWindow(
   reminderMinutes: number = 30,
   currentTime: Date = new Date(),
   windowMinutes: number = 30,
+  timezone?: string,
 ): boolean {
-  const workDate = parseTimeToDate(workTime, currentTime);
+  const workDate = timezone
+    ? parseTimeToDateInTimezone(workTime, currentTime, timezone)
+    : parseTimeToDate(workTime, currentTime);
   const reminderStart = new Date(
     workDate.getTime() + reminderMinutes * 60 * 1000,
   );

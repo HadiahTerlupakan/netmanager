@@ -1,11 +1,9 @@
 import type { Prisma } from "../repositories/prisma-boundary";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import { getTimezone } from "@/lib/utils/get-timezone";
-import { prisma } from "@/modules/database";
-import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AdminAttendanceListService } from "./AdminAttendanceListService";
-import { syncAttendanceDependencies } from "./AdminAttendanceSyncService";
+import { resolveAdminScope } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -13,17 +11,12 @@ import type {
 
 const NO_SCOPE_MATCH = "__NO_SCOPE_MATCH__";
 
-type ScopedAdminUser = {
-  siteId: string | null | undefined;
-  departmentId: string | null | undefined;
-};
-
 export class AdminAttendanceRouteService {
-  private readonly attendanceRepository: IAttendanceRepository;
+  private readonly attendanceRepository: AttendanceRepository;
   private readonly listService: AdminAttendanceListService;
 
   constructor(
-    attendanceRepository: IAttendanceRepository = new AttendanceRepository(),
+    attendanceRepository: AttendanceRepository = new AttendanceRepository(),
   ) {
     this.attendanceRepository = attendanceRepository;
     this.listService = new AdminAttendanceListService(attendanceRepository);
@@ -44,7 +37,6 @@ export class AdminAttendanceRouteService {
     }
 
     const timezone = await getTimezone(tenantId);
-    await syncAttendanceDependencies(input, timezone, tenantId);
     return this.listService.getAdminAttendances(user, input, timezone);
   }
 
@@ -70,22 +62,17 @@ export class AdminAttendanceRouteService {
 
   /** Build user scope for attendance deletion. */
   private buildDeletionUserScope(
-    permissions: string[],
-    currentUser: ScopedAdminUser,
+    siteId: string | undefined,
+    departmentId: string | undefined,
   ) {
     const userScope: Prisma.UserWhereInput = {};
-    const hasSiteOnlyScope = permissions.includes("attendance:site_only");
-    const hasDepartmentOnlyScope = permissions.includes(
-      "attendance:department_only",
-    );
 
-    if (hasSiteOnlyScope && !currentUser.siteId) return { id: NO_SCOPE_MATCH };
-    if (hasDepartmentOnlyScope && !currentUser.departmentId) {
+    if (siteId === undefined && departmentId === undefined) return userScope;
+    if (siteId !== undefined && !siteId) return { id: NO_SCOPE_MATCH };
+    if (departmentId !== undefined && !departmentId)
       return { id: NO_SCOPE_MATCH };
-    }
-    if (hasSiteOnlyScope) userScope.siteId = currentUser.siteId;
-    if (hasDepartmentOnlyScope)
-      userScope.departmentId = currentUser.departmentId;
+    if (siteId) userScope.siteId = siteId;
+    if (departmentId) userScope.departmentId = departmentId;
     return userScope;
   }
 
@@ -108,11 +95,14 @@ export class AdminAttendanceRouteService {
     };
     if (isSuperAdmin(user)) return attendanceWhere;
 
-    const [permissions, currentUser] = await Promise.all([
-      getUserPermissions(user.id),
-      this.findCurrentUserScope(user.id),
-    ]);
-    const userScope = this.buildDeletionUserScope(permissions, currentUser);
+    const scope = await resolveAdminScope(user, {
+      siteOnly: "attendance:site_only",
+      departmentOnly: "attendance:department_only",
+    });
+    const userScope = this.buildDeletionUserScope(
+      scope.siteId,
+      scope.departmentId,
+    );
 
     if (userScope.id === NO_SCOPE_MATCH) {
       attendanceWhere.user = { id: NO_SCOPE_MATCH };
@@ -122,18 +112,6 @@ export class AdminAttendanceRouteService {
       attendanceWhere.user = userScope;
     }
     return attendanceWhere;
-  }
-
-  private async findCurrentUserScope(userId: string): Promise<ScopedAdminUser> {
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { siteId: true, departmentId: true },
-    });
-
-    return {
-      siteId: currentUser?.siteId,
-      departmentId: currentUser?.departmentId,
-    };
   }
 
   private async findDeletableAttendanceIds(where: Prisma.AttendanceWhereInput) {

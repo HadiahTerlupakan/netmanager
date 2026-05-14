@@ -60,7 +60,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
 
       // Should return error response
       expect(result).toHaveProperty("status", 400);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
       expect(json.error).toContain("sudah punya pengajuan");
       expect(json.error).toContain("CUTI");
       expect(json.error).toContain("overlap");
@@ -85,7 +85,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
       const result = await service.createLeaveRequest(input);
 
       expect(result).toHaveProperty("status", 400);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
       expect(json.error).toContain("sudah punya pengajuan");
       expect(json.error).toContain("SAKIT");
     });
@@ -108,7 +108,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
       const result = await service.createLeaveRequest(input);
 
       expect(result).toHaveProperty("status", 400);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
       expect(json.error).toContain("overlap");
     });
 
@@ -267,7 +267,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
       };
 
       const result = await service.createLeaveRequest(input);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
 
       expect(json.error).toContain("CUTI");
       expect(json.error).toContain("10/05/2026");
@@ -295,7 +295,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
       };
 
       const result = await service.createLeaveRequest(input);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
 
       // Should fail on overlap first, not quota
       expect(json.error).toContain("overlap");
@@ -320,7 +320,7 @@ describe("MobileLeaveRequestService - Overlap Detection", () => {
       };
 
       const result = await service.createLeaveRequest(input);
-      const json = await (result as Response).json();
+      const json = result as { error: string; code: string; status: number };
 
       // Should fail on Tukar Libur validation first
       expect(json.error).not.toContain("overlap");

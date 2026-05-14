@@ -1,6 +1,5 @@
 import type { Prisma } from "../repositories/prisma-boundary";
-import { prisma } from "@/modules/database";
-import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
+import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import {
   buildAttendanceEvaluationKey,
   buildSummaryFromAttendances,
@@ -22,7 +21,7 @@ import type {
 
 /** Bangun response list/export attendance admin. */
 export class AdminAttendanceListService {
-  constructor(private readonly attendanceRepository: IAttendanceRepository) {}
+  constructor(private readonly attendanceRepository: AttendanceRepository) {}
 
   /** Ambil data attendance admin sesuai filter, pagination, dan mode export. */
   async getAdminAttendances(
@@ -109,11 +108,13 @@ export class AdminAttendanceListService {
     timezone: string,
     skip: number,
   ) {
+    const MAX_CANONICAL_FETCH = 5000;
     const allAttendances = filterAttendancesByJoinDate(
       await this.attendanceRepository.findMany({
         where,
         include,
         orderBy: { checkIn: "desc" },
+        take: MAX_CANONICAL_FETCH,
       }),
     );
     const evaluationMap = await getAttendanceEvaluationMap(
@@ -167,11 +168,7 @@ export class AdminAttendanceListService {
         take: input.limit,
       }),
       this.attendanceRepository.count(where),
-      prisma.attendance.groupBy({
-        by: ["status"],
-        where: activeAttendanceWhere,
-        _count: { _all: true },
-      }),
+      this.attendanceRepository.groupByStatus(activeAttendanceWhere),
     ]);
 
     return {

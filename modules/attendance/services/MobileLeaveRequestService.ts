@@ -1,10 +1,8 @@
 import { logger } from "@/lib/logger";
-import { apiError, ErrorCodes } from "@/lib/api-response";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
 import { MobileLeaveNotificationHelper } from "./mobile-leave-notification.helpers";
 import { Prisma } from "../repositories/prisma-boundary";
 import { LeaveStatus, LeaveType } from "../types/attendance.enums";
-import { NextResponse } from "next/server";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
@@ -21,7 +19,10 @@ const INTERNAL_SERVER_ERROR_STATUS = 500;
 type MobileLeaveRequester = Awaited<
   ReturnType<ILeaveRepository["findRequesterContext"]>
 >;
-type MobileLeaveResult = NextResponse | { id: string };
+
+export type MobileLeaveError = { error: string; code: string; status: number };
+export type MobileLeaveResult = MobileLeaveError | { id: string };
+
 type LeaveDateRange = { startDate: Date; endDate: Date };
 type LeaveQuotaContext = {
   userId: string;
@@ -80,7 +81,11 @@ export class MobileLeaveRequestService {
         "Leave request error:",
         error instanceof Error ? error : undefined,
       );
-      return this.createInternalErrorResponse(error);
+      return {
+        error: "Terjadi kesalahan saat membuat pengajuan cuti",
+        code: "INTERNAL_ERROR",
+        status: INTERNAL_SERVER_ERROR_STATUS,
+      };
     }
   }
 
@@ -146,7 +151,7 @@ export class MobileLeaveRequestService {
 
   private async validateRequest(
     context: MobileLeaveProcessContext,
-  ): Promise<NextResponse | null> {
+  ): Promise<MobileLeaveError | null> {
     const tukarLiburError = await this.validateTukarLibur(context);
     if (tukarLiburError) return tukarLiburError;
 
@@ -160,13 +165,11 @@ export class MobileLeaveRequestService {
       this.requiresPhotoEvidence(context.input.type) &&
       !context.input.photos?.length
     ) {
-      return apiError(
-        "Foto bukti wajib diupload",
-        ErrorCodes.VALIDATION_ERROR,
-        {
-          status: BAD_REQUEST_STATUS,
-        },
-      );
+      return {
+        error: "Foto bukti wajib diupload",
+        code: "VALIDATION_ERROR",
+        status: BAD_REQUEST_STATUS,
+      };
     }
 
     return null;
@@ -174,7 +177,7 @@ export class MobileLeaveRequestService {
 
   private async validateOverlap(
     context: MobileLeaveProcessContext,
-  ): Promise<NextResponse | null> {
+  ): Promise<MobileLeaveError | null> {
     const existingLeave =
       await this.leaveRepository.findActiveLeaveForUserOnDate(
         context.input.userId,
@@ -198,13 +201,11 @@ export class MobileLeaveRequestService {
         year: "numeric",
       });
 
-      return apiError(
-        `Anda sudah punya pengajuan ${existingLeave.type} di tanggal ${startDate} - ${endDate}. Tidak bisa submit leave yang overlap.`,
-        ErrorCodes.VALIDATION_ERROR,
-        {
-          status: BAD_REQUEST_STATUS,
-        },
-      );
+      return {
+        error: `Anda sudah punya pengajuan ${existingLeave.type} di tanggal ${startDate} - ${endDate}. Tidak bisa submit leave yang overlap.`,
+        code: "VALIDATION_ERROR",
+        status: BAD_REQUEST_STATUS,
+      };
     }
 
     return null;
@@ -212,7 +213,7 @@ export class MobileLeaveRequestService {
 
   private async validateTukarLibur(
     context: MobileLeaveProcessContext,
-  ): Promise<NextResponse | null> {
+  ): Promise<MobileLeaveError | null> {
     if (context.input.type !== "TUKAR_LIBUR") return null;
 
     const validation = await validateTukarLiburRules(
@@ -232,14 +233,16 @@ export class MobileLeaveRequestService {
     );
 
     if (!("error" in validation)) return null;
-    return apiError(validation.error, ErrorCodes.VALIDATION_ERROR, {
+    return {
+      error: validation.error,
+      code: "VALIDATION_ERROR",
       status: BAD_REQUEST_STATUS,
-    });
+    };
   }
 
   private async validateQuota(
     context: MobileLeaveProcessContext,
-  ): Promise<NextResponse | null> {
+  ): Promise<MobileLeaveError | null> {
     if (this.canSkipQuotaValidation(context)) return null;
 
     const quota = await this.getQuotaState({
@@ -251,12 +254,11 @@ export class MobileLeaveRequestService {
     });
 
     if (quota.hasEnough) return null;
-    return NextResponse.json(
-      {
-        error: `Kuota ${context.input.type} tidak cukup. Sisa: ${quota.remaining} hari, Dibutuhkan: ${context.leaveDays} hari.`,
-      },
-      { status: BAD_REQUEST_STATUS },
-    );
+    return {
+      error: `Kuota ${context.input.type} tidak cukup. Sisa: ${quota.remaining} hari, Dibutuhkan: ${context.leaveDays} hari.`,
+      code: "VALIDATION_ERROR",
+      status: BAD_REQUEST_STATUS,
+    };
   }
 
   private canSkipQuotaValidation(context: MobileLeaveProcessContext): boolean {
@@ -338,14 +340,5 @@ export class MobileLeaveRequestService {
       status: LeaveStatus.PENDING,
       tenantId: context.input.tenantId,
     } as Prisma.LeaveRequestUncheckedCreateInput;
-  }
-
-  private createInternalErrorResponse(error: unknown): NextResponse {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Terjadi kesalahan",
-      },
-      { status: INTERNAL_SERVER_ERROR_STATUS },
-    );
   }
 }

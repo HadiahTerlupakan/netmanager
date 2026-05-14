@@ -90,7 +90,7 @@ describe("admin attendance route historical status backfill", () => {
     prismaMock.attendance.groupBy.mockResolvedValue([]);
   });
 
-  it("backfills leave and day-off attendance rows for the requested date range before reading Data Absensi", async () => {
+  it("does not sync leave/day-off on read path (sync is event-driven, not sync-on-read)", async () => {
     const { GET } = await import("@/app/api/admin/attendance/route");
 
     const response = await GET(
@@ -108,18 +108,8 @@ describe("admin attendance route historical status backfill", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockFns.syncApprovedLeaveToAttendanceRange).toHaveBeenCalledWith(
-      new Date("2026-02-28T17:00:00.000Z"),
-      new Date("2026-03-31T16:59:59.999Z"),
-      "tenant-1",
-      undefined,
-    );
-    expect(mockFns.syncDayOffAttendanceRange).toHaveBeenCalledWith(
-      new Date("2026-02-28T17:00:00.000Z"),
-      new Date("2026-03-31T16:59:59.999Z"),
-      "tenant-1",
-      undefined,
-    );
+    expect(mockFns.syncApprovedLeaveToAttendanceRange).not.toHaveBeenCalled();
+    expect(mockFns.syncDayOffAttendanceRange).not.toHaveBeenCalled();
   });
 
   it("recomputes canonical attendance evaluations for the requested historical range through admin route", async () => {

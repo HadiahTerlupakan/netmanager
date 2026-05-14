@@ -25,17 +25,16 @@ export class LocationLiveMapService {
   /** Ambil lokasi terakhir untuk karyawan yang sedang aktif. */
   async getLiveLocations(filters?: { siteId?: string; departmentId?: string }) {
     const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-    const effectiveTenantId =
-      !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
+    if (!isSuperAdmin && !tenantId) return [];
     const activeAttendances = await this.getActiveAttendances(
-      effectiveTenantId || undefined,
+      tenantId || undefined,
       filters,
     );
     if (activeAttendances.length === 0) return [];
 
     const latestLocations = await this.locationRepo.getLatestLocationsForUsers(
       activeAttendances.map((attendance) => attendance.userId),
-      effectiveTenantId,
+      tenantId,
       isSuperAdmin,
     );
     const locationMap = new Map(

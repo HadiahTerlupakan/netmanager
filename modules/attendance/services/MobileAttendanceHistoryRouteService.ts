@@ -1,5 +1,5 @@
-import { prisma } from "@/modules/database";
 import { apiPaginated } from "@/lib/api";
+import { UserLookupService } from "@/modules/users";
 
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
@@ -22,15 +22,18 @@ export class MobileAttendanceHistoryRouteService {
   private readonly attendanceRepository: AttendanceRepository;
   private readonly timezoneService: AttendanceTimezoneService;
   private readonly validationService: AttendanceValidationService;
+  private readonly userLookup: UserLookupService;
 
   constructor(
     attendanceRepository: AttendanceRepository = new AttendanceRepository(),
     timezoneService: AttendanceTimezoneService = new AttendanceTimezoneService(),
     validationService: AttendanceValidationService = new AttendanceValidationService(),
+    userLookup: UserLookupService = new UserLookupService(),
   ) {
     this.attendanceRepository = attendanceRepository;
     this.timezoneService = timezoneService;
     this.validationService = validationService;
+    this.userLookup = userLookup;
   }
 
   /** Ambil history absensi user untuk aplikasi mobile. */
@@ -40,6 +43,7 @@ export class MobileAttendanceHistoryRouteService {
     const [attendances, total, today] = await Promise.all([
       this.attendanceRepository.findManyForHistory({
         userId: input.userId,
+        tenantId: input.tenantId,
         skip: pagination.skip,
         take: pagination.limit,
         joinDate: joinDate ?? undefined,
@@ -47,6 +51,7 @@ export class MobileAttendanceHistoryRouteService {
       this.attendanceRepository.countByUserId(
         input.userId,
         joinDate ?? undefined,
+        input.tenantId,
       ),
       this.getTodayMetadata(input.userId, input.tenantId),
     ]);
@@ -73,11 +78,7 @@ export class MobileAttendanceHistoryRouteService {
 
   /** Ambil join date user untuk membatasi history. */
   private async getJoinDate(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { joinDate: true },
-    });
-
+    const user = await this.userLookup.findById(userId);
     return user?.joinDate ?? null;
   }
 

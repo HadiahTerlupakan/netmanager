@@ -1,8 +1,5 @@
 import { logger } from "@/lib/logger";
 import type { Prisma } from "../repositories/prisma-boundary";
-import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
-import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
-import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
@@ -44,9 +41,9 @@ export interface CreateLeaveData {
 }
 
 export class LeaveService {
-  private repository: ILeaveRepository & LeaveRepository;
-  private balanceRepository: ILeaveBalanceRepository & LeaveBalanceRepository;
-  private holidayRepository: IHolidayRepository & HolidayRepository;
+  private repository: LeaveRepository;
+  private balanceRepository: LeaveBalanceRepository;
+  private holidayRepository: HolidayRepository;
   private attendanceRepository: AttendanceRepository;
   private userRepository: UserLookupService;
   private attendanceSyncService: LeaveAttendanceSyncService;
@@ -55,11 +52,9 @@ export class LeaveService {
   private lifecycleService: LeaveLifecycleService;
 
   constructor(
-    repository: ILeaveRepository & LeaveRepository = new LeaveRepository(),
-    balanceRepository: ILeaveBalanceRepository &
-      LeaveBalanceRepository = new LeaveBalanceRepository(),
-    holidayRepository: IHolidayRepository &
-      HolidayRepository = new HolidayRepository(),
+    repository: LeaveRepository = new LeaveRepository(),
+    balanceRepository: LeaveBalanceRepository = new LeaveBalanceRepository(),
+    holidayRepository: HolidayRepository = new HolidayRepository(),
     attendanceRepository: AttendanceRepository = new AttendanceRepository(),
     userRepository: UserLookupService = new UserLookupService(),
   ) {
@@ -234,11 +229,7 @@ export class LeaveService {
   }
 }
 
-let leaveServiceInstance: LeaveService | null = null;
-
-export function getLeaveService(): LeaveService {
-  if (!leaveServiceInstance) {
-    leaveServiceInstance = new LeaveService();
-  }
-  return leaveServiceInstance;
-}
+export const getLeaveService = (() => {
+  let instance: LeaveService;
+  return (): LeaveService => (instance ??= new LeaveService());
+})();

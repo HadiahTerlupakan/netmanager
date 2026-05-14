@@ -1,8 +1,9 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import { getLeaveService } from "./LeaveService";
 import { LeaveTimelineService } from "./LeaveTimelineService";
+import { DEFAULT_AUTO_REJECT_SETTINGS } from "./AutoRejectService";
 import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
+import { LeaveRequestRepository } from "../repositories/LeaveRequestRepository";
 
 export interface AutoRejectCronResult {
   rejectedCount: number;
@@ -17,37 +18,29 @@ export async function autoRejectExpiredLeaves(
   const leaveService = getLeaveService();
   const timelineService = new LeaveTimelineService();
   const settingsRepository = new TenantSettingsRepository();
+  const leaveRequestRepository = new LeaveRequestRepository();
+  const settingsCache = new Map<
+    string,
+    Awaited<ReturnType<typeof settingsRepository.getAutoRejectSettings>>
+  >();
 
-  // Get all pending leave requests
-  const pendingLeaves = await prisma.leaveRequest.findMany({
-    where: {
-      status: "PENDING",
-    },
-    select: {
-      id: true,
-      startDate: true,
-      submittedAt: true,
-      tenantId: true,
-      firstReminderSentAt: true,
-      secondReminderSentAt: true,
-      finalReminderSentAt: true,
-    },
-  });
+  const pendingLeaves = await leaveRequestRepository.findPendingForReminder();
 
   const rejectedIds: string[] = [];
 
   for (const leave of pendingLeaves) {
     try {
-      // Skip jika tenantId null
       if (!leave.tenantId) continue;
 
-      // Get tenant settings
-      const settings = await settingsRepository.getAutoRejectSettings(
-        leave.tenantId,
-      );
-      if (!settings) continue;
+      if (!settingsCache.has(leave.tenantId)) {
+        const fetched = await settingsRepository.getAutoRejectSettings(
+          leave.tenantId,
+        );
+        settingsCache.set(leave.tenantId, fetched);
+      }
+      const settings =
+        settingsCache.get(leave.tenantId) ?? DEFAULT_AUTO_REJECT_SETTINGS;
 
-      // Check timeline settings
       const timelineSettings = {
         enableTimelineAutoReject: settings.enableTimelineAutoReject,
         mendadakDeadlineHours: settings.mendadakDeadlineHours,
@@ -62,7 +55,6 @@ export async function autoRejectExpiredLeaves(
         advanceReminder3Days: settings.advanceReminder3Days,
       };
 
-      // Check if should auto-reject
       const shouldReject = timelineService.checkShouldAutoReject(
         leave.submittedAt,
         leave.startDate,
@@ -72,25 +64,21 @@ export async function autoRejectExpiredLeaves(
 
       if (!shouldReject) continue;
 
-      // Reject leave
+      const autoRejectReason =
+        "Tidak disetujui dalam batas waktu yang ditentukan";
+
       const result = await leaveService.rejectLeave(
         leave.id,
         "SYSTEM_AUTO",
-        leave.tenantId,
-        "Tidak disetujui dalam batas waktu yang ditentukan",
+        leave.tenantId!,
+        autoRejectReason,
       );
 
       if (result.success) {
-        // Update auto-reject tracking fields
-        await prisma.leaveRequest.update({
-          where: { id: leave.id },
-          data: {
-            autoRejectedAt: now,
-            autoRejectionReason:
-              "Tidak disetujui dalam batas waktu yang ditentukan",
-          },
+        await leaveRequestRepository.update(leave.id, {
+          autoRejectedAt: now,
+          autoRejectionReason: autoRejectReason,
         });
-
         rejectedIds.push(leave.id);
       }
     } catch (error) {

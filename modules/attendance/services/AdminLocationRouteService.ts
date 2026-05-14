@@ -2,6 +2,7 @@ import type { Session } from "next-auth";
 import { isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { UserLookupService } from "@/modules/users";
+import { resolveAdminScope } from "./AdminScopeResolver";
 import { LocationTrackingService } from "./LocationTrackingService";
 
 const LOCATION_READ_FORBIDDEN_MESSAGE =
@@ -47,8 +48,8 @@ export class AdminLocationRouteService {
   }
 
   /** Ambil lokasi live sesuai scope permission admin. */
-  async getLiveLocations(session: AdminLocationSession, permissions: string[]) {
-    const userScope = await this.resolveScope(session, permissions);
+  async getLiveLocations(session: AdminLocationSession) {
+    const userScope = await this.resolveScope(session);
     const locations = await this.locationService.getLiveLocations(userScope);
     return {
       locations,
@@ -88,41 +89,30 @@ export class AdminLocationRouteService {
     };
   }
 
-  private async resolveScope(
-    session: AdminLocationSession,
-    permissions: string[],
-  ) {
-    if (isSuperAdmin(session.user)) {
-      return {};
-    }
+  private async resolveScope(session: AdminLocationSession) {
+    const scope = await resolveAdminScope(
+      session.user,
+      {
+        siteOnly: "live_tracking:site_only",
+        departmentOnly: "live_tracking:department_only",
+      },
+      this.userRepository,
+    );
 
-    const currentUser = await this.userRepository.findById(session.user.id);
-    if (!currentUser) {
-      throw new AdminLocationRouteError("Unauthorized", 401);
+    if (scope.isSuperAdmin) return {};
+
+    if (!scope.siteId && !scope.departmentId) {
+      // Non-super-admin with no scope restrictions — verify user exists
+      const currentUser = await this.userRepository.findById(session.user.id);
+      if (!currentUser) {
+        throw new AdminLocationRouteError("Unauthorized", 401);
+      }
     }
 
     return {
-      ...(this.getScopedSiteId(permissions, currentUser.siteId)
-        ? { siteId: currentUser.siteId as string }
-        : {}),
-      ...(this.getScopedDepartmentId(permissions, currentUser.departmentId)
-        ? { departmentId: currentUser.departmentId as string }
-        : {}),
+      ...(scope.siteId ? { siteId: scope.siteId } : {}),
+      ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
     };
-  }
-
-  private getScopedSiteId(permissions: string[], siteId: string | null) {
-    return permissions.includes("live_tracking:site_only") && Boolean(siteId);
-  }
-
-  private getScopedDepartmentId(
-    permissions: string[],
-    departmentId: string | null,
-  ) {
-    return (
-      permissions.includes("live_tracking:department_only") &&
-      Boolean(departmentId)
-    );
   }
 
   private parseDateRange(startDate?: string | null, endDate?: string | null) {
@@ -190,7 +180,7 @@ export class AdminLocationRouteService {
     throw new AdminLocationRouteError(
       isDepartment
         ? LOCATION_READ_FORBIDDEN_MESSAGE
-        : LOCATION_READ_FORBIDDEN_MESSAGE,
+        : LOCATION_LIVE_FORBIDDEN_MESSAGE,
       403,
     );
   }

@@ -91,4 +91,13 @@ export class TenantSettingsRepository {
       where: { tenantId },
     });
   }
+
+  /** Ambil semua tenant aktif. */
+  static async findActiveTenantIds(): Promise<string[]> {
+    const tenants = await prisma.tenant.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    });
+    return tenants.map((t) => t.id);
+  }
 }

@@ -128,4 +128,36 @@ export class LeaveRequestRepository {
         : {}),
     };
   }
+
+  /** Find all pending leave requests with reminder tracking fields. */
+  async findPendingForReminder() {
+    return prisma.leaveRequest.findMany({
+      where: { status: "PENDING" },
+      select: {
+        id: true,
+        startDate: true,
+        submittedAt: true,
+        tenantId: true,
+        userId: true,
+        type: true,
+        firstReminderSentAt: true,
+        secondReminderSentAt: true,
+        finalReminderSentAt: true,
+        user: { select: { name: true } },
+      },
+    });
+  }
+
+  /** Find active users with APPROVE_LEAVE permission in a tenant. */
+  async findApproverIds(tenantId: string): Promise<string[]> {
+    const users = await prisma.user.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        role: { permission: { some: { name: "APPROVE_LEAVE" } } },
+      },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }
 }

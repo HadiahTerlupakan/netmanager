@@ -29,16 +29,21 @@ export class LocationTrackingService {
   }
 
   /** Simpan lokasi baru untuk user. */
-  async saveLocation(userId: string, data: LocationData): Promise<void> {
-    const user = await this.userRepo.findById(userId);
+  async saveLocation(
+    userId: string,
+    data: LocationData,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const effectiveTenantId =
+      tenantId ?? (await this.userRepo.findById(userId))?.tenantId;
     const location = await this.locationRepo.createLocation(
       userId,
-      user?.tenantId,
+      effectiveTenantId,
       data,
     );
     await this.realtimePublisher.publishLocationUpdate(
       userId,
-      user?.tenantId,
+      effectiveTenantId,
       location,
     );
   }
@@ -47,18 +52,20 @@ export class LocationTrackingService {
   async saveLocations(
     userId: string,
     locations: LocationData[],
+    tenantId?: string | null,
   ): Promise<number> {
-    const user = await this.userRepo.findById(userId);
+    const effectiveTenantId =
+      tenantId ?? (await this.userRepo.findById(userId))?.tenantId;
     const result = await this.locationRepo.createLocationsBatch(
       userId,
-      user?.tenantId,
+      effectiveTenantId,
       locations,
     );
     const latest = this.findLatestLocation(locations);
     if (latest) {
       await this.realtimePublisher.publishLocationUpdate(
         userId,
-        user?.tenantId,
+        effectiveTenantId,
         latest,
       );
     }

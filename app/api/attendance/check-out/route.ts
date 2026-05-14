@@ -39,11 +39,10 @@ export async function POST(request: NextRequest) {
       try {
         photoUrl = await photoService.processPhoto(photo, userId, "checkout");
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Terjadi kesalahan";
+        logger.error("Error processing checkout photo:", error);
         return NextResponse.json(
           {
-            error: errorMessage,
+            error: "Gagal memproses foto checkout",
             code: "VALIDATION_ERROR",
           },
           { status: 400 },

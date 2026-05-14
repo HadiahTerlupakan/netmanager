@@ -1,13 +1,17 @@
-import { NextResponse } from "next/server";
-
 import { createHandler } from "@/lib/api";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { AttendanceService } from "@/modules/attendance";
 import { AttendanceTimezoneService } from "@/modules/attendance";
 import { AttendanceValidationService } from "@/modules/attendance";
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const userId = ctx.session!.user.id;
-  const tenantId = ctx.session!.user.tenantId!;
+  const tenantId = ctx.session!.user.tenantId;
+
+  if (!tenantId) {
+    return ApiErrors.unauthorized("Tenant tidak ditemukan");
+  }
+
   const attendanceService = new AttendanceService();
   const timezoneService = new AttendanceTimezoneService();
   const validationService = new AttendanceValidationService();
@@ -23,5 +27,5 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     ),
   ]);
 
-  return NextResponse.json({ success: true, data: status, today });
+  return apiSuccess({ ...status, today });
 });

@@ -1,12 +1,10 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logActivitySafe } from "@/lib/logger";
 import type { Prisma } from "../repositories/prisma-boundary";
-import { prisma } from "@/modules/database";
-import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { calculateAttendanceStatus } from "../utils/attendanceStatus";
 import type { AttendanceUpdate } from "../validators/attendance";
 import { AttendanceSettingsService } from "./AttendanceSettingsService";
+import { resolveAdminScope } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceUpdateInput,
@@ -33,21 +31,16 @@ function getScheduledStartTime(user: AdminAttendanceUser) {
 }
 
 async function getRestrictedScope(user: SessionUser): Promise<RestrictedScope> {
-  const permissions = await getUserPermissions(user.id);
-  if (isSuperAdmin(user)) return null;
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { siteId: true, departmentId: true },
+  const scope = await resolveAdminScope(user, {
+    siteOnly: "attendance:site_only",
+    departmentOnly: "attendance:department_only",
   });
 
+  if (scope.isSuperAdmin) return null;
+
   return {
-    siteId: permissions.includes("attendance:site_only")
-      ? dbUser?.siteId
-      : null,
-    departmentId: permissions.includes("attendance:department_only")
-      ? dbUser?.departmentId
-      : null,
+    siteId: scope.siteId ?? null,
+    departmentId: scope.departmentId ?? null,
   };
 }
 
@@ -153,7 +146,7 @@ function parseToleranceMinutes(value: string | undefined) {
 
 export class AdminAttendanceDetailRouteService {
   constructor(
-    private readonly attendanceRepository: IAttendanceRepository = new AttendanceRepository(),
+    private readonly attendanceRepository: AttendanceRepository = new AttendanceRepository(),
     private readonly settingsService = new AttendanceSettingsService(),
   ) {}
 

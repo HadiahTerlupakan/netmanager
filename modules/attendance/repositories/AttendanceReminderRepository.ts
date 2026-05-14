@@ -50,6 +50,7 @@ export class AttendanceReminderRepository {
       checkOut: null,
       user: {
         isActive: true,
+        tenantId: { not: null },
         pushToken: { not: null },
         workingHourMode: "FLEXIBLE",
       },
@@ -69,6 +70,7 @@ export class AttendanceReminderRepository {
     return {
       id: true,
       name: true,
+      tenantId: true,
       startWorkTime: true,
       endWorkTime: true,
       workDays: true,
@@ -83,6 +85,7 @@ export class AttendanceReminderRepository {
   ): Prisma.AttendanceWhereInput {
     const user: Prisma.UserWhereInput = {
       workingHourMode: { not: "FLEXIBLE" },
+      tenantId: { not: null },
       ...(includePushRecipient
         ? {
             isActive: true,

@@ -1,8 +1,8 @@
 import { getTimezone } from "@/lib/utils/get-timezone";
-import { prisma } from "@/modules/database";
 import type { AttendanceAutoCheckoutJobData } from "@/lib/event-bus/queues";
 import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
+import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
 import {
   buildAutoCheckoutWindow,
   enqueueAttendanceAutoCheckout,
@@ -64,12 +64,8 @@ export class AutoCheckoutService {
   /** Jalankan auto-checkout untuk satu tenant atau seluruh tenant aktif. */
   static async runAutoCheckout(tenantId?: string) {
     if (tenantId) return this.runTenantAutoCheckout(tenantId);
-    const tenants = await prisma.tenant.findMany({
-      where: { isActive: true },
-      select: { id: true },
-    });
-
-    return this.runAllTenantAutoCheckout(tenants.map((tenant) => tenant.id));
+    const tenantIds = await TenantSettingsRepository.findActiveTenantIds();
+    return this.runAllTenantAutoCheckout(tenantIds);
   }
 
   /** Ambil daftar sesi attendance terbuka dalam window auto-checkout. */

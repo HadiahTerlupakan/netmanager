@@ -1,37 +1,49 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { autoRejectExpiredLeaves } from "@/modules/attendance";
+import {
+  apiSuccess,
+  ApiErrors,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api-response";
+import {
+  acquireCronLock,
+  CRON_LOCK_UNAVAILABLE_MESSAGE,
+} from "@/lib/cron-lock";
+import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
-/**
- * Cron endpoint untuk auto-reject leave request yang sudah melewati deadline.
- *
- * Setup di cron service (Vercel Cron, etc):
- * - Schedule: setiap 1 jam (0 * * * *)
- * - Method: GET
- * - Headers: Authorization: Bearer <CRON_SECRET>
- */
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
+    const env = getEnv();
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
 
-    if (token !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+      return ApiErrors.unauthorized("Tidak terautentikasi");
     }
 
-    // Run auto-reject
+    const lockResult = await acquireCronLock("autoRejectExpiredLeaves", 3600);
+    if (lockResult === "unavailable") {
+      return apiError(
+        CRON_LOCK_UNAVAILABLE_MESSAGE,
+        ErrorCodes.INTERNAL_ERROR,
+        { status: 503 },
+      );
+    }
+    if (lockResult === "locked") {
+      return apiSuccess({ skipped: true, reason: "Lock already held" });
+    }
+
     const result = await autoRejectExpiredLeaves();
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
-      { status: 500 },
+    return apiSuccess(
+      { data: result },
+      { message: "Auto-reject berhasil dijalankan" },
     );
+  } catch (error) {
+    logger.error("Error running auto-reject expired leaves:", error);
+    return ApiErrors.internalError("Gagal menjalankan auto-reject");
   }
 }

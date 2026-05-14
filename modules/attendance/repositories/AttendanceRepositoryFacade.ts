@@ -208,6 +208,7 @@ export class AttendanceRepositoryFacade
 
   async findManyForHistory(params: {
     userId: string;
+    tenantId?: string;
     skip: number;
     take: number;
     joinDate?: Date;
@@ -215,8 +216,8 @@ export class AttendanceRepositoryFacade
     return this.crudRepository.findManyForHistory(params);
   }
 
-  async countByUserId(userId: string, joinDate?: Date) {
-    return this.crudRepository.countByUserId(userId, joinDate);
+  async countByUserId(userId: string, joinDate?: Date, tenantId?: string) {
+    return this.crudRepository.countByUserId(userId, joinDate, tenantId);
   }
 
   async upsertAttendanceEvaluation(
@@ -247,5 +248,10 @@ export class AttendanceRepositoryFacade
     endDate: Date;
   }) {
     return this.crudRepository.findManyForAnalytics(params);
+  }
+
+  /** Aggregate attendance count grouped by status. */
+  groupByStatus(where: Prisma.AttendanceWhereInput) {
+    return this.crudRepository.groupByStatus(where);
   }
 }

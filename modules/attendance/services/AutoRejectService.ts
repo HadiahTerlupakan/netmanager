@@ -50,7 +50,7 @@ export interface AutoRejectSettings {
   advanceReminder3Days: number;
 }
 
-const DEFAULT_SETTINGS: AutoRejectSettings = {
+export const DEFAULT_AUTO_REJECT_SETTINGS: AutoRejectSettings = {
   autoRejectInsufficientQuota: true,
   autoRejectBackdate: true,
   autoRejectOverlap: true,
@@ -94,7 +94,7 @@ export class AutoRejectService {
     const settings = await this.settingsRepository.getAutoRejectSettings(
       input.tenantId,
     );
-    const effectiveSettings = settings || DEFAULT_SETTINGS;
+    const effectiveSettings = settings || DEFAULT_AUTO_REJECT_SETTINGS;
 
     // Admin-created leaves bypass some rules
     if (input.isAdminCreated) {

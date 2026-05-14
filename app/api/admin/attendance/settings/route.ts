@@ -1,99 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
+import { createHandler } from "@/lib/api";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getTenantSettingsService } from "@/modules/attendance";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 
-const settingsService = getTenantSettingsService();
+const DEFAULT_SETTINGS = {
+  autoRejectInsufficientQuota: true,
+  autoRejectBackdate: true,
+  autoRejectOverlap: true,
+  autoRejectTooLong: true,
+  autoRejectSakitNoDocument: true,
+  autoRejectCutiNoAdvance: true,
+  autoRejectTukarLiburNoDate: true,
+  autoRejectBlackoutPeriod: true,
+  maxDaysPerRequest: 14,
+  minAdvanceNoticeDays: 3,
+  sakitDocumentRequiredDays: 2,
+  blackoutPeriods: [] as string[],
+  enableTimelineAutoReject: true,
+  mendadakDeadlineHours: 8,
+  mendadakReminder1Hours: 4,
+  mendadakReminder2Hours: 6,
+  normalDeadlineDays: 1,
+  normalReminder1Days: 3,
+  normalReminder2Days: 2,
+  advanceDeadlineDays: 1,
+  advanceReminder1Days: 7,
+  advanceReminder2Days: 3,
+  advanceReminder3Days: 1,
+};
 
-/**
- * GET /api/admin/attendance/settings
- * Get auto-reject settings untuk tenant.
- */
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const settings = await settingsService.getAutoRejectSettings(
-      session.user.tenantId,
-    );
-
-    if (!settings) {
-      // Return default settings jika belum ada
-      return NextResponse.json({
-        success: true,
-        data: {
-          autoRejectInsufficientQuota: true,
-          autoRejectBackdate: true,
-          autoRejectOverlap: true,
-          autoRejectTooLong: true,
-          autoRejectSakitNoDocument: true,
-          autoRejectCutiNoAdvance: true,
-          autoRejectTukarLiburNoDate: true,
-          autoRejectBlackoutPeriod: true,
-          maxDaysPerRequest: 14,
-          minAdvanceNoticeDays: 3,
-          sakitDocumentRequiredDays: 2,
-          blackoutPeriods: [],
-          enableTimelineAutoReject: true,
-          mendadakDeadlineHours: 8,
-          mendadakReminder1Hours: 4,
-          mendadakReminder2Hours: 6,
-          normalDeadlineDays: 1,
-          normalReminder1Days: 3,
-          normalReminder2Days: 2,
-          advanceDeadlineDays: 1,
-          advanceReminder1Days: 7,
-          advanceReminder2Days: 3,
-          advanceReminder3Days: 1,
-        },
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: settings,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
-      { status: 500 },
-    );
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("attendance:update"))) {
+    return ApiErrors.forbidden("Tidak memiliki akses ke pengaturan kehadiran");
   }
-}
 
-/**
- * PUT /api/admin/attendance/settings
- * Update auto-reject settings untuk tenant.
- */
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const tenantId = ctx.session.user.tenantId;
+  if (!tenantId) return ApiErrors.unauthorized("Tenant tidak ditemukan");
 
-    const body = await request.json();
+  const settingsService = getTenantSettingsService();
+  const settings = await settingsService.getAutoRejectSettings(tenantId);
 
-    const updatedSettings = await settingsService.updateAutoRejectSettings(
-      session.user.tenantId,
-      body,
-    );
+  return apiSuccess(settings || DEFAULT_SETTINGS);
+});
 
-    return NextResponse.json({
-      success: true,
-      data: updatedSettings,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
-      { status: 500 },
-    );
+export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+  if (!(await hasPermission("attendance:update"))) {
+    return ApiErrors.forbidden("Tidak memiliki akses ke pengaturan kehadiran");
   }
-}
+
+  const tenantId = ctx.session.user.tenantId;
+  if (!tenantId) return ApiErrors.unauthorized("Tenant tidak ditemukan");
+
+  const body = await req.json();
+  const settingsService = getTenantSettingsService();
+  const updatedSettings = await settingsService.updateAutoRejectSettings(
+    tenantId,
+    body,
+  );
+
+  return apiSuccess(updatedSettings);
+});

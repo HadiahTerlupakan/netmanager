@@ -114,6 +114,7 @@ export class AttendanceCrudRepository {
   /** Ambil riwayat attendance user. */
   async findManyForHistory(input: {
     userId: string;
+    tenantId?: string;
     skip: number;
     take: number;
     joinDate?: Date;
@@ -121,6 +122,7 @@ export class AttendanceCrudRepository {
     return prisma.attendance.findMany({
       where: {
         userId: input.userId,
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
         ...(input.joinDate ? { checkIn: { gte: input.joinDate } } : {}),
       },
       orderBy: { checkIn: "desc" },
@@ -130,10 +132,11 @@ export class AttendanceCrudRepository {
   }
 
   /** Hitung attendance user untuk pagination riwayat. */
-  async countByUserId(userId: string, joinDate?: Date) {
+  async countByUserId(userId: string, joinDate?: Date, tenantId?: string) {
     return prisma.attendance.count({
       where: {
         userId,
+        ...(tenantId ? { tenantId } : {}),
         ...(joinDate ? { checkIn: { gte: joinDate } } : {}),
       },
     });
@@ -151,6 +154,15 @@ export class AttendanceCrudRepository {
         checkIn: { gte: input.startDate, lte: input.endDate },
       },
       orderBy: { checkIn: "desc" },
+    });
+  }
+
+  /** Aggregate attendance count grouped by status. */
+  async groupByStatus(where: Prisma.AttendanceWhereInput) {
+    return prisma.attendance.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
     });
   }
 }

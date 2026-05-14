@@ -72,7 +72,7 @@ describe("mobile attendance status route", () => {
       status: "idle",
       sourceAttendanceId: null,
     });
-    expect(body.today).toMatchObject({
+    expect(body.data.today).toMatchObject({
       isHoliday: false,
       holidayName: null,
       isOffDay: false,
@@ -251,7 +251,7 @@ describe("mobile attendance status route", () => {
 
     const body = await response.json();
 
-    expect(body.today).toMatchObject({
+    expect(body.data.today).toMatchObject({
       isHoliday: true,
       holidayName: "Hari Raya",
       isOffDay: false,
@@ -300,11 +300,11 @@ describe("mobile attendance status route", () => {
 
     const secondBody = await secondResponse.json();
 
-    expect(firstBody.today).toMatchObject({
+    expect(firstBody.data.today).toMatchObject({
       isHoliday: true,
       holidayName: "Nyepi",
     });
-    expect(secondBody.today).toMatchObject({
+    expect(secondBody.data.today).toMatchObject({
       isHoliday: false,
       holidayName: null,
     });

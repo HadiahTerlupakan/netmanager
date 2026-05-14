@@ -1,10 +1,10 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
 import { AbsenceService } from "./AbsenceService";
+import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
 
 const PROCESS_ABSENCE_LOCK_SECONDS = 60 * 60;
 
@@ -85,16 +85,10 @@ function getDateLockKey(date: Date) {
 }
 
 async function processAbsenceForActiveTenants(targetDate: Date) {
-  const tenants = await findActiveTenantIds();
+  const tenantIds = await TenantSettingsRepository.findActiveTenantIds();
+  const tenants = tenantIds.map((id) => ({ id }));
   const results = await processAbsenceTenants(tenants, targetDate);
   return buildProcessAbsencePayload(targetDate, results);
-}
-
-function findActiveTenantIds() {
-  return prisma.tenant.findMany({
-    where: { isActive: true },
-    select: { id: true },
-  });
 }
 
 async function processAbsenceTenants(

@@ -70,30 +70,3 @@ export async function runScheduledAttendanceCheck(
  * Send reminders to Flexible users who have exceeded their target hours
  * Triggers every ~1 hour after passing the target duration
  */
-
-// ==========================================
-// LEGACY FUNCTIONS (for backward compatibility)
-// ==========================================
-
-/**
- * @deprecated Use processCheckInReminders() instead
- */
-export async function sendCheckInReminder(): Promise<number> {
-  const result = await processCheckInReminders();
-  return result.usersNotified;
-}
-
-/**
- * @deprecated Use processCheckOutReminders() instead
- */
-export async function sendCheckOutReminder(): Promise<number> {
-  const result = await processCheckOutReminders();
-  return result.usersNotified;
-}
-
-/**
- * @deprecated Use runScheduledAttendanceCheck() instead
- */
-export async function runDailyAttendanceCheck(): Promise<void> {
-  await runScheduledAttendanceCheck();
-}

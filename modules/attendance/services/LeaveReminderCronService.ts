@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import { LeaveTimelineService } from "./LeaveTimelineService";
 import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
+import { LeaveRequestRepository } from "../repositories/LeaveRequestRepository";
 import { createNotification } from "@/modules/notification";
 
 export interface ReminderCronResult {
@@ -16,41 +16,32 @@ export async function sendLeaveReminders(
 ): Promise<ReminderCronResult> {
   const timelineService = new LeaveTimelineService();
   const settingsRepository = new TenantSettingsRepository();
+  const leaveRequestRepository = new LeaveRequestRepository();
 
-  // Get all pending leave requests
-  const pendingLeaves = await prisma.leaveRequest.findMany({
-    where: {
-      status: "PENDING",
-    },
-    select: {
-      id: true,
-      startDate: true,
-      submittedAt: true,
-      tenantId: true,
-      userId: true,
-      type: true,
-      firstReminderSentAt: true,
-      secondReminderSentAt: true,
-      finalReminderSentAt: true,
-      user: {
-        select: {
-          name: true,
-        },
-      },
-    },
-  });
+  const pendingLeaves = await leaveRequestRepository.findPendingForReminder();
 
   const sentIds: string[] = [];
+
+  // Cache per-tenant untuk menghindari N+1 query
+  const settingsCache = new Map<
+    string,
+    Awaited<ReturnType<typeof settingsRepository.getAutoRejectSettings>>
+  >();
+  const approversCache = new Map<string, string[]>();
 
   for (const leave of pendingLeaves) {
     try {
       // Skip jika tenantId null
       if (!leave.tenantId) continue;
 
-      // Get tenant settings
-      const settings = await settingsRepository.getAutoRejectSettings(
-        leave.tenantId,
-      );
+      // Get tenant settings — gunakan cache agar tidak fetch ulang per leave
+      if (!settingsCache.has(leave.tenantId)) {
+        settingsCache.set(
+          leave.tenantId,
+          await settingsRepository.getAutoRejectSettings(leave.tenantId),
+        );
+      }
+      const settings = settingsCache.get(leave.tenantId);
       if (!settings || !settings.enableTimelineAutoReject) continue;
 
       // Check timeline settings
@@ -81,8 +72,14 @@ export async function sendLeaveReminders(
 
       if (!stage) continue;
 
-      // Get approvers for this leave request
-      const approvers = await getApproversForLeave(leave.tenantId);
+      // Get approvers — gunakan cache agar tidak fetch ulang per leave
+      if (!approversCache.has(leave.tenantId)) {
+        approversCache.set(
+          leave.tenantId,
+          await leaveRequestRepository.findApproverIds(leave.tenantId),
+        );
+      }
+      const approvers = approversCache.get(leave.tenantId)!;
 
       if (approvers.length === 0) continue;
 
@@ -127,10 +124,7 @@ export async function sendLeaveReminders(
         updateData.finalReminderSentAt = now;
       }
 
-      await prisma.leaveRequest.update({
-        where: { id: leave.id },
-        data: updateData,
-      });
+      await leaveRequestRepository.update(leave.id, updateData);
 
       sentIds.push(leave.id);
     } catch (error) {
@@ -146,29 +140,6 @@ export async function sendLeaveReminders(
     sentIds,
     checkedAt: now.toISOString(),
   };
-}
-
-/** Get list of approver user IDs for a leave request. */
-async function getApproversForLeave(tenantId: string): Promise<string[]> {
-  // Get all users with APPROVE_LEAVE permission in this tenant
-  const usersWithPermission = await prisma.user.findMany({
-    where: {
-      tenantId,
-      isActive: true,
-      role: {
-        permission: {
-          some: {
-            name: "APPROVE_LEAVE",
-          },
-        },
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  return usersWithPermission.map((u) => u.id);
 }
 
 /** Build reminder message based on stage and deadline. */

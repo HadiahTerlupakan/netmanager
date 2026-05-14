@@ -70,8 +70,11 @@ export async function POST(request: NextRequest) {
       replacementDate: body.replacementDate,
     });
 
-    if (requestData instanceof NextResponse) {
-      return requestData;
+    if ("error" in requestData) {
+      return NextResponse.json(
+        { error: requestData.error, code: requestData.code },
+        { status: requestData.status },
+      );
     }
 
     return NextResponse.json(

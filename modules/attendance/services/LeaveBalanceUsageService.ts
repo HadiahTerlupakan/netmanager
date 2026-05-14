@@ -63,6 +63,7 @@ export class LeaveBalanceUsageService {
         "Failed to update leave balance",
         error instanceof Error ? error : undefined,
       );
+      throw error;
     }
   }
 
@@ -83,6 +84,7 @@ export class LeaveBalanceUsageService {
         "Failed to refund leave balance",
         error instanceof Error ? error : undefined,
       );
+      throw error;
     }
   }
 

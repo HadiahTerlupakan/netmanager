@@ -98,12 +98,14 @@ export function findActiveWithPushTokenAndSchedule() {
   return prisma.user.findMany({
     where: {
       isActive: true,
+      tenantId: { not: null },
       pushToken: { not: null },
       startWorkTime: { not: null },
     },
     select: {
       id: true,
       name: true,
+      tenantId: true,
       startWorkTime: true,
       endWorkTime: true,
       workDays: true,

@@ -129,7 +129,7 @@ export class GeofenceService {
 
     if (!user) {
       return {
-        isInside: true,
+        isInside: false,
         nearestDistance: null,
         nearestSiteName: null,
         nearestSiteId: null,

@@ -229,15 +229,10 @@ export class MobileAttendanceCheckInRouteService {
   }
 }
 
-let mobileAttendanceCheckInRouteServiceInstance:
-  | MobileAttendanceCheckInRouteService
-  | undefined;
-
-function getMobileAttendanceCheckInRouteService() {
-  mobileAttendanceCheckInRouteServiceInstance ??=
-    new MobileAttendanceCheckInRouteService();
-  return mobileAttendanceCheckInRouteServiceInstance;
-}
+const getMobileAttendanceCheckInRouteService = (() => {
+  let instance: MobileAttendanceCheckInRouteService;
+  return () => (instance ??= new MobileAttendanceCheckInRouteService());
+})();
 
 export const mobileAttendanceCheckInRouteService = {
   checkIn(input: MobileCheckInRouteInput) {

@@ -4,7 +4,8 @@ import {
 } from "./AttendanceAlertService";
 import { AutoCheckoutService } from "./AutoCheckoutService";
 import { AbsenceService } from "./AbsenceService";
-import { prisma } from "@/modules/database";
+import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
+import { DEFAULT_TIMEZONE } from "@/lib/constants/timezone-constants";
 
 export type AttendanceCronJobName =
   | "attendance-alert:auto"
@@ -12,9 +13,27 @@ export type AttendanceCronJobName =
   | "process-absence"
   | "auto-checkout";
 
-export function getDueAttendanceCronJobs(now: Date): AttendanceCronJobName[] {
-  const currentMinute = now.getMinutes();
-  const currentHour = now.getHours();
+function getLocalTimeParts(now: Date, timezone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return { hour, minute };
+}
+
+export function getDueAttendanceCronJobs(
+  now: Date,
+  timezone: string = DEFAULT_TIMEZONE,
+): AttendanceCronJobName[] {
+  const { hour: currentHour, minute: currentMinute } = getLocalTimeParts(
+    now,
+    timezone,
+  );
   const jobs: AttendanceCronJobName[] = ["auto-checkout"];
 
   if (shouldRunAutoAlert(currentMinute)) {
@@ -48,7 +67,8 @@ function isHourlyJobTime(
 
 async function runProcessAbsence(now: Date) {
   const targetDate = getPreviousDate(now);
-  const tenants = await findActiveTenants();
+  const tenantIds = await TenantSettingsRepository.findActiveTenantIds();
+  const tenants = tenantIds.map((id) => ({ id }));
   const results = await processTenantAbsences(tenants, targetDate);
   return buildProcessAbsenceResult(targetDate, results);
 }
@@ -57,13 +77,6 @@ function getPreviousDate(now: Date) {
   const targetDate = new Date(now);
   targetDate.setDate(targetDate.getDate() - 1);
   return targetDate;
-}
-
-async function findActiveTenants() {
-  return prisma.tenant.findMany({
-    where: { isActive: true },
-    select: { id: true },
-  });
 }
 
 async function processTenantAbsences(
@@ -100,12 +113,13 @@ async function runAttendanceCronJob(jobName: AttendanceCronJobName, now: Date) {
 
 export async function runAttendanceCronOrchestrator(options?: { now?: Date }) {
   const now = options?.now ?? new Date();
-  const jobs = await Promise.all(
-    getDueAttendanceCronJobs(now).map(async (name) => ({
-      name,
-      result: await runAttendanceCronJob(name, now),
-    })),
-  );
+  const dueJobs = getDueAttendanceCronJobs(now);
+  const jobs: Array<{ name: AttendanceCronJobName; result: unknown }> = [];
+
+  for (const name of dueJobs) {
+    const result = await runAttendanceCronJob(name, now);
+    jobs.push({ name, result });
+  }
 
   return { now: now.toISOString(), jobs };
 }

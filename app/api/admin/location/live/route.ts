@@ -18,10 +18,9 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    const result = await adminLocationRouteService.getLiveLocations(
-      { user: ctx.session!.user },
-      ctx.permissions || [],
-    );
+    const result = await adminLocationRouteService.getLiveLocations({
+      user: ctx.session!.user,
+    });
 
     return apiSuccess(result);
   } catch (error) {

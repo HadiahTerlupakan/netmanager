@@ -1,6 +1,4 @@
 import { UserLookupService } from "@/modules/users";
-import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
-import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import type { CreateLeaveData, ServiceResult } from "./LeaveService";
@@ -41,8 +39,8 @@ const NOT_FOUND_RESULT: ExistingLeaveResult = {
 
 export class LeaveLifecycleService {
   constructor(
-    private readonly repository: ILeaveRepository & LeaveRepository,
-    private readonly holidayRepository: IHolidayRepository & HolidayRepository,
+    private readonly repository: LeaveRepository,
+    private readonly holidayRepository: HolidayRepository,
     private readonly userRepository: UserLookupService,
     private readonly attendanceSyncService: LeaveAttendanceSyncService,
     private readonly balanceUsageService: LeaveBalanceUsageService,

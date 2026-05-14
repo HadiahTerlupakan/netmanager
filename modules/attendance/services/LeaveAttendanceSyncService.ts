@@ -7,6 +7,8 @@ import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 
+const LEAVE_NOTES_MARKER = "Leave";
+
 type LeaveWithUser = {
   id: string;
   userId: string;
@@ -54,7 +56,7 @@ export class LeaveAttendanceSyncService {
       tenantId: leave.tenantId,
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["SICK", "PERMIT", "DAY_OFF"] },
-      notes: { contains: "Leave" },
+      notes: { contains: LEAVE_NOTES_MARKER },
     });
   }
 
