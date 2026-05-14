@@ -62,6 +62,7 @@ export class DepartmentMapper {
       name: entity.name,
       description: entity.description,
       isReminderTarget: entity.isReminderTarget,
+      showInMobileWO: entity.showInMobileWO,
       userCount: entity.counts.users,
       workOrderCount: entity.counts.workOrders,
     };
@@ -80,6 +81,7 @@ export class DepartmentMapper {
       description: entity.description,
       jobDescription: entity.jobDescription,
       isReminderTarget: entity.isReminderTarget,
+      showInMobileWO: entity.showInMobileWO,
       stats: {
         userCount: entity.counts.users,
         workOrderCount: entity.counts.workOrders,

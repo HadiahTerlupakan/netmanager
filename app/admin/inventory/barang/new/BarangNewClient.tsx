@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { FiArrowLeft } from 'react-icons/fi'
-import { BarangForm } from '@/components/inventory/BarangForm'
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { FiArrowLeft } from "react-icons/fi";
+import { BarangForm } from "@/components/inventory/BarangForm";
 
-export function ClientComponent() {
-  const router = useRouter()
+export function BarangNewClient() {
+  const router = useRouter();
 
   const handleSubmit = async () => {
     // Redirect to inventory page after successful submission
-    router.push('/admin/inventory')
-  }
+    router.push("/admin/inventory");
+  };
 
   return (
     <div className="space-y-6">
@@ -43,10 +43,10 @@ export function ClientComponent() {
         <div className="p-6">
           <BarangForm
             onSubmit={handleSubmit}
-            onCancel={() => router.push('/admin/inventory')}
+            onCancel={() => router.push("/admin/inventory")}
           />
         </div>
       </div>
     </div>
-  )
+  );
 }

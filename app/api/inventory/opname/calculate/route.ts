@@ -1,46 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getInventoryRouteService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-
-const inventoryRouteService = getInventoryRouteService();
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig);
-  if (!session) {
-    return null;
-  }
-  return session;
-}
+import { hasPermission } from "@/lib/rbac";
 
 /**
  * GET /api/inventory/opname/calculate
  * Hitung data awal opname untuk gudang tertentu.
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("opname:create"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk menghitung opname",
+    );
+  }
+
+  const gudangId = req.nextUrl.searchParams.get("gudangId");
+  if (!gudangId) {
+    return ApiErrors.badRequest("Gudang ID harus diisi");
+  }
 
   try {
-    const session = (await requireAdmin()) as { user: { id: string } } | null;
-    if (!session) {
-      logger.warn(
-        "Unauthorized access attempt to GET /api/inventory/opname/calculate",
-      );
-      return NextResponse.json(
-        { error: "Tidak terautentikasi" },
-        { status: 401 },
-      );
-    }
-
-    const gudangId = req.nextUrl.searchParams.get("gudangId");
-    if (!gudangId) {
-      return NextResponse.json(
-        { error: "Gudang ID harus diisi" },
-        { status: 400 },
-      );
-    }
-
+    const inventoryRouteService = getInventoryRouteService();
     const dbStart = Date.now();
     const result = await inventoryRouteService.calculateOpname(gudangId);
 
@@ -55,22 +38,19 @@ export async function GET(req: NextRequest) {
       200,
       Date.now() - startTime,
       {
-        userId: session.user.id,
+        userId: user.id,
         gudangId,
         totalBarang: result.summary.totalBarang,
         totalStok: result.summary.totalStok,
       },
     );
 
-    return NextResponse.json(result);
+    return apiSuccess(result);
   } catch (error) {
     logger.error("Error getting stock opname data", error as Error, {
       path: "/api/inventory/opname/calculate",
       method: "GET",
     });
-    return NextResponse.json(
-      { error: "Gagal mengambil data stock opname" },
-      { status: 500 },
-    );
+    return ApiErrors.internalError("Gagal mengambil data stock opname");
   }
-}
+});

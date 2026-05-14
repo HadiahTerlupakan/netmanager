@@ -45,6 +45,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-15] — Fix tenant isolation gaps di raw SQL queries & marketing module
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/pelanggan`, `modules/work-order`, `modules/finance`, `modules/marketing`
+- **Author**: agent
+- **Deskripsi**: Audit dan fix tenant isolation pada raw SQL queries yang bypass Prisma Extension.
+  - **CRITICAL**: `findEligibleForBilling` (pelanggan) — tambah optional `tenantId` filter dan include `tenantId` di SELECT output
+  - **MEDIUM**: `appendUsedMaterialsToWorkOrder` (work-order) — tambah `AND "tenantId"` di WHERE clause
+  - **MEDIUM**: `appendReturnedMaterials` (work-order) — tambah `AND "tenantId"` di WHERE clause
+  - **MEDIUM**: `consumeSaldoKredit` (finance) — tambah tenant filter di SELECT FOR UPDATE
+  - **MEDIUM**: `getTechnicalDepartmentId` (marketing) — hapus fallback tanpa tenant filter, return undefined jika siteId/tenantId tidak tersedia
+  - **LOW**: Hapus dead code `canAccessCanvasingMobile` dari CanvasingAccessService
+- **Files**: `modules/pelanggan/repositories/pelanggan-repository-automation.helpers.ts`,
+  `modules/pelanggan/repositories/PelangganFinanceRepository.ts`,
+  `modules/work-order/repositories/work-order-material.helpers.ts`,
+  `modules/work-order/services/work-order-mobile-material-return.ts`,
+  `modules/finance/services/FinanceRepositoryFacade.ts`,
+  `modules/marketing/services/canvasing.service.helpers.ts`,
+  `modules/marketing/services/CanvasingAccessService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-14] — Refactor arsitektur modul Kehadiran (Phase 1-7)
 
 - **Tipe**: [CHANGED]

@@ -1,19 +1,20 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { FiArrowLeft } from 'react-icons/fi'
-import { GudangForm } from '@/components/inventory/GudangForm'
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { FiArrowLeft } from "react-icons/fi";
+import { GudangForm } from "@/components/inventory/GudangForm";
 
-export function ClientComponent() {
+export function GudangNewClient() {
+  const router = useRouter();
+
   const handleSuccess = () => {
-    // Redirect back to gudang list
-    window.location.href = '/admin/inventory/gudang'
-  }
+    router.push("/admin/inventory/gudang");
+  };
 
   const handleCancel = () => {
-    // Go back to previous page
-    window.history.back()
-  }
+    router.back();
+  };
 
   return (
     <div className="space-y-6">
@@ -38,12 +39,9 @@ export function ClientComponent() {
       {/* Form */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="p-6">
-          <GudangForm
-            onSubmit={handleSuccess}
-            onCancel={handleCancel}
-          />
+          <GudangForm onSubmit={handleSuccess} onCancel={handleCancel} />
         </div>
       </div>
     </div>
-  )
+  );
 }

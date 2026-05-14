@@ -17,8 +17,13 @@ type OpnameBarangGudang = {
 export async function calculateInitialOpnameItems(input: {
   db: PrismaClientLike;
   gudangId: string;
+  tenantFilter?: { tenantId?: string };
 }) {
-  const barangGudangs = await findOpnameBarangGudangs(input.db, input.gudangId);
+  const barangGudangs = await findOpnameBarangGudangs(
+    input.db,
+    input.gudangId,
+    input.tenantFilter,
+  );
   if (barangGudangs.length === 0) return [];
 
   const movements = await findOpnameMovements({
@@ -32,9 +37,13 @@ export async function calculateInitialOpnameItems(input: {
   );
 }
 
-function findOpnameBarangGudangs(db: PrismaClientLike, gudangId: string) {
+function findOpnameBarangGudangs(
+  db: PrismaClientLike,
+  gudangId: string,
+  tenantFilter?: { tenantId?: string },
+) {
   return db.barangGudang.findMany({
-    where: { gudangId },
+    where: { gudangId, ...tenantFilter },
     include: {
       barang: {
         select: {

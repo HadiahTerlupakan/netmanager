@@ -42,13 +42,14 @@ export async function createMobileMaterialUsage(params: {
 export async function appendUsedMaterialsToWorkOrder(
   tx: MaterialTransaction,
   workOrderId: string,
+  tenantId: string,
   createdItems: MobileWorkOrderMaterialResult[],
 ) {
   await tx.$executeRaw`
     UPDATE "work_orders"
     SET "usedMaterials" = COALESCE("usedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
         "updatedAt" = NOW()
-    WHERE "id" = ${workOrderId}
+    WHERE "id" = ${workOrderId} AND "tenantId" = ${tenantId}
   `;
 }
 

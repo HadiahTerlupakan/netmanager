@@ -17,6 +17,17 @@ type SiteServicePort = {
   getSites(): Promise<SiteLookup[]>;
 };
 
+/** Adapter to unwrap ServiceResult from SiteService into plain array. */
+class SiteServiceAdapter implements SiteServicePort {
+  private readonly service = new SiteService();
+
+  async getSites(): Promise<SiteLookup[]> {
+    const result = await this.service.getSites();
+    if (!result.success || !result.data) return [];
+    return result.data.map((s) => ({ id: s.id, name: s.name }));
+  }
+}
+
 type MixRadiusGroupRouteServiceDeps = {
   mixRadiusService?: MixRadiusGroupServicePort;
   siteService?: SiteServicePort;
@@ -37,7 +48,7 @@ export class MixRadiusGroupRouteService {
   constructor(deps: MixRadiusGroupRouteServiceDeps = {}) {
     this.mixRadiusService =
       deps.mixRadiusService ?? new MixRadiusOwnerGroupFacadeService();
-    this.siteService = deps.siteService ?? new SiteService();
+    this.siteService = deps.siteService ?? new SiteServiceAdapter();
   }
 
   /** Get admin MixRadius owner groups enriched with site names. */

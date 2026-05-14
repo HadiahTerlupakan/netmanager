@@ -52,7 +52,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   });
 
   if (!result.success) {
-    return ApiErrors.unauthorized();
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
+    return apiError(
+      "Gagal mengambil tren work order",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 
   return apiSuccess(result.data);

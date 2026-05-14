@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { InventoryStockService } from "@/modules/inventory";
@@ -63,6 +64,7 @@ async function executeMaterialReturnTransaction(input: {
   await appendReturnedMaterials(
     input.transaction,
     input.workOrder.id,
+    input.workOrder.tenantId,
     createdItems,
   );
   await createMaterialReturnUpdate({
@@ -129,13 +131,18 @@ function buildReturnedStockInput(
 async function appendReturnedMaterials(
   transaction: TransactionClient,
   workOrderId: string,
+  tenantId: string | null,
   items: MobileWorkOrderMaterialReturnResult[],
 ): Promise<void> {
+  const tenantFilter = tenantId
+    ? Prisma.sql`AND "tenantId" = ${tenantId}`
+    : Prisma.empty;
+
   await transaction.$executeRaw`
     UPDATE "work_orders"
     SET "returnedMaterials" = COALESCE("returnedMaterials", '[]'::jsonb) || ${JSON.stringify(items)}::jsonb,
         "updatedAt" = NOW()
-    WHERE "id" = ${workOrderId}
+    WHERE "id" = ${workOrderId} ${tenantFilter}
   `;
 }
 

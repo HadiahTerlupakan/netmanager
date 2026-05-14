@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type {
   InventoryOpnameRecord,
   UpdateStockOpnameInput,
@@ -8,10 +9,11 @@ import type {
 export class InventoryOpnameRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  /** Find opname record with item and warehouse details. */
+  /** Find opname record with item and warehouse details, scoped to tenant. */
   async getOpnameRecord(id: string): Promise<InventoryOpnameRecord | null> {
-    return this.db.stockOpname.findUnique({
-      where: { id },
+    const tenantFilter = await this.buildTenantFilter();
+    return this.db.stockOpname.findFirst({
+      where: { id, ...tenantFilter },
       include: {
         barang: { select: { id: true, kode: true, nama: true, satuan: true } },
         gudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
@@ -23,6 +25,8 @@ export class InventoryOpnameRepository {
   async updateOpname(
     input: UpdateStockOpnameInput,
   ): Promise<UpdatedStockOpnameResult> {
+    await this.ensureOpnameBelongsToTenant(input.id);
+
     return this.db.$transaction(async (tx) => {
       const context = await this.getUpdateContext(tx, input.id);
       const stokSistem = context.currentStock?.stok || 0;
@@ -46,8 +50,10 @@ export class InventoryOpnameRepository {
     });
   }
 
-  /** Delete opname record and restore stock delta. */
+  /** Delete opname record and restore stock delta, scoped to tenant. */
   async deleteOpname(id: string): Promise<void> {
+    await this.ensureOpnameBelongsToTenant(id);
+
     await this.db.$transaction(async (tx) => {
       const existingRecord = await tx.stockOpname.findUnique({
         where: { id: id.trim() },
@@ -78,6 +84,33 @@ export class InventoryOpnameRepository {
       }
       await tx.stockOpname.delete({ where: { id: id.trim() } });
     });
+  }
+
+  /** Build tenant filter for queries. SuperAdmin bypasses tenant isolation. */
+  private async buildTenantFilter(): Promise<{ tenantId?: string }> {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    if (isSuperAdmin) return {};
+    if (!tenantId) return { tenantId: "___MISSING_TENANT_ID___" };
+    return { tenantId };
+  }
+
+  /** Verify the opname record belongs to the current tenant before mutation. */
+  private async ensureOpnameBelongsToTenant(id: string): Promise<void> {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    if (isSuperAdmin) return;
+
+    const record = await this.db.stockOpname.findUnique({
+      where: { id: id.trim() },
+      select: { tenantId: true },
+    });
+
+    if (!record) {
+      throw new Error("Record stock opname tidak ditemukan");
+    }
+
+    if (record.tenantId !== tenantId) {
+      throw new Error("Akses ditolak: record bukan milik tenant Anda");
+    }
   }
 
   private async getUpdateContext(

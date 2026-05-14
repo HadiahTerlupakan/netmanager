@@ -1,29 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getInventoryRouteService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-
-const inventoryRouteService = getInventoryRouteService();
+import { hasPermission } from "@/lib/rbac";
 
 /**
  * GET /api/inventory/opname/report
  * Get stock report per warehouse showing current stock status,
  * breakdown by condition (BARU/BEKAS/RUSAK), and lost items (isHilang)
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("opname:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat laporan opname",
+    );
+  }
 
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: "Tidak terautentikasi" },
-        { status: 401 },
-      );
-    }
-
     const gudangId = req.nextUrl.searchParams.get("gudangId") || undefined;
+    const inventoryRouteService = getInventoryRouteService();
     const dbStart = Date.now();
     const result = await inventoryRouteService.getOpnameReport(gudangId);
 
@@ -38,17 +35,14 @@ export async function GET(req: NextRequest) {
       200,
       Date.now() - startTime,
       {
-        userId: session.user.id,
+        userId: user.id,
         gudangCount: result.gudangList.length,
       },
     );
 
-    return NextResponse.json(result);
+    return apiSuccess(result);
   } catch (error) {
     logger.error("Error generating stock report", error as Error);
-    return NextResponse.json(
-      { error: "Gagal menghasilkan laporan stok" },
-      { status: 500 },
-    );
+    return ApiErrors.internalError("Gagal menghasilkan laporan stok");
   }
-}
+});

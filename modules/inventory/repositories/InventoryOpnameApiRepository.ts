@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
 import { calculateStockByCondition } from "./inventory-api-repository-helpers";
 import { calculateInitialOpnameItems } from "./inventory-opname-api-calculation.helpers";
@@ -10,7 +11,8 @@ export class InventoryOpnameApiRepository {
 
   /** Ambil summary opname berbasis stok dan opname terakhir. */
   async findOpnameSummary(gudangId?: string) {
-    const whereClause = gudangId ? { gudangId } : {};
+    const tenantFilter = await this.buildTenantFilter();
+    const whereClause = { ...tenantFilter, ...(gudangId ? { gudangId } : {}) };
     const [barangGudangs, latestOpnames] = await Promise.all([
       this.db.barangGudang.findMany({
         where: whereClause,
@@ -42,8 +44,13 @@ export class InventoryOpnameApiRepository {
 
   /** Ambil laporan opname per gudang. */
   async findOpnameReport(gudangId?: string) {
+    const tenantFilter = await this.buildTenantFilter();
     const gudangs = await this.db.gudang.findMany({
-      where: { isActive: true, ...(gudangId ? { id: gudangId } : {}) },
+      where: {
+        isActive: true,
+        ...tenantFilter,
+        ...(gudangId ? { id: gudangId } : {}),
+      },
       include: {
         barangGudang: {
           include: {
@@ -75,9 +82,10 @@ export class InventoryOpnameApiRepository {
     return gudangList;
   }
 
-  /** Hitung data awal opname untuk satu gudang. */
+  /** Hitung data awal opname untuk satu gudang, scoped to tenant. */
   async calculateOpname(gudangId: string) {
-    return calculateInitialOpnameItems({ db: this.db, gudangId });
+    const tenantFilter = await this.buildTenantFilter();
+    return calculateInitialOpnameItems({ db: this.db, gudangId, tenantFilter });
   }
 
   /** Ambil stok barang dan relasinya. */
@@ -298,5 +306,13 @@ export class InventoryOpnameApiRepository {
     return (
       STOCK_FIELD_MAP[kondisi as keyof typeof STOCK_FIELD_MAP] || "stokBaru"
     );
+  }
+
+  /** Build tenant filter for queries. SuperAdmin bypasses tenant isolation. */
+  private async buildTenantFilter(): Promise<{ tenantId?: string }> {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    if (isSuperAdmin) return {};
+    if (!tenantId) return { tenantId: "___MISSING_TENANT_ID___" };
+    return { tenantId };
   }
 }

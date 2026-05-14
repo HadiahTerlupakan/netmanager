@@ -1,36 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getInventoryRouteService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-
-const inventoryRouteService = getInventoryRouteService();
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig);
-  if (!session || false) {
-    return null;
-  }
-  return session;
-}
+import { hasPermission } from "@/lib/rbac";
 
 /**
  * GET /api/inventory/opname/summary
  * Get stock opname summary per gudang
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("opname:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat summary opname",
+    );
+  }
 
   try {
-    const session = await requireAdmin();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Tidak terautentikasi" },
-        { status: 401 },
-      );
-    }
-
     const gudangId = req.nextUrl.searchParams.get("gudangId") || undefined;
+    const inventoryRouteService = getInventoryRouteService();
     const dbStart = Date.now();
     const summary = await inventoryRouteService.getOpnameSummary(gudangId);
 
@@ -45,22 +34,19 @@ export async function GET(req: NextRequest) {
       200,
       Date.now() - startTime,
       {
-        userId: session.user.id,
+        userId: user.id,
         count: summary.length,
         gudangId,
       },
     );
 
-    return NextResponse.json({ summary });
+    return apiSuccess({ summary });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error("Error getting stock opname summary", err, {
       path: "/api/inventory/opname/summary",
       method: "GET",
     });
-    return NextResponse.json(
-      { error: "Gagal memuat data summary stock opname" },
-      { status: 500 },
-    );
+    return ApiErrors.internalError("Gagal memuat data summary stock opname");
   }
-}
+});

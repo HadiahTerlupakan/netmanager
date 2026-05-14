@@ -1,52 +1,37 @@
-import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getInventoryOpnameService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
-
-const inventoryOpnameService = getInventoryOpnameService();
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig);
-  if (!session || false) {
-    return null;
-  }
-  return session;
-}
+import { parsePaginationParams } from "@/lib/utils/pagination";
 
 /**
  * GET /api/inventory/opname/list
  * Get all stock opname records with filters and pagination
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("opname:read"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
 
   try {
-    const session = await requireAdmin();
-    if (!session) {
-      logger.warn(
-        "Unauthorized access attempt to GET /api/inventory/opname/list",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    if (!(await hasPermission("opname:read"))) {
-      return ApiErrors.forbidden("Akses ditolak");
-    }
-
     const searchParams = req.nextUrl.searchParams;
     const barangId = searchParams.get("barangId") || undefined;
     const gudangId = searchParams.get("gudangId") || undefined;
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const { page, limit } = parsePaginationParams(searchParams, {
+      page: 1,
+      limit: 20,
+    });
+
+    const opnameService = getInventoryOpnameService();
     const dbStart = Date.now();
-    const result = await inventoryOpnameService.listOpname({
+    const result = await opnameService.listOpname({
       user: {
-        id: session.user.id,
-        role: session.user.role,
-        siteId: session.user.siteId,
+        id: user.id,
+        role: user.role,
+        siteId: user.siteId,
       },
       barangId,
       gudangId,
@@ -65,7 +50,7 @@ export async function GET(req: NextRequest) {
       200,
       Date.now() - startTime,
       {
-        userId: session.user.id,
+        userId: user.id,
         count: result.opnameList.length,
         page,
         limit,
@@ -92,4 +77,4 @@ export async function GET(req: NextRequest) {
     });
     return ApiErrors.internalError("Gagal memuat data stock opname");
   }
-}
+});

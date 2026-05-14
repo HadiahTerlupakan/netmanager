@@ -14,7 +14,7 @@ interface BarangData {
   satuan: string;
 }
 
-export function ClientComponent() {
+export function BarangEditClient() {
   const router = useRouter();
   const params = useParams();
   const [initialData, setInitialData] = useState<BarangData | null>(null);

@@ -7,6 +7,10 @@ import {
 } from "@/modules/inventory";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  restockLifecycleSchema,
+  restockUpdateSchema,
+} from "@/lib/validations/restock";
 
 interface RestockItemInput {
   barangId: string;
@@ -54,13 +58,27 @@ export async function PATCH(
     );
   }
 
+  if (!(await hasPermission("restock:update"))) {
+    return NextResponse.json(
+      { error: "Akses ditolak. Butuh izin restock:update" },
+      { status: 403 },
+    );
+  }
+
   const { id } = await params;
   const body = await req.json();
+  const parsed = restockLifecycleSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message },
+      { status: 400 },
+    );
+  }
 
   return patchRestockRequestLifecycle({
     id,
-    action: body.action,
-    catatan: body.catatan,
+    action: parsed.data.action,
+    catatan: parsed.data.catatan,
     actorId: session.user.id as string,
   });
 }
@@ -87,7 +105,15 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { items, gudangId, keterangan } = body;
+  const parsed = restockUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message },
+      { status: 400 },
+    );
+  }
+
+  const { items, gudangId, keterangan } = parsed.data;
   const tenantId = session.user.tenantId as string;
   const existing = await inventoryRouteService.getPurchaseRequestById({
     id,

@@ -1,7 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import { ClientComponent } from './BarangDetailClient'
+import { ensurePermission } from "@/lib/rbac";
+import { BarangDetailClient } from "./BarangDetailClient";
 
 export default async function Page() {
-    await ensurePermission('barang:read')
-    return <ClientComponent />
+  await ensurePermission("barang:read");
+  return <BarangDetailClient />;
 }

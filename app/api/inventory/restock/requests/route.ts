@@ -7,6 +7,7 @@ import {
   createRestockRequest,
   getInventoryRouteService,
 } from "@/modules/inventory";
+import { restockCreateSchema } from "@/lib/validations/restock";
 
 interface RestockItemInput {
   barangId: string;
@@ -62,7 +63,15 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { items, gudangId, keterangan } = body;
+  const parsed = restockCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message },
+      { status: 400 },
+    );
+  }
+
+  const { items, gudangId, keterangan } = parsed.data;
 
   return createRestockRequest({
     items: items.map((item: RestockItemInput) => ({

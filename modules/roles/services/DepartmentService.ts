@@ -228,6 +228,7 @@ export class DepartmentService {
       jobDescription: data.jobDescription || null,
       isReminderTarget: data.isReminderTarget ?? false,
       showInMobileWO: data.showInMobileWO ?? false,
+      // tenantId resolved by repository from request context
       updatedAt: new Date(),
     };
   }

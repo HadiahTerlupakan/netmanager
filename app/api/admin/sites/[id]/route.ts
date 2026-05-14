@@ -1,7 +1,13 @@
-import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { SiteService } from "@/modules/roles";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+  createHandler,
+} from "@/lib/api";
+import { siteUpdateSchema } from "@/lib/validations/site";
 
 const siteService = new SiteService();
 
@@ -14,19 +20,16 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { id } = ctx.params;
-  try {
-    const site = await siteService.getSiteById(id);
-    return apiSuccess(site);
-  } catch (error) {
-    logger.error("Error fetching site:", error);
+  const result = await siteService.getSiteById(id);
 
-    const message = error instanceof Error ? error.message : "";
-    if (message === "Site not found" || message === "Site tidak ditemukan") {
+  if (!result.success) {
+    if (result.code === "NOT_FOUND") {
       return ApiErrors.notFound("Site");
     }
-
-    return ApiErrors.internalError("Gagal mengambil data site");
+    return ApiErrors.internalError(result.error);
   }
+
+  return apiSuccess(result.data);
 });
 
 /**
@@ -39,23 +42,32 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
   const { id } = ctx.params;
   const body = await req.json();
+  const parsed = siteUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      parsed.error.issues[0].message,
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
 
-  try {
-    const site = await siteService.updateSite(id, body, ctx.session!.user.id);
-    return apiSuccess(site, { message: "Site berhasil diperbarui" });
-  } catch (error) {
-    logger.error("Error updating site:", error);
+  const result = await siteService.updateSite(
+    id,
+    parsed.data,
+    ctx.session!.user.id,
+  );
 
-    const message = error instanceof Error ? error.message : "";
-    if (message === "Site not found" || message === "Site tidak ditemukan") {
+  if (!result.success) {
+    if (result.code === "NOT_FOUND") {
       return ApiErrors.notFound("Site");
     }
-    if (message === "Site code already exists") {
-      return ApiErrors.conflict("Kode site sudah ada");
+    if (result.code === "DUPLICATE_CODE") {
+      return ApiErrors.conflict("Kode site sudah digunakan");
     }
-
-    return ApiErrors.internalError("Gagal memperbarui site");
+    return ApiErrors.internalError(result.error);
   }
+
+  return apiSuccess(result.data, { message: "Site berhasil diperbarui" });
 });
 
 /**
@@ -69,17 +81,14 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { id } = ctx.params;
-  try {
-    const result = await siteService.deleteSite(id, ctx.session!.user.id);
-    return apiSuccess(null, { message: result.message });
-  } catch (error) {
-    logger.error("Error deleting site:", error);
+  const result = await siteService.deleteSite(id, ctx.session!.user.id);
 
-    const message = error instanceof Error ? error.message : "";
-    if (message === "Site not found" || message === "Site tidak ditemukan") {
+  if (!result.success) {
+    if (result.code === "NOT_FOUND") {
       return ApiErrors.notFound("Site");
     }
-
-    return ApiErrors.internalError("Gagal menghapus site");
+    return ApiErrors.internalError(result.error);
   }
+
+  return apiSuccess(null, { message: result.data!.message });
 });

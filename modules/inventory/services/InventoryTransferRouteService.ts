@@ -13,6 +13,9 @@ const TRANSFER_RESTRICTED_PERMISSIONS = [
   "k_barang:site_only",
 ];
 
+const TRANSFER_NOT_FOUND_ERROR = "Record transfer tidak ditemukan";
+const TRANSFER_ACCESS_DENIED_ERROR = "Anda tidak memiliki akses ke data ini";
+
 interface InventoryTransferRepositoryPort {
   findAllTransfers(params?: {
     skip?: number;
@@ -59,9 +62,22 @@ interface CreateTransferRouteInput {
   body: Record<string, unknown>;
 }
 
-interface UpdateTransferRouteInput {
+interface TransferDetailRouteInput {
   id: string;
+  userId: string;
+  permissions: string[];
+  isSuperAdmin: boolean;
+}
+
+interface UpdateTransferRouteInput extends TransferDetailRouteInput {
   body: Record<string, unknown>;
+}
+
+interface TransferSiteScopeInput {
+  userId: string;
+  permissions: string[];
+  isSuperAdmin: boolean;
+  siteId?: string;
 }
 
 export type InventoryTransferRouteResult<T> =
@@ -121,18 +137,25 @@ export class InventoryTransferRouteService {
     return { success: true, data: transfer };
   }
 
-  /** Ambil detail transfer berdasarkan id. */
-  async getTransferDetail(id: string) {
-    const transfer = await this.repository.findTransferById(id);
-    if (!transfer) return { found: false as const };
+  /** Ambil detail transfer setelah akses site tervalidasi. */
+  async getTransferDetail(
+    input: TransferDetailRouteInput,
+  ): Promise<
+    InventoryTransferRouteResult<{ transfer: InventoryTransferRecord }>
+  > {
+    const accessible = await this.getAccessibleTransfer(input);
+    if (accessible.success === false) return accessible;
 
-    return { found: true as const, transfer };
+    return { success: true, data: { transfer: accessible.data } };
   }
 
-  /** Perbarui keterangan transfer. */
+  /** Perbarui keterangan transfer setelah akses site tervalidasi. */
   async updateTransfer(
     input: UpdateTransferRouteInput,
   ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
+    const accessible = await this.getAccessibleTransfer(input);
+    if (accessible.success === false) return accessible;
+
     const transfer = await this.repository.updateTransfer(input.id, {
       keterangan: input.body.keterangan as string | undefined,
     });
@@ -140,15 +163,55 @@ export class InventoryTransferRouteService {
     return { success: true, data: transfer };
   }
 
-  /** Hapus transfer dan rollback stok via repository. */
+  /** Hapus transfer setelah akses site tervalidasi. */
   async deleteTransfer(
-    id: string,
+    input: TransferDetailRouteInput,
   ): Promise<InventoryTransferRouteResult<null>> {
-    await this.repository.deleteTransfer(id);
+    const accessible = await this.getAccessibleTransfer(input);
+    if (accessible.success === false) return accessible;
+
+    await this.repository.deleteTransfer(input.id);
     return { success: true, data: null };
   }
 
-  private async resolveTransferSiteId(input: ListTransfersRouteInput) {
+  /** Validasi akses site dan kembalikan transfer jika accessible. */
+  private async getAccessibleTransfer(
+    input: TransferDetailRouteInput,
+  ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
+    const transfer = await this.repository.findTransferById(input.id);
+    if (!transfer) return this.routeError(404, TRANSFER_NOT_FOUND_ERROR);
+
+    const restrictedSiteId = await this.resolveTransferSiteId(input);
+    if (!this.canAccessTransferSite(transfer, restrictedSiteId)) {
+      return this.routeError(403, TRANSFER_ACCESS_DENIED_ERROR);
+    }
+
+    return { success: true, data: transfer };
+  }
+
+  /** Cek apakah user bisa akses transfer berdasarkan site gudang sumber/tujuan. */
+  private canAccessTransferSite(
+    transfer: InventoryTransferRecord,
+    restrictedSiteId?: string,
+  ) {
+    if (!restrictedSiteId) return true;
+
+    const dariSiteIds =
+      transfer.gudangDari?.sites?.map((site) => site.id) ||
+      transfer.dariGudang?.sites?.map((site) => site.id) ||
+      [];
+    const keSiteIds =
+      transfer.gudangKe?.sites?.map((site) => site.id) ||
+      transfer.keGudang?.sites?.map((site) => site.id) ||
+      [];
+
+    return (
+      dariSiteIds.includes(restrictedSiteId) ||
+      keSiteIds.includes(restrictedSiteId)
+    );
+  }
+
+  private async resolveTransferSiteId(input: TransferSiteScopeInput) {
     return (
       (await this.inventoryRouteService.resolveRestrictedSiteId({
         userId: input.userId,
@@ -194,6 +257,13 @@ export class InventoryTransferRouteService {
     }
 
     return null;
+  }
+
+  private routeError(
+    status: number,
+    error: string,
+  ): { success: false; status: number; error: string } {
+    return { success: false, status, error };
   }
 }
 

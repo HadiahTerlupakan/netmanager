@@ -19,12 +19,10 @@ interface Department {
   name: string;
   description: string | null;
   jobDescription: string | null;
-  createdAt: string;
-  updatedAt: string;
-  _count?: {
-    user: number;
-    workOrders: number;
-  };
+  isReminderTarget: boolean;
+  showInMobileWO: boolean;
+  userCount: number;
+  workOrderCount: number;
 }
 
 export function ClientComponent() {
@@ -133,7 +131,7 @@ export function ClientComponent() {
       render: (dept) => (
         <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 justify-center w-full">
           <HiOutlineUserGroup className="h-4 w-4" />
-          {dept._count?.user || 0}
+          {dept.userCount}
         </span>
       ),
     },

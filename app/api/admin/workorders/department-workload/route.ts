@@ -1,6 +1,12 @@
 import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+  createHandler,
+} from "@/lib/api";
 
 /** GET /api/admin/workorders/department-workload */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
@@ -16,7 +22,15 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   });
 
   if (!result.success) {
-    return ApiErrors.unauthorized();
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
+    return apiError(
+      "Gagal mengambil data beban kerja departemen",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 
   return apiSuccess(result.data);

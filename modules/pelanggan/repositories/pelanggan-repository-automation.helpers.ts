@@ -9,9 +9,14 @@ export function findEligibleForBilling(input: EligibleBillingInput) {
 }
 
 function buildEligibleBillingQuery(input: EligibleBillingInput) {
+  const tenantFilter = input.tenantId
+    ? Prisma.sql`AND p."tenantId" = ${input.tenantId}`
+    : Prisma.empty;
+
   return Prisma.sql`
     SELECT
-      p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
+      p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId",
+      p.tipe, p.status, p."tenantId",
       h.name AS "paketName", h.harga AS "paketHarga",
       h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
     FROM "Pelanggan" p
@@ -19,6 +24,7 @@ function buildEligibleBillingQuery(input: EligibleBillingInput) {
     WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
       AND p."hargaPaketId" != ''
       AND EXTRACT(DAY FROM p."jatuhTempo") = ${input.targetDay}
+      ${tenantFilter}
     ORDER BY p.id ASC
     LIMIT ${input.batchSize} OFFSET ${input.offset}
   `;
@@ -28,6 +34,7 @@ type EligibleBillingInput = {
   targetDay: number;
   batchSize: number;
   offset: number;
+  tenantId?: string;
 };
 
 interface EligibleBillingCustomer {
@@ -39,6 +46,7 @@ interface EligibleBillingCustomer {
   tipe: string;
   status: string;
   hargaPaketId: string;
+  tenantId: string | null;
   paketName: string;
   paketHarga: number;
   paketUsePPN: boolean;

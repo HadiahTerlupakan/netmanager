@@ -51,7 +51,7 @@ interface DashboardData {
   }[];
 }
 
-export function ClientComponent() {
+export function InventoryDashboardClient() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null,
   );

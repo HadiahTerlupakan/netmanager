@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-
-import { verifyAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { createHandler, ApiErrors } from "@/lib/api";
 import {
   getInventoryRouteService,
   patchRestockRequestStatus,
@@ -10,35 +9,19 @@ import { ProcurementService } from "@/modules/procurement";
 const inventoryRouteService = getInventoryRouteService();
 
 /** Terima barang dari purchase request restock. */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const session = await verifyAuth(req);
-  if (!session) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("restock:verify"))) {
+    return ApiErrors.forbidden("Akses ditolak. Butuh izin restock:verify");
   }
 
-  const hasAccess = await hasPermission(session.id, "restock", "verify");
-  if (!hasAccess) {
-    return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:verify" },
-      { status: 403 },
-    );
-  }
-
-  const { id } = await params;
+  const { id } = ctx.params;
   const requestRecord =
     await inventoryRouteService.getPurchaseRequestProcessInfo(id);
 
   if (!requestRecord) {
-    return NextResponse.json(
-      { error: "Purchase Request not found" },
-      { status: 404 },
-    );
+    return ApiErrors.notFound("Purchase Request not found");
   }
 
   let purchaseOrderId = requestRecord.purchaseOrderId;
@@ -47,7 +30,7 @@ export async function PATCH(
       const procurementService = new ProcurementService();
       const purchaseOrders = await procurementService.generatePOFromPRs(
         [id],
-        session.id,
+        user.id as string,
       );
       purchaseOrderId = purchaseOrders?.[0]?.id;
     } catch (_error) {
@@ -56,9 +39,8 @@ export async function PATCH(
   }
 
   if (!purchaseOrderId) {
-    return NextResponse.json(
-      { error: "Gagal membuat Purchase Order. Coba lagi atau hubungi admin." },
-      { status: 500 },
+    return ApiErrors.internalError(
+      "Gagal membuat Purchase Order. Coba lagi atau hubungi admin.",
     );
   }
 
@@ -68,7 +50,7 @@ export async function PATCH(
     action: "RECEIVE",
     items: body.items,
     closePO: body.closePO,
-    actorId: session.id,
+    actorId: user.id as string,
     fotoBukti: body.fotoBukti,
   });
-}
+});

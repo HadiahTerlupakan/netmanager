@@ -243,7 +243,7 @@ describe("inventory restock request lifecycle routes", () => {
 
     const json = await response.json();
     expect(response.status).toBe(500);
-    expect(json).toEqual({
+    expect(json).toMatchObject({
       error: "Gagal membuat Purchase Order. Coba lagi atau hubungi admin.",
     });
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();
@@ -267,7 +267,7 @@ describe("inventory restock request lifecycle routes", () => {
 
     const json = await response.json();
     expect(response.status).toBe(400);
-    expect(json).toEqual({
+    expect(json).toMatchObject({
       error: "Purchase Request belum memiliki Purchase Order untuk diproses",
     });
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();

@@ -2,6 +2,7 @@
 
 import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
 import { GudangForm } from "@/components/inventory/GudangForm";
@@ -16,11 +17,12 @@ interface Gudang {
   updatedAt: string;
 }
 
-export function ClientComponent({
+export function GudangEditClient({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const router = useRouter();
   const [gudang, setGudang] = useState<Gudang | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,13 +63,11 @@ export function ClientComponent({
   }, [gudangId]);
 
   const handleSuccess = () => {
-    // Redirect back to gudang list
-    window.location.href = "/admin/inventory/gudang";
+    router.push("/admin/inventory/gudang");
   };
 
   const handleCancel = () => {
-    // Go back to previous page
-    window.history.back();
+    router.back();
   };
 
   if (loading) {

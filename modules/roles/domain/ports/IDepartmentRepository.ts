@@ -3,6 +3,7 @@ import type { DepartmentEntity } from "../entities/DepartmentEntity";
 export interface DepartmentFilterOptions {
   search?: string;
   reminderOnly?: boolean;
+  showInMobileWO?: boolean;
 }
 
 export interface CreateDepartmentRepositoryInput {
@@ -12,6 +13,7 @@ export interface CreateDepartmentRepositoryInput {
   jobDescription?: string | null;
   isReminderTarget?: boolean;
   showInMobileWO?: boolean;
+  tenantId?: string | null;
   updatedAt: Date;
 }
 

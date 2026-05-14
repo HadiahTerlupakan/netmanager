@@ -149,6 +149,7 @@ export interface InventoryTransferWarehouseSnapshot {
   kode: string;
   nama: string;
   lokasi?: string | null;
+  sites?: InventoryRecordSite[];
 }
 
 export interface InventoryTransferBarangSnapshot {

@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-
-import { verifyAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { createHandler, ApiErrors } from "@/lib/api";
 import {
   getInventoryRouteService,
   patchRestockRequestStatus,
@@ -9,46 +8,30 @@ import {
 const inventoryRouteService = getInventoryRouteService();
 
 /** Mulai proses belanja untuk purchase request yang sudah punya PO. */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const session = await verifyAuth(req);
-  if (!session) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("restock:verify"))) {
+    return ApiErrors.forbidden("Akses ditolak. Butuh izin restock:verify");
   }
 
-  const hasAccess = await hasPermission(session.id, "restock", "update");
-  if (!hasAccess) {
-    return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
-  }
-
-  const { id } = await params;
+  const { id } = ctx.params;
   const requestRecord =
     await inventoryRouteService.getPurchaseRequestProcessInfo(id);
 
   if (!requestRecord) {
-    return NextResponse.json(
-      { error: "Purchase Request not found" },
-      { status: 404 },
-    );
+    return ApiErrors.notFound("Purchase Request not found");
   }
 
   if (!requestRecord.purchaseOrderId) {
-    return NextResponse.json(
-      {
-        error: "Purchase Request belum memiliki Purchase Order untuk diproses",
-      },
-      { status: 400 },
+    return ApiErrors.badRequest(
+      "Purchase Request belum memiliki Purchase Order untuk diproses",
     );
   }
 
   return patchRestockRequestStatus({
     purchaseOrderId: requestRecord.purchaseOrderId,
     action: "START_SHOPPING",
-    actorId: session.id,
+    actorId: user.id as string,
   });
-}
+});

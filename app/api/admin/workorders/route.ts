@@ -10,6 +10,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { workOrderCreateSchema } from "@/lib/validations/workorder";
 
 /** GET /api/admin/workorders */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -65,9 +66,18 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
+  const parsed = workOrderCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      parsed.error.issues[0].message,
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
   const workOrderService = getWorkOrderService();
   const result = await workOrderService.createWorkOrder(
-    body,
+    parsed.data,
     ctx.session!.user,
   );
 

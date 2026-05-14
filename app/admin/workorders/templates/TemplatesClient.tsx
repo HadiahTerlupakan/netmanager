@@ -7,6 +7,7 @@ import { HiPlus, HiPencil, HiTrash, HiDocumentText } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
 import { buttonVariants } from "@/components/ui/Button";
+import { usePermission } from "@/hooks/use-permission";
 
 interface TemplateItem {
   id: string;
@@ -26,6 +27,10 @@ interface Template {
 }
 
 export default function TemplatesClient() {
+  const { hasPermission } = usePermission();
+  const canCreate = hasPermission("wo_template:create");
+  const canDelete = hasPermission("wo_template:delete");
+
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,13 +85,15 @@ export default function TemplatesClient() {
             Kelola template tugas untuk standardisasi pekerjaan.
           </p>
         </div>
-        <Link
-          href="/admin/workorders/templates/new"
-          className={buttonVariants({ variant: "default" })}
-        >
-          <HiPlus className="w-5 h-5" />
-          Buat Template
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/workorders/templates/new"
+            className={buttonVariants({ variant: "default" })}
+          >
+            <HiPlus className="w-5 h-5" />
+            Buat Template
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -106,12 +113,14 @@ export default function TemplatesClient() {
                 >
                   <HiPencil className="w-5 h-5" />
                 </Link>
-                <button
-                  onClick={() => handleDelete(template.id)}
-                  className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
-                >
-                  <HiTrash className="w-5 h-5" />
-                </button>
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(template.id)}
+                    className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
+                  >
+                    <HiTrash className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -135,12 +144,14 @@ export default function TemplatesClient() {
           <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
             <HiDocumentText className="w-12 h-12 mb-3 text-gray-400" />
             <p>Belum ada template dibuat.</p>
-            <Link
-              href="/admin/workorders/templates/new"
-              className="text-indigo-600 hover:underline mt-2"
-            >
-              Buat yang pertama
-            </Link>
+            {canCreate && (
+              <Link
+                href="/admin/workorders/templates/new"
+                className="text-indigo-600 hover:underline mt-2"
+              >
+                Buat yang pertama
+              </Link>
+            )}
           </div>
         )}
       </div>

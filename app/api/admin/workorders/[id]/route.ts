@@ -139,8 +139,14 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
 /** DELETE /api/admin/workorders/{id} */
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-  const reason = req.nextUrl.searchParams.get("reason") || "Cancelled by admin";
-  const isPermanent = req.nextUrl.searchParams.get("permanent") === "true";
+  const body = await req.json().catch(() => ({}));
+  const reason =
+    body.reason ||
+    req.nextUrl.searchParams.get("reason") ||
+    "Cancelled by admin";
+  const isPermanent =
+    body.permanent === true ||
+    req.nextUrl.searchParams.get("permanent") === "true";
   const requiredPermission = isPermanent
     ? "workorders:delete"
     : "workorders:cancel";

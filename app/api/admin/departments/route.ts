@@ -7,6 +7,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { departmentCreateSchema } from "@/lib/validations/department";
 
 const service = getDepartmentService();
 
@@ -53,8 +54,19 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
+  const parsed = departmentCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      parsed.error.issues[0].message,
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
 
-  const result = await service.createDepartment(body, ctx.session!.user.id);
+  const result = await service.createDepartment(
+    parsed.data,
+    ctx.session!.user.id,
+  );
 
   if (!result.success) {
     if (result.code === "VALIDATION_ERROR") {

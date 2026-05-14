@@ -373,9 +373,11 @@ export function ClientComponent() {
     setProcessingApproval(true);
     try {
       const response = await fetch(
-        `/api/admin/workorders/${selectedWorkOrderId}?reason=${encodeURIComponent(cancelReason)}`,
+        `/api/admin/workorders/${selectedWorkOrderId}`,
         {
           method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: cancelReason }),
         },
       );
 

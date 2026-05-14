@@ -26,7 +26,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   });
 
   if (!result.success) {
-    return ApiErrors.unauthorized();
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
+    return apiError(
+      result.error || "Gagal mengambil statistik work order",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 
   if (!result.data) {

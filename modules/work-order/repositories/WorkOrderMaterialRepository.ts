@@ -146,7 +146,12 @@ export class WorkOrderMaterialRepository {
         );
       }
 
-      await appendUsedMaterialsToWorkOrder(tx, workOrder.id, createdItems);
+      await appendUsedMaterialsToWorkOrder(
+        tx,
+        workOrder.id,
+        workOrder.tenantId,
+        createdItems,
+      );
       await assertWorkOrderStillExists(tx, workOrder.id);
 
       await tx.workOrderUpdates.create({

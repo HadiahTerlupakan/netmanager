@@ -9,8 +9,24 @@ export type TransferRepositoryDb = PrismaClient;
 
 export const TRANSFER_LIST_INCLUDE = {
   barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-  gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
-  gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } },
+  gudangDari: {
+    select: {
+      id: true,
+      kode: true,
+      nama: true,
+      lokasi: true,
+      sites: { select: { id: true } },
+    },
+  },
+  gudangKe: {
+    select: {
+      id: true,
+      kode: true,
+      nama: true,
+      lokasi: true,
+      sites: { select: { id: true } },
+    },
+  },
   createdBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.TransferAntarGudangInclude;
 
@@ -65,6 +81,26 @@ export function mapTransferRecord(
   const barangKeluar =
     "barangKeluar" in transfer ? transfer.barangKeluar : undefined;
 
+  const mappedGudangDari = gudangDari
+    ? {
+        id: gudangDari.id,
+        kode: gudangDari.kode,
+        nama: gudangDari.nama,
+        lokasi: gudangDari.lokasi,
+        ...("sites" in gudangDari ? { sites: gudangDari.sites } : {}),
+      }
+    : undefined;
+
+  const mappedGudangKe = gudangKe
+    ? {
+        id: gudangKe.id,
+        kode: gudangKe.kode,
+        nama: gudangKe.nama,
+        lokasi: gudangKe.lokasi,
+        ...("sites" in gudangKe ? { sites: gudangKe.sites } : {}),
+      }
+    : undefined;
+
   return {
     id: transfer.id,
     kodeTransfer: transfer.kodeTransfer,
@@ -81,8 +117,12 @@ export function mapTransferRecord(
     createdById: transfer.createdById,
     tenantId: transfer.tenantId,
     ...(barang ? { barang } : {}),
-    ...(gudangDari ? { gudangDari, dariGudang: gudangDari } : {}),
-    ...(gudangKe ? { gudangKe, keGudang: gudangKe } : {}),
+    ...(mappedGudangDari
+      ? { gudangDari: mappedGudangDari, dariGudang: mappedGudangDari }
+      : {}),
+    ...(mappedGudangKe
+      ? { gudangKe: mappedGudangKe, keGudang: mappedGudangKe }
+      : {}),
     ...(createdBy !== undefined ? { createdBy } : {}),
     ...(barangMasuk ? { barangMasuk, masuk: barangMasuk[0] ?? null } : {}),
     ...(barangKeluar ? { barangKeluar, keluar: barangKeluar[0] ?? null } : {}),

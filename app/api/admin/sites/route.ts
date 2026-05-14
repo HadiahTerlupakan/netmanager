@@ -1,4 +1,3 @@
-import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { SiteService } from "@/modules/roles";
 import {
@@ -9,6 +8,7 @@ import {
   createHandler,
 } from "@/lib/api";
 import { checkSiteRestriction } from "@/modules/roles";
+import { siteCreateSchema } from "@/lib/validations/site";
 
 const siteService = new SiteService();
 
@@ -37,13 +37,17 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   );
   const allowedSiteIds = isRestricted ? siteIds : undefined;
 
-  const sites = await siteService.getSites({
+  const result = await siteService.getSites({
     ...(search ? { search } : {}),
     activeOnly,
     allowedSiteIds,
   });
 
-  return apiSuccess(sites);
+  if (!result.success) {
+    return ApiErrors.internalError(result.error);
+  }
+
+  return apiSuccess(result.data);
 });
 
 /**
@@ -55,25 +59,34 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-
-  try {
-    const site = await siteService.createSite(body, ctx.session!.user.id);
-    return apiSuccess(site, { status: 201, message: "Site berhasil dibuat" });
-  } catch (error) {
-    logger.error("Error creating site:", error);
-
-    const message = error instanceof Error ? error.message : "";
-    if (message === "Code and name are required") {
-      return apiError(
-        "Kode dan nama wajib diisi",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-    if (message === "Site code already exists") {
-      return ApiErrors.conflict("Kode site sudah ada");
-    }
-
-    return ApiErrors.internalError("Gagal membuat site");
+  const parsed = siteCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      parsed.error.issues[0].message,
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
   }
+
+  const result = await siteService.createSite(
+    parsed.data,
+    ctx.session!.user.id,
+  );
+
+  if (!result.success) {
+    if (result.code === "VALIDATION_ERROR") {
+      return apiError(result.error!, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+    if (result.code === "DUPLICATE_CODE") {
+      return ApiErrors.conflict("Kode site sudah digunakan");
+    }
+    return ApiErrors.internalError(result.error);
+  }
+
+  return apiSuccess(result.data, {
+    status: 201,
+    message: "Site berhasil dibuat",
+  });
 });

@@ -5,6 +5,25 @@ import { InventoryTransferRouteService } from "@/modules/inventory";
 const transfer = {
   id: "transfer-1",
   kodeTransfer: "TRF-1",
+  gudangDari: {
+    id: "gudang-1",
+    kode: "G1",
+    nama: "Gudang 1",
+    sites: [{ id: "site-1" }],
+  },
+  gudangKe: {
+    id: "gudang-2",
+    kode: "G2",
+    nama: "Gudang 2",
+    sites: [{ id: "site-1" }],
+  },
+};
+
+const defaultDetailInput = {
+  id: "transfer-1",
+  userId: "user-1",
+  permissions: ["transfer:site_only"],
+  isSuperAdmin: false,
 };
 
 function createService() {
@@ -113,23 +132,65 @@ describe("InventoryTransferRouteService", () => {
     expect(result).toEqual({ success: true, data: transfer });
   });
 
-  it("mengambil detail transfer", async () => {
+  it("mengambil detail transfer dengan validasi site access", async () => {
     const { repository, service } = createService();
 
-    const result = await service.getTransferDetail("transfer-1");
+    const result = await service.getTransferDetail(defaultDetailInput);
 
     expect(repository.findTransferById).toHaveBeenCalledWith("transfer-1");
-    expect(result).toEqual({ found: true, transfer });
+    expect(result).toEqual({ success: true, data: { transfer } });
   });
 
-  it("mengupdate keterangan transfer", async () => {
+  it("menolak akses detail transfer jika site tidak sesuai", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    repository.findTransferById.mockResolvedValue({
+      ...transfer,
+      gudangDari: {
+        id: "gudang-1",
+        kode: "G1",
+        nama: "Gudang 1",
+        sites: [{ id: "site-2" }],
+      },
+      gudangKe: {
+        id: "gudang-2",
+        kode: "G2",
+        nama: "Gudang 2",
+        sites: [{ id: "site-2" }],
+      },
+    });
+    inventoryRouteService.resolveRestrictedSiteId.mockResolvedValue("site-1");
+
+    const result = await service.getTransferDetail(defaultDetailInput);
+
+    expect(result).toEqual({
+      success: false,
+      status: 403,
+      error: "Anda tidak memiliki akses ke data ini",
+    });
+  });
+
+  it("mengembalikan 404 jika transfer tidak ditemukan", async () => {
+    const { repository, service } = createService();
+    repository.findTransferById.mockResolvedValue(null);
+
+    const result = await service.getTransferDetail(defaultDetailInput);
+
+    expect(result).toEqual({
+      success: false,
+      status: 404,
+      error: "Record transfer tidak ditemukan",
+    });
+  });
+
+  it("mengupdate keterangan transfer setelah validasi site access", async () => {
     const { repository, service } = createService();
 
     const result = await service.updateTransfer({
-      id: "transfer-1",
+      ...defaultDetailInput,
       body: { keterangan: "update" },
     });
 
+    expect(repository.findTransferById).toHaveBeenCalledWith("transfer-1");
     expect(repository.updateTransfer).toHaveBeenCalledWith("transfer-1", {
       keterangan: "update",
     });
@@ -139,12 +200,25 @@ describe("InventoryTransferRouteService", () => {
     });
   });
 
-  it("menghapus transfer melalui repository", async () => {
+  it("menghapus transfer setelah validasi site access", async () => {
     const { repository, service } = createService();
 
-    const result = await service.deleteTransfer("transfer-1");
+    const result = await service.deleteTransfer(defaultDetailInput);
 
+    expect(repository.findTransferById).toHaveBeenCalledWith("transfer-1");
     expect(repository.deleteTransfer).toHaveBeenCalledWith("transfer-1");
     expect(result).toEqual({ success: true, data: null });
+  });
+
+  it("superAdmin bisa akses transfer tanpa site restriction", async () => {
+    const { inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveRestrictedSiteId.mockResolvedValue(undefined);
+
+    const result = await service.getTransferDetail({
+      ...defaultDetailInput,
+      isSuperAdmin: true,
+    });
+
+    expect(result).toEqual({ success: true, data: { transfer } });
   });
 });

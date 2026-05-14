@@ -1,6 +1,12 @@
 import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+  createHandler,
+} from "@/lib/api";
 
 /** GET /api/admin/workorders/top-performers */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -17,7 +23,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   });
 
   if (!result.success) {
-    return ApiErrors.unauthorized();
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
+    return apiError(
+      "Gagal mengambil data top performers",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 
   return apiSuccess({

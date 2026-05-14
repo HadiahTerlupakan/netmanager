@@ -1,4 +1,4 @@
-import { logActivitySafe } from "@/lib/logger";
+import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { SiteDetailDTO, SiteListItemDTO } from "../dto/SiteDTO";
 import type { SiteEntity } from "../domain/entities/SiteEntity";
@@ -10,6 +10,7 @@ import type {
 } from "../domain/ports/ISiteRepository";
 import { createSiteRepository } from "../factories/RepositoryFactory";
 import { SiteMapper } from "../mappers/SiteMapper";
+import type { ServiceResult } from "./department-service.types";
 
 const DEFAULT_ATTENDANCE_RADIUS = 100;
 
@@ -36,6 +37,11 @@ interface SiteUpdateInput {
   gudangIds?: string[];
 }
 
+interface SiteDeleteResult {
+  softDeleted: boolean;
+  message: string;
+}
+
 /**
  * Service for Site business logic.
  */
@@ -47,31 +53,88 @@ export class SiteService {
   }
 
   /** Get all sites as list DTOs. */
-  async getSites(options?: SiteFilterOptions): Promise<SiteListItemDTO[]> {
-    const sites = await this.repository.findAll(options);
-    return SiteMapper.toListItemDTOs(sites);
+  async getSites(
+    options?: SiteFilterOptions,
+  ): Promise<ServiceResult<SiteListItemDTO[]>> {
+    try {
+      const sites = await this.repository.findAll(options);
+      return { success: true, data: SiteMapper.toListItemDTOs(sites) };
+    } catch (error) {
+      logger.error(
+        "SiteService.getSites failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil daftar site",
+        code: "FETCH_ERROR",
+      };
+    }
   }
 
   /** Get site detail DTO by ID. */
-  async getSiteById(id: string): Promise<SiteDetailDTO> {
-    const site = await this.repository.findById(id);
-    if (!site) {
-      throw new Error("Site tidak ditemukan");
-    }
+  async getSiteById(id: string): Promise<ServiceResult<SiteDetailDTO>> {
+    try {
+      const site = await this.repository.findById(id);
+      if (!site) {
+        return {
+          success: false,
+          error: "Site tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-    return SiteMapper.toDetailDTO(site);
+      return { success: true, data: SiteMapper.toDetailDTO(site) };
+    } catch (error) {
+      logger.error(
+        "SiteService.getSiteById failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil data site",
+        code: "FETCH_ERROR",
+      };
+    }
   }
 
   /** Create new site and return detail DTO. */
   async createSite(
     data: SiteCreateInput,
     userId: string,
-  ): Promise<SiteDetailDTO> {
-    this.validateRequiredFields(data);
-    await this.ensureUniqueCode(data.code);
-    const site = await this.repository.create(this.buildCreateInput(data));
-    this.logCreateActivity(site, userId, data.gudangIds);
-    return SiteMapper.toDetailDTO(site);
+  ): Promise<ServiceResult<SiteDetailDTO>> {
+    try {
+      if (!data.code || !data.name) {
+        return {
+          success: false,
+          error: "Kode dan nama wajib diisi",
+          code: "VALIDATION_ERROR",
+        };
+      }
+
+      const existingCode = await this.repository.findByCode(data.code);
+      if (existingCode) {
+        return {
+          success: false,
+          error: "Kode site sudah digunakan",
+          code: "DUPLICATE_CODE",
+        };
+      }
+
+      const site = await this.repository.create(this.buildCreateInput(data));
+      this.logCreateActivity(site, userId, data.gudangIds);
+      return { success: true, data: SiteMapper.toDetailDTO(site) };
+    } catch (error) {
+      logger.error(
+        "SiteService.createSite failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal membuat site",
+        code: "CREATE_ERROR",
+      };
+    }
   }
 
   /** Update site and return detail DTO. */
@@ -79,63 +142,99 @@ export class SiteService {
     id: string,
     data: SiteUpdateInput,
     userId: string,
-  ): Promise<SiteDetailDTO> {
-    const existing = await this.repository.findById(id);
-    if (!existing) {
-      throw new Error("Site tidak ditemukan");
-    }
+  ): Promise<ServiceResult<SiteDetailDTO>> {
+    try {
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Site tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-    await this.ensureUniqueCodeForUpdate(data.code, existing);
-    const site = await this.repository.update(id, this.buildUpdateInput(data));
-    this.logUpdateActivity(site.id, userId, data);
-    return SiteMapper.toDetailDTO(site);
+      if (data.code && data.code.toUpperCase() !== existing.code) {
+        const duplicate = await this.repository.findByCode(data.code);
+        if (duplicate) {
+          return {
+            success: false,
+            error: "Kode site sudah digunakan",
+            code: "DUPLICATE_CODE",
+          };
+        }
+      }
+
+      const site = await this.repository.update(
+        id,
+        this.buildUpdateInput(data),
+      );
+      this.logUpdateActivity(site.id, userId, data);
+      return { success: true, data: SiteMapper.toDetailDTO(site) };
+    } catch (error) {
+      logger.error(
+        "SiteService.updateSite failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal memperbarui site",
+        code: "UPDATE_ERROR",
+      };
+    }
   }
 
   /** Delete site using soft or hard delete rules. */
-  async deleteSite(id: string, userId: string) {
-    const site = await this.repository.findWithCounts(id);
-    if (!site) {
-      throw new Error("Site tidak ditemukan");
-    }
+  async deleteSite(
+    id: string,
+    userId: string,
+  ): Promise<ServiceResult<SiteDeleteResult>> {
+    try {
+      const site = await this.repository.findWithCounts(id);
+      if (!site) {
+        return {
+          success: false,
+          error: "Site tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-    if (this.hasAssociations(site)) {
-      await this.repository.deactivate(id);
-      this.logDeactivateActivity(site, userId);
+      if (this.hasAssociations(site)) {
+        await this.repository.deactivate(id);
+        this.logDeactivateActivity(site, userId);
+        return {
+          success: true,
+          data: {
+            softDeleted: true,
+            message:
+              "Site dinonaktifkan (memiliki pengguna/work order terkait)",
+          },
+        };
+      }
+
+      await this.repository.delete(id);
+      this.logDeleteActivity(site, userId);
       return {
-        softDeleted: true,
-        message: "Site dinonaktifkan (memiliki pengguna/work order terkait)",
+        success: true,
+        data: { softDeleted: false, message: "Site berhasil dihapus" },
       };
-    }
+    } catch (error) {
+      logger.error(
+        "SiteService.deleteSite failed",
+        error instanceof Error ? error : undefined,
+      );
+      if (isPrismaRecordNotFoundError(error)) {
+        return {
+          success: false,
+          error: "Site tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-    await this.deleteWithoutAssociations(id);
-    this.logDeleteActivity(site, userId);
-    return { softDeleted: false, message: "Site berhasil dihapus" };
-  }
-
-  private validateRequiredFields(data: SiteCreateInput) {
-    if (!data.code || !data.name) {
-      throw new Error("Kode dan nama wajib diisi");
-    }
-  }
-
-  private async ensureUniqueCode(code: string) {
-    const existing = await this.repository.findByCode(code);
-    if (existing) {
-      throw new Error("Kode site sudah digunakan");
-    }
-  }
-
-  private async ensureUniqueCodeForUpdate(
-    code: string | undefined,
-    existing: SiteEntity,
-  ) {
-    if (!code || code.toUpperCase() === existing.code) {
-      return;
-    }
-
-    const duplicate = await this.repository.findByCode(code);
-    if (duplicate) {
-      throw new Error("Kode site sudah digunakan");
+      return {
+        success: false,
+        error: "Gagal menghapus site",
+        code: "DELETE_ERROR",
+      };
     }
   }
 
@@ -204,18 +303,6 @@ export class SiteService {
 
   private hasAssociations(site: SiteEntity) {
     return site.counts.users > 0 || site.counts.workOrders > 0;
-  }
-
-  private async deleteWithoutAssociations(id: string) {
-    try {
-      await this.repository.delete(id);
-    } catch (error) {
-      if (isPrismaRecordNotFoundError(error)) {
-        throw new Error("Site tidak ditemukan");
-      }
-
-      throw error;
-    }
   }
 
   private logCreateActivity(

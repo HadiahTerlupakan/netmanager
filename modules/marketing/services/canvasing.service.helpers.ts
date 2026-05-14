@@ -23,30 +23,18 @@ async function getTechnicalDepartmentId(
   siteId: string | undefined,
 ): Promise<string | undefined> {
   if (!siteId) {
-    // Fallback: get first Technical department without tenant filter
-    const technicalDept = await prismaAuth.departments.findFirst({
-      where: { name: "Technical" },
-      select: { id: true },
-    });
-    return technicalDept?.id;
+    return undefined;
   }
 
-  // Get tenantId from site using prismaAuth to bypass tenant isolation
   const site = await prismaAuth.sites.findUnique({
     where: { id: siteId },
     select: { tenantId: true },
   });
 
   if (!site?.tenantId) {
-    // Fallback: get first Technical department without tenant filter
-    const technicalDept = await prismaAuth.departments.findFirst({
-      where: { name: "Technical" },
-      select: { id: true },
-    });
-    return technicalDept?.id;
+    return undefined;
   }
 
-  // Get Technical department for this tenant using prismaAuth
   const technicalDept = await prismaAuth.departments.findFirst({
     where: {
       name: "Technical",

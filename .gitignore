@@ -163,4 +163,4 @@ lint_report.txt
 # =========================
 .code-review-graph/
 MEMORY.md
-.kiro/settings/mcp.json
+.kiro/settings/mcp.json.claude/worktrees/

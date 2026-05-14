@@ -43,7 +43,7 @@ interface BarangDetail {
   stok?: RawBarangGudang[];
 }
 
-export function ClientComponent() {
+export function BarangDetailClient() {
   const params = useParams();
   const { hasPermission } = usePermission();
 

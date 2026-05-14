@@ -16,7 +16,11 @@ export function createCanvasingService(): CanvasingService {
     new CanvasingRepository(prisma, {
       findMitraIdsBySite: (siteId) => mitraLookupService.findIdsBySite(siteId),
       findMitraSummary: (id) => mitraLookupService.findCanvasingSummary(id),
-      findSiteSummary: (id) => siteService.getSiteById(id),
+      findSiteSummary: async (id) => {
+        const result = await siteService.getSiteById(id);
+        if (!result.success || !result.data) return null;
+        return { id: result.data.id, name: result.data.name };
+      },
     }),
     new WorkOrderQueryService(),
   );

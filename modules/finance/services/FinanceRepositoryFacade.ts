@@ -1,5 +1,6 @@
 import { prisma } from "@/modules/database";
 import { logger } from "@/lib/logger";
+import { consumeSaldoKreditAtomic } from "../repositories/SaldoKreditRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { UnmatchedMutationRepository } from "../repositories/UnmatchedMutationRepository";
@@ -43,20 +44,7 @@ export class FinanceRepositoryFacade {
   ): Promise<bigint> {
     if (capAmount <= 0n) return 0n;
 
-    const applied = await prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<Array<{ saldoKreditRupiah: bigint }>>`
-        SELECT "saldoKreditRupiah" FROM "Pelanggan" WHERE id = ${pelangganId} FOR UPDATE
-      `;
-      const saldo = rows[0]?.saldoKreditRupiah ?? 0n;
-      if (saldo <= 0n) return 0n;
-
-      const apply = saldo > capAmount ? capAmount : saldo;
-      await tx.pelanggan.update({
-        where: { id: pelangganId },
-        data: { saldoKreditRupiah: { decrement: apply } },
-      });
-      return apply;
-    });
+    const applied = await consumeSaldoKreditAtomic(pelangganId, capAmount);
 
     if (applied > 0n) {
       logger.info(

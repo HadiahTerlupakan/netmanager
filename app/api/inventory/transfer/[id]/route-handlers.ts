@@ -4,8 +4,14 @@ import {
   type InventoryTransferRouteResult,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import {
+  apiSuccess,
+  ApiErrors,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api-response";
 import { authOptions } from "@/lib/auth";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { hasPermission } from "@/lib/rbac";
 
@@ -26,6 +32,16 @@ async function requireSession() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
   return session;
+}
+
+/** Map service failure result into API response. */
+function toTransferRouteResponse(result: InventoryTransferRouteFailure) {
+  if (result.status === 404) return ApiErrors.notFound(result.error);
+  if (result.status === 403) return ApiErrors.forbidden(result.error);
+  if (result.status === 400) {
+    return apiError(result.error, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
+  return ApiErrors.internalError(result.error);
 }
 
 /** Map update transfer error into API response. */
@@ -58,37 +74,22 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
-
   try {
     const session = await requireSession();
     if (!session) return ApiErrors.unauthorized();
     if (!(await hasPermission("transfer:read"))) return ApiErrors.forbidden();
 
     const { id } = await params;
-    const dbStart = Date.now();
-    const result = await inventoryTransferRouteService.getTransferDetail(id);
+    const permissions = await getUserPermissions(session.user.id);
+    const result = await inventoryTransferRouteService.getTransferDetail({
+      id,
+      userId: session.user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(session.user),
+    });
 
-    logger.dbOperation(
-      "findUnique",
-      "TransferAntarGudang+Relations",
-      Date.now() - dbStart,
-    );
-    if (!result.found) {
-      return ApiErrors.notFound("Record transfer tidak ditemukan");
-    }
-
-    logger.apiRequest(
-      "GET",
-      `/api/inventory/transfer/${id}`,
-      200,
-      Date.now() - startTime,
-      {
-        userId: session.user.id,
-        transferId: id,
-      },
-    );
-    return apiSuccess({ transfer: result.transfer });
+    if (result.success === false) return toTransferRouteResponse(result);
+    return apiSuccess({ transfer: result.data.transfer });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error fetching transfer record", err, {
@@ -104,36 +105,25 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
-
   try {
     const session = await requireSession();
     if (!session) return ApiErrors.unauthorized();
-    if (!(await hasPermission("transfer:create"))) return ApiErrors.forbidden();
+    if (!(await hasPermission("transfer:update"))) return ApiErrors.forbidden();
 
     const { id } = await params;
     const body = await req.json();
-    const dbStart = Date.now();
+    const permissions = await getUserPermissions(session.user.id);
     const result = await inventoryTransferRouteService.updateTransfer({
       id,
       body,
+      userId: session.user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(session.user),
     });
 
     if (isInventoryTransferRouteFailure(result)) {
-      return ApiErrors.badRequest(result.error);
+      return toTransferRouteResponse(result);
     }
-
-    logger.dbOperation("update", "TransferAntarGudang", Date.now() - dbStart);
-    logger.apiRequest(
-      "PUT",
-      `/api/inventory/transfer/${id}`,
-      200,
-      Date.now() - startTime,
-      {
-        userId: session.user.id,
-        transferId: id,
-      },
-    );
 
     return apiSuccess({
       message: "Transfer record berhasil diperbarui",
@@ -154,32 +144,21 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
-
   try {
     const session = await requireSession();
     if (!session) return ApiErrors.unauthorized();
     if (!(await hasPermission("transfer:delete"))) return ApiErrors.forbidden();
 
     const { id } = await params;
-    const dbStart = Date.now();
-    await inventoryTransferRouteService.deleteTransfer(id);
+    const permissions = await getUserPermissions(session.user.id);
+    const result = await inventoryTransferRouteService.deleteTransfer({
+      id,
+      userId: session.user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(session.user),
+    });
 
-    logger.dbOperation(
-      "transaction",
-      "TransferAntarGudang+RelatedRecords+BarangGudang",
-      Date.now() - dbStart,
-    );
-    logger.apiRequest(
-      "DELETE",
-      `/api/inventory/transfer/${id}`,
-      200,
-      Date.now() - startTime,
-      {
-        userId: session.user.id,
-        transferId: id,
-      },
-    );
+    if (result.success === false) return toTransferRouteResponse(result);
 
     return apiSuccess({
       message: "Transfer berhasil dibatalkan and stok dikembalikan",

@@ -1,4 +1,4 @@
-import { DepartmentRepository } from "../repositories/DepartmentRepository";
+import { createDepartmentRepository } from "../factories/RepositoryFactory";
 
 export interface MobileDepartmentOption {
   id: string;
@@ -9,9 +9,7 @@ export interface MobileDepartmentOption {
 export async function getMobileDepartments(): Promise<
   MobileDepartmentOption[]
 > {
-  const repository = new DepartmentRepository();
-  const departments = await repository.findAll();
-  return departments
-    .filter((department) => department.showInMobileWO)
-    .map(({ id, name }) => ({ id, name }));
+  const repository = createDepartmentRepository();
+  const departments = await repository.findAll({ showInMobileWO: true });
+  return departments.map(({ id, name }) => ({ id, name }));
 }
