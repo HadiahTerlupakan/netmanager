@@ -1,5 +1,7 @@
 import { prisma, prismaMitra } from "@/modules/database";
 
+import { AppVersionValidationError } from "../errors";
+
 export interface MobileVersionReportInput {
   sessionUserId: string;
   tenantId?: string | null;
@@ -15,7 +17,9 @@ export class AppVersionReportService {
   ): Promise<{ success: true }> {
     const parsedVersionCode = this.parseMobileVersionCode(input.versionCode);
     if (parsedVersionCode === null) {
-      throw new Error("versionCode harus berupa angka bulat positif");
+      throw new AppVersionValidationError(
+        "versionCode harus berupa angka bulat positif",
+      );
     }
 
     await this.updateVersionOwner({

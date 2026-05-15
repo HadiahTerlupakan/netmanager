@@ -1,5 +1,8 @@
 import { hasPermission } from "@/lib/rbac";
 import {
+  AppVersionConflictError,
+  AppVersionNotFoundError,
+  AppVersionValidationError,
   getAppVersionService,
   updateAppVersionSchema,
 } from "@/modules/app-version";
@@ -42,7 +45,6 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const body = await req.json();
 
-  // Validate input with Zod
   const parseResult = updateAppVersionSchema.safeParse(body);
   if (!parseResult.success) {
     return apiError("Data input tidak valid", ErrorCodes.VALIDATION_ERROR, {
@@ -52,17 +54,31 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const service = await getAppVersionService();
-  const version = await service.updateVersion(id, parseResult.data);
+  try {
+    const version = await service.updateVersion(id, parseResult.data);
 
-  // System Log
-  logActivitySafe({
-    action: "UPDATE",
-    subject: "AppVersion",
-    userId: ctx.session!.user.id,
-    details: { id: version.id, version: version.version },
-  });
+    logActivitySafe({
+      action: "UPDATE",
+      subject: "AppVersion",
+      userId: ctx.session!.user.id,
+      details: { id: version.id, version: version.version },
+    });
 
-  return apiSuccess(version, { message: "Versi berhasil diperbarui" });
+    return apiSuccess(version, { message: "Versi berhasil diperbarui" });
+  } catch (error) {
+    if (error instanceof AppVersionNotFoundError) {
+      return ApiErrors.notFound("Versi aplikasi");
+    }
+    if (error instanceof AppVersionConflictError) {
+      return apiError(error.message, ErrorCodes.CONFLICT, { status: 409 });
+    }
+    if (error instanceof AppVersionValidationError) {
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+    throw error;
+  }
 });
 
 // DELETE /api/admin/app-version/[id] - Hard delete version and file
@@ -78,14 +94,12 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   try {
     await service.deleteVersion(id);
   } catch (error) {
-    if (error instanceof Error && error.message === "Versi tidak ditemukan") {
+    if (error instanceof AppVersionNotFoundError) {
       return ApiErrors.notFound("Versi aplikasi");
     }
-
     throw error;
   }
 
-  // System Log
   logActivitySafe({
     action: "DELETE",
     subject: "AppVersion",

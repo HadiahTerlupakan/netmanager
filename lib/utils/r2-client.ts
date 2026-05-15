@@ -467,6 +467,51 @@ export async function getR2ObjectBuffer(key: string): Promise<Buffer> {
 }
 
 /**
+ * Stream an R2 object directly to disk. Pakai ini untuk file besar (APK 300MB+)
+ * agar memori server tidak spike — body di-pipe per chunk, bukan di-load penuh.
+ */
+export async function streamR2ObjectToFile(
+  key: string,
+  destinationPath: string,
+): Promise<void> {
+  const client = await getR2Client();
+  const settings = await getR2Settings();
+
+  if (!client || !settings) {
+    throw new Error("R2 storage is not enabled");
+  }
+
+  const { createWriteStream } = await import("fs");
+  const { pipeline } = await import("stream/promises");
+  const { Readable } = await import("stream");
+
+  try {
+    const result = await client.send(
+      new GetObjectCommand({
+        Bucket: settings.bucketName,
+        Key: key,
+      }),
+    );
+
+    const body = result.Body as
+      | NodeJS.ReadableStream
+      | ReadableStream<Uint8Array>
+      | undefined;
+    if (!body) {
+      throw new Error("Konten file APK tidak tersedia");
+    }
+
+    const nodeStream =
+      body instanceof Readable ? body : Readable.fromWeb(body as never);
+
+    await pipeline(nodeStream, createWriteStream(destinationPath));
+  } catch (error) {
+    logger.error("Error streaming object from R2 to file:", error);
+    throw new Error("Gagal mengunduh file APK dari R2");
+  }
+}
+
+/**
  * Generate upload key for different upload types
  */
 export function generateR2Key(

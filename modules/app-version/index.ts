@@ -11,5 +11,21 @@ export { parseAppVersionUploadForm } from "./services/parseUploadVersionForm";
 export { clearVersionCache } from "./services/AppVersionService";
 
 // Validators
-export { updateAppVersionSchema } from "./validators";
-export type { UpdateAppVersionInput } from "./validators";
+export {
+  updateAppVersionSchema,
+  reportMobileVersionSchema,
+  checkVersionQuerySchema,
+  APP_VERSION_MAX_APK_BYTES,
+} from "./validators";
+export type {
+  UpdateAppVersionInput,
+  ReportMobileVersionInput,
+  CheckVersionQuery,
+} from "./validators";
+
+// Errors
+export {
+  AppVersionConflictError,
+  AppVersionNotFoundError,
+  AppVersionValidationError,
+} from "./errors";

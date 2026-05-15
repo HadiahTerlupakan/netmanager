@@ -1,3 +1,4 @@
+import { AppVersionValidationError } from "../errors";
 import type { UploadVersionInput } from "./AppVersionService.types";
 
 const POSITIVE_INTEGER_PATTERN = /^\d+$/;
@@ -36,12 +37,16 @@ function parsePositiveInteger(
 
   const normalized = value.trim();
   if (!POSITIVE_INTEGER_PATTERN.test(normalized)) {
-    throw new Error(`${fieldName} harus berupa angka bulat positif`);
+    throw new AppVersionValidationError(
+      `${fieldName} harus berupa angka bulat positif`,
+    );
   }
 
   const parsed = Number(normalized);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${fieldName} harus berupa angka bulat positif`);
+    throw new AppVersionValidationError(
+      `${fieldName} harus berupa angka bulat positif`,
+    );
   }
 
   return parsed;
@@ -56,7 +61,7 @@ function assertApkFileName(
   }
 
   if (!filename.toLowerCase().endsWith(".apk")) {
-    throw new Error(message);
+    throw new AppVersionValidationError(message);
   }
 }
 
@@ -96,7 +101,7 @@ function assertVersionSource(fields: ParsedUploadFields, apkFile?: File): void {
   );
 
   if (!hasApk && !hasVersionMetadata) {
-    throw new Error(
+    throw new AppVersionValidationError(
       "Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode",
     );
   }

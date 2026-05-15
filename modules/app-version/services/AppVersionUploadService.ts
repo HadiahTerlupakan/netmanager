@@ -6,6 +6,7 @@ import type {
   CreateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
+import { AppVersionConflictError, AppVersionValidationError } from "../errors";
 import { clearVersionCache } from "../repositories/AppVersionRepository";
 import {
   deleteUploadedApkObject,
@@ -48,14 +49,22 @@ export class AppVersionUploadService {
     let apkResolution: UploadApkResolution = { uploadedByService: false };
 
     try {
-      const createdVersion = await this.createUploadedVersion(
-        uploadInput,
-        input,
-      );
-      apkResolution = createdVersion.apkResolution;
-      return createdVersion.version;
+      const created = await this.createUploadedVersion(uploadInput, input);
+      apkResolution = created.apkResolution;
+      return created.version;
     } catch (error) {
-      await this.handleUploadFailure(input, apkResolution, error);
+      await this.cleanupFailedUpload(input, apkResolution);
+      logger.error("[AppVersionService] Error in uploadVersion:", error);
+      if (
+        error instanceof AppVersionValidationError ||
+        error instanceof AppVersionConflictError
+      ) {
+        throw error;
+      }
+      const err = error as { message?: string };
+      throw new Error(
+        `Gagal mengunggah versi aplikasi: ${err?.message || "Terjadi kesalahan"}`,
+      );
     } finally {
       await this.cleanupTempFiles(uploadInput.cleanupPaths);
     }
@@ -66,43 +75,37 @@ export class AppVersionUploadService {
     input: UploadVersionInput,
   ) {
     const uploadedApk = await loadUploadedApkDetails(input);
-    const metadata = await this.resolveMetadata(
-      uploadInput,
-      uploadedApk.apkBuffer,
-    );
-    await this.assertVersionIsUnique(metadata);
-    const apkResolution = await this.resolveApkUrl(
-      uploadInput,
-      metadata,
-      uploadedApk.apkUrl,
-    );
-    const apkSize = this.resolveApkSize(
-      input,
-      uploadedApk.apkSize,
-      uploadInput.resolvedApkSize,
-    );
-    const createData = this.buildCreateData(
-      input,
-      metadata,
-      apkResolution.url,
-      apkSize,
-    );
-    const version = await this.repository.create(createData);
-    clearVersionCache();
-    return { version, apkResolution };
-  }
-
-  private async handleUploadFailure(
-    input: UploadVersionInput,
-    apkResolution: UploadApkResolution,
-    error: unknown,
-  ): Promise<never> {
-    await this.cleanupFailedUpload(input, apkResolution);
-    logger.error("[AppVersionService] Error in uploadVersion:", error);
-    const err = error as { message?: string };
-    throw new Error(
-      `Gagal mengunggah versi aplikasi: ${err?.message || "Terjadi kesalahan"}`,
-    );
+    if (uploadedApk.apkPath) {
+      uploadInput.cleanupPaths.add(uploadedApk.apkPath);
+    }
+    try {
+      const metadata = await this.resolveMetadata(
+        uploadInput,
+        uploadedApk.apkPath,
+      );
+      await this.assertVersionIsUnique(metadata);
+      const apkResolution = await this.resolveApkUrl(
+        uploadInput,
+        metadata,
+        uploadedApk.apkUrl,
+      );
+      const apkSize = this.resolveApkSize(
+        input,
+        uploadedApk.apkSize,
+        uploadInput.resolvedApkSize,
+      );
+      const createData = this.buildCreateData(
+        input,
+        metadata,
+        apkResolution.url,
+        apkSize,
+      );
+      const version = await this.repository.create(createData);
+      clearVersionCache();
+      return { version, apkResolution };
+    } finally {
+      await uploadedApk.cleanup?.();
+    }
   }
 
   private async resolveUploadInput(
@@ -134,23 +137,24 @@ export class AppVersionUploadService {
 
   private async resolveMetadata(
     uploadInput: ResolvedUploadInput,
-    uploadedApkBuffer?: Buffer,
+    uploadedApkPath?: string,
   ): Promise<AppVersionMetadata> {
     let version = uploadInput.input.version;
     let buildNumber = uploadInput.input.buildNumber;
     let versionCode = uploadInput.input.versionCode;
 
-    if (this.hasApkSource(uploadInput, uploadedApkBuffer)) {
+    if (this.hasApkSource(uploadInput, uploadedApkPath)) {
+      const apkPath = uploadedApkPath ?? uploadInput.resolvedApkPath;
       const apkInfo = await this.parseApkInfoFn({
-        ...(uploadedApkBuffer ? { buffer: uploadedApkBuffer } : {}),
         ...(uploadInput.input.apkBuffer
           ? { buffer: uploadInput.input.apkBuffer }
           : {}),
-        ...(uploadInput.resolvedApkPath
-          ? { path: uploadInput.resolvedApkPath }
-          : {}),
+        ...(apkPath ? { path: apkPath } : {}),
       });
-      if (!apkInfo) throw new Error("Gagal membaca metadata APK yang diupload");
+      if (!apkInfo)
+        throw new AppVersionValidationError(
+          "Gagal membaca metadata APK yang diupload",
+        );
       this.assertMetadataMatchesInput(
         { version, buildNumber, versionCode },
         apkInfo,
@@ -161,16 +165,16 @@ export class AppVersionUploadService {
     }
 
     if (!version || !buildNumber || !versionCode) {
-      throw new Error(
+      throw new AppVersionValidationError(
         "Version, buildNumber, dan versionCode wajib diisi atau upload APK untuk auto-detect",
       );
     }
     return { version, buildNumber, versionCode };
   }
 
-  private hasApkSource(input: ResolvedUploadInput, uploadedApkBuffer?: Buffer) {
+  private hasApkSource(input: ResolvedUploadInput, uploadedApkPath?: string) {
     return Boolean(
-      input.input.apkBuffer || input.resolvedApkPath || uploadedApkBuffer,
+      input.input.apkBuffer || input.resolvedApkPath || uploadedApkPath,
     );
   }
 
@@ -183,7 +187,9 @@ export class AppVersionUploadService {
       (input.buildNumber && input.buildNumber !== apkInfo.buildNumber) ||
       (input.versionCode && input.versionCode !== apkInfo.versionCode)
     ) {
-      throw new Error("Metadata versi tidak cocok dengan APK yang diupload");
+      throw new AppVersionValidationError(
+        "Metadata versi tidak cocok dengan APK yang diupload",
+      );
     }
   }
 
@@ -193,9 +199,13 @@ export class AppVersionUploadService {
       metadata.versionCode,
     );
     if (exists.versionExists)
-      throw new Error(`Version ${metadata.version} sudah ada`);
+      throw new AppVersionConflictError(
+        `Version ${metadata.version} sudah ada`,
+      );
     if (exists.versionCodeExists) {
-      throw new Error(`Version code ${metadata.versionCode} sudah ada`);
+      throw new AppVersionConflictError(
+        `Version code ${metadata.versionCode} sudah ada`,
+      );
     }
   }
 

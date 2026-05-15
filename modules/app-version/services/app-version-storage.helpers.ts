@@ -7,13 +7,14 @@ import {
   deleteFromR2 as deleteR2Object,
   generateR2Key,
   getPresignedUrl,
-  getR2ObjectBuffer,
   getR2ObjectMetadata,
   getR2Settings,
   isR2Enabled,
+  streamR2ObjectToFile,
   uploadToR2,
 } from "@/lib/utils/r2-client";
 
+import { AppVersionValidationError } from "../errors";
 import type { UploadVersionInput } from "./AppVersionService.types";
 
 const DIRECT_UPLOAD_PREFIX = "uploads/apk/";
@@ -22,15 +23,18 @@ const PRESIGNED_EXPIRES_IN = 3600;
 const LOCAL_APK_DIRECTORY = ["public", "uploads", "apk"] as const;
 
 export interface UploadedApkDetails {
-  apkBuffer?: Buffer;
+  apkPath?: string;
   apkSize?: number;
   apkUrl?: string;
+  cleanup?: () => Promise<void>;
 }
 
 /** Validate direct-upload key sebelum membaca object upload. */
 export function validateUploadedKey(key: string): void {
   if (!key.startsWith(DIRECT_UPLOAD_PREFIX)) {
-    throw new Error("Lokasi file direct upload tidak valid");
+    throw new AppVersionValidationError(
+      "Lokasi file direct upload tidak valid",
+    );
   }
 }
 
@@ -56,7 +60,7 @@ export async function cleanupStoredApk(apkUrl?: string | null): Promise<void> {
   }
 }
 
-/** Muat detail direct-upload APK dari R2. */
+/** Muat detail direct-upload APK dari R2 ke temp file (tanpa buffer in-memory). */
 export async function loadUploadedApkDetails(
   input: UploadVersionInput,
 ): Promise<UploadedApkDetails> {
@@ -69,10 +73,16 @@ export async function loadUploadedApkDetails(
   assertUploadedSizeMatches(input.uploadedSize, metadata.contentLength);
 
   const settings = await getR2Settings();
+  const tempPath = path.join(os.tmpdir(), `apk_uploaded_${randomUUID()}.apk`);
+  await streamR2ObjectToFile(input.uploadedKey, tempPath);
+
   return {
-    apkBuffer: await getR2ObjectBuffer(input.uploadedKey),
+    apkPath: tempPath,
     apkSize: metadata.contentLength ?? input.uploadedSize,
     apkUrl: buildUploadedApkUrl(input.uploadedKey, settings),
+    cleanup: async () => {
+      await fs.unlink(tempPath).catch((): void => undefined);
+    },
   };
 }
 
@@ -133,7 +143,9 @@ function assertUploadedSizeMatches(
     return;
   }
 
-  throw new Error("Ukuran file APK yang diupload tidak sesuai");
+  throw new AppVersionValidationError(
+    "Ukuran file APK yang diupload tidak sesuai",
+  );
 }
 
 function isLocalApkUrl(apkUrl: string): boolean {

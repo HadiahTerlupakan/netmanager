@@ -523,6 +523,12 @@ function UploadVersionModal({
   });
   const [apkFile, setApkFile] = useState<File | null>(null);
   const [isForceLocal, setIsForceLocal] = useState(false);
+  const [uploadedApk, setUploadedApk] = useState<{
+    key: string;
+    filename: string;
+    size: number;
+  } | null>(null);
+  const [autoDetected, setAutoDetected] = useState(false);
 
   // Reset upload state when modal opens
   useEffect(() => {
@@ -531,19 +537,125 @@ function UploadVersionModal({
     setLoading(false);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const MAX_APK_SIZE = 500 * 1024 * 1024;
 
-    // Validasi ukuran file APK (max 100MB)
-    const MAX_APK_SIZE = 100 * 1024 * 1024; // 100MB
-    if (apkFile && apkFile.size > MAX_APK_SIZE) {
-      showToast("error", "Ukuran APK maksimal 100MB");
+  const uploadApkToR2 = async (file: File) => {
+    setStatus("Meminta URL upload...");
+    const presignedRes = await fetch("/api/admin/app-version/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: "application/vnd.android.package-archive",
+        size: file.size,
+      }),
+    });
+    if (!presignedRes.ok) {
+      const err = await presignedRes.json();
+      throw new Error(err.error || "Gagal mendapatkan URL upload");
+    }
+    const { uploadUrl, key } = await presignedRes.json();
+
+    setStatus("Mengupload file ke storage...");
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      });
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) resolve(true);
+          else reject(new Error("Gagal mengupload file ke storage"));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Network error saat upload"));
+      xhr.open("PUT", uploadUrl);
+      xhr.setRequestHeader(
+        "Content-Type",
+        "application/vnd.android.package-archive",
+      );
+      xhr.send(file);
+    });
+
+    return { key, filename: file.name, size: file.size };
+  };
+
+  const parseUploadedApkMetadata = async (uploadedKey: string) => {
+    setStatus("Membaca metadata APK...");
+    const res = await fetch("/api/admin/app-version/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadedKey }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || "Gagal membaca metadata APK");
+    }
+    return data.data as {
+      version: string;
+      buildNumber: number;
+      versionCode: number;
+    };
+  };
+
+  const handleApkSelect = async (file: File | null) => {
+    setApkFile(file);
+    setUploadedApk(null);
+    setAutoDetected(false);
+    setUploadProgress(0);
+    setStatus("");
+    if (!file) return;
+
+    if (file.size > MAX_APK_SIZE) {
+      showToast("error", "Ukuran APK maksimal 500MB");
       return;
     }
 
-    // Jika tidak ada APK dan field kosong, tampilkan error
+    if (isForceLocal) {
+      // Local mode: parsing terjadi server-side saat submit final
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const uploaded = await uploadApkToR2(file);
+      setUploadedApk(uploaded);
+
+      const meta = await parseUploadedApkMetadata(uploaded.key);
+      setFormData((prev) => ({
+        ...prev,
+        version: meta.version || prev.version,
+        buildNumber: String(meta.buildNumber || prev.buildNumber || ""),
+        versionCode: String(meta.versionCode || prev.versionCode || ""),
+      }));
+      setAutoDetected(true);
+      setStatus("Metadata terdeteksi");
+    } catch (error: unknown) {
+      clientLogger.error("Error preparing APK:", error);
+      const msg =
+        error instanceof Error ? error.message : "Gagal menyiapkan APK";
+      showToast("error", msg);
+      setApkFile(null);
+      setUploadedApk(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (apkFile && apkFile.size > MAX_APK_SIZE) {
+      showToast("error", "Ukuran APK maksimal 500MB");
+      return;
+    }
+
+    const hasUploadedKey = Boolean(uploadedApk);
+    const hasApkSource = Boolean(apkFile && (isForceLocal || hasUploadedKey));
     if (
-      !apkFile &&
+      !hasApkSource &&
       (!formData.version || !formData.buildNumber || !formData.versionCode)
     ) {
       showToast(
@@ -554,73 +666,8 @@ function UploadVersionModal({
     }
 
     setLoading(true);
-    setUploadProgress(0);
 
     try {
-      let apkKey = "";
-      let apkFilename = "";
-      let apkSize = 0;
-
-      // 1. Jika ada file, upload langsung ke storage (Direct Upload) - KECUALI forceLocal
-      if (apkFile && !isForceLocal) {
-        setStatus("Meminta URL upload...");
-
-        // Get Presigned URL
-        const presignedRes = await fetch("/api/admin/app-version/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: apkFile.name,
-            contentType: "application/vnd.android.package-archive",
-            size: apkFile.size,
-          }),
-        });
-
-        if (!presignedRes.ok) {
-          const err = await presignedRes.json();
-          throw new Error(err.error || "Gagal mendapatkan URL upload");
-        }
-
-        const { uploadUrl, key } = await presignedRes.json();
-        apkKey = key;
-        apkFilename = apkFile.name;
-        apkSize = apkFile.size;
-
-        // Upload to R2 directly
-        setStatus("Mengupload file...");
-
-        const xhr = new XMLHttpRequest();
-
-        await new Promise((resolve, reject) => {
-          xhr.upload.addEventListener("progress", (event) => {
-            if (event.lengthComputable) {
-              const percentComplete = (event.loaded / event.total) * 100;
-              setUploadProgress(Math.round(percentComplete));
-            }
-          });
-
-          xhr.onreadystatechange = () => {
-            if (xhr.readyState === 4) {
-              if (xhr.status === 200) {
-                resolve(true);
-              } else {
-                reject(new Error("Gagal mengupload file ke storage"));
-              }
-            }
-          };
-
-          xhr.onerror = () => reject(new Error("Network error saat upload"));
-
-          xhr.open("PUT", uploadUrl);
-          xhr.setRequestHeader(
-            "Content-Type",
-            "application/vnd.android.package-archive",
-          );
-          xhr.send(apkFile);
-        });
-      }
-
-      // 2. Submit metadata ke backend
       setStatus("Menyimpan data...");
 
       const form = new FormData();
@@ -634,15 +681,14 @@ function UploadVersionModal({
       form.append("isForceUpdate", formData.isForceUpdate.toString());
       if (formData.minVersion) form.append("minVersion", formData.minVersion);
 
-      // Kirim info file yang sudah diupload (bukan filenya lagi) atau file jika force local
       if (isForceLocal) {
         if (apkFile) form.append("apk", apkFile);
         form.append("forceLocal", "true");
         setStatus("Mengupload ke Local Storage...");
-      } else if (apkKey) {
-        form.append("uploadedKey", apkKey);
-        form.append("uploadedFilename", apkFilename);
-        form.append("uploadedSize", apkSize.toString());
+      } else if (uploadedApk) {
+        form.append("uploadedKey", uploadedApk.key);
+        form.append("uploadedFilename", uploadedApk.filename);
+        form.append("uploadedSize", uploadedApk.size.toString());
       }
 
       const res = await fetch("/api/admin/app-version", {
@@ -686,7 +732,7 @@ function UploadVersionModal({
               id="upload-apk-file"
               type="file"
               accept=".apk"
-              onChange={(e) => setApkFile(e.target.files?.[0] || null)}
+              onChange={(e) => handleApkSelect(e.target.files?.[0] || null)}
               className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
               disabled={loading}
             />
@@ -696,7 +742,11 @@ function UploadVersionModal({
                 MB)
                 <br />
                 <span className="text-xs">
-                  Versi akan otomatis terdeteksi dari APK (Server-side parsing)
+                  {autoDetected
+                    ? "Versi terdeteksi otomatis dari APK"
+                    : isForceLocal
+                      ? "Mode Local Storage — versi akan diparse server saat submit"
+                      : "Menyiapkan APK..."}
                 </span>
               </p>
             ) : (
@@ -745,7 +795,11 @@ function UploadVersionModal({
               </div>
               <div className="relative flex justify-center text-xs">
                 <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                  {hasApk ? "Terdeteksi dari APK" : "Atau isi manual"}
+                  {autoDetected
+                    ? "Terdeteksi dari APK"
+                    : hasApk
+                      ? "Menunggu auto-detect (atau isi manual)"
+                      : "Atau isi manual"}
                 </span>
               </div>
             </div>
@@ -761,15 +815,15 @@ function UploadVersionModal({
                 <input
                   id="upload-version"
                   type="text"
-                  placeholder={hasApk ? "Auto-detected" : "1.0.54"}
+                  placeholder={autoDetected ? "Auto-detected" : "1.0.54"}
                   value={formData.version}
                   onChange={(e) =>
                     setFormData({ ...formData, version: e.target.value })
                   }
                   className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                    autoDetected ? "opacity-60 cursor-not-allowed" : ""
                   }`}
-                  disabled={hasApk || loading}
+                  disabled={autoDetected || loading}
                 />
               </div>
               <div>
@@ -782,15 +836,15 @@ function UploadVersionModal({
                 <input
                   id="upload-build-number"
                   type="number"
-                  placeholder={hasApk ? "Auto-detected" : "47"}
+                  placeholder={autoDetected ? "Auto-detected" : "47"}
                   value={formData.buildNumber}
                   onChange={(e) =>
                     setFormData({ ...formData, buildNumber: e.target.value })
                   }
                   className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                    autoDetected ? "opacity-60 cursor-not-allowed" : ""
                   }`}
-                  disabled={hasApk || loading}
+                  disabled={autoDetected || loading}
                 />
               </div>
               <div>
@@ -803,15 +857,15 @@ function UploadVersionModal({
                 <input
                   id="upload-version-code"
                   type="number"
-                  placeholder={hasApk ? "Auto-detected" : "47"}
+                  placeholder={autoDetected ? "Auto-detected" : "47"}
                   value={formData.versionCode}
                   onChange={(e) =>
                     setFormData({ ...formData, versionCode: e.target.value })
                   }
                   className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                    hasApk ? "opacity-60 cursor-not-allowed" : ""
+                    autoDetected ? "opacity-60 cursor-not-allowed" : ""
                   }`}
-                  disabled={hasApk || loading}
+                  disabled={autoDetected || loading}
                 />
               </div>
             </div>
@@ -882,7 +936,11 @@ function UploadVersionModal({
               type="checkbox"
               id="forceLocal"
               checked={isForceLocal}
-              onChange={(e) => setIsForceLocal(e.target.checked)}
+              onChange={(e) => {
+                setIsForceLocal(e.target.checked);
+                setUploadedApk(null);
+                setAutoDetected(false);
+              }}
               className="h-4 w-4"
               disabled={loading}
             />

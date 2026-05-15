@@ -147,10 +147,10 @@ spec:
           resources:
             requests:
               cpu: "188m"
-              memory: "384Mi"
+              memory: "512Mi"
             limits:
               cpu: "1125m"
-              memory: "1152Mi"
+              memory: "2Gi"
           startupProbe:
             httpGet:
               path: /api/health

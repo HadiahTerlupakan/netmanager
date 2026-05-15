@@ -7,6 +7,7 @@ import type {
   UpdateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
+import { AppVersionNotFoundError } from "../errors";
 import { clearVersionCache } from "../repositories/AppVersionRepository";
 export { clearVersionCache };
 import { AppVersionAccessService } from "./AppVersionAccessService";
@@ -26,7 +27,6 @@ import {
   buildEmptyVersionStats,
   buildVersionStatsResult,
   requireExistingVersion,
-  buildUpdatePayload,
   assertVersionUpdateHasNoConflict,
   buildDownloadApkPayload,
 } from "./app-version-update.helpers";
@@ -64,6 +64,27 @@ export class AppVersionService {
     path?: string;
   }): Promise<ParsedApkInfo | null> {
     return parseApkInfo(input);
+  }
+
+  /** Parse metadata APK dari direct-upload key di R2 tanpa load full buffer ke memori. */
+  async parseUploadedApk(uploadedKey: string): Promise<ParsedApkInfo | null> {
+    const fs = await import("fs/promises");
+    const os = await import("os");
+    const path = await import("path");
+    const { randomUUID } = await import("crypto");
+    const { streamR2ObjectToFile } = await import("@/lib/utils/r2-client");
+    const { validateUploadedKey } =
+      await import("./app-version-storage.helpers");
+
+    validateUploadedKey(uploadedKey);
+
+    const tempPath = path.join(os.tmpdir(), `apk_parse_${randomUUID()}.apk`);
+    try {
+      await streamR2ObjectToFile(uploadedKey, tempPath);
+      return await parseApkInfo({ path: tempPath });
+    } finally {
+      await fs.unlink(tempPath).catch((): void => undefined);
+    }
   }
 
   /** Hapus file APK yang tersimpan dari storage aktif. */
@@ -134,13 +155,8 @@ export class AppVersionService {
     data: UpdateAppVersionDTO,
   ): Promise<AppVersion> {
     const existing = await requireExistingVersion(this.repository, id);
-    const updateData = buildUpdatePayload(data, existing);
-    await assertVersionUpdateHasNoConflict(
-      this.repository,
-      updateData,
-      existing,
-    );
-    const result = await this.repository.update(id, updateData);
+    await assertVersionUpdateHasNoConflict(this.repository, data, existing);
+    const result = await this.repository.update(id, data);
     clearVersionCache();
     return result;
   }
@@ -148,17 +164,18 @@ export class AppVersionService {
   /** Hapus versi aplikasi dan bersihkan APK fisiknya. */
   async deleteVersion(id: string): Promise<void> {
     const existing = await requireExistingVersion(this.repository, id);
-    await this.cleanupExistingApk(existing);
 
     try {
       await this.repository.delete(id);
-      clearVersionCache();
     } catch (error) {
       if (isPrismaRecordNotFoundError(error)) {
-        throw new Error("Versi tidak ditemukan");
+        throw new AppVersionNotFoundError();
       }
       throw error;
     }
+
+    clearVersionCache();
+    await this.cleanupExistingApk(existing);
   }
 
   /** Evaluasi apakah versi mobile saat ini masih didukung. */

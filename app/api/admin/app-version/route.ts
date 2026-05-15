@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
 import {
+  AppVersionConflictError,
+  AppVersionValidationError,
   getAppVersionService,
   parseAppVersionUploadForm,
 } from "@/modules/app-version";
@@ -75,21 +77,32 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const service = await getAppVersionService();
-  const appVersion = await service.uploadVersion({
-    ...uploadInput,
-    createdBy: ctx.session!.user.id,
-  });
+  try {
+    const appVersion = await service.uploadVersion({
+      ...uploadInput,
+      createdBy: ctx.session!.user.id,
+    });
 
-  // System Log
-  logActivitySafe({
-    action: "CREATE",
-    subject: "AppVersion",
-    userId: ctx.session!.user.id,
-    details: { id: appVersion.id, version: appVersion.version },
-  });
+    logActivitySafe({
+      action: "CREATE",
+      subject: "AppVersion",
+      userId: ctx.session!.user.id,
+      details: { id: appVersion.id, version: appVersion.version },
+    });
 
-  return apiSuccess(appVersion, {
-    status: 201,
-    message: "Versi aplikasi berhasil diupload",
-  });
+    return apiSuccess(appVersion, {
+      status: 201,
+      message: "Versi aplikasi berhasil diupload",
+    });
+  } catch (error) {
+    if (error instanceof AppVersionValidationError) {
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+    if (error instanceof AppVersionConflictError) {
+      return apiError(error.message, ErrorCodes.CONFLICT, { status: 409 });
+    }
+    throw error;
+  }
 });

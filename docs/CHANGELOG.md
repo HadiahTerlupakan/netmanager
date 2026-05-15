@@ -45,6 +45,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-15] — APK 500MB: stream-to-disk + naikkan memory pod app
+
+- **Tipe**: [INFRA]
+- **Scope**: `lib/utils/r2-client.ts`, `modules/app-version/services/*`, `k8s/staging/app-deployment.yaml`, `k8s/production/app-deployment.yaml`
+- **Author**: agent
+- **Deskripsi**: Mendukung APK build berukuran ~300–500MB tanpa risiko OOM di pod app. (1) Tambah helper `streamR2ObjectToFile(key, dest)` di `r2-client.ts` yang stream R2 object langsung ke disk via `pipeline` (tanpa buffer in-memory). (2) Refactor `AppVersionUploadService` & `AppVersionService.parseUploadedApk` agar pakai temp-file alih-alih `apkBuffer` — `loadUploadedApkDetails` sekarang return `apkPath` + `cleanup` callback, dengan unlink di `finally`. (3) Naikkan memory pod app: staging `1152Mi → 2Gi` (request `384Mi → 512Mi`), production `1536Mi → 3Gi` (request `512Mi → 768Mi`) untuk memberi headroom Node.js + parsing APK ZIP. (4) Update tests untuk mock `streamR2ObjectToFile` ganti `getR2ObjectBuffer`. Tidak ada perubahan ingress (Traefik tidak punya body limit default).
+- **Files**: `lib/utils/r2-client.ts`, `modules/app-version/services/{AppVersionService.ts,AppVersionUploadService.ts,app-version-storage.helpers.ts}`, `k8s/{staging,production}/app-deployment.yaml`, `tests/modules/app-version/AppVersionService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-15] — Naikkan limit APK ke 500MB & auto-detect versi setelah upload
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/app-version`, `app/api/admin/app-version`, `app/admin/pengaturan/app-version`
+- **Author**: agent
+- **Deskripsi**: APK build sekarang bisa mencapai ~300MB; limit 100MB ditolak di endpoint `upload-url`. Naikkan `APP_VERSION_MAX_APK_BYTES` ke 500MB di backend dan FE (`AppVersionClient.tsx`). Tambah endpoint `POST /api/admin/app-version/parse` + method `AppVersionService.parseUploadedApk(uploadedKey)` yang membaca metadata APK dari direct-upload R2. UI upload modal di-refactor: saat user pilih file → langsung upload ke R2 (progress bar tetap), lalu panggil `/parse` untuk auto-fill field Versi/Build/Code. Saat metadata terdeteksi, ditampilkan label "Auto-detected" dan field di-disable; sebelum terdeteksi user tetap bisa edit manual. Submit final hanya kirim metadata + `uploadedKey` (tidak upload ulang). Mode `forceLocal` tetap pakai jalur lama (parsing server-side saat submit).
+- **Files**: `modules/app-version/{validators/index.ts,services/AppVersionService.ts}`, `app/api/admin/app-version/{parse/route.ts,upload-url/route.ts}`, `app/admin/pengaturan/app-version/AppVersionClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-15] — Review modul app-version: hapus dead code, typed errors, dan stream APK download
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/app-version`, `app/api/admin/app-version`, `app/api/mobile/app-version`
+- **Author**: agent
+- **Deskripsi**: Review menyeluruh modul Versi Aplikasi. (1) Hapus dead/duplikat: folder `factories/`, `mappers/`, `dto/`, `types/`, `utils/`, dan helper duplikat `app-version-storage-helpers.ts` + `app-version-upload-helpers.ts` (zero usage). (2) Tambah typed errors `AppVersionValidationError`, `AppVersionConflictError`, `AppVersionNotFoundError` di `modules/app-version/errors.ts` agar route bisa map ke status code yang tepat tanpa string-matching pada `error.message`. (3) Fix urutan delete: `repository.delete` dijalankan sebelum cleanup APK fisik supaya state tidak inconsistent saat DB delete gagal. (4) Stream APK pada endpoint download mobile alih-alih buffering full file ke memori (potensi OOM untuk APK 100MB ketika banyak request). (5) Standarisasi error handler routes mobile (`check`, `report`, `download`) memakai `apiError`/`ErrorCodes` ganti `NextResponse.json({ error })`. (6) Tambah Zod schema `reportMobileVersionSchema` & `checkVersionQuerySchema` agar validasi input mobile terpusat. (7) Hapus dead helper `buildUpdatePayload` (Prisma sudah skip undefined). (8) Konsisten konstanta `APP_VERSION_MAX_APK_BYTES`.
+- **Files**: `modules/app-version/{errors.ts,index.ts,validators/index.ts,services/*}`, `app/api/admin/app-version/{route.ts,upload-url/route.ts,[id]/route.ts}`, `app/api/mobile/app-version/{check,report,download/[id]}/route.ts`, `tests/modules/app-version/AppVersionService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-15] — Revert P1-5 storageClassName eksplisit (StatefulSet immutable)
 
 - **Tipe**: [FIXED]

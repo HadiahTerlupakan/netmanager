@@ -1,5 +1,8 @@
 import { hasPermission } from "@/lib/rbac";
-import { getAppVersionService } from "@/modules/app-version";
+import {
+  APP_VERSION_MAX_APK_BYTES,
+  getAppVersionService,
+} from "@/modules/app-version";
 import {
   apiSuccess,
   ApiErrors,
@@ -7,6 +10,11 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
+
+const ALLOWED_CONTENT_TYPES = new Set([
+  "application/vnd.android.package-archive",
+  "application/octet-stream",
+]);
 
 export const POST = createHandler({ auth: true }, async (req, _ctx) => {
   if (!(await hasPermission("app_version:create"))) {
@@ -16,7 +24,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
   }
 
   const body = await req.json();
-  const { filename, contentType, size } = body;
+  const { filename, contentType, size } = body ?? {};
 
   if (!filename || !contentType) {
     return apiError(
@@ -26,7 +34,10 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     );
   }
 
-  if (!filename.toLowerCase().endsWith(".apk")) {
+  if (
+    typeof filename !== "string" ||
+    !filename.toLowerCase().endsWith(".apk")
+  ) {
     return apiError(
       "File yang diupload harus berformat APK",
       ErrorCodes.VALIDATION_ERROR,
@@ -34,12 +45,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     );
   }
 
-  const allowedContentTypes = new Set([
-    "application/vnd.android.package-archive",
-    "application/octet-stream",
-  ]);
-
-  if (!allowedContentTypes.has(contentType)) {
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
     return apiError(
       "Content type file APK tidak valid",
       ErrorCodes.VALIDATION_ERROR,
@@ -47,12 +53,13 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     );
   }
 
-  // Validate size if needed (e.g. limit to 100MB)
-  const MAX_SIZE = 100 * 1024 * 1024; // 100MB
-  if (size && size > MAX_SIZE) {
-    return apiError("Ukuran APK maksimal 100MB", ErrorCodes.VALIDATION_ERROR, {
-      status: 400,
-    });
+  if (typeof size === "number" && size > APP_VERSION_MAX_APK_BYTES) {
+    const maxMb = Math.round(APP_VERSION_MAX_APK_BYTES / (1024 * 1024));
+    return apiError(
+      `Ukuran APK maksimal ${maxMb}MB`,
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
   }
 
   const service = await getAppVersionService();
@@ -61,10 +68,5 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     contentType,
   });
 
-  return apiSuccess({
-    uploadUrl,
-    publicUrl,
-    key,
-    filename,
-  });
+  return apiSuccess({ uploadUrl, publicUrl, key, filename });
 });

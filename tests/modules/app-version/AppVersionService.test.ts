@@ -6,7 +6,7 @@ import type { AppVersionWithUser } from "@/modules/app-version/domain/entities/A
 const {
   mockUnlink,
   mockDeleteFromR2,
-  mockGetR2ObjectBuffer,
+  mockStreamR2ObjectToFile,
   mockGetR2ObjectMetadata,
   mockGetR2Settings,
   mockIsR2Enabled,
@@ -15,7 +15,7 @@ const {
 } = vi.hoisted(() => ({
   mockUnlink: vi.fn(),
   mockDeleteFromR2: vi.fn(),
-  mockGetR2ObjectBuffer: vi.fn(),
+  mockStreamR2ObjectToFile: vi.fn(),
   mockGetR2ObjectMetadata: vi.fn(),
   mockGetR2Settings: vi.fn(),
   mockIsR2Enabled: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock("@/lib/utils/r2-client", () => ({
   uploadToR2: mockUploadToR2,
   generateR2Key: mockGenerateR2Key,
   deleteFromR2: mockDeleteFromR2,
-  getR2ObjectBuffer: mockGetR2ObjectBuffer,
+  streamR2ObjectToFile: mockStreamR2ObjectToFile,
   getR2ObjectMetadata: mockGetR2ObjectMetadata,
   getR2Settings: mockGetR2Settings,
 }));
@@ -90,8 +90,9 @@ describe("AppVersionService", () => {
     repositoryMocks = asRepositoryMocks(repository);
     service = new AppVersionService(repository);
     mockUnlink.mockReset();
+    mockUnlink.mockResolvedValue(undefined);
     mockDeleteFromR2.mockReset();
-    mockGetR2ObjectBuffer.mockReset();
+    mockStreamR2ObjectToFile.mockReset();
     mockGetR2ObjectMetadata.mockReset();
     mockGetR2Settings.mockReset();
     mockIsR2Enabled.mockReset();
@@ -169,7 +170,7 @@ describe("AppVersionService", () => {
   });
 
   describe("updateVersion", () => {
-    it("preserves minVersion when edit payload omits it", async () => {
+    it("forwards only provided fields when minVersion is omitted", async () => {
       repositoryMocks.findById.mockResolvedValueOnce(baseVersion);
       repositoryMocks.update.mockImplementationOnce(async (_id, data) => ({
         ...baseVersion,
@@ -186,7 +187,6 @@ describe("AppVersionService", () => {
         releaseNotes: "Patched notes",
         isForceUpdate: true,
         isActive: true,
-        minVersion: baseVersion.minVersion,
       });
     });
 
@@ -209,7 +209,6 @@ describe("AppVersionService", () => {
 
   describe("uploadVersion", () => {
     it("auto-detects version metadata from a pre-uploaded APK object", async () => {
-      const uploadedBuffer = Buffer.from("fake-apk");
       const createdVersion = {
         ...baseVersion,
         version: "1.0.80",
@@ -222,7 +221,7 @@ describe("AppVersionService", () => {
         contentLength: 4096,
         contentType: "application/vnd.android.package-archive",
       });
-      mockGetR2ObjectBuffer.mockResolvedValueOnce(uploadedBuffer);
+      mockStreamR2ObjectToFile.mockResolvedValueOnce(undefined);
       repositoryMocks.exists.mockResolvedValueOnce({
         versionExists: false,
         versionCodeExists: false,
@@ -246,9 +245,12 @@ describe("AppVersionService", () => {
       expect(mockGetR2ObjectMetadata).toHaveBeenCalledWith(
         "uploads/apk/app.apk",
       );
-      expect(mockGetR2ObjectBuffer).toHaveBeenCalledWith("uploads/apk/app.apk");
+      expect(mockStreamR2ObjectToFile).toHaveBeenCalledWith(
+        "uploads/apk/app.apk",
+        expect.stringMatching(/apk_uploaded_.+\.apk$/),
+      );
       expect(service.parseApkInfo).toHaveBeenCalledWith({
-        buffer: uploadedBuffer,
+        path: expect.stringMatching(/apk_uploaded_.+\.apk$/),
       });
       expect(repositoryMocks.exists).toHaveBeenCalledWith("1.0.80", 80);
       expect(repositoryMocks.create).toHaveBeenCalledWith(
@@ -281,7 +283,7 @@ describe("AppVersionService", () => {
         }),
       ).rejects.toThrow("Ukuran file APK yang diupload tidak sesuai");
 
-      expect(mockGetR2ObjectBuffer).not.toHaveBeenCalled();
+      expect(mockStreamR2ObjectToFile).not.toHaveBeenCalled();
       expect(repositoryMocks.create).not.toHaveBeenCalled();
     });
 
@@ -302,13 +304,11 @@ describe("AppVersionService", () => {
     });
 
     it("rejects manual metadata that does not match the uploaded APK manifest", async () => {
-      const uploadedBuffer = Buffer.from("fake-apk");
-
       mockGetR2ObjectMetadata.mockResolvedValueOnce({
         contentLength: 4096,
         contentType: "application/vnd.android.package-archive",
       });
-      mockGetR2ObjectBuffer.mockResolvedValueOnce(uploadedBuffer);
+      mockStreamR2ObjectToFile.mockResolvedValueOnce(undefined);
 
       vi.spyOn(service, "parseApkInfo").mockResolvedValueOnce({
         versionName: "1.0.80",
@@ -329,7 +329,7 @@ describe("AppVersionService", () => {
       ).rejects.toThrow("Metadata versi tidak cocok dengan APK yang diupload");
 
       expect(service.parseApkInfo).toHaveBeenCalledWith({
-        buffer: uploadedBuffer,
+        path: expect.stringMatching(/apk_uploaded_.+\.apk$/),
       });
       expect(repositoryMocks.create).not.toHaveBeenCalled();
     });

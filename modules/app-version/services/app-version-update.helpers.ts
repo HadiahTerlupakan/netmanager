@@ -4,6 +4,7 @@ import type {
   UpdateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
+import { AppVersionConflictError, AppVersionNotFoundError } from "../errors";
 import type { AppVersionStatsResult } from "./AppVersionService.types";
 import {
   APP_VERSION_FILENAME_PREFIX,
@@ -58,23 +59,10 @@ export async function requireExistingVersion(
 ): Promise<AppVersionWithUser> {
   const existing = await repository.findById(id);
   if (!existing) {
-    throw new Error("Versi tidak ditemukan");
+    throw new AppVersionNotFoundError();
   }
 
   return existing;
-}
-
-/** Build payload update dengan fallback field yang dipertahankan. */
-export function buildUpdatePayload(
-  data: UpdateAppVersionDTO,
-  existing: AppVersionWithUser,
-): UpdateAppVersionDTO {
-  return {
-    ...data,
-    ...(data.minVersion === undefined
-      ? { minVersion: existing.minVersion }
-      : {}),
-  };
 }
 
 /** Validasi konflik versi dan version code saat update. */
@@ -107,7 +95,9 @@ async function assertVersionNameHasNoConflict(
 
   const versionExists = await repository.findByVersion(updateData.version);
   if (versionExists) {
-    throw new Error(`Version ${updateData.version} sudah ada`);
+    throw new AppVersionConflictError(
+      `Version ${updateData.version} sudah ada`,
+    );
   }
 }
 
@@ -125,6 +115,8 @@ async function assertVersionCodeHasNoConflict(
 
   const codeExists = await repository.findByVersionCode(updateData.versionCode);
   if (codeExists) {
-    throw new Error(`Version code ${updateData.versionCode} sudah ada`);
+    throw new AppVersionConflictError(
+      `Version code ${updateData.versionCode} sudah ada`,
+    );
   }
 }
