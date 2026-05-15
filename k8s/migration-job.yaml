@@ -23,7 +23,7 @@ spec:
       containers:
         - name: migration
           image: "{{IMAGE_TAG}}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: "500m"

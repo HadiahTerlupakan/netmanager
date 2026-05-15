@@ -54,11 +54,16 @@ spec:
         CRON_IMAGE = "netmanager-cron"
         RADIUS_IMAGE = "netmanager-radius"
         DOCKER_BUILDKIT = "1"
-        DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
+        // Branch routing — main → production, semua branch lain → staging.
+        // BRANCH_NAME aktif di multibranch pipeline; GIT_BRANCH (dengan/tanpa
+        // prefix origin/) dipakai di SCM trigger. Cek ketiganya untuk konsisten
+        // di semua tipe build (push, polling, manual).
+        IS_PRODUCTION = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'true' : 'false'}"
+        DOCKER_TAG = "${env.IS_PRODUCTION == 'true' ? 'production' : 'staging'}"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
         IMAGE_REVISION = "${env.GIT_COMMIT ?: "unknown"}"
-        NAMESPACE = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'netmanager-production' : 'netmanager-staging'}"
-        K8S_DIR = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'k8s/production' : 'k8s/staging'}"
+        NAMESPACE = "${env.IS_PRODUCTION == 'true' ? 'netmanager-production' : 'netmanager-staging'}"
+        K8S_DIR = "${env.IS_PRODUCTION == 'true' ? 'k8s/production' : 'k8s/staging'}"
     }
 
     stages {
@@ -492,8 +497,21 @@ spec:
                         sh "kubectl apply -f ${K8S_DIR}/redis-deployment.yaml --namespace=${NAMESPACE}"
                         sh "kubectl apply -f ${K8S_DIR}/pvc.yaml --namespace=${NAMESPACE}"
 
-                        echo "Menunggu database melakukan inisialisasi..."
-                        sleep 20
+                        echo "Menunggu database & redis melakukan inisialisasi..."
+                        sh """
+                        set -euo pipefail
+                        # Tunggu sampai semua StatefulSet DB ready (timeout 180s per workload).
+                        # Mengganti 'sleep 20' yang rapuh — kalau image pull lambat atau init storage
+                        # butuh lebih lama, migration job akan start saat DB belum siap dan gagal
+                        # dengan connection refused (silent failure, terlihat seperti migration error).
+                        for sts in db-netmanager db-billing db-mitra db-radius; do
+                          echo "  waiting for statefulset/\$sts..."
+                          kubectl rollout status statefulset/\$sts --namespace=${NAMESPACE} --timeout=180s
+                        done
+                        echo "  waiting for deployment/netmanager-redis..."
+                        kubectl rollout status deployment/netmanager-redis --namespace=${NAMESPACE} --timeout=120s
+                        echo "Database & redis siap menerima koneksi."
+                        """
 
                         sh """
                         set -euo pipefail

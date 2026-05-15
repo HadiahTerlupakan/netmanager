@@ -44,3 +44,9 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 60
             failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f crond > /dev/null && [ -s /etc/crontabs/root ]"]
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            failureThreshold: 3

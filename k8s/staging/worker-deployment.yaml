@@ -128,6 +128,18 @@ spec:
             limits:
               cpu: "750m"
               memory: "576Mi"
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f 'worker.ts' > /dev/null"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f 'worker.ts' > /dev/null"]
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
       volumes:
         - name: uploads-volume
           persistentVolumeClaim:
