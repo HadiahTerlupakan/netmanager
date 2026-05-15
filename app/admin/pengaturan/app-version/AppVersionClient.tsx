@@ -550,11 +550,14 @@ function UploadVersionModal({
         size: file.size,
       }),
     });
-    if (!presignedRes.ok) {
-      const err = await presignedRes.json();
-      throw new Error(err.error || "Gagal mendapatkan URL upload");
+    const presignedJson = await presignedRes.json();
+    if (!presignedRes.ok || !presignedJson?.success) {
+      throw new Error(presignedJson?.error || "Gagal mendapatkan URL upload");
     }
-    const { uploadUrl, key } = await presignedRes.json();
+    const { uploadUrl, key } = presignedJson.data ?? presignedJson;
+    if (!uploadUrl || !key) {
+      throw new Error("Respon URL upload tidak lengkap");
+    }
 
     setStatus("Mengupload file ke storage...");
     await new Promise((resolve, reject) => {
@@ -566,11 +569,24 @@ function UploadVersionModal({
       });
       xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
-          if (xhr.status === 200) resolve(true);
-          else reject(new Error("Gagal mengupload file ke storage"));
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(true);
+            return;
+          }
+          const detail = xhr.responseText?.slice(0, 200) || xhr.statusText;
+          reject(
+            new Error(
+              `Gagal mengupload file ke storage (HTTP ${xhr.status}): ${detail}`,
+            ),
+          );
         }
       };
-      xhr.onerror = () => reject(new Error("Network error saat upload"));
+      xhr.onerror = () =>
+        reject(
+          new Error(
+            "Network error saat upload — cek koneksi atau CORS bucket R2",
+          ),
+        );
       xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader(
         "Content-Type",
