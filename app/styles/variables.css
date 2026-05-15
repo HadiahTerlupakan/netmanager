@@ -7,6 +7,10 @@
   --color-text-secondary: 30 41 59;
   --color-text-tertiary: 71 85 105;
   --color-text-placeholder: 148 163 184;
+  /* Light-mode text aliases — referenced by base.css opacity/text helpers */
+  --color-light-text-secondary: 30 41 59;
+  --color-light-text-tertiary: 71 85 105;
+  --color-light-text-placeholder: 148 163 184;
   --color-border: 226 232 240;
   --color-primary: 79 70 229;
   --color-primary-variant: 99 102 241;
@@ -92,6 +96,10 @@
   --color-text-secondary: 30 41 59;
   --color-text-tertiary: 71 85 105;
   --color-text-placeholder: 148 163 184;
+  /* Light-mode text aliases — referenced by base.css opacity/text helpers */
+  --color-light-text-secondary: 30 41 59;
+  --color-light-text-tertiary: 71 85 105;
+  --color-light-text-placeholder: 148 163 184;
   --color-border: 226 232 240;
   --color-neutral-border: 209 213 219;
   --color-neutral-text: 55 65 81;

@@ -167,15 +167,21 @@ export default function NetworkMap() {
       </MapContainer>
 
       {/* Floating Legend */}
-      <div className="absolute top-4 right-4 bg-white p-4 rounded shadow-lg z-1000">
-        <h4 className="font-bold mb-2 text-black">Legenda</h4>
+      <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 p-4 rounded shadow-lg z-1000">
+        <h4 className="font-bold mb-2 text-gray-900 dark:text-gray-100">
+          Legenda
+        </h4>
         <div className="flex items-center gap-2 mb-1">
           <span className="w-3 h-3 bg-red-500 dark:bg-red-400 rounded-full"></span>
-          <span className="text-sm text-black">Backbone (ODC)</span>
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Backbone (ODC)
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-          <span className="text-sm text-black">Distribusi (ODP)</span>
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Distribusi (ODP)
+          </span>
         </div>
       </div>
     </div>
