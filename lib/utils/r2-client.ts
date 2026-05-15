@@ -168,6 +168,11 @@ export async function getR2Client(): Promise<S3Client | null> {
       secretAccessKey: settings.secretAccessKey,
     },
     forcePathStyle: true,
+    // R2 belum support flexible checksums dari SDK v3 default ("WHEN_SUPPORTED").
+    // Tanpa override ini, presigned URL ikut menyertakan x-amz-sdk-checksum-algorithm
+    // ke SignedHeaders → browser PUT direct ditolak (403 SignatureDoesNotMatch).
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 
   return client;
@@ -252,18 +257,7 @@ export async function getPresignedUrl(
       ...(contentDisposition && { ContentDisposition: contentDisposition }),
     });
 
-    // AWS SDK v3 menyisipkan x-amz-checksum-* & x-amz-sdk-checksum-algorithm
-    // ke signed headers by default. Browser tidak kirim header itu pada PUT
-    // langsung, jadi presigned URL ditolak R2 (403 SignatureDoesNotMatch).
-    // Hapus middleware checksum & x-amz-content-sha256 sebelum signing.
-    command.middlewareStack.remove("flexibleChecksumsMiddleware");
-    command.middlewareStack.remove("flexibleChecksumsInputMiddleware");
-    command.middlewareStack.remove("flexibleChecksumsResponseMiddleware");
-
-    const uploadUrl = await getSignedUrl(client, command, {
-      expiresIn,
-      unhoistableHeaders: new Set([]),
-    });
+    const uploadUrl = await getSignedUrl(client, command, { expiresIn });
 
     // Calculate public URL
     let publicUrl = "";
