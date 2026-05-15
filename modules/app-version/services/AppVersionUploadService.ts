@@ -239,10 +239,10 @@ export class AppVersionUploadService {
   ) {
     const size = uploadedSize ?? resolvedSize ?? input.apkSize;
     logger.info("[AppVersionService] apkSize resolved", {
-      uploadedSize,
-      resolvedSize,
-      inputApkSize: input.apkSize,
-      finalSize: size,
+      uploadedSize: uploadedSize ?? "undefined",
+      resolvedSize: resolvedSize ?? "undefined",
+      inputApkSize: input.apkSize ?? "undefined",
+      finalSize: size ?? "undefined",
     });
     return size;
   }

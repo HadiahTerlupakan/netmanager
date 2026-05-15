@@ -97,18 +97,23 @@ async function resolveUploadedApkSize(input: {
   inputUploadedSize?: number;
   tempPath: string;
 }): Promise<number | undefined> {
-  if (typeof input.metadataContentLength === "number") {
-    return input.metadataContentLength;
-  }
-  if (typeof input.inputUploadedSize === "number") {
-    return input.inputUploadedSize;
-  }
+  let statSize: number | undefined;
   try {
     const stat = await fs.stat(input.tempPath);
-    return stat.size;
+    statSize = stat.size;
   } catch {
-    return undefined;
+    statSize = undefined;
   }
+
+  // Prefer fs.stat dari temp file karena selalu reliable setelah stream selesai.
+  // R2 HeadObject.ContentLength kadang undefined; FE uploadedSize bisa mismatch.
+  const finalSize =
+    statSize ??
+    input.inputUploadedSize ??
+    input.metadataContentLength ??
+    undefined;
+
+  return typeof finalSize === "number" && finalSize > 0 ? finalSize : undefined;
 }
 
 /** Simpan file APK ke temp path untuk proses parsing. */
