@@ -237,7 +237,14 @@ export class AppVersionUploadService {
     uploadedSize?: number,
     resolvedSize?: number,
   ) {
-    return uploadedSize ?? resolvedSize ?? input.apkSize;
+    const size = uploadedSize ?? resolvedSize ?? input.apkSize;
+    logger.info("[AppVersionService] apkSize resolved", {
+      uploadedSize,
+      resolvedSize,
+      inputApkSize: input.apkSize,
+      finalSize: size,
+    });
+    return size;
   }
 
   private buildCreateData(
