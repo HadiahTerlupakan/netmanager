@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
+import { logger } from "@/lib/logger";
 import {
   deleteFromR2 as deleteR2Object,
   generateR2Key,
@@ -98,20 +99,29 @@ async function resolveUploadedApkSize(input: {
   tempPath: string;
 }): Promise<number | undefined> {
   let statSize: number | undefined;
+  let statError: string | undefined;
   try {
     const stat = await fs.stat(input.tempPath);
     statSize = stat.size;
-  } catch {
+  } catch (err) {
+    statError = err instanceof Error ? err.message : String(err);
     statSize = undefined;
   }
 
-  // Prefer fs.stat dari temp file karena selalu reliable setelah stream selesai.
-  // R2 HeadObject.ContentLength kadang undefined; FE uploadedSize bisa mismatch.
   const finalSize =
     statSize ??
     input.inputUploadedSize ??
     input.metadataContentLength ??
     undefined;
+
+  logger.info("[AppVersionService] resolveUploadedApkSize", {
+    statSize: statSize ?? "undefined",
+    statError: statError ?? "none",
+    inputUploadedSize: input.inputUploadedSize ?? "undefined",
+    metadataContentLength: input.metadataContentLength ?? "undefined",
+    tempPath: input.tempPath,
+    finalSize: finalSize ?? "undefined",
+  });
 
   return typeof finalSize === "number" && finalSize > 0 ? finalSize : undefined;
 }
