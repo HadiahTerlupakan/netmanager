@@ -571,6 +571,9 @@ spec:
         }
 
         stage('Deploy to K8s') {
+            options {
+                timeout(time: 45, unit: 'MINUTES')
+            }
             steps {
                 container('kubectl') {
                     script {
@@ -778,7 +781,12 @@ spec:
                           fi
 
                           if ! kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=600s; then
-                            echo "Rollout deployment/\$deployment_name GAGAL atau timeout. Menjalankan rollout undo otomatis..."
+                            if [ "\${DISABLE_AUTO_ROLLBACK:-false}" = "true" ]; then
+                              echo "Rollout deployment/\$deployment_name GAGAL. DISABLE_AUTO_ROLLBACK=true → skip auto-undo, biarkan state untuk debugging."
+                              kubectl describe deployment/"\$deployment_name" --namespace=${NAMESPACE} || true
+                              exit 1
+                            fi
+                            echo "Rollout deployment/\$deployment_name GAGAL atau timeout. Menjalankan rollout undo otomatis (set DISABLE_AUTO_ROLLBACK=true untuk skip)..."
                             kubectl rollout undo deployment/"\$deployment_name" --namespace=${NAMESPACE} || true
                             kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=300s || {
                               echo "Rollback deployment/\$deployment_name juga gagal. Manual intervention diperlukan."
