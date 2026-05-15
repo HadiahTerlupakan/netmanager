@@ -76,14 +76,39 @@ export async function loadUploadedApkDetails(
   const tempPath = path.join(os.tmpdir(), `apk_uploaded_${randomUUID()}.apk`);
   await streamR2ObjectToFile(input.uploadedKey, tempPath);
 
+  const apkSize = await resolveUploadedApkSize({
+    metadataContentLength: metadata.contentLength,
+    inputUploadedSize: input.uploadedSize,
+    tempPath,
+  });
+
   return {
     apkPath: tempPath,
-    apkSize: metadata.contentLength ?? input.uploadedSize,
+    apkSize,
     apkUrl: buildUploadedApkUrl(input.uploadedKey, settings),
     cleanup: async () => {
       await fs.unlink(tempPath).catch((): void => undefined);
     },
   };
+}
+
+async function resolveUploadedApkSize(input: {
+  metadataContentLength: number | null | undefined;
+  inputUploadedSize?: number;
+  tempPath: string;
+}): Promise<number | undefined> {
+  if (typeof input.metadataContentLength === "number") {
+    return input.metadataContentLength;
+  }
+  if (typeof input.inputUploadedSize === "number") {
+    return input.inputUploadedSize;
+  }
+  try {
+    const stat = await fs.stat(input.tempPath);
+    return stat.size;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Simpan file APK ke temp path untuk proses parsing. */
