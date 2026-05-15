@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-15] — Fix GitHub webhook 401 setelah Jenkins BasicAuth aktif
+
+- **Tipe**: [FIXED]
+- **Scope**: `k8s/staging/jenkins-ingress.yaml`
+- **Author**: agent
+- **Deskripsi**: Setelah `jenkins-auth` middleware di-chain ke ingress utama (P0-2 sebelumnya), GitHub webhook ke `/github-webhook/` mulai gagal dengan `401 Invalid HTTP Response` — push ke staging tidak lagi auto-trigger build. Root cause: BasicAuth juga proteksi endpoint webhook. Solusi: tambah `Ingress` terpisah `jenkins-webhook-ingress` khusus path `/github-webhook/` (lebih specific dari `/`, Traefik prioritize), hanya attach `jenkins-proxy-headers` middleware (no auth). Verified: webhook re-delivery `status: OK, status_code: 200, duration: 1.09s` (sebelumnya 401), root path `/` tetap require auth.
+- **Files**: `k8s/staging/jenkins-ingress.yaml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-15] — Audit & perbaikan CI/CD + K8s (P0 batch)
 
 - **Tipe**: [SECURITY] [INFRA] [FIXED]

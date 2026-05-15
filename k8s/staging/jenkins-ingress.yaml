@@ -43,3 +43,36 @@ spec:
                 name: jenkins-service
                 port:
                   number: 8080
+---
+# Webhook endpoints bypass BasicAuth.
+# GitHub webhook tidak punya credential — kalau dipaksa BasicAuth, push tidak akan
+# trigger build (last_response: 401 Invalid HTTP Response).
+# Path /github-webhook/ lebih specific dari /, Traefik routing akan prioritaskan
+# Ingress ini sebelum jenkins-ingress utama. Hanya proxy-headers yang di-attach.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-webhook-ingress
+  namespace: netmanager-staging
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: netmanager-staging-jenkins-proxy-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - jenkins.radpro.id
+      secretName: jenkins-tls
+  rules:
+    - host: jenkins.radpro.id
+      http:
+        paths:
+          - path: /github-webhook/
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins-service
+                port:
+                  number: 8080
