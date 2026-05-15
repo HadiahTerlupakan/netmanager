@@ -297,6 +297,9 @@ spec:
             when {
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
             steps {
                 container('docker') {
                     script {
@@ -304,13 +307,15 @@ spec:
                         sh """
                             set -euo pipefail
                             mkdir -p .secrets
+                            trap 'rm -rf .secrets' EXIT
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
                             export BUILDX_GIT_INFO=0
 
-                            docker build -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
+                            timeout 1500 docker buildx build --load --progress=plain \
+                                -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
                                 --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
                                 --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
                                 --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
@@ -326,9 +331,11 @@ spec:
                                 --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
                                 .
 
-                            docker build -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron
-                            docker build -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .
-                            rm -rf .secrets
+                            timeout 600 docker buildx build --load --progress=plain \
+                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron
+
+                            timeout 900 docker buildx build --load --progress=plain \
+                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .
                         """
                     }
                 }
@@ -770,7 +777,16 @@ spec:
                             kubectl rollout restart deployment/"\$deployment_name" --namespace=${NAMESPACE}
                           fi
 
-                          kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=600s
+                          if ! kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=600s; then
+                            echo "Rollout deployment/\$deployment_name GAGAL atau timeout. Menjalankan rollout undo otomatis..."
+                            kubectl rollout undo deployment/"\$deployment_name" --namespace=${NAMESPACE} || true
+                            kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=300s || {
+                              echo "Rollback deployment/\$deployment_name juga gagal. Manual intervention diperlukan."
+                              kubectl describe deployment/"\$deployment_name" --namespace=${NAMESPACE} || true
+                              kubectl get pods --namespace=${NAMESPACE} -l app=\$(echo "\$deployment_name" | sed 's/netmanager-//') -o wide || true
+                            }
+                            exit 1
+                          fi
                         }
 
                         rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"
