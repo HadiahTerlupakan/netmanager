@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-15] — Revert P1-5 storageClassName eksplisit (StatefulSet immutable)
+
+- **Tipe**: [FIXED]
+- **Scope**: `k8s/staging/db-statefulset.yaml`, `k8s/production/db-statefulset.yaml`, `k8s/staging/pvc.yaml`, `k8s/production/pvc.yaml`
+- **Author**: agent
+- **Deskripsi**: Build #619 fail di stage Database Migration karena `kubectl apply` ke 4 StatefulSet `db-*` ditolak dengan error `StatefulSet.apps "db-..." is invalid: spec: Forbidden: updates to statefulset spec for fields other than 'replicas', 'ordinals', 'template', 'updateStrategy', 'revisionHistoryLimit', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden`. K8s API tidak mengizinkan update `volumeClaimTemplates.spec.storageClassName` di StatefulSet existing. Sama untuk PVC existing. Revert P1-5 (commit `71515820b`) untuk 4 file: db-statefulset (prod & staging) dan pvc (prod & staging). P1-6 tujuan masih valid (eksplisit storageClassName mencegah silent data loss saat default StorageClass berubah), tapi hanya bisa di-apply saat **fresh cluster atau StatefulSet recreate** — bukan in-place update. Catat sebagai known limitation untuk migrasi cluster di masa depan. Other P1 fixes (probes, race condition fix, branch routing, backup-db.sh, migration imagePullPolicy) tidak terpengaruh — tetap valid.
+- **Files**: `k8s/{staging,production}/db-statefulset.yaml`, `k8s/{staging,production}/pvc.yaml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-15] — Audit P1 batch: race condition, probes, branch routing, storage explicitness
 
 - **Tipe**: [FIXED] [INFRA]

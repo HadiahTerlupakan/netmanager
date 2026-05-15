@@ -55,7 +55,6 @@ spec:
         name: db-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
         resources:
           requests:
             storage: 10Gi
@@ -128,7 +127,6 @@ spec:
         name: db-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
         resources:
           requests:
             storage: 2Gi
@@ -201,7 +199,6 @@ spec:
         name: db-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
         resources:
           requests:
             storage: 2Gi
@@ -274,7 +271,6 @@ spec:
         name: db-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
         resources:
           requests:
             storage: 5Gi
