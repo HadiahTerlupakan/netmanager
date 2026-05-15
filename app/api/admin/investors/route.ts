@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { investorSchema } from "@/lib/validations/investor";
-import { createInvestor, getInvestors } from "@/modules/finance";
+import { createInvestor, getInvestors } from "@/modules/investor";
 
 function internalError(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -41,15 +41,18 @@ export const POST = createHandler(
       tenantId,
     } = ctx.validated;
 
-    const result = await createInvestor({
-      username,
-      password,
-      namaLengkap,
-      perusahaan,
-      noTelp,
-      email,
-      tenantId,
-    });
+    const result = await createInvestor(
+      {
+        username,
+        password,
+        namaLengkap,
+        perusahaan,
+        noTelp,
+        email,
+        tenantId,
+      },
+      ctx.session?.user.id,
+    );
 
     if (!result.success) {
       if (result.code === "BAD_REQUEST") {

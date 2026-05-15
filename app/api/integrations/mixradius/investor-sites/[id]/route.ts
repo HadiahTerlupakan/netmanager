@@ -6,7 +6,7 @@ import {
   MixRadiusInvestorSiteService,
   investorSiteSchema,
 } from "@/modules/integrations";
-import { isRouteServiceError } from "@/modules/finance";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
 
 const mixRadiusInvestorSiteService = new MixRadiusInvestorSiteService();
 

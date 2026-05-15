@@ -98,6 +98,12 @@ export class SiteService {
     }
   }
 
+  /** Lightweight site name lookup, returns null when site missing. */
+  async getSiteNameById(id: string | null): Promise<{ name: string } | null> {
+    if (!id) return null;
+    return this.repository.findNameById(id);
+  }
+
   /** Create new site and return detail DTO. */
   async createSite(
     data: SiteCreateInput,

@@ -12,8 +12,6 @@ export * from "./RabItemRepository";
 export * from "./RabDisbursementRepository";
 export * from "./RabInvestorRepository";
 export * from "./PurchaseOrderRepository";
-export * from "./InvestorRepository";
-export * from "./InvestorPortalRepository";
 export * from "./BillingAnalyticsRepository";
 export * from "./BillingScheduleRepository";
 export * from "./PaymentGatewayConfigRepository";

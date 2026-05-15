@@ -34,6 +34,8 @@ export interface ISiteRepository {
   findAll(filter?: SiteFilterOptions): Promise<SiteEntity[]>;
   /** Find site by ID with related details. */
   findById(id: string): Promise<SiteEntity | null>;
+  /** Find site name by ID for lightweight lookups. */
+  findNameById(id: string): Promise<{ name: string } | null>;
   /** Find site by unique code. */
   findByCode(code: string): Promise<SiteEntity | null>;
   /** Create a site entity. */

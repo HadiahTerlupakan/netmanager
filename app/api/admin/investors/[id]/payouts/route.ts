@@ -1,8 +1,8 @@
 import { apiSuccess, apiPaginated, ApiErrors, createHandler } from "@/lib/api";
 import { investorPayoutSchema } from "@/lib/validations/investor";
-import { ManualPaymentAdminRouteService } from "@/modules/finance";
+import { InvestorPayoutAdminService } from "@/modules/investor";
 
-const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
+const investorPayoutAdminService = new InvestorPayoutAdminService();
 
 export const GET = createHandler(
   {
@@ -15,7 +15,7 @@ export const GET = createHandler(
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const { payouts, total } =
-      await manualPaymentAdminRouteService.getInvestorPayouts({
+      await investorPayoutAdminService.getInvestorPayouts({
         investorId: id,
         page,
         limit,
@@ -42,7 +42,7 @@ export const POST = createHandler(
       notes,
       status,
     } = ctx.validated;
-    const payout = await manualPaymentAdminRouteService.createInvestorPayout({
+    const payout = await investorPayoutAdminService.createInvestorPayout({
       investorId: id,
       amount,
       date,

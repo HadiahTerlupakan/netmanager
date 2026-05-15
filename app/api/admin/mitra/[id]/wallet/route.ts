@@ -1,19 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentUser } from "@/lib/rbac";
+import * as z from "zod";
+
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { getMitraWalletService, getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
+import { walletAdjustmentSchema } from "@/lib/validations/mitra";
 
-function getWalletRouteService() {
-  return getMitraWalletService();
-}
+const pageQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+});
 
-function getMitraRouteService() {
-  return getMitraService();
-}
-
-async function validateMitraAccess(
+async function ensureMitraInScope(
   mitraId: string,
-  user: { id: string; name?: string | null },
+  user: { id: string; name?: string },
 ): Promise<{ allowed: boolean; error?: string }> {
   const { isRestricted, siteIds } = checkSiteRestriction(
     { user } as never,
@@ -21,7 +19,7 @@ async function validateMitraAccess(
   );
   if (!isRestricted) return { allowed: true };
 
-  const mitra = await getMitraRouteService().getMitraById(mitraId);
+  const mitra = await getMitraService().getMitraById(mitraId);
   if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
@@ -34,122 +32,69 @@ async function validateMitraAccess(
   return { allowed: true };
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:read", user, { silent: true }))
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
-  }
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:read"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
 
-  const { id } = await params;
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
+    }
 
-  const access = await validateMitraAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
-  }
+    const parsed = pageQuerySchema.safeParse(ctx.query);
+    const page = parsed.success ? parsed.data.page : 1;
 
-  const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get("page") || "1");
+    const walletService = getMitraWalletService();
+    const [balanceResult, transactionsResult] = await Promise.all([
+      walletService.getBalance(id, user.tenantId),
+      walletService.getTransactions(id, user.tenantId, page),
+    ]);
 
-  const [balanceResult, transactionsResult] = await Promise.all([
-    getWalletRouteService().getBalance(id, user.tenantId as string),
-    getWalletRouteService().getTransactions(id, user.tenantId as string, page),
-  ]);
+    if (!balanceResult.success) {
+      return ApiErrors.notFound(balanceResult.error);
+    }
 
-  if (!balanceResult.success) {
-    return NextResponse.json(
-      { success: false, error: balanceResult.error },
-      { status: 404 },
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: {
+    return apiSuccess({
       balance: balanceResult.data,
       transactions: transactionsResult.success
         ? transactionsResult.data
         : { transactions: [], total: 0 },
-    },
-  });
-}
+    });
+  },
+);
 
-// Admin manual adjustment
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:update", user, { silent: true }))
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
-  }
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:update"],
+    schema: walletAdjustmentSchema,
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
 
-  const { id } = await params;
-
-  const access = await validateMitraAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return NextResponse.json(
-      { success: false, error: access.error },
-      { status: 403 },
-    );
-  }
-
-  try {
-    const body = await request.json();
-    const { amount, description } = body;
-
-    if (!amount || !description) {
-      return NextResponse.json(
-        { success: false, error: "Amount dan deskripsi harus diisi" },
-        { status: 400 },
-      );
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
     }
 
-    const result = await getWalletRouteService().addAdjustment(
+    const result = await getMitraWalletService().addAdjustment(
       id,
-      amount,
-      description,
-      user.id!,
-      user.tenantId as string,
+      ctx.validated.amount,
+      ctx.validated.description,
+      user.id,
+      user.tenantId,
     );
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 },
-      );
+      return ApiErrors.badRequest(result.error);
     }
 
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-}
+    return apiSuccess(undefined);
+  },
+);

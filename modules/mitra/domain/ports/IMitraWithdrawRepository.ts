@@ -80,6 +80,13 @@ export interface IMitraWithdrawRepository {
     tenantId?: string,
   ): Promise<WithdrawRequestEntity | null>;
 
+  /** Memeriksa akses scope withdrawal berdasarkan allowed site ids. */
+  isWithdrawInScope(
+    id: string,
+    allowedSiteIds: string[],
+    tenantId?: string,
+  ): Promise<boolean>;
+
   /** Memperbarui status request penarikan. */
   updateWithdrawStatus(record: UpdateWithdrawStatusRecord): Promise<void>;
 

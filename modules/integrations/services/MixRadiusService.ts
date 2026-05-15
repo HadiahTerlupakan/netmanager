@@ -80,6 +80,10 @@ export class MixRadiusService {
   private readonly invoiceCountCache = createInvoiceCountCache();
   private customersCache = createCustomersCacheState();
   private topologyCache = createTopologyCacheState();
+  private customersInflight = new Map<
+    string,
+    Promise<MixRadiusCustomerResponse>
+  >();
 
   /** Delay requests slightly to reduce upstream throttling. */
   private async randomDelay(
@@ -109,6 +113,34 @@ export class MixRadiusService {
 
   /** Fetch PPP customers from MixRadius. */
   async fetchCustomersPPP(
+    params: FetchCustomersParams = {},
+  ): Promise<MixRadiusCustomerResponse> {
+    const inflightKey = this.buildCustomersInflightKey(params);
+    if (inflightKey) {
+      const existing = this.customersInflight.get(inflightKey);
+      if (existing) return existing;
+    }
+
+    const promise = this.executeFetchCustomersPPP(params);
+    if (inflightKey) {
+      this.customersInflight.set(inflightKey, promise);
+      promise.finally(() => this.customersInflight.delete(inflightKey));
+    }
+
+    return promise;
+  }
+
+  private buildCustomersInflightKey(
+    params: FetchCustomersParams,
+  ): string | null {
+    if (params.forceRefresh) return null;
+    const start = params.start ?? 0;
+    const length = params.length ?? 10;
+    const search = params.search ?? "";
+    return `${start}:${length}:${search}`;
+  }
+
+  private async executeFetchCustomersPPP(
     params: FetchCustomersParams = {},
   ): Promise<MixRadiusCustomerResponse> {
     await this.loadCredentials();

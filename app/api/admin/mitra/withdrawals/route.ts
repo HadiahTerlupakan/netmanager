@@ -1,47 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentUser } from "@/lib/rbac";
+import * as z from "zod";
+
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { getMitraWithdrawService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
-const withdrawService = getMitraWithdrawService();
+const listQuerySchema = z.object({
+  status: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
 
-// List all withdraw requests (admin)
-export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !(await hasPermission("withdrawals:read", user, { silent: true }))
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["withdrawals:read"],
+  },
+  async (_request, ctx) => {
+    const parsed = listQuerySchema.safeParse(ctx.query);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("Query parameter tidak valid");
+    }
+    const { status, page, limit } = parsed.data;
+
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      { user: ctx.session!.user } as never,
+      "withdrawals",
     );
-  }
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || undefined;
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+    const result = await getMitraWithdrawService().getWithdrawRequests({
+      status,
+      page,
+      limit,
+      allowedSiteIds: isRestricted ? siteIds : undefined,
+    });
 
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user } as never,
-    "withdrawals",
-  );
-  const allowedSiteIds = isRestricted ? siteIds : undefined;
+    if (!result.success) {
+      return ApiErrors.internalError(result.error);
+    }
 
-  const result = await withdrawService.getWithdrawRequests({
-    status,
-    page,
-    limit,
-    allowedSiteIds,
-  });
-
-  if (!result.success) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({ success: true, data: result.data });
-}
+    return apiSuccess(result.data);
+  },
+);

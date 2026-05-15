@@ -1,5 +1,6 @@
 import { hash } from "bcryptjs";
 
+import { logActivitySafe } from "@/lib/logger";
 import { InvestorRepository } from "../repositories/InvestorRepository";
 
 const UNIQUE_CONSTRAINT_MESSAGE = "Username sudah digunakan";
@@ -82,6 +83,7 @@ export class InvestorAdminService {
 
   async createInvestor(
     body: InvestorCreateInput,
+    actorId?: string,
   ): Promise<ServiceResult<SafeInvestor>> {
     try {
       if (!body.password) {
@@ -117,6 +119,20 @@ export class InvestorAdminService {
         isActive: true,
       });
 
+      if (actorId) {
+        logActivitySafe({
+          action: "CREATE",
+          subject: "Investor",
+          userId: actorId,
+          details: {
+            investorId: investor.id,
+            username: investor.username,
+            namaLengkap: investor.namaLengkap,
+            tenantId: body.tenantId,
+          },
+        });
+      }
+
       return { success: true, data: toSafeInvestor(investor) };
     } catch {
       return {
@@ -136,6 +152,7 @@ export class InvestorAdminService {
   async updateInvestorById(
     id: string,
     body: InvestorUpdateInput,
+    actorId?: string,
   ): Promise<ServiceResult<SafeInvestor>> {
     try {
       const existingInvestor = await this.repository.findById(id);
@@ -188,6 +205,26 @@ export class InvestorAdminService {
       }
 
       const updatedInvestor = await this.repository.update(id, updateData);
+
+      if (actorId) {
+        logActivitySafe({
+          action: "UPDATE",
+          subject: "Investor",
+          userId: actorId,
+          details: {
+            investorId: id,
+            changes: {
+              username: body.username,
+              namaLengkap: body.namaLengkap,
+              perusahaan: body.perusahaan,
+              email: body.email,
+              noTelp: body.noTelp,
+              passwordChanged: Boolean(body.password && body.password.trim()),
+            },
+          },
+        });
+      }
+
       return { success: true, data: toSafeInvestor(updatedInvestor) };
     } catch {
       return {
@@ -201,6 +238,7 @@ export class InvestorAdminService {
   async toggleInvestorActive(
     id: string,
     isActive: boolean,
+    actorId?: string,
   ): Promise<ServiceResult<SafeInvestor>> {
     try {
       const existingInvestor = await this.repository.findById(id);
@@ -209,6 +247,16 @@ export class InvestorAdminService {
       }
 
       const updatedInvestor = await this.repository.update(id, { isActive });
+
+      if (actorId) {
+        logActivitySafe({
+          action: isActive ? "ACTIVATE" : "DEACTIVATE",
+          subject: "Investor",
+          userId: actorId,
+          details: { investorId: id, isActive },
+        });
+      }
+
       return { success: true, data: toSafeInvestor(updatedInvestor) };
     } catch {
       return {
@@ -221,6 +269,7 @@ export class InvestorAdminService {
 
   async deleteInvestorById(
     id: string,
+    actorId?: string,
   ): Promise<ServiceResult<{ username: string }>> {
     try {
       const investor = await this.repository.findByIdWithCounts(id);
@@ -237,6 +286,16 @@ export class InvestorAdminService {
       }
 
       await this.repository.delete(id);
+
+      if (actorId) {
+        logActivitySafe({
+          action: "DELETE",
+          subject: "Investor",
+          userId: actorId,
+          details: { investorId: id, username: investor.username },
+        });
+      }
+
       return { success: true, data: { username: investor.username } };
     } catch {
       return {
@@ -262,8 +321,11 @@ export async function getInvestors() {
   return getInvestorAdminService().getInvestors();
 }
 
-export async function createInvestor(body: InvestorCreateInput) {
-  return getInvestorAdminService().createInvestor(body);
+export async function createInvestor(
+  body: InvestorCreateInput,
+  actorId?: string,
+) {
+  return getInvestorAdminService().createInvestor(body, actorId);
 }
 
 export async function getInvestorById(id: string) {
@@ -273,16 +335,21 @@ export async function getInvestorById(id: string) {
 export async function updateInvestorById(
   id: string,
   body: InvestorUpdateInput,
+  actorId?: string,
 ) {
-  return getInvestorAdminService().updateInvestorById(id, body);
+  return getInvestorAdminService().updateInvestorById(id, body, actorId);
 }
 
-export async function toggleInvestorActive(id: string, isActive: boolean) {
-  return getInvestorAdminService().toggleInvestorActive(id, isActive);
+export async function toggleInvestorActive(
+  id: string,
+  isActive: boolean,
+  actorId?: string,
+) {
+  return getInvestorAdminService().toggleInvestorActive(id, isActive, actorId);
 }
 
-export async function deleteInvestorById(id: string) {
-  return getInvestorAdminService().deleteInvestorById(id);
+export async function deleteInvestorById(id: string, actorId?: string) {
+  return getInvestorAdminService().deleteInvestorById(id, actorId);
 }
 
 export const investorAdminErrorMessages = {

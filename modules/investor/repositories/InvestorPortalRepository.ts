@@ -36,32 +36,39 @@ export type InvestorPortalInternalCustomer = {
   hargaPaket: { harga: Prisma.Decimal | number | bigint | string } | null;
 };
 
+function tenantScopedInvestor(tenantId?: string) {
+  return tenantId ? { investor: { tenantId } } : {};
+}
+
 export class InvestorPortalRepository {
   /** Mengambil proyek investor untuk halaman dashboard. */
-  async findDashboardProjects(investorId: string) {
+  async findDashboardProjects(investorId: string, tenantId?: string) {
     return prisma.rabInvestor.findMany({
-      where: { investorId },
+      where: { investorId, ...tenantScopedInvestor(tenantId) },
       include: PROJECT_SUMMARY_INCLUDE,
     });
   }
 
   /** Mengambil daftar proyek investor untuk halaman list. */
-  async findProjectList(investorId: string) {
+  async findProjectList(investorId: string, tenantId?: string) {
     return prisma.rabInvestor.findMany({
-      where: { investorId },
+      where: { investorId, ...tenantScopedInvestor(tenantId) },
       include: PROJECT_LIST_INCLUDE,
       orderBy: { rabProject: { createdAt: "desc" } },
     });
   }
 
   /** Mengambil detail proyek investor berdasarkan akses investor. */
-  async findProjectDetail(projectId: string, investorId: string) {
-    return prisma.rabInvestor.findUnique({
+  async findProjectDetail(
+    projectId: string,
+    investorId: string,
+    tenantId?: string,
+  ) {
+    return prisma.rabInvestor.findFirst({
       where: {
-        rabProjectId_investorId: {
-          rabProjectId: projectId,
-          investorId,
-        },
+        rabProjectId: projectId,
+        investorId,
+        ...tenantScopedInvestor(tenantId),
       },
       include: PROJECT_LIST_INCLUDE,
     });

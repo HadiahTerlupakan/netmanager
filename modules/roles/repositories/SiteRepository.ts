@@ -52,6 +52,14 @@ export class SiteRepository implements ISiteRepository {
     return site ? SiteMapper.toDomain(site) : null;
   }
 
+  /** Find site name by ID for lightweight lookups. */
+  async findNameById(id: string): Promise<{ name: string } | null> {
+    return prisma.sites.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+  }
+
   /** Find site by code. */
   async findByCode(code: string): Promise<SiteEntity | null> {
     const site = await prisma.sites.findUnique({

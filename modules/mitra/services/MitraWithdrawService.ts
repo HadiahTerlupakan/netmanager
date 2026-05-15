@@ -253,6 +253,15 @@ export class MitraWithdrawService {
     );
     return { success: true, data: { minWithdraw } };
   }
+
+  /** Memeriksa apakah withdraw dalam scope site yang diizinkan. */
+  async isWithdrawInScope(
+    id: string,
+    allowedSiteIds: string[],
+    tenantId?: string,
+  ): Promise<boolean> {
+    return this.withdrawRepo.isWithdrawInScope(id, allowedSiteIds, tenantId);
+  }
 }
 
 let instance: MitraWithdrawService | null = null;

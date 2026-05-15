@@ -1,7 +1,7 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { PelangganBillingBridgeService } from "@/modules/pelanggan";
-import { createRouteServiceError } from "./RouteServiceError";
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import {
   approveManualPayment,
   buildPendingManualPaymentsWhere,
@@ -116,70 +116,5 @@ export class ManualPaymentAdminRouteService {
     }
 
     throw createRouteServiceError(INVALID_ACTION_MESSAGE, 400);
-  }
-
-  /** Get investor payout list with pagination. */
-  async getInvestorPayouts(input: {
-    investorId: string;
-    page: number;
-    limit: number;
-  }) {
-    const skip = (input.page - 1) * input.limit;
-    const [payouts, total] = await Promise.all([
-      this.paymentRepository.findManyInvestorPayouts({
-        investorId: input.investorId,
-        skip,
-        take: input.limit,
-      }),
-      this.paymentRepository.countInvestorPayouts(input.investorId),
-    ]);
-
-    return { payouts, total };
-  }
-
-  /** Create a new investor payout. */
-  async createInvestorPayout(input: {
-    investorId: string;
-    amount: number;
-    date?: Date;
-    bankName?: string;
-    accountNumber?: string;
-    accountName?: string;
-    reference?: string;
-    notes?: string;
-    status?: string;
-  }) {
-    const investor = await this.paymentRepository.findInvestorById(
-      input.investorId,
-    );
-
-    if (!investor) {
-      return null;
-    }
-
-    return this.paymentRepository.createInvestorPayout({
-      investorId: input.investorId,
-      amount: BigInt(input.amount),
-      date: input.date || new Date(),
-      bankName: input.bankName,
-      accountNumber: input.accountNumber,
-      accountName: input.accountName,
-      reference: input.reference,
-      notes: input.notes,
-      status: input.status || "COMPLETED",
-    });
-  }
-
-  /** Get investor detail with recent payouts and project relations. */
-  async getInvestorDetail(investorId: string) {
-    const investor =
-      await this.paymentRepository.findInvestorDetail(investorId);
-
-    if (!investor) {
-      return null;
-    }
-
-    const { passwordHash: _passwordHash, ...safeInvestor } = investor;
-    return safeInvestor;
   }
 }

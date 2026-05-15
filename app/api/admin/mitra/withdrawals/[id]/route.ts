@@ -1,110 +1,67 @@
-import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentUser } from "@/lib/rbac";
+import * as z from "zod";
+
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { getMitraWithdrawService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
+import { rejectWithdrawSchema } from "@/lib/validations/mitra";
 
-const withdrawService = getMitraWithdrawService();
+const ACTIONS = ["approve", "reject", "complete"] as const;
+type Action = (typeof ACTIONS)[number];
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !(await hasPermission("withdrawals:update", user, { silent: true }))
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
+const isAction = (value: string | null): value is Action =>
+  value !== null && (ACTIONS as readonly string[]).includes(value);
+
+const optionalRejectSchema = rejectWithdrawSchema.partial();
+
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["withdrawals:update"],
+    schema: optionalRejectSchema as unknown as z.ZodType<
+      z.infer<typeof optionalRejectSchema>
+    >,
+  },
+  async (request, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
+    const { searchParams } = new URL(request.url);
+    const actionParam = searchParams.get("action");
+
+    if (!isAction(actionParam)) {
+      return ApiErrors.badRequest("Invalid action");
+    }
+
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      { user } as never,
+      "withdrawals",
     );
-  }
-
-  const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const action = searchParams.get("action");
-
-  // Validate scope before processing
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user } as never,
-    "withdrawals",
-  );
-  if (isRestricted) {
-    const withdrawalResult = await withdrawService.getWithdrawRequests({
-      page: 1,
-      limit: 1,
-      allowedSiteIds: siteIds,
-    });
-
-    if (!withdrawalResult.success) {
-      return NextResponse.json(
-        { success: false, error: "Gagal memvalidasi akses" },
-        { status: 500 },
+    if (isRestricted) {
+      const inScope = await getMitraWithdrawService().isWithdrawInScope(
+        id,
+        siteIds,
       );
-    }
-
-    // Check if this specific withdrawal is in user's scope by fetching it
-    const allWithdrawals = await withdrawService.getWithdrawRequests({
-      page: 1,
-      limit: 1000,
-      allowedSiteIds: siteIds,
-    });
-
-    if (allWithdrawals.success) {
-      const hasAccess = allWithdrawals.data?.requests.some(
-        (w: { id: string }) => w.id === id,
-      );
-      if (!hasAccess) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Anda tidak dapat memproses withdrawal untuk mitra di luar scope Anda",
-          },
-          { status: 403 },
+      if (!inScope) {
+        return ApiErrors.forbidden(
+          "Anda tidak dapat memproses withdrawal untuk mitra di luar scope Anda",
         );
       }
     }
-  }
 
-  try {
+    const service = getMitraWithdrawService();
     let result;
-
-    switch (action) {
-      case "approve":
-        result = await withdrawService.approveWithdraw(id, user.id!);
-        break;
-      case "reject": {
-        const body = await request.json();
-        result = await withdrawService.rejectWithdraw(
-          id,
-          body.reason || "Ditolak oleh admin",
-          user.id!,
-        );
-        break;
-      }
-      case "complete":
-        result = await withdrawService.completeWithdraw(id, user.id!);
-        break;
-      default:
-        return NextResponse.json(
-          { success: false, error: "Invalid action" },
-          { status: 400 },
-        );
+    if (actionParam === "approve") {
+      result = await service.approveWithdraw(id, user.id);
+    } else if (actionParam === "reject") {
+      const reason = ctx.validated.reason || "Ditolak oleh admin";
+      result = await service.rejectWithdraw(id, reason, user.id);
+    } else {
+      result = await service.completeWithdraw(id, user.id);
     }
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 },
-      );
+      return ApiErrors.badRequest(result.error);
     }
 
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request" },
-      { status: 400 },
-    );
-  }
-}
+    return apiSuccess(undefined);
+  },
+);

@@ -1,5 +1,5 @@
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
-import { createRouteServiceError } from "./RouteServiceError";
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import {
   buildProjectBillingMetrics,
   buildProjectSnapshot,
@@ -11,18 +11,26 @@ export class InvestorPortalProjectService {
   constructor(private readonly repository = new InvestorPortalRepository()) {}
 
   /** Mengambil daftar proyek investor beserta ringkasan actual revenue. */
-  async getProjects(investorId: string) {
-    const projects = await this.repository.findProjectList(investorId);
+  async getProjects(investorId: string, tenantId?: string | null) {
+    const projects = await this.repository.findProjectList(
+      investorId,
+      tenantId ?? undefined,
+    );
     const snapshot = await buildProjectSnapshot(this.repository, projects);
 
     return projects.map((item) => toProjectListItem(item, snapshot));
   }
 
   /** Mengambil detail proyek investor berdasarkan akses investor. */
-  async getProjectDetail(projectId: string, investorId: string) {
+  async getProjectDetail(
+    projectId: string,
+    investorId: string,
+    tenantId?: string | null,
+  ) {
     const project = await this.repository.findProjectDetail(
       projectId,
       investorId,
+      tenantId ?? undefined,
     );
 
     if (!project) {

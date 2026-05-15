@@ -7,6 +7,7 @@ import {
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
 
 const MIXRADIUS_FETCH_LIMIT = 10000;
+const MIXRADIUS_SNAPSHOT_TTL_MS = 60_000;
 const ACTIVE_MIXRADIUS_STATUSES = new Set(["Active", "Enabled-Users"]);
 const ZERO_NUMBER = 0;
 const FULL_PERCENT = 100;
@@ -58,6 +59,14 @@ export function createInvestorSiteMap<T extends { id: string }>(
   return new Map(sites.map((site) => [site.id, site]));
 }
 
+type MixRadiusSnapshot = {
+  data: MixRadiusCustomer[];
+  expiresAt: number;
+};
+
+let mixRadiusSnapshot: MixRadiusSnapshot | null = null;
+let mixRadiusInflight: Promise<MixRadiusCustomer[]> | null = null;
+
 export async function fetchMixRadiusCustomers(
   owners: string[],
   logPrefix: string,
@@ -66,18 +75,37 @@ export async function fetchMixRadiusCustomers(
     return [];
   }
 
-  try {
-    const response = await getMixRadiusService().fetchCustomersPPP({
-      start: 0,
-      length: MIXRADIUS_FETCH_LIMIT,
-      forceRefresh: false,
-    });
-
-    return response.data || [];
-  } catch (error) {
-    logger.error(`${logPrefix} MixRadius fetch error:`, error);
-    return [];
+  const now = Date.now();
+  if (mixRadiusSnapshot && mixRadiusSnapshot.expiresAt > now) {
+    return mixRadiusSnapshot.data;
   }
+
+  if (mixRadiusInflight) {
+    return mixRadiusInflight;
+  }
+
+  mixRadiusInflight = (async () => {
+    try {
+      const response = await getMixRadiusService().fetchCustomersPPP({
+        start: 0,
+        length: MIXRADIUS_FETCH_LIMIT,
+        forceRefresh: false,
+      });
+      const data = response.data || [];
+      mixRadiusSnapshot = {
+        data,
+        expiresAt: Date.now() + MIXRADIUS_SNAPSHOT_TTL_MS,
+      };
+      return data;
+    } catch (error) {
+      logger.error(`${logPrefix} MixRadius fetch error:`, error);
+      return [];
+    } finally {
+      mixRadiusInflight = null;
+    }
+  })();
+
+  return mixRadiusInflight;
 }
 
 export function summarizeInternalCustomers(

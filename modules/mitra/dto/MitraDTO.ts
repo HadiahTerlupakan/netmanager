@@ -1,89 +1,83 @@
-import type {
-  EmployeeType,
-  MitraType,
-  WithdrawMethod,
-} from "../types/mitra.enums";
+import type { MitraType, WithdrawMethod } from "../types/mitra.enums";
 
-export interface CreateMitraDTO {
+type MitraEmployeeType = "MITRA_TEKNISI" | "MITRA_SALES";
+
+/** Identitas pribadi mitra. */
+export interface MitraIdentityFields {
   name: string;
   email: string;
-  password: string;
   phone?: string;
-  employeeType: "MITRA_TEKNISI" | "MITRA_SALES";
-  departmentId?: string;
-  siteId?: string;
-  roleId?: string;
-  mitraRateWoPsb?: number;
-  mitraRateWoMaintenance?: number;
-  mitraRateCanvasing?: number;
-  mitraRateFeePelanggan?: number;
-  enableFeePelanggan?: boolean;
-  mixradiusOwnerNames?: string[];
-  bankName?: string;
-  bankAccountNo?: string;
-  bankAccountName?: string;
-  targetHarian?: number;
-  minWithdrawal?: number;
-  garansiHari?: number;
-  slaGaransiJam?: number;
-  penaltyPsb?: number;
-  penaltyMaintenance?: number;
   nik?: string;
   tempatLahir?: string;
   tanggalLahir?: string | Date;
   alamat?: string;
   latitudeRumah?: number;
   longitudeRumah?: number;
-  fotoDiri?: string;
-  fotoKtp?: string;
-  fotoSim?: string;
-  fotoKk?: string;
-  requiresFaceVerification?: boolean;
+}
+
+/** Konfigurasi employment & assignment mitra. */
+export interface MitraEmploymentFields {
+  employeeType: MitraEmployeeType;
+  departmentId?: string;
+  siteId?: string;
+  roleId?: string;
   tenantId?: string;
 }
 
-export interface UpdateMitraDTO {
-  name?: string;
-  email?: string;
-  password?: string;
-  phone?: string;
-  employeeType?: "MITRA_TEKNISI" | "MITRA_SALES";
-  departmentId?: string;
-  siteId?: string;
-  roleId?: string;
+/** Konfigurasi rate komisi & target operasional. */
+export interface MitraCommissionFields {
   mitraRateWoPsb?: number;
   mitraRateWoMaintenance?: number;
   mitraRateCanvasing?: number;
   mitraRateFeePelanggan?: number;
   enableFeePelanggan?: boolean;
   mixradiusOwnerNames?: string[];
-  bankName?: string;
-  bankAccountNo?: string;
-  bankAccountName?: string;
   targetHarian?: number;
   minWithdrawal?: number;
   garansiHari?: number;
   slaGaransiJam?: number;
   penaltyPsb?: number;
   penaltyMaintenance?: number;
-  isActive?: boolean;
-  nik?: string;
-  tempatLahir?: string;
-  tanggalLahir?: string | Date;
-  alamat?: string;
-  latitudeRumah?: number;
-  longitudeRumah?: number;
+}
+
+/** Informasi rekening bank mitra. */
+export interface MitraBankFields {
+  bankName?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
+}
+
+/** Kelengkapan KYC mitra. */
+export interface MitraKycFields {
   fotoDiri?: string;
   fotoKtp?: string;
   fotoSim?: string;
   fotoKk?: string;
   requiresFaceVerification?: boolean;
-  tenantId?: string;
 }
+
+/** DTO pembuatan mitra. Dipecah menjadi sub-DTO domain agar mudah dirawat. */
+export type CreateMitraDTO = MitraIdentityFields &
+  MitraEmploymentFields &
+  MitraCommissionFields &
+  MitraBankFields &
+  MitraKycFields & {
+    password: string;
+  };
+
+/** DTO update mitra — semua field opsional, plus toggle aktifasi. */
+export type UpdateMitraDTO = Partial<MitraIdentityFields> &
+  Partial<MitraEmploymentFields> &
+  Partial<MitraCommissionFields> &
+  Partial<MitraBankFields> &
+  Partial<MitraKycFields> & {
+    password?: string;
+    isActive?: boolean;
+  };
 
 export interface MitraFilters {
   search?: string;
-  employeeType?: EmployeeType;
+  employeeType?: MitraType;
   isActive?: boolean;
   departmentId?: string;
   siteId?: string;

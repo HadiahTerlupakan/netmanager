@@ -85,6 +85,27 @@ export class MitraWithdrawRepository implements IMitraWithdrawRepository {
     return request ? toWithdrawRequestEntity(request) : null;
   }
 
+  /** Memeriksa apakah withdraw berada dalam scope site yang diizinkan. */
+  async isWithdrawInScope(
+    id: string,
+    allowedSiteIds: string[],
+    tenantId?: string,
+  ) {
+    if (allowedSiteIds.length === 0) return false;
+    const match = await prismaMitra.withdrawRequest.findFirst({
+      where: {
+        id,
+        mitra: {
+          ...(tenantId && { tenantId }),
+          siteId: { in: allowedSiteIds },
+        },
+      },
+      select: { id: true },
+    });
+
+    return match !== null;
+  }
+
   /** Memperbarui status request penarikan. */
   async updateWithdrawStatus(record: UpdateWithdrawStatusRecord) {
     await prismaMitra.withdrawRequest.update({

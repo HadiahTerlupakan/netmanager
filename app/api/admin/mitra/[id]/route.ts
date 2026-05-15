@@ -1,165 +1,166 @@
-import { NextRequest } from "next/server";
-import { hasPermission, getCurrentUser } from "@/lib/rbac";
-import {
-  validateMitraSiteAccess,
-  validateNewSiteId,
-  unauthorizedResponse,
-  accessDeniedResponse,
-  notFoundResponse,
-  badRequestResponse,
-  successResponse,
-  mitraService,
-} from "./route.helpers";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { getMitraService } from "@/modules/mitra";
+import { checkSiteRestriction } from "@/modules/roles";
+import { updateMitraSchema } from "@/lib/validations/mitra";
+import * as z from "zod";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:read", user, { silent: true }))
-  ) {
-    return unauthorizedResponse();
+const patchSchema = updateMitraSchema;
+
+async function ensureMitraInScope(
+  mitraId: string,
+  user: { id: string; name?: string },
+): Promise<{ allowed: boolean; error?: string }> {
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    { user } as never,
+    "mitra",
+  );
+  if (!isRestricted) return { allowed: true };
+
+  const mitra = await getMitraService().getMitraById(mitraId);
+  if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
+
+  if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
+    return {
+      allowed: false,
+      error: "Anda tidak dapat mengakses mitra di luar scope Anda",
+    };
   }
 
-  const { id } = await params;
-
-  const access = await validateMitraSiteAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return accessDeniedResponse(access.error);
-  }
-
-  const result = await mitraService.getMitraById(id);
-
-  if (!result.success) {
-    return notFoundResponse(result.error);
-  }
-
-  return successResponse(result.data);
+  return { allowed: true };
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:update", user, { silent: true }))
-  ) {
-    return unauthorizedResponse();
+function ensureSiteIdInScope(
+  user: { id: string; name?: string },
+  newSiteId?: string,
+): { valid: boolean; error?: string } {
+  if (!newSiteId) return { valid: true };
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    { user } as never,
+    "mitra",
+  );
+  if (isRestricted && !siteIds.includes(newSiteId)) {
+    return {
+      valid: false,
+      error: "Anda tidak dapat memindahkan mitra ke site di luar scope Anda",
+    };
   }
 
-  const { id } = await params;
+  return { valid: true };
+}
 
-  const access = await validateMitraSiteAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return accessDeniedResponse(access.error);
-  }
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:read"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
 
-  try {
-    const body = await request.json();
-
-    const siteValidation = await validateNewSiteId(user, body.siteId);
-    if (!siteValidation.valid) {
-      return accessDeniedResponse(siteValidation.error);
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
     }
 
-    const result = await mitraService.updateMitra(id, body, user.id!);
+    const result = await getMitraService().getMitraById(id);
+    if (!result.success) {
+      return ApiErrors.notFound(result.error);
+    }
+
+    return apiSuccess(result.data);
+  },
+);
+
+export const PUT = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:update"],
+    schema: patchSchema as unknown as z.ZodType<z.infer<typeof patchSchema>>,
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
+
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
+    }
+
+    const siteCheck = ensureSiteIdInScope(user, ctx.validated.siteId);
+    if (!siteCheck.valid) {
+      return ApiErrors.forbidden(siteCheck.error);
+    }
+
+    const result = await getMitraService().updateMitra(
+      id,
+      ctx.validated,
+      user.id,
+    );
 
     if (!result.success) {
-      return badRequestResponse(result.error);
+      return ApiErrors.badRequest(result.error);
     }
 
-    return successResponse();
-  } catch {
-    return badRequestResponse("Invalid request body");
-  }
-}
+    return apiSuccess(undefined);
+  },
+);
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:delete", user, { silent: true }))
-  ) {
-    return unauthorizedResponse();
-  }
+export const DELETE = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:delete"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
 
-  const { id } = await params;
-
-  const access = await validateMitraSiteAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return accessDeniedResponse(access.error);
-  }
-
-  const result = await mitraService.deleteMitra(id, user.id!);
-
-  if (!result.success) {
-    return badRequestResponse(result.error);
-  }
-
-  return successResponse();
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getCurrentUser();
-  if (
-    !user ||
-    !user.id ||
-    !(await hasPermission("mitra:update", user, { silent: true }))
-  ) {
-    return unauthorizedResponse();
-  }
-
-  const { id } = await params;
-
-  const access = await validateMitraSiteAccess(id, {
-    id: user.id,
-    name: user.name,
-  });
-  if (!access.allowed) {
-    return accessDeniedResponse(access.error);
-  }
-
-  try {
-    const body = await request.json();
-
-    const siteValidation = await validateNewSiteId(user, body.siteId);
-    if (!siteValidation.valid) {
-      return accessDeniedResponse(siteValidation.error);
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
     }
 
-    const result = await mitraService.updateMitra(id, body, user.id!);
+    const result = await getMitraService().deleteMitra(id, user.id);
+    if (!result.success) {
+      return ApiErrors.badRequest(result.error);
+    }
+
+    return apiSuccess(undefined);
+  },
+);
+
+export const PATCH = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:update"],
+    schema: patchSchema as unknown as z.ZodType<z.infer<typeof patchSchema>>,
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
+
+    const access = await ensureMitraInScope(id, user);
+    if (!access.allowed) {
+      return ApiErrors.forbidden(access.error);
+    }
+
+    const siteCheck = ensureSiteIdInScope(user, ctx.validated.siteId);
+    if (!siteCheck.valid) {
+      return ApiErrors.forbidden(siteCheck.error);
+    }
+
+    const result = await getMitraService().updateMitra(
+      id,
+      ctx.validated,
+      user.id,
+    );
 
     if (!result.success) {
-      return badRequestResponse(result.error);
+      return ApiErrors.badRequest(result.error);
     }
 
     const { socketEmitter } = await import("@/lib/websocket/emitter");
     socketEmitter.profileRefresh(id);
 
-    return successResponse();
-  } catch {
-    return badRequestResponse("Invalid request body");
-  }
-}
+    return apiSuccess(undefined);
+  },
+);

@@ -1,4 +1,4 @@
-import { PaymentRepository } from "../repositories/PaymentRepository";
+import { InvestorPaymentBridgeService } from "@/modules/finance";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -13,7 +13,9 @@ function normalizePositiveNumber(value: string | null, fallback: number) {
 }
 
 export class InvestorPortalPayoutService {
-  constructor(private readonly paymentRepository = new PaymentRepository()) {}
+  constructor(
+    private readonly paymentBridge = new InvestorPaymentBridgeService(),
+  ) {}
 
   /** Mengambil daftar payout investor dengan pagination ter-normalisasi. */
   async getPayouts(investorId: string, query: URLSearchParams) {
@@ -21,12 +23,12 @@ export class InvestorPortalPayoutService {
     const limit = normalizePositiveNumber(query.get("limit"), DEFAULT_LIMIT);
     const skip = (page - 1) * limit;
     const [payouts, total] = await Promise.all([
-      this.paymentRepository.findManyInvestorPayouts({
+      this.paymentBridge.findManyInvestorPayouts({
         investorId,
         skip,
         take: limit,
       }),
-      this.paymentRepository.countInvestorPayouts(investorId),
+      this.paymentBridge.countInvestorPayouts(investorId),
     ]);
 
     return {

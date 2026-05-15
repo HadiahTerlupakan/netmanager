@@ -1,100 +1,80 @@
-import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentUser } from "@/lib/rbac";
+import * as z from "zod";
+
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
+import { createMitraSchema } from "@/lib/validations/mitra";
 
-type EmployeeTypeValue = "KARYAWAN";
+const listQuerySchema = z.object({
+  search: z.string().optional(),
+  type: z.enum(["MITRA_TEKNISI", "MITRA_SALES"]).optional(),
+  active: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
 
-function getMitraRouteService() {
-  return getMitraService();
-}
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:read"],
+  },
+  async (request, ctx) => {
+    const parsed = listQuerySchema.safeParse(ctx.query);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("Query parameter tidak valid");
+    }
+    const { search, type, active, page, limit } = parsed.data;
 
-export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user || !(await hasPermission("mitra:read", user, { silent: true }))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      { user: ctx.session!.user } as never,
+      "mitra",
     );
-  }
 
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search") || undefined;
-  const employeeType = searchParams.get("type") as
-    | EmployeeTypeValue
-    | undefined;
-  const isActive =
-    searchParams.get("active") !== null
-      ? searchParams.get("active") === "true"
-      : undefined;
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
-
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user } as never,
-    "mitra",
-  );
-  const allowedSiteIds = isRestricted ? siteIds : undefined;
-
-  const result = await getMitraRouteService().getMitras(
-    { search, employeeType, isActive, allowedSiteIds },
-    page,
-    limit,
-  );
-
-  if (!result.success) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 500 },
+    const result = await getMitraService().getMitras(
+      {
+        search,
+        employeeType: type,
+        isActive: active ? active === "true" : undefined,
+        allowedSiteIds: isRestricted ? siteIds : undefined,
+      },
+      page,
+      limit,
     );
-  }
 
-  return NextResponse.json({ success: true, data: result.data });
-}
+    if (!result.success) {
+      return ApiErrors.internalError(result.error || "Gagal mengambil mitra");
+    }
 
-export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user || !(await hasPermission("mitra:create", user, { silent: true }))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 403 },
-    );
-  }
+    return apiSuccess(result.data);
+  },
+);
 
-  try {
-    const body = await request.json();
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["mitra:create"],
+    schema: createMitraSchema,
+  },
+  async (_request, ctx) => {
+    const user = ctx.session!.user;
+    const body = ctx.validated;
 
     const { isRestricted, siteIds } = checkSiteRestriction(
       { user } as never,
       "mitra",
     );
     if (isRestricted && body.siteId && !siteIds.includes(body.siteId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Anda tidak dapat membuat mitra untuk site di luar scope Anda",
-        },
-        { status: 403 },
+      return ApiErrors.forbidden(
+        "Anda tidak dapat membuat mitra untuk site di luar scope Anda",
       );
     }
 
-    const result = await getMitraRouteService().createMitra(body, user.id!);
+    const result = await getMitraService().createMitra(body, user.id);
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 },
-      );
+      return ApiErrors.badRequest(result.error || "Gagal membuat mitra");
     }
 
-    return NextResponse.json(
-      { success: true, data: result.data },
-      { status: 201 },
-    );
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-}
+    return apiSuccess(result.data, { status: 201 });
+  },
+);

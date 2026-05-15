@@ -9,8 +9,11 @@ export class InvestorPortalDashboardService {
   constructor(private readonly repository = new InvestorPortalRepository()) {}
 
   /** Mengambil ringkasan dashboard investor berbasis proyek aktif. */
-  async getDashboard(investorId: string) {
-    const projects = await this.repository.findDashboardProjects(investorId);
+  async getDashboard(investorId: string, tenantId?: string | null) {
+    const projects = await this.repository.findDashboardProjects(
+      investorId,
+      tenantId ?? undefined,
+    );
     const revenueSnapshot = await buildDashboardRevenueSnapshot(
       this.repository,
       projects,

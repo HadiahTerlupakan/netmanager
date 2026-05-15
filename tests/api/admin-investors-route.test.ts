@@ -42,7 +42,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/modules/finance/services/InvestorAdminService", () => ({
+vi.mock("@/modules/investor", () => ({
   getInvestors: mockFns.getInvestors,
   createInvestor: mockFns.createInvestor,
 }));
@@ -133,6 +133,7 @@ describe("Investors API Route", () => {
           username: "newinv",
           password: "password123",
         }),
+        undefined,
       );
       expect(json.data.username).toBe("newinv");
       expect(json.data).not.toHaveProperty("passwordHash");

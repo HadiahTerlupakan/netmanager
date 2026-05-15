@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getMobileMitraRouteService } from "@/modules/mitra";
+import { withdrawRequestSchema } from "@/lib/validations/mitra";
 
 const mobileMitraRouteService = getMobileMitraRouteService();
 
@@ -50,6 +51,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const parsed = withdrawRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return ApiErrors.badRequest(
+        parsed.error.issues[0]?.message || "Permintaan tidak valid",
+      );
+    }
+
     const result = await mobileMitraRouteService.requestWithdraw(
       {
         id: authResult.id as string,
@@ -58,12 +66,12 @@ export async function POST(req: NextRequest) {
         role: authResult.role,
       },
       {
-        amount: body.amount,
-        method: body.method,
-        bankName: body.bankName || undefined,
-        accountNumber: body.accountNumber || undefined,
-        accountName: body.accountName || undefined,
-        notes: body.notes || undefined,
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        bankName: parsed.data.bankName || undefined,
+        accountNumber: parsed.data.accountNumber || undefined,
+        accountName: parsed.data.accountName || undefined,
+        notes: parsed.data.notes || undefined,
       },
     );
 

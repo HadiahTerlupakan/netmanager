@@ -95,9 +95,9 @@ const formatCurrency = (amount: number | null | undefined) => {
 
 export default function MitraListClient() {
   const { hasPermission } = usePermission();
-  const canCreate = hasPermission("users:create");
-  const canUpdate = hasPermission("users:update");
-  const canDelete = hasPermission("users:delete");
+  const canCreate = hasPermission("mitra:create");
+  const canUpdate = hasPermission("mitra:update");
+  const canDelete = hasPermission("mitra:delete");
 
   const [mitras, setMitras] = useState<Mitra[]>([]);
   const [sites, setSites] = useState<Site[]>([]);

@@ -44,7 +44,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/modules/finance/services/InvestorAdminService", () => ({
+vi.mock("@/modules/investor", () => ({
   getInvestorById: mockFns.getInvestorById,
   updateInvestorById: mockFns.updateInvestorById,
   toggleInvestorActive: mockFns.toggleInvestorActive,
@@ -149,6 +149,7 @@ describe("Admin investor [id] route", () => {
         email: "updated@example.com",
         noTelp: "08123456780",
       }),
+      undefined,
     );
     expect(json.success).toBe(true);
     expect(json.data.username).toBe("updated-investor");
@@ -183,7 +184,11 @@ describe("Admin investor [id] route", () => {
       data: { isActive: boolean };
     };
 
-    expect(mockFns.toggleInvestorActive).toHaveBeenCalledWith("inv-1", false);
+    expect(mockFns.toggleInvestorActive).toHaveBeenCalledWith(
+      "inv-1",
+      false,
+      undefined,
+    );
     expect(json.success).toBe(true);
     expect(json.data.isActive).toBe(false);
   });
@@ -212,7 +217,7 @@ describe("Admin investor [id] route", () => {
       data: { message: string };
     };
 
-    expect(mockFns.deleteInvestorById).toHaveBeenCalledWith("inv-1");
+    expect(mockFns.deleteInvestorById).toHaveBeenCalledWith("inv-1", undefined);
     expect(json.success).toBe(true);
     expect(json.data.message).toBe("Investor berhasil dihapus");
   });

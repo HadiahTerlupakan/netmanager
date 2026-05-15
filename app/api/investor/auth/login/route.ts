@@ -5,7 +5,7 @@ import {
   isLoginRateLimitEnabled,
   LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE,
 } from "@/lib/security/login-rate-limit";
-import { getInvestorPortalAuthService } from "@/modules/finance";
+import { getInvestorPortalAuthService } from "@/modules/investor";
 
 export async function POST(request: Request) {
   try {

@@ -1,13 +1,20 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { prisma, prismaBilling } from "@/modules/database";
+import { prismaBilling } from "@/modules/database";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { getTimezoneSync } from "@/lib/utils/get-timezone";
+import { SiteService } from "@/modules/roles";
 import type { FeePelangganStatsQuery } from "../domain/ports/IMitraRepository";
 import { toMitraStatsEntity } from "../mappers/MitraDomainMapper";
 
 const MILLISECOND_OFFSET = 1;
 const EARNING_TYPE = "EARNING";
 const FEE_PELANGGAN_REFERENCE_PREFIX = "PAYOUT-FEE-";
+
+let siteServiceInstance: SiteService | null = null;
+function getSiteServiceInstance(): SiteService {
+  if (!siteServiceInstance) siteServiceInstance = new SiteService();
+  return siteServiceInstance;
+}
 
 /** Collect aggregate mitra statistics within optional tenant scope. */
 export async function getMitraStatsData(tenantId?: string) {
@@ -71,14 +78,7 @@ export async function getFeePelangganStatsData(query: FeePelangganStatsQuery) {
 
 /** Resolve site metadata for mitra ID card views. */
 export async function findSiteNameById(siteId: string | null) {
-  if (!siteId) {
-    return null;
-  }
-
-  return prisma.sites.findUnique({
-    where: { id: siteId },
-    select: { name: true },
-  });
+  return getSiteServiceInstance().getSiteNameById(siteId);
 }
 
 function buildFeePelangganMonthKey(monthStart: Date, timezone: string) {

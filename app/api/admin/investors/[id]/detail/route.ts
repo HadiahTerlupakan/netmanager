@@ -1,7 +1,7 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { ManualPaymentAdminRouteService } from "@/modules/finance";
+import { InvestorPayoutAdminService } from "@/modules/investor";
 
-const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
+const investorPayoutAdminService = new InvestorPayoutAdminService();
 
 export const GET = createHandler(
   {
@@ -10,7 +10,7 @@ export const GET = createHandler(
   },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const investor = await manualPaymentAdminRouteService.getInvestorDetail(id);
+    const investor = await investorPayoutAdminService.getInvestorDetail(id);
     if (!investor) {
       return ApiErrors.notFound("Investor");
     }

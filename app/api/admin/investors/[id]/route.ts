@@ -7,7 +7,7 @@ import {
   getInvestorById,
   toggleInvestorActive,
   updateInvestorById,
-} from "@/modules/finance";
+} from "@/modules/investor";
 
 function internalError(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -43,14 +43,18 @@ export const PUT = createHandler(
     const { username, password, namaLengkap, perusahaan, email, noTelp } =
       validatedData;
 
-    const result = await updateInvestorById(id, {
-      username,
-      password,
-      namaLengkap,
-      perusahaan,
-      email,
-      noTelp,
-    });
+    const result = await updateInvestorById(
+      id,
+      {
+        username,
+        password,
+        namaLengkap,
+        perusahaan,
+        email,
+        noTelp,
+      },
+      ctx.session?.user.id,
+    );
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {
@@ -81,7 +85,11 @@ export const PATCH = createHandler(
     const { id } = ctx.params;
     const { isActive } = await req.json();
 
-    const result = await toggleInvestorActive(id, isActive);
+    const result = await toggleInvestorActive(
+      id,
+      isActive,
+      ctx.session?.user.id,
+    );
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {
@@ -104,7 +112,7 @@ export const DELETE = createHandler(
   async (_req, ctx) => {
     const { id } = ctx.params;
 
-    const result = await deleteInvestorById(id);
+    const result = await deleteInvestorById(id, ctx.session?.user.id);
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {

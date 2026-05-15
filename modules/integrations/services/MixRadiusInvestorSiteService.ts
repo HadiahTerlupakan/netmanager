@@ -1,4 +1,4 @@
-import { createRouteServiceError } from "@/modules/finance";
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import type { IMixRadiusInvestorSiteRepository } from "../domain/ports/IMixRadiusInvestorSiteRepository";
 import { MixRadiusInvestorSiteRepository } from "../repositories/MixRadiusInvestorSiteRepository";
 
