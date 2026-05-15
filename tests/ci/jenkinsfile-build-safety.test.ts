@@ -156,12 +156,22 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).not.toContain("docker run --rm -i --privileged");
   });
 
-  it("does not fail backup image stage when source image cannot be pulled", () => {
+  it("does not fail backup image stage when source image is missing in registry", () => {
     const jenkinsfile = readJenkinsfile();
 
-    expect(jenkinsfile).toContain('docker push "\\$backup_ref"');
+    expect(jenkinsfile).toContain('docker manifest inspect "\\$source_ref"');
     expect(jenkinsfile).toContain(
-      'echo "No existing image found or pull failed for \\$source_ref; backup skipped" >&2',
+      'docker buildx imagetools create --tag "\\$backup_ref" "\\$source_ref"',
+    );
+    expect(jenkinsfile).toContain(
+      'echo "No existing manifest at \\$source_ref; backup skipped" >&2',
+    );
+    expect(jenkinsfile).toContain("return 0");
+    expect(jenkinsfile).not.toContain(
+      'timeout 120 docker pull "\\$source_ref"',
+    );
+    expect(jenkinsfile).not.toContain(
+      'timeout 120 docker push "\\$backup_ref"',
     );
   });
 

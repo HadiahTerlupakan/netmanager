@@ -243,12 +243,12 @@ spec:
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
             options {
-                timeout(time: 10, unit: 'MINUTES')
+                timeout(time: 5, unit: 'MINUTES')
             }
             steps {
                 container('docker') {
                     script {
-                        echo "Backing up previous environment tags from registry before publishing new images..."
+                        echo "Backing up previous environment tags via server-side retag (no layer pull/push)..."
                         withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
                             sh """
                                 set -euo pipefail
@@ -257,26 +257,29 @@ spec:
                                 backup_image() {
                                   local source_ref="\$1"
                                   local backup_ref="\$2"
-                                  local attempt=0
-                                  local pulled=false
+                                  local attempt
+                                  local manifest_status=1
 
-                                  while [ \$attempt -lt 3 ] && [ "\$pulled" = "false" ]; do
-                                    attempt=\$((attempt + 1))
-                                    echo "Pulling \$source_ref (attempt \$attempt/3)..."
-                                    if timeout 120 docker pull "\$source_ref"; then
-                                      pulled=true
-                                    else
-                                      echo "Pull attempt \$attempt failed for \$source_ref" >&2
-                                      [ \$attempt -lt 3 ] && sleep 5
+                                  for attempt in 1 2 3; do
+                                    echo "Probing manifest \$source_ref (attempt \$attempt/3)..."
+                                    if timeout 30 docker manifest inspect "\$source_ref" >/dev/null 2>&1; then
+                                      manifest_status=0
+                                      break
                                     fi
+                                    echo "Manifest probe attempt \$attempt failed for \$source_ref" >&2
+                                    [ \$attempt -lt 3 ] && sleep 3
                                   done
 
-                                  if [ "\$pulled" = "true" ]; then
-                                    docker tag "\$source_ref" "\$backup_ref"
-                                    timeout 120 docker push "\$backup_ref"
+                                  if [ \$manifest_status -ne 0 ]; then
+                                    echo "No existing manifest at \$source_ref; backup skipped" >&2
+                                    return 0
+                                  fi
+
+                                  echo "Retagging \$source_ref -> \$backup_ref via buildx imagetools (server-side)..."
+                                  if timeout 60 docker buildx imagetools create --tag "\$backup_ref" "\$source_ref"; then
                                     echo "Backed up \$source_ref -> \$backup_ref"
                                   else
-                                    echo "No existing image found or pull failed for \$source_ref; backup skipped" >&2
+                                    echo "Server-side retag failed for \$source_ref -> \$backup_ref; backup skipped" >&2
                                   fi
                                 }
 
