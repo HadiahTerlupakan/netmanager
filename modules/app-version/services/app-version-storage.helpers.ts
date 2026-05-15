@@ -120,12 +120,13 @@ export async function createDirectUploadUrl(params: {
 }) {
   const sanitizedFilename = params.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const key = generateR2Key("app-version", sanitizedFilename);
-  const contentDisposition = `attachment; filename="${sanitizedFilename}"`;
+  // Content-Disposition tidak ikut ditandatangani agar browser bisa PUT
+  // hanya dengan header Content-Type. Disposition di-set ulang di endpoint
+  // download proxy `/api/mobile/app-version/download/[id]`.
   const { uploadUrl, publicUrl } = await getPresignedUrl(
     key,
     params.contentType,
     params.expiresIn ?? PRESIGNED_EXPIRES_IN,
-    contentDisposition,
   );
 
   return { uploadUrl, publicUrl, key, filename: params.filename };

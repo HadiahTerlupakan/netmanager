@@ -252,7 +252,18 @@ export async function getPresignedUrl(
       ...(contentDisposition && { ContentDisposition: contentDisposition }),
     });
 
-    const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+    // AWS SDK v3 menyisipkan x-amz-checksum-* & x-amz-sdk-checksum-algorithm
+    // ke signed headers by default. Browser tidak kirim header itu pada PUT
+    // langsung, jadi presigned URL ditolak R2 (403 SignatureDoesNotMatch).
+    // Hapus middleware checksum & x-amz-content-sha256 sebelum signing.
+    command.middlewareStack.remove("flexibleChecksumsMiddleware");
+    command.middlewareStack.remove("flexibleChecksumsInputMiddleware");
+    command.middlewareStack.remove("flexibleChecksumsResponseMiddleware");
+
+    const uploadUrl = await getSignedUrl(client, command, {
+      expiresIn,
+      unhoistableHeaders: new Set([]),
+    });
 
     // Calculate public URL
     let publicUrl = "";
