@@ -303,3 +303,113 @@ a.touch-target {
 .dark .text-tertiary {
   color: rgb(var(--color-text-tertiary));
 }
+
+/* ============================================================
+ * THEME SAFETY NET — Hardcoded Tailwind palette overrides
+ *
+ * Why: Banyak komponen lama memakai kelas warna mentah seperti
+ * `text-gray-500`, `bg-white`, `border-gray-200` tanpa varian
+ * `dark:`. Akibatnya:
+ *   - Di dark mode: card putih tetap putih, teks gelap tidak
+ *     terbaca di latar gelap.
+ *   - Di light mode: teks gray-300/400 terlalu pucat di atas
+ *     bg putih, jadi nyaris invisible.
+ *
+ * Daripada memodifikasi ratusan file, kita re-route kelas
+ * hardcoded ke design token via CSS variable. Selektor `:where()`
+ * dipakai supaya specificity tetap 0,1,0 — jadi `dark:bg-*` /
+ * `dark:text-*` di komponen tetap menang.
+ * ============================================================ */
+
+/* --- Dark mode: re-route white & light grays to surface tokens --- */
+.dark :where(.bg-white) {
+  background-color: rgb(var(--color-bg-surface));
+}
+
+.dark :where(.bg-gray-50, .bg-slate-50, .bg-zinc-50, .bg-neutral-50, .bg-stone-50) {
+  background-color: rgb(var(--color-bg-surface));
+}
+
+.dark :where(.bg-gray-100, .bg-slate-100, .bg-zinc-100, .bg-neutral-100, .bg-stone-100) {
+  background-color: rgb(var(--color-bg-surface-variant));
+}
+
+.dark :where(.bg-gray-200, .bg-slate-200, .bg-zinc-200) {
+  background-color: rgb(var(--color-bg-surface-variant));
+}
+
+/* Hover variants — keep them subtle in dark */
+.dark :where(.hover\:bg-gray-50:hover, .hover\:bg-slate-50:hover, .hover\:bg-zinc-50:hover),
+.dark :where(.hover\:bg-gray-100:hover, .hover\:bg-slate-100:hover, .hover\:bg-zinc-100:hover) {
+  background-color: rgb(var(--color-bg-surface-variant));
+}
+
+/* Borders */
+.dark :where(.border-gray-100, .border-slate-100, .border-zinc-100, .border-gray-200, .border-slate-200, .border-zinc-200, .border-gray-300, .border-slate-300, .border-zinc-300) {
+  border-color: rgb(var(--color-border));
+}
+
+/* Dark text classes — invisible on dark bg, remap to primary text */
+.dark :where(.text-gray-900, .text-slate-900, .text-zinc-900, .text-neutral-900, .text-stone-900, .text-black) {
+  color: rgb(var(--color-text-primary));
+}
+
+.dark :where(.text-gray-800, .text-slate-800, .text-zinc-800, .text-neutral-800) {
+  color: rgb(var(--color-text-primary));
+}
+
+.dark :where(.text-gray-700, .text-slate-700, .text-zinc-700, .text-neutral-700) {
+  color: rgb(var(--color-text-secondary));
+}
+
+.dark :where(.text-gray-600, .text-slate-600, .text-zinc-600, .text-neutral-600) {
+  color: rgb(var(--color-text-secondary));
+}
+
+.dark :where(.text-gray-500, .text-slate-500, .text-zinc-500, .text-neutral-500) {
+  color: rgb(var(--color-text-tertiary));
+}
+
+/* Hover text — keep contrast */
+.dark :where(.hover\:text-gray-900:hover, .hover\:text-slate-900:hover, .hover\:text-zinc-900:hover, .hover\:text-black:hover) {
+  color: rgb(var(--color-text-primary));
+}
+
+/* Divides */
+.dark :where(.divide-gray-100 > * + *, .divide-slate-100 > * + *, .divide-gray-200 > * + *, .divide-slate-200 > * + *) {
+  border-color: rgb(var(--color-border));
+}
+
+/* --- Light mode: bump too-pale text to readable tones --- */
+/* gray-300 / 400 di atas bg putih nyaris tidak terbaca.
+ * Naikkan ke gray-500/600 supaya tetap lirih tapi visible. */
+.light :where(.text-gray-300, .text-slate-300, .text-zinc-300, .text-neutral-300) {
+  color: rgb(107 114 128); /* gray-500 */
+}
+
+.light :where(.text-gray-400, .text-slate-400, .text-zinc-400, .text-neutral-400) {
+  color: rgb(75 85 99); /* gray-600 */
+}
+
+/* Hover & placeholder versions of pale grays */
+.light :where(.hover\:text-gray-300:hover, .hover\:text-gray-400:hover, .hover\:text-slate-300:hover, .hover\:text-slate-400:hover) {
+  color: rgb(75 85 99);
+}
+
+.light :where(.placeholder\:text-gray-300::placeholder, .placeholder\:text-gray-400::placeholder) {
+  color: rgb(107 114 128);
+}
+
+/* --- Light text on light bg guard ---
+ * `text-white` & `text-gray-100/200` tanpa colored bg = invisible
+ * di light mode. Hanya re-route kalau parent TIDAK punya
+ * background berwarna (bg-primary, bg-gradient, dll).
+ * Solusi aman: hanya untuk text-gray-100/200, biarkan text-white
+ * (biasanya intentional di tombol berwarna). */
+.light :where(.text-gray-100, .text-slate-100, .text-zinc-100) {
+  color: rgb(var(--color-text-secondary));
+}
+
+.light :where(.text-gray-200, .text-slate-200, .text-zinc-200) {
+  color: rgb(var(--color-text-secondary));
+}
