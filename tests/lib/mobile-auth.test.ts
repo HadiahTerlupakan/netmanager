@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockJwtVerify = vi.hoisted(() => vi.fn());
-const mockEvaluateVersionAccess = vi.hoisted(() => vi.fn());
 const mockUserFindUnique = vi.hoisted(() => vi.fn());
 const mockPelangganFindUnique = vi.hoisted(() => vi.fn());
 const mockMitraFindUnique = vi.hoisted(() => vi.fn());
@@ -22,12 +21,6 @@ vi.mock("jose", () => ({
       return "signed-token";
     }
   },
-}));
-
-vi.mock("@/modules/app-version", () => ({
-  getAppVersionService: async () => ({
-    evaluateVersionAccess: mockEvaluateVersionAccess,
-  }),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -84,34 +77,15 @@ describe("mobile-auth version overrides", () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
     });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
-    });
 
     const details = await getMobileTokenDetails("token-1", 100);
 
     expect(details?.versionCode).toBe(100);
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
   });
 
   it("accepts a supported request version even when token appVersionCode is stale", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 2, appVersionCode: 54 },
-    });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
     });
     mockUserFindUnique.mockResolvedValueOnce({
       tokenVersion: 2,
@@ -129,7 +103,6 @@ describe("mobile-auth version overrides", () => {
     const payload = await verifyMobileToken("token-1", 100);
 
     expect(payload?.userId).toBe("user-1");
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
   });
 
   it("builds Mitra teknisi capabilities from the centralized helper", () => {
@@ -159,15 +132,6 @@ describe("mobile-auth version overrides", () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "mitra-1", tokenVersion: 1, appVersionCode: 100 },
     });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
-    });
     mockMitraFindUnique.mockResolvedValueOnce({
       id: "mitra-1",
       name: "Mitra Teknisi",
@@ -194,15 +158,6 @@ describe("mobile-auth version overrides", () => {
         type: "access",
         appVersionCode: 100,
       },
-    });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
     });
     mockUserFindUnique.mockResolvedValueOnce({
       tokenVersion: 3,
@@ -238,15 +193,6 @@ describe("mobile-auth version overrides", () => {
         appVersionCode: 100,
       },
     });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
-    });
 
     const payload = await verifyMobileToken("token-1", 100);
 
@@ -262,15 +208,6 @@ describe("mobile-auth version overrides", () => {
         type: "refresh",
         appVersionCode: 100,
       },
-    });
-    mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
-      latestVersion: null,
     });
     mockUserFindUnique.mockResolvedValueOnce({
       tokenVersion: 1,

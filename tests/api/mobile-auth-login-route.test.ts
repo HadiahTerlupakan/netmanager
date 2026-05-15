@@ -30,13 +30,6 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
-vi.mock("@/modules/app-version", () => ({
-  getAppVersionService: () => ({
-    evaluateVersionAccess: (...args: unknown[]) =>
-      mockEvaluateVersionAccess(...args),
-  }),
-}));
-
 vi.mock("@/lib/mobile-auth", () => ({
   getMitraMobileCapabilities: vi.fn(),
   signMobileRefreshToken: vi.fn(),
@@ -61,10 +54,8 @@ describe("POST /api/mobile/auth/login", () => {
     vi.clearAllMocks();
     mockEvaluateVersionAccess.mockResolvedValue({
       isSupported: true,
-      minimumVersion: null,
+      minimumVersionCode: null,
       latestVersion: null,
-      isForceUpdate: false,
-      updateAvailable: false,
     });
     mockCompare.mockResolvedValue(true);
     mockGeneratePelangganAccessToken.mockReturnValue("customer-access-token");

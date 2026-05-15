@@ -1224,7 +1224,6 @@ model User {
   shift                                      Shift?                    @relation(fields: [shiftId], references: [id])
   sites                                      Sites?                    @relation(fields: [siteId], references: [id])
   tenant                                     Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  appVersions                                AppVersion[]
   assets                                     Asset[]
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
@@ -2392,6 +2391,7 @@ model AppVersion {
   platform      String    @default("android")
   apkUrl        String?
   apkSize       BigInt?
+  apkHash       String?
   releaseNotes  String?
   isForceUpdate Boolean   @default(false)
   minVersion    String?
@@ -2401,14 +2401,41 @@ model AppVersion {
   updatedAt     DateTime  @updatedAt
   createdBy     String?
   tenantId      String?
-  user          User?     @relation(fields: [createdBy], references: [id])
-  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([isActive])
   @@index([platform])
   @@index([versionCode])
   @@index([tenantId])
-  @@map("app_versions")
+  @@map("app_versions_legacy")
+}
+
+/// Expo Updates OTA bundle untuk aplikasi mobile.
+/// Setiap record merepresentasikan satu manifest update yang dilayani ke
+/// mobile via /api/mobile/manifest. Bundle + assets disimpan di PVC.
+model AppUpdate {
+  id              String   @id @default(uuid())
+  manifestId      String   @unique
+  channel         String
+  runtimeVersion  String
+  platform        String
+  bundleHash      String
+  bundlePath      String
+  bundleSize      BigInt
+  assets          Json
+  metadata        Json?
+  signature       String?
+  signatureKeyId  String?
+  releaseNotes    String?
+  commitTime      DateTime
+  isActive        Boolean  @default(true)
+  tenantId        String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([channel, runtimeVersion, platform, isActive, commitTime(sort: Desc)], map: "idx_app_updates_lookup")
+  @@index([tenantId])
+  @@map("app_updates")
 }
 
 model Shift {
@@ -3281,7 +3308,6 @@ model Tenant {
   user                    User[]
   acsVendor               AcsVendor[]
   acsWifiSecurity         AcsWifiSecurity[]
-  appVersion              AppVersion[]
   assetDepreciationLog    AssetDepreciationLog[]
   asset                   Asset[]
   barang                  Barang[]

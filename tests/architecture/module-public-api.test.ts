@@ -99,7 +99,6 @@ const largeUiFileBaseline = new Set([
   "app/admin/mitra/MitraListClient.tsx",
   "app/admin/integrations/mixradius/expenses/RABList.tsx",
   "app/admin/mitra/[id]/MitraDetailClient.tsx",
-  "app/admin/pengaturan/app-version/AppVersionClient.tsx",
   "app/admin/settings/roles/[id]/RolesDetailClient.tsx",
   "app/admin/users/new/UsersNewClient.tsx",
   "app/admin/workorders/WoIndexClient.tsx",

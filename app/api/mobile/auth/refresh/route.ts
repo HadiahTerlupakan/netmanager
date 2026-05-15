@@ -47,10 +47,8 @@ export async function POST(request: NextRequest) {
           status: 426,
           details: {
             currentVersionCode: mobileTokens.details.versionCode,
-            minimumVersion: mobileTokens.details.versionAccess.minimumVersion,
-            latestVersion: mobileTokens.details.versionAccess.latestVersion,
-            isForceUpdate: mobileTokens.details.versionAccess.isForceUpdate,
-            updateAvailable: mobileTokens.details.versionAccess.updateAvailable,
+            minimumVersionCode:
+              mobileTokens.details.versionAccess.minimumVersionCode,
           },
         },
       );

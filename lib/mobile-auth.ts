@@ -1,12 +1,31 @@
 import { logger } from "@/lib/logger";
 import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { SignJWT, jwtVerify } from "jose";
-import {
-  getAppVersionService,
-  type VersionAccessResult,
-} from "@/modules/app-version";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
+
+const MIN_NATIVE_VERSION_CODE = Number(
+  process.env.MOBILE_MIN_NATIVE_VERSION_CODE ?? "0",
+);
+
+/** Hasil evaluasi versi native mobile.
+ * OTA (JS bundle) di-handle oleh expo-updates di sisi mobile;
+ * server hanya gating versi native (Play Store / sideload APK) lewat env var. */
+export interface VersionAccessResult {
+  isSupported: boolean;
+  currentVersionCode: number;
+  minimumVersionCode: number;
+}
+
+function evaluateVersionAccess(versionCode: number): VersionAccessResult {
+  const isSupported =
+    MIN_NATIVE_VERSION_CODE <= 0 || versionCode >= MIN_NATIVE_VERSION_CODE;
+  return {
+    isSupported,
+    currentVersionCode: versionCode,
+    minimumVersionCode: MIN_NATIVE_VERSION_CODE,
+  };
+}
 
 function getSecret(): Uint8Array {
   const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
@@ -193,9 +212,7 @@ export async function getMobileTokenDetails(
     const { payload } = await jwtVerify(token, getSecret());
     const mobilePayload = payload as MobileTokenPayload;
     const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
-    const versionAccess = await (
-      await getAppVersionService()
-    ).evaluateVersionAccess(versionCode);
+    const versionAccess = evaluateVersionAccess(versionCode);
 
     return {
       payload: mobilePayload,
@@ -232,7 +249,7 @@ async function verifyValidatedMobileToken(
 
     if (!versionAccess.isSupported) {
       logger.info(
-        `[MOBILE_AUTH] App version unsupported for user ${userId}. Version code: ${versionCode}, minimum: ${versionAccess.minimumVersion}`,
+        `[MOBILE_AUTH] App version unsupported for user ${userId}. Version code: ${versionCode}, minimum: ${versionAccess.minimumVersionCode}`,
       );
       return null;
     }

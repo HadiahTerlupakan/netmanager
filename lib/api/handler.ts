@@ -174,10 +174,8 @@ export function createHandler<T = unknown>(
                     status: 426,
                     details: {
                       currentVersionCode: details.versionCode,
-                      minimumVersion: details.versionAccess.minimumVersion,
-                      latestVersion: details.versionAccess.latestVersion,
-                      isForceUpdate: details.versionAccess.isForceUpdate,
-                      updateAvailable: details.versionAccess.updateAvailable,
+                      minimumVersionCode:
+                        details.versionAccess.minimumVersionCode,
                     },
                   },
                 );

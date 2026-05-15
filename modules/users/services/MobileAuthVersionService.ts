@@ -5,29 +5,35 @@ import {
   signMobileToken,
   verifyMobileRefreshToken,
 } from "@/lib/mobile-auth";
-import { getAppVersionService } from "@/modules/app-version";
 import type { MobileLoginPayload } from "./MobileAuthRouteService";
 
-/** Mengelola validasi versi aplikasi dan refresh token mobile employee. */
+const MIN_NATIVE_VERSION_CODE = Number(
+  process.env.MOBILE_MIN_NATIVE_VERSION_CODE ?? "0",
+);
+
+/** Mengelola validasi versi native aplikasi mobile dan refresh token. */
 export class MobileAuthVersionService {
-  /** Bangun response error bila versi aplikasi tidak lagi didukung. */
+  /**
+   * Bangun response error bila versi native aplikasi tidak lagi didukung.
+   * Update OTA (JS bundle) di-handle oleh expo-updates di sisi mobile;
+   * server hanya gating versi native (Play Store / sideload APK) lewat env var.
+   */
   async buildUnsupportedVersionResponse(versionCode: number) {
-    const versionAccess = await (
-      await getAppVersionService()
-    ).evaluateVersionAccess(versionCode);
-    if (versionAccess.isSupported) return null;
+    if (
+      MIN_NATIVE_VERSION_CODE <= 0 ||
+      versionCode >= MIN_NATIVE_VERSION_CODE
+    ) {
+      return null;
+    }
 
     return apiError(
-      "Aplikasi harus diperbarui untuk melanjutkan.",
+      "Aplikasi harus diperbarui ke versi terbaru.",
       ErrorCodes.APP_VERSION_UNSUPPORTED,
       {
         status: 426,
         details: {
           currentVersionCode: versionCode,
-          minimumVersion: versionAccess.minimumVersion,
-          latestVersion: versionAccess.latestVersion,
-          isForceUpdate: versionAccess.isForceUpdate,
-          updateAvailable: versionAccess.updateAvailable,
+          minimumVersionCode: MIN_NATIVE_VERSION_CODE,
         },
       },
     );
@@ -41,7 +47,6 @@ export class MobileAuthVersionService {
     if (versionCodeOverride === undefined) {
       return getMobileTokenDetails(refreshToken);
     }
-
     return getMobileTokenDetails(refreshToken, versionCodeOverride);
   }
 
@@ -53,7 +58,6 @@ export class MobileAuthVersionService {
     if (versionCodeOverride === undefined) {
       return verifyMobileRefreshToken(refreshToken);
     }
-
     return verifyMobileRefreshToken(refreshToken, versionCodeOverride);
   }
 
@@ -114,6 +118,5 @@ function resolveTrustedMobileRefreshVersion(
   if (Number.isInteger(candidateVersionCode) && candidateVersionCode > 0) {
     return candidateVersionCode;
   }
-
   return detailsVersionCode;
 }
