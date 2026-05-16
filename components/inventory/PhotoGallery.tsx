@@ -276,7 +276,12 @@ export function PhotoGallery({
                 )}
 
                 {/* Close Button */}
-                <Button onClick={handleClose} title="Tutup (Esc)">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleClose}
+                  title="Tutup (Esc)"
+                >
                   <HiXMark className="w-5 h-5" />
                 </Button>
               </div>

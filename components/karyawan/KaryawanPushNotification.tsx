@@ -62,7 +62,7 @@ export function KaryawanPushNotification() {
   }
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-500/20 rounded-xl p-4">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shrink-0">
           <MdNotifications className="text-xl text-blue-600" />
@@ -84,7 +84,7 @@ export function KaryawanPushNotification() {
             <Button onClick={dismissBanner}>Nanti</Button>
           </div>
         </div>
-        <Button onClick={dismissBanner}>
+        <Button variant="ghost" size="icon-sm" onClick={dismissBanner}>
           <MdClose className="text-xl text-gray-400" />
         </Button>
       </div>

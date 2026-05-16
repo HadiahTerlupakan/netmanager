@@ -316,9 +316,13 @@ a.touch-target {
  *     bg putih, jadi nyaris invisible.
  *
  * Daripada memodifikasi ratusan file, kita re-route kelas
- * hardcoded ke design token via CSS variable. Selektor `:where()`
- * dipakai supaya specificity tetap 0,1,0 — jadi `dark:bg-*` /
- * `dark:text-*` di komponen tetap menang.
+ * hardcoded ke design token via CSS variable.
+ *
+ * Specificity strategy: Tailwind v4 generates `.dark\:border-gray-700:is(.dark *)`
+ * which is (0,2,0). To override, we double-up the .dark selector
+ * `.dark .dark` to reach (0,3,0) — wins over Tailwind utility but
+ * still allows component-level inline `style=` to override. We use
+ * `:is()` so selectors stay readable.
  * ============================================================ */
 
 /* --- Dark mode: re-route white & light grays to surface tokens --- */
@@ -344,23 +348,30 @@ a.touch-target {
   background-color: rgb(var(--color-bg-surface-variant));
 }
 
-/* Borders */
-.dark :where(.border-gray-100, .border-slate-100, .border-zinc-100, .border-gray-200, .border-slate-200, .border-zinc-200, .border-gray-300, .border-slate-300, .border-zinc-300) {
+/* Borders — light grays stay subtle in dark */
+.dark.dark :is(.border-gray-100, .border-slate-100, .border-zinc-100, .border-gray-200, .border-slate-200, .border-zinc-200, .border-gray-300, .border-slate-300, .border-zinc-300) {
   border-color: var(--color-border);
 }
 
-/* Dark borders — gray-500/600/700/800/900 too bright on near-black surface, route to subtle border token */
-.dark :where(.border-gray-500, .border-slate-500, .border-zinc-500, .border-neutral-500, .border-stone-500, .border-gray-600, .border-slate-600, .border-zinc-600, .border-neutral-600, .border-stone-600, .border-gray-700, .border-slate-700, .border-zinc-700, .border-neutral-700, .border-stone-700, .border-gray-800, .border-slate-800, .border-zinc-800, .border-neutral-800, .border-stone-800, .border-gray-900, .border-slate-900, .border-zinc-900, .border-neutral-900, .border-stone-900) {
+/* Dark borders — gray-500..900 too bright on near-black surface, route to subtle border token.
+ * Need .dark.dark prefix to beat Tailwind v4's `.dark\:border-*:is(.dark *)` specificity. */
+.dark.dark :is(
+  .border-gray-500, .border-slate-500, .border-zinc-500, .border-neutral-500, .border-stone-500,
+  .border-gray-600, .border-slate-600, .border-zinc-600, .border-neutral-600, .border-stone-600,
+  .border-gray-700, .border-slate-700, .border-zinc-700, .border-neutral-700, .border-stone-700,
+  .border-gray-800, .border-slate-800, .border-zinc-800, .border-neutral-800, .border-stone-800,
+  .border-gray-900, .border-slate-900, .border-zinc-900, .border-neutral-900, .border-stone-900
+) {
   border-color: var(--color-border);
 }
 
 /* Custom Tailwind extension: gray-750 (used in WorkingHoursSettings) */
-.dark :where(.border-gray-750) {
+.dark.dark :is(.border-gray-750) {
   border-color: var(--color-border);
 }
 
 /* Directional borders (border-t/r/b/l) on the same gray scale */
-.dark :where(
+.dark.dark :is(
   .border-t-gray-700, .border-r-gray-700, .border-b-gray-700, .border-l-gray-700,
   .border-t-gray-800, .border-r-gray-800, .border-b-gray-800, .border-l-gray-800,
   .border-t-slate-700, .border-r-slate-700, .border-b-slate-700, .border-l-slate-700,
@@ -370,7 +381,7 @@ a.touch-target {
 }
 
 /* Hover variants for dark borders */
-.dark :where(
+.dark.dark :is(
   .hover\:border-gray-500:hover, .hover\:border-gray-600:hover, .hover\:border-gray-700:hover, .hover\:border-gray-800:hover,
   .hover\:border-slate-500:hover, .hover\:border-slate-600:hover, .hover\:border-slate-700:hover, .hover\:border-slate-800:hover,
   .hover\:border-zinc-600:hover, .hover\:border-zinc-700:hover, .hover\:border-zinc-800:hover,
@@ -406,32 +417,101 @@ a.touch-target {
 }
 
 /* Divides — table & list dividers using gray scale should be subtle in dark */
-.dark :where(
-  .divide-gray-100 > * + *, .divide-slate-100 > * + *, .divide-zinc-100 > * + *,
-  .divide-gray-200 > * + *, .divide-slate-200 > * + *, .divide-zinc-200 > * + *,
-  .divide-gray-700 > * + *, .divide-slate-700 > * + *, .divide-zinc-700 > * + *,
-  .divide-gray-800 > * + *, .divide-slate-800 > * + *, .divide-zinc-800 > * + *
-) {
+.dark.dark :is(
+  .divide-gray-100, .divide-slate-100, .divide-zinc-100,
+  .divide-gray-200, .divide-slate-200, .divide-zinc-200,
+  .divide-gray-700, .divide-slate-700, .divide-zinc-700,
+  .divide-gray-800, .divide-slate-800, .divide-zinc-800
+) > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--color-border);
 }
 
 /* Divides with opacity modifier (e.g. divide-gray-700/50) — same subtle treatment */
-.dark :where(
-  [class*="divide-gray-700/"] > * + *,
-  [class*="divide-slate-700/"] > * + *,
-  [class*="divide-gray-800/"] > * + *,
-  [class*="divide-slate-800/"] > * + *
-) {
+.dark.dark :is(
+  [class*="divide-gray-700/"],
+  [class*="divide-slate-700/"],
+  [class*="divide-gray-800/"],
+  [class*="divide-slate-800/"]
+) > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--color-border);
 }
 
 /* Rings on the same gray scale — keep subtle in dark */
-.dark :where(
+.dark.dark :is(
   .ring-gray-600, .ring-slate-600, .ring-zinc-600,
   .ring-gray-700, .ring-slate-700, .ring-zinc-700,
   .ring-gray-800, .ring-slate-800, .ring-zinc-800
 ) {
   --tw-ring-color: var(--color-border);
+}
+
+/* ============================================================
+ * COLORED ALERT BORDERS — Soften saturated 700/800 in dark mode
+ *
+ * Banyak banner/alert pakai pattern `bg-{color}-50 dark:bg-{color}-900/20
+ * border border-{color}-200 dark:border-{color}-800`. Di dark, border-800
+ * terlalu saturated dan kelihatan menyala di atas bg yang sangat tipis,
+ * bikin garis warna terlihat seperti neon. Turunkan opacity border alert
+ * supaya selaras dengan bg-tone yang sudah subtle.
+ * ============================================================ */
+.dark.dark :is(.border-indigo-700, .border-indigo-800, .border-indigo-900) {
+  border-color: rgb(99 102 241 / 0.15);
+}
+
+.dark.dark :is(.border-blue-700, .border-blue-800, .border-blue-900) {
+  border-color: rgb(59 130 246 / 0.15);
+}
+
+.dark.dark :is(.border-cyan-700, .border-cyan-800, .border-cyan-900) {
+  border-color: rgb(6 182 212 / 0.15);
+}
+
+.dark.dark :is(.border-emerald-700, .border-emerald-800, .border-emerald-900) {
+  border-color: rgb(16 185 129 / 0.15);
+}
+
+.dark.dark :is(.border-green-700, .border-green-800, .border-green-900) {
+  border-color: rgb(34 197 94 / 0.15);
+}
+
+.dark.dark :is(.border-amber-700, .border-amber-800, .border-amber-900) {
+  border-color: rgb(245 158 11 / 0.15);
+}
+
+.dark.dark :is(.border-orange-700, .border-orange-800, .border-orange-900) {
+  border-color: rgb(249 115 22 / 0.15);
+}
+
+.dark.dark :is(.border-yellow-700, .border-yellow-800, .border-yellow-900) {
+  border-color: rgb(234 179 8 / 0.15);
+}
+
+.dark.dark :is(.border-red-700, .border-red-800, .border-red-900) {
+  border-color: rgb(239 68 68 / 0.15);
+}
+
+.dark.dark :is(.border-pink-700, .border-pink-800, .border-pink-900) {
+  border-color: rgb(236 72 153 / 0.15);
+}
+
+.dark.dark :is(.border-purple-700, .border-purple-800, .border-purple-900) {
+  border-color: rgb(168 85 247 / 0.15);
+}
+
+.dark.dark :is(.border-rose-700, .border-rose-800, .border-rose-900) {
+  border-color: rgb(244 63 94 / 0.15);
+}
+
+.dark.dark :is(.border-violet-700, .border-violet-800, .border-violet-900) {
+  border-color: rgb(139 92 246 / 0.15);
+}
+
+.dark.dark :is(.border-teal-700, .border-teal-800, .border-teal-900) {
+  border-color: rgb(20 184 166 / 0.15);
+}
+
+.dark.dark :is(.border-sky-700, .border-sky-800, .border-sky-900) {
+  border-color: rgb(14 165 233 / 0.15);
 }
 
 /* --- Light mode: bump too-pale text to readable tones --- */

@@ -103,7 +103,7 @@ export function PushNotificationManager({
 
   return (
     <div
-      className={`bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 ${className}`}
+      className={`bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg p-4 ${className}`}
     >
       <div className="flex items-start gap-3">
         <div className="shrink-0">
@@ -127,7 +127,7 @@ export function PushNotificationManager({
             <Button onClick={dismissBanner}>Nanti saja</Button>
           </div>
         </div>
-        <Button onClick={dismissBanner}>
+        <Button variant="ghost" size="icon-sm" onClick={dismissBanner}>
           <HiXMark className="w-5 h-5 text-gray-500" />
         </Button>
       </div>

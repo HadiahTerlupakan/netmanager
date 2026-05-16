@@ -12,28 +12,28 @@ const buttonVariants = cva(
         default:
           // Light: indigo solid with white text. Dark: outline with white text
           "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 hover:bg-indigo-700 hover:-translate-y-px hover:shadow-indigo-500/40 active:translate-y-0 active:bg-indigo-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-indigo-400 dark:shadow-none dark:hover:bg-indigo-500/10",
+          "dark:bg-transparent dark:text-white dark:border dark:border-indigo-500/25 dark:shadow-none dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40",
 
         destructive:
           "bg-red-600 text-white shadow-sm shadow-red-500/30 hover:bg-red-700 hover:-translate-y-px hover:shadow-red-500/40 active:translate-y-0 active:bg-red-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-red-400 dark:shadow-none dark:hover:bg-red-500/10",
+          "dark:bg-transparent dark:text-white dark:border dark:border-red-500/25 dark:shadow-none dark:hover:bg-red-500/10 dark:hover:border-red-400/40",
 
         success:
           "bg-green-600 text-white shadow-sm shadow-green-500/30 hover:bg-green-700 hover:-translate-y-px hover:shadow-green-500/40 active:translate-y-0 active:bg-green-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-green-400 dark:shadow-none dark:hover:bg-green-500/10",
+          "dark:bg-transparent dark:text-white dark:border dark:border-green-500/25 dark:shadow-none dark:hover:bg-green-500/10 dark:hover:border-green-400/40",
 
         warning:
           "bg-amber-600 text-white shadow-sm shadow-amber-500/30 hover:bg-amber-700 hover:-translate-y-px hover:shadow-amber-500/40 active:translate-y-0 active:bg-amber-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-amber-400 dark:shadow-none dark:hover:bg-amber-500/10",
+          "dark:bg-transparent dark:text-white dark:border dark:border-amber-500/25 dark:shadow-none dark:hover:bg-amber-500/10 dark:hover:border-amber-400/40",
 
         outline:
           // Light: clean border with dark text. Dark: subtle border with white text
           "border border-neutral-300 bg-transparent text-neutral-900 hover:bg-neutral-100 hover:border-neutral-400 active:bg-neutral-200 " +
-          "dark:border-neutral-600 dark:text-white dark:hover:bg-neutral-800 dark:hover:border-neutral-500 dark:active:bg-neutral-700",
+          "dark:border-white/[0.06] dark:text-white dark:hover:bg-white/5 dark:hover:border-white/15 dark:active:bg-white/10",
 
         secondary:
           "bg-neutral-100 text-neutral-900 border border-neutral-200 hover:bg-neutral-200 hover:border-neutral-300 active:bg-neutral-300 " +
-          "dark:bg-neutral-800 dark:text-white dark:border-neutral-700 dark:hover:bg-neutral-700 dark:hover:border-neutral-600",
+          "dark:bg-white/[0.03] dark:text-white dark:border-white/[0.06] dark:hover:bg-white/10 dark:hover:border-white/10",
 
         ghost:
           "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200 " +

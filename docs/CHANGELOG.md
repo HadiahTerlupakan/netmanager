@@ -45,6 +45,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Fix tombol icon-only & action button text invisible di light mode
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/notifications/PushNotificationManager.tsx`, `components/karyawan/KaryawanPushNotification.tsx`, `components/inventory/PhotoGallery.tsx`, `components/map/NodeListTab.tsx`
+- **Author**: agent
+- **Deskripsi**: Beberapa tombol di light mode tampil sebagai kotak biru solid tanpa teks/icon terbaca. Penyebab: pakai `<Button>` (variant default = `bg-indigo-600 text-white`) lalu menimpa class custom `text-blue-600`/`text-red-600`/`text-gray-500` di anak — hasilnya warna text jadi mirip warna background biru → invisible. Fix: ganti ke `variant="ghost"` (transparent bg) + `size="icon-sm"` untuk tombol close, dan `variant="ghost" size="sm"` untuk tombol action Edit/Delete di tabel — sekarang warna text custom (blue/red) tampil di atas latar transparan, jelas terbaca.
+- **Files**: `components/notifications/PushNotificationManager.tsx`, `components/karyawan/KaryawanPushNotification.tsx`, `components/inventory/PhotoGallery.tsx`, `components/map/NodeListTab.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-16] — Fix specificity safety net & soften Button outline di dark mode
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/styles/base.css`, `components/ui/Button.tsx`
+- **Author**: agent
+- **Deskripsi**: Setelah patch sebelumnya, garis terang masih muncul di banner notifikasi & Topology Map. Investigasi build CSS Tailwind v4 menunjukkan utility class digenerate sebagai `.dark\:border-gray-700:is(.dark *)` dengan specificity (0,2,0), sementara safety net pakai `.dark :where(.border-gray-700)` dengan specificity (0,1,0) → safety net **kalah** dari utility Tailwind. Fix: ganti semua border/divide/ring safety net jadi `.dark.dark :is(...)` (specificity 0,3,0) supaya menang. Selector `:where()` dipertahankan untuk teks/background yang memang perlu fleksibel di-override per komponen. Plus: turunkan saturasi outline Button variant default/destructive/success/warning di dark dari `border-{color}-400` (sangat terang) ke `border-{color}-500/40` + hover ke `/60` supaya tombol "Aktifkan Notifikasi", "Nanti saja", X lebih halus tapi tetap terbaca. Outline & secondary variant juga diganti ke `border-white/10`, `bg-white/5`, dst untuk konsistensi.
+- **Files**: `app/styles/base.css`, `components/ui/Button.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-16] — Soften colored alert borders & per-banner fix di dark mode
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/styles/base.css`, `components/notifications/PushNotificationManager.tsx`, `components/karyawan/KaryawanPushNotification.tsx`
+- **Author**: agent
+- **Deskripsi**: Banner notifikasi seperti "Aktifkan Notifikasi" tampil dengan border ungu/biru yang menyala terang di dark mode. Penyebab: pattern umum `border-{color}-700/800` (mis. `dark:border-indigo-800` #3730a3) di atas bg `dark:bg-{color}-900/20` yang sangat tipis bikin border-warna terlihat seperti neon. Solusi sistemik: tambah safety net di `base.css` yang otomatis menurunkan opacity colored border alert (indigo/blue/cyan/emerald/green/amber/orange/yellow/red/pink/purple/rose/violet/teal/sky di intensitas 700/800/900) ke `rgb(<hue> / 0.25)` — masih punya nuansa warna alert tapi tidak menyala. Plus fix langsung 2 banner notifikasi (PushNotificationManager admin & KaryawanPushNotification) supaya tetap konsisten meski cache CSS belum invalidated.
+- **Files**: `app/styles/base.css`, `components/notifications/PushNotificationManager.tsx`, `components/karyawan/KaryawanPushNotification.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Fix border terlalu terang di dark mode (theme safety net)
 
 - **Tipe**: [FIXED]
