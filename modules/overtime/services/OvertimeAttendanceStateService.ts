@@ -3,12 +3,21 @@ import {
   AttendanceQueryService,
   HolidayLookupService,
 } from "@/modules/attendance";
+import { AttendanceStatus } from "@/modules/attendance/types/attendance.enums";
 import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
 import {
   type HolidayResolution,
   isUserOffDay,
   resolveHolidayDescription,
 } from "./OvertimeService.helpers";
+
+const NON_WORKING_ATTENDANCE_STATUSES = new Set<string>([
+  AttendanceStatus.DAY_OFF,
+  AttendanceStatus.ABSENT,
+  AttendanceStatus.ALPHA,
+  AttendanceStatus.SICK,
+  AttendanceStatus.PERMIT,
+]);
 
 /** Mengelola state attendance dan holiday untuk flow overtime. */
 export class OvertimeAttendanceStateService {
@@ -56,7 +65,10 @@ export class OvertimeAttendanceStateService {
   /** Ambil state checkout attendance hari ini untuk mobile overtime. */
   async getTodayAttendanceState(userId: string, tenantId: string) {
     const attendance = await this.findTodayAttendance(userId, tenantId);
-    return { hasCheckedOut: attendance?.checkOut !== null };
+    if (!attendance || isNonWorkingAttendance(attendance.status)) {
+      return { hasCheckedOut: true };
+    }
+    return { hasCheckedOut: attendance.checkOut !== null };
   }
 
   /** Ambil informasi holiday hari ini untuk mobile overtime. */
@@ -115,6 +127,11 @@ function createDayRange(date: Date) {
     startOfDay: toStartOfDay(new Date(date)),
     endOfDay: toEndOfDay(new Date(date)),
   };
+}
+
+function isNonWorkingAttendance(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return NON_WORKING_ATTENDANCE_STATUSES.has(status);
 }
 
 function buildHolidayResolution(

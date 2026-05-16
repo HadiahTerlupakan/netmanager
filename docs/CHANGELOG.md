@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Fix lembur tertahan "belum checkout" saat hari off-day / libur kerja
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/overtime`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Saat hari ini libur kerja (off-day user) atau setelah libur nasional, `AbsenceService` auto-create attendance dengan status `DAY_OFF` dan `checkOut=null`. `OvertimeAttendanceStateService.getTodayAttendanceState` keliru menafsirkan ini sebagai "belum checkout" sehingga `hasCheckedOut=false`, lalu UI mobile blok tombol "Mulai Lembur" dengan pesan "⚠️ Checkout absen dulu sebelum mulai". Perbaikan: backend treat status non-working (`DAY_OFF`, `ABSENT`, `ALPHA`, `SICK`, `PERMIT`) sebagai bukan sesi kerja aktif → return `hasCheckedOut=true`. Sekaligus mobile relax guard `canStartOvertime` agar menerima holiday non-nasional (misal libur kerja per-user) ketika backend sudah konfirmasi.
+- **Files**: `modules/overtime/services/OvertimeAttendanceStateService.ts`, `mobile-netmanager/app/(app)/lembur/index.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Fix OTA asset hash format (hex → base64url)
 
 - **Tipe**: [FIXED]
