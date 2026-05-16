@@ -2406,7 +2406,7 @@ model AppVersion {
   @@index([platform])
   @@index([versionCode])
   @@index([tenantId])
-  @@map("app_versions_legacy")
+  @@map("app_versions")
 }
 
 /// Expo Updates OTA bundle untuk aplikasi mobile.
