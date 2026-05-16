@@ -464,5 +464,18 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 
 ---
 
-*Last Updated: 2026-05-14*
-*Version: 3.3 - Added SOT & Changelog Policy*
+## Mobile Update Strategy
+
+Detail lengkap: `docs/standards/mobile-update-strategy.md`
+
+**Quick rules:**
+- Edit JS/TS only di `mobile-netmanager` → OTA cukup, publish via `eas update`
+- Edit native config (plugins, app.json native fields, native deps) → APK rebuild wajib
+- `runtimeVersion.policy = "fingerprint"` auto-detect; cek dengan `npx expo-fingerprint diff <commit> HEAD`
+- APK update ditrigger via admin UI di `/admin/app-releases` setelah upload APK
+- Tombol "Hubungi Admin" konfigurabel per-tenant via `/admin/pengaturan/app-update`
+
+---
+
+*Last Updated: 2026-05-17*
+*Version: 3.4 - Added Mobile Update Strategy*

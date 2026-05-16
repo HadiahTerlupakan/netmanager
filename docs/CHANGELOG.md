@@ -45,6 +45,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Implement dual update channel: APK notification + OTA fingerprint
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/app-version`, `mobile-netmanager`, `app/admin/app-releases`, `app/admin/pengaturan/app-update`
+- **Author**: agent
+- **Deskripsi**: Implementasi lengkap dual update channel untuk mobile app:
+  (1) OTA via Expo Updates dengan fingerprint policy menggantikan appVersion policy,
+  (2) APK update notification dengan modul backend `app-version` baru: schema AppRelease, endpoint mobile check, admin CRUD UI, force/soft update support, minSupportedVersion threshold,
+  (3) Mobile dual-check via `useApkVersionCheck` + orchestrator `useVersionCheck` dengan APK-priority,
+  (4) UI komponen `UpdateAvailableModal` dan `UpdateRequiredScreen` extended pakai discriminated union (mode: 'apk' | 'ota') dengan tombol Download + Hubungi Admin (configurable per-tenant via TenantSettings.appUpdateContactUrl),
+  (5) Force update lock screen tidak bisa di-logout, hanya bisa Download/Hubungi Admin/Cek Ulang.
+  Lihat `docs/standards/mobile-update-strategy.md` dan `docs/superpowers/specs/2026-05-17-dual-update-channel-design.md`.
+- **Migration**: `20260517000000_add_app_releases`
+- **Breaking**: ❌ Tidak (perlu APK rebuild satu kali untuk aktifkan fingerprint policy)
+
 ### [2026-05-17] — Tambah field kontak admin untuk update APK di tenant settings UI
 
 - **Tipe**: [ADDED]
