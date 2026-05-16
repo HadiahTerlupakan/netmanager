@@ -134,6 +134,24 @@ spec:
                   name: netmanager-firebase-secrets
                   key: FIREBASE_DATABASE_URL
                   optional: true
+            - name: APP_UPDATE_SIGNING_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: APP_UPDATE_SIGNING_KEY_ID
+                  optional: true
+            - name: APP_UPDATE_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: APP_UPDATE_SIGNING_PRIVATE_KEY
+                  optional: true
+            - name: MOBILE_MIN_NATIVE_VERSION_CODE
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: MOBILE_MIN_NATIVE_VERSION_CODE
+                  optional: true
             - name: ALLOWED_ORIGINS
               valueFrom:
                 configMapKeyRef:
