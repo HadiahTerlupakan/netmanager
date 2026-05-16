@@ -17,7 +17,6 @@ import { AppUpdateNotFoundError, AppUpdateValidationError } from "../errors";
 import { AppUpdateRepository } from "../repositories/AppUpdateRepository";
 import { buildManifestBody } from "./app-update-manifest.helpers";
 import {
-  buildAssetEntry,
   computeFileSha256,
   deleteUpdateDir,
   getUpdateDir,
@@ -293,32 +292,45 @@ export class AppUpdateService {
       );
     }
 
-    const persisted: AppUpdateAsset[] = [];
+    // Hitung hash semua uploaded asset dulu, lalu match by hash (bukan positional).
+    // Curl multipart kadang tidak preserve order field saat ada duplicate path,
+    // jadi kita rely on content-addressable matching via SHA-256.
+    const uploadedFiles: { tempPath: string; hash: string; size: number }[] =
+      [];
     for (let i = 0; i < input.assetFiles.length; i++) {
       const file = input.assetFiles[i]!;
-      const expected = manifestAssets[i]!;
-
       const tempPath = path.join(input.stagingDir, `asset_${i}.tmp`);
       const arrayBuffer = await file.arrayBuffer();
       await fs.writeFile(tempPath, Buffer.from(arrayBuffer));
+      const stat = await fs.stat(tempPath);
+      const hash = await computeFileSha256(tempPath);
+      uploadedFiles.push({ tempPath, hash, size: stat.size });
+    }
+    const uploadedByHash = new Map<string, (typeof uploadedFiles)[number]>();
+    for (const entry of uploadedFiles) {
+      uploadedByHash.set(entry.hash, entry);
+    }
 
-      const ext = (expected.fileExtension || path.extname(file.name) || "")
-        .replace(/^\./, "")
-        .toLowerCase();
-      const entry = await buildAssetEntry({
-        filePath: tempPath,
-        ext,
-        contentType: expected.contentType,
-        destinationRelative: path.posix.join("assets", expected.hash),
-      });
-      if (entry.hash !== expected.hash) {
+    const persisted: AppUpdateAsset[] = [];
+    for (const expected of manifestAssets) {
+      const uploaded = uploadedByHash.get(expected.hash);
+      if (!uploaded) {
         throw new AppUpdateValidationError(
-          `Hash asset tidak cocok dengan manifest (${expected.hash} vs ${entry.hash})`,
+          `Asset dengan hash ${expected.hash} (${expected.fileExtension ?? "?"}) tidak ditemukan di file yang diupload`,
         );
       }
-      const destinationPath = resolveAssetPath(input.updateId, entry.hash);
-      await persistFile(tempPath, destinationPath);
-      persisted.push(entry);
+      const ext = (expected.fileExtension || "")
+        .replace(/^\./, "")
+        .toLowerCase();
+      const destinationPath = resolveAssetPath(input.updateId, expected.hash);
+      await persistFile(uploaded.tempPath, destinationPath);
+      persisted.push({
+        hash: expected.hash,
+        ext,
+        contentType: expected.contentType,
+        path: path.posix.join("assets", expected.hash),
+        size: uploaded.size,
+      });
     }
     return persisted;
   }
