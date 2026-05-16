@@ -5,7 +5,7 @@ import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   AppUpdateValidationError,
   getAppUpdateService,
-  parseAppUpdateUploadForm,
+  parseStreamingAppUpdateForm,
   verifyAppUpdatePublishToken,
 } from "@/modules/app-update";
 
@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  let formData: FormData;
+  let formData: Awaited<ReturnType<typeof parseStreamingAppUpdateForm>>;
   try {
-    formData = await request.formData();
+    formData = await parseStreamingAppUpdateForm(request);
   } catch (error) {
+    logger.error("[AppUpdatePublish] streaming parse failed", error);
     return apiError(
       error instanceof Error ? error.message : "Form data tidak valid",
       ErrorCodes.VALIDATION_ERROR,
@@ -48,12 +49,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = parseAppUpdateUploadForm(formData);
-  if (!parsed.ok) {
-    return apiError(parsed.failure.error, ErrorCodes.VALIDATION_ERROR, {
-      status: parsed.failure.status,
+  if (!formData.ok) {
+    return apiError(formData.failure.error, ErrorCodes.VALIDATION_ERROR, {
+      status: formData.failure.status,
     });
   }
+  const parsed = formData;
 
   const service = await getAppUpdateService();
   try {

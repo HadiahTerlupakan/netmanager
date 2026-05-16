@@ -6,6 +6,7 @@ export type {
   ParseResult as AppUpdateParseResult,
   ParsedAppUpdateForm,
 } from "./services/parseAppUpdateUploadForm";
+export { parseStreamingAppUpdateForm } from "./services/parseStreamingAppUpdateForm";
 export {
   isAppUpdatePublishTokenConfigured,
   verifyAppUpdatePublishToken,
