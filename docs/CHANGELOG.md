@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Soft-tinted Button variants di light mode untuk konsistensi dark/light
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/ui/Button.tsx`
+- **Author**: agent
+- **Deskripsi**: Variant `default`/`destructive`/`success`/`warning` Button sebelumnya solid (`bg-indigo-600 text-white` dst) di light mode tapi sudah di-soften jadi outline halus di dark mode — hasilnya inkonsisten (light loud biru solid, dark classy outline). Refactor light mode ke soft-tinted (`bg-{color}-50 text-{color}-700 border-{color}-200`) supaya match tone dark mode. Tombol primary CTA seperti "Tambah Pengguna" (UserList) & "Bandingkan Kinerja" (ComparisonBar) yang sebelumnya tampil sebagai kotak biru solid sekarang lebih halus dan konsisten dengan tema. Hover state tetap pakai elevation (`hover:-translate-y-px`) untuk affordance.
+- **Files**: `components/ui/Button.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Fix tombol icon-only & action button text invisible di light mode
 
 - **Tipe**: [FIXED]

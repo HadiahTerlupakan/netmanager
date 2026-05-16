@@ -10,21 +10,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          // Light: indigo solid with white text. Dark: outline with white text
-          "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 hover:bg-indigo-700 hover:-translate-y-px hover:shadow-indigo-500/40 active:translate-y-0 active:bg-indigo-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-indigo-500/25 dark:shadow-none dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40",
+          // Soft-tinted indigo, konsisten antara light & dark
+          "bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 hover:-translate-y-px active:translate-y-0 active:bg-indigo-200 " +
+          "dark:bg-transparent dark:text-white dark:border-indigo-500/25 dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40",
 
         destructive:
-          "bg-red-600 text-white shadow-sm shadow-red-500/30 hover:bg-red-700 hover:-translate-y-px hover:shadow-red-500/40 active:translate-y-0 active:bg-red-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-red-500/25 dark:shadow-none dark:hover:bg-red-500/10 dark:hover:border-red-400/40",
+          "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300 hover:-translate-y-px active:translate-y-0 active:bg-red-200 " +
+          "dark:bg-transparent dark:text-white dark:border-red-500/25 dark:hover:bg-red-500/10 dark:hover:border-red-400/40",
 
         success:
-          "bg-green-600 text-white shadow-sm shadow-green-500/30 hover:bg-green-700 hover:-translate-y-px hover:shadow-green-500/40 active:translate-y-0 active:bg-green-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-green-500/25 dark:shadow-none dark:hover:bg-green-500/10 dark:hover:border-green-400/40",
+          "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:border-green-300 hover:-translate-y-px active:translate-y-0 active:bg-green-200 " +
+          "dark:bg-transparent dark:text-white dark:border-green-500/25 dark:hover:bg-green-500/10 dark:hover:border-green-400/40",
 
         warning:
-          "bg-amber-600 text-white shadow-sm shadow-amber-500/30 hover:bg-amber-700 hover:-translate-y-px hover:shadow-amber-500/40 active:translate-y-0 active:bg-amber-800 " +
-          "dark:bg-transparent dark:text-white dark:border dark:border-amber-500/25 dark:shadow-none dark:hover:bg-amber-500/10 dark:hover:border-amber-400/40",
+          "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 hover:-translate-y-px active:translate-y-0 active:bg-amber-200 " +
+          "dark:bg-transparent dark:text-white dark:border-amber-500/25 dark:hover:bg-amber-500/10 dark:hover:border-amber-400/40",
 
         outline:
           // Light: clean border with dark text. Dark: subtle border with white text
