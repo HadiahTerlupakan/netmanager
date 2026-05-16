@@ -13,7 +13,7 @@ CREATE TABLE "app_releases" (
     "architecture" TEXT,
     "minOsVersion" TEXT,
     "rolloutPercentage" INTEGER NOT NULL DEFAULT 100,
-    "apkSizeBytes" INTEGER,
+    "apkSizeBytes" BIGINT,
     "tenantId" TEXT,
     "createdBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
