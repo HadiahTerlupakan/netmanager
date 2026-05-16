@@ -324,8 +324,9 @@ export function ClientComponent() {
                         </span>
                         {!notification.isRead && (
                           <Button
+                            size="sm"
                             onClick={() => markAsRead(notification.id)}
-                            className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-full transition-colors"
+                            className="rounded-full"
                           >
                             <HiCheck className="w-3 h-3" />
                             Tandai dibaca

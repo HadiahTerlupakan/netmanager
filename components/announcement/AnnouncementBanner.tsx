@@ -86,13 +86,15 @@ export default function AnnouncementBanner({
           {announcements.length > 1 && (
             <div className="flex space-x-2 mr-4 text-sm">
               <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() =>
                   setCurrentIndex(
                     (prev) =>
                       (prev - 1 + announcements.length) % announcements.length,
                   )
                 }
-                className="hover:bg-indigo-700 rounded px-1"
+                className="text-white hover:bg-white/10"
               >
                 &lt;
               </Button>
@@ -100,16 +102,24 @@ export default function AnnouncementBanner({
                 {currentIndex + 1}/{announcements.length}
               </span>
               <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() =>
                   setCurrentIndex((prev) => (prev + 1) % announcements.length)
                 }
-                className="hover:bg-indigo-700 rounded px-1"
+                className="text-white hover:bg-white/10"
               >
                 &gt;
               </Button>
             </div>
           )}
-          <Button type="button" className="-mr-1" onClick={handleDismiss}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            type="button"
+            className="-mr-1 text-white hover:bg-white/10"
+            onClick={handleDismiss}
+          >
             <span className="sr-only">Dismiss</span>
             <HiXMark className="h-6 w-6 text-white" aria-hidden="true" />
           </Button>

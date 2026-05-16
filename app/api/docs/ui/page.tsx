@@ -76,12 +76,7 @@ export default function ApiDocsPage() {
             Error Loading Documentation
           </h2>
           <p className="text-gray-400 mb-4">{error}</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Retry
-          </Button>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       </div>
     );

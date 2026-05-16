@@ -121,10 +121,7 @@ export default function SalaryUserDetailClient() {
     return (
       <div className="p-8 text-center text-gray-500">
         <p>Data karyawan tidak ditemukan</p>
-        <Button
-          onClick={() => router.back()}
-          className="text-indigo-600 mt-4 hover:underline"
-        >
+        <Button variant="link" onClick={() => router.back()} className="mt-4">
           Kembali
         </Button>
       </div>

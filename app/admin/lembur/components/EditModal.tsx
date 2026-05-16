@@ -89,10 +89,7 @@ export function EditModal({
         )}
       </div>
       <ModalFooter>
-        <Button
-          onClick={onClose}
-          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-        >
+        <Button variant="ghost" onClick={onClose}>
           Batal
         </Button>
         <Button onClick={onSubmit} disabled={processingId === editId}>

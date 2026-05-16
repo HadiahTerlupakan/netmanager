@@ -118,10 +118,7 @@ export function ClientComponent() {
             Riwayat aktivitas login pengguna ke sistem
           </p>
         </div>
-        <Button
-          onClick={() => fetchLogs(pagination.page)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
+        <Button variant="outline" onClick={() => fetchLogs(pagination.page)}>
           <HiOutlineRefresh
             className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
           />
@@ -194,10 +191,7 @@ export function ClientComponent() {
                   header: "Detail",
                   priority: "secondary",
                   render: (item) => (
-                    <Button
-                      onClick={() => openDetail(item)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
-                    >
+                    <Button size="sm" onClick={() => openDetail(item)}>
                       <HiOutlineEye className="w-4 h-4" />
                       Lihat Detail
                     </Button>

@@ -557,7 +557,8 @@ export default function CustomerInvoicesPage() {
                           onChange={handleUploadReceipt}
                         />
                         <Button
-                          className="w-full bg-[#0d9488] hover:bg-teal-700 text-white"
+                          variant="success"
+                          className="w-full"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={uploadingReceipt}
                         >

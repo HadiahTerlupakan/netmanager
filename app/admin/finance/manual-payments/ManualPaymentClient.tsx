@@ -559,7 +559,7 @@ export default function ManualPaymentClient() {
                   Tolak Pembayaran
                 </Button>
                 <Button
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
+                  variant="success"
                   onClick={() => handleAction("APPROVE")}
                   loading={processing}
                 >

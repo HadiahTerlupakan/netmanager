@@ -477,10 +477,7 @@ export default function SalaryUsersClient() {
             Kelola daftar karyawan dan komponen gaji mereka
           </p>
         </div>
-        <Button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center px-4 py-2 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
-        >
+        <Button onClick={() => setShowAddModal(true)}>
           <HiOutlinePlus className="w-4 h-4 mr-2" />
           Tambah Karyawan
         </Button>
@@ -1621,8 +1618,10 @@ export default function SalaryUsersClient() {
                               : formatCurrency(uc.amount)}
                           </span>
                           <Button
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => handleRemoveComponent(uc.id)}
-                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
+                            className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                           >
                             <HiOutlineTrash className="w-3.5 h-3.5" />
                           </Button>

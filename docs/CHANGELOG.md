@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Refactor 12+ Button anti-pattern (className override → variant)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/`, `app/(customer)/`, `components/`
+- **Author**: agent
+- **Deskripsi**: Setelah Button variant default jadi soft-tinted, audit codebase menemukan 12+ tombol pakai pattern lama: `<Button>` dengan `className` override massive (`bg-indigo-600 text-white px-4 py-2`) atau dengan text colored override (`text-indigo-600 hover:underline`) atau icon-only tanpa `variant="ghost"`. Refactor batch supaya semua pakai variant + size yang sesuai: `default` untuk primary CTA, `destructive` untuk delete, `success` untuk approve/upload, `outline` untuk Cancel di modal, `ghost` + `size="icon-sm"` untuk icon-only close, `link` untuk back/text-only navigation, dan `secondary`/`default` conditional untuk segmented toggle. Hasilnya: hapus ~40 baris className override, semua tombol sekarang follow design system tunggal dan otomatis konsisten dark/light mode.
+- **Files**: `app/admin/support/[id]/SupportDetailClient.tsx`, `app/admin/salary/users/SalaryUsersClient.tsx`, `app/admin/salary/users/[id]/SalaryUserDetailClient.tsx`, `app/admin/salary/slip/[id]/SlipPrintClient.tsx`, `app/admin/log/login/LoginLogClient.tsx`, `app/admin/notifications/NotificationsClient.tsx`, `app/admin/lembur/components/EditModal.tsx`, `app/admin/finance/manual-payments/ManualPaymentClient.tsx`, `app/(customer)/tagihan/page.tsx`, `app/api/docs/ui/page.tsx`, `components/announcement/AnnouncementBanner.tsx`, `components/map/SettingsTab.tsx`, `components/map/NodeFormModal.tsx`, `components/notifications/WorkOrderBell.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Soft-tinted Button variants di light mode untuk konsistensi dark/light
 
 - **Tipe**: [CHANGED]
