@@ -45,6 +45,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Tambah endpoint mobile check versi APK
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/mobile/app-version/check`
+- **Author**: agent
+- **Deskripsi**: Endpoint `GET /api/mobile/app-version/check` untuk mobile client
+  mengecek apakah versi APK perlu update. Auth via `getMobileAuthPayload`, validasi
+  query params dengan `versionCheckQuerySchema`, delegasi ke `AppVersionCheckService`.
+  Juga mengekspor `getAppUpdateContact` dari public API `@/modules/settings`.
+- **Files**: `app/api/mobile/app-version/check/route.ts`, `modules/settings/index.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Tambah AppVersionCheckService dengan TDD
 
 - **Tipe**: [ADDED]
