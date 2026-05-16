@@ -61,7 +61,7 @@ function buildAssetEntry(input: {
 }) {
   return {
     hash: input.asset.hash,
-    key: `${input.asset.hash}.${input.asset.ext}`,
+    key: input.asset.hash,
     contentType: input.asset.contentType,
     fileExtension: `.${input.asset.ext}`,
     url: `${input.baseUrl}/api/mobile/app-update/asset?updateId=${input.updateId}&hash=${input.asset.hash}&type=asset`,

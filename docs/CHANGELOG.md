@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Fix double extension di OTA asset key (manifest builder)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/app-update`
+- **Author**: agent
+- **Deskripsi**: `buildAssetEntry` membangun manifest asset dengan `key: "${hash}.${ext}"` padahal Expo Updates SDK menggabungkan `key + fileExtension` saat menulis file → menghasilkan path `hash.png.png` (double extension), `expo-updates` gagal write asset dengan error `AssetsFailedToLoad / Failed to write asset file`. Diperbaiki: `key` sekarang hash murni, `fileExtension` tetap `.${ext}`. Signature dihitung ulang per-request di `signManifestBody()` jadi tidak butuh migrasi data DB. Bug ini bikin OTA download asset PNG gagal silent saat user di Android — verified via release APK + DB commitTime bump untuk simulate update available.
+- **Files**: `modules/app-update/services/app-update-manifest.helpers.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-16] — Refactor Button override pattern (Group A: 10 file admin)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/`
+- **Author**: agent
+- **Deskripsi**: Lanjutan migrasi soft-tinted Button — bersihkan className override yang masih menimpa variant di 10 file admin batch A. Pola yang dibersihkan: `bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700` → variant default; `bg-green-600 text-white` & `bg-emerald-600 text-white` → variant success; `bg-red-600 text-white` → variant destructive; border + text-gray + hover:bg-gray Cancel buttons → variant outline; icon-only buttons dengan padding override → variant ghost + size icon/icon-sm; conditional active/inactive segmented buttons → `variant={active ? 'success' : 'secondary'}`. Total ~25 Button direfactor di SalaryDetailClient (12), SalaryUsersClient (5), HolidayClient (4), SupportDetailClient (3), ReportClient (1). 5 file lain (MissedCheckInCorrectionModal, RingtoneSettingsClient, ChatPageClient, ExpensesClient, ClaimReviewModal) sudah pakai variant yang benar — tidak perlu refactor.
+- **Files**: `app/admin/salary/[id]/SalaryDetailClient.tsx`, `app/admin/salary/users/SalaryUsersClient.tsx`, `app/admin/kehadiran/holidays/HolidayClient.tsx`, `app/admin/support/[id]/SupportDetailClient.tsx`, `app/admin/kehadiran/laporan/ReportClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Refactor 12+ Button anti-pattern (className override → variant)
 
 - **Tipe**: [FIXED]
