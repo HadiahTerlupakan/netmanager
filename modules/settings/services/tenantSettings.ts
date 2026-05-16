@@ -109,3 +109,25 @@ export async function getAppUpdateContact(
     label: settings?.appUpdateContactLabel ?? null,
   };
 }
+
+/** Updates app update contact info in TenantSettings for a given tenant. */
+export async function updateAppUpdateContact(
+  tenantId: string,
+  data: {
+    appUpdateContactUrl: string | null;
+    appUpdateContactLabel: string | null;
+  },
+): Promise<void> {
+  await prisma.tenantSettings.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      appUpdateContactUrl: data.appUpdateContactUrl,
+      appUpdateContactLabel: data.appUpdateContactLabel,
+    },
+    update: {
+      appUpdateContactUrl: data.appUpdateContactUrl,
+      appUpdateContactLabel: data.appUpdateContactLabel,
+    },
+  });
+}

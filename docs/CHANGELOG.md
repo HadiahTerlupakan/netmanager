@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Tambah field kontak admin untuk update APK di tenant settings UI
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/admin/app-update/contact-settings`, `app/admin/pengaturan/app-update`, `modules/settings`
+- **Author**: agent
+- **Deskripsi**: Expose dua field `appUpdateContactUrl` dan `appUpdateContactLabel` dari `TenantSettings` ke API dan UI admin. Tambah endpoint `GET/PUT /api/admin/app-update/contact-settings` untuk baca/tulis pengaturan kontak. Tambah fungsi `updateAppUpdateContact` di service layer. Tambah section form di `AppUpdateClient.tsx` dengan dua input field dan tombol simpan.
+- **Files**: `app/api/admin/app-update/contact-settings/route.ts`, `app/admin/pengaturan/app-update/AppUpdateClient.tsx`, `modules/settings/services/tenantSettings.ts`, `modules/settings/index.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Admin UI new + detail/edit AppRelease
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/app-releases`
+- **Author**: agent
+- **Deskripsi**: Tambah dua halaman admin untuk manajemen AppRelease: form create (`/new`) dan halaman detail/edit (`/[id]`). Keduanya menggunakan design system `Button` dari `@/components/ui/Button`, toast notification via `react-hot-toast`, dan pola `useState` + `useEffect` konsisten dengan admin pages lain. Detail page mendukung edit field yang bisa diubah post-release (isActive, isForceUpdate, downloadUrl, releaseNotes, minSupportedVersion, minOsVersion, rolloutPercentage) dan aksi deactivate via DELETE.
+- **Files**: `app/admin/app-releases/new/page.tsx`, `app/admin/app-releases/[id]/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Admin CRUD endpoints AppRelease + permission registration
 
 - **Tipe**: [ADDED]

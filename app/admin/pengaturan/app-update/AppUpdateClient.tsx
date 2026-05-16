@@ -10,6 +10,11 @@ import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { useToast } from "@/hooks/use-toast";
 import { usePermission } from "@/hooks/use-permission";
 
+interface ContactSettings {
+  url: string | null;
+  label: string | null;
+}
+
 interface AppUpdateRow {
   id: string;
   manifestId: string;
@@ -53,6 +58,13 @@ export function AppUpdateClient() {
   const [filterChannel, setFilterChannel] = useState<string>("");
   const [filterPlatform, setFilterPlatform] = useState<string>("");
 
+  // Contact settings state
+  const [contactForm, setContactForm] = useState<ContactSettings>({
+    url: null,
+    label: null,
+  });
+  const [savingContact, setSavingContact] = useState(false);
+
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -82,9 +94,29 @@ export function AppUpdateClient() {
     }
   }, [filterChannel, filterPlatform, pagination.page, pagination.limit]);
 
+  /** Mengambil pengaturan kontak admin dari API. */
+  const fetchContactSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/app-update/contact-settings");
+      const data = await res.json();
+      if (data.success) {
+        setContactForm({
+          url: data.data?.url ?? null,
+          label: data.data?.label ?? null,
+        });
+      }
+    } catch (err: unknown) {
+      clientLogger.error("Error loading contact settings:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRows();
   }, [fetchRows]);
+
+  useEffect(() => {
+    fetchContactSettings();
+  }, [fetchContactSettings]);
 
   const refresh = useCallback(() => {
     fetchRows();
@@ -131,6 +163,32 @@ export function AppUpdateClient() {
       showToast("error", "Terjadi kesalahan saat menghapus update");
     } finally {
       setDeleteConfirm(null);
+    }
+  };
+
+  /** Menyimpan pengaturan kontak admin ke API. */
+  const handleSaveContact = async () => {
+    setSavingContact(true);
+    try {
+      const res = await fetch("/api/admin/app-update/contact-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appUpdateContactUrl: contactForm.url || null,
+          appUpdateContactLabel: contactForm.label || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("success", "Pengaturan kontak berhasil disimpan");
+      } else {
+        showToast("error", data.error || "Gagal menyimpan pengaturan kontak");
+      }
+    } catch (err: unknown) {
+      clientLogger.error("Error saving contact settings:", err);
+      showToast("error", "Terjadi kesalahan saat menyimpan pengaturan kontak");
+    } finally {
+      setSavingContact(false);
     }
   };
 
@@ -250,6 +308,76 @@ export function AppUpdateClient() {
             Untuk perubahan native (permission/library), tetap rilis APK lewat
             Play Store.
           </p>
+        </div>
+      </div>
+
+      {/* Pengaturan Kontak Admin */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+          Kontak Admin untuk Update APK
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Tautan dan label tombol yang ditampilkan di aplikasi mobile saat user
+          perlu mengunduh APK versi terbaru. Kosongkan untuk menyembunyikan
+          tombol.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="contact-url"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              URL Hubungi Admin
+            </label>
+            <input
+              id="contact-url"
+              type="text"
+              value={contactForm.url ?? ""}
+              onChange={(e) =>
+                setContactForm((prev) => ({
+                  ...prev,
+                  url: e.target.value || null,
+                }))
+              }
+              placeholder="https://wa.me/628123456789 atau mailto:admin@radpro.id"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="contact-label"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Label Tombol
+            </label>
+            <input
+              id="contact-label"
+              type="text"
+              value={contactForm.label ?? ""}
+              onChange={(e) =>
+                setContactForm((prev) => ({
+                  ...prev,
+                  label: e.target.value || null,
+                }))
+              }
+              placeholder="Hubungi Admin via WhatsApp"
+              maxLength={50}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {canUpdate && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleSaveContact}
+                disabled={savingContact}
+                variant="default"
+                size="sm"
+              >
+                {savingContact ? "Menyimpan..." : "Simpan Pengaturan Kontak"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
