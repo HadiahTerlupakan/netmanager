@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { decryptApiKey } from "@/lib/utils/encryption";
+import { prisma } from "@/modules/database";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type {
   SettingsEntity,
@@ -90,4 +91,21 @@ function decryptTenantSettingValue(
     logger.error(`[tenantSettings] Failed to decrypt key ${field.key}:`, error);
     return field.defaultValue;
   }
+}
+
+/** Gets app update contact info (URL and label) from TenantSettings for a given tenant. */
+export async function getAppUpdateContact(
+  tenantId?: string,
+): Promise<{ url: string | null; label: string | null }> {
+  if (!tenantId) {
+    return { url: null, label: null };
+  }
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId },
+    select: { appUpdateContactUrl: true, appUpdateContactLabel: true },
+  });
+  return {
+    url: settings?.appUpdateContactUrl ?? null,
+    label: settings?.appUpdateContactLabel ?? null,
+  };
 }
