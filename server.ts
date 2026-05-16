@@ -46,6 +46,34 @@ app.prepare().then(() => {
     const parsedUrl = new URL(req.url || "/", `${protocol}://${host}`);
     const pathname = parsedUrl.pathname;
 
+    // Intercept Expo Updates publish endpoint sebelum Next.js handler.
+    // Bundle bisa mencapai 12MB+ dan Next.js Route Handler punya hidden 10MB
+    // body limit yang tidak bisa dinaikkan via config. Custom server intercept
+    // dengan formidable streaming langsung ke disk.
+    if (req.method === "POST" && pathname === "/api/admin/app-update/publish") {
+      try {
+        const { handleAppUpdatePublish } =
+          await import("./modules/app-update/services/handleAppUpdatePublishHttp");
+        await handleAppUpdatePublish(req, res);
+      } catch (error) {
+        logger.error("[Server] App update publish handler error:", error);
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Publish handler error",
+              code: "INTERNAL_ERROR",
+            }),
+          );
+        }
+      }
+      return;
+    }
+
     const getMimeType = (filePath: string) => {
       const ext = filePath.split(".").pop()?.toLowerCase();
       switch (ext) {
