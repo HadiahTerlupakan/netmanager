@@ -45,6 +45,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Tambah AppVersionCheckService dengan TDD
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/app-version/services`
+- **Author**: agent
+- **Deskripsi**: Implementasi `AppVersionCheckService` sebagai core business logic untuk
+  memeriksa apakah versi aplikasi mobile perlu diupdate. Mendukung soft update, force update
+  via flag `isForceUpdate`, force update via `minSupportedVersion`, dan lookup kontak admin
+  dari tenant settings. Dibangun dengan TDD (7 test case, semua pass).
+- **Files**: `modules/app-version/services/AppVersionCheckService.ts`,
+  `tests/modules/app-version/AppVersionCheckService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Tambah model AppRelease + extend TenantSettings contact admin
 
 - **Tipe**: [ADDED]
