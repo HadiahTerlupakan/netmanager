@@ -81,23 +81,53 @@ Migration baru `add_app_releases`:
 model AppRelease {
   id                  String   @id @default(cuid())
   platform            String   // "android" | "ios"
-  version             String   // "1.0.8"
+  version             String   // "1.0.8" (semver)
   versionCode         Int      // 8 (Android) / buildNumber (iOS)
   isForceUpdate       Boolean  @default(false)
   minSupportedVersion String?  // semver, di bawah ini = force
   downloadUrl         String   // URL APK / Play Store / TestFlight
-  contactAdminUrl     String?  // wa.me/... atau mailto:
   releaseNotes        String?  @db.Text
   isActive            Boolean  @default(true)
   releasedAt          DateTime @default(now())
+
+  // Future-proofing untuk multi-arch & device targeting
+  architecture        String?  // "arm64-v8a" | "armeabi-v7a" | "universal" | null
+  minOsVersion        String?  // misal "8.0" untuk Android 8+, "13.0" untuk iOS 13+
+  rolloutPercentage   Int      @default(100) // 0-100 untuk phased rollout (future)
+  apkSizeBytes        Int?     // info ukuran APK untuk UI
+
   tenantId            String?
+  createdBy           String?  // user id admin yang upload
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   @@index([platform, isActive, releasedAt])
+  @@index([platform, architecture, isActive])
   @@index([tenantId])
 }
 ```
+
+`contactAdminUrl` **TIDAK** disimpan di `AppRelease` — dipindah ke tenant settings (lihat section di bawah).
+
+### Tenant Settings: Contact Admin
+
+Tambah field di module `settings` (existing) atau tenant config:
+
+```prisma
+model TenantSettings {
+  // ... existing fields
+  appUpdateContactUrl     String?  // contoh: "https://wa.me/628123456789" atau "mailto:admin@radpro.id"
+  appUpdateContactLabel   String?  // contoh: "Hubungi Admin via WhatsApp"
+}
+```
+
+Reasoning:
+- Per-tenant value memungkinkan tiap tenant punya kontak admin sendiri
+- Tidak duplikasi data per release
+- Admin set sekali di settings, semua release pakai value sama
+- Kalau null → tombol "Hubungi Admin" hidden di mobile
+
+Endpoint mobile `/api/mobile/app-version/check` response juga sertakan `contactAdminUrl` dari tenant settings user yang login.
 
 ### Module Structure
 
@@ -145,9 +175,13 @@ Authentication: mobile JWT (sama seperti endpoint mobile lain).
     versionCode: 9,
     releaseNotes: "...",
     downloadUrl: "https://...",
-    contactAdminUrl: "https://wa.me/628...",
+    apkSizeBytes: 45234567,
     releasedAt: "2026-05-17T..."
-  } | null
+  } | null,
+  contactAdmin: {
+    url: "https://wa.me/628123456789",
+    label: "Hubungi Admin via WhatsApp"
+  } | null  // dari tenant settings
 }
 ```
 
@@ -270,29 +304,42 @@ export function useVersionCheck(user, token) {
 ### Behavior
 
 - Auto-check saat app start dan saat AppState 'active' (resume)
-- Cache hasil check selama 5 menit untuk reduce API call
-- Graceful degradation: kalau API check gagal (offline, server down), tidak block app — anggap no update available
-- Idempotency: tracking `ignoreApkUpdate` per-version, supaya saat ada release baru muncul lagi
+- Cache hasil check selama 5 menit di memory (mengurangi API call saat user buka-tutup app dalam interval pendek). Cache di-invalidate saat user logout atau force re-check
+- Graceful degradation: kalau API check gagal (offline, server down), tidak block app — anggap no update available. Kalau cache masih ada, pakai cache
+- Idempotency: tracking `ignoreApkUpdate` per-version di AsyncStorage, supaya saat ada release baru muncul lagi tapi user tidak di-spam dengan version yang sudah pernah di-skip
+- **Force update lock**: saat `isForceUpdate=true`, app dalam mode "lock screen" — TIDAK BISA logout, TIDAK BISA navigate ke screen lain, hanya bisa:
+  - Klik "Download APK" → buka browser/Play Store
+  - Klik "Hubungi Admin" → buka WhatsApp/email
+  - Klik "Cek Ulang" → re-trigger check (untuk verify install setelah balik dari browser; kalau sudah update, screen auto-dismiss)
 
 ## Migration Plan
 
-1. **Phase 1: Backend infrastructure** (1 PR)
-   - Schema migration `add_app_releases`
-   - Module `app-version`
+Single PR yang cover semua phase (atomic deploy):
+
+1. **Backend infrastructure**:
+   - Schema migration `add_app_releases` + extend `TenantSettings`
+   - Module `app-version` lengkap (domain, repository, service, validators, index)
    - Endpoint mobile + admin
    - Admin UI
 
-2. **Phase 2: Mobile dual-check** (1 PR)
+2. **Mobile dual-check**:
    - `useApkVersionCheck` hook
-   - Orchestrator update
-   - Extend UI komponen
+   - `apkVersionService` API wrapper
+   - Orchestrator `useVersionCheck` update
+   - Extend `UpdateAvailableModal` & `UpdateRequiredScreen` dengan tombol Hubungi Admin
    - Switch `runtimeVersion` ke fingerprint policy
    - Bump APK build untuk include perubahan ini
 
-3. **Phase 3: Documentation** (1 PR)
+3. **Documentation**:
    - `docs/standards/mobile-update-strategy.md` — guide internal
    - Update `CLAUDE.md` dengan aturan OTA-vs-APK
    - `docs/CHANGELOG.md` entries
+
+**Deploy order:**
+1. Deploy backend dulu (endpoint sudah ready, return null/empty kalau belum ada release record)
+2. Build & distribute APK baru dengan mobile dual-check
+3. Admin create AppRelease record pertama untuk trigger notifikasi ke user existing
+4. Verifikasi flow end-to-end
 
 ## Testing Strategy
 
@@ -328,14 +375,16 @@ export function useVersionCheck(user, token) {
 ## Files yang Disentuh
 
 **Backend (netmanager):**
-- `prisma/schema.prisma`
+- `prisma/schema.prisma` (model `AppRelease` + extend `TenantSettings` 2 field)
 - `prisma/migrations/<timestamp>_add_app_releases/migration.sql`
 - `modules/app-version/` (module baru lengkap)
+- `modules/settings/` (extend untuk field contactAdmin — service + validator)
 - `app/api/mobile/app-version/check/route.ts`
 - `app/api/admin/app-releases/route.ts`
 - `app/api/admin/app-releases/[id]/route.ts`
 - `app/admin/app-releases/page.tsx`
 - `app/admin/app-releases/[id]/page.tsx`
+- (Optional) `app/admin/settings/` — tambah UI untuk set contactAdminUrl di tenant settings page existing
 
 **Mobile (mobile-netmanager):**
 - `app.json` (runtimeVersion → fingerprint)
