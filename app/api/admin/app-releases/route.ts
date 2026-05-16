@@ -5,16 +5,10 @@ import { ApiErrors } from "@/lib/api";
 import { authConfig } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
-  AppReleaseMutationService,
-  AppReleaseQueryService,
-  AppReleaseRepository,
   appReleaseCreateSchema,
+  getAppReleaseServices,
 } from "@/modules/app-version";
 import type { AppRelease, AppReleasePlatform } from "@/modules/app-version";
-
-const repository = new AppReleaseRepository();
-const queryService = new AppReleaseQueryService(repository);
-const mutationService = new AppReleaseMutationService(repository);
 
 const PERMISSION = "app-release:manage";
 
@@ -46,6 +40,7 @@ export async function GET(request: NextRequest) {
       Math.max(1, Number(url.searchParams.get("limit") ?? "20")),
     );
 
+    const { queryService } = await getAppReleaseServices();
     const { items, total } = await queryService.list({
       ...(platform ? { platform } : {}),
       skip: (page - 1) * limit,
@@ -85,7 +80,7 @@ export async function POST(request: NextRequest) {
     const parsed = appReleaseCreateSchema.safeParse(body);
     if (!parsed.success) {
       return ApiErrors.badRequest("Input tidak valid", {
-        errors: parsed.error.format(),
+        issues: parsed.error.issues,
       });
     }
 
@@ -96,6 +91,7 @@ export async function POST(request: NextRequest) {
           ? BigInt(parsed.data.apkSizeBytes)
           : undefined,
     };
+    const { mutationService } = await getAppReleaseServices();
     const release = await mutationService.create(createInput, session.user.id);
 
     return NextResponse.json(serializeRelease(release), { status: 201 });

@@ -3,17 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import {
-  AppReleaseMutationService,
-  AppReleaseQueryService,
-  AppReleaseRepository,
   appReleaseUpdateSchema,
   AppReleaseNotFoundError,
+  getAppReleaseServices,
 } from "@/modules/app-version";
 import type { AppRelease } from "@/modules/app-version";
-
-const repository = new AppReleaseRepository();
-const queryService = new AppReleaseQueryService(repository);
-const mutationService = new AppReleaseMutationService(repository);
 
 const PERMISSION = "app-release:manage";
 
@@ -40,6 +34,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   try {
     const { id } = await context.params;
+    const { queryService } = await getAppReleaseServices();
     const release = await queryService.getById(id);
     return NextResponse.json(serializeRelease(release));
   } catch (error) {
@@ -65,7 +60,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const parsed = appReleaseUpdateSchema.safeParse(body);
     if (!parsed.success) {
       return ApiErrors.badRequest("Input tidak valid", {
-        errors: parsed.error.format(),
+        issues: parsed.error.issues,
       });
     }
 
@@ -76,6 +71,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ? BigInt(parsed.data.apkSizeBytes)
           : undefined,
     };
+    const { mutationService } = await getAppReleaseServices();
     const updated = await mutationService.update(id, updateInput);
     return NextResponse.json(serializeRelease(updated));
   } catch (error) {
@@ -97,6 +93,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     const { id } = await context.params;
+    const { mutationService } = await getAppReleaseServices();
     await mutationService.deactivate(id);
     return NextResponse.json({ success: true });
   } catch (error) {

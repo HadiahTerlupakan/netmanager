@@ -23,7 +23,7 @@ export const appReleaseCreateSchema = z.object({
   versionCode: z.number().int().positive(),
   isForceUpdate: z.boolean().default(false),
   minSupportedVersion: versionStringSchema.optional().nullable(),
-  downloadUrl: z.string().url(),
+  downloadUrl: z.url(),
   releaseNotes: z.string().max(5000).optional().nullable(),
   isActive: z.boolean().default(true),
   architecture: appReleaseArchitectureSchema.optional().nullable(),

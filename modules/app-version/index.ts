@@ -10,7 +10,7 @@ export type {
 export { AppReleaseQueryService } from "./services/AppReleaseQueryService";
 export { AppReleaseMutationService } from "./services/AppReleaseMutationService";
 
-export { AppReleaseRepository } from "./repositories/AppReleaseRepository";
+export { getAppReleaseServices } from "./services/getAppReleaseServices";
 
 export {
   appReleaseCreateSchema,

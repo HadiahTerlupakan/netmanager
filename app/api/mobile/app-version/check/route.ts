@@ -3,17 +3,9 @@ import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import {
-  AppReleaseRepository,
-  AppVersionCheckService,
+  getAppReleaseServices,
   versionCheckQuerySchema,
 } from "@/modules/app-version";
-import { getAppUpdateContact } from "@/modules/settings";
-
-const repository = new AppReleaseRepository();
-const versionCheckService = new AppVersionCheckService(
-  repository,
-  getAppUpdateContact,
-);
 
 /** GET /api/mobile/app-version/check — cek apakah versi APK perlu update */
 export async function GET(request: NextRequest) {
@@ -29,10 +21,14 @@ export async function GET(request: NextRequest) {
     if (!parsed.success) {
       return apiError("Parameter tidak valid", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
-        details: parsed.error.format() as Record<string, unknown>,
+        details: { issues: parsed.error.issues } as unknown as Record<
+          string,
+          unknown
+        >,
       });
     }
 
+    const { versionCheckService } = await getAppReleaseServices();
     const result = await versionCheckService.check({
       platform: parsed.data.platform,
       currentVersion: parsed.data.currentVersion,
