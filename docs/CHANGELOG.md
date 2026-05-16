@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Fix OTA asset hash format (hex → base64url)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/app-update`
+- **Author**: agent
+- **Deskripsi**: Manifest mengirim field `hash` dalam format hex (64 chars) padahal Expo Updates SDK expect base64url (43 chars, no padding) sesuai spec. SDK compare langsung sebagai string → mismatch → throw `Failed to write asset file from ... base64url-encoded SHA-256 did not match expected`. Diperbaiki: tambah helper `hexToBase64Url()` lokal di `app-update-manifest.helpers.ts`, `launchAsset.hash` & `assets[].hash` di-convert ke base64url saat build manifest body. DB tetap simpan hex (untuk lookup di asset endpoint via query `?hash=`). Bug ini bikin OTA download seluruh asset gagal di tahap verifikasi — bersamaan dengan fix double extension sebelumnya, OTA flow sekarang full E2E dari check → download → install → reload.
+- **Files**: `modules/app-update/services/app-update-manifest.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Fix double extension di OTA asset key (manifest builder)
 
 - **Tipe**: [FIXED]

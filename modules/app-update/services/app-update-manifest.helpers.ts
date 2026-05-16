@@ -4,6 +4,19 @@ import type {
 } from "../domain/entities/AppUpdateEntity";
 
 /**
+ * Convert SHA-256 hex digest ke base64url (no padding) sesuai spec
+ * Expo Updates manifest. SDK native compare langsung sebagai string;
+ * jika manifest expose hex, hash check throw "Failed to write asset file".
+ */
+function hexToBase64Url(hex: string): string {
+  return Buffer.from(hex, "hex")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/**
  * Build Expo Updates manifest body untuk endpoint /api/mobile/manifest.
  * Mengikuti spec multipart manifest, tetapi kita serve sebagai JSON
  * (single application/json) karena tidak butuh signed cert response —
@@ -46,7 +59,7 @@ function buildLaunchAsset(input: {
   bundleHash: string;
 }) {
   return {
-    hash: input.bundleHash,
+    hash: hexToBase64Url(input.bundleHash),
     key: `bundle-${input.bundleHash}`,
     contentType: "application/javascript",
     fileExtension: ".bundle",
@@ -60,7 +73,7 @@ function buildAssetEntry(input: {
   asset: AppUpdateAsset;
 }) {
   return {
-    hash: input.asset.hash,
+    hash: hexToBase64Url(input.asset.hash),
     key: input.asset.hash,
     contentType: input.asset.contentType,
     fileExtension: `.${input.asset.ext}`,
