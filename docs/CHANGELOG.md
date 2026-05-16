@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-16] — Fix border terlalu terang di dark mode (theme safety net)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/styles/base.css`
+- **Author**: agent
+- **Deskripsi**: Border card & divider terlihat sangat terang ("garis putih") di banyak halaman dark mode (Dashboard, Update OTA, Sidebar, Modal, dll). Dua bug ditemukan: (1) safety net dark mode pakai `border-color: rgb(var(--color-border))`, padahal `--color-border` di dark sudah berformat `rgba(255,255,255,0.1)` lengkap → CSS jadi `rgb(rgba(...))` yang invalid → property di-ignore → fallback ke nilai Tailwind asli (terlalu terang). Diperbaiki jadi `border-color: var(--color-border)` langsung. (2) Safety net hanya cover `border-gray-100/200/300` & `divide-gray-100/200`, tidak cover `dark:border-gray-500/600/700/800/900`, custom `dark:border-gray-750`, directional borders (`border-l/r/t/b-*-700/800`), divides dengan opacity (`divide-gray-700/50`), maupun `ring-gray-600/700/800`. Selector `:where(...)` ditambah komprehensif untuk semua palette (gray/slate/zinc/neutral/stone) dengan specificity 0 — komponen tetap bisa override pakai `dark:border-*` per kebutuhan. Berlaku global tanpa modifikasi per file.
+- **Files**: `app/styles/base.css`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-16] — Perbaiki garis pembatas tabel di dark mode (ResponsiveTable)
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/ui/ResponsiveTable.tsx`
+- **Author**: agent
+- **Deskripsi**: Garis pembatas baris terlihat sangat terang ("putih") di dark mode pada halaman seperti Update Aplikasi (Expo OTA). Penyebab: (1) `dark:divide-gray-700` (#374151) terlalu kontras di atas `bg-gray-900` (#111827); (2) duplikasi `divide-y` di `<table>` dan `<tbody>` membuat border antar header→row dan row→row dirender ganda. Fix: hapus `divide-y` dari `<table>` (cukup di `<tbody>`), ganti `dark:divide-gray-700` ke `dark:divide-white/5` (rgba(255,255,255,0.05)) yang konsisten dengan token `--color-border` dark. Turunkan opacity `<thead>` dari `bg-slate-800/80` ke `bg-slate-800/60` agar selaras. Tiga state (loading/empty/data) semua di-update.
+- **Files**: `components/ui/ResponsiveTable.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Migrasi OTA dari APK upload ke Expo Updates self-hosted
 
 - **Tipe**: [CHANGED]

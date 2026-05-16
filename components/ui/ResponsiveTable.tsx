@@ -284,8 +284,8 @@ export function ResponsiveTable<T>({
       <div className={`${className}`}>
         {/* Desktop Loading */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
                 {showRowNumbers && (
                   <th
@@ -315,7 +315,7 @@ export function ResponsiveTable<T>({
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-white/5">
               <tr>
                 <td
                   colSpan={totalColumns}
@@ -350,8 +350,8 @@ export function ResponsiveTable<T>({
       <div className={`${className}`}>
         {/* Desktop Empty */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
                 {showRowNumbers && (
                   <th
@@ -381,7 +381,7 @@ export function ResponsiveTable<T>({
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-white/5">
               <tr>
                 <td
                   colSpan={totalColumns}
@@ -407,8 +407,8 @@ export function ResponsiveTable<T>({
     <div className={`${className}`}>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-slate-50 dark:bg-slate-800/80">
+        <table className="min-w-full">
+          <thead className="bg-slate-50 dark:bg-slate-800/60">
             <tr>
               {showRowNumbers && (
                 <th
@@ -462,7 +462,7 @@ export function ResponsiveTable<T>({
               )}
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-white/5">
             {safeData.map((item, index) => (
               <tr
                 key={getRowKey(item, index)}

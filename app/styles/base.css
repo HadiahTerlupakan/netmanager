@@ -346,7 +346,37 @@ a.touch-target {
 
 /* Borders */
 .dark :where(.border-gray-100, .border-slate-100, .border-zinc-100, .border-gray-200, .border-slate-200, .border-zinc-200, .border-gray-300, .border-slate-300, .border-zinc-300) {
-  border-color: rgb(var(--color-border));
+  border-color: var(--color-border);
+}
+
+/* Dark borders — gray-500/600/700/800/900 too bright on near-black surface, route to subtle border token */
+.dark :where(.border-gray-500, .border-slate-500, .border-zinc-500, .border-neutral-500, .border-stone-500, .border-gray-600, .border-slate-600, .border-zinc-600, .border-neutral-600, .border-stone-600, .border-gray-700, .border-slate-700, .border-zinc-700, .border-neutral-700, .border-stone-700, .border-gray-800, .border-slate-800, .border-zinc-800, .border-neutral-800, .border-stone-800, .border-gray-900, .border-slate-900, .border-zinc-900, .border-neutral-900, .border-stone-900) {
+  border-color: var(--color-border);
+}
+
+/* Custom Tailwind extension: gray-750 (used in WorkingHoursSettings) */
+.dark :where(.border-gray-750) {
+  border-color: var(--color-border);
+}
+
+/* Directional borders (border-t/r/b/l) on the same gray scale */
+.dark :where(
+  .border-t-gray-700, .border-r-gray-700, .border-b-gray-700, .border-l-gray-700,
+  .border-t-gray-800, .border-r-gray-800, .border-b-gray-800, .border-l-gray-800,
+  .border-t-slate-700, .border-r-slate-700, .border-b-slate-700, .border-l-slate-700,
+  .border-t-slate-800, .border-r-slate-800, .border-b-slate-800, .border-l-slate-800
+) {
+  border-color: var(--color-border);
+}
+
+/* Hover variants for dark borders */
+.dark :where(
+  .hover\:border-gray-500:hover, .hover\:border-gray-600:hover, .hover\:border-gray-700:hover, .hover\:border-gray-800:hover,
+  .hover\:border-slate-500:hover, .hover\:border-slate-600:hover, .hover\:border-slate-700:hover, .hover\:border-slate-800:hover,
+  .hover\:border-zinc-600:hover, .hover\:border-zinc-700:hover, .hover\:border-zinc-800:hover,
+  .hover\:border-neutral-600:hover, .hover\:border-neutral-700:hover, .hover\:border-neutral-800:hover
+) {
+  border-color: var(--color-border);
 }
 
 /* Dark text classes — invisible on dark bg, remap to primary text */
@@ -375,9 +405,33 @@ a.touch-target {
   color: rgb(var(--color-text-primary));
 }
 
-/* Divides */
-.dark :where(.divide-gray-100 > * + *, .divide-slate-100 > * + *, .divide-gray-200 > * + *, .divide-slate-200 > * + *) {
-  border-color: rgb(var(--color-border));
+/* Divides — table & list dividers using gray scale should be subtle in dark */
+.dark :where(
+  .divide-gray-100 > * + *, .divide-slate-100 > * + *, .divide-zinc-100 > * + *,
+  .divide-gray-200 > * + *, .divide-slate-200 > * + *, .divide-zinc-200 > * + *,
+  .divide-gray-700 > * + *, .divide-slate-700 > * + *, .divide-zinc-700 > * + *,
+  .divide-gray-800 > * + *, .divide-slate-800 > * + *, .divide-zinc-800 > * + *
+) {
+  border-color: var(--color-border);
+}
+
+/* Divides with opacity modifier (e.g. divide-gray-700/50) — same subtle treatment */
+.dark :where(
+  [class*="divide-gray-700/"] > * + *,
+  [class*="divide-slate-700/"] > * + *,
+  [class*="divide-gray-800/"] > * + *,
+  [class*="divide-slate-800/"] > * + *
+) {
+  border-color: var(--color-border);
+}
+
+/* Rings on the same gray scale — keep subtle in dark */
+.dark :where(
+  .ring-gray-600, .ring-slate-600, .ring-zinc-600,
+  .ring-gray-700, .ring-slate-700, .ring-zinc-700,
+  .ring-gray-800, .ring-slate-800, .ring-zinc-800
+) {
+  --tw-ring-color: var(--color-border);
 }
 
 /* --- Light mode: bump too-pale text to readable tones --- */
