@@ -122,6 +122,9 @@ export const PERMISSIONS = {
       DEPARTMENT_ONLY: "live_tracking:department_only",
     },
   },
+  APP_RELEASE: {
+    MANAGE: "app-release:manage",
+  },
   SETTINGS: {
     ROLES: {
       READ: "role:read",

@@ -66,6 +66,7 @@ export const PERMISSION_GROUPS = {
     "captcha",
     "nada_dering",
     "app_version",
+    "app-release",
     "acs",
     "backup_database",
   ],

@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Admin CRUD endpoints AppRelease + permission registration
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/admin/app-releases`
+- **Author**: agent
+- **Deskripsi**: Tambah endpoint admin untuk CRUD AppRelease: GET list (dengan pagination + filter platform), POST create, GET detail, PATCH update, DELETE (deactivate). Permission `app-release:manage` didaftarkan di `lib/permissions.ts` (konstanta `PERMISSIONS.APP_RELEASE.MANAGE`) dan ditambahkan ke group PENGATURAN di `lib/permission-config.ts`. BigInt `apkSizeBytes` dikonversi ke Number sebelum JSON response.
+- **Files**: `app/api/admin/app-releases/route.ts`, `app/api/admin/app-releases/[id]/route.ts`, `lib/permissions.ts`, `lib/permission-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Tambah endpoint mobile check versi APK
 
 - **Tipe**: [ADDED]
