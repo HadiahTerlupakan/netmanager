@@ -1,26 +1,26 @@
 import { hasPermission } from "@/lib/rbac";
 import {
-  apiSuccess,
   ApiErrors,
   ErrorCodes,
   apiError,
   apiPaginated,
   createHandler,
 } from "@/lib/api";
-import { logActivitySafe } from "@/lib/logger";
 import {
-  AppUpdateValidationError,
   appUpdateChannelSchema,
   appUpdatePlatformSchema,
   getAppUpdateService,
-  parseAppUpdateUploadForm,
 } from "@/modules/app-update";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 // GET /api/admin/app-update — list updates
+//
+// Catatan: endpoint POST /api/admin/app-update untuk upload manual via UI
+// sengaja DIHAPUS — semua publish wajib lewat Jenkins pipeline (endpoint
+// POST /api/admin/app-update/publish dengan Bearer token). Ini menjaga
+// audit trail tetap rapi: semua bundle Expo tercatat sebagai CI build.
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
   if (!(await hasPermission("app_version:read"))) {
     return ApiErrors.forbidden(
@@ -60,73 +60,4 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
   });
 
   return apiPaginated(result.data, { page, limit, total: result.total });
-});
-
-// POST /api/admin/app-update — upload bundle baru
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("app_version:create"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk upload Expo updates",
-    );
-  }
-
-  let formData: FormData;
-  try {
-    formData = await req.formData();
-  } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Form data tidak valid",
-      ErrorCodes.VALIDATION_ERROR,
-      { status: 400 },
-    );
-  }
-
-  const parsed = parseAppUpdateUploadForm(formData);
-  if (!parsed.ok) {
-    return apiError(parsed.failure.error, ErrorCodes.VALIDATION_ERROR, {
-      status: parsed.failure.status,
-    });
-  }
-
-  const service = await getAppUpdateService();
-  try {
-    const created = await service.uploadUpdate({
-      channel: parsed.data.channel,
-      runtimeVersion: parsed.data.runtimeVersion,
-      platform: parsed.data.platform,
-      bundleFile: parsed.data.bundleFile,
-      assetFiles: parsed.data.assetFiles,
-      manifest: parsed.data.manifest as unknown as Parameters<
-        typeof service.uploadUpdate
-      >[0]["manifest"],
-      ...(parsed.data.releaseNotes
-        ? { releaseNotes: parsed.data.releaseNotes }
-        : {}),
-      createdBy: ctx.session!.user.id,
-    });
-
-    logActivitySafe({
-      action: "CREATE",
-      subject: "AppUpdate",
-      userId: ctx.session!.user.id,
-      details: {
-        id: created.id,
-        manifestId: created.manifestId,
-        channel: created.channel,
-        runtimeVersion: created.runtimeVersion,
-      },
-    });
-
-    return apiSuccess(
-      { ...created, bundleSize: Number(created.bundleSize) },
-      { status: 201, message: "Expo update berhasil diupload" },
-    );
-  } catch (error) {
-    if (error instanceof AppUpdateValidationError) {
-      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
-        status: 400,
-      });
-    }
-    throw error;
-  }
 });

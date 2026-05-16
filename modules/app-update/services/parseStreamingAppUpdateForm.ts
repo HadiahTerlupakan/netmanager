@@ -2,13 +2,27 @@ import { Readable } from "stream";
 
 import Busboy from "@fastify/busboy";
 
-import type { ParsedAppUpdateForm } from "./parseAppUpdateUploadForm";
+import type {
+  AppUpdateChannel,
+  AppUpdatePlatform,
+} from "../domain/entities/AppUpdateEntity";
+
 import {
   APP_UPDATE_MAX_BUNDLE_BYTES,
   appUpdateChannelSchema,
   appUpdatePlatformSchema,
   runtimeVersionSchema,
 } from "../validators";
+
+export interface ParsedAppUpdateForm {
+  channel: AppUpdateChannel;
+  platform: AppUpdatePlatform;
+  runtimeVersion: string;
+  manifest: Record<string, unknown>;
+  bundleFile: File;
+  assetFiles: File[];
+  releaseNotes?: string;
+}
 
 interface UploadedFile {
   file: File;

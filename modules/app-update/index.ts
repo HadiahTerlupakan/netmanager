@@ -1,12 +1,8 @@
 // Public API for App Update (Expo Updates) Module
 export { AppUpdateService } from "./services/AppUpdateService";
 export { getAppUpdateService } from "./services/getAppUpdateService";
-export { parseAppUpdateUploadForm } from "./services/parseAppUpdateUploadForm";
-export type {
-  ParseResult as AppUpdateParseResult,
-  ParsedAppUpdateForm,
-} from "./services/parseAppUpdateUploadForm";
 export { parseStreamingAppUpdateForm } from "./services/parseStreamingAppUpdateForm";
+export type { ParsedAppUpdateForm } from "./services/parseStreamingAppUpdateForm";
 export {
   isAppUpdatePublishTokenConfigured,
   verifyAppUpdatePublishToken,

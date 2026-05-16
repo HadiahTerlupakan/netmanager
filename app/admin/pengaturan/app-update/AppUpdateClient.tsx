@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  HiOutlineCloudArrowUp,
-  HiOutlinePlayPause,
-  HiOutlineTrash,
-  HiOutlineDevicePhoneMobile,
-} from "react-icons/hi2";
+import { HiOutlinePlayPause, HiOutlineTrash } from "react-icons/hi2";
 
 import { clientLogger } from "@/lib/client-logger";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { useToast } from "@/hooks/use-toast";
 import { usePermission } from "@/hooks/use-permission";
@@ -42,7 +36,6 @@ const PLATFORM_OPTIONS = ["android", "ios"] as const;
 
 export function AppUpdateClient() {
   const { hasPermission } = usePermission();
-  const canCreate = hasPermission("app_version:create");
   const canUpdate = hasPermission("app_version:update");
   const canDelete = hasPermission("app_version:delete");
   const { showToast } = useToast();
@@ -56,7 +49,6 @@ export function AppUpdateClient() {
     total: 0,
     totalPages: 0,
   });
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<AppUpdateRow | null>(null);
   const [filterChannel, setFilterChannel] = useState<string>("");
   const [filterPlatform, setFilterPlatform] = useState<string>("");
@@ -259,16 +251,6 @@ export function AppUpdateClient() {
             Play Store.
           </p>
         </div>
-        {canCreate && (
-          <Button
-            type="button"
-            onClick={() => setShowUploadModal(true)}
-            variant="default"
-          >
-            <HiOutlineCloudArrowUp className="h-5 w-5" />
-            Upload Bundle Baru
-          </Button>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -347,16 +329,6 @@ export function AppUpdateClient() {
         </div>
       )}
 
-      {showUploadModal && (
-        <UploadUpdateModal
-          onClose={() => setShowUploadModal(false)}
-          onSuccess={() => {
-            setShowUploadModal(false);
-            refresh();
-          }}
-        />
-      )}
-
       <ConfirmDialog
         open={!!deleteConfirm}
         title="Hapus Expo Update"
@@ -371,293 +343,5 @@ export function AppUpdateClient() {
         onCancel={() => setDeleteConfirm(null)}
       />
     </div>
-  );
-}
-
-function UploadUpdateModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { showToast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("");
-  const [channel, setChannel] = useState<"staging" | "production">("staging");
-  const [platform, setPlatform] = useState<"android" | "ios">("android");
-  const [runtimeVersion, setRuntimeVersion] = useState("");
-  const [releaseNotes, setReleaseNotes] = useState("");
-  const [manifestText, setManifestText] = useState("");
-  const [bundleFile, setBundleFile] = useState<File | null>(null);
-  const [assetFiles, setAssetFiles] = useState<File[]>([]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!bundleFile) {
-      showToast("error", "Bundle file wajib disertakan");
-      return;
-    }
-    if (!manifestText.trim()) {
-      showToast("error", "Manifest JSON wajib disertakan");
-      return;
-    }
-    try {
-      JSON.parse(manifestText);
-    } catch {
-      showToast("error", "Manifest harus JSON valid");
-      return;
-    }
-
-    setLoading(true);
-    setProgress(0);
-    setStatus("Mengupload bundle...");
-
-    try {
-      const form = new FormData();
-      form.append("channel", channel);
-      form.append("platform", platform);
-      form.append("runtimeVersion", runtimeVersion);
-      form.append("releaseNotes", releaseNotes);
-      form.append("manifest", manifestText);
-      form.append("bundle", bundleFile);
-      assetFiles.forEach((file) => form.append("assets", file));
-
-      const result = await new Promise<{ success: boolean; error?: string }>(
-        (resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable) {
-              setProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          });
-          xhr.onreadystatechange = () => {
-            if (xhr.readyState !== 4) return;
-            try {
-              const data = JSON.parse(xhr.responseText) as {
-                success?: boolean;
-                error?: string;
-              };
-              if (xhr.status >= 200 && xhr.status < 300 && data.success) {
-                resolve({ success: true });
-              } else {
-                resolve({
-                  success: false,
-                  error: data.error || `HTTP ${xhr.status}`,
-                });
-              }
-            } catch {
-              resolve({
-                success: false,
-                error: `HTTP ${xhr.status}: ${xhr.statusText}`,
-              });
-            }
-          };
-          xhr.onerror = () => reject(new Error("Network error"));
-          xhr.open("POST", "/api/admin/app-update");
-          xhr.send(form);
-        },
-      );
-
-      if (result.success) {
-        showToast("success", "Expo update berhasil diupload");
-        onSuccess();
-      } else {
-        showToast("error", result.error || "Gagal upload");
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Upload update error:", err);
-      showToast(
-        "error",
-        err instanceof Error ? err.message : "Terjadi kesalahan",
-      );
-    } finally {
-      setLoading(false);
-      setProgress(0);
-      setStatus("");
-    }
-  };
-
-  return (
-    <Modal isOpen onClose={onClose} title="Upload Expo Update" size="lg">
-      <div className="space-y-4">
-        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm">
-          <div className="flex items-start gap-2">
-            <HiOutlineDevicePhoneMobile className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-            <div className="text-blue-800 dark:text-blue-200">
-              Generate bundle dengan:{" "}
-              <code>npx expo export --platform android</code> atau{" "}
-              <code>npx expo export --platform ios</code>. Hasil ada di folder
-              <code> dist/</code>. Upload <strong>bundle</strong> (file{" "}
-              <code>.hbc</code>/<code>.bundle</code>), <strong>manifest</strong>{" "}
-              (<code>dist/metadata.json</code> atau manifest custom), dan semua{" "}
-              <strong>assets</strong> dari folder <code>dist/assets</code>.
-            </div>
-          </div>
-        </div>
-
-        <form
-          id="app-update-form"
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Channel <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={channel}
-                onChange={(event) =>
-                  setChannel(event.target.value as "staging" | "production")
-                }
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                disabled={loading}
-              >
-                <option value="staging">staging</option>
-                <option value="production">production</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Platform <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={platform}
-                onChange={(event) =>
-                  setPlatform(event.target.value as "android" | "ios")
-                }
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                disabled={loading}
-              >
-                <option value="android">android</option>
-                <option value="ios">ios</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Runtime Version <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={runtimeVersion}
-              onChange={(event) => setRuntimeVersion(event.target.value)}
-              placeholder="1.0.4"
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              disabled={loading}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Harus cocok dengan native APK build (mis.{" "}
-              <code>app.json &gt; expo.runtimeVersion</code>). Hanya app dengan
-              runtime version sama yang menerima bundle ini.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Bundle File <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="file"
-              accept=".bundle,.hbc,.js"
-              onChange={(event) =>
-                setBundleFile(event.target.files?.[0] || null)
-              }
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              disabled={loading}
-            />
-            {bundleFile && (
-              <p className="text-xs text-green-600 mt-1">
-                ✅ {bundleFile.name} (
-                {(bundleFile.size / (1024 * 1024)).toFixed(2)} MB)
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Manifest JSON <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={manifestText}
-              onChange={(event) => setManifestText(event.target.value)}
-              rows={6}
-              placeholder='{"id":"...","createdAt":"...","launchAsset":{"hash":"..."},"assets":[]}'
-              className="w-full px-3 py-2 border rounded-lg font-mono text-xs dark:bg-gray-700 dark:border-gray-600"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Asset Files (opsional, dari <code>dist/assets/</code>)
-            </label>
-            <input
-              type="file"
-              multiple
-              onChange={(event) =>
-                setAssetFiles(Array.from(event.target.files ?? []))
-              }
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              disabled={loading}
-            />
-            {assetFiles.length > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                {assetFiles.length} file dipilih
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Catatan Rilis (opsional)
-            </label>
-            <textarea
-              value={releaseNotes}
-              onChange={(event) => setReleaseNotes(event.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              disabled={loading}
-            />
-          </div>
-
-          {loading && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>{status}</span>
-                <span>{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                <div
-                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </form>
-      </div>
-      <ModalFooter>
-        <Button
-          type="button"
-          onClick={onClose}
-          variant="outline"
-          disabled={loading}
-        >
-          Batal
-        </Button>
-        <Button
-          type="submit"
-          form="app-update-form"
-          disabled={loading || !bundleFile}
-          variant="default"
-        >
-          {loading ? "Proses..." : "Upload"}
-        </Button>
-      </ModalFooter>
-    </Modal>
   );
 }
