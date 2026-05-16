@@ -517,7 +517,6 @@ export function ClientComponent() {
         <Button
           onClick={() => fetchReport()}
           disabled={loading || retryCountdown !== null}
-          className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px] disabled:opacity-50"
         >
           <FaSearch /> {loading ? "Memuat..." : "Terapkan"}
         </Button>

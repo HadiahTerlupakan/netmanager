@@ -122,11 +122,11 @@ export function OrphanCleanupPanel({
   return (
     <>
       <Button
+        variant="destructive"
         onClick={() => {
           void fetchOrphans();
         }}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700"
       >
         <HiOutlineTrash className="h-4 w-4" />
         {loading ? "Scanning..." : "Cleanup Orphans"}
@@ -182,18 +182,18 @@ export function OrphanCleanupPanel({
 
             <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
               <Button
+                variant="outline"
                 onClick={() => setModalOpen(false)}
                 disabled={deleting}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Batal
               </Button>
               <Button
+                variant="destructive"
                 onClick={() => {
                   void handleDelete();
                 }}
                 disabled={deleting || selected.size === 0}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 <HiOutlineTrash className="h-4 w-4" />
                 {deleting ? "Menghapus..." : `Hapus ${selected.size} User`}

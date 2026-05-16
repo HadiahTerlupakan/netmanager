@@ -344,8 +344,9 @@ export function ClientComponent() {
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
           <div className="flex items-center gap-4">
             <Button
+              variant="ghost"
+              size="icon"
               onClick={() => router.push("/admin/support")}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               <HiArrowLeft className="w-5 h-5" />
             </Button>
@@ -505,9 +506,10 @@ export function ClientComponent() {
                 onChange={handleFileSelect}
               />
               <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading || sending}
-                className="p-3 text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                 title="Lampirkan Gambar"
               >
                 <HiPaperClip className="w-5 h-5" />
@@ -675,7 +677,7 @@ export function ClientComponent() {
                   });
                   router.push(`/admin/workorders/new?${params.toString()}`);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors border border-indigo-200 dark:border-indigo-800"
+                className="w-full"
               >
                 <MdAssignment className="text-xl" />
                 Buat Work Order

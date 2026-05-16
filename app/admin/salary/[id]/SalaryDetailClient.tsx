@@ -312,11 +312,12 @@ export default function SalaryDetailClient({
                   </h4>
                   {salary.status === "REVISED" && (
                     <Button
+                      variant="success"
+                      size="sm"
                       onClick={() => {
                         setAdjustData({ ...adjustData, type: "EARNING" });
                         setShowAdjustModal(true);
                       }}
-                      className="text-xs flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-green-200"
                       title="Tambah Pendapatan Manual"
                     >
                       <HiOutlinePlusCircle className="w-4 h-4" />
@@ -372,11 +373,12 @@ export default function SalaryDetailClient({
                   </h4>
                   {salary.status === "REVISED" && (
                     <Button
+                      variant="destructive"
+                      size="sm"
                       onClick={() => {
                         setAdjustData({ ...adjustData, type: "DEDUCTION" });
                         setShowAdjustModal(true);
                       }}
-                      className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-red-200"
                       title="Tambah Potongan Manual"
                     >
                       <HiOutlinePlusCircle className="w-4 h-4" />
@@ -572,15 +574,16 @@ export default function SalaryDetailClient({
                       <Button
                         onClick={() => handleAction("audit")}
                         disabled={loading}
-                        className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        className="flex-1"
                       >
                         <HiOutlineCheckCircle className="w-5 h-5" />
                         Audit Selesai
                       </Button>
                       <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleAction("recalculate")}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-4 rounded-lg transition-colors border border-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800"
                         title="Hitung ulang gaji (ambil data terbaru dari absensi & settings)"
                       >
                         <HiOutlineArrowPath className="w-5 h-5" />
@@ -599,9 +602,10 @@ export default function SalaryDetailClient({
                     {salary.status !== "REVISED" &&
                       (!showRevisionInput ? (
                         <Button
+                          variant="destructive"
                           onClick={() => setShowRevisionInput(true)}
                           disabled={loading}
-                          className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-red-900/10 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                          className="w-full"
                         >
                           <HiOutlineXCircle className="w-5 h-5" />
                           Minta Revisi
@@ -617,15 +621,16 @@ export default function SalaryDetailClient({
                           />
                           <div className="flex gap-2">
                             <Button
+                              variant="destructive"
                               onClick={() => handleAction("revise", auditNotes)}
                               disabled={!auditNotes || loading}
-                              className="flex-1 bg-red-600 text-white text-sm py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                              className="flex-1"
                             >
                               Kirim Revisi
                             </Button>
                             <Button
+                              variant="ghost"
                               onClick={() => setShowRevisionInput(false)}
-                              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                             >
                               Batal
                             </Button>
@@ -649,17 +654,19 @@ export default function SalaryDetailClient({
                       </p>
                     </div>
                     <Button
+                      variant="success"
                       onClick={() => handleAction("approve")}
                       disabled={loading}
-                      className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                      className="w-full"
                     >
                       <HiOutlineCheckCircle className="w-5 h-5" />
                       Approve Salary
                     </Button>
                     <Button
+                      variant="outline"
                       onClick={() => setShowRevisionInput(true)}
                       disabled={loading}
-                      className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                      className="w-full"
                     >
                       Tolak / Revisi
                     </Button>
@@ -674,15 +681,16 @@ export default function SalaryDetailClient({
                         />
                         <div className="flex gap-2">
                           <Button
+                            variant="destructive"
                             onClick={() => handleAction("revise", auditNotes)}
                             disabled={!auditNotes || loading}
-                            className="flex-1 bg-red-600 text-white text-sm py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                            className="flex-1"
                           >
                             Kirim Revisi
                           </Button>
                           <Button
+                            variant="ghost"
                             onClick={() => setShowRevisionInput(false)}
-                            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                           >
                             Batal
                           </Button>
@@ -706,9 +714,10 @@ export default function SalaryDetailClient({
                       </p>
                     </div>
                     <Button
+                      variant="success"
                       onClick={() => handleAction("paid")}
                       disabled={loading}
-                      className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                      className="w-full"
                     >
                       <HiOutlineBanknotes className="w-5 h-5" />
                       Tandai Sudah Dibayar
@@ -785,18 +794,24 @@ export default function SalaryDetailClient({
             </label>
             <div className="flex gap-2">
               <Button
+                variant={
+                  adjustData.type === "EARNING" ? "success" : "secondary"
+                }
                 onClick={() =>
                   setAdjustData({ ...adjustData, type: "EARNING" })
                 }
-                className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === "EARNING" ? "bg-green-100 border-green-500 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-300" : "bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"}`}
+                className="flex-1"
               >
                 Pendapatan
               </Button>
               <Button
+                variant={
+                  adjustData.type === "DEDUCTION" ? "destructive" : "secondary"
+                }
                 onClick={() =>
                   setAdjustData({ ...adjustData, type: "DEDUCTION" })
                 }
-                className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === "DEDUCTION" ? "bg-red-100 border-red-500 text-red-700 font-bold dark:bg-red-900/30 dark:text-red-300" : "bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"}`}
+                className="flex-1"
               >
                 Potongan
               </Button>
@@ -854,10 +869,7 @@ export default function SalaryDetailClient({
         </div>
 
         <ModalFooter>
-          <Button
-            onClick={() => setShowAdjustModal(false)}
-            className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
+          <Button variant="outline" onClick={() => setShowAdjustModal(false)}>
             Batal
           </Button>
           <Button

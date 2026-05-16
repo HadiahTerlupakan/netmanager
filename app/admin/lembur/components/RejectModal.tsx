@@ -43,16 +43,14 @@ export function RejectModal({
         </p>
       </div>
       <ModalFooter>
-        <Button
-          onClick={onClose}
-          className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-        >
+        <Button onClick={onClose} variant="outline" size="sm">
           Batal
         </Button>
         <Button
           onClick={onSubmit}
           disabled={!rejectReason.trim() || processingId === rejectId}
-          className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+          variant="destructive"
+          size="sm"
         >
           Tolak
         </Button>

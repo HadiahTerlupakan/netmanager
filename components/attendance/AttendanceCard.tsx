@@ -302,8 +302,10 @@ export default function AttendanceCard() {
                   className="object-cover"
                 />
                 <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => setPhoto(null)}
-                  className="absolute top-2 right-2 bg-red-500 dark:bg-red-400 text-white p-1 rounded-full text-xs"
+                  className="absolute top-2 right-2 rounded-full"
                 >
                   Ulang
                 </Button>
@@ -340,7 +342,7 @@ export default function AttendanceCard() {
               variant="success"
               onClick={handleSubmit}
               disabled={loading || !photo}
-              className={`w-full ${loading || !photo ? " cursor-not-allowed" : status === "idle" ? " " : " "}`}
+              className="w-full"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

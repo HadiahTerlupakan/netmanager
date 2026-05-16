@@ -181,27 +181,35 @@ export function ClientComponent({
     }
   };
 
-  const getAvailableActions = (status: string) => {
+  type RegistrationAction = {
+    label: string;
+    status: string;
+    variant: "default" | "destructive" | "secondary" | "success";
+    icon: typeof MdCheckCircle;
+    needsReason?: boolean;
+  };
+
+  const getAvailableActions = (status: string): RegistrationAction[] => {
     switch (status) {
       case "PENDING":
         return [
           {
             label: "Verifikasi",
             status: "VERIFIED",
-            color: "bg-blue-600 hover:bg-blue-700",
+            variant: "default" as const,
             icon: MdCheckCircle,
           },
           {
             label: "Tolak",
             status: "REJECTED",
-            color: "bg-red-600 hover:bg-red-700",
+            variant: "destructive" as const,
             icon: MdBlock,
             needsReason: true,
           },
           {
             label: "Batalkan",
             status: "CANCELLED",
-            color: "bg-gray-600 hover:bg-gray-700",
+            variant: "secondary" as const,
             icon: MdCancel,
           },
         ];
@@ -210,13 +218,13 @@ export function ClientComponent({
           {
             label: "Tandai Sudah Survei",
             status: "SURVEYED",
-            color: "bg-purple-600 hover:bg-purple-700",
+            variant: "default" as const,
             icon: MdConstruction,
           },
           {
             label: "Batalkan",
             status: "CANCELLED",
-            color: "bg-gray-600 hover:bg-gray-700",
+            variant: "secondary" as const,
             icon: MdCancel,
           },
         ];
@@ -225,13 +233,13 @@ export function ClientComponent({
           {
             label: "Tandai Terinstal",
             status: "INSTALLED",
-            color: "bg-green-600 hover:bg-green-700",
+            variant: "success" as const,
             icon: MdInstallDesktop,
           },
           {
             label: "Batalkan",
             status: "CANCELLED",
-            color: "bg-gray-600 hover:bg-gray-700",
+            variant: "secondary" as const,
             icon: MdCancel,
           },
         ];
@@ -413,6 +421,7 @@ export function ClientComponent({
                   return (
                     <Button
                       key={action.status}
+                      variant={action.variant}
                       onClick={() => {
                         if (action.needsReason) {
                           setShowRejectModal(true);
@@ -421,7 +430,7 @@ export function ClientComponent({
                         }
                       }}
                       disabled={isSaving}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-colors disabled:opacity-50 ${action.color}`}
+                      className="w-full"
                     >
                       <ActionIcon className="text-lg" />
                       {action.label}
@@ -493,18 +502,20 @@ export function ClientComponent({
         </div>
         <ModalFooter>
           <Button
+            variant="outline"
             onClick={() => {
               setShowRejectModal(false);
               setRejectionReason("");
             }}
-            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            className="flex-1"
           >
             Batal
           </Button>
           <Button
+            variant="destructive"
             onClick={() => updateStatus("REJECTED", rejectionReason)}
             disabled={isSaving || !rejectionReason.trim()}
-            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            className="flex-1"
           >
             {isSaving ? "Menyimpan..." : "Tolak"}
           </Button>

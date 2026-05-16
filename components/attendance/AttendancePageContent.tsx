@@ -562,8 +562,9 @@ export default function AttendancePageContent({
               Preview Selfie
             </h3>
             <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setPhoto(null)}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <MdClose size={24} />
             </Button>
@@ -575,20 +576,22 @@ export default function AttendancePageContent({
 
           <div className="p-6 flex justify-center gap-4 bg-white dark:bg-gray-800">
             <Button
+              variant="secondary"
+              size="lg"
               onClick={() => {
                 setPhoto(null);
                 startCamera();
               }}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <MdRefresh className="text-xl" /> Ulang
             </Button>
             <Button
+              size="lg"
               onClick={() => {
                 handleAttendance();
               }}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 dark:bg-blue-500 shadow-blue-600/30 hover:bg-blue-700 dark:hover:bg-blue-600"
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading
                 ? "Menyimpan..."
@@ -778,26 +781,32 @@ export default function AttendancePageContent({
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-3">
               <Button
+                size="lg"
                 onClick={
                   status === "idle" && !holidayInfo?.isNational
                     ? startCamera
                     : undefined
                 }
                 disabled={status !== "idle" || !!holidayInfo?.isNational}
-                className={`h-12 flex items-center justify-center border ${status === "idle" && !holidayInfo?.isNational ? " active:scale-95 " : " cursor-not-allowed "}`}
+                className={
+                  status === "idle" && !holidayInfo?.isNational
+                    ? "active:scale-95"
+                    : "cursor-not-allowed"
+                }
               >
                 <MdFingerprint className="text-[20px]" />
                 <span>Absen Masuk</span>
               </Button>
               <Button
                 variant="destructive"
+                size="lg"
                 onClick={
                   status === "checked-in" && !holidayInfo?.isNational
                     ? startCamera
                     : undefined
                 }
                 disabled={status !== "checked-in" || !!holidayInfo?.isNational}
-                className={`h-12 flex items-center justify-center active:scale-95 ${status === "checked-in" && !holidayInfo?.isNational ? " " : " cursor-not-allowed border box-"}`}
+                className={`active:scale-95 ${status === "checked-in" && !holidayInfo?.isNational ? "" : "cursor-not-allowed"}`}
               >
                 <MdLogout className="text-[20px]" />
                 <span>Absen Keluar</span>
@@ -818,12 +827,9 @@ export default function AttendancePageContent({
             </h3>
             <div className="flex gap-2">
               <Button
+                variant={showAnalytics ? "default" : "secondary"}
+                size="sm"
                 onClick={() => setShowAnalytics(!showAnalytics)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                  showAnalytics
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-slate-100 dark:bg-[#1c2936] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-gray-800"
-                }`}
               >
                 <MdAnalytics className="text-sm" />
                 <span className="text-xs font-bold">

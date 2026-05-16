@@ -247,10 +247,7 @@ export function NodePopupContent({
       )}
 
       <div className="border-t border-gray-200 pt-3 space-y-2">
-        <Button
-          onClick={() => onEditNode(node)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
+        <Button onClick={() => onEditNode(node)} className="w-full">
           <svg
             className="w-4 h-4"
             fill="none"
@@ -269,8 +266,9 @@ export function NodePopupContent({
 
         <div className="flex gap-2">
           <Button
+            variant="success"
             onClick={() => onEditNodeLocation(node)}
-            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex-1"
           >
             <svg
               className="w-4 h-4"
@@ -294,8 +292,8 @@ export function NodePopupContent({
             Edit Location
           </Button>
           <Button
+            variant="destructive"
             onClick={() => onDeleteNode(node.nodeId)}
-            className="flex items-center justify-center gap-1 px-3 py-2 bg-red-500 dark:bg-red-400 hover:bg-red-600 dark:hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <svg
               className="w-4 h-4"

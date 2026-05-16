@@ -143,10 +143,9 @@ export function ClientComponent() {
         Edit
       </Link>
       <Button
-        variant="ghost"
+        variant="destructive"
         size="sm"
         onClick={() => handleDelete(announcement.id)}
-        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
       >
         Delete
       </Button>

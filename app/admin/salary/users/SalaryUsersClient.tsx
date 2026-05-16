@@ -662,16 +662,18 @@ export default function SalaryUsersClient() {
                             </Link>
                             <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                             <Button
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => openEditModal(user)}
-                              className="p-1.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 rounded-lg transition-colors"
                               title="Edit Konfigurasi"
                             >
                               <HiOutlinePencil className="w-4 h-4" />
                             </Button>
                             <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                             <Button
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => handleDeleteUser(user.id)}
-                              className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
                               title="Hapus dari Daftar"
                             >
                               <HiOutlineTrash className="w-4 h-4" />
@@ -1051,12 +1053,14 @@ export default function SalaryUsersClient() {
                       </span>
                       <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() =>
                           setPendingComponents((prev) =>
                             prev.filter((_, i) => i !== idx),
                           )
                         }
-                        className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
+                        className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <HiOutlineTrash className="w-3.5 h-3.5" />
                       </Button>
@@ -1111,6 +1115,8 @@ export default function SalaryUsersClient() {
                 />
                 <Button
                   type="button"
+                  variant="secondary"
+                  size="icon"
                   onClick={() => {
                     if (newComponentName && newComponentAmount) {
                       setPendingComponents((prev) => [
@@ -1128,7 +1134,7 @@ export default function SalaryUsersClient() {
                       setNewComponentRateType("FIXED");
                     }
                   }}
-                  className="col-span-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm flex items-center justify-center"
+                  className="col-span-1"
                 >
                   <HiOutlinePlus className="w-4 h-4" />
                 </Button>
@@ -1149,8 +1155,8 @@ export default function SalaryUsersClient() {
             </Button>
             <Button
               type="button"
+              variant="outline"
               onClick={() => setShowAddModal(false)}
-              className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Batal
             </Button>
@@ -1727,8 +1733,8 @@ export default function SalaryUsersClient() {
               </Button>
               <Button
                 type="button"
+                variant="outline"
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
               >
                 Batal
               </Button>

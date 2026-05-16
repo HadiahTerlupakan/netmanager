@@ -54,6 +54,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `modules/app-update/services/app-update-manifest.helpers.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-05-16] — Refactor Button override pattern (Group B+C: 20 file)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/`, `app/(customer)/`, `components/`
+- **Author**: agent
+- **Deskripsi**: Lanjutan migrasi soft-tinted Button — total 42 Button direfactor di 14 file (Group B & C). Pola yang dibersihkan sama dengan Group A: solid bg + text-white → variant default/destructive/success/warning, icon-only → variant ghost + size icon/icon-sm, conditional segmented → variant default vs secondary, Cancel modal → variant outline. Highlights: `MapToolbar.tsx` (9 buttons, hapus helper `toolButtonClass`), `AttendancePageContent.tsx` (5 buttons termasuk submit/absen masuk/keluar), `SalaryDetailClient.tsx` (12 buttons), `NodePopupContent.tsx` (3 buttons Edit/Edit Location/Delete). Beberapa kasus sengaja di-skip karena intentional decorative: badge attachment dengan position absolute rounded-full, button overlay di atas kamera/banner gelap dengan text-white preserved. Setelah ini sebagian besar Button di codebase sudah pakai design system tunggal.
+- **Files**: `components/map/MapToolbar.tsx`, `components/map/NodePopupContent.tsx`, `components/attendance/AttendanceCard.tsx`, `components/attendance/AttendancePageContent.tsx`, `components/admin/radius/sync-controls.tsx`, `components/admin/radius/orphan-cleanup-panel.tsx`, `components/karyawan/KaryawanNotificationBell.tsx`, `components/procurement/MarketPriceCheck.tsx`, `components/inventory/DetailKeluarModal.tsx`, `components/inventory/PhotoThumbnail.tsx`, `app/admin/lembur/components/RejectModal.tsx`, `app/admin/announcement/AnnouncementIndexClient.tsx`, `app/admin/finance/manual-payments/ManualPaymentClient.tsx`, `app/admin/registrations/[id]/RegistrationDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-16] — Refactor Button override pattern (Group A: 10 file admin)
 
 - **Tipe**: [FIXED]

@@ -97,8 +97,10 @@ export function KaryawanNotificationBell() {
   if (!canViewNotifications) {
     return (
       <Button
+        variant="ghost"
+        size="icon"
         disabled
-        className="relative"
+        className="rounded-full relative"
         title="Anda tidak memiliki akses notifikasi"
       >
         <MdNotifications className="text-2xl" />
@@ -109,8 +111,10 @@ export function KaryawanNotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center rounded-full size-10 hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative"
+        className="rounded-full relative"
       >
         <MdNotifications className="text-2xl text-blue-600 dark:text-white" />
         {totalCount > 0 && (

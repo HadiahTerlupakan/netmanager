@@ -75,13 +75,6 @@ export function MapToolbar({
   onCancelActiveMode,
   getNodeColor,
 }: MapToolbarProps) {
-  const toolButtonClass = (active: boolean) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-      active
-        ? "bg-blue-600 text-white shadow-md"
-        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
-    }`;
-
   return (
     <>
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 relative z-10 overflow-visible">
@@ -133,8 +126,8 @@ export function MapToolbar({
           <div className="flex items-center gap-2">
             <div className="relative z-20">
               <Button
+                variant={showSearchDropdown ? "default" : "outline"}
                 onClick={onToggleSearchDropdown}
-                className={toolButtonClass(showSearchDropdown)}
               >
                 <HiMagnifyingGlass className="w-4 h-4" />
                 Search
@@ -159,8 +152,9 @@ export function MapToolbar({
                       {filteredNodes.slice(0, 10).map((node) => (
                         <Button
                           key={node.nodeId}
+                          variant="ghost"
                           onClick={() => onSelectSearchResult(node)}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                          className="w-full justify-start rounded-none"
                         >
                           <span
                             className="w-3 h-3 rounded-full"
@@ -183,36 +177,36 @@ export function MapToolbar({
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
             <Button
+              variant={serverActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("server")}
-              className={toolButtonClass(serverActionMode !== "idle")}
             >
               <HiServer className="w-4 h-4" />
               Server
             </Button>
             <Button
+              variant={odcActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("odc")}
-              className={toolButtonClass(odcActionMode !== "idle")}
             >
               <HiCube className="w-4 h-4" />
               ODC
             </Button>
             <Button
+              variant={odpActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("odp")}
-              className={toolButtonClass(odpActionMode !== "idle")}
             >
               <HiSquare3Stack3D className="w-4 h-4" />
               ODP
             </Button>
             <Button
+              variant={ontActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("ont")}
-              className={toolButtonClass(ontActionMode !== "idle")}
             >
               <HiCpuChip className="w-4 h-4" />
               ONT
             </Button>
             <Button
+              variant={poleActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("pole")}
-              className={toolButtonClass(poleActionMode !== "idle")}
             >
               <svg
                 className="w-4 h-4"
@@ -230,8 +224,8 @@ export function MapToolbar({
               Pole
             </Button>
             <Button
+              variant={joinboxActionMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("joinbox")}
-              className={toolButtonClass(joinboxActionMode !== "idle")}
             >
               <svg
                 className="w-4 h-4"
@@ -252,8 +246,8 @@ export function MapToolbar({
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
             <Button
+              variant={fiberLineMode !== "idle" ? "default" : "outline"}
               onClick={() => onToolbarClick("fiber")}
-              className={toolButtonClass(fiberLineMode !== "idle")}
             >
               <svg
                 className="w-4 h-4"
@@ -280,15 +274,18 @@ export function MapToolbar({
           <div className="flex items-center gap-2">
             {hasPendingTempPosition && (
               <Button
+                variant="success"
+                size="sm"
                 onClick={onSaveActiveTempPosition}
-                className="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-medium"
               >
                 Save
               </Button>
             )}
             <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={onCancelActiveMode}
-              className="p-1 hover:bg-blue-600 rounded"
+              className="text-white hover:bg-white/20 hover:text-white dark:text-white dark:hover:bg-white/20 dark:hover:text-white"
             >
               <HiXMark className="w-5 h-5" />
             </Button>

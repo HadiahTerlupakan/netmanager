@@ -351,7 +351,6 @@ export function DetailKeluarModal({
               onEdit(keluar);
               onClose();
             }}
-            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg transition-colors flex items-center"
           >
             <FiEdit3 className="h-4 w-4 mr-2" />
             Edit

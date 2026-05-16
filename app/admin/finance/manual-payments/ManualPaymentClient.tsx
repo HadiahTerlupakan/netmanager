@@ -218,7 +218,6 @@ export default function ManualPaymentClient() {
             setCurrentPage(1);
             fetchPendingPayments();
           }}
-          className="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm h-[38px]"
         >
           Terapkan Filter
         </Button>
@@ -409,11 +408,7 @@ export default function ManualPaymentClient() {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                             <Button
                               size="sm"
-                              className={
-                                isPending
-                                  ? "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white"
-                                  : "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                              }
+                              variant={isPending ? "default" : "outline"}
                               onClick={() => setSelectedPayment(payment)}
                             >
                               {isPending ? "Verifikasi" : "Detail"}
@@ -429,9 +424,10 @@ export default function ManualPaymentClient() {
             {Math.ceil(payments.length / itemsPerPage) > 1 && (
               <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
                 <Button
+                  variant="outline"
+                  size="sm"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((p) => p - 1)}
-                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 disabled:opacity-50 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Sebelumnya
                 </Button>
@@ -441,11 +437,12 @@ export default function ManualPaymentClient() {
                   Data)
                 </span>
                 <Button
+                  variant="outline"
+                  size="sm"
                   disabled={
                     currentPage === Math.ceil(payments.length / itemsPerPage)
                   }
                   onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 disabled:opacity-50 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Selanjutnya
                 </Button>
@@ -551,10 +548,9 @@ export default function ManualPaymentClient() {
             {selectedPayment.gatewayStatus === "PENDING" && (
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   onClick={() => handleAction("REJECT")}
                   loading={processing}
-                  className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
                   Tolak Pembayaran
                 </Button>

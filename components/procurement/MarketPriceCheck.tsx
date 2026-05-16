@@ -483,16 +483,16 @@ export function MarketPriceCheck({
                       (b: { name: string; count: number }) => (
                         <Button
                           key={b.name}
+                          variant={
+                            selectedBrand === b.name ? "default" : "secondary"
+                          }
+                          size="sm"
                           onClick={() =>
                             setSelectedBrand(
                               selectedBrand === b.name ? "" : b.name,
                             )
                           }
-                          className={`px-3 py-1 text-xs rounded-full border transition-all ${
-                            selectedBrand === b.name
-                              ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
-                              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-indigo-400"
-                          }`}
+                          className="rounded-full"
                         >
                           {b.name}{" "}
                           <span className="opacity-60 text-[10px] ml-1">
@@ -722,8 +722,8 @@ export function MarketPriceCheck({
 
                           {onSelectPrice && (
                             <Button
+                              size="sm"
                               onClick={() => onSelectPrice(item.price)}
-                              className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-0.5"
                             >
                               Pilih
                             </Button>
