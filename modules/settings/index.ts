@@ -95,3 +95,4 @@ export {
   GeminiOcrService,
   resolveGeminiMimeType,
 } from "./services/GeminiOcrService";
+export { getAppUpdateContact } from "./services/tenantSettings";
