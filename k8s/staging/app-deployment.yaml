@@ -143,6 +143,12 @@ spec:
                   name: netmanager-secrets
                   key: APP_UPDATE_SIGNING_PRIVATE_KEY
                   optional: true
+            - name: APP_UPDATE_PUBLISH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: APP_UPDATE_PUBLISH_TOKEN
+                  optional: true
             - name: MOBILE_MIN_NATIVE_VERSION_CODE
               valueFrom:
                 secretKeyRef:
