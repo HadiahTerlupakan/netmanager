@@ -45,6 +45,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Tambah model AppRelease + extend TenantSettings contact admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/schema.prisma`, `modules/app-version`
+- **Author**: agent
+- **Deskripsi**: Tambah model `AppRelease` untuk distribusi APK langsung (non-OTA) dengan
+  field platform, version, versionCode, rolloutPercentage, architecture, dll. Extend
+  `TenantSettings` dengan field `appUpdateContactUrl` dan `appUpdateContactLabel` untuk
+  info kontak admin di dialog update. Bagian dari implementasi dual update channel (APK + OTA).
+- **Files**: `prisma/schema.prisma`,
+  `prisma/migrations/20260517000000_add_app_releases/migration.sql`
+- **Migration**: `20260517000000_add_app_releases`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Fix lembur tertahan "belum checkout" saat hari off-day / libur kerja
 
 - **Tipe**: [FIXED]
