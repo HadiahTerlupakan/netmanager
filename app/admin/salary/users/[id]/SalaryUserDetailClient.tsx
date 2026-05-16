@@ -139,8 +139,10 @@ export default function SalaryUserDetailClient() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => router.back()}
-          className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
+          className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
         >
           <HiOutlineArrowLeft className="w-5 h-5" />
         </Button>

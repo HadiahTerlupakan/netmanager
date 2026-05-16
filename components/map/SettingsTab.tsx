@@ -124,10 +124,7 @@ export function SettingsTab({
         </div>
       </div>
 
-      <Button
-        onClick={() => onSave(formData)}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-      >
+      <Button onClick={() => onSave(formData)}>
         <svg
           className="w-4 h-4"
           fill="none"
@@ -166,8 +163,9 @@ export function SettingsTab({
             Export Map
           </Button>
           <Button
+            variant="destructive"
+            size="sm"
             onClick={() => setShowResetModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
           >
             <svg
               className="w-4 h-4"
