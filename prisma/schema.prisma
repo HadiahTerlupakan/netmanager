@@ -2438,6 +2438,37 @@ model AppUpdate {
   @@map("app_updates")
 }
 
+/// APK release untuk distribusi langsung (non-OTA).
+/// Setiap record merepresentasikan satu versi APK yang dapat diunduh
+/// oleh pengguna melalui in-app update checker.
+model AppRelease {
+  id                  String   @id @default(cuid())
+  platform            String
+  version             String
+  versionCode         Int
+  isForceUpdate       Boolean  @default(false)
+  minSupportedVersion String?
+  downloadUrl         String
+  releaseNotes        String?  @db.Text
+  isActive            Boolean  @default(true)
+  releasedAt          DateTime @default(now())
+
+  architecture        String?
+  minOsVersion        String?
+  rolloutPercentage   Int      @default(100)
+  apkSizeBytes        Int?
+
+  tenantId            String?
+  createdBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([platform, isActive, releasedAt])
+  @@index([platform, architecture, isActive])
+  @@index([tenantId])
+  @@map("app_releases")
+}
+
 model Shift {
   id          String   @id @default(uuid())
   name        String
@@ -3973,6 +4004,10 @@ model TenantSettings {
   advanceReminder1Days          Int     @default(7)
   advanceReminder2Days          Int     @default(3)
   advanceReminder3Days          Int     @default(1)
+
+  // App update contact info
+  appUpdateContactUrl     String?
+  appUpdateContactLabel   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
