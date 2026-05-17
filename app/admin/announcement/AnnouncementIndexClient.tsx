@@ -1,10 +1,10 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Announcement {
   id: string;
@@ -22,31 +22,17 @@ interface Announcement {
 }
 
 export function ClientComponent() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
-
-  const fetchAnnouncements = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/announcements");
-      const data = await res.json();
-      setAnnouncements(data);
-    } catch (error) {
-      clientLogger.error("Failed to fetch announcements", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: announcements,
+    isLoading,
+    mutate,
+  } = useApi<Announcement[]>("/api/announcements");
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this announcement?")) return;
     try {
       await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-      fetchAnnouncements();
+      await mutate();
     } catch (error) {
       clientLogger.error("Failed to delete", error);
     }
@@ -166,10 +152,10 @@ export function ClientComponent() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <ResponsiveTable
-          data={announcements}
+          data={announcements ?? []}
           columns={columns}
           keyField="id"
-          loading={loading}
+          loading={isLoading}
           emptyMessage="No announcements found"
           loadingMessage="Loading announcements..."
           renderActions={renderActions}

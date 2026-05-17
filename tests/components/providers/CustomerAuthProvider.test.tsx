@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockFns = vi.hoisted(() => ({
   push: vi.fn(),
@@ -35,6 +36,32 @@ function AuthProbe() {
       <span id="customer-name">{customer?.nama ?? ""}</span>
     </div>
   );
+}
+
+function renderWithProviders(container: HTMLElement) {
+  // Fresh QueryClient per test agar cache tidak leak antar test
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 0 } },
+  });
+  createRoot(container).render(
+    <QueryClientProvider client={queryClient}>
+      <CustomerAuthProvider>
+        <AuthProbe />
+      </CustomerAuthProvider>
+    </QueryClientProvider>,
+  );
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 1000) {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`waitFor timeout after ${timeoutMs}ms`);
+    }
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
 }
 
 describe("CustomerAuthProvider", () => {
@@ -76,14 +103,11 @@ describe("CustomerAuthProvider", () => {
     document.body.appendChild(container);
 
     await act(async () => {
-      createRoot(container).render(
-        <CustomerAuthProvider>
-          <AuthProbe />
-        </CustomerAuthProvider>,
-      );
-      await Promise.resolve();
-      await Promise.resolve();
+      renderWithProviders(container);
     });
+    await waitFor(
+      () => container.querySelector("#loading")?.textContent === "false",
+    );
 
     expect(container.querySelector("#loading")?.textContent).toBe("false");
     expect(container.querySelector("#authenticated")?.textContent).toBe("true");
@@ -130,22 +154,22 @@ describe("CustomerAuthProvider", () => {
     document.body.appendChild(container);
 
     await act(async () => {
-      createRoot(container).render(
-        <CustomerAuthProvider>
-          <AuthProbe />
-        </CustomerAuthProvider>,
-      );
-      await Promise.resolve();
-      await Promise.resolve();
+      renderWithProviders(container);
     });
+    await waitFor(
+      () => container.querySelector("#loading")?.textContent === "false",
+    );
 
     const loginButton = container.querySelector("#login-button");
 
     await act(async () => {
       loginButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
     });
+    await waitFor(
+      () =>
+        container.querySelector("#customer-name")?.textContent ===
+        "Customer Login",
+    );
 
     expect(container.querySelector("#authenticated")?.textContent).toBe("true");
     expect(container.querySelector("#customer-name")?.textContent).toBe(

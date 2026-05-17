@@ -125,7 +125,12 @@ export function OpnameForm({
   }, [formData.barangId, formData.gudangId]);
 
   // Auto-calculate stokFisik when condition values change
-  useEffect(() => {
+  const [prevConditionKey, setPrevConditionKey] = useState<string>(
+    `${formData.kondisiBaik}|${formData.kondisiRusak}|${formData.kondisiExpire}`,
+  );
+  const conditionKey = `${formData.kondisiBaik}|${formData.kondisiRusak}|${formData.kondisiExpire}`;
+  if (prevConditionKey !== conditionKey) {
+    setPrevConditionKey(conditionKey);
     const baik = parseInt(formData.kondisiBaik) || 0;
     const rusak = parseInt(formData.kondisiRusak) || 0;
     const expire = parseInt(formData.kondisiExpire) || 0;
@@ -134,15 +139,14 @@ export function OpnameForm({
     if (total > 0) {
       setFormData((prev) => ({ ...prev, stokFisik: total.toString() }));
     }
-  }, [
-    formData.kondisiBaik,
-    formData.kondisiRusak,
-    formData.kondisiExpire,
-    formData.stokFisik,
-  ]);
+  }
 
   // Auto-distribute stokFisik when changed directly
-  useEffect(() => {
+  const [prevStokFisik, setPrevStokFisik] = useState<string>(
+    formData.stokFisik,
+  );
+  if (prevStokFisik !== formData.stokFisik) {
+    setPrevStokFisik(formData.stokFisik);
     const fisik = parseInt(formData.stokFisik) || 0;
     const baik = parseInt(formData.kondisiBaik) || 0;
     const rusak = parseInt(formData.kondisiRusak) || 0;
@@ -162,12 +166,7 @@ export function OpnameForm({
         kondisiExpire: autoExpire.toString(),
       }));
     }
-  }, [
-    formData.stokFisik,
-    formData.kondisiBaik,
-    formData.kondisiExpire,
-    formData.kondisiRusak,
-  ]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

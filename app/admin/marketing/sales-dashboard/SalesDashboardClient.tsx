@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import {
   HiOutlineChartBar,
@@ -109,12 +109,16 @@ export default function SalesDashboardClient() {
     }
   }, [period, siteId, startDate, endDate]);
 
-  useEffect(() => {
-    // Only auto-fetch for non-custom periods or when custom has both dates
-    if (period !== "custom" || (startDate && endDate)) {
-      fetchData();
-    }
-  }, [fetchData, period, startDate, endDate]);
+  // Trigger fetch on filter change via comparator (selama render, bukan effect)
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey =
+    period !== "custom" || (startDate && endDate)
+      ? `${period}|${startDate}|${endDate}`
+      : null;
+  if (fetchKey && prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchData();
+  }
 
   if (loading && !data)
     return <PageLoader message="Memuat dashboard sales..." />;

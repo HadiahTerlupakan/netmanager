@@ -80,9 +80,11 @@ export default function SalaryUserDetailClient() {
   }, [params.id]);
 
   useEffect(() => {
-    if (params.id) {
-      fetchUserDetail();
-    }
+    if (!params.id) return undefined;
+    const handle = setTimeout(() => {
+      void fetchUserDetail();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [params.id, fetchUserDetail]);
 
   const formatCurrency = (amount: number | null | undefined) => {

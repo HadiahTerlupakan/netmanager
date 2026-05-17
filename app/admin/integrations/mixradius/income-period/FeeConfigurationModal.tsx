@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { HiPlus, HiTrash } from "react-icons/hi2";
@@ -29,13 +29,19 @@ export default function FeeConfigurationModal({
   onSave,
   availableMethods,
 }: FeeConfigurationModalProps) {
-  const [fees, setFees] = useState<FeeConfig>({});
+  const [fees, setFees] = useState<FeeConfig>(currentFees || {});
   const [loading, setLoading] = useState(false);
   const [newMethod, setNewMethod] = useState("");
 
-  useEffect(() => {
+  // Reset fees ke currentFees saat modal dibuka atau currentFees berubah
+  const [prevSnapshot, setPrevSnapshot] = useState({ isOpen, currentFees });
+  if (
+    prevSnapshot.isOpen !== isOpen ||
+    prevSnapshot.currentFees !== currentFees
+  ) {
+    setPrevSnapshot({ isOpen, currentFees });
     setFees(currentFees || {});
-  }, [currentFees, isOpen]);
+  }
 
   const handleSave = async () => {
     setLoading(true);

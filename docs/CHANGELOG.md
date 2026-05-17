@@ -45,6 +45,83 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Adopsi SWR sebagai standar data fetching + dokumentasi pattern
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/hooks/useApi.ts`, `components/providers/session-provider.tsx`, `docs/standards/data-fetching.md`
+- **Author**: agent
+- **Deskripsi**: Install SWR v2 + tulis hook `useApi` sebagai entry point konvensi (wrapper di atas `fetchWithHandling` yang sudah ada). Pasang `SWRConfig` global di provider tree. Dokumentasikan pattern lengkap di `docs/standards/data-fetching.md` (kapan pakai useApi, pattern A/C/D untuk pengganti useEffect, dos & don'ts). Tujuan: hilangkan pola lama `useEffect + fetch + useState` yang melanggar rule React Compiler 19. Total lint errors project: 195 → 129 (-34%) setelah Phase 1-5 partial. Sisa ~103 file menunggu sweep berikutnya.
+- **Files**: `package.json`, `package-lock.json`, `lib/hooks/useApi.ts` (baru), `components/providers/session-provider.tsx`, `docs/standards/data-fetching.md` (baru), `CLAUDE.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Migrasi batch ke-2: 8 file TDZ violation ke pola SWR (`useApi`)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/paket/*`, `app/admin/workorders/templates`, `components/admin/settings`, `components/customer`, `components/inventory`, `components/mikrotik`
+- **Author**: agent
+- **Deskripsi**: Lanjutan migrasi TDZ violation. Hilangkan error lint `Cannot access variable before it is declared` di 8 client components dengan migrasi dari pola `useEffect + fetch + useState` ke hook `useApi` berbasis SWR. Modal-modal detail (Bandwidth/Harga/Profile) pakai conditional fetching (`open && id ? url : null`). `CustomerAuthProvider` (critical untuk auth flow) di-refactor: `customer` derived dari `data` SWR, `refresh()` panggil `mutate()`, `login()/logout()` update cache via `mutate(...)` tanpa revalidate. `BarangTable` pakai 2 instance `useApi` (gudang list + barang list dengan query string memo). `ReconfigureModal` pakai SWR `onSuccess` callback untuk pre-select online routers, dan pola "adjusting state on prop change" untuk reset state saat modal open. `CaptchaSettings` pakai pattern override (form input di-merge dengan data server). Total TDZ violations project-wide turun ke 2 (sisanya di file lain di luar batch ini). Typecheck pass.
+- **Files**: `app/admin/paket/bandwidth/BandwidthDetailModal.tsx`, `app/admin/paket/harga/HargaPaketDetailModal.tsx`, `app/admin/paket/profileppp/ProfileDetailModal.tsx`, `app/admin/workorders/templates/TemplatesClient.tsx`, `components/admin/settings/CaptchaSettings.tsx`, `components/customer/CustomerAuthProvider.tsx`, `components/inventory/BarangTable.tsx`, `components/mikrotik/ReconfigureModal.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Migrasi 8 file TDZ violation ke pola SWR (`useApi`)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(customer)/tagihan`, `app/admin/integrations/mixradius/*`, `app/admin/pengaturan/payment-gateway`, `app/admin/tenants`, `app/admin/workorders/new`
+- **Author**: agent
+- **Deskripsi**: Hilangkan error lint `Cannot access variable before it is declared` (TDZ violation) di 8 client components dengan migrasi dari pola `useEffect + fetch + useState` ke hook `useApi` berbasis SWR. Mutasi memanggil `mutate()` alih-alih `fetchX()`. Loading state diambil dari `isLoading` SWR. Multi-endpoint dipakai per-call (3 di MixRadiusGroupsClient, 2 di SiteInvestorClient/tagihan). Conditional fetch dipakai di `tagihan/page.tsx` (gating by `isAuthenticated`) dan `WoNewClient.tsx` (gating by `status === "authenticated"`). Business logic & handler tidak diubah.
+- **Files**: `app/(customer)/tagihan/page.tsx`, `app/admin/integrations/mixradius/accounts/MixRadiusAccountsClient.tsx`, `app/admin/integrations/mixradius/groups/MixRadiusGroupsClient.tsx`, `app/admin/integrations/mixradius/investor-sites/SiteInvestorClient.tsx`, `app/admin/integrations/mixradius/profit-loss/ProfitLossClient.tsx`, `app/admin/pengaturan/payment-gateway/components/UnmatchedMutationsList.tsx`, `app/admin/tenants/TenantList.tsx`, `app/admin/workorders/new/WoNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Bump vitest-mock-extended ke v4
+
+- **Tipe**: [CHANGED]
+- **Scope**: `package.json`, `package-lock.json`
+- **Author**: agent
+- **Deskripsi**: Naikkan `vitest-mock-extended` 3.1.0 → 4.0.0. Investigasi
+  release notes mengkonfirmasi v4 hanya berisi tooling internal switch
+  (eslint→biome) + bump peer ke `vitest >=4` — tanpa breaking pada API publik.
+  Codebase hanya import `mockReset` di `tests/setup.ts`, dan smoke test
+  (`tests/lib/realtime/client.test.ts`) lolos. Peer requirement `vitest>=4`
+  sudah terpenuhi (project pakai vitest 4.1.6).
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Bump major dependencies (low-risk batch)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `package.json`, `package-lock.json`
+- **Author**: agent
+- **Deskripsi**: Naikkan 3 paket major yang sudah dianalisis aman untuk codebase
+  ini: `lint-staged` 16 → 17 (Node 24 ✓, config inline JSON di package.json
+  jadi tidak butuh `yaml` dep), `axios-cookiejar-support` 6 → 7 (drop Node 20,
+  kita pakai Node 24; pemakaian terbatas di `mixradius-service.config.ts`),
+  dan `@types/nodemailer` 7 → 8 (sinkron dengan runtime `nodemailer` 8).
+  Typecheck dan lint passing tanpa regresi (jumlah lint error tetap 195 yang
+  pre-existed). Major lain (TypeScript 6, ESLint 10, vitest-mock-extended 4,
+  `@types/pg` 8.20) sengaja ditunda — lihat catatan review sebelumnya.
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-17] — Bump dependencies (minor/patch) + reduce CVE surface
+
+- **Tipe**: [SECURITY]
+- **Scope**: `package.json`, `package-lock.json`
+- **Author**: agent
+- **Deskripsi**: Eksekusi `npm update` untuk semua paket dalam range semver yang
+  diizinkan. Mengurangi vulnerabilities dari 14 (6 high / 8 moderate) menjadi
+  hanya 2 moderate (sisanya transitive di `next`/`postcss` yang baru rilis fix
+  upstream — tidak di-force karena akan downgrade Next ke v9). Highlights:
+  `next` 16.2.4 → 16.2.6 (DoS Server Components fix), `next-auth` 4.24.13 →
+  4.24.14, `prisma` + `@prisma/client` 7.7.0 → 7.8.0, `react`/`react-dom`
+  19.2.4 → 19.2.6, `hono` 4.12.14 → 4.12.19 (CSS injection fix), `bullmq`
+  5.71.1 → 5.76.9, `firebase` 12.11.0 → 12.13.0, `firebase-admin` 13.7.0 →
+  13.10.0, `zod` 4.3.6 → 4.4.3, `lucide-react` 1.0.1 → 1.16.0,
+  `isomorphic-dompurify` 3.7.1 → 3.13.0. Update major
+  (TypeScript 6, ESLint 10, lint-staged 17) sengaja ditunda — perlu review
+  manual karena ada breaking changes.
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Implement dual update channel: APK notification + OTA fingerprint
 
 - **Tipe**: [ADDED]

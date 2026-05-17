@@ -142,7 +142,10 @@ export default function AttendancePageContent({
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    const handle = setTimeout(() => {
+      void fetchStatus();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchStatus]);
 
   // Camera Logic
@@ -383,7 +386,10 @@ export default function AttendancePageContent({
   }, [getLocationPromise]);
 
   useEffect(() => {
-    getLocation();
+    const handle = setTimeout(() => {
+      void getLocation();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [getLocation]);
 
   // Helper to convert Data URL to Blob safely

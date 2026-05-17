@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface AutoRejectSettings {
   autoRejectInsufficientQuota: boolean;
@@ -30,26 +31,31 @@ interface AutoRejectSettings {
 }
 
 export default function AttendanceSettingsPage() {
-  const [settings, setSettings] = useState<AutoRejectSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [formChanges, setFormChanges] = useState<Partial<AutoRejectSettings>>(
+    {},
+  );
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  const {
+    data: fetchedSettings,
+    isLoading: loading,
+    error,
+    mutate,
+  } = useApi<AutoRejectSettings>("/api/admin/attendance/settings");
 
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch("/api/admin/attendance/settings");
-      const result = await response.json();
-      if (result.success) {
-        setSettings(result.data);
-      }
-    } catch (_error) {
+  useEffect(() => {
+    if (error) {
       toast.error("Gagal memuat pengaturan");
-    } finally {
-      setLoading(false);
     }
+  }, [error]);
+
+  // Effective settings = server data + local form changes (overlay pattern)
+  const settings: AutoRejectSettings | null = fetchedSettings
+    ? { ...fetchedSettings, ...formChanges }
+    : null;
+
+  const setSettings = (next: AutoRejectSettings) => {
+    setFormChanges((prev) => ({ ...prev, ...next }));
   };
 
   const handleSave = async () => {
@@ -66,6 +72,9 @@ export default function AttendanceSettingsPage() {
       const result = await response.json();
       if (result.success) {
         toast.success("Pengaturan berhasil disimpan");
+        // Persist changes to SWR cache and clear local overrides
+        await mutate(settings, { revalidate: true });
+        setFormChanges({});
       } else {
         toast.error(result.error || "Gagal menyimpan pengaturan");
       }

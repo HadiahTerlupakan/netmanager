@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useSession } from "next-auth/react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
@@ -56,10 +56,12 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
     }
   }, []);
 
-  useEffect(() => {
-    // Initial fetch
-    fetchPendingPayments();
-  }, [fetchPendingPayments]);
+  // Initial fetch (pattern E)
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchPendingPayments();
+  }
 
   const handlePaymentNew = useCallback(
     (payload: unknown) => {

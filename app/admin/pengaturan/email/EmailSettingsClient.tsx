@@ -55,7 +55,10 @@ export function ClientComponent() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
+    const handle = setTimeout(() => {
+      void fetchSettings();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchSettings]);
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {

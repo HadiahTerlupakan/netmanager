@@ -107,7 +107,10 @@ export default function AdminRegistrationsPage() {
   }, [ipInfoCache, fetchIpInfo]);
 
   useEffect(() => {
-    fetchRegistrations();
+    const handle = setTimeout(() => {
+      void fetchRegistrations();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchRegistrations]);
 
   const getStatusConfig = (status: string) => {

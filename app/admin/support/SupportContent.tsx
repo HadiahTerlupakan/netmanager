@@ -113,7 +113,10 @@ export default function SupportContext() {
   }, [page, search, statusFilter, categoryFilter, priorityFilter]);
 
   useEffect(() => {
-    loadTickets();
+    const handle = setTimeout(() => {
+      void loadTickets();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadTickets]);
 
   const getStatusColor = (status: string) => {

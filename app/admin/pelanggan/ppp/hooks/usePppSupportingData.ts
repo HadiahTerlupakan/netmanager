@@ -97,8 +97,11 @@ export function usePppSupportingData({
   }, [mode, showToast, siteId]);
 
   useEffect(() => {
-    void loadHargaPakets();
-    void loadOdps();
+    const handle = setTimeout(() => {
+      void loadHargaPakets();
+      void loadOdps();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadHargaPakets, loadOdps]);
 
   return {

@@ -123,11 +123,12 @@ export function StockOpnameRecorder({
     }
   }, [gudangId]);
 
-  useEffect(() => {
-    if (gudangId) {
-      fetchCalculatedData();
-    }
-  }, [gudangId, fetchCalculatedData]);
+  // Trigger fetch on gudangId change via comparator (selama render, bukan effect)
+  const [prevGudangId, setPrevGudangId] = useState<string | null>(null);
+  if (gudangId && prevGudangId !== gudangId) {
+    setPrevGudangId(gudangId);
+    void fetchCalculatedData();
+  }
 
   const handleRecordOpname = async (e: React.FormEvent) => {
     e.preventDefault();

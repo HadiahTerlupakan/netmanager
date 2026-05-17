@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import {
@@ -89,9 +89,11 @@ export function StatsCards() {
     fetchStats();
   });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchStats();
+  }
 
   const statsCards = [
     {

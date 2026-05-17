@@ -83,7 +83,10 @@ export default function SalesDetailClient({
   }, [id, period]);
 
   useEffect(() => {
-    fetchData();
+    const handle = setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchData]);
 
   if (loading && !data)

@@ -106,7 +106,10 @@ export function useManualTransferAccounts() {
   }, []);
 
   useEffect(() => {
-    void fetchAccounts();
+    const handle = setTimeout(() => {
+      void fetchAccounts();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchAccounts]);
 
   const upsertAccount = useCallback(

@@ -93,10 +93,18 @@ export default function DeadLetterClient() {
     [channelFilter, showResolved],
   );
 
+  // Trigger fetch on filter change
   useEffect(() => {
-    fetchEntries(1);
-    return () => fetchAbortRef.current?.abort();
+    const handle = setTimeout(() => {
+      void fetchEntries(1);
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchEntries]);
+
+  // Cleanup pending abort saat unmount
+  useEffect(() => {
+    return () => fetchAbortRef.current?.abort();
+  }, []);
 
   async function handleRetry(id: string) {
     setActionLoading(id + ":retry");

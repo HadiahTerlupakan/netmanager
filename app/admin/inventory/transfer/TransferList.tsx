@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { TransferForm } from "@/components/inventory/TransferForm";
 import { TransferTable } from "@/components/inventory/TransferTable";
 import { Modal } from "@/components/ui/Modal";
@@ -125,9 +125,12 @@ export default function TransferPage() {
     [pagination.limit],
   );
 
-  useEffect(() => {
-    fetchTransfers();
-  }, [fetchTransfers]);
+  // Trigger fetch on mount via prevState comparator (selama render, bukan effect)
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchTransfers();
+  }
 
   const handleViewDetails = async (transfer: Transfer) => {
     try {

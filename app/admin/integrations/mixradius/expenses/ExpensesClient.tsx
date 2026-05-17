@@ -1,5 +1,4 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
 
 import {
   useState,
@@ -35,6 +34,7 @@ import { Combobox } from "@/components/ui/Combobox";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
 import { buildDailyExpenseIndicators } from "@/modules/finance/client";
+import { useApi } from "@/lib/hooks/useApi";
 import { buildExpenseCsvContent } from "./expense-csv";
 import {
   buildExpenseIdempotencyKey,
@@ -161,7 +161,6 @@ export default function ExpensesClient() {
     hasPermission("expense:delete");
 
   const [data, setData] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(false);
   const [_error, setError] = useState<string | null>(null);
 
   // Filters
@@ -182,17 +181,9 @@ export default function ExpensesClient() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
 
-  // Options
-  const [sites, setSites] = useState<SiteOption[]>([]);
-  const [internalSites, setInternalSites] = useState<SiteOption[]>([]);
-  const [investorSites, setInvestorSites] = useState<InvestorSiteOption[]>([]);
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  // Options - migrated to useApi
   // const [coaCategories, setCoaCategories] = useState<CategoryOption[]>([]) // Deprecated
   // const [accounts, setAccounts] = useState<AccountOption[]>([]) // Deprecated
-  const [filterCategories, setFilterCategories] = useState<CategoryOption[]>(
-    [],
-  );
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -201,7 +192,6 @@ export default function ExpensesClient() {
   const [items, setItems] = useState<FormItem[]>([createDefaultExpenseItem()]);
   const [formData, setFormData] = useState(createDefaultExpenseFormData);
 
-  const [rabProjects, setRabProjects] = useState<RABProject[]>([]);
   const [, setIsUsefulLifeEnabled] = useState(false);
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
 
@@ -216,20 +206,179 @@ export default function ExpensesClient() {
   const [isRABRevisionModalOpen, setIsRABRevisionModalOpen] = useState(false);
   const [revisioningRAB, setRevisioningRAB] = useState<RABProject | null>(null);
   const [rabRefreshKey, setRabRefreshKey] = useState(0);
-  const [rabBottleneckMetrics, setRabBottleneckMetrics] =
-    useState<RabBottleneckMetrics | null>(null);
-  const [isLoadingRabMetrics, setIsLoadingRabMetrics] = useState(false);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isDailySimpleMode, setIsDailySimpleMode] = useState(true);
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
 
-  // Pagination State
+  // Pagination State - reset trigger derived from filters via prevFilters comparator
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(20);
 
-  // const selectedAccount = useMemo(() => accounts.find(a => a.id === formData.accountId), [accounts, formData.accountId])
+  const filterSignature = `${debouncedSearch}|${selectedSite}|${selectedCategory}|${selectedSubCategory}|${startDate}|${endDate}`;
+  const [prevFilterSignature, setPrevFilterSignature] =
+    useState(filterSignature);
+  if (prevFilterSignature !== filterSignature) {
+    setPrevFilterSignature(filterSignature);
+    setCurrentPage(1);
+  }
+
+  // Fetch options via SWR
+  const { data: sitesResp } = useApi<{
+    success: boolean;
+    data: { id: string; name: string; siteId?: string }[];
+  }>("/api/integrations/mixradius/groups");
+  const sites: SiteOption[] = useMemo(
+    () =>
+      Array.isArray(sitesResp?.data)
+        ? sitesResp!.data.map((g) => ({
+            id: g.id,
+            name: g.name,
+            siteId: g.siteId,
+          }))
+        : [],
+    [sitesResp],
+  );
+
+  const { data: investorSitesResp } = useApi<{
+    success: boolean;
+    data: { id: string; name: string }[];
+  }>("/api/integrations/mixradius/investor-sites");
+  const investorSites: InvestorSiteOption[] = useMemo(
+    () =>
+      Array.isArray(investorSitesResp?.data)
+        ? investorSitesResp!.data.map((s) => ({ id: s.id, name: s.name }))
+        : [],
+    [investorSitesResp],
+  );
+
+  const { data: internalSitesResp } = useApi<{
+    success: boolean;
+    data: { id: string; name: string }[];
+  }>("/api/admin/sites?activeOnly=true");
+  const internalSites: SiteOption[] = useMemo(
+    () =>
+      Array.isArray(internalSitesResp?.data)
+        ? internalSitesResp!.data.map((s) => ({ id: s.id, name: s.name }))
+        : [],
+    [internalSitesResp],
+  );
+
+  // Filter Categories: depend on selectedCategory
+  const { data: filterCategoriesResp } = useApi<{
+    success: boolean;
+    data: CategoryOption[];
+  }>(
+    selectedCategory
+      ? `/api/finance/expense-categories?type=${selectedCategory}`
+      : null,
+  );
+  const filterCategories: CategoryOption[] = useMemo(
+    () =>
+      Array.isArray(filterCategoriesResp?.data)
+        ? filterCategoriesResp!.data
+        : [],
+    [filterCategoriesResp],
+  );
+
+  // Reset selectedSubCategory bila selectedCategory berubah (derived comparator)
+  const [prevSelectedCategory, setPrevSelectedCategory] =
+    useState(selectedCategory);
+  if (prevSelectedCategory !== selectedCategory) {
+    setPrevSelectedCategory(selectedCategory);
+    setSelectedSubCategory("");
+  }
+
+  // Categories for modal: only fetch when modal open
+  const { data: categoriesResp, isLoading: isLoadingCategories } = useApi<{
+    success: boolean;
+    data: CategoryOption[];
+  }>(isModalOpen ? "/api/finance/expense-categories" : null);
+  const categories: CategoryOption[] = useMemo(
+    () => (Array.isArray(categoriesResp?.data) ? categoriesResp!.data : []),
+    [categoriesResp],
+  );
+
+  // RAB Projects
+  const rabProjectsKey = rabRefreshKey
+    ? `/api/finance/rab-projects?refreshKey=${rabRefreshKey}`
+    : "/api/finance/rab-projects";
+  const { data: rabProjectsResp, mutate: refetchRabProjects } = useApi<{
+    success: boolean;
+    data: RABProject[];
+  }>(rabProjectsKey);
+  const rabProjects: RABProject[] = useMemo(
+    () => (Array.isArray(rabProjectsResp?.data) ? rabProjectsResp!.data : []),
+    [rabProjectsResp],
+  );
+
+  // RAB Bottleneck Metrics: only when activeTab === "rab"
+  const { data: rabMetricsResp, isLoading: isLoadingRabMetrics } = useApi<{
+    success: boolean;
+    data: RabBottleneckMetrics;
+  }>(activeTab === "rab" ? "/api/finance/rab-projects/dashboard" : null);
+  const rabBottleneckMetrics: RabBottleneckMetrics | null =
+    rabMetricsResp?.data ?? null;
+
+  // Build expenses fetch URL
+  const expensesUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+    });
+    if (selectedSite) params.append("mixRadiusGroupId", selectedSite);
+    if (selectedCategory) params.append("category", selectedCategory);
+    if (selectedSubCategory)
+      params.append("expenseCategoryId", selectedSubCategory);
+    return `/api/finance/expenses?${params}`;
+  }, [startDate, endDate, selectedSite, selectedCategory, selectedSubCategory]);
+
+  const {
+    data: expensesResp,
+    isLoading: loading,
+    error: expensesErr,
+    mutate: refetchExpenses,
+  } = useApi<unknown>(expensesUrl);
+
+  // Sync data dari SWR ke local data state via prop comparator
+  const newData: Expense[] = useMemo(() => {
+    if (!expensesResp) return [];
+    return Array.isArray(expensesResp)
+      ? (expensesResp as Expense[])
+      : (((expensesResp as { data?: Expense[] }).data ?? []) as Expense[]);
+  }, [expensesResp]);
+
+  // Mirror newData ke setData (untuk error state lokal & toast)
+  const [prevExpensesRef, setPrevExpensesRef] = useState<Expense[] | null>(
+    null,
+  );
+  if (prevExpensesRef !== newData) {
+    setPrevExpensesRef(newData);
+    setData(newData);
+    setError(null);
+  }
+
+  // Show toast on error
+  const [prevErr, setPrevErr] = useState<typeof expensesErr>(undefined);
+  if (prevErr !== expensesErr) {
+    setPrevErr(expensesErr);
+    if (expensesErr) {
+      const errorMsg =
+        expensesErr.message || "Gagal mengambil data pengeluaran";
+      setError(errorMsg);
+      toast.error(errorMsg);
+    }
+  }
+
+  const fetchData = useCallback(() => {
+    void refetchExpenses();
+  }, [refetchExpenses]);
+
+  const fetchRabProjects = useCallback(() => {
+    void refetchRabProjects();
+  }, [refetchRabProjects]);
+  void fetchRabProjects;
 
   // Debounce search
   useEffect(() => {
@@ -238,204 +387,6 @@ export default function ExpensesClient() {
     }, 500);
     return () => clearTimeout(timer);
   }, [search]);
-
-  const fetchRabProjects = useCallback(async () => {
-    try {
-      const requestUrl = rabRefreshKey
-        ? `/api/finance/rab-projects?refreshKey=${rabRefreshKey}`
-        : "/api/finance/rab-projects";
-      const res = await fetch(requestUrl);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setRabProjects(json.data);
-      }
-    } catch (e) {
-      clientLogger.error("Failed to fetch RAB projects", e);
-    }
-  }, [rabRefreshKey]);
-
-  // Fetch Sites for Dropdown (MixRadius Groups) and Investor Sites
-  useEffect(() => {
-    const fetchSites = async () => {
-      try {
-        const res = await fetch("/api/integrations/mixradius/groups");
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setSites(
-            json.data.map(
-              (g: { id: string; name: string; siteId?: string }) => ({
-                id: g.id,
-                name: g.name,
-                siteId: g.siteId,
-              }),
-            ),
-          );
-        }
-      } catch (e) {
-        clientLogger.error("Failed to fetch sites", e);
-      }
-    };
-
-    const fetchInvestorSites = async () => {
-      try {
-        const res = await fetch("/api/integrations/mixradius/investor-sites");
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setInvestorSites(
-            json.data.map((s: { id: string; name: string }) => ({
-              id: s.id,
-              name: s.name,
-            })),
-          );
-        }
-      } catch (e) {
-        clientLogger.error("Failed to fetch investor sites", e);
-      }
-    };
-
-    const fetchInternalSites = async () => {
-      try {
-        const res = await fetch("/api/admin/sites?activeOnly=true");
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setInternalSites(
-            json.data.map((s: { id: string; name: string }) => ({
-              id: s.id,
-              name: s.name,
-            })),
-          );
-        }
-      } catch (e) {
-        clientLogger.error("Failed to fetch internal sites", e);
-      }
-    };
-
-    fetchSites();
-    fetchInvestorSites();
-    fetchInternalSites();
-  }, []);
-
-  useEffect(() => {
-    void fetchRabProjects();
-  }, [fetchRabProjects]);
-
-  // Fetch Metadata (None needed initially for now, categories fetched on demand)
-  useEffect(() => {
-    // Cleanup unused fetches
-  }, []);
-
-  // Fetch Filter Categories when type changes
-  useEffect(() => {
-    const fetchFilterCategories = async () => {
-      if (!selectedCategory) {
-        setFilterCategories([]);
-        setSelectedSubCategory("");
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `/api/finance/expense-categories?type=${selectedCategory}`,
-        );
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setFilterCategories(json.data);
-        }
-      } catch (e) {
-        clientLogger.error("Failed to fetch filter categories", e);
-      }
-    };
-
-    fetchFilterCategories();
-  }, [selectedCategory]);
-
-  // Fetch Categories for Modal
-  const fetchCategories = useCallback(async () => {
-    setIsLoadingCategories(true);
-    try {
-      const res = await fetch(`/api/finance/expense-categories`);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setCategories(json.data);
-      }
-    } catch (e) {
-      clientLogger.error("Failed to fetch categories", e);
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      fetchCategories();
-    }
-  }, [fetchCategories, isModalOpen]);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-      });
-
-      if (selectedSite) params.append("mixRadiusGroupId", selectedSite);
-      if (selectedCategory) params.append("category", selectedCategory);
-      if (selectedSubCategory)
-        params.append("expenseCategoryId", selectedSubCategory);
-
-      const response = await fetch(`/api/finance/expenses?${params}`);
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal mengambil data pengeluaran");
-      }
-
-      const result = await response.json();
-      // Fix: Ensure we are extracting the array from the response object
-      // API typically returns { success: true, data: [...] }
-      const expensesData = Array.isArray(result) ? result : result.data || [];
-      setData(expensesData);
-    } catch (err) {
-      const errorMsg =
-        err instanceof Error ? err.message : "Gagal mengambil data pengeluaran";
-      setError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, selectedSite, selectedCategory, selectedSubCategory]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const fetchRabBottleneckMetrics = useCallback(async () => {
-    setIsLoadingRabMetrics(true);
-    try {
-      const response = await fetch("/api/finance/rab-projects/dashboard");
-      if (!response.ok) {
-        throw new Error("Gagal mengambil ringkasan bottleneck RAB");
-      }
-
-      const result = await response.json();
-      if (result.success && result.data) {
-        setRabBottleneckMetrics(result.data);
-      }
-    } catch (err) {
-      clientLogger.error("Failed to fetch RAB bottleneck metrics", err);
-    } finally {
-      setIsLoadingRabMetrics(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "rab") {
-      fetchRabBottleneckMetrics();
-    }
-  }, [activeTab, fetchRabBottleneckMetrics]);
 
   // Helper: update specific item in items array
   const updateItem = (index: number, field: keyof FormItem, value: string) => {
@@ -518,17 +469,7 @@ export default function ExpensesClient() {
     );
   });
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    debouncedSearch,
-    selectedSite,
-    selectedCategory,
-    selectedSubCategory,
-    startDate,
-    endDate,
-  ]);
+  // Reset pagination when filters change — handled by filterSignature comparator above
 
   // Compute paginated data
   const totalPages =
@@ -572,11 +513,14 @@ export default function ExpensesClient() {
     });
   }, [paginatedData]);
 
-  useEffect(() => {
+  // Hapus selected ids yang sudah tidak ada di data (derived comparator)
+  const [prevDataRef, setPrevDataRef] = useState<Expense[]>(data);
+  if (prevDataRef !== data) {
+    setPrevDataRef(data);
     setSelectedExpenseIds((prev) =>
       prev.filter((id) => data.some((item) => item.id === id)),
     );
-  }, [data]);
+  }
 
   const totalAmount = filteredData.reduce(
     (sum, item) => sum + Number(item.amount),

@@ -13,6 +13,7 @@ import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Tenant {
   id: string;
@@ -27,8 +28,24 @@ export default function TenantList({
 }: {
   onViewAdmins: (tenantId: string) => void;
 }) {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: tenantsRaw,
+    error: tenantsError,
+    isLoading: loading,
+    mutate: mutateTenants,
+  } = useApi<{ data?: Tenant[] } | Tenant[]>("/api/admin/tenants");
+
+  useEffect(() => {
+    if (tenantsError) {
+      clientLogger.error("Gagal memuat data tenant", tenantsError);
+      toast.error(tenantsError.message || "Gagal memuat tenant");
+    }
+  }, [tenantsError]);
+
+  const tenants: Tenant[] = Array.isArray(tenantsRaw)
+    ? tenantsRaw
+    : (tenantsRaw?.data ?? []);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState({
@@ -40,28 +57,6 @@ export default function TenantList({
   const [isSaving, setIsSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchTenants();
-  }, []);
-
-  const fetchTenants = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/admin/tenants");
-      const data = await res.json();
-      if (res.ok) {
-        setTenants(data.data || []);
-      } else {
-        toast.error(data.error || "Gagal memuat tenant");
-      }
-    } catch (error) {
-      clientLogger.error("Gagal memuat data tenant", error);
-      toast.error("Terjadi kesalahan saat memuat data tenant");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleOpenCreate = () => {
     setFormData({
@@ -110,7 +105,7 @@ export default function TenantList({
           isEdit ? "Tenant berhasil diperbarui" : "Tenant berhasil dibuat",
         );
         setIsFormOpen(false);
-        fetchTenants();
+        await mutateTenants();
       } else {
         toast.error(data.error || "Gagal menyimpan tenant");
       }
@@ -133,7 +128,7 @@ export default function TenantList({
       if (res.ok) {
         toast.success("Tenant berhasil dihapus");
         setDeleteId(null);
-        fetchTenants();
+        await mutateTenants();
       } else {
         toast.error(data.error || "Gagal menghapus tenant");
       }

@@ -63,7 +63,10 @@ export default function SitesList() {
   }, [search, showInactive]);
 
   useEffect(() => {
-    fetchSites();
+    const handle = setTimeout(() => {
+      void fetchSites();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchSites]);
 
   const handleDelete = async (id: string, name: string) => {

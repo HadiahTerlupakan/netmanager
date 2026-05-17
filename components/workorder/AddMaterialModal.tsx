@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { HiMagnifyingGlass, HiCube, HiCheck } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { toast } from "react-hot-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface AddMaterialModalProps {
   isOpen: boolean;
@@ -23,6 +24,10 @@ interface Barang {
   totalStock: number;
 }
 
+interface BarangResponse {
+  barangs?: Barang[];
+}
+
 export default function AddMaterialModal({
   isOpen,
   onClose,
@@ -32,8 +37,6 @@ export default function AddMaterialModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [items, setItems] = useState<Barang[]>([]);
-  const [searching, setSearching] = useState(false);
 
   // Selection state
   const [selectedItem, setSelectedItem] = useState<Barang | null>(null);
@@ -42,45 +45,29 @@ export default function AddMaterialModal({
 
   const debouncedSearch = useDebounce(search, 500);
 
-  // Reset when opening
-  useEffect(() => {
+  const itemsKey = isOpen
+    ? `/api/inventory/barang?search=${encodeURIComponent(debouncedSearch)}&limit=20`
+    : null;
+  const { data: rawItems, isLoading: searching } = useApi<
+    Barang[] | BarangResponse
+  >(itemsKey);
+
+  const items: Barang[] = Array.isArray(rawItems)
+    ? rawItems
+    : (rawItems?.barangs ?? []);
+
+  // Reset state when reopening
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen);
     if (isOpen) {
       setStep(1);
       setSearch("");
       setSelectedItem(null);
       setQuantity(1);
       setNotes("");
-      fetchItems("");
     }
-  }, [isOpen]);
-
-  // Search effect
-  useEffect(() => {
-    if (isOpen) {
-      fetchItems(debouncedSearch);
-    }
-  }, [debouncedSearch, isOpen]);
-
-  const fetchItems = async (query: string) => {
-    setSearching(true);
-    try {
-      // Reusing the inventory API
-      const res = await fetch(`/api/inventory/barang?search=${query}&limit=20`);
-      if (res.ok) {
-        const data = (await res.json()) as {
-          data?: { barangs?: Barang[] } | Barang[];
-        };
-        // Handle different response structures if necessary, assuming standardized response
-        const list =
-          (Array.isArray(data.data) ? data.data : data.data?.barangs) || [];
-        setItems(list);
-      }
-    } catch (error: unknown) {
-      clientLogger.error("Error fetching items:", error);
-    } finally {
-      setSearching(false);
-    }
-  };
+  }
 
   const handleSelect = (item: Barang) => {
     if (item.totalStock <= 0) {

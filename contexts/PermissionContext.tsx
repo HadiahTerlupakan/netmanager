@@ -1,13 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
   hasPermissionWithAlias,
@@ -61,59 +55,59 @@ export function PermissionProvider({
     INITIAL_PERMISSION_STATE,
   );
 
-  useEffect(() => {
-    // Keep loading state until we have session
+  // Auth state key untuk deteksi perubahan via render-time comparator (pattern C)
+  const userId = (session?.user as { id?: string } | undefined)?.id ?? null;
+  const authKey = `${isAuthLoading ? "loading" : isAuthenticated ? "auth" : "unauth"}|${userId ?? ""}`;
+  const [prevAuthKey, setPrevAuthKey] = useState<string | null>(null);
+
+  if (prevAuthKey !== authKey) {
+    setPrevAuthKey(authKey);
+
     if (isAuthLoading) {
-      return;
-    }
-
-    if (!isAuthenticated || !session?.user) {
+      // Tetap loading; jangan ubah state
+    } else if (!isAuthenticated || !session?.user) {
       setPermissionState(EMPTY_PERMISSION_STATE);
-      return;
-    }
+    } else {
+      const user = session.user as { role?: string; isSuperAdmin?: boolean };
+      if (isSuperAdmin(user)) {
+        setPermissionState(SUPER_ADMIN_PERMISSION_STATE);
+      } else {
+        setPermissionState(INITIAL_PERMISSION_STATE);
 
-    const user = session.user as { role?: string; isSuperAdmin?: boolean };
-    if (isSuperAdmin(user)) {
-      setPermissionState(SUPER_ADMIN_PERMISSION_STATE);
-      return;
-    }
+        const fetchPermissions = async (): Promise<void> => {
+          try {
+            const response = await fetch("/api/user/permissions", {
+              credentials: "include",
+            });
 
-    // Keep loading state true while fetching
-    setPermissionState(INITIAL_PERMISSION_STATE);
+            if (!response.ok) {
+              clientLogger.error(
+                "[PermissionProvider] Failed to fetch permissions:",
+                response.status,
+              );
+              setPermissionState(EMPTY_PERMISSION_STATE);
+              return;
+            }
 
-    async function fetchPermissions(): Promise<void> {
-      try {
-        const response = await fetch("/api/user/permissions", {
-          credentials: "include",
-        });
+            const data = await response.json();
+            setPermissionState({
+              permissions: data.permissions || [],
+              isSuperAdmin: data.isSuperAdmin || false,
+              isLoading: false,
+            });
+          } catch (error) {
+            clientLogger.error(
+              "[PermissionProvider] Error fetching permissions:",
+              error,
+            );
+            setPermissionState(EMPTY_PERMISSION_STATE);
+          }
+        };
 
-        if (!response.ok) {
-          clientLogger.error(
-            "[PermissionProvider] Failed to fetch permissions:",
-            response.status,
-          );
-          setPermissionState(EMPTY_PERMISSION_STATE);
-          return;
-        }
-
-        const data = await response.json();
-        setPermissionState({
-          permissions: data.permissions || [],
-          isSuperAdmin: data.isSuperAdmin || false,
-          isLoading: false,
-        });
-      } catch (error) {
-        clientLogger.error(
-          "[PermissionProvider] Error fetching permissions:",
-          error,
-        );
-        setPermissionState(EMPTY_PERMISSION_STATE);
+        void fetchPermissions();
       }
     }
-
-    void fetchPermissions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isAuthLoading]); // Only depend on auth status
+  }
 
   const hasPermission = useCallback(
     (requiredPermission: string) => {

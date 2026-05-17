@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBackIos,
   MdHelpOutline,
@@ -142,15 +143,53 @@ function CountdownTimer({
 
 export default function CustomerInvoicesPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodCode, setSelectedMethodCode] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingMethods, setLoadingMethods] = useState(true);
   const [filter, setFilter] = useState<"ALL" | "PAID" | "UNPAID" | "FAILED">(
     "ALL",
   );
   const router = useRouter();
+
+  const {
+    data: invoicesRaw,
+    error: invoicesError,
+    isLoading: invoicesLoading,
+    mutate: mutateInvoices,
+  } = useApi<{ success?: boolean; invoices?: Invoice[] }>(
+    isAuthenticated ? "/api/customer/invoices?limit=20" : null,
+  );
+  const {
+    data: paymentMethodsRaw,
+    error: paymentMethodsError,
+    isLoading: paymentMethodsLoading,
+  } = useApi<{ success?: boolean; data?: PaymentMethod[] }>(
+    isAuthenticated ? "/api/customer/payment-methods" : null,
+  );
+
+  useEffect(() => {
+    if (invoicesError) {
+      clientLogger.error("Failed to fetch invoices:", invoicesError);
+    }
+  }, [invoicesError]);
+  useEffect(() => {
+    if (paymentMethodsError) {
+      clientLogger.error("Failed to fetch methods:", paymentMethodsError);
+    }
+  }, [paymentMethodsError]);
+
+  const invoices: Invoice[] = useMemo(
+    () => invoicesRaw?.invoices ?? [],
+    [invoicesRaw],
+  );
+  const paymentMethods: PaymentMethod[] = useMemo(
+    () => paymentMethodsRaw?.data ?? [],
+    [paymentMethodsRaw],
+  );
+  const isLoading = invoicesLoading;
+  const loadingMethods = paymentMethodsLoading;
+
+  // Pre-select first payment method (derived, not effect-driven)
+  const effectiveMethodCode =
+    selectedMethodCode || paymentMethods[0]?.code || "";
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -169,42 +208,6 @@ export default function CustomerInvoicesPage() {
       router.push("/login");
     }
   }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchInvoices();
-      fetchPaymentMethods();
-    }
-  }, [isAuthenticated]);
-
-  const fetchInvoices = async () => {
-    try {
-      const res = await fetch("/api/customer/invoices?limit=20");
-      const json = await res.json();
-      if (json.success) {
-        setInvoices(json.invoices);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch invoices:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchPaymentMethods = async () => {
-    try {
-      const res = await fetch("/api/customer/payment-methods");
-      const json = await res.json();
-      if (json.success && json.data?.length > 0) {
-        setPaymentMethods(json.data);
-        setSelectedMethodCode(json.data[0].code); // Pre-select first
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch methods:", error);
-    } finally {
-      setLoadingMethods(false);
-    }
-  };
 
   // Identify Pending Payment
   const pendingPaymentInvoice = useMemo(() => {
@@ -239,7 +242,7 @@ export default function CustomerInvoicesPage() {
           if (data.status === "PAID") {
             // Switch immediately, the SSE reported PAID
             alert("Pembayaran Berhasil Diterima!");
-            fetchInvoices();
+            mutateInvoices();
             eventSource.close();
           }
         } catch (_e) {
@@ -253,7 +256,7 @@ export default function CustomerInvoicesPage() {
 
       return () => eventSource.close();
     }
-  }, [activePayment, pendingPaymentInvoice]);
+  }, [activePayment, pendingPaymentInvoice, mutateInvoices]);
 
   const copyToClipboard = async (text: string, type: string) => {
     try {
@@ -360,7 +363,7 @@ export default function CustomerInvoicesPage() {
         body: JSON.stringify({
           invoiceIds: pendingInvoices.map((inv) => inv.id),
           couponCode: appliedDiscount?.code || null,
-          paymentMethod: selectedMethodCode,
+          paymentMethod: effectiveMethodCode,
           notes: "Payment via Customer Portal",
         }),
       });
@@ -369,13 +372,13 @@ export default function CustomerInvoicesPage() {
         setShowPaymentModal(false);
 
         // Refresh immediately to show PENDING state
-        await fetchInvoices();
+        await mutateInvoices();
 
         // If it's URL-based (like Duitku) and there's a payment URL, redirect
         if (
           result.data?.paymentUrl &&
-          !selectedMethodCode.startsWith("MANUAL_") &&
-          selectedMethodCode !== "MOOTA_MANUAL"
+          !effectiveMethodCode.startsWith("MANUAL_") &&
+          effectiveMethodCode !== "MOOTA_MANUAL"
         ) {
           window.location.href = result.data.paymentUrl;
         }
@@ -410,7 +413,7 @@ export default function CustomerInvoicesPage() {
       const result = await res.json();
       if (res.ok && result.success) {
         alert("Bukti pembayaran berhasil diunggah. Menunggu verifikasi admin.");
-        await fetchInvoices();
+        await mutateInvoices();
       } else {
         alert(result.error || "Gagal mengunggah bukti pembayaran");
       }
@@ -473,7 +476,9 @@ export default function CustomerInvoicesPage() {
                       <MdAccessTime />
                       <CountdownTimer
                         expiresAt={activePayment.expiresAt}
-                        onExpire={fetchInvoices}
+                        onExpire={() => {
+                          mutateInvoices();
+                        }}
                       />
                     </div>
                   )}
@@ -868,7 +873,7 @@ export default function CustomerInvoicesPage() {
                         key={method.id}
                         onClick={() => setSelectedMethodCode(method.code)}
                         className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          selectedMethodCode === method.code
+                          effectiveMethodCode === method.code
                             ? "border-[#0d9488] bg-[#0d9488]/5 dark:bg-[#0d9488]/10"
                             : "border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
                         }`}
@@ -883,12 +888,12 @@ export default function CustomerInvoicesPage() {
                         </div>
                         <div
                           className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            selectedMethodCode === method.code
+                            effectiveMethodCode === method.code
                               ? "border-[#0d9488]"
                               : "border-gray-300"
                           }`}
                         >
-                          {selectedMethodCode === method.code && (
+                          {effectiveMethodCode === method.code && (
                             <div className="w-2 h-2 rounded-full bg-[#0d9488]" />
                           )}
                         </div>
@@ -911,7 +916,7 @@ export default function CustomerInvoicesPage() {
 
               <Button
                 onClick={handlePayment}
-                disabled={paymentLoading || !selectedMethodCode}
+                disabled={paymentLoading || !effectiveMethodCode}
                 loading={paymentLoading}
                 className="w-full h-12 mt-2"
               >

@@ -1,11 +1,11 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBackIos,
   MdRefresh,
@@ -23,7 +23,6 @@ import {
 } from "react-icons/md";
 
 interface ConnectionData {
-  success: boolean;
   connection?: {
     isOnline: boolean;
     ipAddress: string | null;
@@ -33,8 +32,6 @@ interface ConnectionData {
 
 export default function CustomerConnectionPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
-  const [data, setData] = useState<ConnectionData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,29 +40,12 @@ export default function CustomerConnectionPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUsage();
-    }
-  }, [isAuthenticated]);
-
-  const fetchUsage = async () => {
-    try {
-      const res = await fetch("/api/customer/usage");
-      const json = await res.json();
-      if (json.success) {
-        setData(json);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch usage:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data, isLoading, mutate } = useApi<ConnectionData>(
+    isAuthenticated ? "/api/customer/usage" : null,
+  );
 
   const handleRefresh = () => {
-    setIsLoading(true);
-    fetchUsage();
+    void mutate();
   };
 
   if (authLoading || isLoading) {

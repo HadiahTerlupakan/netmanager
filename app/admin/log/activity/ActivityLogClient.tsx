@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   HiOutlineRefresh,
   HiOutlineClock,
@@ -16,6 +16,8 @@ import { id } from "date-fns/locale";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { SiteFilter } from "@/components/common/SiteFilter";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface SystemLog {
   id: string;
@@ -29,71 +31,74 @@ interface SystemLog {
   } | null;
 }
 
+interface ActivityLogResponse {
+  logs: SystemLog[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalPages: number;
+    total: number;
+  };
+}
+
+const DEFAULT_PAGINATION = {
+  page: 1,
+  limit: 20,
+  totalPages: 1,
+  total: 0,
+};
+
 export function ClientComponent() {
-  const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    totalPages: 1,
-    total: 0,
-  });
+  const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
+  const apiUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    params.append("type", "ACTIVITY");
+    params.append("page", page.toString());
+    params.append("limit", "20");
+    if (siteId) params.append("siteId", siteId);
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    return `/api/admin/system-logs?${params.toString()}`;
+  }, [page, siteId, debouncedSearch]);
 
-  const fetchLogs = useCallback(
-    async (page = 1) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        params.append("type", "ACTIVITY");
-        params.append("page", page.toString());
-        params.append("limit", "20");
-        if (siteId) params.append("siteId", siteId);
-        if (debouncedSearch) params.append("search", debouncedSearch);
-
-        const res = await fetch(`/api/admin/system-logs?${params.toString()}`);
-        const data = await res.json();
-        if (res.ok) {
-          const responseData = data.data || data;
-          setLogs(responseData.logs || []);
-          setPagination(
-            responseData.pagination || {
-              page: 1,
-              limit: 20,
-              totalPages: 1,
-              total: 0,
-            },
-          );
-        }
-      } catch (err) {
-        clientLogger.error("Gagal memuat log aktivitas", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [siteId, debouncedSearch],
-  );
+  const {
+    data: response,
+    error,
+    isLoading: loading,
+    mutate,
+  } = useApi<ActivityLogResponse>(apiUrl);
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    if (error) {
+      clientLogger.error("Gagal memuat log aktivitas", error);
+    }
+  }, [error]);
+
+  const logs = response?.logs ?? [];
+  const pagination = response?.pagination ?? DEFAULT_PAGINATION;
+
+  // Reset page when filter berubah
+  const [prevSiteId, setPrevSiteId] = useState(siteId);
+  const [prevSearch, setPrevSearch] = useState(debouncedSearch);
+  if (prevSiteId !== siteId || prevSearch !== debouncedSearch) {
+    setPrevSiteId(siteId);
+    setPrevSearch(debouncedSearch);
+    setPage(1);
+  }
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
-      fetchLogs(newPage);
+      setPage(newPage);
     }
   };
+
+  const handleRefresh = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   // Callback for PageLoader
   const renderPageLoader = useCallback(
@@ -127,7 +132,7 @@ export function ClientComponent() {
             <SiteFilter onSiteChange={setSiteId} resource="system_log" />
           </div>
           <Button
-            onClick={() => fetchLogs(pagination.page)}
+            onClick={handleRefresh}
             className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <HiOutlineRefresh

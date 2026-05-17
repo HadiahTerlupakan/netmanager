@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -12,6 +12,7 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface InvestorSite {
   id: string;
@@ -29,9 +30,50 @@ export default function SiteInvestorClient() {
   const canUpdate = hasPermission("mixradius_sites:update");
   const canDelete = hasPermission("mixradius_sites:delete");
 
-  const [sites, setSites] = useState<InvestorSite[]>([]);
-  const [owners, setOwners] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: rawSites,
+    error: sitesError,
+    isLoading: sitesLoading,
+    mutate: mutateSites,
+  } = useApi<{ data?: InvestorSite[] } | InvestorSite[]>(
+    "/api/integrations/mixradius/investor-sites",
+  );
+  const {
+    data: rawOwners,
+    error: ownersError,
+    isLoading: ownersLoading,
+  } = useApi<{ data?: unknown[] } | unknown[]>(
+    "/api/integrations/mixradius/owners",
+  );
+
+  useEffect(() => {
+    if (sitesError) {
+      toast.error(sitesError.message || "Gagal mengambil data Site Investor");
+    }
+  }, [sitesError]);
+  useEffect(() => {
+    if (ownersError) {
+      toast.error(ownersError.message || "Gagal mengambil data owner");
+    }
+  }, [ownersError]);
+
+  const loading = sitesLoading || ownersLoading;
+
+  const sites: InvestorSite[] = Array.isArray(rawSites)
+    ? rawSites
+    : (rawSites?.data ?? []);
+
+  const owners = useMemo<string[]>(() => {
+    const list: unknown[] = Array.isArray(rawOwners)
+      ? rawOwners
+      : (rawOwners?.data ?? []);
+    return list.map((o) =>
+      typeof o === "object" && o && "name" in o
+        ? (o as { name: string }).name
+        : String(o),
+    );
+  }, [rawOwners]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [ownerSearchTerm, setOwnerSearchTerm] = useState("");
@@ -43,48 +85,6 @@ export default function SiteInvestorClient() {
     owners: [] as string[],
     isActive: true,
   });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [sitesRes, ownersRes] = await Promise.all([
-        fetch("/api/integrations/mixradius/investor-sites"),
-        fetch("/api/integrations/mixradius/owners"),
-      ]);
-
-      if (!sitesRes.ok) {
-        throw new Error("Gagal mengambil data Site Investor");
-      }
-      if (!ownersRes.ok) {
-        throw new Error("Gagal mengambil data owner");
-      }
-
-      const sitesData = await sitesRes.json();
-      const ownersData = await ownersRes.json();
-
-      setSites(Array.isArray(sitesData) ? sitesData : sitesData.data || []);
-      const rawOwners = Array.isArray(ownersData)
-        ? ownersData
-        : ownersData.data || [];
-      setOwners(
-        rawOwners.map((o: unknown) =>
-          typeof o === "object" && o && "name" in o
-            ? (o as { name: string }).name
-            : String(o),
-        ),
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Gagal mengambil data",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +122,7 @@ export default function SiteInvestorClient() {
           : "Site Investor berhasil dibuat",
       );
       setIsModalOpen(false);
-      fetchData();
+      await mutateSites();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menyimpan data site",
@@ -147,7 +147,7 @@ export default function SiteInvestorClient() {
       }
 
       toast.success("Site Investor berhasil dihapus");
-      fetchData();
+      await mutateSites();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menghapus site",

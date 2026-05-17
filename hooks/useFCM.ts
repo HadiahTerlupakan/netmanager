@@ -89,14 +89,16 @@ export const useFCM = () => {
     }
   }, [isSupported, registerToken]);
 
-  useEffect(() => {
+  const [hasCheckedPermission, setHasCheckedPermission] = useState(false);
+  if (!hasCheckedPermission) {
+    setHasCheckedPermission(true);
     const currentPermission = getNotificationSupportState();
     setPermission(currentPermission);
 
     if (currentPermission === "granted") {
       void registerToken();
     }
-  }, [registerToken]);
+  }
 
   useEffect(() => {
     if (!messaging) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import {
@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 type Router = {
   id: string;
@@ -34,50 +35,60 @@ type ReconfigureModalProps = {
   onSuccess: () => void;
 };
 
+interface RouterListResponse {
+  routers?: Router[];
+}
+
 export default function ReconfigureModal({
   open,
   onClose,
   onSuccess,
 }: ReconfigureModalProps) {
-  const [routers, setRouters] = useState<Router[]>([]);
+  const {
+    data: routerData,
+    error: routerError,
+    isLoading,
+  } = useApi<RouterListResponse>(
+    open ? "/api/mikrotik-routers?limit=100" : null,
+    {
+      onSuccess: (response) => {
+        // Pre-select online routers tiap kali data baru tiba
+        const onlineIds = (response?.routers ?? [])
+          .filter((r) => r.pingStatus === "online")
+          .map((r) => r.id);
+        setSelectedIds(new Set(onlineIds));
+      },
+    },
+  );
+
+  const routers: Router[] = routerData?.routers ?? [];
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
   const [_processing, setProcessing] = useState(false);
   const [results, setResults] = useState<ReconfigureResult[]>([]);
   const [step, setStep] = useState<"select" | "processing" | "result">(
     "select",
   );
 
-  // Fetch routers when modal opens
-  useEffect(() => {
+  // Reset modal state saat transisi closed -> open (pakai pola React
+  // "Adjusting state on prop change" — setState selama render, bukan di effect).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
-      fetchRouters();
       setStep("select");
       setResults([]);
       setProcessing(false);
+      setSelectedIds(new Set());
     }
-  }, [open]);
+  }
 
-  const fetchRouters = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/mikrotik-routers?limit=100"); // Fetch many
-      const data = await res.json();
-      if (res.ok) {
-        setRouters(data.routers || []);
-        // Default select all online routers
-        const onlineIds = (data.routers || [])
-          .filter((r: Router) => r.pingStatus === "online")
-          .map((r: Router) => r.id);
-        setSelectedIds(new Set(onlineIds));
-      }
-    } catch (_error) {
-      clientLogger.error("Failed to fetch routers", _error);
+  useEffect(() => {
+    if (routerError) {
+      clientLogger.error("Failed to fetch routers", routerError);
       toast.error("Gagal memuat list router");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [routerError]);
 
   const handleToggle = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -140,7 +151,7 @@ export default function ReconfigureModal({
       </div>
 
       <div className="max-h-[300px] overflow-y-auto border rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
-        {loading ? (
+        {isLoading ? (
           <div className="p-4 text-center text-sm text-gray-500">
             Loading...
           </div>
@@ -285,7 +296,7 @@ export default function ReconfigureModal({
             </Button>
             <Button
               onClick={handleReconfigure}
-              disabled={selectedIds.size === 0 || loading}
+              disabled={selectedIds.size === 0 || isLoading}
             >
               Proses ({selectedIds.size})
             </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FiInfo } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { validateBarangForm, sanitizeInput } from "@/lib/validations/barang";
@@ -69,7 +69,10 @@ export function BarangForm({
   const [isCustomSatuan, setIsCustomSatuan] = useState(false);
   const { showToast } = useToast();
 
-  useEffect(() => {
+  // Init form dari initialData via prevInitialData comparator (selama render)
+  const [prevInitialData, setPrevInitialData] = useState(initialData);
+  if (initialData !== prevInitialData) {
+    setPrevInitialData(initialData);
     if (initialData) {
       setFormData({
         nama: initialData.nama || "",
@@ -84,7 +87,7 @@ export function BarangForm({
         setIsCustomSatuan(true);
       }
     }
-  }, [initialData]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,11 +1,11 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface PendingPayment {
   id: string;
@@ -26,8 +26,6 @@ interface PendingPayment {
 }
 
 export default function ManualPaymentClient() {
-  const [payments, setPayments] = useState<PendingPayment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(
     null,
   );
@@ -53,58 +51,47 @@ export default function ManualPaymentClient() {
   const [endDate, setEndDate] = useState(() => getLocalYMD(new Date()));
   const [siteId, setSiteId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
 
-  const fetchOptions = async () => {
-    try {
-      const res = await fetch("/api/admin/options");
-      const json = await res.json();
-      if (json.success && json.data) {
-        setSites(json.data.sites || []);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch options:", error);
-    }
+  // Applied filters (only updated when user clicks "Terapkan Filter")
+  const [appliedFilters, setAppliedFilters] = useState({
+    startDate,
+    endDate,
+    siteId,
+    statusFilter,
+  });
+
+  // Fetch sites options via SWR
+  const { data: optionsData } = useApi<{
+    sites: { id: string; name: string }[];
+  }>("/api/admin/options");
+  const sites = optionsData?.sites || [];
+
+  // Build query string for pending payments
+  const buildPaymentsKey = () => {
+    const query = new URLSearchParams();
+    if (appliedFilters.startDate)
+      query.append("startDate", appliedFilters.startDate);
+    if (appliedFilters.endDate) query.append("endDate", appliedFilters.endDate);
+    if (appliedFilters.siteId) query.append("siteId", appliedFilters.siteId);
+    if (appliedFilters.statusFilter)
+      query.append("status", appliedFilters.statusFilter);
+    return `/api/admin/payments/pending-manual?${query.toString()}`;
   };
 
-  useEffect(() => {
-    fetchOptions();
-  }, []);
-
-  const fetchPendingPayments = async () => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams();
-      if (startDate) query.append("startDate", startDate);
-      if (endDate) query.append("endDate", endDate);
-      if (siteId) query.append("siteId", siteId);
-      if (statusFilter) query.append("status", statusFilter);
-
-      const res = await fetch(
-        `/api/admin/payments/pending-manual?${query.toString()}`,
-      );
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(
-          `Gagal mengambil pembayaran manual: ${res.status} ${body}`,
-        );
-      }
-      const json = await res.json();
-      if (json.success) {
-        setPayments(json.data);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch pending payments:", error);
+  const {
+    data: payments = [],
+    isLoading: loading,
+    mutate: refetchPayments,
+  } = useApi<PendingPayment[]>(buildPaymentsKey(), {
+    onError: () => {
       toast.error("Gagal mengambil data pembayaran manual.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
-  useEffect(() => {
-    fetchPendingPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const applyFilters = () => {
+    setAppliedFilters({ startDate, endDate, siteId, statusFilter });
+    setCurrentPage(1);
+  };
 
   const handleAction = async (action: "APPROVE" | "REJECT") => {
     if (!selectedPayment) return;
@@ -128,7 +115,7 @@ export default function ManualPaymentClient() {
         );
         setSelectedPayment(null);
         setNotes("");
-        fetchPendingPayments();
+        refetchPayments();
       } else {
         toast.error(json.error || "Terjadi kesalahan sistem.");
       }
@@ -213,14 +200,7 @@ export default function ManualPaymentClient() {
             <option value="REJECTED">Ditolak</option>
           </select>
         </div>
-        <Button
-          onClick={() => {
-            setCurrentPage(1);
-            fetchPendingPayments();
-          }}
-        >
-          Terapkan Filter
-        </Button>
+        <Button onClick={applyFilters}>Terapkan Filter</Button>
       </div>
 
       {payments.length === 0 ? (

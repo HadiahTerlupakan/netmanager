@@ -76,7 +76,10 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
   }, [siteId]);
 
   useEffect(() => {
-    fetchSite();
+    const handle = setTimeout(() => {
+      void fetchSite();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchSite]);
 
   if (loading) {

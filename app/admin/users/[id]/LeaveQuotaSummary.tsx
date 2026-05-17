@@ -89,11 +89,14 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
   }, [userId, currentYear]);
 
   useEffect(() => {
-    if (workingHourMode !== "FLEXIBLE") {
-      fetchBalances();
-    } else {
-      setLoading(false);
-    }
+    const handle = setTimeout(() => {
+      if (workingHourMode !== "FLEXIBLE") {
+        void fetchBalances();
+      } else {
+        setLoading(false);
+      }
+    }, 0);
+    return () => clearTimeout(handle);
   }, [workingHourMode, fetchBalances]);
 
   // FLEXIBLE users don't have leave quotas

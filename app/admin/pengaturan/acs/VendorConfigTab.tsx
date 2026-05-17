@@ -157,7 +157,10 @@ export function VendorConfigTab() {
   }, [showToast]);
 
   useEffect(() => {
-    void fetchData();
+    const handle = setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchData]);
 
   // --- VENDOR ACTIONS ---

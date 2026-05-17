@@ -88,7 +88,10 @@ export default function AttendanceCard() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    const handle = setTimeout(() => {
+      void fetchStatus();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchStatus]);
 
   const startCamera = async () => {

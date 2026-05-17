@@ -89,11 +89,13 @@ export default function LiveMapClient() {
     } finally {
       setLoading(false);
     }
-  }, [locations?.length]); // Use optional chaining just in case, though initialized as []
+  }, [locations]); // depend on full locations to satisfy React compiler
 
-  useEffect(() => {
-    fetchLocations();
-  }, [fetchLocations]);
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchLocations();
+  }
 
   useRealtimeScope(
     tenantId ? { kind: "admin", id: `location:${tenantId}` } : null,

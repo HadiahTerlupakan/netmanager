@@ -276,11 +276,13 @@ export function ClientComponent() {
   ]);
 
   useEffect(() => {
-    if (session?.user && status === "authenticated") {
-      fetchWorkOrders();
-      fetchSites();
-      fetchDepartments();
-    }
+    if (!session?.user || status !== "authenticated") return undefined;
+    const handle = setTimeout(() => {
+      void fetchWorkOrders();
+      void fetchSites();
+      void fetchDepartments();
+    }, 0);
+    return () => clearTimeout(handle);
     // PHASE 5: Use debouncedSearch instead of search for API calls
   }, [session, status, fetchWorkOrders]);
 

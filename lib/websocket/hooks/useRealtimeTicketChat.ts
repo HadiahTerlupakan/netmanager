@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
@@ -44,19 +44,14 @@ export function useRealtimeTicketChat(
 
   const [replies, setReplies] = useState<ChatReply[]>(initialReplies);
 
-  const prevInitialRepliesRef = useRef(initialReplies);
-
-  // Update replies when initial data changes
-  useEffect(() => {
-    if (
-      initialReplies !== prevInitialRepliesRef.current &&
-      initialReplies.length > 0
-    ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setReplies(initialReplies);
-      prevInitialRepliesRef.current = initialReplies;
-    }
-  }, [initialReplies]);
+  // Update replies when initial data changes (pattern C: render-time prev comparator)
+  const [prevInitialReplies, setPrevInitialReplies] = useState(initialReplies);
+  if (initialReplies !== prevInitialReplies && initialReplies.length > 0) {
+    setPrevInitialReplies(initialReplies);
+    setReplies(initialReplies);
+  } else if (initialReplies !== prevInitialReplies) {
+    setPrevInitialReplies(initialReplies);
+  }
 
   useRealtimeScope(ticketId ? { kind: "ticket", id: ticketId } : null);
 

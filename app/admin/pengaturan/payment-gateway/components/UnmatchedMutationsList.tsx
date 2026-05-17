@@ -9,6 +9,7 @@ import {
   HiOutlineClock,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface UnmatchedMutation {
   id: string;
@@ -24,36 +25,31 @@ interface UnmatchedMutation {
 }
 
 export default function UnmatchedMutationsList() {
-  const [mutations, setMutations] = useState<UnmatchedMutation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: rawMutations,
+    error: mutationsError,
+    isLoading: loading,
+    mutate: mutateMutations,
+  } = useApi<{ data?: UnmatchedMutation[] } | UnmatchedMutation[]>(
+    "/api/finance/unmatched-mutations?status=PENDING",
+  );
+
+  useEffect(() => {
+    if (mutationsError) {
+      clientLogger.error("Error fetching unmatched mutations:", mutationsError);
+    }
+  }, [mutationsError]);
+
+  const mutations: UnmatchedMutation[] = Array.isArray(rawMutations)
+    ? rawMutations
+    : (rawMutations?.data ?? []);
+
   const [resolveInvoiceId, setResolveInvoiceId] = useState<{
     [key: string]: string;
   }>({});
   const [actionLoading, setActionLoading] = useState<{
     [key: string]: boolean;
   }>({});
-
-  useEffect(() => {
-    fetchMutations();
-  }, []);
-
-  const fetchMutations = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        "/api/finance/unmatched-mutations?status=PENDING",
-      );
-      if (response.ok) {
-        const payload = await response.json();
-        const nextMutations = Array.isArray(payload?.data) ? payload.data : [];
-        setMutations(nextMutations);
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching unmatched mutations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAction = async (id: string, action: "RESOLVE" | "IGNORE") => {
     const invoiceId = resolveInvoiceId[id];
@@ -85,7 +81,7 @@ export default function UnmatchedMutationsList() {
         alert(
           `Mutasi berhasil di-${action === "RESOLVE" ? "selesaikan" : "abaikan"}.`,
         );
-        fetchMutations();
+        await mutateMutations();
       } else {
         const error = await response.json();
         alert(`Gagal: ${error.error}`);

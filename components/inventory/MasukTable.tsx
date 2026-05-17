@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
@@ -118,10 +118,12 @@ export function MasukTable({
     }
   }, [page, search, startDate, endDate, siteId, gudangId]);
 
-  // Fetch data
-  useEffect(() => {
-    fetchMasukList();
-  }, [fetchMasukList, refreshTrigger]);
+  // Fetch on mount + refreshTrigger via comparator (selama render, bukan effect)
+  const [prevTrigger, setPrevTrigger] = useState<number | null>(null);
+  if (prevTrigger !== refreshTrigger) {
+    setPrevTrigger(refreshTrigger);
+    void fetchMasukList();
+  }
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
 

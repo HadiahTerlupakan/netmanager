@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { FiEdit2, FiTrash2, FiEye, FiMinusCircle } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -147,13 +147,18 @@ export function OpnameTable({
     }
   }, [currentPage, filters.barangId, filters.gudangId]);
 
-  useEffect(() => {
-    fetchBarangsAndGudangs();
-  }, [fetchBarangsAndGudangs]);
+  const [hasFetchedOptions, setHasFetchedOptions] = useState(false);
+  if (!hasFetchedOptions) {
+    setHasFetchedOptions(true);
+    void fetchBarangsAndGudangs();
+  }
 
-  useEffect(() => {
-    fetchOpnameList();
-  }, [fetchOpnameList, refreshTrigger]);
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${currentPage}|${filters.barangId}|${filters.gudangId}|${refreshTrigger}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchOpnameList();
+  }
 
   const handleDelete = async (id: string) => {
     if (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { clientLogger } from "@/lib/client-logger";
@@ -41,7 +41,11 @@ export default function DepartmentModal({
     jobDescription: "",
   });
 
-  useEffect(() => {
+  // Pattern C: reset formData when department/isOpen changes (during render)
+  const [prevSig, setPrevSig] = useState<string>("");
+  const sig = `${department?.id ?? "null"}|${isOpen ? "1" : "0"}`;
+  if (prevSig !== sig) {
+    setPrevSig(sig);
     if (department) {
       setFormData({
         name: department.name,
@@ -55,7 +59,7 @@ export default function DepartmentModal({
         jobDescription: "",
       });
     }
-  }, [department, isOpen]);
+  }
 
   const handleSaveDepartment = async (e: React.FormEvent) => {
     e.preventDefault();

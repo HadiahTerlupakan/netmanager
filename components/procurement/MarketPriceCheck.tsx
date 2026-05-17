@@ -126,17 +126,23 @@ export function MarketPriceCheck({
   const analytics = useMemo(() => {
     if (!result || !result.products.length) return null;
 
-    let totalWeightedPrice = 0;
-    let totalSoldWeight = 0;
-
-    // Parse numeric sold count
-    const validProducts = result.products.map((p: Product) => {
-      const sold = parseSoldCount(p.sold);
-      const weight = sold > 0 ? sold : 1;
-      totalWeightedPrice += p.price * weight;
-      totalSoldWeight += weight;
-      return { ...p, soldCount: sold };
-    });
+    // Parse numeric sold count + accumulate weighted totals
+    const { validProducts, totalWeightedPrice, totalSoldWeight } =
+      result.products.reduce(
+        (acc, p: Product) => {
+          const sold = parseSoldCount(p.sold);
+          const weight = sold > 0 ? sold : 1;
+          acc.validProducts.push({ ...p, soldCount: sold });
+          acc.totalWeightedPrice += p.price * weight;
+          acc.totalSoldWeight += weight;
+          return acc;
+        },
+        {
+          validProducts: [] as Array<Product & { soldCount: number }>,
+          totalWeightedPrice: 0,
+          totalSoldWeight: 0,
+        },
+      );
 
     const weightedAvg =
       totalSoldWeight > 0

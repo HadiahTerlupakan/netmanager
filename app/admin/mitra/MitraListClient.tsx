@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import PageLoader from "@/components/ui/PageLoader";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -231,18 +231,24 @@ export default function MitraListClient() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchMitras();
-  }, [fetchMitras]);
-  useEffect(() => {
-    fetchSites();
-  }, [fetchSites]);
-  useEffect(() => {
-    fetchMixradiusOwners();
-  }, [fetchMixradiusOwners]);
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm, typeFilter]);
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${searchTerm}|${typeFilter}|${page}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchMitras();
+  }
+
+  const [hasFetchedSites, setHasFetchedSites] = useState(false);
+  if (!hasFetchedSites) {
+    setHasFetchedSites(true);
+    void fetchSites();
+  }
+
+  const [hasFetchedOwners, setHasFetchedOwners] = useState(false);
+  if (!hasFetchedOwners) {
+    setHasFetchedOwners(true);
+    void fetchMixradiusOwners();
+  }
 
   const resetForm = () => {
     setForm({
@@ -1507,7 +1513,10 @@ export default function MitraListClient() {
               type="text"
               placeholder="Cari mitra berdasarkan nama, email, atau telepon..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
@@ -1517,11 +1526,12 @@ export default function MitraListClient() {
             </div>
             <select
               value={typeFilter}
-              onChange={(e) =>
+              onChange={(e) => {
                 setTypeFilter(
                   e.target.value as "all" | "MITRA_TEKNISI" | "MITRA_SALES",
-                )
-              }
+                );
+                setPage(1);
+              }}
               className="pl-10 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="all">Semua Tipe</option>

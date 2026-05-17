@@ -119,7 +119,10 @@ export function useHargaPaketPageState() {
   }, [siteId]);
 
   useEffect(() => {
-    void loadData();
+    const handle = setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadData]);
 
   const handleSubmit = async (event: React.FormEvent) => {

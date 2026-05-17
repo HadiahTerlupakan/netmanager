@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   HiMagnifyingGlass,
   HiOutlineUsers,
@@ -19,6 +19,7 @@ import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface SalesUser {
   id: string;
@@ -45,17 +46,35 @@ interface SalesStats {
   totalPending: number;
 }
 
+interface SalesApiData {
+  users: SalesUser[];
+  stats: SalesStats;
+}
+
+const DEFAULT_STATS: SalesStats = {
+  totalSales: 0,
+  totalTarget: 0,
+  totalAchieved: 0,
+  totalPending: 0,
+};
+
 export default function SalesListClient() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<SalesUser[]>([]);
-  const [stats, setStats] = useState<SalesStats>({
-    totalSales: 0,
-    totalTarget: 0,
-    totalAchieved: 0,
-    totalPending: 0,
-  });
+  const {
+    data,
+    error,
+    isLoading: loading,
+    mutate,
+  } = useApi<SalesApiData>("/api/admin/marketing/sales");
+  const users: SalesUser[] = data?.users ?? [];
+  const stats: SalesStats = data?.stats ?? DEFAULT_STATS;
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data sales");
+    }
+  }, [error]);
 
   // Permission checks
   const { hasPermission } = usePermission();
@@ -68,36 +87,6 @@ export default function SalesListClient() {
     "MONTHLY_RESET",
   );
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetchSalesUsers();
-  }, []);
-
-  const fetchSalesUsers = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/admin/marketing/sales");
-      if (res.ok) {
-        const json = await res.json();
-        // Handle new response structure
-        if (json.data && json.data.users) {
-          setUsers(json.data.users);
-          setStats(json.data.stats);
-        } else {
-          // Fallback for safety
-          setUsers(json.data || []);
-        }
-      } else {
-        const json = await res.json().catch((): null => null);
-        toast.error(json?.error || "Gagal memuat data sales");
-      }
-    } catch (error) {
-      clientLogger.error("Error:", error);
-      toast.error("Gagal menghubungi server, coba lagi nanti");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditClick = (user: SalesUser) => {
     setEditingUser(user);
@@ -121,19 +110,30 @@ export default function SalesListClient() {
 
       if (res.ok) {
         toast.success("Target berhasil diperbarui");
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === editingUser.id
-              ? { ...u, canvasingTarget: newTarget, targetSchema: newSchema }
-              : u,
-          ),
+        // Optimistically update local cache, then revalidate
+        const previousTarget = editingUser.canvasingTarget || 0;
+        await mutate(
+          (current) => {
+            if (!current) return current;
+            return {
+              users: current.users.map((u) =>
+                u.id === editingUser.id
+                  ? {
+                      ...u,
+                      canvasingTarget: newTarget,
+                      targetSchema: newSchema,
+                    }
+                  : u,
+              ),
+              stats: {
+                ...current.stats,
+                totalTarget:
+                  current.stats.totalTarget - previousTarget + newTarget,
+              },
+            };
+          },
+          { revalidate: true },
         );
-        // Optimistically update total target logic
-        setStats((prev) => ({
-          ...prev,
-          totalTarget:
-            prev.totalTarget - (editingUser.canvasingTarget || 0) + newTarget,
-        }));
         setEditingUser(null);
       } else {
         const json = await res.json();

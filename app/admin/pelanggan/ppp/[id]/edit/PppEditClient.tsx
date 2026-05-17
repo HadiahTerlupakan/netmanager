@@ -335,11 +335,14 @@ export function PppClientEditForm() {
   }, [showToast]);
 
   useEffect(() => {
-    if (id) {
-      loadPelangganData();
-    }
-    loadHargaPakets();
-    loadOdps();
+    const handle = setTimeout(() => {
+      if (id) {
+        void loadPelangganData();
+      }
+      void loadHargaPakets();
+      void loadOdps();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [id, loadPelangganData, loadHargaPakets, loadOdps]);
 
   /**

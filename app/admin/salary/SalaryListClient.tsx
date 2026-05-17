@@ -114,7 +114,10 @@ export default function SalaryListClient() {
   }, [selectedMonth, selectedYear, statusFilter]);
 
   useEffect(() => {
-    fetchSalaries();
+    const handle = setTimeout(() => {
+      void fetchSalaries();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchSalaries]);
 
   const handleCalculateBulk = async () => {

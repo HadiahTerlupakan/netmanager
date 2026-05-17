@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import PageLoader from "@/components/ui/PageLoader";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -127,9 +127,11 @@ export default function InvestorsClient() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchInvestors();
-  }, [fetchInvestors]);
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchInvestors();
+  }
 
   const resetForm = () => {
     setForm({

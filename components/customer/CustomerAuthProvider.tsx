@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface CustomerSession {
   id: string;
@@ -50,39 +45,20 @@ const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(
   undefined,
 );
 
+interface MeResponse {
+  customer: CustomerSession;
+}
+
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
-  const [customer, setCustomer] = useState<CustomerSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, error, isLoading, mutate } = useApi<MeResponse>(
+    "/api/customer/auth/me",
+  );
+
+  // Derive customer from SWR data; on error (e.g. 401) treat as not authenticated
+  const customer: CustomerSession | null =
+    !error && data?.customer ? data.customer : null;
+
   const router = useRouter();
-
-  // Check auth status on mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const res = await fetch("/api/customer/auth/me");
-      if (!res.ok) {
-        setCustomer(null);
-        return;
-      }
-
-      const payload = (await res.json()) as CustomerApiSuccess<{
-        customer: CustomerSession;
-      }>;
-      if (!isCustomerApiSuccess(payload)) {
-        setCustomer(null);
-        return;
-      }
-
-      setCustomer(payload.data.customer);
-    } catch {
-      setCustomer(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const login = async (identifier: string, password: string) => {
     try {
@@ -110,7 +86,8 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: payload.message || "Login gagal" };
       }
 
-      setCustomer(payload.data.customer);
+      // Update SWR cache with the new customer session
+      await mutate({ customer: payload.data.customer }, { revalidate: false });
       return { success: true };
     } catch {
       return { success: false, error: "Terjadi kesalahan jaringan" };
@@ -123,13 +100,14 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors
     } finally {
-      setCustomer(null);
+      // Clear SWR cache so customer becomes null immediately
+      await mutate(undefined, { revalidate: false });
       router.push("/login");
     }
   };
 
   const refresh = async () => {
-    await checkAuth();
+    await mutate();
   };
 
   return (

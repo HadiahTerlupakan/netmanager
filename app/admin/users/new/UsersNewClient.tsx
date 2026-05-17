@@ -107,13 +107,16 @@ export function ClientComponent() {
     shiftId: null as string | null,
   });
 
-  useEffect(() => {
-    if (!canReadTenants || !tenantIdParam) {
-      return;
+  const [prevTenantParamKey, setPrevTenantParamKey] = useState<string>(
+    `${canReadTenants}|${tenantIdParam ?? ""}`,
+  );
+  const tenantParamKey = `${canReadTenants}|${tenantIdParam ?? ""}`;
+  if (prevTenantParamKey !== tenantParamKey) {
+    setPrevTenantParamKey(tenantParamKey);
+    if (canReadTenants && tenantIdParam) {
+      setFormData((prev) => ({ ...prev, tenantId: tenantIdParam }));
     }
-
-    setFormData((prev) => ({ ...prev, tenantId: tenantIdParam }));
-  }, [canReadTenants, tenantIdParam]);
+  }
 
   const generatePassword = () => {
     setFormData((prev) => ({ ...prev, password: generateStrongPassword() }));
@@ -154,14 +157,25 @@ export function ClientComponent() {
     }
   };
 
-  // Real-time email validation with debounce
-  useEffect(() => {
-    if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
+  // Real-time email validation with debounce.
+  // Sync invalid-email reset is handled via render-time comparator (avoid
+  // setState-in-effect lint), then we run async fetch in useEffect.
+  const isEmailValid =
+    !!formData.email && /^\S+@\S+\.\S+$/.test(formData.email);
+  const [prevEmailValid, setPrevEmailValid] = useState<boolean>(isEmailValid);
+  if (prevEmailValid !== isEmailValid) {
+    setPrevEmailValid(isEmailValid);
+    if (!isEmailValid) {
       setFormData((prev) => ({
         ...prev,
         emailChecked: false,
         isCheckingEmail: false,
       }));
+    }
+  }
+
+  useEffect(() => {
+    if (!isEmailValid) {
       return;
     }
 
@@ -210,7 +224,7 @@ export function ClientComponent() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [formData.email]);
+  }, [formData.email, isEmailValid]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

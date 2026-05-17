@@ -100,9 +100,10 @@ export default function WorkingHoursSettings({
 
   // Fetch shifts when mode is SHIFT
   useEffect(() => {
+    if (mode !== WorkingHourMode.SHIFT || shifts.length !== 0) return undefined;
     let isMounted = true;
-
-    if (mode === WorkingHourMode.SHIFT && shifts.length === 0) {
+    const handle = setTimeout(() => {
+      if (!isMounted) return;
       setLoadingShifts(true);
       fetch("/api/admin/shifts")
         .then((res) => res.json())
@@ -113,10 +114,11 @@ export default function WorkingHoursSettings({
         .finally(() => {
           if (isMounted) setLoadingShifts(false);
         });
-    }
+    }, 0);
 
     return () => {
       isMounted = false;
+      clearTimeout(handle);
     };
   }, [mode, shifts.length]);
 

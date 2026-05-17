@@ -1,7 +1,6 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { HiOutlinePlus, HiTrash } from "react-icons/hi2";
 import { Button, buttonVariants } from "@/components/ui/Button";
@@ -9,6 +8,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import PageLoader from "@/components/ui/PageLoader";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { toast } from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Coupon {
   id: string;
@@ -23,31 +23,20 @@ interface Coupon {
   _count: { usages: number };
 }
 
+interface CouponListResponse {
+  data?: Coupon[];
+}
+
 export default function CouponList() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading, mutate } = useApi<
+    Coupon[] | CouponListResponse
+  >("/api/coupons");
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
+  if (error) {
+    toast.error(error.message || "Gagal memuat data kupon");
+  }
 
-  const fetchCoupons = async () => {
-    try {
-      const res = await fetch("/api/coupons");
-      if (res.ok) {
-        const data = await res.json();
-        setCoupons(data.data || data);
-      } else {
-        const json = await res.json().catch((): null => null);
-        toast.error(json?.error || "Gagal memuat data kupon");
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch coupons", error);
-      toast.error("Gagal menghubungi server, coba lagi nanti");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const coupons: Coupon[] = Array.isArray(data) ? data : (data?.data ?? []);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah anda yakin ingin menghapus kupon ini?")) return;
@@ -58,18 +47,18 @@ export default function CouponList() {
 
       if (res.ok) {
         toast.success("Kupon berhasil dihapus");
-        fetchCoupons(); // Refresh list
+        await mutate();
       } else {
-        const data = await res.json();
-        toast.error(data.error || "Gagal menghapus kupon");
+        const json = await res.json();
+        toast.error(json.error || "Gagal menghapus kupon");
       }
-    } catch (error) {
-      clientLogger.error("Delete failed", error);
+    } catch (err) {
+      clientLogger.error("Delete failed", err);
       toast.error("Terjadi kesalahan saat menghapus kupon");
     }
   };
 
-  if (loading) return <PageLoader />;
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -89,7 +78,7 @@ export default function CouponList() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700">
         <ResponsiveTable<Coupon>
           data={coupons}
-          loading={loading}
+          loading={isLoading}
           keyField="id"
           columns={[
             {

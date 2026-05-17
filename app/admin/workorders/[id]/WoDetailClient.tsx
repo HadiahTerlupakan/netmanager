@@ -276,9 +276,11 @@ export function ClientComponent() {
   );
 
   useEffect(() => {
-    if (session?.user && status === "authenticated") {
-      fetchWorkOrder();
-    }
+    if (!session?.user || status !== "authenticated") return undefined;
+    const handle = setTimeout(() => {
+      void fetchWorkOrder();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [session, status, workOrderId, fetchWorkOrder]);
 
   const handleUpdateField = async (field: string) => {

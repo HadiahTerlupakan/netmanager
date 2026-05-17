@@ -67,6 +67,7 @@ export function TransferForm({
   const [_uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [transactionId, _setTransactionId] = useState<string | null>(null);
   const photoUploadRef = useRef<PhotoUploadRef>(null);
+  const [tempId] = useState<string>(() => `temp-${Date.now()}`);
   const router = useRouter();
 
   useEffect(() => {
@@ -649,7 +650,7 @@ export function TransferForm({
       <div>
         <PhotoUpload
           ref={photoUploadRef}
-          transactionId={transactionId || "temp-" + Date.now()}
+          transactionId={transactionId || tempId}
           transactionType="inventory-transfer"
           onPhotosChange={setUploadedPhotos}
           maxPhotos={3}

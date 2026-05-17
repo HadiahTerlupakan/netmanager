@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -65,9 +65,11 @@ export function HolidayClient() {
   const [description, setDescription] = useState("");
   const [isNational, setIsNational] = useState(true);
 
-  useEffect(() => {
+  const [hasMounted, setHasMounted] = useState(false);
+  if (!hasMounted) {
+    setHasMounted(true);
     setCurrentDate(new Date());
-  }, []);
+  }
 
   const fetchHolidays = useCallback(async () => {
     if (!currentDate) return;
@@ -87,9 +89,12 @@ export function HolidayClient() {
     }
   }, [currentDate]);
 
-  useEffect(() => {
-    fetchHolidays();
-  }, [fetchHolidays]);
+  const [prevYear, setPrevYear] = useState<number | null>(null);
+  const currentYear = currentDate?.getFullYear() ?? null;
+  if (currentYear !== null && prevYear !== currentYear) {
+    setPrevYear(currentYear);
+    void fetchHolidays();
+  }
 
   const handlePrevMonth = () => {
     if (!currentDate) return;

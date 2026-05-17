@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { FaSearch, FaFileExport } from "react-icons/fa";
 import {
@@ -195,10 +195,12 @@ export function ClientComponent() {
         1000,
       );
       return () => clearTimeout(timer);
-    } else if (retryCountdown === 0) {
-      setRetryCountdown(null);
     }
   }, [retryCountdown]);
+
+  if (retryCountdown === 0) {
+    setRetryCountdown(null);
+  }
 
   const fetchOptionsCallback = useCallback(async () => {
     try {
@@ -271,15 +273,28 @@ export function ClientComponent() {
     ],
   );
 
-  useEffect(() => {
-    fetchOptionsCallback();
-  }, [fetchOptionsCallback]);
+  const [hasFetchedOptions, setHasFetchedOptions] = useState(false);
+  if (!hasFetchedOptions) {
+    setHasFetchedOptions(true);
+    void fetchOptionsCallback();
+  }
 
-  useEffect(() => {
+  const [reportController, setReportController] =
+    useState<AbortController | null>(null);
+  const [prevReportKey, setPrevReportKey] = useState<string | null>(null);
+  const reportKey = `${debouncedStartDate}|${debouncedEndDate}|${debouncedSiteId}|${debouncedDepartmentId}|${retryCountdown}`;
+  if (prevReportKey !== reportKey) {
+    setPrevReportKey(reportKey);
+    reportController?.abort();
     const controller = new AbortController();
-    fetchReport(controller.signal);
-    return () => controller.abort();
-  }, [fetchReport]);
+    setReportController(controller);
+    void fetchReport(controller.signal);
+  }
+  useEffect(() => {
+    return () => {
+      reportController?.abort();
+    };
+  }, [reportController]);
 
   const formatDuration = (minutes: number) => {
     const h = Math.floor(minutes / 60);

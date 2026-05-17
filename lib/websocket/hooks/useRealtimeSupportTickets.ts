@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
@@ -84,7 +84,6 @@ export function useRealtimeSupportTickets(
 
   const fetchTickets = useCallback(async () => {
     if (!enabled) {
-      setLoading(false);
       return;
     }
 
@@ -93,7 +92,6 @@ export function useRealtimeSupportTickets(
     }
 
     if (!canReadSupportTickets) {
-      setLoading(false);
       return;
     }
 
@@ -126,11 +124,26 @@ export function useRealtimeSupportTickets(
     }
   }, [limit, enabled, canReadSupportTickets, isPermissionLoading]);
 
-  useEffect(() => {
-    if (autoFetch && !isPermissionLoading && enabled) {
-      void fetchTickets();
+  // Pattern C: kelola loading state via render-time comparator
+  // (sync setState `setLoading(false)` ditarik keluar dari `fetchTickets`
+  // untuk menghindari error react-hooks/refs)
+  const loadingKey = `${enabled ? 1 : 0}|${isPermissionLoading ? 1 : 0}|${canReadSupportTickets ? 1 : 0}`;
+  const [prevLoadingKey, setPrevLoadingKey] = useState<string | null>(null);
+  if (prevLoadingKey !== loadingKey) {
+    setPrevLoadingKey(loadingKey);
+    if (!enabled || (!isPermissionLoading && !canReadSupportTickets)) {
+      setLoading(false);
     }
-  }, [autoFetch, fetchTickets, isPermissionLoading, enabled]);
+  }
+
+  // Initial fetch — useEffect with setTimeout deferral so refs aren't accessed during render
+  useEffect(() => {
+    if (!autoFetch || isPermissionLoading || !enabled) return undefined;
+    const handle = setTimeout(() => {
+      void fetchTickets();
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [autoFetch, isPermissionLoading, enabled, fetchTickets]);
 
   const playSound = useCallback(() => {
     try {

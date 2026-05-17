@@ -36,10 +36,15 @@ export function useUserList(tenantIdFilter?: string | null) {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Reset to page 1 when filter changes
-  useEffect(() => {
+  // Reset to page 1 when filter changes (compare prev value during render)
+  const [prevFilterKey, setPrevFilterKey] = useState<string>(
+    `${debouncedSearchTerm}|${statusFilter}|${tenantIdFilter ?? ""}`,
+  );
+  const filterKey = `${debouncedSearchTerm}|${statusFilter}|${tenantIdFilter ?? ""}`;
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
-  }, [debouncedSearchTerm, statusFilter, tenantIdFilter]);
+  }
 
   const loadUsers = useCallback(async () => {
     try {
@@ -71,19 +76,18 @@ export function useUserList(tenantIdFilter?: string | null) {
     }
   }, [currentPage, debouncedSearchTerm, statusFilter, tenantIdFilter]);
 
-  useEffect(() => {
+  const [prevLoadKey, setPrevLoadKey] = useState<string | null>(null);
+  const loadKey = `${currentPage}|${debouncedSearchTerm}|${statusFilter}|${tenantIdFilter ?? ""}`;
+  if (prevLoadKey !== loadKey) {
+    setPrevLoadKey(loadKey);
     void loadUsers();
-  }, [loadUsers]);
+  }
 
   // Auto-reset page jika halaman kosong padahal ada data di halaman sebelumnya
   // (contoh: user terakhir di halaman 2 dihapus -> page 2 jadi kosong)
-  useEffect(() => {
-    if (loading) return;
-    if (users.length > 0) return;
-    if (totalUsers === 0) return;
-    if (currentPage === 1) return;
+  if (!loading && users.length === 0 && totalUsers > 0 && currentPage !== 1) {
     setCurrentPage(1);
-  }, [loading, users.length, totalUsers, currentPage]);
+  }
 
   const handleDelete = useCallback(
     async (userId: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import {
@@ -39,7 +39,6 @@ const INITIAL_FORM_ITEM: RestockFormItem = {
 
 export function useRestockPage() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
-  const [barangs, setBarangs] = useState<Barang[]>([]);
   const [allBarangsSource, setAllBarangsSource] = useState<Barang[]>([]);
   const [allSettingsSource, setAllSettingsSource] = useState<RestockSetting[]>(
     [],
@@ -112,9 +111,11 @@ export function useRestockPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchData();
+  }
 
   const filteredBarangs = useMemo(
     () =>
@@ -127,9 +128,7 @@ export function useRestockPage() {
     [allBarangsSource, allSettingsSource, formGudang, showAllItems],
   );
 
-  useEffect(() => {
-    setBarangs(filteredBarangs);
-  }, [filteredBarangs]);
+  const barangs = filteredBarangs;
 
   const visibleRequests = useMemo(
     () =>
@@ -165,9 +164,14 @@ export function useRestockPage() {
     [gudangs],
   );
 
-  useEffect(() => {
+  const [prevFilterKey, setPrevFilterKey] = useState<string>(
+    `${search}|${statusFilter}|${gudangFilter}|${itemsPerPage}`,
+  );
+  const filterKey = `${search}|${statusFilter}|${gudangFilter}|${itemsPerPage}`;
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
-  }, [search, statusFilter, gudangFilter, itemsPerPage]);
+  }
 
   const resetForm = useCallback(
     (gudangId = gudangs[0]?.id || "") => {

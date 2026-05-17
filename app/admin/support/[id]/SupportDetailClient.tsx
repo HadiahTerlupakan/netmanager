@@ -120,7 +120,10 @@ export function ClientComponent() {
 
   // Initial load only (no polling)
   useEffect(() => {
-    loadTicket(true);
+    const handle = setTimeout(() => {
+      void loadTicket(true);
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadTicket]);
 
   useEffect(() => {

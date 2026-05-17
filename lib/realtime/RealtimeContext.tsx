@@ -301,10 +301,20 @@ export function RealtimeProvider({
     setReconnectVersion((value) => value + 1);
   }, []);
 
+  // Reset state via render-time comparator when auth/user becomes invalid
+  const isAuthValid =
+    status === "authenticated" && Boolean(user?.id) && Boolean(services.auth);
+  const [prevAuthValid, setPrevAuthValid] = useState<boolean | null>(null);
+  if (prevAuthValid !== isAuthValid && !isAuthValid) {
+    setPrevAuthValid(isAuthValid);
+    setIsFirebaseReady(false);
+    setFirebaseError(null);
+  } else if (prevAuthValid !== isAuthValid) {
+    setPrevAuthValid(isAuthValid);
+  }
+
   useEffect(() => {
-    if (status !== "authenticated" || !user?.id || !services.auth) {
-      setIsFirebaseReady(false);
-      setFirebaseError(null);
+    if (!isAuthValid) {
       if (services.auth) {
         void signOut(services.auth).catch(noop);
       }
@@ -318,7 +328,7 @@ export function RealtimeProvider({
         setFirebaseError(null);
 
         const currentUser = services.auth.currentUser;
-        if (currentUser?.uid === user.id) {
+        if (currentUser?.uid === user?.id) {
           if (active) {
             setIsFirebaseReady(true);
           }
@@ -369,7 +379,7 @@ export function RealtimeProvider({
     return () => {
       active = false;
     };
-  }, [services.auth, status, user?.id, reconnectVersion]);
+  }, [services.auth, isAuthValid, user?.id, reconnectVersion]);
 
   const isConnected =
     status === "authenticated" &&

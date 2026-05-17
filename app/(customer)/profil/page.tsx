@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBack,
   MdEdit,
@@ -41,16 +42,16 @@ interface ProfileData {
   };
 }
 
+type PrefKey = "is2FAEnabled" | "isBillNotifEnabled" | "isPromoEnabled";
+
 export default function CustomerProfilPage() {
   const { isLoading: authLoading, isAuthenticated, logout } = useCustomerAuth();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // State handles for toggles (Visual only for now as API might not support them yet)
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
-  const [isBillNotifEnabled, setIsBillNotifEnabled] = useState(true);
-  const [isPromoEnabled, setIsPromoEnabled] = useState(false);
+  // Optimistic overrides applied on top of server-provided preferences
+  const [prefOverrides, setPrefOverrides] = useState<
+    Partial<Record<PrefKey, boolean>>
+  >({});
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -58,40 +59,26 @@ export default function CustomerProfilPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchProfile();
-    }
-  }, [isAuthenticated]);
+  const { data: profileData, isLoading } = useApi<{ profile: ProfileData }>(
+    isAuthenticated ? "/api/customer/profile" : null,
+  );
+  const profile = profileData?.profile ?? null;
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch("/api/customer/profile");
-      const data = await res.json();
-      if (data.success) {
-        setProfile(data.profile);
-        if (data.profile.preferences) {
-          setIs2FAEnabled(data.profile.preferences.is2FAEnabled);
-          setIsBillNotifEnabled(data.profile.preferences.isBillNotifEnabled);
-          setIsPromoEnabled(data.profile.preferences.isPromoEnabled);
-        }
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch profile:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const is2FAEnabled =
+    prefOverrides.is2FAEnabled ?? profile?.preferences.is2FAEnabled ?? false;
+  const isBillNotifEnabled =
+    prefOverrides.isBillNotifEnabled ??
+    profile?.preferences.isBillNotifEnabled ??
+    true;
+  const isPromoEnabled =
+    prefOverrides.isPromoEnabled ??
+    profile?.preferences.isPromoEnabled ??
+    false;
 
-  const handleToggle = async (
-    key: "is2FAEnabled" | "isBillNotifEnabled" | "isPromoEnabled",
-    currentValue: boolean,
-  ) => {
+  const handleToggle = async (key: PrefKey, currentValue: boolean) => {
     const newValue = !currentValue;
     // Optimistic update
-    if (key === "is2FAEnabled") setIs2FAEnabled(newValue);
-    if (key === "isBillNotifEnabled") setIsBillNotifEnabled(newValue);
-    if (key === "isPromoEnabled") setIsPromoEnabled(newValue);
+    setPrefOverrides((prev) => ({ ...prev, [key]: newValue }));
 
     try {
       const res = await fetch("/api/customer/profile", {
@@ -103,9 +90,7 @@ export default function CustomerProfilPage() {
     } catch (error) {
       clientLogger.error("Failed to update preference:", error);
       // Revert on error
-      if (key === "is2FAEnabled") setIs2FAEnabled(!newValue);
-      if (key === "isBillNotifEnabled") setIsBillNotifEnabled(!newValue);
-      if (key === "isPromoEnabled") setIsPromoEnabled(!newValue);
+      setPrefOverrides((prev) => ({ ...prev, [key]: currentValue }));
     }
   };
 

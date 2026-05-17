@@ -1,122 +1,160 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 
-import { useToast } from '@/components/ui/Toast'
+import { useToast } from "@/components/ui/Toast";
 
-import { DeviceDetailModals } from '@/app/admin/network/acs/devices/components/DeviceDetailModals'
-import { DeviceDetailPanels } from '@/app/admin/network/acs/devices/components/DeviceDetailPanels'
-import type { DeviceDetail } from '@/app/admin/network/acs/devices/lib/acsDeviceTypes'
+import { DeviceDetailModals } from "@/app/admin/network/acs/devices/components/DeviceDetailModals";
+import { DeviceDetailPanels } from "@/app/admin/network/acs/devices/components/DeviceDetailPanels";
+import type { DeviceDetail } from "@/app/admin/network/acs/devices/lib/acsDeviceTypes";
 
 type ParamModalState = {
-  isOpen: boolean
-  type: string
-  parameter: string
-  currentValue: string
-  title: string
-}
+  isOpen: boolean;
+  type: string;
+  parameter: string;
+  currentValue: string;
+  title: string;
+};
 
 type ConfirmModalState = {
-  isOpen: boolean
-  action: string
-  title: string
-  message: string
-}
+  isOpen: boolean;
+  action: string;
+  title: string;
+  message: string;
+};
 
 type WanModalState = {
-  isOpen: boolean
-  type: string
-  name: string
-  vlan: string
-  user: string
-  pass: string
-}
+  isOpen: boolean;
+  type: string;
+  name: string;
+  vlan: string;
+  user: string;
+  pass: string;
+};
 
 type SsidModalState = {
-  isOpen: boolean
-  index: number
-  name: string
-  security: string
-  password: string
-  enabled: boolean
-}
+  isOpen: boolean;
+  index: number;
+  name: string;
+  security: string;
+  password: string;
+  enabled: boolean;
+};
 
 export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
-  const router = useRouter()
-  const { showToast } = useToast()
+  const router = useRouter();
+  const { showToast } = useToast();
 
-  const [device, setDevice] = useState<DeviceDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [device, setDevice] = useState<DeviceDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [paramModal, setParamModal] = useState<ParamModalState>({ isOpen: false, type: '', parameter: '', currentValue: '', title: '' })
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({ isOpen: false, action: '', title: '', message: '' })
-  const [wanModal, setWanModal] = useState<WanModalState>({ isOpen: false, type: 'pppoe', name: '', vlan: '', user: '', pass: '' })
-  const [ssidModal, setSsidModal] = useState<SsidModalState>({ isOpen: false, index: 1, name: '', security: 'WPA/WPA2', password: '', enabled: true })
+  const [paramModal, setParamModal] = useState<ParamModalState>({
+    isOpen: false,
+    type: "",
+    parameter: "",
+    currentValue: "",
+    title: "",
+  });
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    action: "",
+    title: "",
+    message: "",
+  });
+  const [wanModal, setWanModal] = useState<WanModalState>({
+    isOpen: false,
+    type: "pppoe",
+    name: "",
+    vlan: "",
+    user: "",
+    pass: "",
+  });
+  const [ssidModal, setSsidModal] = useState<SsidModalState>({
+    isOpen: false,
+    index: 1,
+    name: "",
+    security: "WPA/WPA2",
+    password: "",
+    enabled: true,
+  });
 
   const fetchDeviceDetail = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch(`/api/acs/devices/${encodeURIComponent(deviceId)}`)
-      const result = await res.json()
+      const res = await fetch(
+        `/api/acs/devices/${encodeURIComponent(deviceId)}`,
+      );
+      const result = await res.json();
       if (result.success && result.data) {
-        setDevice(result.data)
+        setDevice(result.data);
       } else {
-        showToast('error', result.error || 'Gagal memuat detail perangkat')
-        router.push('/admin/network/acs/devices')
+        showToast("error", result.error || "Gagal memuat detail perangkat");
+        router.push("/admin/network/acs/devices");
       }
     } catch (_err) {
-      showToast('error', 'Terjadi kesalahan sistem')
+      showToast("error", "Terjadi kesalahan sistem");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [deviceId, router, showToast])
+  }, [deviceId, router, showToast]);
 
   useEffect(() => {
-    void fetchDeviceDetail()
-  }, [fetchDeviceDetail])
+    const handle = setTimeout(() => {
+      void fetchDeviceDetail();
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [fetchDeviceDetail]);
 
-  const executeTask = async (taskName: string, payload: Record<string, unknown> = {}) => {
-    setIsSubmitting(true)
+  const executeTask = async (
+    taskName: string,
+    payload: Record<string, unknown> = {},
+  ) => {
+    setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/acs/devices/${encodeURIComponent(deviceId)}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskName, ...payload }),
-      })
-      const result = await res.json()
+      const res = await fetch(
+        `/api/acs/devices/${encodeURIComponent(deviceId)}/tasks`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskName, ...payload }),
+        },
+      );
+      const result = await res.json();
       if (result.success) {
-        showToast('success', 'Perintah berhasil dikirim ke perangkat!')
-        setParamModal((prev) => ({ ...prev, isOpen: false }))
-        setConfirmModal((prev) => ({ ...prev, isOpen: false }))
-        setWanModal((prev) => ({ ...prev, isOpen: false }))
-        setSsidModal((prev) => ({ ...prev, isOpen: false }))
+        showToast("success", "Perintah berhasil dikirim ke perangkat!");
+        setParamModal((prev) => ({ ...prev, isOpen: false }));
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        setWanModal((prev) => ({ ...prev, isOpen: false }));
+        setSsidModal((prev) => ({ ...prev, isOpen: false }));
         setTimeout(() => {
-          void fetchDeviceDetail()
-        }, 3000)
+          void fetchDeviceDetail();
+        }, 3000);
       } else {
-        showToast('error', result.error || 'Gagal mengeksekusi perintah')
+        showToast("error", result.error || "Gagal mengeksekusi perintah");
       }
     } catch (_e) {
-      showToast('error', 'Terjadi kesalahan sistem')
+      showToast("error", "Terjadi kesalahan sistem");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <RefreshCw className="w-10 h-10 text-blue-500 animate-spin mb-4" />
         <p className="text-gray-500 font-medium">Memuat Data Perangkat...</p>
-        <p className="text-sm text-gray-400 mt-2">Mengambil data realtime dari GenieACS</p>
+        <p className="text-sm text-gray-400 mt-2">
+          Mengambil data realtime dari GenieACS
+        </p>
       </div>
-    )
+    );
   }
 
-  if (!device) return null
+  if (!device) return null;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pt-4 pb-12 relative z-0">
@@ -131,7 +169,7 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
         setParamModal={setParamModal}
         setConfirmModal={setConfirmModal}
         onExecuteTask={(taskName, payload) => {
-          void executeTask(taskName, payload)
+          void executeTask(taskName, payload);
         }}
         pppoeUsername={device.virtualParameters.pppoeUsername}
       />
@@ -140,44 +178,56 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
         device={device}
         onBack={() => router.back()}
         onRefresh={() => {
-          void fetchDeviceDetail()
+          void fetchDeviceDetail();
         }}
-        onOpenRebootConfirm={() => setConfirmModal({
-          isOpen: true,
-          action: 'reboot',
-          title: 'Reboot Device',
-          message: 'Apakah Anda yakin ingin me-restart perangkat ini dari jarak jauh? Perangkat akan offline selama 1-3 menit.',
-        })}
-        onOpenFactoryResetConfirm={() => setConfirmModal({
-          isOpen: true,
-          action: 'factoryReset',
-          title: 'Factory Reset',
-          message: 'PERINGATAN BAHAYA: Apakah Anda yakin ingin mereset perangkat ini ke pengaturan pabrik? Semua konfigurasi pelanggan (termasuk PPPoE) akan terhapus dan perangkat harus dikonfigurasi ulang.',
-        })}
-        onOpenSsidModal={() => setSsidModal({
-          isOpen: true,
-          index: 1,
-          name: device.wifiInfo.wlan1.ssid || '',
-          security: 'WPA/WPA2',
-          password: '',
-          enabled: true,
-        })}
-        onOpenWanModal={() => setWanModal({
-          isOpen: true,
-          type: 'pppoe',
-          name: '',
-          vlan: '',
-          user: device.virtualParameters.pppoeUsername || '',
-          pass: '',
-        })}
-        onOpenAdminPasswordModal={() => setParamModal({
-          isOpen: true,
-          type: 'admin-pass',
-          title: 'Ganti Password Admin',
-          parameter: 'InternetGatewayDevice.UserInterface.Password',
-          currentValue: '',
-        })}
+        onOpenRebootConfirm={() =>
+          setConfirmModal({
+            isOpen: true,
+            action: "reboot",
+            title: "Reboot Device",
+            message:
+              "Apakah Anda yakin ingin me-restart perangkat ini dari jarak jauh? Perangkat akan offline selama 1-3 menit.",
+          })
+        }
+        onOpenFactoryResetConfirm={() =>
+          setConfirmModal({
+            isOpen: true,
+            action: "factoryReset",
+            title: "Factory Reset",
+            message:
+              "PERINGATAN BAHAYA: Apakah Anda yakin ingin mereset perangkat ini ke pengaturan pabrik? Semua konfigurasi pelanggan (termasuk PPPoE) akan terhapus dan perangkat harus dikonfigurasi ulang.",
+          })
+        }
+        onOpenSsidModal={() =>
+          setSsidModal({
+            isOpen: true,
+            index: 1,
+            name: device.wifiInfo.wlan1.ssid || "",
+            security: "WPA/WPA2",
+            password: "",
+            enabled: true,
+          })
+        }
+        onOpenWanModal={() =>
+          setWanModal({
+            isOpen: true,
+            type: "pppoe",
+            name: "",
+            vlan: "",
+            user: device.virtualParameters.pppoeUsername || "",
+            pass: "",
+          })
+        }
+        onOpenAdminPasswordModal={() =>
+          setParamModal({
+            isOpen: true,
+            type: "admin-pass",
+            title: "Ganti Password Admin",
+            parameter: "InternetGatewayDevice.UserInterface.Password",
+            currentValue: "",
+          })
+        }
       />
     </div>
-  )
+  );
 }

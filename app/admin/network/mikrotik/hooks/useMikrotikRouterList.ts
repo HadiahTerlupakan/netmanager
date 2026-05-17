@@ -95,7 +95,10 @@ export function useMikrotikRouterList() {
   }, [page, limit, debouncedSearch]);
 
   useEffect(() => {
-    void fetchRouters();
+    const handle = setTimeout(() => {
+      void fetchRouters();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchRouters]);
 
   useRealtimeScope({ kind: "admin", id: "mikrotik" });

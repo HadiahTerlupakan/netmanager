@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HiOutlineChevronLeft } from "react-icons/hi2";
 import axios from "axios";
@@ -49,9 +49,12 @@ export default function CanvasingEditClient({ id }: { id: string }) {
     }
   }, [id]);
 
-  useEffect(() => {
+  // Pattern E: fetchOnMount with hasFetched comparator (avoid setState-in-effect)
+  const [hasFetchedFor, setHasFetchedFor] = useState<string | null>(null);
+  if (hasFetchedFor !== id) {
+    setHasFetchedFor(id);
     void loadCanvasingDetail();
-  }, [loadCanvasingDetail]);
+  }
 
   async function handleSubmit(values: CanvasingFormValues) {
     setIsProcessing(true);

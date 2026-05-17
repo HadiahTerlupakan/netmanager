@@ -46,9 +46,14 @@ export default function PelangganPPPPage() {
   }, [searchQuery]);
 
   // Reset page when other filters change
-  useEffect(() => {
+  const [prevFilterKey, setPrevFilterKey] = useState<string>(
+    `${siteId ?? ""}|${statusFilter}`,
+  );
+  const filterKey = `${siteId ?? ""}|${statusFilter}`;
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setPage(1);
-  }, [siteId, statusFilter]);
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -121,9 +126,12 @@ export default function PelangganPPPPage() {
     }
   }, [siteId, debouncedSearch, statusFilter, page, limit]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const [prevLoadKey, setPrevLoadKey] = useState<string | null>(null);
+  const loadKey = `${siteId ?? ""}|${debouncedSearch}|${statusFilter}|${page}|${limit}`;
+  if (prevLoadKey !== loadKey) {
+    setPrevLoadKey(loadKey);
+    void loadData();
+  }
 
   const handleDelete = async (id: string) => {
     if (

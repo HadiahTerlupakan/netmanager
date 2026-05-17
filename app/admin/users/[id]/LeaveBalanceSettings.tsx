@@ -105,9 +105,11 @@ export default function LeaveBalanceSettings({
   }, [userId, currentYear]);
 
   useEffect(() => {
-    if (!isFlexible) {
-      fetchBalances();
-    }
+    if (isFlexible) return undefined;
+    const handle = setTimeout(() => {
+      void fetchBalances();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [isFlexible, fetchBalances]);
 
   useEffect(() => {

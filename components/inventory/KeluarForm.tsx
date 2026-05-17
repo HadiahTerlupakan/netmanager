@@ -69,6 +69,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
   >([]);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const photoUploadRef = useRef<PhotoUploadRef>(null);
+  const [tempId] = useState<string>(() => `temp-${Date.now()}`);
 
   /** Get available stock for the currently selected kondisi */
   const getStockForKondisi = useCallback(
@@ -187,8 +188,13 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     fetchCurrentStock();
   }, [formData.barangId, formData.gudangId, barangs]);
 
-  // Reset form when condition changes to ensure proper behavior
-  useEffect(() => {
+  // Pattern C: reset jumlah saat kondisi/stok/barang/gudang berubah (render-time)
+  const kondisiResetKey = `${formData.barangId}|${formData.gudangId}|${formData.kondisi}|${stockByCondition.totalStok}`;
+  const [prevKondisiResetKey, setPrevKondisiResetKey] = useState<string | null>(
+    null,
+  );
+  if (prevKondisiResetKey !== kondisiResetKey) {
+    setPrevKondisiResetKey(kondisiResetKey);
     if (
       formData.barangId &&
       formData.gudangId &&
@@ -196,7 +202,6 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     ) {
       const kondisiStok = getStockForKondisi();
 
-      // Reset jumlah to 1 if switching to a condition with stock but no valid current value
       if (
         kondisiStok > 0 &&
         (parseInt(formData.jumlah || "0") > kondisiStok ||
@@ -204,22 +209,20 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
       ) {
         setFormData((prev) => ({ ...prev, jumlah: "1" }));
       } else if (kondisiStok === 0) {
-        // Clear jumlah if switching to condition with no stock
         setFormData((prev) => ({ ...prev, jumlah: "" }));
       }
     }
-  }, [
-    formData.kondisi,
-    stockByCondition,
-    formData.barangId,
-    formData.gudangId,
-    formData.jumlah,
-    getStockForKondisi,
-  ]);
+  }
 
-  // Effect to handle photo upload completion
-  useEffect(() => {
-    // Check if all photos have been uploaded successfully
+  // Pattern C: photo upload completion handler (render-time prev comparator)
+  const photoCompletionKey = transactionId
+    ? `${transactionId}|${uploadedPhotos.length}|${uploadedPhotos.map((p) => p.status).join(",")}`
+    : null;
+  const [prevPhotoCompletionKey, setPrevPhotoCompletionKey] = useState<
+    string | null
+  >(null);
+  if (prevPhotoCompletionKey !== photoCompletionKey) {
+    setPrevPhotoCompletionKey(photoCompletionKey);
     if (transactionId && uploadedPhotos.length > 0) {
       const allUploaded = uploadedPhotos.every(
         (photo) => photo.status === "success",
@@ -252,7 +255,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         );
       }
     }
-  }, [uploadedPhotos, transactionId, onClose]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -774,7 +777,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           )}
           <PhotoUpload
             ref={photoUploadRef}
-            transactionId={transactionId || "temp-" + Date.now()}
+            transactionId={transactionId || tempId}
             transactionType="inventory-keluar"
             onPhotosChange={setUploadedPhotos}
             maxPhotos={5}

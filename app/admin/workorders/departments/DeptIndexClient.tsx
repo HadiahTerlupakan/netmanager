@@ -59,7 +59,10 @@ export function ClientComponent() {
   }, [search]);
 
   useEffect(() => {
-    fetchDepartments();
+    const handle = setTimeout(() => {
+      void fetchDepartments();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchDepartments]);
 
   const handleDelete = async (id: string, name: string) => {

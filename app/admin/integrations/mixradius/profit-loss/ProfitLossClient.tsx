@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   HiOutlineCurrencyDollar,
   HiOutlineArrowTrendingUp,
@@ -23,6 +23,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { useApi } from "@/lib/hooks/useApi";
 
 ChartJS.register(
   CategoryScale,
@@ -62,13 +63,17 @@ interface ProfitLossData {
     fees: number;
     tax: number;
   }[];
+  isConfigError?: boolean;
+  error?: string;
+}
+
+interface ProfitLossEnvelope {
+  success?: boolean;
+  data?: ProfitLossData;
+  error?: string;
 }
 
 export default function ProfitLossClient() {
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<ProfitLossData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   // Default: Current Month (Local Time safe)
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
@@ -86,36 +91,42 @@ export default function ProfitLossClient() {
     return `${year}-${month}-${day}`;
   });
 
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const apiUrl = useMemo(() => {
+    const params = new URLSearchParams({ startDate, endDate });
+    return `/api/integrations/mixradius/profit-loss?${params}`;
   }, [startDate, endDate]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ startDate, endDate });
-      const res = await fetch(
-        `/api/integrations/mixradius/profit-loss?${params}`,
-      );
-      const json = await res.json();
-      const payload = json.data ?? json;
-      if (payload.isConfigError) {
-        setError(payload.error);
-        setData(payload);
-      } else if (json.success !== false) {
-        setData(payload);
-      } else {
-        setError(json.error || "Gagal mengambil data");
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch P&L", error);
-      setError("Gagal mengambil data dari server. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
+  const {
+    data: rawJson,
+    error: fetchError,
+    isLoading: loading,
+  } = useApi<ProfitLossEnvelope | ProfitLossData>(apiUrl);
+
+  const { data, error } = useMemo<{
+    data: ProfitLossData | null;
+    error: string | null;
+  }>(() => {
+    if (fetchError) {
+      clientLogger.error("Failed to fetch P&L", fetchError);
+      return {
+        data: null,
+        error: "Gagal mengambil data dari server. Silakan coba lagi.",
+      };
     }
-  };
+    if (!rawJson) {
+      return { data: null, error: null };
+    }
+    const envelope = rawJson as ProfitLossEnvelope;
+    const payload: ProfitLossData =
+      (envelope?.data as ProfitLossData) ?? (rawJson as ProfitLossData);
+    if (payload?.isConfigError) {
+      return { data: payload, error: payload.error ?? null };
+    }
+    if (envelope?.success === false) {
+      return { data: null, error: envelope.error || "Gagal mengambil data" };
+    }
+    return { data: payload, error: null };
+  }, [rawJson, fetchError]);
 
   // Chart Data Configuration
   const chartData = {

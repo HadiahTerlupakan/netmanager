@@ -62,7 +62,10 @@ export function AttendanceAnalytics({
   }, [days]);
 
   useEffect(() => {
-    fetchAnalytics();
+    const handle = setTimeout(() => {
+      void fetchAnalytics();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchAnalytics]);
 
   if (loading) {

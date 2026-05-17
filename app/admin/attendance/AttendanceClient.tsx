@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaSearch, FaFileExport, FaBuilding } from "react-icons/fa";
 import {
   MdDelete,
@@ -18,6 +19,7 @@ import { MissedCheckInCorrectionModal } from "@/app/admin/attendance/components/
 import { usePermission } from "@/hooks/use-permission";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   getCanonicalAttendanceLabel,
   getDayOffDisplayLabel,
@@ -28,6 +30,8 @@ import {
   fetchWithHandling,
   isFetchError,
   formatErrorMessage,
+  type ApiResponse,
+  type FetchError,
 } from "@/lib/utils/fetch-wrapper";
 import {
   formatForDateTimeInput,
@@ -44,6 +48,21 @@ import {
 import { canCorrectMissedCheckInAttendance } from "./attendance-helpers";
 import type { Attendance, AttendanceOption } from "./attendance-types";
 
+const fullResponseFetcher = async (
+  url: string,
+): Promise<ApiResponse<Attendance[]>> => {
+  const res = await fetchWithHandling<Attendance[]>(url);
+  if (!res.success) {
+    const err: FetchError = {
+      status: 0,
+      message: res.error || "Unknown error",
+      details: res.details,
+    };
+    throw err;
+  }
+  return res;
+};
+
 export function ClientComponent() {
   const { hasPermission } = usePermission();
   const { showToast } = useToast();
@@ -53,21 +72,13 @@ export function ClientComponent() {
     "attendance:correct-missed-checkin",
   );
 
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
   const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>(
     [],
   );
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
-
-  // Options
-  const [sites, setSites] = useState<AttendanceOption[]>([]);
-  const [departments, setDepartments] = useState<AttendanceOption[]>([]);
 
   // Filters
   const [startDate, setStartDate] = useState(() => {
@@ -96,118 +107,123 @@ export function ClientComponent() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const debouncedStatusDetail = useDebounce(statusDetail, 300);
 
-  // Summary
-  const [summary, setSummary] = useState<Record<string, number>>({});
+  // Options - via useApi
+  const { data: optionsData, error: optionsError } = useApi<{
+    sites: AttendanceOption[];
+    departments: AttendanceOption[];
+  }>("/api/admin/options?resource=attendance");
+  const sites = optionsData?.sites ?? [];
+  const departments = optionsData?.departments ?? [];
+
+  useEffect(() => {
+    if (optionsError) {
+      showToast("error", formatErrorMessage(optionsError));
+    }
+  }, [optionsError, showToast]);
+
+  // Build attendances URL (skip when retry countdown active or date range invalid)
+  const attendancesUrl = useMemo(() => {
+    if (retryCountdown !== null) return null;
+    const validation = validateDateRange(debouncedStartDate, debouncedEndDate);
+    if (!validation.valid) return null;
+
+    const params: Record<string, string> = {
+      page: page.toString(),
+      limit: pageSize.toString(),
+      startDate: debouncedStartDate,
+      endDate: debouncedEndDate || "",
+    };
+    if (debouncedSiteId) params.siteId = debouncedSiteId;
+    if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId;
+    if (debouncedSearchQuery) params.search = debouncedSearchQuery;
+    if (debouncedStatusDetail) params.statusDetail = debouncedStatusDetail;
+
+    const query = new URLSearchParams(params);
+    return `/api/admin/attendance?${query.toString()}`;
+  }, [
+    page,
+    pageSize,
+    debouncedStartDate,
+    debouncedEndDate,
+    debouncedSiteId,
+    debouncedDepartmentId,
+    debouncedSearchQuery,
+    debouncedStatusDetail,
+    retryCountdown,
+  ]);
+
+  const queryClient = useQueryClient();
+  const {
+    data: attendancesResp,
+    error: attendancesError,
+    isPending,
+  } = useQuery<ApiResponse<Attendance[]>, FetchError>({
+    queryKey: ["attendances", attendancesUrl] as const,
+    queryFn: () => fullResponseFetcher(attendancesUrl!),
+    enabled: attendancesUrl !== null,
+  });
+  const refetchAttendances = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: ["attendances", attendancesUrl],
+      }),
+    [queryClient, attendancesUrl],
+  );
+  const isLoading = isPending && attendancesUrl !== null;
+
+  const attendances = attendancesResp?.data ?? [];
+  const totalPages = attendancesResp?.pagination?.totalPages ?? 1;
+  const totalItems = attendancesResp?.pagination?.total ?? 0;
+  const summary = attendancesResp?.summary ?? {};
+  const loading = isLoading && attendancesUrl !== null;
+
+  // React to attendances error — set countdown via prev-comparator pattern,
+  // toast as side effect.
+  const [prevAttendancesError, setPrevAttendancesError] =
+    useState<typeof attendancesError>(undefined);
+  if (prevAttendancesError !== attendancesError) {
+    setPrevAttendancesError(attendancesError);
+    if (attendancesError?.retryAfter) {
+      setRetryCountdown(attendancesError.retryAfter);
+    }
+  }
+
+  useEffect(() => {
+    if (attendancesError) {
+      showToast("error", formatErrorMessage(attendancesError));
+    }
+  }, [attendancesError, showToast]);
+
+  // Validate date range — show toast saat user ubah ke range invalid
+  useEffect(() => {
+    const validation = validateDateRange(debouncedStartDate, debouncedEndDate);
+    if (!validation.valid && validation.error) {
+      showToast("error", validation.error);
+    }
+  }, [debouncedStartDate, debouncedEndDate, showToast]);
+
+  // Handle rate limit countdown
+  useEffect(() => {
+    if (retryCountdown === null) return;
+    const timer = setTimeout(() => {
+      setRetryCountdown((prev) => {
+        if (prev === null) return prev;
+        if (prev <= 1) return null;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [retryCountdown]);
+
+  const fetchAttendances = useCallback(() => {
+    void refetchAttendances();
+  }, [refetchAttendances]);
 
   const currentPageIds = attendances.map((attendance) => attendance.id);
   const isAllCurrentPageSelected = areAllAttendanceIdsSelected(
     selectedAttendanceIds,
     currentPageIds,
   );
-
-  // Handle rate limit countdown
-  useEffect(() => {
-    if (retryCountdown !== null && retryCountdown > 0) {
-      const timer = setTimeout(
-        () => setRetryCountdown(retryCountdown - 1),
-        1000,
-      );
-      return () => clearTimeout(timer);
-    } else if (retryCountdown === 0) {
-      setRetryCountdown(null);
-    }
-  }, [retryCountdown]);
-
-  const fetchOptions = useCallback(async () => {
-    try {
-      const response = await fetchWithHandling<{
-        sites: { id: string; name: string }[];
-        departments: { id: string; name: string }[];
-      }>("/api/admin/options?resource=attendance");
-      if (response.data) {
-        setSites(response.data.sites || []);
-        setDepartments(response.data.departments || []);
-      }
-    } catch (error) {
-      if (isFetchError(error)) {
-        showToast("error", formatErrorMessage(error));
-      }
-    }
-  }, [showToast]);
-
-  const fetchAttendances = useCallback(
-    async (signal?: AbortSignal) => {
-      if (retryCountdown !== null) return;
-
-      const validation = validateDateRange(
-        debouncedStartDate,
-        debouncedEndDate,
-      );
-      if (!validation.valid) {
-        showToast("error", validation.error!);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params: Record<string, string> = {
-          page: page.toString(),
-          limit: pageSize.toString(),
-          startDate: debouncedStartDate,
-          endDate: debouncedEndDate || "",
-        };
-        if (debouncedSiteId) params.siteId = debouncedSiteId;
-        if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId;
-        if (debouncedSearchQuery) params.search = debouncedSearchQuery;
-        if (debouncedStatusDetail) params.statusDetail = debouncedStatusDetail;
-
-        const query = new URLSearchParams(params);
-        const response = await fetchWithHandling<Attendance[]>(
-          `/api/admin/attendance?${query.toString()}`,
-          { signal },
-        );
-
-        setAttendances(response.data || []);
-        setTotalPages(response.pagination?.totalPages || 1);
-        setTotalItems(response.pagination?.total || 0);
-        if (response.summary) setSummary(response.summary);
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return;
-        if (isFetchError(error)) {
-          if (error.retryAfter) {
-            setRetryCountdown(error.retryAfter);
-          }
-          showToast("error", formatErrorMessage(error));
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
-      }
-    },
-    [
-      page,
-      pageSize,
-      debouncedStartDate,
-      debouncedEndDate,
-      debouncedSiteId,
-      debouncedDepartmentId,
-      debouncedSearchQuery,
-      debouncedStatusDetail,
-      retryCountdown,
-      showToast,
-    ],
-  );
-
-  useEffect(() => {
-    fetchOptions();
-  }, [fetchOptions]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchAttendances(controller.signal);
-    return () => controller.abort();
-  }, [fetchAttendances]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menghapus data absensi ini?")) return;

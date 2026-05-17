@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { HiOutlinePlayPause, HiOutlineTrash } from "react-icons/hi2";
 
 import { clientLogger } from "@/lib/client-logger";
@@ -110,13 +110,17 @@ export function AppUpdateClient() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+  const [hasFetchedRows, setHasFetchedRows] = useState(false);
+  if (!hasFetchedRows) {
+    setHasFetchedRows(true);
+    void fetchRows();
+  }
 
-  useEffect(() => {
-    fetchContactSettings();
-  }, [fetchContactSettings]);
+  const [hasFetchedContact, setHasFetchedContact] = useState(false);
+  if (!hasFetchedContact) {
+    setHasFetchedContact(true);
+    void fetchContactSettings();
+  }
 
   const refresh = useCallback(() => {
     fetchRows();

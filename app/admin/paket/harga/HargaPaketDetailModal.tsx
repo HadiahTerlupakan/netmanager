@@ -1,46 +1,31 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from 'react'
+import { Modal } from "@/components/ui/Modal";
 
-import { Modal } from '@/components/ui/Modal'
-
-import { HargaDetailContent } from '@/app/admin/paket/harga/components/HargaDetailContent'
-import type { HargaPaketDetail } from '@/app/admin/paket/harga/lib/hargaTypes'
+import { HargaDetailContent } from "@/app/admin/paket/harga/components/HargaDetailContent";
+import type { HargaPaketDetail } from "@/app/admin/paket/harga/lib/hargaTypes";
+import { useApi } from "@/lib/hooks/useApi";
 
 type HargaPaketDetailModalProps = {
-  open: boolean
-  onClose: () => void
-  paketId: string | null
-}
+  open: boolean;
+  onClose: () => void;
+  paketId: string | null;
+};
 
-export default function HargaPaketDetailModal({ open, onClose, paketId }: HargaPaketDetailModalProps) {
-  const [paket, setPaket] = useState<HargaPaketDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export default function HargaPaketDetailModal({
+  open,
+  onClose,
+  paketId,
+}: HargaPaketDetailModalProps) {
+  const shouldFetch = open && paketId;
+  const { data, error, isLoading } = useApi<HargaPaketDetail>(
+    shouldFetch ? `/api/hargapakets/${paketId}` : null,
+  );
 
-  useEffect(() => {
-    if (open && paketId) {
-      void loadDetail(paketId)
-    } else {
-      setPaket(null)
-      setError(null)
-    }
-  }, [open, paketId])
-
-  const loadDetail = async (id: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/hargapakets/${id}`)
-      if (!res.ok) throw new Error('Gagal memuat detail paket')
-      const result = await res.json()
-      setPaket(result.data || result)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const paket: HargaPaketDetail | null = data ?? null;
+  const errorMessage = error
+    ? error.message || "Gagal memuat detail paket"
+    : null;
 
   return (
     <Modal
@@ -51,9 +36,9 @@ export default function HargaPaketDetailModal({ open, onClose, paketId }: HargaP
     >
       <HargaDetailContent
         paket={paket}
-        loading={loading}
-        error={error}
+        loading={isLoading}
+        error={errorMessage}
       />
     </Modal>
-  )
+  );
 }

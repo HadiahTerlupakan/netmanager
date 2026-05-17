@@ -1,13 +1,13 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { HiPlus, HiPencil, HiTrash, HiDocumentText } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
 import { buttonVariants } from "@/components/ui/Button";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface TemplateItem {
   id: string;
@@ -31,27 +31,14 @@ export default function TemplatesClient() {
   const canCreate = hasPermission("wo_template:create");
   const canDelete = hasPermission("wo_template:delete");
 
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading, mutate } = useApi<Template[]>(
+    "/api/admin/workorders/templates",
+  );
+  const templates: Template[] = Array.isArray(data) ? data : [];
 
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    try {
-      const res = await fetch("/api/admin/workorders/templates");
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data.data || []);
-      }
-    } catch (error: unknown) {
-      clientLogger.error("Failed to fetch templates", error);
-      toast.error("Gagal memuat template");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (error) {
+    clientLogger.error("Failed to fetch templates", error);
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menghapus template ini?")) return;
@@ -62,17 +49,17 @@ export default function TemplatesClient() {
       });
       if (res.ok) {
         toast.success("Template berhasil dihapus");
-        fetchTemplates();
+        await mutate();
       } else {
         toast.error("Gagal menghapus template");
       }
-    } catch (error: unknown) {
-      clientLogger.error("Error deleting template", error);
+    } catch (deleteError: unknown) {
+      clientLogger.error("Error deleting template", deleteError);
       toast.error("Terjadi kesalahan");
     }
   };
 
-  if (loading) return <PageLoader />;
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

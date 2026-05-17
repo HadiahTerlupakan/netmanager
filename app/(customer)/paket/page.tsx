@@ -1,7 +1,6 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import {
@@ -18,26 +17,23 @@ import {
 } from "react-icons/md";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface PackageData {
-  profile: {
+  nama: string;
+  idPelanggan: string;
+  status: string;
+  alamat: string;
+  jatuhTempo: string;
+  paket: {
     nama: string;
-    idPelanggan: string;
-    status: string;
-    alamat: string;
-    jatuhTempo: string;
-    paket: {
-      nama: string;
-      harga: number;
-      bandwidth: { download: string; upload: string } | null;
-    } | null;
-  };
+    harga: number;
+    bandwidth: { download: string; upload: string } | null;
+  } | null;
 }
 
 export default function CustomerPaketPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
-  const [data, setData] = useState<PackageData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,25 +42,9 @@ export default function CustomerPaketPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchData();
-    }
-  }, [isAuthenticated]);
-
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/customer/profile");
-      const json = await res.json();
-      if (json.success) {
-        setData(json);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch package data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data, isLoading } = useApi<{ profile: PackageData }>(
+    isAuthenticated ? "/api/customer/profile" : null,
+  );
 
   const getPeriodString = (jatuhTempo: string) => {
     if (!jatuhTempo) return "-";

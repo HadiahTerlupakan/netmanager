@@ -209,7 +209,10 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
   }, []);
 
   useEffect(() => {
-    loadSettings();
+    const handle = setTimeout(() => {
+      void loadSettings();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadSettings]);
 
   const handleChange = (

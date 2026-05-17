@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   FiEdit2,
   FiTrash2,
@@ -95,9 +95,11 @@ export function OpnameReportTable({
     }
   }, [currentPage, _filters.barangId, _filters.gudangId, limit]);
 
-  useEffect(() => {
-    fetchOpnameList();
-  }, [fetchOpnameList, refreshTrigger]);
+  const [prevTrigger, setPrevTrigger] = useState<number | null>(null);
+  if (prevTrigger !== refreshTrigger) {
+    setPrevTrigger(refreshTrigger);
+    void fetchOpnameList();
+  }
 
   const handleDelete = async (id: string) => {
     // Check if ID is valid

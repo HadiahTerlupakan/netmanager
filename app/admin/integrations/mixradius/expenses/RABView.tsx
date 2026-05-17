@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
@@ -17,6 +17,7 @@ import {
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
 import { calculateRabUnitCosts } from "@/modules/finance/client";
+import { useApi } from "@/lib/hooks/useApi";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
 import type {
@@ -72,8 +73,6 @@ export default function RABView({
   const [revisions, setRevisions] = useState<RABRevisionRecord[]>([]);
   const [revisionSummary, setRevisionSummary] =
     useState<RABRevisionProfitLossSummary | null>(null);
-  const [isLoadingRevisionAnalytics, setIsLoadingRevisionAnalytics] =
-    useState(false);
   const [isSubmittingRevisionId, setIsSubmittingRevisionId] = useState<
     string | null
   >(null);
@@ -82,50 +81,79 @@ export default function RABView({
     useState<RABRevisionRecord | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
 
-  useEffect(() => {
+  // Sync actuals from data prop — using prevProp comparator
+  const [prevDataRef, setPrevDataRef] = useState(data);
+  if (prevDataRef !== data) {
+    setPrevDataRef(data);
     if (data) {
       setActuals(data.actualAchievements || []);
     }
-  }, [data]);
+  }
 
-  const loadRevisionAnalytics = useCallback(async (projectId: string) => {
-    setIsLoadingRevisionAnalytics(true);
+  // Revision analytics: fetch via useApi when modal open + data.id present
+  const projectId = data?.id;
+  const shouldFetchRevisions = Boolean(isOpen && projectId);
 
-    try {
-      const [revisionResponse, summaryResponse] = await Promise.all([
-        fetch(`/api/finance/rab-projects/${projectId}/revisions`),
-        fetch(`/api/finance/rab-projects/${projectId}/revision-profit-loss`),
-      ]);
+  const {
+    data: revisionResp,
+    error: revisionErr,
+    isLoading: isLoadingRevisions,
+    mutate: refetchRevisions,
+  } = useApi<{ data: RABRevisionRecord[] }>(
+    shouldFetchRevisions
+      ? `/api/finance/rab-projects/${projectId}/revisions`
+      : null,
+  );
 
-      const revisionBody = await revisionResponse.json();
-      const summaryBody = await summaryResponse.json();
+  const {
+    data: summaryResp,
+    error: summaryErr,
+    isLoading: isLoadingSummary,
+    mutate: refetchSummary,
+  } = useApi<{ data: RABRevisionProfitLossSummary | null }>(
+    shouldFetchRevisions
+      ? `/api/finance/rab-projects/${projectId}/revision-profit-loss`
+      : null,
+  );
 
-      if (!revisionResponse.ok) {
-        throw new Error(revisionBody.error || "Gagal memuat histori revisi");
-      }
+  const isLoadingRevisionAnalytics = isLoadingRevisions || isLoadingSummary;
 
-      if (!summaryResponse.ok) {
-        throw new Error(summaryBody.error || "Gagal memuat ringkasan revisi");
-      }
+  // Mirror SWR data ke local state revisi/summary
+  const fetchedRevisions = useMemo(
+    () => revisionResp?.data ?? [],
+    [revisionResp],
+  );
+  const fetchedSummary = useMemo(
+    () => summaryResp?.data ?? null,
+    [summaryResp],
+  );
 
-      setRevisions(revisionBody.data || []);
-      setRevisionSummary(summaryBody.data || null);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Gagal memuat data revisi RAB",
-      );
-    } finally {
-      setIsLoadingRevisionAnalytics(false);
+  const [prevFetchedRevisions, setPrevFetchedRevisions] =
+    useState(fetchedRevisions);
+  if (prevFetchedRevisions !== fetchedRevisions) {
+    setPrevFetchedRevisions(fetchedRevisions);
+    setRevisions(fetchedRevisions);
+  }
+
+  const [prevFetchedSummary, setPrevFetchedSummary] = useState(fetchedSummary);
+  if (prevFetchedSummary !== fetchedSummary) {
+    setPrevFetchedSummary(fetchedSummary);
+    setRevisionSummary(fetchedSummary);
+  }
+
+  // Toast errors via prevError comparator
+  const fetchError = revisionErr || summaryErr;
+  const [prevFetchError, setPrevFetchError] = useState(fetchError);
+  if (prevFetchError !== fetchError) {
+    setPrevFetchError(fetchError);
+    if (fetchError) {
+      toast.error(fetchError.message || "Gagal memuat data revisi RAB");
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    if (!isOpen || !data?.id) {
-      return;
-    }
-
-    void loadRevisionAnalytics(data.id);
-  }, [data?.id, isOpen, loadRevisionAnalytics]);
+  const loadRevisionAnalytics = useCallback(async () => {
+    await Promise.all([refetchRevisions(), refetchSummary()]);
+  }, [refetchRevisions, refetchSummary]);
 
   const handleApproveRevision = async (revision: RABRevisionRecord) => {
     if (!data) {
@@ -146,7 +174,7 @@ export default function RABView({
       }
 
       toast.success(body.message || "Revisi berhasil disetujui");
-      await loadRevisionAnalytics(data.id);
+      await loadRevisionAnalytics();
       onRefresh?.();
     } catch (error) {
       toast.error(
@@ -189,7 +217,7 @@ export default function RABView({
       setIsRejectModalOpen(false);
       setRejectingRevision(null);
       setRejectNotes("");
-      await loadRevisionAnalytics(data.id);
+      await loadRevisionAnalytics();
       onRefresh?.();
     } catch (error) {
       toast.error(

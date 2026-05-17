@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   HiOutlineUserCircle,
   HiOutlinePlus,
@@ -92,17 +92,21 @@ export default function TenantAdminList({
     }
   }, [selectedTenantId]);
 
-  useEffect(() => {
-    fetchTenants();
-  }, [fetchTenants]);
+  const [hasFetchedTenants, setHasFetchedTenants] = useState(false);
+  if (!hasFetchedTenants) {
+    setHasFetchedTenants(true);
+    void fetchTenants();
+  }
 
-  useEffect(() => {
+  const [prevTenantId, setPrevTenantId] = useState<string | null>(null);
+  if (prevTenantId !== selectedTenantId) {
+    setPrevTenantId(selectedTenantId);
     if (selectedTenantId) {
-      fetchAdmins();
+      void fetchAdmins();
     } else {
       setUsers([]);
     }
-  }, [selectedTenantId, fetchAdmins]);
+  }
 
   const handleOpenCreate = () => {
     setIsEditMode(false);

@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import {
   HiOutlineBell,
@@ -68,13 +68,18 @@ export function ClientComponent() {
     }
   }, [page, activeFilter, limit]);
 
-  useEffect(() => {
+  const [prevFilter, setPrevFilter] = useState<FilterType>(activeFilter);
+  if (prevFilter !== activeFilter) {
+    setPrevFilter(activeFilter);
     setPage(1);
-  }, [activeFilter]);
+  }
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${page}|${activeFilter}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchNotifications();
+  }
 
   const markAsRead = async (notificationId: string) => {
     try {

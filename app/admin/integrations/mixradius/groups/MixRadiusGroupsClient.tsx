@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentProps, useState, useEffect } from "react";
+import { type ComponentProps, useState, useEffect, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -12,6 +12,7 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface OwnerGroup {
   id: string;
@@ -36,17 +37,75 @@ export default function MixRadiusGroupsClient() {
   const canUpdate = hasPermission("mixradius_sites:update");
   const canDelete = hasPermission("mixradius_sites:delete");
 
-  // logger.info('MixRadiusGroups Permissions:', {
-  //   canCreate,
-  //   hasSiteCreate: hasPermission('mixradius_sites:create'),
-  //   hasGenericCreate: hasPermission('mixradius:create'),
-  //   allPermissions: hasPermission('mixradius:create') // Just checking generic
-  // })
+  const {
+    data: rawGroups,
+    error: groupsError,
+    isLoading: groupsLoading,
+    mutate: mutateGroups,
+  } = useApi<{ data?: OwnerGroup[] } | OwnerGroup[]>(
+    "/api/integrations/mixradius/groups",
+  );
+  const {
+    data: rawOwners,
+    error: ownersError,
+    isLoading: ownersLoading,
+  } = useApi<{ data?: unknown[] } | unknown[]>(
+    "/api/integrations/mixradius/owners",
+  );
+  const {
+    data: rawSitesData,
+    error: sitesFetchError,
+    isLoading: sitesLoading,
+  } = useApi<{ data?: Site[] } | Site[]>("/api/admin/sites?activeOnly=true");
 
-  const [groups, setGroups] = useState<OwnerGroup[]>([]);
-  const [owners, setOwners] = useState<string[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (groupsError) {
+      toast.error(groupsError.message || "Gagal mengambil data grup/site");
+    }
+  }, [groupsError]);
+  useEffect(() => {
+    if (ownersError) {
+      const detail = (ownersError.details ?? {}) as {
+        isConfigError?: boolean;
+      };
+      if (detail.isConfigError) {
+        toast.error(
+          "Pengaturan akun MixRadius belum valid. Buka menu Akun MixRadius untuk memperbaiki URL/kredensial.",
+        );
+      } else {
+        toast.error(ownersError.message || "Gagal mengambil data owner");
+      }
+    }
+  }, [ownersError]);
+  useEffect(() => {
+    if (sitesFetchError) {
+      toast.error(
+        sitesFetchError.message || "Gagal mengambil data site manajemen",
+      );
+    }
+  }, [sitesFetchError]);
+
+  const loading = groupsLoading || ownersLoading || sitesLoading;
+
+  const groups: OwnerGroup[] = Array.isArray(rawGroups)
+    ? rawGroups
+    : (rawGroups?.data ?? []);
+
+  const owners = useMemo<string[]>(() => {
+    const list: unknown[] = Array.isArray(rawOwners)
+      ? rawOwners
+      : (rawOwners?.data ?? []);
+    return list.map((o) =>
+      typeof o === "object" && o && "name" in o
+        ? (o as { name: string }).name
+        : String(o),
+    );
+  }, [rawOwners]);
+
+  const sites: Site[] = Array.isArray(rawSitesData)
+    ? rawSitesData
+    : (rawSitesData?.data ?? []);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -58,64 +117,6 @@ export default function MixRadiusGroupsClient() {
     siteId: "",
     isActive: true,
   });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [groupsRes, ownersRes, sitesRes] = await Promise.all([
-        fetch("/api/integrations/mixradius/groups"),
-        fetch("/api/integrations/mixradius/owners"),
-        fetch("/api/admin/sites?activeOnly=true"),
-      ]);
-
-      if (!groupsRes.ok) {
-        const err = await groupsRes.json().catch(() => ({}));
-        throw new Error(err.error || "Gagal mengambil data grup/site");
-      }
-      if (!ownersRes.ok) {
-        const err = await ownersRes.json().catch(() => ({}));
-        if (err?.details?.isConfigError) {
-          throw new Error(
-            "Pengaturan akun MixRadius belum valid. Buka menu Akun MixRadius untuk memperbaiki URL/kredensial.",
-          );
-        }
-        throw new Error(err.error || "Gagal mengambil data owner");
-      }
-      if (!sitesRes.ok) {
-        const err = await sitesRes.json().catch(() => ({}));
-        throw new Error(err.error || "Gagal mengambil data site manajemen");
-      }
-
-      const groupsData = await groupsRes.json();
-      const ownersData = await ownersRes.json();
-      const sitesData = await sitesRes.json();
-
-      // Handle both { data: [...] } and direct array response
-      setGroups(Array.isArray(groupsData) ? groupsData : groupsData.data || []);
-      const rawOwners = Array.isArray(ownersData)
-        ? ownersData
-        : ownersData.data || [];
-      // Map to strings if api returns objects {id, name}
-      setOwners(
-        rawOwners.map((o: unknown) =>
-          typeof o === "object" && o && "name" in o
-            ? (o as { name: string }).name
-            : String(o),
-        ),
-      );
-      setSites(Array.isArray(sitesData) ? sitesData : sitesData.data || []);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Gagal mengambil data",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = async (
     e,
@@ -153,7 +154,7 @@ export default function MixRadiusGroupsClient() {
         editingId ? "Site berhasil diperbarui" : "Site berhasil dibuat",
       );
       setIsModalOpen(false);
-      fetchData();
+      await mutateGroups();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menyimpan data site",
@@ -175,7 +176,7 @@ export default function MixRadiusGroupsClient() {
       }
 
       toast.success("Site berhasil dihapus");
-      fetchData();
+      await mutateGroups();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menghapus site",

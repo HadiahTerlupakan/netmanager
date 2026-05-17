@@ -3,11 +3,12 @@
 import { clientLogger } from "@/lib/client-logger";
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBack,
   MdSend,
@@ -56,8 +57,6 @@ export default function TicketDetailPage() {
   const params = useParams();
   const ticketId = params.id as string;
 
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -72,41 +71,39 @@ export default function TicketDetailPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    data: ticketData,
+    isLoading: ticketLoading,
+    mutate: mutateTicket,
+  } = useApi<{ ticket: Ticket }>(
+    isAuthenticated ? `/api/customer/tickets/${ticketId}` : null,
+  );
+  const ticket = ticketData?.ticket ?? null;
+
   // Real-time chat via WebSocket
   const { replies, isConnected, setReplies, addReply } = useRealtimeTicketChat({
     ticketId,
     initialReplies: ticket?.replies || [],
   });
 
-  const loadTicket = useCallback(
-    async (showLoading = false) => {
-      if (showLoading) setLoading(true);
-      try {
-        const res = await fetch(`/api/customer/tickets/${ticketId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setTicket(data.ticket);
-          // Update replies for WebSocket hook
-          setReplies(data.ticket.replies || []);
-        }
-      } catch (error) {
-        clientLogger.error("Error loading ticket:", error);
-      } finally {
-        if (showLoading) setLoading(false);
-      }
-    },
-    [ticketId, setReplies],
-  );
+  // Sync fetched replies into the realtime hook (prevValue comparator pattern)
+  const fetchedReplies = ticket?.replies;
+  const [prevFetchedReplies, setPrevFetchedReplies] = useState(fetchedReplies);
+  if (fetchedReplies !== prevFetchedReplies) {
+    setPrevFetchedReplies(fetchedReplies);
+    if (fetchedReplies) {
+      setReplies(fetchedReplies);
+    }
+  }
 
+  // Redirect to login when unauthenticated (router push is an external side effect, not setState)
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push("/login");
-      return;
     }
-    if (isAuthenticated) {
-      loadTicket(true);
-    }
-  }, [authLoading, isAuthenticated, router, loadTicket]);
+  }, [authLoading, isAuthenticated, router]);
+
+  const loading = ticketLoading;
 
   // Scroll to bottom when replies change
   useEffect(() => {
@@ -223,7 +220,7 @@ export default function TicketDetailPage() {
 
       if (res.ok) {
         setShowCloseModal(false);
-        loadTicket(false);
+        mutateTicket();
       }
     } catch (error) {
       clientLogger.error("Error closing ticket:", error);

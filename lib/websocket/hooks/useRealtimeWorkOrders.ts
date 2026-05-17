@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
@@ -105,12 +105,15 @@ export function useRealtimeWorkOrders(
     }
   }, [limit, enabled, hasPermission, isPermissionLoading]);
 
-  // Initial fetch
-  useEffect(() => {
+  // Initial fetch (pattern F: re-fetch when readiness key changes)
+  const fetchKey = `${enabled ? 1 : 0}|${isPermissionLoading ? 1 : 0}|${autoFetch ? 1 : 0}`;
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
     if (autoFetch && !isPermissionLoading && enabled) {
-      fetchNotifications();
+      void fetchNotifications();
     }
-  }, [autoFetch, fetchNotifications, isPermissionLoading, enabled]);
+  }
 
   const playSound = () => {
     try {

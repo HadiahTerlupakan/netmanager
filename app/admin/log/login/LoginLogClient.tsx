@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { HiOutlineRefresh } from "react-icons/hi";
 import {
   HiOutlineClock,
@@ -78,9 +78,11 @@ export function ClientComponent() {
     }
   };
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchLogs();
+  }
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {

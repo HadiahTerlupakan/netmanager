@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ShieldCheck,
   Eye,
@@ -11,39 +11,43 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface CaptchaSettingsData {
+  enabled?: boolean;
+  siteKey?: string;
+  secretKey?: string;
+}
+
+interface FormOverrides {
+  captchaEnabled?: boolean;
+  siteKey?: string;
+  secretKey?: string;
+}
 
 export function CaptchaSettings() {
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, mutate } = useApi<CaptchaSettingsData>(
+    "/api/settings/captcha",
+  );
+
+  // Local overrides — kosong saat pertama, diisi user via input.
+  // Nilai aktual ditampilkan = override ?? data dari server.
+  const [overrides, setOverrides] = useState<FormOverrides>({});
+  const captchaEnabled = overrides.captchaEnabled ?? data?.enabled ?? false;
+  const siteKey = overrides.siteKey ?? data?.siteKey ?? "";
+  const secretKey = overrides.secretKey ?? data?.secretKey ?? "";
+
+  const setCaptchaEnabled = (v: boolean) =>
+    setOverrides((prev) => ({ ...prev, captchaEnabled: v }));
+  const setSiteKey = (v: string) =>
+    setOverrides((prev) => ({ ...prev, siteKey: v }));
+  const setSecretKey = (v: string) =>
+    setOverrides((prev) => ({ ...prev, secretKey: v }));
+
   const [saving, setSaving] = useState(false);
-  const [captchaEnabled, setCaptchaEnabled] = useState(false);
-  const [siteKey, setSiteKey] = useState("");
-  const [secretKey, setSecretKey] = useState("");
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadCaptchaSettings();
-  }, []);
-
-  const loadCaptchaSettings = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/settings/captcha");
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || {};
-        setCaptchaEnabled(data.enabled || false);
-        setSiteKey(data.siteKey || "");
-        setSecretKey(data.secretKey || "");
-      }
-    } catch (err) {
-      clientLogger.error("Failed to load captcha settings", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setError(null);
@@ -58,6 +62,8 @@ export function CaptchaSettings() {
       });
       if (!res.ok) throw new Error("Gagal menyimpan");
       setSuccess(true);
+      setOverrides({}); // Reset overrides supaya data SWR jadi source of truth
+      await mutate();
       setTimeout(() => setSuccess(false), 3000);
     } catch (_err) {
       setError("Gagal menyimpan pengaturan Captcha");
@@ -66,7 +72,7 @@ export function CaptchaSettings() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-10">

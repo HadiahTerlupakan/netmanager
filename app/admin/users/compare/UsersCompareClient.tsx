@@ -155,7 +155,10 @@ export default function UsersCompareClient() {
   }, [ids, period, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    fetchAllPerformances();
+    const handle = setTimeout(() => {
+      void fetchAllPerformances();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchAllPerformances]);
 
   // Smooth loading: Only show full loader on initial mount (when no data yet)

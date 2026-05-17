@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
@@ -87,12 +87,12 @@ export function useCustomerNotifications(
     }
   }, [limit]);
 
-  // Initial fetch
-  useEffect(() => {
-    if (autoFetch) {
-      fetchNotifications();
-    }
-  }, [autoFetch, fetchNotifications]);
+  // Initial fetch (pattern E)
+  const [hasFetched, setHasFetched] = useState(false);
+  if (autoFetch && !hasFetched) {
+    setHasFetched(true);
+    void fetchNotifications();
+  }
 
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(

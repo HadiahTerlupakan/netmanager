@@ -1,7 +1,6 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useState } from "react";
 import { BarangTable } from "@/components/inventory/BarangTable";
 import { QuickActions } from "@/components/inventory/QuickActions";
 import {
@@ -11,6 +10,7 @@ import {
   StockAlerts,
   RecentActivities,
 } from "@/components/inventory/dashboard";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface DashboardData {
   stats: {
@@ -52,44 +52,29 @@ interface DashboardData {
 }
 
 export function InventoryDashboardClient() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{
     startDate?: string;
     endDate?: string;
   }>({});
 
-  const fetchDashboard = useCallback(
-    async (startDate?: string, endDate?: string) => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (startDate) params.set("startDate", startDate);
-        if (endDate) params.set("endDate", endDate);
+  // Build URL berdasarkan dateRange
+  const dashboardUrl = (() => {
+    const params = new URLSearchParams();
+    if (dateRange.startDate) params.set("startDate", dateRange.startDate);
+    if (dateRange.endDate) params.set("endDate", dateRange.endDate);
+    return `/api/inventory/dashboard${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+  })();
 
-        const url = `/api/inventory/dashboard${params.toString() ? `?${params.toString()}` : ""}`;
-        const response = await fetch(url);
+  const { data: result, isLoading: loading } = useApi<{
+    success?: boolean;
+    data?: DashboardData;
+  }>(dashboardUrl);
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setDashboardData(result.data || result);
-          }
-        }
-      } catch (error: unknown) {
-        clientLogger.error("Failed to fetch dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    fetchDashboard(dateRange.startDate, dateRange.endDate);
-  }, [fetchDashboard, dateRange]);
+  const dashboardData: DashboardData | null = result
+    ? (result.data ?? (result as unknown as DashboardData))
+    : null;
 
   const handleDateRangeChange = (startDate: string, endDate: string) => {
     setDateRange({ startDate, endDate });

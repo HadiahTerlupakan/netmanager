@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
@@ -53,19 +53,18 @@ export function useRealtimeWorkOrderActivity(
   const [activities, setActivities] =
     useState<ActivityItem[]>(initialActivities);
 
-  const prevInitialActivitiesRef = useRef(initialActivities);
-
-  // Update activities when initial data changes
-  useEffect(() => {
-    if (
-      initialActivities !== prevInitialActivitiesRef.current &&
-      initialActivities.length > 0
-    ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActivities(initialActivities);
-      prevInitialActivitiesRef.current = initialActivities;
-    }
-  }, [initialActivities]);
+  // Update activities when initial data changes (pattern C: render-time prev comparator)
+  const [prevInitialActivities, setPrevInitialActivities] =
+    useState(initialActivities);
+  if (
+    initialActivities !== prevInitialActivities &&
+    initialActivities.length > 0
+  ) {
+    setPrevInitialActivities(initialActivities);
+    setActivities(initialActivities);
+  } else if (initialActivities !== prevInitialActivities) {
+    setPrevInitialActivities(initialActivities);
+  }
 
   useRealtimeScope(workOrderId ? { kind: "workorder", id: workOrderId } : null);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
@@ -30,13 +30,20 @@ export default function CustomerLoginPage() {
   const { branding, loading: isBrandingLoading } = usePublicBranding();
   const appLogoUrl = branding?.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
   const appName = branding?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
-  const [logoSrc, setLogoSrc] = useState<string | null>(
-    isBrandingLoading ? null : appLogoUrl,
-  );
 
-  useEffect(() => {
-    setLogoSrc(isBrandingLoading ? null : appLogoUrl);
-  }, [appLogoUrl, isBrandingLoading]);
+  // Track image load failure to fallback to default; reset whenever
+  // the source URL changes (prevValue comparator pattern).
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [prevAppLogoUrl, setPrevAppLogoUrl] = useState(appLogoUrl);
+  if (appLogoUrl !== prevAppLogoUrl) {
+    setPrevAppLogoUrl(appLogoUrl);
+    setLogoFailed(false);
+  }
+  const logoSrc = isBrandingLoading
+    ? null
+    : logoFailed
+      ? DEFAULT_PUBLIC_APP_LOGO_URL
+      : appLogoUrl;
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -87,8 +94,8 @@ export default function CustomerLoginPage() {
                   className="object-contain"
                   priority
                   onError={() => {
-                    if (logoSrc !== DEFAULT_PUBLIC_APP_LOGO_URL) {
-                      setLogoSrc(DEFAULT_PUBLIC_APP_LOGO_URL);
+                    if (!logoFailed) {
+                      setLogoFailed(true);
                     }
                   }}
                 />

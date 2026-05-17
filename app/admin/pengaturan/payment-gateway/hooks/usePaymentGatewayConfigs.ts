@@ -110,7 +110,10 @@ export function usePaymentGatewayConfigs() {
   }, []);
 
   useEffect(() => {
-    void fetchConfigs();
+    const handle = setTimeout(() => {
+      void fetchConfigs();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchConfigs]);
 
   const toggleProvider = useCallback(

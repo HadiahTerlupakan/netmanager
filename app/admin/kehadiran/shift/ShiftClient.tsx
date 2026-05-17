@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -13,6 +13,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import toast from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Shift {
   id: string;
@@ -32,8 +33,22 @@ export default function ShiftClient() {
   const canUpdate = hasPermission("shift:update");
   const canDelete = hasPermission("shift:delete");
 
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: rawShifts,
+    isLoading: loading,
+    mutate,
+    error: fetchError,
+  } = useApi<Shift[] | { data: Shift[] }>(
+    "/api/admin/shifts?includeInactive=true",
+  );
+  const shifts: Shift[] = Array.isArray(rawShifts)
+    ? rawShifts
+    : (rawShifts?.data ?? []);
+
+  if (fetchError) {
+    clientLogger.error("Error fetching shifts:", fetchError);
+  }
+
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [formData, setFormData] = useState({
@@ -45,29 +60,6 @@ export default function ShiftClient() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetchShifts();
-  }, []);
-
-  const fetchShifts = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/admin/shifts?includeInactive=true");
-      if (!res.ok) throw new Error("Failed to fetch shifts");
-      const responseData = await res.json();
-      // apiSuccess returns { success: true, data: [...] }
-      // If it's a direct array (legacy), use it directly. Otherwise use .data
-      const shiftsData = Array.isArray(responseData)
-        ? responseData
-        : responseData.data || [];
-      setShifts(shiftsData);
-    } catch (err: unknown) {
-      clientLogger.error("Error fetching shifts:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openCreateModal = () => {
     setEditingShift(null);
@@ -138,7 +130,7 @@ export default function ShiftClient() {
         editingShift ? "Shift berhasil diperbarui" : "Shift berhasil dibuat",
       );
       setShowModal(false);
-      await fetchShifts();
+      await mutate();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
       setError(msg);
@@ -186,7 +178,7 @@ export default function ShiftClient() {
       }
 
       toast.success("Shift berhasil dihapus");
-      fetchShifts();
+      void mutate();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
       toast.error(msg);
@@ -204,7 +196,7 @@ export default function ShiftClient() {
       if (!res.ok) throw new Error("Failed to update");
 
       toast.success(`Shift ${shift.isActive ? "dinonaktifkan" : "diaktifkan"}`);
-      fetchShifts();
+      void mutate();
     } catch (err) {
       clientLogger.error("Error toggling status:", err);
       toast.error("Gagal mengubah status shift");

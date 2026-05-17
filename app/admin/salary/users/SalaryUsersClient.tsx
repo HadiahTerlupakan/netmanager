@@ -155,8 +155,11 @@ export default function SalaryUsersClient() {
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchComponents();
+    const handle = setTimeout(() => {
+      void fetchUsers();
+      void fetchComponents();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchUsers]);
 
   const handleAddUser = async (e: React.FormEvent) => {

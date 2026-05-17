@@ -2,11 +2,12 @@
 export const dynamic = "force-dynamic";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import { MdArrowBack, MdRefresh, MdChatBubble } from "react-icons/md";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
@@ -29,33 +30,33 @@ interface Ticket {
 export default function TicketHistoryPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
   const router = useRouter();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const loadTickets = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/customer/tickets");
-      if (res.ok) {
-        const data = await res.json();
-        setTickets(data.tickets || []);
-      }
-    } catch (error) {
-      clientLogger.error("Error loading tickets:", error);
-    } finally {
-      setLoading(false);
+  const {
+    data: ticketsData,
+    error: ticketsError,
+    isLoading: loading,
+    mutate: reloadTickets,
+  } = useApi<{ tickets?: Ticket[] }>(
+    isAuthenticated ? "/api/customer/tickets" : null,
+  );
+  const tickets = ticketsData?.tickets ?? [];
+
+  useEffect(() => {
+    if (ticketsError) {
+      clientLogger.error("Error loading tickets:", ticketsError);
     }
-  }, []);
+  }, [ticketsError]);
 
+  // Redirect to login when unauthenticated (router push is an external side effect)
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push("/login");
-      return;
     }
-    if (isAuthenticated) {
-      loadTickets();
-    }
-  }, [authLoading, isAuthenticated, router, loadTickets]);
+  }, [authLoading, isAuthenticated, router]);
+
+  const loadTickets = () => {
+    void reloadTickets();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {

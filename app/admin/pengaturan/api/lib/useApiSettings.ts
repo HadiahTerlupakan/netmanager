@@ -57,7 +57,10 @@ export function useApiSettings() {
   }, []);
 
   useEffect(() => {
-    void loadSettings();
+    const handle = setTimeout(() => {
+      void loadSettings();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadSettings]);
 
   const handleSubmit = useCallback(

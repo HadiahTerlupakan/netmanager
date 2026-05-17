@@ -92,6 +92,32 @@ vi.mock("@/hooks/useDebounce", () => ({
   useDebounce: <T,>(value: T) => value,
 }));
 
+const mockUseApi = vi.fn(() => ({
+  data: undefined as unknown,
+  error: undefined as unknown,
+  isLoading: false,
+  mutate: vi.fn(),
+}));
+
+const mockUseQuery = vi.fn(() => ({
+  data: undefined as unknown,
+  error: null,
+  isPending: false,
+}));
+
+const mockInvalidateQueries = vi.fn();
+
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => mockUseQuery(),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+
+vi.mock("@/lib/hooks/useApi", () => ({
+  useApi: (...args: unknown[]) => mockUseApi(...(args as [])),
+  apiFetcher: vi.fn(),
+  revalidate: vi.fn(),
+}));
+
 vi.mock("@/lib/utils/fetch-wrapper", () => ({
   fetchWithHandling: (url?: unknown, options?: unknown) =>
     mockFetchWithHandling(url, options),
@@ -173,11 +199,15 @@ describe("AttendanceClient bulk delete behavior", () => {
   });
 
   it("menonaktifkan checkbox seleksi ketika bulk delete sedang berjalan", () => {
+    let falseStateCallCount = 0;
     mockUseState.mockImplementation((initialValue: unknown) => {
-      if (mockUseState.mock.calls.length === 8) {
-        return [true, vi.fn()];
+      // isBulkDeleting adalah useState(false) ke-1 di komponen
+      if (initialValue === false) {
+        falseStateCallCount += 1;
+        if (falseStateCallCount === 1) {
+          return [true, vi.fn()];
+        }
       }
-
       return [initialValue, vi.fn()];
     });
 
@@ -242,30 +272,12 @@ describe("AttendanceClient bulk delete behavior", () => {
 
   it("menampilkan ringkasan hapus parsial setelah bulk delete", async () => {
     const setSelectedAttendanceIds = vi.fn();
-    let emptyArrayStateCallCount = 0;
-    let falseStateCallCount = 0;
 
     mockUseState.mockImplementation((initialValue: unknown) => {
+      // selectedAttendanceIds adalah satu-satunya useState<string[]>([]) di komponen
       if (Array.isArray(initialValue) && initialValue.length === 0) {
-        emptyArrayStateCallCount += 1;
-
-        if (emptyArrayStateCallCount === 2) {
-          return [["att-1", "att-2"], setSelectedAttendanceIds];
-        }
+        return [["att-1", "att-2"], setSelectedAttendanceIds];
       }
-
-      if (initialValue === false) {
-        falseStateCallCount += 1;
-
-        if (falseStateCallCount === 1) {
-          return [false, vi.fn()];
-        }
-
-        if (falseStateCallCount === 2) {
-          return [false, vi.fn()];
-        }
-      }
-
       return [initialValue, vi.fn()];
     });
 

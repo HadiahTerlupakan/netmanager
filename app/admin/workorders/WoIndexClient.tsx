@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
@@ -141,6 +141,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 export function ClientComponent() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
+  const [nowMs] = useState<number>(() => Date.now());
   const [stats, setStats] = useState<Statistics | null>(null);
   const [recentWorkOrders, setRecentWorkOrders] = useState<WorkOrder[]>([]);
   const [departmentWorkload, setDepartmentWorkload] = useState<
@@ -265,18 +266,36 @@ export function ClientComponent() {
     }
   }, [trendStartDate, trendEndDate]);
 
-  useEffect(() => {
-    if (session?.user && status === "authenticated") {
-      fetchDashboardData();
-      fetchTrendData();
+  // Pattern F: re-fetch dashboard + trend saat session siap atau dependensi berubah
+  const dashboardFetchKey =
+    session?.user && status === "authenticated"
+      ? `dashboard|${performancePeriod}|${trendStartDate}|${trendEndDate}`
+      : null;
+  const [prevDashboardFetchKey, setPrevDashboardFetchKey] = useState<
+    string | null
+  >(null);
+  if (prevDashboardFetchKey !== dashboardFetchKey) {
+    setPrevDashboardFetchKey(dashboardFetchKey);
+    if (dashboardFetchKey) {
+      void fetchDashboardData();
+      void fetchTrendData();
     }
-  }, [session, status, fetchDashboardData, fetchTrendData]);
+  }
 
-  useEffect(() => {
-    if (session?.user && status === "authenticated") {
-      fetchDetailedStats();
+  // Pattern F: re-fetch detailed stats saat performancePeriod berubah
+  const detailedFetchKey =
+    session?.user && status === "authenticated"
+      ? `detailed|${performancePeriod}`
+      : null;
+  const [prevDetailedFetchKey, setPrevDetailedFetchKey] = useState<
+    string | null
+  >(null);
+  if (prevDetailedFetchKey !== detailedFetchKey) {
+    setPrevDetailedFetchKey(detailedFetchKey);
+    if (detailedFetchKey) {
+      void fetchDetailedStats();
     }
-  }, [performancePeriod, session, status, fetchDetailedStats]);
+  }
 
   // Real-time updates
   const handleUpdate = useCallback(() => {
@@ -303,7 +322,7 @@ export function ClientComponent() {
     return `${(hours / 24).toFixed(1)}d`;
   };
   const getTimeWaiting = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = nowMs - new Date(dateStr).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     if (days > 0) return `${days}d ${hours}h`;

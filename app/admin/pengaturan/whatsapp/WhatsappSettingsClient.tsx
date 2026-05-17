@@ -67,7 +67,10 @@ export function ClientComponent() {
   }, []);
 
   useEffect(() => {
-    fetchAccounts();
+    const handle = setTimeout(() => {
+      void fetchAccounts();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchAccounts]);
 
   const handleDelete = async (id: string) => {

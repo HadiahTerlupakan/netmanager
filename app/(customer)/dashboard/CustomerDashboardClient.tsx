@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   MdArrowForward,
@@ -455,48 +456,18 @@ export default function CustomerDashboardClient({
   customerId,
   customerName,
 }: CustomerDashboardClientProps) {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [dashboardError, setDashboardError] = useState<Error | null>(null);
+  const { data, error, isPending } = useQuery<DashboardSummary>({
+    queryKey: ["customer-dashboard-summary", customerId] as const,
+    queryFn: () =>
+      fetchDashboardResource(
+        buildDashboardResourceUrl(),
+        dashboardSummarySchema,
+      ),
+  });
+  const isLoading = isPending;
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadDashboardSummary() {
-      try {
-        const result = await fetchDashboardResource(
-          buildDashboardResourceUrl(),
-          dashboardSummarySchema,
-        );
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSummary(result);
-        setDashboardError(null);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setDashboardError(normalizeDashboardError(error));
-        setSummary(null);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    setIsLoading(true);
-    setDashboardError(null);
-    void loadDashboardSummary();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [customerId]);
+  const summary = data ?? null;
+  const dashboardError = error ? normalizeDashboardError(error) : null;
 
   return (
     <CustomerDashboardContent

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
 import PageLoader from "@/components/ui/PageLoader";
@@ -115,12 +115,19 @@ export default function WithdrawalsClient() {
     }
   }, [statusFilter, page]);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
-  useEffect(() => {
+  const [prevStatusFilter, setPrevStatusFilter] =
+    useState<string>(statusFilter);
+  if (prevStatusFilter !== statusFilter) {
+    setPrevStatusFilter(statusFilter);
     setPage(1);
-  }, [statusFilter]);
+  }
+
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${statusFilter}|${page}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchRequests();
+  }
 
   const handleAction = async (
     id: string,

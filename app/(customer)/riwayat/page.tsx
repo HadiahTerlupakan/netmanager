@@ -1,11 +1,11 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBack,
   MdSearch,
@@ -30,8 +30,6 @@ interface Invoice {
 
 export default function CustomerHistoryPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<
     "ALL" | "SUCCESS" | "PENDING" | "FAILED"
   >("ALL");
@@ -43,25 +41,10 @@ export default function CustomerHistoryPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchHistory();
-    }
-  }, [isAuthenticated]);
-
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch("/api/customer/invoices?limit=50");
-      const json = await res.json();
-      if (json.success) {
-        setInvoices(json.invoices);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch history:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data, isLoading } = useApi<{ invoices: Invoice[] }>(
+    isAuthenticated ? "/api/customer/invoices?limit=50" : null,
+  );
+  const invoices = data?.invoices ?? [];
 
   // Filter Logic
   const filteredInvoices = invoices.filter((inv) => {

@@ -101,7 +101,10 @@ export function ClientComponent({
   }, [resolvedParams.id, fetchIpInfo]);
 
   useEffect(() => {
-    fetchRegistration();
+    const handle = setTimeout(() => {
+      void fetchRegistration();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchRegistration]);
 
   const updateStatus = async (newStatus: string, reason?: string) => {

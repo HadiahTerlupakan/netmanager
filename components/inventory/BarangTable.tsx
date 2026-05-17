@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { FiEdit, FiTrash2, FiEye, FiSearch } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Barang {
   id: string;
@@ -28,89 +29,87 @@ interface Barang {
   updatedAt: string;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface GudangItem {
+  id: string;
+  kode: string;
+  nama: string;
+}
+
+interface BarangListResponse {
+  barangs: Barang[];
+  pagination: Pagination;
+}
+
+interface GudangListResponse {
+  gudangs: GudangItem[];
+}
+
+const DEFAULT_PAGINATION: Pagination = {
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 0,
+};
+
 export function BarangTable() {
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission("barang:update");
   const canDelete = hasPermission("barang:delete");
   const { showToast } = useToast();
 
-  const [barangs, setBarangs] = useState<Barang[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [gudangId, setGudangId] = useState("");
-  const [gudangs, setGudangs] = useState<
-    { id: string; kode: string; nama: string }[]
-  >([]);
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
 
   // Debounce search to reduce API calls
   const debouncedSearch = useDebounce(search, 500);
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
 
+  // Fetch gudangs for filter
+  const { data: gudangData } = useApi<GudangListResponse>(
+    "/api/inventory/gudang?view=all",
+  );
+  const gudangs: GudangItem[] = gudangData?.gudangs ?? [];
+
+  // Build query string for barang list
+  const barangUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: "10",
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(gudangId && { gudangId }),
+    });
+    return `/api/inventory/barang?${params.toString()}`;
+  }, [page, debouncedSearch, gudangId]);
+
+  const {
+    data: barangData,
+    error,
+    isLoading,
+    mutate,
+  } = useApi<BarangListResponse>(barangUrl);
+
+  const barangs: Barang[] = barangData?.barangs ?? [];
+  const pagination: Pagination = barangData?.pagination ?? DEFAULT_PAGINATION;
+
+  if (error) {
+    clientLogger.error("Failed to fetch barang:", error);
+  }
+
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    fetchBarangs();
+    void mutate();
   });
 
-  // Fetch gudangs for filter
-  useEffect(() => {
-    async function fetchGudangs() {
-      try {
-        const response = await fetch("/api/inventory/gudang?view=all");
-        const data = await response.json();
-        const result = data.data || data;
-        setGudangs(result.gudangs || []);
-      } catch (error) {
-        clientLogger.error("Failed to fetch gudangs:", error);
-      }
-    }
-
-    fetchGudangs();
-  }, []);
-
-  // Fetch barang data
-  const fetchBarangs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-        ...(debouncedSearch && { search: debouncedSearch }),
-        ...(gudangId && { gudangId }),
-      });
-
-      const response = await fetch(`/api/inventory/barang?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal memuat data");
-      }
-
-      const result = data.data || data;
-
-      setBarangs(result.barangs || []);
-      setPagination((prev) => result.pagination || prev);
-    } catch (error) {
-      clientLogger.error("Failed to fetch barang:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, gudangId, page]);
-
-  useEffect(() => {
-    fetchBarangs();
-  }, [fetchBarangs]);
+  const errorMessage = error ? error.message || "Gagal memuat data" : null;
 
   const handleDelete = async (id: string, kode: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus barang ${kode}?`)) {
@@ -131,12 +130,14 @@ export function BarangTable() {
       showToast("success", `Barang ${kode} berhasil dihapus`);
 
       // Soft refresh - reload data without full page reload
-      await fetchBarangs();
-    } catch (error) {
-      clientLogger.error("Failed to delete barang:", error);
+      await mutate();
+    } catch (deleteError) {
+      clientLogger.error("Failed to delete barang:", deleteError);
       showToast(
         "error",
-        error instanceof Error ? error.message : "Gagal menghapus barang",
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Gagal menghapus barang",
       );
     }
   };
@@ -283,9 +284,9 @@ export function BarangTable() {
 
   return (
     <div>
-      {error && (
+      {errorMessage && (
         <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {errorMessage}
         </div>
       )}
 
@@ -331,7 +332,7 @@ export function BarangTable() {
         data={barangs}
         columns={columns}
         keyField="id"
-        loading={loading}
+        loading={isLoading}
         emptyMessage="Tidak ada data barang"
         loadingMessage="Memuat data..."
         renderActions={renderActions}

@@ -39,7 +39,10 @@ export function ClientComponent() {
   }, []);
 
   useEffect(() => {
-    fetchRoles();
+    const handle = setTimeout(() => {
+      void fetchRoles();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchRoles]);
 
   const handleDelete = async (id: string, name: string) => {

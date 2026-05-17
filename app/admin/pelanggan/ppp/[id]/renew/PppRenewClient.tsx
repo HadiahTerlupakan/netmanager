@@ -1,269 +1,287 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { HiArrowLeft, HiExclamationCircle } from 'react-icons/hi2'
-import Link from 'next/link'
-import PageLoader from '@/components/ui/PageLoader'
-import { toStartOfDay } from '@/lib/utils/datetime'
-
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { HiArrowLeft, HiExclamationCircle } from "react-icons/hi2";
+import Link from "next/link";
+import PageLoader from "@/components/ui/PageLoader";
+import { toStartOfDay } from "@/lib/utils/datetime";
 
 type Pelanggan = {
-  id: string
-  idPelanggan: string
-  nama: string
-  tipe: 'REGULER' | 'NON_REGULER'
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  hargaPaketId: string
+  id: string;
+  idPelanggan: string;
+  nama: string;
+  tipe: "REGULER" | "NON_REGULER";
+  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
+  hargaPaketId: string;
   hargaPaket?: {
-    id: string
-    name: string
-    harga: number
-  } | null
-  jatuhTempo: string
-}
+    id: string;
+    name: string;
+    harga: number;
+  } | null;
+  jatuhTempo: string;
+};
 
 type HargaPaket = {
-  id: string
-  name: string
-  harga: number
-  durasi: number
-  durasiUnit: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN'
-}
+  id: string;
+  name: string;
+  harga: number;
+  durasi: number;
+  durasiUnit: "JAM" | "HARI" | "BULAN" | "TAHUN";
+};
 
 type Tagihan = {
-  id: string
-  noTagihan: string
-  total: number
-  ppn: number
-  status: 'BELUM_LUNAS' | 'LUNAS' | 'TERLAMBAT'
-  jatuhTempo: string
-}
+  id: string;
+  noTagihan: string;
+  total: number;
+  ppn: number;
+  status: "BELUM_LUNAS" | "LUNAS" | "TERLAMBAT";
+  jatuhTempo: string;
+};
 
 export function PppClientRenewForm() {
-  const params = useParams()
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [pelanggan, setPelanggan] = useState<Pelanggan | null>(null)
-  const [tagihanAktif, setTagihanAktif] = useState<Tagihan | null>(null)
-  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [warningMessage, setWarningMessage] = useState<string | null>(null)
-  const [disableDuration, setDisableDuration] = useState<number>(5)
+  const params = useParams();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [pelanggan, setPelanggan] = useState<Pelanggan | null>(null);
+  const [tagihanAktif, setTagihanAktif] = useState<Tagihan | null>(null);
+  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [disableDuration, setDisableDuration] = useState<number>(5);
 
   const [formData, setFormData] = useState({
-    hargaPaketId: '', // Optional: untuk ubah paket
+    hargaPaketId: "", // Optional: untuk ubah paket
     diskon: 0,
-    tipeLangganan: 'SEKALI_BELI', // SEKALI_BELI, PERPANJANG
-    statusBayar: 'LUNAS',
-    statusAkun: 'AKTIF',
-    metodePembayaran: 'PEMBAYARAN_MANUAL',
-    ownerDataTransaksi: '',
-    catatan: '',
-  })
+    tipeLangganan: "SEKALI_BELI", // SEKALI_BELI, PERPANJANG
+    statusBayar: "LUNAS",
+    statusAkun: "AKTIF",
+    metodePembayaran: "PEMBAYARAN_MANUAL",
+    ownerDataTransaksi: "",
+    catatan: "",
+  });
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const id = params.id as string
+        const id = params.id as string;
 
         // Load settings first (or in parallel)
-        const settingsRes = await fetch('/api/settings/general')
+        const settingsRes = await fetch("/api/settings/general");
         if (settingsRes.ok) {
-          const settingsJson = await settingsRes.json()
-          const settingsData = settingsJson.data || settingsJson
+          const settingsJson = await settingsRes.json();
+          const settingsData = settingsJson.data || settingsJson;
           if (settingsData.disablePerpanjanganPaket) {
-            setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
+            setDisableDuration(
+              parseInt(settingsData.disablePerpanjanganPaket) || 5,
+            );
           }
         }
 
         // Load pelanggan
-        const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`)
+        const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`);
         if (!pelangganRes.ok) {
-          throw new Error('Gagal memuat data pelanggan')
+          throw new Error("Gagal memuat data pelanggan");
         }
-        const pelangganData = await pelangganRes.json()
-        setPelanggan(pelangganData)
+        const pelangganData = await pelangganRes.json();
+        setPelanggan(pelangganData);
         setFormData((prev) => ({
           ...prev,
-          hargaPaketId: pelangganData.hargaPaketId || '',
-          statusAkun: pelangganData.status || 'AKTIF',
-        }))
+          hargaPaketId: pelangganData.hargaPaketId || "",
+          statusAkun: pelangganData.status || "AKTIF",
+        }));
 
         // Load tagihan aktif (belum lunas)
-        const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}`)
+        const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}`);
         if (tagihanRes.ok) {
-          const tagihans = await tagihanRes.json()
+          const tagihans = await tagihanRes.json();
           const tagihanBelumLunas = tagihans.find(
-            (t: Tagihan) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT',
-          )
-          setTagihanAktif(tagihanBelumLunas || null)
+            (t: Tagihan) =>
+              t.status === "BELUM_LUNAS" || t.status === "TERLAMBAT",
+          );
+          setTagihanAktif(tagihanBelumLunas || null);
         }
 
         // Load daftar paket
-        const paketRes = await fetch('/api/hargapakets')
+        const paketRes = await fetch("/api/hargapakets");
         if (paketRes.ok) {
-          const pakets = await paketRes.json()
-          setHargaPakets(pakets || [])
+          const pakets = await paketRes.json();
+          setHargaPakets(pakets || []);
         }
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Terjadi kesalahan'
-        setError(message)
+        const message =
+          err instanceof Error ? err.message : "Terjadi kesalahan";
+        setError(message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    loadData()
-  }, [params.id])
+    loadData();
+  }, [params.id]);
 
   const handleCancelInvoice = async () => {
-    if (!tagihanAktif) return
-    if (!confirm('Apakah Anda yakin ingin membatalkan tagihan ini? Status tagihan akan diubah menjadi CANCELLED.')) return
+    if (!tagihanAktif) return;
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin membatalkan tagihan ini? Status tagihan akan diubah menjadi CANCELLED.",
+      )
+    )
+      return;
 
     try {
-      setSubmitting(true)
+      setSubmitting(true);
       const res = await fetch(`/api/invoices/${tagihanAktif.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      })
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
 
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Gagal membatalkan tagihan')
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Gagal membatalkan tagihan");
       }
 
-      alert('Tagihan berhasil dibatalkan.')
-      window.location.reload()
+      alert("Tagihan berhasil dibatalkan.");
+      window.location.reload();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Terjadi kesalahan saat membatalkan tagihan')
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat membatalkan tagihan",
+      );
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
+    }
+  };
+
+  // Pattern A: derive renewal eligibility warning during render
+  let warningMessage: string | null = null;
+  if (pelanggan && !loading) {
+    const today = new Date();
+    today.setTime(toStartOfDay(today).getTime());
+
+    const jatuhTempoDate = new Date(pelanggan.jatuhTempo);
+    jatuhTempoDate.setTime(toStartOfDay(jatuhTempoDate).getTime());
+
+    const allowedDate = new Date(jatuhTempoDate);
+    allowedDate.setDate(allowedDate.getDate() - disableDuration);
+
+    if (today < allowedDate) {
+      warningMessage = `Pelanggan ini belum dapat diperpanjang. Perpanjangan baru bisa dilakukan mulai ${allowedDate.toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" })}.`;
     }
   }
 
-  // Check renewal eligibility
-  useEffect(() => {
-    if (pelanggan && !loading) {
-      const today = new Date()
-      today.setTime(toStartOfDay(today).getTime())
-
-      const jatuhTempoDate = new Date(pelanggan.jatuhTempo)
-      jatuhTempoDate.setTime(toStartOfDay(jatuhTempoDate).getTime())
-
-      const allowedDate = new Date(jatuhTempoDate)
-      allowedDate.setDate(allowedDate.getDate() - disableDuration)
-
-      if (today < allowedDate) {
-        setWarningMessage(`Pelanggan ini belum dapat diperpanjang. Perpanjangan baru bisa dilakukan mulai ${allowedDate.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}.`)
-      }
-    }
-  }, [pelanggan, loading, disableDuration])
-
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (warningMessage) return; // Prevent submission if blocked
 
-    setSubmitting(true)
-    setError(null)
+    setSubmitting(true);
+    setError(null);
 
     try {
-      const id = params.id as string
+      const id = params.id as string;
 
       // Jika ubah paket, update paket dulu
-      if (formData.hargaPaketId && formData.hargaPaketId !== pelanggan?.hargaPaketId) {
+      if (
+        formData.hargaPaketId &&
+        formData.hargaPaketId !== pelanggan?.hargaPaketId
+      ) {
         const updatePaketRes = await fetch(`/api/pelanggan-ppp/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             hargaPaketId: formData.hargaPaketId,
           }),
-        })
+        });
 
         if (!updatePaketRes.ok) {
-          throw new Error('Gagal mengubah paket')
+          throw new Error("Gagal mengubah paket");
         }
       }
 
       // Update status pembayaran tagihan jika ada
-      if (tagihanAktif && formData.statusBayar === 'LUNAS') {
+      if (tagihanAktif && formData.statusBayar === "LUNAS") {
         const bayarRes = await fetch(`/api/tagihan/${tagihanAktif.id}/bayar`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             metodePembayaran: formData.metodePembayaran,
             catatan: formData.catatan,
           }),
-        })
+        });
 
         if (!bayarRes.ok) {
-          throw new Error('Gagal update status pembayaran')
+          throw new Error("Gagal update status pembayaran");
         }
       }
 
       // Update status akun
       if (formData.statusAkun !== pelanggan?.status) {
         const updateStatusRes = await fetch(`/api/pelanggan-ppp/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: formData.statusAkun,
           }),
-        })
+        });
 
         if (!updateStatusRes.ok) {
-          throw new Error('Gagal update status akun')
+          throw new Error("Gagal update status akun");
         }
       }
 
       // Renew pelanggan dengan opsi admin
       const renewRes = await fetch(`/api/pelanggan-ppp/${id}/renew`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           tipeLangganan: formData.tipeLangganan,
           hargaPaketId: formData.hargaPaketId || null,
           diskon: formData.diskon || 0,
         }),
-      })
+      });
 
       if (!renewRes.ok) {
-        const errorData = await renewRes.json()
-        throw new Error(errorData.error || 'Gagal memperpanjang langganan')
+        const errorData = await renewRes.json();
+        throw new Error(errorData.error || "Gagal memperpanjang langganan");
       }
 
-      const result = await renewRes.json()
+      const result = await renewRes.json();
       alert(
-        `Langganan berhasil diperpanjang!\nJatuh tempo baru: ${new Date(result.jatuhTempoBaru).toLocaleDateString('id-ID', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
+        `Langganan berhasil diperpanjang!\nJatuh tempo baru: ${new Date(
+          result.jatuhTempoBaru,
+        ).toLocaleDateString("id-ID", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
         })}`,
-      )
+      );
 
-      router.push(`/admin/pelanggan/ppp/${id}`)
+      router.push(`/admin/pelanggan/ppp/${id}`);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memperpanjang langganan'
-      setError(message)
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat memperpanjang langganan";
+      setError(message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   if (loading) {
-    return <PageLoader />
+    return <PageLoader />;
   }
 
   if (error && !pelanggan) {
@@ -280,7 +298,7 @@ export function PppClientRenewForm() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   if (warningMessage) {
@@ -288,8 +306,12 @@ export function PppClientRenewForm() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-md">
           <div className="mb-4 text-4xl">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Perpanjangan Belum Tersedia</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{warningMessage}</p>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Perpanjangan Belum Tersedia
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            {warningMessage}
+          </p>
           <Link
             href="/admin/pelanggan/ppp"
             className="px-6 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
@@ -298,16 +320,16 @@ export function PppClientRenewForm() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   if (!pelanggan) {
-    return null
+    return null;
   }
 
-  const totalTagihan = tagihanAktif ? tagihanAktif.total : 0
-  const ppnTagihan = tagihanAktif ? tagihanAktif.ppn : 0
-  const subtotalTagihan = totalTagihan - ppnTagihan
+  const totalTagihan = tagihanAktif ? tagihanAktif.total : 0;
+  const ppnTagihan = tagihanAktif ? tagihanAktif.ppn : 0;
+  const subtotalTagihan = totalTagihan - ppnTagihan;
 
   return (
     <div className="space-y-6">
@@ -336,11 +358,12 @@ export function PppClientRenewForm() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-400 mb-2">
-                {tagihanAktif ? 'BELUM BAYAR' : 'TIDAK ADA TAGIHAN'}
+                {tagihanAktif ? "BELUM BAYAR" : "TIDAK ADA TAGIHAN"}
               </h2>
               {tagihanAktif && (
                 <p className="text-lg text-gray-700 dark:text-gray-300">
-                  {formatRupiah(subtotalTagihan)} (+ PPN {formatRupiah(ppnTagihan)})
+                  {formatRupiah(subtotalTagihan)} (+ PPN{" "}
+                  {formatRupiah(ppnTagihan)})
                 </p>
               )}
             </div>
@@ -358,21 +381,28 @@ export function PppClientRenewForm() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-gray-600 dark:text-gray-400">ID Pelanggan</p>
-              <p className="font-semibold text-gray-900 dark:text-white">{pelanggan.idPelanggan}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {pelanggan.idPelanggan}
+              </p>
             </div>
             <div>
               <p className="text-gray-600 dark:text-gray-400">Nama Lengkap</p>
-              <p className="font-semibold text-gray-900 dark:text-white">{pelanggan.nama}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {pelanggan.nama}
+              </p>
             </div>
             <div>
               <p className="text-gray-600 dark:text-gray-400">Paket [PPP]</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {pelanggan.hargaPaket?.name || '-'} - {pelanggan.hargaPaket ? formatRupiah(pelanggan.hargaPaket.harga) : '-'}
+                {pelanggan.hargaPaket?.name || "-"} -{" "}
+                {pelanggan.hargaPaket
+                  ? formatRupiah(pelanggan.hargaPaket.harga)
+                  : "-"}
               </p>
             </div>
             <div className="flex gap-2 items-end">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                {pelanggan.tipe === 'REGULER' ? 'REGULER' : 'NON_REGULAR'}
+                {pelanggan.tipe === "REGULER" ? "REGULER" : "NON_REGULAR"}
               </span>
             </div>
           </div>
@@ -402,7 +432,9 @@ export function PppClientRenewForm() {
             </label>
             <select
               value={formData.hargaPaketId}
-              onChange={(e) => setFormData({ ...formData, hargaPaketId: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, hargaPaketId: e.target.value })
+              }
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="">- Pilih paket atau biarkan kosong -</option>
@@ -415,18 +447,28 @@ export function PppClientRenewForm() {
           </div>
 
           {/* Catatan Upgrade/Downgrade */}
-          {formData.hargaPaketId && formData.hargaPaketId !== pelanggan.hargaPaketId && (
-            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <h4 className="text-sm font-semibold text-green-800 dark:text-green-400 mb-2">
-                Catatan Upgrade | Downgrade
-              </h4>
-              <ul className="space-y-1 text-xs text-green-700 dark:text-green-300">
-                <li>• PERUBAHAN PAKET AKAN MERESET FEE RESELLER YANG DITENTUKAN MANUAL</li>
-                <li>• SELISIH HARGA JUAL DAN HARGA MODAL PAKET AKAN DIGUNAKAN SEBAGAI FEE RESELLER</li>
-                <li>• IP PELANGGAN YANG DISET STATIK AKAN DIATUR KE IP DINAMIS (JIKA GRUP PROFIL BERBEDA)</li>
-              </ul>
-            </div>
-          )}
+          {formData.hargaPaketId &&
+            formData.hargaPaketId !== pelanggan.hargaPaketId && (
+              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <h4 className="text-sm font-semibold text-green-800 dark:text-green-400 mb-2">
+                  Catatan Upgrade | Downgrade
+                </h4>
+                <ul className="space-y-1 text-xs text-green-700 dark:text-green-300">
+                  <li>
+                    • PERUBAHAN PAKET AKAN MERESET FEE RESELLER YANG DITENTUKAN
+                    MANUAL
+                  </li>
+                  <li>
+                    • SELISIH HARGA JUAL DAN HARGA MODAL PAKET AKAN DIGUNAKAN
+                    SEBAGAI FEE RESELLER
+                  </li>
+                  <li>
+                    • IP PELANGGAN YANG DISET STATIK AKAN DIATUR KE IP DINAMIS
+                    (JIKA GRUP PROFIL BERBEDA)
+                  </li>
+                </ul>
+              </div>
+            )}
         </div>
 
         {/* Diskon */}
@@ -443,7 +485,12 @@ export function PppClientRenewForm() {
               min="0"
               step="0.01"
               value={formData.diskon}
-              onChange={(e) => setFormData({ ...formData, diskon: parseFloat(e.target.value) || 0 })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  diskon: parseFloat(e.target.value) || 0,
+                })
+              }
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
               placeholder="0"
             />
@@ -460,10 +507,11 @@ export function PppClientRenewForm() {
           </h3>
           <div className="mb-2">
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                }`}
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                pelanggan.tipe === "REGULER"
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+              }`}
             >
               {pelanggan.tipe}
             </span>
@@ -474,13 +522,19 @@ export function PppClientRenewForm() {
             </label>
             <select
               value={formData.tipeLangganan}
-              onChange={(e) => setFormData({ ...formData, tipeLangganan: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, tipeLangganan: e.target.value })
+              }
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
-              <option value="SEKALI_BELI">SEKALI BELI (AKTIF DARI SEKARANG)</option>
-              <option value="PERPANJANG">PERPANJANG (LANJUTKAN DARI JATUH TEMPO)</option>
+              <option value="SEKALI_BELI">
+                SEKALI BELI (AKTIF DARI SEKARANG)
+              </option>
+              <option value="PERPANJANG">
+                PERPANJANG (LANJUTKAN DARI JATUH TEMPO)
+              </option>
             </select>
-            {formData.tipeLangganan === 'SEKALI_BELI' && (
+            {formData.tipeLangganan === "SEKALI_BELI" && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 SEMUA TUNGGAKAN SEBELUMNYA AKAN DIABAIKAN
               </p>
@@ -497,7 +551,9 @@ export function PppClientRenewForm() {
               </label>
               <select
                 value={formData.statusBayar}
-                onChange={(e) => setFormData({ ...formData, statusBayar: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, statusBayar: e.target.value })
+                }
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
               >
                 <option value="BELUM_LUNAS">BELUM LUNAS</option>
@@ -510,7 +566,9 @@ export function PppClientRenewForm() {
               </label>
               <select
                 value={formData.statusAkun}
-                onChange={(e) => setFormData({ ...formData, statusAkun: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, statusAkun: e.target.value })
+                }
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
               >
                 <option value="AKTIF">ENABLED</option>
@@ -529,7 +587,9 @@ export function PppClientRenewForm() {
           <div>
             <select
               value={formData.metodePembayaran}
-              onChange={(e) => setFormData({ ...formData, metodePembayaran: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, metodePembayaran: e.target.value })
+              }
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="PEMBAYARAN_MANUAL">Pembayaran Manual</option>
@@ -544,11 +604,15 @@ export function PppClientRenewForm() {
 
         {/* Catatan */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Catatan</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Catatan
+          </h3>
           <div>
             <textarea
               value={formData.catatan}
-              onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, catatan: e.target.value })
+              }
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
               rows={3}
               placeholder="Catatan tambahan..."
@@ -569,10 +633,12 @@ export function PppClientRenewForm() {
             disabled={submitting}
             className="px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <span className="text-white">{submitting ? 'Memproses...' : 'Perpanjang Langganan'}</span>
+            <span className="text-white">
+              {submitting ? "Memproses..." : "Perpanjang Langganan"}
+            </span>
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }

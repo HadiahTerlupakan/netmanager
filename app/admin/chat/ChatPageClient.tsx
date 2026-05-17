@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import {
@@ -20,6 +20,7 @@ import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { shouldNotifyForChatMessage } from "@/modules/chat/client";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface ChatUser {
   id: string;
@@ -82,8 +83,7 @@ export default function ChatPageClient() {
   const canSendMessage = hasPermission("chat:create");
   const canBroadcast = hasPermission("broadcast:create");
 
-  // State for conversations
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  // State for conversations - migrated to useApi
   const [globalChat, setGlobalChat] = useState<{
     id: string;
     name: string;
@@ -92,6 +92,54 @@ export default function ChatPageClient() {
   const [selectedConversation, setSelectedConversation] = useState<
     string | null
   >(null);
+
+  // Load conversations via useApi
+  const {
+    data: conversationsData,
+    error: conversationsError,
+    mutate: refetchConversations,
+    isLoading: loadingConversations,
+  } = useApi<ChatConversation[]>("/api/admin/chat/conversations");
+  const conversations = useMemo(
+    () =>
+      (conversationsData ?? []).filter((c: ChatConversation) => !c.isGlobal),
+    [conversationsData],
+  );
+
+  // Load global chat via useApi
+  const {
+    data: globalChatData,
+    error: globalChatError,
+    mutate: refetchGlobalChat,
+  } = useApi<{
+    id: string;
+    name: string;
+    participantCount: number;
+  }>("/api/admin/chat/global");
+
+  useEffect(() => {
+    if (conversationsError) {
+      clientLogger.error("Error loading conversations:", conversationsError);
+    }
+    if (globalChatError) {
+      clientLogger.error("Error loading global chat:", globalChatError);
+    }
+  }, [conversationsError, globalChatError]);
+
+  // Sync globalChat from API into local state via prev-comparator
+  const [prevGlobalChatData, setPrevGlobalChatData] =
+    useState<typeof globalChatData>(undefined);
+  if (prevGlobalChatData !== globalChatData) {
+    setPrevGlobalChatData(globalChatData);
+    if (globalChatData) {
+      setGlobalChat(globalChatData);
+    }
+  }
+
+  const loadConversations = useCallback(() => {
+    void refetchConversations();
+    void refetchGlobalChat();
+  }, [refetchConversations, refetchGlobalChat]);
 
   // State for messages
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -107,7 +155,6 @@ export default function ChatPageClient() {
   const [searchInput, setSearchInput] = useState("");
 
   // State for loading
-  const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
 
@@ -135,32 +182,6 @@ export default function ChatPageClient() {
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastContent, setBroadcastContent] = useState("");
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
-
-  // Load conversations
-  const loadConversations = useCallback(async () => {
-    try {
-      const [convResponse, globalResponse] = await Promise.all([
-        fetch("/api/admin/chat/conversations"),
-        fetch("/api/admin/chat/global"),
-      ]);
-
-      if (convResponse.ok) {
-        const convData = await convResponse.json();
-        setConversations(
-          convData.data.filter((c: ChatConversation) => !c.isGlobal),
-        );
-      }
-
-      if (globalResponse.ok) {
-        const globalData = await globalResponse.json();
-        setGlobalChat(globalData.data);
-      }
-    } catch (error) {
-      clientLogger.error("Error loading conversations:", error);
-    } finally {
-      setLoadingConversations(false);
-    }
-  }, []);
 
   const lastMessageIdRef = useRef<string | null>(null);
 
@@ -268,9 +289,10 @@ export default function ChatPageClient() {
   };
 
   // Load messages for selected conversation
+  // Catatan: caller wajib set loading state sendiri (loading di-handle via render-time
+  // comparator) untuk menghindari sync setState pada effect/render path.
   const loadMessages = useCallback(
     async (conversationId: string, silent = false) => {
-      if (!silent) setLoadingMessages(true);
       try {
         const response = await fetch(
           `/api/admin/chat/conversations/${conversationId}`,
@@ -424,23 +446,46 @@ export default function ChatPageClient() {
 
   // Effects
   useEffect(() => {
-    loadConversations();
+    void loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
+  // Pattern C: load messages when selected conversation changes (render-time)
+  // setLoadingMessages(true) sync via comparator agar UI loading langsung muncul
+  const [prevSelectedConversation, setPrevSelectedConversation] = useState<
+    string | null
+  >(null);
+  if (prevSelectedConversation !== selectedConversation) {
+    setPrevSelectedConversation(selectedConversation);
     if (selectedConversation) {
-      loadMessages(selectedConversation);
+      setLoadingMessages(true);
     }
-  }, [selectedConversation, loadMessages]);
+  }
 
   useEffect(() => {
+    if (!selectedConversation) return undefined;
+    const handle = setTimeout(() => {
+      void loadMessages(selectedConversation);
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [selectedConversation, loadMessages]);
+
+  // Pattern F: search users with debounce; setTimeout cleanup tetap di useEffect
+  useEffect(() => {
     if (userSearchInput) {
-      const timeout = setTimeout(() => searchUsers(userSearchInput), 300);
+      const timeout = setTimeout(() => {
+        void searchUsers(userSearchInput);
+      }, 300);
       return () => clearTimeout(timeout);
-    } else {
-      searchUsers("");
     }
+    return undefined;
   }, [userSearchInput, searchUsers]);
+
+  // Pattern E: initial empty search saat mount
+  const [hasInitSearch, setHasInitSearch] = useState(false);
+  if (!hasInitSearch && !userSearchInput) {
+    setHasInitSearch(true);
+    void searchUsers("");
+  }
 
   const handleNewMessage = useCallback(
     (payload: ChatMessage & { conversationId: string }) => {
@@ -466,38 +511,43 @@ export default function ChatPageClient() {
         lastMessageIdRef.current = payload.id;
       }
 
-      setConversations((prev) => {
-        const index = prev.findIndex((c) => c.id === payload.conversationId);
-        if (index !== -1) {
-          const currentConv = prev[index];
-          if (!currentConv) return prev;
+      refetchConversations(
+        (prev: ChatConversation[] | undefined) => {
+          if (!prev) return prev;
+          const index = prev.findIndex((c) => c.id === payload.conversationId);
+          if (index !== -1) {
+            const currentConv = prev[index];
+            if (!currentConv) return prev;
 
-          const updatedConv: ChatConversation = {
-            ...currentConv,
-            lastMessage: {
-              content:
-                payload.content ||
-                (payload.imageUrl ? "📷 Gambar" : "Pesan baru"),
-              senderName: payload.senderName || "User",
-              createdAt: payload.createdAt,
-            },
-            updatedAt: payload.createdAt,
-            hasUnread: selectedConversation !== payload.conversationId,
-            unreadCount:
-              selectedConversation === payload.conversationId
-                ? 0
-                : (currentConv.unreadCount || 0) + 1,
-          };
-          const newConvs = [...prev];
-          newConvs.splice(index, 1);
-          return [updatedConv, ...newConvs];
-        }
+            const updatedConv: ChatConversation = {
+              ...currentConv,
+              lastMessage: {
+                content:
+                  payload.content ||
+                  (payload.imageUrl ? "📷 Gambar" : "Pesan baru"),
+                senderName: payload.senderName || "User",
+                createdAt: payload.createdAt,
+              },
+              updatedAt: payload.createdAt,
+              hasUnread: selectedConversation !== payload.conversationId,
+              unreadCount:
+                selectedConversation === payload.conversationId
+                  ? 0
+                  : (currentConv.unreadCount || 0) + 1,
+            };
+            const newConvs = [...prev];
+            newConvs.splice(index, 1);
+            return [updatedConv, ...newConvs];
+          }
 
-        loadConversations();
-        return prev;
-      });
+          // Conversation baru — trigger refetch
+          void refetchConversations();
+          return prev;
+        },
+        { revalidate: false },
+      );
     },
-    [selectedConversation, loadConversations, playNotificationSound],
+    [selectedConversation, refetchConversations, playNotificationSound],
   );
 
   useRealtimeEvent<ChatMessage & { conversationId: string }>(

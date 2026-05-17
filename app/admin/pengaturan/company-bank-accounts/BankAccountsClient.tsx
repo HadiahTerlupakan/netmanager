@@ -68,7 +68,10 @@ export function ClientComponent() {
   }, []);
 
   useEffect(() => {
-    void fetchAccounts();
+    const handle = setTimeout(() => {
+      void fetchAccounts();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchAccounts]);
 
   const handleOpenModal = (account?: CompanyBankAccount) => {

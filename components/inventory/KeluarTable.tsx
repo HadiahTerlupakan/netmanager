@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import {
@@ -128,10 +128,12 @@ export function KeluarTable({
     }
   }, [page, search, startDate, endDate, siteId, gudangId]);
 
-  // Fetch data
-  useEffect(() => {
-    fetchKeluarList();
-  }, [fetchKeluarList, refreshTrigger]);
+  // Fetch on mount + refreshTrigger via comparator (selama render, bukan effect)
+  const [prevTrigger, setPrevTrigger] = useState<number | null>(null);
+  if (prevTrigger !== refreshTrigger) {
+    setPrevTrigger(refreshTrigger);
+    void fetchKeluarList();
+  }
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
 

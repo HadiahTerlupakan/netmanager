@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
@@ -147,15 +147,21 @@ export function MissedCheckInCorrectionModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
+  // Reset form whenever the modal opens or the targeted attendance changes
+  // (prevProp comparator pattern; setState during render is allowed when
+  // guarded by a previous-state check and runs only once per change).
+  const [prevKey, setPrevKey] = useState<{
+    isOpen: boolean;
+    attendance: AttendanceCorrectionTarget | null;
+  }>({ isOpen, attendance });
+  if (prevKey.isOpen !== isOpen || prevKey.attendance !== attendance) {
+    setPrevKey({ isOpen, attendance });
+    if (isOpen) {
+      setForm(buildInitialForm(attendance));
+      setErrors({});
+      setIsSubmitting(false);
     }
-
-    setForm(buildInitialForm(attendance));
-    setErrors({});
-    setIsSubmitting(false);
-  }, [attendance, isOpen]);
+  }
 
   const workDateLabel = useMemo(() => {
     if (!attendance) {

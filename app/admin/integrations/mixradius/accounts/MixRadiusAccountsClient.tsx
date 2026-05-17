@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -13,6 +13,7 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface MixRadiusConfig {
   id: string;
@@ -24,6 +25,11 @@ interface MixRadiusConfig {
   updatedAt: string;
 }
 
+type RawMixRadiusConfig = Partial<MixRadiusConfig> & {
+  apiUrl?: string;
+  isDefault?: boolean;
+};
+
 export default function MixRadiusAccountsClient() {
   const { hasPermission } = usePermission();
 
@@ -32,9 +38,38 @@ export default function MixRadiusAccountsClient() {
   const canUpdate = hasPermission("mixradius_accounts:update");
   const canDelete = hasPermission("mixradius_accounts:delete");
 
-  // Debugging (Remove later)
-  const [configs, setConfigs] = useState<MixRadiusConfig[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: rawData,
+    error: fetchError,
+    isLoading: loading,
+    mutate: mutateConfigs,
+  } = useApi<{ data?: RawMixRadiusConfig[] } | RawMixRadiusConfig[]>(
+    "/api/integrations/mixradius/accounts",
+  );
+
+  useEffect(() => {
+    if (fetchError) {
+      toast.error(fetchError.message || "Gagal mengambil daftar akun");
+    }
+  }, [fetchError]);
+
+  // Map API fields (apiUrl/isDefault) to UI fields (baseUrl/isActive)
+  const configs = useMemo<MixRadiusConfig[]>(() => {
+    const rawConfigs: RawMixRadiusConfig[] = Array.isArray(rawData)
+      ? rawData
+      : (rawData?.data ?? []);
+    return rawConfigs.map((c) => ({
+      id: c.id ?? "",
+      username: c.username ?? "",
+      createdAt: c.createdAt ?? "",
+      updatedAt: c.updatedAt ?? "",
+      ...c,
+      baseUrl: c.baseUrl || c.apiUrl || "",
+      isActive: c.isActive ?? c.isDefault ?? false,
+      name: c.name || "Default Account",
+    })) as MixRadiusConfig[];
+  }, [rawData]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -47,46 +82,6 @@ export default function MixRadiusAccountsClient() {
     password: "",
     isActive: false,
   });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/integrations/mixradius/accounts");
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal mengambil daftar akun");
-      }
-      const data = await res.json();
-      // Handle both { data: [...] } and direct array response
-      const rawConfigs = Array.isArray(data) ? data : data.data || [];
-
-      // Map API fields (apiUrl/isDefault) to UI fields (baseUrl/isActive)
-      const mapped = rawConfigs.map(
-        (
-          c: Partial<MixRadiusConfig> & {
-            apiUrl?: string;
-            isDefault?: boolean;
-          },
-        ) => ({
-          ...c,
-          baseUrl: c.baseUrl || c.apiUrl || "",
-          isActive: c.isActive ?? c.isDefault ?? false,
-          name: c.name || "Default Account",
-        }),
-      );
-      setConfigs(mapped);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Gagal mengambil daftar akun",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +132,7 @@ export default function MixRadiusAccountsClient() {
         editingId ? "Akun berhasil diperbarui" : "Akun berhasil ditambahkan",
       );
       setIsModalOpen(false);
-      fetchData();
+      await mutateConfigs();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menyimpan akun",
@@ -164,7 +159,7 @@ export default function MixRadiusAccountsClient() {
       }
 
       toast.success("Akun berhasil dihapus");
-      fetchData();
+      await mutateConfigs();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menghapus akun",
@@ -173,10 +168,6 @@ export default function MixRadiusAccountsClient() {
   };
 
   const handleActivate = async (id: string, name: string) => {
-    // Optimistic update
-    const previousConfigs = [...configs];
-    setConfigs((prev) => prev.map((c) => ({ ...c, isActive: c.id === id })));
-
     try {
       // We can use PUT to set isActive=true. The backend logic handles deactivating others.
       const res = await fetch(`/api/integrations/mixradius/accounts/${id}`, {
@@ -190,9 +181,8 @@ export default function MixRadiusAccountsClient() {
         throw new Error(errData.error || "Gagal mengaktifkan akun");
       }
       toast.success(`Akun "${name}" diaktifkan`);
-      fetchData(); // Refresh to ensure sync
+      await mutateConfigs(); // Refresh to ensure sync
     } catch (error) {
-      setConfigs(previousConfigs); // Revert on error
       toast.error(
         error instanceof Error ? error.message : "Gagal mengaktifkan akun",
       );

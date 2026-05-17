@@ -35,18 +35,12 @@ export function usePppIdValidation({
   useEffect(() => {
     const idValue = idPelanggan.trim();
 
-    if (idValue && !/^\d{8}$/.test(idValue)) {
-      setIdPelangganError("ID Pelanggan harus 8 digit angka");
+    // Format/identity error sudah di-handle via derived value selama render.
+    // Effect ini hanya untuk async existence check.
+    if (!idValue || !/^\d{8}$/.test(idValue)) {
       return;
     }
-
     if (originalIdPelanggan && idValue === originalIdPelanggan) {
-      setIdPelangganError(null);
-      return;
-    }
-
-    if (!idValue) {
-      setIdPelangganError(null);
       return;
     }
 
@@ -63,6 +57,25 @@ export function usePppIdValidation({
 
     return () => clearTimeout(timeoutId);
   }, [idPelanggan, originalIdPelanggan, checkIdPelangganExists]);
+
+  // Pattern C: sync derived synchronous validation error during render
+  const idValueTrimmed = idPelanggan.trim();
+  const formatError =
+    idValueTrimmed && !/^\d{8}$/.test(idValueTrimmed)
+      ? "ID Pelanggan harus 8 digit angka"
+      : null;
+  const isOriginal =
+    Boolean(originalIdPelanggan) && idValueTrimmed === originalIdPelanggan;
+  const [prevSyncSig, setPrevSyncSig] = useState<string>("");
+  const syncSig = `${formatError ?? ""}|${isOriginal ? "1" : "0"}|${idValueTrimmed === "" ? "1" : "0"}`;
+  if (prevSyncSig !== syncSig) {
+    setPrevSyncSig(syncSig);
+    if (formatError) {
+      setIdPelangganError(formatError);
+    } else if (isOriginal || !idValueTrimmed) {
+      setIdPelangganError(null);
+    }
+  }
 
   return {
     idPelangganError,

@@ -1261,6 +1261,22 @@ vi.mock("react-icons/hi2", () => ({
   HiOutlinePhoto: mockIcon,
   HiOutlineMagnifyingGlass: mockIcon,
   HiOutlineMegaphone: mockIcon,
+  HiExclamationCircle: mockIcon,
+  HiCheckCircle: mockIcon,
+  HiArrowPath: mockIcon,
+}));
+
+// Mock useApi (SWR-based hook) — return null data + isLoading false agar component branch
+// langsung ke "no data / empty" dan tidak block hook tracking pattern
+vi.mock("@/lib/hooks/useApi", () => ({
+  useApi: vi.fn(() => ({
+    data: undefined,
+    error: undefined,
+    isLoading: false,
+    mutate: vi.fn(),
+  })),
+  apiFetcher: vi.fn(),
+  revalidate: vi.fn(),
 }));
 
 vi.mock("@/lib/realtime/RealtimeContext", () => ({

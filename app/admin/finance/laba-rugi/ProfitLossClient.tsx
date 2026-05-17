@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -13,6 +13,7 @@ import {
 import { toast } from "react-hot-toast";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import dynamic from "next/dynamic";
+import { useApi } from "@/lib/hooks/useApi";
 
 // Dynamically import Chart.js and React Chartjs 2 components
 // This significantly reduces the initial bundle size for this page
@@ -37,17 +38,25 @@ interface HistoryItem {
   netProfit: number;
 }
 
-export function ClientComponent() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalExpenses: 0,
-    netProfit: 0,
-    paymentCount: 0,
-    expenseCount: 0,
-    history: [] as HistoryItem[],
-  });
+interface FinanceStatsResponse {
+  totalRevenue?: number;
+  totalExpenses?: number;
+  netProfit?: number;
+  details?: { paymentCount?: number; expenseCount?: number };
+  history?: HistoryItem[];
+  error?: string;
+}
 
+const EMPTY_STATS = {
+  totalRevenue: 0,
+  totalExpenses: 0,
+  netProfit: 0,
+  paymentCount: 0,
+  expenseCount: 0,
+  history: [] as HistoryItem[],
+};
+
+export function ClientComponent() {
   const [dateRange, setDateRange] = useState({
     startDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     endDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
@@ -67,56 +76,42 @@ export function ClientComponent() {
     initChart();
   }, []);
 
-  const fetchStats = useCallback(async () => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      });
+  const queryString = new URLSearchParams({
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+  }).toString();
 
-      const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
-      const data = await res.json();
-
-      if (data && typeof data.totalRevenue === "number") {
-        setStats({
-          totalRevenue: data.totalRevenue || 0,
-          totalExpenses: data.totalExpenses || 0,
-          netProfit: data.netProfit || 0,
-          paymentCount: data.details?.paymentCount || 0,
-          expenseCount: data.details?.expenseCount || 0,
-          history: data.history || [],
-        });
-      } else {
-        clientLogger.error("Invalid API response for laba rugi:", data);
-        toast.error(data?.error || "Format data keuangan tidak valid");
-        setStats({
-          totalRevenue: 0,
-          totalExpenses: 0,
-          netProfit: 0,
-          paymentCount: 0,
-          expenseCount: 0,
-          history: [],
-        });
-      }
-    } catch (_error) {
-      toast.error("Gagal memuat data keuangan");
-      setStats({
-        totalRevenue: 0,
-        totalExpenses: 0,
-        netProfit: 0,
-        paymentCount: 0,
-        expenseCount: 0,
-        history: [],
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange]);
+  const {
+    data: rawStats,
+    error: statsError,
+    isLoading: loading,
+  } = useApi<FinanceStatsResponse>(`/api/finance/stats?${queryString}`);
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (statsError) {
+      clientLogger.error("Failed to load laba rugi stats:", statsError);
+      toast.error("Gagal memuat data keuangan");
+    }
+  }, [statsError]);
+
+  useEffect(() => {
+    if (rawStats && typeof rawStats.totalRevenue !== "number" && !statsError) {
+      clientLogger.error("Invalid API response for laba rugi:", rawStats);
+      toast.error(rawStats?.error || "Format data keuangan tidak valid");
+    }
+  }, [rawStats, statsError]);
+
+  const stats =
+    rawStats && typeof rawStats.totalRevenue === "number"
+      ? {
+          totalRevenue: rawStats.totalRevenue || 0,
+          totalExpenses: rawStats.totalExpenses || 0,
+          netProfit: rawStats.netProfit || 0,
+          paymentCount: rawStats.details?.paymentCount || 0,
+          expenseCount: rawStats.details?.expenseCount || 0,
+          history: rawStats.history || [],
+        }
+      : EMPTY_STATS;
 
   const chartData = {
     labels: ["Pendapatan", "Pengeluaran"],

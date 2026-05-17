@@ -173,18 +173,25 @@ export function ClientComponent() {
         1000,
       );
       return () => clearTimeout(timer);
-    } else if (retryCountdown === 0) {
-      setRetryCountdown(null);
     }
   }, [retryCountdown]);
 
-  useEffect(() => {
-    fetchOptions();
-  }, [fetchOptions]);
+  if (retryCountdown === 0) {
+    setRetryCountdown(null);
+  }
 
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+  const [hasFetchedOptions, setHasFetchedOptions] = useState(false);
+  if (!hasFetchedOptions) {
+    setHasFetchedOptions(true);
+    void fetchOptions();
+  }
+
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${page}|${debouncedStartDate}|${debouncedEndDate}|${debouncedStatusFilter}|${debouncedSiteId}|${debouncedDepartmentId}|${debouncedHolidayFilter}|${retryCountdown}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchRequests();
+  }
 
   const handleAction = async (
     id: string,

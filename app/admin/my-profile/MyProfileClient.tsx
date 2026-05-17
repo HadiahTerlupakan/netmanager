@@ -74,10 +74,12 @@ export default function MyProfileClient() {
         1000,
       );
       return () => clearTimeout(timer);
-    } else if (retryCountdown === 0) {
-      setRetryCountdown(null);
     }
   }, [retryCountdown]);
+
+  if (retryCountdown === 0) {
+    setRetryCountdown(null);
+  }
 
   const fetchProfile = useCallback(async () => {
     // No AbortController needed for simple profile fetch, but we'll add standard error handling check
@@ -98,9 +100,11 @@ export default function MyProfileClient() {
     }
   }, [showToast]);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+  const [hasFetchedProfile, setHasFetchedProfile] = useState(false);
+  if (!hasFetchedProfile) {
+    setHasFetchedProfile(true);
+    void fetchProfile();
+  }
 
   const handleSave = async () => {
     // Validate

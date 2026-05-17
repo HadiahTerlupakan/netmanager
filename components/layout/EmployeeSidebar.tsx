@@ -237,8 +237,10 @@ export default function EmployeeSidebar() {
       .filter((item): item is MenuConfig => item !== null);
   }, [allNavItems, filterNavItem]);
 
-  // Auto-expand menu
-  useEffect(() => {
+  // Auto-expand menu via pathname comparator (selama render, bukan effect)
+  const [prevPathname, setPrevPathname] = useState<string | null>(null);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     const menusToExpand: string[] = [];
     navItems.forEach((item) => {
       if (item.children) {
@@ -264,8 +266,7 @@ export default function EmployeeSidebar() {
         return newSet;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }
 
   const toggleMenu = (code: string) => {
     setExpandedMenus((prev) => {

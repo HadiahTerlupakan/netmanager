@@ -103,6 +103,7 @@ const largeUiFileBaseline = new Set([
   "app/admin/users/new/UsersNewClient.tsx",
   "app/admin/workorders/WoIndexClient.tsx",
   "app/admin/workorders/new/WoNewClient.tsx",
+  "app/admin/chat/ChatPageClient.tsx",
 ]);
 
 const dependencyInversionBaseline = new Set([

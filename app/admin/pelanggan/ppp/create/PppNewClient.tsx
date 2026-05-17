@@ -271,8 +271,11 @@ export function PppClientCreateForm() {
   }, [formData.siteId, showToast]);
 
   useEffect(() => {
-    loadHargaPakets();
-    loadOdps();
+    const handle = setTimeout(() => {
+      void loadHargaPakets();
+      void loadOdps();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [loadHargaPakets, loadOdps]);
 
   const handleSubmit = async (e: React.FormEvent) => {

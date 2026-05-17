@@ -149,9 +149,13 @@ export default function MobileErrorLogClient() {
     [debouncedSearch],
   );
 
-  useEffect(() => {
-    fetchLogs(page);
-  }, [fetchLogs, page]);
+  // Trigger fetch on page/search change via comparator (selama render, bukan effect)
+  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
+  const fetchKey = `${page}|${debouncedSearch}`;
+  if (prevFetchKey !== fetchKey) {
+    setPrevFetchKey(fetchKey);
+    void fetchLogs(page);
+  }
 
   const rows = useMemo(() => {
     return logs.map((log) => {

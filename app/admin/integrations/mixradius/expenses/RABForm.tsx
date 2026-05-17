@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ComponentProps } from "react";
+import { useState, useMemo, type ComponentProps } from "react";
 import {
   HiOutlineCalculator,
   HiOutlineCheck,
@@ -163,8 +163,21 @@ export default function RABForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInvestorDropdownOpen, setIsInvestorDropdownOpen] = useState(false);
 
-  // Initialize data if editing when modal opens
-  useEffect(() => {
+  // Initialize data if editing when modal opens — pattern: prevProp comparator
+  // (digantikan pattern useEffect lama untuk menghindari setState in effect)
+  const [prevModalSnapshot, setPrevModalSnapshot] = useState({
+    isOpen,
+    initialDataId: initialData?.id ?? null,
+  });
+  const currentSnapshot = {
+    isOpen,
+    initialDataId: initialData?.id ?? null,
+  };
+  if (
+    prevModalSnapshot.isOpen !== currentSnapshot.isOpen ||
+    prevModalSnapshot.initialDataId !== currentSnapshot.initialDataId
+  ) {
+    setPrevModalSnapshot(currentSnapshot);
     if (isOpen) {
       if (initialData) {
         // Better billing source inference
@@ -341,8 +354,7 @@ export default function RABForm({
         setExpenseTab("CAPEX");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, isOpen]); // Setter functions are stable and don't need to be in deps
+  }
 
   const handleAddMilestone = () => {
     const lastMonth =

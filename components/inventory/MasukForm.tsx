@@ -79,6 +79,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
   } | null>(null);
 
   const photoUploadRef = useRef<PhotoUploadRef>(null);
+  const [tempId] = useState<string>(() => `temp-${Date.now()}`);
 
   const fetchBarangs = async (query = "") => {
     setIsSearching(true);
@@ -192,9 +193,13 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     onClose();
   }, [onClose]);
 
-  // Effect to handle photo upload completion
-  useEffect(() => {
-    // Check if all photos have been uploaded successfully
+  // Handle photo upload completion via uploadedPhotos comparator (selama render)
+  const [prevPhotosKey, setPrevPhotosKey] = useState<string | null>(null);
+  const photosKey = transactionId
+    ? `${transactionId}|${uploadedPhotos.length}|${uploadedPhotos.map((p) => p.status).join(",")}`
+    : null;
+  if (photosKey && prevPhotosKey !== photosKey) {
+    setPrevPhotosKey(photosKey);
     if (transactionId && uploadedPhotos.length > 0) {
       const allUploaded = uploadedPhotos.every(
         (photo) => photo.status === "success",
@@ -214,7 +219,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         );
       }
     }
-  }, [uploadedPhotos, transactionId, resetForm]);
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -651,7 +656,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           )}
           <PhotoUpload
             ref={photoUploadRef}
-            transactionId={transactionId || "temp-" + Date.now()}
+            transactionId={transactionId || tempId}
             transactionType="inventory-masuk"
             onPhotosChange={setUploadedPhotos}
             maxPhotos={5}

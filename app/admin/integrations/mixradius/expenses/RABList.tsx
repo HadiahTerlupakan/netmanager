@@ -2,7 +2,7 @@
 
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   HiOutlinePencilSquare,
   HiOutlineTrash,
@@ -22,6 +22,7 @@ import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { calculateRabUnitCosts } from "@/modules/finance/client";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 import RABCompare from "./RABCompare";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABCsvContent } from "./rab-csv";
@@ -59,18 +60,55 @@ export default function RABList({
     hasPermission("mixradius_expenses:delete") ||
     hasPermission("expense:delete");
 
-  const [data, setData] = useState<RABProject[]>([]);
-  const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
+
+  // Fetch via useApi only when initialData not provided
+  const fetchKey = useMemo(() => {
+    if (initialData) return null;
+    return refreshKey
+      ? `/api/finance/rab-projects?refreshKey=${refreshKey}`
+      : "/api/finance/rab-projects";
+  }, [initialData, refreshKey]);
+
+  const {
+    data: fetchedResp,
+    isLoading: swrLoading,
+    error: fetchError,
+    mutate: refetchData,
+  } = useApi<unknown>(fetchKey);
+
+  const data: RABProject[] = useMemo(() => {
+    if (initialData) return initialData;
+    if (!fetchedResp) return [];
+    return Array.isArray(fetchedResp)
+      ? (fetchedResp as RABProject[])
+      : (((fetchedResp as { data?: RABProject[] }).data ?? []) as RABProject[]);
+  }, [initialData, fetchedResp]);
+
+  const loading = !initialData && swrLoading;
+
+  // Show toast on fetch error (use prevError comparator)
+  const [prevFetchErr, setPrevFetchErr] =
+    useState<typeof fetchError>(undefined);
+  if (prevFetchErr !== fetchError) {
+    setPrevFetchErr(fetchError);
+    if (fetchError) {
+      clientLogger.error("Gagal mengambil data RAB", fetchError);
+      toast.error(fetchError.message || "Gagal mengambil data RAB");
+    }
+  }
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(10);
 
-  useEffect(() => {
+  // Reset pagination when data list changes (derived comparator)
+  const [prevDataRef, setPrevDataRef] = useState(data);
+  if (prevDataRef !== data) {
+    setPrevDataRef(data);
     setCurrentPage(1);
-  }, [data]);
+  }
 
   const totalPages =
     itemsPerPage === "all" ? 1 : Math.ceil(data.length / itemsPerPage);
@@ -684,42 +722,9 @@ export default function RABList({
     }
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const requestUrl = refreshKey
-        ? `/api/finance/rab-projects?refreshKey=${refreshKey}`
-        : "/api/finance/rab-projects";
-      const res = await fetch(requestUrl);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        clientLogger.error("RAB fetch error:", res.status, errorData);
-        throw new Error(
-          errorData.error || `Gagal mengambil data RAB (status: ${res.status})`,
-        );
-      }
-      const result = await res.json();
-      const rabData = Array.isArray(result) ? result : result.data || [];
-      setData(rabData);
-    } catch (error) {
-      clientLogger.error("Gagal mengambil data RAB", error);
-      toast.error(
-        error instanceof Error ? error.message : "Gagal mengambil data RAB",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshKey]);
-
-  useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-      setLoading(false);
-      return;
-    }
-
-    void fetchData();
-  }, [fetchData, initialData]);
+  const fetchData = useCallback(() => {
+    void refetchData();
+  }, [refetchData]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah anda yakin ingin menghapus RAB ini?")) return;
@@ -745,10 +750,12 @@ export default function RABList({
     }
   };
 
+  const [, setIsDuplicating] = useState(false);
+
   const handleDuplicate = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menduplikasi RAB ini?")) return;
 
-    setLoading(true);
+    setIsDuplicating(true);
     try {
       const res = await fetch(`/api/finance/rab-projects/${id}/copy`, {
         method: "POST",
@@ -769,7 +776,7 @@ export default function RABList({
         error instanceof Error ? error.message : "Gagal terhubung ke server",
       );
     } finally {
-      setLoading(false);
+      setIsDuplicating(false);
     }
   };
 

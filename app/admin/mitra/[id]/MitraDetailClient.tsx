@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,15 +223,30 @@ export default function MitraDetailClient() {
     }
   }, [feeStartDate, feeEndDate, mitra]);
 
-  useEffect(() => {
-    if (params.id) fetchMitra();
-  }, [params.id, fetchMitra]);
-
-  useEffect(() => {
-    if (mitra && mitra.mitraType === "MITRA_SALES") {
-      fetchFeeData();
+  // Pattern C: fetch mitra detail saat params.id berubah
+  const paramsId = params.id as string | string[] | undefined;
+  const paramsIdKey = Array.isArray(paramsId)
+    ? paramsId.join(",")
+    : (paramsId ?? "");
+  const [prevParamsIdKey, setPrevParamsIdKey] = useState<string | null>(null);
+  if (prevParamsIdKey !== paramsIdKey) {
+    setPrevParamsIdKey(paramsIdKey);
+    if (paramsIdKey) {
+      void fetchMitra();
     }
-  }, [fetchFeeData, mitra]);
+  }
+
+  // Pattern C: fetch fee data saat mitra berubah & tipe sales
+  const mitraFeeKey = mitra
+    ? `${mitra.id}|${mitra.mitraType}|${feeStartDate}|${feeEndDate}`
+    : null;
+  const [prevMitraFeeKey, setPrevMitraFeeKey] = useState<string | null>(null);
+  if (prevMitraFeeKey !== mitraFeeKey) {
+    setPrevMitraFeeKey(mitraFeeKey);
+    if (mitra && mitra.mitraType === "MITRA_SALES") {
+      void fetchFeeData();
+    }
+  }
 
   const handleRequestFaceVerification = async () => {
     if (!mitra) return;

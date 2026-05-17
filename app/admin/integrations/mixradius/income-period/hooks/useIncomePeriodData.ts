@@ -327,11 +327,23 @@ export function useIncomePeriodData() {
     [feeConfig],
   );
 
+  // --- Reset net income when no records (handled outside effect via prevProp comparator) ---
+  const [prevTotalRecordsZero, setPrevTotalRecordsZero] = useState(
+    totalRecords === 0,
+  );
+  const isZeroNow = totalRecords === 0;
+  if (prevTotalRecordsZero !== isZeroNow) {
+    setPrevTotalRecordsZero(isZeroNow);
+    if (isZeroNow) {
+      setNetIncome(0);
+      setEstGatewayFee(0);
+    }
+  }
+
   // --- Calculate global net income (fetch all data in background) ---
   useEffect(() => {
     if (totalRecords === 0) {
-      setNetIncome(0);
-      setEstGatewayFee(0);
+      // Already handled above via prevProp comparator
       return;
     }
 
@@ -570,10 +582,16 @@ export function useIncomePeriodData() {
     selectedGroup,
   ]);
 
-  // --- Trigger fetch on filter changes ---
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // --- Trigger fetch on filter changes (via prevProp comparator + microtask) ---
+  const fetchSignature = `${page}|${pageSize}|${debouncedSearch}|${sortColumn}|${sortDirection}|${startDate}|${endDate}|${serviceType}|${paymentMethod}|${selectedGroup}`;
+  const [prevFetchSig, setPrevFetchSig] = useState<string | null>(null);
+  if (prevFetchSig !== fetchSignature) {
+    setPrevFetchSig(fetchSignature);
+    // Defer fetch to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      void fetchData();
+    });
+  }
 
   // --- Export to CSV ---
   const handleExport = async () => {

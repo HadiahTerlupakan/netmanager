@@ -25,6 +25,7 @@ import {
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import PageLoader from "@/components/ui/PageLoader";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   readMixRadiusSearchResponse,
   type MixRadiusCustomer,
@@ -60,9 +61,28 @@ export function ClientComponent() {
     "MIXRADIUS",
   );
 
-  // Sites and Departments state
-  const [sites, setSites] = useState<Site[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  // Sites and Departments via SWR (only when authenticated)
+  const isAuthenticated = status === "authenticated";
+  const { data: sitesRaw, error: sitesError } = useApi<{ data?: Site[] }>(
+    isAuthenticated ? "/api/admin/sites?activeOnly=true" : null,
+  );
+  const { data: departmentsRaw, error: departmentsError } = useApi<{
+    data?: Department[];
+  }>(isAuthenticated ? "/api/admin/departments" : null);
+
+  useEffect(() => {
+    if (sitesError) {
+      clientLogger.error("Error fetching sites:", sitesError);
+    }
+  }, [sitesError]);
+  useEffect(() => {
+    if (departmentsError) {
+      clientLogger.error("Error fetching departments:", departmentsError);
+    }
+  }, [departmentsError]);
+
+  const sites: Site[] = sitesRaw?.data ?? [];
+  const departments: Department[] = departmentsRaw?.data ?? [];
 
   // Search states
   const [searchingPelanggan, setSearchingPelanggan] = useState(false);
@@ -92,18 +112,25 @@ export function ClientComponent() {
     templateId: "",
   });
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchSites();
-      fetchDepartments();
-    }
-  }, [status]);
+  const selectPelanggan = useCallback((p: Pelanggan) => {
+    setFormData((prev) => ({
+      ...prev,
+      pelangganId: p.id,
+      pelangganDisplay: `${p.nama} (${p.idPelanggan})`,
+      contactName: p.nama,
+      contactPhone: p.noTelp || "",
+      locationAddress: p.alamat || "",
+    }));
+    setSearchQuery("");
+    setPelangganList([]);
+    setIsGuest(false); // Switch to linked mode
+  }, []);
 
   // Handle URL params for Ticket integration
   useEffect(() => {
     const ticketId = searchParams.get("ticketId");
-
-    if (ticketId) {
+    if (!ticketId) return undefined;
+    const handle = setTimeout(() => {
       setLoading(true);
       fetch(`/api/admin/support-tickets/${ticketId}`)
         .then((res) => res.json())
@@ -150,32 +177,9 @@ export function ClientComponent() {
           }));
         })
         .finally(() => setLoading(false));
-    }
-  }, [searchParams]);
-
-  const fetchSites = async () => {
-    try {
-      const response = await fetch("/api/admin/sites?activeOnly=true");
-      if (response.ok) {
-        const result = await response.json();
-        setSites(result.data || []);
-      }
-    } catch (error: unknown) {
-      clientLogger.error("Error fetching sites:", error);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await fetch("/api/admin/departments");
-      if (response.ok) {
-        const result = await response.json();
-        setDepartments(result.data || []);
-      }
-    } catch (error: unknown) {
-      clientLogger.error("Error fetching departments:", error);
-    }
-  };
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [searchParams, selectPelanggan]);
 
   const searchPelanggan = useCallback(async () => {
     setSearchingPelanggan(true);
@@ -239,20 +243,6 @@ export function ClientComponent() {
       clearTimeout(timeoutId);
     };
   }, [searchQuery, searchSource, searchPelanggan, searchMixRadius]);
-
-  const selectPelanggan = (p: Pelanggan) => {
-    setFormData((prev) => ({
-      ...prev,
-      pelangganId: p.id,
-      pelangganDisplay: `${p.nama} (${p.idPelanggan})`,
-      contactName: p.nama,
-      contactPhone: p.noTelp || "",
-      locationAddress: p.alamat || "",
-    }));
-    setSearchQuery("");
-    setPelangganList([]);
-    setIsGuest(false); // Switch to linked mode
-  };
 
   const selectMixRadiusCustomer = async (c: MixRadiusCustomer) => {
     setSearchingPelanggan(true); // Reuse loading state

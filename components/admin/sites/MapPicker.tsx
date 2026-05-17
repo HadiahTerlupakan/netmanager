@@ -40,8 +40,13 @@ export default function MapPicker({
     return null;
   }, [latitude, longitude]);
 
-  useEffect(() => {
+  // Pattern E: mount flag set during render
+  const [hasInitMount, setHasInitMount] = useState(false);
+  if (!hasInitMount) {
+    setHasInitMount(true);
     setIsMounted(true);
+  }
+  useEffect(() => {
     return () => setIsMounted(false);
   }, []);
 

@@ -236,7 +236,10 @@ export function ClientComponent({
   }, [id, setSites]);
 
   useEffect(() => {
-    void fetchUser();
+    const handle = setTimeout(() => {
+      void fetchUser();
+    }, 0);
+    return () => clearTimeout(handle);
   }, [fetchUser]);
 
   const generatePassword = () => {
