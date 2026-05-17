@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { toast } from "react-hot-toast";
 import PageLoader from "@/components/ui/PageLoader";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   HiOutlinePlus,
   HiOutlineUsers,
@@ -58,9 +59,6 @@ export default function InvestorsClient() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("investors:create");
 
-  const [investors, setInvestors] = useState<Investor[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -109,29 +107,20 @@ export default function InvestorsClient() {
     notes: "",
   });
 
-  const fetchInvestors = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/admin/investors`);
-      const data = await res.json();
-
-      if (res.ok) {
-        setInvestors(data.data || []);
-      } else {
-        toast.error(data.message || "Gagal memuat data investor");
-      }
-    } catch {
+  const {
+    data: investorsResp,
+    isLoading: loading,
+    mutate: refetchInvestors,
+  } = useApi<{ data?: Investor[] }>("/api/admin/investors", {
+    onError: () => {
       toast.error("Terjadi kesalahan saat memuat data investor");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+  });
+  const investors = investorsResp?.data ?? [];
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
-    void fetchInvestors();
-  }
+  const fetchInvestors = () => {
+    void refetchInvestors();
+  };
 
   const resetForm = () => {
     setForm({
