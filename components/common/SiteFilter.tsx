@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HiOutlineMap } from "react-icons/hi2";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Site {
   id: string;
@@ -24,23 +24,11 @@ export function SiteFilter({
   value,
   resource,
 }: SiteFilterProps) {
-  const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState<string>(value || "");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const url = resource ? `/api/sites?resource=${resource}` : "/api/sites";
-    fetch(url)
-      .then((res) => res.json())
-      .then((data) => {
-        setSites(data.sites || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        clientLogger.error("Failed to fetch sites:", err);
-        setLoading(false);
-      });
-  }, [resource]);
+  const url = resource ? `/api/sites?resource=${resource}` : "/api/sites";
+  const { data, isLoading: loading } = useApi<{ sites?: Site[] }>(url);
+  const sites = useMemo(() => data?.sites ?? [], [data?.sites]);
 
   // Sync with value prop if provided
   useEffect(() => {
@@ -52,30 +40,17 @@ export function SiteFilter({
     }
   }, [value]);
 
-  // Auto-select if only one site exists (e.g., restricted admin) AND it is an input field
-  // Or if it is a filter, we might still want to auto-select if restricted, but KEEP the dropdown visible?
-  // Actually, for restricted admin in Filter List, they can ONLY see their site. So Static Display is also fine there?
-  // User COMPLAINED about List Dropdown not being selectable.
-  // If restricted admin, they only get 1 site. If static, they can't select "All". But "All" = "Site A".
-  // Maybe the user IS NOT restricted? But if not restricted, they get 3 sites -> Dropdown.
-
-  // Let's assume the user wants the dropdown for FILTERING even if 1 site.
-  // So we only use Static Display if isInput={true} (Form Mode).
-
+  // Auto-select single site for input mode
   useEffect(() => {
-    // If input mode (required selection), auto-select single site
     if (isInput && !loading && sites.length === 1 && !selectedSite) {
       const singleSite = sites[0];
       if (singleSite) {
-        // Defer state updates to avoid synchronous setState in effect
         requestAnimationFrame(() => {
           setSelectedSite(singleSite.id);
           onSiteChange(singleSite.id);
         });
       }
     }
-    // If filter mode, we usually default to "Semua Site" (''), unless we want to force?
-    // Let's leave filter mode as manual selection (default ''), enabling 'Semua Site'.
   }, [loading, sites, selectedSite, onSiteChange, isInput]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

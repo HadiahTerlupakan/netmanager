@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
   FiBox,
   FiArrowDownCircle,
   FiArrowUpCircle,
   FiMapPin,
 } from "react-icons/fi";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface InventoryStatsData {
   totalBarang: number;
@@ -17,28 +16,9 @@ interface InventoryStatsData {
 }
 
 export function InventoryStats() {
-  const [stats, setStats] = useState<InventoryStatsData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const response = await fetch("/api/inventory/stats");
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setStats(result.data);
-          }
-        }
-      } catch (error) {
-        clientLogger.error("Failed to fetch stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStats();
-  }, []);
+  const { data: stats, isLoading: loading } = useApi<InventoryStatsData>(
+    "/api/inventory/stats",
+  );
 
   if (loading) {
     return (

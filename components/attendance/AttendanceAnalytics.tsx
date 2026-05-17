@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { MdTrendingUp, MdTrendingDown, MdAccessTime } from "react-icons/md";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface AttendanceAnalyticsProps {
   userId?: string | undefined;
@@ -41,32 +41,11 @@ interface AnalyticsData {
 export function AttendanceAnalytics({
   userId: _userId,
 }: AttendanceAnalyticsProps) {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
 
-  const fetchAnalytics = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/attendance/analytics?days=${days}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setData(result.data);
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching analytics:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [days]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchAnalytics();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchAnalytics]);
+  const { data, isLoading: loading } = useApi<AnalyticsData>(
+    `/api/attendance/analytics?days=${days}`,
+  );
 
   if (loading) {
     return (

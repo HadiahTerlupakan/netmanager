@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { HiXMark, HiMegaphone } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Announcement {
   id: string;
@@ -19,28 +19,13 @@ interface AnnouncementBannerProps {
 export default function AnnouncementBanner({
   portal,
 }: AnnouncementBannerProps) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        // Fetch active announcements for this portal
-        const res = await fetch(
-          `/api/announcements?portal=${portal}&active=true`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setAnnouncements(data);
-        }
-      } catch (error) {
-        clientLogger.error("Failed to fetch announcements", error);
-      }
-    };
-
-    fetchAnnouncements();
-  }, [portal]);
+  const { data } = useApi<Announcement[]>(
+    `/api/announcements?portal=${portal}&active=true`,
+  );
+  const announcements = data ?? [];
 
   const handleDismiss = () => {
     // Mark current announcement as read (fire and forget)

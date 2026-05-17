@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { HiClock } from "react-icons/hi2";
 import { toZonedTime, format } from "date-fns-tz";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface ServerTimeResponse {
+  serverTime: string;
+  timezone: string;
+}
 
 export function ServerClock() {
   const [time, setTime] = useState<Date | null>(null);
-  const [timezone, setTimezone] = useState<string>("Asia/Jakarta");
   const [mounted, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -15,54 +19,23 @@ export function ServerClock() {
     return () => clearTimeout(timer);
   }, []);
 
+  const { data: serverData } = useApi<ServerTimeResponse>("/api/health/time");
+  const timezone = serverData?.timezone ?? "Asia/Jakarta";
+
   useEffect(() => {
-    // 1. Fetch server time to calculate offset (only once on mount)
-    const syncTime = async () => {
-      try {
-        const start = Date.now();
-        const res = await fetch("/api/health/time");
-        const json = await res.json();
-        const end = Date.now();
+    if (!serverData) return;
 
-        // Compensate for network latency (half of round-trip time)
-        const latency = (end - start) / 2;
+    const serverTimeMs = new Date(serverData.serverTime).getTime();
+    const offset = serverTimeMs - Date.now();
 
-        if (json.success) {
-          const serverTime = new Date(json.data.serverTime).getTime();
-          const localTime = end;
-
-          // Offset = Server Time - Local Time
-          const calculatedOffset = serverTime + latency - localTime;
-          setTimezone(json.data.timezone);
-
-          // 2. Update time every second locally using the calculated offset
-          const interval = setInterval(() => {
-            const now = Date.now();
-            setTime(new Date(now + calculatedOffset));
-          }, 1000);
-
-          return interval;
-        }
-      } catch (error) {
-        clientLogger.error("[ServerClock] Failed to sync time:", error);
-      }
-      return null;
-    };
-
-    let intervalId: NodeJS.Timeout | null = null;
-
-    syncTime().then((interval) => {
-      if (interval) {
-        intervalId = interval;
-      }
-    });
-
+    const tick = () => setTime(new Date(Date.now() + offset));
+    const initial = setTimeout(tick, 0);
+    const interval = setInterval(tick, 1000);
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      clearTimeout(initial);
+      clearInterval(interval);
     };
-  }, []); // Empty dependency - only run once on mount
+  }, [serverData]);
 
   if (!mounted || !time) {
     return (

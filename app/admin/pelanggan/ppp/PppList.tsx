@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   HiOutlinePlus,
@@ -19,34 +19,35 @@ import {
   type PelangganPPP,
 } from "./pppListColumns";
 import { deletePppCustomer, updatePppCustomerStatus } from "./pppListActions";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface PelangganListResponse {
+  data?: PelangganPPP[];
+  meta?: { total?: number };
+  error?: string;
+}
+
+interface SettingsResponse {
+  disablePerpanjanganPaket?: string | number;
+}
 
 export default function PelangganPPPPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([]);
-  const [disableDuration, setDisableDuration] = useState<number>(5);
-
-  // Filters
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Pagination
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [limit] = useState(10);
 
-  // Debounce effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setPage(1); // Reset to first page on search
+      setPage(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset page when other filters change
   const [prevFilterKey, setPrevFilterKey] = useState<string>(
     `${siteId ?? ""}|${statusFilter}`,
   );
@@ -56,83 +57,62 @@ export default function PelangganPPPPage() {
     setPage(1);
   }
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const queryUrl = (() => {
+    const params = new URLSearchParams();
+    if (siteId) params.append("siteId", siteId);
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    if (statusFilter) params.append("status", statusFilter);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    return `/api/pelanggan-ppp?${params.toString()}`;
+  })();
 
-      const params = new URLSearchParams();
-      if (siteId) params.append("siteId", siteId);
-      if (debouncedSearch) params.append("search", debouncedSearch);
-      if (statusFilter) params.append("status", statusFilter);
-      params.append("page", page.toString());
-      params.append("limit", limit.toString());
+  const {
+    data: pelangganData,
+    isLoading: loadingPelanggan,
+    error: pelangganError,
+    mutate: mutatePelanggan,
+  } = useApi<PelangganListResponse | PelangganPPP[]>(queryUrl);
 
-      const [resPelanggan, resSettings] = await Promise.all([
-        fetch(`/api/pelanggan-ppp?${params.toString()}`, {
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache" },
-        }),
-        fetch("/api/settings/general"),
-      ]);
+  const { data: settingsData, mutate: mutateSettings } = useApi<
+    SettingsResponse | { data?: SettingsResponse }
+  >("/api/settings/general");
 
-      if (!resPelanggan.ok) throw new Error("Gagal memuat data pelanggan PPP");
+  const pelanggans: PelangganPPP[] = Array.isArray(pelangganData)
+    ? pelangganData
+    : (pelangganData?.data ?? []);
+  const totalPages = Array.isArray(pelangganData)
+    ? 1
+    : pelangganData?.meta?.total
+      ? Math.ceil(pelangganData.meta.total / limit)
+      : 1;
+  const error = pelangganError
+    ? pelangganError.message || "Terjadi kesalahan saat memuat data"
+    : null;
+  const loading = loadingPelanggan;
 
-      if (resSettings.ok) {
-        try {
-          const settingsJson = await resSettings.json();
-          const settingsData = settingsJson.data || settingsJson;
-          if (settingsData.disablePerpanjanganPaket) {
-            setDisableDuration(
-              parseInt(settingsData.disablePerpanjanganPaket) || 5,
-            );
-          }
-        } catch (_e) {
-          clientLogger.error("Error parsing settings:", _e);
-        }
-      }
+  const settingsInner: SettingsResponse =
+    settingsData &&
+    "data" in (settingsData as object) &&
+    (settingsData as { data?: SettingsResponse }).data
+      ? (settingsData as { data: SettingsResponse }).data
+      : ((settingsData as SettingsResponse | undefined) ?? {});
+  const disableDurationRaw = settingsInner.disablePerpanjanganPaket;
+  const disableDuration =
+    typeof disableDurationRaw === "number"
+      ? disableDurationRaw
+      : parseInt(String(disableDurationRaw ?? ""), 10) || 5;
 
-      let data: PelangganPPP[] = [];
-      try {
-        const text = await resPelanggan.text();
-        if (text) {
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed)) {
-            data = parsed;
-            setTotalPages(1);
-          } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
-            data = parsed.data;
-            if (parsed.meta) {
-              setTotalPages(Math.ceil((parsed.meta.total || 0) / limit));
-            }
-          } else if (parsed.error) {
-            throw new Error(parsed.error);
-          } else {
-            data = [];
-          }
-        }
-      } catch (_e) {
-        throw new Error("Gagal memproses data pelanggan");
-      }
-
-      setPelanggans(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat memuat data",
-      );
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (pelangganError) {
+      clientLogger.error("Error loading pelanggan PPP:", pelangganError);
     }
-  }, [siteId, debouncedSearch, statusFilter, page, limit]);
+  }, [pelangganError]);
 
-  const [prevLoadKey, setPrevLoadKey] = useState<string | null>(null);
-  const loadKey = `${siteId ?? ""}|${debouncedSearch}|${statusFilter}|${page}|${limit}`;
-  if (prevLoadKey !== loadKey) {
-    setPrevLoadKey(loadKey);
-    void loadData();
-  }
+  const reload = () => {
+    void mutatePelanggan();
+    void mutateSettings();
+  };
 
   /**
    * Delete pelanggan PPP via useMutation untuk loading state & error
@@ -142,7 +122,7 @@ export default function PelangganPPPPage() {
   const deleteMutation = useMutation<void, Error, string>({
     mutationFn: deletePppCustomer,
     onSuccess: () => {
-      void loadData();
+      void mutatePelanggan();
     },
     onError: (err) => {
       alert(
@@ -174,7 +154,7 @@ export default function PelangganPPPPage() {
   >({
     mutationFn: ({ id, newStatus }) => updatePppCustomerStatus(id, newStatus),
     onSuccess: () => {
-      void loadData();
+      void mutatePelanggan();
     },
     onError: (err) => {
       alert(err instanceof Error ? err.message : "Gagal mengubah status");
@@ -213,7 +193,7 @@ export default function PelangganPPPPage() {
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
-            onClick={loadData}
+            onClick={reload}
             className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
           >
             <HiArrowPath className="-ml-1 mr-2 h-5 w-5 text-gray-500" />

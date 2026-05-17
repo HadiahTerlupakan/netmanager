@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
   HiOutlineExclamationCircle,
   HiOutlineQuestionMarkCircle,
 } from "react-icons/hi2";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface NPLBucket {
   count: number;
@@ -25,43 +25,18 @@ interface NPLSummaryProps {
 }
 
 export function NPLSummary({ groupId }: NPLSummaryProps) {
-  const [stats, setStats] = useState<NPLStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      try {
-        const url = new URL(
-          "/api/integrations/mixradius/npl",
-          window.location.origin,
-        );
-        if (groupId && groupId !== "all") {
-          url.searchParams.append("groupId", groupId);
-        }
-
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-          throw new Error("Failed to fetch NPL statistics");
-        }
-        const result = await response.json();
-        if (result.success) {
-          setStats(result.data);
-        } else {
-          throw new Error(result.message || "Failed to fetch NPL statistics");
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred",
-        );
-      } finally {
-        setLoading(false);
-      }
+  const queryUrl = (() => {
+    const params = new URLSearchParams();
+    if (groupId && groupId !== "all") {
+      params.append("groupId", groupId);
     }
+    const qs = params.toString();
+    return qs
+      ? `/api/integrations/mixradius/npl?${qs}`
+      : "/api/integrations/mixradius/npl";
+  })();
 
-    fetchStats();
-  }, [groupId]);
+  const { data: stats, isLoading: loading, error } = useApi<NPLStats>(queryUrl);
 
   if (loading) {
     return (

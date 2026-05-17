@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { MdNotifications, MdWork, MdInventory } from "react-icons/md";
 import { HiMegaphone } from "react-icons/hi2";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifi
 import { usePermission } from "@/hooks/use-permission";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { normalizeKaryawanNotificationLink } from "@/lib/notifications/normalizeKaryawanNotificationLink";
-import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Announcement {
   id: string;
@@ -33,32 +33,15 @@ export function KaryawanNotificationBell() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [_announcementsLoading, setAnnouncementsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const closeDropdown = useCallback(() => setIsOpen(false), []);
   useClickOutside(dropdownRef, closeDropdown);
 
-  // Fetch announcements
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const res = await fetch(
-          "/api/announcements?portal=employee&active=true",
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setAnnouncements(data);
-        }
-      } catch (_error) {
-        clientLogger.error("Failed to fetch announcements", _error);
-      } finally {
-        setAnnouncementsLoading(false);
-      }
-    };
-    fetchAnnouncements();
-  }, []);
+  const { data: announcementsData } = useApi<Announcement[]>(
+    "/api/announcements?portal=employee&active=true",
+  );
+  const announcements = announcementsData ?? [];
 
   const handleMarkAllAsRead = async () => {
     setIsLoading(true);

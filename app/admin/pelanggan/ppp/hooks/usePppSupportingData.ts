@@ -1,11 +1,7 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 
-import {
-  fetchWithHandling,
-  formatErrorMessage,
-  isFetchError,
-} from "@/lib/utils/fetch-wrapper";
+import { useApi } from "@/lib/hooks/useApi";
 
 type HargaPaket = {
   id: string;
@@ -46,70 +42,52 @@ export function usePppSupportingData({
   siteId,
   showToast,
 }: UsePppSupportingDataOptions) {
-  const [loading, setLoading] = useState(false);
-  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
-  const [odps, setOdps] = useState<Odp[]>([]);
+  const hargaParams = new URLSearchParams();
+  hargaParams.append("status", "AKTIF");
+  if (mode === "create" && siteId) {
+    hargaParams.append("siteId", siteId);
+  }
 
-  const loadHargaPakets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.append("status", "AKTIF");
-      if (mode === "create" && siteId) {
-        params.append("siteId", siteId);
-      }
+  const odpParams = new URLSearchParams();
+  if (mode === "create" && siteId) {
+    odpParams.append("siteId", siteId);
+  }
+  const odpQs = odpParams.toString();
 
-      const res = await fetchWithHandling<HargaPaket[]>(
-        `/api/hargapakets?${params.toString()}`,
-      );
-      if (res.data) {
-        setHargaPakets(res.data);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading harga pakets:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [mode, showToast, siteId]);
+  const hargaQuery = useApi<HargaPaket[]>(
+    `/api/hargapakets?${hargaParams.toString()}`,
+  );
+  const odpQuery = useApi<{ odps?: Odp[] }>(
+    odpQs ? `/api/odps?${odpQs}` : "/api/odps",
+  );
 
-  const loadOdps = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (mode === "create" && siteId) {
-        params.append("siteId", siteId);
-      }
-
-      const res = await fetchWithHandling<{ odps: Odp[] }>(
-        `/api/odps?${params.toString()}`,
-      );
-      if (res.data?.odps) {
-        setOdps(res.data.odps);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading ODPs:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
-    }
-  }, [mode, showToast, siteId]);
+  const hargaPakets = hargaQuery.data ?? [];
+  const odps = odpQuery.data?.odps ?? [];
+  const loading = hargaQuery.isLoading || odpQuery.isLoading;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadHargaPakets();
-      void loadOdps();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadHargaPakets, loadOdps]);
+    if (hargaQuery.error) {
+      clientLogger.error("Error loading harga pakets:", hargaQuery.error);
+      showToast(
+        "error",
+        hargaQuery.error.message || "Gagal memuat data harga paket",
+      );
+    }
+  }, [hargaQuery.error, showToast]);
+
+  useEffect(() => {
+    if (odpQuery.error) {
+      clientLogger.error("Error loading ODPs:", odpQuery.error);
+      showToast("error", odpQuery.error.message || "Gagal memuat data ODP");
+    }
+  }, [odpQuery.error, showToast]);
 
   return {
     loading,
     hargaPakets,
     odps,
     reloadSupportingData: async () => {
-      await Promise.all([loadHargaPakets(), loadOdps()]);
+      await Promise.all([hargaQuery.mutate(), odpQuery.mutate()]);
     },
   };
 }
