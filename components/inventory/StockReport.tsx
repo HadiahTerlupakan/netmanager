@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   FiMapPin,
   FiAlertTriangle,
@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface StockItem {
   barangId: string;
@@ -43,72 +44,40 @@ interface GudangOption {
 }
 
 export function StockReport() {
-  const [gudangOptions, setGudangOptions] = useState<GudangOption[]>([]);
   const [selectedGudangId, setSelectedGudangId] = useState<string>("");
-  const [gudangData, setGudangData] = useState<GudangStock | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  // Fetch list of gudangs first
+  const {
+    data: gudangListData,
+    isLoading: loadingList,
+    error: gudangListError,
+  } = useApi<{ gudangs?: GudangOption[] }>("/api/inventory/gudang?view=all");
+  const gudangOptions = gudangListData?.gudangs ?? [];
+
+  const reportUrl = selectedGudangId
+    ? `/api/inventory/opname/report?gudangId=${selectedGudangId}`
+    : null;
+  const {
+    data: reportData,
+    isLoading: loadingReport,
+    error: reportError,
+    mutate: mutateReport,
+  } = useApi<{ gudangList?: GudangStock[] }>(reportUrl);
+  const gudangData = reportData?.gudangList?.[0] ?? null;
+
+  const loading = loadingList || (selectedGudangId ? loadingReport : false);
+  const error = gudangListError?.message || reportError?.message || "";
+
   useEffect(() => {
-    fetchGudangList();
-  }, []);
+    if (gudangListError) {
+      clientLogger.error("Error fetching gudang list:", gudangListError);
+    }
+  }, [gudangListError]);
 
-  // Fetch stock data when gudang is selected
   useEffect(() => {
-    if (selectedGudangId) {
-      fetchStockReport(selectedGudangId);
+    if (reportError) {
+      clientLogger.error("Error fetching stock report:", reportError);
     }
-  }, [selectedGudangId]);
-
-  async function fetchGudangList() {
-    try {
-      const response = await fetch("/api/inventory/gudang?view=all");
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal memuat daftar gudang");
-      }
-      const data = await response.json();
-      const result = data.data || data;
-      // API returns { success: true, data: { gudangs: [...] } }
-      const gudangs = Array.isArray(result.gudangs) ? result.gudangs : [];
-      setGudangOptions(gudangs);
-      // Don't auto-select, let user choose first
-      setLoading(false);
-    } catch (error) {
-      clientLogger.error("Error fetching gudang list:", error);
-      setError("Gagal memuat daftar gudang");
-      setLoading(false);
-    }
-  }
-
-  async function fetchStockReport(gudangId: string) {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(
-        `/api/inventory/opname/report?gudangId=${gudangId}`,
-      );
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal memuat laporan stok");
-      }
-
-      const data = await response.json();
-      const result = data.data || data;
-      if (result.gudangList && result.gudangList.length > 0) {
-        setGudangData(result.gudangList[0]);
-      } else {
-        setGudangData(null);
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching stock report:", error);
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [reportError]);
 
   const handleExportCSV = () => {
     if (!gudangData) return;
@@ -172,9 +141,7 @@ export function StockReport() {
               ))}
             </select>
             <Button
-              onClick={() =>
-                selectedGudangId && fetchStockReport(selectedGudangId)
-              }
+              onClick={() => selectedGudangId && void mutateReport()}
               disabled={!selectedGudangId || loading}
               className="shrink-0 inline-flex items-center p-2 sm:px-3 sm:py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
             >

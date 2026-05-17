@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FiActivity } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Barang {
   id: string;
@@ -44,94 +45,46 @@ export function RestockSettingsForm({
   onSuccess,
 }: RestockSettingsFormProps) {
   const [formData, setFormData] = useState({
-    barangId: "",
-    gudangId: "",
-    minStok: "",
-    maxStok: "",
-    safetyStok: "",
-    leadTimeDays: "",
+    barangId: initialData?.barangId ?? "",
+    gudangId: initialData?.gudangId ?? "",
+    minStok: initialData?.minStok?.toString() ?? "",
+    maxStok: initialData?.maxStok?.toString() ?? "",
+    safetyStok: initialData?.safetyStok?.toString() ?? "",
+    leadTimeDays: initialData?.leadTimeDays?.toString() ?? "",
   });
-  const [barangs, setBarangs] = useState<Barang[]>([]);
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
-  const [currentStock, setCurrentStock] = useState(0);
-  const [avgDailyUsage, setAvgDailyUsage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        // Fetch barang
-        const barangResponse = await fetch("/api/inventory/barang?limit=100");
-        const barangData = await barangResponse.json();
-        const barangResult = barangData.data || barangData;
-        setBarangs(barangResult.barangs || []);
+  const { data: barangData, error: barangError } = useApi<{
+    barangs?: Barang[];
+  }>("/api/inventory/barang?limit=100");
+  const { data: gudangData, error: gudangError } = useApi<{
+    gudangs?: Gudang[];
+  }>("/api/inventory/gudang");
+  const barangs = barangData?.barangs ?? [];
+  const gudangs = gudangData?.gudangs ?? [];
 
-        // Fetch gudang
-        const gudangResponse = await fetch("/api/inventory/gudang");
-        const gudangData = await gudangResponse.json();
-        const gudangResult = gudangData.data || gudangData;
-        setGudangs(gudangResult.gudangs || []);
-
-        // If editing, populate form
-        if (initialData) {
-          setFormData({
-            barangId: initialData.barangId || "",
-            gudangId: initialData.gudangId || "",
-            minStok: initialData.minStok?.toString() || "",
-            maxStok: initialData.maxStok?.toString() || "",
-            safetyStok: initialData.safetyStok?.toString() || "",
-            leadTimeDays: initialData.leadTimeDays?.toString() || "",
-          });
-          setAvgDailyUsage(initialData.avgDailyUsage || 0);
-        }
-      } catch (error) {
-        clientLogger.error("Error fetching initial data:", error);
-        setError("Gagal memuat data awal");
-      }
-    }
-
-    fetchInitialData();
-  }, [initialData]);
+  const fetchInitialError =
+    barangError || gudangError ? "Gagal memuat data awal" : null;
+  const displayError = error || fetchInitialError || "";
 
   useEffect(() => {
-    async function fetchCurrentStock() {
-      if (formData.barangId && formData.gudangId) {
-        try {
-          const selectedBarang = barangs.find(
-            (b) => b.id === formData.barangId,
-          );
-          if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find(
-              (s: { gudangId: string; stok: number }) =>
-                s.gudangId === formData.gudangId,
-            );
-            setCurrentStock(stockInfo?.stok || 0);
-
-            // Calculate average daily usage (last 30 days)
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-            const usageResponse = await fetch(
-              `/api/inventory/analytics/usage?barangId=${formData.barangId}&gudangId=${formData.gudangId}&days=30`,
-            );
-            if (usageResponse.ok) {
-              const usageData = await usageResponse.json();
-              setAvgDailyUsage(usageData.avgDailyUsage || 0);
-            }
-          }
-        } catch (error) {
-          clientLogger.error("Error fetching stock data:", error);
-        }
-      } else {
-        setCurrentStock(0);
-        setAvgDailyUsage(0);
-      }
+    if (barangError || gudangError) {
+      clientLogger.error("Error fetching initial data:", {
+        barangError,
+        gudangError,
+      });
     }
+  }, [barangError, gudangError]);
 
-    fetchCurrentStock();
-  }, [formData.barangId, formData.gudangId, barangs]);
+  const usageUrl =
+    formData.barangId && formData.gudangId
+      ? `/api/inventory/analytics/usage?barangId=${formData.barangId}&gudangId=${formData.gudangId}&days=30`
+      : null;
+  const { data: usageData } = useApi<{ avgDailyUsage?: number }>(usageUrl);
+  const avgDailyUsage =
+    usageData?.avgDailyUsage ?? initialData?.avgDailyUsage ?? 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,6 +166,10 @@ export function RestockSettingsForm({
 
   const selectedBarang = barangs.find((b) => b.id === formData.barangId);
   const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
+  const currentStock =
+    selectedBarang?.stockPerGudang?.find(
+      (s) => s.gudangId === formData.gudangId,
+    )?.stok ?? 0;
 
   // Calculate recommendations
   const minStok = parseInt(formData.minStok) || 0;
@@ -234,9 +191,9 @@ export function RestockSettingsForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
+      {displayError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {displayError}
         </div>
       )}
 

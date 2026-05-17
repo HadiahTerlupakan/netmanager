@@ -1,43 +1,28 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   normalizeInvestorListResponse,
   type Category,
   type InvestorOption,
 } from "../utils/rabFormHelpers";
+import { useApi } from "@/lib/hooks/useApi";
 
 export function useRABExternalData() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [investorsList, setInvestorsList] = useState<InvestorOption[]>([]);
+  const { data: categoriesRaw } = useApi<Category[] | { data?: Category[] }>(
+    "/api/finance/expense-categories",
+  );
+  const { data: investorsRaw } = useApi<unknown>("/api/admin/investors");
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await fetch("/api/finance/expense-categories");
-        const data = await res.json();
-        // expense-categories sudah memiliki type CAPEX/OPEX — simpan semua
-        setCategories(
-          Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [],
-        );
-      } catch (error) {
-        console.error("Failed fetching categories", error);
-      }
-    };
+  const categories = useMemo<Category[]>(() => {
+    const inner = Array.isArray(categoriesRaw)
+      ? categoriesRaw
+      : (categoriesRaw as { data?: Category[] } | undefined)?.data;
+    return Array.isArray(inner) ? inner : [];
+  }, [categoriesRaw]);
 
-    const fetchInvestors = async () => {
-      try {
-        const res = await fetch("/api/admin/investors");
-        if (res.ok) {
-          const data = await res.json();
-          setInvestorsList(normalizeInvestorListResponse(data));
-        }
-      } catch (error) {
-        console.error("Failed fetching investors", error);
-      }
-    };
-
-    fetchCategories();
-    fetchInvestors();
-  }, []);
+  const investorsList = useMemo<InvestorOption[]>(() => {
+    if (!investorsRaw) return [];
+    return normalizeInvestorListResponse(investorsRaw);
+  }, [investorsRaw]);
 
   return {
     categories,
