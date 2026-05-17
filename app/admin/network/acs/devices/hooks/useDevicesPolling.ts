@@ -1,48 +1,37 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import type { Device } from "@/app/admin/network/acs/devices/lib/acsDeviceTypes";
+import { useApi } from "@/lib/hooks/useApi";
 
 type UseDevicesPollingOptions = {
   showToast: (type: "success" | "error" | "info", message: string) => void;
 };
 
 export function useDevicesPolling({ showToast }: UseDevicesPollingOptions) {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/acs/devices");
-      const result = await res.json();
-      if (result.success && result.data) {
-        setDevices(result.data.devices || []);
-      } else {
-        showToast("error", result.error || "Gagal memuat perangkat");
-      }
-    } catch (_err) {
-      showToast("error", "Terjadi kesalahan saat memuat data perangkat");
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+  const {
+    data,
+    isLoading: loading,
+    error,
+    mutate,
+  } = useApi<{
+    devices?: Device[];
+  }>("/api/acs/devices", {
+    refreshInterval: 300_000,
+  });
+  const devices = data?.devices ?? [];
 
   useEffect(() => {
-    const initialHandle = setTimeout(() => {
-      void refresh();
-    }, 0);
-    const interval = setInterval(() => {
-      void refresh();
-    }, 300000);
-    return () => {
-      clearTimeout(initialHandle);
-      clearInterval(interval);
-    };
-  }, [refresh]);
+    if (error) {
+      showToast(
+        "error",
+        error.message || "Terjadi kesalahan saat memuat data perangkat",
+      );
+    }
+  }, [error, showToast]);
 
   return {
     devices,
     loading,
-    refresh,
+    refresh: () => mutate(),
   };
 }

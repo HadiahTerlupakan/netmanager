@@ -1,11 +1,12 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { toast } from "react-hot-toast";
 
 import { useDebounce } from "@/hooks/useDebounce";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MIKROTIK_PAGINATION,
   MIKROTIK_DEBOUNCE,
@@ -36,6 +37,10 @@ type MikroTikUpdateData = {
   status?: string;
 };
 
+interface SettingsPayload {
+  pppConnectionMode?: "RADIUS" | "MIKROTIK_API";
+}
+
 const INITIAL_DATA: PaginatedMikrotikRouters = {
   routers: [],
   total: 0,
@@ -45,8 +50,6 @@ const INITIAL_DATA: PaginatedMikrotikRouters = {
 };
 
 export function useMikrotikRouterList() {
-  const [data, setData] = useState<PaginatedMikrotikRouters>(INITIAL_DATA);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(
     search,
@@ -54,57 +57,54 @@ export function useMikrotikRouterList() {
   );
   const [page, setPage] = useState<number>(MIKROTIK_PAGINATION.DEFAULT_PAGE);
   const [limit, setLimit] = useState<number>(MIKROTIK_PAGINATION.DEFAULT_LIMIT);
-  const [pppConnectionMode, setPppConnectionMode] = useState<
-    "RADIUS" | "MIKROTIK_API"
-  >("RADIUS");
 
-  const fetchRouters = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-      });
-      if (debouncedSearch) {
-        params.append("search", debouncedSearch);
-      }
+  const queryUrl = (() => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    return `${MIKROTIK_API.BASE}?${params.toString()}`;
+  })();
 
-      const [res, settingsRes] = await Promise.all([
-        fetch(`${MIKROTIK_API.BASE}?${params.toString()}`),
-        fetch(MIKROTIK_API.SETTINGS_GENERAL),
-      ]);
+  const {
+    data: routerData,
+    isLoading: loading,
+    error: routerError,
+    mutate: refresh,
+  } = useApi<PaginatedMikrotikRouters | { data?: PaginatedMikrotikRouters }>(
+    queryUrl,
+  );
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch routers");
-      }
+  const data: PaginatedMikrotikRouters =
+    routerData &&
+    "data" in (routerData as object) &&
+    (routerData as { data?: PaginatedMikrotikRouters }).data
+      ? (routerData as { data: PaginatedMikrotikRouters }).data
+      : ((routerData as PaginatedMikrotikRouters | undefined) ?? INITIAL_DATA);
 
-      const result = await res.json();
-      setData(result.data || result);
-
-      if (settingsRes.ok) {
-        const settingsJson = await settingsRes.json();
-        const settingsData = settingsJson.data || settingsJson;
-        setPppConnectionMode(settingsData.pppConnectionMode || "RADIUS");
-      }
-    } catch (error) {
-      clientLogger.error("Error loading routers:", error);
-      toast.error("Gagal memuat data Router");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit, debouncedSearch]);
+  const { data: settingsData } = useApi<
+    SettingsPayload | { data?: SettingsPayload }
+  >(MIKROTIK_API.SETTINGS_GENERAL);
+  const settingsInner: SettingsPayload =
+    settingsData &&
+    "data" in (settingsData as object) &&
+    (settingsData as { data?: SettingsPayload }).data
+      ? (settingsData as { data: SettingsPayload }).data
+      : ((settingsData as SettingsPayload | undefined) ?? {});
+  const pppConnectionMode = settingsInner.pppConnectionMode || "RADIUS";
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchRouters();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchRouters]);
+    if (routerError) {
+      clientLogger.error("Error loading routers:", routerError);
+      toast.error("Gagal memuat data Router");
+    }
+  }, [routerError]);
 
   useRealtimeScope({ kind: "admin", id: "mikrotik" });
 
   useRealtimeEvent<MikroTikUpdateData>("mikrotik.update", () => {
-    void fetchRouters();
+    void refresh();
   });
 
   return {
@@ -117,6 +117,6 @@ export function useMikrotikRouterList() {
     limit,
     setLimit,
     pppConnectionMode,
-    refresh: fetchRouters,
+    refresh,
   };
 }

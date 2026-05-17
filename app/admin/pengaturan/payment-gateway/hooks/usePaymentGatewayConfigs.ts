@@ -1,7 +1,8 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useApi } from "@/lib/hooks/useApi";
 
 export interface GatewayConfig {
   id: string;
@@ -46,21 +47,6 @@ async function safeParseJson(response: Response) {
   }
 }
 
-function extractConfigs(payload: unknown): GatewayConfig[] {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (payload && typeof payload === "object") {
-    const data = (payload as Record<string, unknown>).data;
-    if (Array.isArray(data)) {
-      return data;
-    }
-  }
-
-  return [];
-}
-
 function getPayloadMessage(payload: unknown): string | undefined {
   if (payload && typeof payload === "object") {
     const message = (payload as Record<string, unknown>).message;
@@ -83,38 +69,15 @@ function getPayloadMessage(payload: unknown): string | undefined {
 }
 
 export function usePaymentGatewayConfigs() {
-  const [configs, setConfigs] = useState<GatewayConfig[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  const fetchConfigs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(CONFIGS_URL);
-      if (response.ok) {
-        const payload = await safeParseJson(response);
-        const normalized = extractConfigs(payload);
-        setConfigs(normalized);
-      } else {
-        clientLogger.error(
-          "Failed to fetch payment gateway configs:",
-          response.statusText,
-        );
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching payment gateway configs:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchConfigs();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchConfigs]);
+  const {
+    data,
+    isLoading: loading,
+    mutate,
+  } = useApi<GatewayConfig[]>(CONFIGS_URL);
+  const configs = data ?? [];
 
   const toggleProvider = useCallback(
     async (
@@ -129,7 +92,7 @@ export function usePaymentGatewayConfigs() {
         });
 
         if (response.ok) {
-          await fetchConfigs();
+          await mutate();
           return { success: true };
         }
 
@@ -147,7 +110,7 @@ export function usePaymentGatewayConfigs() {
         };
       }
     },
-    [fetchConfigs],
+    [mutate],
   );
 
   const saveConfig = useCallback(
@@ -164,7 +127,7 @@ export function usePaymentGatewayConfigs() {
         });
 
         if (response.ok) {
-          await fetchConfigs();
+          await mutate();
           return { success: true };
         }
 
@@ -183,7 +146,7 @@ export function usePaymentGatewayConfigs() {
         setSaving(false);
       }
     },
-    [fetchConfigs],
+    [mutate],
   );
 
   const testConnection = useCallback(
@@ -225,7 +188,7 @@ export function usePaymentGatewayConfigs() {
     loading,
     saving,
     testing,
-    fetchConfigs,
+    fetchConfigs: mutate,
     toggleProvider,
     saveConfig,
     testConnection,

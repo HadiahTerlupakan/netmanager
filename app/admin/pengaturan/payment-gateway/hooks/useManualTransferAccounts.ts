@@ -1,7 +1,8 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useApi } from "@/lib/hooks/useApi";
 
 export interface CompanyBankAccount {
   id: string;
@@ -59,58 +60,13 @@ function getPayloadMessage(payload: unknown): string | undefined {
   return undefined;
 }
 
-function extractAccounts(payload: unknown): CompanyBankAccount[] {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (payload && typeof payload === "object") {
-    const data = (payload as Record<string, unknown>).data;
-    if (Array.isArray(data)) {
-      return data;
-    }
-  }
-
-  return [];
-}
-
 export function useManualTransferAccounts() {
-  const [accounts, setAccounts] = useState<CompanyBankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAccounts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(ACCOUNTS_URL);
-      if (response.ok) {
-        const payload = await safeParseJson(response);
-        const normalized = extractAccounts(payload);
-        if (normalized.length > 0) {
-          setAccounts(normalized);
-        } else if (Array.isArray(payload)) {
-          setAccounts(payload);
-        } else {
-          setAccounts([]);
-        }
-      } else {
-        clientLogger.error(
-          "Failed to fetch bank accounts:",
-          response.statusText,
-        );
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching bank accounts:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchAccounts();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchAccounts]);
+  const {
+    data,
+    isLoading: loading,
+    mutate,
+  } = useApi<CompanyBankAccount[]>(ACCOUNTS_URL);
+  const accounts = data ?? [];
 
   const upsertAccount = useCallback(
     async (
@@ -126,7 +82,7 @@ export function useManualTransferAccounts() {
         });
 
         if (response.ok) {
-          await fetchAccounts();
+          await mutate();
           return { success: true };
         }
 
@@ -140,7 +96,7 @@ export function useManualTransferAccounts() {
         return { success: false, message: "Terjadi kesalahan saat menyimpan" };
       }
     },
-    [fetchAccounts],
+    [mutate],
   );
 
   const deleteAccount = useCallback(
@@ -151,7 +107,7 @@ export function useManualTransferAccounts() {
         });
 
         if (response.ok) {
-          await fetchAccounts();
+          await mutate();
           return { success: true };
         }
 
@@ -165,7 +121,7 @@ export function useManualTransferAccounts() {
         return { success: false, message: "Terjadi kesalahan saat menghapus" };
       }
     },
-    [fetchAccounts],
+    [mutate],
   );
 
   const toggleAccount = useCallback(
@@ -187,7 +143,7 @@ export function useManualTransferAccounts() {
         });
 
         if (response.ok) {
-          await fetchAccounts();
+          await mutate();
           return { success: true };
         }
 
@@ -205,13 +161,13 @@ export function useManualTransferAccounts() {
         };
       }
     },
-    [fetchAccounts],
+    [mutate],
   );
 
   return {
     accounts,
     loading,
-    fetchAccounts,
+    fetchAccounts: mutate,
     upsertAccount,
     deleteAccount,
     toggleAccount,

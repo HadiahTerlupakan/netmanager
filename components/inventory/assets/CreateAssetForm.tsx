@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiSave, FiArrowLeft } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 // Default useful life in months based on category
 const USEFUL_LIFE_MAP: Record<string, number> = {
@@ -26,7 +27,15 @@ export function CreateAssetForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [barangs, setBarangs] = useState<Barang[]>([]);
+
+  const { data: barangData, error: barangError } = useApi<{
+    barangs?: Barang[];
+  }>("/api/inventory/barang?limit=1000");
+  const barangs = barangData?.barangs ?? [];
+
+  if (barangError) {
+    clientLogger.error("Failed to fetch barang assets", barangError);
+  }
 
   const [formData, setFormData] = useState({
     barangId: "",
@@ -39,16 +48,6 @@ export function CreateAssetForm() {
     location: "",
     assignedTo: "",
   });
-
-  useEffect(() => {
-    fetch("/api/inventory/barang?limit=1000") // Higher limit for selection
-      .then((res) => res.json())
-      .then((data) => {
-        const result = data.data || data;
-        setBarangs(result.barangs || []);
-      })
-      .catch((err) => clientLogger.error("Failed to fetch barang assets", err));
-  }, []);
 
   const handleBarangChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const barangId = e.target.value;
