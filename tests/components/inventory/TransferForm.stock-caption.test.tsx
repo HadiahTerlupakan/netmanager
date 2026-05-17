@@ -26,6 +26,19 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    error: null as unknown,
+    data: undefined as unknown,
+    reset: vi.fn(),
+  }),
+}));
+
 vi.mock("@/components/ui/Button", () => ({
   Button: ({
     children,

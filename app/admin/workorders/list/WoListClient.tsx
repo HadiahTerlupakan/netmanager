@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/hooks/useApi";
 import Link from "next/link";
 import { intervalToDuration, formatDuration, format } from "date-fns";
@@ -287,31 +288,65 @@ export function ClientComponent() {
     return () => clearTimeout(handle);
   }, [session, status]);
 
-  const handleVerify = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Apakah Anda yakin ingin memverifikasi work order ini?"))
-      return;
+  const queryClient = useQueryClient();
 
-    setProcessingApproval(true);
-    try {
+  /**
+   * Verify work order dengan optimistic update.
+   *
+   * UX: row langsung berubah status VERIFIED sebelum server confirm.
+   * Bila gagal, rollback ke state sebelumnya plus alert error.
+   */
+  const verifyWoMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previous: WorkOrderListData | undefined }
+  >({
+    mutationFn: async (id) => {
       const response = await fetch(`/api/admin/workorders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "VERIFIED" }),
       });
-
-      if (response.ok) {
-        fetchWorkOrders();
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(errData.error || "Gagal memverifikasi work order");
+      if (!response.ok) {
+        const errData = await response
+          .json()
+          .catch(() => ({}) as { error?: string });
+        throw new Error(errData.error || "Gagal memverifikasi work order");
       }
-    } catch (error: unknown) {
-      console.error("Error verifying:", error);
-      alert("Terjadi kesalahan");
-    } finally {
-      setProcessingApproval(false);
-    }
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: [workOrdersUrl] });
+      const previous = queryClient.getQueryData<WorkOrderListData>([
+        workOrdersUrl,
+      ]);
+      queryClient.setQueryData<WorkOrderListData>([workOrdersUrl], (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          workOrders: (prev.workOrders ?? []).map((wo) =>
+            wo.id === id ? { ...wo, status: "VERIFIED" } : wo,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData([workOrdersUrl], context.previous);
+      }
+      alert(error.message || "Terjadi kesalahan");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [workOrdersUrl] });
+    },
+  });
+
+  const handleVerify = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Apakah Anda yakin ingin memverifikasi work order ini?"))
+      return;
+    verifyWoMutation.mutate(id);
   };
 
   const openRejectModal = (id: string, e: React.MouseEvent) => {

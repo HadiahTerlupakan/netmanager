@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { FiCheckCircle, FiAlertTriangle, FiXCircle } from "react-icons/fi";
 import { PhotoUpload } from "./PhotoUpload";
 import type { PhotoUploadRef, UploadedPhoto } from "./PhotoUpload";
@@ -61,7 +62,6 @@ export function TransferForm({
   const [stockGudangSumber, setStockGudangSumber] = useState<Gudang | null>(
     null,
   );
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [_uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
@@ -150,44 +150,13 @@ export function TransferForm({
     fetchStockByCondition();
   }, [formData.barangId, formData.dariGudangId, barangs]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validation
-    if (
-      !formData.barangId ||
-      !formData.dariGudangId ||
-      !formData.keGudangId ||
-      !formData.jumlah
-    ) {
-      setError("Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi");
-      return;
-    }
-
-    if (formData.dariGudangId === formData.keGudangId) {
-      setError("Gudang sumber dan tujuan tidak boleh sama");
-      return;
-    }
-
-    const jumlah = parseInt(formData.jumlah);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      setError("Jumlah harus berupa angka positif");
-      return;
-    }
-
-    const availableStockForCondition = stockPerKondisi[formData.kondisi] || 0;
-    if (jumlah > availableStockForCondition) {
-      setError(
-        `Jumlah ${formData.kondisi.toLowerCase()} tidak boleh melebihi stok tersedia (${availableStockForCondition})`,
-      );
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
+  /**
+   * Submit transfer dengan useMutation untuk loading state otomatis.
+   * Flow: validation di handleSubmit → mutation menangani API call,
+   * photo upload, cleanup on fail, dan reset form on success.
+   */
+  const submitTransferMutation = useMutation<void, Error, { jumlah: number }>({
+    mutationFn: async ({ jumlah }) => {
       // Upload photos first if any exist
       let fotoBuktiUrls: string[] = [];
       let uploadedPhotosList: UploadedPhoto[] = [];
@@ -198,13 +167,9 @@ export function TransferForm({
         if (currentPhotos.length > 0) {
           setSuccess("Mengunggah foto...");
 
-          // Upload photos
           fotoBuktiUrls = await photoUploadRef.current.uploadPhotos();
-
-          // Get updated photos after upload
           uploadedPhotosList = photoUploadRef.current.getPhotos();
 
-          // Check if any photos failed to upload
           const failedPhotos = uploadedPhotosList.filter(
             (photo) => photo.status === "error",
           );
@@ -270,7 +235,6 @@ export function TransferForm({
       setStockSumber(0);
       setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 });
       setUploadedPhotos([]);
-      // Reset photo upload component
       if (photoUploadRef.current) {
         photoUploadRef.current.resetPhotos();
       }
@@ -281,16 +245,54 @@ export function TransferForm({
         if (onSuccess) {
           onSuccess();
         }
-        // Refresh the page to show updated data
         router.refresh();
       }, 2000);
-    } catch (error) {
+    },
+    onError: (error) => {
       clientLogger.error("Error submitting transfer:", error);
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
-    } finally {
-      setLoading(false);
+      setError(error.message || "Terjadi kesalahan");
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validation
+    if (
+      !formData.barangId ||
+      !formData.dariGudangId ||
+      !formData.keGudangId ||
+      !formData.jumlah
+    ) {
+      setError("Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi");
+      return;
     }
+
+    if (formData.dariGudangId === formData.keGudangId) {
+      setError("Gudang sumber dan tujuan tidak boleh sama");
+      return;
+    }
+
+    const jumlah = parseInt(formData.jumlah);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      setError("Jumlah harus berupa angka positif");
+      return;
+    }
+
+    const availableStockForCondition = stockPerKondisi[formData.kondisi] || 0;
+    if (jumlah > availableStockForCondition) {
+      setError(
+        `Jumlah ${formData.kondisi.toLowerCase()} tidak boleh melebihi stok tersedia (${availableStockForCondition})`,
+      );
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    submitTransferMutation.mutate({ jumlah });
   };
+
+  const loading = submitTransferMutation.isPending;
 
   const selectedBarang = barangs.find((b) => b.id === formData.barangId);
   const selectedGudangSumber = gudangs.find(
