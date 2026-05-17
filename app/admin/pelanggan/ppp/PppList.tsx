@@ -2,6 +2,7 @@
 
 import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useCallback } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   HiOutlinePlus,
   HiArrowPath,
@@ -133,27 +134,54 @@ export default function PelangganPPPPage() {
     void loadData();
   }
 
-  const handleDelete = async (id: string) => {
+  /**
+   * Delete pelanggan PPP via useMutation untuk loading state & error
+   * handling konsisten. Optimistic update tidak dipakai karena list
+   * state masih custom (loadData), bukan TanStack-cached.
+   */
+  const deleteMutation = useMutation<void, Error, string>({
+    mutationFn: deletePppCustomer,
+    onSuccess: () => {
+      void loadData();
+    },
+    onError: (err) => {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat menghapus data",
+      );
+    },
+  });
+
+  const handleDelete = (id: string) => {
     if (
       !confirm(
         "Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.",
       )
     )
       return;
-
-    try {
-      await deletePppCustomer(id);
-      await loadData();
-    } catch (err) {
-      alert(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat menghapus data",
-      );
-    }
+    deleteMutation.mutate(id);
   };
 
-  const handleStatusUpdate = async (
+  /**
+   * Update status pelanggan PPP (AKTIF/ISOLIR/CUTI). Sama dengan delete:
+   * loading per-action via useMutation isPending.
+   */
+  const statusUpdateMutation = useMutation<
+    void,
+    Error,
+    { id: string; newStatus: string }
+  >({
+    mutationFn: ({ id, newStatus }) => updatePppCustomerStatus(id, newStatus),
+    onSuccess: () => {
+      void loadData();
+    },
+    onError: (err) => {
+      alert(err instanceof Error ? err.message : "Gagal mengubah status");
+    },
+  });
+
+  const handleStatusUpdate = (
     id: string,
     newStatus: string,
     actionName: string,
@@ -164,16 +192,7 @@ export default function PelangganPPPPage() {
       )
     )
       return;
-
-    try {
-      setLoading(true);
-      await updatePppCustomerStatus(id, newStatus);
-      await loadData();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Gagal mengubah status");
-    } finally {
-      setLoading(false);
-    }
+    statusUpdateMutation.mutate({ id, newStatus });
   };
 
   const columns = createPppListColumns(disableDuration);

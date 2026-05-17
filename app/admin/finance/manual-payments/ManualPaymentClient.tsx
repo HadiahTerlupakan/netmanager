@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/hooks/useApi";
 
 interface PendingPayment {
@@ -29,7 +30,6 @@ export default function ManualPaymentClient() {
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(
     null,
   );
-  const [processing, setProcessing] = useState(false);
   const [notes, setNotes] = useState("");
 
   // Pagination state
@@ -78,52 +78,91 @@ export default function ManualPaymentClient() {
     return `/api/admin/payments/pending-manual?${query.toString()}`;
   };
 
-  const {
-    data: payments = [],
-    isLoading: loading,
-    mutate: refetchPayments,
-  } = useApi<PendingPayment[]>(buildPaymentsKey(), {
-    onError: () => {
-      toast.error("Gagal mengambil data pembayaran manual.");
+  const { data: payments = [], isLoading: loading } = useApi<PendingPayment[]>(
+    buildPaymentsKey(),
+    {
+      onError: () => {
+        toast.error("Gagal mengambil data pembayaran manual.");
+      },
     },
-  });
+  );
 
   const applyFilters = () => {
     setAppliedFilters({ startDate, endDate, siteId, statusFilter });
     setCurrentPage(1);
   };
 
-  const handleAction = async (action: "APPROVE" | "REJECT") => {
-    if (!selectedPayment) return;
+  const queryClient = useQueryClient();
+  const paymentsKey = buildPaymentsKey();
 
-    setProcessing(true);
-    try {
+  /**
+   * Verify manual payment dengan optimistic update.
+   *
+   * UX: row langsung berubah status (APPROVED/REJECTED) sebelum server
+   * confirm. Bila gagal, rollback otomatis ke state sebelumnya plus toast
+   * error.
+   */
+  const verifyPaymentMutation = useMutation<
+    void,
+    Error,
+    { paymentId: string; action: "APPROVE" | "REJECT"; notes: string },
+    { previous: PendingPayment[] | undefined }
+  >({
+    mutationFn: async ({ paymentId, action, notes: paymentNotes }) => {
       const res = await fetch("/api/admin/payments/verify-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentId: selectedPayment.id,
-          action,
-          notes,
-        }),
+        body: JSON.stringify({ paymentId, action, notes: paymentNotes }),
       });
       const json = await res.json();
-
-      if (json.success) {
-        toast.success(
-          `Pembayaran berhasil di-${action === "APPROVE" ? "setujui" : "tolak"}`,
-        );
-        setSelectedPayment(null);
-        setNotes("");
-        refetchPayments();
-      } else {
-        toast.error(json.error || "Terjadi kesalahan sistem.");
+      if (!json.success) {
+        throw new Error(json.error || "Terjadi kesalahan sistem.");
       }
-    } catch {
-      toast.error("Gagal memproses pembayaran.");
-    } finally {
-      setProcessing(false);
-    }
+    },
+    onMutate: async ({ paymentId, action }) => {
+      // Cancel inflight queries supaya tidak overwrite optimistic state
+      await queryClient.cancelQueries({ queryKey: [paymentsKey] });
+
+      const previous = queryClient.getQueryData<PendingPayment[]>([
+        paymentsKey,
+      ]);
+      // Optimistic: update gatewayStatus jadi APPROVED/REJECTED instan
+      const nextStatus = action === "APPROVE" ? "APPROVED" : "REJECTED";
+      queryClient.setQueryData<PendingPayment[]>([paymentsKey], (prev) =>
+        prev?.map((p) =>
+          p.id === paymentId ? { ...p, gatewayStatus: nextStatus } : p,
+        ),
+      );
+
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      // Rollback ke state sebelum mutation
+      if (context?.previous) {
+        queryClient.setQueryData([paymentsKey], context.previous);
+      }
+      toast.error(error.message || "Gagal memproses pembayaran.");
+    },
+    onSuccess: (_data, { action }) => {
+      toast.success(
+        `Pembayaran berhasil di-${action === "APPROVE" ? "setujui" : "tolak"}`,
+      );
+      setSelectedPayment(null);
+      setNotes("");
+    },
+    onSettled: () => {
+      // Re-fetch dari server agar cache sinkron dengan source of truth
+      void queryClient.invalidateQueries({ queryKey: [paymentsKey] });
+    },
+  });
+
+  const handleAction = (action: "APPROVE" | "REJECT") => {
+    if (!selectedPayment) return;
+    verifyPaymentMutation.mutate({
+      paymentId: selectedPayment.id,
+      action,
+      notes,
+    });
   };
 
   if (loading) {
@@ -530,14 +569,14 @@ export default function ManualPaymentClient() {
                 <Button
                   variant="destructive"
                   onClick={() => handleAction("REJECT")}
-                  loading={processing}
+                  loading={verifyPaymentMutation.isPending}
                 >
                   Tolak Pembayaran
                 </Button>
                 <Button
                   variant="success"
                   onClick={() => handleAction("APPROVE")}
-                  loading={processing}
+                  loading={verifyPaymentMutation.isPending}
                 >
                   Setujui & Lunasi Tagihan
                 </Button>
