@@ -4,11 +4,65 @@ import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockResponsiveTable = vi.fn((_props?: unknown) => null);
 const mockHasPermission = vi.fn<(permission: string) => boolean>(() => true);
 const mockToastError = vi.fn();
 const mockToastSuccess = vi.fn();
+
+function renderWithQueryClient(container: HTMLElement, ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        staleTime: 0,
+        // gcTime tinggi agar query tidak di-discard saat queryKey berubah
+        // (penting untuk testing race conditions)
+        gcTime: Infinity,
+      },
+    },
+  });
+  createRoot(container).render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
+/**
+ * Tunggu sampai predicate truthy atau timeout. Polling-based, tanpa
+ * dependency @testing-library.
+ */
+async function waitFor(predicate: () => unknown, timeoutMs = 1500) {
+  const start = Date.now();
+  while (true) {
+    if (predicate()) return;
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`waitFor timeout after ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/**
+ * Render `ui` lalu tunggu sampai initial fetch dari TanStack Query selesai
+ * dan ResponsiveTable mock dipanggil (UI fully ready).
+ */
+async function renderAndWaitReady(
+  container: HTMLElement,
+  ui: React.ReactElement,
+) {
+  await act(async () => {
+    renderWithQueryClient(container, ui);
+  });
+  await waitFor(() => mockResponsiveTable.mock.calls.length > 0);
+}
+
+async function flushPromises() {
+  // Wait TanStack Query async fetch + React commit + microtask drain.
+  for (let i = 0; i < 5; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
 
 vi.mock("next/link", () => ({
   default: ({
@@ -228,11 +282,6 @@ function createDeferredResponse() {
   };
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 function getFetchUrls(fetchMock: ReturnType<typeof vi.fn>) {
   return fetchMock.mock.calls.map(([input]) =>
     getRequestUrl(input as string | URL | Request),
@@ -281,10 +330,7 @@ describe("CanvasingList", () => {
   });
 
   it("mengirim search ke API, menampilkan KPI summary, dan memakai data server tanpa filter client-side", async () => {
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const searchInput = container.querySelector(
       "input[type='text']",
@@ -317,10 +363,7 @@ describe("CanvasingList", () => {
   });
 
   it("reset page ke 1 tanpa request stale saat site dan status filter berubah", async () => {
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const pageButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Pindah halaman 3",
@@ -374,6 +417,12 @@ describe("CanvasingList", () => {
       approvedButton?.click();
       await flushPromises();
     });
+    await waitFor(
+      () =>
+        Array.from(container.querySelectorAll("button"))
+          .find((button) => button.textContent?.includes("Approved"))
+          ?.getAttribute("aria-pressed") === "true",
+    );
 
     const approvedRequest = findRequest(
       fetchMock,
@@ -393,14 +442,14 @@ describe("CanvasingList", () => {
           url.searchParams.get("page") === "3",
       ),
     ).toBe(false);
-    expect(approvedButton?.getAttribute("aria-pressed")).toBe("true");
+    const approvedButtonAfter = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent?.includes("Approved"));
+    expect(approvedButtonAfter?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("reset page ke 1 tanpa request stale saat search berubah", async () => {
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const pageButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Pindah halaman 3",
@@ -459,9 +508,9 @@ describe("CanvasingList", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await Promise.resolve();
+      renderWithQueryClient(container, <CanvasingList />);
     });
+    await waitFor(() => fetchMock.mock.calls.length >= 1);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const initialRequestUrl = getRequestUrl(
@@ -472,6 +521,7 @@ describe("CanvasingList", () => {
       initialRequest.resolve(initialRequestUrl.toString());
       await flushPromises();
     });
+    await waitFor(() => mockResponsiveTable.mock.calls.length > 0);
 
     const pendingButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent?.includes("Pending"),
@@ -487,6 +537,7 @@ describe("CanvasingList", () => {
       pendingButton?.click();
       await flushPromises();
     });
+    await waitFor(() => fetchMock.mock.calls.length >= 2);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
@@ -494,10 +545,18 @@ describe("CanvasingList", () => {
       await flushPromises();
     });
 
+    // Re-grab approvedButton untuk hindari stale reference
+    const approvedButton2 = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent?.includes("Approved"));
+
+    expect(approvedButton2).toBeDefined();
+
     await act(async () => {
-      approvedButton?.click();
+      approvedButton2?.click();
       await flushPromises();
     });
+    await waitFor(() => fetchMock.mock.calls.length >= 3);
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
@@ -533,10 +592,7 @@ describe("CanvasingList", () => {
     const confirmSpy = vi.fn(() => true);
     vi.stubGlobal("confirm", confirmSpy);
 
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const deleteButton = container.querySelector(
       'button[aria-label="Hapus canvasing Data server awal"]',
@@ -612,10 +668,7 @@ describe("CanvasingList", () => {
     const axios = await import("axios");
     vi.mocked(axios.default.put).mockResolvedValue({});
 
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const reviewClaimButton = container.querySelector(
       'button[aria-label="Review claim poin untuk Pelanggan Claim"]',
@@ -716,10 +769,7 @@ describe("CanvasingList", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     expect(
       container.querySelector(
@@ -779,10 +829,7 @@ describe("CanvasingList", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await act(async () => {
-      createRoot(container).render(<CanvasingList />);
-      await flushPromises();
-    });
+    await renderAndWaitReady(container, <CanvasingList />);
 
     const searchInput = container.querySelector(
       'input[aria-label="Cari canvasing berdasarkan nama atau alamat"]',

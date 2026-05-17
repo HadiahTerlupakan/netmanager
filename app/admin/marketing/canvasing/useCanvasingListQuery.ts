@@ -1,6 +1,11 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   CanvasingItem,
   CanvasingStatusFilter,
@@ -27,6 +32,13 @@ interface UseCanvasingListQueryResult {
   refetch: () => Promise<void>;
 }
 
+interface CanvasingListResponse {
+  data?: CanvasingItem[];
+  summary?: CanvasingSummary;
+  total?: number;
+  error?: string;
+}
+
 function buildFetchParams(query: FetchQueryState) {
   const params = new URLSearchParams();
   const trimmedSearch = query.search.trim();
@@ -40,82 +52,66 @@ function buildFetchParams(query: FetchQueryState) {
   return params;
 }
 
-/** Manage canvasing list query state and server fetching. */
+async function fetchCanvasingList(
+  url: string,
+  signal: AbortSignal,
+): Promise<CanvasingListResponse> {
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    const json = (await response
+      .json()
+      .catch((): null => null)) as CanvasingListResponse | null;
+    throw new Error(json?.error || "Gagal memuat data canvasing");
+  }
+  return (await response.json()) as CanvasingListResponse;
+}
+
+/**
+ * Manage canvasing list query state via TanStack Query.
+ *
+ * Race conditions di-handle otomatis: queryKey berubah → query lama
+ * di-cancel via signal, query baru jadi sumber kebenaran. Tidak butuh
+ * manual `latestRequestRef`.
+ */
 export function useCanvasingListQuery(): UseCanvasingListQueryResult {
-  const [items, setItems] = useState<CanvasingItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<CanvasingStatusFilter>("ALL");
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [summary, setSummary] = useState<CanvasingSummary>(DEFAULT_SUMMARY);
-  const latestRequestRef = useRef(0);
 
-  const fetchData = useCallback(
-    async (signal?: AbortSignal) => {
-      const requestId = latestRequestRef.current + 1;
-      latestRequestRef.current = requestId;
+  const params = buildFetchParams({ page, search, siteId, statusFilter });
+  const url = `/api/marketing/canvasing?${params.toString()}`;
 
-      try {
-        setLoading(true);
-        const params = buildFetchParams({ page, search, siteId, statusFilter });
-        const response = await fetch(
-          `/api/marketing/canvasing?${params.toString()}`,
-          {
-            signal,
-          },
-        );
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(() => ["canvasing-list", url] as const, [url]);
+  const { data, error, isPending } = useQuery<CanvasingListResponse, Error>({
+    queryKey,
+    queryFn: ({ signal }) => fetchCanvasingList(url, signal),
+    // Pertahankan data lama saat queryKey berubah agar UI tidak unmount
+    // (filter change tidak flash ke loader). Penting untuk UX dan untuk
+    // konsistensi test yang assume button tetap ada saat filter berubah.
+    placeholderData: keepPreviousData,
+  });
 
-        if (requestId !== latestRequestRef.current || signal?.aborted) {
-          return;
-        }
-
-        if (response.ok) {
-          const json = await response.json();
-          if (requestId !== latestRequestRef.current || signal?.aborted) {
-            return;
-          }
-
-          setItems(json.data || []);
-          setSummary(json.summary || DEFAULT_SUMMARY);
-          setTotalPages(
-            Math.max(1, Math.ceil((json.total || 0) / DEFAULT_LIMIT)),
-          );
-          return;
-        }
-
-        const json = await response.json().catch((): null => null);
-        toast.error(json?.error || "Gagal memuat data canvasing");
-      } catch (error) {
-        const isAbortError =
-          error instanceof DOMException && error.name === "AbortError";
-        if (
-          isAbortError ||
-          signal?.aborted ||
-          requestId !== latestRequestRef.current
-        ) {
-          return;
-        }
-
-        clientLogger.error("Failed to fetch canvasing", error);
-        toast.error("Gagal menghubungi server, coba lagi nanti");
-      } finally {
-        if (requestId === latestRequestRef.current && !signal?.aborted) {
-          setLoading(false);
-        }
-      }
-    },
-    [page, search, siteId, statusFilter],
-  );
-
+  // Side-effect: toast on error (di luar render via useEffect — tidak setState)
   useEffect(() => {
-    const controller = new AbortController();
-    fetchData(controller.signal);
+    if (error) {
+      const isAbortError =
+        error instanceof DOMException && error.name === "AbortError";
+      if (isAbortError) return;
+      clientLogger.error("Failed to fetch canvasing", error);
+      toast.error(error.message || "Gagal menghubungi server, coba lagi nanti");
+    }
+  }, [error]);
 
-    return () => controller.abort();
-  }, [fetchData]);
+  const items = data?.data ?? [];
+  const summary = data?.summary ?? DEFAULT_SUMMARY;
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / DEFAULT_LIMIT));
+  // `loading` true hanya saat fetch pertama (belum ada data di cache).
+  // Refetch (filter change/page change) jangan unmount UI — tampilkan
+  // data lama sambil revalidate.
+  const loading = isPending;
 
   const updateSearch = useCallback((value: string) => {
     setPage(1);
@@ -133,8 +129,8 @@ export function useCanvasingListQuery(): UseCanvasingListQueryResult {
   }, []);
 
   const refetch = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+    await queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey]);
 
   return {
     items,

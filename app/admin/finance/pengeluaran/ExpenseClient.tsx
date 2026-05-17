@@ -1,8 +1,8 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useMemo } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useState, useMemo } from "react";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import type { FieldValues } from "react-hook-form";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -112,7 +112,6 @@ export function ClientComponent() {
     handleSubmit,
     reset,
     control,
-    watch,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -125,11 +124,12 @@ export function ClientComponent() {
     },
   });
 
-  const watchedAmount = watch("amount");
-  const watchedCategoryId = watch("categoryId");
-  const watchedAccountId = watch("accountId");
-  // const watchedDate = watch("date");
-  const watchedDescription = watch("description");
+  // Pakai useWatch (compiler-friendly) bukan watch() — watch() punya
+  // internal subscription yang tidak bisa di-memoize React Compiler.
+  const watchedAmount = useWatch({ control, name: "amount" });
+  const watchedCategoryId = useWatch({ control, name: "categoryId" });
+  const watchedAccountId = useWatch({ control, name: "accountId" });
+  const watchedDescription = useWatch({ control, name: "description" });
 
   const selectedAccount = useMemo(
     () => accounts.find((a) => a.id === watchedAccountId),
@@ -140,11 +140,6 @@ export function ClientComponent() {
     () => categories.find((c) => c.id === watchedCategoryId),
     [categories, watchedCategoryId],
   );
-
-  useEffect(() => {
-    fetchExpenses();
-    fetchMetadata();
-  }, []);
 
   const fetchMetadata = async () => {
     try {
@@ -188,6 +183,13 @@ export function ClientComponent() {
       setLoading(false);
     }
   };
+
+  const [hasFetched, setHasFetched] = useState(false);
+  if (!hasFetched) {
+    setHasFetched(true);
+    void fetchExpenses();
+    void fetchMetadata();
+  }
 
   const onSubmit = async (data: FieldValues) => {
     try {
