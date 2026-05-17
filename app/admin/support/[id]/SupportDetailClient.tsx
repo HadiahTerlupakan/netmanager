@@ -21,6 +21,7 @@ import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeTicketChat } from "@/lib/websocket/hooks/useRealtimeTicketChat";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Reply {
   id: string;
@@ -72,7 +73,6 @@ export function ClientComponent() {
   const ticketId = params.id as string;
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState("");
@@ -87,44 +87,45 @@ export function ClientComponent() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    data: ticketResponse,
+    isLoading: loading,
+    error: ticketError,
+    mutate: refetchTicket,
+  } = useApi<Ticket | { ticket?: Ticket }>(
+    `/api/admin/support-tickets/${ticketId}`,
+  );
+
+  useEffect(() => {
+    if (ticketError) {
+      clientLogger.error("Error loading ticket:", ticketError);
+    }
+  }, [ticketError]);
+
   // Real-time chat via WebSocket
   const { replies, isConnected, setReplies, addReply } = useRealtimeTicketChat({
     ticketId,
     initialReplies: ticket?.replies || [],
   });
 
-  const loadTicket = useCallback(
-    async (showLoading = false) => {
-      if (showLoading) setLoading(true);
-      try {
-        const res = await fetch(`/api/admin/support-tickets/${ticketId}`);
-        if (res.ok) {
-          const responseData = await res.json();
-          const ticketData = responseData.data || responseData.ticket;
+  const loadTicket = useCallback(async () => {
+    await refetchTicket();
+  }, [refetchTicket]);
 
-          if (ticketData) {
-            setTicket(ticketData);
-            setStatus(ticketData.status);
-            // Update replies for WebSocket hook
-            setReplies(ticketData.replies || []);
-          }
-        }
-      } catch (error) {
-        clientLogger.error("Error loading ticket:", error);
-      } finally {
-        if (showLoading) setLoading(false);
-      }
-    },
-    [ticketId, setReplies],
-  );
-
-  // Initial load only (no polling)
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadTicket(true);
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadTicket]);
+  // Hydrate state lokal dari hasil useApi
+  const [didHydrate, setDidHydrate] = useState(false);
+  if (ticketResponse && !didHydrate) {
+    setDidHydrate(true);
+    const ticketData =
+      ticketResponse && "ticket" in ticketResponse && ticketResponse.ticket
+        ? ticketResponse.ticket
+        : (ticketResponse as Ticket);
+    if (ticketData) {
+      setTicket(ticketData);
+      setStatus(ticketData.status);
+      setReplies(ticketData.replies || []);
+    }
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -259,7 +260,7 @@ export function ClientComponent() {
       if (res.ok) {
         setStatus("CLOSED");
         setShowCloseModal(false);
-        loadTicket(false);
+        loadTicket();
       }
     } catch (error) {
       clientLogger.error("Error closing ticket:", error);
@@ -702,7 +703,7 @@ export function ClientComponent() {
                       );
                       if (res.ok) {
                         await handleStatusChange("RESOLVED");
-                        loadTicket(false);
+                        loadTicket();
                       }
                     } catch (error) {
                       clientLogger.error(

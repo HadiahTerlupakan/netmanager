@@ -19,6 +19,7 @@ import PageLoader from "@/components/ui/PageLoader";
 import AddMaterialModal from "@/components/workorder/AddMaterialModal";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
+import { useApi } from "@/lib/hooks/useApi";
 import type { WorkOrderActivityPayload } from "@/lib/websocket/types";
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
@@ -111,36 +112,52 @@ export function ClientComponent() {
 
   const currentUserId = (session?.user as { id?: string })?.id;
 
-  const fetchWorkOrder = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/admin/workorders/${workOrderId}`);
-      if (response.ok) {
-        const result = await response.json();
-        clientLogger.info(
-          "[WorkOrder] Fetched w/ attachments:",
-          result.data.attachments?.length,
-        );
-        setWorkOrder(result.data);
-        setEditValues({
-          status: result.data.status,
-          priority: result.data.priority,
-          assignedToId: result.data.assignedTo?.id || "",
-        });
-      } else if (response.status === 404) {
-        alert("Work order tidak ditemukan");
-        router.push("/admin/workorders/list");
-      }
-    } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { error?: string } } };
-      clientLogger.error("Error fetching work order:", error);
+  const {
+    data: workOrderResponse,
+    error: workOrderError,
+    mutate: refetchWorkOrder,
+  } = useApi<WorkOrderDetail>(`/api/admin/workorders/${workOrderId}`);
+
+  useEffect(() => {
+    if (workOrderError?.status === 404) {
+      alert("Work order tidak ditemukan");
+      router.push("/admin/workorders/list");
+    } else if (workOrderError) {
+      clientLogger.error("Error fetching work order:", workOrderError);
       alert(
         "Terjadi kesalahan saat memuat work order: " +
-          (axiosError.response?.data?.error || "Kesalahan tidak diketahui"),
+          (workOrderError.message || "Kesalahan tidak diketahui"),
       );
-    } finally {
-      setLoading(false);
     }
-  }, [workOrderId, router]);
+  }, [workOrderError, router]);
+
+  const [didHydrateWO, setDidHydrateWO] = useState(false);
+  if (workOrderResponse && !didHydrateWO) {
+    setDidHydrateWO(true);
+    setWorkOrder(workOrderResponse);
+    setEditValues({
+      status: workOrderResponse.status,
+      priority: workOrderResponse.priority,
+      assignedToId: workOrderResponse.assignedTo?.id || "",
+    });
+    setLoading(false);
+  }
+
+  const fetchWorkOrder = useCallback(async () => {
+    const result = await refetchWorkOrder();
+    if (result) {
+      clientLogger.info(
+        "[WorkOrder] Refetched w/ attachments:",
+        result.attachments?.length,
+      );
+      setWorkOrder(result);
+      setEditValues({
+        status: result.status,
+        priority: result.priority,
+        assignedToId: result.assignedTo?.id || "",
+      });
+    }
+  }, [refetchWorkOrder]);
 
   // Fetch material detail by updateId (MATERIAL_PICKUP/MATERIAL_RETURN)
   const fetchMaterialDetail = async (updateId: string, updateType: string) => {
@@ -274,14 +291,6 @@ export function ClientComponent() {
     "workorder.update",
     handleWOUpdate,
   );
-
-  useEffect(() => {
-    if (!session?.user || status !== "authenticated") return undefined;
-    const handle = setTimeout(() => {
-      void fetchWorkOrder();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [session, status, workOrderId, fetchWorkOrder]);
 
   const handleUpdateField = async (field: string) => {
     try {
