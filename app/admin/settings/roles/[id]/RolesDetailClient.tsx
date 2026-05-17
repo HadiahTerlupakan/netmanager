@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/use-permission";
 import { toast } from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   FiArrowLeft,
   FiSave,
@@ -146,88 +147,72 @@ export function ClientComponent() {
     );
   };
 
+  const { data: roleData, error: roleError } = useApi<Record<string, unknown>>(
+    !isNew && roleId ? `/api/roles/${roleId}` : null,
+  );
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // If editing, fetch role data
-        if (!isNew) {
-          const roleRes = await fetch(`/api/roles/${roleId}`);
-          const rolePayload = await roleRes.json();
-          const roleData = rolePayload.data ?? rolePayload;
+    if (roleError) {
+      clientLogger.error("Error fetching data:", roleError);
+      toast.error("Gagal memuat data role");
+      router.push("/admin/pengaturan/hak-akses");
+    }
+  }, [roleError, router]);
 
-          if (roleRes.ok) {
-            setFormData({
-              name: roleData.name,
-              description: roleData.description || "",
-              accessAdminPanel: roleData.accessAdminPanel || false,
-              accessEmployeePanel: roleData.accessEmployeePanel || false,
-              isRestricted: roleData.isRestricted || false,
-              isTechnical: roleData.isTechnical || false,
-              isSuperAdmin: roleData.isSuperAdmin || false,
-              canApproveRab: roleData.canApproveRab || false,
-              canReceiveWhatsappApproval:
-                roleData.canReceiveWhatsappApproval || false,
-              // Use permissionList which is already in "resource:action" format
-              permissions: roleData.permissionList || [],
-            });
+  const [didHydrateRole, setDidHydrateRole] = useState(false);
+  if (roleData && !didHydrateRole) {
+    setDidHydrateRole(true);
+    const data = roleData as Record<string, unknown>;
+    setFormData({
+      name: (data.name as string) ?? "",
+      description: ((data.description as string) || "") as string,
+      accessAdminPanel: !!data.accessAdminPanel,
+      accessEmployeePanel: !!data.accessEmployeePanel,
+      isRestricted: !!data.isRestricted,
+      isTechnical: !!data.isTechnical,
+      isSuperAdmin: !!data.isSuperAdmin,
+      canApproveRab: !!data.canApproveRab,
+      canReceiveWhatsappApproval: !!data.canReceiveWhatsappApproval,
+      permissions: (data.permissionList as string[]) || [],
+    });
 
-            // Calculate expanded groups based on active resources
-            const activeResources = new Set(
-              (roleData.permissionList || []).map(
-                (p: string) => p.split(":")[0],
-              ),
-            );
-            const groupsToExpand: string[] = [];
+    const activeResources = new Set(
+      ((data.permissionList as string[]) || []).map(
+        (p: string) => p.split(":")[0],
+      ),
+    );
+    const groupsToExpand: string[] = [];
 
-            // Check Admin Groups
-            Object.entries(PERMISSION_GROUPS).forEach(
-              ([groupName, resources]) => {
-                if (
-                  (resources as readonly string[]).some((r) =>
-                    activeResources.has(r),
-                  )
-                ) {
-                  groupsToExpand.push(`admin-${groupName}`);
-                }
-              },
-            );
-
-            // Check Mobile Groups
-            Object.entries(PERMISSION_GROUPS_MOBILE).forEach(
-              ([groupName, resources]) => {
-                if (
-                  (resources as readonly string[]).some((r) =>
-                    activeResources.has(r),
-                  )
-                ) {
-                  groupsToExpand.push(`employee-${groupName}`);
-                }
-              },
-            );
-
-            setExpandedGroups(groupsToExpand);
-
-            // Auto-select initial tab based on portal access
-            if (roleData.accessAdminPanel) {
-              setActiveTab("admin");
-            } else if (roleData.accessEmployeePanel) {
-              setActiveTab("employee");
-            }
-          } else {
-            toast.error(roleData.error || "Gagal memuat data role");
-            router.push("/admin/pengaturan/hak-akses");
-          }
-        }
-      } catch (error) {
-        clientLogger.error("Error fetching data:", error);
-        toast.error("Gagal memuat data");
-      } finally {
-        setLoading(false);
+    Object.entries(PERMISSION_GROUPS).forEach(([groupName, resources]) => {
+      if (
+        (resources as readonly string[]).some((r) => activeResources.has(r))
+      ) {
+        groupsToExpand.push(`admin-${groupName}`);
       }
-    };
+    });
 
-    fetchData();
-  }, [isNew, roleId, router]);
+    Object.entries(PERMISSION_GROUPS_MOBILE).forEach(
+      ([groupName, resources]) => {
+        if (
+          (resources as readonly string[]).some((r) => activeResources.has(r))
+        ) {
+          groupsToExpand.push(`employee-${groupName}`);
+        }
+      },
+    );
+
+    setExpandedGroups(groupsToExpand);
+
+    if (data.accessAdminPanel) {
+      setActiveTab("admin");
+    } else if (data.accessEmployeePanel) {
+      setActiveTab("employee");
+    }
+    setLoading(false);
+  } else if (isNew) {
+    // No fetch needed for new role; ensure loading turned off
+    if (loading) setLoading(false);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

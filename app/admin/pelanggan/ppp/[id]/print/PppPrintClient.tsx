@@ -1,12 +1,13 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { HiPrinter, HiXCircle } from "react-icons/hi2";
 import Image from "next/image";
 import PageLoader from "@/components/ui/PageLoader";
 import { normalizeLogoUrl } from "@/lib/settings/normalizeLogoUrl";
+import { useApi } from "@/lib/hooks/useApi";
 
 type Pelanggan = {
   id: string;
@@ -118,89 +119,86 @@ export default function PppPrintClient() {
   } | null>(null);
   const [printFormat, setPrintFormat] = useState<"A4" | "THERMAL">("A4");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const { data: pelangganRaw, error: pelangganError } = useApi<unknown>(
+    id ? `/api/pelanggan-ppp/${id}` : null,
+  );
 
-        // Fetch pelanggan data
-        const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`);
-        if (!pelangganRes.ok) {
-          throw new Error("Failed to fetch pelanggan data");
-        }
-        const pelangganData = await pelangganRes.json();
-        const pelangganPayload =
-          pelangganData?.data ?? pelangganData?.pelanggan ?? pelangganData;
-        if (pelangganPayload?.id) {
-          setPelanggan(pelangganPayload);
-        } else {
-          clientLogger.error("Unknown pelanggan format", pelangganData);
-        }
+  const { data: tagihanRaw } = useApi<unknown>(
+    id ? `/api/tagihan/pelanggan/${id}?latest=true` : null,
+  );
 
-        // Fetch latest tagihan
-        const tagihanRes = await fetch(
-          `/api/tagihan/pelanggan/${id}?latest=true`,
-        );
-        if (tagihanRes.ok) {
-          const tagihanData = await tagihanRes.json();
-          clientLogger.info("PRINT TAGIHAN RES:", tagihanData);
-          if (tagihanData.data?.tagihan) {
-            setTagihan(tagihanData.data.tagihan);
-          } else if (tagihanData.tagihan) {
-            setTagihan(tagihanData.tagihan);
-          }
-        }
+  const { data: logoData } = useApi<{ logoInvoice?: string | null }>(
+    "/api/settings/logo/public",
+  );
+  const { data: generalData } = useApi<{
+    namaPerusahaan?: string;
+    alamat?: string;
+    nomorHp?: string;
+    deskripsiInvoice?: string;
+  }>("/api/settings/general/public");
 
-        // Fetch logo settings
-        try {
-          const logoRes = await fetch("/api/settings/logo/public");
-          if (logoRes.ok) {
-            const logoData = await logoRes.json();
-            const normalizedLogoUrl = normalizeLogoUrl(logoData.logoInvoice);
-            logoData.logoInvoice = normalizedLogoUrl;
-            if (normalizedLogoUrl) {
-              const testImg = new window.Image();
-              testImg.onload = () => {
-                clientLogger.info(
-                  "Logo image loaded successfully:",
-                  normalizedLogoUrl,
-                );
-              };
-              testImg.onerror = () => {
-                clientLogger.warn(
-                  "Logo tidak dapat diakses, akan menggunakan fallback:",
-                  normalizedLogoUrl,
-                );
-              };
-              testImg.src = normalizedLogoUrl;
-            }
-            setLogoSettings(logoData);
-          }
-        } catch (_e) {
-          clientLogger.warn("Failed to load logo settings");
-        }
-
-        // Fetch general settings
-        try {
-          const generalRes = await fetch("/api/settings/general/public");
-          if (generalRes.ok) {
-            const generalData = await generalRes.json();
-            setGeneralSettings(generalData);
-          }
-        } catch (_e) {
-          clientLogger.warn("Failed to load general settings");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchData();
+  // Hydrate pelanggan
+  const [didHydratePel, setDidHydratePel] = useState(false);
+  if (pelangganRaw && !didHydratePel) {
+    setDidHydratePel(true);
+    const obj = pelangganRaw as Record<string, unknown>;
+    const payload =
+      (obj.data as Record<string, unknown> | undefined) ??
+      (obj.pelanggan as Record<string, unknown> | undefined) ??
+      obj;
+    if ((payload as { id?: unknown }).id) {
+      setPelanggan(payload as Pelanggan);
+    } else {
+      clientLogger.error("Unknown pelanggan format", pelangganRaw);
     }
-  }, [id]);
+    setLoading(false);
+  }
+
+  if (pelangganError && !error) {
+    setError(pelangganError.message || "Failed to fetch pelanggan data");
+    setLoading(false);
+  }
+
+  // Hydrate tagihan
+  const [didHydrateTagihan, setDidHydrateTagihan] = useState(false);
+  if (tagihanRaw && !didHydrateTagihan) {
+    setDidHydrateTagihan(true);
+    const obj = tagihanRaw as Record<string, unknown>;
+    const tagihanPayload =
+      (obj.data as { tagihan?: unknown } | undefined)?.tagihan ?? obj.tagihan;
+    if (tagihanPayload) {
+      setTagihan(tagihanPayload as Tagihan);
+    }
+  }
+
+  // Hydrate logo settings
+  const [didHydrateLogo, setDidHydrateLogo] = useState(false);
+  if (logoData && !didHydrateLogo) {
+    setDidHydrateLogo(true);
+    const normalizedLogoUrl = normalizeLogoUrl(logoData.logoInvoice ?? "");
+    const next = { ...logoData, logoInvoice: normalizedLogoUrl };
+    if (normalizedLogoUrl) {
+      const testImg = new window.Image();
+      testImg.onload = () => {
+        clientLogger.info("Logo image loaded successfully:", normalizedLogoUrl);
+      };
+      testImg.onerror = () => {
+        clientLogger.warn(
+          "Logo tidak dapat diakses, akan menggunakan fallback:",
+          normalizedLogoUrl,
+        );
+      };
+      testImg.src = normalizedLogoUrl;
+    }
+    setLogoSettings(next);
+  }
+
+  // Hydrate general settings
+  const [didHydrateGeneral, setDidHydrateGeneral] = useState(false);
+  if (generalData && !didHydrateGeneral) {
+    setDidHydrateGeneral(true);
+    setGeneralSettings(generalData);
+  }
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
