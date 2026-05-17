@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdNearMe,
   MdWorkHistory,
@@ -80,73 +81,85 @@ export default function AttendancePageContent({
     return () => clearInterval(timer);
   }, []);
 
+  interface StatusPayload {
+    status: "idle" | "checked-in" | "checked-out";
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    checkInAt: string | null;
+    checkOutAt: string | null;
+    attendanceStatus: "ON_TIME" | "LATE" | null;
+    workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
+    flexibleTargetHour?: number | null;
+  }
+
+  const {
+    data: statusRaw,
+    error: statusError,
+    mutate: refetchStatus,
+  } = useApi<unknown>("/api/attendance/status");
+  const { data: historyRaw, mutate: refetchHistory } = useApi<unknown>(
+    "/api/attendance/history?limit=5",
+  );
+
   const fetchStatus = useCallback(async () => {
-    try {
-      const [statusRes, historyRes] = await Promise.all([
-        fetch("/api/attendance/status"),
-        fetch("/api/attendance/history?limit=5"),
-      ]);
-      const statusData = await statusRes.json();
-      const historyData = await historyRes.json();
+    await Promise.all([refetchStatus(), refetchHistory()]);
+  }, [refetchStatus, refetchHistory]);
 
-      if (historyData.success) {
-        setHistory(historyData.data);
-      }
-
-      if (statusData.success) {
-        const currentStatus = statusData.data as {
-          status: "idle" | "checked-in" | "checked-out";
-          checkInTime: string | null;
-          checkOutTime: string | null;
-          checkInAt: string | null;
-          checkOutAt: string | null;
-          attendanceStatus: "ON_TIME" | "LATE" | null;
-          workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
-          flexibleTargetHour?: number | null;
-        };
-
-        setStatus(currentStatus.status);
-        setAttendanceStatus(
-          currentStatus.attendanceStatus === "LATE" ? "LATE" : "ON_TIME",
-        );
-        setWorkingHourMode(
-          currentStatus.workingHourMode === "SHIFT"
-            ? "SHIFT"
-            : currentStatus.workingHourMode === "FLEXIBLE"
-              ? "FLEXIBLE"
-              : "FIXED",
-        );
-        setTargetHours(currentStatus.flexibleTargetHour || 8);
-
-        if (currentStatus.status === "idle") {
-          setCheckInTime(null);
-          setCheckOutTime(null);
-          setCheckInDate(null);
-          setCheckOutDate(null);
-        } else {
-          setCheckInTime(currentStatus.checkInTime);
-          setCheckOutTime(currentStatus.checkOutTime);
-          setCheckInDate(
-            currentStatus.checkInAt ? new Date(currentStatus.checkInAt) : null,
-          );
-          setCheckOutDate(
-            currentStatus.checkOutAt
-              ? new Date(currentStatus.checkOutAt)
-              : null,
-          );
-        }
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch status", error);
+  // Hydrate history (success-shaped or array)
+  const [didHydrateHistory, setDidHydrateHistory] = useState(false);
+  if (historyRaw && !didHydrateHistory) {
+    setDidHydrateHistory(true);
+    const obj = historyRaw as Record<string, unknown>;
+    if (Array.isArray(obj)) {
+      setHistory(obj);
+    } else if (obj.success && Array.isArray(obj.data)) {
+      setHistory(obj.data);
     }
-  }, []);
+  }
+
+  // Hydrate status
+  const [didHydrateStatus, setDidHydrateStatus] = useState(false);
+  if (statusRaw && !didHydrateStatus) {
+    setDidHydrateStatus(true);
+    const obj = statusRaw as Record<string, unknown>;
+    const innerData = (obj.data as StatusPayload | undefined) ?? null;
+    if (obj.success && innerData) {
+      setStatus(innerData.status);
+      setAttendanceStatus(
+        innerData.attendanceStatus === "LATE" ? "LATE" : "ON_TIME",
+      );
+      setWorkingHourMode(
+        innerData.workingHourMode === "SHIFT"
+          ? "SHIFT"
+          : innerData.workingHourMode === "FLEXIBLE"
+            ? "FLEXIBLE"
+            : "FIXED",
+      );
+      setTargetHours(innerData.flexibleTargetHour || 8);
+
+      if (innerData.status === "idle") {
+        setCheckInTime(null);
+        setCheckOutTime(null);
+        setCheckInDate(null);
+        setCheckOutDate(null);
+      } else {
+        setCheckInTime(innerData.checkInTime);
+        setCheckOutTime(innerData.checkOutTime);
+        setCheckInDate(
+          innerData.checkInAt ? new Date(innerData.checkInAt) : null,
+        );
+        setCheckOutDate(
+          innerData.checkOutAt ? new Date(innerData.checkOutAt) : null,
+        );
+      }
+    }
+  }
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchStatus();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchStatus]);
+    if (statusError) {
+      clientLogger.error("Failed to fetch status", statusError);
+    }
+  }, [statusError]);
 
   // Camera Logic
   const stopCamera = useCallback(() => {
