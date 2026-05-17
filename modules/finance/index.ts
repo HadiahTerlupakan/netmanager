@@ -1,6 +1,11 @@
 export * from "./services/AutomaticBillingService";
 export * from "./services/InvoiceProrateService";
 export * from "./services/PendingPackageApplierService";
+export {
+  getPelangganProrateLog,
+  PelangganNotFoundError as ProrateLogPelangganNotFoundError,
+  type ProrateLogResult,
+} from "./services/ProrateLogQueryService";
 export * from "./services/budget-integration";
 export * from "./services/VoidInvoiceService";
 

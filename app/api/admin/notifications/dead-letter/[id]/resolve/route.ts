@@ -1,5 +1,10 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { prisma } from "@/modules/database";
+import {
+  resolveDeadLetter,
+  DeadLetterNotFoundError,
+  DeadLetterAccessDeniedError,
+  DeadLetterAlreadyResolvedError,
+} from "@/modules/notification";
 
 /**
  * POST /api/admin/notifications/dead-letter/[id]/resolve
@@ -8,31 +13,24 @@ import { prisma } from "@/modules/database";
 export const POST = createHandler(
   { auth: true, permissions: ["notifications:manage"] },
   async (_req, ctx) => {
-    const { id } = ctx.params;
+    const id = ctx.params.id as string;
     const isSuperAdmin = ctx.session!.user.isSuperAdmin === true;
+    const tenantId = ctx.session!.user.tenantId ?? null;
 
-    const entry = await prisma.notificationDeadLetter.findUnique({
-      where: { id },
-    });
-
-    if (!entry) {
-      return ApiErrors.notFound("Entry dead letter");
+    try {
+      const result = await resolveDeadLetter({ id, isSuperAdmin, tenantId });
+      return apiSuccess(result);
+    } catch (error) {
+      if (error instanceof DeadLetterNotFoundError) {
+        return ApiErrors.notFound(error.message);
+      }
+      if (error instanceof DeadLetterAccessDeniedError) {
+        return ApiErrors.forbidden(error.message);
+      }
+      if (error instanceof DeadLetterAlreadyResolvedError) {
+        return ApiErrors.badRequest(error.message);
+      }
+      throw error;
     }
-
-    // Tenant ownership check — cegah IDOR
-    if (!isSuperAdmin && entry.tenantId !== ctx.session!.user.tenantId) {
-      return ApiErrors.forbidden("Akses ditolak");
-    }
-
-    if (entry.resolvedAt) {
-      return ApiErrors.badRequest("Entry ini sudah resolved");
-    }
-
-    await prisma.notificationDeadLetter.update({
-      where: { id },
-      data: { resolvedAt: new Date() },
-    });
-
-    return apiSuccess({ resolved: true });
   },
 );

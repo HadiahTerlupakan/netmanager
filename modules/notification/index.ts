@@ -29,6 +29,39 @@ export {
 } from "./services/MobileNotificationRouteService";
 export { AdminNotificationMonitoringRouteService } from "./services/AdminNotificationMonitoringRouteService";
 export {
+  getPelangganNotificationHistory,
+  PelangganNotFoundError,
+  type NotificationHistoryEntry,
+  type NotificationHistoryResult,
+} from "./services/NotificationHistoryService";
+export {
+  listNotificationDeadLetters,
+  resolveDeadLetter,
+  retryDeadLetter,
+  normalizeDeadLetterPage,
+  normalizeDeadLetterLimit,
+  DeadLetterNotFoundError,
+  DeadLetterAccessDeniedError,
+  DeadLetterAlreadyResolvedError,
+  DeadLetterInvalidTemplateError,
+  DeadLetterInvalidChannelError,
+  type DeadLetterListParams,
+  type DeadLetterListResult,
+} from "./services/DeadLetterService";
+export {
+  listEmailDeliveryLogs,
+  normalizeEmailLogPage,
+  normalizeEmailLogLimit,
+  EmailLogSearchTooLongError,
+  type EmailLogListParams,
+  type EmailLogListResult,
+} from "./services/EmailLogQueryService";
+export {
+  cleanupExpiredNotificationLogs,
+  NOTIFICATION_LOGS_CLEANUP_CONFIG,
+  type NotificationLogsCleanupResult,
+} from "./services/NotificationLogsCleanupService";
+export {
   AnnouncementService,
   AnnouncementServiceError,
   announcementService,

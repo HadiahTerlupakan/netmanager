@@ -9,13 +9,15 @@ import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
-import { prisma } from "@/modules/database";
 import { logger } from "@/lib/logger";
+import {
+  cleanupExpiredNotificationLogs,
+  NOTIFICATION_LOGS_CLEANUP_CONFIG,
+} from "@/modules/notification";
 
 export const dynamic = "force-dynamic";
 
-const EMAIL_LOG_RETENTION_DAYS = 90;
-const DLQ_RESOLVED_RETENTION_DAYS = 30;
+const CRON_LOCK_TTL_SECONDS = 55;
 
 /** Cron endpoint untuk cleanup data observability yang sudah expired. */
 export async function GET(request: NextRequest) {
@@ -27,43 +29,23 @@ export async function GET(request: NextRequest) {
       return ApiErrors.unauthorized("Tidak terautentikasi");
     }
 
-    const lockResult = await acquireCronLock("route:cleanupNotifLogs", 55);
+    const lockResult = await acquireCronLock(
+      "route:cleanupNotifLogs",
+      CRON_LOCK_TTL_SECONDS,
+    );
     if (lockResult === "unavailable") {
       return apiError(CRON_LOCK_UNAVAILABLE_MESSAGE, ErrorCodes.CONFLICT, {
         status: 409,
       });
     }
 
-    const cutoffEmailLog = new Date();
-    cutoffEmailLog.setDate(cutoffEmailLog.getDate() - EMAIL_LOG_RETENTION_DAYS);
-
-    const cutoffDlqResolved = new Date();
-    cutoffDlqResolved.setDate(
-      cutoffDlqResolved.getDate() - DLQ_RESOLVED_RETENTION_DAYS,
-    );
-
-    const [emailDeleted, dlqDeleted] = await Promise.all([
-      prisma.emailDeliveryLog.deleteMany({
-        where: {
-          createdAt: { lt: cutoffEmailLog },
-          status: { in: ["SENT", "BOUNCED"] },
-        },
-      }),
-      prisma.notificationDeadLetter.deleteMany({
-        where: {
-          resolvedAt: { not: null, lt: cutoffDlqResolved },
-        },
-      }),
-    ]);
+    const result = await cleanupExpiredNotificationLogs();
 
     logger.info(
-      `[CronCleanup] Notification logs cleanup: ${emailDeleted.count} email logs (>${EMAIL_LOG_RETENTION_DAYS}d) + ${dlqDeleted.count} resolved DLQ (>${DLQ_RESOLVED_RETENTION_DAYS}d) deleted`,
+      `[CronCleanup] Notification logs cleanup: ${result.emailLogsDeleted} email logs (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.emailLogRetentionDays}d) + ${result.dlqResolvedDeleted} resolved DLQ (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.dlqResolvedRetentionDays}d) deleted`,
     );
 
-    return apiSuccess({
-      emailLogsDeleted: emailDeleted.count,
-      dlqResolvedDeleted: dlqDeleted.count,
-    });
+    return apiSuccess(result);
   } catch (error) {
     logger.error("[CronCleanup] Error:", error);
     return ApiErrors.internalError("Gagal cleanup notification logs");
