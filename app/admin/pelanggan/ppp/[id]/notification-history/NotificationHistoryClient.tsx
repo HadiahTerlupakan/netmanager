@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useApi } from "@/lib/hooks/useApi";
 
 type NotificationChannel = "inApp" | "push" | "whatsapp" | "email";
 
@@ -14,6 +15,11 @@ type NotificationEntry = {
   error: string | null;
   createdAt: string;
 };
+
+interface NotificationHistoryResponse {
+  entries: NotificationEntry[];
+  pelanggan: { nama: string };
+}
 
 const CHANNEL_LABELS: Record<string, string> = {
   inApp: "In-App",
@@ -51,53 +57,31 @@ export default function NotificationHistoryClient({
 }: {
   pelangganId: string;
 }) {
-  const [entries, setEntries] = useState<NotificationEntry[]>([]);
-  const [pelangganNama, setPelangganNama] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
-  // AbortController-aware fetcher — cegah race condition dan setState pada
-  // unmounted component saat user navigate keluar di tengah fetch.
-  const loadHistory = useCallback(
-    (signal?: AbortSignal) => {
-      setIsLoading(true);
-      setError(null);
-      return fetch(`/api/admin/pelanggan/${pelangganId}/notification-history`, {
-        signal,
-      })
-        .then((r) => r.json())
-        .then((json) => {
-          if (signal?.aborted) return;
-          if (json.success) {
-            setEntries(json.data.entries);
-            setPelangganNama(json.data.pelanggan.nama);
-            setLastFetchedAt(new Date());
-          } else {
-            setError(json.error ?? "Gagal memuat data");
-          }
-        })
-        .catch((err: unknown) => {
-          if (signal?.aborted) return;
-          if (err instanceof Error && err.name === "AbortError") return;
-          setError("Terjadi kesalahan jaringan");
-        })
-        .finally(() => {
-          if (!signal?.aborted) setIsLoading(false);
-        });
-    },
-    [pelangganId],
+  const {
+    data,
+    isLoading,
+    error: fetchError,
+    mutate,
+  } = useApi<NotificationHistoryResponse>(
+    `/api/admin/pelanggan/${pelangganId}/notification-history`,
   );
 
+  const entries = data?.entries ?? [];
+  const pelangganNama = data?.pelanggan?.nama ?? "";
+  const error = fetchError
+    ? fetchError.message || "Terjadi kesalahan jaringan"
+    : null;
+
   useEffect(() => {
-    const controller = new AbortController();
-    // Wrap di async IIFE supaya setState tidak ter-call sinkron dalam
-    // effect body (rule react-hooks/set-state-in-effect).
-    void (async () => {
-      await loadHistory(controller.signal);
-    })();
-    return () => controller.abort();
-  }, [loadHistory]);
+    if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLastFetchedAt(new Date());
+    }
+  }, [data]);
+
+  const loadHistory = () => mutate();
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 p-4 md:p-8">

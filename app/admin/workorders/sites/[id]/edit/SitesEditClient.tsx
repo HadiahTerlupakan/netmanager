@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, use } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import SiteForm from "../../components/SiteForm";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Site {
   id: string;
@@ -30,7 +31,6 @@ export function ClientComponent({
   const { id } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -45,41 +45,38 @@ export function ClientComponent({
     gudangIds: [] as string[],
   });
 
-  // Fetch existing site data
+  const {
+    data: site,
+    isLoading: fetching,
+    error: fetchError,
+  } = useApi<Site>(`/api/admin/sites/${id}`);
+
+  const fetchErrorMessage = fetchError
+    ? fetchError.message || "Gagal memuat data site"
+    : null;
+  const displayError = error ?? fetchErrorMessage;
+
   useEffect(() => {
-    const fetchSite = async () => {
-      try {
-        const response = await fetch(`/api/admin/sites/${id}`);
-        const data = await response.json();
+    if (fetchError) {
+      clientLogger.error("Error fetching site:", fetchError);
+    }
+  }, [fetchError]);
 
-        if (!response.ok) {
-          throw new Error(data.error || "Gagal memuat data site");
-        }
-
-        const site: Site = data.data;
-        setFormData({
-          code: site.code,
-          name: site.name,
-          description: site.description || "",
-          address: site.address || "",
-          latitude: site.location.latitude?.toString() || "",
-          longitude: site.location.longitude?.toString() || "",
-          attendanceRadius: site.location.attendanceRadius?.toString() || "100",
-          isActive: site.isActive,
-          gudangIds: site.gudangs ? site.gudangs.map((g) => g.id) : [],
-        });
-      } catch (error: unknown) {
-        clientLogger.error("Error fetching site:", error);
-        setError(
-          error instanceof Error ? error.message : "Gagal memuat data site",
-        );
-      } finally {
-        setFetching(false);
-      }
-    };
-
-    fetchSite();
-  }, [id]);
+  const [didHydrate, setDidHydrate] = useState(false);
+  if (site && !didHydrate) {
+    setDidHydrate(true);
+    setFormData({
+      code: site.code,
+      name: site.name,
+      description: site.description || "",
+      address: site.address || "",
+      latitude: site.location.latitude?.toString() || "",
+      longitude: site.location.longitude?.toString() || "",
+      attendanceRadius: site.location.attendanceRadius?.toString() || "100",
+      isActive: site.isActive,
+      gudangIds: site.gudangs ? site.gudangs.map((g) => g.id) : [],
+    });
+  }
 
   const handleMapChange = (lat: string, lng: string) => {
     setFormData((prev) => ({
@@ -176,9 +173,9 @@ export function ClientComponent({
         </div>
       </div>
 
-      {error && (
+      {displayError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200">
-          {error}
+          {displayError}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import {
   HiOutlineMapPin,
@@ -17,6 +17,8 @@ import {
 import PageLoader from "@/components/ui/PageLoader";
 import { usePermission } from "@/hooks/use-permission";
 import { buttonVariants } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Site {
   id: string;
@@ -50,37 +52,22 @@ interface Site {
 }
 
 export function SiteDetailClient({ siteId }: { siteId: string }) {
-  const [site, setSite] = useState<Site | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { hasPermission } = usePermission();
 
-  const fetchSite = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/sites/${siteId}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Gagal memuat data site");
-      }
-
-      setSite(result.data);
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Kesalahan tidak diketahui",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [siteId]);
+  const {
+    data: site,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<Site>(`/api/admin/sites/${siteId}`);
+  const error = fetchError
+    ? fetchError.message || "Kesalahan tidak diketahui"
+    : null;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchSite();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchSite]);
+    if (fetchError) {
+      clientLogger.error("Error fetching site detail:", fetchError);
+    }
+  }, [fetchError]);
 
   if (loading) {
     return (

@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
 import { BarangForm } from "@/components/inventory/BarangForm";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface BarangData {
   id: string;
@@ -14,40 +15,39 @@ interface BarangData {
   satuan: string;
 }
 
+interface BarangResponse {
+  barang?: BarangData;
+}
+
 export function BarangEditClient() {
   const router = useRouter();
   const params = useParams();
-  const [initialData, setInitialData] = useState<BarangData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const barangId = typeof params.id === "string" ? params.id : null;
+
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<BarangData | BarangResponse>(
+    barangId ? `/api/inventory/barang/${barangId}` : null,
+  );
+
+  const initialData: BarangData | null = (() => {
+    if (!data) return null;
+    if ("barang" in data && data.barang) return data.barang;
+    if ("kode" in data) return data as BarangData;
+    return null;
+  })();
+
+  const error = fetchError
+    ? fetchError.message || "Gagal memuat data barang"
+    : null;
 
   useEffect(() => {
-    async function fetchBarang() {
-      try {
-        const response = await fetch(`/api/inventory/barang/${params.id}`);
-
-        if (!response.ok) {
-          throw new Error("Barang tidak ditemukan");
-        }
-
-        const jsonResponse = await response.json();
-        setInitialData(
-          jsonResponse.data?.barang || jsonResponse.barang || jsonResponse,
-        );
-      } catch (error: unknown) {
-        clientLogger.error("Error fetching barang:", error);
-        setError(
-          error instanceof Error ? error.message : "Gagal memuat data barang",
-        );
-      } finally {
-        setLoading(false);
-      }
+    if (fetchError) {
+      clientLogger.error("Error fetching barang:", fetchError);
     }
-
-    if (params.id) {
-      fetchBarang();
-    }
-  }, [params.id]);
+  }, [fetchError]);
 
   const handleSubmit = async () => {
     // Redirect to inventory page after successful update

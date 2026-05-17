@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,6 +14,7 @@ import {
 } from "react-icons/fi";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Gudang {
   kode: string;
@@ -43,9 +44,14 @@ interface BarangDetail {
   stok?: RawBarangGudang[];
 }
 
+interface BarangDetailResponse {
+  barang?: BarangDetail;
+}
+
 export function BarangDetailClient() {
   const params = useParams();
   const { hasPermission } = usePermission();
+  const barangId = typeof params.id === "string" ? params.id : null;
 
   // Permission checks
   const canUpdate = hasPermission("barang:update");
@@ -56,50 +62,41 @@ export function BarangDetailClient() {
   const canCreateOpname =
     hasPermission("opname:create") || hasPermission("stockopname:create");
 
-  const [barang, setBarang] = useState<BarangDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<BarangDetail | BarangDetailResponse>(
+    barangId ? `/api/inventory/barang/${barangId}` : null,
+  );
+
+  const barang: BarangDetail | null = (() => {
+    if (!data) return null;
+    const raw: BarangDetail | undefined =
+      "barang" in data && data.barang ? data.barang : (data as BarangDetail);
+    if (!raw) return null;
+    const cloned: BarangDetail = { ...raw };
+    if (!cloned.stockPerGudang) {
+      const rawStock = cloned.barangGudang || cloned.stok || [];
+      cloned.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
+        gudangId: s.gudangId,
+        gudangKode: s.gudang?.kode || "-",
+        gudangNama: s.gudang?.nama || "-",
+        stok: s.stok || 0,
+      }));
+    }
+    return cloned;
+  })();
+
+  const error = fetchError
+    ? fetchError.message || "Gagal memuat data barang"
+    : "";
 
   useEffect(() => {
-    async function fetchBarang() {
-      try {
-        const response = await fetch(`/api/inventory/barang/${params.id}`);
-
-        if (!response.ok) {
-          throw new Error("Barang tidak ditemukan");
-        }
-
-        const jsonResponse = await response.json();
-        // Handle standard apiSuccess format { success: true, data: { barang: ... } }
-        const barangData =
-          jsonResponse.data?.barang || jsonResponse.barang || jsonResponse;
-
-        // Map barangGudang to stockPerGudang if needed
-        const rawStock = barangData.barangGudang || barangData.stok || [];
-        if (!barangData.stockPerGudang) {
-          barangData.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
-            gudangId: s.gudangId,
-            gudangKode: s.gudang?.kode || "-",
-            gudangNama: s.gudang?.nama || "-",
-            stok: s.stok || 0,
-          }));
-        }
-
-        setBarang(barangData);
-      } catch (error: unknown) {
-        clientLogger.error("Error fetching barang:", error);
-        setError(
-          error instanceof Error ? error.message : "Gagal memuat data barang",
-        );
-      } finally {
-        setLoading(false);
-      }
+    if (fetchError) {
+      clientLogger.error("Error fetching barang:", fetchError);
     }
-
-    if (params.id) {
-      fetchBarang();
-    }
-  }, [params.id]);
+  }, [fetchError]);
 
   if (loading) {
     return (

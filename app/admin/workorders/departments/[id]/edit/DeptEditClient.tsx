@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, use } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import DepartmentForm from "../../components/DepartmentForm";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Department {
   id: string;
@@ -24,7 +25,6 @@ export function ClientComponent({
   const { id } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -35,39 +35,34 @@ export function ClientComponent({
     showInMobileWO: false,
   });
 
-  // Fetch existing department data
+  const {
+    data: dept,
+    isLoading: fetching,
+    error: fetchError,
+  } = useApi<Department>(`/api/admin/departments/${id}`);
+
+  const fetchErrorMessage = fetchError
+    ? fetchError.message || "Gagal memuat data department"
+    : null;
+  const displayError = error ?? fetchErrorMessage;
+
   useEffect(() => {
-    const fetchDepartment = async () => {
-      try {
-        const response = await fetch(`/api/admin/departments/${id}`);
-        const data = await response.json();
+    if (fetchError) {
+      clientLogger.error("Error fetching department:", fetchError);
+    }
+  }, [fetchError]);
 
-        if (!response.ok) {
-          throw new Error(data.error || "Gagal memuat data department");
-        }
-
-        const dept: Department = data.data;
-        setFormData({
-          name: dept.name,
-          description: dept.description || "",
-          jobDescription: dept.jobDescription || "",
-          isReminderTarget: dept.isReminderTarget || false,
-          showInMobileWO: dept.showInMobileWO || false,
-        });
-      } catch (error: unknown) {
-        clientLogger.error("Error fetching department:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Gagal memuat data department",
-        );
-      } finally {
-        setFetching(false);
-      }
-    };
-
-    fetchDepartment();
-  }, [id]);
+  const [didHydrate, setDidHydrate] = useState(false);
+  if (dept && !didHydrate) {
+    setDidHydrate(true);
+    setFormData({
+      name: dept.name,
+      description: dept.description || "",
+      jobDescription: dept.jobDescription || "",
+      isReminderTarget: dept.isReminderTarget || false,
+      showInMobileWO: dept.showInMobileWO || false,
+    });
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -144,9 +139,9 @@ export function ClientComponent({
         </div>
       </div>
 
-      {error && (
+      {displayError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200">
-          {error}
+          {displayError}
         </div>
       )}
 

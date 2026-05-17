@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface AppRelease {
   id: string;
@@ -27,31 +28,25 @@ export default function AppReleaseDetailPage() {
   const id = params.id as string;
 
   const [release, setRelease] = useState<AppRelease | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const {
+    data: serverRelease,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<AppRelease>(id ? `/api/admin/app-releases/${id}` : null);
+
   useEffect(() => {
-    let cancelled = false;
+    if (fetchError) {
+      toast.error("Gagal memuat data release");
+    }
+  }, [fetchError]);
 
-    fetch(`/api/admin/app-releases/${id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) {
-          setRelease(data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          toast.error("Gagal memuat data release");
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const [didHydrate, setDidHydrate] = useState(false);
+  if (serverRelease && !didHydrate) {
+    setDidHydrate(true);
+    setRelease(serverRelease);
+  }
 
   const setField = <K extends keyof AppRelease>(
     key: K,

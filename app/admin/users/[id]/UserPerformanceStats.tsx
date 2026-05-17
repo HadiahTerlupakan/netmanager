@@ -1,13 +1,14 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   HiOutlineBriefcase,
   HiOutlineClock,
   HiOutlineStar,
   HiOutlineCalendarDays,
 } from "react-icons/hi2";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface PerformanceData {
   workingHourMode: "FIXED" | "SHIFT" | "FLEXIBLE";
@@ -44,41 +45,20 @@ interface PerformanceData {
 }
 
 export default function UserPerformanceStats({ userId }: { userId: string }) {
-  const [data, setData] = useState<PerformanceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<PerformanceData>(
+    userId ? `/api/admin/users/${userId}/performance` : null,
+  );
+  const error = fetchError ? fetchError.message || "Terjadi kesalahan" : null;
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`/api/admin/users/${userId}/performance`);
-        if (!res.ok) {
-          const errorText = await res.text();
-          try {
-            const errorJson = JSON.parse(errorText);
-            throw new Error(
-              errorJson.error || `Request failed with status ${res.status}`,
-            );
-          } catch (_e: unknown) {
-            throw new Error(
-              `Request failed: ${res.status} ${errorText.substring(0, 50)}`,
-            );
-          }
-        }
-        const json = await res.json();
-        setData(json.data);
-      } catch (err: unknown) {
-        clientLogger.error("Gagal memuat statistik performa user", err);
-        const message =
-          err instanceof Error ? err.message : "Terjadi kesalahan";
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (userId) fetchStats();
-  }, [userId]);
+    if (fetchError) {
+      clientLogger.error("Gagal memuat statistik performa user", fetchError);
+    }
+  }, [fetchError]);
 
   if (loading)
     return (
