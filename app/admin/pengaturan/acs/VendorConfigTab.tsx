@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Package, Wifi, Plus, Edit, Trash2, X, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 type VendorConfig = {
   id: string;
@@ -40,17 +41,6 @@ type AcsApiResponse<T> = {
   data: T;
   error?: string;
 };
-
-async function fetchAcsList<T>(url: string): Promise<T[]> {
-  const response = await fetch(url);
-  const result = (await response.json()) as AcsApiResponse<T[]>;
-
-  if (!result.success) {
-    throw new Error(result.error || "Gagal memuat data");
-  }
-
-  return result.data;
-}
 
 async function saveAcsResource<TData extends object>(
   baseUrl: string,
@@ -116,12 +106,9 @@ export function VendorConfigTab() {
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission("acs:update");
 
-  const [vendors, setVendors] = useState<VendorConfig[]>([]);
-  const [wifiConfigs, setWifiConfigs] = useState<WifiSecurityConfig[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<"vendors" | "wifi">(
     "vendors",
   );
-  const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   // Vendor Modal State
@@ -138,30 +125,34 @@ export function VendorConfigTab() {
     data: {},
   });
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [vendorsData, wifiConfigsData] = await Promise.all([
-        fetchAcsList<VendorConfig>("/api/settings/acs/vendors"),
-        fetchAcsList<WifiSecurityConfig>("/api/settings/acs/wifi-security"),
-      ]);
-
-      setVendors(vendorsData);
-      setWifiConfigs(wifiConfigsData);
-    } catch (err) {
+  const {
+    data: vendorsData,
+    isLoading: vendorsLoading,
+    mutate: refetchVendors,
+  } = useApi<VendorConfig[]>("/api/settings/acs/vendors", {
+    onError: (err) => {
       clientLogger.error("Gagal memuat konfigurasi ACS", err);
       showToast("error", "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+    },
+  });
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchData();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchData]);
+  const {
+    data: wifiData,
+    isLoading: wifiLoading,
+    mutate: refetchWifi,
+  } = useApi<WifiSecurityConfig[]>("/api/settings/acs/wifi-security", {
+    onError: (err) => {
+      clientLogger.error("Gagal memuat konfigurasi ACS", err);
+    },
+  });
+
+  const vendors: VendorConfig[] = vendorsData ?? [];
+  const wifiConfigs: WifiSecurityConfig[] = wifiData ?? [];
+  const loading = vendorsLoading || wifiLoading;
+
+  const fetchData = async () => {
+    await Promise.all([refetchVendors(), refetchWifi()]);
+  };
 
   // --- VENDOR ACTIONS ---
   const handleSaveVendor = async (e: React.FormEvent) => {
@@ -183,7 +174,7 @@ export function VendorConfigTab() {
           `Vendor berhasil ${vendorModal.isEdit ? "diperbarui" : "ditambahkan"}`,
         );
         setVendorModal({ isOpen: false, isEdit: false, data: {} });
-        fetchData();
+        await refetchVendors();
       } else {
         showToast("error", result.error || "Gagal menyimpan vendor");
       }
@@ -204,7 +195,7 @@ export function VendorConfigTab() {
       const result = await deleteAcsResource("/api/settings/acs/vendors", id);
       if (result.success) {
         showToast("success", "Vendor berhasil dihapus");
-        fetchData();
+        await refetchVendors();
       }
     } catch (_e) {
       showToast("error", "Gagal menghapus vendor");
@@ -231,7 +222,7 @@ export function VendorConfigTab() {
           `Konfigurasi WiFi berhasil ${wifiModal.isEdit ? "diperbarui" : "ditambahkan"}`,
         );
         setWifiModal({ isOpen: false, isEdit: false, data: {} });
-        fetchData();
+        await refetchWifi();
       } else {
         showToast("error", result.error || "Gagal menyimpan konfigurasi");
       }
@@ -255,7 +246,7 @@ export function VendorConfigTab() {
       );
       if (result.success) {
         showToast("success", "Konfigurasi berhasil dihapus");
-        fetchData();
+        await refetchWifi();
       }
     } catch (_e) {
       showToast("error", "Gagal menghapus konfigurasi");

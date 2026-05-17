@@ -2497,3 +2497,43 @@ Plan siap eksekusi. Business rules Phase 7 sudah diputuskan user:
 2. Downgrade: pilihan admin (`NONE | REFUND | CREDIT`)
 3. Upgrade timing: pilihan admin (`IMMEDIATE | NEXT_CYCLE`)
 
+---
+
+## TanStack Roadmap Phase 3 — Batch 2026-05-18
+
+Lihat `docs/guides/tanstack-adoption-roadmap.md` Phase 3.
+
+- [x] Migrasi `app/admin/integrations/mixradius/accounts/MixRadiusAccountsClient.tsx`
+- [x] Migrasi `app/admin/integrations/mixradius/expenses/CategoryList.tsx`
+- [x] Migrasi `app/admin/integrations/mixradius/groups/MixRadiusGroupsClient.tsx`
+- [x] Migrasi `app/admin/integrations/mixradius/investor-sites/SiteInvestorClient.tsx`
+- [x] Migrasi `app/admin/inventory/gudang/GudangList.tsx`
+- [x] Migrasi `app/admin/inventory/gudang/[id]/edit/GudangEditClient.tsx`
+- [x] Migrasi `app/admin/log/login/LoginLogClient.tsx`
+- [x] Migrasi `app/admin/log/mobile-errors/MobileErrorLogClient.tsx`
+- [x] Migrasi `app/admin/network/acs/devices/[id]/DeviceDetailClient.tsx`
+- [x] Migrasi `app/admin/pengaturan/acs/AcsConfigTab.tsx`
+- [x] Migrasi `app/admin/pengaturan/acs/VendorConfigTab.tsx`
+- [x] Migrasi `app/admin/pengaturan/captcha/CaptchaClient.tsx`
+- [x] Migrasi `app/admin/pengaturan/company-bank-accounts/BankAccountsClient.tsx`
+- [x] Migrasi `app/admin/pengaturan/email/EmailSettingsClient.tsx`
+- [x] Migrasi `app/admin/pengaturan/payment-gateway/components/UnmatchedMutationsList.tsx`
+- [x] Migrasi `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- [x] Lint pass
+- [x] Typecheck pass (0 error project)
+- [x] CHANGELOG diupdate
+
+### Review
+
+- 16 file admin client di-migrasi dari pola `useEffect + fetch + useState` ke
+  `useApi` (TanStack Query).
+- Eliminasi helper `unwrapApiData`/`extractApiData` duplikat di banyak file —
+  envelope `{ data: ... }` sudah di-handle `apiFetcher`.
+- State lokal sekarang hanya menyimpan form/derived UI; cache server di-handle
+  TanStack Query.
+- Loading state derive dari `isLoading`. Refresh manual diganti panggil
+  `refetch()`.
+- Tidak ada perubahan kontrak API.
+- Roadmap Phase 3 progres: +16 file (target sisa ~48 file dari 64).
+
+

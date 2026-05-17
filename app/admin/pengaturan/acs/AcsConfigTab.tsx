@@ -1,18 +1,40 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, Info, RefreshCw, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast"; // Adjusted import to the actual implementation
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
+
+type AcsFormData = {
+  genieAcsUrl: string;
+  vpPppoeUsername: string;
+  vpRxPower: string;
+  vpActiveDevices: string;
+  vpWanBridge: string;
+  vpTemperature: string;
+  vpSuperAdmin: string;
+  vpSuperPassword: string;
+  vpUserAdmin: string;
+  vpUserPassword: string;
+  rxPowerExcellent: number;
+  rxPowerFair: number;
+  rxPowerPoor: number;
+  deviceDataInterval: number;
+  mappingDataInterval: number;
+  dashboardDataInterval: number;
+  deviceStatusInterval: number;
+  deviceOnlineThreshold: number;
+};
 
 export function AcsConfigTab() {
   const { showToast } = useToast();
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission("acs:update");
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AcsFormData>({
     genieAcsUrl: "http://113.192.1.34:7557/devices",
     vpPppoeUsername: "VirtualParameters.pppoeUsername2",
     vpRxPower: "VirtualParameters.RXPower",
@@ -35,24 +57,20 @@ export function AcsConfigTab() {
 
   const [loading, setLoading] = useState(false);
   const [testingUrl, setTestingUrl] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch("/api/settings/acs");
-        const result = await res.json();
-        if (result.success && result.data) {
-          setFormData(result.data);
-        }
-      } catch (error) {
+  const { isLoading: initialLoading } = useApi<AcsFormData>(
+    "/api/settings/acs",
+    {
+      onError: (error) => {
         clientLogger.error("Failed to fetch ACS settings", error);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-    fetchSettings();
-  }, []);
+      },
+      onSuccess: (result) => {
+        if (result) {
+          setFormData(result);
+        }
+      },
+    },
+  );
 
   const handleSave = async (e: React.FormEvent | React.MouseEvent) => {
     if (e && "preventDefault" in e) {

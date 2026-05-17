@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
 import { useToast } from "@/components/ui/Toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 import { DeviceDetailModals } from "@/app/admin/network/acs/devices/components/DeviceDetailModals";
 import { DeviceDetailPanels } from "@/app/admin/network/acs/devices/components/DeviceDetailPanels";
@@ -47,8 +48,6 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
   const router = useRouter();
   const { showToast } = useToast();
 
-  const [device, setDevice] = useState<DeviceDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [paramModal, setParamModal] = useState<ParamModalState>({
@@ -81,32 +80,16 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
     enabled: true,
   });
 
-  const fetchDeviceDetail = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/acs/devices/${encodeURIComponent(deviceId)}`,
-      );
-      const result = await res.json();
-      if (result.success && result.data) {
-        setDevice(result.data);
-      } else {
-        showToast("error", result.error || "Gagal memuat detail perangkat");
-        router.push("/admin/network/acs/devices");
-      }
-    } catch (_err) {
-      showToast("error", "Terjadi kesalahan sistem");
-    } finally {
-      setLoading(false);
-    }
-  }, [deviceId, router, showToast]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchDeviceDetail();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchDeviceDetail]);
+  const {
+    data: device,
+    isLoading: loading,
+    mutate: fetchDeviceDetail,
+  } = useApi<DeviceDetail>(`/api/acs/devices/${encodeURIComponent(deviceId)}`, {
+    onError: (err) => {
+      showToast("error", err.message || "Gagal memuat detail perangkat");
+      router.push("/admin/network/acs/devices");
+    },
+  });
 
   const executeTask = async (
     taskName: string,

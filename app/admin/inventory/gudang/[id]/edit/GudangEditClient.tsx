@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
 import { GudangForm } from "@/components/inventory/GudangForm";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Gudang {
   id: string;
@@ -17,15 +18,14 @@ interface Gudang {
   updatedAt: string;
 }
 
+type GudangPayload = Gudang | { gudang?: Gudang };
+
 export function GudangEditClient({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
-  const [gudang, setGudang] = useState<Gudang | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [gudangId, setGudangId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,31 +36,33 @@ export function GudangEditClient({
     getParams();
   }, [params]);
 
-  useEffect(() => {
-    if (!gudangId) return;
+  const {
+    data: rawGudang,
+    error,
+    isLoading,
+  } = useApi<GudangPayload>(
+    gudangId ? `/api/inventory/gudang/${gudangId}` : null,
+    {
+      onError: (err) => {
+        clientLogger.error("Failed to fetch gudang:", err);
+      },
+    },
+  );
 
-    async function fetchGudang() {
-      try {
-        const response = await fetch(`/api/inventory/gudang/${gudangId}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Gagal memuat data gudang");
-        }
-
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        setGudang(result.gudang || result);
-      } catch (error: unknown) {
-        clientLogger.error("Failed to fetch gudang:", error);
-        setError(error instanceof Error ? error.message : "Gagal memuat data");
-      } finally {
-        setLoading(false);
-      }
+  const gudang = useMemo<Gudang | null>(() => {
+    if (!rawGudang) return null;
+    if (
+      typeof rawGudang === "object" &&
+      "gudang" in rawGudang &&
+      rawGudang.gudang
+    ) {
+      return rawGudang.gudang;
     }
+    return rawGudang as Gudang;
+  }, [rawGudang]);
 
-    fetchGudang();
-  }, [gudangId]);
+  // Loading: still resolving params, OR query is loading
+  const loading = !gudangId || isLoading;
 
   const handleSuccess = () => {
     router.push("/admin/inventory/gudang");
@@ -101,7 +103,7 @@ export function GudangEditClient({
         </div>
 
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error || "Gudang tidak ditemukan"}
+          {error?.message || "Gudang tidak ditemukan"}
         </div>
       </div>
     );

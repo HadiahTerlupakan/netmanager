@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -32,30 +32,23 @@ export default function SiteInvestorClient() {
 
   const {
     data: rawSites,
-    error: sitesError,
     isLoading: sitesLoading,
     mutate: mutateSites,
   } = useApi<{ data?: InvestorSite[] } | InvestorSite[]>(
     "/api/integrations/mixradius/investor-sites",
+    {
+      onError: (err) => {
+        toast.error(err.message || "Gagal mengambil data Site Investor");
+      },
+    },
   );
-  const {
-    data: rawOwners,
-    error: ownersError,
-    isLoading: ownersLoading,
-  } = useApi<{ data?: unknown[] } | unknown[]>(
-    "/api/integrations/mixradius/owners",
-  );
-
-  useEffect(() => {
-    if (sitesError) {
-      toast.error(sitesError.message || "Gagal mengambil data Site Investor");
-    }
-  }, [sitesError]);
-  useEffect(() => {
-    if (ownersError) {
-      toast.error(ownersError.message || "Gagal mengambil data owner");
-    }
-  }, [ownersError]);
+  const { data: rawOwners, isLoading: ownersLoading } = useApi<
+    { data?: unknown[] } | unknown[]
+  >("/api/integrations/mixradius/owners", {
+    onError: (err) => {
+      toast.error(err.message || "Gagal mengambil data owner");
+    },
+  });
 
   const loading = sitesLoading || ownersLoading;
 

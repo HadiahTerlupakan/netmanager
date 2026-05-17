@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { HiOutlineRefresh } from "react-icons/hi";
 import {
   HiOutlineClock,
@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface SystemLog {
   id: string;
@@ -40,53 +41,54 @@ interface LogDetails {
   [key: string]: string | boolean | undefined;
 }
 
+type Pagination = {
+  page: number;
+  limit: number;
+  totalPages: number;
+  total: number;
+};
+
+type LogsPayload =
+  | { logs?: SystemLog[]; pagination?: Pagination }
+  | SystemLog[];
+
+const DEFAULT_PAGINATION: Pagination = {
+  page: 1,
+  limit: 20,
+  totalPages: 1,
+  total: 0,
+};
+
 export function ClientComponent() {
-  const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    totalPages: 1,
-    total: 0,
-  });
+  const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  const fetchLogs = async (page = 1) => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admin/system-logs?type=AUTH&page=${page}&limit=20`,
-      );
-      const data = await res.json();
-      if (res.ok) {
-        const responseData = data.data || data;
-        setLogs(responseData.logs || []);
-        setPagination(
-          responseData.pagination || {
-            page: 1,
-            limit: 20,
-            totalPages: 1,
-            total: 0,
-          },
-        );
-      }
-    } catch (err) {
-      clientLogger.error("Gagal memuat log login", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const logsUrl = `/api/admin/system-logs?type=AUTH&page=${page}&limit=20`;
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
-    void fetchLogs();
-  }
+  const {
+    data: rawLogs,
+    isLoading: loading,
+    mutate: refetchLogs,
+  } = useApi<LogsPayload>(logsUrl, {
+    onError: (err) => {
+      clientLogger.error("Gagal memuat log login", err);
+    },
+  });
+
+  const logs: SystemLog[] = useMemo(() => {
+    if (Array.isArray(rawLogs)) return rawLogs;
+    return rawLogs?.logs ?? [];
+  }, [rawLogs]);
+
+  const pagination: Pagination = useMemo(() => {
+    if (Array.isArray(rawLogs)) return DEFAULT_PAGINATION;
+    return rawLogs?.pagination ?? DEFAULT_PAGINATION;
+  }, [rawLogs]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
-      fetchLogs(newPage);
+      setPage(newPage);
     }
   };
 
@@ -120,7 +122,7 @@ export function ClientComponent() {
             Riwayat aktivitas login pengguna ke sistem
           </p>
         </div>
-        <Button variant="outline" onClick={() => fetchLogs(pagination.page)}>
+        <Button variant="outline" onClick={() => void refetchLogs()}>
           <HiOutlineRefresh
             className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
           />

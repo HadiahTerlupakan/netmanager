@@ -1,5 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   HiOutlineFolder,
   HiOutlineFolderOpen,
@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { Modal } from "@/components/ui/Modal";
 import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Category {
   id: string;
@@ -31,8 +32,6 @@ interface CategoryWithTotal extends Category {
 }
 
 export default function CategoryList() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Category | null>(null);
   const [selectedType, setSelectedType] = useState<"OPEX" | "CAPEX">("OPEX");
@@ -58,43 +57,39 @@ export default function CategoryList() {
     parentId: "",
   });
 
-  // Fetch Categories with Totals
-  const fetchCategories = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        type: selectedType,
-        startDate,
-        endDate,
-      });
-
-      const res = await fetch(`/api/finance/expense-categories?${params}`);
-      const json = await res.json();
-      // Fix: Extract data from wrapper { success: true, data: [...] }
-      const data = Array.isArray(json) ? json : json.data || [];
-
-      if (Array.isArray(data)) {
-        setCategories(data);
-
-        // Auto expand categories that have children
-        const parents = data
-          .filter((c: Category) =>
-            data.some((child: Category) => child.parentId === c.id),
-          )
-          .map((c: Category) => c.id);
-        setExpandedIds(new Set(parents));
-      }
-    } catch (_error) {
-      toast.error("Gagal mengambil data kategori");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const categoriesUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      type: selectedType,
+      startDate,
+      endDate,
+    });
+    return `/api/finance/expense-categories?${params}`;
   }, [selectedType, startDate, endDate]);
+
+  const {
+    data: rawCategories,
+    isLoading: loading,
+    mutate: fetchCategories,
+  } = useApi<Category[] | { data: Category[] }>(categoriesUrl, {
+    onError: () => {
+      toast.error("Gagal mengambil data kategori");
+    },
+    onSuccess: (json) => {
+      const data = Array.isArray(json) ? json : json?.data || [];
+      // Auto expand categories that have children
+      const parents = data
+        .filter((c: Category) =>
+          data.some((child: Category) => child.parentId === c.id),
+        )
+        .map((c: Category) => c.id);
+      setExpandedIds(new Set(parents));
+    },
+  });
+
+  const categories: Category[] = useMemo(() => {
+    if (Array.isArray(rawCategories)) return rawCategories;
+    return rawCategories?.data ?? [];
+  }, [rawCategories]);
 
   // Build Tree Structure & Calculate Recursive Totals
   const categoryTree = useMemo(() => {
@@ -181,7 +176,7 @@ export default function CategoryList() {
 
       toast.success(editingItem ? "Kategori diperbarui" : "Kategori dibuat");
       setIsModalOpen(false);
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       clientLogger.error("Gagal menyimpan kategori", error);
       toast.error(
@@ -208,7 +203,7 @@ export default function CategoryList() {
       }
 
       toast.success("Kategori dihapus");
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal menghapus kategori",

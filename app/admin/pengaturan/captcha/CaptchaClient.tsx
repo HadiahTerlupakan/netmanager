@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HiArrowPath,
   HiCheckCircle,
@@ -9,60 +9,42 @@ import {
   HiShieldCheck,
 } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
-function unwrapApiData<T>(payload: T | { data?: T }): T {
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const nested = (payload as { data?: T }).data;
-    if (nested !== undefined) {
-      return nested;
-    }
-  }
-
-  return payload as T;
-}
+type CaptchaSettings = {
+  enabled: boolean;
+  siteKey: string;
+  secretKey: string;
+};
 
 export function ClientComponent() {
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<CaptchaSettings>({
     enabled: false,
     siteKey: "",
     secretKey: "",
   });
 
-  const loadSettings = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/settings/captcha");
-      if (res.ok) {
-        const payload = await res.json();
-        const data = unwrapApiData<{
-          enabled: boolean;
-          siteKey: string;
-          secretKey: string;
-        }>(payload);
-        setSettings({
-          enabled: data.enabled,
-          siteKey: data.siteKey,
-          secretKey: data.secretKey,
-        });
-      }
-    } catch (err) {
-      clientLogger.error("Failed to load captcha settings", err);
-      setError("Gagal memuat pengaturan captcha");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadSettings();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadSettings]);
+  const { isLoading: loading } = useApi<CaptchaSettings>(
+    "/api/settings/captcha",
+    {
+      onError: (err) => {
+        clientLogger.error("Failed to load captcha settings", err);
+        setError("Gagal memuat pengaturan captcha");
+      },
+      onSuccess: (data) => {
+        if (data) {
+          setSettings({
+            enabled: data.enabled,
+            siteKey: data.siteKey,
+            secretKey: data.secretKey,
+          });
+        }
+      },
+    },
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

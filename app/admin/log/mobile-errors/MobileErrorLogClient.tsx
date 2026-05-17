@@ -1,12 +1,13 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { useApi } from "@/lib/hooks/useApi";
 
 type SystemLogItem = {
   id: string;
@@ -40,17 +41,23 @@ type MobileErrorDetails = {
   authContext?: Record<string, unknown> | null;
 };
 
-type ApiResponse = {
-  success: boolean;
-  data: {
-    logs: SystemLogItem[];
-    pagination: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
-  };
+type LogsPaginationData = {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+type LogsResponseData = {
+  logs?: SystemLogItem[];
+  pagination?: LogsPaginationData;
+};
+
+const DEFAULT_PAGINATION: LogsPaginationData = {
+  total: 0,
+  page: 1,
+  limit: 20,
+  totalPages: 0,
 };
 
 const parseDetails = (
@@ -85,19 +92,10 @@ const severityStyles: Record<string, string> = {
 };
 
 export default function MobileErrorLogClient() {
-  const [logs, setLogs] = useState<SystemLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<SystemLogItem | null>(null);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: 20,
-    totalPages: 0,
-  });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -108,54 +106,35 @@ export default function MobileErrorLogClient() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchLogs = useCallback(
-    async (targetPage = 1, isRefresh = false) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+  const logsUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      type: "SYSTEM",
+      action: "MOBILE_ERROR_REPORT",
+      page: String(page),
+      limit: "20",
+    });
+    if (debouncedSearch.trim()) {
+      params.set("search", debouncedSearch.trim());
+    }
+    return `/api/admin/system-logs?${params.toString()}`;
+  }, [page, debouncedSearch]);
 
-      try {
-        const params = new URLSearchParams({
-          type: "SYSTEM",
-          action: "MOBILE_ERROR_REPORT",
-          page: String(targetPage),
-          limit: "20",
-        });
-
-        if (debouncedSearch.trim()) {
-          params.set("search", debouncedSearch.trim());
-        }
-
-        const response = await fetch(
-          `/api/admin/system-logs?${params.toString()}`,
-        );
-        const json = (await response.json()) as ApiResponse;
-
-        if (!response.ok || !json.success) {
-          throw new Error("Gagal memuat mobile error reports");
-        }
-
-        setLogs(json.data.logs);
-        setPagination(json.data.pagination);
-      } catch (error) {
-        clientLogger.error("Failed to fetch mobile error logs:", error);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
+  const {
+    data: logsResponse,
+    isLoading: loading,
+    mutate: refetchLogs,
+  } = useApi<LogsResponseData>(logsUrl, {
+    onError: (error) => {
+      clientLogger.error("Failed to fetch mobile error logs:", error);
     },
-    [debouncedSearch],
-  );
+  });
 
-  // Trigger fetch on page/search change via comparator (selama render, bukan effect)
-  const [prevFetchKey, setPrevFetchKey] = useState<string | null>(null);
-  const fetchKey = `${page}|${debouncedSearch}`;
-  if (prevFetchKey !== fetchKey) {
-    setPrevFetchKey(fetchKey);
-    void fetchLogs(page);
-  }
+  const logs: SystemLogItem[] = useMemo(
+    () => logsResponse?.logs ?? [],
+    [logsResponse],
+  );
+  const pagination: LogsPaginationData =
+    logsResponse?.pagination ?? DEFAULT_PAGINATION;
 
   const rows = useMemo(() => {
     return logs.map((log) => {
@@ -184,7 +163,7 @@ export default function MobileErrorLogClient() {
             placeholder="Cari message, route, screen, user, atau source..."
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm md:w-96"
           />
-          <Button onClick={() => fetchLogs(page, true)} loading={refreshing}>
+          <Button onClick={() => void refetchLogs()} loading={loading}>
             Refresh
           </Button>
         </div>

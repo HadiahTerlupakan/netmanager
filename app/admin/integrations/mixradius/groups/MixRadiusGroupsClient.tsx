@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentProps, useState, useEffect, useMemo } from "react";
+import { type ComponentProps, useState, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -39,33 +39,21 @@ export default function MixRadiusGroupsClient() {
 
   const {
     data: rawGroups,
-    error: groupsError,
     isLoading: groupsLoading,
     mutate: mutateGroups,
   } = useApi<{ data?: OwnerGroup[] } | OwnerGroup[]>(
     "/api/integrations/mixradius/groups",
+    {
+      onError: (err) => {
+        toast.error(err.message || "Gagal mengambil data grup/site");
+      },
+    },
   );
-  const {
-    data: rawOwners,
-    error: ownersError,
-    isLoading: ownersLoading,
-  } = useApi<{ data?: unknown[] } | unknown[]>(
-    "/api/integrations/mixradius/owners",
-  );
-  const {
-    data: rawSitesData,
-    error: sitesFetchError,
-    isLoading: sitesLoading,
-  } = useApi<{ data?: Site[] } | Site[]>("/api/admin/sites?activeOnly=true");
-
-  useEffect(() => {
-    if (groupsError) {
-      toast.error(groupsError.message || "Gagal mengambil data grup/site");
-    }
-  }, [groupsError]);
-  useEffect(() => {
-    if (ownersError) {
-      const detail = (ownersError.details ?? {}) as {
+  const { data: rawOwners, isLoading: ownersLoading } = useApi<
+    { data?: unknown[] } | unknown[]
+  >("/api/integrations/mixradius/owners", {
+    onError: (err) => {
+      const detail = (err.details ?? {}) as {
         isConfigError?: boolean;
       };
       if (detail.isConfigError) {
@@ -73,17 +61,17 @@ export default function MixRadiusGroupsClient() {
           "Pengaturan akun MixRadius belum valid. Buka menu Akun MixRadius untuk memperbaiki URL/kredensial.",
         );
       } else {
-        toast.error(ownersError.message || "Gagal mengambil data owner");
+        toast.error(err.message || "Gagal mengambil data owner");
       }
-    }
-  }, [ownersError]);
-  useEffect(() => {
-    if (sitesFetchError) {
-      toast.error(
-        sitesFetchError.message || "Gagal mengambil data site manajemen",
-      );
-    }
-  }, [sitesFetchError]);
+    },
+  });
+  const { data: rawSitesData, isLoading: sitesLoading } = useApi<
+    { data?: Site[] } | Site[]
+  >("/api/admin/sites?activeOnly=true", {
+    onError: (err) => {
+      toast.error(err.message || "Gagal mengambil data site manajemen");
+    },
+  });
 
   const loading = groupsLoading || ownersLoading || sitesLoading;
 

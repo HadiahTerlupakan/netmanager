@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   HiOutlineArrowPath,
   HiOutlineEnvelope,
@@ -10,9 +10,18 @@ import {
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
+
+type EmailSettings = {
+  smtpHost?: string;
+  smtpPort?: string;
+  smtpUser?: string;
+  smtpPass?: string;
+  fromName?: string;
+  fromEmail?: string;
+};
 
 export function ClientComponent() {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [_error, setError] = useState<string | null>(null);
@@ -26,40 +35,25 @@ export function ClientComponent() {
     fromEmail: "",
   });
 
-  const fetchSettings = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/admin/settings/email");
-      const payload = await response.json();
-
-      if (!response.ok || !payload.success) {
-        const message =
-          payload.error || payload.message || "Gagal memuat pengaturan email";
-        throw new Error(message);
-      }
-
-      const data = payload.data;
-      setFormData({
-        smtpHost: data.smtpHost || "",
-        smtpPort: data.smtpPort || "587",
-        smtpUser: data.smtpUser || "",
-        smtpPass: data.smtpPass || "", // Will be '••••••••' if saved
-        fromName: data.fromName || "",
-        fromEmail: data.fromEmail || "",
-      });
-    } catch (error) {
-      clientLogger.error("Error fetching email settings:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchSettings();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchSettings]);
+  const { isLoading: loading, mutate: fetchSettings } = useApi<EmailSettings>(
+    "/api/admin/settings/email",
+    {
+      onError: (err) => {
+        clientLogger.error("Error fetching email settings:", err);
+      },
+      onSuccess: (data) => {
+        if (!data) return;
+        setFormData({
+          smtpHost: data.smtpHost || "",
+          smtpPort: data.smtpPort || "587",
+          smtpUser: data.smtpUser || "",
+          smtpPass: data.smtpPass || "",
+          fromName: data.fromName || "",
+          fromEmail: data.fromEmail || "",
+        });
+      },
+    },
+  );
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -90,7 +84,7 @@ export function ClientComponent() {
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-      fetchSettings(); // Reload to show saved password
+      await fetchSettings(); // Reload to show saved password
     } catch (err) {
       clientLogger.error("Error saving settings:", err);
       setError(

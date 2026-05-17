@@ -45,6 +45,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 3 batch: migrasi 16 file admin client ke `useApi`
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/integrations/mixradius/**`, `app/admin/inventory/gudang/**`, `app/admin/log/**`, `app/admin/network/acs/**`, `app/admin/pengaturan/**`
+- **Author**: agent
+- **Deskripsi**: Lanjutan Phase 3 dari TanStack adoption roadmap. Migrasi 16 file
+  client component dari pola lama (`useEffect + fetch + useState`) ke hook
+  `useApi` (TanStack Query). Eliminasi helper `unwrapApiData`/`extractApiData`
+  duplikat di banyak file karena `useApi` sudah handle envelope `{ data: ... }`
+  via `apiFetcher`. Pattern yang dipakai: state lokal hanya untuk form/derived
+  UI, server cache di-handle TanStack Query. Loading state di-derive dari
+  `isLoading`. Refresh manual diganti panggil `refetch()` dari `useApi`. Lint
+  pass, typecheck pass (0 error). Tidak ada perubahan behavior atau API contract.
+- **Files**: `app/admin/integrations/mixradius/accounts/MixRadiusAccountsClient.tsx`,
+  `app/admin/integrations/mixradius/expenses/CategoryList.tsx`,
+  `app/admin/integrations/mixradius/groups/MixRadiusGroupsClient.tsx`,
+  `app/admin/integrations/mixradius/investor-sites/SiteInvestorClient.tsx`,
+  `app/admin/inventory/gudang/GudangList.tsx`,
+  `app/admin/inventory/gudang/[id]/edit/GudangEditClient.tsx`,
+  `app/admin/log/login/LoginLogClient.tsx`,
+  `app/admin/log/mobile-errors/MobileErrorLogClient.tsx`,
+  `app/admin/network/acs/devices/[id]/DeviceDetailClient.tsx`,
+  `app/admin/pengaturan/acs/AcsConfigTab.tsx`,
+  `app/admin/pengaturan/acs/VendorConfigTab.tsx`,
+  `app/admin/pengaturan/captcha/CaptchaClient.tsx`,
+  `app/admin/pengaturan/company-bank-accounts/BankAccountsClient.tsx`,
+  `app/admin/pengaturan/email/EmailSettingsClient.tsx`,
+  `app/admin/pengaturan/payment-gateway/components/UnmatchedMutationsList.tsx`,
+  `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Tambah TanStack Query adoption roadmap
 
 - **Tipe**: [DOCS]

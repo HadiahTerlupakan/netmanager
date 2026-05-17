@@ -1,11 +1,12 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { FiPlus, FiEdit, FiTrash2, FiHome } from "react-icons/fi";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Gudang {
   id: string;
@@ -17,45 +18,28 @@ interface Gudang {
   updatedAt: string;
 }
 
+type GudangPayload = Gudang[] | { gudangs?: Gudang[] };
+
 export default function GudangPage() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("gudang:create");
   const canUpdate = hasPermission("gudang:update");
   const canDelete = hasPermission("gudang:delete");
 
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: rawGudangs,
+    error,
+    isLoading: loading,
+  } = useApi<GudangPayload>("/api/inventory/gudang?view=all", {
+    onError: (err) => {
+      clientLogger.error("Failed to fetch gudangs:", err);
+    },
+  });
 
-  useEffect(() => {
-    async function fetchGudangs() {
-      try {
-        // Admin view should typically see all warehouses
-        const response = await fetch("/api/inventory/gudang?view=all", {
-          cache: "no-store",
-        });
-        const jsonResponse = await response.json();
-        const result =
-          jsonResponse.data?.gudangs ||
-          jsonResponse.data ||
-          jsonResponse.gudangs ||
-          jsonResponse;
-
-        if (!response.ok || jsonResponse.success === false) {
-          throw new Error(result.error || "Gagal memuat data gudang");
-        }
-
-        setGudangs(Array.isArray(result) ? result : result.gudangs || []);
-      } catch (error: unknown) {
-        clientLogger.error("Failed to fetch gudangs:", error);
-        setError(error instanceof Error ? error.message : "Gagal memuat data");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchGudangs();
-  }, []);
+  const gudangs = useMemo<Gudang[]>(() => {
+    if (Array.isArray(rawGudangs)) return rawGudangs;
+    return rawGudangs?.gudangs ?? [];
+  }, [rawGudangs]);
 
   const handleDelete = async (id: string, nama: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus gudang "${nama}"?`)) {
@@ -118,7 +102,7 @@ export default function GudangPage() {
 
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {error.message || "Gagal memuat data"}
         </div>
       )}
 

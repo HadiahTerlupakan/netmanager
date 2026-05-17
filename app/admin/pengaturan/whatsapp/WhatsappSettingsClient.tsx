@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -14,6 +14,7 @@ import {
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface WhatsAppAccount {
   id: string;
@@ -41,8 +42,6 @@ const PROVIDERS = [
 ];
 
 export function ClientComponent() {
-  const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<WhatsAppAccount[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<WhatsAppAccount | null>(
     null,
@@ -50,28 +49,23 @@ export function ClientComponent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const fetchAccounts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/admin/whatsapp/accounts");
-      if (response.ok) {
-        const payload = await response.json();
-        setAccounts(payload.data || []);
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching WhatsApp accounts:", error);
-      setError("Gagal memuat akun WhatsApp");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    data: rawAccounts,
+    isLoading: loading,
+    mutate: fetchAccounts,
+  } = useApi<WhatsAppAccount[] | { data: WhatsAppAccount[] }>(
+    "/api/admin/whatsapp/accounts",
+    {
+      onError: (err) => {
+        clientLogger.error("Error fetching WhatsApp accounts:", err);
+        setError("Gagal memuat akun WhatsApp");
+      },
+    },
+  );
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchAccounts();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchAccounts]);
+  const accounts: WhatsAppAccount[] = Array.isArray(rawAccounts)
+    ? rawAccounts
+    : (rawAccounts?.data ?? []);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus akun ini?")) return;
@@ -83,7 +77,7 @@ export function ClientComponent() {
 
       if (response.ok) {
         setSuccess("Akun berhasil dihapus");
-        fetchAccounts();
+        await fetchAccounts();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         const data = await response.json();
@@ -106,7 +100,7 @@ export function ClientComponent() {
 
       if (response.ok) {
         setSuccess("Akun berhasil diset sebagai default");
-        fetchAccounts();
+        await fetchAccounts();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         const data = await response.json();
@@ -333,7 +327,7 @@ export function ClientComponent() {
           onSuccess={() => {
             setShowModal(false);
             setEditingAccount(null);
-            fetchAccounts();
+            void fetchAccounts();
             setSuccess(
               editingAccount
                 ? "Akun berhasil diupdate"

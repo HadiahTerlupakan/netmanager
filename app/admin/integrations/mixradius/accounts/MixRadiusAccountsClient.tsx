@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   HiOutlinePlus,
@@ -40,18 +40,16 @@ export default function MixRadiusAccountsClient() {
 
   const {
     data: rawData,
-    error: fetchError,
     isLoading: loading,
     mutate: mutateConfigs,
   } = useApi<{ data?: RawMixRadiusConfig[] } | RawMixRadiusConfig[]>(
     "/api/integrations/mixradius/accounts",
+    {
+      onError: (err) => {
+        toast.error(err.message || "Gagal mengambil daftar akun");
+      },
+    },
   );
-
-  useEffect(() => {
-    if (fetchError) {
-      toast.error(fetchError.message || "Gagal mengambil daftar akun");
-    }
-  }, [fetchError]);
 
   // Map API fields (apiUrl/isDefault) to UI fields (baseUrl/isActive)
   const configs = useMemo<MixRadiusConfig[]>(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   HiOutlineExclamationCircle,
   HiOutlineCheckCircle,
@@ -27,18 +27,16 @@ interface UnmatchedMutation {
 export default function UnmatchedMutationsList() {
   const {
     data: rawMutations,
-    error: mutationsError,
     isLoading: loading,
     mutate: mutateMutations,
   } = useApi<{ data?: UnmatchedMutation[] } | UnmatchedMutation[]>(
     "/api/finance/unmatched-mutations?status=PENDING",
+    {
+      onError: (error) => {
+        clientLogger.error("Error fetching unmatched mutations:", error);
+      },
+    },
   );
-
-  useEffect(() => {
-    if (mutationsError) {
-      clientLogger.error("Error fetching unmatched mutations:", mutationsError);
-    }
-  }, [mutationsError]);
 
   const mutations: UnmatchedMutation[] = Array.isArray(rawMutations)
     ? rawMutations

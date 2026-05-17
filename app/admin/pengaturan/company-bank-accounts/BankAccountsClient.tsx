@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HiOutlineBanknotes,
   HiOutlinePlus,
@@ -13,6 +13,7 @@ import {
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface CompanyBankAccount {
   id: string;
@@ -25,20 +26,7 @@ interface CompanyBankAccount {
   createdAt: string;
 }
 
-function unwrapApiData<T>(payload: T | { data?: T }): T {
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const nested = (payload as { data?: T }).data;
-    if (nested !== undefined) {
-      return nested;
-    }
-  }
-
-  return payload as T;
-}
-
 export function ClientComponent() {
-  const [accounts, setAccounts] = useState<CompanyBankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] =
     useState<CompanyBankAccount | null>(null);
@@ -51,28 +39,22 @@ export function ClientComponent() {
     priority: 1,
   });
 
-  const fetchAccounts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/admin/company-bank-accounts");
-      if (response.ok) {
-        const payload = await response.json();
-        const data = unwrapApiData<CompanyBankAccount[]>(payload);
-        setAccounts(data);
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching bank accounts:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    data: rawAccounts,
+    isLoading: loading,
+    mutate: fetchAccounts,
+  } = useApi<CompanyBankAccount[] | { data: CompanyBankAccount[] }>(
+    "/api/admin/company-bank-accounts",
+    {
+      onError: (error) => {
+        clientLogger.error("Error fetching bank accounts:", error);
+      },
+    },
+  );
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchAccounts();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchAccounts]);
+  const accounts: CompanyBankAccount[] = Array.isArray(rawAccounts)
+    ? rawAccounts
+    : (rawAccounts?.data ?? []);
 
   const handleOpenModal = (account?: CompanyBankAccount) => {
     if (account) {
@@ -118,7 +100,7 @@ export function ClientComponent() {
             : "Rekening berhasil ditambahkan!",
         );
         setModalOpen(false);
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         const error = await response.json();
         alert(`Gagal menyimpan: ${error.error}`);
@@ -139,7 +121,7 @@ export function ClientComponent() {
 
       if (response.ok) {
         alert("Rekening berhasil dihapus!");
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         alert("Gagal menghapus rekening");
       }
@@ -161,7 +143,7 @@ export function ClientComponent() {
       );
 
       if (response.ok) {
-        fetchAccounts();
+        await fetchAccounts();
       }
     } catch (error) {
       clientLogger.error("Error toggling status:", error);
