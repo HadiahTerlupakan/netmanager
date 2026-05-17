@@ -45,6 +45,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 3 lanjutan: migrate 39 file admin/components ke `useApi`
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/investor/**`, `app/admin/**`, `components/**`
+- **Author**: agent
+- **Deskripsi**: Lanjutan Phase 3 batch 2-6 dari TanStack adoption roadmap.
+  Total 39 file migrate dari pola `useEffect + fetch + useState` ke hook
+  `useApi` (TanStack Query), tersebar di 6 commit terpisah agar reviewable.
+  Pattern: state lokal disisakan untuk form/derived UI, server cache di-handle
+  TanStack Query. Loading/error derived dari `isLoading`/`error`. Refresh
+  manual diganti `refetch()` atau `mutate()`. Eliminasi banyak helper
+  `unwrapApiData/extractAccounts/extractConfigs` duplikat. Custom polling
+  setInterval diganti `refreshInterval` (mis. `useDevicesPolling` 5min).
+  Fix lint `react-hooks/set-state-in-effect` dengan derive nilai langsung
+  tanpa setState di useEffect. Beberapa file complex (>1000 baris atau
+  multi-fetch chained calculation seperti `useRoiTracking`,
+  `useIncomePeriodData`, `LemburClient`, `useGeneralSettings`,
+  `SalaryUsersClient`, `MixRadiusClient`, `UsersNewClient`) tetap pakai
+  pola lama karena trade-off rewrite vs nilai migrasinya tidak optimal.
+- **Files (per batch)**:
+  - Batch 2 (13 file): investor portal (4), finance reports (2), paket
+    hooks (3), workorders (2), settings (2)
+  - Batch 3 (10 file): pelanggan PPP (2), shared components (8 — banner,
+    inventory stats, attendance analytics, site filter, notification bell,
+    gudang selector, NPL summary, server clock)
+  - Batch 4 (3 file): RAB external data, StockReport, RestockSettingsForm
+  - Batch 5 (5 file): useDevicesPolling, useMikrotikRouterList,
+    usePaymentGatewayConfigs, useManualTransferAccounts, CreateAssetForm
+  - Batch 6 (1 file): MyProfileClient
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 3 batch: migrasi 16 file admin client ke `useApi`
 
 - **Tipe**: [CHANGED]

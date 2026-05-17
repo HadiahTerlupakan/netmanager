@@ -2536,4 +2536,86 @@ Lihat `docs/guides/tanstack-adoption-roadmap.md` Phase 3.
 - Tidak ada perubahan kontrak API.
 - Roadmap Phase 3 progres: +16 file (target sisa ~48 file dari 64).
 
+---
+
+## TanStack Roadmap Phase 3 — Batch 2026-05-18 (lanjutan)
+
+Lanjutan batch awal. 39 file additional di 6 commit terpisah:
+
+### Batch 2 — 13 file (commit 603cf6128)
+- [x] `app/investor/page.tsx` (dashboard)
+- [x] `app/investor/profile/page.tsx`
+- [x] `app/investor/projects/page.tsx`
+- [x] `app/investor/payouts/page.tsx`
+- [x] `app/admin/finance/pendapatan-harian/DailyRevenueList.tsx`
+- [x] `app/admin/finance/pendapatan-periode/PeriodIncomeClient.tsx`
+- [x] `app/admin/paket/bandwidth/hooks/useBandwidthPageState.ts`
+- [x] `app/admin/paket/harga/hooks/useHargaPaketPageState.ts`
+- [x] `app/admin/paket/profileppp/hooks/useProfilePppPageState.ts`
+- [x] `app/admin/workorders/departments/DeptIndexClient.tsx`
+- [x] `app/admin/workorders/sites/SitesList.tsx`
+- [x] `app/admin/settings/roles/RolesClient.tsx`
+- [x] `app/admin/app-releases/page.tsx`
+
+### Batch 3 — 10 file (commit 23282e000)
+- [x] `app/admin/pelanggan/ppp/PppList.tsx`
+- [x] `app/admin/pelanggan/ppp/hooks/usePppSupportingData.ts`
+- [x] `components/announcement/AnnouncementBanner.tsx`
+- [x] `components/inventory/InventoryStats.tsx`
+- [x] `components/attendance/AttendanceAnalytics.tsx`
+- [x] `components/common/SiteFilter.tsx`
+- [x] `components/karyawan/KaryawanNotificationBell.tsx`
+- [x] `components/admin/sites/GudangSelector.tsx`
+- [x] `components/mixradius/NPLSummary.tsx`
+- [x] `components/layout/ServerClock.tsx`
+
+### Batch 4 — 3 file (commit 0d805caa6)
+- [x] `app/admin/integrations/mixradius/expenses/RABForm/hooks/useRABExternalData.ts`
+- [x] `components/inventory/StockReport.tsx`
+- [x] `components/inventory/RestockSettingsForm.tsx`
+
+### Batch 5 — 5 file (commit c11c78b05)
+- [x] `app/admin/network/acs/devices/hooks/useDevicesPolling.ts`
+- [x] `app/admin/network/mikrotik/hooks/useMikrotikRouterList.ts`
+- [x] `app/admin/pengaturan/payment-gateway/hooks/usePaymentGatewayConfigs.ts`
+- [x] `app/admin/pengaturan/payment-gateway/hooks/useManualTransferAccounts.ts`
+- [x] `components/inventory/assets/CreateAssetForm.tsx`
+
+### Batch 6 — 1 file (commit 404628c52)
+- [x] `app/admin/my-profile/MyProfileClient.tsx`
+
+### Verifikasi
+- [x] Lint pass per batch (eslint --fix dijalankan oleh pre-commit hook)
+- [x] Typecheck pass (0 error project)
+- [x] Pre-commit hook (eslint --fix + prettier) clean
+
+### Skip — Out-of-scope rewrite
+File yang dibiarkan pakai pola lama karena trade-off rewrite vs nilai
+migrasinya tidak optimal (file >1000 baris atau multi-fetch chained
+calculation kompleks):
+
+- `app/admin/integrations/mixradius/MixRadiusClient.tsx` (~1417 baris)
+- `app/admin/salary/users/SalaryUsersClient.tsx` (~1750 baris)
+- `app/admin/users/new/UsersNewClient.tsx` (~1070 baris)
+- `app/admin/integrations/mixradius/income-period/hooks/useIncomePeriodData.ts` (~748 baris)
+- `app/admin/users/compare/UsersCompareClient.tsx` (~756 baris)
+- `app/admin/lembur/LemburClient.tsx` (multi-fetch + complex state)
+- `app/admin/integrations/mixradius/income-period/hooks/useRoiTracking.ts` (3 fetch chained calculation)
+- `app/admin/pengaturan/umum/useGeneralSettings.ts` (form override pattern)
+- `app/admin/integrations/mixradius/expenses/RABRevisionForm.tsx` (modal fetch + auto-create)
+- `app/admin/pengaturan/nada-dering/RingtoneSettingsClient.tsx`
+- `app/admin/support/SupportContent.tsx`
+- `app/(customer)/dukungan/page.tsx`
+- `app/register/page.tsx`
+- `app/api/docs/ui/page.tsx`
+- `app/admin/inventory/hooks/useInventoryFilters.ts` (custom getWithAuth)
+- `components/announcement/AnnouncementPopup.tsx` (localStorage + WebSocket)
+- `components/common/MapPicker.tsx` (search-on-demand, bukan auto-load)
+- `components/inventory/{OpnameForm,MasukForm,KeluarForm,EnhancedOpnameForm,StockOpnameRecorder,TransferForm,AmbilBarangForm}.tsx` — form-heavy dengan multi-fetch dependent
+
+Total Phase 3 progres aktual: **55 file migrate** dari estimasi awal 64.
+File sisa di-defer untuk batch terpisah ketika value migrasi vs effort
+rewrite-nya optimal (mis. saat refactor module-level).
+
+
 
