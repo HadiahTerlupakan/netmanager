@@ -11,6 +11,7 @@ import {
   type IncomePeriodExpenseItem,
 } from "../calculations";
 import type { FeeConfig } from "../FeeConfigurationModal";
+import { useApi } from "@/lib/hooks/useApi";
 
 // --- Types ---
 
@@ -185,71 +186,75 @@ export function useIncomePeriodData() {
     [],
   );
 
-  // --- Fetch filter data on mount ---
-  useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
+  // --- Fetch filter data via useApi paralel ---
+  const { data: groupsRaw } = useApi<unknown>(
+    "/api/integrations/mixradius/groups",
+  );
+  const { data: feesRaw } = useApi<unknown>("/api/integrations/mixradius/fees");
+  const { data: rabRaw } = useApi<unknown>("/api/finance/rab-projects");
+  const { data: mitraRaw } = useApi<unknown>(
+    "/api/admin/mitra?type=MITRA_SALES&limit=1000",
+  );
+  const { data: payoutRaw } = useApi<unknown>(
+    "/api/admin/mitra/transactions?type=EARNING&limit=1000",
+  );
 
-    const fetchFilterData = async () => {
-      try {
-        const [groupsRes, feesRes, rabRes, mitraRes] = await Promise.all([
-          fetch("/api/integrations/mixradius/groups", { signal }),
-          fetch("/api/integrations/mixradius/fees", { signal }),
-          fetch("/api/finance/rab-projects", { signal }),
-          fetch("/api/admin/mitra?type=MITRA_SALES&limit=1000", { signal }),
-        ]);
+  const [didHydrateGroups, setDidHydrateGroups] = useState(false);
+  if (groupsRaw && !didHydrateGroups) {
+    setDidHydrateGroups(true);
+    const obj = groupsRaw as Record<string, unknown>;
+    if (obj.success && Array.isArray(obj.data)) {
+      setGroups(
+        obj.data as Array<{ id: string; name: string; siteId?: string }>,
+      );
+    }
+  }
 
-        if (groupsRes.ok) {
-          const result = await groupsRes.json();
-          if (result.success && Array.isArray(result.data)) {
-            setGroups(result.data);
-          }
-        }
+  const [didHydrateFees, setDidHydrateFees] = useState(false);
+  if (feesRaw && !didHydrateFees) {
+    setDidHydrateFees(true);
+    const obj = feesRaw as Record<string, unknown>;
+    if (obj.success) {
+      setFeeConfig(obj.data as FeeConfig);
+    }
+  }
 
-        if (feesRes.ok) {
-          const result = await feesRes.json();
-          if (result.success) {
-            setFeeConfig(result.data);
-          }
-        }
+  const [didHydrateRab, setDidHydrateRab] = useState(false);
+  if (rabRaw && !didHydrateRab) {
+    setDidHydrateRab(true);
+    if (Array.isArray(rabRaw)) {
+      setRabProjects(
+        (rabRaw as unknown[]).map((p) =>
+          parseRABProject(p as Record<string, unknown>),
+        ),
+      );
+    }
+  }
 
-        if (rabRes.ok) {
-          const projects = await rabRes.json();
-          if (Array.isArray(projects)) {
-            setRabProjects(projects.map(parseRABProject));
-          }
-        }
+  const [didHydrateMitra, setDidHydrateMitra] = useState(false);
+  if (mitraRaw && !didHydrateMitra) {
+    setDidHydrateMitra(true);
+    const obj = mitraRaw as Record<string, unknown>;
+    const dataObj = obj.data as { mitras?: MitraSale[] } | undefined;
+    if (obj.success && dataObj?.mitras) {
+      setMitraSales(dataObj.mitras);
+    }
+  }
 
-        if (mitraRes.ok) {
-          const mitraData = await mitraRes.json();
-          if (mitraData.success && mitraData.data?.mitras) {
-            setMitraSales(mitraData.data.mitras);
-          }
-        }
-
-        // Fetch Payout History
-        const payoutRes = await fetch(
-          "/api/admin/mitra/transactions?type=EARNING&limit=1000",
-          { signal },
-        );
-        if (payoutRes.ok) {
-          const payoutData = await payoutRes.json();
-          if (
-            payoutData.success &&
-            Array.isArray(payoutData.data?.transactions)
-          ) {
-            setPayouts(payoutData.data.transactions);
-          }
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        clientLogger.error("Failed to fetch filter data:", err);
-      }
-    };
-    fetchFilterData();
-
-    return () => controller.abort();
-  }, [parseRABProject]);
+  const [didHydratePayouts, setDidHydratePayouts] = useState(false);
+  if (payoutRaw && !didHydratePayouts) {
+    setDidHydratePayouts(true);
+    const obj = payoutRaw as Record<string, unknown>;
+    const dataObj = obj.data as { transactions?: unknown[] } | undefined;
+    if (obj.success && Array.isArray(dataObj?.transactions)) {
+      setPayouts(
+        dataObj.transactions as Array<{
+          referenceId?: string;
+          amount: string | number;
+        }>,
+      );
+    }
+  }
 
   // --- Handle project selection ---
   const handleProjectSelect = useCallback(
