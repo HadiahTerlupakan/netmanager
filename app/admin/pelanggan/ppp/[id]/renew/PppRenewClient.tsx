@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { HiArrowLeft, HiExclamationCircle } from "react-icons/hi2";
 import Link from "next/link";
 import PageLoader from "@/components/ui/PageLoader";
 import { toStartOfDay } from "@/lib/utils/datetime";
+import { useApi } from "@/lib/hooks/useApi";
 
 type Pelanggan = {
   id: string;
@@ -61,64 +62,71 @@ export function PppClientRenewForm() {
     catatan: "",
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const id = params.id as string;
+  const id = params.id as string;
 
-        // Load settings first (or in parallel)
-        const settingsRes = await fetch("/api/settings/general");
-        if (settingsRes.ok) {
-          const settingsJson = await settingsRes.json();
-          const settingsData = settingsJson.data || settingsJson;
-          if (settingsData.disablePerpanjanganPaket) {
-            setDisableDuration(
-              parseInt(settingsData.disablePerpanjanganPaket) || 5,
-            );
-          }
-        }
+  const { data: settingsRaw } = useApi<unknown>("/api/settings/general");
+  const { data: pelangganRaw, error: pelangganError } = useApi<unknown>(
+    id ? `/api/pelanggan-ppp/${id}` : null,
+  );
+  const { data: tagihanRaw } = useApi<unknown>(
+    id ? `/api/tagihan/pelanggan/${id}` : null,
+  );
+  const { data: paketRaw } = useApi<unknown>("/api/hargapakets");
 
-        // Load pelanggan
-        const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`);
-        if (!pelangganRes.ok) {
-          throw new Error("Gagal memuat data pelanggan");
-        }
-        const pelangganData = await pelangganRes.json();
-        setPelanggan(pelangganData);
-        setFormData((prev) => ({
-          ...prev,
-          hargaPaketId: pelangganData.hargaPaketId || "",
-          statusAkun: pelangganData.status || "AKTIF",
-        }));
+  // Hydrate settings -> disableDuration
+  const [didHydrateSettings, setDidHydrateSettings] = useState(false);
+  if (settingsRaw && !didHydrateSettings) {
+    setDidHydrateSettings(true);
+    const obj = settingsRaw as Record<string, unknown>;
+    const settings = (obj.data as Record<string, unknown>) || obj;
+    const value = settings.disablePerpanjanganPaket as
+      | string
+      | number
+      | undefined;
+    if (value !== undefined) {
+      setDisableDuration(parseInt(String(value)) || 5);
+    }
+  }
 
-        // Load tagihan aktif (belum lunas)
-        const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}`);
-        if (tagihanRes.ok) {
-          const tagihans = await tagihanRes.json();
-          const tagihanBelumLunas = tagihans.find(
-            (t: Tagihan) =>
-              t.status === "BELUM_LUNAS" || t.status === "TERLAMBAT",
-          );
-          setTagihanAktif(tagihanBelumLunas || null);
-        }
+  // Hydrate pelanggan -> formData + state
+  const [didHydratePel, setDidHydratePel] = useState(false);
+  if (pelangganRaw && !didHydratePel) {
+    setDidHydratePel(true);
+    const data = pelangganRaw as Record<string, unknown>;
+    setPelanggan(data as Pelanggan);
+    setFormData((prev) => ({
+      ...prev,
+      hargaPaketId: (data.hargaPaketId as string) || "",
+      statusAkun: ((data.status as string) || "AKTIF") as "AKTIF" | "ISOLIR",
+    }));
+    setLoading(false);
+  }
 
-        // Load daftar paket
-        const paketRes = await fetch("/api/hargapakets");
-        if (paketRes.ok) {
-          const pakets = await paketRes.json();
-          setHargaPakets(pakets || []);
-        }
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Terjadi kesalahan";
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  if (pelangganError && !error) {
+    setError(pelangganError.message || "Gagal memuat data pelanggan");
+    setLoading(false);
+  }
 
-    loadData();
-  }, [params.id]);
+  // Hydrate tagihan aktif
+  const [didHydrateTagihan, setDidHydrateTagihan] = useState(false);
+  if (tagihanRaw && !didHydrateTagihan) {
+    setDidHydrateTagihan(true);
+    const list = Array.isArray(tagihanRaw) ? (tagihanRaw as Tagihan[]) : [];
+    const tagihanBelumLunas = list.find(
+      (t) => t.status === "BELUM_LUNAS" || t.status === "TERLAMBAT",
+    );
+    setTagihanAktif(tagihanBelumLunas || null);
+  }
+
+  // Hydrate daftar paket
+  const [didHydratePaket, setDidHydratePaket] = useState(false);
+  if (paketRaw && !didHydratePaket) {
+    setDidHydratePaket(true);
+    const list = Array.isArray(paketRaw)
+      ? (paketRaw as HargaPaket[])
+      : ((paketRaw as { data?: HargaPaket[] }).data ?? []);
+    setHargaPakets(list);
+  }
 
   const handleCancelInvoice = async () => {
     if (!tagihanAktif) return;
