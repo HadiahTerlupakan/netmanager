@@ -1,8 +1,9 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   MdRefresh,
   MdSearch,
@@ -58,8 +59,6 @@ const STATUS_OPTIONS = [
 ];
 
 export default function AdminRegistrationsPage() {
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [ipInfoCache, setIpInfoCache] = useState<Record<string, IpInfo>>({});
@@ -76,42 +75,40 @@ export default function AdminRegistrationsPage() {
     }
   }, []);
 
-  const fetchRegistrations = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/admin/registrations");
-      if (res.ok) {
-        const response = await res.json();
-        const registrationsData = response.data || [];
-        setRegistrations(registrationsData);
+  // Fetch registrations via TanStack Query
+  const {
+    data: registrationsResp,
+    isLoading,
+    mutate: fetchRegistrations,
+  } = useApi<{ data?: Registration[] } | Registration[]>(
+    "/api/admin/registrations",
+    {
+      onError: (error) => {
+        clientLogger.error("Failed to fetch registrations", error);
+      },
+    },
+  );
 
-        // Fetch IP info for each unique IP
-        const uniqueIps = [
-          ...new Set(
-            registrationsData
-              .map((r: Registration) => r.ipAddress)
-              .filter(Boolean),
-          ),
-        ] as string[];
-        uniqueIps.forEach((ip) => {
-          if (!ipInfoCache[ip]) {
-            fetchIpInfo(ip);
-          }
-        });
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch registrations", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [ipInfoCache, fetchIpInfo]);
+  // Unwrap response — API bisa return { data: [...] } atau langsung array
+  const registrations: Registration[] = useMemo(() => {
+    if (Array.isArray(registrationsResp)) return registrationsResp;
+    return registrationsResp?.data ?? [];
+  }, [registrationsResp]);
 
+  // Side effect: fetch IP info untuk unique IPs di registrations baru
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchRegistrations();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchRegistrations]);
+    if (registrations.length === 0) return;
+    const uniqueIps = [
+      ...new Set(
+        registrations.map((r) => r.ipAddress).filter(Boolean) as string[],
+      ),
+    ];
+    uniqueIps.forEach((ip) => {
+      if (!ipInfoCache[ip]) {
+        void fetchIpInfo(ip);
+      }
+    });
+  }, [registrations, ipInfoCache, fetchIpInfo]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -322,7 +319,7 @@ export default function AdminRegistrationsPage() {
             {statusCounts["VERIFIED"] || 0}
           </p>
         </div>
-        <Button onClick={fetchRegistrations}>
+        <Button onClick={() => void fetchRegistrations()}>
           <MdRefresh /> Refresh
         </Button>
       </div>

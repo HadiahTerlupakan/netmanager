@@ -1,10 +1,11 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   HiOutlineBanknotes,
   HiOutlineCalculator,
@@ -80,9 +81,6 @@ const MONTHS = [
 export default function SalaryListClient() {
   const { data: _session } = useSession();
   const router = useRouter();
-  const [salaries, setSalaries] = useState<Salary[]>([]);
-  const [stats, setStats] = useState<PeriodStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
 
   const currentDate = new Date();
@@ -92,33 +90,33 @@ export default function SalaryListClient() {
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const fetchSalaries = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        month: selectedMonth.toString(),
-        year: selectedYear.toString(),
-      });
-      if (statusFilter) params.append("status", statusFilter);
-
-      const res = await fetch(`/api/admin/salary?${params}`);
-      const data = await res.json();
-      const responseData = data.data || data;
-      setSalaries(responseData.salaries || []);
-      setStats(responseData.stats || null);
-    } catch (error) {
-      clientLogger.error("Error fetching salaries:", error);
-    } finally {
-      setLoading(false);
-    }
+  // Build URL untuk fetch salaries via TanStack Query
+  const salariesUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      month: selectedMonth.toString(),
+      year: selectedYear.toString(),
+    });
+    if (statusFilter) params.append("status", statusFilter);
+    return `/api/admin/salary?${params}`;
   }, [selectedMonth, selectedYear, statusFilter]);
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchSalaries();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchSalaries]);
+  interface SalaryListResponse {
+    salaries?: Salary[];
+    stats?: PeriodStats | null;
+  }
+
+  const {
+    data: salaryResp,
+    isLoading: loading,
+    mutate: fetchSalaries,
+  } = useApi<SalaryListResponse>(salariesUrl, {
+    onError: (error) => {
+      clientLogger.error("Error fetching salaries:", error);
+    },
+  });
+
+  const salaries = salaryResp?.salaries ?? [];
+  const stats = salaryResp?.stats ?? null;
 
   const handleCalculateBulk = async () => {
     if (!confirm("Hitung gaji untuk semua karyawan aktif?")) return;
