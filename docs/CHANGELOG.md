@@ -45,6 +45,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 3 final batch: migrate 16 file tambahan ke `useApi`
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/**`, `app/(customer)/**`, `app/api/docs/**`, `app/register/**`, `components/**`
+- **Author**: agent
+- **Deskripsi**: Lanjutan Phase 3 batch 7-10 dari TanStack adoption roadmap.
+  Total tambahan 16 file migrate ke hook `useApi`, distribusi per batch:
+  - Batch 7 (4 file): `useGeneralSettings`, `LiveMapClient`, `AttendanceCard`,
+    `register/page` — masing-masing pakai pola yang menyesuaikan: hydrate ke
+    state lokal saat data muncul (settings, attendance), realtime patch via
+    `mutate(updater)` untuk LiveMapClient.
+  - Batch 8 (4 file): `dukungan/page` (customer), `DeadLetterClient`,
+    `RingtoneSettingsClient`, `api/docs/ui/page`.
+  - Batch 9 (5 file inventory forms): `AmbilBarangForm`, `MasukForm`,
+    `KeluarForm`, `EnhancedOpnameForm`, `StockOpnameRecorder`. KeluarForm
+    pakai `useState` initializer dari `initialData` props (hindari
+    `setState` di useEffect).
+  - Batch 10 (2 file): `useInventoryFilters` (drop `getWithAuth` dependency),
+    `ReportClient` (options via useApi, report tetap manual karena pakai
+    AbortController + retryAfter handling).
+  Lint pass per batch (eslint --fix di pre-commit hook). Typecheck pass
+  (0 error project). Tidak ada perubahan kontrak API.
+- **Files**: 16 file (lihat per-batch commit)
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 3 lanjutan: migrate 39 file admin/components ke `useApi`
 
 - **Tipe**: [CHANGED]
