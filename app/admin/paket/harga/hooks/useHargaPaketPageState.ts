@@ -1,5 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   createInitialHargaFormData,
@@ -12,118 +12,96 @@ import type {
   ProfilePPP,
   Site,
 } from "@/app/admin/paket/harga/lib/hargaTypes";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface SettingsPayload {
+  pppConnectionMode?: "RADIUS" | "MIKROTIK_API";
+}
+
+function unwrapList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (
+    value &&
+    typeof value === "object" &&
+    "data" in value &&
+    Array.isArray((value as { data?: unknown }).data)
+  ) {
+    return (value as { data: T[] }).data;
+  }
+  return [];
+}
 
 export function useHargaPaketPageState() {
-  const [loading, setLoading] = useState(true);
-  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
-  const [profilePPPs, setProfilePPPs] = useState<ProfilePPP[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [bandwidths, setBandwidths] = useState<Bandwidth[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPaket, setEditingPaket] = useState<HargaPaket | null>(null);
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState<HargaFormData>(
     createInitialHargaFormData(),
   );
-  const [pppConnectionMode, setPppConnectionMode] = useState<
-    "RADIUS" | "MIKROTIK_API"
-  >("RADIUS");
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const ts = new Date().getTime().toString();
-      const params = new URLSearchParams();
-      if (siteId) params.append("siteId", siteId);
-      params.append("t", ts);
+  const params = new URLSearchParams();
+  if (siteId) params.append("siteId", siteId);
+  const qs = params.toString();
+  const suffix = qs ? `?${qs}` : "";
 
-      const [
-        hargaPaketsRes,
-        profilePPPsRes,
-        sitesRes,
-        bandwidthsRes,
-        settingsRes,
-      ] = await Promise.all([
-        fetch(`/api/hargapakets?${params.toString()}`, { cache: "no-store" }),
-        fetch(`/api/profileppps?${params.toString()}`, { cache: "no-store" }),
-        fetch(`/api/admin/sites?t=${ts}`, { cache: "no-store" }),
-        fetch(`/api/bandwidths?${params.toString()}`, { cache: "no-store" }),
-        fetch(`/api/settings/general?t=${ts}`, { cache: "no-store" }),
-      ]);
+  const hargaQuery = useApi<HargaPaket[] | { data?: HargaPaket[] }>(
+    `/api/hargapakets${suffix}`,
+  );
+  const profileQuery = useApi<ProfilePPP[] | { data?: ProfilePPP[] }>(
+    `/api/profileppps${suffix}`,
+  );
+  const siteQuery = useApi<Site[] | { data?: Site[] }>("/api/admin/sites");
+  const bandwidthQuery = useApi<Bandwidth[] | { data?: Bandwidth[] }>(
+    `/api/bandwidths${suffix}`,
+  );
+  const settingsQuery = useApi<SettingsPayload | { data?: SettingsPayload }>(
+    "/api/settings/general",
+  );
 
-      if (!hargaPaketsRes.ok) {
-        let errorMessage = `Gagal memuat data harga paket: ${hargaPaketsRes.status}`;
-        try {
-          const errorData = await hargaPaketsRes.json();
-          if (
-            errorData &&
-            typeof errorData === "object" &&
-            "error" in errorData
-          ) {
-            errorMessage = errorData.error || errorMessage;
-          }
-        } catch (_e) {
-          errorMessage = `Gagal memuat data harga paket: ${hargaPaketsRes.status} ${hargaPaketsRes.statusText || ""}`;
-        }
-        throw new Error(errorMessage);
-      }
+  const loading =
+    hargaQuery.isLoading ||
+    profileQuery.isLoading ||
+    siteQuery.isLoading ||
+    bandwidthQuery.isLoading ||
+    settingsQuery.isLoading;
 
-      const hargaPaketsData = await hargaPaketsRes.json();
-      const profilePPPsData = await profilePPPsRes.json();
-      const sitesData = await sitesRes.json();
-      const bandwidthsData = await bandwidthsRes.json();
-      const settingsJson = settingsRes.ok
-        ? await settingsRes.json()
-        : { data: { pppConnectionMode: "RADIUS" } };
-      const settingsData = settingsJson.data || settingsJson;
-      setPppConnectionMode(settingsData.pppConnectionMode || "RADIUS");
+  const hargaPakets = unwrapList<HargaPaket>(hargaQuery.data);
+  const profilePPPs = unwrapList<ProfilePPP>(profileQuery.data);
+  const sites = unwrapList<Site>(siteQuery.data);
+  const bandwidths = unwrapList<Bandwidth>(bandwidthQuery.data);
 
-      setHargaPakets(
-        Array.isArray(hargaPaketsData?.data)
-          ? hargaPaketsData.data
-          : Array.isArray(hargaPaketsData)
-            ? hargaPaketsData
-            : [],
-      );
-      setProfilePPPs(
-        Array.isArray(profilePPPsData?.data)
-          ? profilePPPsData.data
-          : Array.isArray(profilePPPsData)
-            ? profilePPPsData
-            : [],
-      );
-      setSites(
-        Array.isArray(sitesData?.data)
-          ? sitesData.data
-          : Array.isArray(sitesData)
-            ? sitesData
-            : [],
-      );
-      setBandwidths(
-        Array.isArray(bandwidthsData?.data)
-          ? bandwidthsData.data
-          : Array.isArray(bandwidthsData)
-            ? bandwidthsData
-            : [],
-      );
-      setError(null);
-    } catch (error: unknown) {
-      clientLogger.error("Error loading data:", error);
-      const errorMsg =
-        error instanceof Error ? error.message : "Gagal memuat data";
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [siteId]);
+  const settingsRaw = settingsQuery.data as
+    | SettingsPayload
+    | { data?: SettingsPayload }
+    | undefined;
+  const settingsData: SettingsPayload =
+    settingsRaw && "data" in settingsRaw && settingsRaw.data
+      ? settingsRaw.data
+      : ((settingsRaw as SettingsPayload | undefined) ?? {});
+  const pppConnectionMode = settingsData.pppConnectionMode || "RADIUS";
+
+  const firstError =
+    hargaQuery.error ||
+    profileQuery.error ||
+    siteQuery.error ||
+    bandwidthQuery.error;
+  const error = firstError ? firstError.message || "Gagal memuat data" : null;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadData();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadData]);
+    if (firstError) {
+      clientLogger.error("Error loading data:", firstError);
+    }
+  }, [firstError]);
+
+  const reload = async () => {
+    await Promise.all([
+      hargaQuery.mutate(),
+      profileQuery.mutate(),
+      siteQuery.mutate(),
+      bandwidthQuery.mutate(),
+      settingsQuery.mutate(),
+    ]);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -152,7 +130,7 @@ export function useHargaPaketPageState() {
         throw new Error(errorData.error || "Gagal menyimpan harga paket");
       }
 
-      await loadData();
+      await reload();
       handleCloseModal();
     } catch (error: unknown) {
       const errorMsg =
@@ -170,7 +148,7 @@ export function useHargaPaketPageState() {
         alert(error.error || "Gagal menghapus paket");
         return;
       }
-      await loadData();
+      await reload();
     } catch (error) {
       clientLogger.error("Error deleting paket:", error);
       alert("Terjadi kesalahan saat menghapus paket");

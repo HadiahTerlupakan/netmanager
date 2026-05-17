@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   HiOutlineArrowRightOnRectangle,
@@ -10,35 +10,34 @@ import {
 } from "react-icons/hi2";
 import InvestorBottomNav from "../components/InvestorBottomNav";
 import toast from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface InvestorUser {
+  username?: string;
+  namaLengkap?: string;
+}
+
+interface SessionData {
+  authenticated: boolean;
+  user?: InvestorUser;
+}
 
 export default function InvestorProfile() {
   const router = useRouter();
-  const [user, setUser] = useState<{
-    username?: string;
-    namaLengkap?: string;
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: session,
+    isLoading,
+    error,
+  } = useApi<SessionData>("/api/investor/auth/session");
+  const user = session?.user;
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/investor/auth/session");
-        const data = await res.json();
-
-        if (res.ok && data.success && data.data?.authenticated) {
-          setUser(data.data.user);
-        } else {
-          router.push("/investor/login");
-        }
-      } catch (error) {
-        clientLogger.error("Session error:", error);
-        router.push("/investor/login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProfile();
-  }, [router]);
+    if (isLoading) return;
+    if (error || !session?.authenticated) {
+      if (error) clientLogger.error("Session error:", error);
+      router.push("/investor/login");
+    }
+  }, [error, session, isLoading, router]);
 
   const handleLogout = async () => {
     try {

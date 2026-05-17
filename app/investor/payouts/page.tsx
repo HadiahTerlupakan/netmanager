@@ -1,12 +1,13 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import InvestorBottomNav from "../components/InvestorBottomNav";
 import PageLoader from "@/components/ui/PageLoader";
 import { HiOutlineCurrencyDollar } from "react-icons/hi2";
 import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Payout {
   id: string;
@@ -22,27 +23,17 @@ interface Payout {
 
 export default function InvestorPayoutsPage() {
   const router = useRouter();
-  const [payouts, setPayouts] = useState<Payout[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, error } = useApi<Payout[]>("/api/investor/payouts");
+  const payouts = data ?? [];
 
   useEffect(() => {
-    const fetchPayouts = async () => {
-      try {
-        const res = await fetch("/api/investor/payouts");
-        if (!res.ok) {
-          if (res.status === 401) router.push("/investor/login");
-          return;
-        }
-        const response = await res.json();
-        setPayouts(response.data || []);
-      } catch (error) {
-        clientLogger.error("Failed to fetch payouts", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPayouts();
-  }, [router]);
+    if (!error) return;
+    if (error.status === 401) {
+      router.push("/investor/login");
+    } else {
+      clientLogger.error("Failed to fetch payouts", error);
+    }
+  }, [error, router]);
 
   if (isLoading) {
     return (

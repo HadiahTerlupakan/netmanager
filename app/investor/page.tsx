@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 import InvestorBottomNav from "./components/InvestorBottomNav";
 import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface SubscriberStats {
   total?: number;
@@ -36,27 +37,18 @@ interface DashboardData {
 
 export default function InvestorDashboard() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, error } = useApi<DashboardData>(
+    "/api/investor/dashboard",
+  );
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const res = await fetch("/api/investor/dashboard");
-        if (!res.ok) {
-          if (res.status === 401) router.push("/investor/login");
-          return;
-        }
-        const result = await res.json();
-        setData(result as DashboardData);
-      } catch {
-        clientLogger.error("Dashboard fetch error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDashboard();
-  }, [router]);
+    if (!error) return;
+    if (error.status === 401) {
+      router.push("/investor/login");
+    } else {
+      clientLogger.error("Dashboard fetch error");
+    }
+  }, [error, router]);
 
   if (isLoading) {
     return (

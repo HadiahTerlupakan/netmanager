@@ -1,5 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   buildBandwidthPayload,
@@ -10,11 +10,9 @@ import type {
   Bandwidth,
   BandwidthFormData,
 } from "@/app/admin/paket/bandwidth/lib/bandwidthTypes";
+import { useApi } from "@/lib/hooks/useApi";
 
 export function useBandwidthPageState() {
-  const [loading, setLoading] = useState(true);
-  const [bandwidths, setBandwidths] = useState<Bandwidth[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBandwidth, setEditingBandwidth] = useState<Bandwidth | null>(
     null,
@@ -24,50 +22,29 @@ export function useBandwidthPageState() {
     createInitialBandwidthFormData(),
   );
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (siteId) params.append("siteId", siteId);
+  const queryUrl = (() => {
+    const params = new URLSearchParams();
+    if (siteId) params.append("siteId", siteId);
+    const qs = params.toString();
+    return qs ? `/api/bandwidths?${qs}` : "/api/bandwidths";
+  })();
 
-      const res = await fetch(`/api/bandwidths?${params.toString()}`);
-      if (!res.ok) {
-        let errorMessage = `Gagal memuat data bandwidth: ${res.status}`;
-        try {
-          const errorData = await res.json();
-          if (
-            errorData &&
-            typeof errorData === "object" &&
-            "error" in errorData
-          ) {
-            errorMessage = errorData.error || errorMessage;
-          }
-        } catch (_e) {
-          errorMessage = `Gagal memuat data bandwidth: ${res.status} ${res.statusText || ""}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const json = await res.json();
-      const dataArray = Array.isArray(json) ? json : json.data || [];
-      setBandwidths(dataArray);
-      setError(null);
-    } catch (error: unknown) {
-      clientLogger.error("Error loading data:", error);
-      const errorMsg =
-        error instanceof Error ? error.message : "Gagal memuat data";
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [siteId]);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+    mutate,
+  } = useApi<Bandwidth[] | { data?: Bandwidth[] }>(queryUrl);
+  const bandwidths: Bandwidth[] = Array.isArray(data)
+    ? data
+    : (data?.data ?? []);
+  const error = fetchError ? fetchError.message || "Gagal memuat data" : null;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadData();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadData]);
+    if (fetchError) {
+      clientLogger.error("Error loading data:", fetchError);
+    }
+  }, [fetchError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -87,7 +64,7 @@ export function useBandwidthPageState() {
         throw new Error(errorData.error || "Gagal menyimpan bandwidth");
       }
 
-      await loadData();
+      await mutate();
       handleCloseModal();
     } catch (error: unknown) {
       const errorMsg =
@@ -105,7 +82,7 @@ export function useBandwidthPageState() {
         alert(error.error || "Gagal menghapus bandwidth");
         return;
       }
-      await loadData();
+      await mutate();
     } catch (error) {
       clientLogger.error("Error deleting bandwidth:", error);
       alert("Terjadi kesalahan saat menghapus bandwidth");

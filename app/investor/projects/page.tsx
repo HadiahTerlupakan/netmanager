@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,30 +13,27 @@ import {
 } from "react-icons/hi2";
 import InvestorBottomNav from "../components/InvestorBottomNav";
 import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface ProjectsResponse {
+  projects: Record<string, unknown>[];
+}
 
 export default function InvestorProjects() {
   const router = useRouter();
-  const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, error } = useApi<ProjectsResponse>(
+    "/api/investor/projects",
+  );
+  const projects = data?.projects ?? [];
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch("/api/investor/projects");
-        if (!res.ok) {
-          if (res.status === 401) router.push("/investor/login");
-          return;
-        }
-        const data = await res.json();
-        setProjects(data.projects || []);
-      } catch (error) {
-        clientLogger.error("Projects fetch error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProjects();
-  }, [router]);
+    if (!error) return;
+    if (error.status === 401) {
+      router.push("/investor/login");
+    } else {
+      clientLogger.error("Projects fetch error:", error);
+    }
+  }, [error, router]);
 
   if (isLoading) {
     return (

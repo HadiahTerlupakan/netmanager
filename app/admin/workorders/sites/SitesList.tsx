@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   HiOutlinePlus,
@@ -15,6 +15,7 @@ import {
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { buttonVariants } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Site {
   id: string;
@@ -33,41 +34,37 @@ export default function SitesList() {
   const canUpdate = hasPermission("site:update");
   const canDelete = hasPermission("site:delete");
 
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
-  const fetchSites = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (!showInactive) params.append("activeOnly", "true");
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
 
-      const response = await fetch(`/api/admin/sites?${params}`);
-      const data = await response.json();
+  const queryUrl = (() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    if (!showInactive) params.append("activeOnly", "true");
+    const qs = params.toString();
+    return qs ? `/api/admin/sites?${qs}` : "/api/admin/sites";
+  })();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal memuat data sites");
-      }
-
-      setSites(data.data || []);
-    } catch (error: unknown) {
-      clientLogger.error("Failed to fetch sites:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [search, showInactive]);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+    mutate,
+  } = useApi<Site[]>(queryUrl);
+  const sites = data ?? [];
+  const error = fetchError ? fetchError.message || "Gagal memuat data" : null;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchSites();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchSites]);
+    if (fetchError) {
+      clientLogger.error("Failed to fetch sites:", fetchError);
+    }
+  }, [fetchError]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus site "${name}"?`)) {
@@ -85,8 +82,7 @@ export default function SitesList() {
         throw new Error(data.error || "Gagal menghapus site");
       }
 
-      // Refresh data
-      fetchSites();
+      void mutate();
     } catch (error: unknown) {
       clientLogger.error("Failed to delete site:", error);
       alert(error instanceof Error ? error.message : "Gagal menghapus site");

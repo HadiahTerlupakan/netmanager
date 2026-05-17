@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   HiOutlineBuildingOffice2,
@@ -13,6 +13,7 @@ import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { buttonVariants } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Department {
   id: string;
@@ -31,39 +32,35 @@ export function ClientComponent() {
   const canUpdate = hasPermission("department:update");
   const canDelete = hasPermission("department:delete");
 
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-
-  const fetchDepartments = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-
-      const response = await fetch(`/api/admin/departments?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal memuat data departments");
-      }
-
-      setDepartments(data.data || []);
-    } catch (error: unknown) {
-      clientLogger.error("Failed to fetch departments:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchDepartments();
-    }, 0);
+    const handle = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(handle);
-  }, [fetchDepartments]);
+  }, [search]);
+
+  const queryUrl = (() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    const qs = params.toString();
+    return qs ? `/api/admin/departments?${qs}` : "/api/admin/departments";
+  })();
+
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+    mutate,
+  } = useApi<Department[]>(queryUrl);
+  const departments = data ?? [];
+  const error = fetchError ? fetchError.message || "Gagal memuat data" : null;
+
+  useEffect(() => {
+    if (fetchError) {
+      clientLogger.error("Failed to fetch departments:", fetchError);
+    }
+  }, [fetchError]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus department "${name}"?`)) {
@@ -81,8 +78,7 @@ export function ClientComponent() {
         throw new Error(data.error || "Gagal menghapus department");
       }
 
-      // Refresh data
-      fetchDepartments();
+      void mutate();
     } catch (error: unknown) {
       clientLogger.error("Failed to delete department:", error);
       alert(

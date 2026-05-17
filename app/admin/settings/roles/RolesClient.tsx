@@ -1,12 +1,13 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/use-permission";
 import { toast } from "react-hot-toast";
 import { FiPlus, FiEdit2, FiTrash2 } from "react-icons/fi";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Role {
   id: string;
@@ -16,34 +17,21 @@ interface Role {
 }
 
 export function ClientComponent() {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
   const { hasPermission, isLoading: authLoading } = usePermission();
-
-  const fetchRoles = useCallback(async () => {
-    try {
-      const res = await fetch("/api/roles");
-      if (res.ok) {
-        const data = await res.json();
-        const list = data.data ?? data;
-        setRoles(Array.isArray(list) ? list : []);
-      } else {
-        toast.error("Gagal memuat data role");
-      }
-    } catch (error) {
-      clientLogger.error("Gagal memuat data role", error);
-      toast.error("Terjadi kesalahan");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    data,
+    isLoading: loading,
+    error,
+    mutate,
+  } = useApi<Role[] | { data?: Role[] }>("/api/roles");
+  const roles: Role[] = Array.isArray(data) ? data : (data?.data ?? []);
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchRoles();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchRoles]);
+    if (error) {
+      clientLogger.error("Gagal memuat data role", error);
+      toast.error(error.message || "Gagal memuat data role");
+    }
+  }, [error]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus role "${name}"?`)) return;
@@ -60,7 +48,7 @@ export function ClientComponent() {
       }
 
       toast.success("Role berhasil dihapus");
-      fetchRoles();
+      void mutate();
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan";

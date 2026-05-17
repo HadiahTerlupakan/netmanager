@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { HiOutlineCalendar, HiOutlineCurrencyDollar } from "react-icons/hi2";
 import {
@@ -14,6 +14,7 @@ import {
   Legend,
 } from "chart.js";
 import { toast } from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 ChartJS.register(
   CategoryScale,
@@ -24,40 +25,41 @@ ChartJS.register(
   Legend,
 );
 
+interface PeriodRevenueResponse {
+  totalRevenue?: number;
+  error?: string;
+}
+
 export function ClientComponent() {
-  const [totalRevenue, setTotalRevenue] = useState(0);
   const [dateRange, setDateRange] = useState({
     startDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     endDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const queryParams = new URLSearchParams({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-        });
-
-        const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
-        const data = await res.json();
-
-        if (data && typeof data.totalRevenue === "number") {
-          setTotalRevenue(data.totalRevenue);
-        } else {
-          clientLogger.error("Invalid API response for period revenue:", data);
-          toast.error(data?.error || "Format data pendapatan tidak valid");
-          setTotalRevenue(0);
-        }
-      } catch (error) {
-        clientLogger.error("Failed to fetch revenue", error);
-        toast.error("Gagal memuat data pendapatan");
-        setTotalRevenue(0);
-      }
-    };
-
-    void fetchData();
+  const queryUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+    });
+    return `/api/finance/stats?${params.toString()}`;
   }, [dateRange.startDate, dateRange.endDate]);
+
+  const { data, error } = useApi<PeriodRevenueResponse>(queryUrl);
+  const totalRevenue =
+    typeof data?.totalRevenue === "number" ? data.totalRevenue : 0;
+
+  useEffect(() => {
+    if (data && typeof data.totalRevenue !== "number") {
+      clientLogger.error("Invalid API response for period revenue:", data);
+      toast.error(data?.error || "Format data pendapatan tidak valid");
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!error) return;
+    clientLogger.error("Failed to fetch revenue", error);
+    toast.error("Gagal memuat data pendapatan");
+  }, [error]);
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-gray-900/50">

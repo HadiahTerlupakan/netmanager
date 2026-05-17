@@ -1,5 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   buildProfilePppPayload,
@@ -13,91 +13,94 @@ import type {
   ProfilePPP,
   ProfilePppFormData,
 } from "@/app/admin/paket/profileppp/lib/profilePppTypes";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface SettingsPayload {
+  pppConnectionMode?: "RADIUS" | "MIKROTIK_API";
+}
+
+interface RoutersPayload {
+  routers?: MikroTikRouter[];
+}
+
+function unwrapList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (
+    value &&
+    typeof value === "object" &&
+    "data" in value &&
+    Array.isArray((value as { data?: unknown }).data)
+  ) {
+    return (value as { data: T[] }).data;
+  }
+  return [];
+}
 
 export function useProfilePppPageState() {
-  const [loading, setLoading] = useState(true);
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
-  const [profilePPPs, setProfilePPPs] = useState<ProfilePPP[]>([]);
-  const [mikroTikRouters, setMikroTikRouters] = useState<MikroTikRouter[]>([]);
-  const [bandwidths, setBandwidths] = useState<Bandwidth[]>([]);
-  const [pppConnectionMode, setPppConnectionMode] = useState<
-    "RADIUS" | "MIKROTIK_API"
-  >("RADIUS");
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<ProfilePPP | null>(null);
   const [formData, setFormData] = useState<ProfilePppFormData>(
     createInitialProfilePppFormData(),
   );
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams();
-      if (siteId) queryParams.append("siteId", siteId);
+  const params = new URLSearchParams();
+  if (siteId) params.append("siteId", siteId);
+  const qs = params.toString();
+  const suffix = qs ? `?${qs}` : "";
 
-      const [profilePPPsRes, routersRes, bandwidthsRes, settingsRes] =
-        await Promise.all([
-          fetch(`/api/profileppps?${queryParams.toString()}`),
-          fetch("/api/mikrotik-routers"),
-          fetch(`/api/bandwidths?${queryParams.toString()}`),
-          fetch("/api/settings/general"),
-        ]);
+  const profileQuery = useApi<ProfilePPP[] | { data?: ProfilePPP[] }>(
+    `/api/profileppps${suffix}`,
+  );
+  const routersQuery = useApi<RoutersPayload | { data?: RoutersPayload }>(
+    "/api/mikrotik-routers",
+  );
+  const bandwidthQuery = useApi<Bandwidth[] | { data?: Bandwidth[] }>(
+    `/api/bandwidths${suffix}`,
+  );
+  const settingsQuery = useApi<SettingsPayload | { data?: SettingsPayload }>(
+    "/api/settings/general",
+  );
 
-      if (!profilePPPsRes.ok) {
-        let errorMessage = `Gagal memuat data profile PPP: ${profilePPPsRes.status}`;
-        try {
-          const errorData = await profilePPPsRes.json();
-          if (
-            errorData &&
-            typeof errorData === "object" &&
-            "error" in errorData
-          ) {
-            errorMessage = errorData.error || errorMessage;
-          }
-        } catch (_e: unknown) {
-          errorMessage = `Gagal memuat data profile PPP: ${profilePPPsRes.status} ${profilePPPsRes.statusText || ""}`;
-        }
-        throw new Error(errorMessage);
-      }
+  const loading =
+    profileQuery.isLoading ||
+    routersQuery.isLoading ||
+    bandwidthQuery.isLoading ||
+    settingsQuery.isLoading;
 
-      const profilePPPsData = await profilePPPsRes.json();
-      const routersData = routersRes.ok
-        ? await routersRes.json()
-        : { routers: [] };
-      const bandwidthsData = bandwidthsRes.ok
-        ? await bandwidthsRes.json()
-        : { data: [] };
-      const settingsJson = settingsRes.ok
-        ? await settingsRes.json()
-        : { data: { pppConnectionMode: "RADIUS" } };
-      const settingsData = settingsJson.data || settingsJson;
+  const profilePPPs = unwrapList<ProfilePPP>(profileQuery.data);
+  const bandwidths = unwrapList<Bandwidth>(bandwidthQuery.data);
 
-      setProfilePPPs(profilePPPsData.data || profilePPPsData || []);
-      setMikroTikRouters(
-        routersData.data?.routers || routersData.routers || [],
-      );
-      setBandwidths(bandwidthsData.data || []);
-      const pppMode = settingsData.pppConnectionMode || "RADIUS";
-      setPppConnectionMode(pppMode);
-      if (pppMode !== "RADIUS") {
-        setFormData((prev) => ({ ...prev, poolMode: "MIKROTIK" }));
-      }
-      setError(null);
-    } catch (error: unknown) {
-      clientLogger.error("Error loading data:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [siteId]);
+  const routersRaw = routersQuery.data;
+  const routersInner: RoutersPayload =
+    routersRaw && "data" in (routersRaw as object)
+      ? ((routersRaw as { data?: RoutersPayload }).data ?? {})
+      : ((routersRaw as RoutersPayload | undefined) ?? {});
+  const mikroTikRouters = routersInner.routers ?? [];
 
+  const settingsRaw = settingsQuery.data;
+  const settingsInner: SettingsPayload =
+    settingsRaw && "data" in (settingsRaw as object)
+      ? ((settingsRaw as { data?: SettingsPayload }).data ?? {})
+      : ((settingsRaw as SettingsPayload | undefined) ?? {});
+  const pppConnectionMode = settingsInner.pppConnectionMode || "RADIUS";
+
+  const firstError = profileQuery.error;
+  const error = firstError ? firstError.message || "Gagal memuat data" : null;
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadData();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadData]);
+    if (firstError) {
+      clientLogger.error("Error loading data:", firstError);
+    }
+  }, [firstError]);
+
+  const reload = async () => {
+    await Promise.all([
+      profileQuery.mutate(),
+      routersQuery.mutate(),
+      bandwidthQuery.mutate(),
+      settingsQuery.mutate(),
+    ]);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -118,7 +121,7 @@ export function useProfilePppPageState() {
         throw new Error(errorData.error || "Gagal menyimpan profile PPP");
       }
 
-      await loadData();
+      await reload();
       handleCloseModal();
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : "Terjadi kesalahan");
@@ -134,7 +137,7 @@ export function useProfilePppPageState() {
         alert(error.error || "Gagal menghapus profile PPP");
         return;
       }
-      await loadData();
+      await reload();
     } catch (error) {
       clientLogger.error("Error deleting profile PPP:", error);
       alert("Terjadi kesalahan saat menghapus profile PPP");
@@ -192,7 +195,11 @@ export function useProfilePppPageState() {
     handleCloseModal,
     handleFormChange,
     openCreateModal: () => {
-      setFormData((prev) => ({ ...prev, siteId: siteId || "" }));
+      setFormData((prev) => ({
+        ...prev,
+        siteId: siteId || "",
+        poolMode: pppConnectionMode === "RADIUS" ? prev.poolMode : "MIKROTIK",
+      }));
       setIsModalOpen(true);
     },
   };

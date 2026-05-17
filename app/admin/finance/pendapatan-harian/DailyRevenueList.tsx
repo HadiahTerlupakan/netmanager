@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -21,6 +21,7 @@ import {
   Filler,
 } from "chart.js";
 import { toast } from "react-hot-toast";
+import { useApi } from "@/lib/hooks/useApi";
 
 ChartJS.register(
   CategoryScale,
@@ -33,64 +34,38 @@ ChartJS.register(
   Filler,
 );
 
+interface DailyRevenueResponse {
+  totalRevenue?: number;
+  error?: string;
+}
+
 export default function DailyRevenueList() {
-  const [totalRevenue, setTotalRevenue] = useState(0);
-
-  useEffect(() => {
-    const fetchDailyRevenue = async () => {
-      try {
-        const today = new Date();
-        const queryParams = new URLSearchParams({
-          startDate: format(today, "yyyy-MM-dd"),
-          endDate: format(today, "yyyy-MM-dd"),
-          type: "daily",
-        });
-
-        const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
-        const data = await res.json();
-
-        if (data && typeof data.totalRevenue === "number") {
-          setTotalRevenue(data.totalRevenue);
-        } else {
-          clientLogger.error("Invalid API response for daily revenue:", data);
-          toast.error(data?.error || "Format data pendapatan tidak valid");
-          setTotalRevenue(0);
-        }
-      } catch (error) {
-        clientLogger.error("Failed to fetch daily revenue", error);
-        toast.error("Gagal memuat data pendapatan");
-        setTotalRevenue(0);
-      }
-    };
-
-    void fetchDailyRevenue();
+  const queryUrl = useMemo(() => {
+    const today = new Date();
+    const params = new URLSearchParams({
+      startDate: format(today, "yyyy-MM-dd"),
+      endDate: format(today, "yyyy-MM-dd"),
+      type: "daily",
+    });
+    return `/api/finance/stats?${params.toString()}`;
   }, []);
 
-  const fetchDailyRevenue = async () => {
-    try {
-      const today = new Date();
-      const queryParams = new URLSearchParams({
-        startDate: format(today, "yyyy-MM-dd"),
-        endDate: format(today, "yyyy-MM-dd"),
-        type: "daily",
-      });
+  const { data, error, mutate } = useApi<DailyRevenueResponse>(queryUrl);
+  const totalRevenue =
+    typeof data?.totalRevenue === "number" ? data.totalRevenue : 0;
 
-      const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
-      const data = await res.json();
-
-      if (data && typeof data.totalRevenue === "number") {
-        setTotalRevenue(data.totalRevenue);
-      } else {
-        clientLogger.error("Invalid API response for daily revenue:", data);
-        toast.error(data?.error || "Format data pendapatan tidak valid");
-        setTotalRevenue(0);
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch daily revenue", error);
-      toast.error("Gagal memuat data pendapatan");
-      setTotalRevenue(0);
+  useEffect(() => {
+    if (data && typeof data.totalRevenue !== "number") {
+      clientLogger.error("Invalid API response for daily revenue:", data);
+      toast.error(data?.error || "Format data pendapatan tidak valid");
     }
-  };
+  }, [data]);
+
+  useEffect(() => {
+    if (!error) return;
+    clientLogger.error("Failed to fetch daily revenue", error);
+    toast.error("Gagal memuat data pendapatan");
+  }, [error]);
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
@@ -107,7 +82,7 @@ export default function DailyRevenueList() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={fetchDailyRevenue}
+            onClick={() => void mutate()}
             className="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm font-medium"
           >
             Refresh

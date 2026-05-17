@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface AppRelease {
   id: string;
@@ -20,32 +21,17 @@ interface AppRelease {
 /** Admin page untuk melihat daftar App Release dengan filter platform. */
 export default function AppReleasesPage() {
   const router = useRouter();
-  const [releases, setReleases] = useState<AppRelease[]>([]);
   const [platform, setPlatform] = useState<string>("");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const queryUrl = (() => {
     const params = new URLSearchParams();
     if (platform) params.set("platform", platform);
+    const qs = params.toString();
+    return qs ? `/api/admin/app-releases?${qs}` : "/api/admin/app-releases";
+  })();
 
-    let cancelled = false;
-
-    fetch(`/api/admin/app-releases?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) {
-          setReleases(data.data ?? []);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [platform]);
+  const { data, isLoading: loading } = useApi<AppRelease[]>(queryUrl);
+  const releases = data ?? [];
 
   const columns: Column<AppRelease>[] = [
     {
