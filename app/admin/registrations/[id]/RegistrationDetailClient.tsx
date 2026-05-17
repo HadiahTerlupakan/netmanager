@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import React, { useEffect, useState, use, useCallback } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import {
   MdArrowBack,
@@ -23,6 +23,7 @@ import {
 } from "react-icons/md";
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Registration {
   id: string;
@@ -60,56 +61,47 @@ export function ClientComponent({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
-  const [registration, setRegistration] = useState<Registration | null>(null);
-  const [ipInfo, setIpInfo] = useState<IpInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [error, setError] = useState("");
 
-  const fetchIpInfo = useCallback(async (ip: string) => {
-    try {
-      const res = await fetch(`/api/ip-info?ip=${encodeURIComponent(ip)}`);
-      if (res.ok) {
-        setIpInfo(await res.json());
-      }
-    } catch (e) {
-      clientLogger.error("Failed to fetch IP info", e);
-    }
-  }, []);
+  const {
+    data: registration,
+    isLoading,
+    error: fetchError,
+    mutate: refetchRegistration,
+  } = useApi<Registration>(`/api/admin/registrations/${resolvedParams.id}`);
 
-  const fetchRegistration = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/admin/registrations/${resolvedParams.id}`);
-      if (res.ok) {
-        const response = await res.json();
-        const registrationData = response.data;
-        setRegistration(registrationData);
-        if (registrationData?.ipAddress) {
-          fetchIpInfo(registrationData.ipAddress);
-        }
-      } else {
-        setError("Pendaftaran tidak ditemukan");
-      }
-    } catch (e) {
-      setError("Gagal memuat data");
-      clientLogger.error("Gagal memuat detail pendaftaran", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [resolvedParams.id, fetchIpInfo]);
+  const ipAddress = registration?.ipAddress ?? null;
+  const { data: ipInfo, error: ipError } = useApi<IpInfo>(
+    ipAddress ? `/api/ip-info?ip=${encodeURIComponent(ipAddress)}` : null,
+  );
+
+  const [actionError, setActionError] = useState("");
+
+  const error = actionError
+    ? actionError
+    : fetchError
+      ? fetchError.status === 404
+        ? "Pendaftaran tidak ditemukan"
+        : fetchError.message || "Gagal memuat data"
+      : "";
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchRegistration();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchRegistration]);
+    if (fetchError) {
+      clientLogger.error("Gagal memuat detail pendaftaran", fetchError);
+    }
+  }, [fetchError]);
+
+  useEffect(() => {
+    if (ipError) {
+      clientLogger.error("Failed to fetch IP info", ipError);
+    }
+  }, [ipError]);
 
   const updateStatus = async (newStatus: string, reason?: string) => {
     setIsSaving(true);
-    setError("");
+    setActionError("");
     try {
       const res = await fetch(`/api/admin/registrations/${resolvedParams.id}`, {
         method: "PUT",
@@ -123,14 +115,14 @@ export function ClientComponent({
       const data = await res.json();
 
       if (res.ok) {
-        setRegistration(data.data);
+        void refetchRegistration(data.data, { revalidate: false });
         setShowRejectModal(false);
         setRejectionReason("");
       } else {
-        setError(data.error || "Gagal mengubah status");
+        setActionError(data.error || "Gagal mengubah status");
       }
     } catch (e) {
-      setError("Terjadi kesalahan");
+      setActionError("Terjadi kesalahan");
       clientLogger.error("Gagal mengubah status pendaftaran", e);
     } finally {
       setIsSaving(false);

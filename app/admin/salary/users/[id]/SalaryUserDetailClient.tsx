@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import {
   HiOutlineClock,
   HiOutlineDocumentText,
 } from "react-icons/hi2";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Component {
   id: string;
@@ -57,35 +58,36 @@ interface SalaryUser {
   userSalaryComponents: UserSalaryComponent[];
 }
 
+interface SalaryUserResponse {
+  user?: SalaryUser;
+}
+
 export default function SalaryUserDetailClient() {
   const params = useParams();
   const router = useRouter();
-  const [user, setUser] = useState<SalaryUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const userId = typeof params.id === "string" ? params.id : null;
 
-  const fetchUserDetail = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/admin/salary/users/${params.id}`);
-      if (!res.ok) throw new Error("Gagal mengambil data");
-      const data = await res.json();
-      const responseData = data.data || data;
-      setUser(responseData.user);
-    } catch (error) {
-      clientLogger.error("Error:", error);
-      alert("Gagal memuat detail karyawan");
-    } finally {
-      setLoading(false);
-    }
-  }, [params.id]);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<SalaryUser | SalaryUserResponse>(
+    userId ? `/api/admin/salary/users/${userId}` : null,
+  );
+
+  const user: SalaryUser | null = (() => {
+    if (!data) return null;
+    if ("user" in data && data.user) return data.user;
+    if ("id" in data) return data as SalaryUser;
+    return null;
+  })();
 
   useEffect(() => {
-    if (!params.id) return undefined;
-    const handle = setTimeout(() => {
-      void fetchUserDetail();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [params.id, fetchUserDetail]);
+    if (fetchError) {
+      clientLogger.error("Error:", fetchError);
+      alert("Gagal memuat detail karyawan");
+    }
+  }, [fetchError]);
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === undefined || amount === null) return "-";

@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   HiOutlineClock,
   HiOutlineCalendar,
@@ -9,6 +9,7 @@ import {
   HiOutlineBriefcase,
   HiOutlineCheckCircle,
 } from "react-icons/hi2";
+import { useApi } from "@/lib/hooks/useApi";
 
 enum WorkingHourMode {
   FIXED = "FIXED",
@@ -85,8 +86,21 @@ export default function WorkingHoursSettings({
   const [selectedShiftId, setSelectedShiftId] = useState(
     initialData.shiftId || "",
   );
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [loadingShifts, setLoadingShifts] = useState(false);
+
+  const {
+    data: shiftsData,
+    isLoading: loadingShifts,
+    error: shiftsError,
+  } = useApi<Shift[]>(
+    mode === WorkingHourMode.SHIFT ? "/api/admin/shifts" : null,
+  );
+  const shifts: Shift[] = shiftsData ?? [];
+
+  useEffect(() => {
+    if (shiftsError) {
+      clientLogger.error("Error fetching shifts:", shiftsError);
+    }
+  }, [shiftsError]);
 
   const days = [
     { id: "Mon", label: "Senin" },
@@ -97,30 +111,6 @@ export default function WorkingHoursSettings({
     { id: "Sat", label: "Sabtu" },
     { id: "Sun", label: "Minggu" },
   ];
-
-  // Fetch shifts when mode is SHIFT
-  useEffect(() => {
-    if (mode !== WorkingHourMode.SHIFT || shifts.length !== 0) return undefined;
-    let isMounted = true;
-    const handle = setTimeout(() => {
-      if (!isMounted) return;
-      setLoadingShifts(true);
-      fetch("/api/admin/shifts")
-        .then((res) => res.json())
-        .then((data) => {
-          if (isMounted) setShifts(data);
-        })
-        .catch((err) => clientLogger.error("Error fetching shifts:", err))
-        .finally(() => {
-          if (isMounted) setLoadingShifts(false);
-        });
-    }, 0);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(handle);
-    };
-  }, [mode, shifts.length]);
 
   useEffect(() => {
     // Notify parent of changes
