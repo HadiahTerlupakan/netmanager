@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useApi } from "@/lib/hooks/useApi";
 import Link from "next/link";
 import { intervalToDuration, formatDuration, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -139,18 +140,11 @@ export function ClientComponent() {
     hasPermission("workorders:approve_request") ||
     hasPermission("list:approve_request"); // Approve/Reject WO Request
 
-  const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [summary, setSummary] = useState<WorkOrderListSummary>(
-    EMPTY_WORK_ORDER_SUMMARY,
-  );
   const [pinnedTopCustomers, setPinnedTopCustomers] = useState<
     TopWorkOrderCustomer[]
   >([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<
@@ -166,6 +160,54 @@ export function ClientComponent() {
   const [filterSite, setFilterSite] = useState("");
   const [filterWoType, setFilterWoType] = useState(""); // 'customer' | 'internal' | ''
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+
+  // Build URL untuk fetch work orders via TanStack Query
+  const workOrdersUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: WORK_ORDER_PAGE_SIZE.toString(),
+    });
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    if (filterStatus) params.append("status", filterStatus);
+    if (filterPriority) params.append("priority", filterPriority);
+    if (filterType) params.append("type", filterType);
+    if (filterSite) params.append("siteId", filterSite);
+    if (filterWoType) params.append("woType", filterWoType);
+    if (unassignedOnly) params.append("unassignedOnly", "true");
+    return `/api/admin/workorders?${params}`;
+  }, [
+    page,
+    debouncedSearch,
+    filterStatus,
+    filterPriority,
+    filterType,
+    filterSite,
+    filterWoType,
+    unassignedOnly,
+  ]);
+
+  interface WorkOrderListData {
+    workOrders?: WorkOrder[];
+    summary?: WorkOrderListSummary;
+    total?: number;
+    totalPages?: number;
+  }
+
+  const {
+    data: workOrdersResp,
+    isLoading: loading,
+    mutate: refetchWorkOrders,
+  } = useApi<WorkOrderListData>(workOrdersUrl);
+
+  const workOrders = workOrdersResp?.workOrders ?? [];
+  const summary = workOrdersResp?.summary ?? EMPTY_WORK_ORDER_SUMMARY;
+  const total = workOrdersResp?.total ?? 0;
+  const totalPages = workOrdersResp?.totalPages ?? 1;
+
+  // Set initialLoading to false setelah first response
+  if (initialLoading && !loading && workOrdersResp !== undefined) {
+    setInitialLoading(false);
+  }
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // PHASE 5: Debounce search input (300ms delay)
@@ -232,59 +274,18 @@ export function ClientComponent() {
     }
   };
 
-  const fetchWorkOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: WORK_ORDER_PAGE_SIZE.toString(),
-      });
-
-      if (debouncedSearch) params.append("search", debouncedSearch); // Use debounced value
-      if (filterStatus) params.append("status", filterStatus);
-      if (filterPriority) params.append("priority", filterPriority);
-      if (filterType) params.append("type", filterType);
-      if (filterSite) params.append("siteId", filterSite);
-      if (filterWoType) params.append("woType", filterWoType);
-      if (unassignedOnly) params.append("unassignedOnly", "true");
-
-      const response = await fetch(`/api/admin/workorders?${params}`);
-
-      if (response.ok) {
-        const result = await response.json();
-        const data = result.data || result; // Fallback for raw JSON
-        setWorkOrders(data.workOrders || []);
-        setSummary(data.summary || EMPTY_WORK_ORDER_SUMMARY);
-        setTotal(data.total || 0);
-        setTotalPages(data.totalPages || 1);
-      }
-    } catch (error: unknown) {
-      console.error("Error fetching work orders:", error);
-    } finally {
-      setLoading(false);
-      setInitialLoading(false);
-    }
-  }, [
-    page,
-    debouncedSearch,
-    filterStatus,
-    filterPriority,
-    filterType,
-    filterSite,
-    filterWoType,
-    unassignedOnly,
-  ]);
+  const fetchWorkOrders = useCallback(() => {
+    void refetchWorkOrders();
+  }, [refetchWorkOrders]);
 
   useEffect(() => {
     if (!session?.user || status !== "authenticated") return undefined;
     const handle = setTimeout(() => {
-      void fetchWorkOrders();
       void fetchSites();
       void fetchDepartments();
     }, 0);
     return () => clearTimeout(handle);
-    // PHASE 5: Use debouncedSearch instead of search for API calls
-  }, [session, status, fetchWorkOrders]);
+  }, [session, status]);
 
   const handleVerify = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
