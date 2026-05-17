@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/lib/utils/fetch-wrapper";
 import { validateRequired, validateLength } from "@/lib/utils/validation";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface ProfileData {
   id: string;
@@ -41,13 +42,11 @@ interface ProfileData {
 
 export default function MyProfileClient() {
   const { showToast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
-  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
@@ -66,6 +65,26 @@ export default function MyProfileClient() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    data: profile,
+    isLoading: loading,
+    error: profileError,
+    mutate: refetchProfile,
+  } = useApi<ProfileData>("/api/admin/profile");
+
+  const [didInitForm, setDidInitForm] = useState(false);
+  if (profile && !didInitForm) {
+    setDidInitForm(true);
+    setName(profile.name || "");
+    setPhone(profile.phone || "");
+  }
+
+  useEffect(() => {
+    if (profileError) {
+      showToast("error", profileError.message || "Gagal memuat profil");
+    }
+  }, [profileError, showToast]);
+
   // Handle rate limit countdown
   useEffect(() => {
     if (retryCountdown !== null && retryCountdown > 0) {
@@ -79,31 +98,6 @@ export default function MyProfileClient() {
 
   if (retryCountdown === 0) {
     setRetryCountdown(null);
-  }
-
-  const fetchProfile = useCallback(async () => {
-    // No AbortController needed for simple profile fetch, but we'll add standard error handling check
-    try {
-      const response =
-        await fetchWithHandling<ProfileData>("/api/admin/profile");
-      if (response.data) {
-        setProfile(response.data);
-        setName(response.data.name || "");
-        setPhone(response.data.phone || "");
-      }
-    } catch (error) {
-      if (isFetchError(error)) {
-        showToast("error", formatErrorMessage(error));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
-
-  const [hasFetchedProfile, setHasFetchedProfile] = useState(false);
-  if (!hasFetchedProfile) {
-    setHasFetchedProfile(true);
-    void fetchProfile();
   }
 
   const handleSave = async () => {
@@ -127,7 +121,9 @@ export default function MyProfileClient() {
         body: JSON.stringify({ name, phone }),
       });
 
-      setProfile((prev) => (prev ? { ...prev, name, phone } : null));
+      void refetchProfile((prev) => (prev ? { ...prev, name, phone } : prev), {
+        revalidate: false,
+      });
       setEditMode(false);
       setEditErrors({});
       showToast("success", "Profil Anda telah diperbarui");
@@ -165,8 +161,10 @@ export default function MyProfileClient() {
       );
 
       if (response.data) {
-        setProfile((prev) =>
-          prev ? { ...prev, image: response.data!.image } : null,
+        const newImage = response.data.image;
+        void refetchProfile(
+          (prev) => (prev ? { ...prev, image: newImage } : prev),
+          { revalidate: false },
         );
         showToast("success", "Foto profil telah diperbarui");
       }
