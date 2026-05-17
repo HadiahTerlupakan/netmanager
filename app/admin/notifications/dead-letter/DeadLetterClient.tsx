@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useEffect, useCallback, useRef } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { clientLogger } from "@/lib/client-logger";
 import {
@@ -8,6 +8,7 @@ import {
   type PaginationState,
 } from "../_components/TablePaginationFooter";
 import { TableEmptyRow, TableLoadingRow } from "../_components/TableStateRows";
+import { useApi } from "@/lib/hooks/useApi";
 
 type NotifChannel = "inApp" | "push" | "whatsapp" | "email";
 
@@ -26,6 +27,11 @@ interface DeadLetterEntry {
 
 type Pagination = PaginationState;
 
+interface DeadLetterListResponse {
+  items: DeadLetterEntry[];
+  pagination: Pagination;
+}
+
 const CHANNEL_BADGE: Record<NotifChannel, string> = {
   inApp: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   push: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
@@ -35,76 +41,61 @@ const CHANNEL_BADGE: Record<NotifChannel, string> = {
     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
 };
 
+const DEFAULT_PAGINATION: Pagination = {
+  page: 1,
+  limit: 50,
+  total: 0,
+  totalPages: 1,
+};
+
 /** Halaman admin untuk melihat dan mengelola Notification Dead Letter Queue. */
 export default function DeadLetterClient() {
-  const [entries, setEntries] = useState<DeadLetterEntry[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    page: 1,
-    limit: 50,
-    total: 0,
-    totalPages: 1,
-  });
+  const [page, setPage] = useState(1);
   const [channelFilter, setChannelFilter] = useState<string>("");
   const [showResolved, setShowResolved] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchAbortRef = useRef<AbortController | null>(null);
+  const queryUrl = (() => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: "50",
+      resolved: String(showResolved),
+    });
+    if (channelFilter) params.set("channel", channelFilter);
+    return `/api/admin/notifications/dead-letter?${params.toString()}`;
+  })();
 
-  const fetchEntries = useCallback(
-    async (page: number) => {
-      // Cancel fetch sebelumnya — race-safe untuk klik filter cepat / retry
-      // yang trigger re-fetch sementara fetch lama masih in-flight.
-      fetchAbortRef.current?.abort();
-      const controller = new AbortController();
-      fetchAbortRef.current = controller;
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+    mutate: refetch,
+  } = useApi<DeadLetterListResponse>(queryUrl);
+  const entries = data?.items ?? [];
+  const pagination = data?.pagination ?? DEFAULT_PAGINATION;
 
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({
-          page: String(page),
-          limit: "50",
-          resolved: String(showResolved),
-        });
-        if (channelFilter) params.set("channel", channelFilter);
+  useEffect(() => {
+    if (fetchError) {
+      clientLogger.error("Gagal memuat data dead letter queue", fetchError);
+    }
+  }, [fetchError]);
 
-        const res = await fetch(
-          `/api/admin/notifications/dead-letter?${params}`,
-          { signal: controller.signal },
-        );
-        const json = await res.json();
-        if (controller.signal.aborted) return;
-        if (json.success) {
-          setEntries(json.data.items);
-          setPagination(json.data.pagination);
-        }
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        const msg = "Gagal memuat data dead letter queue";
-        setError(msg);
-        clientLogger.error(msg, err);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    },
-    [channelFilter, showResolved],
+  const fetchEntries = (newPage: number) => {
+    setPage(newPage);
+    return refetch();
+  };
+
+  // Reset page when filter changes
+  const [prevFilterKey, setPrevFilterKey] = useState(
+    `${channelFilter}|${showResolved}`,
   );
-
-  // Trigger fetch on filter change
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchEntries(1);
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchEntries]);
-
-  // Cleanup pending abort saat unmount
-  useEffect(() => {
-    return () => fetchAbortRef.current?.abort();
-  }, []);
+  const filterKey = `${channelFilter}|${showResolved}`;
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
+    setPage(1);
+  }
 
   async function handleRetry(id: string) {
     setActionLoading(id + ":retry");
@@ -118,7 +109,7 @@ export default function DeadLetterClient() {
         // Re-fetch full state — hindari race antara optimistic remove dan
         // commit server. Kalau server belum commit, list lama di-replace
         // oleh fresh fetch.
-        await fetchEntries(pagination.page);
+        await refetch();
       } else {
         setError(json.error ?? "Gagal melakukan retry");
       }
@@ -139,7 +130,7 @@ export default function DeadLetterClient() {
       );
       const json = await res.json();
       if (json.success) {
-        await fetchEntries(pagination.page);
+        await refetch();
       } else {
         setError(json.error ?? "Gagal menandai resolved");
       }
@@ -185,7 +176,7 @@ export default function DeadLetterClient() {
           value={channelFilter}
           onChange={(e) => {
             setChannelFilter(e.target.value);
-            setPagination((p) => ({ ...p, page: 1 }));
+            setPage(1);
           }}
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
@@ -202,7 +193,7 @@ export default function DeadLetterClient() {
             checked={showResolved}
             onChange={(e) => {
               setShowResolved(e.target.checked);
-              setPagination((p) => ({ ...p, page: 1 }));
+              setPage(1);
             }}
             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />

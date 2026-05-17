@@ -23,6 +23,7 @@ import {
   MdClose,
   MdWarning,
 } from "react-icons/md";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface Ticket {
   id: string;
@@ -35,6 +36,10 @@ interface Ticket {
   };
 }
 
+interface TicketsResponse {
+  tickets?: Ticket[];
+}
+
 export default function CustomerSupportPage() {
   const {
     isLoading: authLoading,
@@ -42,10 +47,6 @@ export default function CustomerSupportPage() {
     customer,
   } = useCustomerAuth();
   const router = useRouter();
-
-  // Data State
-  const [latestTicket, setLatestTicket] = useState<Ticket | null>(null);
-  const [loadingTicket, setLoadingTicket] = useState(true);
 
   // Form State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -57,26 +58,21 @@ export default function CustomerSupportPage() {
   const [error, setError] = useState("");
   const [ticketNumber, setTicketNumber] = useState("");
 
-  // Fetch Latest Ticket
+  const {
+    data: ticketsData,
+    isLoading: loadingTicket,
+    error: ticketError,
+    mutate: mutateTickets,
+  } = useApi<TicketsResponse>(
+    isAuthenticated ? "/api/customer/tickets?limit=1" : null,
+  );
+  const latestTicket = ticketsData?.tickets?.[0] ?? null;
+
   useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchLatestTicket = async () => {
-      try {
-        const res = await fetch("/api/customer/tickets?limit=1");
-        const data = await res.json();
-        if (res.ok && data.success && data.tickets.length > 0) {
-          setLatestTicket(data.tickets[0]);
-        }
-      } catch (err) {
-        clientLogger.error("Failed to fetch latest ticket", err);
-      } finally {
-        setLoadingTicket(false);
-      }
-    };
-
-    fetchLatestTicket();
-  }, [isAuthenticated]);
+    if (ticketError) {
+      clientLogger.error("Failed to fetch latest ticket", ticketError);
+    }
+  }, [ticketError]);
 
   // Auth Redirect
   useEffect(() => {
@@ -114,11 +110,15 @@ export default function CustomerSupportPage() {
         setSubject("");
         setDescription("");
         // Refresh latest ticket
-        setLatestTicket({
+        const newTicket: Ticket = {
           ...data.ticket,
           status: "OPEN",
           _count: { replies: 0 },
-        });
+        };
+        void mutateTickets(
+          (prev) => ({ tickets: [newTicket, ...(prev?.tickets ?? [])] }),
+          { revalidate: false },
+        );
       } else {
         setError(data.error || "Gagal membuat tiket");
       }

@@ -1,11 +1,12 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import nextDynamic from "next/dynamic";
 import "swagger-ui-react/swagger-ui.css";
 import { Button } from "@/components/ui/Button";
+import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 // Dynamic import to prevent SSR issues
 const SwaggerUI = nextDynamic(() => import("swagger-ui-react"), {
@@ -21,26 +22,20 @@ const SwaggerUI = nextDynamic(() => import("swagger-ui-react"), {
 });
 
 export default function ApiDocsPage() {
-  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: spec,
+    isLoading: loading,
+    error: fetchError,
+  } = useApi<Record<string, unknown>>("/api/docs");
+  const error = fetchError
+    ? fetchError.message || "Failed to fetch API spec"
+    : null;
 
   useEffect(() => {
-    fetch("/api/docs")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch API spec");
-        return res.json();
-      })
-      .then((data) => {
-        setSpec(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        clientLogger.error("Error loading API spec:", err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+    if (fetchError) {
+      clientLogger.error("Error loading API spec:", fetchError);
+    }
+  }, [fetchError]);
 
   if (loading) {
     return (

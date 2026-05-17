@@ -11,17 +11,7 @@ import {
 } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import type { RingtoneSettingsPayload } from "@/modules/settings";
-
-function unwrapApiData<T>(payload: T | { data?: T }): T {
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const nested = (payload as { data?: T }).data;
-    if (nested !== undefined) {
-      return nested;
-    }
-  }
-
-  return payload as T;
-}
+import { useApi } from "@/lib/hooks/useApi";
 
 export default function RingtoneSettingsClient() {
   const [enabled, setEnabled] = useState(true);
@@ -52,50 +42,26 @@ export default function RingtoneSettingsClient() {
     }
   }, []);
 
+  const { data: serverPayload, error: serverError } =
+    useApi<RingtoneSettingsPayload>("/api/settings/ringtone");
+
   useEffect(() => {
-    let cancelled = false;
+    if (serverError) {
+      clientLogger.error("Failed to load ringtone settings:", serverError);
+    }
+  }, [serverError]);
 
-    const loadSettings = async () => {
-      try {
-        const response = await fetch("/api/settings/ringtone", {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          const body = await response.text();
-          clientLogger.error(
-            "Failed to load ringtone settings:",
-            response.status,
-            body,
-          );
-          return;
-        }
-
-        const payload = unwrapApiData<RingtoneSettingsPayload>(
-          await response.json(),
-        );
-        if (cancelled) return;
-
-        setEnabled(payload.enabled);
-        setSoundType(payload.soundType);
-        setCustomSoundData(payload.customSoundData);
-        setCustomSoundName(payload.customSoundName ?? "Custom Tone");
-      } catch (error) {
-        if (!cancelled) {
-          clientLogger.error("Failed to load ringtone settings:", error);
-        }
-      } finally {
-        if (!cancelled) {
-          setServerHydrated(true);
-        }
-      }
-    };
-
-    void loadSettings();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [didApplyServer, setDidApplyServer] = useState(false);
+  if (!didApplyServer && (serverPayload || serverError)) {
+    setDidApplyServer(true);
+    if (serverPayload) {
+      setEnabled(serverPayload.enabled);
+      setSoundType(serverPayload.soundType);
+      setCustomSoundData(serverPayload.customSoundData);
+      setCustomSoundName(serverPayload.customSoundName ?? "Custom Tone");
+    }
+    setServerHydrated(true);
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") {
