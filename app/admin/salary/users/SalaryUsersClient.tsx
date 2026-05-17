@@ -2,6 +2,7 @@
 
 import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect, useCallback } from "react";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -120,29 +121,46 @@ export default function SalaryUsersClient() {
   >("FIXED");
   const [newComponentAmount, setNewComponentAmount] = useState("");
 
+  const {
+    data: usersRaw,
+    isLoading: loadingApi,
+    mutate: refetchUsers,
+  } = useApi<unknown>("/api/admin/salary/users");
+  const { data: componentsRaw, mutate: refetchComponents } = useApi<unknown>(
+    "/api/admin/salary/components",
+  );
+
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/salary/users");
-      const data = await res.json();
-      setUsers(data.data?.users || data.users || []);
-      setAllUsers(data.data?.allUsers || data.allUsers || []);
-    } catch (error) {
-      clientLogger.error("Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await refetchUsers();
+  }, [refetchUsers]);
 
   const fetchComponents = async () => {
-    try {
-      const res = await fetch("/api/admin/salary/components");
-      const data = await res.json();
-      setComponents(data.data?.components || data.components || []);
-    } catch (error) {
-      clientLogger.error("Error:", error);
-    }
+    await refetchComponents();
   };
+
+  // Hydrate users
+  const [didHydrateUsers, setDidHydrateUsers] = useState(false);
+  if (usersRaw && !didHydrateUsers) {
+    setDidHydrateUsers(true);
+    const obj = usersRaw as Record<string, unknown>;
+    const data = (obj.data as Record<string, unknown>) || obj;
+    setUsers((data.users as User[]) || []);
+    setAllUsers((data.allUsers as User[]) || []);
+    setLoading(false);
+  }
+
+  if (!loadingApi && !usersRaw) {
+    if (loading) setLoading(false);
+  }
+
+  // Hydrate components
+  const [didHydrateComp, setDidHydrateComp] = useState(false);
+  if (componentsRaw && !didHydrateComp) {
+    setDidHydrateComp(true);
+    const obj = componentsRaw as Record<string, unknown>;
+    const data = (obj.data as Record<string, unknown>) || obj;
+    setComponents((data.components as SalaryComponent[]) || []);
+  }
 
   const fetchUserComponents = async (userId: string) => {
     try {
@@ -155,11 +173,8 @@ export default function SalaryUsersClient() {
   };
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchUsers();
-      void fetchComponents();
-    }, 0);
-    return () => clearTimeout(handle);
+    // useApi auto-fetches; this effect is only for fetchUsers ref stability.
+    void fetchUsers;
   }, [fetchUsers]);
 
   const handleAddUser = async (e: React.FormEvent) => {

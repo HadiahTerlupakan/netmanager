@@ -36,6 +36,7 @@ import type {
   MixRadiusOwner,
   MixRadiusResponse,
 } from "./types";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   formatMixRadiusDate,
   getMixRadiusStatusBadge,
@@ -280,47 +281,41 @@ export default function MixRadiusClient({
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch owners for filter
-  useEffect(() => {
-    const fetchOwners = async () => {
-      try {
-        const response = await fetch("/api/integrations/mixradius/owners");
-        const result = await response.json();
+  // Fetch owners + groups via useApi
+  const { data: ownersRaw } = useApi<unknown>(
+    "/api/integrations/mixradius/owners",
+  );
+  const { data: groupsRaw } = useApi<unknown>(
+    "/api/integrations/mixradius/groups",
+  );
 
-        if (response.ok) {
-          setOwners(result.data || []);
-        } else {
-          // If it's a config error, it might be reported in global error or handled here
-          console.warn("Owners fetch failed:", result.error);
-          if (result.details?.isConfigError) {
-            setError(result.error);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch owners", err);
-      }
-    };
-    fetchOwners();
+  const [didHydrateOwners, setDidHydrateOwners] = useState(false);
+  if (ownersRaw && !didHydrateOwners) {
+    setDidHydrateOwners(true);
+    const obj = ownersRaw as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      setOwners(obj.data as MixRadiusOwner[]);
+    } else if (
+      obj.error &&
+      (obj.details as { isConfigError?: boolean })?.isConfigError
+    ) {
+      setError(obj.error as string);
+    }
+  }
 
-    const fetchGroups = async () => {
-      try {
-        const response = await fetch("/api/integrations/mixradius/groups");
-        const result = await response.json();
-
-        if (response.ok) {
-          setGroups(result.data || []);
-        } else {
-          console.warn("Groups fetch failed:", result.error);
-          if (result.details?.isConfigError) {
-            setError(result.error);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch groups", err);
-      }
-    };
-    fetchGroups();
-  }, []);
+  const [didHydrateGroups, setDidHydrateGroups] = useState(false);
+  if (groupsRaw && !didHydrateGroups) {
+    setDidHydrateGroups(true);
+    const obj = groupsRaw as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      setGroups(obj.data as MixRadiusGroup[]);
+    } else if (
+      obj.error &&
+      (obj.details as { isConfigError?: boolean })?.isConfigError
+    ) {
+      setError(obj.error as string);
+    }
+  }
 
   const fetchData = useCallback(
     async (forceRefresh = false) => {
