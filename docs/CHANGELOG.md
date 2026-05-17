@@ -45,6 +45,51 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 3 final push: migrate 24 file complex/detail ke `useApi`
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/**`, `components/**`, `app/(customer)/**`,
+  `app/api/docs/**`, `app/register/**`, `app/investor/**`
+- **Author**: agent
+- **Deskripsi**: Final batch (7-19) Phase 3 TanStack adoption. Migrate
+  24 file tambahan ke `useApi`, mencakup pattern detail page, edit form,
+  multi-fetch parallel, dan complex orchestration:
+  - Detail/edit pages: `BarangEditClient`, `BarangDetailClient`,
+    `DeptEditClient`, `SitesEditClient`, `SiteDetailClient`,
+    `NotificationHistoryClient`, `UserPerformanceStats`,
+    `app-releases/[id]/page`, `investor/projects/[id]/page`,
+    `SalaryUserDetailClient`, `WorkingHoursSettings`,
+    `RegistrationDetailClient`, `SupportDetailClient`, `WoDetailClient`,
+    `RolesDetailClient`, `PppPrintClient`
+  - List/form complex: `LiveMapClient` (realtime patch via
+    `mutate(updater)`), `AttendanceCard`, `RingtoneSettingsClient`,
+    `dukungan/page`, `DeadLetterClient`, `register/page`, `api/docs/ui/page`,
+    `useGeneralSettings`, `useInventoryFilters`, `ReportClient`,
+    `useDevicesPolling` (5min refreshInterval), `useMikrotikRouterList`,
+    `usePaymentGatewayConfigs`, `useManualTransferAccounts`,
+    `CreateAssetForm`, `MyProfileClient`
+  - Multi-fetch paralel: `useIncomePeriodData` (5 fetch),
+    `MixRadiusClient` (owners + groups), `SalaryUsersClient`
+    (users + components), `AttendancePageContent` (status + history),
+    `PppRenewClient` (4 fetch dengan didHydrate), `PppEditClient`,
+    `PppNewClient` (dynamic siteId query key)
+  - Inventory forms: `AmbilBarangForm`, `MasukForm`, `KeluarForm`,
+    `EnhancedOpnameForm`, `StockOpnameRecorder`, `StockReport`,
+    `RestockSettingsForm`, `RABForm/useRABExternalData`
+  Pattern utama: `didHydrate` flag untuk hydrate state lokal sekali tanpa
+  `setState` di useEffect (mematuhi rule react-hooks/set-state-in-effect),
+  `mutate(updater)` untuk in-place cache update saat ada response dari
+  PATCH/POST sehingga hindari double-fetch, conditional fetching dengan
+  `useApi(condition ? url : null)` untuk dependent queries.
+
+  4 file out-of-scope di-defer karena pattern non-fit pure useApi:
+  `MapPicker.tsx` (search-on-demand handler user),
+  `RABRevisionForm.tsx` (auto-create POST jika tidak ada DRAFT),
+  `UsersCompareClient.tsx` (multi-id loop Promise.all dynamic),
+  `UsersNewClient.tsx` (email check debounce + AbortController unik).
+- **Files**: 24 file di 13 commit terpisah (batch 7-19)
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 3 final batch: migrate 16 file tambahan ke `useApi`
 
 - **Tipe**: [CHANGED]
