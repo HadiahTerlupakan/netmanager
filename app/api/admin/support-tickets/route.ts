@@ -72,7 +72,8 @@ export const GET = createHandler(
       if (result.code === "FORBIDDEN") {
         return ApiErrors.forbidden(result.error || "Akses ditolak");
       }
-      throw new Error(result.error || "Gagal mengambil data tiket");
+      logger.error("[support-tickets] List failed", { error: result.error });
+      return ApiErrors.internalError("Gagal mengambil data tiket");
     }
 
     const tickets = (result.data as { tickets?: unknown[] })?.tickets;

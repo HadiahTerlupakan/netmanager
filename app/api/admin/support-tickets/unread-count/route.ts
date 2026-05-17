@@ -1,4 +1,5 @@
 import { apiSuccess, createHandler, ApiErrors } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 
 /**
@@ -14,7 +15,10 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   if (!result.success) {
-    throw new Error(result.error || "Gagal mengambil jumlah tiket");
+    logger.error("[support-tickets/unread-count] Get unread count failed", {
+      error: result.error,
+    });
+    return ApiErrors.internalError("Gagal mengambil jumlah tiket");
   }
 
   return apiSuccess(result.data);

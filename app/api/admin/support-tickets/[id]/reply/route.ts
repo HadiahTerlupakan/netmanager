@@ -6,6 +6,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 import { checkSiteRestriction } from "@/modules/roles";
 
@@ -63,7 +64,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         { status: 400 },
       );
     }
-    throw new Error(result.error || "Gagal mengirim balasan");
+    logger.error("[support-tickets/[id]/reply] Reply failed", {
+      error: result.error,
+    });
+    return ApiErrors.internalError("Gagal mengirim balasan");
   }
 
   return apiSuccess(result.data, { message: "Balasan berhasil dikirim" });

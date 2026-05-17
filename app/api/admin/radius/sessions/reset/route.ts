@@ -5,6 +5,13 @@ const radiusSyncService = new RadiusSyncService();
 
 type RadiusResetErrorCode = "PELANGGAN_NOT_FOUND" | "ROUTER_NOT_FOUND";
 
+class InvalidJsonBodyError extends Error {
+  constructor() {
+    super("Body JSON tidak valid");
+    this.name = "InvalidJsonBodyError";
+  }
+}
+
 function parseResetRequestBody(
   request: Request,
 ): Promise<{ username: string }> {
@@ -20,7 +27,7 @@ function parseResetRequestBody(
           : "",
     }))
     .catch(() => {
-      throw new Error("INVALID_JSON");
+      throw new InvalidJsonBodyError();
     });
 }
 
@@ -55,8 +62,8 @@ export const POST = createHandler(
     try {
       body = await parseResetRequestBody(req);
     } catch (error) {
-      if (error instanceof Error && error.message === "INVALID_JSON") {
-        return ApiErrors.badRequest("Body JSON tidak valid");
+      if (error instanceof InvalidJsonBodyError) {
+        return ApiErrors.badRequest(error.message);
       }
 
       return ApiErrors.internalError("Gagal membaca request");

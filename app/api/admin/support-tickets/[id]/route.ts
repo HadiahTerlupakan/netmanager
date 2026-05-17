@@ -1,6 +1,7 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { idSchema } from "@/lib/validations/common";
+import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 import { supportTicketUpdateSchema } from "@/lib/validations/support-ticket";
 import * as z from "zod";
@@ -38,7 +39,10 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
-    throw new Error(result.error || "Gagal mengambil detail tiket");
+    logger.error("[support-tickets/[id]] Get detail failed", {
+      error: result.error,
+    });
+    return ApiErrors.internalError("Gagal mengambil detail tiket");
   }
 
   return apiSuccess(result.data);
@@ -97,7 +101,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
-    throw new Error(result.error || "Gagal mengupdate tiket");
+    logger.error("[support-tickets/[id]] Update failed", {
+      error: result.error,
+    });
+    return ApiErrors.internalError("Gagal mengupdate tiket");
   }
 
   return apiSuccess(result.data, { message: "Tiket berhasil diupdate" });
@@ -134,7 +141,10 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
-    throw new Error(result.error || "Gagal menghapus tiket");
+    logger.error("[support-tickets/[id]] Delete failed", {
+      error: result.error,
+    });
+    return ApiErrors.internalError("Gagal menghapus tiket");
   }
 
   return apiSuccess(result.data, { message: "Tiket berhasil dihapus" });
