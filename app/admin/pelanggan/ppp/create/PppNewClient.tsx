@@ -4,11 +4,8 @@ import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import {
-  fetchWithHandling,
-  formatErrorMessage,
-  isFetchError,
-} from "@/lib/utils/fetch-wrapper";
+import { useApi } from "@/lib/hooks/useApi";
+import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
 import { PppClientFormActions } from "@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions";
 import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection";
 import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
@@ -224,59 +221,44 @@ export function PppClientCreateForm() {
     });
   }, [loadOrGenerateIdPelanggan, setFormData]); // Generate ID only once on mount
 
-  const loadHargaPakets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.append("status", "AKTIF");
-      if (formData.siteId) {
-        params.append("siteId", formData.siteId);
-      }
-
-      const res = await fetchWithHandling<HargaPaket[]>(
-        `/api/hargapakets?${params.toString()}`,
-      );
-      if (res.data) {
-        setHargaPakets(res.data);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading harga pakets:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
-    } finally {
-      setLoading(false);
+  const hargaPaketsUrl = (() => {
+    const params = new URLSearchParams();
+    params.append("status", "AKTIF");
+    if (formData.siteId) {
+      params.append("siteId", formData.siteId);
     }
-  }, [formData.siteId, showToast]);
+    return `/api/hargapakets?${params.toString()}`;
+  })();
 
-  const loadOdps = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (formData.siteId) {
-        params.append("siteId", formData.siteId);
-      }
-
-      const res = await fetchWithHandling<{ odps: Odp[] }>(
-        `/api/odps?${params.toString()}`,
-      );
-      if (res.data?.odps) {
-        setOdps(res.data.odps);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading ODPs:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
+  const odpsUrl = (() => {
+    const params = new URLSearchParams();
+    if (formData.siteId) {
+      params.append("siteId", formData.siteId);
     }
-  }, [formData.siteId, showToast]);
+    const qs = params.toString();
+    return qs ? `/api/odps?${qs}` : "/api/odps";
+  })();
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadHargaPakets();
-      void loadOdps();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadHargaPakets, loadOdps]);
+  const { data: hargaPaketsData, isLoading: loadingHarga } =
+    useApi<HargaPaket[]>(hargaPaketsUrl);
+  const { data: odpsData } = useApi<{ odps: Odp[] }>(odpsUrl);
+
+  const [didHydrateHarga, setDidHydrateHarga] = useState(false);
+  if (hargaPaketsData && !didHydrateHarga) {
+    setDidHydrateHarga(true);
+    setHargaPakets(hargaPaketsData);
+    setLoading(false);
+  }
+
+  if (!loadingHarga && loading && !hargaPaketsData) {
+    setLoading(false);
+  }
+
+  const [didHydrateOdps, setDidHydrateOdps] = useState(false);
+  if (odpsData?.odps && !didHydrateOdps) {
+    setDidHydrateOdps(true);
+    setOdps(odpsData.odps);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

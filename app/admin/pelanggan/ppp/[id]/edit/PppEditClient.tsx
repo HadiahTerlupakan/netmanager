@@ -5,11 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { HiArrowPath } from "react-icons/hi2";
 import { useToast } from "@/hooks/use-toast";
-import {
-  fetchWithHandling,
-  formatErrorMessage,
-  isFetchError,
-} from "@/lib/utils/fetch-wrapper";
+import { useApi } from "@/lib/hooks/useApi";
 import { PppClientFormActions } from "@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions";
 import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection";
 import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
@@ -301,49 +297,32 @@ export function PppClientEditForm() {
     }
   }, [id, setFormData, setJatuhTempoManuallyEdited, showToast]);
 
-  const loadHargaPakets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetchWithHandling<HargaPaket[]>(
-        "/api/hargapakets?status=AKTIF",
-      );
-      if (res.data) {
-        setHargaPakets(res.data);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading harga pakets:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+  const { data: hargaPaketsData } = useApi<HargaPaket[]>(
+    "/api/hargapakets?status=AKTIF",
+  );
+  const { data: odpsData } = useApi<{ odps: Odp[] }>("/api/odps");
 
-  const loadOdps = useCallback(async () => {
-    try {
-      const res = await fetchWithHandling<{ odps: Odp[] }>("/api/odps");
-      if (res.data?.odps) {
-        setOdps(res.data.odps);
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading ODPs:", err);
-      if (isFetchError(err)) {
-        showToast("error", formatErrorMessage(err));
-      }
-    }
-  }, [showToast]);
+  const [didHydrateHarga, setDidHydrateHarga] = useState(false);
+  if (hargaPaketsData && !didHydrateHarga) {
+    setDidHydrateHarga(true);
+    setHargaPakets(hargaPaketsData);
+    setLoading(false);
+  }
+
+  const [didHydrateOdps, setDidHydrateOdps] = useState(false);
+  if (odpsData?.odps && !didHydrateOdps) {
+    setDidHydrateOdps(true);
+    setOdps(odpsData.odps);
+  }
 
   useEffect(() => {
     const handle = setTimeout(() => {
       if (id) {
         void loadPelangganData();
       }
-      void loadHargaPakets();
-      void loadOdps();
     }, 0);
     return () => clearTimeout(handle);
-  }, [id, loadPelangganData, loadHargaPakets, loadOdps]);
+  }, [id, loadPelangganData]);
 
   /**
    * Menentukan apakah perubahan paket merupakan downgrade berdasarkan
