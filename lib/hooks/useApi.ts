@@ -91,11 +91,11 @@ export function useApi<T>(
   options?: UseApiOptions<T>,
 ): UseApiResult<T> {
   const queryClient = useQueryClient();
-  const enabled = key !== null;
+  const isQueryEnabled = key !== null;
   const query = useQuery<T, FetchError, T, readonly [string]>({
     queryKey: [key ?? ""] as const,
     queryFn: () => apiFetcher<T>(key!),
-    enabled,
+    enabled: isQueryEnabled,
     refetchInterval: options?.refreshInterval,
     staleTime: options?.staleTime,
     ...options?.queryOptions,
@@ -140,7 +140,7 @@ export function useApi<T>(
   return {
     data: query.data,
     error: query.error ?? null,
-    isLoading: query.isPending && enabled,
+    isLoading: query.isPending && isQueryEnabled,
     mutate,
   };
 }
