@@ -107,9 +107,46 @@ const mockUseQuery = vi.fn(() => ({
 
 const mockInvalidateQueries = vi.fn();
 
+const mockMutate = vi.fn();
+let mockMutationIsPending = false;
+
+interface MockMutationOptions {
+  mutationFn?: (variables: unknown) => Promise<unknown>;
+  onSuccess?: (data: unknown, variables: unknown, context?: unknown) => void;
+  onError?: (error: unknown, variables: unknown, context?: unknown) => void;
+  onSettled?: () => void;
+  onMutate?: (variables: unknown) => Promise<unknown> | unknown;
+}
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => mockUseQuery(),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
+    getQueryData: vi.fn(),
+    setQueryData: vi.fn(),
+  }),
+  useMutation: (options: MockMutationOptions = {}) => ({
+    mutate: vi.fn(async (variables: unknown) => {
+      mockMutate(variables);
+      try {
+        const ctx = await options.onMutate?.(variables);
+        const data = await options.mutationFn?.(variables);
+        options.onSuccess?.(data, variables, ctx);
+      } catch (error) {
+        options.onError?.(error, variables, undefined);
+      } finally {
+        options.onSettled?.();
+      }
+    }),
+    mutateAsync: mockMutate,
+    isPending: mockMutationIsPending,
+    isError: false,
+    isSuccess: false,
+    error: null as unknown,
+    data: undefined as unknown,
+    reset: vi.fn(),
+  }),
 }));
 
 vi.mock("@/lib/hooks/useApi", () => ({
@@ -199,47 +236,45 @@ describe("AttendanceClient bulk delete behavior", () => {
   });
 
   it("menonaktifkan checkbox seleksi ketika bulk delete sedang berjalan", () => {
-    let falseStateCallCount = 0;
-    mockUseState.mockImplementation((initialValue: unknown) => {
-      // isBulkDeleting adalah useState(false) ke-1 di komponen
-      if (initialValue === false) {
-        falseStateCallCount += 1;
-        if (falseStateCallCount === 1) {
-          return [true, vi.fn()];
-        }
+    // Set mutation pending state agar isBulkDeleting derived value = true
+    mockMutationIsPending = true;
+    try {
+      mockUseState.mockImplementation((initialValue: unknown) => {
+        return [initialValue, vi.fn()];
+      });
+
+      renderToStaticMarkup(<ClientComponent />);
+
+      const lastResponsiveTableCall = mockResponsiveTable.mock.calls.at(-1);
+
+      if (!lastResponsiveTableCall) {
+        throw new Error("ResponsiveTable harus dipanggil");
       }
-      return [initialValue, vi.fn()];
-    });
 
-    renderToStaticMarkup(<ClientComponent />);
+      const responsiveTableProps = lastResponsiveTableCall[0] as {
+        columns: SelectionColumn[];
+      };
 
-    const lastResponsiveTableCall = mockResponsiveTable.mock.calls.at(-1);
-
-    if (!lastResponsiveTableCall) {
-      throw new Error("ResponsiveTable harus dipanggil");
-    }
-
-    const responsiveTableProps = lastResponsiveTableCall[0] as {
-      columns: SelectionColumn[];
-    };
-
-    const selectionColumn = responsiveTableProps.columns.find(
-      (column) => column.key === "selection",
-    );
-
-    if (!selectionColumn) {
-      throw new Error(
-        "selection column harus ada untuk user dengan permission delete",
+      const selectionColumn = responsiveTableProps.columns.find(
+        (column) => column.key === "selection",
       );
+
+      if (!selectionColumn) {
+        throw new Error(
+          "selection column harus ada untuk user dengan permission delete",
+        );
+      }
+
+      const rowCheckbox = selectionColumn.render({
+        id: "att-1",
+        user: { name: "User", email: "user@example.com" },
+      });
+
+      expect(selectionColumn.header.props.disabled).toBe(true);
+      expect(rowCheckbox.props.disabled).toBe(true);
+    } finally {
+      mockMutationIsPending = false;
     }
-
-    const rowCheckbox = selectionColumn.render({
-      id: "att-1",
-      user: { name: "User", email: "user@example.com" },
-    });
-
-    expect(selectionColumn.header.props.disabled).toBe(true);
-    expect(rowCheckbox.props.disabled).toBe(true);
   });
 
   it("mengabaikan page size invalid agar tidak menyimpan NaN", () => {
@@ -333,6 +368,10 @@ describe("AttendanceClient bulk delete behavior", () => {
     };
 
     await bulkDeleteButtonProps.onClick();
+    // Wait microtask + macrotask drain agar useMutation onSuccess
+    // chain (mutationFn → onSuccess → onSettled) settle
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockShowToast).toHaveBeenCalledWith(
       "success",

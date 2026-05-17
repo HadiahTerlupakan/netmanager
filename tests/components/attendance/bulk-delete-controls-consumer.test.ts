@@ -13,8 +13,11 @@ describe("AttendanceClient bulk delete controls consumer", () => {
     expect(content).toContain(
       "const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>(",
     );
+    // isBulkDeleting sekarang derived dari TanStack mutation isPending
+    // (bukan useState lagi). Pastikan binding tetap ada agar UI checkbox
+    // bisa di-disable saat mutation in-flight.
     expect(content).toContain(
-      "const [isBulkDeleting, setIsBulkDeleting] = useState(false)",
+      "const isBulkDeleting = bulkDeleteMutation.isPending",
     );
     expect(content).toContain("limit: pageSize.toString()");
     expect(content).toContain("itemsPerPage={pageSize}");
@@ -33,9 +36,7 @@ describe("AttendanceClient bulk delete controls consumer", () => {
     expect(content).toContain("Hapus Terpilih");
     expect(content).toContain("disabled={isBulkDeleting}");
     expect(content).toContain('method: "DELETE"');
-    expect(content).toContain(
-      "body: JSON.stringify({ ids: selectedAttendanceIds })",
-    );
+    expect(content).toContain("body: JSON.stringify({ ids })");
     expect(content).toContain("toggleCurrentPageAttendanceSelection");
     expect(content).toContain("areAllAttendanceIdsSelected");
   });

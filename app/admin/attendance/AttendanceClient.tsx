@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { FaSearch, FaFileExport, FaBuilding } from "react-icons/fa";
 import {
   MdDelete,
@@ -77,7 +77,6 @@ export function ClientComponent() {
   const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>(
     [],
   );
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
   // Filters
@@ -245,8 +244,84 @@ export function ClientComponent() {
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedAttendanceIds.length === 0 || isBulkDeleting) return;
+  /**
+   * Bulk delete attendance dengan optimistic update.
+   *
+   * UX: row terpilih langsung hilang sebelum server confirm. Bila gagal,
+   * rollback otomatis. Toast menampilkan ringkasan deleted/skipped dari
+   * response (server source of truth).
+   */
+  const bulkDeleteMutation = useMutation<
+    { deletedCount: number; skippedCount: number },
+    FetchError,
+    string[],
+    { previous: ApiResponse<Attendance[]> | undefined }
+  >({
+    mutationFn: async (ids) => {
+      const response = await fetchWithHandling<{
+        requestedCount: number;
+        deletedCount: number;
+        deletedIds: string[];
+        skippedCount: number;
+      }>("/api/admin/attendance", {
+        method: "DELETE",
+        body: JSON.stringify({ ids }),
+      });
+      return {
+        deletedCount: response.data?.deletedCount || 0,
+        skippedCount: response.data?.skippedCount || 0,
+      };
+    },
+    onMutate: async (ids) => {
+      const queryKey = ["attendances", attendancesUrl] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previous =
+        queryClient.getQueryData<ApiResponse<Attendance[]>>(queryKey);
+      // Optimistic: hapus row terpilih dari cache
+      queryClient.setQueryData<ApiResponse<Attendance[]>>(queryKey, (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          data: (prev.data ?? []).filter((a) => !ids.includes(a.id)),
+        };
+      });
+      return { previous };
+    },
+    onError: (error, _ids, context) => {
+      // Rollback ke state sebelum mutation
+      if (context?.previous) {
+        queryClient.setQueryData(
+          ["attendances", attendancesUrl],
+          context.previous,
+        );
+      }
+      if (isFetchError(error)) {
+        if (error.retryAfter) {
+          setRetryCountdown(error.retryAfter);
+        }
+        showToast("error", formatErrorMessage(error));
+      }
+    },
+    onSuccess: ({ deletedCount, skippedCount }) => {
+      showToast(
+        "success",
+        skippedCount > 0
+          ? `${deletedCount} data absensi dihapus, ${skippedCount} data dilewati`
+          : `${deletedCount} data absensi berhasil dihapus`,
+      );
+      setSelectedAttendanceIds([]);
+    },
+    onSettled: () => {
+      // Re-fetch agar cache sinkron dengan source of truth (untuk skipped count)
+      void queryClient.invalidateQueries({
+        queryKey: ["attendances", attendancesUrl],
+      });
+    },
+  });
+
+  const handleBulkDelete = () => {
+    if (selectedAttendanceIds.length === 0 || bulkDeleteMutation.isPending)
+      return;
 
     if (
       !window.confirm(
@@ -256,40 +331,10 @@ export function ClientComponent() {
       return;
     }
 
-    setIsBulkDeleting(true);
-    try {
-      const response = await fetchWithHandling<{
-        requestedCount: number;
-        deletedCount: number;
-        deletedIds: string[];
-        skippedCount: number;
-      }>("/api/admin/attendance", {
-        method: "DELETE",
-        body: JSON.stringify({ ids: selectedAttendanceIds }),
-      });
-
-      const deletedCount = response.data?.deletedCount || 0;
-      const skippedCount = response.data?.skippedCount || 0;
-
-      showToast(
-        "success",
-        skippedCount > 0
-          ? `${deletedCount} data absensi dihapus, ${skippedCount} data dilewati`
-          : `${deletedCount} data absensi berhasil dihapus`,
-      );
-      setSelectedAttendanceIds([]);
-      fetchAttendances();
-    } catch (error) {
-      if (isFetchError(error)) {
-        if (error.retryAfter) {
-          setRetryCountdown(error.retryAfter);
-        }
-        showToast("error", formatErrorMessage(error));
-      }
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    bulkDeleteMutation.mutate(selectedAttendanceIds);
   };
+
+  const isBulkDeleting = bulkDeleteMutation.isPending;
 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedCorrectionAttendance, setSelectedCorrectionAttendance] =
