@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   fetchWithHandling,
   isFetchError,
@@ -141,10 +142,12 @@ export function ClientComponent() {
   const debouncedDepartmentId = useDebounce(departmentId, 300);
 
   // Options
-  const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
-  const [departments, setDepartments] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const { data: optionsData, mutate: mutateOptions } = useApi<{
+    sites?: { id: string; name: string }[];
+    departments?: { id: string; name: string }[];
+  }>("/api/admin/options?resource=attendance");
+  const sites = optionsData?.sites ?? [];
+  const departments = optionsData?.departments ?? [];
 
   // Tab & Search for Rekap Karyawan
   const [activeTab, setActiveTab] = useState<"dashboard" | "rekap">(
@@ -203,21 +206,8 @@ export function ClientComponent() {
   }
 
   const fetchOptionsCallback = useCallback(async () => {
-    try {
-      const response = await fetchWithHandling<{
-        sites: { id: string; name: string }[];
-        departments: { id: string; name: string }[];
-      }>("/api/admin/options?resource=attendance");
-      if (response.data) {
-        setSites(response.data.sites || []);
-        setDepartments(response.data.departments || []);
-      }
-    } catch (error) {
-      if (isFetchError(error)) {
-        showToast("error", formatErrorMessage(error));
-      }
-    }
-  }, [showToast]);
+    await mutateOptions();
+  }, [mutateOptions]);
 
   const fetchReport = useCallback(
     async (signal?: AbortSignal) => {

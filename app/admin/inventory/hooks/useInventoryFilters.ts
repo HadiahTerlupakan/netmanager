@@ -1,8 +1,8 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect } from "react";
-import { getWithAuth } from "@/lib/api-client";
+import { useEffect, useState } from "react";
+import { useApi } from "@/lib/hooks/useApi";
 
 export interface Site {
   id: string;
@@ -37,6 +37,14 @@ interface UseInventoryFiltersReturn {
   isLoading: boolean;
 }
 
+interface SitesResponse {
+  data?: Site[];
+}
+
+interface GudangResponse {
+  gudangs?: Gudang[];
+}
+
 /** Fetches sites and gudangs for inventory filter dropdowns */
 export function useInventoryFilters(): UseInventoryFiltersReturn {
   const [filters, setFilters] = useState<InventoryFilters>({
@@ -46,35 +54,33 @@ export function useInventoryFilters(): UseInventoryFiltersReturn {
     siteId: "",
     gudangId: "",
   });
-  const [sites, setSites] = useState<Site[]>([]);
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const {
+    data: siteData,
+    isLoading: loadingSites,
+    error: sitesError,
+  } = useApi<Site[] | SitesResponse>("/api/admin/sites");
+  const sites: Site[] = Array.isArray(siteData)
+    ? siteData
+    : (siteData?.data ?? []);
+
+  const {
+    data: gudangData,
+    isLoading: loadingGudangs,
+    error: gudangsError,
+  } = useApi<GudangResponse>("/api/inventory/gudang?view=all");
+  const gudangs: Gudang[] = gudangData?.gudangs ?? [];
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Sites
-        const siteRes = await getWithAuth("/api/admin/sites");
-        if (siteRes.ok) {
-          const data = await siteRes.json();
-          setSites(data.data || []);
-        }
+    if (sitesError || gudangsError) {
+      clientLogger.error("Failed to fetch filter data", {
+        sitesError,
+        gudangsError,
+      });
+    }
+  }, [sitesError, gudangsError]);
 
-        // Fetch Gudangs
-        const gudangRes = await getWithAuth("/api/inventory/gudang?view=all");
-        if (gudangRes.ok) {
-          const data = await gudangRes.json();
-          const result = data.data || data;
-          setGudangs(result.gudangs || []);
-        }
-      } catch (err: unknown) {
-        clientLogger.error("Failed to fetch filter data", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const isLoading = loadingSites || loadingGudangs;
 
   const setFilter = <K extends keyof InventoryFilters>(
     key: K,
