@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
 } from "react-icons/hi2";
 import { PhotoUpload, type UploadedPhoto } from "./PhotoUpload";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface BarangStock {
   gudangId: string;
@@ -35,6 +36,11 @@ interface Gudang {
   nama: string;
 }
 
+interface StockByConditionResponse {
+  totalStock?: number;
+  stockPerKondisi?: { BARU: number; BEKAS: number; RUSAK: number };
+}
+
 export default function AmbilBarangForm() {
   const _router = useRouter();
   const [formData, setFormData] = useState({
@@ -44,19 +50,37 @@ export default function AmbilBarangForm() {
     kondisi: "BARU" as "BARU" | "BEKAS" | "RUSAK",
     purpose: "", // Employee-specific field untuk keperluan
   });
-  const [barangs, setBarangs] = useState<Barang[]>([]);
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
-  const [currentStock, setCurrentStock] = useState(0);
-  const [stockPerKondisi, setStockPerKondisi] = useState({
-    BARU: 0,
-    BEKAS: 0,
-    RUSAK: 0,
-  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [transactionId] = useState<string>(() => "temp-" + Date.now());
+
+  const {
+    data: barangData,
+    error: barangError,
+    mutate: mutateBarang,
+  } = useApi<{
+    barangs?: Barang[];
+  }>("/api/inventory/barang?limit=100");
+  const { data: gudangData, error: gudangError } = useApi<{
+    gudangs?: Gudang[];
+  }>("/api/inventory/gudang");
+  const barangs = barangData?.barangs ?? [];
+  const gudangs = gudangData?.gudangs ?? [];
+
+  useEffect(() => {
+    if (barangError || gudangError) {
+      clientLogger.error("Error fetching initial data:", {
+        barangError,
+        gudangError,
+      });
+    }
+  }, [barangError, gudangError]);
+
+  const initialError =
+    barangError || gudangError ? "Gagal memuat data awal" : null;
+  const displayError = error || initialError || "";
 
   // Check for URL params (from items page)
   useEffect(() => {
@@ -70,67 +94,23 @@ export default function AmbilBarangForm() {
     }
   }, []);
 
-  const fetchStockByCondition = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`,
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentStock(data.totalStock || 0);
-        setStockPerKondisi(
-          data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 },
-        );
-      }
-    } catch (error) {
-      clientLogger.error("Error fetching stock by condition:", error);
-      // Fallback to basic stock info
-      const selectedBarang = barangs.find((b) => b.id === formData.barangId);
-      if (selectedBarang) {
-        const stockInfo = selectedBarang.stockPerGudang?.find(
-          (s: BarangStock) => s.gudangId === formData.gudangId,
-        );
-        setCurrentStock(stockInfo?.stok || 0);
-      }
-    }
-  }, [formData.barangId, formData.gudangId, barangs]);
+  const stockUrl =
+    formData.barangId && formData.gudangId
+      ? `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`
+      : null;
+  const { data: stockData } = useApi<StockByConditionResponse>(stockUrl);
 
-  useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        // Fetch barang dengan stock info
-        const barangResponse = await fetch("/api/inventory/barang?limit=100");
-        const barangData = await barangResponse.json();
-        setBarangs(barangData.barangs || []);
-
-        // Fetch gudang
-        const gudangResponse = await fetch("/api/inventory/gudang");
-        const gudangData = await gudangResponse.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const gudangResult = gudangData.data || gudangData;
-        setGudangs(gudangResult.gudangs || []);
-      } catch (error) {
-        clientLogger.error("Error fetching initial data:", error);
-        setError("Gagal memuat data awal");
-      }
-    }
-
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (formData.barangId && formData.gudangId) {
-      // Fetch stock by condition from API
-      queueMicrotask(() => {
-        void fetchStockByCondition();
-      });
-    } else {
-      queueMicrotask(() => {
-        setCurrentStock(0);
-        setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 });
-      });
-    }
-  }, [formData.barangId, formData.gudangId, fetchStockByCondition]);
+  const selectedBarang = barangs.find((b) => b.id === formData.barangId);
+  const fallbackStock =
+    selectedBarang?.stockPerGudang?.find(
+      (s) => s.gudangId === formData.gudangId,
+    )?.stok ?? 0;
+  const currentStock = stockData?.totalStock ?? fallbackStock;
+  const stockPerKondisi = stockData?.stockPerKondisi ?? {
+    BARU: 0,
+    BEKAS: 0,
+    RUSAK: 0,
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -279,12 +259,9 @@ export default function AmbilBarangForm() {
       purpose: "",
     });
     setPhotos([]);
-    setCurrentStock(0);
 
     // Refresh barang data untuk update stock
-    fetch("/api/inventory/barang?limit=100")
-      .then((res) => res.json())
-      .then((data) => setBarangs(data.barangs || []));
+    void mutateBarang();
 
     // Clear success message after 2 seconds
     setTimeout(() => {
@@ -292,7 +269,6 @@ export default function AmbilBarangForm() {
     }, 2000);
   };
 
-  const selectedBarang = barangs.find((b) => b.id === formData.barangId);
   const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
 
   return (
@@ -327,10 +303,12 @@ export default function AmbilBarangForm() {
       {/* Form */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
+          {displayError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
               <HiOutlineXMark className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-800 dark:text-red-200">
+                {displayError}
+              </p>
             </div>
           )}
 

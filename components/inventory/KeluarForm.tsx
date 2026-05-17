@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   FiCheckCircle,
   FiAlertTriangle,
@@ -11,6 +11,23 @@ import {
 import { PhotoUpload } from "./PhotoUpload";
 import type { PhotoUploadRef } from "./PhotoUpload";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface Barang {
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+  stockPerGudang?: Array<{ gudangId: string; stok: number }>;
+}
+
+interface GudangOption {
+  id: string;
+  kode: string;
+  nama: string;
+  lokasi?: string;
+}
+
 import {
   getStockStatusColor,
   getKondisiColor,
@@ -33,28 +50,18 @@ interface KeluarFormProps {
 }
 
 export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
-  const [formData, setFormData] = useState({
-    barangId: "",
-    gudangId: "",
-    jumlah: "",
-    kondisi: "BARU" as "BARU" | "BEKAS" | "RUSAK",
-    isHilang: false, // Checkbox for lost items
-    tujuanPenggunaan: "",
-    keterangan: "",
-    tanggal: new Date().toISOString().split("T")[0],
-  });
-  const [barangs, setBarangs] = useState<
-    {
-      id: string;
-      kode: string;
-      nama: string;
-      satuan: string;
-      stockPerGudang?: Array<{ gudangId: string; stok: number }>;
-    }[]
-  >([]);
-  const [gudangs, setGudangs] = useState<
-    { id: string; kode: string; nama: string; lokasi?: string }[]
-  >([]);
+  const [formData, setFormData] = useState(() => ({
+    barangId: initialData?.barangId || "",
+    gudangId: initialData?.gudangId || "",
+    jumlah: initialData?.jumlah?.toString() || "",
+    kondisi: (initialData?.kondisi || "BARU") as "BARU" | "BEKAS" | "RUSAK",
+    isHilang: initialData?.isHilang || false, // Checkbox for lost items
+    tujuanPenggunaan: initialData?.tujuanPenggunaan || "",
+    keterangan: initialData?.keterangan || "",
+    tanggal: initialData?.tanggal
+      ? new Date(initialData.tanggal).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
+  }));
   const [stockByCondition, setStockByCondition] = useState({
     BARU: 0,
     BEKAS: 0,
@@ -67,9 +74,36 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
   const [uploadedPhotos, setUploadedPhotos] = useState<
     { status: string; error?: string }[]
   >([]);
-  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState<string | null>(
+    initialData?.id ?? null,
+  );
   const photoUploadRef = useRef<PhotoUploadRef>(null);
   const [tempId] = useState<string>(() => `temp-${Date.now()}`);
+
+  const { data: barangData, error: barangError } = useApi<{
+    barangs?: Barang[];
+  }>("/api/inventory/barang?limit=100");
+  const { data: gudangData, error: gudangError } = useApi<{
+    gudangs?: GudangOption[];
+  }>("/api/inventory/gudang");
+  const barangs: Barang[] = useMemo(
+    () => barangData?.barangs ?? [],
+    [barangData?.barangs],
+  );
+  const gudangs: GudangOption[] = gudangData?.gudangs ?? [];
+
+  useEffect(() => {
+    if (barangError || gudangError) {
+      clientLogger.error("Error fetching initial data:", {
+        barangError,
+        gudangError,
+      });
+    }
+  }, [barangError, gudangError]);
+
+  const initialError =
+    barangError || gudangError ? "Gagal memuat data awal" : null;
+  const displayError = error || initialError || "";
 
   /** Get available stock for the currently selected kondisi */
   const getStockForKondisi = useCallback(
@@ -78,46 +112,6 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
       stockByCondition.BARU,
     [formData.kondisi, stockByCondition],
   );
-
-  useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        // Fetch barang
-        const barangResponse = await fetch("/api/inventory/barang?limit=100");
-        const barangData = await barangResponse.json();
-        const barangResult = barangData.data || barangData;
-        setBarangs(barangResult.barangs || []);
-
-        // Fetch gudang
-        const gudangResponse = await fetch("/api/inventory/gudang");
-        const gudangData = await gudangResponse.json();
-        const gudangResult = gudangData.data || gudangData;
-        setGudangs(gudangResult.gudangs || []);
-
-        // If in edit mode, populate form with initial data
-        if (initialData) {
-          setFormData({
-            barangId: initialData.barangId || "",
-            gudangId: initialData.gudangId || "",
-            jumlah: initialData.jumlah?.toString() || "",
-            kondisi: initialData.kondisi || "BARU",
-            isHilang: initialData.isHilang || false,
-            tujuanPenggunaan: initialData.tujuanPenggunaan || "",
-            keterangan: initialData.keterangan || "",
-            tanggal: initialData.tanggal
-              ? new Date(initialData.tanggal).toISOString().split("T")[0]
-              : new Date().toISOString().split("T")[0],
-          });
-          setTransactionId(initialData.id || null);
-        }
-      } catch (error) {
-        clientLogger.error("Error fetching initial data:", error);
-        setError("Gagal memuat data awal");
-      }
-    }
-
-    fetchInitialData();
-  }, [initialData]);
 
   useEffect(() => {
     async function fetchCurrentStock() {
@@ -405,9 +399,9 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         )}
       </div>
 
-      {error && (
+      {displayError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {displayError}
         </div>
       )}
 

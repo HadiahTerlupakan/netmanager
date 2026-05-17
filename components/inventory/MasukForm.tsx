@@ -10,6 +10,14 @@ import {
   getKondisiColor,
 } from "@/lib/utils/inventory-helpers";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface GudangOption {
+  id: string;
+  kode: string;
+  nama: string;
+  lokasi?: string;
+}
 
 interface MasukFormProps {
   initialData?: {
@@ -51,17 +59,14 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       stockPerGudang?: Array<{ gudangId: string; stok: number }>;
     }[]
   >([]);
-  const [gudangs, setGudangs] = useState<
-    {
-      id: string;
-      kode: string;
-      nama: string;
-      lokasi?: string;
-    }[]
-  >([]);
   const [currentStock, setCurrentStock] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+
+  const { data: gudangData } = useApi<{ gudangs?: GudangOption[] }>(
+    "/api/inventory/gudang",
+  );
+  const gudangs: GudangOption[] = gudangData?.gudangs ?? [];
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [uploadedPhotos, setUploadedPhotos] = useState<
@@ -107,13 +112,6 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       try {
         // Fetch initial barang list
         await fetchBarangs();
-
-        // Fetch gudang
-        const gudangResponse = await fetch("/api/inventory/gudang");
-        const gudangData = await gudangResponse.json();
-        // Standardized apiSuccess: { success: true, data: { gudangs } }
-        const gudangResult = gudangData.data || gudangData;
-        setGudangs(gudangResult.gudangs || []);
 
         // If in edit mode, populate form with initial data
         if (initialData) {

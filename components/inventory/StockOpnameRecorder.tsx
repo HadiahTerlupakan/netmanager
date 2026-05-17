@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface StockOpnameRecorderProps {
   onClose?: () => void;
@@ -67,7 +68,6 @@ export function StockOpnameRecorder({
   onSuccess,
 }: StockOpnameRecorderProps) {
   const [gudangId, setGudangId] = useState("");
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
   const [calculatedData, setCalculatedData] = useState<CalculatedOpnameData[]>(
     [],
   );
@@ -78,22 +78,19 @@ export function StockOpnameRecorder({
   const [success, setSuccess] = useState("");
   const router = useRouter();
 
-  useEffect(() => {
-    async function fetchGudangs() {
-      try {
-        const response = await fetch("/api/inventory/gudang?view=all");
-        const data = await response.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        setGudangs(result.gudangs || []);
-      } catch (error) {
-        clientLogger.error("Error fetching gudangs:", error);
-        setError("Gagal memuat data gudang");
-      }
-    }
+  const { data: gudangData, error: gudangError } = useApi<{
+    gudangs?: Gudang[];
+  }>("/api/inventory/gudang?view=all");
+  const gudangs = gudangData?.gudangs ?? [];
 
-    fetchGudangs();
-  }, []);
+  useEffect(() => {
+    if (gudangError) {
+      clientLogger.error("Error fetching gudangs:", gudangError);
+    }
+  }, [gudangError]);
+
+  const initialError = gudangError ? "Gagal memuat data gudang" : null;
+  const displayError = error || initialError || "";
 
   const fetchCalculatedData = useCallback(async () => {
     setFetching(true);
@@ -248,10 +245,10 @@ export function StockOpnameRecorder({
   return (
     <div className="space-y-6">
       <form onSubmit={handleRecordOpname} className="space-y-6">
-        {error && (
+        {displayError && (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400 flex items-start">
             <FiAlertTriangle className="mt-0.5 mr-2 shrink-0" />
-            <div>{error}</div>
+            <div>{displayError}</div>
           </div>
         )}
 

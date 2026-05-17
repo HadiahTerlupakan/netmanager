@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
 
 interface EnhancedOpnameFormProps {
   onClose?: () => void;
@@ -57,7 +58,6 @@ export function EnhancedOpnameForm({
   defaultGudangId,
 }: EnhancedOpnameFormProps) {
   const [gudangId, setGudangId] = useState(defaultGudangId || "");
-  const [gudangs, setGudangs] = useState<GudangItem[]>([]);
   const [barangList, setBarangList] = useState<BarangItem[]>([]);
   const [opnameData, setOpnameData] = useState<{ [key: string]: OpnameData }>(
     {},
@@ -68,22 +68,19 @@ export function EnhancedOpnameForm({
   const [success, setSuccess] = useState("");
   const router = useRouter();
 
-  useEffect(() => {
-    async function fetchGudangs() {
-      try {
-        const response = await fetch("/api/inventory/gudang");
-        const data = await response.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        setGudangs(result.gudangs || []);
-      } catch (error) {
-        clientLogger.error("Error fetching gudangs:", error);
-        setError("Gagal memuat data gudang");
-      }
-    }
+  const { data: gudangData, error: gudangError } = useApi<{
+    gudangs?: GudangItem[];
+  }>("/api/inventory/gudang");
+  const gudangs: GudangItem[] = gudangData?.gudangs ?? [];
 
-    fetchGudangs();
-  }, []);
+  useEffect(() => {
+    if (gudangError) {
+      clientLogger.error("Error fetching gudangs:", gudangError);
+    }
+  }, [gudangError]);
+
+  const initialError = gudangError ? "Gagal memuat data gudang" : null;
+  const displayError = error || initialError || "";
 
   useEffect(() => {
     async function fetchBarangList() {
@@ -393,10 +390,10 @@ export function EnhancedOpnameForm({
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
+        {displayError && (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400 flex items-start">
             <FiAlertCircle className="mt-0.5 mr-2 shrink-0" />
-            <div>{error}</div>
+            <div>{displayError}</div>
           </div>
         )}
 
