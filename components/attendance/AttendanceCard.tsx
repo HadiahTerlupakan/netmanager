@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import {
@@ -14,10 +14,22 @@ import { AttendanceStatusIndicator } from "./AttendanceStatusIndicator";
 import { GeofenceStatusBadge } from "./GeofenceStatusBadge";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import { useApi } from "@/lib/hooks/useApi";
+
+interface AttendanceUser {
+  workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE";
+  flexibleTargetHour?: number;
+}
+
+interface AttendanceRecord {
+  checkIn: string;
+  checkOut?: string;
+  status?: "ON_TIME" | "LATE";
+  user?: AttendanceUser;
+}
 
 export default function AttendanceCard() {
   const [loading, setLoading] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(true);
   const [status, setStatus] = useState<"idle" | "checked-in" | "checked-out">(
     "idle",
   );
@@ -43,27 +55,36 @@ export default function AttendanceCard() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/attendance/history?limit=1");
-      const data = await res.json();
+  const {
+    data: history,
+    isLoading: checkingStatus,
+    error: historyError,
+    mutate: refetchStatus,
+  } = useApi<AttendanceRecord[]>("/api/attendance/history?limit=1");
 
-      if (data.success && data.data.length > 0) {
-        const lastAttendance = data.data[0];
+  useEffect(() => {
+    if (historyError) {
+      clientLogger.error("Failed to fetch attendance status", historyError);
+      toast.error("Gagal memuat status absensi");
+    }
+  }, [historyError]);
+
+  const [hasHydrated, setHasHydrated] = useState(false);
+  if (history !== undefined && !hasHydrated) {
+    setHasHydrated(true);
+    if (history.length > 0) {
+      const lastAttendance = history[0];
+      if (lastAttendance) {
         const today = new Date().toDateString();
         const attendanceDate = new Date(lastAttendance.checkIn).toDateString();
-
         if (today === attendanceDate) {
           setCheckInTime(new Date(lastAttendance.checkIn).toLocaleTimeString());
           setCheckInDate(new Date(lastAttendance.checkIn));
           setAttendanceStatus(lastAttendance.status || "ON_TIME");
-
-          // Set working hour mode and target hours from user data if available
           if (lastAttendance.user) {
             setWorkingHourMode(lastAttendance.user.workingHourMode || "FIXED");
             setTargetHours(lastAttendance.user.flexibleTargetHour || 8);
           }
-
           if (lastAttendance.checkOut) {
             setStatus("checked-out");
             setCheckOutTime(
@@ -76,23 +97,13 @@ export default function AttendanceCard() {
         } else {
           setStatus("idle");
         }
-      } else {
-        setStatus("idle");
       }
-    } catch (error) {
-      clientLogger.error("Failed to fetch attendance status", error);
-      toast.error("Gagal memuat status absensi");
-    } finally {
-      setCheckingStatus(false);
+    } else {
+      setStatus("idle");
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchStatus();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchStatus]);
+  const fetchStatus = () => refetchStatus();
 
   const startCamera = async () => {
     setShowCamera(true);

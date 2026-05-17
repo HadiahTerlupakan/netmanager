@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   HiOutlineMapPin,
   HiOutlineUsers,
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
+import { useApi } from "@/lib/hooks/useApi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 
@@ -59,80 +60,70 @@ function getBatteryPercentage(batteryLevel: number): number {
 
 export default function LiveMapClient() {
   const { isConnected } = useRealtime();
-  const [locations, setLocations] = useState<EmployeeLocation[]>([]);
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"map" | "cards">("map"); // Default to map view
 
-  const fetchLocations = useCallback(async () => {
-    try {
-      // Only set loading on initial load or manual refresh, not background refresh
-      if (!locations?.length) setLoading(true);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+    mutate,
+  } = useApi<{ locations?: EmployeeLocation[]; tenantId?: string | null }>(
+    "/api/admin/location/live",
+  );
+  const locations = data?.locations ?? [];
+  const tenantId = data?.tenantId ?? null;
+  const error = fetchError
+    ? fetchError.message || "Gagal mengambil lokasi"
+    : null;
 
-      const res = await fetch("/api/admin/location/live");
-      const data = await res.json();
-
-      if (data.success) {
-        clientLogger.info("[LiveMapClient] API Response:", data);
-        setLocations(data.data.locations || []);
-        setTenantId(data.data.tenantId || null);
-        setLastUpdated(new Date());
-        setError(null);
-      } else {
-        setError(data.error || "Gagal mengambil lokasi");
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal mengambil lokasi");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (data) {
+      clientLogger.info("[LiveMapClient] API Response:", data);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLastUpdated(new Date());
     }
-  }, [locations]); // depend on full locations to satisfy React compiler
+  }, [data]);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
-    void fetchLocations();
-  }
+  const fetchLocations = () => mutate();
 
   useRealtimeScope(
     tenantId ? { kind: "admin", id: `location:${tenantId}` } : null,
   );
 
   const handleLocationUpdate = useCallback(
-    (data: EmployeeLocation) => {
-      setLocations((prev) => {
-        const index = prev.findIndex((p) => p.userId === data.userId);
-
-        if (index === -1) {
-          setTimeout(() => fetchLocations(), 0);
-          return prev;
-        }
-
-        const newLocations = [...prev];
-        const existingLocation = newLocations[index];
-
-        if (existingLocation) {
-          newLocations[index] = {
-            ...existingLocation,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            heading: data.heading,
-            isMoving: data.isMoving,
-            batteryLevel: data.batteryLevel,
-            recordedAt: data.recordedAt,
-            accuracy: data.accuracy,
-            speed: data.speed,
-          };
-        }
-
-        return newLocations;
-      });
+    (incoming: EmployeeLocation) => {
+      void mutate(
+        (prev) => {
+          const prevList = prev?.locations ?? [];
+          const index = prevList.findIndex((p) => p.userId === incoming.userId);
+          if (index === -1) {
+            setTimeout(() => void mutate(), 0);
+            return prev;
+          }
+          const newLocations = [...prevList];
+          const existingLocation = newLocations[index];
+          if (existingLocation) {
+            newLocations[index] = {
+              ...existingLocation,
+              latitude: incoming.latitude,
+              longitude: incoming.longitude,
+              heading: incoming.heading,
+              isMoving: incoming.isMoving,
+              batteryLevel: incoming.batteryLevel,
+              recordedAt: incoming.recordedAt,
+              accuracy: incoming.accuracy,
+              speed: incoming.speed,
+            };
+          }
+          return prev ? { ...prev, locations: newLocations } : prev;
+        },
+        { revalidate: false },
+      );
       setLastUpdated(new Date());
     },
-    [fetchLocations],
+    [mutate],
   );
 
   useRealtimeEvent<EmployeeLocation>(
@@ -147,11 +138,11 @@ export default function LiveMapClient() {
 
     // If disconnected, poll every 15 seconds
     const intervalId = setInterval(() => {
-      fetchLocations();
+      void mutate();
     }, 15000);
 
     return () => clearInterval(intervalId);
-  }, [isConnected, fetchLocations]);
+  }, [isConnected, mutate]);
 
   // Filter locations by search
   const safeLocations = Array.isArray(locations) ? locations : [];

@@ -16,6 +16,7 @@ import {
 } from "react-icons/md";
 import SearchableDropdown from "@/components/common/SearchableDropdown";
 import { Button } from "@/components/ui/Button";
+import { useApi } from "@/lib/hooks/useApi";
 
 // Extend window interface for Turnstile
 declare global {
@@ -34,6 +35,11 @@ declare global {
   }
 }
 
+interface CaptchaSettings {
+  enabled?: boolean;
+  siteKey?: string;
+}
+
 export default function RegistrationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -46,25 +52,33 @@ export default function RegistrationPage() {
     packageName: "",
     notes: "",
   });
-  const [existingLocations, setExistingLocations] = useState<string[]>([]);
 
   // Captcha State
-  const [captchaEnabled, setCaptchaEnabled] = useState(false);
-  const [siteKey, setSiteKey] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
 
-  const fetchLocations = useCallback(async () => {
-    try {
-      const res = await fetch("/api/odcs/locations");
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setExistingLocations(data);
-      }
-    } catch (_e) {
-      clientLogger.error("Failed to fetch locations", _e);
+  const { data: locationsData, error: locationsError } = useApi<string[]>(
+    "/api/odcs/locations",
+  );
+  const existingLocations = Array.isArray(locationsData) ? locationsData : [];
+
+  const { data: captchaData, error: captchaError } = useApi<CaptchaSettings>(
+    "/api/public/captcha-settings",
+  );
+  const captchaEnabled = !!captchaData?.enabled && !!captchaData?.siteKey;
+  const siteKey = captchaData?.siteKey ?? "";
+
+  useEffect(() => {
+    if (locationsError) {
+      clientLogger.error("Failed to fetch locations", locationsError);
     }
-  }, []);
+  }, [locationsError]);
+
+  useEffect(() => {
+    if (captchaError) {
+      clientLogger.error("Failed to fetch captcha settings", captchaError);
+    }
+  }, [captchaError]);
 
   const loadTurnstileScript = useCallback(() => {
     if (document.getElementById("turnstile-script")) return;
@@ -86,30 +100,11 @@ export default function RegistrationPage() {
     };
   }, [siteKey]);
 
-  const fetchCaptchaSettingsLocal = useCallback(async () => {
-    try {
-      // Use public endpoint (no auth required)
-      const res = await fetch("/api/public/captcha-settings");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.enabled && data.siteKey) {
-          setCaptchaEnabled(true);
-          setSiteKey(data.siteKey);
-          loadTurnstileScript();
-        }
-      }
-    } catch (_e) {
-      clientLogger.error("Failed to fetch captcha settings", _e);
-    }
-  }, [loadTurnstileScript]);
-
   useEffect(() => {
-    const init = async () => {
-      await fetchLocations();
-      await fetchCaptchaSettingsLocal();
-    };
-    init();
-  }, [fetchLocations, fetchCaptchaSettingsLocal]);
+    if (captchaEnabled) {
+      loadTurnstileScript();
+    }
+  }, [captchaEnabled, loadTurnstileScript]);
 
   // Effect to render turnstile when siteKey is available and script is loaded
   useEffect(() => {

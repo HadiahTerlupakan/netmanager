@@ -2,10 +2,11 @@
 
 import { clientLogger } from "@/lib/client-logger";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
+import { useApi } from "@/lib/hooks/useApi";
 
 export type BankAccount = {
   id?: string;
@@ -144,7 +145,6 @@ export type UseGeneralSettingsResult = {
 
 export function useGeneralSettings(): UseGeneralSettingsResult {
   const { data: session } = useSession();
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -157,6 +157,30 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
   const [backfillError, setBackfillError] = useState<string | null>(null);
 
   const isUserSuperAdmin = isSuperAdmin(session?.user);
+
+  const {
+    data: settingsResponse,
+    isLoading: loading,
+    error: fetchError,
+    mutate: refetchSettings,
+  } = useApi<Partial<GeneralSettings>>("/api/settings/general");
+
+  const [didHydrate, setDidHydrate] = useState(false);
+  if (settingsResponse && !didHydrate) {
+    setDidHydrate(true);
+    setSettings(mapGeneralSettingsResponse(settingsResponse));
+  }
+
+  useEffect(() => {
+    if (fetchError) {
+      clientLogger.error("Error loading settings:", fetchError);
+    }
+  }, [fetchError]);
+
+  const fetchErrorMessage = fetchError
+    ? fetchError.message || "Terjadi kesalahan saat memuat pengaturan"
+    : null;
+  const displayError = error ?? fetchErrorMessage;
 
   useEffect(() => {
     const updateTime = () => {
@@ -183,37 +207,12 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
     return () => clearInterval(interval);
   }, [settings.timezone]);
 
-  const loadSettings = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch("/api/settings/general");
-      if (res.ok) {
-        const response = await res.json();
-        setSettings(mapGeneralSettingsResponse(response.data));
-      } else {
-        const errorData = await res.json();
-        setError(errorData.error || "Gagal memuat pengaturan");
-      }
-    } catch (err: unknown) {
-      clientLogger.error("Error loading settings:", err);
-      setError(
-        getSettingsErrorMessage(
-          err,
-          "Terjadi kesalahan saat memuat pengaturan",
-        ),
-      );
-    } finally {
-      setLoading(false);
+  const loadSettings = async () => {
+    const result = await refetchSettings();
+    if (result) {
+      setSettings(mapGeneralSettingsResponse(result));
     }
-  }, []);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadSettings();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadSettings]);
+  };
 
   const handleChange = (
     event: ChangeEvent<
@@ -337,7 +336,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
     settings,
     loading,
     saving,
-    error,
+    error: displayError,
     success,
     currentTime,
     backfilling,
