@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-17] — Tambah TanStack Query adoption roadmap
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/guides/tanstack-adoption-roadmap.md`
+- **Author**: agent
+- **Deskripsi**: Buat roadmap 5-phase untuk maksimalkan adopsi TanStack Query
+  setelah foundation terpasang. Setelah migrasi awal sesi ini, baru 37% file
+  pakai useApi/useQuery, 0 useMutation, 0 optimistic update — investasi bundle
+  ~13KB belum optimal. Roadmap breakdown: Phase 1 useMutation untuk 5 critical
+  actions (20j), Phase 2 cross-module invalidation (12j), Phase 3 migrate sisa
+  64 file (49j bertahap), Phase 4 replace setInterval dengan refreshInterval
+  (8j), Phase 5 useInfiniteQuery untuk list besar (16j). Total ~105 jam
+  distributed di ~10 minggu sprint. Plus quick wins yang bisa mulai hari ini
+  (pakai useApi untuk fetch baru, pakai DevTools, refreshInterval untuk
+  dashboard).
+- **Files**: `docs/guides/tanstack-adoption-roadmap.md` (baru)
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-17] — Adopsi SWR sebagai standar data fetching + dokumentasi pattern
 
 - **Tipe**: [ADDED]
