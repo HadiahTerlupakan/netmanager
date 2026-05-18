@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidateWorkOrderRelated } from "@/lib/hooks/useInvalidate";
 import Link from "next/link";
 import { intervalToDuration, formatDuration, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -289,6 +290,7 @@ export function ClientComponent() {
   }, [session, status]);
 
   const queryClient = useQueryClient();
+  const invalidateWoRelated = useInvalidateWorkOrderRelated();
 
   /**
    * Verify work order dengan optimistic update.
@@ -339,6 +341,9 @@ export function ClientComponent() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: [workOrdersUrl] });
+      // Cross-module: dashboard KPI, inventory material, salary incentive
+      // refresh setelah WO verify/complete.
+      invalidateWoRelated();
     },
   });
 

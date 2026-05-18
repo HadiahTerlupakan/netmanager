@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useInvalidateAttendanceRelated } from "@/lib/hooks/useInvalidate";
 import { FaSearch, FaFileExport, FaBuilding } from "react-icons/fa";
 import {
   MdDelete,
@@ -152,6 +153,7 @@ export function ClientComponent() {
   ]);
 
   const queryClient = useQueryClient();
+  const invalidateAttendanceRelated = useInvalidateAttendanceRelated();
   const {
     data: attendancesResp,
     error: attendancesError,
@@ -316,6 +318,9 @@ export function ClientComponent() {
       void queryClient.invalidateQueries({
         queryKey: ["attendances", attendancesUrl],
       });
+      // Cross-module: live map, payroll preview, dashboard active
+      // employee count refresh setelah bulk delete attendance.
+      invalidateAttendanceRelated();
     },
   });
 

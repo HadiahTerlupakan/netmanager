@@ -9,6 +9,7 @@ import type { PhotoUploadRef, UploadedPhoto } from "./PhotoUpload";
 import { Button } from "@/components/ui/Button";
 import { getWithAuth, postWithAuth } from "@/lib/api-client";
 import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidateInventoryRelated } from "@/lib/hooks/useInvalidate";
 import {
   getStockStatusColor,
   getKondisiColor,
@@ -68,6 +69,7 @@ export function TransferForm({
   const photoUploadRef = useRef<PhotoUploadRef>(null);
   const [tempId] = useState<string>(() => `temp-${Date.now()}`);
   const router = useRouter();
+  const invalidateInventoryRelated = useInvalidateInventoryRelated();
 
   const {
     data: barangResp,
@@ -305,6 +307,9 @@ export function TransferForm({
     onSettled: () => {
       // Always revalidate setelah mutation selesai (sukses/gagal)
       void mutateBarangs();
+      // Cross-module: inventory dashboard, gudang stock, work order
+      // materials refresh setelah transfer selesai.
+      invalidateInventoryRelated();
     },
   });
 

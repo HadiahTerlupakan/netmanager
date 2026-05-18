@@ -45,6 +45,47 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 2 selesai: cross-module invalidation helpers + wiring
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/hooks/useInvalidate.ts`, `app/admin/finance/manual-payments/`, `app/admin/workorders/list/`, `app/admin/attendance/`, `app/admin/pelanggan/ppp/`, `components/inventory/`
+- **Author**: agent
+- **Deskripsi**: Tutup Phase 2 TanStack adoption roadmap. Buat
+  `lib/hooks/useInvalidate.ts` dengan 5 helper hook untuk cross-module
+  cache invalidation:
+  - `useInvalidateCustomerRelated` — dashboard, billing, customer list
+  - `useInvalidateInvoicePaymentRelated` — customer detail, finance
+    stats, payment gateway, manual payments
+  - `useInvalidateWorkOrderRelated` — dashboard, WO list, inventory,
+    salary
+  - `useInvalidateAttendanceRelated` — live map, attendance status,
+    payroll preview, dashboard
+  - `useInvalidateInventoryRelated` — inventory stats, barang, gudang,
+    opname, work-order materials
+
+  Wire ke 5 critical mutation Phase 1 di `onSettled`:
+  - `ManualPaymentClient` (verify payment) → invoice payment helper
+  - `WoListClient` (verify WO) → work-order helper
+  - `AttendanceClient` (bulk delete) → attendance helper
+  - `TransferForm` (stock transfer) → inventory helper
+  - `PppList` (delete + status update) → customer helper
+
+  Setelah mutation selesai, helper trigger `invalidateQueries` untuk
+  query keys cross-module sehingga UI module lain auto-refresh tanpa
+  user perlu reload halaman.
+
+  Phase 2 status: SELESAI (5/5 cross-module invalidation flow + helper
+  hook centralized).
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `lib/hooks/useInvalidate.ts` (baru),
+  `app/admin/finance/manual-payments/ManualPaymentClient.tsx`,
+  `app/admin/workorders/list/WoListClient.tsx`,
+  `app/admin/attendance/AttendanceClient.tsx`,
+  `app/admin/pelanggan/ppp/PppList.tsx`,
+  `components/inventory/TransferForm.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 1 fully complete: optimistic update TransferForm + migrate ke useApi
 
 - **Tipe**: [CHANGED]

@@ -20,6 +20,7 @@ import {
 } from "./pppListColumns";
 import { deletePppCustomer, updatePppCustomerStatus } from "./pppListActions";
 import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidateCustomerRelated } from "@/lib/hooks/useInvalidate";
 
 interface PelangganListResponse {
   data?: PelangganPPP[];
@@ -32,6 +33,7 @@ interface SettingsResponse {
 }
 
 export default function PelangganPPPPage() {
+  const invalidateCustomerRelated = useInvalidateCustomerRelated();
   const [siteId, setSiteId] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -157,6 +159,9 @@ export default function PelangganPPPPage() {
     },
     onSettled: () => {
       void mutatePelanggan();
+      // Cross-module: dashboard admin, billing list refresh setelah
+      // delete pelanggan PPP.
+      invalidateCustomerRelated();
     },
   });
 
@@ -210,6 +215,9 @@ export default function PelangganPPPPage() {
     },
     onSettled: () => {
       void mutatePelanggan();
+      // Cross-module: dashboard admin, billing list refresh setelah
+      // status pelanggan PPP berubah.
+      invalidateCustomerRelated();
     },
   });
 

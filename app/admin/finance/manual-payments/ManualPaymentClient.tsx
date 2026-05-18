@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import Image from "next/image";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidateInvoicePaymentRelated } from "@/lib/hooks/useInvalidate";
 
 interface PendingPayment {
   id: string;
@@ -93,6 +94,7 @@ export default function ManualPaymentClient() {
   };
 
   const queryClient = useQueryClient();
+  const invalidatePaymentRelated = useInvalidateInvoicePaymentRelated();
   const paymentsKey = buildPaymentsKey();
 
   /**
@@ -153,6 +155,9 @@ export default function ManualPaymentClient() {
     onSettled: () => {
       // Re-fetch dari server agar cache sinkron dengan source of truth
       void queryClient.invalidateQueries({ queryKey: [paymentsKey] });
+      // Cross-module invalidation: customer status, invoice list,
+      // revenue chart finance setelah pembayaran approve/reject.
+      invalidatePaymentRelated();
     },
   });
 
