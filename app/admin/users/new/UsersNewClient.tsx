@@ -4,6 +4,7 @@ import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   HiOutlineArrowLeft,
   HiOutlineEye,
@@ -159,7 +160,7 @@ export function ClientComponent() {
 
   // Real-time email validation with debounce.
   // Sync invalid-email reset is handled via render-time comparator (avoid
-  // setState-in-effect lint), then we run async fetch in useEffect.
+  // setState-in-effect lint).
   const isEmailValid =
     !!formData.email && /^\S+@\S+\.\S+$/.test(formData.email);
   const [prevEmailValid, setPrevEmailValid] = useState<boolean>(isEmailValid);
@@ -174,57 +175,64 @@ export function ClientComponent() {
     }
   }
 
+  // Debounce email value untuk dipakai sebagai query key useApi.
+  // TanStack Query auto-cancel request saat key berubah, jadi tidak
+  // perlu AbortController manual.
+  const [debouncedEmail, setDebouncedEmail] = useState(formData.email);
   useEffect(() => {
-    if (!isEmailValid) {
-      return;
+    const timer = setTimeout(() => setDebouncedEmail(formData.email), 800);
+    return () => clearTimeout(timer);
+  }, [formData.email]);
+
+  const checkIdentifierUrl =
+    isEmailValid && debouncedEmail === formData.email
+      ? `/api/admin/users/check-identifier?email=${encodeURIComponent(debouncedEmail)}`
+      : null;
+
+  const {
+    data: checkData,
+    error: checkError,
+    isLoading: checkingEmail,
+  } = useApi<{ exists: boolean; role: string }>(checkIdentifierUrl);
+
+  // Hydrate hasil check ke formData + errors. Pakai key dari URL untuk
+  // memastikan hydrate hanya jalan sekali per request.
+  const [lastHydratedKey, setLastHydratedKey] = useState<string | null>(null);
+  if (checkData && checkIdentifierUrl !== lastHydratedKey) {
+    setLastHydratedKey(checkIdentifierUrl);
+    setFormData((prev) => ({
+      ...prev,
+      emailChecked: true,
+      emailExists: checkData.exists,
+      emailRole: checkData.role || "",
+      isCheckingEmail: false,
+    }));
+    if (checkData.exists) {
+      setErrors((prev) => ({
+        ...prev,
+        email: `Email sudah terdaftar sebagai ${checkData.role}`,
+      }));
+    } else {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.email;
+        return newErrors;
+      });
     }
+  }
 
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      setFormData((prev) => ({ ...prev, isCheckingEmail: true }));
-      try {
-        const res = await fetch(
-          `/api/admin/users/check-identifier?email=${encodeURIComponent(formData.email)}`,
-          { signal: controller.signal },
-        );
-        const data = await res.json();
-        if (res.ok && data.data) {
-          setFormData((prev) => ({
-            ...prev,
-            emailChecked: true,
-            emailExists: data.data.exists,
-            emailRole: data.data.role || "",
-            isCheckingEmail: false,
-          }));
+  // Sync isCheckingEmail flag ke formData
+  const [prevCheckingEmail, setPrevCheckingEmail] = useState(checkingEmail);
+  if (prevCheckingEmail !== checkingEmail) {
+    setPrevCheckingEmail(checkingEmail);
+    setFormData((prev) => ({ ...prev, isCheckingEmail: checkingEmail }));
+  }
 
-          if (data.data.exists) {
-            setErrors((prev) => ({
-              ...prev,
-              email: `Email sudah terdaftar sebagai ${data.data.role}`,
-            }));
-          } else {
-            setErrors((prev) => {
-              const newErrors = { ...prev };
-              delete newErrors.email;
-              return newErrors;
-            });
-          }
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        clientLogger.error("Error checking email:", error);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFormData((prev) => ({ ...prev, isCheckingEmail: false }));
-        }
-      }
-    }, 800); // 800ms debounce
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [formData.email, isEmailValid]);
+  useEffect(() => {
+    if (checkError) {
+      clientLogger.error("Error checking email:", checkError);
+    }
+  }, [checkError]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

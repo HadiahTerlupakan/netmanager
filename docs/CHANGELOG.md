@@ -45,6 +45,48 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 3 final closure: migrate 4 file out-of-scope ke TanStack
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/common/MapPicker.tsx`,
+  `app/admin/integrations/mixradius/expenses/RABRevisionForm.tsx`,
+  `app/admin/users/compare/UsersCompareClient.tsx`,
+  `app/admin/users/new/UsersNewClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Re-evaluasi 4 file yang sebelumnya di-defer dari Phase 3
+  ternyata bisa di-migrate dengan TanStack pattern yang berbeda dari
+  pure `useApi`. Tutup gap untuk konsistensi 100%:
+
+  - **`UsersNewClient`** — email check debounce + AbortController →
+    `useApi` dengan dynamic key (`?email=${debouncedEmail}`) dan
+    `enabled: isEmailValid`. TanStack Query auto-cancel saat key
+    berubah, jadi AbortController manual tidak diperlukan. Debounce
+    pakai `useState` + `setTimeout` untuk hold value sebelum jadi
+    query key.
+  - **`RABRevisionForm`** — fetch revisions list + auto-create POST
+    saat tidak ada DRAFT → `useApi` untuk fetch (conditional saat modal
+    open) + `useMutation` untuk auto-create. Render-time comparator
+    untuk reset hydrate flag saat modal close (hindari setState-in-effect).
+  - **`UsersCompareClient`** — multi-id Promise.all loop → `useQuery`
+    dengan dynamic queryKey `[ids, period, dateRange]` dan `queryFn`
+    yang execute parallel fetch ke semua ID. State error/loading
+    derive dari query state.
+  - **`MapPicker`** — geocode search handler → `useMutation` untuk
+    konsisten loading state via `isPending`. Auto-handle race
+    condition saat user trigger search berkali-kali.
+
+  Semua 4 file sekarang pakai TanStack pattern. Hasil audit final:
+  **0 file** masih pakai pola lama `useEffect+fetch` tanpa TanStack hook.
+
+  Phase 3 status: 100% (128 file pakai TanStack pattern).
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `components/common/MapPicker.tsx`,
+  `app/admin/integrations/mixradius/expenses/RABRevisionForm.tsx`,
+  `app/admin/users/compare/UsersCompareClient.tsx`,
+  `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 5 selesai: useInfiniteApi hook + reference implementation
 
 - **Tipe**: [ADDED]

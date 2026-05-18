@@ -1,7 +1,8 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -76,30 +77,29 @@ export default function UsersCompareClient() {
     [searchParams],
   );
 
-  const [performances, setPerformances] = useState<PerformanceData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // performances/loading/error sekarang derive dari useQuery di bawah
   const [period, setPeriod] = useState<"month" | "all" | "custom">("month");
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().setDate(1)).toISOString().split("T")[0], // Start of month
     to: new Date().toISOString().split("T")[0],
   });
 
-  const fetchAllPerformances = useCallback(async () => {
-    if (ids.length === 0) {
-      setError("Tidak ada karyawan yang dipilih untuk dibandingkan.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
+  const performancesQuery = useQuery<PerformanceData[], Error>({
+    queryKey: [
+      "users-compare-performances",
+      ids,
+      period,
+      dateRange.from,
+      dateRange.to,
+    ],
+    enabled: ids.length > 0,
+    queryFn: async () => {
       const dateParams =
         period === "custom"
           ? `&dateFrom=${dateRange.from}&dateTo=${dateRange.to}`
           : `&period=${period}`;
 
-      const results = await Promise.all(
+      return Promise.all(
         ids.map(async (id) => {
           const [userRes, perfRes, salesRes] = await Promise.all([
             fetch(`/api/admin/users/${id}`),
@@ -141,25 +141,27 @@ export default function UsersCompareClient() {
           } as PerformanceData;
         }),
       );
-      setPerformances(results);
-    } catch (err: unknown) {
-      clientLogger.error("Gagal memuat data perbandingan user", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat memuat data perbandingan";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [ids, period, dateRange.from, dateRange.to]);
+    },
+  });
+
+  const performances = performancesQuery.data ?? [];
+  const loading = performancesQuery.isPending && ids.length > 0;
+  const error =
+    ids.length === 0
+      ? "Tidak ada karyawan yang dipilih untuk dibandingkan."
+      : performancesQuery.error
+        ? performancesQuery.error.message ||
+          "Terjadi kesalahan saat memuat data perbandingan"
+        : null;
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      void fetchAllPerformances();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [fetchAllPerformances]);
+    if (performancesQuery.error) {
+      clientLogger.error(
+        "Gagal memuat data perbandingan user",
+        performancesQuery.error,
+      );
+    }
+  }, [performancesQuery.error]);
 
   // Smooth loading: Only show full loader on initial mount (when no data yet)
   if (loading && performances.length === 0) return <PageLoader />;

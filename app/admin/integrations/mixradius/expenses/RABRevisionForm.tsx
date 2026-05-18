@@ -1,26 +1,28 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { useMutation } from "@tanstack/react-query";
 
-import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
-import { formatCurrency } from '@/lib/utils'
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { formatCurrency } from "@/lib/utils";
+import { useApi } from "@/lib/hooks/useApi";
 
-import type { RABRevisionItem, RABRevisionRecord } from './rabRevisionTypes'
+import type { RABRevisionItem, RABRevisionRecord } from "./rabRevisionTypes";
 
 interface RABRevisionFormProps {
-  open: boolean
-  projectId: string
-  projectName: string
-  onClose: () => void
-  onSaved: () => void
+  open: boolean;
+  projectId: string;
+  projectName: string;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
 function normalizeNumber(value: string) {
-  const cleaned = value.replace(/[^0-9]/g, '')
+  const cleaned = value.replace(/[^0-9]/g, "");
 
-  return cleaned === '' ? '0' : cleaned
+  return cleaned === "" ? "0" : cleaned;
 }
 
 export default function RABRevisionForm({
@@ -30,216 +32,248 @@ export default function RABRevisionForm({
   onClose,
   onSaved,
 }: RABRevisionFormProps) {
-  const [revision, setRevision] = useState<RABRevisionRecord | null>(null)
-  const [reason, setReason] = useState('')
-  const [notes, setNotes] = useState('')
-  const [projectedOpex, setProjectedOpex] = useState('0')
-  const [items, setItems] = useState<RABRevisionItem[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const reasonInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const [revision, setRevision] = useState<RABRevisionRecord | null>(null);
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [projectedOpex, setProjectedOpex] = useState("0");
+  const [items, setItems] = useState<RABRevisionItem[]>([]);
+  const [isLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const reasonInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (open) {
-      window.setTimeout(() => reasonInputRef.current?.focus(), 0)
+      window.setTimeout(() => reasonInputRef.current?.focus(), 0);
     }
-  }, [open])
+  }, [open]);
+
+  // Fetch revisions list saat modal open. useApi skip kalau modal tutup
+  // atau projectId belum ada.
+  const revisionsUrl =
+    open && projectId
+      ? `/api/finance/rab-projects/${projectId}/revisions`
+      : null;
+  const {
+    data: revisionsData,
+    error: revisionsError,
+    isLoading: revisionsLoading,
+    mutate: refetchRevisions,
+  } = useApi<RABRevisionRecord[]>(revisionsUrl);
+
+  // Mutation untuk create draft revision baru kalau tidak ada DRAFT existing.
+  const createDraftMutation = useMutation<RABRevisionRecord, Error, void>({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/finance/rab-projects/${projectId}/revisions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error || "Gagal membuat draft revisi");
+      }
+      return body.data as RABRevisionRecord;
+    },
+  });
+
+  const applyRevisionToState = (rev: RABRevisionRecord) => {
+    setRevision(rev);
+    setReason(rev.reason || "");
+    setNotes(rev.notes || "");
+    setProjectedOpex(rev.totalOpex || "0");
+    setItems(rev.items || []);
+  };
+
+  // Reset hydrate flag saat modal close — pakai render-time comparator
+  // untuk hindari setState-in-effect.
+  const [didHydrateRevision, setDidHydrateRevision] = useState(false);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (!open) setDidHydrateRevision(false);
+  }
+
+  // Hydrate state lokal dari hasil fetch + auto-create kalau belum ada DRAFT.
+  if (open && revisionsData && !didHydrateRevision) {
+    setDidHydrateRevision(true);
+    const latestDraft = revisionsData.find((item) => item.status === "DRAFT");
+    if (latestDraft) {
+      applyRevisionToState(latestDraft);
+    } else {
+      // Tidak ada DRAFT — auto-create.
+      createDraftMutation.mutate(undefined, {
+        onSuccess: (newRevision) => {
+          applyRevisionToState(newRevision);
+          void refetchRevisions();
+        },
+        onError: (err) => {
+          toast.error(err.message || "Gagal membuat draft revisi");
+        },
+      });
+    }
+  }
 
   useEffect(() => {
-    if (!open || !projectId) {
-      return
+    if (revisionsError) {
+      toast.error(revisionsError.message || "Gagal memuat revisi");
     }
+  }, [revisionsError]);
 
-    let isMounted = true
-
-    const loadRevision = async () => {
-      setIsLoading(true)
-
-      try {
-        const revisionsResponse = await fetch(`/api/finance/rab-projects/${projectId}/revisions`)
-        const revisionsBody = await revisionsResponse.json()
-
-        if (!revisionsResponse.ok) {
-          throw new Error(revisionsBody.error || 'Gagal mengambil data revisi')
-        }
-
-        const latestDraft = (revisionsBody.data as RABRevisionRecord[]).find(
-          (item) => item.status === 'DRAFT',
-        )
-
-        let activeRevision = latestDraft
-
-        if (!activeRevision) {
-          const createResponse = await fetch(`/api/finance/rab-projects/${projectId}/revisions`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({}),
-          })
-          const createBody = await createResponse.json()
-
-          if (!createResponse.ok) {
-            throw new Error(createBody.error || 'Gagal membuat draft revisi')
-          }
-
-          activeRevision = createBody.data as RABRevisionRecord
-        }
-
-        if (!isMounted) {
-          return
-        }
-
-        setRevision(activeRevision)
-        setReason(activeRevision.reason || '')
-        setNotes(activeRevision.notes || '')
-        setProjectedOpex(activeRevision.totalOpex || '0')
-        setItems(activeRevision.items || [])
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Gagal memuat revisi')
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void loadRevision()
-
-    return () => {
-      isMounted = false
-    }
-  }, [open, projectId])
+  const isLoadingRevision =
+    revisionsLoading || createDraftMutation.isPending || isLoading;
 
   const totalCapex = useMemo(
     () =>
       items.reduce((sum, item) => {
-        if (item.expenseType === 'OPEX') {
-          return sum
+        if (item.expenseType === "OPEX") {
+          return sum;
         }
 
-        return sum + Number(item.totalPrice)
+        return sum + Number(item.totalPrice);
       }, 0),
     [items],
-  )
+  );
 
   const handleItemChange = (
     index: number,
-    field: keyof Pick<RABRevisionItem, 'quantity' | 'unitPrice' | 'expenseType'>,
+    field: keyof Pick<
+      RABRevisionItem,
+      "quantity" | "unitPrice" | "expenseType"
+    >,
     value: string,
   ) => {
     setItems((current) =>
       current.map((item, itemIndex) => {
         if (itemIndex !== index) {
-          return item
+          return item;
         }
 
         const updatedItem = {
           ...item,
-          [field]: field === 'quantity' ? Number(normalizeNumber(value)) : value,
-        }
+          [field]:
+            field === "quantity" ? Number(normalizeNumber(value)) : value,
+        };
 
-        const quantity = Number(updatedItem.quantity)
-        const unitPrice = Number(updatedItem.unitPrice)
+        const quantity = Number(updatedItem.quantity);
+        const unitPrice = Number(updatedItem.unitPrice);
 
         return {
           ...updatedItem,
           totalPrice: String(quantity * unitPrice),
-        }
+        };
       }),
-    )
-  }
+    );
+  };
 
   const persistDraft = async () => {
     if (!revision) {
-      return false
+      return false;
     }
 
-    const response = await fetch(`/api/finance/rab-projects/${projectId}/revisions/${revision.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        notes,
-        projectedOpex: Number(normalizeNumber(projectedOpex)),
-        items: items.map((item) => ({
-          rabItemId: item.rabItemId,
-          name: item.name,
-          description: item.description,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          category: item.category,
-          expenseType: item.expenseType,
-          expenseCategoryId: item.expenseCategoryId,
-          wbsId: item.wbsId,
-          sortOrder: item.sortOrder,
-        })),
-      }),
-    })
-    const body = await response.json()
+    const response = await fetch(
+      `/api/finance/rab-projects/${projectId}/revisions/${revision.id}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          notes,
+          projectedOpex: Number(normalizeNumber(projectedOpex)),
+          items: items.map((item) => ({
+            rabItemId: item.rabItemId,
+            name: item.name,
+            description: item.description,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            category: item.category,
+            expenseType: item.expenseType,
+            expenseCategoryId: item.expenseCategoryId,
+            wbsId: item.wbsId,
+            sortOrder: item.sortOrder,
+          })),
+        }),
+      },
+    );
+    const body = await response.json();
 
     if (!response.ok) {
-      throw new Error(body.error || 'Gagal menyimpan draft revisi')
+      throw new Error(body.error || "Gagal menyimpan draft revisi");
     }
 
-    setRevision(body.data as RABRevisionRecord)
+    setRevision(body.data as RABRevisionRecord);
 
-    return true
-  }
+    return true;
+  };
 
   const handleSaveDraft = async () => {
-    setIsSaving(true)
+    setIsSaving(true);
 
     try {
-      await persistDraft()
-      toast.success('Draft revisi berhasil disimpan')
-      onSaved()
+      await persistDraft();
+      toast.success("Draft revisi berhasil disimpan");
+      onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Gagal menyimpan draft revisi')
+      toast.error(
+        error instanceof Error ? error.message : "Gagal menyimpan draft revisi",
+      );
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
   const handleSubmit = async () => {
     if (!revision) {
-      return
+      return;
     }
 
-    setIsSaving(true)
+    setIsSaving(true);
 
     try {
-      await persistDraft()
+      await persistDraft();
 
       const response = await fetch(
         `/api/finance/rab-projects/${projectId}/revisions/${revision.id}/submit`,
         {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          method: "POST",
+          headers: { "content-type": "application/json" },
           body: JSON.stringify({ reason }),
         },
-      )
-      const body = await response.json()
+      );
+      const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Gagal mengajukan revisi')
+        throw new Error(body.error || "Gagal mengajukan revisi");
       }
 
-      toast.success('Revisi berhasil diajukan untuk approval')
-      onSaved()
-      onClose()
+      toast.success("Revisi berhasil diajukan untuk approval");
+      onSaved();
+      onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Gagal mengajukan revisi')
+      toast.error(
+        error instanceof Error ? error.message : "Gagal mengajukan revisi",
+      );
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="4xl" title={`Revisi RAB - ${projectName}`}>
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      size="4xl"
+      title={`Revisi RAB - ${projectName}`}
+    >
       <ModalBody>
         <div className="space-y-5">
           <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-sm text-indigo-800 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200">
             <p className="font-semibold">Alur revisi yang disarankan</p>
             <p className="mt-1 text-xs leading-relaxed text-indigo-700 dark:text-indigo-300">
-              1) Isi alasan revisi (wajib), 2) sesuaikan item dan OPEX draft, 3) simpan draft bila belum final atau ajukan approval jika siap ditinjau approver.
+              1) Isi alasan revisi (wajib), 2) sesuaikan item dan OPEX draft, 3)
+              simpan draft bila belum final atau ajukan approval jika siap
+              ditinjau approver.
             </p>
           </div>
 
@@ -248,9 +282,12 @@ export default function RABRevisionForm({
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 Proyek
               </p>
-              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{projectName}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {projectName}
+              </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Revisi yang disetujui akan menjadi budget final untuk analisa variance.
+                Revisi yang disetujui akan menjadi budget final untuk analisa
+                variance.
               </p>
             </div>
 
@@ -268,7 +305,7 @@ export default function RABRevisionForm({
                   OPEX Final Draft
                 </p>
                 <p className="mt-2 text-base font-semibold text-slate-900 dark:text-slate-100">
-                  {formatCurrency(Number(projectedOpex || '0'))}
+                  {formatCurrency(Number(projectedOpex || "0"))}
                 </p>
               </div>
             </div>
@@ -287,7 +324,8 @@ export default function RABRevisionForm({
                 placeholder="Contoh: harga vendor naik 12% dan biaya operasional lapangan ikut berubah"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Alasan revisi akan terlihat oleh approver saat proses persetujuan.
+                Alasan revisi akan terlihat oleh approver saat proses
+                persetujuan.
               </p>
             </label>
             <div className="space-y-4">
@@ -306,7 +344,9 @@ export default function RABRevisionForm({
                 <input
                   type="text"
                   value={projectedOpex}
-                  onChange={(event) => setProjectedOpex(normalizeNumber(event.target.value))}
+                  onChange={(event) =>
+                    setProjectedOpex(normalizeNumber(event.target.value))
+                  }
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </label>
@@ -316,8 +356,13 @@ export default function RABRevisionForm({
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Perubahan Item</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Perbarui kuantitas, harga satuan, atau tipe biaya pada draft revisi.</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Perubahan Item
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Perbarui kuantitas, harga satuan, atau tipe biaya pada draft
+                  revisi.
+                </p>
               </div>
             </div>
 
@@ -333,9 +378,12 @@ export default function RABRevisionForm({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/80">
-                  {isLoading ? (
+                  {isLoadingRevision ? (
                     <tr>
-                      <td className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400" colSpan={5}>
+                      <td
+                        className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
+                        colSpan={5}
+                      >
                         Memuat draft revisi...
                       </td>
                     </tr>
@@ -343,15 +391,27 @@ export default function RABRevisionForm({
                     items.map((item, index) => (
                       <tr key={item.id} className="align-top">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900 dark:text-slate-100">{item.name}</div>
-                          {item.description && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.description}</div>}
+                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                            {item.name}
+                          </div>
+                          {item.description && (
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {item.description}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <input
                             type="number"
                             min={1}
                             value={item.quantity}
-                            onChange={(event) => handleItemChange(index, 'quantity', event.target.value)}
+                            onChange={(event) =>
+                              handleItemChange(
+                                index,
+                                "quantity",
+                                event.target.value,
+                              )
+                            }
                             className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                           />
                         </td>
@@ -359,14 +419,26 @@ export default function RABRevisionForm({
                           <input
                             type="text"
                             value={item.unitPrice}
-                            onChange={(event) => handleItemChange(index, 'unitPrice', normalizeNumber(event.target.value))}
+                            onChange={(event) =>
+                              handleItemChange(
+                                index,
+                                "unitPrice",
+                                normalizeNumber(event.target.value),
+                              )
+                            }
                             className="w-36 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                           />
                         </td>
                         <td className="px-4 py-3">
                           <select
                             value={item.expenseType}
-                            onChange={(event) => handleItemChange(index, 'expenseType', event.target.value)}
+                            onChange={(event) =>
+                              handleItemChange(
+                                index,
+                                "expenseType",
+                                event.target.value,
+                              )
+                            }
                             className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                           >
                             <option value="CAPEX">CAPEX</option>
@@ -390,17 +462,27 @@ export default function RABRevisionForm({
         <Button variant="outline" onClick={onClose} disabled={isSaving}>
           Tutup
         </Button>
-        <Button variant="secondary" onClick={handleSaveDraft} disabled={isLoading || isSaving || !revision}>
+        <Button
+          variant="secondary"
+          onClick={handleSaveDraft}
+          disabled={isLoadingRevision || isSaving || !revision}
+        >
           Simpan Draft
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={isLoading || isSaving || !revision || reason.trim() === ''}
-          title={reason.trim() === '' ? 'Isi alasan revisi terlebih dahulu' : 'Ajukan revisi untuk approval'}
+          disabled={
+            isLoadingRevision || isSaving || !revision || reason.trim() === ""
+          }
+          title={
+            reason.trim() === ""
+              ? "Isi alasan revisi terlebih dahulu"
+              : "Ajukan revisi untuk approval"
+          }
         >
-          {reason.trim() === '' ? 'Isi Alasan Dulu' : 'Ajukan Approval'}
+          {reason.trim() === "" ? "Isi Alasan Dulu" : "Ajukan Approval"}
         </Button>
       </ModalFooter>
     </Modal>
-  )
+  );
 }
