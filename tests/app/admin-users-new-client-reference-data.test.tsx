@@ -3,8 +3,21 @@
 import { act, type AnchorHTMLAttributes, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const EMAIL_CHECK_DEBOUNCE_MS = 800;
+
+function renderWithQueryClient(container: HTMLElement, ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, staleTime: 0, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  createRoot(container).render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn((permission: string) => permission === "users:create"),
@@ -149,7 +162,7 @@ describe("UsersNewClient reference data loading", () => {
       await import("@/app/admin/users/new/UsersNewClient");
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -224,7 +237,7 @@ describe("UsersNewClient reference data loading", () => {
       await import("@/app/admin/users/new/UsersNewClient");
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -239,7 +252,7 @@ describe("UsersNewClient reference data loading", () => {
     document.body.appendChild(container);
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -293,7 +306,7 @@ describe("UsersNewClient reference data loading", () => {
       await import("@/app/admin/users/new/UsersNewClient");
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -365,7 +378,7 @@ describe("UsersNewClient tenant-scoped behavior", () => {
       await import("@/app/admin/users/new/UsersNewClient");
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -419,7 +432,7 @@ describe("UsersNewClient tenant-scoped behavior", () => {
       await import("@/app/admin/users/new/UsersNewClient");
 
     await act(async () => {
-      createRoot(container).render(<ClientComponent />);
+      renderWithQueryClient(container, <ClientComponent />);
       await flushPromises();
       await flushPromises();
     });
@@ -432,7 +445,8 @@ describe("UsersNewClient tenant-scoped behavior", () => {
   });
 
   it("tidak mengirim tenantId dalam payload submit untuk user tanpa tenants:read", async () => {
-    vi.useFakeTimers();
+    // Pakai real timer karena useApi dynamic key + debounce useEffect
+    // butuh microtask + Promise resolution, tidak fit dengan fake timer.
     mockFns.hasPermission.mockImplementation(
       (permission: string) => permission === "users:create",
     );
@@ -494,7 +508,7 @@ describe("UsersNewClient tenant-scoped behavior", () => {
 
     try {
       await act(async () => {
-        createRoot(container).render(<ClientComponent />);
+        renderWithQueryClient(container, <ClientComponent />);
         await flushPromises();
         await flushPromises();
       });
@@ -531,9 +545,22 @@ describe("UsersNewClient tenant-scoped behavior", () => {
       expect(passwordInput.value).toBe("password123");
       expect(roleSelect.value).toBe("role-1");
 
+      // Tunggu debounce 800ms (real timer) + Promise resolution chain.
       await act(async () => {
-        vi.advanceTimersByTime(EMAIL_CHECK_DEBOUNCE_MS);
+        await new Promise((resolve) =>
+          setTimeout(resolve, EMAIL_CHECK_DEBOUNCE_MS + 100),
+        );
         await flushPromises();
+        await flushPromises();
+        await flushPromises();
+      });
+
+      // Tambahan flush untuk hydrate via if-flag setelah TanStack Query
+      // resolve cache (butuh re-render lagi).
+      await act(async () => {
+        await flushPromises();
+        await flushPromises();
+        await new Promise((resolve) => setTimeout(resolve, 50));
         await flushPromises();
       });
 
@@ -549,7 +576,7 @@ describe("UsersNewClient tenant-scoped behavior", () => {
       expect(submitPayload).toBeTruthy();
       expect(submitPayload).not.toHaveProperty("tenantId");
     } finally {
-      vi.useRealTimers();
+      // No-op cleanup: real timers sepanjang test ini.
     }
   });
 });

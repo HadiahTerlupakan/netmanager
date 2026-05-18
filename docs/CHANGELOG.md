@@ -45,6 +45,51 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Fix test fixtures pasca migrasi TanStack adoption
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/`, `components/attendance/AttendancePageContent.tsx`
+- **Author**: agent
+- **Deskripsi**: 12 test gagal pasca migrasi useApi/useMutation/useQuery
+  karena: (1) komponen baru pakai `useQueryClient` butuh
+  `QueryClientProvider` wrapper, (2) urutan `useState` berubah karena
+  state lokal diganti useApi, (3) source data berbeda (state lokal →
+  hook data). Akar masalah:
+
+  - **`tests/app/admin-users-new-client-reference-data.test.tsx`** —
+    `createRoot.render` direct tanpa wrapper. Tambah helper
+    `renderWithQueryClient` dengan `QueryClient` retry-disabled. Test
+    debounce email check switch ke real timer agar TanStack Query
+    Promise resolution chain selesai.
+  - **`tests/app/admin/live-map-client.test.tsx`** — `mockUseState`
+    sequence tidak sinkron dengan urutan baru. Tambah mock `useApi`
+    explicit untuk return locations + tenantId.
+  - **`tests/components/inventory/TransferForm.stock-caption.test.tsx`** —
+    Mock react-query hilangkan `useQueryClient` (dipakai
+    `useInvalidateInventoryRelated`). Tambah mock `useApi` untuk
+    barang+gudang. Sequence `mockUseState` di-rapikan reflect order
+    baru. Tambah type `MockUseApiResult` untuk fix
+    `noImplicitAny`.
+  - **`tests/lib/realtime/realtime-page-clients.test.ts`** — `tenantId`
+    sekarang dari useApi data bukan useState. Override mock `useApi`
+    return data berisi tenantId.
+  - **`tests/ui/rab-revision-form.test.ts`** — Tambah
+    `QueryClientProvider` wrapper untuk render.
+  - **`components/attendance/AttendancePageContent.tsx`** — Rename
+    variable `innerData` jadi `currentStatus` untuk pertahankan
+    convention yang dicek oleh test
+    `current-status-consumer.test.ts`.
+
+  Hasil `npm run check` final: lint pass, typecheck pass (0 error),
+  test pass (2751/2758, 7 skipped pre-existing), build pass.
+- **Files**: `tests/app/admin-users-new-client-reference-data.test.tsx`,
+  `tests/app/admin/live-map-client.test.tsx`,
+  `tests/components/inventory/TransferForm.stock-caption.test.tsx`,
+  `tests/lib/realtime/realtime-page-clients.test.ts`,
+  `tests/ui/rab-revision-form.test.ts`,
+  `components/attendance/AttendancePageContent.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 3 final closure: migrate 4 file out-of-scope ke TanStack
 
 - **Tipe**: [CHANGED]

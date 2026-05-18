@@ -8,24 +8,33 @@ import {
   useRealtimeScopeMock,
 } from "./realtime-boundary-test-setup";
 
+// Untuk LiveMap, sumber tenantId sekarang dari useApi (bukan useState).
+// Override mock useApi default agar return data berisi tenantId saat test
+// LiveMap, fallback ke default mock untuk test lain.
+import { useApi as useApiMock } from "@/lib/hooks/useApi";
+
 describe("realtime page clients", () => {
   it("subscribes live map through realtime scope and event boundaries", async () => {
-    const setLocations = vi.fn();
-    const setTenantId = vi.fn();
-    const setLoading = vi.fn();
-    const setError = vi.fn();
     const setSearchQuery = vi.fn();
     const setLastUpdated = vi.fn();
     const setViewMode = vi.fn();
 
+    // useState order setelah migrasi: searchQuery, lastUpdated, viewMode.
     mockUseState
-      .mockReturnValueOnce([[], setLocations])
-      .mockReturnValueOnce(["tenant-1", setTenantId])
-      .mockReturnValueOnce([true, setLoading])
-      .mockReturnValueOnce([null, setError])
       .mockReturnValueOnce(["", setSearchQuery])
       .mockReturnValueOnce([null, setLastUpdated])
       .mockReturnValueOnce(["map", setViewMode]);
+
+    // tenantId sekarang dari useApi data, bukan useState.
+    (useApiMock as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      data: {
+        locations: [],
+        tenantId: "tenant-1",
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: vi.fn(),
+    });
 
     const liveMapModule =
       await import("@/app/admin/kehadiran/live-map/LiveMapClient");

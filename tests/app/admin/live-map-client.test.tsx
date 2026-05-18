@@ -55,17 +55,30 @@ vi.mock("@/lib/realtime/hooks/useRealtimeEvent", () => ({
   useRealtimeEvent: vi.fn(),
 }));
 
+const mockUseApi = vi.fn();
+vi.mock("@/lib/hooks/useApi", () => ({
+  useApi: <T,>(...args: unknown[]) =>
+    mockUseApi(...args) as {
+      data: T | undefined;
+      isLoading: boolean;
+      error: null;
+      mutate: () => Promise<unknown>;
+    },
+}));
+
 describe("LiveMapClient battery display", () => {
   beforeEach(() => {
     mockUseState.mockReset();
     mockUseEffect.mockClear();
     mockUseCallback.mockClear();
+    mockUseApi.mockReset();
   });
 
   it("renders integer battery percentages without multiplying already-normalized device values", async () => {
-    mockUseState
-      .mockReturnValueOnce([
-        [
+    // useApi mock: locations dari endpoint /api/admin/location/live
+    mockUseApi.mockReturnValue({
+      data: {
+        locations: [
           {
             userId: "user-1",
             userName: "Budi",
@@ -83,14 +96,19 @@ describe("LiveMapClient battery display", () => {
             checkInTime: "2026-04-21T08:00:00.000Z",
           },
         ],
-        vi.fn(),
-      ])
-      .mockReturnValueOnce([null, vi.fn()])
-      .mockReturnValueOnce([false, vi.fn()])
-      .mockReturnValueOnce([null, vi.fn()])
-      .mockReturnValueOnce(["", vi.fn()])
-      .mockReturnValueOnce([null, vi.fn()])
-      .mockReturnValueOnce(["cards", vi.fn()]);
+        tenantId: null,
+      },
+      isLoading: false,
+      error: null,
+      mutate: vi.fn(),
+    });
+
+    // useState mocks untuk state lokal sisa: searchQuery, lastUpdated,
+    // viewMode, didHydrateRevision dll. Kita biarkan default behavior.
+    mockUseState
+      .mockReturnValueOnce(["", vi.fn()]) // searchQuery
+      .mockReturnValueOnce([null, vi.fn()]) // lastUpdated
+      .mockReturnValueOnce(["cards", vi.fn()]); // viewMode
 
     const liveMapClientModule =
       await import("@/app/admin/kehadiran/live-map/LiveMapClient");

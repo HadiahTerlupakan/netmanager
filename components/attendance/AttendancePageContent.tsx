@@ -122,34 +122,34 @@ export default function AttendancePageContent({
   if (statusRaw && !didHydrateStatus) {
     setDidHydrateStatus(true);
     const obj = statusRaw as Record<string, unknown>;
-    const innerData = (obj.data as StatusPayload | undefined) ?? null;
-    if (obj.success && innerData) {
-      setStatus(innerData.status);
+    const currentStatus = (obj.data as StatusPayload | undefined) ?? null;
+    if (obj.success && currentStatus) {
+      setStatus(currentStatus.status);
       setAttendanceStatus(
-        innerData.attendanceStatus === "LATE" ? "LATE" : "ON_TIME",
+        currentStatus.attendanceStatus === "LATE" ? "LATE" : "ON_TIME",
       );
       setWorkingHourMode(
-        innerData.workingHourMode === "SHIFT"
+        currentStatus.workingHourMode === "SHIFT"
           ? "SHIFT"
-          : innerData.workingHourMode === "FLEXIBLE"
+          : currentStatus.workingHourMode === "FLEXIBLE"
             ? "FLEXIBLE"
             : "FIXED",
       );
-      setTargetHours(innerData.flexibleTargetHour || 8);
+      setTargetHours(currentStatus.flexibleTargetHour || 8);
 
-      if (innerData.status === "idle") {
+      if (currentStatus.status === "idle") {
         setCheckInTime(null);
         setCheckOutTime(null);
         setCheckInDate(null);
         setCheckOutDate(null);
       } else {
-        setCheckInTime(innerData.checkInTime);
-        setCheckOutTime(innerData.checkOutTime);
+        setCheckInTime(currentStatus.checkInTime);
+        setCheckOutTime(currentStatus.checkOutTime);
         setCheckInDate(
-          innerData.checkInAt ? new Date(innerData.checkInAt) : null,
+          currentStatus.checkInAt ? new Date(currentStatus.checkInAt) : null,
         );
         setCheckOutDate(
-          innerData.checkOutAt ? new Date(innerData.checkOutAt) : null,
+          currentStatus.checkOutAt ? new Date(currentStatus.checkOutAt) : null,
         );
       }
     }

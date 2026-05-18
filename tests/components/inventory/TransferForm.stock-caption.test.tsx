@@ -37,6 +37,60 @@ vi.mock("@tanstack/react-query", () => ({
     data: undefined as unknown,
     reset: vi.fn(),
   }),
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
+    getQueryData: vi.fn(),
+    setQueryData: vi.fn(),
+  }),
+}));
+
+// Mock useApi: barang data berisi 1 item supaya selectedBarang resolved.
+// Gudang data sengaja kosong supaya test scenario "daftar gudang tidak
+// memuat gudang sumber terpilih" tetap relevan — fallback ke
+// stockGudangSumber state.
+interface MockUseApiResult {
+  data: unknown;
+  isLoading: boolean;
+  error: unknown;
+  mutate: () => Promise<unknown>;
+}
+
+vi.mock("@/lib/hooks/useApi", () => ({
+  useApi: (url: string | null): MockUseApiResult => {
+    if (url?.includes("/api/inventory/barang")) {
+      return {
+        data: {
+          barangs: [
+            {
+              id: "barang-1",
+              kode: "BRG-001",
+              nama: "Modem",
+              satuan: "pcs",
+              stockPerGudang: [] as unknown[],
+            },
+          ],
+        },
+        isLoading: false,
+        error: null,
+        mutate: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+    if (url?.includes("/api/inventory/gudang")) {
+      return {
+        data: { gudangs: [] as unknown[] },
+        isLoading: false,
+        error: null,
+        mutate: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+    return {
+      data: undefined,
+      isLoading: false,
+      error: null,
+      mutate: vi.fn().mockResolvedValue(undefined),
+    };
+  },
 }));
 
 vi.mock("@/components/ui/Button", () => ({
@@ -72,6 +126,16 @@ describe("TransferForm stock caption", () => {
     mockUseState.mockReset();
     mockUseEffect.mockClear();
     mockUseState.mockImplementation((initialValue: unknown) => {
+      // Order useState di TransferForm setelah migrasi ke useApi:
+      // 1. formData
+      // 2. stockSumber
+      // 3. stockPerKondisi
+      // 4. stockGudangSumber
+      // 5. error
+      // 6. success
+      // 7. _uploadedPhotos
+      // 8. transactionId
+      // 9. tempId
       switch (mockUseState.mock.calls.length) {
         case 1:
           return [
@@ -86,22 +150,8 @@ describe("TransferForm stock caption", () => {
             vi.fn(),
           ];
         case 2:
-          return [
-            [
-              {
-                id: "barang-1",
-                kode: "BRG-001",
-                nama: "Modem",
-                satuan: "pcs",
-              },
-            ],
-            vi.fn(),
-          ];
-        case 3:
-          return [[], vi.fn()];
-        case 4:
           return [7, vi.fn()];
-        case 5:
+        case 3:
           return [
             {
               BARU: 7,
@@ -110,7 +160,7 @@ describe("TransferForm stock caption", () => {
             },
             vi.fn(),
           ];
-        case 6:
+        case 4:
           return [
             {
               id: "gudang-1",
@@ -119,16 +169,16 @@ describe("TransferForm stock caption", () => {
             },
             vi.fn(),
           ];
+        case 5:
+          return ["", vi.fn()]; // error
+        case 6:
+          return ["", vi.fn()]; // success
         case 7:
-          return [false, vi.fn()];
+          return [[], vi.fn()]; // _uploadedPhotos
         case 8:
-          return ["", vi.fn()];
+          return [null, vi.fn()]; // transactionId
         case 9:
-          return ["", vi.fn()];
-        case 10:
-          return [[], vi.fn()];
-        case 11:
-          return [null, vi.fn()];
+          return ["temp-id", vi.fn()]; // tempId
         default:
           return [initialValue, vi.fn()];
       }
