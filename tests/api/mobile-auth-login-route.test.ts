@@ -107,7 +107,7 @@ describe("POST /api/mobile/auth/login", () => {
         appVersionCode: 55,
         appVersionName: "1.2.3",
       }),
-      "7d",
+      "15m",
     );
     expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith("cust-1", {
       appVersionCode: 55,

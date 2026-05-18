@@ -1494,6 +1494,7 @@ export namespace Prisma {
 
   export type MitraAvgAggregateOutputType = {
     lastVersionCode: number | null;
+    tokenVersion: number | null;
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
@@ -1510,6 +1511,7 @@ export namespace Prisma {
 
   export type MitraSumAggregateOutputType = {
     lastVersionCode: number | null;
+    tokenVersion: number | null;
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
@@ -1538,6 +1540,7 @@ export namespace Prisma {
     lastVersionCode: number | null;
     lastVersionName: string | null;
     lastVersionUpdate: Date | null;
+    tokenVersion: number | null;
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
@@ -1583,6 +1586,7 @@ export namespace Prisma {
     lastVersionCode: number | null;
     lastVersionName: string | null;
     lastVersionUpdate: Date | null;
+    tokenVersion: number | null;
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
@@ -1629,6 +1633,7 @@ export namespace Prisma {
     lastVersionCode: number;
     lastVersionName: number;
     lastVersionUpdate: number;
+    tokenVersion: number;
     mitraRateWoPsb: number;
     mitraRateWoMaintenance: number;
     mitraRateCanvasing: number;
@@ -1664,6 +1669,7 @@ export namespace Prisma {
 
   export type MitraAvgAggregateInputType = {
     lastVersionCode?: true;
+    tokenVersion?: true;
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
@@ -1680,6 +1686,7 @@ export namespace Prisma {
 
   export type MitraSumAggregateInputType = {
     lastVersionCode?: true;
+    tokenVersion?: true;
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
@@ -1708,6 +1715,7 @@ export namespace Prisma {
     lastVersionCode?: true;
     lastVersionName?: true;
     lastVersionUpdate?: true;
+    tokenVersion?: true;
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
@@ -1753,6 +1761,7 @@ export namespace Prisma {
     lastVersionCode?: true;
     lastVersionName?: true;
     lastVersionUpdate?: true;
+    tokenVersion?: true;
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
@@ -1799,6 +1808,7 @@ export namespace Prisma {
     lastVersionCode?: true;
     lastVersionName?: true;
     lastVersionUpdate?: true;
+    tokenVersion?: true;
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
@@ -1936,6 +1946,7 @@ export namespace Prisma {
     lastVersionCode: number | null;
     lastVersionName: string | null;
     lastVersionUpdate: Date | null;
+    tokenVersion: number;
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
@@ -2004,6 +2015,7 @@ export namespace Prisma {
       lastVersionCode?: boolean;
       lastVersionName?: boolean;
       lastVersionUpdate?: boolean;
+      tokenVersion?: boolean;
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
@@ -2060,6 +2072,7 @@ export namespace Prisma {
       lastVersionCode?: boolean;
       lastVersionName?: boolean;
       lastVersionUpdate?: boolean;
+      tokenVersion?: boolean;
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
@@ -2112,6 +2125,7 @@ export namespace Prisma {
       lastVersionCode?: boolean;
       lastVersionName?: boolean;
       lastVersionUpdate?: boolean;
+      tokenVersion?: boolean;
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
@@ -2161,6 +2175,7 @@ export namespace Prisma {
     lastVersionCode?: boolean;
     lastVersionName?: boolean;
     lastVersionUpdate?: boolean;
+    tokenVersion?: boolean;
     mitraRateWoPsb?: boolean;
     mitraRateWoMaintenance?: boolean;
     mitraRateCanvasing?: boolean;
@@ -2210,6 +2225,7 @@ export namespace Prisma {
     | "lastVersionCode"
     | "lastVersionName"
     | "lastVersionUpdate"
+    | "tokenVersion"
     | "mitraRateWoPsb"
     | "mitraRateWoMaintenance"
     | "mitraRateCanvasing"
@@ -2282,6 +2298,7 @@ export namespace Prisma {
         lastVersionCode: number | null;
         lastVersionName: string | null;
         lastVersionUpdate: Date | null;
+        tokenVersion: number;
         mitraRateWoPsb: number | null;
         mitraRateWoMaintenance: number | null;
         mitraRateCanvasing: number | null;
@@ -2951,6 +2968,7 @@ export namespace Prisma {
     readonly lastVersionCode: FieldRef<"Mitra", "Int">;
     readonly lastVersionName: FieldRef<"Mitra", "String">;
     readonly lastVersionUpdate: FieldRef<"Mitra", "DateTime">;
+    readonly tokenVersion: FieldRef<"Mitra", "Int">;
     readonly mitraRateWoPsb: FieldRef<"Mitra", "Float">;
     readonly mitraRateWoMaintenance: FieldRef<"Mitra", "Float">;
     readonly mitraRateCanvasing: FieldRef<"Mitra", "Float">;
@@ -9475,6 +9493,7 @@ export namespace Prisma {
     lastVersionCode: "lastVersionCode";
     lastVersionName: "lastVersionName";
     lastVersionUpdate: "lastVersionUpdate";
+    tokenVersion: "tokenVersion";
     mitraRateWoPsb: "mitraRateWoPsb";
     mitraRateWoMaintenance: "mitraRateWoMaintenance";
     mitraRateCanvasing: "mitraRateCanvasing";
@@ -9767,6 +9786,7 @@ export namespace Prisma {
     lastVersionCode?: IntNullableFilter<"Mitra"> | number | null;
     lastVersionName?: StringNullableFilter<"Mitra"> | string | null;
     lastVersionUpdate?: DateTimeNullableFilter<"Mitra"> | Date | string | null;
+    tokenVersion?: IntFilter<"Mitra"> | number;
     mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null;
     mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null;
     mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null;
@@ -9824,6 +9844,7 @@ export namespace Prisma {
     lastVersionCode?: SortOrderInput | SortOrder;
     lastVersionName?: SortOrderInput | SortOrder;
     lastVersionUpdate?: SortOrderInput | SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrderInput | SortOrder;
     mitraRateWoMaintenance?: SortOrderInput | SortOrder;
     mitraRateCanvasing?: SortOrderInput | SortOrder;
@@ -9888,6 +9909,7 @@ export namespace Prisma {
         | Date
         | string
         | null;
+      tokenVersion?: IntFilter<"Mitra"> | number;
       mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null;
       mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null;
       mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null;
@@ -9947,6 +9969,7 @@ export namespace Prisma {
     lastVersionCode?: SortOrderInput | SortOrder;
     lastVersionName?: SortOrderInput | SortOrder;
     lastVersionUpdate?: SortOrderInput | SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrderInput | SortOrder;
     mitraRateWoMaintenance?: SortOrderInput | SortOrder;
     mitraRateCanvasing?: SortOrderInput | SortOrder;
@@ -10017,6 +10040,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntWithAggregatesFilter<"Mitra"> | number;
     mitraRateWoPsb?: FloatNullableWithAggregatesFilter<"Mitra"> | number | null;
     mitraRateWoMaintenance?:
       | FloatNullableWithAggregatesFilter<"Mitra">
@@ -10603,6 +10627,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -10653,6 +10678,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -10711,6 +10737,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -10789,6 +10816,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -10859,6 +10887,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -10914,6 +10943,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -10989,6 +11019,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -11614,6 +11645,17 @@ export namespace Prisma {
     not?: NestedIntNullableFilter<$PrismaModel> | number | null;
   };
 
+  export type IntFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>;
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntFilter<$PrismaModel> | number;
+  };
+
   export type FloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null;
     in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null;
@@ -11691,6 +11733,7 @@ export namespace Prisma {
     lastVersionCode?: SortOrder;
     lastVersionName?: SortOrder;
     lastVersionUpdate?: SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
@@ -11725,6 +11768,7 @@ export namespace Prisma {
 
   export type MitraAvgOrderByAggregateInput = {
     lastVersionCode?: SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
@@ -11753,6 +11797,7 @@ export namespace Prisma {
     lastVersionCode?: SortOrder;
     lastVersionName?: SortOrder;
     lastVersionUpdate?: SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
@@ -11798,6 +11843,7 @@ export namespace Prisma {
     lastVersionCode?: SortOrder;
     lastVersionName?: SortOrder;
     lastVersionUpdate?: SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
@@ -11831,6 +11877,7 @@ export namespace Prisma {
 
   export type MitraSumOrderByAggregateInput = {
     lastVersionCode?: SortOrder;
+    tokenVersion?: SortOrder;
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
@@ -11936,6 +11983,22 @@ export namespace Prisma {
     _sum?: NestedIntNullableFilter<$PrismaModel>;
     _min?: NestedIntNullableFilter<$PrismaModel>;
     _max?: NestedIntNullableFilter<$PrismaModel>;
+  };
+
+  export type IntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>;
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _avg?: NestedFloatFilter<$PrismaModel>;
+    _sum?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedIntFilter<$PrismaModel>;
+    _max?: NestedIntFilter<$PrismaModel>;
   };
 
   export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -12540,6 +12603,14 @@ export namespace Prisma {
 
   export type NullableIntFieldUpdateOperationsInput = {
     set?: number | null;
+    increment?: number;
+    decrement?: number;
+    multiply?: number;
+    divide?: number;
+  };
+
+  export type IntFieldUpdateOperationsInput = {
+    set?: number;
     increment?: number;
     decrement?: number;
     multiply?: number;
@@ -13185,6 +13256,17 @@ export namespace Prisma {
     not?: NestedIntNullableFilter<$PrismaModel> | number | null;
   };
 
+  export type NestedIntFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>;
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntFilter<$PrismaModel> | number;
+  };
+
   export type NestedFloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null;
     in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null;
@@ -13222,17 +13304,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>;
     _min?: NestedStringFilter<$PrismaModel>;
     _max?: NestedStringFilter<$PrismaModel>;
-  };
-
-  export type NestedIntFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>;
-    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
-    lt?: number | IntFieldRefInput<$PrismaModel>;
-    lte?: number | IntFieldRefInput<$PrismaModel>;
-    gt?: number | IntFieldRefInput<$PrismaModel>;
-    gte?: number | IntFieldRefInput<$PrismaModel>;
-    not?: NestedIntFilter<$PrismaModel> | number;
   };
 
   export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -13312,6 +13383,33 @@ export namespace Prisma {
     _sum?: NestedIntNullableFilter<$PrismaModel>;
     _min?: NestedIntNullableFilter<$PrismaModel>;
     _max?: NestedIntNullableFilter<$PrismaModel>;
+  };
+
+  export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>;
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _avg?: NestedFloatFilter<$PrismaModel>;
+    _sum?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedIntFilter<$PrismaModel>;
+    _max?: NestedIntFilter<$PrismaModel>;
+  };
+
+  export type NestedFloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>;
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>;
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>;
+    lt?: number | FloatFieldRefInput<$PrismaModel>;
+    lte?: number | FloatFieldRefInput<$PrismaModel>;
+    gt?: number | FloatFieldRefInput<$PrismaModel>;
+    gte?: number | FloatFieldRefInput<$PrismaModel>;
+    not?: NestedFloatFilter<$PrismaModel> | number;
   };
 
   export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -13484,17 +13582,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>;
     _min?: NestedEnumMitraTransactionTypeFilter<$PrismaModel>;
     _max?: NestedEnumMitraTransactionTypeFilter<$PrismaModel>;
-  };
-
-  export type NestedFloatFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>;
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>;
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>;
-    lt?: number | FloatFieldRefInput<$PrismaModel>;
-    lte?: number | FloatFieldRefInput<$PrismaModel>;
-    gt?: number | FloatFieldRefInput<$PrismaModel>;
-    gte?: number | FloatFieldRefInput<$PrismaModel>;
-    not?: NestedFloatFilter<$PrismaModel> | number;
   };
 
   export type NestedEnumWithdrawStatusFilter<$PrismaModel = never> = {
@@ -13894,6 +13981,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -13943,6 +14031,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -14116,6 +14205,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -14193,6 +14283,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -14450,6 +14541,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -14499,6 +14591,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -14618,6 +14711,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -14695,6 +14789,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -14840,6 +14935,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -14889,6 +14985,7 @@ export namespace Prisma {
     lastVersionCode?: number | null;
     lastVersionName?: string | null;
     lastVersionUpdate?: Date | string | null;
+    tokenVersion?: number;
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
@@ -14974,6 +15071,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput
@@ -15051,6 +15149,7 @@ export namespace Prisma {
       | Date
       | string
       | null;
+    tokenVersion?: IntFieldUpdateOperationsInput | number;
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null;
     mitraRateWoMaintenance?:
       | NullableFloatFieldUpdateOperationsInput

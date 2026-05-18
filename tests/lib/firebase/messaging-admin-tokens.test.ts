@@ -27,7 +27,7 @@ describe("Firebase messaging admin token selection", () => {
     ({ getAdminTokens } = await import("@/lib/firebase/messaging"));
   });
 
-  it("selects admin by accessAdminPanel capability, not role name list", async () => {
+  it("selects admin by accessAdminPanel capability and filters by tenantId", async () => {
     prismaMock.user.findMany.mockResolvedValue([
       {
         id: "admin-1",
@@ -43,17 +43,24 @@ describe("Firebase messaging admin token selection", () => {
       },
     ] as never);
 
-    await getAdminTokens();
+    await getAdminTokens("tenant-A");
 
     const query = prismaMock.user.findMany.mock.calls[0][0];
     expect(query.where).toMatchObject({
       isActive: true,
       role: { accessAdminPanel: true },
+      tenantId: "tenant-A",
     });
     expect(query.where).not.toMatchObject({
       role: {
         name: { in: ["SUPER_ADMIN", "Super Admin", "Admin", "Admin Payment"] },
       },
     });
+  });
+
+  it("returns empty array and skips DB query when tenantId is missing (cross-tenant leak guard)", async () => {
+    const tokens = await getAdminTokens("");
+    expect(tokens).toEqual([]);
+    expect(prismaMock.user.findMany).not.toHaveBeenCalled();
   });
 });

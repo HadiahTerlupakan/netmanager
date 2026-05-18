@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { executeMobileWithIdempotency } from "@/lib/api";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { OvertimeRouteService, OvertimeService } from "@/modules/overtime";
@@ -100,12 +101,22 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = await overtimeService.createRequest(authContext.userId, {
-        date: new Date(body.date),
-        reason: body.reason,
-        tenantId: authContext.tenantId,
+      // Idempotency: replay overtime request via SyncService bisa create
+      // duplicate request — payroll dihitung 2x.
+      return executeMobileWithIdempotency({
+        request,
+        scope: "overtime:create",
+        userId: authContext.userId,
+        body,
+        status: HTTP_CREATED,
+        wrapData: false,
+        handler: () =>
+          overtimeService.createRequest(authContext.userId, {
+            date: new Date(body.date),
+            reason: body.reason,
+            tenantId: authContext.tenantId,
+          }),
       });
-      return NextResponse.json(result, { status: HTTP_CREATED });
     }
 
     if (action === "start") {

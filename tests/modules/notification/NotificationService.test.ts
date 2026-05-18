@@ -283,9 +283,10 @@ describe("NotificationService", () => {
         sourceType: "SYSTEM",
         sourceId: "src-fcm-admin-1",
         skipExpoPush: true,
+        tenantId: "tenant-A",
       });
 
-      expect(getAdminTokens).toHaveBeenCalledTimes(1);
+      expect(getAdminTokens).toHaveBeenCalledWith("tenant-A");
       expect(sendFCMNotification).toHaveBeenCalledWith(
         ["admin-token-1", "admin-token-2"],
         "Admin Firebase",
@@ -297,6 +298,34 @@ describe("NotificationService", () => {
           sourceId: "src-fcm-admin-1",
         },
       );
+    });
+
+    it("does not push admin FCM when notification has no tenantId (cross-tenant leak guard)", async () => {
+      prismaMock.notifications.create.mockResolvedValueOnce({
+        id: "notif-fcm-admin-2",
+        type: "SYSTEM",
+        priority: "HIGH",
+        title: "Admin Firebase",
+        message: "Admin Body",
+        link: "/admin/notifications",
+        sourceType: "SYSTEM",
+        sourceId: "src-fcm-admin-2",
+        createdAt: new Date("2026-03-08T12:40:00.000Z"),
+      } as unknown as { id: string });
+
+      await createNotification({
+        type: "SYSTEM",
+        priority: "HIGH",
+        title: "Admin Firebase",
+        message: "Admin Body",
+        link: "/admin/notifications",
+        sourceType: "SYSTEM",
+        sourceId: "src-fcm-admin-2",
+        skipExpoPush: true,
+      });
+
+      expect(getAdminTokens).not.toHaveBeenCalled();
+      expect(sendFCMNotification).not.toHaveBeenCalled();
     });
   });
 

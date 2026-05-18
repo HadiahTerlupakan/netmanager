@@ -11,6 +11,15 @@ function buildLegacyPushTokenPayload(pushToken: string | null) {
   };
 }
 
+/**
+ * Gabungkan token baru ke array existing tanpa duplikat. Dipakai oleh
+ * `appendOwnerToken` untuk dedup atomic — array fcmTokens di DB tidak
+ * punya unique constraint sehingga harus didedup di application layer.
+ */
+function mergeFcmTokenSet(existing: string[], next: string): string[] {
+  return Array.from(new Set([...existing, next]));
+}
+
 export class PushTokenRepository implements IPushTokenRepository {
   async findUserPushToken(userId: string): Promise<string | null> {
     const user = await prisma.user.findUnique({
@@ -157,17 +166,35 @@ export class PushTokenRepository implements IPushTokenRepository {
     userId: string,
     fcmToken: string,
   ) {
+    // Atomic dedup: read-merge-write dalam transaksi agar 2 request paralel
+    // (login + tokenRefresh listener firing bersamaan) tidak menghasilkan
+    // duplikat di array `fcmTokens`. Tanpa transaksi, race window membuka
+    // celah multicast push notifikasi yang sama berkali-kali ke 1 device.
     if (session.role === "MITRA") {
-      await prismaMitra.mitra.update({
-        where: { id: userId },
-        data: { fcmTokens: { push: fcmToken } },
+      await prismaMitra.$transaction(async (tx) => {
+        const owner = await tx.mitra.findUnique({
+          where: { id: userId },
+          select: { fcmTokens: true },
+        });
+        const next = mergeFcmTokenSet(owner?.fcmTokens ?? [], fcmToken);
+        await tx.mitra.update({
+          where: { id: userId },
+          data: { fcmTokens: { set: next } },
+        });
       });
       return;
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { fcmTokens: { push: fcmToken } },
+    await prisma.$transaction(async (tx) => {
+      const owner = await tx.user.findUnique({
+        where: { id: userId },
+        select: { fcmTokens: true },
+      });
+      const next = mergeFcmTokenSet(owner?.fcmTokens ?? [], fcmToken);
+      await tx.user.update({
+        where: { id: userId },
+        data: { fcmTokens: { set: next } },
+      });
     });
   }
 

@@ -6,8 +6,12 @@ import type { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import type { UserLookupService } from "@/modules/users";
 import { startOfDay, setHours, setMinutes, addDays, getHours } from "date-fns";
 import { toZonedTime, toDate, format } from "date-fns-tz";
+import type { AttendanceGeofencePolicy } from "@/lib/geofencePolicy";
 
-export type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
+// Re-export untuk backward compat dengan caller existing.
+// Source of truth ada di `lib/geofencePolicy.ts` — sebelumnya tipe ini
+// didefinisikan ulang di 3+ file backend dan mobile, mudah drift.
+export type { AttendanceGeofencePolicy };
 
 export type CachedUserAttendanceSettings = {
   startWorkTime: string | null;

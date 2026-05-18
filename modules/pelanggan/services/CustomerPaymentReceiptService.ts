@@ -44,6 +44,7 @@ export async function uploadCustomerPaymentReceipt(
     options.customerId,
     updatedPayment.id,
     Number(payment.amount),
+    Reflect.get(payment, "tenantId") as string | null | undefined,
   );
   return {
     status: "uploaded",
@@ -96,9 +97,10 @@ async function publishReceiptUploadSideEffects(
   customerId: string,
   paymentId: string,
   amount: number,
+  tenantId: string | null | undefined,
 ) {
   await publishPaymentUploadNotification({ customerId, paymentId, amount });
-  await notifyAdminsAboutReceiptUpload();
+  await notifyAdminsAboutReceiptUpload(tenantId);
 }
 
 async function buildReceiptNotes(
@@ -195,9 +197,18 @@ async function publishReceiptNotificationScopes(
 }
 
 /** Mengirim push notification admin setelah pelanggan mengunggah bukti pembayaran. */
-async function notifyAdminsAboutReceiptUpload() {
+async function notifyAdminsAboutReceiptUpload(
+  tenantId: string | null | undefined,
+) {
+  if (!tenantId) {
+    logger.warn(
+      "[FCM] Skip push admin — payment tanpa tenantId, tidak bisa target tenant scope",
+    );
+    return;
+  }
+
   try {
-    const tokens = await getAdminTokens();
+    const tokens = await getAdminTokens(tenantId);
     await sendFCMNotification(
       tokens,
       RECEIPT_NOTIFICATION_TITLE,

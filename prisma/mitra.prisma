@@ -29,6 +29,10 @@ model Mitra {
   lastVersionName    String?
   lastVersionUpdate  DateTime?
 
+  // Token revocation: increment saat logout / password reset agar refresh
+  // token Mitra dapat di-revoke server-side (lihat /api/mobile/auth/logout).
+  tokenVersion Int @default(0)
+
   // Mitra configuration fields
   mitraRateWoPsb         Float? // Rate komisi per WO Instalasi/PSB
   mitraRateWoMaintenance Float? // Rate komisi per WO Maintenance/Gangguan

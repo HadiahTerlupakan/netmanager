@@ -3,12 +3,13 @@ import { WorkingHourMode } from "../types/user.enums";
 import type { UserScheduleEntity } from "../domain/entities/UserEntity";
 import type { CreateUserRepositoryInput } from "../domain/ports/IUserRepository";
 import type { CreateUserInput, UpdateUserInput } from "./UserService.types";
+import {
+  DEFAULT_ATTENDANCE_GEOFENCE_POLICY,
+  type AttendanceGeofencePolicy,
+} from "@/lib/geofencePolicy";
 
-const DEFAULT_ATTENDANCE_GEOFENCE_POLICY = "WARN";
 const DEFAULT_IS_SALES = false;
 const DEFAULT_IS_ATTENDANCE_REQUIRED = true;
-
-type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
 
 type UpdateFieldSetter = (
   updateData: Prisma.UserUncheckedUpdateInput,

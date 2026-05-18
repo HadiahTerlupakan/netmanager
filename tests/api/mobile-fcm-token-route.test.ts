@@ -26,6 +26,12 @@ describe("POST /api/mobile/fcm-token", () => {
       tenantId: "tenant-1",
       fcmTokens: [],
     });
+    // appendOwnerToken sekarang atomic via $transaction (read-merge-write)
+    // — H15 fix untuk cegah duplicate token dari race login + tokenRefresh.
+    prismaMock.$transaction.mockImplementationOnce(
+      async (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+    );
+    prismaMock.user.findUnique.mockResolvedValueOnce({ fcmTokens: [] });
     prismaMock.user.update.mockResolvedValueOnce({ id: "user-1" });
 
     const request = new NextRequest("http://localhost/api/mobile/fcm-token", {
@@ -50,7 +56,7 @@ describe("POST /api/mobile/fcm-token", () => {
       where: { id: "user-1" },
       data: {
         fcmTokens: {
-          push: "fcm-token-1",
+          set: ["fcm-token-1"],
         },
       },
     });

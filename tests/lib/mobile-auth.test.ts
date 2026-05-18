@@ -73,14 +73,32 @@ describe("mobile-auth version overrides", () => {
     mockMitraFindUnique.mockResolvedValue(null);
   });
 
-  it("uses explicit version override when reading token details", async () => {
+  it("uses explicit version override when it is lower than or equal to token claim", async () => {
+    // Source of truth: claim `appVersionCode` di JWT (signed saat login).
+    // Header `X-App-Version-Code` HANYA diterima sebagai upper-bound
+    // override (≤ token claim), agar attacker tidak bisa spoof header
+    // dengan versi lebih TINGGI untuk bypass version gating.
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 100 },
+    });
+
+    const details = await getMobileTokenDetails("token-1", 80);
+
+    // Header (80) ≤ token (100) → header dipercaya (kasus user downgrade
+    // runtime sambil token masih valid, backend perlu tahu versi runtime
+    // sebenarnya untuk gating).
+    expect(details?.versionCode).toBe(80);
+  });
+
+  it("ignores version override when it claims a higher version than token (anti-spoof)", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
     });
 
     const details = await getMobileTokenDetails("token-1", 100);
 
-    expect(details?.versionCode).toBe(100);
+    // Header (100) > token claim (54) → spoof attempt, ignore.
+    expect(details?.versionCode).toBe(54);
   });
 
   it("accepts a supported request version even when token appVersionCode is stale", async () => {

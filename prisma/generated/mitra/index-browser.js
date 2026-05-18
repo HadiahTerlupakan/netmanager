@@ -135,6 +135,7 @@ exports.Prisma.MitraScalarFieldEnum = {
   lastVersionCode: 'lastVersionCode',
   lastVersionName: 'lastVersionName',
   lastVersionUpdate: 'lastVersionUpdate',
+  tokenVersion: 'tokenVersion',
   mitraRateWoPsb: 'mitraRateWoPsb',
   mitraRateWoMaintenance: 'mitraRateWoMaintenance',
   mitraRateCanvasing: 'mitraRateCanvasing',

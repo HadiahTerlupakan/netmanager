@@ -5,7 +5,7 @@ import {
   verifyPelangganRefreshToken,
 } from "@/lib/jwt";
 import { prismaAuth } from "@/modules/database";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import type {
   MobileLoginPayload,
   MobileLoginResult,
@@ -105,7 +105,7 @@ export class MobileCustomerAuthService {
           appVersionCode: trustedVersion.trustedVersionCode || undefined,
           appVersionName: trustedVersion.trustedVersionName,
         },
-        "7d",
+        "15m",
       ),
       refreshToken: await generatePelangganRefreshToken(customer.id, {
         appVersionCode: trustedVersion.trustedVersionCode || undefined,
@@ -136,10 +136,44 @@ async function isCustomerPasswordValid(
     return compare(password, customer.passwordHash);
   }
 
+  // Plaintext fallback default DISABLED di production agar password legacy
+  // tidak terus dipakai. Set LEGACY_PLAINTEXT_AUTH_ENABLED=true sementara
+  // untuk migration window. Saat user login berhasil dengan plaintext,
+  // password otomatis di-hash dan disimpan ke `passwordHash` agar tidak
+  // perlu fallback lagi di login berikutnya.
+  if (process.env.LEGACY_PLAINTEXT_AUTH_ENABLED !== "true") {
+    logger.warn(
+      `[MobileAuth] Customer ${customer.id} masih plaintext tapi LEGACY_PLAINTEXT_AUTH_ENABLED tidak aktif. Login ditolak.`,
+    );
+    return false;
+  }
+
   logger.warn(
-    `[MobileAuth] WARNING: Customer ${customer.id} is using legacy plaintext password. Please migrate to bcrypt hash.`,
+    `[MobileAuth] WARNING: Customer ${customer.id} is using legacy plaintext password. Auto-migrating to bcrypt.`,
   );
-  return customer.password === password;
+
+  if (customer.password !== password) {
+    return false;
+  }
+
+  // Auto-migrate ke bcrypt — best-effort, jangan block login bila gagal.
+  try {
+    const newHash = await hash(password, 10);
+    await prismaAuth.pelanggan.update({
+      where: { id: customer.id },
+      data: { passwordHash: newHash, password: null },
+    });
+    logger.info(
+      `[MobileAuth] Customer ${customer.id} password migrated to bcrypt`,
+    );
+  } catch (migrationError) {
+    logger.error(
+      `[MobileAuth] Failed to migrate plaintext password for ${customer.id}:`,
+      migrationError,
+    );
+  }
+
+  return true;
 }
 
 async function buildSuccessfulCustomerLogin(
@@ -153,7 +187,7 @@ async function buildSuccessfulCustomerLogin(
     data: {
       token: generatePelangganAccessToken(
         buildCustomerTokenPayload(customer, input),
-        "7d",
+        "15m",
       ),
       refreshToken: await generatePelangganRefreshToken(
         customer.id,

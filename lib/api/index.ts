@@ -38,3 +38,15 @@ export {
   isValidUUID,
   validateFileUpload,
 } from "@/lib/validation/middleware";
+
+// Idempotency (untuk endpoint mobile yang dipanggil via SyncService replay).
+export {
+  idempotencyService,
+  resolveIdempotencyKey,
+  GenericIdempotencyService,
+} from "./idempotency";
+export type { IdempotencyOutcome, IdempotencyOptions } from "./idempotency";
+export { executeMobileWithIdempotency } from "./idempotency-route-helpers";
+
+// Request correlation ID (mobile ↔ backend log linking).
+export { getOrCreateRequestId, buildRequestIdHeaders } from "./request-id";

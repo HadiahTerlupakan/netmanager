@@ -19,6 +19,7 @@ export * from "./services/MobileAuthRouteService";
 export * from "./services/MobileProfileRouteService";
 export * from "./services/MobileProfilePhotoRouteService";
 export * from "./services/MobilePartnerRouteService";
+export * from "./services/MobileLogoutService";
 export {
   attendanceGeofencePolicyEnum,
   createUserSchema,

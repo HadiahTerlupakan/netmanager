@@ -169,7 +169,16 @@ async function notifyAdmins(
     wsPayload,
     buildAdminNotificationSiteId(data.siteId),
   );
-  const adminTokens = await getAdminTokens();
+
+  if (!data.tenantId) {
+    logger.warn(
+      "[FCM Push Admin] Skip — notifikasi tanpa tenantId tidak dapat dipush ke admin (cegah cross-tenant leak)",
+      { sourceType: data.sourceType, sourceId: data.sourceId },
+    );
+    return;
+  }
+
+  const adminTokens = await getAdminTokens(data.tenantId);
   if (adminTokens.length === 0) {
     return;
   }

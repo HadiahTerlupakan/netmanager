@@ -2,8 +2,7 @@ import { calculateHaversineDistance } from "@/lib/geo-utils";
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { UserLookupService } from "@/modules/users";
-
-type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
+import type { AttendanceGeofencePolicy } from "@/lib/geofencePolicy";
 
 interface GeofenceZone {
   siteId: string;

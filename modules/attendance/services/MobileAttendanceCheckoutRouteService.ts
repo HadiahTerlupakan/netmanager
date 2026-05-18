@@ -165,6 +165,13 @@ export class MobileAttendanceCheckoutRouteService {
           { status: 400 },
         );
       }
+      if (error instanceof Error && error.message === "COORDINATES_REQUIRED") {
+        throw apiError(
+          "Lokasi GPS wajib diaktifkan untuk absensi (kebijakan STRICT). Aktifkan GPS lalu coba lagi.",
+          ErrorCodes.COORDINATES_REQUIRED,
+          { status: 422 },
+        );
+      }
       if (error instanceof Error && error.message === "NO_ACTIVE_SESSION") {
         throw apiError(
           "Anda belum melakukan check-in atau sudah check-out hari ini",

@@ -45,6 +45,134 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Sprint 6: Tutup remaining Medium + Low severity dari deep review
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager/src/`, `docs/standards/api-versioning.md`
+- **Author**: agent
+- **Deskripsi**: Final cleanup remaining Medium + Low finding:
+  - **L-1** — `signOut()` sekarang `await fcmService.syncFCMTokenToBackend('remove')` dengan timeout 3s race (sebelumnya fire-and-forget — server-side tetap kirim notif ke device user lama selama beberapa detik setelah logout). Dependencies callback dibersihkan (`syncFcmToken` tidak lagi dipanggil dari signOut).
+  - **L-2** — `RefreshTokenService.doRefresh` retry 5xx + network error max 2 attempt dengan backoff 1-2s. 401/403/426 tetap final (tidak retry). Tanpa retry, transient backend hiccup → user dipikir kena logout walau hanya server glitch sesaat.
+  - **L-4.4** — FCM permission gating dipisah: `hasUserPermission()` cek tanpa request dialog, `requestUserPermission()` panggil dialog. `syncFCMTokenToBackend(action, { requestPermissionIfNeeded: false })` default tidak prompt — onboarding screen explicit yang trigger via `fcmService.requestUserPermission()`. Dialog Android 13+ POST_NOTIFICATIONS tidak lagi muncul tanpa konteks saat first sign-in.
+  - **L-7.2** — `useNotificationSetup` tidak lagi pakai `eventManager.addListener('root_notifications', ...)`; cleanup function disimpan per-instance di `useRef`. Sebelumnya namespace string global "root_notifications" rentan tabrakan dengan listener module lain yang kebetulan pakai key sama.
+  - **Sync §4.3+4.7** — `SyncService.processQueueItem` sekarang explicit handle 401 mid-batch: refresh token via `RefreshTokenService`, override token closure, retry item. Sebelumnya 401 transient → diretry dengan token mati → loop forever sampai user re-login manual.
+  - **API versioning strategy** — dokumen baru `docs/standards/api-versioning.md` mendefinisikan policy additive default + path `/api/mobile/v2/*` untuk breaking change + force-update fallback via `MOBILE_MIN_NATIVE_VERSION_CODE`.
+  - **M-3.6 / L-4** — Verified sudah ter-handle di Sprint 1-2 (FCM cache reset di signOut, multi-tenant disabled jadi tenant prefix tidak relevan). No-op confirmation.
+- **Files**: `mobile-netmanager/src/context/AuthContext.tsx`, `src/services/RefreshTokenService.ts`, `src/services/FirebaseMessagingService.ts`, `src/hooks/useNotificationSetup.ts`, `docs/standards/api-versioning.md` (new)
+- **Breaking**: ❌ Tidak (semua perubahan additive — `syncFCMTokenToBackend` parameter baru optional, default behavior unchanged untuk caller existing kecuali tidak lagi prompt permission Android 13+ kalau caller tidak set `requestPermissionIfNeeded: true`)
+
+### [2026-05-18] — Sprint 5: Tutup remaining backlog dari deep review
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager/src/services/`, `mobile-netmanager/scripts/`, `docs/reports/mobile-deep-review-2026-05-18/`
+- **Author**: agent
+- **Deskripsi**: Selesaikan backlog yang tersisa dari deep review (item yang Sprint 1-4 lewatkan):
+  - **Sync §4.6+4.7** — `SyncService.processQueue` sekarang refresh access token via `RefreshTokenService.refreshAccessToken()` saat token kosong/expired, sebelumnya skip total → queue stuck sampai user re-login manual.
+  - **Sync §4.2** — Global retry budget `MAX_GLOBAL_RETRY_COUNT = 10`. Item dengan 5xx berkepanjangan auto-`markAsFailed` + cleanup foto + telemetry `permanent_failed` + notify user, mencegah loop forever (in-attempt retry 3x → markAsRetry → next batch retry 3x lagi → ...).
+  - **Sync §5** — Reconciliation event `DeviceEventEmitter.emit('sync:succeeded', { endpoint, method, requestId })` setelah sukses sync; hooks bisa listen untuk auto-invalidate cache, mencegah UI stale walau backend sudah punya data terbaru.
+  - **Realtime §2.4** — `RealtimeService.disconnect()` broadcast event `__realtime:disconnected`; `subscribeToScope` listen broadcast dan auto-cancel listener tanpa screen perlu unmount manual. Tutup celah cross-account leak: listener owner-screen tidak lagi hidup pakai sesi auth user lama setelah signOut.
+  - **Infra §6.5+6.2** — Script `scripts/ota-rollback.sh` baru: list update aktif di channel, deactivate current head, activate previous via `/api/admin/app-update/[id]` PATCH endpoint. Workflow: `./scripts/ota-rollback.sh staging` interactif konfirmasi sebelum rollback. Memenuhi gap Sprint 1 audit yang flag tidak ada strategi rollback OTA.
+  - **Infra §6.1** — Dokumentasi multi-environment Firebase di `docs/reports/mobile-deep-review-2026-05-18/Infra-firebase-multi-env-guide.md` (3 Firebase project terpisah dev/staging/prod + EAS secrets). Fix actual butuh provisioning manual via Firebase Console — guide lengkap dengan steps + estimasi.
+  - **Skipped (non-actionable)**: Auth L-3 (slim JWT claim) — `accessAdminPanel`/`isSuperAdmin` dipakai oleh mobile UI menu admin, hapus akan break feature; Infra §6.3 (APK cleanup) — `*.apk` sudah di .gitignore, file tidak tracked git, hanya housekeeping dev folder.
+- **Files**: `mobile-netmanager/src/services/SyncService.ts`, `mobile-netmanager/src/services/RealtimeService.ts`, `mobile-netmanager/scripts/ota-rollback.sh` (new), `docs/reports/mobile-deep-review-2026-05-18/Infra-firebase-multi-env-guide.md` (new)
+- **Breaking**: ❌ Tidak
+
+### [2026-05-18] — Sprint 4: Selesaikan 3 follow-up Critical (Sentry + expo-sqlite + Mitra migration)
+
+- **Tipe**: [INFRA]
+- **Scope**: `mobile-netmanager/src/services/`, `mobile-netmanager/index.js`, `mobile-netmanager/.env.example`, `mobile-netmanager/package.json`, `prisma/mitra_migrations/`, database `mitra`
+- **Author**: agent
+- **Deskripsi**: Tutup 3 follow-up dari Sprint 1-3:
+  - **Sentry RN install** — `@sentry/react-native@^8.11.1` ditambahkan, `SentryService.ts` baru sebagai initializer terpusat (init dari `EXPO_PUBLIC_SENTRY_DSN`, no-op bila kosong; PII filter strip Authorization/Cookie/password/token sebelum kirim). Integrasi: `index.js` panggil `initializeSentry()` paling awal, `TelemetryService.trackEvent` pipe ke `Sentry.addBreadcrumb`, `TelemetryService.trackError` panggil `Sentry.captureException`/`captureMessage`, `ErrorReportingService.captureException` juga kirim ke Sentry. `.env.example` dapat key `EXPO_PUBLIC_SENTRY_DSN` + `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
+  - **expo-sqlite full migration** — `expo-sqlite` ditambahkan via `npx expo install`. `DatabaseService.ts` di-rewrite total dari AsyncStorage envelope ke SQLite: tabel `sync_queue` dengan PRIMARY KEY + index `(status, createdAt)`, migration runner via `PRAGMA user_version` (mudah extend untuk schema change masa depan), one-shot legacy migration import dari `Storage[NETMANAGER_SYNC_QUEUE]` ke SQLite di first init (idempotent + atomic via transaction). API publik `DatabaseService` DIPERTAHANKAN identik — caller (`SyncService`, `useApiMutation`) tidak perlu refactor. Benefit: row-level atomic update (tidak rewrite seluruh blob per status change), real query `WHERE status IN`/`ORDER BY`, tidak terikat limit ~6MB AsyncStorage Android.
+  - **Mitra tokenVersion migration apply** — `prisma migrate deploy --config=prisma.mitra.config.ts` dijalankan ke database `mitra` (postgresql://localhost:5435/mitra). Kolom `tokenVersion INTEGER NOT NULL DEFAULT 0` confirmed di `\d Mitra`. Sekarang Sprint 2 fix H4 (`getMobileTokenVersion` Mitra read DB + logout endpoint increment Mitra) fully functional di runtime.
+- **Files**: `mobile-netmanager/package.json`, `mobile-netmanager/.env.example`, `mobile-netmanager/index.js`, `mobile-netmanager/src/services/SentryService.ts` (new), `mobile-netmanager/src/services/DatabaseService.ts` (rewrite), `mobile-netmanager/src/services/TelemetryService.ts`, `mobile-netmanager/src/services/ErrorReportingService.ts`, `mobile-netmanager/app.json` (expo-sqlite plugin auto-added)
+- **Migration applied**: `20260518_add_mitra_token_version` — sudah diaplikasikan ke DB Mitra dev. Untuk staging/prod jalankan `npm run prisma:migrate-deploy` atau langsung `npx prisma migrate deploy --config=prisma.mitra.config.ts`.
+- **Breaking**: ❌ Tidak (DatabaseService API kompatibel, migration legacy data otomatis, Sentry no-op tanpa DSN, Mitra migration additive default 0)
+
+### [2026-05-18] — Sprint 3 hardening: 20 Medium issue + Critical follow-ups dari deep review
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/api/`, `lib/geofencePolicy.ts`, `lib/mobile-auth.ts`, `app/api/mobile/inventory/`, `app/api/mobile/leaves/`, `app/api/mobile/overtime/`, `app/api/mobile/auth/firebase-token/`, `modules/users/`, `modules/attendance/`, `mobile-netmanager/src/`
+- **Author**: agent
+- **Deskripsi**: Apply fix untuk 20 Medium finding + Critical follow-up:
+  - **M-Correlation** — `lib/api/request-id.ts` dengan `getOrCreateRequestId` + mobile axios interceptor inject `X-Request-Id` (UUID) untuk korelasi log mobile↔backend.
+  - **M1** — Login 401 selalu clear stored credentials (termasuk path biometric saveCreds=false), pesan disesuaikan.
+  - **M2** — Access token expiry diturunkan ke 15m untuk semua role (Customer + Employee/Mitra). Refresh token tetap 30d.
+  - **M3** — JWT audience+issuer set ke `netmanager` / `netmanager-mobile`, verify dengan options. Graceful migration: token legacy tanpa claim aud/iss tetap valid hingga refresh cycle selesai.
+  - **M4** — Customer plaintext password fallback default DISABLED; aktifkan via `LEGACY_PLAINTEXT_AUTH_ENABLED=true`. Plaintext berhasil → auto-migrate ke bcrypt + clear `password` field.
+  - **M5** — `NetworkStateService` default `true` (sudah benar), api.ts hanya reject saat eksplisit `false`.
+  - **M-Loc** — Location timeout naikkan ke 15s (dari 5s) di `getCurrentLocation` & `useLocationWithTimeout` — 5s terlalu pendek untuk GPS first fix outdoor.
+  - **M-Toast** — Toast 5xx pindah ke setelah retry decision; bila request sukses via retry, toast tidak muncul mis-leading.
+  - **M-Geo** — Konsolidasi `AttendanceGeofencePolicy` ke single source `lib/geofencePolicy.ts` (sebelumnya didefinisikan ulang di 3+ file backend + mobile).
+  - **M-DL** — Replace `setTimeout(500ms)` di killed-state deeplink dengan `useSegments` router-ready gate; deeplink fire saat segments populated, robust di Android Go/device lambat.
+  - **M-iOS** — `presentForegroundNotification` support iOS via `notifee.displayNotification` + `foregroundPresentationOptions: { alert, badge, sound }`. iOS user tidak lagi miss high-priority alert.
+  - **M-RT BG** — Background FCM handler render data-only message via notifee (sebelumnya hanya `console.log` dead code). OS sudah handle `notification` field; data-only payload sekarang tidak lost.
+  - **M-RT AppState** — RealtimeProvider re-validate Firebase auth saat AppState `background→active`, fix data frozen setelah long background.
+  - **M-RT Rate** — `/api/mobile/auth/firebase-token` rate limit 10 mints/menit per user via `advancedRateLimit` — cegah single user DoS Firebase project quota.
+  - **M-PS** — `useProfileSync` realtime listener jadi module-scoped singleton dengan ref counting; multi-component yang panggil hook tidak bikin N listener Firestore.
+  - **C1 mobile** — Generic `createRequestId(scope)` di `src/utils/requestId.ts` pakai `expo-crypto.randomUUID()` (cegah clock-rollback collision); `attendanceIdempotency` jadi wrapper backward-compat.
+  - **C1 apply** — Apply idempotency middleware ke `/api/mobile/inventory/masuk`, `/inventory/keluar`, `/leaves`, `/overtime` (action: request). Helper `executeMobileInventoryWithIdempotency` di `route-utils` agar tidak duplicate boilerplate. Replay yang ditolak via `Idempotency-Key` header sekarang ter-handle dengan response cached, mencegah duplicate stock movement / cuti / lembur.
+  - **L** — Low severity hygiene: hapus dead imports, verify clean diagnostics. Sisa Low non-actionable atau sudah covered di Sprint 1-2.
+- **Files**: backend: `lib/api/request-id.ts` (new), `lib/api/index.ts`, `lib/geofencePolicy.ts` (new), `lib/mobile-auth.ts`, `modules/users/services/MobileCustomerAuthService.ts`, `modules/users/services/UserService.helpers.ts`, `modules/attendance/services/attendance-service-helpers.ts`, `modules/attendance/services/GeofenceService.ts`, `app/api/mobile/inventory/route-utils.ts`, `app/api/mobile/inventory/masuk/route.ts`, `app/api/mobile/inventory/keluar/route.ts`, `app/api/mobile/leaves/route.ts`, `app/api/mobile/overtime/route.ts`, `app/api/mobile/auth/firebase-token/route.ts`. Mobile: `src/utils/requestId.ts` (new), `src/utils/attendanceIdempotency.ts`, `src/utils/useLocationWithTimeout.ts`, `src/services/api.ts`, `src/services/RefreshTokenService.ts`, `src/services/ForegroundNotificationService.ts`, `src/hooks/queries/useApiMutation.ts`, `src/hooks/useNotificationSetup.ts`, `src/hooks/useProfileSync.ts`, `src/context/RealtimeProvider.tsx`, `app/(auth)/login.tsx`, `index.js`.
+- **Breaking**: ❌ Tidak (backwards-compatible — JWT verify graceful migration, idempotency optional via header, helper opt-in)
+
+### [2026-05-18] — Sprint 2 hardening: 17 High issue dari deep review mobile↔backend
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/firebase/`, `lib/mobile-auth.ts`, `lib/mobile-api-auth.ts`, `modules/notification/repositories/`, `prisma/mitra.prisma`, `prisma/mitra_migrations/20260518_add_mitra_token_version/`, `app/api/mobile/auth/`, `mobile-netmanager/src/`
+- **Author**: agent
+- **Deskripsi**: Apply fix untuk 17 High finding dari laporan deep review mobile integration:
+  - **H1** Throttle `Events.AUTH_UNAUTHORIZED` emit (1s coalesce window) untuk cegah 5 paralel 401 trigger 5x signOut → blank screen.
+  - **H2** RefreshTokenService konsisten pakai `SecureStorage` wrapper (bukan SecureStore raw) — fix web fallback prefix mismatch.
+  - **H3** `verifyMobileToken` route query berdasarkan claim `role` (1 query alih-alih fallback chain 2-3 query) — extract `verifyCustomerToken` & `verifyMitraToken` helper.
+  - **H4** Tambah kolom `tokenVersion Int @default(0)` ke schema `Mitra` + migration SQL `20260518_add_mitra_token_version`. Logout endpoint sekarang increment Mitra tokenVersion.
+  - **H5** Drop `chat` scope realtime dari mobile (commented dengan TODO) — backend tidak publish ke `chats/{id}/events` dan Firestore rules tidak ada match. Chat tetap fungsional via REST.
+  - **H6** `seenDocIds` di `subscribeToScope` di-scope outside subscribe closure dengan size cap 500 (FIFO eviction) — fix duplicate/lost event saat retry + memory leak long-lived listener.
+  - **H7** Mobile `signOut()` panggil `messaging.deleteToken()` + reset `lastSyncedToken` cache — cegah cross-account FCM leak di shared device.
+  - **H8** Backend `/api/mobile/auth/firebase-token` panggil `setCustomUserClaims` saat mint custom token — fix stale claims (privilege escalation window saat role demosi).
+  - **H9** Generic `TelemetryService` dengan namespace per modul (attendance/wo/inventory/chat/payment/sync/auth/realtime/fcm/upload/app); axios interceptor track sukses & gagal lintas modul; SyncService track non-attendance. Sentry setup guide di `docs/reports/mobile-deep-review-2026-05-18/H9-sentry-setup-guide.md`.
+  - **H10** Konstanta `HTTP_TIMEOUTS` (short/standard/long/sync/refresh) di `src/constants/httpTimeouts.ts`; api.ts/useApiMutation/SyncService/RefreshTokenService/UploadService/ErrorReportingService konsisten pakai konstanta.
+  - **H11** SyncService TTL expiry sekarang notifikasi user (bukan silent discard); photo URL di-cache ke `baseMeta` setelah upload sukses agar retry skip re-upload (cegah orphan files S3 + bandwidth wasted).
+  - **H12** RefreshTokenService deteksi 426 explicit dan emit `Events.APP_VERSION_UNSUPPORTED` — sebelumnya null path → user dipikir kena logout padahal butuh update.
+  - **H13** `connectPromise` cache invalidation di `subscribeToScope` error handler (auth error → reset auth + re-mint).
+  - **H14** `RealtimeService.disconnect()` panggil `firebaseSignOut(auth)` — cegah listener cross-account leak setelah logout.
+  - **H15** `getAdminTokens(tenantId)` filter cross-tenant + `sendFCMNotification` null-check messaging admin SDK + reap stale token (`messaging/registration-token-not-registered`); `appendOwnerToken` repository pakai transaksi atomic dedup (cegah duplicate fcmTokens dari race login + tokenRefresh listener).
+  - **H16** Hapus `presentInfoMessage`/`presentSuccessMessage` duplikat di `useAttendanceSubmission` — `useApiMutation` sudah handle via `successMessage` config.
+  - **H17** `resolveVersionCode` trust hanya `payload.appVersionCode` (signed JWT) untuk gating; header `X-App-Version-Code` hanya allowed sebagai upper-bound override (≤ token claim) untuk cegah spoof bypass version gating.
+- **Files**: backend: `lib/firebase/messaging.ts`, `lib/mobile-auth.ts`, `lib/mobile-api-auth.ts`, `modules/notification/repositories/PushTokenRepository.ts`, `app/api/mobile/auth/logout/route.ts`, `app/api/mobile/auth/firebase-token/route.ts`, `prisma/mitra.prisma`, `prisma/mitra_migrations/20260518_add_mitra_token_version/migration.sql`. Mobile: `src/constants/httpTimeouts.ts` (new), `src/services/TelemetryService.ts` (new), `src/services/api.ts`, `RefreshTokenService.ts`, `RealtimeService.ts`, `FirebaseMessagingService.ts`, `SyncService.ts`, `UploadService.ts`, `ErrorReportingService.ts`, `CredentialStorageService.ts`, `BiometricService.ts`, `src/hooks/queries/useApiMutation.ts`, `src/hooks/useAttendanceSubmission.ts`, `src/context/AuthContext.tsx`, `app/(app)/chat/[conversationId].tsx`. Docs: `docs/reports/mobile-deep-review-2026-05-18/H9-sentry-setup-guide.md`.
+- **Migration**: `20260518_add_mitra_token_version` — wajib di-apply (`prisma migrate deploy --schema prisma/mitra.prisma`) sebelum mobile build berikutnya.
+- **Breaking**: ❌ Tidak (backwards-compatible — schema migration additive, axios behavior unchanged untuk caller existing)
+
+### [2026-05-18] — Sprint 1 hardening: 11 Critical issue dari deep review mobile↔backend
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/firebase/`, `lib/api/`, `modules/attendance/`, `modules/notification/`, `modules/pelanggan/`, `app/api/mobile/auth/logout/`, `mobile-netmanager/src/`
+- **Author**: agent
+- **Deskripsi**: Apply fix untuk 11 Critical finding dari laporan deep review mobile integration:
+  - **C1** Generic idempotency middleware di `lib/api/idempotency.ts` (mirror pattern attendance) + apply guide untuk work-order/inventory/leave (`docs/reports/mobile-deep-review-2026-05-18/C1-idempotency-apply-guide.md`).
+  - **C2** Cross-tenant FCM leak ditutup — `getAdminTokens(tenantId)` wajib filter tenant; caller `notifyAdmins` & `notifyAdminsAboutReceiptUpload` propagasi `tenantId`.
+  - **C3** Custom token Firestore refresh — cek `getIdToken()` expiry sebelum reuse, branch on `permission-denied`/`unauthenticated` untuk re-mint sebelum retry.
+  - **C4** Endpoint `POST /api/mobile/auth/logout` baru — increment `tokenVersion` Customer & Employee untuk revoke refresh token; mobile `signOut()` panggil endpoint best-effort. Mitra TODO (butuh schema migration).
+  - **C5(B)** Biometric storage stop-gap — `requireAuthentication: true` + `WHEN_UNLOCKED_THIS_DEVICE_ONLY` untuk password di SecureStore; `disableBiometric()` panggil `clearCredentials()`.
+  - **C6** Geofence bypass ditutup — backend `assertCoordinatesProvidedForStrict` reject 422 untuk policy STRICT + null coords; ErrorCode `COORDINATES_REQUIRED` baru.
+  - **C7** DatabaseService stop-gap — schema versioning envelope + quarantine bucket untuk corrupted blob (mencegah silent data loss saat deploy ubah `SyncQueueItem`); `clearSessionData` tidak lagi wipe queue saat logout. Migrasi penuh ke expo-sqlite tetap pending.
+  - **C8** Photo cleanup wired di `SyncService` — panggil `cleanupOfflinePhotos` di success/TTL/permanent-failure path; helper `cleanupOfflinePhotos` & `sweepOrphanOfflinePhotos`.
+  - **C9** Double/triple toast — `useApiMutation` set `skipErrorToast: true` di axios request; interceptor toast hanya jadi fallback untuk read endpoint.
+  - **C10** UploadService timeout watchdog — 60s hard timeout + 30s no-progress watchdog; selalu pakai `createUploadTask` agar bisa di-cancel.
+  - **C11** Firestore rules deploy — rename `firestore-rules-update.txt` → `firestore.rules`, tambah pointer di `firebase.json`, tambah rule untuk `departments/{deptId}/events/{eventId}`, tambah explicit `allow write: if false` di event collections.
+- **Files**: `netmanager/lib/firebase/messaging.ts`, `lib/api/idempotency.ts`, `lib/api/index.ts`, `lib/api-response.ts`, `modules/attendance/services/AttendanceMutationGeofenceService.ts`, `modules/attendance/services/MobileAttendanceCheckInRouteService.ts`, `modules/attendance/services/MobileAttendanceCheckoutRouteService.ts`, `modules/notification/services/NotificationService.delivery.ts`, `modules/pelanggan/services/CustomerPaymentReceiptService.ts`, `app/api/mobile/auth/logout/route.ts`, `tests/lib/firebase/messaging-admin-tokens.test.ts`, `tests/modules/notification/NotificationService.test.ts`, `mobile-netmanager/src/services/api.ts`, `UploadService.ts`, `SyncService.ts`, `RealtimeService.ts`, `CredentialStorageService.ts`, `BiometricService.ts`, `DatabaseService.ts`, `src/utils/persistPhoto.ts`, `src/hooks/queries/useApiMutation.ts`, `src/context/AuthContext.tsx`, `firestore.rules`, `firebase.json`
+- **Breaking**: ❌ Tidak (backwards-compatible — endpoint baru, middleware opt-in, schema versioning auto-migrate dari legacy plain array)
+
+### [2026-05-18] — Deep review integrasi mobile ↔ backend
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/reports/`
+- **Author**: agent
+- **Deskripsi**: Tambah laporan deep review integrasi `mobile-netmanager` ↔ `netmanager` backend di 4 area (auth & token flow, offline sync & idempotency, real-time & FCM, cross-cutting concerns). Total 78 finding (11 Critical, 27 High, 30 Medium, 10 Low). Highlight: idempotency tidak konsisten antar endpoint, cross-tenant FCM leak, custom token Firestore tidak refresh, password plaintext di SecureStore, geofence bypass via null coords, schema-less queue di DatabaseService, disk leak photo offline, double toast spam.
+- **Files**: `docs/reports/MOBILE_INTEGRATION_DEEP_REVIEW_2026-05-18.md` (executive summary), `docs/reports/mobile-deep-review-2026-05-18/01-auth-token-flow.md`, `02-offline-sync-idempotency.md`, `03-realtime-fcm.md`, `04-cross-cutting.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Fix test fixtures pasca migrasi TanStack adoption
 
 - **Tipe**: [FIXED]

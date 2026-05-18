@@ -182,6 +182,13 @@ export class MobileAttendanceCheckInRouteService {
         400,
       );
     }
+    if (error.message === "COORDINATES_REQUIRED") {
+      return this.fail(
+        "Lokasi GPS wajib diaktifkan untuk absensi (kebijakan STRICT). Aktifkan GPS lalu coba lagi.",
+        ErrorCodes.COORDINATES_REQUIRED,
+        422,
+      );
+    }
     if (error.message === "DUPLICATE_ENTRY") {
       return this.fail(
         "Anda sudah melakukan check-in hari ini",

@@ -11,6 +11,9 @@ export class AttendanceMutationGeofenceService {
     userDetails: CachedUserAttendanceSettings | null,
   ) {
     if (!this.hasCoordinates(params)) {
+      this.assertCoordinatesProvidedForStrict(
+        userDetails?.attendanceGeofencePolicy,
+      );
       return {
         status: "UNKNOWN",
         distance: null as number | null,
@@ -39,6 +42,9 @@ export class AttendanceMutationGeofenceService {
     attendance: { user: { attendanceGeofencePolicy?: string | null } },
   ) {
     if (!this.hasCoordinates(params)) {
+      this.assertCoordinatesProvidedForStrict(
+        attendance.user.attendanceGeofencePolicy,
+      );
       return { status: "UNKNOWN", distance: null as number | null };
     }
     const geoCheck = await this.geofenceService.validateGeofence(
@@ -66,6 +72,17 @@ export class AttendanceMutationGeofenceService {
   private assertAllowedGeofence(isInside: boolean, policy?: string | null) {
     if (!isInside && (policy ?? "WARN") === "STRICT") {
       throw new Error("OUTSIDE_GEOFENCE");
+    }
+  }
+
+  /**
+   * Tutup bypass: kalau policy STRICT, koordinat null/undefined tidak boleh
+   * lolos sebagai status "UNKNOWN". Tanpa guard ini, karyawan bisa matikan
+   * GPS untuk check-in dari mana saja (compliance & abuse vector).
+   */
+  private assertCoordinatesProvidedForStrict(policy?: string | null) {
+    if ((policy ?? "WARN") === "STRICT") {
+      throw new Error("COORDINATES_REQUIRED");
     }
   }
 }
