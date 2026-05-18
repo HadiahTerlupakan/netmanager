@@ -45,6 +45,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 1 fully complete: optimistic update TransferForm + migrate ke useApi
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/inventory/TransferForm.tsx`
+- **Author**: agent
+- **Deskripsi**: Audit ulang Phase 1 menemukan TransferForm masih
+  punya `useMutation` tanpa `onMutate` optimistic update. Tutup gap:
+  - Migrate barang + gudang fetch dari `getWithAuth` ke `useApi` agar
+    TanStack-cached (prerequisite optimistic update).
+  - `submitTransferMutation.onMutate`: snapshot data + optimistic patch
+    `stockPerGudang` (kurangi sumber, tambah tujuan) via
+    `mutateBarangs(updater, { revalidate: false })`.
+  - `onError`: rollback ke snapshot pre-mutation.
+  - `onSettled`: revalidate untuk get fresh data dari server (sukses
+    atau gagal).
+  - Error handling derive dari `useApi` error tanpa `setState` di
+    useEffect (mematuhi rule react-hooks/set-state-in-effect).
+
+  Phase 1 status final: SELESAI 5/5 critical mutations dengan optimistic
+  update + rollback (finance approve/reject, attendance bulk delete,
+  work-order status, inventory transfer, pelanggan action menu).
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `components/inventory/TransferForm.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 1 closing: optimistic update PppList action menu
 
 - **Tipe**: [CHANGED]

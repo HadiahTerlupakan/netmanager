@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { FiCheckCircle, FiAlertTriangle, FiXCircle } from "react-icons/fi";
@@ -8,6 +8,7 @@ import { PhotoUpload } from "./PhotoUpload";
 import type { PhotoUploadRef, UploadedPhoto } from "./PhotoUpload";
 import { Button } from "@/components/ui/Button";
 import { getWithAuth, postWithAuth } from "@/lib/api-client";
+import { useApi } from "@/lib/hooks/useApi";
 import {
   getStockStatusColor,
   getKondisiColor,
@@ -51,8 +52,6 @@ export function TransferForm({
     kondisi: "BARU" as "BARU" | "BEKAS" | "RUSAK",
     keterangan: "",
   });
-  const [barangs, setBarangs] = useState<Barang[]>([]);
-  const [gudangs, setGudangs] = useState<Gudang[]>([]);
   const [stockSumber, setStockSumber] = useState(0);
   const [stockPerKondisi, setStockPerKondisi] = useState({
     BARU: 0,
@@ -70,30 +69,33 @@ export function TransferForm({
   const [tempId] = useState<string>(() => `temp-${Date.now()}`);
   const router = useRouter();
 
+  const {
+    data: barangResp,
+    error: barangError,
+    mutate: mutateBarangs,
+  } = useApi<{ barangs?: Barang[] }>("/api/inventory/barang?limit=100");
+  const { data: gudangResp, error: gudangError } = useApi<{
+    gudangs?: Gudang[];
+  }>("/api/inventory/gudang");
+
+  const barangs: Barang[] = useMemo(
+    () => barangResp?.barangs ?? [],
+    [barangResp?.barangs],
+  );
+  const gudangs: Gudang[] = gudangResp?.gudangs ?? [];
+
   useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        // Fetch barang
-        const barangResponse = await getWithAuth(
-          "/api/inventory/barang?limit=100",
-        );
-        const barangData = await barangResponse.json();
-        const barangResult = barangData.data || barangData;
-        setBarangs(barangResult.barangs || []);
-
-        // Fetch gudang
-        const gudangResponse = await getWithAuth("/api/inventory/gudang");
-        const gudangData = await gudangResponse.json();
-        const gudangResult = gudangData.data || gudangData;
-        setGudangs(gudangResult.gudangs || []);
-      } catch (error) {
-        clientLogger.error("Error fetching initial data:", error);
-        setError("Gagal memuat data awal");
-      }
+    if (barangError || gudangError) {
+      clientLogger.error("Error fetching initial data:", {
+        barangError,
+        gudangError,
+      });
     }
+  }, [barangError, gudangError]);
 
-    fetchInitialData();
-  }, []);
+  const initialError =
+    barangError || gudangError ? "Gagal memuat data awal" : null;
+  const displayError = error || initialError || "";
 
   useEffect(() => {
     async function fetchStockByCondition() {
@@ -155,7 +157,12 @@ export function TransferForm({
    * Flow: validation di handleSubmit → mutation menangani API call,
    * photo upload, cleanup on fail, dan reset form on success.
    */
-  const submitTransferMutation = useMutation<void, Error, { jumlah: number }>({
+  const submitTransferMutation = useMutation<
+    void,
+    Error,
+    { jumlah: number },
+    { previousBarangs: { barangs?: Barang[] } | undefined }
+  >({
     mutationFn: async ({ jumlah }) => {
       // Upload photos first if any exist
       let fotoBuktiUrls: string[] = [];
@@ -248,9 +255,56 @@ export function TransferForm({
         router.refresh();
       }, 2000);
     },
-    onError: (error) => {
+    onMutate: async ({ jumlah }) => {
+      // Optimistic update: kurangi stok dari sumber, tambahkan ke tujuan
+      const previousBarangs = barangResp;
+      void mutateBarangs(
+        (prev) => {
+          if (!prev?.barangs) return prev;
+          return {
+            ...prev,
+            barangs: prev.barangs.map((b) => {
+              if (b.id !== formData.barangId) return b;
+              const stocks = (b.stockPerGudang ?? []).map((s) => ({ ...s }));
+              const sourceIdx = stocks.findIndex(
+                (s) => s.gudangId === formData.dariGudangId,
+              );
+              if (sourceIdx >= 0) {
+                stocks[sourceIdx] = {
+                  ...stocks[sourceIdx],
+                  stok: Math.max(0, stocks[sourceIdx].stok - jumlah),
+                };
+              }
+              const targetIdx = stocks.findIndex(
+                (s) => s.gudangId === formData.keGudangId,
+              );
+              if (targetIdx >= 0) {
+                stocks[targetIdx] = {
+                  ...stocks[targetIdx],
+                  stok: stocks[targetIdx].stok + jumlah,
+                };
+              } else {
+                stocks.push({ gudangId: formData.keGudangId, stok: jumlah });
+              }
+              return { ...b, stockPerGudang: stocks };
+            }),
+          };
+        },
+        { revalidate: false },
+      );
+      return { previousBarangs };
+    },
+    onError: (error, _vars, ctx) => {
+      // Rollback ke snapshot pre-mutation
+      if (ctx?.previousBarangs !== undefined) {
+        void mutateBarangs(ctx.previousBarangs, { revalidate: false });
+      }
       clientLogger.error("Error submitting transfer:", error);
       setError(error.message || "Terjadi kesalahan");
+    },
+    onSettled: () => {
+      // Always revalidate setelah mutation selesai (sukses/gagal)
+      void mutateBarangs();
     },
   });
 
@@ -310,9 +364,9 @@ export function TransferForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
+      {displayError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {displayError}
         </div>
       )}
 
