@@ -71,6 +71,11 @@ export default function LiveMapClient() {
     mutate,
   } = useApi<{ locations?: EmployeeLocation[]; tenantId?: string | null }>(
     "/api/admin/location/live",
+    {
+      // Polling fallback hanya saat WebSocket terputus.
+      // TanStack auto-pause saat tab tidak active.
+      refreshInterval: isConnected ? undefined : 15_000,
+    },
   );
   const locations = data?.locations ?? [];
   const tenantId = data?.tenantId ?? null;
@@ -130,19 +135,6 @@ export default function LiveMapClient() {
     "admin.location.update",
     handleLocationUpdate,
   );
-
-  // Polling fallback when socket is disconnected
-  useEffect(() => {
-    // If socket is connected, we don't need polling
-    if (isConnected) return;
-
-    // If disconnected, poll every 15 seconds
-    const intervalId = setInterval(() => {
-      void mutate();
-    }, 15000);
-
-    return () => clearInterval(intervalId);
-  }, [isConnected, mutate]);
 
   // Filter locations by search
   const safeLocations = Array.isArray(locations) ? locations : [];

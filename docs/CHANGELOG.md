@@ -45,6 +45,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 4 selesai: polling optimization via `refreshInterval`
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/kehadiran/live-map/LiveMapClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Tutup Phase 4 TanStack adoption roadmap. `LiveMapClient`
+  ganti `setInterval` 15s manual jadi `useApi({ refreshInterval })`
+  conditional — polling auto disable saat WebSocket connected, auto enable
+  saat disconnected. Dapat benefit auto-pause saat tab tidak active
+  (TanStack Query default behavior) yang sebelumnya tidak ada di pattern
+  manual.
+
+  File polling lain di project sudah pada pola yang benar:
+  - `useDevicesPolling.ts` — sudah pakai `refreshInterval: 300_000`
+  - `app/(customer)/tagihan/page.tsx` — sudah pakai pattern Phase 4 bonus
+    (SSE listener trigger `mutateInvoices()` untuk refresh cache useApi)
+
+  setInterval lain di project (`useGeneralSettings`, `AttendancePageContent`,
+  `ServerClock`, `CountdownTimer`, `AttendanceStatusIndicator`,
+  `PhotoUpload`, `error/page`) adalah clock tick / countdown / upload
+  progress — bukan polling endpoint, di luar scope Phase 4.
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `app/admin/kehadiran/live-map/LiveMapClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 3 final push: migrate 24 file complex/detail ke `useApi`
 
 - **Tipe**: [CHANGED]
