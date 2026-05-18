@@ -45,6 +45,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 1 closing: optimistic update PppList action menu
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pelanggan/ppp/PppList.tsx`
+- **Author**: agent
+- **Deskripsi**: Tutup target Phase 1 TanStack adoption roadmap (5 critical
+  mutations dengan optimistic update). Action menu PPP customer (delete +
+  status update AKTIF/ISOLIR/CUTI) sekarang pakai pattern lengkap:
+  `onMutate` snapshot data + optimistic patch via `mutatePelanggan(updater,
+  { revalidate: false })`, `onError` rollback ke snapshot sebelum mutasi,
+  `onSettled` revalidate untuk get fresh data dari server.
+
+  UI sekarang berubah instan saat user klik delete/isolir tanpa menunggu
+  server. Loading state per-action via `mutation.isPending` tetap. Toast
+  feedback success/error tetap muncul.
+
+  Phase 1 status: SELESAI (5/5 critical mutations dengan optimistic
+  update — finance approve/reject, attendance bulk delete, work-order
+  status, inventory transfer, pelanggan action menu).
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `app/admin/pelanggan/ppp/PppList.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 4 selesai: polling optimization via `refreshInterval`
 
 - **Tipe**: [CHANGED]

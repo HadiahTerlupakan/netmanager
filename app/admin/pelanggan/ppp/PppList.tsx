@@ -115,21 +115,48 @@ export default function PelangganPPPPage() {
   };
 
   /**
-   * Delete pelanggan PPP via useMutation untuk loading state & error
-   * handling konsisten. Optimistic update tidak dipakai karena list
-   * state masih custom (loadData), bukan TanStack-cached.
+   * Delete pelanggan PPP via useMutation dengan optimistic update.
+   * Customer di-remove dari cache sebelum server confirm. Rollback otomatis
+   * via mutate(prev) saat server return error.
    */
-  const deleteMutation = useMutation<void, Error, string>({
+  const deleteMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previousData: PelangganListResponse | PelangganPPP[] | undefined }
+  >({
     mutationFn: deletePppCustomer,
-    onSuccess: () => {
-      void mutatePelanggan();
+    onMutate: async (id) => {
+      // Snapshot current data + optimistic remove
+      const previousData = pelangganData;
+      void mutatePelanggan(
+        (prev) => {
+          if (!prev) return prev;
+          if (Array.isArray(prev)) {
+            return prev.filter((p) => p.id !== id) as PelangganPPP[];
+          }
+          return {
+            ...prev,
+            data: (prev.data ?? []).filter((p) => p.id !== id),
+          };
+        },
+        { revalidate: false },
+      );
+      return { previousData };
     },
-    onError: (err) => {
+    onError: (err, _id, ctx) => {
+      // Rollback ke snapshot pre-mutation
+      if (ctx?.previousData !== undefined) {
+        void mutatePelanggan(ctx.previousData, { revalidate: false });
+      }
       alert(
         err instanceof Error
           ? err.message
           : "Terjadi kesalahan saat menghapus data",
       );
+    },
+    onSettled: () => {
+      void mutatePelanggan();
     },
   });
 
@@ -144,20 +171,45 @@ export default function PelangganPPPPage() {
   };
 
   /**
-   * Update status pelanggan PPP (AKTIF/ISOLIR/CUTI). Sama dengan delete:
-   * loading per-action via useMutation isPending.
+   * Update status pelanggan PPP (AKTIF/ISOLIR/CUTI) dengan optimistic update.
+   * Status berubah instan di UI sebelum server confirm.
    */
   const statusUpdateMutation = useMutation<
     void,
     Error,
-    { id: string; newStatus: string }
+    { id: string; newStatus: string },
+    { previousData: PelangganListResponse | PelangganPPP[] | undefined }
   >({
     mutationFn: ({ id, newStatus }) => updatePppCustomerStatus(id, newStatus),
-    onSuccess: () => {
-      void mutatePelanggan();
+    onMutate: async ({ id, newStatus }) => {
+      const previousData = pelangganData;
+      void mutatePelanggan(
+        (prev) => {
+          if (!prev) return prev;
+          const patch = (item: PelangganPPP): PelangganPPP =>
+            item.id === id
+              ? ({ ...item, status: newStatus } as PelangganPPP)
+              : item;
+          if (Array.isArray(prev)) {
+            return prev.map(patch);
+          }
+          return {
+            ...prev,
+            data: (prev.data ?? []).map(patch),
+          };
+        },
+        { revalidate: false },
+      );
+      return { previousData };
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previousData !== undefined) {
+        void mutatePelanggan(ctx.previousData, { revalidate: false });
+      }
       alert(err instanceof Error ? err.message : "Gagal mengubah status");
+    },
+    onSettled: () => {
+      void mutatePelanggan();
     },
   });
 
