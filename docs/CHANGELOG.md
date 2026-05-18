@@ -45,6 +45,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Privacy Policy mobile app untuk Play Store
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/kebijakan-privasi-aplikasi/`
+- **Author**: agent
+- **Deskripsi**: Buat halaman privacy policy publik khusus aplikasi mobile RADPRO
+  (`com.netmanager.mobile`) untuk memenuhi persyaratan Play Console submission.
+  Halaman terpisah dari `/kebijakan-privasi` (yang berisi privacy policy ISP
+  SBLNET.ID) karena audience + content beda. Mencakup 11 section sesuai Play
+  Store policy: data identity/biometric/location/media/teknis, izin perangkat
+  + rationale background location, third-party sharing (Firebase + Sentry),
+  retensi data, hak pengguna, prosedur penghapusan akun, statement anak di
+  bawah umur, kontak. URL yang dipakai di Play Console: `https://radpro.id/kebijakan-privasi-aplikasi`.
+- **Files**: `app/kebijakan-privasi-aplikasi/page.tsx`,
+  `app/kebijakan-privasi-aplikasi/PrivacyPolicyMobileClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Sprint 6: Tutup remaining Medium + Low severity dari deep review
 
 - **Tipe**: [CHANGED]
