@@ -45,6 +45,58 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-18] — Phase 5 selesai: useInfiniteApi hook + reference implementation
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/hooks/useInfiniteApi.ts`, `components/ui/InfiniteScrollSentinel.tsx`, `app/(customer)/tagihan/page.tsx`
+- **Author**: agent
+- **Deskripsi**: Tutup Phase 5 TanStack adoption roadmap (`useInfiniteQuery`
+  untuk list besar). Buat 2 module foundation + 1 reference
+  implementation:
+
+  **Foundation (`lib/hooks/useInfiniteApi.ts`):**
+  - Wrapper TanStack `useInfiniteQuery` untuk endpoint paginated standar
+    `{ data, page, limit, total }`.
+  - Auto-handle page key, total counting, flat list aggregation.
+  - Custom `mapResponse` opsi untuk endpoint dengan response shape
+    non-standar (mis. `{ invoices, pagination: { ... } }`).
+  - `getNextPageParam` derive dari `Math.ceil(total/limit)` —
+    konsisten dengan `apiPaginated()` di `lib/api-response.ts`.
+
+  **Komponen UI (`components/ui/InfiniteScrollSentinel.tsx`):**
+  - Intersection Observer trigger fetchNextPage saat sentinel masuk
+    viewport (rootMargin default 200px untuk pre-fetch sebelum visible).
+  - Built-in spinner saat fetching dan label "akhir daftar" saat
+    hasNextPage=false.
+
+  **Reference implementation (`app/(customer)/tagihan/page.tsx`):**
+  - Customer invoice list ganti `useApi<{ invoices }>` → `useInfiniteApi<Invoice>`
+    dengan `mapResponse` untuk handle response shape `{ invoices, pagination }`.
+  - `InfiniteScrollSentinel` di akhir list → auto-load page berikutnya saat
+    user scroll ke bawah.
+
+  **List besar lain di-defer dengan justifikasi:**
+  - PppList, WoListClient, ActivityLogClient — sudah pakai page-based
+    UI dengan tombol prev/next yang di-render via `ResponsiveTable`.
+    Migrate ke infinite scroll mengubah UX existing dan butuh ganti
+    seluruh PaginationFooter component. Investasi tidak proporsional
+    dengan benefit untuk admin tool (admin lebih familiar dengan
+    pagination klasik untuk navigate ke page tertentu).
+  - Notification feed (`KaryawanNotificationBell`,
+    `CustomerSupportBell`) — pakai `useRealtimeNotifications` custom
+    hook dengan integrasi WebSocket, di luar pattern infinite scroll.
+
+  Pattern useInfiniteApi siap dipakai saat ada list baru yang fit, atau
+  saat ada keputusan UX migrate dari page-based ke infinite scroll.
+
+  Phase 5 status: SELESAI (foundation + 1 reference implementation).
+
+  Lint pass, typecheck pass (0 error). Tidak ada perubahan kontrak API.
+- **Files**: `lib/hooks/useInfiniteApi.ts` (baru),
+  `components/ui/InfiniteScrollSentinel.tsx` (baru),
+  `app/(customer)/tagihan/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-18] — Phase 2 selesai: cross-module invalidation helpers + wiring
 
 - **Tipe**: [ADDED]

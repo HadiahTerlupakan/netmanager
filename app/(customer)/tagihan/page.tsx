@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { useInfiniteApi } from "@/lib/hooks/useInfiniteApi";
+import { InfiniteScrollSentinel } from "@/components/ui/InfiniteScrollSentinel";
 import {
   MdArrowBackIos,
   MdHelpOutline,
@@ -150,13 +152,32 @@ export default function CustomerInvoicesPage() {
   const router = useRouter();
 
   const {
-    data: invoicesRaw,
+    items: invoices,
     error: invoicesError,
     isLoading: invoicesLoading,
-    mutate: mutateInvoices,
-  } = useApi<{ success?: boolean; invoices?: Invoice[] }>(
-    isAuthenticated ? "/api/customer/invoices?limit=20" : null,
+    refetch: refetchInvoices,
+    fetchNextPage: fetchNextInvoices,
+    hasNextPage: hasNextInvoices,
+    isFetchingNextPage: isFetchingNextInvoices,
+  } = useInfiniteApi<Invoice>(
+    isAuthenticated ? "/api/customer/invoices" : null,
+    {
+      limit: 20,
+      mapResponse: (raw) => {
+        const obj = raw as {
+          invoices?: Invoice[];
+          pagination?: { page: number; limit: number; total: number };
+        };
+        return {
+          data: obj.invoices ?? [],
+          page: obj.pagination?.page ?? 1,
+          limit: obj.pagination?.limit ?? 20,
+          total: obj.pagination?.total ?? 0,
+        };
+      },
+    },
   );
+  const mutateInvoices = refetchInvoices;
   const {
     data: paymentMethodsRaw,
     error: paymentMethodsError,
@@ -176,10 +197,6 @@ export default function CustomerInvoicesPage() {
     }
   }, [paymentMethodsError]);
 
-  const invoices: Invoice[] = useMemo(
-    () => invoicesRaw?.invoices ?? [],
-    [invoicesRaw],
-  );
   const paymentMethods: PaymentMethod[] = useMemo(
     () => paymentMethodsRaw?.data ?? [],
     [paymentMethodsRaw],
@@ -770,6 +787,11 @@ export default function CustomerInvoicesPage() {
                 );
               })
             )}
+            <InfiniteScrollSentinel
+              onLoadMore={fetchNextInvoices}
+              hasNextPage={hasNextInvoices}
+              isFetchingNextPage={isFetchingNextInvoices}
+            />
           </div>
         </div>
       </div>

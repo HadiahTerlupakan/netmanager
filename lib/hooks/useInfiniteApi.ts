@@ -31,7 +31,7 @@ interface PaginatedResponse<T> {
   total: number;
 }
 
-interface UseInfiniteApiOptions {
+interface UseInfiniteApiOptions<T = unknown> {
   /** Page size. Default 20. */
   limit?: number;
   /**
@@ -41,6 +41,13 @@ interface UseInfiniteApiOptions {
   params?: Record<string, string | number | boolean | undefined | null>;
   /** Set false untuk skip auto-fetch. */
   enabled?: boolean;
+  /**
+   * Mapper untuk endpoint dengan response shape non-standar.
+   * Default: assume `{ data, page, limit, total }`. Pakai opsi ini
+   * untuk endpoint yang return `{ invoices, pagination: { ... } }`
+   * atau format custom lain.
+   */
+  mapResponse?: (raw: unknown) => PaginatedResponse<T>;
 }
 
 interface UseInfiniteApiResult<T> {
@@ -76,8 +83,11 @@ function buildUrl(
   return `${baseUrl}${sep}${usp.toString()}`;
 }
 
-async function paginatedFetcher<T>(url: string): Promise<PaginatedResponse<T>> {
-  const res = await fetchWithHandling<PaginatedResponse<T>>(url);
+async function paginatedFetcher<T>(
+  url: string,
+  mapResponse?: (raw: unknown) => PaginatedResponse<T>,
+): Promise<PaginatedResponse<T>> {
+  const res = await fetchWithHandling<unknown>(url);
   if (!res.success) {
     const err: FetchError = {
       status: 0,
@@ -85,6 +95,11 @@ async function paginatedFetcher<T>(url: string): Promise<PaginatedResponse<T>> {
       details: res.details,
     };
     throw err;
+  }
+
+  // Custom mapper untuk endpoint non-standar
+  if (mapResponse) {
+    return mapResponse(res.data);
   }
 
   // fetchWithHandling unwrap envelope `{ data: ..., pagination }` jadi
@@ -108,11 +123,12 @@ async function paginatedFetcher<T>(url: string): Promise<PaginatedResponse<T>> {
  */
 export function useInfiniteApi<T>(
   baseUrl: string | null,
-  options: UseInfiniteApiOptions = {},
+  options: UseInfiniteApiOptions<T> = {},
 ): UseInfiniteApiResult<T> {
   const limit = options.limit ?? 20;
   const params = options.params ?? {};
   const enabled = options.enabled !== false && baseUrl !== null;
+  const mapResponse = options.mapResponse;
 
   const queryKey: QueryKey = [baseUrl ?? "", limit, params];
 
@@ -125,7 +141,10 @@ export function useInfiniteApi<T>(
   >({
     queryKey,
     queryFn: ({ pageParam = 1 }) =>
-      paginatedFetcher<T>(buildUrl(baseUrl!, pageParam, limit, params)),
+      paginatedFetcher<T>(
+        buildUrl(baseUrl!, pageParam, limit, params),
+        mapResponse,
+      ),
     enabled,
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
