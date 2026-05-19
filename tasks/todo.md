@@ -2611,11 +2611,80 @@ calculation kompleks):
 - `app/admin/inventory/hooks/useInventoryFilters.ts` (custom getWithAuth)
 - `components/announcement/AnnouncementPopup.tsx` (localStorage + WebSocket)
 - `components/common/MapPicker.tsx` (search-on-demand, bukan auto-load)
-- `components/inventory/{OpnameForm,MasukForm,KeluarForm,EnhancedOpnameForm,StockOpnameRecorder,TransferForm,AmbilBarangForm}.tsx` — form-heavy dengan multi-fetch dependent
+- `components/inventory/{MasukForm,KeluarForm,TransferForm,AmbilBarangForm}.tsx` — form-heavy dengan multi-fetch dependent
 
-Total Phase 3 progres aktual: **55 file migrate** dari estimasi awal 64.
+> Update 2026-05-19: `OpnameForm`, `StockOpnameRecorder`, dan `EnhancedOpnameForm`
+> sudah keluar dari skip list. `StockOpnameRecorder` & `OpnameForm` direwrite
+> ke pola baru (`useApi` + `fetchWithHandling`), `EnhancedOpnameForm` dihapus
+> karena dead code. Detail di `## Stock Opname Tab — Hardening (2026-05-19)`.
+
+Total Phase 3 progres aktual: **57 file migrate** dari estimasi awal 64.
 File sisa di-defer untuk batch terpisah ketika value migrasi vs effort
 rewrite-nya optimal (mis. saat refactor module-level).
+
+---
+
+## Stock Opname Tab — Hardening (2026-05-19)
+
+### Objective
+Review tab "Input Stock Opname" di `/admin/inventory/opname`, identifikasi
+bug + code smell, dan perbaiki end-to-end sesuai standar project.
+
+### Checklist
+
+- [x] Investigasi: baca komponen, API endpoint, service layer, validator existing
+- [x] Identifikasi 9 finding (3 blocker, 3 signifikan, 3 smell)
+- [x] Tambah Zod validator `opnameValidator.ts` (item + batch schema)
+- [x] Refactor `InventoryOpnameRouteService` ke `safeParse` + error mapping `ZodError → 400 details`
+- [x] Tambah `createOpnameBatch` di service + endpoint `POST /api/inventory/opname/batch` (atomic transaction)
+- [x] Ekstrak helper movement mapping ke file pure (testable tanpa DB)
+- [x] Domain mapping movement diperbaiki:
+  - Selisih positif → kondisi mengikuti mayoritas breakdown (BARU/RUSAK/BEKAS)
+  - Selisih negatif → kondisi mengikuti `alasanSelisih` (rusak→RUSAK, expired→BEKAS, fallback→BARU)
+  - Alasan administratif (`revisi`, `salah_input`) → tidak generate movement
+- [x] Rewrite `StockOpnameRecorder.tsx` (639 → 270 baris compose + 5 sub-files)
+  - Pakai `useApi` (TanStack Query) untuk fetch
+  - Pakai `fetchWithHandling` untuk POST batch
+  - Side-effect dipindah dari render body → `useEffect`/event handler
+  - Race condition dibereskan via overlay edits map + functional updater
+  - Decompose: `useOpnameCalculation`, `useSubmitOpname`, `OpnameItemRow`, `OpnameItemsTable`, `OpnameSummaryCards`
+- [x] Refactor `OpnameForm.tsx` (modal Edit) ke pola baru, hapus side-effect di render body
+- [x] Hapus `EnhancedOpnameForm.tsx` (dead code, zero caller)
+- [x] Tambah unit test (28 cases) untuk movement mapping & validator
+- [x] Fix anti-pattern setState di render body di 12 file lain (efek samping audit)
+  - Dimigrasikan dari `if (!hasFetched) { setHasFetched(true); ... }` ke `useRef + useEffect`
+- [x] Update `docs/CHANGELOG.md` dengan 7 entry SOT
+
+### Verification
+- `npm run check` → exit 0 (Lint + Typecheck + Build pass)
+- `npx vitest run tests/modules/inventory/` → 81/81 pass
+
+### Files Changed
+**Created (10):**
+- `app/api/inventory/opname/batch/route.ts`
+- `modules/inventory/validators/opnameValidator.ts`
+- `modules/inventory/services/inventory-opname-movement-mapping.helpers.ts`
+- `components/inventory/opname/{useOpnameCalculation,useSubmitOpname,OpnameItemRow,OpnameItemsTable,OpnameSummaryCards}.{ts,tsx}`
+- `tests/modules/inventory/{inventory-opname-movement-mapping.helpers,opnameValidator}.test.ts`
+
+**Modified (19):**
+- `components/inventory/{StockOpnameRecorder,OpnameForm}.tsx`
+- `modules/inventory/services/{InventoryOpnameService,InventoryOpnameRouteService,inventory-opname-create.helpers}.ts`
+- `app/admin/{inventory/transfer/TransferList,kehadiran/izin/IzinClient,network/mikrotik/[id]/edit/MikrotikEditClient,finance/pengeluaran/ExpenseClient,notifications/email-logs/EmailLogsClient,inventory/restock/useRestockPage}.{tsx,ts}`
+- `components/{inventory/StatsCards,inventory/assets/AssetTable,map/useMapData}.{tsx,ts}`
+- `lib/websocket/hooks/{useRealtimePaymentApprovals,useRealtimeNotifications,useCustomerNotifications}.ts`
+- `docs/CHANGELOG.md`
+
+**Deleted (1):**
+- `components/inventory/EnhancedOpnameForm.tsx`
+
+### Review Notes
+- Anti-smell terpenuhi: SRP (file pecah per concern), naming verb/predicate,
+  magic numbers diekstrak, no commented-out code, no nested logic dalam.
+- Authorization tetap di API route (`hasPermission`); service layer pure.
+- API route tetap thin controller; bisnis logic di service.
+- Unit test pure-function tanpa mock DB → cepat & deterministik.
+- Validasi Zod baru menutup gap NaN/non-int/negative/total-kondisi-melebihi-stokFisik.
 
 
 

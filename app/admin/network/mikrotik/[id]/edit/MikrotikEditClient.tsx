@@ -1,6 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { HiArrowPath } from "react-icons/hi2";
 import ScriptGeneratorModal from "@/components/mikrotik/ScriptGeneratorModal";
@@ -63,11 +63,12 @@ export function ClientComponent() {
     }
   }, [router, routerId]);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void loadRouter();
-  }
+  }, [loadRouter]);
 
   const { isTesting, showTestModal, testResult, runTest, closeTestModal } =
     useMikrotikConnectionTest({

@@ -15,12 +15,18 @@ import {
   ensureTenantConsistency,
   resolveOpnameReasonLabel,
 } from "./inventory-opname.service-helpers";
+import {
+  isAdministrativeAdjustment,
+  resolveNegativeMovementCondition,
+  resolvePositiveMovementCondition,
+} from "./inventory-opname-movement-mapping.helpers";
 
 const DEFAULT_EMPTY_TOTAL = 0;
 const DEFAULT_ADMIN_PIC = "Admin";
 
 type OpnameReferences = Awaited<ReturnType<typeof findOpnameReferences>>;
-type OpnameTransactionResult = {
+
+export type CreateOpnameTransactionResult = {
   opnameRecord: Awaited<
     ReturnType<Prisma.TransactionClient["stockOpname"]["create"]>
   >;
@@ -29,12 +35,24 @@ type OpnameTransactionResult = {
   selisih: number;
 };
 
-/** Buat opname baru dan sinkronkan mutasi stoknya. */
+/** Buat opname tunggal — bungkus dengan transaksi sendiri. */
 export async function createInventoryOpname(input: CreateInventoryOpnameInput) {
-  await validateOpnameGudangAccess(input);
   const result = await prisma.$transaction((tx) =>
-    createOpnameTransaction(tx, input),
+    createOpnameInTransaction(tx, input),
   );
+  return result;
+}
+
+/**
+ * Buat opname dalam transaksi yang sudah dibuka pemanggil.
+ * Dipakai oleh batch processor agar seluruh sesi opname atomic.
+ */
+export async function createOpnameInTransaction(
+  tx: Prisma.TransactionClient,
+  input: CreateInventoryOpnameInput,
+): Promise<CreateOpnameTransactionResult> {
+  await validateOpnameGudangAccess(input);
+  const result = await runOpnameTransaction(tx, input);
   logCreatedOpname(input, result);
   return result;
 }
@@ -47,10 +65,10 @@ async function validateOpnameGudangAccess(input: CreateInventoryOpnameInput) {
   return access;
 }
 
-async function createOpnameTransaction(
+async function runOpnameTransaction(
   tx: Prisma.TransactionClient,
   input: CreateInventoryOpnameInput,
-): Promise<OpnameTransactionResult> {
+): Promise<CreateOpnameTransactionResult> {
   const references = await findOpnameReferences(tx, input);
   ensureReferencesTenantConsistency(references);
   const stokSistem = references.currentStock?.stok || DEFAULT_EMPTY_TOTAL;
@@ -127,6 +145,11 @@ async function syncOpnameAdjustment(
     selisih: number;
   },
 ) {
+  if (isAdministrativeAdjustment(input.input.alasanSelisih)) {
+    await syncGudangStock(tx, input);
+    return;
+  }
+
   await createOpnameMovement(tx, input);
   await syncGudangStock(tx, input);
 }
@@ -159,7 +182,7 @@ function createPositiveOpnameMovement(
       barangId: input.input.barangId,
       gudangId: input.input.gudangId,
       jumlah: input.selisih,
-      kondisi: "BARU",
+      kondisi: resolvePositiveMovementCondition(input.input),
       keterangan: `Opname: ${alasanText} (+${input.selisih}). Ref: ${input.opnameId}`,
     },
   });
@@ -180,7 +203,7 @@ function createNegativeOpnameMovement(
       barangId: input.input.barangId,
       gudangId: input.input.gudangId,
       jumlah: Math.abs(input.selisih),
-      kondisi: input.input.alasanSelisih === "rusak" ? "RUSAK" : "BARU",
+      kondisi: resolveNegativeMovementCondition(input.input.alasanSelisih),
       isHilang: input.input.alasanSelisih === "hilang",
       keterangan: `Opname: ${alasanText} (${input.selisih}). Ref: ${input.opnameId}`,
     },
@@ -225,7 +248,7 @@ function updateExistingGudangStock(
 
 function logCreatedOpname(
   input: CreateInventoryOpnameInput,
-  result: OpnameTransactionResult,
+  result: CreateOpnameTransactionResult,
 ) {
   logActivitySafe({
     action: "CREATE",

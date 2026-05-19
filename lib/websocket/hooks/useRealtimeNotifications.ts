@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload, type CountPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
@@ -56,7 +56,7 @@ export function useRealtimeNotifications(
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
+  const hasFetchedRef = useRef(false);
 
   // Stabilize excludeTypes array reference using JSON comparison
   const excludeTypesKey = JSON.stringify(excludeTypes);
@@ -97,10 +97,11 @@ export function useRealtimeNotifications(
   }, [limit, excludeParam]);
 
   // Initial fetch - only once on mount (pattern E)
-  if (autoFetch && !hasFetched) {
-    setHasFetched(true);
+  useEffect(() => {
+    if (!autoFetch || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchNotifications();
-  }
+  }, [autoFetch, fetchNotifications]);
 
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(

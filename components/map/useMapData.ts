@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapSettings, MappingEdge } from "@prisma/client";
 
 import { calculateMapDistance, generateMapId } from "./map-utils";
@@ -74,11 +74,12 @@ export function useMapData({ showToast }: UseMapDataParams) {
     }
   }, [showToast]);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchData();
-  }
+  }, [fetchData]);
 
   const updateNodePosition = useCallback(
     async (nodeId: string, position: [number, number]) => {

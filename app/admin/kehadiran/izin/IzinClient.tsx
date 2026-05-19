@@ -1,7 +1,13 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -114,11 +120,12 @@ export function IzinClient() {
     }
   }, [filterStatus]);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchLeaves();
-  }
+  }, [fetchLeaves]);
 
   const fetchUsers = async () => {
     try {

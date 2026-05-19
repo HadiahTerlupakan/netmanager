@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { clientLogger } from "@/lib/client-logger";
 import {
@@ -81,11 +81,12 @@ export default function EmailLogsClient() {
     [statusFilter, search],
   );
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchLogs(1);
-  }
+  }, [fetchLogs]);
 
   function handleSearch() {
     setSearch(searchInput);

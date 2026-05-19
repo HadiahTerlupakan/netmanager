@@ -1,15 +1,30 @@
+import { ZodError } from "zod";
+
 import { getInventoryOpnameService } from "./InventoryOpnameService";
 import type {
   CreateInventoryOpnameInput,
+  CreateInventoryOpnameBatchItem,
   ListInventoryOpnameInput,
 } from "./InventoryOpnameService";
+import {
+  opnameBatchSchema,
+  opnameItemSchema,
+  type OpnameBatchInput,
+  type OpnameBatchItemInput,
+  type OpnameItemInput,
+} from "../validators/opnameValidator";
 
 type CreateInventoryOpnamePayload = Omit<CreateInventoryOpnameInput, "user">;
+
 type CreateInventoryOpnameResult = {
   previousStock: number;
   newStock: number;
   selisih: number;
   opnameRecord: { id: string; [key: string]: unknown };
+};
+
+type CreateInventoryOpnameResultWithBarangId = CreateInventoryOpnameResult & {
+  barangId: string;
 };
 
 interface InventoryUserContext {
@@ -21,25 +36,6 @@ interface InventoryUserContext {
   siteId?: string | null;
 }
 
-interface InventoryOpnameBody {
-  barangId?: unknown;
-  gudangId?: unknown;
-  stokFisik?: unknown;
-  keterangan?: unknown;
-  kondisiBaik?: unknown;
-  kondisiRusak?: unknown;
-  kondisiExpire?: unknown;
-  lokasiPenyimpanan?: unknown;
-  nomorRak?: unknown;
-  nomorBox?: unknown;
-  suhuPenyimpanan?: unknown;
-  kelembaban?: unknown;
-  tanggalExpire?: unknown;
-  nomorBatch?: unknown;
-  catatanDetail?: unknown;
-  alasanSelisih?: unknown;
-}
-
 interface CreateOpnameRouteSuccess {
   success: true;
   data: CreateInventoryOpnameResult;
@@ -49,150 +45,203 @@ interface CreateOpnameRouteFailure {
   success: false;
   status: number;
   error: string;
+  details?: Record<string, string[]>;
+}
+
+interface BatchOpnameRouteSuccess {
+  success: true;
+  data: {
+    totalItems: number;
+    results: CreateInventoryOpnameResultWithBarangId[];
+  };
 }
 
 export type CreateOpnameRouteResult =
   | CreateOpnameRouteSuccess
   | CreateOpnameRouteFailure;
 
-function isNonNegativeNumber(value: unknown): value is number {
-  return typeof value === "number" && value >= 0;
-}
-
-function toOptionalString(value: unknown) {
-  return typeof value === "string" ? value : undefined;
-}
-
-function toOptionalNumber(value: unknown, fallback = 0) {
-  return typeof value === "number" ? value : fallback;
-}
-
-function buildCreateOpnamePayload(
-  body: InventoryOpnameBody,
-): CreateInventoryOpnamePayload {
-  return {
-    barangId: String(body.barangId),
-    gudangId: String(body.gudangId),
-    stokFisik: body.stokFisik as number,
-    keterangan: toOptionalString(body.keterangan),
-    kondisiBaik: toOptionalNumber(body.kondisiBaik),
-    kondisiRusak: toOptionalNumber(body.kondisiRusak),
-    kondisiExpire: toOptionalNumber(body.kondisiExpire),
-    lokasiPenyimpanan: toOptionalString(body.lokasiPenyimpanan),
-    nomorRak: toOptionalString(body.nomorRak),
-    nomorBox: toOptionalString(body.nomorBox),
-    suhuPenyimpanan: toOptionalString(body.suhuPenyimpanan),
-    kelembaban: toOptionalString(body.kelembaban),
-    tanggalExpire: toOptionalString(body.tanggalExpire),
-    nomorBatch: toOptionalString(body.nomorBatch),
-    catatanDetail: toOptionalString(body.catatanDetail),
-    alasanSelisih: toOptionalString(body.alasanSelisih),
-  };
-}
+export type BatchOpnameRouteResult =
+  | BatchOpnameRouteSuccess
+  | CreateOpnameRouteFailure;
 
 interface InventoryOpnameServicePort {
   listOpname(input: ListInventoryOpnameInput): Promise<unknown>;
   createOpname(input: CreateInventoryOpnameInput): Promise<unknown>;
+  createOpnameBatch(input: {
+    user: InventoryUserContext;
+    gudangId: string;
+    items: CreateInventoryOpnameBatchItem[];
+  }): Promise<CreateInventoryOpnameResultWithBarangId[]>;
 }
 
 interface CreateOpnameRouteInput {
   user: InventoryUserContext;
-  body: InventoryOpnameBody;
+  body: unknown;
 }
 
-export type InventoryOpnameRouteResult<T> =
-  | { success: true; data: T }
-  | { success: false; status: number; error: string };
+interface BatchOpnameRouteInput {
+  user: InventoryUserContext;
+  body: unknown;
+}
 
 export class InventoryOpnameRouteService {
   constructor(
-    private readonly opnameService: InventoryOpnameServicePort = getInventoryOpnameService(),
+    private readonly opnameService: InventoryOpnameServicePort = getInventoryOpnameService() as unknown as InventoryOpnameServicePort,
   ) {}
-
-  /** Validasi input create opname dari route body. */
-  /** Validasi body create opname dan kembalikan payload siap pakai. */
-  validateCreateOpnameInput(
-    body: InventoryOpnameBody,
-  ):
-    | CreateOpnameRouteFailure
-    | { success: true; data: CreateInventoryOpnamePayload } {
-    const { barangId, gudangId, stokFisik } = body;
-
-    if (!barangId || !gudangId || !isNonNegativeNumber(stokFisik)) {
-      return {
-        success: false,
-        status: 400,
-        error: "Barang, gudang, dan stok fisik harus diisi dengan benar",
-      };
-    }
-
-    const kondisiBaik = toOptionalNumber(body.kondisiBaik);
-    const kondisiRusak = toOptionalNumber(body.kondisiRusak);
-    const kondisiExpire = toOptionalNumber(body.kondisiExpire);
-    const totalKondisi = kondisiBaik + kondisiRusak + kondisiExpire;
-
-    if (totalKondisi > stokFisik) {
-      return {
-        success: false,
-        status: 400,
-        error:
-          "Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik",
-      };
-    }
-
-    return {
-      success: true,
-      data: buildCreateOpnamePayload(body),
-    };
-  }
-
-  /** Buat opname dengan error mapping yang konsisten. */
+  /** Buat satu opname dengan validasi Zod dan error mapping. */
   async createOpname(
     input: CreateOpnameRouteInput,
   ): Promise<CreateOpnameRouteSuccess | CreateOpnameRouteFailure> {
-    const validationResult = this.validateCreateOpnameInput(input.body);
-    if ("error" in validationResult) {
-      return validationResult;
-    }
+    const parsed = this.parseSingleItem(input.body);
+    if (parsed.ok === false) return parsed.failure;
 
     try {
       const result = await this.opnameService.createOpname({
         user: input.user,
-        ...validationResult.data,
+        ...this.toServicePayload(parsed.data),
       });
 
       return { success: true, data: result as CreateInventoryOpnameResult };
     } catch (error: unknown) {
-      return this.mapOpnameError(error);
+      return mapOpnameError(error);
     }
   }
 
-  /** Map domain error dari service ke HTTP response. */
-  private mapOpnameError(error: unknown): CreateOpnameRouteFailure {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
+  /** Buat banyak opname dalam satu transaksi. */
+  async createOpnameBatch(
+    input: BatchOpnameRouteInput,
+  ): Promise<BatchOpnameRouteResult> {
+    const parsed = this.parseBatch(input.body);
+    if (parsed.ok === false) return parsed.failure;
 
-    if (err.message === "Barang tidak ditemukan") {
-      return { success: false, status: 404, error: err.message };
+    try {
+      const results = await this.opnameService.createOpnameBatch({
+        user: input.user,
+        gudangId: parsed.data.gudangId,
+        items: parsed.data.items.map((item) => this.toBatchItemPayload(item)),
+      });
+
+      return {
+        success: true,
+        data: { totalItems: results.length, results },
+      };
+    } catch (error: unknown) {
+      return mapOpnameError(error);
     }
+  }
 
-    if (err.message === "Gudang tidak ditemukan atau tidak aktif") {
-      return { success: false, status: 400, error: err.message };
-    }
+  private parseSingleItem(
+    body: unknown,
+  ):
+    | { ok: true; data: OpnameItemInput }
+    | { ok: false; failure: CreateOpnameRouteFailure } {
+    const result = opnameItemSchema.safeParse(body);
+    if (result.success) return { ok: true, data: result.data };
+    return { ok: false, failure: zodErrorToFailure(result.error) };
+  }
 
-    if (
-      err.message.includes("Akses") ||
-      err.message.includes("akses") ||
-      err.message.includes("Gudang ini")
-    ) {
-      return { success: false, status: 403, error: err.message };
-    }
+  private parseBatch(
+    body: unknown,
+  ):
+    | { ok: true; data: OpnameBatchInput }
+    | { ok: false; failure: CreateOpnameRouteFailure } {
+    const result = opnameBatchSchema.safeParse(body);
+    if (result.success) return { ok: true, data: result.data };
+    return { ok: false, failure: zodErrorToFailure(result.error) };
+  }
 
+  private toServicePayload(
+    item: OpnameItemInput,
+  ): CreateInventoryOpnamePayload {
     return {
-      success: false,
-      status: 500,
-      error: "Gagal mencatat stock opname",
+      barangId: item.barangId,
+      gudangId: item.gudangId,
+      stokFisik: item.stokFisik,
+      keterangan: item.keterangan,
+      kondisiBaik: item.kondisiBaik ?? 0,
+      kondisiRusak: item.kondisiRusak ?? 0,
+      kondisiExpire: item.kondisiExpire ?? 0,
+      lokasiPenyimpanan: item.lokasiPenyimpanan,
+      nomorRak: item.nomorRak,
+      nomorBox: item.nomorBox,
+      suhuPenyimpanan: item.suhuPenyimpanan,
+      kelembaban: item.kelembaban,
+      tanggalExpire: item.tanggalExpire,
+      nomorBatch: item.nomorBatch,
+      catatanDetail: item.catatanDetail,
+      alasanSelisih: item.alasanSelisih,
     };
   }
+
+  private toBatchItemPayload(
+    item: OpnameBatchItemInput,
+  ): CreateInventoryOpnameBatchItem {
+    return {
+      barangId: item.barangId,
+      stokFisik: item.stokFisik,
+      keterangan: item.keterangan,
+      kondisiBaik: item.kondisiBaik ?? 0,
+      kondisiRusak: item.kondisiRusak ?? 0,
+      kondisiExpire: item.kondisiExpire ?? 0,
+      lokasiPenyimpanan: item.lokasiPenyimpanan,
+      nomorRak: item.nomorRak,
+      nomorBox: item.nomorBox,
+      suhuPenyimpanan: item.suhuPenyimpanan,
+      kelembaban: item.kelembaban,
+      tanggalExpire: item.tanggalExpire,
+      nomorBatch: item.nomorBatch,
+      catatanDetail: item.catatanDetail,
+      alasanSelisih: item.alasanSelisih,
+    };
+  }
+}
+
+function zodErrorToFailure(error: ZodError): CreateOpnameRouteFailure {
+  const flat = error.flatten((issue) => issue.message);
+  const details: Record<string, string[]> = {};
+
+  for (const [path, messages] of Object.entries(flat.fieldErrors)) {
+    const list = messages as string[] | undefined;
+    if (list && list.length > 0) details[path] = list;
+  }
+  if (flat.formErrors.length > 0) details["_form"] = flat.formErrors;
+
+  const firstMessage =
+    Object.values(details).flat()[0] ?? "Payload opname tidak valid";
+
+  return {
+    success: false,
+    status: 400,
+    error: firstMessage,
+    details,
+  };
+}
+
+function mapOpnameError(error: unknown): CreateOpnameRouteFailure {
+  const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
+
+  if (err.message === "Barang tidak ditemukan") {
+    return { success: false, status: 404, error: err.message };
+  }
+
+  if (err.message === "Gudang tidak ditemukan atau tidak aktif") {
+    return { success: false, status: 400, error: err.message };
+  }
+
+  if (
+    err.message.includes("Akses") ||
+    err.message.includes("akses") ||
+    err.message.includes("Gudang ini") ||
+    err.message.startsWith("SECURITY_BREACH")
+  ) {
+    return { success: false, status: 403, error: "Akses ditolak" };
+  }
+
+  return {
+    success: false,
+    status: 500,
+    error: "Gagal mencatat stock opname",
+  };
 }
 
 export const inventoryOpnameRouteService = new InventoryOpnameRouteService();

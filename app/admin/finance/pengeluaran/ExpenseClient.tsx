@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import type { FieldValues } from "react-hook-form";
 import { format } from "date-fns";
@@ -141,7 +141,7 @@ export function ClientComponent() {
     [categories, watchedCategoryId],
   );
 
-  const fetchMetadata = async () => {
+  const fetchMetadata = useCallback(async () => {
     try {
       const [catRes, accRes] = await Promise.all([
         fetch("/api/finance/expense-categories"),
@@ -168,9 +168,9 @@ export function ClientComponent() {
     } catch (_error) {
       clientLogger.error("Error fetching metadata:", _error);
     }
-  };
+  }, []);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/finance/expenses");
@@ -182,14 +182,15 @@ export function ClientComponent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchExpenses();
     void fetchMetadata();
-  }
+  }, [fetchExpenses, fetchMetadata]);
 
   const onSubmit = async (data: FieldValues) => {
     try {

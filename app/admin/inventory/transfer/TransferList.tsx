@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { TransferForm } from "@/components/inventory/TransferForm";
 import { TransferTable } from "@/components/inventory/TransferTable";
 import { Modal } from "@/components/ui/Modal";
@@ -125,12 +125,13 @@ export default function TransferPage() {
     [pagination.limit],
   );
 
-  // Trigger fetch on mount via prevState comparator (selama render, bukan effect)
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  // Trigger fetch on mount sekali via ref (tidak menyebabkan rerender)
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchTransfers();
-  }
+  }, [fetchTransfers]);
 
   const handleViewDetails = async (transfer: Transfer) => {
     try {

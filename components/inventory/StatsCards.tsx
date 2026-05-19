@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import {
@@ -36,7 +36,7 @@ export function StatsCards() {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch("/api/inventory/barang?limit=1");
       const data = await response.json();
@@ -79,7 +79,7 @@ export function StatsCards() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
 
@@ -89,11 +89,12 @@ export function StatsCards() {
     fetchStats();
   });
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchStats();
-  }
+  }, [fetchStats]);
 
   const statsCards = [
     {

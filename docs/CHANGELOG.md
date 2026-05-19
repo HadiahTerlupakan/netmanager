@@ -45,6 +45,151 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix anti-pattern setState di render body (12 file)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin`, `components`, `lib/websocket/hooks`
+- **Author**: agent
+- **Deskripsi**: Pola `if (!hasFetched) { setHasFetched(true); void fetchX(); }`
+  di body render menyebabkan warning Next 16: "Can't perform a React state
+  update on a component that hasn't mounted yet" — fungsi async lalu mencoba
+  setState setelah komponen mungkin sudah unmount. Dimigrasikan ke
+  `useRef(false) + useEffect` yang merupakan idiom React standar untuk
+  "run-once on mount" tanpa memicu rerender atau warning ESLint
+  `react-hooks/set-state-in-effect`. Sekaligus wrap `fetchStats`,
+  `fetchExpenses`, `fetchMetadata` dengan `useCallback` agar dependency
+  `useEffect` stabil (warning `react-hooks/exhaustive-deps`).
+- **Files**:
+  `app/admin/inventory/transfer/TransferList.tsx`,
+  `app/admin/network/mikrotik/[id]/edit/MikrotikEditClient.tsx`,
+  `app/admin/kehadiran/izin/IzinClient.tsx`,
+  `app/admin/inventory/restock/useRestockPage.ts`,
+  `app/admin/finance/pengeluaran/ExpenseClient.tsx`,
+  `app/admin/notifications/email-logs/EmailLogsClient.tsx`,
+  `components/inventory/StatsCards.tsx`,
+  `components/inventory/assets/AssetTable.tsx`,
+  `components/map/useMapData.ts`,
+  `lib/websocket/hooks/useRealtimePaymentApprovals.ts`,
+  `lib/websocket/hooks/useRealtimeNotifications.ts`,
+  `lib/websocket/hooks/useCustomerNotifications.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Hindari double validate gudang access di create opname
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory/services`
+- **Author**: agent
+- **Deskripsi**: Saat refactor `createInventoryOpname` untuk mendukung batch
+  processor, `validateOpnameGudangAccess` ter-call dua kali (di entry dan di
+  dalam transaksi) yang menyebabkan call ekstra ke `gudang.findUnique` per
+  invocation. Dipusatkan ke `createOpnameInTransaction` saja agar 1× call
+  validate per item, sekaligus memperbaiki test legacy yang gagal akibat
+  mock `gudang.findUnique` habis di-`mockResolvedValueOnce`.
+- **Files**: `modules/inventory/services/inventory-opname-create.helpers.ts`
+- **Breaking**: ❌ Tidak
+### [2026-05-19] — Hapus dead code EnhancedOpnameForm
+
+- **Tipe**: [REMOVED]
+- **Scope**: `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Komponen `EnhancedOpnameForm.tsx` (700 baris) tidak digunakan
+  di mana pun di codebase. Komponen ini punya bug serupa dengan `StockOpnameRecorder`
+  lama (raw fetch tanpa unwrap envelope) dan menambah maintenance surface tanpa
+  manfaat. Dihapus untuk mengurangi noise dan menghindari kebingungan.
+- **Files**: `components/inventory/EnhancedOpnameForm.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Refactor OpnameForm modal Edit
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Komponen `OpnameForm.tsx` (modal Edit di tab Riwayat Opname)
+  direfactor dari pola lama (manual `getWithAuth/postWithAuth` + side-effect di
+  render body) ke pola baru (`useApi` untuk fetch + `fetchWithHandling` untuk
+  mutation). Side-effect auto-distribute kondisi dipindah ke event handler
+  via reducer murni `syncDerivedFormFields` sehingga tidak ada lagi setState
+  di body render. Form fields dipecah menjadi sub-components reusable
+  (`SelectField`, `TextField`, `NumberField`, `DateField`, `TextareaField`,
+  `ConditionBreakdown`, `StockInfo`) untuk SRP.
+- **Files**: `components/inventory/OpnameForm.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Unit test mapping movement opname & validator
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/inventory`, `tests/modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Ekstrak helper pure `inventory-opname-movement-mapping.helpers.ts`
+  (`isAdministrativeAdjustment`, `resolvePositiveMovementCondition`,
+  `resolveNegativeMovementCondition`) dari `inventory-opname-create.helpers.ts`
+  agar testable tanpa mock DB. Tambah 28 unit test (16 untuk mapping helper,
+  12 untuk Zod validator) yang menjaga behavior klasifikasi mutasi opname dan
+  rule validasi payload tidak regresi.
+- **Files**:
+  `modules/inventory/services/inventory-opname-movement-mapping.helpers.ts`,
+  `tests/modules/inventory/inventory-opname-movement-mapping.helpers.test.ts`,
+  `tests/modules/inventory/opnameValidator.test.ts`
+- **Breaking**: ❌ Tidak
+### [2026-05-19] — Hardening tab Input Stock Opname
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/inventory`, `modules/inventory`, `app/api/inventory/opname`
+- **Author**: agent
+- **Deskripsi**: Perbaikan bug blocker pada tab "Input Stock Opname" (admin/inventory/opname).
+  Klien sebelumnya tidak melakukan unwrap envelope `{ success, data }`, sehingga
+  `calculatedData` selalu kosong dan tabel input tidak pernah tampil. Side-effect
+  `fetch` dilakukan di body render (anti-pattern) dan handler input Baik/Rusak/Bekas
+  punya race condition karena membaca closure stale. Submit memakai N×POST tanpa
+  atomicity sehingga gagal sebagian membuat partial commit. Sekarang seluruh
+  request via `fetchWithHandling`, fetch trigger lewat `useApi` (TanStack Query),
+  state edits memakai functional updater + overlay map, dan submit memakai
+  endpoint baru `POST /api/inventory/opname/batch` yang dieksekusi dalam satu
+  `prisma.$transaction`.
+- **Files**:
+  `components/inventory/StockOpnameRecorder.tsx`,
+  `components/inventory/opname/useOpnameCalculation.ts`,
+  `components/inventory/opname/useSubmitOpname.ts`,
+  `components/inventory/opname/OpnameItemRow.tsx`,
+  `components/inventory/opname/OpnameItemsTable.tsx`,
+  `components/inventory/opname/OpnameSummaryCards.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Endpoint batch opname atomic + Zod validator
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/inventory/opname/batch`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Tambah endpoint `POST /api/inventory/opname/batch` untuk mencatat
+  banyak item opname dalam satu transaksi atomic. Tambah Zod validator
+  `opnameItemSchema` & `opnameBatchSchema` di `modules/inventory/validators/opnameValidator.ts`
+  sesuai standar security project (semua API input wajib divalidasi Zod). Service
+  `InventoryOpnameService` mendapat method baru `createOpnameBatch` yang menjalankan
+  semua item dalam `prisma.$transaction`. `InventoryOpnameRouteService` direfactor
+  agar memakai Zod safeParse sebagai gerbang validasi tunggal dan memetakan
+  `ZodError` ke `details` pada response 400.
+- **Files**:
+  `app/api/inventory/opname/batch/route.ts`,
+  `modules/inventory/validators/opnameValidator.ts`,
+  `modules/inventory/services/InventoryOpnameService.ts`,
+  `modules/inventory/services/InventoryOpnameRouteService.ts`,
+  `modules/inventory/services/inventory-opname-create.helpers.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Domain mapping movement opname diperbaiki
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/inventory/services`
+- **Author**: agent
+- **Deskripsi**: Mutasi stok hasil opname tidak lagi selalu memakai kondisi `BARU`.
+  Selisih positif mengikuti breakdown kondisi yang diinput (mayoritas Baik/Rusak/Bekas).
+  Selisih negatif mengikuti `alasanSelisih` (`rusak`→RUSAK, `expired`→BEKAS, lainnya→BARU).
+  Alasan administratif (`revisi`, `salah_input`) tidak menghasilkan record
+  `BarangMasuk`/`BarangKeluar` lagi karena tidak merepresentasikan pergerakan fisik
+  — hanya menyesuaikan stok di `BarangGudang`. Hal ini menghindari distorsi
+  laporan mutasi barang.
+- **Files**: `modules/inventory/services/inventory-opname-create.helpers.ts`
+- **Breaking**: ❌ Tidak
 ### [2026-05-18] — Privacy Policy mobile app untuk Play Store
 
 - **Tipe**: [ADDED]

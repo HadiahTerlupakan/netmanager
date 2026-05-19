@@ -1,7 +1,12 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { prisma } from "@/modules/database";
 
-import { createInventoryOpname } from "./inventory-opname-create.helpers";
+import {
+  createInventoryOpname,
+  createOpnameInTransaction,
+  type CreateOpnameTransactionResult,
+} from "./inventory-opname-create.helpers";
 import {
   buildEmptyOpnameListResponse,
   buildListOpnameWhere,
@@ -46,6 +51,17 @@ export type CreateInventoryOpnameInput = {
   alasanSelisih?: string;
 };
 
+export type CreateInventoryOpnameBatchItem = Omit<
+  CreateInventoryOpnameInput,
+  "user" | "gudangId"
+>;
+
+export type CreateInventoryOpnameBatchInput = {
+  user: InventoryUserContext;
+  gudangId: string;
+  items: CreateInventoryOpnameBatchItem[];
+};
+
 async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
   const tenantContext = await getTenantIdFromContext();
   const isSuper = isSuperAdmin(user as never) || tenantContext.isSuperAdmin;
@@ -73,6 +89,31 @@ export class InventoryOpnameService {
   async createOpname(input: CreateInventoryOpnameInput) {
     await ensureTenantContextForNonSuperAdmin(input.user);
     return createInventoryOpname(input);
+  }
+
+  /** Buat banyak stock opname dalam satu transaksi atomic. */
+  async createOpnameBatch(
+    input: CreateInventoryOpnameBatchInput,
+  ): Promise<Array<CreateOpnameTransactionResult & { barangId: string }>> {
+    await ensureTenantContextForNonSuperAdmin(input.user);
+
+    return prisma.$transaction(async (tx) => {
+      const results: Array<
+        CreateOpnameTransactionResult & { barangId: string }
+      > = [];
+
+      for (const item of input.items) {
+        const itemInput: CreateInventoryOpnameInput = {
+          ...item,
+          user: input.user,
+          gudangId: input.gudangId,
+        };
+        const result = await createOpnameInTransaction(tx, itemInput);
+        results.push({ ...result, barangId: item.barangId });
+      }
+
+      return results;
+    });
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { FiEye, FiSearch } from "react-icons/fi";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -46,11 +46,12 @@ export function AssetTable() {
     }
   }, [search, statusFilter]);
 
-  const [hasFetched, setHasFetched] = useState(false);
-  if (!hasFetched) {
-    setHasFetched(true);
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void fetchAssets();
-  }
+  }, [fetchAssets]);
 
   const columns: Column<Asset>[] = [
     {
