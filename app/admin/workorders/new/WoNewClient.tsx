@@ -488,7 +488,11 @@ export function ClientComponent() {
     const payload = {
       ticketId: formData.ticketId || undefined, // Include ticketId
       pelangganId:
-        woType === "INTERNAL" ? null : isGuest ? null : formData.pelangganId,
+        woType === "INTERNAL"
+          ? undefined
+          : isGuest
+            ? undefined
+            : formData.pelangganId || undefined,
       siteId: formData.siteId || undefined,
       departmentId: formData.departmentId || undefined,
       type: formData.type,

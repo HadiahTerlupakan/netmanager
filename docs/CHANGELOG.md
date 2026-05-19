@@ -45,6 +45,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix submit gagal di workorder/new (pelangganId null)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/workorders/new`
+- **Author**: agent
+- **Deskripsi**: Submit form di `/admin/workorders/new` gagal diam-diam
+  saat user pilih WO Internal atau Customer dengan mode Guest. Akar
+  masalah: payload mengirim `pelangganId: null` ke API, padahal Zod
+  schema `workOrderCreateSchema` mendeklarasi field sebagai
+  `z.string().trim().optional()` yang berarti `string | undefined` —
+  `null` ditolak validasi, request kena 400. Dikoreksi: klien sekarang
+  mengirim `undefined` (yang ter-strip dari JSON.stringify) untuk
+  kasus INTERNAL/Guest/empty string, sehingga schema cocok dan submit
+  diteruskan ke service.
+- **Files**: `app/admin/workorders/new/WoNewClient.tsx`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Fix dropdown Site/Area & Department kosong di workorder/new
 
 - **Tipe**: [FIXED]
