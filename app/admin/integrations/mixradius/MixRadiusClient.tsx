@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   HiOutlineArrowPath,
   HiOutlineMagnifyingGlass,
@@ -77,9 +77,7 @@ export default function MixRadiusClient({
 
   const [onlineFilter, setOnlineFilter] = useState("all"); // all, online, offline
   const [statusFilter, setStatusFilter] = useState("all"); // all, Enabled-Users, Disabled-Users
-  const [owners, setOwners] = useState<MixRadiusOwner[]>([]);
   const [selectedOwner, setSelectedOwner] = useState("all");
-  const [groups, setGroups] = useState<MixRadiusGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("all");
   const isRefreshingRef = useRef(false);
 
@@ -281,40 +279,44 @@ export default function MixRadiusClient({
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch owners + groups via useApi
-  const { data: ownersRaw } = useApi<unknown>(
+  // Fetch owners + groups via useApi.
+  // useApi (via fetchWithHandling) sudah unwrap envelope { success, data }
+  // jadi tipe generic langsung diset ke array dari payload server.
+  // Error MixRadiusConfigError dipropagasi via FetchError (status 400 dengan
+  // details.isConfigError); diakses lewat `*Error.details`.
+  const { data: ownersData, error: ownersError } = useApi<MixRadiusOwner[]>(
     "/api/integrations/mixradius/owners",
   );
-  const { data: groupsRaw } = useApi<unknown>(
+  const { data: groupsData, error: groupsError } = useApi<MixRadiusGroup[]>(
     "/api/integrations/mixradius/groups",
   );
 
-  const [didHydrateOwners, setDidHydrateOwners] = useState(false);
-  if (ownersRaw && !didHydrateOwners) {
-    setDidHydrateOwners(true);
-    const obj = ownersRaw as Record<string, unknown>;
-    if (Array.isArray(obj.data)) {
-      setOwners(obj.data as MixRadiusOwner[]);
-    } else if (
-      obj.error &&
-      (obj.details as { isConfigError?: boolean })?.isConfigError
-    ) {
-      setError(obj.error as string);
-    }
-  }
+  const owners = useMemo(
+    () => (Array.isArray(ownersData) ? ownersData : []),
+    [ownersData],
+  );
+  const groups = useMemo(
+    () => (Array.isArray(groupsData) ? groupsData : []),
+    [groupsData],
+  );
 
-  const [didHydrateGroups, setDidHydrateGroups] = useState(false);
-  if (groupsRaw && !didHydrateGroups) {
-    setDidHydrateGroups(true);
-    const obj = groupsRaw as Record<string, unknown>;
-    if (Array.isArray(obj.data)) {
-      setGroups(obj.data as MixRadiusGroup[]);
-    } else if (
-      obj.error &&
-      (obj.details as { isConfigError?: boolean })?.isConfigError
-    ) {
-      setError(obj.error as string);
-    }
+  // Surface config error ke state error supaya UI bisa menampilkan banner
+  // alert spesifik untuk masalah konfigurasi MixRadius.
+  const configErrorMessage = useMemo(() => {
+    const fetchErr = ownersError ?? groupsError;
+    if (!fetchErr) return null;
+    const isConfigError = (
+      fetchErr.details as unknown as {
+        isConfigError?: boolean;
+      } | null
+    )?.isConfigError;
+    return isConfigError ? fetchErr.message : null;
+  }, [ownersError, groupsError]);
+
+  const [didApplyConfigError, setDidApplyConfigError] = useState(false);
+  if (configErrorMessage && !didApplyConfigError) {
+    setDidApplyConfigError(true);
+    setError(configErrorMessage);
   }
 
   const fetchData = useCallback(

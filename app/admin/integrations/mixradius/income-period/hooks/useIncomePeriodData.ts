@@ -187,72 +187,59 @@ export function useIncomePeriodData() {
   );
 
   // --- Fetch filter data via useApi paralel ---
-  const { data: groupsRaw } = useApi<unknown>(
-    "/api/integrations/mixradius/groups",
+  // useApi (via fetchWithHandling) sudah unwrap envelope { success, data }
+  // jadi tipe generic langsung diset ke shape data dari payload server.
+  const { data: groupsData } = useApi<
+    Array<{ id: string; name: string; siteId?: string }>
+  >("/api/integrations/mixradius/groups");
+  const { data: feesData } = useApi<FeeConfig>(
+    "/api/integrations/mixradius/fees",
   );
-  const { data: feesRaw } = useApi<unknown>("/api/integrations/mixradius/fees");
-  const { data: rabRaw } = useApi<unknown>("/api/finance/rab-projects");
-  const { data: mitraRaw } = useApi<unknown>(
+  const { data: rabData } = useApi<unknown[]>("/api/finance/rab-projects");
+  const { data: mitraData } = useApi<{ mitras?: MitraSale[] }>(
     "/api/admin/mitra?type=MITRA_SALES&limit=1000",
   );
-  const { data: payoutRaw } = useApi<unknown>(
-    "/api/admin/mitra/transactions?type=EARNING&limit=1000",
-  );
+  const { data: payoutData } = useApi<{
+    transactions?: Array<{ referenceId?: string; amount: string | number }>;
+  }>("/api/admin/mitra/transactions?type=EARNING&limit=1000");
 
   const [didHydrateGroups, setDidHydrateGroups] = useState(false);
-  if (groupsRaw && !didHydrateGroups) {
+  if (groupsData && !didHydrateGroups) {
     setDidHydrateGroups(true);
-    const obj = groupsRaw as Record<string, unknown>;
-    if (obj.success && Array.isArray(obj.data)) {
-      setGroups(
-        obj.data as Array<{ id: string; name: string; siteId?: string }>,
-      );
+    if (Array.isArray(groupsData)) {
+      setGroups(groupsData);
     }
   }
 
   const [didHydrateFees, setDidHydrateFees] = useState(false);
-  if (feesRaw && !didHydrateFees) {
+  if (feesData && !didHydrateFees) {
     setDidHydrateFees(true);
-    const obj = feesRaw as Record<string, unknown>;
-    if (obj.success) {
-      setFeeConfig(obj.data as FeeConfig);
-    }
+    setFeeConfig(feesData);
   }
 
   const [didHydrateRab, setDidHydrateRab] = useState(false);
-  if (rabRaw && !didHydrateRab) {
+  if (rabData && !didHydrateRab) {
     setDidHydrateRab(true);
-    if (Array.isArray(rabRaw)) {
+    if (Array.isArray(rabData)) {
       setRabProjects(
-        (rabRaw as unknown[]).map((p) =>
-          parseRABProject(p as Record<string, unknown>),
-        ),
+        rabData.map((p) => parseRABProject(p as Record<string, unknown>)),
       );
     }
   }
 
   const [didHydrateMitra, setDidHydrateMitra] = useState(false);
-  if (mitraRaw && !didHydrateMitra) {
+  if (mitraData && !didHydrateMitra) {
     setDidHydrateMitra(true);
-    const obj = mitraRaw as Record<string, unknown>;
-    const dataObj = obj.data as { mitras?: MitraSale[] } | undefined;
-    if (obj.success && dataObj?.mitras) {
-      setMitraSales(dataObj.mitras);
+    if (Array.isArray(mitraData?.mitras)) {
+      setMitraSales(mitraData.mitras);
     }
   }
 
   const [didHydratePayouts, setDidHydratePayouts] = useState(false);
-  if (payoutRaw && !didHydratePayouts) {
+  if (payoutData && !didHydratePayouts) {
     setDidHydratePayouts(true);
-    const obj = payoutRaw as Record<string, unknown>;
-    const dataObj = obj.data as { transactions?: unknown[] } | undefined;
-    if (obj.success && Array.isArray(dataObj?.transactions)) {
-      setPayouts(
-        dataObj.transactions as Array<{
-          referenceId?: string;
-          amount: string | number;
-        }>,
-      );
+    if (Array.isArray(payoutData?.transactions)) {
+      setPayouts(payoutData.transactions);
     }
   }
 

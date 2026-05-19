@@ -45,6 +45,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix dropdown Site/Owner/Group kosong di mixradius pages
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/integrations/mixradius`
+- **Author**: agent
+- **Deskripsi**: Dropdown Site/Owner/Group dan filter Mitra/Payout di
+  halaman `/admin/integrations/mixradius`, `/admin/integrations/mixradius/isolir`,
+  dan `/admin/integrations/mixradius/income-period` selalu kosong padahal
+  API mengembalikan list valid. Akar masalah identik dengan bug yang baru
+  saja di-fix di workorder/new dan announcement: klien hydrasi state via
+  `obj.success && Array.isArray(obj.data)` — tapi `useApi` (lewat
+  `fetchWithHandling`) sudah me-unwrap envelope `{ success, data }`,
+  sehingga `obj` langsung berisi array (`obj.success` = `undefined`,
+  `obj.data` = `undefined`). Seluruh blok hydrasi skipped → state lokal
+  tetap kosong → dropdown kosong.
+  Dikoreksi: type generic `useApi` diset langsung ke shape data dari
+  payload, akses ke `.success` & `.data` dihapus. `MixRadiusClient`
+  dipindah ke pattern derived state via `useMemo` (single source of
+  truth). Config error MixRadius (status 400 dengan
+  `details.isConfigError`) dipropagasi via `FetchError` dari `useApi.error`,
+  bukan via fake `data.error`.
+- **Files**:
+  `app/admin/integrations/mixradius/MixRadiusClient.tsx`,
+  `app/admin/integrations/mixradius/income-period/hooks/useIncomePeriodData.ts`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Fix submit gagal di workorder/new (pelangganId null)
 
 - **Tipe**: [FIXED]
