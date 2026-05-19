@@ -61,14 +61,16 @@ export function ClientComponent() {
     "MIXRADIUS",
   );
 
-  // Sites and Departments via SWR (only when authenticated)
+  // Sites dan Departments via TanStack Query (hanya saat authenticated).
+  // useApi sudah unwrap envelope { success, data } via fetchWithHandling,
+  // jadi tipe generic langsung diset ke array dari payload server.
   const isAuthenticated = status === "authenticated";
-  const { data: sitesRaw, error: sitesError } = useApi<{ data?: Site[] }>(
+  const { data: sitesData, error: sitesError } = useApi<Site[]>(
     isAuthenticated ? "/api/admin/sites?activeOnly=true" : null,
   );
-  const { data: departmentsRaw, error: departmentsError } = useApi<{
-    data?: Department[];
-  }>(isAuthenticated ? "/api/admin/departments" : null);
+  const { data: departmentsData, error: departmentsError } = useApi<
+    Department[]
+  >(isAuthenticated ? "/api/admin/departments" : null);
 
   useEffect(() => {
     if (sitesError) {
@@ -81,8 +83,8 @@ export function ClientComponent() {
     }
   }, [departmentsError]);
 
-  const sites: Site[] = sitesRaw?.data ?? [];
-  const departments: Department[] = departmentsRaw?.data ?? [];
+  const sites: Site[] = sitesData ?? [];
+  const departments: Department[] = departmentsData ?? [];
 
   // Search states
   const [searchingPelanggan, setSearchingPelanggan] = useState(false);

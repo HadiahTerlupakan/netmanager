@@ -224,15 +224,16 @@ export default function ExpensesClient() {
     setCurrentPage(1);
   }
 
-  // Fetch options via SWR
-  const { data: sitesResp } = useApi<{
-    success: boolean;
-    data: { id: string; name: string; siteId?: string }[];
-  }>("/api/integrations/mixradius/groups");
+  // Fetch options via TanStack Query.
+  // useApi sudah unwrap envelope { success, data } via fetchWithHandling,
+  // jadi tipe generic langsung diset ke shape data array dari payload.
+  const { data: sitesResp } = useApi<
+    { id: string; name: string; siteId?: string }[]
+  >("/api/integrations/mixradius/groups");
   const sites: SiteOption[] = useMemo(
     () =>
-      Array.isArray(sitesResp?.data)
-        ? sitesResp!.data.map((g) => ({
+      Array.isArray(sitesResp)
+        ? sitesResp.map((g) => ({
             id: g.id,
             name: g.name,
             siteId: g.siteId,
@@ -241,44 +242,36 @@ export default function ExpensesClient() {
     [sitesResp],
   );
 
-  const { data: investorSitesResp } = useApi<{
-    success: boolean;
-    data: { id: string; name: string }[];
-  }>("/api/integrations/mixradius/investor-sites");
+  const { data: investorSitesResp } = useApi<{ id: string; name: string }[]>(
+    "/api/integrations/mixradius/investor-sites",
+  );
   const investorSites: InvestorSiteOption[] = useMemo(
     () =>
-      Array.isArray(investorSitesResp?.data)
-        ? investorSitesResp!.data.map((s) => ({ id: s.id, name: s.name }))
+      Array.isArray(investorSitesResp)
+        ? investorSitesResp.map((s) => ({ id: s.id, name: s.name }))
         : [],
     [investorSitesResp],
   );
 
-  const { data: internalSitesResp } = useApi<{
-    success: boolean;
-    data: { id: string; name: string }[];
-  }>("/api/admin/sites?activeOnly=true");
+  const { data: internalSitesResp } = useApi<{ id: string; name: string }[]>(
+    "/api/admin/sites?activeOnly=true",
+  );
   const internalSites: SiteOption[] = useMemo(
     () =>
-      Array.isArray(internalSitesResp?.data)
-        ? internalSitesResp!.data.map((s) => ({ id: s.id, name: s.name }))
+      Array.isArray(internalSitesResp)
+        ? internalSitesResp.map((s) => ({ id: s.id, name: s.name }))
         : [],
     [internalSitesResp],
   );
 
   // Filter Categories: depend on selectedCategory
-  const { data: filterCategoriesResp } = useApi<{
-    success: boolean;
-    data: CategoryOption[];
-  }>(
+  const { data: filterCategoriesResp } = useApi<CategoryOption[]>(
     selectedCategory
       ? `/api/finance/expense-categories?type=${selectedCategory}`
       : null,
   );
   const filterCategories: CategoryOption[] = useMemo(
-    () =>
-      Array.isArray(filterCategoriesResp?.data)
-        ? filterCategoriesResp!.data
-        : [],
+    () => (Array.isArray(filterCategoriesResp) ? filterCategoriesResp : []),
     [filterCategoriesResp],
   );
 
@@ -291,12 +284,11 @@ export default function ExpensesClient() {
   }
 
   // Categories for modal: only fetch when modal open
-  const { data: categoriesResp, isLoading: isLoadingCategories } = useApi<{
-    success: boolean;
-    data: CategoryOption[];
-  }>(isModalOpen ? "/api/finance/expense-categories" : null);
+  const { data: categoriesResp, isLoading: isLoadingCategories } = useApi<
+    CategoryOption[]
+  >(isModalOpen ? "/api/finance/expense-categories" : null);
   const categories: CategoryOption[] = useMemo(
-    () => (Array.isArray(categoriesResp?.data) ? categoriesResp!.data : []),
+    () => (Array.isArray(categoriesResp) ? categoriesResp : []),
     [categoriesResp],
   );
 
@@ -304,22 +296,20 @@ export default function ExpensesClient() {
   const rabProjectsKey = rabRefreshKey
     ? `/api/finance/rab-projects?refreshKey=${rabRefreshKey}`
     : "/api/finance/rab-projects";
-  const { data: rabProjectsResp, mutate: refetchRabProjects } = useApi<{
-    success: boolean;
-    data: RABProject[];
-  }>(rabProjectsKey);
+  const { data: rabProjectsResp, mutate: refetchRabProjects } =
+    useApi<RABProject[]>(rabProjectsKey);
   const rabProjects: RABProject[] = useMemo(
-    () => (Array.isArray(rabProjectsResp?.data) ? rabProjectsResp!.data : []),
+    () => (Array.isArray(rabProjectsResp) ? rabProjectsResp : []),
     [rabProjectsResp],
   );
 
   // RAB Bottleneck Metrics: only when activeTab === "rab"
-  const { data: rabMetricsResp, isLoading: isLoadingRabMetrics } = useApi<{
-    success: boolean;
-    data: RabBottleneckMetrics;
-  }>(activeTab === "rab" ? "/api/finance/rab-projects/dashboard" : null);
+  const { data: rabMetricsResp, isLoading: isLoadingRabMetrics } =
+    useApi<RabBottleneckMetrics>(
+      activeTab === "rab" ? "/api/finance/rab-projects/dashboard" : null,
+    );
   const rabBottleneckMetrics: RabBottleneckMetrics | null =
-    rabMetricsResp?.data ?? null;
+    rabMetricsResp ?? null;
 
   // Build expenses fetch URL
   const expensesUrl = useMemo(() => {

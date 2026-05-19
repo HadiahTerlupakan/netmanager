@@ -45,6 +45,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix dropdown Site/Area & Department kosong di workorder/new
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/workorders/new`, `app/admin/integrations/mixradius/expenses`
+- **Author**: agent
+- **Deskripsi**: Dropdown "Site / Area" dan "Department" di
+  `/admin/workorders/new` tidak menampilkan data padahal API
+  `/api/admin/sites` dan `/api/admin/departments` mengembalikan list
+  yang valid. Akar masalah: klien menggunakan `useApi<{ data?: Site[] }>`
+  dan akses `sitesRaw?.data` — tapi `useApi` (lewat `fetchWithHandling`)
+  sudah me-unwrap envelope `{ success, data }`, sehingga `sitesRaw`
+  langsung berisi array. Akses `.data` mengembalikan `undefined` →
+  array kosong → dropdown kosong. Type generic dikoreksi langsung ke
+  `Site[]` / `Department[]` dan akses `.data` dihapus.
+  Saat investigasi, ditemukan bug identik di
+  `mixradius/expenses/ExpensesClient.tsx` — 7 dropdown rusak (sites,
+  investorSites, internalSites, filterCategories, categories modal,
+  rabProjects, rabMetrics). Semua dikoreksi: type generic ke shape
+  data langsung, akses `.data` dihapus.
+- **Files**:
+  `app/admin/workorders/new/WoNewClient.tsx`,
+  `app/admin/integrations/mixradius/expenses/ExpensesClient.tsx`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Hardening admin/log/activity (Zod + UX refactor)
 
 - **Tipe**: [SECURITY]
