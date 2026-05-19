@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-20] — Design doc modul akuntansi (double-entry GL)
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/superpowers/specs/`
+- **Author**: agent
+- **Deskripsi**: Spec design untuk modul `accounting` baru — double-entry GL dengan auto-journal dari `finance` via outbox pattern. Mencakup Chart of Accounts, JournalEntry/Line, AccountingPeriod, recurring journal, bank reconciliation, dan 4 laporan inti (Buku Kas & Bank, Laba Rugi, Neraca, Arus Kas). Migration plan production-safe (8 file, additive, reversible) + roadmap pasca-v1.
+- **Files**: `docs/superpowers/specs/2026-05-20-accounting-module-design.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-19] — Fix page-level vs API-level permission mismatch
 
 - **Tipe**: [FIXED]
