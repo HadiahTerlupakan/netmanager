@@ -21,7 +21,7 @@ export async function POST(
       return ApiErrors.unauthorized();
     }
 
-    if (!(await hasPermission("settings:write", session))) {
+    if (!(await hasPermission("whatsapp:update", session))) {
       return ApiErrors.forbidden();
     }
 

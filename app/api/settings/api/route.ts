@@ -14,7 +14,7 @@ import {
  * Mengambil pengaturan API
  */
 export const GET = createHandler(
-  { auth: true, permissions: ["api:read", "settings:read"] },
+  { auth: true, permissions: ["api:read"] },
   async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const settings = await getApiSettings(tenantId);

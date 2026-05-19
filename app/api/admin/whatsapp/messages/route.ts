@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       return ApiErrors.unauthorized();
     }
 
-    if (!(await hasPermission("settings:read", session))) {
+    if (!(await hasPermission("whatsapp:read", session))) {
       return ApiErrors.forbidden();
     }
 

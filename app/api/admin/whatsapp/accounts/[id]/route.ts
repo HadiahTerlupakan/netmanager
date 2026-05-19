@@ -25,7 +25,7 @@ export async function GET(
       return ApiErrors.unauthorized();
     }
 
-    if (!(await hasPermission("settings:read", session))) {
+    if (!(await hasPermission("whatsapp:read", session))) {
       return ApiErrors.forbidden();
     }
 
@@ -66,7 +66,7 @@ export async function PATCH(
       return ApiErrors.unauthorized();
     }
 
-    if (!(await hasPermission("settings:write", session))) {
+    if (!(await hasPermission("whatsapp:update", session))) {
       return ApiErrors.forbidden();
     }
 
@@ -128,7 +128,7 @@ export async function DELETE(
       return ApiErrors.unauthorized();
     }
 
-    if (!(await hasPermission("settings:write", session))) {
+    if (!(await hasPermission("whatsapp:delete", session))) {
       return ApiErrors.forbidden();
     }
 

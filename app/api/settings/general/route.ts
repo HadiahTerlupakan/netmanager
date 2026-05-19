@@ -14,7 +14,7 @@ import {
  * Mengambil pengaturan umum
  */
 export const GET = createHandler(
-  { auth: true, permissions: ["umum:read", "settings:read"] },
+  { auth: true, permissions: ["umum:read"] },
   async () => {
     return apiSuccess(await getGeneralSettings());
   },
@@ -27,7 +27,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["settings:update"],
+    permissions: ["umum:update"],
     schema: generalSettingsSchema,
   },
   async (_req, ctx) => {

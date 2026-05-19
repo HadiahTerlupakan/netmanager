@@ -45,6 +45,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix permission tidak match catalog (whatsapp 403, dll)
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/permission-config.ts`, `app/api/admin/whatsapp`, `app/api/settings`, `app/api/admin/invoices`, `app/api/admin/reports/presence`, `app/api/invoices`, `modules/roles/factories/RoleFactory.ts`
+- **Author**: agent
+- **Deskripsi**: User pakai role custom dengan permission `whatsapp:read` aktif tapi tetap dapat 403 di `/api/admin/whatsapp/accounts`. Akar masalah: endpoint cek `settings:read`/`settings:write` — resource `settings` dan action `write` tidak ada di catalog, sehingga mustahil tersedia di role manapun (kecuali super admin wildcard). Audit komprehensif menemukan 36+ permission strings serupa yang tidak match catalog.
+- **Files**:
+  - `lib/permission-config.ts` — tambah resource `invoices`, `payments`, `tickets`, `bank_accounts`, `notifications`, `wo_escalation`, `wo_sla`, `wo_template`; tambah action `manage`
+  - `app/api/admin/whatsapp/**/*.ts` — ganti `settings:read`/`settings:write` ke `whatsapp:read`/`whatsapp:create`/`whatsapp:update`/`whatsapp:delete` sesuai operasi
+  - `app/api/settings/general/route.ts`, `app/api/settings/api/route.ts` — hapus duplikat `settings:*`, ganti `settings:update` ke `umum:update`
+  - `app/api/admin/invoices/[id]/void/route.ts` — `finance:void-invoice` → `finance:update:void` (granular yang sudah ada)
+  - `app/api/admin/reports/presence/route.ts` — `attendance:report:view` → `report:read`
+  - `app/api/invoices/route.ts`, `app/api/invoices/[id]/route.ts` — `invoice:site_only` → `invoices:site_only` (konsisten dengan catalog plural)
+  - `modules/roles/factories/RoleFactory.ts` — fix permission template (sebelumnya banyak permission tidak valid: `tickets:assign`, `packages:read`, `attendance:checkin/checkout`, `reports:finance`, `reports:sales`, `workorders:assign`, `attendance:approve`, `settings:*`)
+- **Breaking**: ❌ Tidak (resource baru ditambah ke catalog; tidak ada permission valid yang dihapus)
+
+### [2026-05-19] — Tambah cursor pagination di GET /api/marketing/canvasing
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/marketing/canvasing`, `modules/marketing`
+- **Author**: agent
+- **Deskripsi**: Endpoint list canvasing kini mendukung cursor-based pagination (`?cursor=<lastId>&limit=N`) selain page-based existing (`?page=&limit=`). Mobile pakai `useInfiniteQuery` dan butuh `nextCursor` untuk infinite scroll; sebelumnya request `?cursor=...` dari mobile diabaikan (default `page=1`) sehingga list mentok di 10 record terbaru. Repository `findAll()` extend dengan opsi cursor + tie-breaker `id` desc supaya ordering deterministik. Response shape ditambah field `nextCursor` (null saat page-based atau halaman terakhir). Admin web tetap pakai page-based, fully backwards-compatible.
+- **Files**: `app/api/marketing/canvasing/route.ts`, `modules/marketing/domain/ports/ICanvasingRepository.ts`, `modules/marketing/repositories/CanvasingRepository.ts`, `modules/marketing/services/CanvasingService.ts`, `tests/modules/marketing/CanvasingRepository.test.ts`, `tests/modules/marketing/CanvasingService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-19] — Update label data-fetching standard di CLAUDE.md (SWR → TanStack Query)
 
 - **Tipe**: [DOCS]

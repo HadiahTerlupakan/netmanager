@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   // Check permission
   const hasRead = await hasPermission("attendance:read");
-  const hasViewReport = await hasPermission("attendance:report:view");
+  const hasViewReport = await hasPermission("report:read");
 
   if (!hasRead && !hasViewReport) {
     return ApiErrors.forbidden("Akses ditolak");

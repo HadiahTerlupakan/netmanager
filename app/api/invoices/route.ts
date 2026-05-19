@@ -78,5 +78,5 @@ async function canOnlyAccessOwnSite(user: {
   role?: string | null;
   isSuperAdmin?: boolean;
 }) {
-  return (await hasPermission("invoice:site_only")) && !isSuperAdmin(user);
+  return (await hasPermission("invoices:site_only")) && !isSuperAdmin(user);
 }

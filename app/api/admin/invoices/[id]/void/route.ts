@@ -20,7 +20,7 @@ export const POST = createHandler(
   {
     auth: true,
     schema: voidSchema,
-    permissions: ["finance:void-invoice"],
+    permissions: ["finance:update:void"],
   },
   async (req, ctx) => {
     // ctx.params is already awaited and resolved by createHandler in lib/api/handler.ts

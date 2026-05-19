@@ -89,6 +89,10 @@ export const PERMISSION_GROUPS = {
   MITRA: ["mitra", "withdrawals"],
   INVESTORS: ["investors"],
   SALARY: ["salary", "salary_users"],
+  BILLING: ["invoices", "payments", "tickets"],
+  COMPANY: ["bank_accounts"],
+  NOTIFICATIONS: ["notifications"],
+  WO_CONFIG: ["wo_escalation", "wo_sla", "wo_template"],
 } as const;
 
 /**
@@ -145,6 +149,7 @@ export const ACTIONS = [
   "approve",
   "mark_paid",
   "correct-missed-checkin",
+  "manage",
 ] as const;
 
 /**
