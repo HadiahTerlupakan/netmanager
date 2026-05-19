@@ -108,15 +108,15 @@ export default function InvestorsClient() {
   });
 
   const {
-    data: investorsResp,
+    data: investorsData,
     isLoading: loading,
     mutate: refetchInvestors,
-  } = useApi<{ data?: Investor[] }>("/api/admin/investors", {
+  } = useApi<Investor[]>("/api/admin/investors", {
     onError: () => {
       toast.error("Terjadi kesalahan saat memuat data investor");
     },
   });
-  const investors = investorsResp?.data ?? [];
+  const investors = investorsData ?? [];
 
   const fetchInvestors = () => {
     void refetchInvestors();

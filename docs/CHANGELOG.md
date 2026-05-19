@@ -45,6 +45,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Deep scan fix unwrap envelope dropdown 5 lokasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/investors`, `app/(customer)/tagihan`, `components/attendance`,
+  `app/admin/integrations/mixradius/expenses`, `app/admin/workorders/new`
+- **Author**: agent
+- **Deskripsi**: Deep scan menemukan 5 lokasi tambahan dengan bug unwrap
+  envelope identik (klien akses `data?.data` atau check `obj.success`
+  padahal `useApi`/`fetchWithHandling` sudah me-unwrap envelope):
+  1. `InvestorsClient.tsx:114` — list investor kosong
+     (`useApi<{ data?: Investor[] }>` → akses `.data` undefined).
+  2. `tagihan/page.tsx:185` — payment methods customer kosong
+     (`useApi<{ success?, data? }>` → akses `.data` undefined).
+  3. `AttendancePageContent.tsx:115,126` — status absensi tidak ter-set
+     (block `obj.success && obj.data` selalu skip).
+  4. `RABView.tsx:102,113` — modal revisions & summary kosong
+     (`useApi<{ data: ... }>` → akses `.data` undefined).
+  5. `WoNewClient.tsx:141` — auto-fill data tiket support saat user
+     buka URL `?ticketId=` tidak jalan (raw fetch akses `data.ticket`
+     padahal envelope `{ success, data: ticketEntity }`).
+
+  Semua dikoreksi: type generic ke shape data langsung, akses `.data`
+  dihapus, untuk raw fetch akses `response.data` (envelope-aware).
+- **Files**:
+  `app/admin/investors/InvestorsClient.tsx`,
+  `app/(customer)/tagihan/page.tsx`,
+  `components/attendance/AttendancePageContent.tsx`,
+  `app/admin/integrations/mixradius/expenses/RABView.tsx`,
+  `app/admin/workorders/new/WoNewClient.tsx`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Fix dropdown Site/Owner/Group kosong di mixradius pages
 
 - **Tipe**: [FIXED]

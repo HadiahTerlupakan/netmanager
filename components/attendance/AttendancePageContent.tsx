@@ -105,25 +105,23 @@ export default function AttendancePageContent({
     await Promise.all([refetchStatus(), refetchHistory()]);
   }, [refetchStatus, refetchHistory]);
 
-  // Hydrate history (success-shaped or array)
+  // Hydrate history. useApi sudah unwrap envelope sehingga `historyRaw`
+  // langsung array (bukan { success, data }).
   const [didHydrateHistory, setDidHydrateHistory] = useState(false);
   if (historyRaw && !didHydrateHistory) {
     setDidHydrateHistory(true);
-    const obj = historyRaw as Record<string, unknown>;
-    if (Array.isArray(obj)) {
-      setHistory(obj);
-    } else if (obj.success && Array.isArray(obj.data)) {
-      setHistory(obj.data);
+    if (Array.isArray(historyRaw)) {
+      setHistory(historyRaw as unknown[]);
     }
   }
 
-  // Hydrate status
+  // Hydrate status. useApi sudah unwrap envelope sehingga `statusRaw`
+  // langsung berisi payload status (bukan { success, data }).
   const [didHydrateStatus, setDidHydrateStatus] = useState(false);
   if (statusRaw && !didHydrateStatus) {
     setDidHydrateStatus(true);
-    const obj = statusRaw as Record<string, unknown>;
-    const currentStatus = (obj.data as StatusPayload | undefined) ?? null;
-    if (obj.success && currentStatus) {
+    const currentStatus = statusRaw as StatusPayload;
+    if (currentStatus.status) {
       setStatus(currentStatus.status);
       setAttendanceStatus(
         currentStatus.attendanceStatus === "LATE" ? "LATE" : "ON_TIME",

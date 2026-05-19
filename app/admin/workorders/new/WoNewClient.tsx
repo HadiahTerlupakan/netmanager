@@ -137,9 +137,11 @@ export function ClientComponent() {
       setLoading(true);
       fetch(`/api/admin/support-tickets/${ticketId}`)
         .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.ticket) {
-            const ticket = data.ticket;
+        .then((response) => {
+          // Server return envelope { success, data: ticketEntity }.
+          // Raw fetch tidak unwrap, jadi akses response.data sebagai ticket.
+          if (response.success && response.data) {
+            const ticket = response.data;
 
             setFormData((prev) => ({
               ...prev,

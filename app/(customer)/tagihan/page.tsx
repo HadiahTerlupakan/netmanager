@@ -179,10 +179,10 @@ export default function CustomerInvoicesPage() {
   );
   const mutateInvoices = refetchInvoices;
   const {
-    data: paymentMethodsRaw,
+    data: paymentMethodsData,
     error: paymentMethodsError,
     isLoading: paymentMethodsLoading,
-  } = useApi<{ success?: boolean; data?: PaymentMethod[] }>(
+  } = useApi<PaymentMethod[]>(
     isAuthenticated ? "/api/customer/payment-methods" : null,
   );
 
@@ -198,8 +198,8 @@ export default function CustomerInvoicesPage() {
   }, [paymentMethodsError]);
 
   const paymentMethods: PaymentMethod[] = useMemo(
-    () => paymentMethodsRaw?.data ?? [],
-    [paymentMethodsRaw],
+    () => (Array.isArray(paymentMethodsData) ? paymentMethodsData : []),
+    [paymentMethodsData],
   );
   const isLoading = invoicesLoading;
   const loadingMethods = paymentMethodsLoading;

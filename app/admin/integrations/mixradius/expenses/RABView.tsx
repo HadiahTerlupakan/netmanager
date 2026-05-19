@@ -95,22 +95,22 @@ export default function RABView({
   const shouldFetchRevisions = Boolean(isOpen && projectId);
 
   const {
-    data: revisionResp,
+    data: revisionData,
     error: revisionErr,
     isLoading: isLoadingRevisions,
     mutate: refetchRevisions,
-  } = useApi<{ data: RABRevisionRecord[] }>(
+  } = useApi<RABRevisionRecord[]>(
     shouldFetchRevisions
       ? `/api/finance/rab-projects/${projectId}/revisions`
       : null,
   );
 
   const {
-    data: summaryResp,
+    data: summaryData,
     error: summaryErr,
     isLoading: isLoadingSummary,
     mutate: refetchSummary,
-  } = useApi<{ data: RABRevisionProfitLossSummary | null }>(
+  } = useApi<RABRevisionProfitLossSummary | null>(
     shouldFetchRevisions
       ? `/api/finance/rab-projects/${projectId}/revision-profit-loss`
       : null,
@@ -118,15 +118,13 @@ export default function RABView({
 
   const isLoadingRevisionAnalytics = isLoadingRevisions || isLoadingSummary;
 
-  // Mirror SWR data ke local state revisi/summary
+  // useApi sudah unwrap envelope { success, data } via fetchWithHandling,
+  // jadi data langsung berisi payload (bukan { data: ... }).
   const fetchedRevisions = useMemo(
-    () => revisionResp?.data ?? [],
-    [revisionResp],
+    () => (Array.isArray(revisionData) ? revisionData : []),
+    [revisionData],
   );
-  const fetchedSummary = useMemo(
-    () => summaryResp?.data ?? null,
-    [summaryResp],
-  );
+  const fetchedSummary = useMemo(() => summaryData ?? null, [summaryData]);
 
   const [prevFetchedRevisions, setPrevFetchedRevisions] =
     useState(fetchedRevisions);
