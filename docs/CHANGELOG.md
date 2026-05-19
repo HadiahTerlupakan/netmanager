@@ -48,7 +48,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 ### [2026-05-19] — Fix submit gagal di workorder/new (pelangganId null)
 
 - **Tipe**: [FIXED]
-- **Scope**: `app/admin/workorders/new`
+- **Scope**: `app/admin/workorders/new`, `tests/app/admin/workorders`
 - **Author**: agent
 - **Deskripsi**: Submit form di `/admin/workorders/new` gagal diam-diam
   saat user pilih WO Internal atau Customer dengan mode Guest. Akar
@@ -59,7 +59,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   mengirim `undefined` (yang ter-strip dari JSON.stringify) untuk
   kasus INTERNAL/Guest/empty string, sehingga schema cocok dan submit
   diteruskan ke service.
-- **Files**: `app/admin/workorders/new/WoNewClient.tsx`
+  Logic build payload diekstrak ke pure function `buildWorkOrderPayload`
+  di `work-order-payload.ts` agar testable. Tambah 22 unit test yang
+  menutup semua kombinasi (INTERNAL/CUSTOMER × Guest/Customer-by-id ×
+  field opsional kosong/terisi) plus 5 integration test memastikan
+  payload dari `buildWorkOrderPayload` lolos validasi
+  `workOrderCreateSchema`. Termasuk regression test eksplisit yang
+  mengunci behavior: `pelangganId: null` ditolak Zod (akar bug).
+- **Files**:
+  `app/admin/workorders/new/WoNewClient.tsx`,
+  `app/admin/workorders/new/work-order-payload.ts`,
+  `tests/app/admin/workorders/work-order-payload.test.ts`
 - **Breaking**: ❌ Tidak
 ### [2026-05-19] — Fix dropdown Site/Area & Department kosong di workorder/new
 

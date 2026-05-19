@@ -26,6 +26,7 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import PageLoader from "@/components/ui/PageLoader";
 import { useApi } from "@/lib/hooks/useApi";
+import { buildWorkOrderPayload } from "./work-order-payload";
 import {
   readMixRadiusSearchResponse,
   type MixRadiusCustomer,
@@ -478,47 +479,13 @@ export function ClientComponent() {
 
     setLoading(true);
 
-    // Get department name for Internal WO
-    const selectedDepartment = departments.find(
-      (d) => d.id === formData.departmentId,
-    );
-    const selectedSite = sites.find((s) => s.id === formData.siteId);
-
-    // Prepare payload
-    const payload = {
-      ticketId: formData.ticketId || undefined, // Include ticketId
-      pelangganId:
-        woType === "INTERNAL"
-          ? undefined
-          : isGuest
-            ? undefined
-            : formData.pelangganId || undefined,
-      siteId: formData.siteId || undefined,
-      departmentId: formData.departmentId || undefined,
-      type: formData.type,
-      title: formData.title,
-      description: formData.description,
-      priority: formData.priority,
-      isInternal: woType === "INTERNAL", // Flag untuk WO Internal FOC
-      locationAddress:
-        woType === "INTERNAL"
-          ? selectedSite
-            ? `Site: ${selectedSite.code} - ${selectedSite.name}`
-            : formData.locationAddress
-          : formData.locationAddress || undefined,
-      contactName:
-        woType === "INTERNAL"
-          ? selectedDepartment?.name || "Internal Team"
-          : formData.contactName || (isGuest ? "Guest" : undefined),
-      contactPhone: formData.contactPhone || undefined,
-      scheduledDate: formData.scheduledDate
-        ? new Date(formData.scheduledDate)
-        : undefined,
-      scheduledTimeStart: formData.scheduledTimeStart || undefined,
-      scheduledTimeEnd: formData.scheduledTimeEnd || undefined,
-      disconnectionReason: formData.disconnectionReason || undefined,
-      templateId: formData.templateId || undefined,
-    };
+    const payload = buildWorkOrderPayload({
+      formData,
+      woType,
+      isGuest,
+      sites,
+      departments,
+    });
 
     try {
       const response = await fetch("/api/admin/workorders", {
