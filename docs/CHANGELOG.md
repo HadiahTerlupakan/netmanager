@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Fix page-level vs API-level permission mismatch
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/finance`, `app/admin/mitra`, `app/admin/pelanggan`, `app/admin/registrations`, `app/admin/workorders`, `app/admin/users`, `app/admin/inventory`, `lib/permission-config.ts`
+- **Author**: agent
+- **Deskripsi**: Audit lanjutan menemukan 13+ kasus serupa bug whatsapp 403: page-level `ensurePermission` mengecek resource X, tapi API yang dipanggil halaman cek resource Y, atau client-side `hasPermission()` pakai resource yang tidak ada di catalog. Akibatnya: page bisa render tapi API 403, atau UI section/tombol dead karena tidak pernah lulus check.
+- **Files**:
+  - `app/admin/finance/manual-payments/page.tsx` — `finance:read` → `ensureAnyPermission(['manual_payments:read', 'finance:read'])`
+  - `app/admin/mitra/page.tsx`, `mitra/[id]/page.tsx` — `users:read` → `mitra:read`
+  - `app/admin/mitra/withdrawals/page.tsx` — `users:read` → `withdrawals:read`
+  - `app/admin/pelanggan/ppp/[id]/notification-history/page.tsx` — `pelanggan:read` → `ensureAnyPermission(['notifications:read', 'pelanggan:read'])`
+  - `app/admin/registrations/[id]/page.tsx` — `registrations:read` (plural invalid) → `registration:read`
+  - `app/admin/workorders/templates/page.tsx`, `templates/new/page.tsx` — `workorder_templates:*` (resource invalid) → `wo_template:*`
+  - `app/admin/users/new/UsersNewClient.tsx`, `users/[id]/UsersDetailClient.tsx` — `payroll:read` (resource invalid) → `salary:read`
+  - `app/admin/inventory/page.tsx` — hapus `stock:read` (invalid), tambah `inventory:read`
+  - `lib/permission-config.ts` — tambah resource `tenants` untuk `tenants:read` di UsersDetailView/Client/New
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-19] — Fix permission tidak match catalog (whatsapp 403, dll)
 
 - **Tipe**: [FIXED]

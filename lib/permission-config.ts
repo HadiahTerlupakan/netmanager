@@ -93,6 +93,7 @@ export const PERMISSION_GROUPS = {
   COMPANY: ["bank_accounts"],
   NOTIFICATIONS: ["notifications"],
   WO_CONFIG: ["wo_escalation", "wo_sla", "wo_template"],
+  TENANT: ["tenants"],
 } as const;
 
 /**

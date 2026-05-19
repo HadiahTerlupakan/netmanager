@@ -827,7 +827,7 @@ export function ClientComponent() {
             )}
 
             {/* Basic Salary - Only if admin has permission */}
-            {hasPermission("payroll:read") && (
+            {hasPermission("salary:read") && (
               <div className="p-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                 <h3 className="font-medium text-emerald-900 dark:text-emerald-300 mb-3 flex items-center gap-2">
                   <HiOutlineStar className="w-4 h-4" />

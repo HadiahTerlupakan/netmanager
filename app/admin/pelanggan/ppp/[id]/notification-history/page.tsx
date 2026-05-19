@@ -1,4 +1,4 @@
-import { ensurePermission } from "@/lib/rbac";
+import { ensureAnyPermission } from "@/lib/rbac";
 import NotificationHistoryClient from "./NotificationHistoryClient";
 
 export default async function NotificationHistoryPage({
@@ -6,7 +6,7 @@ export default async function NotificationHistoryPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await ensurePermission("pelanggan:read");
+  await ensureAnyPermission(["notifications:read", "pelanggan:read"]);
   const { id } = await params;
   return <NotificationHistoryClient pelangganId={id} />;
 }
