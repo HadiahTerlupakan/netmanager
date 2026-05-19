@@ -59,21 +59,34 @@ modules/accounting/
 └── index.ts                   # Public API
 ```
 
-### 2.2. Komunikasi `finance` → `accounting`: Outbox Pattern
+### 2.2. Komunikasi `finance` → `accounting`: Reuse Event Bus + Outbox Existing
 
-**Kenapa outbox**: in-memory event bus tidak reliable — kalau handler crash, journal hilang. Outbox memastikan **transactional consistency** antara transaksi sumber dan jurnal akuntansi.
+**Penemuan**: project sudah punya infrastruktur event-bus + outbox lengkap yang aktif:
+- Tabel `OutboxEvent` (Prisma) untuk transactional outbox
+- `lib/event-bus/outbox.ts` — `saveToOutbox` & `saveToOutboxTx` (atomic dengan business operation)
+- `lib/event-bus/outbox-processor.ts` — cron 5 detik, bridge outbox ke BullMQ
+- BullMQ workers + retry/dead-letter queue
+- `EVENT_NAMES` registry sudah include `INVOICE_CREATED`, `INVOICE_PAID`, `PAYMENT_RECEIVED`, `PAYMENT_FAILED`
+- Pattern `registerEventHandler(EVENT_NAMES.X, handlerFn)` — sudah dipakai `handleInvoicePaidBilling` di `modules/finance/`
+
+**Keputusan**: module `accounting` **tidak buat outbox table sendiri**. Cukup register handler ke event bus existing.
 
 **Flow**:
+1. Service `finance` (misal `PaymentRouteService.create`) menjalankan logic operasional + `saveToOutboxTx` event `INVOICE_PAID`/`PAYMENT_RECEIVED` di transaction yang sama (sudah jadi pattern existing).
+2. Outbox processor existing dispatch event ke BullMQ → handler `handleInvoicePaidAccounting` (baru, di module `accounting`) di-trigger.
+3. Handler translate event payload → `JournalEntry` + `JournalLine` sesuai COA mapping, post ke GL.
+4. Idempotent via unique `(source, sourceRefId)` di `journal_entries` — re-run aman.
+5. Error → BullMQ retry dengan exponential backoff. N kali gagal → dead-letter queue + notif akuntan.
 
-1. Service `finance` (misal `PaymentRouteService.create`) menjalankan logic operasional + insert event ke `accounting_outbox` (status=PENDING) dalam **1 DB transaction**.
-2. Worker `AccountingOutboxProcessor` baca outbox secara periodik, translate event jadi `JournalEntry` + `JournalLine` sesuai mapping COA, post ke GL.
-3. Setelah berhasil post, mark outbox event = PROCESSED. Idempotent via `eventId` unik.
-4. Kalau gagal, retry dengan exponential backoff. Setelah N kali, masuk dead-letter queue + alert akuntan.
+**Event tambahan yang perlu didaftarkan** ke `EVENT_NAMES` (belum ada):
+- `EXPENSE_APPROVED: "finance:expense.approved"` — payload: `{ expenseId, tenantId, amount, accountId, expenseCategoryId, expenseDate }`
+- `PURCHASE_ORDER_PAID: "finance:purchase_order.paid"` — payload: `{ purchaseOrderId, tenantId, amount, accountId, paidAt }`
 
 **Konsekuensi**:
-- Konsistensi: jurnal **tidak akan pernah hilang** selama transaksi finance commit.
-- Eventual: ada lag detik-an antara transaksi finance vs jurnal muncul di GL — acceptable untuk akuntan.
-- Tidak butuh Kafka/Redis Streams — cukup tabel Postgres + cron worker (pattern serupa sudah ada di `BillingScheduleService`).
+- DRY: tidak duplikasi infra outbox/processor/retry.
+- Konsisten dengan pattern modules existing (`finance`, `pelanggan`, `notification` semua pakai event bus + outbox sama).
+- Konsistensi data: jurnal tidak hilang selama `saveToOutboxTx` commit bersama transaksi sumber.
+- Eventual: lag detik-an antara transaksi finance vs jurnal muncul di GL.
 
 ### 2.3. Boundary Integrity
 
@@ -223,31 +236,7 @@ model RecurringJournalTemplate {
 enum RecurringFreq { MONTHLY QUARTERLY YEARLY }
 ```
 
-### 3.6. `AccountingOutbox`
-
-```prisma
-model AccountingOutbox {
-  id          String        @id @default(cuid())
-  tenantId    String
-  eventType   String
-  eventId     String        @unique  // idempotency key
-  payload     Json
-  status      OutboxStatus
-  attempts    Int           @default(0)
-  lastError   String?
-  scheduledAt DateTime      @default(now())
-  processedAt DateTime?
-  resultJournalEntryId String?
-
-  @@index([status, scheduledAt])
-  @@index([tenantId, eventType])
-  @@map("accounting_outbox")
-}
-
-enum OutboxStatus { PENDING PROCESSING PROCESSED FAILED DEAD }
-```
-
-### 3.7. `BankReconciliation` + `BankReconciliationLine`
+### 3.6. `BankReconciliation` + `BankReconciliationLine`
 
 ```prisma
 model BankReconciliation {
@@ -357,34 +346,48 @@ DR  Persediaan (1-300) / Aset Tetap (1-400)    Rp X
 **`payment.refund` / `invoice.void`**
 Generate journal reversal otomatis (kebalikan dari auto-journal asli).
 
-### 4.3. Alur Outbox Processor
+### 4.3. Alur Event → Handler Akuntansi (Reuse Existing Infra)
 
 ```
-[finance service]
+[finance service — contoh: PaymentRouteService.create]
    │
-   │  1 DB transaction
-   ▼
-INSERT Payment + INSERT AccountingOutbox(eventId="payment-uuid", status=PENDING)
+   │  1 Prisma transaction:
+   │   - tx.payment.create(...)
+   │   - tx.invoice.update({ status: 'PAID' })
+   │   - saveToOutboxTx(tx, { eventName: INVOICE_PAID, payload: {...} })
    │
    │ COMMIT
    ▼
-[AccountingOutboxProcessor — cron tiap 30 detik]
+[OutboxProcessor existing — cron 5 detik]
+   ├─> Fetch OutboxEvent status=PENDING
+   ├─> Dispatch ke BullMQ queue (event:billing)
+   └─> Mark OutboxEvent status=PROCESSED
+   ▼
+[BullMQ Worker existing — concurrency-safe]
+   ├─> Job ambil event INVOICE_PAID
+   ├─> Lookup registered handlers (lib/event-bus/event-handlers.ts)
+   ├─> Run paralel:
+   │    - handleInvoicePaidBilling (existing — finance)
+   │    - handleInvoicePaidActivation (existing — pelanggan)
+   │    - handleInvoiceNotification (existing — notification)
+   │    - handleInvoicePaidAccounting (BARU — accounting)
    │
-   ├─> 1. SELECT * FROM accounting_outbox WHERE status=PENDING
-   │      ORDER BY scheduled_at LIMIT 100 FOR UPDATE SKIP LOCKED
-   ├─> 2. status → PROCESSING, attempts++
-   ├─> 3. Resolve mapping (eventType → handler), generate JournalEntry + Lines
-   ├─> 4. Validate balance (DR = CR), validate period status (must OPEN)
-   ├─> 5. INSERT JournalEntry POSTED, link resultJournalEntryId
-   ├─> 6. status → PROCESSED
-   └─> Error:
-         - attempts < 5: status → PENDING, scheduledAt = now() + backoff(attempts)
-         - attempts >= 5: status → DEAD, notif akuntan
+   ▼
+[handleInvoicePaidAccounting]
+   ├─> 1. Idempotency check: SELECT 1 FROM journal_entries
+   │      WHERE source='AUTO_INVOICE_PAID' AND sourceRefId=invoiceId
+   │      → kalau ada, return (already processed)
+   ├─> 2. Validate period status (must OPEN), kalau CLOSED → throw RetryableError
+   │      → kalau periode masih CLOSED setelah N retry, BullMQ otomatis masuk DLQ
+   ├─> 3. Resolve COA mapping (Invoice → AR/Revenue, Payment → Bank/AR)
+   ├─> 4. Generate JournalEntry + Lines (validate DR=CR di service)
+   ├─> 5. INSERT JournalEntry POSTED dalam tx
+   └─> Error → throw → BullMQ retry exponential backoff → eventually DLQ
 ```
 
-**Idempotency**: cek `JournalEntry.source + sourceRefId` sebelum insert — kalau sudah ada, skip (handle worker restart).
+**Idempotency**: cek `JournalEntry.source + sourceRefId` sebelum insert — handle BullMQ retry & worker restart.
 
-**Period CLOSED**: jurnal di-flag `requires_manual_handling`, masuk DEAD queue + notif. Akuntan harus reopen periode atau buat adjustment di periode berjalan.
+**Period CLOSED**: handler throw retryable error. Kalau retry habis → BullMQ DLQ (existing infra) + notif akuntan via `NotificationService` existing. Akuntan bisa reopen periode atau adjust di periode berjalan, lalu re-trigger handler manual via UI tools.
 
 ### 4.4. Manual Journal Entry
 
@@ -463,7 +466,7 @@ Setiap COA punya `cashFlowCategory` (OPERATING/INVESTING/FINANCING/null). Servic
 1. Akuntan klik "Tutup Buku — Mei 2026".
 2. Sistem cek prasyarat:
    - Period status = OPEN.
-   - Semua outbox event periode tsb sudah PROCESSED.
+   - Semua `OutboxEvent` (status=PENDING) untuk transaksi finance dengan tanggal di periode tsb sudah PROCESSED, dan tidak ada BullMQ job untuk handler accounting yang masih PENDING/RETRY untuk periode tsb.
    - Trial Balance balance.
 3. Period status → CLOSING (lock).
 4. Generate **closing journal**:
@@ -551,18 +554,17 @@ Default role mapping:
 
 **Prinsip**: additive only, zero-downtime, reversible. Tidak ada `DROP COLUMN` / `ALTER TYPE` di v1.
 
-#### Migration sequence (8 file)
+#### Migration sequence (7 file — outbox tidak perlu, reuse existing `OutboxEvent`)
 
 | # | Nama Migration | Konten | Risiko |
 |---|----------------|--------|--------|
-| 1 | `add_accounting_enums` | Enum `COAType`, `COASubtype`, `DebitCredit`, `JournalSource`, `JournalStatus`, `PeriodStatus`, `RecurringFreq`, `OutboxStatus`, `ReconStatus`, `MatchStatus`, `CashFlowCategory` | Rendah |
+| 1 | `add_accounting_enums` | Enum `COAType`, `COASubtype`, `DebitCredit`, `JournalSource`, `JournalStatus`, `PeriodStatus`, `RecurringFreq`, `ReconStatus`, `MatchStatus`, `CashFlowCategory` | Rendah |
 | 2 | `create_chart_of_accounts` | Tabel + index + FK self-reference | Rendah |
 | 3 | `create_accounting_periods` | Tabel + unique `(tenantId, year, month)` | Rendah |
 | 4 | `create_journal_tables` | `journal_entries` + `journal_lines` + index, FK | Rendah |
 | 5 | `create_recurring_journal_templates` | Tabel | Rendah |
-| 6 | `create_accounting_outbox` | Tabel + index `(status, scheduled_at)` | Rendah |
-| 7 | `create_bank_reconciliation` | `bank_reconciliations` + `bank_reconciliation_lines` | Rendah |
-| 8 | `extend_existing_for_accounting` | `expense_categories.coaId`, `financial_accounts.coaId` (nullable) | Rendah |
+| 6 | `create_bank_reconciliation` | `bank_reconciliations` + `bank_reconciliation_lines` | Rendah |
+| 7 | `extend_existing_for_accounting` | `expense_categories.coaId`, `financial_accounts.coaId` (nullable). Tambah event names baru ke `EVENT_NAMES` registry: `EXPENSE_APPROVED`, `PURCHASE_ORDER_PAID` | Rendah |
 
 #### DB Trigger (di migration #4)
 
@@ -622,25 +624,26 @@ Semua rollback test di staging dulu sebelum production.
 #### Production Rollout
 
 ```
-[Tahap 1: Migration only — code feature OFF]
+[Tahap 1: Migration only — handler accounting OFF]
 1. Deploy code dengan flag ACCOUNTING_MODULE_ENABLED=false
-2. Run prisma migrate deploy → 8 migration applied
-3. Verifikasi: existing finance flow normal
-4. Run seed script per tenant terkontrol
+   (handler `handleInvoicePaidAccounting` dst tidak di-register di `registerDefaultHandlers`)
+2. Run prisma migrate deploy → 7 migration applied
+3. Verifikasi: existing finance flow normal, OutboxEvent existing tetap jalan tanpa side-effect
+4. Run seed script per tenant terkontrol (COA default + period berjalan)
 
-[Tahap 2: Internal testing — feature ON untuk pilot]
-5. Enable flag untuk 1 tenant pilot
-6. Outbox processor jalan, generate jurnal untuk transaksi baru
+[Tahap 2: Internal testing — handler ON untuk pilot]
+5. Enable flag untuk 1 tenant pilot — handler accounting di-register
+6. Event `INVOICE_PAID` dst sudah jalan via outbox processor existing → handler accounting consume → jurnal terbentuk
 7. Akuntan input opening balance, validasi laporan vs spreadsheet existing
-8. Run paralel 2-4 minggu
+8. Run paralel 2-4 minggu, monitor BullMQ DLQ untuk handler accounting
 
 [Tahap 3: Rollout bertahap]
 9. Enable flag tenant lain bertahap (per minggu 2-3 tenant)
-10. Monitor outbox queue, balance integrity, performa query
+10. Monitor BullMQ queue health khusus handler accounting, balance integrity, performa query
 
 [Tahap 4: Default ON]
-11. Hapus feature flag
-12. Outbox processor jadi mandatory
+11. Hapus feature flag, handler accounting selalu di-register
+12. Module accounting jadi consumer wajib untuk event finance
 ```
 
 ### 6.2. Testing Strategy
@@ -652,11 +655,11 @@ Semua rollback test di staging dulu sebelum production.
 - Services: COA hierarchy ops, recurring journal generator, period closing logic.
 
 #### Integration tests (real DB, target ≥70%)
-- Outbox flow end-to-end: simulate `invoice.paid` → assert journal POSTED dengan amount benar.
-- Idempotency: run handler 2x untuk event sama → cuma 1 journal entry.
+- Event handler end-to-end: dispatch event `INVOICE_PAID` via `eventBus.publish` → assert journal POSTED dengan amount benar.
+- Idempotency: invoke handler 2x untuk event sama → cuma 1 journal entry (test unique check `(source, sourceRefId)`).
 - Period closing: tutup periode → closing journal generated, jurnal periode tsb tidak bisa diubah.
-- Concurrent outbox processing: 2 worker paralel → tidak ada double-posting (test `FOR UPDATE SKIP LOCKED`).
-- DB balance trigger: insert journal lines tidak balance → DB reject.
+- Handler error retry: handler throw → BullMQ retry → eventually success atau DLQ (gunakan BullMQ test utilities).
+- DB balance trigger: insert journal lines tidak balance → DB reject saat commit (DEFERRED constraint).
 
 #### Critical path (target 100%)
 - Trial balance balance check.
@@ -676,24 +679,24 @@ Semua rollback test di staging dulu sebelum production.
 
 ### 6.3. Observability
 
-**Metrics**:
-- `accounting.outbox.pending_count` — alert > 1000 selama > 5 menit.
-- `accounting.outbox.dead_count` — alert > 0.
-- `accounting.journal.unbalanced_count` — harus 0, alert critical kalau > 0.
-- `accounting.outbox.processing_lag_seconds` — alert p95 > 60 detik.
-- `accounting.period.stuck_in_closing` — alert > 1 jam.
+**Metrics** (reuse infra observability existing — `OutboxEvent` & BullMQ sudah punya monitoring sendiri):
+- `accounting.handler.failed_count` — handler accounting yang masuk BullMQ DLQ. Alert > 0.
+- `accounting.handler.processing_lag_seconds` — lag dari `OutboxEvent.createdAt` → `JournalEntry.postedAt` untuk source AUTO_*. Alert p95 > 60 detik.
+- `accounting.journal.unbalanced_count` — harus 0, alert critical kalau > 0 (defense in depth, DB trigger seharusnya block).
+- `accounting.period.stuck_in_closing` — period status CLOSING > 1 jam → alert.
+- `accounting.handler.skipped_closed_period_count` — handler yang reject karena periode CLOSED. Tidak alert tapi tracking untuk akuntan.
 
 **Daily health check** (cron pagi):
 1. Trial balance per tenant aktif → assert DR = CR.
-2. Sum outbox PENDING → expected < threshold.
-3. Verifikasi: tidak ada jurnal POSTED dengan periode CLOSED.
+2. Verifikasi: tidak ada jurnal POSTED dengan periode CLOSED.
+3. Verifikasi: untuk semua Invoice/Payment/Expense yang `paidAt`/`createdAt` > 1 jam, ada JournalEntry terkait (deteksi event yang lupa di-publish).
 4. Send report ke akuntan kalau ada anomali.
 
 ### 6.4. Performance
 
 - **Volume**: ~100 jurnal/tenant/hari → setahun ~36k `journal_entries`, ~80k `journal_lines`. Tidak butuh materialized view di v1.
 - **Trial balance query**: dengan index `(tenantId, status, entryDate)` + `(coaId)`, query agregat ~200k baris < 200ms (memenuhi p95 SLA project).
-- **Outbox processor**: batch 100, interval 30 detik → throughput 12k events/jam (cukup 100+ tenant).
+- **Handler accounting**: jalan via BullMQ existing — concurrency & throughput sudah sized untuk volume event finance saat ini. Kalau handler accounting jadi bottleneck, scale concurrency BullMQ worker.
 - **Decimal**: `Decimal(19,2)` + lib `decimal.js` (sudah ada di project deps).
 
 ### 6.5. Risk Register
@@ -755,7 +758,7 @@ Arsitektur v1 dirancang **tidak menutup pintu** untuk fitur roadmap:
 
 1. **[Asumsi]** Accrual basis untuk pengakuan pendapatan (Invoice created → DR AR / CR Revenue, lalu Invoice paid → DR Bank / CR AR). Alternatif cash basis (Revenue recognized saat paid) — kalau akuntan prefer cash basis, mapping disederhanakan.
 2. **[Asumsi]** Tenant tunggal untuk satu set buku. Tidak ada multi-book per tenant di v1.
-3. **[Asumsi]** Outbox processor jalan sebagai cron job di Next.js custom server (`server.ts`). Alternatif: dedicated worker process — ditahan untuk v1.
+3. **[Asumsi]** Reuse infra event-bus + outbox + BullMQ existing — tidak ada worker baru. Handler accounting di-register via `registerEventHandler` di `lib/event-bus/event-handlers.ts`.
 4. **[Asumsi]** Format `JournalEntry.entryNumber` = `JV-YYYY-MM-####` (sequential per tenant per bulan). Akuntan bisa override prefix di v2.
 
 Konfirmasi atau koreksi atas asumsi di atas akan di-incorporate ke implementation plan.
