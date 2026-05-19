@@ -1,10 +1,15 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
 
+import { useState } from "react";
 import Link from "next/link";
+
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { useToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/hooks/useApi";
+import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Announcement {
   id: string;
@@ -21,27 +26,54 @@ interface Announcement {
   };
 }
 
-export function ClientComponent() {
+const TARGET_BADGE_CLASS: Record<Announcement["target"], string> = {
+  ALL: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  CUSTOMER:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  ADMIN: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  EMPLOYEE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+};
+
+export function AnnouncementIndexClient() {
+  const { showToast } = useToast();
   const {
     data: announcements,
     isLoading,
     mutate,
   } = useApi<Announcement[]>("/api/announcements");
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this announcement?")) return;
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+
+    setIsDeleting(true);
     try {
-      await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+      const res = await fetchWithHandling(
+        `/api/announcements/${pendingDeleteId}`,
+        { method: "DELETE" },
+      );
+      if (!res.success) {
+        throw new Error(res.error || "Gagal menghapus pengumuman");
+      }
+      showToast("success", "Pengumuman berhasil dihapus");
       await mutate();
     } catch (error) {
-      clientLogger.error("Failed to delete", error);
+      clientLogger.error("Failed to delete announcement", error);
+      const message =
+        error instanceof Error ? error.message : "Gagal menghapus pengumuman";
+      showToast("error", message);
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteId(null);
     }
   };
 
   const columns: Column<Announcement>[] = [
     {
       key: "title",
-      header: "Title",
+      header: "Judul",
       priority: "primary",
       render: (announcement) => (
         <>
@@ -60,16 +92,7 @@ export function ClientComponent() {
       priority: "secondary",
       render: (announcement) => (
         <span
-          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${
-                      announcement.target === "ALL"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                        : announcement.target === "CUSTOMER"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : announcement.target === "ADMIN"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                    }`}
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${TARGET_BADGE_CLASS[announcement.target]}`}
         >
           {announcement.target}
         </span>
@@ -81,10 +104,13 @@ export function ClientComponent() {
       priority: "secondary",
       render: (announcement) => (
         <span
-          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${announcement.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            announcement.isActive
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+          }`}
         >
-          {announcement.isActive ? "Active" : "Inactive"}
+          {announcement.isActive ? "Aktif" : "Non-aktif"}
         </span>
       ),
     },
@@ -105,16 +131,16 @@ export function ClientComponent() {
     },
     {
       key: "startDate",
-      header: "Dates",
+      header: "Periode",
       priority: "tertiary",
       render: (announcement) => (
         <div className="text-sm text-gray-500 dark:text-gray-400">
           {announcement.startDate
-            ? new Date(announcement.startDate).toLocaleDateString()
-            : "Now"}
+            ? new Date(announcement.startDate).toLocaleDateString("id-ID")
+            : "Sekarang"}
           {announcement.endDate
-            ? ` - ${new Date(announcement.endDate).toLocaleDateString()}`
-            : " - Forever"}
+            ? ` - ${new Date(announcement.endDate).toLocaleDateString("id-ID")}`
+            : " - Tanpa batas"}
         </div>
       ),
     },
@@ -131,9 +157,9 @@ export function ClientComponent() {
       <Button
         variant="destructive"
         size="sm"
-        onClick={() => handleDelete(announcement.id)}
+        onClick={() => setPendingDeleteId(announcement.id)}
       >
-        Delete
+        Hapus
       </Button>
     </div>
   );
@@ -141,12 +167,9 @@ export function ClientComponent() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">Announcements</h1>
-        <Link
-          href="/admin/announcement/create"
-          className="bg-blue-600 dark:bg-blue-500 dark:bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400 font-medium"
-        >
-          <span className="text-white">Create Announcement</span>
+        <h1 className="text-2xl font-bold dark:text-white">Pengumuman</h1>
+        <Link href="/admin/announcement/create">
+          <Button>Buat Pengumuman</Button>
         </Link>
       </div>
 
@@ -156,11 +179,21 @@ export function ClientComponent() {
           columns={columns}
           keyField="id"
           loading={isLoading}
-          emptyMessage="No announcements found"
-          loadingMessage="Loading announcements..."
+          emptyMessage="Belum ada pengumuman"
+          loadingMessage="Memuat pengumuman..."
           renderActions={renderActions}
         />
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Hapus Pengumuman"
+        description="Apakah Anda yakin ingin menghapus pengumuman ini? Tindakan ini tidak dapat dibatalkan."
+        confirmText={isDeleting ? "Menghapus..." : "Ya, hapus"}
+        cancelText="Batal"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => !isDeleting && setPendingDeleteId(null)}
+      />
     </div>
   );
 }

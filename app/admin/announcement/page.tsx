@@ -1,7 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import { ClientComponent } from './AnnouncementIndexClient'
+import { ensurePermission } from "@/lib/rbac";
+import { AnnouncementIndexClient } from "./AnnouncementIndexClient";
 
 export default async function Page() {
-    await ensurePermission('announcement:read')
-    return <ClientComponent />
+  await ensurePermission("announcement:read");
+  return <AnnouncementIndexClient />;
 }

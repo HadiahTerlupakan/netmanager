@@ -21,6 +21,41 @@ interface AnnouncementPopupProps {
   portal: "customer" | "employee";
 }
 
+const dismissedStorageKey = (portal: string) =>
+  `dismissed_announcements_${portal}`;
+
+function readDismissedIds(portal: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(dismissedStorageKey(portal));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((id) => typeof id === "string")
+      : [];
+  } catch {
+    // Corrupted localStorage — reset agar tidak bikin popup crash di tiap render.
+    try {
+      window.localStorage.removeItem(dismissedStorageKey(portal));
+    } catch {
+      /* ignore */
+    }
+    return [];
+  }
+}
+
+function writeDismissedIds(portal: string, ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      dismissedStorageKey(portal),
+      JSON.stringify(ids),
+    );
+  } catch {
+    /* storage full / disabled — diabaikan */
+  }
+}
+
 export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,20 +65,15 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
   // Handle new announcement from WebSocket
   const handleNewAnnouncement = useCallback(
     (data: Announcement) => {
-      // Check if this announcement is for this portal
       const targetMap = {
         customer: ["ALL", "CUSTOMER"],
         employee: ["ALL", "EMPLOYEE"],
       };
 
       if (!data.target || targetMap[portal].includes(data.target)) {
-        // Check if already dismissed
-        const dismissedIds = JSON.parse(
-          localStorage.getItem(`dismissed_announcements_${portal}`) || "[]",
-        );
+        const dismissedIds = readDismissedIds(portal);
         if (!dismissedIds.includes(data.id)) {
           setAnnouncements((prev) => {
-            // Avoid duplicates
             if (prev.some((a) => a.id === data.id)) return prev;
             return [data, ...prev];
           });
@@ -66,20 +96,15 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
         );
         if (res.ok) {
           const data = await res.json();
-          if (data.length > 0) {
+          if (Array.isArray(data) && data.length > 0) {
             const activeIds = data.map((ann: Announcement) => ann.id);
-            const dismissedIds: string[] = JSON.parse(
-              localStorage.getItem(`dismissed_announcements_${portal}`) || "[]",
-            );
-            const validDismissedIds = dismissedIds.filter((id: string) =>
+            const dismissedIds = readDismissedIds(portal);
+            const validDismissedIds = dismissedIds.filter((id) =>
               activeIds.includes(id),
             );
 
             if (validDismissedIds.length !== dismissedIds.length) {
-              localStorage.setItem(
-                `dismissed_announcements_${portal}`,
-                JSON.stringify(validDismissedIds),
-              );
+              writeDismissedIds(portal, validDismissedIds);
             }
 
             const newAnnouncements = data.filter(
@@ -103,80 +128,45 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     return () => clearTimeout(timer);
   }, [portal]);
 
-  const handleDismiss = async () => {
-    // Store dismissed announcement IDs
-    const currentAnn = announcements[currentIndex];
+  const markAsRead = (announcementId: string) => {
+    const readUrl =
+      portal === "customer"
+        ? `/api/customer/announcements/${announcementId}/read`
+        : `/api/announcements/${announcementId}/read`;
+    fetch(readUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ portal }),
+    }).catch(() => {
+      /* fire and forget */
+    });
+  };
 
-    // Safety check - if currentAnn is undefined, just close
+  const handleDismiss = () => {
+    const currentAnn = announcements[currentIndex];
     if (!currentAnn) {
       setIsVisible(false);
       return;
     }
 
-    const dismissedIds = JSON.parse(
-      localStorage.getItem(`dismissed_announcements_${portal}`) || "[]",
-    );
+    const dismissedIds = readDismissedIds(portal);
     if (!dismissedIds.includes(currentAnn.id)) {
-      dismissedIds.push(currentAnn.id);
-      localStorage.setItem(
-        `dismissed_announcements_${portal}`,
-        JSON.stringify(dismissedIds),
-      );
+      writeDismissedIds(portal, [...dismissedIds, currentAnn.id]);
     }
 
-    // Mark as read in backend (fire and forget)
-    try {
-      const readUrl =
-        portal === "customer"
-          ? `/api/customer/announcements/${currentAnn.id}/read`
-          : `/api/announcements/${currentAnn.id}/read`;
-      fetch(readUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ portal }),
-      }).catch(() => {
-        /* ignore errors */
-      });
-    } catch {
-      // Ignore errors - this is non-critical
-    }
+    markAsRead(currentAnn.id);
 
     if (currentIndex < announcements.length - 1) {
-      // Show next announcement
       setCurrentIndex((prev) => prev + 1);
     } else {
-      // No more announcements, hide popup
       setIsVisible(false);
     }
   };
 
   const handleDismissAll = () => {
-    // Store all announcement IDs as dismissed
-    const dismissedIds = announcements.map((ann) => ann.id);
-    localStorage.setItem(
-      `dismissed_announcements_${portal}`,
-      JSON.stringify(dismissedIds),
-    );
-
-    // Mark all as read in backend (fire and forget)
-    announcements.forEach((ann) => {
-      try {
-        const readUrl =
-          portal === "customer"
-            ? `/api/customer/announcements/${ann.id}/read`
-            : `/api/announcements/${ann.id}/read`;
-        fetch(readUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ portal }),
-        }).catch(() => {
-          /* ignore errors */
-        });
-      } catch {
-        // Ignore errors
-      }
-    });
-
+    const allIds = announcements.map((ann) => ann.id);
+    writeDismissedIds(portal, allIds);
+    announcements.forEach((ann) => markAsRead(ann.id));
     setIsVisible(false);
   };
 
@@ -185,11 +175,7 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
   }
 
   const current = announcements[currentIndex];
-
-  // Safety check - if current is undefined, don't render
-  if (!current) {
-    return null;
-  }
+  if (!current) return null;
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">

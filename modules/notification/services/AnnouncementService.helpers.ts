@@ -106,6 +106,9 @@ export function buildAnnouncementWhere(
     return buildPortalAnnouncementWhere(["ALL", "ADMIN"], now);
   }
 
+  // Tanpa portal: filter target opsional + activeOnly. Tidak menyembunyikan
+  // target=ADMIN di sini karena route ini sudah dijaga RBAC
+  // (`announcement:read`); customer/employee selalu memanggil dengan portal.
   const target = normalizeTargetAudience(filters.target);
   return {
     ...(target ? { target } : {}),

@@ -45,6 +45,65 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Hardening security admin/announcement (RBAC + Zod)
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/announcements`, `modules/notification`, `lib/role-templates.ts`
+- **Author**: agent
+- **Deskripsi**: Endpoint `/api/announcements` (GET/POST) dan
+  `/api/announcements/[id]` (PUT/DELETE) sebelumnya hanya cek `requireAuth`
+  tanpa permission check — siapapun yang login (customer/karyawan biasa)
+  bisa membuat/mengubah/menghapus pengumuman global. Sekarang setiap
+  endpoint enforce permission spesifik (`announcement:create`,
+  `announcement:update`, `announcement:delete`). GET tetap bisa diakses
+  tanpa permission khusus bila ada parameter `portal` (digunakan oleh
+  Banner customer/karyawan), namun bila tanpa portal wajib
+  `announcement:read`. Body request divalidasi Zod schema
+  (`createAnnouncementSchema`, `updateAnnouncementSchema`) dengan rule
+  panjang field, audience enum, dan `endDate > startDate`. Error
+  internal tidak lagi bocor ke client (`String(error)` diganti
+  `ApiErrors.internalError(...)` + `logger.error`). Permission baru
+  `announcement:delete` ditambahkan ke role template Admin.
+- **Files**:
+  `app/api/announcements/route.ts`,
+  `app/api/announcements/[id]/route.ts`,
+  `modules/notification/validators/announcementValidator.ts`,
+  `modules/notification/index.ts`,
+  `lib/role-templates.ts`,
+  `tests/api/announcements-route.test.ts`
+- **Note**: Status code POST `/api/announcements` berubah dari 200 → 201
+  (REST convention untuk create). FE existing memakai `res.ok`/`res.success`
+  yang true untuk keduanya, sehingga tidak ada perubahan UX.
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Refactor admin/announcement UI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/announcement`, `components/announcement`
+- **Author**: agent
+- **Deskripsi**: List, form, banner, dan popup announcement direfactor:
+  `confirm()`/`alert()` native diganti `ConfirmDialog` + `useToast`,
+  raw `fetch` diganti `fetchWithHandling` agar envelope ter-unwrap dan
+  error spesifik tampil. Validasi `endDate > startDate` ditambahkan di
+  client. Dead-code comment dihapus dari Banner. `AnnouncementPopup`
+  membungkus akses `localStorage` dengan helper try/catch agar tidak
+  crash bila storage corrupt. Bahasa UI distandardisasi ke Bahasa
+  Indonesia. Magic class duplicate (`dark:bg-blue-500 dark:bg-blue-400`)
+  dibersihkan dengan memakai `Button` component. Komponen `ClientComponent`
+  generic di-rename: `EditAnnouncementContent` (server data loader),
+  `AnnouncementCreateClient`, `AnnouncementIndexClient` agar nama
+  mencerminkan peran sebenarnya.
+- **Files**:
+  `app/admin/announcement/AnnouncementIndexClient.tsx`,
+  `app/admin/announcement/page.tsx`,
+  `app/admin/announcement/_components/AnnouncementForm.tsx`,
+  `app/admin/announcement/create/AnnouncementCreateClient.tsx`,
+  `app/admin/announcement/create/page.tsx`,
+  `app/admin/announcement/[id]/EditAnnouncementContent.tsx`,
+  `app/admin/announcement/[id]/page.tsx`,
+  `components/announcement/AnnouncementBanner.tsx`,
+  `components/announcement/AnnouncementPopup.tsx`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Fix anti-pattern setState di render body (12 file)
 
 - **Tipe**: [FIXED]

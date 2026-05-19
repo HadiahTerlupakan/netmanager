@@ -14,6 +14,7 @@ function createDeferred<T>() {
 
 const mockFns = vi.hoisted(() => ({
   requireAuth: vi.fn(),
+  hasPermission: vi.fn(),
   publish: vi.fn().mockResolvedValue(undefined),
   logActivity: vi.fn(),
   sendExpoPushNotifications: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +22,11 @@ const mockFns = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: mockFns.requireAuth,
+}));
+
+vi.mock("@/lib/rbac", () => ({
+  hasPermission: mockFns.hasPermission,
+  ensurePermission: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/realtime", () => ({
@@ -55,6 +61,7 @@ describe("announcements route", () => {
     mockFns.requireAuth.mockResolvedValue({
       user: { id: "admin-1" },
     });
+    mockFns.hasPermission.mockResolvedValue(true);
     prismaMock.announcement.create.mockResolvedValue({
       id: "ann-1",
       title: "Pengumuman",
@@ -88,7 +95,7 @@ describe("announcements route", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -140,7 +147,7 @@ describe("announcements route", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     expect(mockFns.publish).toHaveBeenCalledWith({
       type: "announcement.new",
       scope: { kind: "admin", id: "announcements" },
@@ -183,7 +190,7 @@ describe("announcements route", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
       type: "announcement.new",
       scope: { kind: "user", id: "customer-1" },
@@ -229,7 +236,7 @@ describe("announcements route", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
   });
 
   it("does not wait for Firebase realtime publish before finishing the POST response", async () => {

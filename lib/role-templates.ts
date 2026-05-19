@@ -123,6 +123,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "announcement:read",
       "announcement:create",
       "announcement:update",
+      "announcement:delete",
       "announcement:site_only",
       // Chat
       "chat:read",
@@ -419,6 +420,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "announcement:read",
       "announcement:create",
       "announcement:update",
+      "announcement:delete",
       "announcement:site_only",
       // Mobile
       "m_dashboard:read",

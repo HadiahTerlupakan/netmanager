@@ -1,10 +1,13 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
+import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
+import { clientLogger } from "@/lib/client-logger";
 
 type AnnouncementTarget = "ALL" | "CUSTOMER" | "EMPLOYEE" | "ADMIN";
 
@@ -22,6 +25,16 @@ interface AnnouncementFormProps {
   isEdit?: boolean;
 }
 
+interface FormState {
+  title: string;
+  content: string;
+  target: AnnouncementTarget;
+  isActive: boolean;
+  isPinned: boolean;
+  startDate: string;
+  endDate: string;
+}
+
 function normalizeAnnouncementTarget(
   target?: AnnouncementTarget | string,
 ): AnnouncementTarget {
@@ -30,25 +43,32 @@ function normalizeAnnouncementTarget(
   return "ALL";
 }
 
+function toLocalISOString(dateString: string | null) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  const localDate = new Date(date.getTime() - offsetMs);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function buildSubmitPayload(formData: FormState) {
+  return {
+    ...formData,
+    startDate: formData.startDate
+      ? new Date(formData.startDate).toISOString()
+      : null,
+    endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
+  };
+}
+
 export default function AnnouncementForm({
   initialData,
   isEdit = false,
 }: AnnouncementFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
 
-  // Helper to format date for datetime-local input (YYYY-MM-DDThh:mm) in local time
-  const toLocalISOString = (dateString: string | null) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    // Get offset in milliseconds (getTimezoneOffset returns minutes, positive if behind UTC, negative if ahead)
-    // We want to ADD the offset to get the local time representation in UTC numbers to use toISOString() trick
-    // Actually, toISOString() always gives UTC. To get a string that looks like local time, we shift the time.
-    const offset = date.getTimezoneOffset() * 60000;
-    const localDate = new Date(date.getTime() - offset);
-    return localDate.toISOString().slice(0, 16);
-  };
-
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormState>({
     title: initialData?.title || "",
     content: initialData?.content || "",
     target: normalizeAnnouncementTarget(initialData?.target),
@@ -73,42 +93,47 @@ export default function AnnouncementForm({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (
+      formData.startDate &&
+      formData.endDate &&
+      new Date(formData.endDate) <= new Date(formData.startDate)
+    ) {
+      showToast("error", "Tanggal berakhir harus setelah tanggal mulai");
+      return;
+    }
+
     setSaving(true);
 
     try {
       const url = isEdit
         ? `/api/announcements/${initialData?.id}`
         : "/api/announcements";
-      const method = isEdit ? "PUT" : "POST";
 
-      // Convert datetime-local values to ISO strings
-      // datetime-local gives us local time string like "2025-12-17T13:00"
-      // new Date() will interpret this as local time when no timezone is specified
-      const payload = {
-        ...formData,
-        startDate: formData.startDate
-          ? new Date(formData.startDate).toISOString()
-          : null,
-        endDate: formData.endDate
-          ? new Date(formData.endDate).toISOString()
-          : null,
-      };
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      const res = await fetchWithHandling(url, {
+        method: isEdit ? "PUT" : "POST",
+        body: JSON.stringify(buildSubmitPayload(formData)),
       });
 
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.success) {
+        throw new Error(res.error || "Gagal menyimpan pengumuman");
+      }
 
+      showToast(
+        "success",
+        isEdit
+          ? "Pengumuman berhasil diperbarui"
+          : "Pengumuman berhasil dibuat",
+      );
       router.push("/admin/announcement");
       router.refresh();
     } catch (error) {
-      clientLogger.error("Gagal menyimpan pengumuman", error);
-      alert("Gagal menyimpan pengumuman");
+      clientLogger.error("Failed to save announcement", error);
+      const message =
+        error instanceof Error ? error.message : "Gagal menyimpan pengumuman";
+      showToast("error", message);
     } finally {
       setSaving(false);
     }
@@ -122,7 +147,7 @@ export default function AnnouncementForm({
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Title
+            Judul
           </label>
           <input
             type="text"
@@ -136,7 +161,7 @@ export default function AnnouncementForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Content
+            Konten
           </label>
           <textarea
             name="content"
@@ -150,7 +175,7 @@ export default function AnnouncementForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Target Audience
+            Audiens Target
           </label>
           <select
             name="target"
@@ -158,17 +183,17 @@ export default function AnnouncementForm({
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           >
-            <option value="ALL">All Users</option>
-            <option value="CUSTOMER">Customers Only</option>
-            <option value="EMPLOYEE">Employees Only</option>
-            <option value="ADMIN">Admins Only</option>
+            <option value="ALL">Semua Pengguna</option>
+            <option value="CUSTOMER">Pelanggan Saja</option>
+            <option value="EMPLOYEE">Karyawan Saja</option>
+            <option value="ADMIN">Admin Saja</option>
           </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Start Date
+              Tanggal Mulai
             </label>
             <input
               type="datetime-local"
@@ -180,11 +205,12 @@ export default function AnnouncementForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              End Date
+              Tanggal Berakhir
             </label>
             <input
               type="datetime-local"
               name="endDate"
+              min={formData.startDate || undefined}
               value={formData.endDate}
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
@@ -206,7 +232,7 @@ export default function AnnouncementForm({
               htmlFor="isActive"
               className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
             >
-              Active
+              Aktif
             </label>
           </div>
 
@@ -223,20 +249,20 @@ export default function AnnouncementForm({
               htmlFor="isPinned"
               className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
             >
-              Pinned
+              Disematkan
             </label>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <Link
             href="/admin/announcement"
             className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"
           >
-            Cancel
+            Batal
           </Link>
           <Button type="submit" disabled={saving} loading={saving}>
-            Save Announcement
+            Simpan Pengumuman
           </Button>
         </div>
       </div>
