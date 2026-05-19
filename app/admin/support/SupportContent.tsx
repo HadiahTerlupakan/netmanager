@@ -1,7 +1,6 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   HiOutlineChatBubbleLeftRight,
@@ -16,8 +15,11 @@ import {
 } from "react-icons/hi2";
 import { formatDistanceToNow, format } from "date-fns";
 import { id } from "date-fns/locale";
+
 import { Button } from "@/components/ui/Button";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { useApi } from "@/lib/hooks/useApi";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Ticket {
   id: string;
@@ -59,161 +61,149 @@ interface Stats {
   ratedCount: number;
 }
 
-export default function SupportContext() {
+interface TicketListResponse {
+  tickets?: Ticket[];
+  pagination?: {
+    total?: number;
+    totalPages?: number;
+  };
+  stats?: Stats;
+}
+
+const SEARCH_DEBOUNCE_MS = 400;
+const PAGE_SIZE = 20;
+const RATING_REGEX = /(⭐{1,5})/;
+
+const DEFAULT_STATS: Stats = {
+  total: 0,
+  open: 0,
+  inProgress: 0,
+  waitingCustomer: 0,
+  resolved: 0,
+  closed: 0,
+  avgRating: 0,
+  ratedCount: 0,
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  OPEN: "Baru",
+  IN_PROGRESS: "Dalam Proses",
+  WAITING_CUSTOMER: "Menunggu Pelanggan",
+  RESOLVED: "Selesai Dikerjakan",
+  CLOSED: "Ditutup",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  OPEN: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  IN_PROGRESS:
+    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  WAITING_CUSTOMER:
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  RESOLVED:
+    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  CLOSED: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  URGENT: "bg-red-500",
+  HIGH: "bg-orange-500",
+  MEDIUM: "bg-yellow-500",
+  LOW: "bg-gray-400",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  TECHNICAL: "Teknis",
+  BILLING: "Tagihan",
+  ACCOUNT: "Akun",
+  OTHER: "Lainnya",
+};
+
+function buildTicketListUrl(input: {
+  page: number;
+  search: string;
+  statusFilter: string;
+  categoryFilter: string;
+  priorityFilter: string;
+}) {
+  const params = new URLSearchParams();
+  params.set("page", input.page.toString());
+  params.set("limit", PAGE_SIZE.toString());
+  if (input.search) params.set("search", input.search);
+  if (input.statusFilter) params.set("status", input.statusFilter);
+  if (input.categoryFilter) params.set("category", input.categoryFilter);
+  if (input.priorityFilter) params.set("priority", input.priorityFilter);
+  return `/api/admin/support-tickets?${params.toString()}`;
+}
+
+function extractRating(ticket: Ticket): number | null {
+  if (ticket.status !== "CLOSED" || !ticket.lastReply?.message) return null;
+  const match = RATING_REGEX.exec(ticket.lastReply.message);
+  return match?.[1] ? match[1].length : null;
+}
+
+function renderStars(rating: number | null) {
+  if (rating === null) {
+    return <span className="text-gray-400 text-xs">-</span>;
+  }
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <span
+          key={star}
+          className={star <= rating ? "text-yellow-400" : "text-gray-300"}
+        >
+          {"★"}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+interface FilterState {
+  search: string;
+  statusFilter: string;
+  categoryFilter: string;
+  priorityFilter: string;
+}
+
+const INITIAL_FILTERS: FilterState = {
+  search: "",
+  statusFilter: "",
+  categoryFilter: "",
+  priorityFilter: "",
+};
+
+export default function SupportContent() {
   const router = useRouter();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [_total, setTotal] = useState(0);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [stats, setStats] = useState<Stats>({
-    total: 0,
-    open: 0,
-    inProgress: 0,
-    waitingCustomer: 0,
-    resolved: 0,
-    closed: 0,
-    avgRating: 0,
-    ratedCount: 0,
+
+  const debouncedSearch = useDebounce(filters.search, SEARCH_DEBOUNCE_MS);
+
+  // Patch filters + reset page sekaligus dalam satu update — menghindari
+  // cascading setState dari useEffect-reset.
+  const patchFilters = (patch: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const url = buildTicketListUrl({
+    page,
+    search: debouncedSearch,
+    statusFilter: filters.statusFilter,
+    categoryFilter: filters.categoryFilter,
+    priorityFilter: filters.priorityFilter,
   });
 
-  const loadTickets = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", page.toString());
-      params.set("limit", "20");
-      if (search) params.set("search", search);
-      if (statusFilter) params.set("status", statusFilter);
-      if (categoryFilter) params.set("category", categoryFilter);
-      if (priorityFilter) params.set("priority", priorityFilter);
+  const { data, isLoading, mutate } = useApi<TicketListResponse>(url);
 
-      const res = await fetch(
-        `/api/admin/support-tickets?${params.toString()}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const responseData = data.data || data;
-        setTickets(responseData.tickets || []);
-        setTotalPages(responseData.pagination?.totalPages || 1);
-        setTotal(responseData.pagination?.total || 0);
-        if (responseData.stats) {
-          setStats(responseData.stats);
-        }
-      }
-    } catch (error) {
-      clientLogger.error("Error loading tickets:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, statusFilter, categoryFilter, priorityFilter]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      void loadTickets();
-    }, 0);
-    return () => clearTimeout(handle);
-  }, [loadTickets]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "OPEN":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-      case "IN_PROGRESS":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "WAITING_CUSTOMER":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-      case "RESOLVED":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
-      case "CLOSED":
-        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "OPEN":
-        return "Baru";
-      case "IN_PROGRESS":
-        return "Dalam Proses";
-      case "WAITING_CUSTOMER":
-        return "Menunggu Pelanggan";
-      case "RESOLVED":
-        return "Selesai Dikerjakan";
-      case "CLOSED":
-        return "Ditutup";
-      default:
-        return status;
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "URGENT":
-        return "bg-red-500";
-      case "HIGH":
-        return "bg-orange-500";
-      case "MEDIUM":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-400";
-    }
-  };
-
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case "TECHNICAL":
-        return "Teknis";
-      case "BILLING":
-        return "Tagihan";
-      case "ACCOUNT":
-        return "Akun";
-      case "OTHER":
-        return "Lainnya";
-      default:
-        return category;
-    }
-  };
-
-  // Extract rating from closed ticket's last message
-  const extractRating = (ticket: Ticket): number | null => {
-    if (ticket.status !== "CLOSED" || !ticket.lastReply?.message) return null;
-
-    const message = ticket.lastReply.message;
-    if (message.includes("⭐⭐⭐⭐⭐")) return 5;
-    if (message.includes("⭐⭐⭐⭐")) return 4;
-    if (message.includes("⭐⭐⭐")) return 3;
-    if (message.includes("⭐⭐")) return 2;
-    if (message.includes("⭐")) return 1;
-    return null;
-  };
-
-  const renderStars = (rating: number | null) => {
-    if (rating === null)
-      return <span className="text-gray-400 text-xs">-</span>;
-    return (
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <span
-            key={star}
-            className={star <= rating ? "text-yellow-400" : "text-gray-300"}
-          >
-            ★
-          </span>
-        ))}
-      </div>
-    );
-  };
+  const tickets = data?.tickets ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 1;
+  const total = data?.pagination?.total ?? 0;
+  const stats = data?.stats ?? DEFAULT_STATS;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -224,142 +214,106 @@ export default function SupportContext() {
             Kelola tiket dukungan dari pelanggan
           </p>
         </div>
-        <Button onClick={loadTickets}>
+        <Button onClick={() => mutate()}>
           <HiOutlineArrowPath className="w-4 h-4" />
           Refresh
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {/* Total Tickets */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-              <HiOutlineTicket className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.total}
-              </p>
-              <p className="text-xs text-gray-500">Total Tiket</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Open/New Tickets */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-              <HiOutlineClock className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.open + stats.inProgress}
-              </p>
-              <p className="text-xs text-gray-500">Perlu Ditangani</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Closed Tickets */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.closed}
-              </p>
-              <p className="text-xs text-gray-500">Selesai</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Average Rating */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-              <HiOutlineStar className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "-"}
-              </p>
-              <p className="text-xs text-gray-500">
-                Rating {stats.ratedCount > 0 ? `(${stats.ratedCount})` : ""}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          icon={
+            <HiOutlineTicket className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+          }
+          iconBg="bg-teal-100 dark:bg-teal-900/30"
+          value={stats.total}
+          label="Total Tiket"
+        />
+        <StatCard
+          icon={
+            <HiOutlineClock className="w-5 h-5 text-red-600 dark:text-red-400" />
+          }
+          iconBg="bg-red-100 dark:bg-red-900/30"
+          value={stats.open + stats.inProgress}
+          label="Perlu Ditangani"
+        />
+        <StatCard
+          icon={
+            <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+          }
+          iconBg="bg-green-100 dark:bg-green-900/30"
+          value={stats.closed}
+          label="Selesai"
+        />
+        <StatCard
+          icon={
+            <HiOutlineStar className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+          }
+          iconBg="bg-yellow-100 dark:bg-yellow-900/30"
+          value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "-"}
+          label={`Rating ${stats.ratedCount > 0 ? `(${stats.ratedCount})` : ""}`}
+        />
       </div>
 
-      {/* Filters */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-6">
         <div className="flex flex-wrap gap-4">
-          {/* Search */}
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Cari tiket atau pelanggan..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={filters.search}
+                onChange={(e) => patchFilters({ search: e.target.value })}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Semua Status</option>
-            <option value="OPEN">Baru</option>
-            <option value="IN_PROGRESS">Dalam Proses</option>
-            <option value="WAITING_CUSTOMER">Menunggu Pelanggan</option>
-            <option value="RESOLVED">Selesai</option>
-            <option value="CLOSED">Ditutup</option>
-          </select>
+          <FilterSelect
+            value={filters.statusFilter}
+            onChange={(value) => patchFilters({ statusFilter: value })}
+            placeholder="Semua Status"
+            options={[
+              { value: "OPEN", label: "Baru" },
+              { value: "IN_PROGRESS", label: "Dalam Proses" },
+              { value: "WAITING_CUSTOMER", label: "Menunggu Pelanggan" },
+              { value: "RESOLVED", label: "Selesai" },
+              { value: "CLOSED", label: "Ditutup" },
+            ]}
+          />
 
-          {/* Category Filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Semua Kategori</option>
-            <option value="TECHNICAL">Teknis</option>
-            <option value="BILLING">Tagihan</option>
-            <option value="ACCOUNT">Akun</option>
-            <option value="OTHER">Lainnya</option>
-          </select>
+          <FilterSelect
+            value={filters.categoryFilter}
+            onChange={(value) => patchFilters({ categoryFilter: value })}
+            placeholder="Semua Kategori"
+            options={[
+              { value: "TECHNICAL", label: "Teknis" },
+              { value: "BILLING", label: "Tagihan" },
+              { value: "ACCOUNT", label: "Akun" },
+              { value: "OTHER", label: "Lainnya" },
+            ]}
+          />
 
-          {/* Priority Filter */}
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Semua Prioritas</option>
-            <option value="URGENT">Urgent</option>
-            <option value="HIGH">Tinggi</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Rendah</option>
-          </select>
+          <FilterSelect
+            value={filters.priorityFilter}
+            onChange={(value) => patchFilters({ priorityFilter: value })}
+            placeholder="Semua Prioritas"
+            options={[
+              { value: "URGENT", label: "Urgent" },
+              { value: "HIGH", label: "Tinggi" },
+              { value: "MEDIUM", label: "Medium" },
+              { value: "LOW", label: "Rendah" },
+            ]}
+          />
         </div>
       </div>
 
-      {/* Tickets Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
         <ResponsiveTable
           data={tickets}
           keyField="id"
-          loading={loading}
+          loading={isLoading}
           onRowClick={(ticket) => router.push(`/admin/support/${ticket.id}`)}
           emptyMessage={
             <div className="text-center py-12">
@@ -375,7 +329,7 @@ export default function SupportContext() {
               render: (ticket: Ticket) => (
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-1.5 h-10 rounded-full ${getPriorityColor(ticket.priority)}`}
+                    className={`w-1.5 h-10 rounded-full ${PRIORITY_COLORS[ticket.priority] ?? "bg-gray-400"}`}
                   />
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">
@@ -409,9 +363,9 @@ export default function SupportContext() {
               priority: "secondary",
               render: (ticket: Ticket) => (
                 <span
-                  className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(ticket.status)}`}
+                  className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${STATUS_COLORS[ticket.status] ?? "bg-gray-100 text-gray-700"}`}
                 >
-                  {getStatusLabel(ticket.status)}
+                  {STATUS_LABELS[ticket.status] ?? ticket.status}
                 </span>
               ),
             },
@@ -421,7 +375,7 @@ export default function SupportContext() {
               priority: "secondary",
               render: (ticket: Ticket) => (
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {getCategoryLabel(ticket.category)}
+                  {CATEGORY_LABELS[ticket.category] ?? ticket.category}
                 </span>
               ),
             },
@@ -475,24 +429,26 @@ export default function SupportContext() {
           ]}
         />
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
             <div className="text-sm text-gray-500">
               Halaman {page} dari {totalPages}
+              {total > 0 ? ` · Total ${total} tiket` : ""}
             </div>
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => setPage(Math.max(1, page - 1))}
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <HiChevronLeft className="w-4 h-4" />
               </Button>
               <Button
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <HiChevronRight className="w-4 h-4" />
               </Button>
@@ -501,5 +457,57 @@ export default function SupportContext() {
         )}
       </div>
     </div>
+  );
+}
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  value: number | string;
+  label: string;
+}
+
+function StatCard({ icon, iconBg, value, label }: StatCardProps) {
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
+        <div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {value}
+          </p>
+          <p className="text-xs text-gray-500">{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface FilterSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: FilterSelectProps) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
   );
 }

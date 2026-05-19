@@ -1,4 +1,5 @@
 import { apiSuccess, createHandler, ApiErrors } from "@/lib/api";
+import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 
@@ -9,6 +10,10 @@ import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 const supportTicketRouteService = getAdminSupportTicketRouteService();
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("support:read"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
+
   const result = await supportTicketRouteService.getUnreadCount(ctx.session!);
   if (!result.ok) {
     return ApiErrors.forbidden(result.error);

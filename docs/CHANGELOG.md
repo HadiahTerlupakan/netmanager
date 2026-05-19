@@ -45,6 +45,56 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Hardening permission API admin/support
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/admin/support-tickets`
+- **Author**: agent
+- **Deskripsi**: Endpoint `POST /api/admin/support-tickets/[id]/reply` dan
+  `GET /api/admin/support-tickets/unread-count` sebelumnya hanya cek
+  `requireAuth` tanpa permission check — siapapun yang login bisa balas
+  tiket atas nama admin atau melihat jumlah tiket. Sekarang reply enforce
+  `support:update` dan unread-count enforce `support:read` (dual-layer:
+  service-side check tetap ada untuk site restriction).
+- **Files**:
+  `app/api/admin/support-tickets/[id]/reply/route.ts`,
+  `app/api/admin/support-tickets/unread-count/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-19] — Refactor admin/support UI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/support`
+- **Author**: agent
+- **Deskripsi**: List page (`SupportContent`) direfactor dari raw `fetch` +
+  `setTimeout(..., 0)` workaround ke `useApi` (TanStack Query) + `useDebounce`
+  (400ms) untuk search. Filter sekarang otomatis reset ke halaman 1 via
+  single state object. Function name typo `SupportContext` diperbaiki jadi
+  `SupportContent`. State `_total` unused dipakai untuk tampilan total tiket
+  di pagination.
+  Detail page (`SupportDetailClient`) dipecah dari god-component 770 baris
+  menjadi 5 sub-component + 2 hook (`TicketHeader`, `MessagesList`,
+  `ReplyComposer`, `CustomerInfoSidebar`, `CloseTicketModal`,
+  `useFileUpload`, `useTicketActions`). Side-effect setState di body render
+  diganti dengan derived state + `key={id}` di Page untuk reset state saat
+  navigasi antar tiket.
+  Bug fungsional fix: klien sebelumnya kirim field `closingNote` saat
+  menutup tiket, padahal Zod schema mengharapkan `resolution` — catatan
+  penutup tidak pernah tersimpan. Sekarang field disesuaikan dengan schema.
+  Optimistic update reply diperbaiki: `fetchWithHandling` mengunwrap
+  envelope `{ success, data }` agar `data.reply` selalu valid; gagal kirim
+  menampilkan toast spesifik dan restore input.
+  4× `alert()` browser native diganti `useToast` untuk feedback upload.
+  Magic number 5MB diekstrak jadi `MAX_UPLOAD_BYTES` constant. Komponen
+  `ClientComponent` di-rename `SupportDetailClient`. Rating extraction
+  via emoji counting di-refactor ke regex anchored `/(⭐{1,5})/` untuk
+  deterministik.
+- **Files**:
+  `app/admin/support/SupportContent.tsx`,
+  `app/admin/support/[id]/page.tsx`,
+  `app/admin/support/[id]/SupportDetailClient.tsx`,
+  `app/admin/support/[id]/_components/{TicketHeader,MessagesList,ReplyComposer,CustomerInfoSidebar,CloseTicketModal,useFileUpload,useTicketActions,types}.{tsx,ts}`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Hardening security admin/announcement (RBAC + Zod)
 
 - **Tipe**: [SECURITY]

@@ -1,4 +1,3 @@
-const WAITING_CUSTOMER_STATUS = "WAITING_CUSTOMER";
 import {
   apiSuccess,
   ApiErrors,
@@ -6,9 +5,12 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
 import { checkSiteRestriction } from "@/modules/roles";
+
+const WAITING_CUSTOMER_STATUS = "WAITING_CUSTOMER";
 
 /**
  * POST /api/admin/support-tickets/[id]/reply
@@ -19,6 +21,10 @@ const supportTicketRouteService = getAdminSupportTicketRouteService();
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const { id } = ctx.params;
+
+  if (!(await hasPermission("support:update"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
 
   const body = await req.json();
   const { message, updateStatus, sendWhatsApp = true, attachments } = body;
