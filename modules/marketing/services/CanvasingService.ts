@@ -8,6 +8,7 @@ import type {
   CreateCanvasingInput,
   UpdateCanvasingInput,
   CanvasingListFilters,
+  FindAllCanvasingOptions,
 } from "../domain/ports/ICanvasingRepository";
 import type {
   CanvasingDetailDTO,
@@ -66,16 +67,19 @@ export class CanvasingService {
     filters?: CanvasingListFilters,
     page?: number,
     limit?: number,
+    options?: FindAllCanvasingOptions,
   ): Promise<{
     data: CanvasingListItemDTO[];
     total: number;
     summary: CanvasingListSummaryEntity;
+    nextCursor?: string | null;
   }> {
-    const result = await this.repository.findAll(filters, page, limit);
+    const result = await this.repository.findAll(filters, page, limit, options);
     return {
       data: MarketingMapper.toCanvasingListDTO(result.data),
       total: result.total,
       summary: result.summary,
+      nextCursor: result.nextCursor ?? null,
     };
   }
 

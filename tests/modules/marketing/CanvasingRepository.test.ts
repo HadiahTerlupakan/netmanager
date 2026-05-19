@@ -129,7 +129,7 @@ describe("CanvasingRepository", () => {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: 10,
       take: 10,
     });
@@ -199,6 +199,7 @@ describe("CanvasingRepository", () => {
         rejected: 1,
         pendingClaims: 5,
       },
+      nextCursor: null,
     });
   });
 

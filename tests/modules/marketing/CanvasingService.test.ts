@@ -84,7 +84,7 @@ describe("CanvasingService", () => {
 
     const result = await service.getAllRequests(filters, 2, 20);
 
-    expect(repository.findAll).toHaveBeenCalledWith(filters, 2, 20);
+    expect(repository.findAll).toHaveBeenCalledWith(filters, 2, 20, undefined);
     expect(result.summary).toEqual(expectedResult.summary);
   });
 

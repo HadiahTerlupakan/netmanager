@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { MarketingMapper } from "../mappers/MarketingMapper";
 import type {
   ICanvasingRepository,
@@ -6,6 +7,7 @@ import type {
   UpdateCanvasingInput,
   CanvasingListFilters,
   FindAllCanvasingResult,
+  FindAllCanvasingOptions,
 } from "../domain/ports/ICanvasingRepository";
 
 type MitraSummary = {
@@ -100,6 +102,7 @@ export class CanvasingRepository implements ICanvasingRepository {
     filters?: CanvasingListFilters,
     page?: number,
     limit?: number,
+    options?: FindAllCanvasingOptions,
   ): Promise<FindAllCanvasingResult> {
     const listScope = await buildCanvasingWhereClause(
       this.mitraLookup,
@@ -110,11 +113,35 @@ export class CanvasingRepository implements ICanvasingRepository {
       filters,
     );
     const total = await this.db.canvasing.count({ where: listScope });
+
+    const cursor = options?.cursor ?? null;
+    const useCursor = Boolean(cursor !== null && limit);
+    // Cursor pagination butuh ordering deterministik. createdAt bisa sama,
+    // jadi pakai id sebagai tie-breaker sekunder.
+    const orderBy: Prisma.CanvasingOrderByWithRelationInput[] = [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ];
+
+    const paginationArgs: {
+      skip?: number;
+      take?: number;
+      cursor?: { id: string };
+    } = {};
+    if (useCursor) {
+      paginationArgs.take = limit;
+      paginationArgs.skip = 1; // skip cursor row itself
+      paginationArgs.cursor = { id: cursor as string };
+    } else if (page && limit) {
+      paginationArgs.skip = (page - 1) * limit;
+      paginationArgs.take = limit;
+    }
+
     const canvasings = await this.db.canvasing.findMany({
       where: listScope,
       include: createCanvasingListInclude(),
-      orderBy: { createdAt: "desc" },
-      ...(page && limit ? { skip: (page - 1) * limit, take: limit } : {}),
+      orderBy,
+      ...paginationArgs,
     });
     const summary = await buildCanvasingSummary(this.db, summaryScope);
 
@@ -125,7 +152,12 @@ export class CanvasingRepository implements ICanvasingRepository {
       }),
     );
 
-    return { data, total, summary };
+    const nextCursor =
+      useCursor && limit && canvasings.length === limit
+        ? canvasings[canvasings.length - 1].id
+        : null;
+
+    return { data, total, summary, nextCursor };
   }
 
   /** Get completion summary counts for optional sales scope. */

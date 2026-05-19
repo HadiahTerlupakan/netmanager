@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       searchParams.get("siteId") || undefined;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
+    const cursor = searchParams.get("cursor") || undefined;
     const search = searchParams.get("search")?.trim();
 
     const canVerify = permissions.includes("canvasing:verify");
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest) {
             total: 0,
             page,
             limit,
+            nextCursor: null,
             summary: {
               total: 0,
               pending: 0,
@@ -78,6 +80,7 @@ export async function GET(req: NextRequest) {
           total: 0,
           page,
           limit,
+          nextCursor: null,
           summary: {
             total: 0,
             pending: 0,
@@ -102,13 +105,16 @@ export async function GET(req: NextRequest) {
     if (filterSiteId) filterParams.siteId = filterSiteId;
     if (search) filterParams.search = search;
 
-    const result = await service.getAllRequests(filterParams, page, limit);
+    const result = await service.getAllRequests(filterParams, page, limit, {
+      cursor,
+    });
 
     return NextResponse.json({
       data: result.data,
       total: result.total,
       page,
       limit,
+      nextCursor: result.nextCursor ?? null,
       summary: result.summary,
     });
   } catch (error: unknown) {

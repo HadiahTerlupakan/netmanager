@@ -53,6 +53,16 @@ export interface FindAllCanvasingResult {
   data: CanvasingEntity[];
   total: number;
   summary: CanvasingListSummaryEntity;
+  /** Set when cursor pagination dipakai (lihat findAll opts). */
+  nextCursor?: string | null;
+}
+
+/**
+ * Opsi tambahan untuk findAll. `cursor` aktifkan cursor-based pagination
+ * (mengabaikan `page`); cursor berisi `id` item terakhir dari halaman sebelumnya.
+ */
+export interface FindAllCanvasingOptions {
+  cursor?: string | null;
 }
 
 export interface ICanvasingRepository {
@@ -70,6 +80,7 @@ export interface ICanvasingRepository {
     filters?: CanvasingListFilters,
     page?: number,
     limit?: number,
+    options?: FindAllCanvasingOptions,
   ): Promise<FindAllCanvasingResult>;
 
   /** Get completion summary counts for optional sales scope. */
