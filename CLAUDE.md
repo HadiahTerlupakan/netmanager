@@ -404,7 +404,7 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 - **Events**: `docs/standards/events.md`
 - **Transactions**: `docs/standards/transactions.md`
 - **Security & Performance**: `docs/standards/security-performance.md`
-- **Data Fetching (SWR)**: `docs/standards/data-fetching.md`
+- **Data Fetching (TanStack Query)**: `docs/standards/data-fetching.md`
 - **Agent Collaboration**: `docs/guides/agent-collaboration.md`
 - **Changelog / SOT**: `docs/CHANGELOG.md`
 

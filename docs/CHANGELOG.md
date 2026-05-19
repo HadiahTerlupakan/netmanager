@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Update label data-fetching standard di CLAUDE.md (SWR → TanStack Query)
+
+- **Tipe**: [DOCS]
+- **Scope**: `CLAUDE.md`
+- **Author**: agent
+- **Deskripsi**: Daftar Detailed Documentation di `CLAUDE.md` masih menyebut `Data Fetching (SWR)` padahal project sejak Phase 1-5 sudah full pakai TanStack Query v5 (`@tanstack/react-query ^5.100.10`, 18 file source, 0 import `swr`, dependency `swr` tidak ada di `package.json`). Isi `docs/standards/data-fetching.md` sendiri sudah benar TanStack Query — yang outdated hanya label pointer-nya. Referensi SWR di `docs/CHANGELOG.md` dan `docs/reports/*` historical tidak diubah karena memang catatan kondisi saat itu.
+- **Files**: `CLAUDE.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-19] — Deep scan fix unwrap envelope dropdown 5 lokasi
 
 - **Tipe**: [FIXED]
