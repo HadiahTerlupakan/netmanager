@@ -1,7 +1,6 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   HiOutlineRefresh,
   HiOutlineClock,
@@ -9,15 +8,17 @@ import {
   HiOutlineSearch,
 } from "react-icons/hi";
 import { HiOutlineUser, HiOutlineTag } from "react-icons/hi2";
-import { Button } from "@/components/ui/Button";
-import PageLoader from "@/components/ui/PageLoader";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import ResponsiveTable from "@/components/ui/ResponsiveTable";
+
+import { Button } from "@/components/ui/Button";
+import PageLoader from "@/components/ui/PageLoader";
+import ResponsiveTable, { type Column } from "@/components/ui/ResponsiveTable";
 import { SiteFilter } from "@/components/common/SiteFilter";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useApi } from "@/lib/hooks/useApi";
+import { clientLogger } from "@/lib/client-logger";
 
 interface SystemLog {
   id: string;
@@ -41,29 +42,54 @@ interface ActivityLogResponse {
   };
 }
 
-const DEFAULT_PAGINATION = {
+interface FilterState {
+  siteId: string | undefined;
+  search: string;
+}
+
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_MAX_LENGTH = 200;
+const SENSITIVE_KEY_PATTERN =
+  /password|passwd|secret|token|api[-_]?key|authorization|credential|otp|pin/i;
+const REDACTED_VALUE = "***";
+
+const DEFAULT_PAGINATION: ActivityLogResponse["pagination"] = {
   page: 1,
-  limit: 20,
+  limit: PAGE_SIZE,
   totalPages: 1,
   total: 0,
 };
 
-export function ClientComponent() {
+const ACTION_BADGE_CLASS: Record<string, string> = {
+  CREATE:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  UPDATE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  DELETE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+const FALLBACK_BADGE_CLASS =
+  "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+
+export function ActivityLogClient() {
+  const [filters, setFilters] = useState<FilterState>({
+    siteId: undefined,
+    search: "",
+  });
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
-  const [siteId, setSiteId] = useState<string | undefined>(undefined);
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 500);
 
-  const apiUrl = useMemo(() => {
-    const params = new URLSearchParams();
-    params.append("type", "ACTIVITY");
-    params.append("page", page.toString());
-    params.append("limit", "20");
-    if (siteId) params.append("siteId", siteId);
-    if (debouncedSearch) params.append("search", debouncedSearch);
-    return `/api/admin/system-logs?${params.toString()}`;
-  }, [page, siteId, debouncedSearch]);
+  const debouncedSearch = useDebounce(filters.search, SEARCH_DEBOUNCE_MS);
+
+  const apiUrl = useMemo(
+    () =>
+      buildApiUrl({
+        page,
+        siteId: filters.siteId,
+        search: debouncedSearch,
+      }),
+    [page, filters.siteId, debouncedSearch],
+  );
 
   const {
     data: response,
@@ -81,14 +107,11 @@ export function ClientComponent() {
   const logs = response?.logs ?? [];
   const pagination = response?.pagination ?? DEFAULT_PAGINATION;
 
-  // Reset page when filter berubah
-  const [prevSiteId, setPrevSiteId] = useState(siteId);
-  const [prevSearch, setPrevSearch] = useState(debouncedSearch);
-  if (prevSiteId !== siteId || prevSearch !== debouncedSearch) {
-    setPrevSiteId(siteId);
-    setPrevSearch(debouncedSearch);
+  /** Setter wrapper agar setiap perubahan filter reset page ke 1. */
+  const patchFilters = (patch: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
     setPage(1);
-  }
+  };
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
@@ -96,14 +119,14 @@ export function ClientComponent() {
     }
   };
 
-  const handleRefresh = useCallback(() => {
-    mutate();
-  }, [mutate]);
-
-  // Callback for PageLoader
-  const renderPageLoader = useCallback(
-    () => <PageLoader variant="section" message="Memuat log aktivitas..." />,
+  const columns = useMemo<Column<SystemLog>[]>(
+    () => buildColumns(setSelectedLog),
     [],
+  );
+
+  const formattedDetail = useMemo(
+    () => (selectedLog ? formatDetails(selectedLog.details) : ""),
+    [selectedLog],
   );
 
   return (
@@ -122,18 +145,23 @@ export function ClientComponent() {
             <input
               type="text"
               placeholder="Cari aktivitas..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              maxLength={SEARCH_MAX_LENGTH}
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
               className="pl-10 pr-4 py-2 w-full md:w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <HiOutlineSearch className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
           </div>
           <div className="w-full md:w-48">
-            <SiteFilter onSiteChange={setSiteId} resource="system_log" />
+            <SiteFilter
+              onSiteChange={(siteId) => patchFilters({ siteId })}
+              resource="system_log"
+            />
           </div>
           <Button
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            variant="outline"
+            onClick={() => mutate()}
+            className="inline-flex items-center gap-2"
           >
             <HiOutlineRefresh
               className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
@@ -145,7 +173,7 @@ export function ClientComponent() {
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading && logs.length === 0 ? (
-          renderPageLoader()
+          <PageLoader variant="section" message="Memuat log aktivitas..." />
         ) : logs.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <HiOutlineDocumentText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
@@ -157,81 +185,10 @@ export function ClientComponent() {
               data={logs}
               loading={loading}
               keyField="id"
-              columns={[
-                {
-                  key: "createdAt",
-                  header: "Waktu",
-                  priority: "primary",
-                  render: (item) => (
-                    <div className="flex items-center gap-2">
-                      <HiOutlineClock className="w-4 h-4 text-gray-400" />
-                      {format(new Date(item.createdAt), "dd MMM yyyy HH:mm", {
-                        locale: id,
-                      })}
-                    </div>
-                  ),
-                },
-                {
-                  key: "user",
-                  header: "Pengguna",
-                  priority: "primary",
-                  render: (item) => (
-                    <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                      <HiOutlineUser className="w-4 h-4 text-gray-400" />
-                      {item.user?.name || item.user?.email || "System"}
-                    </div>
-                  ),
-                },
-                {
-                  key: "subject",
-                  header: "Subjek",
-                  priority: "secondary",
-                  render: (item) => (
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      <HiOutlineTag className="w-4 h-4 text-gray-400" />
-                      {item.subject}
-                    </div>
-                  ),
-                },
-                {
-                  key: "action",
-                  header: "Aksi",
-                  priority: "primary",
-                  render: (item) => (
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        item.action === "CREATE"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : item.action === "UPDATE"
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                            : item.action === "DELETE"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {item.action}
-                    </span>
-                  ),
-                },
-                {
-                  key: "detail",
-                  header: "Detail",
-                  priority: "secondary",
-                  render: (item) => (
-                    <Button
-                      variant="link"
-                      onClick={() => setSelectedLog(item)}
-                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline text-sm p-0 h-auto"
-                    >
-                      Lihat Detail
-                    </Button>
-                  ),
-                },
-              ]}
+              columns={columns}
               emptyMessage="Belum ada data log aktivitas."
             />
 
-            {/* Pagination ... (Same as Login Page) */}
             {pagination.totalPages > 1 && (
               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -240,16 +197,18 @@ export function ClientComponent() {
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handlePageChange(pagination.page - 1)}
                     disabled={pagination.page === 1}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Sebelumnya
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page === pagination.totalPages}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Selanjutnya
                   </Button>
@@ -260,7 +219,6 @@ export function ClientComponent() {
         )}
       </div>
 
-      {/* Detail Modal */}
       <Modal
         isOpen={!!selectedLog}
         onClose={() => setSelectedLog(null)}
@@ -270,32 +228,22 @@ export function ClientComponent() {
         {selectedLog && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Waktu</p>
-                <p className="font-medium">
-                  {format(
-                    new Date(selectedLog.createdAt),
-                    "dd MMMM yyyy HH:mm:ss",
-                    { locale: id },
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Aksi</p>
-                <p className="font-medium">{selectedLog.action}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Subjek</p>
-                <p className="font-medium">{selectedLog.subject}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Pengguna</p>
-                <p className="font-medium">
-                  {selectedLog.user?.name ||
-                    selectedLog.user?.email ||
-                    "System"}
-                </p>
-              </div>
+              <DetailRow
+                label="Waktu"
+                value={format(
+                  new Date(selectedLog.createdAt),
+                  "dd MMMM yyyy HH:mm:ss",
+                  { locale: id },
+                )}
+              />
+              <DetailRow label="Aksi" value={selectedLog.action} />
+              <DetailRow label="Subjek" value={selectedLog.subject} />
+              <DetailRow
+                label="Pengguna"
+                value={
+                  selectedLog.user?.name || selectedLog.user?.email || "System"
+                }
+              />
             </div>
 
             <div>
@@ -303,36 +251,140 @@ export function ClientComponent() {
                 Detail Data
               </p>
               <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
-                <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono">
-                  {selectedLog.details
-                    ? (() => {
-                        try {
-                          const parsed =
-                            typeof selectedLog.details === "string"
-                              ? JSON.parse(selectedLog.details)
-                              : selectedLog.details;
-                          return JSON.stringify(parsed, null, 2);
-                        } catch {
-                          return typeof selectedLog.details === "string"
-                            ? selectedLog.details
-                            : JSON.stringify(selectedLog.details, null, 2);
-                        }
-                      })()
-                    : "Tidak ada detail tambahan"}
+                <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap">
+                  {formattedDetail}
                 </pre>
               </div>
             </div>
           </div>
         )}
         <ModalFooter>
-          <Button
-            onClick={() => setSelectedLog(null)}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
+          <Button variant="outline" onClick={() => setSelectedLog(null)}>
             Tutup
           </Button>
         </ModalFooter>
       </Modal>
     </div>
   );
+}
+
+function buildApiUrl(input: {
+  page: number;
+  siteId?: string;
+  search?: string;
+}) {
+  const params = new URLSearchParams();
+  params.append("type", "ACTIVITY");
+  params.append("page", input.page.toString());
+  params.append("limit", PAGE_SIZE.toString());
+  if (input.siteId) params.append("siteId", input.siteId);
+  if (input.search) params.append("search", input.search);
+  return `/api/admin/system-logs?${params.toString()}`;
+}
+
+function buildColumns(onSelect: (log: SystemLog) => void): Column<SystemLog>[] {
+  return [
+    {
+      key: "createdAt",
+      header: "Waktu",
+      priority: "primary",
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <HiOutlineClock className="w-4 h-4 text-gray-400" />
+          {format(new Date(item.createdAt), "dd MMM yyyy HH:mm", {
+            locale: id,
+          })}
+        </div>
+      ),
+    },
+    {
+      key: "user",
+      header: "Pengguna",
+      priority: "primary",
+      render: (item) => (
+        <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+          <HiOutlineUser className="w-4 h-4 text-gray-400" />
+          {item.user?.name || item.user?.email || "System"}
+        </div>
+      ),
+    },
+    {
+      key: "subject",
+      header: "Subjek",
+      priority: "secondary",
+      render: (item) => (
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+          <HiOutlineTag className="w-4 h-4 text-gray-400" />
+          {item.subject}
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "Aksi",
+      priority: "primary",
+      render: (item) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ACTION_BADGE_CLASS[item.action] ?? FALLBACK_BADGE_CLASS}`}
+        >
+          {item.action}
+        </span>
+      ),
+    },
+    {
+      key: "detail",
+      header: "Detail",
+      priority: "secondary",
+      render: (item) => (
+        <Button
+          variant="link"
+          onClick={() => onSelect(item)}
+          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline text-sm p-0 h-auto"
+        >
+          Lihat Detail
+        </Button>
+      ),
+    },
+  ];
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-500 uppercase">{label}</p>
+      <p className="font-medium">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * Format JSON details untuk modal: parse string → JSON, redact field
+ * sensitif (password/token/secret/dst.). Fallback ke representasi raw
+ * bila parse gagal.
+ */
+function formatDetails(details: SystemLog["details"]): string {
+  if (details == null) return "Tidak ada detail tambahan";
+
+  try {
+    const parsed = typeof details === "string" ? JSON.parse(details) : details;
+    return JSON.stringify(redactSensitive(parsed), null, 2);
+  } catch {
+    if (typeof details === "string") return details;
+    return JSON.stringify(redactSensitive(details), null, 2);
+  }
+}
+
+function redactSensitive(value: unknown): unknown {
+  if (value == null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((item) => redactSensitive(item));
+
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      result[key] = REDACTED_VALUE;
+    } else {
+      result[key] = redactSensitive(val);
+    }
+  }
+  return result;
 }

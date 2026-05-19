@@ -11,13 +11,6 @@ export default function Loading() {
         </div>
       </div>
 
-      {/* Tab nav */}
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 animate-pulse">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-9 w-28 bg-gray-200 dark:bg-gray-700 rounded-t-lg" />
-        ))}
-      </div>
-
       {/* Search + filter */}
       <div className="flex gap-3 animate-pulse">
         <div className="h-9 flex-1 max-w-md bg-gray-200 dark:bg-gray-700 rounded-lg" />
@@ -33,7 +26,10 @@ export default function Loading() {
           ))}
         </div>
         {[...Array(12)].map((_, i) => (
-          <div key={i} className="grid grid-cols-4 gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 last:border-0 items-start">
+          <div
+            key={i}
+            className="grid grid-cols-4 gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 last:border-0 items-start"
+          >
             <div className="space-y-1">
               <div className="h-3 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
               <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -51,5 +47,5 @@ export default function Loading() {
         ))}
       </div>
     </div>
-  )
+  );
 }

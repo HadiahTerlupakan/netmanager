@@ -33,3 +33,7 @@ export type {
   SystemLogDetailDTO,
   SystemLogListItemDTO,
 } from "./dto/SystemLogDTO";
+
+// Validators (Zod) — public agar API route bisa pakai tanpa langgar
+// no-restricted-imports.
+export { systemLogQuerySchema, type SystemLogQuery } from "./validators";

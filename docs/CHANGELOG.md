@@ -45,6 +45,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-19] — Hardening admin/log/activity (Zod + UX refactor)
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/admin/system-logs`, `modules/admin/validators`,
+  `app/admin/log/activity`, `app/admin/log/loading.tsx`
+- **Author**: agent
+- **Deskripsi**: Endpoint `GET /api/admin/system-logs` sebelumnya parse
+  `page`/`limit` dengan `parseInt` tanpa guard NaN dan tanpa cap upper
+  bound — caller bisa kirim `?page=abc` (NaN propagate ke Prisma `skip`)
+  atau `?limit=10000` (DoS vector). Sekarang seluruh query params
+  divalidasi via `systemLogQuerySchema` (Zod): page/limit fallback ke
+  default saat NaN, limit di-cap maksimal 100, search dibatasi 200
+  karakter, siteId divalidasi UUID, type harus enum `LogType`.
+  Anti-pattern setState sentinel di body render (`prevSiteId`/`prevSearch`
+  comparator) diganti single state object dengan `patchFilters` setter
+  yang reset page ke 1 — menghindari warning Next 16 "Can't perform a
+  React state update on a component that hasn't mounted yet".
+  Modal detail JSON sekarang me-redact field sensitif (password, token,
+  secret, api_key, otp, dst.) dengan regex pattern sebelum render
+  agar PII tidak bocor ke admin panel. Format JSON dipindah ke
+  `useMemo` agar tidak re-compute setiap render.
+  Search input dibatasi `maxLength={200}` untuk mencegah paste payload
+  raksasa.
+  Komponen `ClientComponent` di-rename `ActivityLogClient`. Magic
+  numbers `20`/`500` diekstrak ke `PAGE_SIZE`/`SEARCH_DEBOUNCE_MS`.
+  Color logic action diekstrak ke `ACTION_BADGE_CLASS` Record.
+  Inline `Button` style override panjang diganti `variant="outline"`.
+  Skeleton tab nav misleading dihapus dari `loading.tsx` karena tab
+  di-render layout dan tidak ikut loading.
+- **Files**:
+  `app/api/admin/system-logs/route.ts`,
+  `modules/admin/validators/system-log.ts`,
+  `modules/admin/validators/index.ts`,
+  `modules/admin/index.ts`,
+  `app/admin/log/activity/ActivityLogClient.tsx`,
+  `app/admin/log/activity/page.tsx`,
+  `app/admin/log/loading.tsx`
+- **Breaking**: ❌ Tidak
 ### [2026-05-19] — Hardening permission API admin/support
 
 - **Tipe**: [SECURITY]

@@ -1,7 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import { ClientComponent } from './ActivityLogClient'
+import { ensurePermission } from "@/lib/rbac";
+import { ActivityLogClient } from "./ActivityLogClient";
 
 export default async function ActivityLogPage() {
-    await ensurePermission('system_log:read')
-    return <ClientComponent />
+  await ensurePermission("system_log:read");
+  return <ActivityLogClient />;
 }
