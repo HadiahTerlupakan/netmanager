@@ -9,6 +9,7 @@ import { ChartOfAccountRepository } from "../../repositories/ChartOfAccountRepos
 import { PeriodRepository } from "../../repositories/PeriodRepository";
 import { PeriodService } from "../period/PeriodService";
 import { resolvePurchaseOrderPaidCoa } from "./coa-resolver";
+import { CoaNotFoundError } from "../../errors";
 
 const SOURCE = "PurchaseOrderPaidAccountingHandler";
 
@@ -30,41 +31,47 @@ export async function handlePurchaseOrderPaidAccounting(
   );
   const paidAt = requirePayloadString(payload.paidAt, "paidAt", SOURCE);
 
-  logger.info(
-    `[${SOURCE}] Processing PO paid ${purchaseOrderId} for tenant ${tenantId}`,
-  );
+  try {
+    const journalRepo = new JournalRepository();
+    const coaRepo = new ChartOfAccountRepository();
+    const periodRepo = new PeriodRepository();
+    const numberGen = new JournalNumberGenerator(journalRepo);
+    const postingService = new JournalPostingService(
+      journalRepo,
+      coaRepo,
+      periodRepo,
+      numberGen,
+    );
 
-  const journalRepo = new JournalRepository();
-  const coaRepo = new ChartOfAccountRepository();
-  const periodRepo = new PeriodRepository();
-  const numberGen = new JournalNumberGenerator(journalRepo);
-  const postingService = new JournalPostingService(
-    journalRepo,
-    coaRepo,
-    periodRepo,
-    numberGen,
-  );
+    const periodService = new PeriodService(periodRepo);
+    const entryDate = new Date(paidAt);
+    await periodService.ensureCurrentPeriod(tenantId, entryDate);
 
-  const periodService = new PeriodService(periodRepo);
-  const entryDate = new Date(paidAt);
-  await periodService.ensureCurrentPeriod(tenantId, entryDate);
+    const { debitCoaId, creditCoaId } = await resolvePurchaseOrderPaidCoa(
+      tenantId,
+      accountId,
+    );
 
-  const { debitCoaId, creditCoaId } = await resolvePurchaseOrderPaidCoa(
-    tenantId,
-    accountId,
-  );
+    await postingService.postAuto(tenantId, {
+      source: "AUTO_PO_PAID",
+      sourceRefType: "PurchaseOrder",
+      sourceRefId: purchaseOrderId,
+      entryDate,
+      description: `Jurnal otomatis: PO ${purchaseOrderId} dibayar`,
+      lines: [
+        { coaId: debitCoaId, side: "DEBIT", amount },
+        { coaId: creditCoaId, side: "CREDIT", amount },
+      ],
+    });
 
-  await postingService.postAuto(tenantId, {
-    source: "AUTO_PO_PAID",
-    sourceRefType: "PurchaseOrder",
-    sourceRefId: purchaseOrderId,
-    entryDate,
-    description: `Jurnal otomatis: PO ${purchaseOrderId} dibayar`,
-    lines: [
-      { coaId: debitCoaId, side: "DEBIT", amount },
-      { coaId: creditCoaId, side: "CREDIT", amount },
-    ],
-  });
-
-  logger.info(`[${SOURCE}] Journal posted for PO paid ${purchaseOrderId}`);
+    logger.info(`[${SOURCE}] Journal posted for PO paid ${purchaseOrderId}`);
+  } catch (error) {
+    if (error instanceof CoaNotFoundError) {
+      logger.warn(
+        `[${SOURCE}] COA belum di-seed untuk tenant ${tenantId}, skipping: ${error.message}`,
+      );
+      return;
+    }
+    throw error;
+  }
 }

@@ -414,21 +414,19 @@ export function registerDefaultHandlers(): void {
     // Could trigger alerts, auto-ticket creation, etc.
   });
 
-  // --- ACCOUNTING EVENTS (gated by feature flag) ---
+  // --- ACCOUNTING EVENTS ---
 
-  if (process.env.ACCOUNTING_MODULE_ENABLED === "true") {
-    registerEventHandler(
-      EVENT_NAMES.INVOICE_CREATED,
-      handleInvoiceCreatedAccounting,
-    );
-    registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidAccounting);
-    registerEventHandler(
-      EVENT_NAMES.EXPENSE_APPROVED,
-      handleExpenseApprovedAccounting,
-    );
-    registerEventHandler(
-      EVENT_NAMES.PURCHASE_ORDER_PAID,
-      handlePurchaseOrderPaidAccounting,
-    );
-  }
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_CREATED,
+    handleInvoiceCreatedAccounting,
+  );
+  registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidAccounting);
+  registerEventHandler(
+    EVENT_NAMES.EXPENSE_APPROVED,
+    handleExpenseApprovedAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.PURCHASE_ORDER_PAID,
+    handlePurchaseOrderPaidAccounting,
+  );
 }

@@ -10,6 +10,7 @@ import { ChartOfAccountRepository } from "../../repositories/ChartOfAccountRepos
 import { PeriodRepository } from "../../repositories/PeriodRepository";
 import { PeriodService } from "../period/PeriodService";
 import { resolveInvoicePaidCoa } from "./coa-resolver";
+import { CoaNotFoundError } from "../../errors";
 
 const SOURCE = "InvoicePaidAccountingHandler";
 
@@ -45,41 +46,47 @@ export async function handleInvoicePaidAccounting(
   const accountId = payload.accountId ?? lastPayment?.accountId ?? "";
   const paidAt = payload.paidAt ?? new Date().toISOString();
 
-  logger.info(
-    `[${SOURCE}] Processing invoice paid ${invoiceId} for tenant ${tenantId}`,
-  );
+  try {
+    const journalRepo = new JournalRepository();
+    const coaRepo = new ChartOfAccountRepository();
+    const periodRepo = new PeriodRepository();
+    const numberGen = new JournalNumberGenerator(journalRepo);
+    const postingService = new JournalPostingService(
+      journalRepo,
+      coaRepo,
+      periodRepo,
+      numberGen,
+    );
 
-  const journalRepo = new JournalRepository();
-  const coaRepo = new ChartOfAccountRepository();
-  const periodRepo = new PeriodRepository();
-  const numberGen = new JournalNumberGenerator(journalRepo);
-  const postingService = new JournalPostingService(
-    journalRepo,
-    coaRepo,
-    periodRepo,
-    numberGen,
-  );
+    const periodService = new PeriodService(periodRepo);
+    const entryDate = new Date(paidAt);
+    await periodService.ensureCurrentPeriod(tenantId, entryDate);
 
-  const periodService = new PeriodService(periodRepo);
-  const entryDate = new Date(paidAt);
-  await periodService.ensureCurrentPeriod(tenantId, entryDate);
+    const { debitCoaId, creditCoaId } = await resolveInvoicePaidCoa(
+      tenantId,
+      accountId,
+    );
 
-  const { debitCoaId, creditCoaId } = await resolveInvoicePaidCoa(
-    tenantId,
-    accountId,
-  );
+    await postingService.postAuto(tenantId, {
+      source: "AUTO_INVOICE_PAID",
+      sourceRefType: "Invoice",
+      sourceRefId: invoiceId,
+      entryDate,
+      description: `Jurnal otomatis: Invoice ${invoiceId} dibayar`,
+      lines: [
+        { coaId: debitCoaId, side: "DEBIT", amount },
+        { coaId: creditCoaId, side: "CREDIT", amount },
+      ],
+    });
 
-  await postingService.postAuto(tenantId, {
-    source: "AUTO_INVOICE_PAID",
-    sourceRefType: "Invoice",
-    sourceRefId: invoiceId,
-    entryDate,
-    description: `Jurnal otomatis: Invoice ${invoiceId} dibayar`,
-    lines: [
-      { coaId: debitCoaId, side: "DEBIT", amount },
-      { coaId: creditCoaId, side: "CREDIT", amount },
-    ],
-  });
-
-  logger.info(`[${SOURCE}] Journal posted for invoice paid ${invoiceId}`);
+    logger.info(`[${SOURCE}] Journal posted for invoice paid ${invoiceId}`);
+  } catch (error) {
+    if (error instanceof CoaNotFoundError) {
+      logger.warn(
+        `[${SOURCE}] COA belum di-seed untuk tenant ${tenantId}, skipping: ${error.message}`,
+      );
+      return;
+    }
+    throw error;
+  }
 }
