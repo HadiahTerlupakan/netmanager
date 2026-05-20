@@ -506,8 +506,9 @@ describe("mobile work order routes", () => {
           headers: { "content-type": "application/json" },
         }),
         {
-          params: Promise.resolve({ id: "wo-1" }),
-        },
+          session,
+          params: { id: "wo-1" },
+        } as never,
       );
 
       expect(response.status).toBe(403);
@@ -547,8 +548,9 @@ describe("mobile work order routes", () => {
           headers: { "content-type": "application/json" },
         }),
         {
-          params: Promise.resolve({ id: "wo-1" }),
-        },
+          session,
+          params: { id: "wo-1" },
+        } as never,
       );
 
       expect(response.status).toBe(404);

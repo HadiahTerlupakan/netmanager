@@ -56,7 +56,7 @@ describe("mobile work orders request route bearer auth", () => {
       role: "TEKNISI",
       tenantId: "tenant-1",
       siteId: "site-1",
-      permissions: [],
+      permissions: ["m_work_order:create"],
       isSuperAdmin: false,
     });
     mockFns.createRequest.mockResolvedValue({
