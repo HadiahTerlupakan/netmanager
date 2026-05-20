@@ -112,6 +112,24 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/olt/logs",
         icon: "HiOutlineDocumentText",
       },
+      {
+        code: "OLT.BANDWIDTH",
+        name: "Bandwidth Profiles",
+        path: "/admin/olt/bandwidth-profiles",
+        icon: "HiOutlineArrowsRightLeft",
+      },
+      {
+        code: "OLT.MONITORING",
+        name: "Monitoring",
+        path: "/admin/olt/monitoring",
+        icon: "HiOutlineChartBar",
+      },
+      {
+        code: "OLT.ALERTS",
+        name: "Alerts",
+        path: "/admin/olt/alerts",
+        icon: "HiOutlineBell",
+      },
     ],
   },
   {

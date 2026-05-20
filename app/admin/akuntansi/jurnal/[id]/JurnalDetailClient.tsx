@@ -5,8 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { toast } from "react-hot-toast";
-import { HiOutlineArrowUturnLeft } from "react-icons/hi2";
-import { Button } from "@/components/ui/Button";
+import {
+  HiOutlineDocumentText,
+  HiOutlineArrowUturnLeft,
+  HiOutlineArrowLeft,
+} from "react-icons/hi2";
+import { usePermission } from "@/hooks/use-permission";
 import { formatCurrency } from "@/lib/utils";
 
 interface JournalLine {
@@ -34,9 +38,33 @@ interface JournalDetail {
   createdAt: string;
 }
 
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; bg: string; text: string }
+> = {
+  POSTED: {
+    label: "Posted",
+    bg: "bg-emerald-100 dark:bg-emerald-900/30",
+    text: "text-emerald-700 dark:text-emerald-400",
+  },
+  REVERSED: {
+    label: "Reversed",
+    bg: "bg-red-100 dark:bg-red-900/30",
+    text: "text-red-700 dark:text-red-400",
+  },
+  DRAFT: {
+    label: "Draft",
+    bg: "bg-gray-100 dark:bg-gray-700",
+    text: "text-gray-700 dark:text-gray-300",
+  },
+};
+
 export function JurnalDetailClient() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { hasPermission } = usePermission();
+  const canReverse = hasPermission("journal:create");
+
   const [journal, setJournal] = useState<JournalDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReverse, setShowReverse] = useState(false);
@@ -53,12 +81,12 @@ export function JurnalDetailClient() {
     setLoading(false);
   }, [id]);
 
-  const _hasFetched = useRef(false);
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
-    if (_hasFetched.current) return;
-    _hasFetched.current = true;
-    fetchJournal();
-  }, []);
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    void fetchJournal();
+  }, [fetchJournal]);
 
   const handleReverse = async () => {
     if (!reason.trim()) return;
@@ -80,87 +108,147 @@ export function JurnalDetailClient() {
     setReversing(false);
   };
 
-  if (loading) return <div className="p-4">Memuat...</div>;
-  if (!journal) return <div className="p-4">Journal tidak ditemukan</div>;
+  if (loading) {
+    return (
+      <div className="p-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120] flex items-center justify-center">
+        <p className="text-gray-500 dark:text-gray-400 font-medium">
+          Memuat...
+        </p>
+      </div>
+    );
+  }
+
+  if (!journal) {
+    return (
+      <div className="p-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120] flex items-center justify-center">
+        <p className="text-gray-500 dark:text-gray-400 font-medium">
+          Journal tidak ditemukan
+        </p>
+      </div>
+    );
+  }
 
   const totalDebit = journal.lines
     .filter((l) => l.side === "DEBIT")
     .reduce((sum, l) => sum + Number(l.amount), 0);
 
-  const statusColors: Record<string, string> = {
-    POSTED: "bg-green-100 text-green-800",
-    REVERSED: "bg-red-100 text-red-800",
-    DRAFT: "bg-gray-100 text-gray-800",
-  };
+  const totalCredit = journal.lines
+    .filter((l) => l.side === "CREDIT")
+    .reduce((sum, l) => sum + Number(l.amount), 0);
+
+  const statusCfg = STATUS_CONFIG[journal.status] || STATUS_CONFIG.DRAFT;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4">
-      <div className="flex items-center justify-between">
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">{journal.entryNumber}</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+              <HiOutlineDocumentText className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            {journal.entryNumber}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {format(new Date(journal.entryDate), "dd MMMM yyyy", {
               locale: localeId,
             })}
           </p>
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${statusColors[journal.status] || ""}`}
+          className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${statusCfg.bg} ${statusCfg.text}`}
         >
-          {journal.status}
+          {statusCfg.label}
         </span>
       </div>
 
-      <div className="rounded border p-4">
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-gray-500">Sumber</dt>
-            <dd className="font-medium">{journal.source}</dd>
+      {/* Info Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Sumber
+          </p>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+            {journal.source}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Total Debit
+          </p>
+          <h3 className="text-lg font-black text-indigo-600 dark:text-indigo-400 font-mono">
+            {formatCurrency(totalDebit)}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Total Kredit
+          </p>
+          <h3 className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+            {formatCurrency(totalCredit)}
+          </h3>
+        </div>
+        {journal.sourceRefType && (
+          <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+              Referensi
+            </p>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              {journal.sourceRefType}: {journal.sourceRefId}
+            </h3>
           </div>
-          <div>
-            <dt className="text-gray-500">Deskripsi</dt>
-            <dd className="font-medium">{journal.description}</dd>
-          </div>
-          {journal.sourceRefType && (
-            <div>
-              <dt className="text-gray-500">Referensi</dt>
-              <dd className="font-medium">
-                {journal.sourceRefType}: {journal.sourceRefId}
-              </dd>
-            </div>
-          )}
-          <div>
-            <dt className="text-gray-500">Total</dt>
-            <dd className="font-medium">{formatCurrency(totalDebit)}</dd>
-          </div>
-        </dl>
+        )}
       </div>
 
-      <div className="rounded border">
+      {/* Description */}
+      <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Deskripsi
+        </p>
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          {journal.description}
+        </p>
+      </div>
+
+      {/* Journal Lines Table */}
+      <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="px-4 py-2 text-left">Akun</th>
-              <th className="px-4 py-2 text-right">Debit</th>
-              <th className="px-4 py-2 text-right">Kredit</th>
-              <th className="px-4 py-2 text-left">Keterangan</th>
+            <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+              <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Akun
+              </th>
+              <th className="px-5 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Debit
+              </th>
+              <th className="px-5 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Kredit
+              </th>
+              <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Keterangan
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {journal.lines.map((line) => (
-              <tr key={line.id} className="border-b">
-                <td className="px-4 py-2">{line.coaId}</td>
-                <td className="px-4 py-2 text-right">
+              <tr
+                key={line.id}
+                className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
+              >
+                <td className="px-5 py-3 font-mono text-sm font-medium text-gray-900 dark:text-white">
+                  {line.coaId}
+                </td>
+                <td className="px-5 py-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">
                   {line.side === "DEBIT"
                     ? formatCurrency(Number(line.amount))
                     : ""}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-5 py-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
                   {line.side === "CREDIT"
                     ? formatCurrency(Number(line.amount))
                     : ""}
                 </td>
-                <td className="px-4 py-2 text-gray-500">
+                <td className="px-5 py-3 text-gray-500 dark:text-gray-400 text-sm italic">
                   {line.description || ""}
                 </td>
               </tr>
@@ -169,49 +257,57 @@ export function JurnalDetailClient() {
         </table>
       </div>
 
-      {journal.status === "POSTED" && (
-        <div className="rounded border p-4">
+      {/* Reverse Section */}
+      {journal.status === "POSTED" && canReverse && (
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           {!showReverse ? (
-            <Button
-              variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+            <button
               onClick={() => setShowReverse(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-bold text-sm"
             >
-              <HiOutlineArrowUturnLeft className="mr-1 h-4 w-4" />
+              <HiOutlineArrowUturnLeft className="w-4 h-4" />
               Reverse Journal
-            </Button>
+            </button>
           ) : (
             <div className="space-y-3">
-              <label className="block text-sm font-medium">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                 Alasan Reversal
               </label>
               <input
                 type="text"
-                className="w-full rounded border px-3 py-2"
+                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                 placeholder="Jelaskan alasan reversal..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
               <div className="flex gap-2">
-                <Button
-                  className="bg-red-600 hover:bg-red-700"
+                <button
                   onClick={handleReverse}
                   disabled={!reason.trim() || reversing}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {reversing ? "Memproses..." : "Konfirmasi Reverse"}
-                </Button>
-                <Button variant="outline" onClick={() => setShowReverse(false)}>
+                </button>
+                <button
+                  onClick={() => setShowReverse(false)}
+                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                >
                   Batal
-                </Button>
+                </button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      <Button variant="outline" onClick={() => router.back()}>
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+      >
+        <HiOutlineArrowLeft className="w-4 h-4" />
         Kembali
-      </Button>
+      </button>
     </div>
   );
 }

@@ -2,9 +2,10 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { HiPlus, HiOutlineTrash, HiOutlinePencil } from "react-icons/hi2";
-import { Button } from "@/components/ui/Button";
+import { HiOutlineListBullet, HiPlus, HiOutlineTrash } from "react-icons/hi2";
+import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalBody } from "@/components/ui/Modal";
+import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 interface Coa {
   id: string;
@@ -18,15 +19,34 @@ interface Coa {
   parentId: string | null;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  ASSET: "text-blue-700",
-  LIABILITY: "text-orange-700",
-  EQUITY: "text-purple-700",
-  REVENUE: "text-green-700",
-  EXPENSE: "text-red-700",
+const TYPE_CONFIG: Record<string, { bg: string; text: string }> = {
+  ASSET: {
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+    text: "text-blue-700 dark:text-blue-400",
+  },
+  LIABILITY: {
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+    text: "text-orange-700 dark:text-orange-400",
+  },
+  EQUITY: {
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+    text: "text-purple-700 dark:text-purple-400",
+  },
+  REVENUE: {
+    bg: "bg-emerald-100 dark:bg-emerald-900/30",
+    text: "text-emerald-700 dark:text-emerald-400",
+  },
+  EXPENSE: {
+    bg: "bg-red-100 dark:bg-red-900/30",
+    text: "text-red-700 dark:text-red-400",
+  },
 };
 
 export function CoaClient() {
+  const { hasPermission } = usePermission();
+  const canCreate = hasPermission("coa:create");
+  const canDelete = hasPermission("coa:delete");
+
   const [items, setItems] = useState<Coa[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState("");
@@ -49,12 +69,12 @@ export function CoaClient() {
     setLoading(false);
   }, [filterType]);
 
-  const _hasFetched = useRef(false);
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
-    if (_hasFetched.current) return;
-    _hasFetched.current = true;
-    fetchData();
-  }, []);
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    void fetchData();
+  }, [fetchData]);
 
   const handleCreate = async () => {
     const res = await fetch("/api/admin/accounting/coa", {
@@ -92,113 +112,213 @@ export function CoaClient() {
     }
   };
 
-  if (loading) return <div className="p-4">Memuat...</div>;
+  const countByType = (type: string) =>
+    items.filter((i) => i.type === type).length;
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Chart of Accounts</h1>
-        <Button onClick={() => setShowModal(true)}>
-          <HiPlus className="mr-1 h-4 w-4" />
-          Tambah Akun
-        </Button>
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+              <HiOutlineListBullet className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            Chart of Accounts
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Kelola daftar akun untuk pencatatan transaksi keuangan
+          </p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-bold active:scale-95"
+          >
+            <HiPlus className="w-5 h-5" />
+            Tambah Akun
+          </button>
+        )}
       </div>
 
-      <select
-        className="rounded border px-3 py-1.5 text-sm"
-        value={filterType}
-        onChange={(e) => setFilterType(e.target.value)}
-      >
-        <option value="">Semua Tipe</option>
-        <option value="ASSET">Asset</option>
-        <option value="LIABILITY">Liability</option>
-        <option value="EQUITY">Equity</option>
-        <option value="REVENUE">Revenue</option>
-        <option value="EXPENSE">Expense</option>
-      </select>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {Object.entries(TYPE_CONFIG).map(([type, cfg]) => (
+          <div
+            key={type}
+            className="bg-white dark:bg-[#1e293b] p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm"
+          >
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+              {type}
+            </p>
+            <h3 className={`text-xl font-black font-mono ${cfg.text}`}>
+              {countByType(type)}
+            </h3>
+          </div>
+        ))}
+      </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-left">
-            <th className="px-4 py-2">Kode</th>
-            <th className="px-4 py-2">Nama</th>
-            <th className="px-4 py-2">Tipe</th>
-            <th className="px-4 py-2">Normal</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((coa) => (
-            <tr key={coa.id} className="border-b hover:bg-gray-50">
-              <td className="px-4 py-2 font-mono">{coa.code}</td>
-              <td className="px-4 py-2">{coa.name}</td>
-              <td
-                className={`px-4 py-2 font-medium ${TYPE_COLORS[coa.type] || ""}`}
-              >
-                {coa.type}
-              </td>
-              <td className="px-4 py-2">{coa.normalSide}</td>
-              <td className="px-4 py-2">
-                {coa.isSystem && (
-                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-                    System
-                  </span>
-                )}
-                {!coa.isActive && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
-                    Inactive
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-2">
-                {!coa.isSystem && (
-                  <button
-                    className="text-red-500 hover:text-red-700"
-                    onClick={() => handleDelete(coa.id)}
+      {/* Filter */}
+      <div className="flex flex-wrap gap-3">
+        <select
+          className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e293b] text-sm font-medium text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
+          value={filterType}
+          onChange={(e) => {
+            setFilterType(e.target.value);
+          }}
+        >
+          <option value="">Semua Tipe</option>
+          <option value="ASSET">Asset</option>
+          <option value="LIABILITY">Liability</option>
+          <option value="EQUITY">Equity</option>
+          <option value="REVENUE">Revenue</option>
+          <option value="EXPENSE">Expense</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <ResponsiveTable
+          data={items}
+          loading={loading}
+          keyField="id"
+          columns={[
+            {
+              key: "code",
+              header: "Kode",
+              priority: "primary",
+              render: (item: Coa) => (
+                <span className="font-mono font-bold text-sm text-gray-900 dark:text-white">
+                  {item.code}
+                </span>
+              ),
+            },
+            {
+              key: "name",
+              header: "Nama Akun",
+              priority: "primary",
+              render: (item: Coa) => (
+                <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                  {item.name}
+                </span>
+              ),
+            },
+            {
+              key: "type",
+              header: "Tipe",
+              priority: "primary",
+              render: (item: Coa) => {
+                const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.ASSET;
+                return (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}
                   >
-                    <HiOutlineTrash className="h-4 w-4" />
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    {item.type}
+                  </span>
+                );
+              },
+            },
+            {
+              key: "normalSide",
+              header: "Normal",
+              priority: "secondary",
+              render: (item: Coa) => (
+                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                  {item.normalSide}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              header: "Status",
+              priority: "secondary",
+              render: (item: Coa) => (
+                <div className="flex gap-1.5">
+                  {item.isSystem && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                      System
+                    </span>
+                  )}
+                  {!item.isActive && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                      Inactive
+                    </span>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+          renderActions={(item: Coa) => (
+            <div className="flex items-center justify-end gap-2">
+              {canDelete && !item.isSystem && (
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                  title="Hapus"
+                >
+                  <HiOutlineTrash className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          )}
+          emptyMessage="Belum ada akun yang terdaftar."
+        />
+      </div>
 
+      {/* Create Modal */}
       {showModal && (
-        <Modal isOpen onClose={() => setShowModal(false)} title="Tambah Akun">
+        <Modal
+          isOpen
+          onClose={() => setShowModal(false)}
+          title="Tambah Akun Baru"
+        >
           <ModalBody>
-            <div className="space-y-3">
-              <input
-                className="w-full rounded border px-3 py-2"
-                placeholder="Kode (misal: 1-150)"
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
-              />
-              <input
-                className="w-full rounded border px-3 py-2"
-                placeholder="Nama akun"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-              <select
-                className="w-full rounded border px-3 py-2"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-              >
-                <option value="ASSET">Asset</option>
-                <option value="LIABILITY">Liability</option>
-                <option value="EQUITY">Equity</option>
-                <option value="REVENUE">Revenue</option>
-                <option value="EXPENSE">Expense</option>
-              </select>
-              <Button
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Kode Akun
+                </label>
+                <input
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+                  placeholder="Misal: 1-150"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Nama Akun
+                </label>
+                <input
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+                  placeholder="Nama akun"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Tipe
+                </label>
+                <select
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                >
+                  <option value="ASSET">Asset</option>
+                  <option value="LIABILITY">Liability</option>
+                  <option value="EQUITY">Equity</option>
+                  <option value="REVENUE">Revenue</option>
+                  <option value="EXPENSE">Expense</option>
+                </select>
+              </div>
+              <button
                 onClick={handleCreate}
                 disabled={!form.code || !form.name}
+                className="w-full px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-bold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Simpan
-              </Button>
+              </button>
             </div>
           </ModalBody>
         </Modal>

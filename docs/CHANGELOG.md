@@ -45,6 +45,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-20] — Modul OLT Provisioning (Phase 1-5 complete)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/olt/`, `app/api/olt/`, `app/admin/olt/`, `app/api/cron/olt-discovery/`, `app/api/cron/olt-monitoring/`, `lib/permission-config.ts`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Modul OLT Provisioning baru untuk manajemen perangkat OLT multi-vendor (ZTE pilot, HSGQ/Hioso/C-Data skeleton). Mencakup:
+  - **Phase 1**: Database schema (5 model + 6 enum), domain layer (entities, ports, errors), ZTE adapter (telnet + SNMP), OLT CRUD, admin UI (list/tambah/detail), test connection
+  - **Phase 2**: ONU discovery via SNMP, ONU registration via Telnet CLI, pre-registration system, cron auto-discovery (5 menit), search by SN, assign ONU ke pelanggan
+  - **Phase 3**: ONU control (disable/enable/reset/reboot via Telnet), VLAN management (set/remove service port), event handler pelanggan suspend→auto disable ONU
+  - **Phase 4**: SNMP Explorer tool (walk OID tree untuk riset vendor baru)
+  - **Phase 5**: Bandwidth profile management, bulk operations (batch register/disable/enable max 50), ONU monitoring (poll optical power + threshold alert), firmware upgrade ONU
+  - 30+ API endpoints, 16+ admin UI pages, 12 services, 6 repositories, full audit trail
+- **Files**: `modules/olt/` (domain, adapters, services, repositories, validators, config), `app/api/olt/`, `app/admin/olt/`, `prisma/schema.prisma`
+- **Migration**: pending (schema added, migration belum di-apply karena DB divergence)
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-20] — Modul Akuntansi (Phase 1-6 complete)
 
 - **Tipe**: [ADDED]

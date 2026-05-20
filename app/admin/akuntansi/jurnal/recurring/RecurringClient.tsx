@@ -2,8 +2,9 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { HiPlus, HiOutlineTrash } from "react-icons/hi2";
-import { Button } from "@/components/ui/Button";
+import { HiOutlineArrowPath, HiOutlineTrash } from "react-icons/hi2";
+import { usePermission } from "@/hooks/use-permission";
+import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 interface Template {
   id: string;
@@ -15,6 +16,9 @@ interface Template {
 }
 
 export function RecurringClient() {
+  const { hasPermission } = usePermission();
+  const canDelete = hasPermission("recurring:manage");
+
   const [items, setItems] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,12 +32,12 @@ export function RecurringClient() {
     setLoading(false);
   }, []);
 
-  const _hasFetched = useRef(false);
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
-    if (_hasFetched.current) return;
-    _hasFetched.current = true;
-    fetchData();
-  }, []);
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    void fetchData();
+  }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus template ini?")) return;
@@ -60,63 +64,139 @@ export function RecurringClient() {
     }
   };
 
-  if (loading) return <div className="p-4">Memuat...</div>;
+  const activeCount = items.filter((i) => i.isActive).length;
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Recurring Journal Templates</h1>
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+              <HiOutlineArrowPath className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            Recurring Journal
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Template jurnal otomatis yang dijalankan secara berkala
+          </p>
+        </div>
       </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-left">
-            <th className="px-4 py-2">Nama</th>
-            <th className="px-4 py-2">Frekuensi</th>
-            <th className="px-4 py-2">Tanggal</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2">Terakhir Generate</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((t) => (
-            <tr key={t.id} className="border-b">
-              <td className="px-4 py-2 font-medium">{t.name}</td>
-              <td className="px-4 py-2">{t.frequency}</td>
-              <td className="px-4 py-2">Tgl {t.dayOfMonth}</td>
-              <td className="px-4 py-2">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Total Template
+          </p>
+          <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+            {items.length}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Aktif
+          </p>
+          <h3 className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+            {activeCount}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Nonaktif
+          </p>
+          <h3 className="text-xl font-black text-gray-600 dark:text-gray-400 font-mono">
+            {items.length - activeCount}
+          </h3>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <ResponsiveTable
+          data={items}
+          loading={loading}
+          keyField="id"
+          columns={[
+            {
+              key: "name",
+              header: "Nama Template",
+              priority: "primary",
+              render: (item: Template) => (
+                <span className="font-bold text-sm text-gray-900 dark:text-white">
+                  {item.name}
+                </span>
+              ),
+            },
+            {
+              key: "frequency",
+              header: "Frekuensi",
+              priority: "primary",
+              render: (item: Template) => (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                  {item.frequency}
+                </span>
+              ),
+            },
+            {
+              key: "dayOfMonth",
+              header: "Tanggal",
+              priority: "secondary",
+              render: (item: Template) => (
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Tgl {item.dayOfMonth}
+                </span>
+              ),
+            },
+            {
+              key: "isActive",
+              header: "Status",
+              priority: "primary",
+              render: (item: Template) => (
                 <button
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${t.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
-                  onClick={() => handleToggle(t.id, t.isActive)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggle(item.id, item.isActive);
+                  }}
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                    item.isActive
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                  }`}
                 >
-                  {t.isActive ? "Active" : "Inactive"}
+                  {item.isActive ? "Active" : "Inactive"}
                 </button>
-              </td>
-              <td className="px-4 py-2 text-gray-500">
-                {t.lastGeneratedAt
-                  ? new Date(t.lastGeneratedAt).toLocaleDateString("id-ID")
-                  : "—"}
-              </td>
-              <td className="px-4 py-2">
+              ),
+            },
+            {
+              key: "lastGeneratedAt",
+              header: "Terakhir Generate",
+              priority: "tertiary",
+              render: (item: Template) => (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {item.lastGeneratedAt
+                    ? new Date(item.lastGeneratedAt).toLocaleDateString("id-ID")
+                    : "—"}
+                </span>
+              ),
+            },
+          ]}
+          renderActions={(item: Template) => (
+            <div className="flex items-center justify-end gap-2">
+              {canDelete && (
                 <button
-                  className="text-red-500 hover:text-red-700"
-                  onClick={() => handleDelete(t.id)}
+                  onClick={() => handleDelete(item.id)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                  title="Hapus"
                 >
-                  <HiOutlineTrash className="h-4 w-4" />
+                  <HiOutlineTrash className="w-5 h-5" />
                 </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 && (
-            <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                Belum ada template recurring
-              </td>
-            </tr>
+              )}
+            </div>
           )}
-        </tbody>
-      </table>
+          emptyMessage="Belum ada template recurring journal."
+        />
+      </div>
     </div>
   );
 }

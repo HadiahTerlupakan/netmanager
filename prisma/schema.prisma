@@ -4307,8 +4307,10 @@ model OltDevice {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  onus          OnuDevice[]
-  vlanConfigs   OltVlanConfig[]
+  onus              OnuDevice[]
+  vlanConfigs       OltVlanConfig[]
+  bandwidthProfiles OltBandwidthProfile[]
+  alerts            OltAlert[]
 
   @@index([tenantId])
   @@map("olt_devices")
@@ -4337,6 +4339,8 @@ model OnuDevice {
   olt              OltDevice  @relation(fields: [oltId], references: [id])
   pelanggan        Pelanggan? @relation(fields: [pelangganId], references: [id])
   commandLogs      OltCommandLog[]
+  powerHistory     OnuPowerHistory[]
+  alerts           OltAlert[]
 
   @@unique([oltId, ponPort, onuIndex])
   @@unique([serialNumber])
@@ -4399,4 +4403,70 @@ model OnuPreRegistration {
   @@unique([serialNumber])
   @@index([tenantId, status])
   @@map("onu_pre_registrations")
+}
+
+model OltBandwidthProfile {
+  id           String   @id @default(cuid())
+  tenantId     String
+  oltId        String
+  name         String
+  uploadRate   Int
+  downloadRate Int
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  olt          OltDevice @relation(fields: [oltId], references: [id])
+
+  @@index([tenantId])
+  @@index([oltId])
+  @@map("olt_bandwidth_profiles")
+}
+
+model OnuPowerHistory {
+  id         String   @id @default(cuid())
+  tenantId   String
+  onuId      String
+  rxPower    Float?
+  txPower    Float?
+  recordedAt DateTime @default(now())
+
+  onu        OnuDevice @relation(fields: [onuId], references: [id], onDelete: Cascade)
+
+  @@index([onuId, recordedAt])
+  @@index([tenantId, recordedAt])
+  @@map("onu_power_history")
+}
+
+enum OltAlertType {
+  LOS
+  LOW_POWER
+  OFFLINE
+  CRITICAL_POWER
+}
+
+enum OltAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model OltAlert {
+  id        String           @id @default(cuid())
+  tenantId  String
+  oltId     String
+  onuId     String?
+  type      OltAlertType
+  message   String
+  severity  OltAlertSeverity @default(WARNING)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  olt       OltDevice        @relation(fields: [oltId], references: [id])
+  onu       OnuDevice?       @relation(fields: [onuId], references: [id])
+
+  @@index([tenantId, isRead, createdAt])
+  @@index([oltId])
+  @@index([onuId])
+  @@map("olt_alerts")
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { HiOutlineChartPie } from "react-icons/hi2";
 import { formatCurrency } from "@/lib/utils";
 
 interface Account {
@@ -45,61 +45,97 @@ export function LabaRugiClient() {
   };
 
   const renderSection = (section: Section) => (
-    <div className="space-y-1">
-      <h3 className="font-semibold">{section.label}</h3>
-      {section.accounts.map((a) => (
-        <div key={a.coaCode} className="flex justify-between pl-4 text-sm">
-          <span>
-            {a.coaCode} — {a.coaName}
-          </span>
-          <span>{formatCurrency(Number(a.amount))}</span>
-        </div>
-      ))}
-      <div className="flex justify-between border-t pt-1 font-medium">
-        <span>Subtotal {section.label}</span>
-        <span>{formatCurrency(Number(section.subtotal))}</span>
+    <div className="space-y-2">
+      <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">
+        {section.label}
+      </h3>
+      <div className="space-y-1">
+        {section.accounts.map((a) => (
+          <div key={a.coaCode} className="flex justify-between pl-4 text-sm">
+            <span className="text-gray-700 dark:text-gray-300">
+              <span className="font-mono text-gray-500 dark:text-gray-400">
+                {a.coaCode}
+              </span>{" "}
+              — {a.coaName}
+            </span>
+            <span className="font-mono font-medium text-gray-900 dark:text-white">
+              {formatCurrency(Number(a.amount))}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2 font-bold text-sm">
+        <span className="text-gray-700 dark:text-gray-300">
+          Subtotal {section.label}
+        </span>
+        <span className="font-mono text-gray-900 dark:text-white">
+          {formatCurrency(Number(section.subtotal))}
+        </span>
       </div>
     </div>
   );
 
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-xl font-bold">Laporan Laba Rugi</h1>
-      <div className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-sm">Dari</label>
-          <input
-            type="date"
-            className="rounded border px-3 py-2"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm">Sampai</label>
-          <input
-            type="date"
-            className="rounded border px-3 py-2"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-        <Button onClick={fetchReport} disabled={loading}>
-          {loading ? "Memuat..." : "Tampilkan"}
-        </Button>
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+            <HiOutlineChartPie className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          Laporan Laba Rugi
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Profit & Loss Statement untuk periode tertentu
+        </p>
       </div>
+
+      {/* Filter */}
+      <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+              Dari
+            </label>
+            <input
+              type="date"
+              className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+              Sampai
+            </label>
+            <input
+              type="date"
+              className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={fetchReport}
+            disabled={loading}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-bold active:scale-95 disabled:opacity-50"
+          >
+            {loading ? "Memuat..." : "Tampilkan"}
+          </button>
+        </div>
+      </div>
+
+      {/* Report */}
       {report && (
-        <div className="max-w-lg space-y-6 rounded border p-4">
+        <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm max-w-2xl space-y-6">
           {renderSection(report.revenue)}
           {renderSection(report.expense)}
-          <div className="flex justify-between border-t-2 pt-2 text-lg font-bold">
-            <span>Laba/Rugi Bersih</span>
+          <div className="flex justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3">
+            <span className="text-lg font-black text-gray-900 dark:text-white">
+              Laba/Rugi Bersih
+            </span>
             <span
-              className={
-                Number(report.netIncome) >= 0
-                  ? "text-green-700"
-                  : "text-red-700"
-              }
+              className={`text-lg font-black font-mono ${Number(report.netIncome) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
             >
               {formatCurrency(Number(report.netIncome))}
             </span>
