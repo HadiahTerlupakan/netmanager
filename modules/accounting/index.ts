@@ -34,6 +34,12 @@ export {
   journalListQuerySchema,
 } from "./validators/journal";
 
+export {
+  asOfDateSchema,
+  dateRangeSchema,
+  ledgerQuerySchema,
+} from "./validators/reports";
+
 export { toJournalResponseDto } from "./dto/JournalDto";
 export type {
   JournalResponseDto,
@@ -49,6 +55,52 @@ export {
   JournalAlreadyReversedError,
   DuplicateJournalSourceError,
 } from "./errors";
+
+// Report Services
+export { TrialBalanceService } from "./services/reports/TrialBalanceService";
+export { ProfitLossService } from "./services/reports/ProfitLossService";
+export { BalanceSheetService } from "./services/reports/BalanceSheetService";
+export { CashFlowService } from "./services/reports/CashFlowService";
+export { CashBookService } from "./services/reports/CashBookService";
+export { GeneralLedgerService } from "./services/reports/GeneralLedgerService";
+
+// Report factory (pre-injected prisma for API routes)
+import { prisma } from "@/lib/prisma";
+import { TrialBalanceService } from "./services/reports/TrialBalanceService";
+import { ProfitLossService } from "./services/reports/ProfitLossService";
+import { BalanceSheetService } from "./services/reports/BalanceSheetService";
+import { CashFlowService } from "./services/reports/CashFlowService";
+import { CashBookService } from "./services/reports/CashBookService";
+import { GeneralLedgerService } from "./services/reports/GeneralLedgerService";
+
+export function getTrialBalanceService() {
+  return new TrialBalanceService(prisma);
+}
+export function getProfitLossService() {
+  return new ProfitLossService(prisma);
+}
+export function getBalanceSheetService() {
+  return new BalanceSheetService(prisma);
+}
+export function getCashFlowService() {
+  return new CashFlowService(prisma);
+}
+export function getCashBookService() {
+  return new CashBookService(prisma);
+}
+export function getGeneralLedgerService() {
+  return new GeneralLedgerService(prisma);
+}
+
+// Report DTOs
+export type {
+  TrialBalanceReport,
+  ProfitLossReport,
+  BalanceSheetReport,
+  CashFlowReport,
+  CashBookReport,
+  GeneralLedgerReport,
+} from "./dto/ReportDto";
 
 export { handleInvoiceCreatedAccounting } from "./services/event-handlers/invoice-created-accounting.handler";
 export { handleInvoicePaidAccounting } from "./services/event-handlers/invoice-paid-accounting.handler";
