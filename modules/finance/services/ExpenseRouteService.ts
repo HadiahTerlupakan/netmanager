@@ -6,6 +6,8 @@ import {
   createRouteServiceError,
   RouteServiceError,
 } from "./RouteServiceError";
+import { eventBus } from "@/lib/event-bus";
+import { EVENT_NAMES } from "@/lib/event-bus/types";
 
 const ZERO_DEPRECIATION = 0n;
 const ZERO_USEFUL_LIFE = 0;
@@ -85,6 +87,22 @@ export class ExpenseRouteService {
     }));
 
     const expenses = await this.expenseRepository.createManyExpenses(entries);
+
+    for (const expense of expenses) {
+      if (expense.tenantId && expense.accountId) {
+        eventBus
+          .publish(EVENT_NAMES.EXPENSE_APPROVED, {
+            expenseId: expense.id,
+            tenantId: expense.tenantId,
+            amount: expense.amount.toString(),
+            accountId: expense.accountId,
+            expenseCategoryId: expense.expenseCategoryId ?? "",
+            expenseDate: expense.date.toISOString(),
+          })
+          .catch(() => {});
+      }
+    }
+
     return expenses.map(this.serializeExpense);
   }
 

@@ -1,5 +1,7 @@
 import { logActivitySafe } from "@/lib/logger";
 import { PurchaseOrderRepository } from "../repositories";
+import { eventBus } from "@/lib/event-bus";
+import { EVENT_NAMES } from "@/lib/event-bus/types";
 
 type PurchaseOrderRepo = Pick<
   PurchaseOrderRepository,
@@ -47,6 +49,18 @@ export class FinancePurchaseOrderPaymentService {
         expenseId: result.expense.id,
       },
     });
+
+    if (po.tenantId) {
+      eventBus
+        .publish(EVENT_NAMES.PURCHASE_ORDER_PAID, {
+          purchaseOrderId: po.id,
+          tenantId: po.tenantId,
+          amount: input.amount.toString(),
+          accountId: input.paidFromAccountId ?? "",
+          paidAt: new Date(input.date).toISOString(),
+        })
+        .catch(() => {});
+    }
 
     return result.expense;
   }
