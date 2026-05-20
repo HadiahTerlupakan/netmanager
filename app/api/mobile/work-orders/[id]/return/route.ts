@@ -1,25 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { apiError, ErrorCodes } from "@/lib/api-response";
+import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { WorkOrderService } from "@/modules/work-order";
 
 // POST - Return materials to warehouse (creates barang masuk) for work orders
-export async function POST(
-  req: NextRequest,
-  params: { params: Promise<{ id: string }> },
-) {
-  try {
-    const authResult = await getMobileAuthPayload(req);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const decoded = authResult;
-    const userId = decoded.id as string;
-    const userName = (decoded.name as string) || undefined;
-    const { id } = await params.params;
-
+export const POST = createHandler(
+  { auth: true, permissions: ["m_work_order:update"] },
+  async (req, ctx) => {
     let body: unknown;
     try {
       body = await req.json();
@@ -98,74 +84,76 @@ export async function POST(
       }
     }
 
-    const workOrderService = new WorkOrderService();
-    const result = await workOrderService.returnMobileMaterials(
-      id,
-      items,
-      {
-        id: userId,
-        name: userName,
-        role: decoded.role as string | undefined,
-        siteId: decoded.siteId as string | undefined,
-        departmentId: decoded.departmentId as string | undefined,
-        tenantId: decoded.tenantId as string | undefined,
-        isSuperAdmin: Boolean(decoded.isSuperAdmin),
-      },
-      userName,
-    );
+    try {
+      const workOrderService = new WorkOrderService();
+      const result = await workOrderService.returnMobileMaterials(
+        ctx.params.id,
+        items,
+        {
+          id: ctx.session!.user.id,
+          name: ctx.session!.user.name,
+          role: ctx.session!.user.role,
+          siteId: ctx.session!.user.siteId,
+          departmentId: undefined,
+          tenantId: ctx.session!.user.tenantId,
+          isSuperAdmin: Boolean(ctx.session!.user.isSuperAdmin),
+        },
+        ctx.session!.user.name,
+      );
 
-    if (!result.success || !result.data) {
-      const code = result.code ?? "INTERNAL_ERROR";
-      const status =
-        code === "FORBIDDEN"
-          ? 403
-          : code === "NOT_FOUND"
-            ? 404
-            : code === "VALIDATION_ERROR"
-              ? 400
-              : 500;
-      const errorCode =
-        code === "FORBIDDEN"
-          ? ErrorCodes.FORBIDDEN
-          : code === "NOT_FOUND"
-            ? ErrorCodes.NOT_FOUND
-            : code === "VALIDATION_ERROR"
-              ? ErrorCodes.VALIDATION_ERROR
-              : ErrorCodes.INTERNAL_ERROR;
+      if (!result.success || !result.data) {
+        const code = result.code ?? "INTERNAL_ERROR";
+        const status =
+          code === "FORBIDDEN"
+            ? 403
+            : code === "NOT_FOUND"
+              ? 404
+              : code === "VALIDATION_ERROR"
+                ? 400
+                : 500;
+        const errorCode =
+          code === "FORBIDDEN"
+            ? ErrorCodes.FORBIDDEN
+            : code === "NOT_FOUND"
+              ? ErrorCodes.NOT_FOUND
+              : code === "VALIDATION_ERROR"
+                ? ErrorCodes.VALIDATION_ERROR
+                : ErrorCodes.INTERNAL_ERROR;
 
-      return apiError(result.error || "Terjadi kesalahan server", errorCode, {
-        status,
-      });
+        return apiError(result.error || "Terjadi kesalahan server", errorCode, {
+          status,
+        });
+      }
+
+      return apiSuccess({ items: result.data.items });
+    } catch (error) {
+      logger.error(
+        "Error returning materials from work order (mobile)",
+        error instanceof Error ? error : undefined,
+      );
+
+      const message =
+        error instanceof Error ? error.message : "Terjadi kesalahan server";
+      if (message.includes("tidak ditemukan")) {
+        return apiError(message, ErrorCodes.NOT_FOUND, { status: 404 });
+      }
+      if (
+        message.includes("Akses ditolak") ||
+        message.includes("tidak memiliki akses")
+      ) {
+        return apiError(message, ErrorCodes.FORBIDDEN, { status: 403 });
+      }
+      if (
+        message.includes("wajib") ||
+        message.includes("harus") ||
+        message.includes("Stok") ||
+        message.includes("Data stok") ||
+        message.includes("Kondisi")
+      ) {
+        return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+      }
+
+      return apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
-
-    return NextResponse.json({ success: true, items: result.data.items });
-  } catch (error) {
-    logger.error(
-      "Error returning materials from work order (mobile)",
-      error instanceof Error ? error : undefined,
-    );
-
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan server";
-    if (message.includes("tidak ditemukan")) {
-      return apiError(message, ErrorCodes.NOT_FOUND, { status: 404 });
-    }
-    if (
-      message.includes("Akses ditolak") ||
-      message.includes("tidak memiliki akses")
-    ) {
-      return apiError(message, ErrorCodes.FORBIDDEN, { status: 403 });
-    }
-    if (
-      message.includes("wajib") ||
-      message.includes("harus") ||
-      message.includes("Stok") ||
-      message.includes("Data stok") ||
-      message.includes("Kondisi")
-    ) {
-      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-
-    return apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 });
-  }
-}
+  },
+);
