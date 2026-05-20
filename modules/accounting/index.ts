@@ -1,7 +1,10 @@
 export { ChartOfAccountService } from "./services/coa/ChartOfAccountService";
 export { JournalPostingService } from "./services/journal/JournalPostingService";
 export { JournalNumberGenerator } from "./services/journal/JournalNumberGenerator";
+export { JournalReverseService } from "./services/journal/JournalReverseService";
+export { OpeningBalanceService } from "./services/journal/OpeningBalanceService";
 export { PeriodService } from "./services/period/PeriodService";
+export { PeriodCloseService } from "./services/period/PeriodCloseService";
 
 export { ChartOfAccountRepository } from "./repositories/ChartOfAccountRepository";
 export { JournalRepository } from "./repositories/JournalRepository";
@@ -39,6 +42,11 @@ export {
   dateRangeSchema,
   ledgerQuerySchema,
 } from "./validators/reports";
+
+export {
+  reverseJournalSchema,
+  openingBalanceSchema,
+} from "./validators/period";
 
 export { toJournalResponseDto } from "./dto/JournalDto";
 export type {

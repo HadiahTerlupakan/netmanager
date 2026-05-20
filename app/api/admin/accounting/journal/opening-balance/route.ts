@@ -1,0 +1,41 @@
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  OpeningBalanceService,
+  JournalRepository,
+  ChartOfAccountRepository,
+  PeriodRepository,
+  openingBalanceSchema,
+  toJournalResponseDto,
+  AccountingError,
+} from "@/modules/accounting";
+
+export const POST = createHandler(
+  { auth: true, permissions: ["accounting:journal:create"] },
+  async (request, ctx) => {
+    const body = await request.json();
+    const parsed = openingBalanceSchema.safeParse(body);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("Input opening balance tidak valid");
+    }
+
+    try {
+      const service = new OpeningBalanceService(
+        new JournalRepository(),
+        new ChartOfAccountRepository(),
+        new PeriodRepository(),
+      );
+      const result = await service.post(
+        ctx.session!.user.tenantId,
+        parsed.data.entryDate,
+        parsed.data.lines,
+        ctx.session!.user.id,
+      );
+      return apiSuccess(toJournalResponseDto(result), { status: 201 });
+    } catch (error) {
+      if (error instanceof AccountingError) {
+        return ApiErrors.badRequest(error.message);
+      }
+      throw error;
+    }
+  },
+);
