@@ -14,9 +14,9 @@
  * Format: "resource:action" → ["resource:action", ...]
  */
 export const MOBILE_PERMISSION_DEPENDENCIES: Record<string, string[]> = {
-  // Work Order butuh akses inventory (ambil barang, kembalikan barang)
-  // dan mixradius (search pelanggan di form request WO)
-  "m_work_order:read": ["m_barang:read"],
+  // Work Order butuh akses inventory (ambil barang, kembalikan barang),
+  // mixradius (search pelanggan), dan partners (invite partner ke WO)
+  "m_work_order:read": ["m_barang:read", "m_partners:read"],
   "m_work_order:update": [
     "m_barang:read",
     "m_barang_keluar:create",

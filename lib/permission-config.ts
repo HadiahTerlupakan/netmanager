@@ -117,11 +117,18 @@ export const PERMISSION_GROUPS_MOBILE = {
   KEHADIRAN: ["m_absensi", "m_lembur", "m_izin", "m_holidays"],
   MARKETING: ["m_canvasing"],
   KOMUNIKASI: ["m_chat"],
-  FINANCE: ["m_salary"],
   NETWORK: ["m_topology"],
-  INTEGRASI: ["m_mixradius"],
-  UMUM: ["m_partners"],
 } as const;
+
+/**
+ * Internal mobile resources — tidak muncul di matriks UI tapi tetap di-seed
+ * dan di-enforce di backend. Otomatis di-include via dependency expansion.
+ */
+export const INTERNAL_MOBILE_RESOURCES = [
+  "m_mixradius",
+  "m_salary",
+  "m_partners",
+] as const;
 
 // Backward compatibility alias (used by existing seed scripts)
 export const PERMISSION_GROUPS_KARYAWAN = PERMISSION_GROUPS_MOBILE;

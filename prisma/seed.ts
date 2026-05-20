@@ -14,6 +14,7 @@ import { logger } from "../lib/logger";
 import {
   PERMISSION_GROUPS,
   PERMISSION_GROUPS_MOBILE,
+  INTERNAL_MOBILE_RESOURCES,
   ACTIONS,
   getAllGranularPermissions,
 } from "../lib/permission-config";
@@ -26,7 +27,10 @@ const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flatMap((group) => {
   }
   return (group as { resources?: string[] }).resources || [];
 });
-const MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat();
+const MOBILE_RESOURCES = [
+  ...Object.values(PERMISSION_GROUPS_MOBILE).flat(),
+  ...INTERNAL_MOBILE_RESOURCES,
+];
 const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...MOBILE_RESOURCES])];
 
 async function main() {

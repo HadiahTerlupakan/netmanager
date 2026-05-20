@@ -47,8 +47,6 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "m_barang_masuk:create",
       "m_barang_keluar:read",
       "m_barang_keluar:create",
-      // Mobile - MixRadius (dependency: WO request search pelanggan)
-      "m_mixradius:read",
       // Mobile - Kehadiran
       "m_absensi:read",
       "m_absensi:create",
@@ -60,8 +58,6 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       // Mobile - Chat
       "m_chat:read",
       "m_chat:create",
-      // Mobile - Partners
-      "m_partners:read",
     ],
   },
   {
