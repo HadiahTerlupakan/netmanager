@@ -511,7 +511,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     actions: ["read"],
     description: "Akses menu Kalender Libur",
   },
-  m_topology_map: {
+  m_topology: {
     actions: ["read"],
     description: "Akses menu Topology Map (Peta Jaringan)",
   },
@@ -522,6 +522,18 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   m_chat: {
     actions: ["read", "create"],
     description: "Akses menu Chat (Komunikasi)",
+  },
+  m_salary: {
+    actions: ["read"],
+    description: "Akses menu Slip Gaji di mobile app",
+  },
+  m_mixradius: {
+    actions: ["read"],
+    description: "Akses menu MixRadius di mobile app",
+  },
+  m_partners: {
+    actions: ["read"],
+    description: "Akses menu Partners di mobile app",
   },
 };
 
