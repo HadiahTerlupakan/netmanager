@@ -1,10 +1,12 @@
-import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-import { apiError, ErrorCodes } from "@/lib/api-response";
-import { executeMobileWithIdempotency } from "@/lib/api";
+import {
+  apiError,
+  ErrorCodes,
+  createHandler,
+  executeMobileWithIdempotency,
+} from "@/lib/api";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { OvertimeRouteService, OvertimeService } from "@/modules/overtime";
 
 const overtimeService = new OvertimeService();
@@ -38,54 +40,27 @@ async function resolvePhotoUrl(
   );
 }
 
-/** Parse auth payload from mobile request. */
-async function getAuthContext(request: NextRequest) {
-  const authResult = await getMobileAuthPayload(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
-
-  const userId = authResult.id as string;
-  const tenantId = authResult.tenantId as string;
-  if (!userId) {
-    return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
-      status: 401,
-    });
-  }
-
-  return { userId, tenantId };
-}
-
 // GET - Get user's overtime history
-export async function GET(request: NextRequest) {
-  try {
-    const authContext = await getAuthContext(request);
-    if (authContext instanceof NextResponse) {
-      return authContext;
-    }
+export const GET = createHandler(
+  { auth: true, permissions: ["m_lembur:read"] },
+  async (_request, ctx) => {
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId as string;
 
     const result = await overtimeRouteService.getMobileContext(
-      authContext.userId,
-      authContext.tenantId,
+      userId,
+      tenantId,
     );
-
     return NextResponse.json(result);
-  } catch (error: unknown) {
-    logger.error("Mobile Overtime GET Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
-      { status: 500 },
-    );
-  }
-}
+  },
+);
 
 // POST - Create request / Start / Stop overtime
-export async function POST(request: NextRequest) {
-  try {
-    const authContext = await getAuthContext(request);
-    if (authContext instanceof NextResponse) {
-      return authContext;
-    }
+export const POST = createHandler(
+  { auth: true, permissions: ["m_lembur:create"] },
+  async (request, ctx) => {
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId as string;
 
     const body = await request.json();
     const action = body.action as "request" | "start" | "stop" | undefined;
@@ -95,9 +70,7 @@ export async function POST(request: NextRequest) {
         return apiError(
           "Tanggal dan alasan wajib diisi",
           ErrorCodes.VALIDATION_ERROR,
-          {
-            status: 400,
-          },
+          { status: 400 },
         );
       }
 
@@ -106,15 +79,15 @@ export async function POST(request: NextRequest) {
       return executeMobileWithIdempotency({
         request,
         scope: "overtime:create",
-        userId: authContext.userId,
+        userId,
         body,
         status: HTTP_CREATED,
         wrapData: false,
         handler: () =>
-          overtimeService.createRequest(authContext.userId, {
+          overtimeService.createRequest(userId, {
             date: new Date(body.date),
             reason: body.reason,
-            tenantId: authContext.tenantId,
+            tenantId,
           }),
       });
     }
@@ -124,20 +97,18 @@ export async function POST(request: NextRequest) {
         return apiError(
           "ID dan foto wajib diisi",
           ErrorCodes.VALIDATION_ERROR,
-          {
-            status: 400,
-          },
+          { status: 400 },
         );
       }
 
       const result = await overtimeService.startOvertime(
-        authContext.userId,
+        userId,
         body.overtimeId,
         {
-          photo: await resolvePhotoUrl(body.photo, authContext.userId, "start"),
+          photo: await resolvePhotoUrl(body.photo, userId, "start"),
           location: body.location as string,
           timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
-          tenantId: authContext.tenantId,
+          tenantId,
         },
       );
 
@@ -149,17 +120,15 @@ export async function POST(request: NextRequest) {
         return apiError(
           "ID dan foto wajib diisi",
           ErrorCodes.VALIDATION_ERROR,
-          {
-            status: 400,
-          },
+          { status: 400 },
         );
       }
 
       const result = await overtimeService.stopOvertime(
-        authContext.userId,
+        userId,
         body.overtimeId,
         {
-          photo: await resolvePhotoUrl(body.photo, authContext.userId, "stop"),
+          photo: await resolvePhotoUrl(body.photo, userId, "stop"),
           location: body.location as string,
           timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
         },
@@ -171,11 +140,5 @@ export async function POST(request: NextRequest) {
     return apiError("Aksi tidak valid", ErrorCodes.VALIDATION_ERROR, {
       status: 400,
     });
-  } catch (error: unknown) {
-    logger.error("Mobile Overtime POST Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
-      { status: 400 },
-    );
-  }
-}
+  },
+);

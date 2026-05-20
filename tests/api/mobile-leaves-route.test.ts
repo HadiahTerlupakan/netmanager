@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { prismaMock } from "../setup";
 
 const mockFns = vi.hoisted(() => ({
-  getMobileAuthPayload: vi.fn(),
   repoFindAll: vi.fn(),
   repoCreate: vi.fn(),
   findRequesterContext: vi.fn(),
@@ -16,9 +15,28 @@ const mockFns = vi.hoisted(() => ({
   findActiveLeaveForUserOnDate: vi.fn(),
 }));
 
-vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: mockFns.getMobileAuthPayload,
-}));
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    createHandler: (
+      _options: unknown,
+      handler: (
+        req: Request,
+        ctx: {
+          session: { user: { id: string; tenantId: string } };
+          params: Record<string, string>;
+        },
+      ) => unknown,
+    ) => {
+      return (req: Request, _routeContext?: unknown) =>
+        handler(req, {
+          session: { user: { id: "user-1", tenantId: "tenant-1" } },
+          params: {},
+        });
+    },
+  };
+});
 
 vi.mock("@/modules/attendance/repositories/LeaveRepository", () => ({
   LeaveRepository: class MockLeaveRepository {
@@ -64,10 +82,6 @@ import { POST } from "@/app/api/mobile/leaves/route";
 describe("mobile leaves route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      tenantId: "tenant-1",
-    });
     mockFns.hasEnoughDays.mockResolvedValue(true);
     mockFns.repoCreate.mockResolvedValue({ id: "leave-1" });
     mockFns.findRequesterContext.mockResolvedValue({
@@ -106,6 +120,7 @@ describe("mobile leaves route", () => {
         }),
         headers: { "content-type": "application/json" },
       }),
+      { params: Promise.resolve({}) },
     );
 
     expect(response.status).toBe(201);
@@ -147,6 +162,7 @@ describe("mobile leaves route", () => {
         }),
         headers: { "content-type": "application/json" },
       }),
+      { params: Promise.resolve({}) },
     );
 
     expect(response.status).toBe(201);
