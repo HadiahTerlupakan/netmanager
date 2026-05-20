@@ -1,9 +1,14 @@
 import { getUserPermissions } from "@/lib/auth";
+import { hasPermissionWithAlias } from "@/lib/permission-aliases";
 
 type MixRadiusAccessOptions = {
   userId: string;
   isSuperAdmin: boolean;
   requiredPermissions: string[];
+};
+
+const MOBILE_MIXRADIUS_EQUIVALENTS: Record<string, string> = {
+  "mixradius:read": "m_mixradius:read",
 };
 
 function hasWildcardPermission(permissions: string[]) {
@@ -14,8 +19,12 @@ function hasRequiredPermission(params: {
   permissions: string[];
   requiredPermissions: string[];
 }) {
-  return params.requiredPermissions.some((permission) =>
-    params.permissions.includes(permission),
+  return params.requiredPermissions.some(
+    (permission) =>
+      params.permissions.includes(permission) ||
+      hasPermissionWithAlias(params.permissions, permission) ||
+      (MOBILE_MIXRADIUS_EQUIVALENTS[permission] &&
+        params.permissions.includes(MOBILE_MIXRADIUS_EQUIVALENTS[permission])),
   );
 }
 
@@ -48,10 +57,13 @@ export class MixRadiusAccessService {
       return true;
     }
 
-    const hasMixRadiusRead = permissions.includes("mixradius:read");
+    const hasMixRadiusRead =
+      permissions.includes("mixradius:read") ||
+      permissions.includes("m_mixradius:read");
     const hasWorkOrderCreate =
       permissions.includes("workorders:create") ||
-      permissions.includes("list:create");
+      permissions.includes("list:create") ||
+      permissions.includes("m_work_order:create");
 
     return hasMixRadiusRead && hasWorkOrderCreate;
   }
