@@ -399,6 +399,44 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
       },
     ],
   },
+  {
+    code: "ACCOUNTING",
+    name: "Akuntansi",
+    path: "/admin/akuntansi",
+    icon: "HiOutlineCalculator",
+    children: [
+      {
+        code: "ACCOUNTING.JOURNAL",
+        name: "Jurnal",
+        path: "/admin/akuntansi/jurnal",
+        icon: "HiOutlineDocumentText",
+      },
+      {
+        code: "ACCOUNTING.COA",
+        name: "Chart of Accounts",
+        path: "/admin/akuntansi/coa",
+        icon: "HiOutlineListBullet",
+      },
+      {
+        code: "ACCOUNTING.PERIOD",
+        name: "Periode",
+        path: "/admin/akuntansi/periode",
+        icon: "HiOutlineCalendarDays",
+      },
+      {
+        code: "ACCOUNTING.RECONCILIATION",
+        name: "Rekonsiliasi",
+        path: "/admin/akuntansi/rekonsiliasi",
+        icon: "HiOutlineScale",
+      },
+      {
+        code: "ACCOUNTING.REPORTS",
+        name: "Laporan",
+        path: "/admin/akuntansi/laporan",
+        icon: "HiOutlineChartPie",
+      },
+    ],
+  },
 
   // ═══════════════════════════════════════════
   // KOMUNIKASI
