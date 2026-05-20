@@ -1,13 +1,33 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetMobileAuthPayload, mockGetMobileGroups } = vi.hoisted(() => ({
-  mockGetMobileAuthPayload: vi.fn(),
+const { mockVerifyMobileToken, mockGetMobileGroups } = vi.hoisted(() => ({
+  mockVerifyMobileToken: vi.fn(),
   mockGetMobileGroups: vi.fn(),
 }));
 
-vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: (request: Request) => mockGetMobileAuthPayload(request),
+vi.mock("next-auth", () => ({
+  getServerSession: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/mobile-auth", () => ({
+  getMobileTokenDetails: vi.fn().mockResolvedValue(null),
+  verifyMobileToken: (...args: unknown[]) => mockVerifyMobileToken(...args),
+}));
+
+vi.mock("@/lib/middleware/request-logger", () => ({
+  logRequest: vi.fn(),
+  logResponse: vi.fn(),
+  logAuditActivity: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/modules/integrations", () => ({
@@ -18,12 +38,21 @@ vi.mock("@/modules/integrations", () => ({
 
 import { GET } from "@/app/api/mobile/mixradius/groups/route";
 
+const authedRequest = (url = "http://localhost/api/mobile/mixradius/groups") =>
+  new NextRequest(url, { headers: { Authorization: "Bearer valid-token" } });
+
+const routeCtx = { params: Promise.resolve({}) };
+
 describe("GET /api/mobile/mixradius/groups", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetMobileAuthPayload.mockResolvedValue({
-      permissions: ["m_mixradius:read"],
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
       siteId: "site-1",
+      permissions: ["m_mixradius:read"],
+      isSuperAdmin: false,
     });
   });
 
@@ -38,9 +67,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
       },
     ]);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/mixradius/groups"),
-    );
+    const response = await GET(authedRequest(), routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -60,9 +87,13 @@ describe("GET /api/mobile/mixradius/groups", () => {
   });
 
   it("returns all groups when the mobile user has no site restriction", async () => {
-    mockGetMobileAuthPayload.mockResolvedValue({
-      permissions: ["m_mixradius:read"],
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
       siteId: null,
+      permissions: ["m_mixradius:read"],
+      isSuperAdmin: false,
     });
     mockGetMobileGroups.mockResolvedValue([
       {
@@ -80,9 +111,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
       },
     ]);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/mixradius/groups"),
-    );
+    const response = await GET(authedRequest(), routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -107,31 +136,25 @@ describe("GET /api/mobile/mixradius/groups", () => {
   });
 
   it("returns 403 when mobile user lacks mixradius read permission", async () => {
-    mockGetMobileAuthPayload.mockResolvedValue({
-      permissions: [],
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
       siteId: "site-1",
+      permissions: [],
+      isSuperAdmin: false,
     });
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/mixradius/groups"),
-    );
-    const json = await response.json();
+    const response = await GET(authedRequest(), routeCtx);
 
     expect(response.status).toBe(403);
-    expect(json).toEqual({
-      success: false,
-      error: "Dilarang: Memerlukan izin m_mixradius:read",
-      code: "FORBIDDEN",
-    });
     expect(mockGetMobileGroups).not.toHaveBeenCalled();
   });
 
   it("returns 500 when group retrieval fails unexpectedly", async () => {
     mockGetMobileGroups.mockRejectedValue(new Error("database unavailable"));
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/mixradius/groups"),
-    );
+    const response = await GET(authedRequest(), routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(500);

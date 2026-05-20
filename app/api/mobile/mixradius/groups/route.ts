@@ -1,40 +1,28 @@
 import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { createHandler } from "@/lib/api";
 import { getMixRadiusGroupRouteService } from "@/modules/integrations";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 
-export async function GET(request: NextRequest) {
-  try {
-    const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+export const GET = createHandler(
+  { auth: true, permissions: ["m_mixradius:read"] },
+  async (_req, ctx) => {
+    try {
+      const routeService = getMixRadiusGroupRouteService();
+      const groups = await routeService.getMobileGroups(
+        ctx.session!.user.siteId as string | null | undefined,
+        ctx.session!.user.tenantId ?? undefined,
+      );
 
-    const permissions = authResult.permissions || [];
-    if (!permissions.includes("m_mixradius:read")) {
+      return apiSuccess(groups);
+    } catch (error) {
+      logger.error("Error fetching MixRadius groups:", error);
       return apiError(
-        "Dilarang: Memerlukan izin m_mixradius:read",
-        ErrorCodes.FORBIDDEN,
-        { status: 403 },
+        "Gagal mengambil grup MixRadius",
+        ErrorCodes.INTERNAL_ERROR,
+        {
+          status: 500,
+        },
       );
     }
-
-    const routeService = getMixRadiusGroupRouteService();
-    const groups = await routeService.getMobileGroups(
-      authResult.siteId as string | null | undefined,
-      authResult.tenantId ?? undefined,
-    );
-
-    return apiSuccess(groups);
-  } catch (error) {
-    logger.error("Error fetching MixRadius groups:", error);
-    return apiError(
-      "Gagal mengambil grup MixRadius",
-      ErrorCodes.INTERNAL_ERROR,
-      {
-        status: 500,
-      },
-    );
-  }
-}
+  },
+);

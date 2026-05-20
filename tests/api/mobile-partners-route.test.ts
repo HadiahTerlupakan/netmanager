@@ -1,40 +1,56 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "../setup";
 
-const mockFns = vi.hoisted(() => ({
-  getMobileAuthPayload: vi.fn(),
+const { mockVerifyMobileToken } = vi.hoisted(() => ({
+  mockVerifyMobileToken: vi.fn(),
 }));
 
-vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: mockFns.getMobileAuthPayload,
+vi.mock("next-auth", () => ({
+  getServerSession: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/mobile-auth", () => ({
+  getMobileTokenDetails: vi.fn().mockResolvedValue(null),
+  verifyMobileToken: (...args: unknown[]) => mockVerifyMobileToken(...args),
+}));
+
+vi.mock("@/lib/middleware/request-logger", () => ({
+  logRequest: vi.fn(),
+  logResponse: vi.fn(),
+  logAuditActivity: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/modules/database", () => ({
   prisma: prismaMock,
 }));
 
-vi.mock("@/lib/api-response", () => ({
-  ApiErrors: {
-    forbidden: (message: string) =>
-      NextResponse.json({ error: message }, { status: 403 }),
-  },
-  apiError: (message: string, _code?: string, options?: { status?: number }) =>
-    NextResponse.json({ error: message }, { status: options?.status ?? 500 }),
-  ErrorCodes: {
-    INTERNAL_ERROR: "INTERNAL_ERROR",
-  },
-}));
-
 import { GET } from "@/app/api/mobile/partners/route";
+
+const authedRequest = (url: string) =>
+  new NextRequest(url, { headers: { Authorization: "Bearer valid-token" } });
+
+const routeCtx = { params: Promise.resolve({}) };
 
 describe("mobile partners route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
       tenantId: "tenant-1",
+      siteId: null,
       permissions: ["m_partners:read"],
+      isSuperAdmin: false,
     });
     prismaMock.user.findMany.mockResolvedValue([]);
     prismaMock.user.count.mockResolvedValue(0);
@@ -75,9 +91,10 @@ describe("mobile partners route", () => {
       .mockResolvedValueOnce({ id: "ot-1", status: "IN_PROGRESS" } as never);
 
     const response = await GET(
-      new NextRequest(
+      authedRequest(
         "http://localhost/api/mobile/partners?search=partner&page=1&limit=20",
       ),
+      routeCtx,
     );
 
     expect(response.status).toBe(200);

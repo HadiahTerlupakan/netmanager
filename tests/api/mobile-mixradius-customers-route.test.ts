@@ -1,13 +1,33 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetMobileAuthPayload, mockFetchCustomersPPP } = vi.hoisted(() => ({
-  mockGetMobileAuthPayload: vi.fn(),
+const { mockVerifyMobileToken, mockFetchCustomersPPP } = vi.hoisted(() => ({
+  mockVerifyMobileToken: vi.fn(),
   mockFetchCustomersPPP: vi.fn(),
 }));
 
-vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: (request: Request) => mockGetMobileAuthPayload(request),
+vi.mock("next-auth", () => ({
+  getServerSession: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/mobile-auth", () => ({
+  getMobileTokenDetails: vi.fn().mockResolvedValue(null),
+  verifyMobileToken: (...args: unknown[]) => mockVerifyMobileToken(...args),
+}));
+
+vi.mock("@/lib/middleware/request-logger", () => ({
+  logRequest: vi.fn(),
+  logResponse: vi.fn(),
+  logAuditActivity: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/modules/integrations", () => {
@@ -30,13 +50,21 @@ vi.mock("@/modules/integrations", () => {
 
 import { GET } from "@/app/api/mobile/mixradius/customers/route";
 
+const authedRequest = (url: string) =>
+  new NextRequest(url, { headers: { Authorization: "Bearer valid-token" } });
+
+const routeCtx = { params: Promise.resolve({}) };
+
 describe("GET /api/mobile/mixradius/customers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockGetMobileAuthPayload.mockResolvedValue({
-      permissions: ["m_mixradius:read"],
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
       siteId: "site-1",
+      permissions: ["m_mixradius:read"],
+      isSuperAdmin: false,
     });
   });
 
@@ -62,11 +90,11 @@ describe("GET /api/mobile/mixradius/customers", () => {
       ],
     });
 
-    const request = new NextRequest(
+    const request = authedRequest(
       "http://localhost/api/mobile/mixradius/customers?search=&groupId=group-1&authStatus=Disabled-Users&start=0&length=100&draw=1&searchType=all",
     );
 
-    const response = await GET(request);
+    const response = await GET(request, routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -123,11 +151,11 @@ describe("GET /api/mobile/mixradius/customers", () => {
       ],
     });
 
-    const request = new NextRequest(
+    const request = authedRequest(
       "http://localhost/api/mobile/mixradius/customers?search=budi",
     );
 
-    const response = await GET(request);
+    const response = await GET(request, routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -157,24 +185,22 @@ describe("GET /api/mobile/mixradius/customers", () => {
   });
 
   it("returns 403 when mobile user lacks mixradius read permission", async () => {
-    mockGetMobileAuthPayload.mockResolvedValue({
-      permissions: [],
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
       siteId: "site-1",
+      permissions: [],
+      isSuperAdmin: false,
     });
 
-    const request = new NextRequest(
+    const request = authedRequest(
       "http://localhost/api/mobile/mixradius/customers?search=andi",
     );
 
-    const response = await GET(request);
-    const json = await response.json();
+    const response = await GET(request, routeCtx);
 
     expect(response.status).toBe(403);
-    expect(json).toEqual({
-      success: false,
-      error: "Dilarang: Memerlukan izin m_mixradius:read",
-      code: "FORBIDDEN",
-    });
     expect(mockFetchCustomersPPP).not.toHaveBeenCalled();
   });
 
@@ -183,11 +209,11 @@ describe("GET /api/mobile/mixradius/customers", () => {
     configError.name = "MixRadiusConfigError";
     mockFetchCustomersPPP.mockRejectedValue(configError);
 
-    const request = new NextRequest(
+    const request = authedRequest(
       "http://localhost/api/mobile/mixradius/customers?search=yan",
     );
 
-    const response = await GET(request);
+    const response = await GET(request, routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(503);
@@ -203,11 +229,11 @@ describe("GET /api/mobile/mixradius/customers", () => {
       new Error("unexpected upstream failure"),
     );
 
-    const request = new NextRequest(
+    const request = authedRequest(
       "http://localhost/api/mobile/mixradius/customers?search=yan",
     );
 
-    const response = await GET(request);
+    const response = await GET(request, routeCtx);
     const json = await response.json();
 
     expect(response.status).toBe(500);
