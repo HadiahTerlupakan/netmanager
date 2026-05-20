@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -70,9 +70,12 @@ export function JurnalListClient() {
     [page, filters],
   );
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchData(1);
-  });
+  }, []);
 
   const totalDebit = (item: JournalItem) =>
     item.lines

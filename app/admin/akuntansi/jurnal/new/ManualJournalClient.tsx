@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { HiPlus, HiOutlineTrash } from "react-icons/hi2";
@@ -31,11 +31,14 @@ export function ManualJournalClient() {
   const [coaOptions, setCoaOptions] = useState<CoaOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetch("/api/admin/accounting/coa?isActive=true")
       .then((r) => r.json())
       .then((data) => setCoaOptions(data.data || []));
-  });
+  }, []);
 
   const totalDebit = lines
     .filter((l) => l.side === "DEBIT")

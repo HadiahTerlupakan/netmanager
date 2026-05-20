@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
@@ -27,9 +27,12 @@ export function RekonsiliasiListClient() {
     setLoading(false);
   }, []);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchData();
-  });
+  }, []);
 
   if (loading) return <div className="p-4">Memuat...</div>;
 

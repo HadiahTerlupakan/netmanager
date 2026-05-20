@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { HiPlus, HiOutlineTrash } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
@@ -28,9 +28,12 @@ export function RecurringClient() {
     setLoading(false);
   }, []);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchData();
-  });
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus template ini?")) return;

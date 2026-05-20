@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { HiPlus, HiOutlineTrash, HiOutlinePencil } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
@@ -49,9 +49,12 @@ export function CoaClient() {
     setLoading(false);
   }, [filterType]);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchData();
-  });
+  }, []);
 
   const handleCreate = async () => {
     const res = await fetch("/api/admin/accounting/coa", {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 
@@ -39,11 +39,14 @@ export function BukuKasClient() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetch("/api/admin/accounting/coa?type=ASSET")
       .then((r) => r.json())
       .then((data) => setCoaOptions(data.data || []));
-  });
+  }, []);
 
   const fetchReport = async () => {
     if (!coaId) return;

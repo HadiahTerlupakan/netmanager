@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -53,9 +53,12 @@ export function JurnalDetailClient() {
     setLoading(false);
   }, [id]);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchJournal();
-  });
+  }, []);
 
   const handleReverse = async () => {
     if (!reason.trim()) return;

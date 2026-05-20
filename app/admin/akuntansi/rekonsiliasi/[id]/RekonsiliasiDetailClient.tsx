@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
@@ -39,9 +39,12 @@ export function RekonsiliasiDetailClient() {
     setLoading(false);
   }, [id]);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetchData();
-  });
+  }, []);
 
   const handleComplete = async () => {
     if (!confirm("Selesaikan rekonsiliasi ini?")) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 
@@ -41,11 +41,14 @@ export function BukuBesarClient() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useState(() => {
+  const _hasFetched = useRef(false);
+  useEffect(() => {
+    if (_hasFetched.current) return;
+    _hasFetched.current = true;
     fetch("/api/admin/accounting/coa?isActive=true")
       .then((r) => r.json())
       .then((data) => setCoaOptions(data.data || []));
-  });
+  }, []);
 
   const fetchReport = async () => {
     if (!coaId) return;
