@@ -8,6 +8,10 @@ import {
   handlePackageChange,
   handleProfilePppUpdated,
 } from "@/modules/network";
+import { handleInvoiceCreatedAccounting } from "@/modules/accounting/services/event-handlers/invoice-created-accounting.handler";
+import { handleInvoicePaidAccounting } from "@/modules/accounting/services/event-handlers/invoice-paid-accounting.handler";
+import { handleExpenseApprovedAccounting } from "@/modules/accounting/services/event-handlers/expense-approved-accounting.handler";
+import { handlePurchaseOrderPaidAccounting } from "@/modules/accounting/services/event-handlers/purchase-order-paid-accounting.handler";
 import {
   handleInvoiceAutoIsolate,
   handleInvoicePaidActivation,
@@ -407,4 +411,22 @@ export function registerDefaultHandlers(): void {
     );
     // Could trigger alerts, auto-ticket creation, etc.
   });
+
+  // --- ACCOUNTING EVENTS (gated by feature flag) ---
+
+  if (process.env.ACCOUNTING_MODULE_ENABLED === "true") {
+    registerEventHandler(
+      EVENT_NAMES.INVOICE_CREATED,
+      handleInvoiceCreatedAccounting,
+    );
+    registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidAccounting);
+    registerEventHandler(
+      EVENT_NAMES.EXPENSE_APPROVED,
+      handleExpenseApprovedAccounting,
+    );
+    registerEventHandler(
+      EVENT_NAMES.PURCHASE_ORDER_PAID,
+      handlePurchaseOrderPaidAccounting,
+    );
+  }
 }

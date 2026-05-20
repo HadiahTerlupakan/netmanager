@@ -39,6 +39,10 @@ export const EVENT_NAMES = {
   PAYMENT_FAILED: "billing:payment.failed",
   PACKAGE_CHANGED: "billing:package.changed",
 
+  // Finance Events (for accounting consumption)
+  EXPENSE_APPROVED: "finance:expense.approved",
+  PURCHASE_ORDER_PAID: "finance:purchase_order.paid",
+
   // Customer Events
   CUSTOMER_CREATED: "customer:created",
   CUSTOMER_UPDATED: "customer:updated",
@@ -659,6 +663,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.PROFILE_PPP_UPDATED,
     category: "network",
     priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.EXPENSE_APPROVED]: {
+    name: EVENT_NAMES.EXPENSE_APPROVED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PURCHASE_ORDER_PAID]: {
+    name: EVENT_NAMES.PURCHASE_ORDER_PAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,
   },
