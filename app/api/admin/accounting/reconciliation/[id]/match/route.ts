@@ -5,7 +5,7 @@ import {
 } from "@/modules/accounting";
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:reconciliation"] },
+  { auth: true, permissions: ["reconciliation:manage"] },
   async (request, _ctx) => {
     const body = await request.json();
     const parsed = manualMatchSchema.safeParse(body);

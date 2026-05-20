@@ -7,7 +7,7 @@ import {
 } from "@/modules/accounting";
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:journal:reverse"] },
+  { auth: true, permissions: ["journal:update"] },
   async (request, ctx) => {
     const journalId = ctx.params.id;
     const body = await request.json();

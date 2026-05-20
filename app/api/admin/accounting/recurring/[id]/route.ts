@@ -6,7 +6,7 @@ import {
 } from "@/modules/accounting";
 
 export const GET = createHandler(
-  { auth: true, permissions: ["accounting:recurring:manage"] },
+  { auth: true, permissions: ["recurring:manage"] },
   async (_request, ctx) => {
     const result = await getRecurringService().findById(ctx.params.id);
     if (!result) return ApiErrors.notFound("Template tidak ditemukan");
@@ -15,7 +15,7 @@ export const GET = createHandler(
 );
 
 export const PUT = createHandler(
-  { auth: true, permissions: ["accounting:recurring:manage"] },
+  { auth: true, permissions: ["recurring:manage"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = updateRecurringSchema.safeParse(body);
@@ -39,7 +39,7 @@ export const PUT = createHandler(
 );
 
 export const DELETE = createHandler(
-  { auth: true, permissions: ["accounting:recurring:manage"] },
+  { auth: true, permissions: ["recurring:manage"] },
   async (_request, ctx) => {
     try {
       await getRecurringService().delete(ctx.params.id);

@@ -5,7 +5,7 @@ import {
 } from "@/modules/accounting";
 
 export const GET = createHandler(
-  { auth: true, permissions: ["accounting:reconciliation"] },
+  { auth: true, permissions: ["reconciliation:read"] },
   async (_request, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const coaId = ctx.query?.coaId as string | undefined;
@@ -15,7 +15,7 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:reconciliation"] },
+  { auth: true, permissions: ["reconciliation:read"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createReconciliationSchema.safeParse(body);

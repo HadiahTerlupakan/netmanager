@@ -43,7 +43,7 @@ export const GET = createHandler(
 );
 
 export const PUT = createHandler(
-  { auth: true, permissions: ["accounting:coa:manage"] },
+  { auth: true, permissions: ["coa:manage"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = updateCoaSchema.safeParse(body);
@@ -65,7 +65,7 @@ export const PUT = createHandler(
 );
 
 export const DELETE = createHandler(
-  { auth: true, permissions: ["accounting:coa:manage"] },
+  { auth: true, permissions: ["coa:manage"] },
   async (_request, ctx) => {
     try {
       const service = getChartOfAccountService();

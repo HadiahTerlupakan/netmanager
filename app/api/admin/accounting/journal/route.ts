@@ -34,7 +34,7 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:journal:create"] },
+  { auth: true, permissions: ["journal:create"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createManualJournalSchema.safeParse(body);

@@ -914,6 +914,7 @@ model Pelanggan {
   pendingPackageApplyAt         DateTime?
   saldoKreditRupiah             BigInt              @default(0)
   couponUsage                   CouponUsage[]
+  onuDevices                    OnuDevice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   pendingPackage                HargaPaket?         @relation("PelangganPendingPackage", fields: [pendingPackageId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
@@ -4239,4 +4240,163 @@ model BankReconciliationLine {
 
   @@index([reconciliationId, matchStatus])
   @@map("bank_reconciliation_lines")
+}
+
+// ============================================================
+// OLT Provisioning Module
+// ============================================================
+
+enum OltVendor {
+  ZTE
+  HSGQ
+  HIOSO
+  CDATA
+}
+
+enum OltStatus {
+  ACTIVE
+  MAINTENANCE
+  OFFLINE
+}
+
+enum OnuStatus {
+  UNREGISTERED
+  REGISTERED
+  ACTIVE
+  OFFLINE
+  DISABLED
+  LOS
+}
+
+enum VlanPurpose {
+  INTERNET
+  IPTV
+  VOIP
+  MANAGEMENT
+}
+
+enum OltCommandResult {
+  SUCCESS
+  FAILED
+  TIMEOUT
+  PENDING
+}
+
+enum PreRegStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model OltDevice {
+  id            String      @id @default(cuid())
+  tenantId      String
+  name          String
+  vendor        OltVendor
+  model         String
+  ipAddress     String
+  snmpCommunity String?
+  snmpPort      Int         @default(161)
+  telnetPort    Int?        @default(23)
+  telnetUser    String?
+  telnetPass    String?
+  totalPonPorts Int
+  location      String?
+  status        OltStatus   @default(ACTIVE)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  onus          OnuDevice[]
+  vlanConfigs   OltVlanConfig[]
+
+  @@index([tenantId])
+  @@map("olt_devices")
+}
+
+model OnuDevice {
+  id               String    @id @default(cuid())
+  tenantId         String
+  oltId            String
+  pelangganId      String?
+  serialNumber     String
+  ponPort          Int
+  onuIndex         Int
+  vendor           String?
+  model            String?
+  status           OnuStatus @default(UNREGISTERED)
+  rxPower          Float?
+  txPower          Float?
+  vlanId           Int?
+  bandwidthProfile String?
+  lastSeen         DateTime?
+  registeredAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  olt              OltDevice  @relation(fields: [oltId], references: [id])
+  pelanggan        Pelanggan? @relation(fields: [pelangganId], references: [id])
+  commandLogs      OltCommandLog[]
+
+  @@unique([oltId, ponPort, onuIndex])
+  @@unique([serialNumber])
+  @@index([tenantId])
+  @@index([oltId])
+  @@index([pelangganId])
+  @@index([status])
+  @@map("onu_devices")
+}
+
+model OltVlanConfig {
+  id        String      @id @default(cuid())
+  tenantId  String
+  oltId     String
+  ponPort   Int?
+  vlanId    Int
+  vlanName  String?
+  purpose   VlanPurpose @default(INTERNET)
+  createdAt DateTime    @default(now())
+
+  olt       OltDevice   @relation(fields: [oltId], references: [id])
+
+  @@index([oltId])
+  @@map("olt_vlan_configs")
+}
+
+model OltCommandLog {
+  id         String           @id @default(cuid())
+  tenantId   String
+  oltId      String
+  onuId      String?
+  command    String
+  params     Json
+  result     OltCommandResult
+  errorMsg   String?
+  executedBy String
+  executedAt DateTime         @default(now())
+
+  onu        OnuDevice?       @relation(fields: [onuId], references: [id])
+
+  @@index([tenantId, executedAt])
+  @@index([oltId])
+  @@index([onuId])
+  @@map("olt_command_logs")
+}
+
+model OnuPreRegistration {
+  id               String       @id @default(cuid())
+  tenantId         String
+  serialNumber     String
+  oltId            String?
+  pelangganId      String?
+  bandwidthProfile String?
+  vlanId           Int?
+  status           PreRegStatus @default(PENDING)
+  completedAt      DateTime?
+  createdBy        String
+  createdAt        DateTime     @default(now())
+
+  @@unique([serialNumber])
+  @@index([tenantId, status])
+  @@map("onu_pre_registrations")
 }

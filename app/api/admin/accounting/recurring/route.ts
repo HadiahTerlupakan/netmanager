@@ -5,7 +5,7 @@ import {
 } from "@/modules/accounting";
 
 export const GET = createHandler(
-  { auth: true, permissions: ["accounting:recurring:manage"] },
+  { auth: true, permissions: ["recurring:manage"] },
   async (_request, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const items = await getRecurringService().list(tenantId);
@@ -14,7 +14,7 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:recurring:manage"] },
+  { auth: true, permissions: ["recurring:manage"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createRecurringSchema.safeParse(body);

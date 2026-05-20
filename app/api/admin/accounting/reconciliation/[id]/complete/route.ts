@@ -5,7 +5,7 @@ import {
 } from "@/modules/accounting";
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:reconciliation"] },
+  { auth: true, permissions: ["reconciliation:manage"] },
   async (_request, ctx) => {
     try {
       const result = await getBankReconciliationService().complete(

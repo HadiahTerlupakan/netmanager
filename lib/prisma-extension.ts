@@ -45,8 +45,19 @@ function buildTenantReadWhere(
   model: string | undefined,
   where: Record<string, unknown> | undefined,
   tenantId: string,
+  operation?: string,
 ) {
   if (model && GLOBAL_REFERENCE_MODELS.has(model)) {
+    const isUniqueOp =
+      operation === "findUnique" || operation === "findUniqueOrThrow";
+
+    if (isUniqueOp) {
+      return {
+        ...(where ?? {}),
+        OR: [{ tenantId }, { tenantId: null }],
+      };
+    }
+
     return {
       AND: [
         where ?? {},
@@ -205,6 +216,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
                   model,
                   args.where as Record<string, unknown> | undefined,
                   tenantId,
+                  operation,
                 );
               } else if (isWriteOp) {
                 args.where = buildTenantWriteWhere(

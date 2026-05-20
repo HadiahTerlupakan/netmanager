@@ -82,6 +82,39 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     ],
   },
   {
+    code: "OLT",
+    name: "OLT Management",
+    path: "/admin/olt",
+    icon: "HiOutlineServerStack",
+    section: "Operasional",
+    children: [
+      {
+        code: "OLT.DEVICES",
+        name: "Perangkat OLT",
+        path: "/admin/olt/devices",
+        icon: "HiOutlineServer",
+      },
+      {
+        code: "OLT.ONU",
+        name: "ONU",
+        path: "/admin/olt/onu",
+        icon: "HiOutlineWifi",
+      },
+      {
+        code: "OLT.UNREGISTERED",
+        name: "ONU Unregistered",
+        path: "/admin/olt/onu/unregistered",
+        icon: "HiOutlineExclamationCircle",
+      },
+      {
+        code: "OLT.LOGS",
+        name: "Command Logs",
+        path: "/admin/olt/logs",
+        icon: "HiOutlineDocumentText",
+      },
+    ],
+  },
+  {
     code: "PAKET",
     name: "Paket Internet",
     path: "/admin/paket",

@@ -59,7 +59,7 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["accounting:coa:manage"] },
+  { auth: true, permissions: ["coa:manage"] },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createCoaSchema.safeParse(body);

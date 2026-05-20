@@ -153,6 +153,11 @@ function getPermissionResource(code: string): string {
     "MITRA.LIST": "mitra",
     "MITRA.WITHDRAWALS": "withdrawals",
     "INVESTORS.LIST": "investors",
+    "ACCOUNTING.JOURNAL": "accounting",
+    "ACCOUNTING.COA": "accounting",
+    "ACCOUNTING.PERIOD": "accounting",
+    "ACCOUNTING.RECONCILIATION": "accounting",
+    "ACCOUNTING.REPORTS": "accounting",
   };
 
   if (specialMappings[code]) {
