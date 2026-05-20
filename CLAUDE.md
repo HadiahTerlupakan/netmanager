@@ -479,5 +479,5 @@ Detail lengkap: `docs/standards/mobile-update-strategy.md`
 
 ---
 
-*Last Updated: 2026-05-17*
-*Version: 3.4 - Added Mobile Update Strategy*
+*Last Updated: 2026-05-20*
+*Version: 3.5 - Added Accounting Module*
