@@ -74,13 +74,33 @@ app/admin/akuntansi/
 **Files:**
 - Create: `app/admin/akuntansi/layout.tsx`
 - Create: `app/admin/akuntansi/page.tsx`
-- Modify: sidebar config (tambah menu "Akuntansi" dengan sub-items)
+- Modify: `lib/menu-config.ts` (tambah menu "Akuntansi")
 
 **Detail:**
 - Layout: `ensureAnyPermission(['accounting:read'])`
 - Page: `redirect('/admin/akuntansi/jurnal')`
-- Sidebar: icon `HiOutlineCalculator`, sub-menu: Jurnal, COA, Periode, Rekonsiliasi, Laporan
-- Permission gate: hanya tampil jika user punya `accounting:read`
+
+**Sidebar menu entry** — tambah di `lib/menu-config.ts` setelah FINANCE (line ~401), masih di section `"Keuangan"`:
+
+```ts
+{
+  code: "ACCOUNTING",
+  name: "Akuntansi",
+  path: "/admin/akuntansi",
+  icon: "HiOutlineCalculator",
+  children: [
+    { code: "ACCOUNTING.JOURNAL", name: "Jurnal", path: "/admin/akuntansi/jurnal", icon: "HiOutlineDocumentText" },
+    { code: "ACCOUNTING.COA", name: "Chart of Accounts", path: "/admin/akuntansi/coa", icon: "HiOutlineListBullet" },
+    { code: "ACCOUNTING.PERIOD", name: "Periode", path: "/admin/akuntansi/periode", icon: "HiOutlineCalendarDays" },
+    { code: "ACCOUNTING.RECONCILIATION", name: "Rekonsiliasi", path: "/admin/akuntansi/rekonsiliasi", icon: "HiOutlineScale" },
+    { code: "ACCOUNTING.REPORTS", name: "Laporan", path: "/admin/akuntansi/laporan", icon: "HiOutlineChartPie" },
+  ],
+},
+```
+
+- Posisi: tepat setelah menu FINANCE, sebelum section "Komunikasi"
+- Permission gate: `accounting:read` (via `getPermissionResource` → code "ACCOUNTING" → resource "accounting")
+- Icon: `HiOutlineCalculator` (perlu tambah di `adminSidebarIcons.tsx` jika belum ada)
 
 ---
 
