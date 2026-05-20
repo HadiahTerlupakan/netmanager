@@ -45,6 +45,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-20] — Fix data contact tidak tersimpan saat create WO (guest/MixRadius)
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/validations/workorder.ts`, `modules/work-order/services/work-order.mutation.types.ts`
+- **Author**: agent
+- **Deskripsi**: Field `contactName`, `contactPhone`, dan `locationAddress` tidak ada di Zod schema (`workOrderCreateSchema`) maupun `CreateWorkOrderInput` interface. Akibatnya Zod `safeParse()` membuang field tersebut dari payload — data contact yang diisi user di form tidak pernah sampai ke DB. Ditambahkan ketiga field ke schema dan interface sehingga alur data frontend → Zod → service → repository → DB kini utuh.
+- **Files**: `lib/validations/workorder.ts`, `modules/work-order/services/work-order.mutation.types.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-20] — Customer Info di WO list/detail tidak tampil untuk pelanggan MixRadius
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/workorders`, `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Sejak commit `22f72832d` (Jan 2026 — pivot ke `MixRadiusCustomer` model), semua WO yang dibuat dari pelanggan MixRadius selalu disimpan dengan `pelangganId: null` (sesuai desain karena data pelanggan ada di MixRadius, bukan DB lokal). Tapi `WoSidebar` dan `WoListClient` masih merender Customer Info hanya dari relasi `workOrder.pelanggan` — alhasil 1968 WO existing tidak menampilkan nama, ID, telepon, atau alamat pelanggan. Diperbaiki dengan helper `getWorkOrderCustomerInfo` yang resolve sumber pelanggan secara konsisten dari `pelanggan` (FK lokal), `[MixRadius: <username>]` marker di description, atau fallback `contactName/contactPhone/locationAddress`. UI sekarang menampilkan badge sumber (Lokal/MixRadius/Internal/Guest) dan field-field customer terisi untuk semua sumber. Tidak ada migration DB — semata-mata layer rendering yang dilengkapi.
+- **Files**: `modules/work-order/utils/mixradius-customer-info.ts` (baru), `modules/work-order/client.ts`, `modules/work-order/domain/entities/WorkOrderRepositoryTypes.ts`, `modules/work-order/repositories/work-order-repository-selects.ts`, `app/admin/workorders/[id]/types.ts`, `app/admin/workorders/[id]/components/WoSidebar.tsx`, `app/admin/workorders/list/WoListClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-20] — Standarkan permission `list:*` → `workorders:*` di workorders pages
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/workorders`, `app/api/admin/workorders`
+- **Author**: agent
+- **Deskripsi**: Page-level (`list/page.tsx`, `new/page.tsx`, `[id]/page.tsx`, `layout.tsx`, `page.tsx`) dan client-level (`WoListClient`, `WoDetailClient`) masih menggunakan resource legacy `list:*` yang inkonsisten dengan API (`workorders:*`), `RoleFactory`, dan konstanta `PERMISSIONS.WORK_ORDER`. Walaupun alias dua arah `list:* ↔ workorders:*` mencegah 403 secara fungsional, inkonsistensi ini menyimpang dari standar catalog dan menyulitkan audit RBAC. Diseragamkan ke `workorders:*` (read/create/update/delete/cancel/verify/approve_request) sesuai pola standar. Pola fallback `workorders:* || list:*` di `WoDetailClient` dan endpoint `[id]/approve` ikut disederhanakan karena `hasPermissionWithAlias` sudah menangani backward compatibility lewat `PERMISSION_ALIASES`.
+- **Files**: `app/admin/workorders/page.tsx`, `app/admin/workorders/layout.tsx`, `app/admin/workorders/list/page.tsx`, `app/admin/workorders/list/WoListClient.tsx`, `app/admin/workorders/new/page.tsx`, `app/admin/workorders/[id]/page.tsx`, `app/admin/workorders/[id]/WoDetailClient.tsx`, `app/api/admin/workorders/[id]/approve/route.ts`
+- **Breaking**: ❌ Tidak (alias backward-compatible tetap aktif di `lib/permission-aliases.ts`)
+
 ### [2026-05-20] — Design doc modul akuntansi (double-entry GL)
 
 - **Tipe**: [DOCS]

@@ -5,3 +5,11 @@ export type {
   WorkOrderListSummary,
   WorkOrderListSummarySource,
 } from "./utils/work-order-list-summary";
+export {
+  extractMixRadiusUsername,
+  getWorkOrderCustomerInfo,
+} from "./utils/mixradius-customer-info";
+export type {
+  WorkOrderCustomerInfo,
+  WorkOrderCustomerInfoSource,
+} from "./utils/mixradius-customer-info";

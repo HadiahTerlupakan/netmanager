@@ -1,7 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import { ClientComponent } from './WoNewClient'
+import { ensurePermission } from "@/lib/rbac";
+import { ClientComponent } from "./WoNewClient";
 
 export default async function Page() {
-    await ensurePermission('list:create')
-    return <ClientComponent />
+  await ensurePermission("workorders:create");
+  return <ClientComponent />;
 }

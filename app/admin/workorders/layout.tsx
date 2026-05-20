@@ -1,19 +1,18 @@
-import { ensureAnyPermission } from '@/lib/rbac'
+import { ensureAnyPermission } from "@/lib/rbac";
 
 // Work Orders section permissions
 const WORKORDERS_PERMISSIONS = [
-    'workorders:read',
-    'work_order_dashboard:read',
-    'list:read',
-    'site:read',
-    'department:read'
-]
+  "workorders:read",
+  "work_order_dashboard:read",
+  "site:read",
+  "department:read",
+];
 
 export default async function WorkordersSectionLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode
+  children: React.ReactNode;
 }) {
-    await ensureAnyPermission(WORKORDERS_PERMISSIONS)
-    return <>{children}</>
+  await ensureAnyPermission(WORKORDERS_PERMISSIONS);
+  return <>{children}</>;
 }

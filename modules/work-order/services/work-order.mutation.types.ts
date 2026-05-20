@@ -4,6 +4,11 @@ import type {
   WorkOrderType,
 } from "../types/work-order.enums";
 
+/**
+ * Input untuk create work order dari API route.
+ * PENTING: Field di sini HARUS sinkron dengan workOrderCreateSchema
+ * di lib/validations/workorder.ts — Zod membuang field yang tidak ada di schema.
+ */
 export interface CreateWorkOrderInput {
   type: WorkOrderType;
   title: string;
@@ -15,6 +20,10 @@ export interface CreateWorkOrderInput {
   scheduledDate?: Date | string;
   ticketId?: string;
   isInternal?: boolean;
+  // Denormalized contact — diisi saat WO dibuat dari MixRadius/guest (tanpa pelangganId lokal)
+  contactName?: string;
+  contactPhone?: string;
+  locationAddress?: string;
 }
 
 export interface UpdateWorkOrderInput {

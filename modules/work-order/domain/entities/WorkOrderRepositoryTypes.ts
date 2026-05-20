@@ -186,12 +186,14 @@ export interface WorkOrderListItem {
   id: string;
   workOrderNumber: string;
   title: string;
+  description: string | null;
   type: WorkOrderType;
   status: WorkOrderStatus;
   priority: WorkOrderPriority;
   scheduledDate: Date | null;
   contactName: string | null;
   contactPhone: string | null;
+  locationAddress: string | null;
   isInternal: boolean;
   requestedById: string | null;
   createdAt: Date;

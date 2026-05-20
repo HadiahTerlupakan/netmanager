@@ -40,17 +40,20 @@ import {
   WORK_ORDER_SEARCH_DEBOUNCE_MS,
 } from "./constants";
 import { WorkOrderSummarySection } from "./WorkOrderSummarySection";
+import { getWorkOrderCustomerInfo } from "@/modules/work-order/client";
 
 interface WorkOrder {
   id: string;
   workOrderNumber: string;
   title: string;
+  description?: string | null;
   type: string;
   status: string;
   priority: string;
   scheduledDate: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
+  locationAddress?: string | null;
   isInternal: boolean;
   requestedById: string | null; // Added requestedById
   pelanggan?: {
@@ -131,16 +134,14 @@ export function ClientComponent() {
   const { hasPermission } = usePermission();
 
   // CRUD permissions
-  const canCreate = hasPermission("list:create");
-  const canDelete = hasPermission("list:delete"); // Hapus permanen
+  const canCreate = hasPermission("workorders:create");
+  const canDelete = hasPermission("workorders:delete"); // Hapus permanen
 
   // Workflow action permissions (terpisah dari CRUD)
-  const canCancel = hasPermission("list:cancel"); // Batalkan WO
-  const canVerify = hasPermission("list:verify"); // Verifikasi & Tolak WO
+  const canCancel = hasPermission("workorders:cancel"); // Batalkan WO
+  const canVerify = hasPermission("workorders:verify"); // Verifikasi & Tolak WO
   const canSendReminder = hasPermission("workorders:reminder"); // Kirim Reminder Manual
-  const canApproveRequest =
-    hasPermission("workorders:approve_request") ||
-    hasPermission("list:approve_request"); // Approve/Reject WO Request
+  const canApproveRequest = hasPermission("workorders:approve_request"); // Approve/Reject WO Request
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [pinnedTopCustomers, setPinnedTopCustomers] = useState<
@@ -668,38 +669,52 @@ export function ClientComponent() {
           </Badge>
         );
 
-        // If pelanggan exists, show customer info
-        if (wo.pelanggan) {
+        const customerInfo = getWorkOrderCustomerInfo(wo);
+
+        if (customerInfo.source === "internal") {
           return (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm text-gray-900 dark:text-white font-semibold leading-none">
-                  {wo.pelanggan.nama}
+                  {customerInfo.name || "Internal Request"}
                 </span>
+                {employeeBadge}
                 {sourceBadge}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
-                  {wo.pelanggan.idPelanggan}
-                </span>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                {wo.department?.name || "Internal / FOC"}
               </div>
             </div>
           );
         }
 
-        // If no pelanggan but has contactName/department, show as Internal/Employee
+        const originBadge =
+          customerInfo.source === "mixradius" ? (
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] h-4 font-medium">
+              MixRadius
+            </Badge>
+          ) : customerInfo.source === "guest" ? (
+            <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] h-4 font-medium">
+              Guest
+            </Badge>
+          ) : null;
+
         return (
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm text-gray-900 dark:text-white font-semibold leading-none">
-                {wo.contactName || "Internal Request"}
+                {customerInfo.name || "-"}
               </span>
-              {employeeBadge}
+              {originBadge}
               {sourceBadge}
             </div>
-            <div className="text-[11px] text-gray-500 dark:text-gray-400">
-              {wo.department?.name || (wo.isInternal ? "Internal / FOC" : "-")}
-            </div>
+            {customerInfo.identifier && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
+                  {customerInfo.identifier}
+                </span>
+              </div>
+            )}
           </div>
         );
       },

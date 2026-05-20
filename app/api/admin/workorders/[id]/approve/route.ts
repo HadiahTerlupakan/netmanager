@@ -14,7 +14,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const hasApprovePermission =
     (await hasPermission("workorders:approve_request")) ||
-    (await hasPermission("list:approve_request")) ||
     (await hasPermission("workorders:requests:approve"));
 
   if (!hasApprovePermission) {

@@ -18,7 +18,12 @@ const WORK_ORDER_PRIORITIES = [
   "CRITICAL",
 ] as const;
 
-/** Schema untuk membuat work order baru */
+/**
+ * Schema untuk membuat work order baru.
+ * PENTING: Field di sini HARUS sinkron dengan CreateWorkOrderInput
+ * di modules/work-order/services/work-order.mutation.types.ts.
+ * Zod safeParse() membuang field yang tidak didefinisikan di schema ini.
+ */
 export const workOrderCreateSchema = z.object({
   type: z.enum(WORK_ORDER_TYPES, {
     message: "Tipe work order tidak valid",
@@ -32,6 +37,10 @@ export const workOrderCreateSchema = z.object({
   scheduledDate: z.string().optional(),
   ticketId: z.string().trim().optional(),
   isInternal: z.boolean().optional(),
+  // Denormalized contact — diisi saat WO dibuat dari MixRadius/guest (tanpa pelangganId lokal)
+  contactName: z.string().trim().optional(),
+  contactPhone: z.string().trim().optional(),
+  locationAddress: z.string().trim().optional(),
 });
 
 export type WorkOrderCreateInput = z.infer<typeof workOrderCreateSchema>;

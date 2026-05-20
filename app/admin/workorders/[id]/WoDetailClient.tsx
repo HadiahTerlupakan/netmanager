@@ -45,16 +45,12 @@ export function ClientComponent() {
   const { hasPermission } = usePermission();
 
   // CRUD permissions
-  const canUpdate =
-    hasPermission("workorders:update") || hasPermission("list:update");
-  const canDelete =
-    hasPermission("workorders:delete") || hasPermission("list:delete");
+  const canUpdate = hasPermission("workorders:update");
+  const canDelete = hasPermission("workorders:delete");
 
   // Workflow action permissions (terpisah dari CRUD)
-  const canCancel =
-    hasPermission("workorders:cancel") || hasPermission("list:cancel");
-  const canVerify =
-    hasPermission("workorders:verify") || hasPermission("list:verify");
+  const canCancel = hasPermission("workorders:cancel");
+  const canVerify = hasPermission("workorders:verify");
 
   const [loading, setLoading] = useState(true);
   const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null);
