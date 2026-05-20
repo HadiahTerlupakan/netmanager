@@ -88,11 +88,34 @@ export class PeriodRepository implements IPeriodRepository {
     id: string,
     tx: Prisma.TransactionClient,
   ): Promise<AccountingPeriod | null> {
-    const rows = await tx.$queryRaw<Record<string, unknown>[]>`
-      SELECT * FROM accounting_periods WHERE id = ${id} FOR UPDATE
+    const rows = await tx.$queryRaw<
+      {
+        id: string;
+        tenantId: string;
+        year: number;
+        month: number;
+        status: AccountingPeriod["status"];
+        closedAt: Date | null;
+        closedBy: string | null;
+        startDate: Date;
+        endDate: Date;
+      }[]
+    >`
+      SELECT id, "tenantId", year, month, status, "closedAt", "closedBy", "startDate", "endDate"
+      FROM accounting_periods WHERE id = ${id} FOR UPDATE
     `;
-    return rows[0]
-      ? toAccountingPeriod(rows[0] as import("@prisma/client").AccountingPeriod)
-      : null;
+    if (!rows[0]) return null;
+    const row = rows[0];
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      year: row.year,
+      month: row.month,
+      status: row.status,
+      closedAt: row.closedAt,
+      closedBy: row.closedBy,
+      startDate: row.startDate,
+      endDate: row.endDate,
+    };
   }
 }
