@@ -1,49 +1,37 @@
-import { logger } from "@/lib/logger";
-import { NextRequest } from "next/server";
+import { createHandler } from "@/lib/api";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileInventoryService } from "@/modules/inventory";
 import {
   createMobileInventoryErrorResponse,
   executeMobileInventoryWithIdempotency,
-  requireMobileInventoryAuth,
 } from "../route-utils";
 
 const service = getMobileInventoryService();
 
-export async function POST(request: NextRequest) {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   try {
-    const authState = await requireMobileInventoryAuth(request);
-    if ("response" in authState) return authState.response;
-    const authResult = authState.auth;
-
-    if (
-      !hasMobilePermission(
-        authResult.permissions as string[] | undefined,
-        "m_barang_masuk:create",
-      )
-    ) {
+    if (!hasMobilePermission(ctx.permissions, "m_barang_masuk:create")) {
       return apiError("Akses inventory masuk ditolak", ErrorCodes.FORBIDDEN, {
         status: 403,
       });
     }
 
-    const body = await request.json();
+    const body = await req.json();
 
     return executeMobileInventoryWithIdempotency({
-      request,
+      request: req,
       scope: "inventory:masuk",
-      userId: authResult.userId as string,
+      userId: ctx.session!.user.id,
       body,
       handler: () =>
         service.createBarangMasuk({
-          actorId: authResult.userId as string,
-          tenantId: authResult.tenantId as string,
+          actorId: ctx.session!.user.id,
+          tenantId: ctx.session!.user.tenantId!,
           ...body,
         }),
     });
   } catch (error) {
-    logger.error("Mobile Barang Masuk Error:", error as Error);
     return createMobileInventoryErrorResponse(error);
   }
-}
+});

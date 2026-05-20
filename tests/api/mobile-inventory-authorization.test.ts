@@ -1,9 +1,8 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockFns, MockInventoryRepository } = vi.hoisted(() => {
   const mockFns = {
-    getMobileAuthPayload: vi.fn(),
     userFindFirst: vi.fn(),
     mitraFindUnique: vi.fn(),
     workOrderFindFirst: vi.fn(),
@@ -133,8 +132,31 @@ const { mockFns, MockInventoryRepository } = vi.hoisted(() => {
   return { mockFns, MockInventoryRepository };
 });
 
-vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: mockFns.getMobileAuthPayload,
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>();
+  return {
+    ...actual,
+    createHandler: (_options: unknown, handler: unknown) => handler,
+    apiError: (message: string, _code?: string, init?: { status?: number }) =>
+      NextResponse.json({ error: message }, { status: init?.status ?? 500 }),
+    ErrorCodes: {
+      FORBIDDEN: "FORBIDDEN",
+      VALIDATION_ERROR: "VALIDATION_ERROR",
+      INTERNAL_ERROR: "INTERNAL_ERROR",
+      BUSINESS_LOGIC_ERROR: "BUSINESS_LOGIC_ERROR",
+      EXTERNAL_SERVICE_ERROR: "EXTERNAL_SERVICE_ERROR",
+    },
+  };
+});
+
+vi.mock("@/lib/api/idempotency", () => ({
+  idempotencyService: {
+    execute: async ({ handler }: { handler: () => Promise<unknown> }) => ({
+      kind: "no-key" as const,
+      response: await handler(),
+    }),
+  },
+  resolveIdempotencyKey: (): undefined => undefined,
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -216,15 +238,14 @@ describe("mobile inventory authorization", () => {
   });
 
   it("rejects gudang access without inventory capability", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
       permissions: ["m_dashboard:read"],
-    });
+    };
 
     const response = await getGudang(
       new NextRequest("http://localhost/api/mobile/inventory/gudang"),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -234,17 +255,16 @@ describe("mobile inventory authorization", () => {
   });
 
   it("rejects barang keluar access without outgoing inventory permission", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
       permissions: ["m_dashboard:read"],
-    });
+    };
 
     const response = await getBarang(
       new NextRequest(
         "http://localhost/api/mobile/inventory/barang?gudangId=g-1&mode=keluar",
       ),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -254,15 +274,14 @@ describe("mobile inventory authorization", () => {
   });
 
   it("rejects riwayat access without read permission", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
       permissions: ["m_dashboard:read"],
-    });
+    };
 
     const response = await getRiwayat(
       new NextRequest("http://localhost/api/mobile/inventory/riwayat"),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -272,12 +291,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("rejects barang masuk mutation without create permission", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
       permissions: ["m_barang:read"],
-    });
+    };
 
     const response = await postMasuk(
       new NextRequest("http://localhost/api/mobile/inventory/masuk", {
@@ -285,6 +302,7 @@ describe("mobile inventory authorization", () => {
         body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
         headers: { "content-type": "application/json" },
       }),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -294,12 +312,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("rejects barang keluar mutation without create permission", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
       permissions: ["m_barang:read"],
-    });
+    };
 
     const response = await postKeluar(
       new NextRequest("http://localhost/api/mobile/inventory/keluar", {
@@ -307,6 +323,7 @@ describe("mobile inventory authorization", () => {
         body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
         headers: { "content-type": "application/json" },
       }),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -316,12 +333,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("allows mitra inventory masuk mutation via actor-aware repository flow", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-1",
-      userId: "mitra-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "mitra-1", tenantId: "tenant-1" } },
       permissions: ["m_barang_masuk:create"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
@@ -339,6 +354,7 @@ describe("mobile inventory authorization", () => {
         body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
         headers: { "content-type": "application/json" },
       }),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -356,12 +372,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("keeps gudang read site-filtered for mitra actors", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-2",
-      userId: "mitra-2",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "mitra-2", tenantId: "tenant-1" } },
       permissions: ["m_barang:read"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-2",
@@ -371,6 +385,7 @@ describe("mobile inventory authorization", () => {
 
     const response = await getGudang(
       new NextRequest("http://localhost/api/mobile/inventory/gudang"),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -391,12 +406,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("does not widen restricted gudang access from work order site", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-3",
-      userId: "user-3",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-3", tenantId: "tenant-1" } },
       permissions: ["m_barang:read"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue({
       id: "user-3",
       role: {
@@ -413,6 +426,7 @@ describe("mobile inventory authorization", () => {
       new NextRequest(
         "http://localhost/api/mobile/inventory/gudang?workOrderId=wo-1",
       ),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -444,12 +458,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("keeps barang read site-filtered for user actors", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "user-2",
-      userId: "user-2",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "user-2", tenantId: "tenant-1" } },
       permissions: ["m_barang:read"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue({
       id: "user-2",
       role: {
@@ -479,6 +491,7 @@ describe("mobile inventory authorization", () => {
       new NextRequest(
         "http://localhost/api/mobile/inventory/barang?gudangId=g-1&mode=keluar",
       ),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -502,12 +515,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("allows mitra inventory keluar mutation via actor-aware repository flow", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-1",
-      userId: "mitra-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "mitra-1", tenantId: "tenant-1" } },
       permissions: ["m_barang_keluar:create"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
@@ -531,6 +542,7 @@ describe("mobile inventory authorization", () => {
         body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
         headers: { "content-type": "application/json" },
       }),
+      ctx as never,
     );
     const json = await response.json();
 
@@ -564,12 +576,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("allows bare-feature permission for barang keluar", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-2",
-      userId: "mitra-2",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "mitra-2", tenantId: "tenant-1" } },
       permissions: ["m_barang_keluar"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-2",
@@ -593,6 +603,7 @@ describe("mobile inventory authorization", () => {
         body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
         headers: { "content-type": "application/json" },
       }),
+      ctx as never,
     );
 
     expect(response.status).toBe(200);
@@ -600,12 +611,10 @@ describe("mobile inventory authorization", () => {
   });
 
   it("allows mitra inventory history with actor-aware filters", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-1",
-      userId: "mitra-1",
-      tenantId: "tenant-1",
+    const ctx = {
+      session: { user: { id: "mitra-1", tenantId: "tenant-1" } },
       permissions: ["m_barang"],
-    });
+    };
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
@@ -626,6 +635,7 @@ describe("mobile inventory authorization", () => {
 
     const response = await getRiwayat(
       new NextRequest("http://localhost/api/mobile/inventory/riwayat"),
+      ctx as never,
     );
     const json = await response.json();
 

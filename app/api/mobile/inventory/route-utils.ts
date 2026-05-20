@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   idempotencyService,
   resolveIdempotencyKey,
 } from "@/lib/api/idempotency";
 import type { MobileInventoryError } from "@/modules/inventory";
-
-export type MobileInventoryAuthResult = Exclude<
-  Awaited<ReturnType<typeof getMobileAuthPayload>>,
-  NextResponse
->;
-
-/** Autentikasi request mobile inventory dan kembalikan payload actor. */
-export async function requireMobileInventoryAuth(request: NextRequest) {
-  const authResult = await getMobileAuthPayload(request);
-  if (authResult instanceof NextResponse) {
-    return { response: authResult } as const;
-  }
-
-  return { auth: authResult } as const;
-}
 
 /** Bangun response error terstandar untuk route mobile inventory. */
 export function createMobileInventoryErrorResponse(error: unknown) {
