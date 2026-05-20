@@ -60,10 +60,6 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "m_chat:create",
       // Mobile - Partners
       "m_partners:read",
-      // Admin WO read (for notifications)
-      "workorders:read",
-      "workorders:site_only",
-      "workorders:department_only",
     ],
   },
   {
@@ -274,9 +270,6 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "m_holidays:read",
       "m_chat:read",
       "m_chat:create",
-      // Canvasing read (for notifications)
-      "canvasing:read",
-      "canvasing:site_only",
     ],
   },
   {
