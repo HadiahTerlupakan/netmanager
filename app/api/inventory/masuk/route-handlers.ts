@@ -147,6 +147,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const dbStart = Date.now();
     const result = await inventoryMasukRouteService.createMasuk({
       userId: user.id,
+      tenantId: user.tenantId,
       body,
     });
 

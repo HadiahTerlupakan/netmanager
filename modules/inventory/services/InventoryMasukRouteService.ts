@@ -34,6 +34,7 @@ interface InventoryMasukRepositoryPort {
     kondisi: KondisiBarang;
     keterangan?: string;
     userId: string;
+    tenantId?: string;
     fotoBukti: string[];
     fotoMetadata: Record<string, unknown> | null;
     tanggal: Date;
@@ -75,6 +76,7 @@ interface ListMasukRouteInput {
 
 interface CreateMasukRouteInput {
   userId: string;
+  tenantId?: string;
   body: Record<string, unknown>;
 }
 
@@ -153,6 +155,7 @@ export class InventoryMasukRouteService {
         DEFAULT_KONDISI_BARANG,
       keterangan: input.body.keterangan as string | undefined,
       userId: input.userId,
+      tenantId: input.tenantId,
       fotoBukti: (input.body.fotoBukti as string[] | undefined) || [],
       fotoMetadata:
         (input.body.fotoMetadata as Record<string, unknown> | undefined) ||

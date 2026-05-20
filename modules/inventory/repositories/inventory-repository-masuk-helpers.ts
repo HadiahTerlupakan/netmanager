@@ -64,6 +64,7 @@ export async function updateMasuk(
         currentRecord.gudangId,
         input.jumlah,
         kondisiBaru,
+        currentRecord.tenantId,
       );
       return;
     }
@@ -105,6 +106,7 @@ async function createStockFromMasuk(
   gudangId: string,
   jumlah: number,
   kondisi: keyof typeof STOCK_FIELD_MAP,
+  tenantId?: string | null,
 ) {
   const newStockField = STOCK_FIELD_MAP[kondisi] || "stokBaru";
   await tx.barangGudang.create({
@@ -115,6 +117,7 @@ async function createStockFromMasuk(
       stok: jumlah,
       [newStockField]: jumlah,
       updatedAt: new Date(),
+      tenantId: tenantId || null,
     },
   });
 }

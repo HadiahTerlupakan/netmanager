@@ -72,6 +72,7 @@ export function buildIncrementBarangGudangPayload(input: {
       stok: { increment: input.quantity },
       [stockField]: { increment: input.quantity },
       updatedAt: new Date(),
+      ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     } as Prisma.BarangGudangUpdateInput,
   };
 }
