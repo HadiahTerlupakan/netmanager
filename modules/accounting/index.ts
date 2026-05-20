@@ -12,6 +12,9 @@ export { ChartOfAccountRepository } from "./repositories/ChartOfAccountRepositor
 export { JournalRepository } from "./repositories/JournalRepository";
 export { PeriodRepository } from "./repositories/PeriodRepository";
 export { RecurringRepository } from "./repositories/RecurringRepository";
+export { ReconciliationRepository } from "./repositories/ReconciliationRepository";
+export { BankReconciliationService } from "./services/reconciliation/BankReconciliationService";
+export { runAccountingHealthCheck } from "./services/health-check";
 
 export type {
   ChartOfAccount,
@@ -55,6 +58,11 @@ export {
   createRecurringSchema,
   updateRecurringSchema,
 } from "./validators/recurring";
+
+export {
+  createReconciliationSchema,
+  manualMatchSchema,
+} from "./validators/reconciliation";
 
 export { toJournalResponseDto } from "./dto/JournalDto";
 export type {
