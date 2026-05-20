@@ -36,7 +36,10 @@ import {
   PERMISSION_GROUPS_MOBILE,
   ACTIONS,
 } from "@/lib/permission-config";
-import { getResourceCapabilities } from "@/lib/resource-capabilities";
+import {
+  getResourceCapabilities,
+  getResourceDisplayName,
+} from "@/lib/resource-capabilities";
 import { ROLE_TEMPLATES, type RoleTemplate } from "@/lib/role-templates";
 
 const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
@@ -961,9 +964,7 @@ export function ClientComponent() {
                                 {/* Card Header */}
                                 <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                                   <h4 className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
-                                    {resource
-                                      .replace(/^k_/, "")
-                                      .replace(/_/g, " ")}
+                                    {getResourceDisplayName(resource)}
                                   </h4>
                                   <button
                                     type="button"

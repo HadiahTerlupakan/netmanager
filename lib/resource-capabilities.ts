@@ -35,6 +35,7 @@ export type ResourceAction =
 export interface ResourceCapability {
   actions: ResourceAction[];
   description?: string;
+  displayName?: string;
 }
 
 /**
@@ -477,63 +478,78 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   // ====== MOBILE APP RESOURCES (m_*) ======
   m_dashboard: {
     actions: ["read"],
+    displayName: "Beranda",
     description: "Akses menu Beranda di mobile app",
   },
   m_work_order: {
     actions: ["read", "create", "update"],
-    description: "Akses menu Work Order (lihat & update WO)",
+    displayName: "Work Order",
+    description: "Lihat, ajukan, dan update Work Order",
   },
   m_barang_masuk: {
     actions: ["read", "create"],
-    description: "Akses menu Barang Masuk (input stok)",
+    displayName: "Barang Masuk",
+    description: "Input stok barang masuk ke gudang",
   },
   m_barang: {
     actions: ["read"],
-    description: "Akses menu Barang (Menu utama inventory)",
+    displayName: "Barang",
+    description: "Lihat daftar barang & stok",
   },
   m_barang_keluar: {
     actions: ["read", "create"],
-    description: "Akses menu Barang Keluar (ambil stok/pasang)",
+    displayName: "Barang Keluar",
+    description: "Ambil stok untuk pasang/kerja",
   },
   m_absensi: {
     actions: ["read", "create"],
-    description: "Akses menu Absensi (Check In/Out)",
+    displayName: "Absensi",
+    description: "Check In / Check Out harian",
   },
   m_lembur: {
     actions: ["read", "create"],
-    description: "Akses menu Lembur (Pengajuan)",
+    displayName: "Lembur",
+    description: "Pengajuan lembur",
   },
   m_izin: {
     actions: ["read", "create"],
-    description: "Akses menu Izin & Cuti (Pengajuan)",
+    displayName: "Izin & Cuti",
+    description: "Pengajuan izin, sakit, dan cuti",
   },
   m_holidays: {
     actions: ["read"],
-    description: "Akses menu Kalender Libur",
+    displayName: "Kalender Libur",
+    description: "Lihat hari libur nasional & perusahaan",
   },
   m_topology: {
     actions: ["read"],
-    description: "Akses menu Topology Map (Peta Jaringan)",
+    displayName: "Peta Jaringan",
+    description: "Topology map jaringan",
   },
   m_canvasing: {
     actions: ["read", "create"],
-    description: "Akses menu Canvasing (Marketing Sales)",
+    displayName: "Canvasing",
+    description: "Marketing & sales canvasing",
   },
   m_chat: {
     actions: ["read", "create"],
-    description: "Akses menu Chat (Komunikasi)",
+    displayName: "Chat",
+    description: "Pesan & diskusi tim",
   },
   m_salary: {
     actions: ["read"],
-    description: "Akses menu Slip Gaji di mobile app",
+    displayName: "Slip Gaji",
+    description: "Lihat slip gaji bulanan",
   },
   m_mixradius: {
     actions: ["read"],
-    description: "Akses menu MixRadius di mobile app",
+    displayName: "Isolir",
+    description: "Lihat & kelola pelanggan isolir (MixRadius)",
   },
   m_partners: {
     actions: ["read"],
-    description: "Akses menu Partners di mobile app",
+    displayName: "Partners",
+    description: "Lihat daftar partner/mitra kerja",
   },
 };
 
@@ -548,6 +564,18 @@ export function getResourceCapabilities(resource: string): ResourceAction[] {
   }
   // Default: all actions available
   return ["read", "create", "update", "delete", "site_only", "department_only"];
+}
+
+/**
+ * Get human-readable display name for a resource.
+ * Falls back to formatted resource name if not configured.
+ */
+export function getResourceDisplayName(resource: string): string {
+  const capability = RESOURCE_CAPABILITIES[resource.toLowerCase()];
+  if (capability?.displayName) {
+    return capability.displayName;
+  }
+  return resource.replace(/^m_/, "").replace(/^k_/, "").replace(/_/g, " ");
 }
 
 /**
