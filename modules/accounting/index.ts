@@ -5,10 +5,13 @@ export { JournalReverseService } from "./services/journal/JournalReverseService"
 export { OpeningBalanceService } from "./services/journal/OpeningBalanceService";
 export { PeriodService } from "./services/period/PeriodService";
 export { PeriodCloseService } from "./services/period/PeriodCloseService";
+export { RecurringEngineService } from "./services/recurring/RecurringEngineService";
+export { RecurringService } from "./services/recurring/RecurringService";
 
 export { ChartOfAccountRepository } from "./repositories/ChartOfAccountRepository";
 export { JournalRepository } from "./repositories/JournalRepository";
 export { PeriodRepository } from "./repositories/PeriodRepository";
+export { RecurringRepository } from "./repositories/RecurringRepository";
 
 export type {
   ChartOfAccount,
@@ -47,6 +50,11 @@ export {
   reverseJournalSchema,
   openingBalanceSchema,
 } from "./validators/period";
+
+export {
+  createRecurringSchema,
+  updateRecurringSchema,
+} from "./validators/recurring";
 
 export { toJournalResponseDto } from "./dto/JournalDto";
 export type {
