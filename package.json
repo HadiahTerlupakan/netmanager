@@ -37,6 +37,7 @@
     "prisma:reset-seed": "prisma migrate reset --force && npm run prisma:seed-only",
     "prisma:baseline": "prisma migrate resolve --applied 20260313000000_init_squashed",
     "prisma:seed-permissions": "tsx prisma/seed-permissions.ts",
+    "accounting:seed": "tsx prisma/seed-accounting.ts",
     "prisma:sync": "prisma db push && prisma migrate resolve --applied 20260313000000_init_squashed",
     "prisma:fix-drift": "prisma migrate resolve --applied 20260313000000_init_squashed && prisma migrate dev --name complete_schema"
   },

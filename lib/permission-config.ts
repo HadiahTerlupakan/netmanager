@@ -199,6 +199,16 @@ export const GRANULAR_PERMISSIONS = {
 
   // MixRadius sensitive operations
   MIXRADIUS_SYNC: "mixradius:calculate", // Manual sync MixRadius data to local DB
+
+  // Accounting operations
+  ACCOUNTING_READ: "accounting:read",
+  ACCOUNTING_JOURNAL_CREATE: "accounting:journal:create",
+  ACCOUNTING_JOURNAL_REVERSE: "accounting:journal:reverse",
+  ACCOUNTING_COA_MANAGE: "accounting:coa:manage",
+  ACCOUNTING_PERIOD_CLOSE: "accounting:period:close",
+  ACCOUNTING_PERIOD_REOPEN: "accounting:period:reopen",
+  ACCOUNTING_RECONCILIATION: "accounting:reconciliation",
+  ACCOUNTING_RECURRING_MANAGE: "accounting:recurring:manage",
 } as const;
 
 export type GranularPermission =
