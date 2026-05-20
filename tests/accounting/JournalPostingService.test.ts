@@ -11,6 +11,8 @@ import type { IJournalRepository } from "@/modules/accounting/domain/ports/IJour
 import type { IChartOfAccountRepository } from "@/modules/accounting/domain/ports/IChartOfAccountRepository";
 import type { IPeriodRepository } from "@/modules/accounting/domain/ports/IPeriodRepository";
 import type { JournalEntry } from "@/modules/accounting/domain/entities/JournalEntry";
+import type { ChartOfAccount } from "@/modules/accounting/domain/entities/ChartOfAccount";
+import type { AccountingPeriod } from "@/modules/accounting/domain/entities/AccountingPeriod";
 
 describe("JournalPostingService", () => {
   let service: JournalPostingService;
@@ -18,26 +20,26 @@ describe("JournalPostingService", () => {
   let coaRepo: IChartOfAccountRepository;
   let periodRepo: IPeriodRepository;
 
-  const mockPeriod = {
+  const mockPeriod: AccountingPeriod = {
     id: "period-1",
     tenantId: "tenant-1",
     year: 2026,
     month: 5,
-    status: "OPEN" as const,
+    status: "OPEN",
     closedAt: null,
     closedBy: null,
     startDate: new Date("2026-05-01"),
     endDate: new Date("2026-05-31"),
   };
 
-  const mockCoa = {
+  const mockCoa: ChartOfAccount = {
     id: "coa-1",
     tenantId: "tenant-1",
     code: "1-200",
     name: "Piutang",
-    type: "ASSET" as const,
+    type: "ASSET",
     subtype: null,
-    normalSide: "DEBIT" as const,
+    normalSide: "DEBIT",
     cashFlowCategory: null,
     parentId: null,
     isPostable: true,
