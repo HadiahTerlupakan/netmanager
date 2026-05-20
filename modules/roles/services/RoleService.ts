@@ -1,4 +1,5 @@
 import { invalidateRolePermissionCache } from "@/lib/auth";
+import { expandMobilePermissionDependencies } from "@/lib/mobile-permission-dependencies";
 import { sanitizePermissionsByPanelAccess } from "@/lib/permission-sanitizer";
 import { isMainTenant } from "@/modules/mitra";
 import type { RoleDetailDTO, RoleListItemDTO } from "../dto/RoleDTO";
@@ -202,11 +203,12 @@ export class RoleService {
   private async sanitizePermissions(
     input: RoleMutationInput,
   ): Promise<string[]> {
-    return sanitizePermissionsByPanelAccess(
+    const sanitized = await sanitizePermissionsByPanelAccess(
       input.permissions,
       input.accessAdminPanel ?? false,
       input.accessEmployeePanel ?? false,
     );
+    return expandMobilePermissionDependencies(sanitized);
   }
 
   private ensureSuperAdminAllowed(

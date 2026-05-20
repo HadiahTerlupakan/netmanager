@@ -41,12 +41,14 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "m_work_order:read",
       "m_work_order:create",
       "m_work_order:update",
-      // Mobile - Inventory
+      // Mobile - Inventory (dependency: WO ambil/kembalikan barang)
       "m_barang:read",
       "m_barang_masuk:read",
       "m_barang_masuk:create",
       "m_barang_keluar:read",
       "m_barang_keluar:create",
+      // Mobile - MixRadius (dependency: WO request search pelanggan)
+      "m_mixradius:read",
       // Mobile - Kehadiran
       "m_absensi:read",
       "m_absensi:create",
