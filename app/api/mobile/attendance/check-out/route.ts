@@ -4,11 +4,14 @@ import { MobileAttendanceCheckoutRouteService } from "@/modules/attendance";
 
 const checkoutRouteService = new MobileAttendanceCheckoutRouteService();
 
-export const POST = createHandler({ auth: true }, async (request, ctx) => {
-  const userSession = ctx.session!.user;
-  return checkoutRouteService.checkOut(
-    request as NextRequest,
-    userSession.id,
-    userSession.tenantId as string,
-  );
-});
+export const POST = createHandler(
+  { auth: true, permissions: ["m_absensi:create"] },
+  async (request, ctx) => {
+    const userSession = ctx.session!.user;
+    return checkoutRouteService.checkOut(
+      request as NextRequest,
+      userSession.id,
+      userSession.tenantId as string,
+    );
+  },
+);
