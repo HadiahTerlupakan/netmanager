@@ -1,7 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  RecurringService,
-  RecurringRepository,
+  getRecurringService,
   createRecurringSchema,
 } from "@/modules/accounting";
 
@@ -9,8 +8,7 @@ export const GET = createHandler(
   { auth: true, permissions: ["accounting:recurring:manage"] },
   async (_request, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
-    const service = new RecurringService(new RecurringRepository());
-    const items = await service.list(tenantId);
+    const items = await getRecurringService().list(tenantId);
     return apiSuccess(items);
   },
 );
@@ -25,8 +23,7 @@ export const POST = createHandler(
     }
 
     const tenantId = ctx.session!.user.tenantId;
-    const service = new RecurringService(new RecurringRepository());
-    const result = await service.create(tenantId, parsed.data);
+    const result = await getRecurringService().create(tenantId, parsed.data);
     return apiSuccess(result, { status: 201 });
   },
 );

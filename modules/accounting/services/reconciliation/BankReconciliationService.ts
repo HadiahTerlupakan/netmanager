@@ -6,7 +6,7 @@ import type {
   BankReconciliation,
   MatchStatus,
 } from "../../domain/entities/BankReconciliation";
-import { Money } from "../../domain/value-objects/Money";
+import { Money } from "../../Money";
 import { AccountingError } from "../../errors";
 import type { BankStatementRow } from "./csvParser";
 

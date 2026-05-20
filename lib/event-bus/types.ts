@@ -304,6 +304,23 @@ export interface ProfilePppUpdatedPayload extends BaseEventPayload {
   affectedCustomerCount: number;
 }
 
+export interface ExpenseApprovedPayload extends BaseEventPayload {
+  expenseId: string;
+  tenantId: string;
+  amount: string;
+  accountId: string;
+  expenseCategoryId: string;
+  expenseDate: string;
+}
+
+export interface PurchaseOrderPaidPayload extends BaseEventPayload {
+  purchaseOrderId: string;
+  tenantId: string;
+  amount: string;
+  accountId: string;
+  paidAt: string;
+}
+
 // ============================================
 // PAYLOAD MAP (Type-safe event → payload mapping)
 // ============================================
@@ -347,6 +364,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.SYSTEM_ERROR]: SystemEventPayload;
   [EVENT_NAMES.PACKAGE_CHANGED]: PackageChangedPayload;
   [EVENT_NAMES.PROFILE_PPP_UPDATED]: ProfilePppUpdatedPayload;
+  [EVENT_NAMES.EXPENSE_APPROVED]: ExpenseApprovedPayload;
+  [EVENT_NAMES.PURCHASE_ORDER_PAID]: PurchaseOrderPaidPayload;
 }
 
 // ============================================

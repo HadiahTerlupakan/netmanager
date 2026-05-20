@@ -8,10 +8,12 @@ import {
   handlePackageChange,
   handleProfilePppUpdated,
 } from "@/modules/network";
-import { handleInvoiceCreatedAccounting } from "@/modules/accounting/services/event-handlers/invoice-created-accounting.handler";
-import { handleInvoicePaidAccounting } from "@/modules/accounting/services/event-handlers/invoice-paid-accounting.handler";
-import { handleExpenseApprovedAccounting } from "@/modules/accounting/services/event-handlers/expense-approved-accounting.handler";
-import { handlePurchaseOrderPaidAccounting } from "@/modules/accounting/services/event-handlers/purchase-order-paid-accounting.handler";
+import {
+  handleInvoiceCreatedAccounting,
+  handleInvoicePaidAccounting,
+  handleExpenseApprovedAccounting,
+  handlePurchaseOrderPaidAccounting,
+} from "@/modules/accounting";
 import {
   handleInvoiceAutoIsolate,
   handleInvoicePaidActivation,

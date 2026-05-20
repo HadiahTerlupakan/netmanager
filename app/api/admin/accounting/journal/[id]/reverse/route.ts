@@ -1,9 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  JournalReverseService,
-  JournalRepository,
-  ChartOfAccountRepository,
-  PeriodRepository,
+  getJournalReverseService,
   reverseJournalSchema,
   toJournalResponseDto,
   AccountingError,
@@ -20,12 +17,7 @@ export const POST = createHandler(
     }
 
     try {
-      const service = new JournalReverseService(
-        new JournalRepository(),
-        new ChartOfAccountRepository(),
-        new PeriodRepository(),
-      );
-      const result = await service.reverse(
+      const result = await getJournalReverseService().reverse(
         journalId,
         parsed.data.reason,
         ctx.session!.user.id,

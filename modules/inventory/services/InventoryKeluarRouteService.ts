@@ -35,6 +35,7 @@ interface InventoryKeluarRepositoryPort {
     fotoMetadata: Record<string, unknown> | null;
     tanggal: Date;
     userId?: string;
+    tenantId?: string;
   }): Promise<unknown>;
   getStockLevel(barangId: string, gudangId: string): Promise<number>;
 }
@@ -79,6 +80,7 @@ interface ListKeluarRouteInput {
 
 interface CreateKeluarRouteInput {
   userId: string;
+  tenantId?: string;
   body: Record<string, unknown>;
 }
 
@@ -223,6 +225,7 @@ export class InventoryKeluarRouteService {
         null,
       tanggal: new Date(),
       userId: input.userId,
+      tenantId: input.tenantId,
     });
     const finalStock = await this.repository.getStockLevel(barangId, gudangId);
 

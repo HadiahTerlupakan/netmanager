@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Money } from "@/modules/accounting/domain/value-objects/Money";
+import { Money } from "@/modules/accounting/Money";
 
 describe("Money", () => {
   it("create from number with 2 decimal precision", () => {

@@ -197,6 +197,7 @@ export class InventoryOpnameRepository {
         gudangId: context.existingRecord.gudangId,
         stok: stokFisik,
         updatedAt: new Date(),
+        tenantId: context.existingRecord.tenantId || null,
       },
     });
   }

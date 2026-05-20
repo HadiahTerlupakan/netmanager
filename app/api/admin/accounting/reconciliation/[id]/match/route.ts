@@ -1,7 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  BankReconciliationService,
-  ReconciliationRepository,
+  getBankReconciliationService,
   manualMatchSchema,
 } from "@/modules/accounting";
 
@@ -14,10 +13,10 @@ export const POST = createHandler(
       return ApiErrors.badRequest("lineId dan journalLineId wajib diisi");
     }
 
-    const service = new BankReconciliationService(
-      new ReconciliationRepository(),
+    await getBankReconciliationService().manualMatch(
+      parsed.data.lineId,
+      parsed.data.journalLineId,
     );
-    await service.manualMatch(parsed.data.lineId, parsed.data.journalLineId);
     return apiSuccess({ matched: true });
   },
 );

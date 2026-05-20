@@ -1,7 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  BankReconciliationService,
-  ReconciliationRepository,
+  getBankReconciliationService,
   createReconciliationSchema,
 } from "@/modules/accounting";
 
@@ -10,10 +9,7 @@ export const GET = createHandler(
   async (_request, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const coaId = ctx.query?.coaId as string | undefined;
-    const service = new BankReconciliationService(
-      new ReconciliationRepository(),
-    );
-    const items = await service.list(tenantId, coaId);
+    const items = await getBankReconciliationService().list(tenantId, coaId);
     return apiSuccess(items);
   },
 );
@@ -28,10 +24,10 @@ export const POST = createHandler(
     }
 
     const tenantId = ctx.session!.user.tenantId;
-    const service = new BankReconciliationService(
-      new ReconciliationRepository(),
+    const result = await getBankReconciliationService().create(
+      tenantId,
+      parsed.data,
     );
-    const result = await service.create(tenantId, parsed.data);
     return apiSuccess(result, { status: 201 });
   },
 );

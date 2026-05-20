@@ -7,7 +7,7 @@ import type { AccountingPeriod } from "../../domain/entities/AccountingPeriod";
 import { isPeriodWritable } from "../../domain/entities/AccountingPeriod";
 import type { JournalLineDraft } from "../../domain/entities/JournalLine";
 import { JournalNumberGenerator } from "../journal/JournalNumberGenerator";
-import { Money } from "../../domain/value-objects/Money";
+import { Money } from "../../Money";
 import { PeriodClosedError, AccountingError } from "../../errors";
 import { hasPendingOutboxForPeriod } from "./outbox-check";
 

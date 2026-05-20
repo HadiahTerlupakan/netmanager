@@ -222,6 +222,7 @@ export function buildInitialGudangStock(input: {
   barangId: string;
   gudangId: string;
   stokFisik: number;
+  user?: { tenantId?: string | null };
 }) {
   return {
     id: randomUUID(),
@@ -232,5 +233,6 @@ export function buildInitialGudangStock(input: {
     stokBekas: 0,
     stokRusak: 0,
     updatedAt: new Date(),
+    tenantId: input.user?.tenantId || null,
   };
 }

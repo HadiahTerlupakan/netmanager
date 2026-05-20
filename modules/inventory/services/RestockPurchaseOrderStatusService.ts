@@ -122,6 +122,7 @@ export class RestockPurchaseOrderStatusService {
           fotoBukti: input.fotoBukti ?? [],
           poNumber: freshPurchaseOrder.poNumber,
           receivedItems: input.items ?? {},
+          tenantId: freshPurchaseOrder.tenantId,
         });
       }
       return this.finalizePurchaseOrderReceipt(transaction, {

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { Money } from "../../domain/value-objects/Money";
+import { Money } from "../../Money";
 import type { CashBookReport, CashBookEntry } from "../../dto/ReportDto";
 
 interface RawEntry {

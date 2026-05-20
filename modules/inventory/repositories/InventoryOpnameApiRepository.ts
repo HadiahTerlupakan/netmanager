@@ -257,6 +257,7 @@ export class InventoryOpnameApiRepository {
       gudangId: string;
       jumlah: number;
       kondisi: string;
+      tenantId?: string | null;
     },
   ) {
     const stockField = this.getStockField(keluarRecord.kondisi);
@@ -287,7 +288,12 @@ export class InventoryOpnameApiRepository {
 
   private createRestoredStock(
     tx: Prisma.TransactionClient,
-    keluarRecord: { barangId: string; gudangId: string; jumlah: number },
+    keluarRecord: {
+      barangId: string;
+      gudangId: string;
+      jumlah: number;
+      tenantId?: string | null;
+    },
     stockField: string,
   ) {
     return tx.barangGudang.create({
@@ -298,6 +304,7 @@ export class InventoryOpnameApiRepository {
         stok: keluarRecord.jumlah,
         [stockField]: keluarRecord.jumlah,
         updatedAt: new Date(),
+        tenantId: keluarRecord.tenantId || null,
       },
     });
   }

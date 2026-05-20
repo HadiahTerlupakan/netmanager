@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Money } from "../../domain/value-objects/Money";
+import { Money } from "../../Money";
 import type { BankStatementRow } from "./csvParser";
 
 export interface MatchCandidate {

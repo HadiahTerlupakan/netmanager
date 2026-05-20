@@ -2,7 +2,8 @@ import type {
   AccountingPeriod,
   PeriodStatus,
 } from "../entities/AccountingPeriod";
-import type { Prisma } from "@prisma/client";
+
+export type TransactionClient = unknown;
 
 export interface IPeriodRepository {
   findById(id: string): Promise<AccountingPeriod | null>;
@@ -17,11 +18,11 @@ export interface IPeriodRepository {
     id: string,
     status: PeriodStatus,
     closedBy?: string,
-    tx?: Prisma.TransactionClient,
+    tx?: TransactionClient,
   ): Promise<AccountingPeriod>;
   list(tenantId: string): Promise<AccountingPeriod[]>;
   lockForUpdate(
     id: string,
-    tx: Prisma.TransactionClient,
+    tx: TransactionClient,
   ): Promise<AccountingPeriod | null>;
 }

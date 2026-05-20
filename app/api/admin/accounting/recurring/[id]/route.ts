@@ -1,7 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  RecurringService,
-  RecurringRepository,
+  getRecurringService,
   updateRecurringSchema,
   AccountingError,
 } from "@/modules/accounting";
@@ -9,8 +8,7 @@ import {
 export const GET = createHandler(
   { auth: true, permissions: ["accounting:recurring:manage"] },
   async (_request, ctx) => {
-    const service = new RecurringService(new RecurringRepository());
-    const result = await service.findById(ctx.params.id);
+    const result = await getRecurringService().findById(ctx.params.id);
     if (!result) return ApiErrors.notFound("Template tidak ditemukan");
     return apiSuccess(result);
   },
@@ -26,8 +24,10 @@ export const PUT = createHandler(
     }
 
     try {
-      const service = new RecurringService(new RecurringRepository());
-      const result = await service.update(ctx.params.id, parsed.data);
+      const result = await getRecurringService().update(
+        ctx.params.id,
+        parsed.data,
+      );
       return apiSuccess(result);
     } catch (error) {
       if (error instanceof AccountingError) {
@@ -42,8 +42,7 @@ export const DELETE = createHandler(
   { auth: true, permissions: ["accounting:recurring:manage"] },
   async (_request, ctx) => {
     try {
-      const service = new RecurringService(new RecurringRepository());
-      await service.delete(ctx.params.id);
+      await getRecurringService().delete(ctx.params.id);
       return apiSuccess({ deleted: true });
     } catch (error) {
       if (error instanceof AccountingError) {

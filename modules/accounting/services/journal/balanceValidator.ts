@@ -1,4 +1,4 @@
-import { Money } from "../../domain/value-objects/Money";
+import { Money } from "../../Money";
 import { JournalUnbalancedError } from "../../errors";
 import type { JournalLineDraft } from "../../domain/entities/JournalLine";
 

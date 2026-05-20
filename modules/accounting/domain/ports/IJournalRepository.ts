@@ -4,7 +4,8 @@ import type {
   JournalStatus,
 } from "../entities/JournalEntry";
 import type { JournalLineDraft } from "../entities/JournalLine";
-import type { Prisma } from "@prisma/client";
+
+export type TransactionClient = unknown;
 
 export interface JournalCreateInput {
   tenantId: string;
@@ -35,7 +36,7 @@ export interface JournalListFilter {
 export interface IJournalRepository {
   create(
     input: JournalCreateInput,
-    tx?: Prisma.TransactionClient,
+    tx?: TransactionClient,
   ): Promise<JournalEntry>;
   findById(id: string): Promise<JournalEntry | null>;
   findBySource(
@@ -49,7 +50,7 @@ export interface IJournalRepository {
   markReversed(
     id: string,
     reversalEntryId: string,
-    tx?: Prisma.TransactionClient,
+    tx?: TransactionClient,
   ): Promise<void>;
   countByMonth(tenantId: string, year: number, month: number): Promise<number>;
 }

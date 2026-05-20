@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
-import {
-  RecurringEngineService,
-  RecurringRepository,
-  JournalRepository,
-  ChartOfAccountRepository,
-  PeriodRepository,
-} from "@/modules/accounting";
+import { getRecurringEngineService } from "@/modules/accounting";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +14,7 @@ export async function GET(req: NextRequest) {
     "[cron:accounting:recurring] Starting recurring journal generation",
   );
 
-  const engine = new RecurringEngineService(
-    new RecurringRepository(),
-    new JournalRepository(),
-    new ChartOfAccountRepository(),
-    new PeriodRepository(),
-  );
-
-  const result = await engine.processAll(new Date());
+  const result = await getRecurringEngineService().processAll(new Date());
 
   logger.info("[cron:accounting:recurring] Complete", result);
 

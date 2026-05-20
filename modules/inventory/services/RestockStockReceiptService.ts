@@ -23,6 +23,7 @@ interface PurchaseOrderItemReceiptInput {
   fotoBukti: string[];
   poNumber: string;
   receivedItems: Record<string, number>;
+  tenantId?: string | null;
 }
 
 export class RestockStockReceiptService {
@@ -94,6 +95,7 @@ export class RestockStockReceiptService {
       gudangId: targetGudangId,
       quantity: receivedQuantity,
       timestamp: stockInTimestamp,
+      tenantId: input.tenantId,
     });
     const stockInRecord = await this.createStockInRecord(transaction, {
       barangId: input.item.barangId,
@@ -144,6 +146,7 @@ export class RestockStockReceiptService {
       gudangId: string;
       quantity: number;
       timestamp: Date;
+      tenantId?: string | null;
     },
   ) {
     return transaction.barangGudang.upsert({
@@ -163,11 +166,13 @@ export class RestockStockReceiptService {
         stokRusak: 0,
         updatedAt: input.timestamp,
         createdAt: input.timestamp,
+        tenantId: input.tenantId || null,
       },
       update: {
         stok: { increment: input.quantity },
         stokBaru: { increment: input.quantity },
         updatedAt: input.timestamp,
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
       },
     });
   }

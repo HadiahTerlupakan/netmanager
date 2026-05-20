@@ -8,12 +8,73 @@ export { PeriodCloseService } from "./services/period/PeriodCloseService";
 export { RecurringEngineService } from "./services/recurring/RecurringEngineService";
 export { RecurringService } from "./services/recurring/RecurringService";
 
-export { ChartOfAccountRepository } from "./repositories/ChartOfAccountRepository";
-export { JournalRepository } from "./repositories/JournalRepository";
-export { PeriodRepository } from "./repositories/PeriodRepository";
-export { RecurringRepository } from "./repositories/RecurringRepository";
-export { ReconciliationRepository } from "./repositories/ReconciliationRepository";
-export { BankReconciliationService } from "./services/reconciliation/BankReconciliationService";
+// Factory functions (pre-wired with repositories)
+import { ChartOfAccountRepository } from "./repositories/ChartOfAccountRepository";
+import { JournalRepository } from "./repositories/JournalRepository";
+import { PeriodRepository } from "./repositories/PeriodRepository";
+import { RecurringRepository } from "./repositories/RecurringRepository";
+import { ReconciliationRepository } from "./repositories/ReconciliationRepository";
+import { ChartOfAccountService } from "./services/coa/ChartOfAccountService";
+import { JournalPostingService } from "./services/journal/JournalPostingService";
+import { JournalNumberGenerator } from "./services/journal/JournalNumberGenerator";
+import { JournalReverseService } from "./services/journal/JournalReverseService";
+import { OpeningBalanceService } from "./services/journal/OpeningBalanceService";
+import { PeriodService } from "./services/period/PeriodService";
+import { PeriodCloseService } from "./services/period/PeriodCloseService";
+import { RecurringService } from "./services/recurring/RecurringService";
+import { RecurringEngineService } from "./services/recurring/RecurringEngineService";
+import { BankReconciliationService } from "./services/reconciliation/BankReconciliationService";
+
+export function getChartOfAccountService() {
+  return new ChartOfAccountService(new ChartOfAccountRepository());
+}
+export function getJournalPostingService() {
+  const journalRepo = new JournalRepository();
+  return new JournalPostingService(
+    journalRepo,
+    new ChartOfAccountRepository(),
+    new PeriodRepository(),
+    new JournalNumberGenerator(journalRepo),
+  );
+}
+export function getJournalReverseService() {
+  return new JournalReverseService(
+    new JournalRepository(),
+    new ChartOfAccountRepository(),
+    new PeriodRepository(),
+  );
+}
+export function getOpeningBalanceService() {
+  return new OpeningBalanceService(
+    new JournalRepository(),
+    new ChartOfAccountRepository(),
+    new PeriodRepository(),
+  );
+}
+export function getPeriodService() {
+  return new PeriodService(new PeriodRepository());
+}
+export function getPeriodCloseService() {
+  return new PeriodCloseService(
+    new PeriodRepository(),
+    new JournalRepository(),
+    new ChartOfAccountRepository(),
+  );
+}
+export function getRecurringService() {
+  return new RecurringService(new RecurringRepository());
+}
+export function getRecurringEngineService() {
+  return new RecurringEngineService(
+    new RecurringRepository(),
+    new JournalRepository(),
+    new ChartOfAccountRepository(),
+    new PeriodRepository(),
+  );
+}
+export function getBankReconciliationService() {
+  return new BankReconciliationService(new ReconciliationRepository());
+}
 export { runAccountingHealthCheck } from "./services/health-check";
 
 export type {
@@ -36,7 +97,7 @@ export type {
 } from "./domain/entities/AccountingPeriod";
 export { isPeriodWritable } from "./domain/entities/AccountingPeriod";
 
-export { Money } from "./domain/value-objects/Money";
+export { Money } from "./Money";
 
 export {
   createManualJournalSchema,

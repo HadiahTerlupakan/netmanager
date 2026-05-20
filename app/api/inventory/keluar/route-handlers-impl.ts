@@ -174,6 +174,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const dbStart = Date.now();
     const result = await inventoryKeluarRouteService.createKeluar({
       userId: user.id,
+      tenantId: user.tenantId,
       body,
     });
     if (isInventoryKeluarRouteFailure(result))

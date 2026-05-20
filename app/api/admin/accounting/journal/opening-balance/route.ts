@@ -1,9 +1,6 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
-  OpeningBalanceService,
-  JournalRepository,
-  ChartOfAccountRepository,
-  PeriodRepository,
+  getOpeningBalanceService,
   openingBalanceSchema,
   toJournalResponseDto,
   AccountingError,
@@ -19,12 +16,7 @@ export const POST = createHandler(
     }
 
     try {
-      const service = new OpeningBalanceService(
-        new JournalRepository(),
-        new ChartOfAccountRepository(),
-        new PeriodRepository(),
-      );
-      const result = await service.post(
+      const result = await getOpeningBalanceService().post(
         ctx.session!.user.tenantId,
         parsed.data.entryDate,
         parsed.data.lines,
