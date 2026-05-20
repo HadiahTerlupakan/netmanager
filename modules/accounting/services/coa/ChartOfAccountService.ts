@@ -15,7 +15,9 @@ export class ChartOfAccountService {
 
   async create(
     tenantId: string,
-    input: Omit<CoaCreateInput, "tenantId">,
+    input: Omit<CoaCreateInput, "tenantId" | "normalSide"> & {
+      normalSide?: ChartOfAccount["normalSide"];
+    },
   ): Promise<ChartOfAccount> {
     const existing = await this.coaRepo.findByCode(tenantId, input.code);
     if (existing) {

@@ -75,6 +75,9 @@ export function getRecurringEngineService() {
 export function getBankReconciliationService() {
   return new BankReconciliationService(new ReconciliationRepository());
 }
+export function getJournalRepository() {
+  return new JournalRepository();
+}
 export { runAccountingHealthCheck } from "./services/health-check";
 
 export type {
