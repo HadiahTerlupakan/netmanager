@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
+import { prismaBilling } from "@/lib/prisma-billing";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { JournalPostingService } from "../journal/JournalPostingService";
@@ -21,17 +22,21 @@ export async function handleInvoiceCreatedAccounting(
     "invoiceId",
     SOURCE,
   );
-  const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
-  const totalAmount = requirePayloadString(
-    payload.totalAmount,
-    "totalAmount",
-    SOURCE,
-  );
-  const createdAt = requirePayloadString(
-    payload.createdAt,
-    "createdAt",
-    SOURCE,
-  );
+
+  const invoice = await prismaBilling.invoice.findUnique({
+    where: { id: invoiceId },
+    select: { tenantId: true, totalAmount: true, createdAt: true },
+  });
+  if (!invoice || !invoice.tenantId) {
+    logger.warn(
+      `[${SOURCE}] Invoice ${invoiceId} not found or no tenantId, skipping`,
+    );
+    return;
+  }
+
+  const tenantId = invoice.tenantId;
+  const totalAmount = (payload.amount ?? invoice.totalAmount).toString();
+  const createdAt = payload.createdAt ?? invoice.createdAt.toISOString();
 
   logger.info(
     `[${SOURCE}] Processing invoice ${invoiceId} for tenant ${tenantId}`,

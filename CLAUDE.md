@@ -364,7 +364,7 @@ modules/<domain>/
 ```
 
 **Available Modules:**
-admin, app-version, attendance, chat, coupons, finance, integrations, inventory,
+accounting, admin, app-version, attendance, chat, coupons, finance, integrations, inventory,
 map, marketing, mitra, network, notification, overtime, pelanggan, procurement,
 registration, roles, salary, settings, shift, users, work-order
 
@@ -462,6 +462,7 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 | network, integrations | Network device management, external API | pelanggan, events |
 | pelanggan | Customer management | - |
 | salary, overtime | Payroll calculation | users, attendance |
+| accounting | Double-entry GL, COA, journal, reports, reconciliation | finance (via events) |
 
 ---
 

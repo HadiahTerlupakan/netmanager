@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
+import { prismaBilling } from "@/lib/prisma-billing";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { JournalPostingService } from "../journal/JournalPostingService";
@@ -21,14 +22,28 @@ export async function handleInvoicePaidAccounting(
     "invoiceId",
     SOURCE,
   );
-  const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
-  const amount = requirePayloadString(payload.amount, "amount", SOURCE);
-  const accountId = requirePayloadString(
-    payload.accountId,
-    "accountId",
-    SOURCE,
-  );
-  const paidAt = requirePayloadString(payload.paidAt, "paidAt", SOURCE);
+
+  const invoice = await prismaBilling.invoice.findUnique({
+    where: { id: invoiceId },
+    select: { tenantId: true, totalAmount: true },
+  });
+  if (!invoice || !invoice.tenantId) {
+    logger.warn(
+      `[${SOURCE}] Invoice ${invoiceId} not found or no tenantId, skipping`,
+    );
+    return;
+  }
+
+  const lastPayment = await prismaBilling.payment.findFirst({
+    where: { invoiceId },
+    orderBy: { paymentDate: "desc" },
+    select: { accountId: true },
+  });
+
+  const tenantId = invoice.tenantId;
+  const amount = (payload.amount ?? invoice.totalAmount).toString();
+  const accountId = payload.accountId ?? lastPayment?.accountId ?? "";
+  const paidAt = payload.paidAt ?? new Date().toISOString();
 
   logger.info(
     `[${SOURCE}] Processing invoice paid ${invoiceId} for tenant ${tenantId}`,

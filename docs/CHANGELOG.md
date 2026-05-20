@@ -45,6 +45,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-20] — Modul Akuntansi (Phase 1-6 complete)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/accounting`, `app/api/admin/accounting/`, `app/api/cron/accounting/`, `lib/event-bus/`, `lib/permission-config.ts`
+- **Author**: agent
+- **Deskripsi**: Modul akuntansi baru dengan double-entry General Ledger. Mencakup:
+  Chart of Accounts (18 default per tenant), JournalPostingService (manual + auto),
+  4 event handlers (invoice-created, invoice-paid, expense-approved, po-paid) gated
+  feature flag `ACCOUNTING_MODULE_ENABLED`, 6 laporan (Trial Balance, Laba Rugi, Neraca,
+  Arus Kas, Buku Kas, Buku Besar), Period Closing (3 closing journals + reopen),
+  Journal Reversal, Opening Balance, Recurring Journal Engine (cron harian),
+  Bank Reconciliation (CSV parser BCA/Mandiri/BNI + autoMatcher Levenshtein),
+  Health Check cron, 8 permissions baru, 18 API routes.
+- **Files**: `modules/accounting/`, `app/api/admin/accounting/`, `app/api/cron/accounting/`,
+  `prisma/schema.prisma`, `prisma/migrations/20260520000000_add_accounting_module/`,
+  `lib/event-bus/types.ts`, `lib/event-bus/event-handlers.ts`, `lib/permission-config.ts`
+- **Migration**: `20260520000000_add_accounting_module`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-20] — Fix data contact tidak tersimpan saat create WO (guest/MixRadius)
 
 - **Tipe**: [FIXED]
