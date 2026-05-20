@@ -321,6 +321,7 @@ model ExpenseCategory {
   updatedAt DateTime          @updatedAt
   parentId  String?
   tenantId  String?
+  coaId     String?
   expenses  Expense[]
   parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  ExpenseCategory[] @relation("CategoryHierarchy")
@@ -2682,6 +2683,7 @@ model FinancialAccount {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   tenantId       String?
+  coaId          String?
   expenses       Expense[]
   tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseOrders PurchaseOrder[] @relation("POPaidFrom")
@@ -4013,4 +4015,228 @@ model TenantSettings {
   updatedAt DateTime @updatedAt
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+}
+
+// ============================================
+// ACCOUNTING MODULE
+// ============================================
+
+enum COAType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum COASubtype {
+  CURRENT_ASSET
+  FIXED_ASSET
+  CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  CONTRIBUTED_CAPITAL
+  RETAINED_EARNINGS
+  OPERATING_REVENUE
+  OTHER_REVENUE
+  COGS
+  OPEX
+  OTHER_EXPENSE
+}
+
+enum DebitCredit {
+  DEBIT
+  CREDIT
+}
+
+enum CashFlowCategory {
+  OPERATING
+  INVESTING
+  FINANCING
+}
+
+enum JournalSource {
+  AUTO_INVOICE_PAID
+  AUTO_INVOICE_CREATED
+  AUTO_PAYMENT
+  AUTO_EXPENSE
+  AUTO_PO_PAID
+  MANUAL
+  RECURRING
+  REVERSAL
+  OPENING_BALANCE
+  ADJUSTMENT
+  CLOSING
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSING
+  CLOSED
+  REOPENED
+}
+
+enum RecurringFreq {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ReconStatus {
+  DRAFT_RECON
+  COMPLETED_RECON
+}
+
+enum MatchStatus {
+  MATCHED
+  UNMATCHED
+  MANUAL_MATCH
+}
+
+model ChartOfAccount {
+  id                  String               @id @default(cuid())
+  tenantId            String
+  code                String
+  name                String
+  type                COAType
+  subtype             COASubtype?
+  normalSide          DebitCredit
+  cashFlowCategory    CashFlowCategory?
+  parentId            String?
+  isPostable          Boolean              @default(true)
+  isSystem            Boolean              @default(false)
+  isActive            Boolean              @default(true)
+  description         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  parent              ChartOfAccount?      @relation("CoaTree", fields: [parentId], references: [id])
+  children            ChartOfAccount[]     @relation("CoaTree")
+  lines               JournalLine[]
+  bankReconciliations BankReconciliation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+  @@index([tenantId, parentId])
+  @@map("chart_of_accounts")
+}
+
+model AccountingPeriod {
+  id        String       @id @default(cuid())
+  tenantId  String
+  year      Int
+  month     Int
+  status    PeriodStatus @default(OPEN)
+  closedAt  DateTime?
+  closedBy  String?
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  entries   JournalEntry[]
+
+  @@unique([tenantId, year, month])
+  @@index([tenantId, status])
+  @@map("accounting_periods")
+}
+
+model JournalEntry {
+  id            String           @id @default(cuid())
+  tenantId      String
+  entryNumber   String
+  entryDate     DateTime
+  periodId      String
+  source        JournalSource
+  sourceRefType String?
+  sourceRefId   String?
+  description   String
+  status        JournalStatus    @default(POSTED)
+  reversalOfId  String?          @unique
+  postedAt      DateTime?
+  postedBy      String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  period        AccountingPeriod @relation(fields: [periodId], references: [id])
+  lines         JournalLine[]
+  reversalOf    JournalEntry?    @relation("JournalReversal", fields: [reversalOfId], references: [id])
+  reversedBy    JournalEntry?    @relation("JournalReversal")
+
+  @@unique([tenantId, entryNumber])
+  @@unique([tenantId, source, sourceRefId])
+  @@index([tenantId, entryDate])
+  @@index([periodId, status])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String         @id @default(cuid())
+  entryId     String
+  coaId       String
+  side        DebitCredit
+  amount      Decimal        @db.Decimal(19, 2)
+  description String?
+  lineOrder   Int
+  entry       JournalEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  coa         ChartOfAccount @relation(fields: [coaId], references: [id])
+
+  @@index([entryId])
+  @@index([coaId])
+  @@map("journal_lines")
+}
+
+model RecurringJournalTemplate {
+  id              String        @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  frequency       RecurringFreq
+  dayOfMonth      Int
+  startDate       DateTime
+  endDate         DateTime?
+  templateLines   Json
+  isActive        Boolean       @default(true)
+  lastGeneratedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId, isActive, dayOfMonth])
+  @@map("recurring_journal_templates")
+}
+
+model BankReconciliation {
+  id                String                   @id @default(cuid())
+  tenantId          String
+  coaId             String
+  statementDate     DateTime
+  statementBalance  Decimal                  @db.Decimal(19, 2)
+  bookBalance       Decimal                  @db.Decimal(19, 2)
+  reconciledBalance Decimal                  @db.Decimal(19, 2)
+  status            ReconStatus              @default(DRAFT_RECON)
+  completedAt       DateTime?
+  completedBy       String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  coa               ChartOfAccount           @relation(fields: [coaId], references: [id])
+  lines             BankReconciliationLine[]
+
+  @@index([tenantId, coaId, statementDate])
+  @@map("bank_reconciliations")
+}
+
+model BankReconciliationLine {
+  id                 String             @id @default(cuid())
+  reconciliationId   String
+  journalLineId      String?
+  bankRefDate        DateTime
+  bankRefDescription String
+  bankRefAmount      Decimal            @db.Decimal(19, 2)
+  matchStatus        MatchStatus        @default(UNMATCHED)
+  reconciliation     BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  @@index([reconciliationId, matchStatus])
+  @@map("bank_reconciliation_lines")
 }
