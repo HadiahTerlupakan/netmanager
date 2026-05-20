@@ -1,38 +1,17 @@
-import { logger } from "@/lib/logger";
-import { NextRequest } from "next/server";
-
-import { apiError, ErrorCodes } from "@/lib/api-response";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
 import { getMobileSalaryDetail } from "@/modules/salary";
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
-/** Mengambil detail slip gaji mobile untuk user yang sedang login. */
-export async function GET(req: NextRequest, { params }: RouteParams) {
-  try {
-    const authResult = await getMobileAuthPayload(req);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-
-    const permissions = authResult.permissions || [];
-    if (!permissions.includes("m_salary:read")) {
-      return apiError(
-        "Dilarang: Memerlukan izin m_salary:read",
-        ErrorCodes.FORBIDDEN,
-        { status: 403 },
-      );
-    }
-
+export const GET = createHandler(
+  { auth: true, permissions: ["m_salary:read"] },
+  async (_req, ctx) => {
     const salary = await getMobileSalaryDetail(
       {
-        id: authResult.id as string,
-        tenantId: authResult.tenantId as string,
+        id: ctx.session!.user.id,
+        tenantId: ctx.session!.user.tenantId!,
       },
-      (await params).id,
+      ctx.params.id,
     );
+
     if (!salary) {
       return apiError(
         "Gaji tidak ditemukan atau tidak tersedia",
@@ -41,11 +20,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return Response.json({ data: salary });
-  } catch (error) {
-    logger.error("Error fetching mobile salary detail:", error);
-    return apiError("Gagal mengambil detail gaji", ErrorCodes.INTERNAL_ERROR, {
-      status: 500,
-    });
-  }
-}
+    return apiSuccess(salary);
+  },
+);
