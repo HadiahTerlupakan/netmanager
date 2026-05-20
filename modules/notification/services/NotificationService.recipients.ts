@@ -7,6 +7,7 @@ import type {
 } from "./NotificationService.helpers";
 
 const WORK_ORDER_RESOURCE = "workorders";
+const WORK_ORDER_MOBILE_RESOURCE = "m_work_order";
 const WORK_ORDER_READ_ACTION = "read";
 const WORK_ORDER_DEPARTMENT_ONLY_ACTION = "department_only";
 
@@ -76,9 +77,24 @@ function buildEligibleRecipientBaseWhere(
     isActive: true,
     ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
     role: {
-      permission: {
-        some: { resource: WORK_ORDER_RESOURCE, action: WORK_ORDER_READ_ACTION },
-      },
+      OR: [
+        {
+          permission: {
+            some: {
+              resource: WORK_ORDER_RESOURCE,
+              action: WORK_ORDER_READ_ACTION,
+            },
+          },
+        },
+        {
+          permission: {
+            some: {
+              resource: WORK_ORDER_MOBILE_RESOURCE,
+              action: WORK_ORDER_READ_ACTION,
+            },
+          },
+        },
+      ],
     },
   };
 }
