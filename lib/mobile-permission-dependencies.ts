@@ -14,18 +14,14 @@
  * Format: "resource:action" → ["resource:action", ...]
  */
 export const MOBILE_PERMISSION_DEPENDENCIES: Record<string, string[]> = {
-  // Work Order butuh akses inventory (ambil barang, kembalikan barang),
-  // mixradius (search pelanggan), dan partners (invite partner ke WO)
+  // Work Order butuh akses inventory (ambil barang, kembalikan barang)
+  // dan partners (invite partner ke WO)
   "m_work_order:read": ["m_barang:read", "m_partners:read"],
   "m_work_order:update": [
     "m_barang:read",
     "m_barang_keluar:create",
     "m_barang_masuk:create",
   ],
-  "m_work_order:create": ["m_mixradius:read"],
-
-  // Isolir (MixRadius) butuh work order create untuk dismantle
-  "m_mixradius:read": ["m_work_order:create"],
 };
 
 /**
