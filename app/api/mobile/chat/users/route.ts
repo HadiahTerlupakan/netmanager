@@ -1,8 +1,4 @@
-import { logger } from "@/lib/logger";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { NextRequest, NextResponse } from "next/server";
-
-import { apiError, ErrorCodes } from "@/lib/api-response";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { ChatService } from "@/modules/chat";
 
 const chatService = new ChatService();
@@ -10,28 +6,14 @@ const chatService = new ChatService();
 /**
  * Get list of chat users for current tenant.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+export const GET = createHandler(
+  { auth: true, permissions: ["m_chat:read"] },
+  async (req, ctx) => {
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId!;
 
-    const userId = authResult.id as string;
-    const tenantId = authResult.tenantId as string;
-    if (!userId) {
-      return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
-        status: 401,
-      });
-    }
-
-    const search = new URL(request.url).searchParams.get("search") || "";
+    const search = new URL(req.url).searchParams.get("search") || "";
     const users = await chatService.searchUsers(tenantId, search, userId);
-    return NextResponse.json({ success: true, data: users });
-  } catch (error: unknown) {
-    logger.error("Error fetching users:", error);
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    return apiSuccess(users);
+  },
+);

@@ -1,36 +1,19 @@
-import { logger } from "@/lib/logger";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { NextRequest, NextResponse } from "next/server";
-
-import { apiError, ErrorCodes } from "@/lib/api-response";
+import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
 import { ChatService } from "@/modules/chat";
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
 
 const chatService = new ChatService();
 
 /**
  * Get messages for a conversation.
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
-    const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+export const GET = createHandler(
+  { auth: true, permissions: ["m_chat:read"] },
+  async (req, ctx) => {
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId!;
+    const conversationId = ctx.params.id;
 
-    const userId = authResult.id as string;
-    const tenantId = authResult.tenantId as string;
-    if (!userId) {
-      return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
-        status: 401,
-      });
-    }
-
-    const { id: conversationId } = await params;
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const result = await chatService.getMessages({
       conversationId,
       userId,
@@ -39,43 +22,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       limit: parseInt(searchParams.get("limit") || "50"),
     });
 
-    return NextResponse.json({ success: true, data: result });
-  } catch (error: unknown) {
-    logger.error("Error fetching messages:", error);
-
-    if (error instanceof Error && error.message === "Not a participant") {
-      return apiError("Not a participant", ErrorCodes.FORBIDDEN, {
-        status: 403,
-      });
-    }
-
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    return apiSuccess(result);
+  },
+);
 
 /**
  * Send a message to a conversation.
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+export const POST = createHandler(
+  { auth: true, permissions: ["m_chat:create"] },
+  async (req, ctx) => {
+    const userId = ctx.session!.user.id;
+    const userName = ctx.session!.user.name;
+    const tenantId = ctx.session!.user.tenantId!;
+    const conversationId = ctx.params.id;
 
-    const userId = authResult.id as string;
-    const userName = authResult.name as string | undefined;
-    const tenantId = authResult.tenantId as string;
-    if (!userId) {
-      return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
-        status: 401,
-      });
-    }
-
-    const { id: conversationId } = await params;
-    const body = await request.json();
+    const body = await req.json();
     const content = typeof body.content === "string" ? body.content : undefined;
     const imageUrl =
       typeof body.imageUrl === "string" ? body.imageUrl : undefined;
@@ -96,18 +58,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       imageUrl,
     });
 
-    return NextResponse.json({ success: true, data: message });
-  } catch (error: unknown) {
-    logger.error("Error sending message:", error);
-
-    if (error instanceof Error && error.message === "Not a participant") {
-      return apiError("Not a participant", ErrorCodes.FORBIDDEN, {
-        status: 403,
-      });
-    }
-
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
-}
+    return apiSuccess(message);
+  },
+);
