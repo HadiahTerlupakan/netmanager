@@ -279,14 +279,24 @@ async function main() {
   logger.info(`   ✅ Role: SALES (marketing/canvasing permissions)`);
 
   // 2.5 FINANCE Role - Admin panel only (finance permissions)
-  const financePermissions = permissions.filter(
-    (p) =>
-      p.resource.includes("finance") ||
-      p.resource.includes("daily_income") ||
-      p.resource.includes("period_income") ||
-      p.resource.includes("expense") ||
-      p.resource.includes("profit_loss") ||
-      p.resource === "dashboard",
+  const FINANCE_RESOURCES = [
+    "finance",
+    "accounts",
+    "debts_receivables",
+    "treasury",
+    "transactions",
+    "manual_payments",
+    "categories",
+    "reports",
+    "daily_income",
+    "period_income",
+    "expense",
+    "profit_loss",
+    "dashboard",
+  ];
+
+  const financePermissions = permissions.filter((p) =>
+    FINANCE_RESOURCES.includes(p.resource as string),
   );
 
   const financeRole = await prisma.role.upsert({
