@@ -39,6 +39,7 @@ spec:
       securityContext:
         fsGroup: 1001
       terminationGracePeriodSeconds: 30
+      serviceAccountName: netmanager-app
       containers:
         - name: app
           image: "{{APP_IMAGE}}"

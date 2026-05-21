@@ -35,6 +35,9 @@ cat > /etc/crontabs/root <<CRON_EOF
 
 # Process Overdue compatibility - tetap tersedia untuk deployment lama
 1 0 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/process-overdue" >> /var/log/cron.log 2>&1
+
+# Tenant Domain Verification - verifikasi domain tenant setiap 5 menit
+*/5 * * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/tenant-domain-verify" >> /var/log/cron.log 2>&1
 CRON_EOF
 
 echo "Cron jobs configured:"

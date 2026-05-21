@@ -10,3 +10,4 @@ data:
   TZ: "Asia/Jakarta"
   NODE_ENV: "production"
   ALLOWED_ORIGINS: "https://staging.radpro.id"
+  K8S_NAMESPACE: "netmanager-staging"

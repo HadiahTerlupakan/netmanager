@@ -10,3 +10,4 @@ data:
   TZ: "Asia/Jakarta"
   NODE_ENV: "production"
   ALLOWED_ORIGINS: "https://radpro.id,https://admin.radpro.id,https://karyawan.radpro.id,https://pelanggan.radpro.id,https://investor.radpro.id"
+  K8S_NAMESPACE: "netmanager-production"
