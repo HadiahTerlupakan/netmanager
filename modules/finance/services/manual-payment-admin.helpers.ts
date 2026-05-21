@@ -9,7 +9,6 @@ import type {
 } from "../types/payment.types";
 import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { getPelangganBillingBridge } from "../pelanggan-registry";
 
 export type PendingManualPaymentsInput = {
   startDate?: string | null;

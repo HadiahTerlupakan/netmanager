@@ -7,12 +7,12 @@ import type {
   CalculationContext,
   CalculationResult,
 } from "@/modules/salary-v2/core";
-import { ComponentCategory } from "@/modules/salary-v2/core";
+import { ComponentCategory, type EmployeeType } from "@/modules/salary-v2/core";
 
 class MockCalculatorA implements IPayrollCalculator {
   name = "MockA";
   order = 1;
-  applicableTo = null;
+  applicableTo: EmployeeType[] | null = null;
   calculate(_ctx: CalculationContext): CalculationResult {
     return {
       lines: [
@@ -30,7 +30,7 @@ class MockCalculatorA implements IPayrollCalculator {
 class MockCalculatorB implements IPayrollCalculator {
   name = "MockB";
   order = 2;
-  applicableTo = null;
+  applicableTo: EmployeeType[] | null = null;
   calculate(ctx: CalculationContext): CalculationResult {
     const prevTotal = ctx.previousLines.reduce((sum, l) => sum + l.amount, 0);
     return {
@@ -126,7 +126,7 @@ describe("PayrollCalculationEngine", () => {
     class MetaCalc implements IPayrollCalculator {
       name = "MetaCalc";
       order = 1;
-      applicableTo = null;
+      applicableTo: EmployeeType[] | null = null;
       calculate(): CalculationResult {
         return { lines: [], metadata: { workDays: 22 } };
       }

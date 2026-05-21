@@ -59,7 +59,15 @@ describe("admin payments cancel route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.getServerSession.mockResolvedValue({
-      user: { name: "Admin", email: "admin@example.com" },
+      user: {
+        id: "admin-1",
+        name: "Admin",
+        email: "admin@example.com",
+        role: "ADMIN",
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+        permissions: ["manual_payments:verify"],
+      },
     });
     mockFns.sendCustomerPushNotification.mockResolvedValue(undefined);
     mockFns.updateStatusPelanggan.mockResolvedValue(undefined);

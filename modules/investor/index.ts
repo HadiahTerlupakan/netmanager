@@ -61,11 +61,6 @@ export type { InvestorBalance } from "./services/InvestorBalanceService";
 export { InvestorProfitShareService } from "./services/InvestorProfitShareService";
 export { InvestorConfigService } from "./services/InvestorConfigService";
 
-// Repositories
-export { InvestorDepositRepository } from "./repositories/InvestorDepositRepository";
-export { InvestorConfigRepository } from "./repositories/InvestorConfigRepository";
-export { InvestorProfitShareRepository } from "./repositories/InvestorProfitShareRepository";
-
 // Factory functions (pre-wired)
 import { InvestorDepositService } from "./services/InvestorDepositService";
 import { InvestorBalanceService } from "./services/InvestorBalanceService";

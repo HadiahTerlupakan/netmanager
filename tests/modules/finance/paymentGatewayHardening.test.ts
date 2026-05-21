@@ -162,7 +162,10 @@ describe("payment gateway hardening", () => {
 
     expect(result).toEqual({
       status: 200,
-      body: { status: "ok", message: "Payment amount mismatch" },
+      body: {
+        status: "ok",
+        message: "Payment amount mismatch - flagged for review",
+      },
     });
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
     expect(prismaMock.invoice.update).not.toHaveBeenCalled();

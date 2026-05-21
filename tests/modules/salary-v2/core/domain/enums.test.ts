@@ -118,4 +118,57 @@ describe("Salary V2 Enums", () => {
       expect(SalaryAdvanceStatus.REJECTED).toBe("REJECTED");
     });
   });
+
+  describe("PaymentItemStatus", () => {
+    it("should have all item statuses", () => {
+      expect(PaymentItemStatus.PENDING).toBe("PENDING");
+      expect(PaymentItemStatus.SUCCESS).toBe("SUCCESS");
+      expect(PaymentItemStatus.FAILED).toBe("FAILED");
+      expect(PaymentItemStatus.RETRY).toBe("RETRY");
+    });
+  });
+
+  describe("PayrollPeriodStatus", () => {
+    it("should have all period statuses", () => {
+      expect(PayrollPeriodStatus.OPEN).toBe("OPEN");
+      expect(PayrollPeriodStatus.PROCESSING).toBe("PROCESSING");
+      expect(PayrollPeriodStatus.CLOSED).toBe("CLOSED");
+      expect(PayrollPeriodStatus.LOCKED).toBe("LOCKED");
+    });
+  });
+
+  describe("AuditAction", () => {
+    it("should have all audit actions", () => {
+      expect(AuditAction.CREATED).toBe("CREATED");
+      expect(AuditAction.UPDATED).toBe("UPDATED");
+      expect(AuditAction.DELETED).toBe("DELETED");
+      expect(AuditAction.STATUS_CHANGED).toBe("STATUS_CHANGED");
+      expect(AuditAction.RECALCULATED).toBe("RECALCULATED");
+      expect(AuditAction.LOCKED).toBe("LOCKED");
+      expect(AuditAction.UNLOCKED).toBe("UNLOCKED");
+    });
+  });
+
+  describe("ComplianceSeverity", () => {
+    it("should have all severity levels", () => {
+      expect(ComplianceSeverity.ERROR).toBe("ERROR");
+      expect(ComplianceSeverity.WARNING).toBe("WARNING");
+    });
+  });
+
+  describe("OvertimeDayType", () => {
+    it("should have all day types", () => {
+      expect(OvertimeDayType.WORKDAY).toBe("WORKDAY");
+      expect(OvertimeDayType.HOLIDAY).toBe("HOLIDAY");
+      expect(OvertimeDayType.NATIONAL_HOLIDAY).toBe("NATIONAL_HOLIDAY");
+    });
+  });
+
+  describe("OvertimeCapEnforcement", () => {
+    it("should have all enforcement types", () => {
+      expect(OvertimeCapEnforcement.HARD_BLOCK).toBe("HARD_BLOCK");
+      expect(OvertimeCapEnforcement.SOFT_WARNING).toBe("SOFT_WARNING");
+      expect(OvertimeCapEnforcement.LOG_ONLY).toBe("LOG_ONLY");
+    });
+  });
 });

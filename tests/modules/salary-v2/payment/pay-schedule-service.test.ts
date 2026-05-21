@@ -60,7 +60,7 @@ describe("PayScheduleService", () => {
       tenantId: "tenant-1",
       name: "Mingguan",
       frequency: "WEEKLY" as const,
-      cutOffDay: null,
+      cutOffDay: null as number | null,
       cutOffDayOfWeek: 6,
       payDay: 1,
       payDayOffset: 2,

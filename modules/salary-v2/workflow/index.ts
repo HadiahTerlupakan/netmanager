@@ -31,3 +31,8 @@ export type {
   AuditLogFilter,
   IAuditLogRepository,
 } from "./audit/PayrollAuditService";
+
+export {
+  calculatePayrollRun,
+  type CalculateRunError,
+} from "./services/PayrollCalculationRunService";
