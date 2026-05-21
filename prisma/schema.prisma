@@ -4415,6 +4415,20 @@ model TaxReminder {
   @@map("tax_reminders")
 }
 
+model TaxConfigHistory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  field       String
+  oldValue    String?
+  newValue    String?
+  changedById String
+  changedAt   DateTime @default(now())
+
+  @@index([tenantId, changedAt])
+  @@index([tenantId, field])
+  @@map("tax_config_histories")
+}
+
 // ============================================================
 // OLT Provisioning Module
 // ============================================================
@@ -5151,4 +5165,91 @@ model PayrollAuditLog {
   @@index([entityType, entityId])
   @@index([performedBy])
   @@map("payroll_audit_log_v2")
+}
+
+// ─── Landing Page CMS ───────────────────────────────────────────────────────
+
+model LandingHero {
+  id           String   @id @default(uuid())
+  badge        String?
+  title        String
+  highlight    String?
+  subtitle     String
+  ctaPrimary   String   @default("Mulai Gratis 14 Hari")
+  ctaSecondary String   @default("Lihat Fitur")
+  ctaLink      String   @default("/admin/login")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LandingFeature {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  icon        String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model LandingPricing {
+  id          String   @id @default(uuid())
+  name        String
+  price       String
+  period      String   @default("/bulan")
+  description String?
+  features    Json
+  isPopular   Boolean  @default(false)
+  ctaText     String   @default("Mulai Sekarang")
+  ctaLink     String   @default("/admin/login")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model LandingTestimonial {
+  id        String   @id @default(uuid())
+  name      String
+  role      String
+  content   String
+  rating    Int      @default(5)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model LandingFaq {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model LandingFooter {
+  id          String   @id @default(uuid())
+  companyName String   @default("RADPRO.ID")
+  description String?
+  address     String?
+  email       String?
+  phone       String?
+  links       Json
+  socials     Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
