@@ -4,7 +4,7 @@ import { calculatePayrollRun } from "@/modules/salary";
 
 /** POST /api/admin/salary/runs/[id]/calculate — Trigger calculation for a payroll run */
 export const POST = createHandler({ auth: true }, async (_req, ctx) => {
-  if (!(await hasPermission("salary:update"))) {
+  if (!(await hasPermission("salary:calculate"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menghitung payroll",
     );
