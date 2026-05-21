@@ -112,7 +112,7 @@ export const PERMISSION_GROUPS = {
  * Prefix 'm_' digunakan untuk membedakan resource mobile dari resource admin.
  */
 export const PERMISSION_GROUPS_MOBILE = {
-  BERANDA: ["m_dashboard", "m_work_order"],
+  BERANDA: ["m_work_order"],
   INVENTORY: ["m_barang", "m_barang_masuk", "m_barang_keluar"],
   KEHADIRAN: ["m_absensi", "m_lembur", "m_izin", "m_holidays"],
   MARKETING: ["m_canvasing"],
@@ -122,9 +122,14 @@ export const PERMISSION_GROUPS_MOBILE = {
 
 /**
  * Internal mobile resources — tidak muncul di matriks UI tapi tetap di-seed
- * dan di-enforce di backend. Otomatis di-include via dependency expansion.
+ * dan di-enforce di backend. Otomatis di-include via dependency expansion
+ * atau selalu accessible (dashboard, profile).
  */
-export const INTERNAL_MOBILE_RESOURCES = ["m_salary", "m_partners"] as const;
+export const INTERNAL_MOBILE_RESOURCES = [
+  "m_dashboard",
+  "m_salary",
+  "m_partners",
+] as const;
 
 // Backward compatibility alias (used by existing seed scripts)
 export const PERMISSION_GROUPS_KARYAWAN = PERMISSION_GROUPS_MOBILE;
