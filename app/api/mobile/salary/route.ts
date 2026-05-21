@@ -1,5 +1,5 @@
 import { apiSuccess, createHandler } from "@/lib/api";
-import { getMobileSalaryList } from "@/modules/salary";
+import { getPayrollEntryRepository } from "@/modules/salary";
 
 /** Mengambil daftar slip gaji mobile untuk user yang sedang login. */
 export const GET = createHandler(
@@ -8,12 +8,12 @@ export const GET = createHandler(
     permissions: ["m_salary:read"],
   },
   async (_req, ctx) => {
-    const userSession = ctx.session!.user;
-    return apiSuccess(
-      await getMobileSalaryList({
-        id: userSession.id,
-        tenantId: userSession.tenantId as string,
-      }),
-    );
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId as string;
+
+    const repo = getPayrollEntryRepository();
+    const entries = await repo.findByUserId(userId, tenantId);
+
+    return apiSuccess(entries);
   },
 );

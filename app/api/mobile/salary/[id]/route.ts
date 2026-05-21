@@ -1,18 +1,18 @@
 import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
-import { getMobileSalaryDetail } from "@/modules/salary";
+import { getPayrollEntryRepository } from "@/modules/salary";
 
+/** Mengambil detail slip gaji beserta line items. */
 export const GET = createHandler(
   { auth: true, permissions: ["m_salary:read"] },
   async (_req, ctx) => {
-    const salary = await getMobileSalaryDetail(
-      {
-        id: ctx.session!.user.id,
-        tenantId: ctx.session!.user.tenantId!,
-      },
-      ctx.params.id,
-    );
+    const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId as string;
+    const entryId = ctx.params.id;
 
-    if (!salary) {
+    const repo = getPayrollEntryRepository();
+    const entry = await repo.findById(entryId, tenantId);
+
+    if (!entry || entry.userId !== userId) {
       return apiError(
         "Gaji tidak ditemukan atau tidak tersedia",
         ErrorCodes.NOT_FOUND,
@@ -20,6 +20,6 @@ export const GET = createHandler(
       );
     }
 
-    return apiSuccess(salary);
+    return apiSuccess(entry);
   },
 );
