@@ -1,4 +1,5 @@
 import { prisma } from "@/modules/database";
+import type { LandingContentAll } from "../domain/LandingContent";
 
 export class LandingContentRepository {
   /** Get active hero section */
@@ -218,7 +219,7 @@ export class LandingContentRepository {
   }
 
   /** Fetch all landing content sections in parallel */
-  async getAllContent() {
+  async getAllContent(): Promise<LandingContentAll> {
     const [hero, features, pricing, testimonials, faq, footer] =
       await Promise.all([
         this.getHero(),
@@ -228,6 +229,27 @@ export class LandingContentRepository {
         this.getFaq(),
         this.getFooter(),
       ]);
-    return { hero, features, pricing, testimonials, faq, footer };
+    return {
+      hero,
+      features,
+      // Map JsonValue → string[] for the features field stored as JSON
+      pricing: pricing.map((p) => ({
+        ...p,
+        features: Array.isArray(p.features) ? (p.features as string[]) : [],
+      })),
+      testimonials,
+      faq,
+      // Map JsonValue → typed Record for the links/socials fields stored as JSON
+      footer: footer
+        ? {
+            ...footer,
+            links: (footer.links ?? {}) as Record<
+              string,
+              Array<{ label: string; href: string }>
+            >,
+            socials: footer.socials as Record<string, string> | null,
+          }
+        : null,
+    };
   }
 }

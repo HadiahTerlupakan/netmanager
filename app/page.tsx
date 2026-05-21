@@ -7,6 +7,7 @@ import { getPublicPortalSettings } from "@/modules/settings";
 import { DEFAULT_PUBLIC_APP_NAME } from "@/lib/settings/publicBranding";
 import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
 import { prisma } from "@/modules/database";
+import { LandingContentService } from "@/modules/website";
 
 export const metadata: Metadata = {
   title: "RADPRO.ID - Platform Manajemen ISP All-in-One",
@@ -61,7 +62,14 @@ export default async function HomePage() {
 
   // Main tenant or no tenant resolved → SaaS marketing page
   if (!tenantId || tenantId === MAIN_TENANT_ID) {
-    return <SaasLandingPage />;
+    let landingContent = null;
+    try {
+      const service = new LandingContentService();
+      landingContent = await service.getAllContent();
+    } catch {
+      // fallback to null — component will use hardcoded defaults
+    }
+    return <SaasLandingPage content={landingContent} />;
   }
 
   // Tenant resolved → tenant-branded landing page
