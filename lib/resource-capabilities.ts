@@ -31,6 +31,7 @@ export type ResourceAction =
   | "mark_paid"
   | "calculate"
   | "manage"
+  | "view_all"
   | "correct-missed-checkin";
 
 export interface ResourceCapability {
