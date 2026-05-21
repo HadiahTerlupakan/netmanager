@@ -52,6 +52,7 @@ export const POST = createHandler(
       reference,
       notes,
       status,
+      tenantId: ctx.session?.user?.tenantId || undefined,
     });
     if (!payout) {
       return ApiErrors.notFound("Investor");

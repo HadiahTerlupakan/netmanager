@@ -4726,6 +4726,9 @@ model InvestorConfig {
   fixedSharePercent Float?
   periodType        InvestorProfitPeriodType @default(MONTHLY)
   isActive          Boolean                 @default(true)
+  isTaxable         Boolean                 @default(false)
+  taxType           String?                 // "PPH_23" | "PPH_4_2" | null
+  taxRate           Decimal?                @db.Decimal(5, 2) // custom rate, null = pakai default dari TaxConfig
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
   tenantId          String?

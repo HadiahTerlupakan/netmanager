@@ -70,6 +70,7 @@ import {
   HiOutlineScale,
   HiOutlineBellAlert,
   HiOutlineExclamationCircle,
+  HiOutlineReceiptPercent,
 } from "react-icons/hi2";
 
 const adminSidebarIconMap: Record<string, ElementType> = {
@@ -143,6 +144,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineScale,
   HiOutlineBellAlert,
   HiOutlineExclamationCircle,
+  HiOutlineReceiptPercent,
 };
 
 /** Tujuan: merender ikon sidebar admin berdasarkan nama ikon konfigurasi. */

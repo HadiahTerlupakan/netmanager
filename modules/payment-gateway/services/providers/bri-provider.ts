@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -56,7 +57,7 @@ export class BRIProvider implements PaymentProvider {
         timestamp,
       });
 
-      const response = await fetch(`${this.baseUrl}${url}`, {
+      const response = await fetchWithTimeout(`${this.baseUrl}${url}`, {
         method: "POST",
         headers: this.createApiHeaders(accessToken, timestamp, signature),
         body: bodyString,
@@ -104,7 +105,7 @@ export class BRIProvider implements PaymentProvider {
         body: "",
         timestamp,
       });
-      const response = await fetch(`${this.baseUrl}${url}`, {
+      const response = await fetchWithTimeout(`${this.baseUrl}${url}`, {
         method: "GET",
         headers: this.createApiHeaders(accessToken, timestamp, signature),
       });
@@ -212,7 +213,7 @@ export class BRIProvider implements PaymentProvider {
     const config = this.requireConfig();
 
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.baseUrl}/oauth/client_credential/accesstoken?grant_type=client_credentials`,
         {
           method: "POST",

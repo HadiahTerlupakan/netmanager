@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -59,11 +60,14 @@ export class DuitkuProvider implements PaymentProvider {
         }),
         expiryPeriod: expiryHours * 60,
       };
-      const response = await fetch(`${this.baseUrl}/merchant/createinvoice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/merchant/createinvoice`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        },
+      );
       const result = (await response.json()) as {
         statusCode?: string;
         statusMessage?: string;
@@ -101,7 +105,7 @@ export class DuitkuProvider implements PaymentProvider {
     try {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.baseUrl}/merchant/transactionStatus`,
         {
           method: "POST",
@@ -199,7 +203,7 @@ export class DuitkuProvider implements PaymentProvider {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
       const testOrderId = `TEST-${Date.now()}`;
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.baseUrl}/merchant/transactionStatus`,
         {
           method: "POST",

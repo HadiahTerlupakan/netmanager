@@ -11,6 +11,8 @@ import { DeviceDetailModals } from "@/app/admin/network/acs/devices/components/D
 import { DeviceDetailPanels } from "@/app/admin/network/acs/devices/components/DeviceDetailPanels";
 import type { DeviceDetail } from "@/app/admin/network/acs/devices/lib/acsDeviceTypes";
 
+const REFRESH_DELAY_MS = 3000;
+
 type ParamModalState = {
   isOpen: boolean;
   type: string;
@@ -114,7 +116,7 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
         setSsidModal((prev) => ({ ...prev, isOpen: false }));
         setTimeout(() => {
           void fetchDeviceDetail();
-        }, 3000);
+        }, REFRESH_DELAY_MS);
       } else {
         showToast("error", result.error || "Gagal mengeksekusi perintah");
       }
@@ -181,16 +183,18 @@ export function DeviceDetailClient({ deviceId }: { deviceId: string }) {
               "PERINGATAN BAHAYA: Apakah Anda yakin ingin mereset perangkat ini ke pengaturan pabrik? Semua konfigurasi pelanggan (termasuk PPPoE) akan terhapus dan perangkat harus dikonfigurasi ulang.",
           })
         }
-        onOpenSsidModal={() =>
+        onOpenSsidModal={(index: number) => {
+          const wlanData =
+            index === 5 ? device.wifiInfo.wlan5 : device.wifiInfo.wlan1;
           setSsidModal({
             isOpen: true,
-            index: 1,
-            name: device.wifiInfo.wlan1.ssid || "",
+            index,
+            name: wlanData.ssid || "",
             security: "WPA/WPA2",
             password: "",
-            enabled: true,
-          })
-        }
+            enabled: !!wlanData.enabled,
+          });
+        }}
         onOpenWanModal={() =>
           setWanModal({
             isOpen: true,

@@ -14,6 +14,8 @@ const ignoreModels = [
   "VerificationToken",
   "Tenant",
   "SystemLog",
+  "JournalLine",
+  "BankReconciliationLine",
 ];
 
 let prismaClient: PrismaClient | undefined;

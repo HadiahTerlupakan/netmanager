@@ -4,13 +4,15 @@ import { ZodError } from "zod";
 import { couponService, verifyCouponSchema } from "@/modules/coupons";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export const POST = createHandler({ auth: false }, async (req, _ctx) => {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   try {
     const payload = verifyCouponSchema.parse(await req.json());
+    const tenantId = ctx.session!.user.tenantId ?? null;
     const result = await couponService.verifyCoupon(
       payload.code,
       payload.amount,
       payload.pelangganId,
+      tenantId,
     );
 
     if (!result.valid) {

@@ -8,6 +8,7 @@ export {
 } from "./services/CouponServiceFactory";
 export {
   createCouponSchema,
+  updateCouponSchema,
   verifyCouponSchema,
 } from "./services/CouponValidationService";
 export type { ICouponRepository, VerifyCouponResult } from "./contracts";

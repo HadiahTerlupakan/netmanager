@@ -19,6 +19,7 @@ export const EVENT_CATEGORIES = {
   CUSTOMER: "customer",
   NETWORK: "network",
   SYSTEM: "system",
+  SALARY: "salary",
 } as const;
 
 export type EventCategory =
@@ -37,11 +38,16 @@ export const EVENT_NAMES = {
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_RECEIVED: "billing:payment.received",
   PAYMENT_FAILED: "billing:payment.failed",
+  COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
 
   // Finance Events (for accounting consumption)
   EXPENSE_APPROVED: "finance:expense.approved",
   PURCHASE_ORDER_PAID: "finance:purchase_order.paid",
+  SALARY_PROCESSED: "salary:salary.processed",
+  MITRA_WITHDRAWAL_COMPLETED: "mitra:withdrawal.completed",
+  INVESTOR_PAYOUT_COMPLETED: "investor:payout.completed",
+  INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
 
   // Customer Events
   CUSTOMER_CREATED: "customer:created",
@@ -118,6 +124,14 @@ export interface InvoicePaidPayload extends BaseEventPayload {
   amount: number;
   paidAt: string;
   paymentMethod?: string;
+}
+
+export interface CouponUsedPayload extends BaseEventPayload {
+  couponId: string;
+  pelangganId: string;
+  invoiceIds: string[];
+  discountAmount: number;
+  appliedAt: string;
 }
 
 export interface CustomerCreatedPayload extends BaseEventPayload {
@@ -321,6 +335,43 @@ export interface PurchaseOrderPaidPayload extends BaseEventPayload {
   paidAt: string;
 }
 
+export interface SalaryProcessedPayload extends BaseEventPayload {
+  salaryId: string;
+  tenantId: string;
+  userId: string;
+  grossSalary: string;
+  pph21Amount: string;
+  month: number;
+  year: number;
+  processedAt: string;
+}
+
+export interface MitraWithdrawalCompletedPayload extends BaseEventPayload {
+  withdrawalId: string;
+  tenantId: string;
+  mitraId: string;
+  amount: string;
+  method: string;
+  completedAt: string;
+}
+
+export interface InvestorPayoutCompletedPayload extends BaseEventPayload {
+  payoutId: string;
+  tenantId: string;
+  investorId: string;
+  amount: string;
+  completedAt: string;
+}
+
+export interface InvestorDepositCompletedPayload extends BaseEventPayload {
+  depositId: string;
+  investorId: string;
+  tenantId: string;
+  amount: string;
+  depositType: string;
+  completedAt: string;
+}
+
 // ============================================
 // PAYLOAD MAP (Type-safe event → payload mapping)
 // ============================================
@@ -333,6 +384,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
   [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
+  [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_SUSPENDED]: CustomerStatusPayload;
@@ -366,6 +418,10 @@ export interface EventPayloadMap {
   [EVENT_NAMES.PROFILE_PPP_UPDATED]: ProfilePppUpdatedPayload;
   [EVENT_NAMES.EXPENSE_APPROVED]: ExpenseApprovedPayload;
   [EVENT_NAMES.PURCHASE_ORDER_PAID]: PurchaseOrderPaidPayload;
+  [EVENT_NAMES.SALARY_PROCESSED]: SalaryProcessedPayload;
+  [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
+  [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
+  [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
 }
 
 // ============================================
@@ -694,6 +750,41 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PURCHASE_ORDER_PAID]: {
     name: EVENT_NAMES.PURCHASE_ORDER_PAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.SALARY_PROCESSED]: {
+    name: EVENT_NAMES.SALARY_PROCESSED,
+    category: "salary",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: {
+    name: EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: {
+    name: EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: {
+    name: EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.COUPON_USED]: {
+    name: EVENT_NAMES.COUPON_USED,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

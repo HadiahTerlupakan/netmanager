@@ -1,5 +1,6 @@
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { BillingEventDispatcher } from "@/modules/events/dispatchers/BillingEventDispatcher";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
 import type {
   PaymentWhereInput,
@@ -240,6 +241,12 @@ async function syncInvoiceAfterPaymentApproval(
 
   if (invoiceStatus === "PAID") {
     await AutomaticBillingService.handleInvoicePaid(invoice.id);
+
+    await BillingEventDispatcher.onInvoicePaid(
+      invoice.id,
+      invoice.pelangganId || "",
+      Number(invoice.totalAmount),
+    ).catch(() => {});
   }
 }
 

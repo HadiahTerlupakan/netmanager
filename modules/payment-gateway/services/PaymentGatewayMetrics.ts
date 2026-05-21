@@ -9,6 +9,7 @@ export type WebhookMetrics = {
 
 export class PaymentGatewayMetrics {
   private metrics: Map<string, WebhookMetrics> = new Map();
+  private static readonly MAX_DURATION_ENTRIES = 1000;
 
   /**
    * Record webhook received
@@ -26,6 +27,12 @@ export class PaymentGatewayMetrics {
     const metrics = this.getOrCreateMetrics(provider);
     metrics.webhookProcessed++;
     metrics.processingDuration.push(durationMs);
+    if (
+      metrics.processingDuration.length >
+      PaymentGatewayMetrics.MAX_DURATION_ENTRIES
+    ) {
+      metrics.processingDuration.shift();
+    }
     logger.debug(
       `[Metrics] Webhook processed for ${provider} in ${durationMs}ms`,
     );

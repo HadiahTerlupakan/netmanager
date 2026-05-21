@@ -1,16 +1,5 @@
 import { getAcsSettings } from "@/modules/settings";
-
-type GenieAcsDevice = Record<string, unknown> & {
-  _id?: string;
-  _deviceId?: {
-    _ProductClass?: string;
-    _SerialNumber?: string;
-    _Manufacturer?: string;
-    _OUI?: string;
-  };
-  _tags?: unknown;
-  _lastInform?: unknown;
-};
+import type { GenieAcsDevice } from "./AcsDeviceService.types";
 
 function getNestedValue(obj: unknown, path: string) {
   return path.split(".").reduce<unknown>((current, part) => {
@@ -143,8 +132,8 @@ export function formatDeviceDetailPayload(
     },
     connectionInfo: {
       lastInform: device._lastInform || null,
-      lastBoot: (device as { _lastBoot?: unknown })._lastBoot || null,
-      registered: (device as { _registered?: unknown })._registered || null,
+      lastBoot: device._lastBoot || null,
+      registered: device._registered || null,
     },
     virtualParameters: {
       rxPower: deviceInfo.rxPower,
@@ -153,5 +142,29 @@ export function formatDeviceDetailPayload(
       activeDevices: getParameterValue(device, settings.vpActiveDevices),
     },
     wifiInfo: buildWifiInfo(device),
+    connectedHosts: buildConnectedHosts(device),
   };
+}
+
+function buildConnectedHosts(device: GenieAcsDevice) {
+  const hostsObj = getNestedValue(
+    device,
+    "InternetGatewayDevice.LANDevice.1.Hosts.Host",
+  ) as Record<string, unknown> | null;
+  if (!hostsObj || typeof hostsObj !== "object") return [];
+
+  return Object.entries(hostsObj)
+    .filter(([key]) => /^\d+$/.test(key))
+    .map(([, host]) => {
+      const h = host as Record<string, { _value?: unknown }> | null;
+      if (!h) return null;
+      return {
+        hostName: (h.HostName?._value as string) || null,
+        ipAddress: (h.IPAddress?._value as string) || null,
+        macAddress: (h.MACAddress?._value as string) || null,
+        interfaceType: (h.InterfaceType?._value as string) || null,
+        active: h.Active?._value ?? null,
+      };
+    })
+    .filter(Boolean);
 }

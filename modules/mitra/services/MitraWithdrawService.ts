@@ -199,6 +199,19 @@ export class MitraWithdrawService {
         method: request!.method,
         processedById,
       });
+
+      const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+      await eventBus
+        .publish(EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED, {
+          withdrawalId: id,
+          tenantId: tenantId || "",
+          mitraId: request!.mitraId,
+          amount: String(request!.amount),
+          method: request!.method,
+          completedAt: new Date().toISOString(),
+        })
+        .catch(() => {});
+
       logWithdrawActivity("COMPLETE", processedById, {
         requestId: id,
         amount: request!.amount,

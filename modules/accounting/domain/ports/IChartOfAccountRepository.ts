@@ -39,6 +39,7 @@ export interface IChartOfAccountRepository {
     filter?: { type?: COAType; isActive?: boolean },
   ): Promise<ChartOfAccount[]>;
   delete(id: string): Promise<void>;
+  deleteSystemAccounts(tenantId: string): Promise<void>;
   countChildren(parentId: string): Promise<number>;
   countLines(coaId: string): Promise<number>;
   getAccountBalances(

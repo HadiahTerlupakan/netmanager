@@ -16,6 +16,7 @@ export interface InvestorPayoutCreateInput {
   reference?: string;
   notes?: string;
   status?: string;
+  tenantId?: string;
 }
 
 const DEFAULT_STATUS = "COMPLETED";
@@ -50,7 +51,7 @@ export class InvestorPayoutAdminService {
       return null;
     }
 
-    return this.paymentBridge.createInvestorPayout({
+    const payout = await this.paymentBridge.createInvestorPayout({
       investorId: input.investorId,
       amount: BigInt(input.amount),
       date: input.date || new Date(),
@@ -61,6 +62,21 @@ export class InvestorPayoutAdminService {
       notes: input.notes,
       status: input.status || DEFAULT_STATUS,
     });
+
+    if (payout) {
+      const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+      await eventBus
+        .publish(EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED, {
+          payoutId: payout.id,
+          tenantId: input.tenantId || "",
+          investorId: input.investorId,
+          amount: String(input.amount),
+          completedAt: new Date().toISOString(),
+        })
+        .catch(() => {});
+    }
+
+    return payout;
   }
 
   /** Mengambil detail investor beserta histori payout dan proyek. */

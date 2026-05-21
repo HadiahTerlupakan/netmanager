@@ -4,6 +4,7 @@ import { useState } from "react";
 import { HiOutlineChartBar } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
+import { downloadCsv, downloadPdf } from "@/lib/utils/report-export";
 
 interface TrialBalanceRow {
   coaCode: string;
@@ -42,6 +43,33 @@ export function TrialBalanceClient() {
       setReport(data.data);
     }
     setLoading(false);
+  };
+
+  const csvHeaders = ["Kode", "Nama Akun", "Tipe", "Debit", "Kredit", "Saldo"];
+
+  const getRows = (): string[][] =>
+    report?.rows.map((r) => [
+      r.coaCode,
+      r.coaName,
+      r.coaType,
+      formatCurrency(Number(r.totalDebit)),
+      formatCurrency(Number(r.totalCredit)),
+      formatCurrency(Number(r.balance)),
+    ]) || [];
+
+  const handleDownloadCsv = () => {
+    downloadCsv(`neraca-saldo_${from}_${to}.csv`, csvHeaders, getRows());
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadPdf(
+      `neraca-saldo_${from}_${to}.pdf`,
+      "Neraca Saldo",
+      `Periode: ${from} s/d ${to}`,
+      csvHeaders,
+      getRows(),
+      { orientation: "landscape" },
+    );
   };
 
   return (
@@ -92,6 +120,22 @@ export function TrialBalanceClient() {
         >
           {loading ? "Memuat..." : "Tampilkan"}
         </Button>
+        {report && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownloadCsv}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download Excel
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Table */}

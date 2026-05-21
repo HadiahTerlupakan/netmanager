@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import crypto from "crypto";
 import type {
   CreatePaymentParams,
@@ -88,7 +89,7 @@ async function requestBcaAccessToken(input: {
   baseUrl: string;
   config: ProviderConfig;
 }) {
-  const response = await fetch(`${input.baseUrl}/oauth/token`, {
+  const response = await fetchWithTimeout(`${input.baseUrl}/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

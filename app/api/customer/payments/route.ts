@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { z } from "zod";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
@@ -12,6 +13,17 @@ import {
 } from "@/lib/api-response";
 
 const customerPortalService = new CustomerPortalService();
+
+const customerPaymentSchema = z.object({
+  invoiceIds: z
+    .array(
+      z.string().includes("-", { message: "Invoice ID harus berformat UUID" }),
+    )
+    .min(1, "Pilih minimal satu tagihan untuk dibayar"),
+  paymentMethod: z.string().min(1, "Metode pembayaran wajib diisi").optional(),
+  couponCode: z.string().optional(),
+  notes: z.string().max(500, "Catatan maksimal 500 karakter").optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,16 +58,14 @@ export async function POST(request: NextRequest) {
     }
 
     const json = await request.json();
-    const { invoiceIds, couponCode, paymentMethod, notes } = json;
-    const { tenantId } = await getTenantIdFromContext();
-
-    if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
-      return apiError(
-        "Pilih minimal satu tagihan untuk dibayar",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
+    const parsed = customerPaymentSchema.safeParse(json);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Input tidak valid";
+      return apiError(firstError, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
+
+    const { invoiceIds, couponCode, paymentMethod, notes } = parsed.data;
+    const { tenantId } = await getTenantIdFromContext();
 
     const result = await createCustomerPaymentForRoute({
       customerId: authResult.session.id,

@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -49,7 +50,7 @@ export class DANAProvider implements PaymentProvider {
         config.merchantId,
       );
       const body = JSON.stringify(payload);
-      const response = await fetch(`${this.baseUrl}/v1/orders`, {
+      const response = await fetchWithTimeout(`${this.baseUrl}/v1/orders`, {
         method: "POST",
         headers: this.createSignedHeaders(body),
         body,
@@ -79,10 +80,13 @@ export class DANAProvider implements PaymentProvider {
     this.requireConfig();
 
     try {
-      const response = await fetch(`${this.baseUrl}/v1/orders/${orderId}`, {
-        method: "GET",
-        headers: this.createTimestampedHeaders(),
-      });
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/v1/orders/${orderId}`,
+        {
+          method: "GET",
+          headers: this.createTimestampedHeaders(),
+        },
+      );
       const result = parseDanaStatusResponse(await response.json());
 
       if (!isDanaSuccessResponse(response, result)) {
@@ -111,7 +115,7 @@ export class DANAProvider implements PaymentProvider {
         merchantId: config.merchantId,
       });
 
-      await fetch(`${this.baseUrl}/v1/orders/${orderId}/cancel`, {
+      await fetchWithTimeout(`${this.baseUrl}/v1/orders/${orderId}/cancel`, {
         method: "POST",
         headers: this.createSignedHeaders(payload),
         body: payload,
@@ -148,10 +152,13 @@ export class DANAProvider implements PaymentProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/v1/merchant/info`, {
-        method: "GET",
-        headers: this.createTimestampedHeaders(),
-      });
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/v1/merchant/info`,
+        {
+          method: "GET",
+          headers: this.createTimestampedHeaders(),
+        },
+      );
       const result = parseDanaTestResponse(await response.json());
 
       return buildDanaTestResult(config, response, result);

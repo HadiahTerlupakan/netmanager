@@ -13,27 +13,31 @@ import {
   mapPaymentRouteError,
 } from "@/modules/finance";
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-  const { searchParams } = req.nextUrl;
+export const GET = createHandler(
+  { auth: true, permissions: ["payments:read"] },
+  async (req, _ctx) => {
+    const { searchParams } = req.nextUrl;
 
-  return apiSuccess(
-    await listPaymentsForRoute({
-      filters: {
-        pelangganId: searchParams.get("pelangganId"),
-        invoiceId: searchParams.get("invoiceId"),
-        paymentMethod: searchParams.get("paymentMethod"),
-        startDate: searchParams.get("startDate"),
-        endDate: searchParams.get("endDate"),
-        page: parseInt(searchParams.get("page") || "1"),
-        limit: parseInt(searchParams.get("limit") || "20"),
-      },
-    }),
-  );
-});
+    return apiSuccess(
+      await listPaymentsForRoute({
+        filters: {
+          pelangganId: searchParams.get("pelangganId"),
+          invoiceId: searchParams.get("invoiceId"),
+          paymentMethod: searchParams.get("paymentMethod"),
+          startDate: searchParams.get("startDate"),
+          endDate: searchParams.get("endDate"),
+          page: parseInt(searchParams.get("page") || "1"),
+          limit: parseInt(searchParams.get("limit") || "20"),
+        },
+      }),
+    );
+  },
+);
 
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["payments:create"],
     schema: paymentSchema,
   },
   async (_req, ctx) => {

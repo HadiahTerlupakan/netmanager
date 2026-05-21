@@ -310,6 +310,27 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Investor",
     path: "/admin/investors",
     icon: "HiOutlineBriefcase",
+    children: [
+      {
+        code: "INVESTORS.LIST",
+        name: "Daftar Investor",
+        path: "/admin/investors",
+        icon: "HiOutlineUsers",
+        exact: true,
+      },
+      {
+        code: "INVESTORS.DEPOSITS",
+        name: "Setoran Masuk",
+        path: "/admin/investors/deposits",
+        icon: "HiOutlineBanknotes",
+      },
+      {
+        code: "INVESTORS.PROFIT_SHARES",
+        name: "Bagi Hasil",
+        path: "/admin/investors/profit-shares",
+        icon: "HiOutlineChartPie",
+      },
+    ],
   },
   {
     code: "KEHADIRAN",
@@ -485,6 +506,45 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         name: "Laporan",
         path: "/admin/akuntansi/laporan",
         icon: "HiOutlineChartPie",
+      },
+    ],
+  },
+  {
+    code: "TAX",
+    name: "Pajak",
+    path: "/admin/pajak",
+    icon: "HiOutlineReceiptPercent",
+    children: [
+      {
+        code: "TAX.DASHBOARD",
+        name: "Dashboard Pajak",
+        path: "/admin/pajak",
+        icon: "HiOutlineChartBar",
+        exact: true,
+      },
+      {
+        code: "TAX.CONFIG",
+        name: "Konfigurasi",
+        path: "/admin/pajak/konfigurasi",
+        icon: "HiOutlineCog6Tooth",
+      },
+      {
+        code: "TAX.TRANSACTIONS",
+        name: "Transaksi Pajak",
+        path: "/admin/pajak/transaksi",
+        icon: "HiOutlineDocumentText",
+      },
+      {
+        code: "TAX.BHP_USO",
+        name: "BHP & USO",
+        path: "/admin/pajak/bhp-uso",
+        icon: "HiOutlinePresentationChartBar",
+      },
+      {
+        code: "TAX.EXPORT",
+        name: "Export Laporan",
+        path: "/admin/pajak/export",
+        icon: "HiOutlineArrowDownTray",
       },
     ],
   },

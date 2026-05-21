@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   PaymentProvider,
   ProviderConfig,
@@ -80,7 +81,12 @@ export class MootaProvider implements PaymentProvider {
     rawBody?: string,
   ): boolean {
     // Moota menyediakan Signature di header untuk HMAC SHA-256
-    if (!this.apiSecret) return true; // Jika tidak dikonfigurasi, skip verifikasi
+    if (!this.apiSecret) {
+      logger.warn(
+        "[Moota Provider] Webhook secret not configured - rejecting webhook",
+      );
+      return false;
+    }
 
     if (!signature || !rawBody) return false;
 
@@ -146,7 +152,7 @@ export class MootaProvider implements PaymentProvider {
   async testConnection(): Promise<TestResult> {
     try {
       // Endpoint untuk cek profil atau list bank di Moota API V2
-      const response = await fetch(`${this.baseUrl}/profile`, {
+      const response = await fetchWithTimeout(`${this.baseUrl}/profile`, {
         method: "GET",
         headers: this.getHeaders(),
       });

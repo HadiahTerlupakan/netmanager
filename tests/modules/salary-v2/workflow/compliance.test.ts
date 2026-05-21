@@ -7,10 +7,7 @@ import {
   BPJS_ENROLLMENT,
 } from "@/modules/salary-v2/workflow/compliance/ComplianceRuleEngine";
 import type { ComplianceCheckContext } from "@/modules/salary-v2/workflow/compliance/ComplianceRuleEngine";
-import type {
-  PayrollEntry,
-  RegionalMinimumWage,
-} from "@/modules/salary-v2/core";
+import type { PayrollEntry } from "@/modules/salary-v2/core";
 
 function createTestEntry(overrides: Partial<PayrollEntry> = {}): PayrollEntry {
   return {
@@ -18,7 +15,7 @@ function createTestEntry(overrides: Partial<PayrollEntry> = {}): PayrollEntry {
     payrollRunId: "run-1",
     tenantId: "tenant-1",
     userId: "user-1",
-    employeeType: "PERMANENT",
+    employeeType: "PKWTT",
     taxMethod: "GROSS_UP",
     basicSalary: 8000000,
     effectiveSalary: 8000000,

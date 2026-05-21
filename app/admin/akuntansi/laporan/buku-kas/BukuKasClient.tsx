@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { HiOutlineBookOpen } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
+import { downloadCsv, downloadPdf } from "@/lib/utils/report-export";
 
 interface CoaOption {
   id: string;
@@ -60,6 +61,46 @@ export function BukuKasClient() {
       setReport(data.data);
     }
     setLoading(false);
+  };
+
+  const csvHeaders = [
+    "Tanggal",
+    "No. Jurnal",
+    "Deskripsi",
+    "Debit",
+    "Kredit",
+    "Saldo",
+  ];
+
+  const getRows = (): string[][] =>
+    report?.entries.map((e) => [
+      e.date,
+      e.entryNumber,
+      e.description,
+      Number(e.debit) > 0 ? formatCurrency(Number(e.debit)) : "",
+      Number(e.credit) > 0 ? formatCurrency(Number(e.credit)) : "",
+      formatCurrency(Number(e.runningBalance)),
+    ]) || [];
+
+  const handleDownloadCsv = () => {
+    if (!report) return;
+    downloadCsv(
+      `buku-kas_${report.coaCode}_${from}_${to}.csv`,
+      csvHeaders,
+      getRows(),
+    );
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!report) return;
+    await downloadPdf(
+      `buku-kas_${report.coaCode}_${from}_${to}.pdf`,
+      "Buku Kas & Bank",
+      `${report.coaCode} - ${report.coaName} | ${from} s/d ${to}`,
+      csvHeaders,
+      getRows(),
+      { orientation: "landscape" },
+    );
   };
 
   return (
@@ -127,6 +168,22 @@ export function BukuKasClient() {
         >
           {loading ? "Memuat..." : "Tampilkan"}
         </Button>
+        {report && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownloadCsv}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download Excel
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Report */}

@@ -52,6 +52,8 @@ export type {
   RadiusRecentSessionsViewModel,
 } from "./services/dashboard/radius-dashboard.contracts";
 export {
+  acsTaskSchema,
+  acsWanConfigSchema,
   configurationRestoreCreateSchema,
   configurationRestoreQuerySchema,
   configurationRestoreUpdateSchema,

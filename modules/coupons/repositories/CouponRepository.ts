@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
 
-import type { CreateCouponInput } from "../dto/CouponDTO";
+import type { CreateCouponInput, UpdateCouponInput } from "../dto/CouponDTO";
 import type {
   CouponEntity,
   CouponUsageEntity,
@@ -11,9 +11,6 @@ import type {
 import type { ICouponRepository } from "../domain/ports/ICouponRepository";
 import { CouponMapper } from "../mappers/CouponMapper";
 
-/**
- * Prisma-backed coupon repository implementation.
- */
 export class CouponRepository implements ICouponRepository {
   private readonly db: PrismaClient;
 
@@ -21,45 +18,61 @@ export class CouponRepository implements ICouponRepository {
     this.db = database;
   }
 
-  /**
-   * Get all coupons with total count.
-   */
   async findAll(params?: {
     skip?: number;
     take?: number;
+    tenantId?: string | null;
   }): Promise<{ items: CouponEntity[]; total: number }> {
+    const where = this.buildTenantFilter(params?.tenantId);
     const query = this.buildPaginationQuery(params);
     const [items, total] = await Promise.all([
-      this.db.coupon.findMany({ orderBy: { createdAt: "desc" }, ...query }),
-      this.db.coupon.count(),
+      this.db.coupon.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...query,
+      }),
+      this.db.coupon.count({ where }),
     ]);
 
     return { items: items.map((item) => CouponMapper.toDomain(item)), total };
   }
 
-  /**
-   * Find coupon by id.
-   */
   async findById(id: string): Promise<CouponEntity | null> {
     const coupon = await this.db.coupon.findUnique({ where: { id } });
     return coupon ? CouponMapper.toDomain(coupon) : null;
   }
 
-  /**
-   * Find coupon by code.
-   */
-  async findByCode(code: string): Promise<CouponEntity | null> {
-    const coupon = await this.db.coupon.findFirst({ where: { code } });
+  async findByCode(
+    code: string,
+    tenantId?: string | null,
+  ): Promise<CouponEntity | null> {
+    const where: Record<string, unknown> = { code };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+    const coupon = await this.db.coupon.findFirst({ where });
     return coupon ? CouponMapper.toDomain(coupon) : null;
   }
 
-  /**
-   * Create a new coupon.
-   */
-  async create(data: CreateCouponInput): Promise<CouponEntity> {
+  async create(
+    data: CreateCouponInput & { tenantId?: string | null },
+  ): Promise<CouponEntity> {
     const coupon = await this.db.coupon.create({
       data: {
         id: randomUUID(),
+        ...data,
+        tenantId: data.tenantId ?? null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return CouponMapper.toDomain(coupon);
+  }
+
+  async update(id: string, data: UpdateCouponInput): Promise<CouponEntity> {
+    const coupon = await this.db.coupon.update({
+      where: { id },
+      data: {
         ...data,
         updatedAt: new Date(),
       },
@@ -68,9 +81,6 @@ export class CouponRepository implements ICouponRepository {
     return CouponMapper.toDomain(coupon);
   }
 
-  /**
-   * Increment coupon usage count.
-   */
   async incrementUsage(id: string, tx?: unknown): Promise<CouponEntity> {
     const couponDelegate = this.getCouponDelegate(tx);
     const coupon = await couponDelegate.update({
@@ -81,9 +91,6 @@ export class CouponRepository implements ICouponRepository {
     return CouponMapper.toDomain(coupon);
   }
 
-  /**
-   * Record coupon usage history.
-   */
   async recordUsage(
     couponId: string,
     pelangganId: string,
@@ -107,16 +114,15 @@ export class CouponRepository implements ICouponRepository {
     return CouponMapper.toUsageDomain(usage);
   }
 
-  /**
-   * Delete coupon by id.
-   */
   async delete(id: string): Promise<void> {
     await this.db.coupon.delete({ where: { id } });
   }
 
-  /**
-   * Build pagination query.
-   */
+  private buildTenantFilter(tenantId?: string | null) {
+    if (!tenantId) return {};
+    return { tenantId };
+  }
+
   private buildPaginationQuery(params?: { skip?: number; take?: number }) {
     if (!params) {
       return {};
@@ -132,18 +138,12 @@ export class CouponRepository implements ICouponRepository {
     return query;
   }
 
-  /**
-   * Get coupon delegate from transaction or prisma client.
-   */
   private getCouponDelegate(tx?: unknown) {
     const database = tx ?? this.db;
     return (database as unknown as { coupon: Prisma.CouponDelegate<undefined> })
       .coupon;
   }
 
-  /**
-   * Get coupon usage delegate from transaction or prisma client.
-   */
   private getCouponUsageDelegate(tx?: unknown) {
     const database = tx ?? this.db;
     return (

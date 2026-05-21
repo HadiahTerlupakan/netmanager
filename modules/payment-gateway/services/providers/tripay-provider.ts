@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import crypto from "crypto";
 import type {
   PaymentProvider,
@@ -75,14 +76,17 @@ export class TripayProvider implements PaymentProvider {
       const signaturePayload = `${this.config.merchantId}${params.orderId}${params.amount}`;
       payload.signature = this.generateSignature(signaturePayload);
 
-      const response = await fetch(`${this.baseUrl}/transaction/create`, {
-        method: "POST",
-        headers: {
-          ...this.getHeaders(),
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/transaction/create`,
+        {
+          method: "POST",
+          headers: {
+            ...this.getHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       const result = await response.json();
 
@@ -119,7 +123,7 @@ export class TripayProvider implements PaymentProvider {
     if (!this.config) throw new Error("Provider not initialized");
 
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.baseUrl}/transaction/detail?reference=${orderId}`,
         {
           method: "GET",
@@ -237,10 +241,13 @@ export class TripayProvider implements PaymentProvider {
 
     try {
       // Test by fetching payment channels
-      const response = await fetch(`${this.baseUrl}/merchant/payment-channel`, {
-        method: "GET",
-        headers: this.getHeaders(),
-      });
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/merchant/payment-channel`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        },
+      );
 
       const result = await response.json();
 

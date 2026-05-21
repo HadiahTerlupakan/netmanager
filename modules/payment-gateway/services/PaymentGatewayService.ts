@@ -67,12 +67,19 @@ export class PaymentGatewayManager {
     const provider = ProviderFactory.createProvider(providerType);
 
     // Decrypt API keys and initialize
+    const decryptedApiKey = config.apiKey ? decryptApiKey(config.apiKey) : "";
+    if (!decryptedApiKey) {
+      throw new Error(
+        `Provider ${providerType} has no API key configured. Please set the API key in admin settings.`,
+      );
+    }
+
     const apiSecret = config.apiSecret
       ? decryptApiKey(config.apiSecret)
       : undefined;
 
     provider.initialize({
-      apiKey: config.apiKey ? decryptApiKey(config.apiKey) : "",
+      apiKey: decryptedApiKey,
       ...(apiSecret ? { apiSecret } : {}),
       ...(config.clientKey ? { clientKey: config.clientKey } : {}),
       ...(config.merchantId ? { merchantId: config.merchantId } : {}),
@@ -87,6 +94,10 @@ export class PaymentGatewayManager {
    * Create payment with automatic provider selection
    */
   async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+    if (!params.amount || params.amount <= 0) {
+      throw new Error("Payment amount must be greater than zero");
+    }
+
     const providers = await this.configRepository.findEnabled();
     const providerConfig = providers[0];
 
@@ -141,6 +152,10 @@ export class PaymentGatewayManager {
     providerType: string,
     params: CreatePaymentParams,
   ): Promise<PaymentResult> {
+    if (!params.amount || params.amount <= 0) {
+      throw new Error("Payment amount must be greater than zero");
+    }
+
     const provider = await this.getProviderInstance(
       providerType,
       params.tenantId,

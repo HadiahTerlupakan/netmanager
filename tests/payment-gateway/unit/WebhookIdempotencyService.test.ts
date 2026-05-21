@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { WebhookIdempotencyService } from "@/modules/payment-gateway/services/WebhookIdempotencyService";
+import {
+  WebhookIdempotencyService,
+  IdempotencyError,
+} from "@/modules/payment-gateway/services/WebhookIdempotencyService";
 import type { WebhookEventRepository } from "@/modules/payment-gateway/repositories/WebhookEventRepository";
 import type { WebhookEvent } from "@/modules/payment-gateway/domain/entities/WebhookEvent";
 
@@ -29,9 +32,36 @@ describe("WebhookIdempotencyService", () => {
       expect(key).toBe("MIDTRANS:order-456");
     });
 
-    it("should generate key with UUID if no identifiers", () => {
-      const key = service.generateIdempotencyKey("DUITKU", null, null);
-      expect(key).toMatch(/^DUITKU:[a-f0-9-]{36}$/);
+    it("should prefer transactionId over orderId", () => {
+      const key = service.generateIdempotencyKey(
+        "XENDIT",
+        "txn-123",
+        "order-456",
+      );
+      expect(key).toBe("XENDIT:txn-123");
+    });
+
+    it("should throw IdempotencyError if no identifiers provided", () => {
+      expect(() =>
+        service.generateIdempotencyKey("DUITKU", null, null),
+      ).toThrow(IdempotencyError);
+    });
+
+    it("should throw IdempotencyError if identifiers are undefined", () => {
+      expect(() =>
+        service.generateIdempotencyKey("DUITKU", undefined, undefined),
+      ).toThrow(IdempotencyError);
+    });
+
+    it("should throw IdempotencyError with descriptive message", () => {
+      expect(() => service.generateIdempotencyKey("MOOTA", null, null)).toThrow(
+        /Cannot generate idempotency key for MOOTA/,
+      );
+    });
+
+    it("should not throw if transactionId is empty string", () => {
+      const key = service.generateIdempotencyKey("XENDIT", "", "order-456");
+      expect(key).toBe("XENDIT:order-456");
     });
   });
 

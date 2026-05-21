@@ -29,7 +29,7 @@ export const PROVIDER_SIGNATURE_HEADERS: Record<ProviderType, string> = {
 
 export const SIGNATURE_REQUIRED: Record<ProviderType, boolean> = {
   XENDIT: true,
-  MIDTRANS: true,
+  MIDTRANS: false,
   TRIPAY: true,
   DUITKU: false,
   BRI: true,

@@ -5,14 +5,15 @@ import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   if (!(await hasPermission("coupon:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat data kupon",
     );
   }
 
-  const result = await couponService.getAllCoupons();
+  const tenantId = ctx.session!.user.tenantId ?? null;
+  const result = await couponService.getAllCoupons(tenantId);
   return apiSuccess(result.items);
 });
 
@@ -23,9 +24,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const payload = createCouponSchema.parse(await req.json());
+    const tenantId = ctx.session!.user.tenantId ?? null;
     const coupon = await couponService.createCoupon({
       ...payload,
       code: payload.code.toUpperCase(),
+      tenantId,
     });
 
     await logger.logActivity({

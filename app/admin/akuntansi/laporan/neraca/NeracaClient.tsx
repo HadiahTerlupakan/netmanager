@@ -4,6 +4,7 @@ import { useState } from "react";
 import { HiOutlineScale } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
+import { downloadCsv, downloadPdf } from "@/lib/utils/report-export";
 
 interface Account {
   coaCode: string;
@@ -42,6 +43,58 @@ export function NeracaClient() {
       setReport(data.data);
     }
     setLoading(false);
+  };
+
+  const csvHeaders = ["Kode", "Nama Akun", "Jumlah"];
+
+  const getRows = (): string[][] => {
+    if (!report) return [];
+    const rows: string[][] = [];
+    report.asset.accounts.forEach((a) =>
+      rows.push([a.coaCode, a.coaName, formatCurrency(Number(a.amount))]),
+    );
+    rows.push([
+      "",
+      `Total ${report.asset.label}`,
+      formatCurrency(Number(report.asset.subtotal)),
+    ]);
+    report.liability.accounts.forEach((a) =>
+      rows.push([a.coaCode, a.coaName, formatCurrency(Number(a.amount))]),
+    );
+    rows.push([
+      "",
+      `Total ${report.liability.label}`,
+      formatCurrency(Number(report.liability.subtotal)),
+    ]);
+    report.equity.accounts.forEach((a) =>
+      rows.push([a.coaCode, a.coaName, formatCurrency(Number(a.amount))]),
+    );
+    rows.push([
+      "",
+      `Total ${report.equity.label}`,
+      formatCurrency(Number(report.equity.subtotal)),
+    ]);
+    rows.push(["", "Total Aset", formatCurrency(Number(report.totalAsset))]);
+    rows.push([
+      "",
+      "Total Liabilitas + Ekuitas",
+      formatCurrency(Number(report.totalLiabilityEquity)),
+    ]);
+    return rows;
+  };
+
+  const handleDownloadCsv = () => {
+    downloadCsv(`neraca_${asOfDate}.csv`, csvHeaders, getRows());
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadPdf(
+      `neraca_${asOfDate}.pdf`,
+      "Neraca",
+      `Per tanggal: ${asOfDate}`,
+      csvHeaders,
+      getRows(),
+    );
   };
 
   const renderSection = (section: Section) => (
@@ -105,6 +158,22 @@ export function NeracaClient() {
         >
           {loading ? "Memuat..." : "Tampilkan"}
         </Button>
+        {report && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownloadCsv}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download Excel
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Report Content */}

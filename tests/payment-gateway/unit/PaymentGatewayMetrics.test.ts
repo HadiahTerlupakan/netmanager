@@ -27,6 +27,17 @@ describe("PaymentGatewayMetrics", () => {
       expect(result?.webhookProcessed).toBe(2);
       expect(result?.processingDuration).toEqual([150, 200]);
     });
+
+    it("should cap processingDuration at 1000 entries (ring buffer)", () => {
+      for (let i = 0; i < 1005; i++) {
+        metrics.recordWebhookProcessed("XENDIT", i);
+      }
+
+      const result = metrics.getMetrics("XENDIT");
+      expect(result?.processingDuration.length).toBe(1000);
+      expect(result?.processingDuration[0]).toBe(5);
+      expect(result?.processingDuration[999]).toBe(1004);
+    });
   });
 
   describe("recordWebhookFailed", () => {
@@ -66,7 +77,7 @@ describe("PaymentGatewayMetrics", () => {
       metrics.recordWebhookProcessed("XENDIT", 200);
 
       const rate = metrics.getSuccessRate("XENDIT");
-      expect(rate).toBe(75); // 3/4 = 75%
+      expect(rate).toBe(75);
     });
 
     it("should return 0 if no webhooks received", () => {

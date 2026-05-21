@@ -35,3 +35,16 @@ export const verifyCouponSchema = z.object({
   amount: z.coerce.number().nonnegative(),
   pelangganId: z.string().trim().optional(),
 });
+
+/**
+ * Schema for coupon update payload.
+ */
+export const updateCouponSchema = z.object({
+  description: z.string().trim().optional(),
+  discountValue: z.coerce.number().positive().optional(),
+  minTransaction: z.coerce.number().nonnegative().optional(),
+  maxDiscount: z.coerce.number().nonnegative().nullable().optional(),
+  quota: z.coerce.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+  endDate: z.coerce.date().optional(),
+});

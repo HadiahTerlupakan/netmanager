@@ -108,6 +108,7 @@ export class WebhookProcessingService {
   async process(input: ProcessWebhookInput): Promise<ProcessWebhookResult> {
     const startTime = Date.now();
     let webhookEventId: string | undefined;
+    let parsedProvider: string | undefined;
 
     try {
       // Step 1: Parse payload
@@ -115,6 +116,7 @@ export class WebhookProcessingService {
         input.rawBody,
         input.providerType,
       );
+      parsedProvider = provider;
 
       this.metrics.recordWebhookReceived(provider);
 
@@ -201,11 +203,17 @@ export class WebhookProcessingService {
         logger.warn(
           `[Webhook] Amount mismatch for payment ${payment.id}: expected ${payment.amount}, received ${webhookResult.amount}`,
         );
-        await this.idempotencyService.markAsProcessed(webhookEventId);
-        this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
+        await this.idempotencyService.markAsFailed(
+          webhookEventId,
+          `Amount mismatch: expected ${payment.amount}, received ${webhookResult.amount}`,
+        );
+        this.metrics.recordWebhookFailed(provider, "Amount mismatch");
         return {
           status: 200,
-          body: { status: "ok", message: "Payment amount mismatch" },
+          body: {
+            status: "ok",
+            message: "Payment amount mismatch - flagged for review",
+          },
         };
       }
 
@@ -363,14 +371,12 @@ export class WebhookProcessingService {
         );
       }
 
-      const { provider } = this.payloadParser.parse(
-        input.rawBody,
-        input.providerType,
-      );
-      this.metrics.recordWebhookFailed(
-        provider,
-        error instanceof Error ? error.message : String(error),
-      );
+      if (parsedProvider) {
+        this.metrics.recordWebhookFailed(
+          parsedProvider,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
 
       return this.handleError(error);
     }

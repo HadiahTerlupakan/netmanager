@@ -4,6 +4,7 @@ import { useState } from "react";
 import { HiOutlineChartPie } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
+import { downloadCsv, downloadPdf } from "@/lib/utils/report-export";
 
 interface Account {
   coaCode: string;
@@ -43,6 +44,49 @@ export function LabaRugiClient() {
       setReport(data.data);
     }
     setLoading(false);
+  };
+
+  const csvHeaders = ["Kode", "Nama Akun", "Jumlah"];
+
+  const getRows = (): string[][] => {
+    if (!report) return [];
+    const rows: string[][] = [];
+    report.revenue.accounts.forEach((a) =>
+      rows.push([a.coaCode, a.coaName, formatCurrency(Number(a.amount))]),
+    );
+    rows.push([
+      "",
+      `Subtotal ${report.revenue.label}`,
+      formatCurrency(Number(report.revenue.subtotal)),
+    ]);
+    report.expense.accounts.forEach((a) =>
+      rows.push([a.coaCode, a.coaName, formatCurrency(Number(a.amount))]),
+    );
+    rows.push([
+      "",
+      `Subtotal ${report.expense.label}`,
+      formatCurrency(Number(report.expense.subtotal)),
+    ]);
+    rows.push([
+      "",
+      "Laba / Rugi Bersih",
+      formatCurrency(Number(report.netIncome)),
+    ]);
+    return rows;
+  };
+
+  const handleDownloadCsv = () => {
+    downloadCsv(`laba-rugi_${from}_${to}.csv`, csvHeaders, getRows());
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadPdf(
+      `laba-rugi_${from}_${to}.pdf`,
+      "Laporan Laba Rugi",
+      `Periode: ${from} s/d ${to}`,
+      csvHeaders,
+      getRows(),
+    );
   };
 
   const renderSection = (section: Section) => (
@@ -117,6 +161,22 @@ export function LabaRugiClient() {
         >
           {loading ? "Memuat..." : "Tampilkan"}
         </Button>
+        {report && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownloadCsv}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download Excel
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Report Content */}

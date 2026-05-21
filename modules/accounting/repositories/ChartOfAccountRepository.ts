@@ -80,6 +80,12 @@ export class ChartOfAccountRepository implements IChartOfAccountRepository {
     await prisma.chartOfAccount.delete({ where: { id } });
   }
 
+  async deleteSystemAccounts(tenantId: string): Promise<void> {
+    await prisma.chartOfAccount.deleteMany({
+      where: { tenantId, isSystem: true },
+    });
+  }
+
   async countChildren(parentId: string): Promise<number> {
     return prisma.chartOfAccount.count({ where: { parentId } });
   }
@@ -93,18 +99,21 @@ export class ChartOfAccountRepository implements IChartOfAccountRepository {
     coaIds: string[],
   ): Promise<AccountBalanceRow[]> {
     if (coaIds.length === 0) return [];
-    const rows = await prisma.journalLine.groupBy({
-      by: ["coaId", "side"],
-      where: {
-        entry: { tenantId, status: "POSTED" },
-        coaId: { in: coaIds },
-      },
-      _sum: { amount: true },
-    });
+    const rows = await prisma.$queryRaw<
+      { coaId: string; side: string; total: string }[]
+    >`
+      SELECT jl."coaId" as "coaId", jl.side::text as side, COALESCE(SUM(jl.amount), 0)::text as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON je.id = jl."entryId"
+      WHERE je."tenantId" = ${tenantId}
+        AND je.status = 'POSTED'
+        AND jl."coaId" = ANY(${coaIds})
+      GROUP BY jl."coaId", jl.side
+    `;
     return rows.map((row) => ({
       coaId: row.coaId,
       side: row.side as "DEBIT" | "CREDIT",
-      total: Number(row._sum.amount ?? 0),
+      total: Number(row.total),
     }));
   }
 }

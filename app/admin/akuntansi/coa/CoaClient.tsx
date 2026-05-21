@@ -107,26 +107,76 @@ function flattenTree(nodes: TreeNode[], expanded: Set<string>): TreeNode[] {
   return result;
 }
 
+const SUBTYPE_LABELS: Record<string, { label: string; classes: string }> = {
+  FIXED_ASSET: {
+    label: "CAPEX",
+    classes:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  OPEX: {
+    label: "OPEX",
+    classes: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+  },
+  COGS: {
+    label: "COGS",
+    classes: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+  },
+  CURRENT_ASSET: {
+    label: "Lancar",
+    classes: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  },
+  CURRENT_LIABILITY: {
+    label: "Lancar",
+    classes:
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  },
+  LONG_TERM_LIABILITY: {
+    label: "Jk. Panjang",
+    classes:
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  },
+  CONTRIBUTED_CAPITAL: {
+    label: "Modal",
+    classes:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  },
+  RETAINED_EARNINGS: {
+    label: "Laba Ditahan",
+    classes:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  },
+  OPERATING_REVENUE: {
+    label: "Operasional",
+    classes:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  },
+  OTHER_REVENUE: {
+    label: "Lainnya",
+    classes:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  },
+  OTHER_EXPENSE: {
+    label: "Lainnya",
+    classes: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  },
+};
+
 function renderSubtypeBadge(subtype: string | null) {
-  if (subtype === "FIXED_ASSET")
+  if (!subtype) return null;
+  const cfg = SUBTYPE_LABELS[subtype];
+  if (!cfg)
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-        CAPEX
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+        {subtype}
       </span>
     );
-  if (subtype === "OPEX")
-    return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
-        OPEX
-      </span>
-    );
-  if (subtype === "COGS")
-    return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
-        COGS
-      </span>
-    );
-  return null;
+  return (
+    <span
+      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.classes}`}
+    >
+      {cfg.label}
+    </span>
+  );
 }
 
 export function CoaClient() {
@@ -287,6 +337,37 @@ export function CoaClient() {
   const parentOptions = items.filter(
     (i) => !i.parentId || items.some((c) => c.parentId === i.id),
   );
+
+  const generateNextCode = (parentId: string): string => {
+    const parent = items.find((i) => i.id === parentId);
+    if (!parent) return "";
+    const prefix = parent.code.split("-")[0];
+    const children = items.filter((i) => i.parentId === parentId);
+    if (children.length === 0) {
+      const parentNum = Number(parent.code.split("-")[1]);
+      return `${prefix}-${String(parentNum + 10).padStart(3, "0")}`;
+    }
+    const codes = children
+      .map((c) => Number(c.code.split("-")[1]))
+      .sort((a, b) => a - b);
+    let nextNum = codes[codes.length - 1] + 10;
+    const existingCodes = new Set(items.map((i) => i.code));
+    while (existingCodes.has(`${prefix}-${String(nextNum).padStart(3, "0")}`)) {
+      nextNum += 10;
+    }
+    return `${prefix}-${String(nextNum).padStart(3, "0")}`;
+  };
+
+  const handleParentChange = (parentId: string) => {
+    const parent = items.find((i) => i.id === parentId);
+    const nextCode = parentId ? generateNextCode(parentId) : "";
+    setForm({
+      ...form,
+      parentId,
+      code: nextCode,
+      type: parent?.type || form.type,
+    });
+  };
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
@@ -680,9 +761,7 @@ export function CoaClient() {
                 <select
                   className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white"
                   value={form.parentId}
-                  onChange={(e) =>
-                    setForm({ ...form, parentId: e.target.value })
-                  }
+                  onChange={(e) => handleParentChange(e.target.value)}
                 >
                   <option value="">— Tanpa Induk (Root) —</option>
                   {parentOptions.map((p) => (

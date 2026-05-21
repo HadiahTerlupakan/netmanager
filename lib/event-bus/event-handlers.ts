@@ -13,7 +13,17 @@ import {
   handleInvoicePaidAccounting,
   handleExpenseApprovedAccounting,
   handlePurchaseOrderPaidAccounting,
+  handleCouponUsedAccounting,
+  handleMitraWithdrawalAccounting,
+  handleInvestorPayoutAccounting,
+  handleInvestorDepositAccounting,
 } from "@/modules/accounting";
+import {
+  handleInvoiceCreatedTax,
+  handleExpenseApprovedTax,
+  handleSalaryProcessedTax,
+  handleInvestorPayoutTax,
+} from "@/modules/tax";
 import {
   handleInvoiceAutoIsolate,
   handleInvoicePaidActivation,
@@ -428,5 +438,28 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.PURCHASE_ORDER_PAID,
     handlePurchaseOrderPaidAccounting,
+  );
+  registerEventHandler(EVENT_NAMES.COUPON_USED, handleCouponUsedAccounting);
+  registerEventHandler(
+    EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED,
+    handleMitraWithdrawalAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
+    handleInvestorPayoutAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
+    handleInvestorDepositAccounting,
+  );
+
+  // --- TAX EVENTS ---
+
+  registerEventHandler(EVENT_NAMES.INVOICE_CREATED, handleInvoiceCreatedTax);
+  registerEventHandler(EVENT_NAMES.EXPENSE_APPROVED, handleExpenseApprovedTax);
+  registerEventHandler(EVENT_NAMES.SALARY_PROCESSED, handleSalaryProcessedTax);
+  registerEventHandler(
+    EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
+    handleInvestorPayoutTax,
   );
 }

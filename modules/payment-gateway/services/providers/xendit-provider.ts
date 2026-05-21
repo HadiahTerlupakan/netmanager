@@ -20,18 +20,30 @@ export class XenditProvider implements PaymentProvider {
   name = "Xendit";
   private config?: ProviderConfig;
   private xendit: unknown = null;
+  private xenditPromise: Promise<unknown> | null = null;
 
-  /** Inisialisasi SDK Xendit. */
-  async initialize(config: ProviderConfig): Promise<void> {
+  initialize(config: ProviderConfig): void {
     this.config = config;
-    const { default: Xendit } = await import("xendit-node");
-    this.xendit = new Xendit({ secretKey: config.apiKey });
   }
 
-  /** Membuat invoice pembayaran Xendit. */
+  /** Lazy-load SDK Xendit saat pertama kali dibutuhkan. */
+  private async getXenditInstance(): Promise<unknown> {
+    if (this.xendit) return this.xendit;
+
+    if (!this.xenditPromise) {
+      this.xenditPromise = import("xendit-node").then(({ default: Xendit }) => {
+        this.xendit = new Xendit({ secretKey: this.config!.apiKey });
+        return this.xendit;
+      });
+    }
+
+    return this.xenditPromise;
+  }
+
   async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
     try {
-      const invoice = await this.getInvoiceApi().createInvoice({
+      const invoiceApi = await this.getInvoiceApi();
+      const invoice = await invoiceApi.createInvoice({
         externalId: params.orderId,
         amount: params.amount,
         description: params.description,
@@ -63,10 +75,10 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Mengecek status invoice Xendit. */
   async checkStatus(orderId: string): Promise<TransactionStatus> {
     try {
-      const invoices = await this.getInvoiceApi().getInvoices({
+      const invoiceApi = await this.getInvoiceApi();
+      const invoices = await invoiceApi.getInvoices({
         externalId: orderId,
         limit: 1,
       });
@@ -90,17 +102,17 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Men-expire invoice Xendit aktif. */
   async cancelPayment(orderId: string): Promise<void> {
     try {
-      const invoices = await this.getInvoiceApi().getInvoices({
+      const invoiceApi = await this.getInvoiceApi();
+      const invoices = await invoiceApi.getInvoices({
         externalId: orderId,
         limit: 1,
       });
       const invoice = invoices[0];
 
       if (invoice) {
-        await this.getInvoiceApi().expireInvoice({ invoiceId: invoice.id });
+        await invoiceApi.expireInvoice({ invoiceId: invoice.id });
       }
     } catch (error: unknown) {
       logger.error("Xendit cancelPayment error:", error);
@@ -108,7 +120,6 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Memverifikasi token callback webhook Xendit. */
   verifyWebhook(payload: unknown, signature?: string): boolean {
     try {
       if (!this.isRecord(payload)) {
@@ -129,7 +140,6 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Menormalkan payload webhook Xendit. */
   async processWebhook(payload: unknown): Promise<WebhookResult> {
     if (!this.isRecord(payload)) {
       throw new Error("Invalid Xendit webhook payload");
@@ -143,7 +153,6 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Mengetes koneksi credential Xendit. */
   async testConnection(): Promise<TestResult> {
     try {
       if (!this.config) {
@@ -179,8 +188,9 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  /** Mengambil API Invoice dari SDK Xendit. */
-  private getInvoiceApi() {
+  private async getInvoiceApi() {
+    await this.getXenditInstance();
+
     if (!this.xendit) {
       throw new Error("Xendit not initialized");
     }
@@ -208,7 +218,6 @@ export class XenditProvider implements PaymentProvider {
     ).Invoice;
   }
 
-  /** Memastikan payload webhook berbentuk object. */
   private isRecord(payload: unknown): payload is Record<string, unknown> {
     return typeof payload === "object" && payload !== null;
   }

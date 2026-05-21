@@ -30,6 +30,7 @@ export type ResourceAction =
   | "approve"
   | "mark_paid"
   | "calculate"
+  | "manage"
   | "correct-missed-checkin";
 
 export interface ResourceCapability {
@@ -292,8 +293,21 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Manajemen pengguna",
   },
   investors: {
-    actions: ["read", "create", "update", "delete"],
-    description: "Manajemen data investor",
+    actions: [
+      "read",
+      "create",
+      "update",
+      "delete",
+      "manage",
+      "verify",
+      "approve",
+      "mark_paid",
+    ],
+    description: "Manajemen data investor, setoran, dan bagi hasil",
+  },
+  tax: {
+    actions: ["read", "manage", "calculate", "mark_paid"],
+    description: "Manajemen pajak, PPN, PPh, BHP/USO",
   },
   mitra: {
     actions: ["read", "create", "update", "delete", "site_only"],

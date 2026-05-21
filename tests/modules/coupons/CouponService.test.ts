@@ -195,7 +195,7 @@ describe("CouponService", () => {
         quota: 0,
         usedCount: 0,
         minTransaction: 0,
-        discountType: "PERCENTAGE",
+        discountType: "PERCENT",
         discountValue: 20, // 20%
         maxDiscount: 30000, // Max 30k
       });

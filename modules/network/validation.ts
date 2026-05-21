@@ -13,3 +13,4 @@ export {
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
 } from "./validators/network-performance";
+export { acsTaskSchema, acsWanConfigSchema } from "./validators/acs-device";

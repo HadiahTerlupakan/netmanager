@@ -24,7 +24,12 @@ export class WebhookIdempotencyService {
     transactionId?: string | null,
     orderId?: string | null,
   ): string {
-    const identifier = transactionId || orderId || uuidv4();
+    const identifier = transactionId || orderId;
+    if (!identifier) {
+      throw new IdempotencyError(
+        `Cannot generate idempotency key for ${provider}: no transactionId or orderId provided`,
+      );
+    }
     return `${provider}:${identifier}`;
   }
 

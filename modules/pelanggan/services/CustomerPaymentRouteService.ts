@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
 import {
   createCustomerPaymentsForInvoices,
@@ -51,6 +52,18 @@ export async function createCustomerPaymentForRoute(
     couponId: coupon.couponId,
     couponService,
   });
+
+  if (coupon.couponId && coupon.discountAmount > 0) {
+    await eventBus.publish(EVENT_NAMES.COUPON_USED, {
+      couponId: coupon.couponId,
+      pelangganId: input.customerId,
+      invoiceIds: input.invoiceIds,
+      discountAmount: coupon.discountAmount,
+      appliedAt: new Date().toISOString(),
+      tenantId: input.tenantId ?? undefined,
+    });
+  }
+
   const gateway = await createGatewayPaymentIfNeeded({
     ...input,
     payments,
@@ -73,6 +86,7 @@ async function resolveCoupon(input: CustomerPaymentInput, totalAmount: number) {
     input.couponCode,
     totalAmount,
     input.customerId,
+    input.tenantId,
   );
 
   if (!verification.valid) {

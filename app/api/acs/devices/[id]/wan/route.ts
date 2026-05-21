@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { AcsDeviceService } from "@/modules/network";
+import { AcsDeviceService, acsWanConfigSchema } from "@/modules/network";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +12,20 @@ export const POST = createHandler(
 
     try {
       const body = await req.json();
+      const parsed = acsWanConfigSchema.safeParse(body);
+      if (!parsed.success) {
+        return ApiErrors.badRequest(
+          parsed.error.issues[0]?.message || "Input tidak valid",
+        );
+      }
+
       const service = new AcsDeviceService();
       const result = await service.configureWan({
         deviceId,
-        username: body.username,
-        password: body.password,
+        username: parsed.data.username,
+        password: parsed.data.password,
       });
-      if (result.ok) return apiSuccess(result.data);
+      if ("data" in result) return apiSuccess(result.data);
       return ApiErrors.internalError(result.message);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

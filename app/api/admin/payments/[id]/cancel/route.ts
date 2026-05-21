@@ -1,56 +1,34 @@
 import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
 import { cancelPaidPayment, PaymentCancellationError } from "@/modules/finance";
 import { checkSiteRestriction } from "@/modules/roles";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
+export const POST = createHandler(
+  { auth: true, permissions: ["manual_payments:verify"] },
+  async (_req, ctx) => {
+    try {
+      const { isRestricted, siteIds } = checkSiteRestriction(
+        ctx.session as never,
+        "finance",
       );
+      const allowedSiteIds = isRestricted ? siteIds : undefined;
+
+      const { id: paymentId } = ctx.params;
+      await cancelPaidPayment({
+        paymentId,
+        adminLabel:
+          ctx.session!.user.name || ctx.session!.user.email || "Admin",
+        allowedSiteIds,
+      });
+
+      return apiSuccess({ message: "Payment cancelled successfully" });
+    } catch (error: unknown) {
+      if (error instanceof PaymentCancellationError) {
+        return ApiErrors.badRequest(error.message);
+      }
+
+      logger.error("Error cancelling payment:", error);
+      return ApiErrors.internalError("Terjadi kesalahan internal server");
     }
-
-    const { isRestricted, siteIds } = checkSiteRestriction(
-      session as never,
-      "finance",
-    );
-    const allowedSiteIds = isRestricted ? siteIds : undefined;
-
-    const { id: paymentId } = await params;
-    await cancelPaidPayment({
-      paymentId,
-      adminLabel: session.user.name || session.user.email || "Admin",
-      allowedSiteIds,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Payment cancelled successfully",
-    });
-  } catch (error: unknown) {
-    if (error instanceof PaymentCancellationError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-
-    logger.error("Error cancelling payment:", error);
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan internal server";
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 },
-    );
-  }
-}
+  },
+);

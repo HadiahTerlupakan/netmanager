@@ -148,6 +148,16 @@ const DEFAULT_COA: DefaultCoa[] = [
     isPostable: true,
   },
   {
+    code: "4-300",
+    name: "Potongan Penjualan",
+    type: "REVENUE",
+    subtype: "OPERATING_REVENUE",
+    normalSide: "DEBIT",
+    cashFlowCategory: "OPERATING",
+    isSystem: true,
+    isPostable: true,
+  },
+  {
     code: "5-100",
     name: "Beban Bandwidth",
     type: "EXPENSE",

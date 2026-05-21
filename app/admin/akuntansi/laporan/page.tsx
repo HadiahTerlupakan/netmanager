@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+import { ensurePermission } from "@/lib/rbac";
+import { LaporanIndexClient } from "./LaporanIndexClient";
 
-export default function LaporanPage() {
-  redirect("/admin/akuntansi/laporan/trial-balance");
+export default async function LaporanPage() {
+  await ensurePermission("accounting:read");
+  return <LaporanIndexClient />;
 }

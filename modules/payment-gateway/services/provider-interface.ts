@@ -4,7 +4,7 @@ export interface PaymentProvider {
   name: string;
 
   // Initialize with configuration
-  initialize(config: ProviderConfig): void;
+  initialize(config: ProviderConfig): void | Promise<void>;
 
   // Create payment request
   createPayment(params: CreatePaymentParams): Promise<PaymentResult>;

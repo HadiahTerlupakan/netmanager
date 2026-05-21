@@ -98,6 +98,19 @@ export interface CreateCouponInput {
 }
 
 /**
+ * Input model for updating coupon in application layer.
+ */
+export interface UpdateCouponInput {
+  description?: string;
+  discountValue?: number;
+  minTransaction?: number;
+  maxDiscount?: number | null;
+  quota?: number;
+  isActive?: boolean;
+  endDate?: Date;
+}
+
+/**
  * DTO for updating coupon
  */
 export interface UpdateCouponDTO {

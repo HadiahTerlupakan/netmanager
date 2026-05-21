@@ -79,3 +79,49 @@ export async function resolvePurchaseOrderPaidCoa(
   ]);
   return { debitCoaId, creditCoaId };
 }
+
+export async function resolveCouponUsedCoa(
+  tenantId: string,
+): Promise<ResolvedCoa> {
+  const [debitCoaId, creditCoaId] = await Promise.all([
+    findCoaByCode(tenantId, "4-300"),
+    findCoaByCode(tenantId, "1-200"),
+  ]);
+  return { debitCoaId, creditCoaId };
+}
+
+export async function resolveMitraWithdrawalCoa(
+  tenantId: string,
+): Promise<ResolvedCoa> {
+  const [debitCoaId, creditCoaId] = await Promise.all([
+    findCoaByCode(tenantId, "5-800"),
+    findCoaByCode(tenantId, "1-120"),
+  ]);
+  return { debitCoaId, creditCoaId };
+}
+
+export async function resolveInvestorPayoutCoa(
+  tenantId: string,
+): Promise<ResolvedCoa> {
+  const [debitCoaId, creditCoaId] = await Promise.all([
+    findCoaByCode(tenantId, "5-810"),
+    findCoaByCode(tenantId, "1-120"),
+  ]);
+  return { debitCoaId, creditCoaId };
+}
+
+export async function resolveInvestorDepositCoa(
+  tenantId: string,
+  depositType: string,
+): Promise<ResolvedCoa> {
+  // DR Kas/Bank (1-120) selalu
+  const debitCoaId = await findCoaByCode(tenantId, "1-120");
+
+  // CR tergantung tipe deposit:
+  // PINJAMAN → Hutang Investor (2-600)
+  // MODAL_AWAL / TAMBAHAN_MODAL → Modal Disetor (3-100)
+  const creditCode = depositType === "PINJAMAN" ? "2-600" : "3-100";
+  const creditCoaId = await findCoaByCode(tenantId, creditCode);
+
+  return { debitCoaId, creditCoaId };
+}

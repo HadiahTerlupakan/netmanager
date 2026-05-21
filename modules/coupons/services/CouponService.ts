@@ -2,6 +2,7 @@ import type {
   CouponDetailDTO,
   CouponListItemDTO,
   CreateCouponInput,
+  UpdateCouponInput,
 } from "../dto/CouponDTO";
 import type {
   ICouponRepository,
@@ -35,19 +36,21 @@ export class CouponService {
   /**
    * Get all coupons as DTO list.
    */
-  async getAllCoupons(): Promise<{
+  async getAllCoupons(tenantId?: string | null): Promise<{
     items: CouponListItemDTO[];
     total: number;
   }> {
-    const result = await this.repository.findAll();
+    const result = await this.repository.findAll({ tenantId });
     return { items: CouponMapper.toDTOList(result.items), total: result.total };
   }
 
   /**
    * Create a new coupon.
    */
-  async createCoupon(data: CreateCouponInput): Promise<CouponListItemDTO> {
-    await this.ensureCouponCodeIsUnique(data.code);
+  async createCoupon(
+    data: CreateCouponInput & { tenantId?: string | null },
+  ): Promise<CouponListItemDTO> {
+    await this.ensureCouponCodeIsUnique(data.code, data.tenantId);
     const coupon = await this.repository.create(data);
     return CouponMapper.toDTO(coupon);
   }
@@ -59,12 +62,16 @@ export class CouponService {
     code: string,
     amount: number,
     _pelangganId?: string,
+    tenantId?: string | null,
   ): Promise<VerifyCouponResult> {
     if (!code) {
       return this.createInvalidResult(REQUIRED_CODE_MESSAGE, amount);
     }
 
-    const coupon = await this.repository.findByCode(code.toUpperCase());
+    const coupon = await this.repository.findByCode(
+      code.toUpperCase(),
+      tenantId,
+    );
     if (!coupon) {
       return this.createInvalidResult(MISSING_COUPON_MESSAGE, amount);
     }
@@ -101,6 +108,21 @@ export class CouponService {
   }
 
   /**
+   * Update an existing coupon.
+   */
+  async updateCoupon(
+    id: string,
+    data: UpdateCouponInput,
+  ): Promise<CouponDetailDTO> {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new Error(COUPON_NOT_FOUND_MESSAGE);
+    }
+    const updated = await this.repository.update(id, data);
+    return CouponMapper.toDetailDTO(updated);
+  }
+
+  /**
    * Get coupon detail by id.
    */
   async getCouponById(id: string): Promise<CouponDetailDTO | null> {
@@ -111,8 +133,11 @@ export class CouponService {
   /**
    * Ensure coupon code does not already exist.
    */
-  private async ensureCouponCodeIsUnique(code: string): Promise<void> {
-    const existingCoupon = await this.repository.findByCode(code);
+  private async ensureCouponCodeIsUnique(
+    code: string,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const existingCoupon = await this.repository.findByCode(code, tenantId);
     if (existingCoupon) {
       throw new Error(INVALID_COUPON_CODE_MESSAGE);
     }

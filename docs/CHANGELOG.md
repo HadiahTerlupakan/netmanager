@@ -45,6 +45,132 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-21] — Tambah UI pages setoran masuk dan bagi hasil investor
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/investors/deposits/`, `app/admin/investors/profit-shares/`
+- **Author**: agent
+- **Deskripsi**: Dua halaman baru untuk modul investor. Halaman Setoran Masuk
+  menampilkan antrian deposit PENDING dengan aksi Verifikasi, Selesaikan, dan Tolak
+  (beserta modal alasan penolakan), filter per status, dan hero card total pending.
+  Halaman Bagi Hasil menampilkan form kalkulasi bagi hasil (periode + laba bersih),
+  list semua profit shares dengan aksi Setujui dan Tandai Dibayar, serta summary
+  cards per status. Kedua halaman menggunakan design system yang konsisten
+  (gradient hero card, dark mode, Bahasa Indonesia).
+- **Files**: `app/admin/investors/deposits/page.tsx`,
+  `app/admin/investors/deposits/DepositsClient.tsx`,
+  `app/admin/investors/profit-shares/page.tsx`,
+  `app/admin/investors/profit-shares/ProfitSharesClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Tambah modul pajak (Tax Module)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/tax`, `app/api/admin/tax/`, `app/admin/pajak/`
+- **Author**: agent
+- **Deskripsi**: Modul pajak lengkap untuk ISP — PPN otomatis saat invoice dibuat,
+  PPh 21/23/4(2) otomatis dari salary/expense, BHP/USO kalkulasi bulanan,
+  rekap periode, reminder jatuh tempo, denda keterlambatan, export CSV.
+  Termasuk 5 halaman UI (dashboard, konfigurasi, transaksi, BHP/USO, export)
+  dan menu sidebar terpisah.
+- **Files**: `modules/tax/`, `app/api/admin/tax/`, `app/api/cron/tax/`,
+  `app/admin/pajak/`, `lib/menu-config.ts`, `lib/permission-config.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Refactor UI modul akuntansi + fitur COA
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/akuntansi/`, `modules/accounting`
+- **Author**: agent
+- **Deskripsi**: Refactor seluruh UI modul akuntansi ke design system hybrid
+  (gradient hero card + rounded-2xl + dark mode). Tambah fitur: tree view COA
+  berjenjang, kolom saldo per akun, filter lengkap (cari/tipe/klasifikasi/status),
+  edit akun, auto-generate kode akun, auto-seed COA standar ISP (26 akun +
+  10 akun pajak), label CAPEX/OPEX/COGS, tombol seed di halaman backup.
+  Semua label Bahasa Indonesia.
+- **Files**: `app/admin/akuntansi/coa/CoaClient.tsx`,
+  `app/admin/akuntansi/jurnal/`, `app/admin/akuntansi/laporan/`,
+  `modules/accounting/services/coa/ChartOfAccountService.ts`,
+  `app/api/admin/accounting/coa/`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Deep review & fix halaman ACS Devices
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network`, `app/api/acs/devices/`, `app/admin/network/acs/devices/`
+- **Author**: agent
+- **Deskripsi**: Deep review dan perbaikan menyeluruh halaman ACS Devices:
+  - Fix DELETE handler yang missing (UI memanggil tapi handler tidak ada)
+  - Tambah Zod validation di task/wan endpoint
+  - Tambah tenant ownership verification di configureWan, createTask, deleteDevice (security fix)
+  - Deduplikasi tipe GenieAcsDevice ke file terpisah
+  - Hapus singleton factory yang unused
+  - Fix hardcoded Online status di detail page
+  - Connect WAN modal inputs (name, vlan) ke state
+  - SSID modal sekarang dynamic (support 2.4G dan 5G)
+  - Ganti native confirm() dengan ConfirmDialog component
+  - Tambah dark mode di semua modal
+  - Rename hook useDevicesPolling → useDevicesQuery
+  - Hapus Interface Bindings non-functional dari WAN modal
+- **Files**: `modules/network/services/AcsDeviceService.ts`,
+  `modules/network/services/AcsDeviceService.types.ts`,
+  `modules/network/validators/acs-device.ts`,
+  `app/api/acs/devices/[id]/route.ts`,
+  `app/admin/network/acs/devices/DevicesClient.tsx`,
+  `app/admin/network/acs/devices/components/DeviceDetailModals.tsx`,
+  `app/admin/network/acs/devices/components/DeviceDetailPanels.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Tambah fitur UX halaman ACS Devices
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/network/acs/devices/`
+- **Author**: agent
+- **Deskripsi**: Peningkatan kegunaan halaman ACS Devices:
+  - Summary cards (Total/Online/Offline/Critical RX) yang clickable untuk filter
+  - Filter dropdown di toolbar (All/Online/Offline/Critical RX)
+  - Sortable columns (Serial, PPPoE, RX Power, Last Inform)
+  - Link PPPoE → halaman pelanggan
+  - Panel SSID 5GHz di detail page
+  - Panel Connected Hosts di detail page (tabel device yang terkoneksi ke ONT)
+- **Files**: `app/admin/network/acs/devices/components/DevicesSummary.tsx`,
+  `app/admin/network/acs/devices/components/DevicesTable.tsx`,
+  `app/admin/network/acs/devices/components/DevicesToolbar.tsx`,
+  `app/admin/network/acs/devices/components/DeviceDetailPanels.tsx`,
+  `modules/network/services/AcsDeviceService.formatters.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Fix modul coupons: tenant isolation, CRUD lengkap, auth verify
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/coupons`, `app/api/coupons/`
+- **Author**: agent
+- **Deskripsi**: Perbaikan beberapa issue di modul coupons:
+  - Tambah tenant isolation di repository, service, dan API routes
+  - Tambah GET single coupon dan PUT update coupon endpoint
+  - Fix test enum `"PERCENTAGE"` → `"PERCENT"`
+  - Ubah verify endpoint dari `auth: false` ke `auth: true`
+  - Pass tenantId ke coupon verification di payment flow
+- **Files**: `modules/coupons/repositories/CouponRepository.ts`,
+  `modules/coupons/services/CouponService.ts`, `app/api/coupons/[id]/route.ts`,
+  `app/api/coupons/verify/route.ts`
+- **Breaking**: ✅ Ya (verify endpoint sekarang butuh auth — hanya affect customer portal yang sudah authenticated)
+
+### [2026-05-21] — Integrasi kupon dengan modul akuntansi (auto-journal)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/accounting`, `modules/pelanggan`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Saat kupon dipakai untuk pembayaran, sistem otomatis membuat jurnal
+  akuntansi (contra-revenue). Debit 4-300 Potongan Penjualan, Credit 1-200 Piutang Usaha.
+  Terintegrasi via domain event `billing:coupon.used` yang di-publish setelah payment commit.
+- **Files**: `modules/accounting/services/event-handlers/coupon-used-accounting.handler.ts`,
+  `modules/accounting/services/coa/ChartOfAccountService.ts`,
+  `modules/pelanggan/services/CustomerPaymentRouteService.ts`,
+  `lib/event-bus/types.ts`, `prisma/schema.prisma`
+- **Migration**: pending (enum `JournalSource` ditambah `AUTO_COUPON_USED`)
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-20] — Modul OLT Provisioning (Phase 1-5 complete)
 
 - **Tipe**: [ADDED]

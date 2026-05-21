@@ -24,3 +24,24 @@ export const GET = createHandler(
     }
   },
 );
+
+export const DELETE = createHandler(
+  { auth: true, permissions: ["acs:delete"] },
+  async (_req, ctx) => {
+    const deviceId = decodeURIComponent(ctx.params.id);
+    if (!deviceId) return ApiErrors.badRequest("Device ID tidak ditemukan");
+
+    try {
+      const service = new AcsDeviceService();
+      const result = await service.deleteDevice(deviceId);
+      if ("data" in result) return apiSuccess(result.data);
+      if (result.status === "notFound")
+        return ApiErrors.notFound(result.message);
+      return ApiErrors.internalError(result.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      logger.error("Error deleting ACS device:", message);
+      return ApiErrors.internalError(`Gagal menghapus device: ${message}`);
+    }
+  },
+);

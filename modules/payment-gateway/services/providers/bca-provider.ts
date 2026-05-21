@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { logger } from "@/lib/logger";
+import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -55,21 +56,24 @@ export class BCAProvider implements PaymentProvider {
         timestamp,
         apiSecret: config.apiSecret || "",
       });
-      const response = await fetch(`${this.baseUrl}${BCA_PAYMENT_URL}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...buildBcaHeaders({
-            accessToken,
-            apiKey: config.apiKey,
-            timestamp,
-            signature,
-            correlationId: crypto.randomUUID(),
-          }),
-          Origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}${BCA_PAYMENT_URL}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildBcaHeaders({
+              accessToken,
+              apiKey: config.apiKey,
+              timestamp,
+              signature,
+              correlationId: crypto.randomUUID(),
+            }),
+            Origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          },
+          body: bodyString,
         },
-        body: bodyString,
-      });
+      );
 
       if (!response.ok) {
         const errorData = (await response.json()) as { ErrorMessage?: string };
@@ -113,7 +117,7 @@ export class BCAProvider implements PaymentProvider {
         timestamp,
         apiSecret: config.apiSecret || "",
       });
-      const response = await fetch(`${this.baseUrl}${url}`, {
+      const response = await fetchWithTimeout(`${this.baseUrl}${url}`, {
         method: "GET",
         headers: buildBcaHeaders({
           accessToken,

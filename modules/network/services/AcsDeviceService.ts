@@ -18,22 +18,11 @@ import {
   normalizeDevicesUrl,
   normalizeTasksUrl,
 } from "./AcsDeviceService.tasks";
+import type { GenieAcsDevice } from "./AcsDeviceService.types";
 
 const DEVICE_REQUEST_TIMEOUT_MS = 15_000;
 const TASK_REQUEST_TIMEOUT_MS = 10_000;
 const SUCCESS_TASK_STATUSES = new Set([200, 201, 202]);
-
-type GenieAcsDevice = Record<string, unknown> & {
-  _id?: string;
-  _deviceId?: {
-    _ProductClass?: string;
-    _SerialNumber?: string;
-    _Manufacturer?: string;
-    _OUI?: string;
-  };
-  _tags?: unknown;
-  _lastInform?: unknown;
-};
 
 export class AcsDeviceService {
   /** Lists ACS devices with tenant isolation and configured virtual parameter mapping. */
@@ -118,6 +107,7 @@ export class AcsDeviceService {
     username: string;
     password?: string;
   }) {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
     const settings = await getAcsSettings();
     if (!settings.genieAcsUrl) {
       return {
@@ -125,6 +115,15 @@ export class AcsDeviceService {
         status: "error",
         message: "GenieACS URL belum dikonfigurasi.",
       };
+    }
+
+    if (!isSuperAdmin) {
+      const ownershipCheck = await this.verifyDeviceOwnership(
+        input.deviceId,
+        tenantId,
+        settings.genieAcsUrl,
+      );
+      if (ownershipCheck) return ownershipCheck;
     }
 
     const response = await axios.post(
@@ -155,6 +154,7 @@ export class AcsDeviceService {
 
   /** Sends a task to one ACS device. */
   async createTask(deviceId: string, input: AcsTaskInput) {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
     const settings = await getAcsSettings();
     if (!settings.genieAcsUrl) {
       return {
@@ -162,6 +162,15 @@ export class AcsDeviceService {
         status: "error",
         message: "GenieACS URL belum dikonfigurasi di Pengaturan.",
       };
+    }
+
+    if (!isSuperAdmin) {
+      const ownershipCheck = await this.verifyDeviceOwnership(
+        deviceId,
+        tenantId,
+        settings.genieAcsUrl,
+      );
+      if (ownershipCheck) return ownershipCheck;
     }
 
     const taskName = input.taskName || "setParameterValues";
@@ -219,6 +228,82 @@ export class AcsDeviceService {
         message: `Task ${taskName} berhasil dikirim ke perangkat`,
         taskId: response.data._id,
       },
+    };
+  }
+
+  /** Returns error result if device doesn't belong to tenant, null if ownership verified. */
+  private async verifyDeviceOwnership(
+    deviceId: string,
+    tenantId: string | null,
+    genieAcsUrl: string,
+  ): Promise<{ ok: false; status: string; message: string } | null> {
+    if (!tenantId) {
+      return {
+        ok: false as const,
+        status: "forbidden",
+        message: "Tidak memiliki akses ke device ini.",
+      };
+    }
+
+    const query = buildDeviceQuery(tenantId, false, deviceId);
+    const verifyUrl = `${normalizeDevicesUrl(genieAcsUrl)}?query=${encodeURIComponent(
+      JSON.stringify(query),
+    )}&projection=${encodeURIComponent("_id")}`;
+    const verifyResponse = await axios.get(verifyUrl, {
+      timeout: DEVICE_REQUEST_TIMEOUT_MS,
+    });
+
+    if (
+      !Array.isArray(verifyResponse.data) ||
+      verifyResponse.data.length === 0
+    ) {
+      return {
+        ok: false as const,
+        status: "notFound",
+        message: "Device tidak ditemukan atau bukan milik tenant Anda.",
+      };
+    }
+
+    return null;
+  }
+
+  /** Deletes an ACS device from GenieACS with tenant ownership verification. */
+  async deleteDevice(deviceId: string) {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    const settings = await getAcsSettings();
+    if (!settings.genieAcsUrl) {
+      return {
+        ok: false as const,
+        status: "error",
+        message: "GenieACS URL belum dikonfigurasi di Pengaturan.",
+      };
+    }
+
+    if (!isSuperAdmin) {
+      const ownershipCheck = await this.verifyDeviceOwnership(
+        deviceId,
+        tenantId,
+        settings.genieAcsUrl,
+      );
+      if (ownershipCheck) return ownershipCheck;
+    }
+
+    const deleteUrl = `${normalizeAcsRootUrl(settings.genieAcsUrl)}/devices/${encodeURIComponent(deviceId)}`;
+    const response = await axios.delete(deleteUrl, {
+      timeout: DEVICE_REQUEST_TIMEOUT_MS,
+    });
+
+    if (response.status !== 200) {
+      return {
+        ok: false as const,
+        status: "error",
+        message: `Gagal menghapus device (Status: ${response.status})`,
+      };
+    }
+
+    return {
+      ok: true as const,
+      data: { message: "Device berhasil dihapus dari GenieACS" },
     };
   }
 }

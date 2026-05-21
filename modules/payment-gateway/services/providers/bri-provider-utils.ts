@@ -53,10 +53,11 @@ export function verifyBriWebhookSignature(input: {
   signature: string;
   timestamp: string;
   apiSecret: string;
+  webhookPath?: string;
 }) {
   const expectedSignature = generateBriSignature({
     method: "POST",
-    url: "/webhook/bri",
+    url: input.webhookPath || "/api/webhooks/BRI",
     accessToken: "",
     body: JSON.stringify(input.payload),
     timestamp: input.timestamp,
