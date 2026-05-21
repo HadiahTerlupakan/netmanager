@@ -172,6 +172,10 @@ function getPermissionResource(code: string): string {
     "OLT.BANDWIDTH": "olt_devices",
     "OLT.MONITORING": "olt",
     "OLT.ALERTS": "olt_logs",
+    "SALARY.SALARY": "salary",
+    "SALARY.PROFILES": "salary",
+    "SALARY.COMPONENTS": "salary",
+    "SALARY.CONFIG": "salary",
   };
 
   if (specialMappings[code]) {
