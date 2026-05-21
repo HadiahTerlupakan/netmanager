@@ -3437,6 +3437,23 @@ model Tenant {
   salaryAdvances         SalaryAdvance[]
   regionalMinimumWages   RegionalMinimumWage[]
   payrollAuditLogs       PayrollAuditLog[]
+  tenantDomain           TenantDomain?
+}
+
+model TenantDomain {
+  id         String    @id @default(uuid())
+  tenantId   String    @unique
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  domain     String?   @unique
+  slug       String    @unique
+  status     String    @default("pending")
+  sslStatus  String    @default("pending")
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
 }
 
 model EmailDeliveryLog {
