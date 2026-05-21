@@ -45,6 +45,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-22] — Multi-tenant landing page dengan custom domain management
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/tenant`, `app/page.tsx`, `components/landing/`
+- **Author**: agent
+- **Deskripsi**: Implementasi landing page per tenant dengan branding dinamis.
+  Landing page RADPRO.ID (SaaS) dipisah dari landing page tenant. Setiap tenant
+  otomatis dapat subdomain ({slug}.radpro.id) dan bisa menambahkan custom domain
+  via CNAME. Termasuk DNS verification cron job dan SSL auto-provisioning via
+  cert-manager.
+- **Migration**: `20260522100000_add_tenant_domain_table`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-22] — Rewrite modul salary ke V2 (standar payroll Indonesia)
 
 - **Tipe**: [ADDED]
