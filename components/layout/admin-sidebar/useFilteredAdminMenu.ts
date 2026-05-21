@@ -6,12 +6,14 @@ import { filterAdminMenuItems } from "./adminSidebarMenu";
 type UseFilteredAdminMenuParams = {
   hasPermission: (permission: string) => boolean;
   pppConnectionMode?: string | null;
+  isSuperAdmin?: boolean;
 };
 
 /** Tujuan: menyediakan menu sidebar admin yang sudah difilter sesuai konteks user. */
 export function useFilteredAdminMenu({
   hasPermission,
   pppConnectionMode,
+  isSuperAdmin,
 }: UseFilteredAdminMenuParams) {
   return useMemo(
     () =>
@@ -19,7 +21,8 @@ export function useFilteredAdminMenu({
         items: ADMIN_MENU_CONFIG,
         hasPermission,
         pppConnectionMode,
+        isSuperAdmin,
       }),
-    [hasPermission, pppConnectionMode],
+    [hasPermission, pppConnectionMode, isSuperAdmin],
   );
 }

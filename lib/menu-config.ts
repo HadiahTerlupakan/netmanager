@@ -21,6 +21,7 @@ export interface MenuConfig {
   exact?: boolean | undefined; // Match path exactly (for dashboard routes)
   section?: string | undefined; // Section label for grouping
   divider?: boolean | undefined; // Show divider before this item
+  superAdminOnly?: boolean | undefined; // Hide from non-super-admin users
 }
 
 /**
@@ -576,6 +577,38 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Chat",
     path: "/admin/chat",
     icon: "HiOutlineChatBubbleLeftRight",
+  },
+
+  // ═══════════════════════════════════════════
+  // WEBSITE (Super Admin Only)
+  // ═══════════════════════════════════════════
+  {
+    code: "WEBSITE",
+    name: "Website",
+    path: null,
+    icon: "HiOutlineGlobeAlt",
+    section: "Website",
+    superAdminOnly: true,
+    children: [
+      { code: "WEBSITE.HERO", name: "Hero", path: "/admin/website/hero" },
+      { code: "WEBSITE.FITUR", name: "Fitur", path: "/admin/website/fitur" },
+      {
+        code: "WEBSITE.PRICING",
+        name: "Pricing",
+        path: "/admin/website/pricing",
+      },
+      {
+        code: "WEBSITE.TESTIMONIAL",
+        name: "Testimonial",
+        path: "/admin/website/testimonial",
+      },
+      { code: "WEBSITE.FAQ", name: "FAQ", path: "/admin/website/faq" },
+      {
+        code: "WEBSITE.FOOTER",
+        name: "Footer",
+        path: "/admin/website/footer",
+      },
+    ],
   },
 
   // ═══════════════════════════════════════════

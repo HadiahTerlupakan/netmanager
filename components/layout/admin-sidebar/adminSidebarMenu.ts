@@ -6,6 +6,7 @@ type FilterAdminMenuItemsParams = {
   items: MenuConfig[];
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
+  isSuperAdmin?: boolean;
 };
 
 type SidebarPathCheckParams = {
@@ -16,15 +17,21 @@ type SidebarPathCheckParams = {
 const MIKROTIK_API_MODE = "MIKROTIK_API";
 const INTEGRATION_MENU_CODE = "INTEGRATION";
 
-/** Tujuan: memfilter menu admin sesuai permission dan mode koneksi PPP. */
+/** Tujuan: memfilter menu admin sesuai permission, mode koneksi PPP, dan status super admin. */
 export function filterAdminMenuItems({
   items,
   hasPermission,
   pppConnectionMode,
+  isSuperAdmin,
 }: FilterAdminMenuItemsParams): MenuConfig[] {
   return items
     .map((item) =>
-      filterAdminMenuItem({ item, hasPermission, pppConnectionMode }),
+      filterAdminMenuItem({
+        item,
+        hasPermission,
+        pppConnectionMode,
+        isSuperAdmin,
+      }),
     )
     .filter((item): item is MenuConfig => item !== null);
 }
@@ -70,11 +77,17 @@ function filterAdminMenuItem({
   item,
   hasPermission,
   pppConnectionMode,
+  isSuperAdmin,
 }: {
   item: MenuConfig;
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
+  isSuperAdmin?: boolean;
 }): MenuConfig | null {
+  if (item.superAdminOnly && !isSuperAdmin) {
+    return null;
+  }
+
   if (shouldHideRadiusMenu(item, pppConnectionMode)) {
     return null;
   }
@@ -85,6 +98,7 @@ function filterAdminMenuItem({
         item: child,
         hasPermission,
         pppConnectionMode,
+        isSuperAdmin,
       }),
     )
     .filter((child): child is MenuConfig => child !== null);

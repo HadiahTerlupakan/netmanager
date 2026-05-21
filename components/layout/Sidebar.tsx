@@ -256,10 +256,11 @@ function useAdminSidebarWindowToggle(
 function useSidebarBranding() {
   const { settings, loading: isSettingsLoading } = useSettings();
   const { branding, loading: isBrandingLoading } = usePublicBranding();
-  const { hasPermission } = usePermission();
+  const { hasPermission, isSuperAdmin } = usePermission();
   const navItems = useFilteredAdminMenu({
     hasPermission,
     pppConnectionMode: settings?.pppConnectionMode,
+    isSuperAdmin,
   });
   const appName =
     branding?.namaAplikasi || settings?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
