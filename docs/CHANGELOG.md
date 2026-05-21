@@ -45,6 +45,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-22] — Rewrite modul salary ke V2 (standar payroll Indonesia)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/salary-v2`
+- **Author**: agent
+- **Deskripsi**: Rewrite lengkap modul salary dengan standar payroll Indonesia. Mencakup:
+  - Core domain model (16 enums, 10 entities, 3 value objects, 8 repository ports, config types)
+  - Calculation engine dengan pipeline pattern (9 calculators: BasicSalary, Prorata, Attendance, Overtime, Component, BPJS, Tax, LoanDeduction, NetSalary)
+  - Tax engine lengkap (TER brackets PP 58/2023, progressive Pasal 17, iterative gross-up, annual correction Desember, resign mid-year)
+  - Benefits engine (THR dengan prorata, rapel/back-pay, salary advance dengan validasi)
+  - Payment & period management (pay schedule, period lifecycle OPEN→PROCESSING→CLOSED→LOCKED, auto-lock)
+  - Workflow & compliance (compliance rules UMR/overtime cap/BPJS, multi-step approval, audit trail)
+  - Reporting (payslip generator, accounting journal, export CSV)
+  - API routes (Next.js App Router, 7 endpoints)
+  - Admin frontend (4 halaman: runs, detail, components, profiles)
+  - Data migration script dari modul lama
+  - Prisma schema (14 enums, 11 models baru dengan suffix V2)
+  - 246+ unit tests passing
+- **Files**: `modules/salary-v2/`, `app/api/admin/salary-v2/`, `app/admin/salary-v2/`, `prisma/schema.prisma`
+- **Migration**: Pending — perlu run `npx prisma migrate dev --name add_payroll_v2_tables`
+- **Breaking**: ❌ Tidak (modul baru, modul lama tetap ada)
+
 ### [2026-05-21] — Refactor circular dependency finance ↔ pelanggan
 
 - **Tipe**: [CHANGED]
