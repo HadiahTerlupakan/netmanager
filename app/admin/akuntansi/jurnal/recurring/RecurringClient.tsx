@@ -2,9 +2,9 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { HiOutlineArrowPath, HiOutlineTrash } from "react-icons/hi2";
+import { HiOutlineTrash, HiOutlineArrowPath } from "react-icons/hi2";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
-import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 interface Template {
   id: string;
@@ -64,55 +64,65 @@ export function RecurringClient() {
     }
   };
 
-  const activeCount = items.filter((i) => i.isActive).length;
+  const countActive = items.filter((i) => i.isActive).length;
+  const countInactive = items.filter((i) => !i.isActive).length;
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl shrink-0">
+          <HiOutlineArrowPath className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+        </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <HiOutlineArrowPath className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            Recurring Journal
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white">
+            Jurnal Berulang
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Template jurnal otomatis yang dijalankan secara berkala
+            Template jurnal otomatis yang dijalankan berkala
           </p>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-            Total Template
-          </p>
-          <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
-            {items.length}
-          </h3>
-        </div>
+      {/* Hero Card */}
+      <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mr-4 -mt-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl" />
+        <p className="text-sm font-semibold text-indigo-200 mb-1">
+          Total Template
+        </p>
+        <p className="text-4xl font-black">{items.length}</p>
+        <p className="text-indigo-200 text-sm mt-1">
+          template jurnal berulang terdaftar
+        </p>
+      </div>
+
+      {/* Mini Stat Cards */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
             Aktif
           </p>
-          <h3 className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-            {activeCount}
-          </h3>
+          <p className="text-xl font-black font-mono text-green-600 dark:text-green-400">
+            {countActive}
+          </p>
         </div>
         <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
             Nonaktif
           </p>
-          <h3 className="text-xl font-black text-gray-600 dark:text-gray-400 font-mono">
-            {items.length - activeCount}
-          </h3>
+          <p className="text-xl font-black font-mono text-gray-500 dark:text-gray-400">
+            {countInactive}
+          </p>
         </div>
       </div>
 
       {/* Table */}
       <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 px-4 py-3">
+          <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Daftar Template
+          </h2>
+        </div>
         <ResponsiveTable
           data={items}
           loading={loading}
@@ -123,7 +133,7 @@ export function RecurringClient() {
               header: "Nama Template",
               priority: "primary",
               render: (item: Template) => (
-                <span className="font-bold text-sm text-gray-900 dark:text-white">
+                <span className="font-bold text-gray-900 dark:text-white">
                   {item.name}
                 </span>
               ),
@@ -133,7 +143,7 @@ export function RecurringClient() {
               header: "Frekuensi",
               priority: "primary",
               render: (item: Template) => (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                   {item.frequency}
                 </span>
               ),
@@ -143,7 +153,7 @@ export function RecurringClient() {
               header: "Tanggal",
               priority: "secondary",
               render: (item: Template) => (
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   Tgl {item.dayOfMonth}
                 </span>
               ),
@@ -158,19 +168,19 @@ export function RecurringClient() {
                     e.stopPropagation();
                     handleToggle(item.id, item.isActive);
                   }}
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold transition-colors ${
                     item.isActive
-                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  {item.isActive ? "Active" : "Inactive"}
+                  {item.isActive ? "Aktif" : "Nonaktif"}
                 </button>
               ),
             },
             {
               key: "lastGeneratedAt",
-              header: "Terakhir Generate",
+              header: "Terakhir Dibuat",
               priority: "tertiary",
               render: (item: Template) => (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -182,19 +192,18 @@ export function RecurringClient() {
             },
           ]}
           renderActions={(item: Template) => (
-            <div className="flex items-center justify-end gap-2">
+            <>
               {canDelete && (
                 <button
+                  className="text-red-500 hover:text-red-700 p-1 transition-colors"
                   onClick={() => handleDelete(item.id)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                  title="Hapus"
                 >
-                  <HiOutlineTrash className="w-5 h-5" />
+                  <HiOutlineTrash className="h-4 w-4" />
                 </button>
               )}
-            </div>
+            </>
           )}
-          emptyMessage="Belum ada template recurring journal."
+          emptyMessage="Belum ada template jurnal berulang."
         />
       </div>
     </div>

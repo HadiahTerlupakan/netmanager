@@ -68,6 +68,8 @@ import {
   HiOutlineCalendarDays,
   HiOutlineListBullet,
   HiOutlineScale,
+  HiOutlineBellAlert,
+  HiOutlineExclamationCircle,
 } from "react-icons/hi2";
 
 const adminSidebarIconMap: Record<string, ElementType> = {
@@ -139,6 +141,8 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineCalendarDays,
   HiOutlineListBullet,
   HiOutlineScale,
+  HiOutlineBellAlert,
+  HiOutlineExclamationCircle,
 };
 
 /** Tujuan: merender ikon sidebar admin berdasarkan nama ikon konfigurasi. */

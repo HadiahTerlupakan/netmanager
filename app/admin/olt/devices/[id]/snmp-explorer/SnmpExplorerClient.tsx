@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 interface OidEntry {
   oid: string;
@@ -51,112 +53,122 @@ export default function SnmpExplorerClient({ oltId }: { oltId: string }) {
     return types[type] ?? `Type(${type})`;
   };
 
+  const quickAccessOids = [
+    { label: "System", oid: "1.3.6.1.2.1.1" },
+    { label: "Interfaces", oid: "1.3.6.1.2.1.2" },
+    { label: "ZTE Enterprise", oid: "1.3.6.1.4.1.3902" },
+    { label: "All Enterprise", oid: "1.3.6.1.4.1" },
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Page Header */}
       <div>
         <Link
           href={`/admin/olt/devices/${oltId}`}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
         >
           &larr; Kembali
         </Link>
-        <h1 className="text-2xl font-bold mt-1">SNMP Explorer</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+          SNMP Explorer
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           Walk OID tree untuk riset mapping vendor baru
         </p>
       </div>
 
-      <div className="flex gap-3">
-        <input
-          type="text"
-          value={baseOid}
-          onChange={(e) => setBaseOid(e.target.value)}
-          placeholder="Base OID (e.g. 1.3.6.1.2.1.1)"
-          className="flex-1 px-3 py-2 border rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          onClick={handleWalk}
-          disabled={loading || !baseOid}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Walking..." : "Walk"}
-        </button>
-      </div>
+      {/* Walk Input */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={baseOid}
+              onChange={(e) => setBaseOid(e.target.value)}
+              placeholder="Base OID (e.g. 1.3.6.1.2.1.1)"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+            <Button
+              onClick={handleWalk}
+              disabled={!baseOid}
+              loading={loading}
+              variant="default"
+            >
+              Walk
+            </Button>
+          </div>
 
-      <div className="flex gap-2 text-xs">
-        <button
-          onClick={() => setBaseOid("1.3.6.1.2.1.1")}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-        >
-          System
-        </button>
-        <button
-          onClick={() => setBaseOid("1.3.6.1.2.1.2")}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-        >
-          Interfaces
-        </button>
-        <button
-          onClick={() => setBaseOid("1.3.6.1.4.1.3902")}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-        >
-          ZTE Enterprise
-        </button>
-        <button
-          onClick={() => setBaseOid("1.3.6.1.4.1")}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-        >
-          All Enterprise
-        </button>
-      </div>
+          {/* Quick Access Buttons */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {quickAccessOids.map((item) => (
+              <Button
+                key={item.oid}
+                variant="ghost"
+                size="sm"
+                onClick={() => setBaseOid(item.oid)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Error Alert */}
       {error && (
-        <div className="p-3 bg-red-50 text-red-800 rounded-lg text-sm">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-lg text-sm">
           {error}
         </div>
       )}
 
+      {/* Results */}
       {entries.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-4 py-2 bg-gray-50 border-b text-sm text-gray-600">
-            {entries.length} entries found
-          </div>
-          <div className="max-h-[600px] overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-gray-50 border-b sticky top-0">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">
-                    OID
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">
-                    Type
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">
-                    Value
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {entries.map((entry, i) => (
-                  <tr key={i} className="hover:bg-blue-50">
-                    <td
-                      className="px-3 py-2 font-mono text-blue-700 cursor-pointer"
-                      onClick={() => setBaseOid(entry.oid)}
-                    >
-                      {entry.oid}
-                    </td>
-                    <td className="px-3 py-2 text-gray-500">
-                      {snmpTypeLabel(entry.type)}
-                    </td>
-                    <td className="px-3 py-2 font-mono break-all max-w-md">
-                      {entry.value}
-                    </td>
+        <Card>
+          <CardHeader>
+            <CardTitle>Hasil Walk ({entries.length} entries)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[600px] overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">
+                      OID
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 w-24">
+                      Type
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">
+                      Value
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {entries.map((entry, i) => (
+                    <tr
+                      key={i}
+                      className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10"
+                    >
+                      <td
+                        className="px-3 py-2 font-mono text-indigo-700 dark:text-indigo-400 cursor-pointer hover:underline"
+                        onClick={() => setBaseOid(entry.oid)}
+                      >
+                        {entry.oid}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
+                        {snmpTypeLabel(entry.type)}
+                      </td>
+                      <td className="px-3 py-2 font-mono break-all max-w-md text-gray-900 dark:text-white">
+                        {entry.value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -7,9 +7,9 @@ import {
   HiOutlinePencilSquare,
   HiPlus,
   HiOutlineTrash,
-  HiOutlineArrowLeft,
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
+  HiOutlineArrowLeft,
 } from "react-icons/hi2";
 import { formatCurrency } from "@/lib/utils";
 
@@ -74,7 +74,6 @@ export function ManualJournalClient() {
 
   const handleSubmit = async () => {
     if (!entryDate || !description || !isBalanced) return;
-
     setSubmitting(true);
     const res = await fetch("/api/admin/accounting/journal", {
       method: "POST",
@@ -90,7 +89,6 @@ export function ManualJournalClient() {
         })),
       }),
     });
-
     if (res.ok) {
       const data = await res.json();
       toast.success("Jurnal berhasil dibuat");
@@ -105,41 +103,39 @@ export function ManualJournalClient() {
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <HiOutlinePencilSquare className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            Buat Jurnal Manual
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Buat entri jurnal manual dengan debit dan kredit yang seimbang
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+            <HiOutlinePencilSquare className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          Buat Jurnal Manual
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Buat entri jurnal manual dengan debit dan kredit yang seimbang
+        </p>
       </div>
 
       {/* Form Fields */}
-      <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+      <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">
               Tanggal
             </label>
             <input
               type="date"
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
               value={entryDate}
               onChange={(e) => setEntryDate(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">
               Deskripsi
             </label>
             <input
               type="text"
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
               placeholder="Keterangan jurnal..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -190,7 +186,7 @@ export function ManualJournalClient() {
                 >
                   <td className="px-4 py-3">
                     <select
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                       value={line.coaId}
                       onChange={(e) => updateLine(idx, "coaId", e.target.value)}
                     >
@@ -204,7 +200,7 @@ export function ManualJournalClient() {
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                       value={line.side}
                       onChange={(e) => updateLine(idx, "side", e.target.value)}
                     >
@@ -215,7 +211,7 @@ export function ManualJournalClient() {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      className="w-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-right text-sm font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      className="w-32 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-right text-sm font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                       placeholder="0"
                       value={line.amount}
                       onChange={(e) =>
@@ -226,7 +222,7 @@ export function ManualJournalClient() {
                   <td className="px-4 py-3">
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                       placeholder="Opsional"
                       value={line.description}
                       onChange={(e) =>
@@ -251,35 +247,33 @@ export function ManualJournalClient() {
       </div>
 
       {/* Balance Summary */}
-      <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Total Debit:{" "}
-              <span className="font-black font-mono text-indigo-600 dark:text-indigo-400">
-                {formatCurrency(totalDebit)}
-              </span>
-            </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Total Kredit:{" "}
-              <span className="font-black font-mono text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(totalCredit)}
-              </span>
-            </div>
+      <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Total Debit:{" "}
+            <span className="font-black font-mono text-indigo-600 dark:text-indigo-400">
+              {formatCurrency(totalDebit)}
+            </span>
           </div>
-          <div>
-            {isBalanced ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                <HiOutlineCheckCircle className="w-4 h-4" />
-                Balance
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                <HiOutlineExclamationTriangle className="w-4 h-4" />
-                Selisih: {formatCurrency(Math.abs(totalDebit - totalCredit))}
-              </span>
-            )}
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Total Kredit:{" "}
+            <span className="font-black font-mono text-emerald-600 dark:text-emerald-400">
+              {formatCurrency(totalCredit)}
+            </span>
           </div>
+        </div>
+        <div>
+          {isBalanced ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+              <HiOutlineCheckCircle className="w-4 h-4" />
+              Seimbang
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+              <HiOutlineExclamationTriangle className="w-4 h-4" />
+              Selisih: {formatCurrency(Math.abs(totalDebit - totalCredit))}
+            </span>
+          )}
         </div>
       </div>
 
@@ -287,7 +281,7 @@ export function ManualJournalClient() {
       <div className="flex justify-end gap-3">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
         >
           <HiOutlineArrowLeft className="w-4 h-4" />
           Batal
@@ -295,7 +289,7 @@ export function ManualJournalClient() {
         <button
           onClick={handleSubmit}
           disabled={!entryDate || !description || !isBalanced || submitting}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-bold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-bold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Menyimpan..." : "Simpan Jurnal"}
         </button>

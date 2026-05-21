@@ -2,11 +2,8 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import {
-  HiOutlineCalendarDays,
-  HiOutlineLockClosed,
-  HiOutlineLockOpen,
-} from "react-icons/hi2";
+import { HiOutlineCalendarDays } from "react-icons/hi2";
+
 import { usePermission } from "@/hooks/use-permission";
 
 interface Period {
@@ -18,30 +15,19 @@ interface Period {
   endDate: string;
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; bg: string; text: string }
-> = {
-  OPEN: {
-    label: "Open",
-    bg: "bg-emerald-100 dark:bg-emerald-900/30",
-    text: "text-emerald-700 dark:text-emerald-400",
-  },
-  CLOSING: {
-    label: "Closing",
-    bg: "bg-yellow-100 dark:bg-yellow-900/30",
-    text: "text-yellow-700 dark:text-yellow-400",
-  },
-  CLOSED: {
-    label: "Closed",
-    bg: "bg-red-100 dark:bg-red-900/30",
-    text: "text-red-700 dark:text-red-400",
-  },
-  REOPENED: {
-    label: "Reopened",
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    text: "text-blue-700 dark:text-blue-400",
-  },
+const STATUS_LABELS: Record<string, string> = {
+  OPEN: "Terbuka",
+  CLOSING: "Sedang Ditutup",
+  CLOSED: "Tertutup",
+  REOPENED: "Dibuka Kembali",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  OPEN: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  CLOSING:
+    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  CLOSED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  REOPENED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
 };
 
 const MONTHS = [
@@ -116,117 +102,135 @@ export function PeriodeClient() {
     }
   };
 
-  const openCount = periods.filter(
-    (p) => p.status === "OPEN" || p.status === "REOPENED",
-  ).length;
-  const closedCount = periods.filter((p) => p.status === "CLOSED").length;
+  const countByStatus = (status: string) =>
+    periods.filter((p) => p.status === status).length;
+
+  if (loading) {
+    return (
+      <div className="p-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120] flex items-center justify-center">
+        <span className="text-gray-500 dark:text-gray-400">Memuat...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl shrink-0">
+          <HiOutlineCalendarDays className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+        </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <HiOutlineCalendarDays className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            </div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white">
             Periode Akuntansi
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Kelola periode tutup buku dan pembukaan kembali
+            Kelola periode tutup buku
           </p>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-            Total Periode
-          </p>
-          <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
-            {periods.length}
-          </h3>
-        </div>
+      {/* Hero Card */}
+      <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mr-4 -mt-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl" />
+        <p className="text-sm font-semibold text-indigo-200 mb-1">
+          Total Periode
+        </p>
+        <p className="text-4xl font-black">{periods.length}</p>
+        <p className="text-indigo-200 text-sm mt-1">
+          periode terdaftar dalam sistem
+        </p>
+      </div>
+
+      {/* Mini Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
             Terbuka
           </p>
-          <h3 className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-            {openCount}
-          </h3>
+          <p className="text-xl font-black font-mono text-green-600 dark:text-green-400">
+            {countByStatus("OPEN") + countByStatus("REOPENED")}
+          </p>
         </div>
         <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
             Tertutup
           </p>
-          <h3 className="text-xl font-black text-red-600 dark:text-red-400 font-mono">
-            {closedCount}
-          </h3>
+          <p className="text-xl font-black font-mono text-red-600 dark:text-red-400">
+            {countByStatus("CLOSED")}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Sedang Ditutup
+          </p>
+          <p className="text-xl font-black font-mono text-yellow-600 dark:text-yellow-400">
+            {countByStatus("CLOSING")}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Dibuka Kembali
+          </p>
+          <p className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
+            {countByStatus("REOPENED")}
+          </p>
         </div>
       </div>
 
       {/* Period List */}
       <div className="space-y-3">
-        {loading ? (
-          <div className="bg-white dark:bg-[#1e293b] p-8 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
-            <p className="text-gray-500 dark:text-gray-400 font-medium">
-              Memuat...
-            </p>
-          </div>
-        ) : periods.length === 0 ? (
-          <div className="bg-white dark:bg-[#1e293b] p-8 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              Belum ada periode. Periode akan dibuat otomatis saat jurnal
-              pertama di-post.
-            </p>
+        {periods.length === 0 ? (
+          <div className="bg-white dark:bg-[#1e293b] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-8 text-center text-gray-500 dark:text-gray-400">
+            Belum ada periode. Periode akan dibuat otomatis saat jurnal pertama
+            di-post.
           </div>
         ) : (
-          periods.map((p) => {
-            const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.OPEN;
-            return (
-              <div
-                key={p.id}
-                className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between"
-              >
+          periods.map((p) => (
+            <div
+              key={p.id}
+              className="bg-white dark:bg-[#1e293b] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl shrink-0">
+                  <HiOutlineCalendarDays className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+                </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">
+                  <p className="font-black text-gray-900 dark:text-white">
                     {MONTHS[p.month - 1]} {p.year}
-                  </h3>
+                  </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                     {new Date(p.startDate).toLocaleDateString("id-ID")} —{" "}
                     {new Date(p.endDate).toLocaleDateString("id-ID")}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}
-                  >
-                    {cfg.label}
-                  </span>
-                  {canManage &&
-                    (p.status === "OPEN" || p.status === "REOPENED") && (
-                      <button
-                        onClick={() => handleClose(p.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                      >
-                        <HiOutlineLockClosed className="w-4 h-4" />
-                        Tutup Buku
-                      </button>
-                    )}
-                  {canManage && p.status === "CLOSED" && (
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[p.status] || ""}`}
+                >
+                  {STATUS_LABELS[p.status] ?? p.status}
+                </span>
+                {canManage &&
+                  (p.status === "OPEN" || p.status === "REOPENED") && (
                     <button
-                      onClick={() => handleReopen(p.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                      className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                      onClick={() => handleClose(p.id)}
                     >
-                      <HiOutlineLockOpen className="w-4 h-4" />
-                      Buka Kembali
+                      Tutup Buku
                     </button>
                   )}
-                </div>
+                {canManage && p.status === "CLOSED" && (
+                  <button
+                    className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-gray-700 dark:text-gray-300"
+                    onClick={() => handleReopen(p.id)}
+                  >
+                    Buka Kembali
+                  </button>
+                )}
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </div>
     </div>

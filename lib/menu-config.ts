@@ -128,7 +128,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         code: "OLT.ALERTS",
         name: "Alerts",
         path: "/admin/olt/alerts",
-        icon: "HiOutlineBell",
+        icon: "HiOutlineBellAlert",
       },
     ],
   },

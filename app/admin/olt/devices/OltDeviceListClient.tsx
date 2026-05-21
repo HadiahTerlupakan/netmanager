@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useReducer } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
+import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import PageLoader from "@/components/ui/PageLoader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { HiOutlineServerStack } from "react-icons/hi2";
 
 interface OltDevice {
   id: string;
@@ -104,43 +109,102 @@ export default function OltDeviceListClient() {
 
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      ACTIVE: "bg-green-100 text-green-800",
-      MAINTENANCE: "bg-yellow-100 text-yellow-800",
-      OFFLINE: "bg-red-100 text-red-800",
+      ACTIVE:
+        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      MAINTENANCE:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+      OFFLINE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     };
     return (
       <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-800"}`}
+        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}
       >
         {status}
       </span>
     );
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Perangkat OLT</h1>
+  const columns: Column<OltDevice>[] = [
+    {
+      key: "name",
+      header: "Nama",
+      priority: "primary",
+      render: (device) => (
         <Link
-          href="/admin/olt/devices/tambah"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          href={`/admin/olt/devices/${device.id}`}
+          className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
         >
-          + Tambah OLT
+          {device.name}
+        </Link>
+      ),
+    },
+    {
+      key: "vendor",
+      header: "Vendor",
+      priority: "secondary",
+    },
+    {
+      key: "model",
+      header: "Model",
+      priority: "secondary",
+    },
+    {
+      key: "ipAddress",
+      header: "IP Address",
+      priority: "tertiary",
+      render: (device) => (
+        <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+          {device.ipAddress}
+        </span>
+      ),
+    },
+    {
+      key: "totalPonPorts",
+      header: "PON Ports",
+      priority: "tertiary",
+    },
+    {
+      key: "status",
+      header: "Status",
+      priority: "secondary",
+      render: (device) => statusBadge(device.status),
+    },
+  ];
+
+  if (loading && devices.length === 0) {
+    return <PageLoader variant="section" message="Memuat data OLT..." />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Perangkat OLT
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Kelola perangkat OLT yang terdaftar di jaringan
+          </p>
+        </div>
+        <Link href="/admin/olt/devices/tambah">
+          <Button variant="default">+ Tambah OLT</Button>
         </Link>
       </div>
 
-      <div className="flex gap-3">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="text"
           placeholder="Cari nama, IP, model..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <select
           value={vendorFilter}
           onChange={(e) => setVendorFilter(e.target.value)}
-          className="px-3 py-2 border rounded-lg"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         >
           <option value="">Semua Vendor</option>
           <option value="ZTE">ZTE</option>
@@ -151,7 +215,7 @@ export default function OltDeviceListClient() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border rounded-lg"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         >
           <option value="">Semua Status</option>
           <option value="ACTIVE">Active</option>
@@ -160,9 +224,14 @@ export default function OltDeviceListClient() {
         </select>
       </div>
 
+      {/* Test Result Alert */}
       {testResult && (
         <div
-          className={`p-3 rounded-lg ${testResult.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}
+          className={`p-3 rounded-lg text-sm ${
+            testResult.success
+              ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+              : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300"
+          }`}
         >
           {testResult.success
             ? "Koneksi berhasil!"
@@ -170,114 +239,57 @@ export default function OltDeviceListClient() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Nama
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Vendor
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Model
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                IP Address
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                PON Ports
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  Memuat...
-                </td>
-              </tr>
-            ) : devices.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  Belum ada OLT terdaftar
-                </td>
-              </tr>
-            ) : (
-              devices.map((device) => (
-                <tr key={device.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/olt/devices/${device.id}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      {device.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{device.vendor}</td>
-                  <td className="px-4 py-3">{device.model}</td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {device.ipAddress}
-                  </td>
-                  <td className="px-4 py-3">{device.totalPonPorts}</td>
-                  <td className="px-4 py-3">{statusBadge(device.status)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleTestConnection(device.id)}
-                        disabled={testingId === device.id}
-                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50"
-                      >
-                        {testingId === device.id ? "Testing..." : "Test"}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(device.id, device.name)}
-                        className="px-2 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 rounded"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={devices}
+          columns={columns}
+          keyField="id"
+          loading={loading}
+          emptyMessage={
+            <EmptyState
+              icon={<HiOutlineServerStack className="w-12 h-12" />}
+              title="Belum ada OLT terdaftar"
+              description="Tambahkan perangkat OLT pertama untuk mulai mengelola jaringan"
+              action={
+                <Link href="/admin/olt/devices/tambah">
+                  <Button variant="default">+ Tambah OLT</Button>
+                </Link>
+              }
+            />
+          }
+          renderActions={(device) => (
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleTestConnection(device.id)}
+                loading={testingId === device.id}
+              >
+                Test
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDelete(device.id, device.name)}
+              >
+                Hapus
+              </Button>
+            </div>
+          )}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+          itemsPerPage={pagination.limit}
+          onItemsPerPageChange={(limit) =>
+            setPagination((p) => ({
+              ...p,
+              limit: limit === "all" ? p.total : limit,
+              page: 1,
+            }))
+          }
+        />
       </div>
-
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">
-            Menampilkan {devices.length} dari {pagination.total} OLT
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
-            >
-              Prev
-            </button>
-            <span className="px-3 py-1">
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <button
-              onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
-              disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

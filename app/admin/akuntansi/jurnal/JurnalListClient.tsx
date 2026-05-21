@@ -9,7 +9,7 @@ import {
   HiPlus,
   HiOutlineCalendar,
 } from "react-icons/hi2";
-import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { formatCurrency } from "@/lib/utils";
 
@@ -34,34 +34,26 @@ const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual",
   AUTO_INVOICE_CREATED: "Invoice Dibuat",
   AUTO_INVOICE_PAID: "Invoice Dibayar",
-  AUTO_EXPENSE: "Expense",
+  AUTO_EXPENSE: "Pengeluaran",
   AUTO_PO_PAID: "PO Dibayar",
-  RECURRING: "Recurring",
-  REVERSAL: "Reversal",
+  RECURRING: "Berulang",
+  REVERSAL: "Pembalikan",
   OPENING_BALANCE: "Saldo Awal",
-  CLOSING: "Closing",
-  ADJUSTMENT: "Adjustment",
+  CLOSING: "Penutupan",
+  ADJUSTMENT: "Penyesuaian",
 };
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; bg: string; text: string }
-> = {
-  POSTED: {
-    label: "Posted",
-    bg: "bg-emerald-100 dark:bg-emerald-900/30",
-    text: "text-emerald-700 dark:text-emerald-400",
-  },
-  REVERSED: {
-    label: "Reversed",
-    bg: "bg-red-100 dark:bg-red-900/30",
-    text: "text-red-700 dark:text-red-400",
-  },
-  DRAFT: {
-    label: "Draft",
-    bg: "bg-gray-100 dark:bg-gray-700",
-    text: "text-gray-700 dark:text-gray-300",
-  },
+const STATUS_COLORS: Record<string, string> = {
+  POSTED:
+    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  REVERSED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  DRAFT: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  POSTED: "Terposting",
+  REVERSED: "Dibalik",
+  DRAFT: "Draf",
 };
 
 export function JurnalListClient() {
@@ -85,7 +77,8 @@ export function JurnalListClient() {
 
       const res = await fetch(`/api/admin/accounting/journal?${params}`);
       if (res.ok) {
-        setData(await res.json());
+        const json = await res.json();
+        setData(json.data ?? json);
       }
       setLoading(false);
     },
@@ -104,9 +97,10 @@ export function JurnalListClient() {
       .filter((l) => l.side === "DEBIT")
       .reduce((sum, l) => sum + Number(l.amount), 0);
 
-  const summaryTotal =
-    data?.items.reduce((sum, item) => sum + totalDebit(item), 0) ?? 0;
-  const summaryCount = data?.total ?? 0;
+  const summaryTotal = (data?.items ?? []).reduce(
+    (sum, item) => sum + totalDebit(item),
+    0,
+  );
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-[#0b1120]">
@@ -115,12 +109,12 @@ export function JurnalListClient() {
         <div>
           <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
             <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <HiOutlineDocumentText className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+              <HiOutlineDocumentText className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
             </div>
             Jurnal Akuntansi
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Kelola dan pantau seluruh jurnal transaksi keuangan perusahaan
+            Kelola dan pantau seluruh jurnal transaksi keuangan
           </p>
         </div>
         {canCreate && (
@@ -134,15 +128,21 @@ export function JurnalListClient() {
         )}
       </div>
 
-      {/* Summary Cards */}
+      {/* Hero Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mr-4 -mt-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+          <p className="text-indigo-100 font-medium mb-1 relative z-10">
             Total Jurnal
           </p>
-          <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
-            {summaryCount}
-          </h3>
+          <h2 className="text-3xl font-bold relative z-10">
+            {data?.total ?? 0}
+          </h2>
+          <div className="text-sm text-indigo-100 relative z-10 mt-2">
+            <span className="bg-white/20 px-2 py-1 rounded-lg text-xs font-semibold">
+              Halaman {data?.page ?? 1}
+            </span>
+          </div>
         </div>
         <div className="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
@@ -165,37 +165,47 @@ export function JurnalListClient() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
-          className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e293b] text-sm font-medium text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
-          value={filters.source}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, source: e.target.value }));
-            setPage(1);
-            fetchData(1);
-          }}
-        >
-          <option value="">Semua Sumber</option>
-          {Object.entries(SOURCE_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select
-          className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e293b] text-sm font-medium text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
-          value={filters.status}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, status: e.target.value }));
-            setPage(1);
-            fetchData(1);
-          }}
-        >
-          <option value="">Semua Status</option>
-          <option value="POSTED">Posted</option>
-          <option value="REVERSED">Reversed</option>
-          <option value="DRAFT">Draft</option>
-        </select>
+      <div className="bg-white dark:bg-[#1e293b] p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-wrap gap-4 items-end">
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+            Sumber
+          </label>
+          <select
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
+            value={filters.source}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, source: e.target.value }));
+              setPage(1);
+              fetchData(1);
+            }}
+          >
+            <option value="">Semua Sumber</option>
+            {Object.entries(SOURCE_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+            Status
+          </label>
+          <select
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
+            value={filters.status}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, status: e.target.value }));
+              setPage(1);
+              fetchData(1);
+            }}
+          >
+            <option value="">Semua Status</option>
+            <option value="POSTED">Terposting</option>
+            <option value="REVERSED">Dibalik</option>
+            <option value="DRAFT">Draf</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -219,10 +229,8 @@ export function JurnalListClient() {
               priority: "primary",
               render: (item: JournalItem) => (
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-gray-400">
-                    <HiOutlineCalendar className="w-4 h-4" />
-                  </div>
-                  <span className="font-semibold text-sm">
+                  <HiOutlineCalendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium">
                     {format(new Date(item.entryDate), "dd MMM yyyy", {
                       locale: id,
                     })}
@@ -235,7 +243,7 @@ export function JurnalListClient() {
               header: "Sumber",
               priority: "secondary",
               render: (item: JournalItem) => (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                   {SOURCE_LABELS[item.source] || item.source}
                 </span>
               ),
@@ -245,7 +253,7 @@ export function JurnalListClient() {
               header: "Deskripsi",
               priority: "tertiary",
               render: (item: JournalItem) => (
-                <span className="text-gray-500 dark:text-gray-400 text-sm italic truncate max-w-[200px] block">
+                <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[200px] block">
                   {item.description || "-"}
                 </span>
               ),
@@ -254,8 +262,9 @@ export function JurnalListClient() {
               key: "amount",
               header: "Total Debit",
               priority: "primary",
+              align: "right",
               render: (item: JournalItem) => (
-                <span className="text-indigo-600 dark:text-indigo-400 font-black font-mono">
+                <span className="font-black font-mono text-gray-900 dark:text-white">
                   {formatCurrency(totalDebit(item))}
                 </span>
               ),
@@ -264,16 +273,14 @@ export function JurnalListClient() {
               key: "status",
               header: "Status",
               priority: "primary",
-              render: (item: JournalItem) => {
-                const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.DRAFT;
-                return (
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}
-                  >
-                    {cfg.label}
-                  </span>
-                );
-              },
+              align: "center",
+              render: (item: JournalItem) => (
+                <span
+                  className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[item.status] || ""}`}
+                >
+                  {STATUS_LABELS[item.status] || item.status}
+                </span>
+              ),
             },
           ]}
           keyField="id"
@@ -288,7 +295,7 @@ export function JurnalListClient() {
       {/* Pagination */}
       {data && data.total > data.limit && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             Menampilkan halaman {data.page} dari{" "}
             {Math.ceil(data.total / data.limit)}
           </span>
@@ -299,7 +306,7 @@ export function JurnalListClient() {
                 setPage((p) => p - 1);
                 fetchData(page - 1);
               }}
-              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e293b] text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Sebelumnya
             </button>
@@ -309,7 +316,7 @@ export function JurnalListClient() {
                 setPage((p) => p + 1);
                 fetchData(page + 1);
               }}
-              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e293b] text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Selanjutnya
             </button>

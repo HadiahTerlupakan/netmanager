@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useReducer } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import PageLoader from "@/components/ui/PageLoader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface VlanConfig {
   id: string;
@@ -70,134 +75,165 @@ export default function VlanConfigClient({ oltId }: { oltId: string }) {
     refresh();
   };
 
+  const columns: Column<VlanConfig>[] = [
+    {
+      key: "vlanId",
+      header: "VLAN ID",
+      priority: "primary",
+      render: (cfg) => (
+        <span className="font-mono text-gray-900 dark:text-white">
+          {cfg.vlanId}
+        </span>
+      ),
+    },
+    {
+      key: "vlanName",
+      header: "Nama",
+      priority: "primary",
+      render: (cfg) => (
+        <span className="text-gray-900 dark:text-white">
+          {cfg.vlanName ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "ponPort",
+      header: "PON Port",
+      priority: "secondary",
+      render: (cfg) => (
+        <span className="text-gray-900 dark:text-white">
+          {cfg.ponPort ?? "Semua"}
+        </span>
+      ),
+    },
+    {
+      key: "purpose",
+      header: "Purpose",
+      priority: "secondary",
+    },
+  ];
+
+  if (loading && configs.length === 0) {
+    return <PageLoader variant="section" message="Memuat VLAN config..." />;
+  }
+
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div>
         <Link
           href={`/admin/olt/devices/${oltId}`}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
         >
           &larr; Kembali ke detail OLT
         </Link>
-        <h1 className="text-2xl font-bold mt-1">VLAN Configuration</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+          VLAN Configuration
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          Kelola konfigurasi VLAN untuk perangkat OLT ini
+        </p>
       </div>
 
-      <form onSubmit={handleAdd} className="bg-white rounded-lg shadow p-4">
-        <h3 className="font-medium mb-3">Tambah VLAN</h3>
-        <div className="grid grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              VLAN ID *
-            </label>
-            <input
-              type="number"
-              value={vlanId}
-              onChange={(e) => setVlanId(e.target.value)}
-              min={1}
-              max={4094}
-              required
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Nama</label>
-            <input
-              type="text"
-              value={vlanName}
-              onChange={(e) => setVlanName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-              placeholder="Internet VLAN"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              PON Port (kosong = semua)
-            </label>
-            <input
-              type="number"
-              value={ponPort}
-              onChange={(e) => setPonPort(e.target.value)}
-              min={1}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Purpose</label>
-            <select
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="INTERNET">Internet</option>
-              <option value="IPTV">IPTV</option>
-              <option value="VOIP">VoIP</option>
-              <option value="MANAGEMENT">Management</option>
-            </select>
-          </div>
-        </div>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
-        >
-          {submitting ? "Menyimpan..." : "Tambah"}
-        </button>
-      </form>
+      {/* Add VLAN Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tambah VLAN</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdd}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  VLAN ID *
+                </label>
+                <input
+                  type="number"
+                  value={vlanId}
+                  onChange={(e) => setVlanId(e.target.value)}
+                  min={1}
+                  max={4094}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Nama
+                </label>
+                <input
+                  type="text"
+                  value={vlanName}
+                  onChange={(e) => setVlanName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  placeholder="Internet VLAN"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  PON Port (kosong = semua)
+                </label>
+                <input
+                  type="number"
+                  value={ponPort}
+                  onChange={(e) => setPonPort(e.target.value)}
+                  min={1}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Purpose
+                </label>
+                <select
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="INTERNET">Internet</option>
+                  <option value="IPTV">IPTV</option>
+                  <option value="VOIP">VoIP</option>
+                  <option value="MANAGEMENT">Management</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Button
+                type="submit"
+                variant="default"
+                size="sm"
+                loading={submitting}
+              >
+                Tambah
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                VLAN ID
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Nama
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                PON Port
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Purpose
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Memuat...
-                </td>
-              </tr>
-            ) : configs.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Belum ada VLAN config
-                </td>
-              </tr>
-            ) : (
-              configs.map((cfg) => (
-                <tr key={cfg.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono">{cfg.vlanId}</td>
-                  <td className="px-4 py-3">{cfg.vlanName ?? "-"}</td>
-                  <td className="px-4 py-3">{cfg.ponPort ?? "Semua"}</td>
-                  <td className="px-4 py-3">{cfg.purpose}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleDelete(cfg.id)}
-                      className="px-2 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 rounded"
-                    >
-                      Hapus
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* VLAN Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={configs}
+          columns={columns}
+          keyField="id"
+          loading={loading}
+          emptyMessage={
+            <EmptyState
+              title="Belum ada VLAN config"
+              description="Tambahkan konfigurasi VLAN menggunakan form di atas"
+            />
+          }
+          renderActions={(cfg) => (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleDelete(cfg.id)}
+            >
+              Hapus
+            </Button>
+          )}
+        />
       </div>
     </div>
   );

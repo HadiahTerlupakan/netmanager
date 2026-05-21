@@ -158,6 +158,13 @@ function getPermissionResource(code: string): string {
     "ACCOUNTING.PERIOD": "accounting",
     "ACCOUNTING.RECONCILIATION": "accounting",
     "ACCOUNTING.REPORTS": "accounting",
+    "OLT.DEVICES": "olt_devices",
+    "OLT.ONU": "olt_onu",
+    "OLT.UNREGISTERED": "olt_onu",
+    "OLT.LOGS": "olt_logs",
+    "OLT.BANDWIDTH": "olt_devices",
+    "OLT.MONITORING": "olt",
+    "OLT.ALERTS": "olt_logs",
   };
 
   if (specialMappings[code]) {
