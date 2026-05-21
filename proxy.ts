@@ -58,6 +58,21 @@ export async function proxy(request: NextRequest) {
   if (hostname.startsWith("pelanggan.")) subdomain = "pelanggan";
   if (hostname.startsWith("pelanggan-staging.")) subdomain = "pelanggan";
 
+  // Check for tenant slug subdomain: {slug}.radpro.id
+  // These pass through without rewrite — tenant resolution happens in tenant-context.ts
+  const baseDomain = process.env.DOMAIN || "radpro.id";
+  if (
+    !subdomain &&
+    hostname.endsWith(`.${baseDomain}`) &&
+    !hostname.startsWith("localhost")
+  ) {
+    const possibleSlug = hostname.replace(`.${baseDomain}`, "").split(":")[0];
+    if (possibleSlug && !possibleSlug.includes(".")) {
+      // Tenant subdomain detected — no rewrite needed, pass through
+      subdomain = null;
+    }
+  }
+
   // SKIP Rewrite/Auth for: API, Next.js Internals, Static Files
   if (
     pathname.startsWith("/api") ||

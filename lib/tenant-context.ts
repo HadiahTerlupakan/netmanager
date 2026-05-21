@@ -21,24 +21,57 @@ async function resolveTenantContextFromHost(
     return resolvePrimaryTenantContext();
   }
 
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      domain: normalizedHost,
-      isActive: true,
-    },
-    select: {
-      id: true,
-    },
-  });
+  const baseDomain = process.env.DOMAIN || "radpro.id";
 
-  if (!tenant) {
-    return null;
+  // Check if bare domain (main tenant)
+  if (normalizedHost === baseDomain) {
+    return resolvePrimaryTenantContext();
   }
 
-  return {
-    tenantId: tenant.id,
-    isSuperAdmin: false,
-  };
+  // Skip role subdomains — these are handled by proxy.ts
+  const roleSubdomains = ["admin", "karyawan", "investor", "pelanggan"];
+  for (const role of roleSubdomains) {
+    if (
+      normalizedHost.startsWith(`${role}.`) ||
+      normalizedHost.startsWith(`${role}-staging.`)
+    ) {
+      return null;
+    }
+  }
+
+  // Check if tenant slug subdomain: {slug}.radpro.id
+  if (normalizedHost.endsWith(`.${baseDomain}`)) {
+    const slug = normalizedHost.replace(`.${baseDomain}`, "");
+    if (slug && !slug.includes(".")) {
+      const tenantDomain = await prisma.tenantDomain.findUnique({
+        where: { slug },
+        select: { tenantId: true, status: true },
+      });
+      if (tenantDomain) {
+        return { tenantId: tenantDomain.tenantId, isSuperAdmin: false };
+      }
+    }
+  }
+
+  // Check custom domain in TenantDomain table (status must be active)
+  const tenantDomain = await prisma.tenantDomain.findFirst({
+    where: { domain: normalizedHost, status: "active" },
+    select: { tenantId: true },
+  });
+  if (tenantDomain) {
+    return { tenantId: tenantDomain.tenantId, isSuperAdmin: false };
+  }
+
+  // Fallback: check legacy Tenant.domain field
+  const tenant = await prisma.tenant.findFirst({
+    where: { domain: normalizedHost, isActive: true },
+    select: { id: true },
+  });
+  if (tenant) {
+    return { tenantId: tenant.id, isSuperAdmin: false };
+  }
+
+  return null;
 }
 
 export interface TenantContextResult {
