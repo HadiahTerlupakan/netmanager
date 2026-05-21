@@ -8,3 +8,8 @@ export type {
   CreateTenantDomainDto,
   UpdateDomainDto,
 } from "./dto/tenant-domain.dto";
+
+export {
+  createTenantDomainSchema,
+  updateDomainSchema,
+} from "./validators/tenant-domain.validator";
