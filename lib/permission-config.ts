@@ -169,6 +169,7 @@ export const ACTIONS = [
   "mark_paid",
   "correct-missed-checkin",
   "manage",
+  "view_all",
 ] as const;
 
 /**
