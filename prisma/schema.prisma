@@ -426,6 +426,9 @@ model Investor {
   tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   payouts      InvestorPayout[]
   rabProjects  RabInvestor[]
+  deposits     InvestorDeposit[]
+  profitShares InvestorProfitShare[]
+  config       InvestorConfig?
 
   @@index([tenantId])
 }
@@ -1263,6 +1266,13 @@ model User {
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
   workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
+  payrollPeriodsLockedV2                     PayrollPeriodV2[]         @relation("PeriodV2LockedBy")
+  payrollRunsCreatedV2                       PayrollRunV2[]            @relation("PayrollRunV2CreatedBy")
+  payrollEntriesV2                           PayrollEntryV2[]          @relation("PayrollEntryV2User")
+  employeePayrollProfileV2                   EmployeePayrollProfileV2? @relation("EmployeePayrollProfileV2")
+  salaryAdvancesV2                           SalaryAdvanceV2[]         @relation("SalaryAdvanceV2User")
+  salaryAdvancesApprovedV2                   SalaryAdvanceV2[]         @relation("SalaryAdvanceV2Approver")
+  payrollAuditLogsV2                         PayrollAuditLogV2[]       @relation("PayrollAuditV2Performer")
 
   @@index([departmentId])
   @@index([isActive])
@@ -3416,6 +3426,17 @@ model Tenant {
   proratePaymentLog       ProratePaymentLog[]
   emailDeliveryLogs       EmailDeliveryLog[]
   notificationDeadLetters NotificationDeadLetter[]
+  payScheduleV2           PayScheduleV2[]
+  payrollPeriodV2         PayrollPeriodV2[]
+  payrollRunV2            PayrollRunV2[]
+  payrollEntryV2          PayrollEntryV2[]
+  payrollLineV2           PayrollLineV2[]
+  payrollComponentV2      PayrollComponentV2[]
+  employeePayrollProfileV2 EmployeePayrollProfileV2[]
+  employeeComponentV2     EmployeeComponentV2[]
+  salaryAdvanceV2         SalaryAdvanceV2[]
+  regionalMinimumWageV2   RegionalMinimumWageV2[]
+  payrollAuditLogV2       PayrollAuditLogV2[]
 }
 
 model EmailDeliveryLog {
@@ -4061,6 +4082,17 @@ enum JournalSource {
   AUTO_PAYMENT
   AUTO_EXPENSE
   AUTO_PO_PAID
+  AUTO_COUPON_USED
+  AUTO_MITRA_WITHDRAWAL
+  AUTO_INVESTOR_PAYOUT
+  AUTO_INVESTOR_DEPOSIT
+  AUTO_TAX_PPN_KELUARAN
+  AUTO_TAX_PPN_MASUKAN
+  AUTO_TAX_PPH_21
+  AUTO_TAX_PPH_23
+  AUTO_TAX_PPH_4_2
+  AUTO_TAX_BHP
+  AUTO_TAX_USO
   MANUAL
   RECURRING
   REVERSAL
@@ -4240,6 +4272,130 @@ model BankReconciliationLine {
 
   @@index([reconciliationId, matchStatus])
   @@map("bank_reconciliation_lines")
+}
+
+// ============================================================
+// TAX MODULE
+// ============================================================
+
+enum TaxType {
+  PPN_KELUARAN
+  PPN_MASUKAN
+  PPH_21
+  PPH_23
+  PPH_4_2
+  BHP
+  USO
+  KSO
+}
+
+enum TaxDirection {
+  IN
+  OUT
+}
+
+enum TaxPayStatus {
+  BELUM_SETOR
+  SUDAH_SETOR
+  TERLAMBAT
+}
+
+model TaxConfig {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  npwp          String?
+  companyName   String?
+  isPkp         Boolean  @default(false)
+  ppnRate       Decimal  @default(11) @db.Decimal(5, 2)
+  ppnIncluded   Boolean  @default(false)
+  pph23RateJasa Decimal  @default(2) @db.Decimal(5, 2)
+  pph23RateSewa Decimal  @default(2) @db.Decimal(5, 2)
+  pph4Rate      Decimal  @default(10) @db.Decimal(5, 2)
+  bhpRate       Decimal  @default(0.5) @db.Decimal(5, 2)
+  usoRate       Decimal  @default(1.25) @db.Decimal(5, 2)
+  ksoRate       Decimal  @default(0) @db.Decimal(5, 2)
+  ppnDueDay     Int      @default(15)
+  pph21DueDay   Int      @default(10)
+  pph23DueDay   Int      @default(10)
+  bhpDueMonth   Int      @default(4)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("tax_configs")
+}
+
+model TaxTransaction {
+  id            String       @id @default(cuid())
+  tenantId      String
+  taxType       TaxType
+  direction     TaxDirection
+  amount        Decimal      @db.Decimal(19, 2)
+  taxAmount     Decimal      @db.Decimal(19, 2)
+  rate          Decimal      @db.Decimal(5, 2)
+  sourceRefType String
+  sourceRefId   String
+  periodYear    Int
+  periodMonth   Int
+  journalId     String?
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  @@unique([tenantId, sourceRefType, sourceRefId, taxType])
+  @@index([tenantId, periodYear, periodMonth])
+  @@index([tenantId, taxType])
+  @@map("tax_transactions")
+}
+
+model TaxPeriodSummary {
+  id             String       @id @default(cuid())
+  tenantId       String
+  year           Int
+  month          Int
+  ppnKeluaran    Decimal      @default(0) @db.Decimal(19, 2)
+  ppnMasukan     Decimal      @default(0) @db.Decimal(19, 2)
+  ppnKurangBayar Decimal      @default(0) @db.Decimal(19, 2)
+  pph21Total     Decimal      @default(0) @db.Decimal(19, 2)
+  pph23Total     Decimal      @default(0) @db.Decimal(19, 2)
+  pph4Total      Decimal      @default(0) @db.Decimal(19, 2)
+  bhpAccrual     Decimal      @default(0) @db.Decimal(19, 2)
+  usoAccrual     Decimal      @default(0) @db.Decimal(19, 2)
+  ppnStatus      TaxPayStatus @default(BELUM_SETOR)
+  pph21Status    TaxPayStatus @default(BELUM_SETOR)
+  pph23Status    TaxPayStatus @default(BELUM_SETOR)
+  pph4Status     TaxPayStatus @default(BELUM_SETOR)
+  bhpStatus      TaxPayStatus @default(BELUM_SETOR)
+  ppnPaidAt      DateTime?
+  pph21PaidAt    DateTime?
+  pph23PaidAt    DateTime?
+  pph4PaidAt     DateTime?
+  bhpPaidAt      DateTime?
+  ppnPenalty     Decimal      @default(0) @db.Decimal(19, 2)
+  pph21Penalty   Decimal      @default(0) @db.Decimal(19, 2)
+  pph23Penalty   Decimal      @default(0) @db.Decimal(19, 2)
+  calculatedAt   DateTime?
+  lockedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([tenantId, year, month])
+  @@index([tenantId, year])
+  @@map("tax_period_summaries")
+}
+
+model TaxReminder {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taxType   TaxType
+  year      Int
+  month     Int
+  dueDate   DateTime
+  status    String   @default("PENDING")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, taxType, year, month])
+  @@index([status, dueDate])
+  @@map("tax_reminders")
 }
 
 // ============================================================
@@ -4469,4 +4625,510 @@ model OltAlert {
   @@index([oltId])
   @@index([onuId])
   @@map("olt_alerts")
+}
+
+enum InvestorDepositType {
+  MODAL_AWAL
+  TAMBAHAN_MODAL
+  PINJAMAN
+}
+
+enum InvestorDepositStatus {
+  PENDING
+  VERIFIED
+  COMPLETED
+  REJECTED
+}
+
+enum InvestorProfitShareStatus {
+  CALCULATED
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum InvestorShareMode {
+  FIXED
+  PROPORTIONAL
+}
+
+enum InvestorProfitPeriodType {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model InvestorDeposit {
+  id             String               @id @default(cuid())
+  investorId     String
+  amount         Decimal              @db.Decimal(19, 2)
+  depositType    InvestorDepositType
+  date           DateTime
+  bankName       String?
+  accountNumber  String?
+  accountName    String?
+  reference      String?
+  notes          String?
+  proofFileUrl   String?
+  status         InvestorDepositStatus @default(PENDING)
+  verifiedAt     DateTime?
+  verifiedById   String?
+  completedAt    DateTime?
+  rejectedAt     DateTime?
+  rejectedReason String?
+  journalId      String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  tenantId       String?
+  investor       Investor             @relation(fields: [investorId], references: [id])
+
+  @@index([investorId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([date])
+  @@map("investor_deposits")
+}
+
+model InvestorProfitShare {
+  id           String                    @id @default(cuid())
+  investorId   String
+  configId     String
+  periodStart  DateTime
+  periodEnd    DateTime
+  netProfit    Decimal                   @db.Decimal(19, 2)
+  sharePercent Float
+  shareAmount  Decimal                   @db.Decimal(19, 2)
+  status       InvestorProfitShareStatus @default(CALCULATED)
+  approvedAt   DateTime?
+  approvedById String?
+  paidAt       DateTime?
+  paidById     String?
+  payoutId     String?
+  journalId    String?
+  notes        String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  tenantId     String?
+  investor     Investor                  @relation(fields: [investorId], references: [id])
+  config       InvestorConfig            @relation(fields: [configId], references: [id])
+
+  @@index([investorId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("investor_profit_shares")
+}
+
+model InvestorConfig {
+  id                String                  @id @default(cuid())
+  investorId        String                  @unique
+  shareMode         InvestorShareMode       @default(PROPORTIONAL)
+  fixedSharePercent Float?
+  periodType        InvestorProfitPeriodType @default(MONTHLY)
+  isActive          Boolean                 @default(true)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  tenantId          String?
+  investor          Investor                @relation(fields: [investorId], references: [id])
+  profitShares      InvestorProfitShare[]
+
+  @@index([tenantId])
+  @@map("investor_configs")
+}
+
+// ============================================================
+// Payroll V2 — Enums
+// ============================================================
+
+enum PayrollRunStatusV2 {
+  DRAFT
+  CALCULATING
+  CALCULATED
+  AUDITED
+  APPROVED
+  PAID
+  CLOSED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+enum PayrollRunTypeV2 {
+  REGULAR
+  THR
+  BONUS
+  RAPEL
+  ADVANCE
+}
+
+enum PayrollEntryStatusV2 {
+  PENDING
+  CALCULATED
+  ERROR
+  APPROVED
+  PAID
+}
+
+enum EmployeeTypeV2 {
+  PKWTT
+  PKWT
+  DAILY
+  FREELANCE
+}
+
+enum TaxMethodV2 {
+  NET
+  GROSS_UP
+  NETT
+}
+
+enum PayFrequencyV2 {
+  MONTHLY
+  BI_WEEKLY
+  WEEKLY
+  DAILY
+  ON_DEMAND
+}
+
+enum ComponentCategoryV2 {
+  EARNING
+  DEDUCTION
+  TAX
+  EMPLOYER_COST
+}
+
+enum ComponentCalcTypeV2 {
+  FIXED
+  PERCENTAGE
+  FORMULA
+  PER_HOUR
+  PER_DAY
+  PER_UNIT
+}
+
+enum PayrollPeriodStatusV2 {
+  OPEN
+  PROCESSING
+  CLOSED
+  LOCKED
+}
+
+enum SalaryAdvanceStatusV2 {
+  PENDING
+  APPROVED
+  DISBURSED
+  DEDUCTED
+  REJECTED
+}
+
+enum DeductionMethodV2 {
+  FULL_NEXT
+  INSTALLMENT
+}
+
+enum PaymentBatchStatusV2 {
+  PENDING
+  PROCESSING
+  COMPLETED
+  PARTIAL_FAILED
+}
+
+enum PaymentItemStatusV2 {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRY
+}
+
+// ============================================================
+// Payroll V2 — Models
+// ============================================================
+
+model PayScheduleV2 {
+  id              String         @id @default(cuid())
+  tenantId        String
+  name            String
+  frequency       PayFrequencyV2
+  cutOffDay       Int?
+  cutOffDayOfWeek Int?
+  payDay          Int
+  payDayOffset    Int?
+  gracePeriodDays Int            @default(3)
+  isDefault       Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  periods         PayrollPeriodV2[]
+  runs            PayrollRunV2[]
+  profiles        EmployeePayrollProfileV2[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("pay_schedule_v2")
+}
+
+model PayrollPeriodV2 {
+  id           String               @id @default(cuid())
+  tenantId     String
+  scheduleId   String
+  periodStart  DateTime
+  periodEnd    DateTime
+  payDate      DateTime
+  status       PayrollPeriodStatusV2 @default(OPEN)
+  lockedAt     DateTime?
+  lockedBy     String?
+  unlockReason String?
+  unlockCount  Int                  @default(0)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id])
+  schedule     PayScheduleV2        @relation(fields: [scheduleId], references: [id])
+  lockedByUser User?                @relation("PeriodV2LockedBy", fields: [lockedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([scheduleId])
+  @@index([status])
+  @@map("payroll_period_v2")
+}
+
+model PayrollRunV2 {
+  id              String             @id @default(cuid())
+  tenantId        String
+  scheduleId      String
+  type            PayrollRunTypeV2   @default(REGULAR)
+  status          PayrollRunStatusV2 @default(DRAFT)
+  periodStart     DateTime
+  periodEnd       DateTime
+  payDate         DateTime
+  totalEntries    Int                @default(0)
+  totalNetSalary  Float              @default(0)
+  totalEmployerCost Float            @default(0)
+  lockedAt        DateTime?
+  lockedBy        String?
+  notes           String?
+  createdBy       String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  schedule        PayScheduleV2      @relation(fields: [scheduleId], references: [id])
+  createdByUser   User               @relation("PayrollRunV2CreatedBy", fields: [createdBy], references: [id])
+  entries         PayrollEntryV2[]
+
+  @@index([tenantId])
+  @@index([scheduleId])
+  @@index([status])
+  @@index([tenantId, periodStart, periodEnd])
+  @@map("payroll_run_v2")
+}
+
+model PayrollEntryV2 {
+  id              String               @id @default(cuid())
+  payrollRunId    String
+  tenantId        String
+  userId          String
+  employeeType    EmployeeTypeV2
+  taxMethod       TaxMethodV2
+  basicSalary     Float
+  effectiveSalary Float
+  totalEarnings   Float                @default(0)
+  totalDeductions Float                @default(0)
+  totalTax        Float                @default(0)
+  netSalary       Float                @default(0)
+  employerCost    Float                @default(0)
+  status          PayrollEntryStatusV2 @default(PENDING)
+  errorMessage    String?
+  calculatedAt    DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  payrollRun      PayrollRunV2         @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  user            User                 @relation("PayrollEntryV2User", fields: [userId], references: [id])
+  lines           PayrollLineV2[]
+
+  @@unique([payrollRunId, userId])
+  @@index([tenantId])
+  @@index([payrollRunId])
+  @@index([userId])
+  @@map("payroll_entry_v2")
+}
+
+model PayrollLineV2 {
+  id            String           @id @default(cuid())
+  entryId       String
+  tenantId      String
+  componentId   String?
+  componentCode String
+  componentName String
+  category      ComponentCategoryV2
+  quantity      Float            @default(1)
+  rate          Float            @default(0)
+  amount        Float            @default(0)
+  formula       String?
+  metadata      Json?
+  sortOrder     Int              @default(0)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  entry         PayrollEntryV2   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  component     PayrollComponentV2? @relation(fields: [componentId], references: [id])
+
+  @@index([entryId])
+  @@index([tenantId])
+  @@map("payroll_line_v2")
+}
+
+model PayrollComponentV2 {
+  id              String              @id @default(cuid())
+  tenantId        String
+  name            String
+  code            String
+  category        ComponentCategoryV2
+  calculationType ComponentCalcTypeV2
+  taxable         Boolean             @default(true)
+  applicableTo    EmployeeTypeV2[]
+  isStatutory     Boolean             @default(false)
+  formula         String?
+  defaultAmount   Float?
+  sortOrder       Int                 @default(0)
+  isActive        Boolean             @default(true)
+  description     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id])
+  lines           PayrollLineV2[]
+  employeeComponents EmployeeComponentV2[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@map("payroll_component_v2")
+}
+
+model EmployeePayrollProfileV2 {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  tenantId        String
+  employeeType    EmployeeTypeV2
+  taxMethod       TaxMethodV2    @default(NET)
+  payScheduleId   String
+  basicSalary     Float
+  payPeriodDay    Int            @default(25)
+  ptkpStatus      String         @default("TK_0")
+  npwp            String?
+  bpjsKesehatan   Boolean        @default(true)
+  bpjsJht         Boolean        @default(true)
+  bpjsJp          Boolean        @default(true)
+  bpjsJkk         Boolean        @default(true)
+  bpjsJkm         Boolean        @default(true)
+  regionCode      String
+  contractStart   DateTime
+  contractEnd     DateTime?
+  overtimeEligible Boolean       @default(true)
+  thrEligible     Boolean        @default(true)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  user            User           @relation("EmployeePayrollProfileV2", fields: [userId], references: [id])
+  schedule        PayScheduleV2  @relation(fields: [payScheduleId], references: [id])
+  components      EmployeeComponentV2[]
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, employeeType])
+  @@index([payScheduleId])
+  @@map("employee_payroll_profile_v2")
+}
+
+model EmployeeComponentV2 {
+  id              String              @id @default(cuid())
+  profileId       String
+  tenantId        String
+  componentId     String
+  amount          Float?
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id])
+  profile         EmployeePayrollProfileV2 @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  component       PayrollComponentV2  @relation(fields: [componentId], references: [id])
+
+  @@unique([profileId, componentId])
+  @@index([tenantId])
+  @@map("employee_component_v2")
+}
+
+model SalaryAdvanceV2 {
+  id              String                @id @default(cuid())
+  tenantId        String
+  userId          String
+  amount          Float
+  requestDate     DateTime              @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  status          SalaryAdvanceStatusV2 @default(PENDING)
+  deductionMethod DeductionMethodV2     @default(FULL_NEXT)
+  installmentCount Int?
+  remainingAmount Float
+  reason          String?
+  rejectionReason String?
+  disbursedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  tenant          Tenant                @relation(fields: [tenantId], references: [id])
+  user            User                  @relation("SalaryAdvanceV2User", fields: [userId], references: [id])
+  approvedByUser  User?                 @relation("SalaryAdvanceV2Approver", fields: [approvedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@map("salary_advance_v2")
+}
+
+model RegionalMinimumWageV2 {
+  id            String   @id @default(cuid())
+  tenantId      String
+  regionCode    String
+  regionName    String
+  year          Int
+  monthlyAmount Float
+  dailyAmount   Float?
+  effectiveDate DateTime
+  source        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, regionCode, year])
+  @@index([tenantId])
+  @@map("regional_minimum_wage_v2")
+}
+
+model PayrollAuditLogV2 {
+  id          String   @id @default(cuid())
+  tenantId    String
+  entityType  String
+  entityId    String
+  action      String
+  performedBy String
+  timestamp   DateTime @default(now())
+  changes     Json     @default("[]")
+  reason      String?
+  ipAddress   String?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  performer   User     @relation("PayrollAuditV2Performer", fields: [performedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([performedBy])
+  @@map("payroll_audit_log_v2")
 }
