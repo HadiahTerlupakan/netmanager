@@ -32,6 +32,11 @@ export function createCustomerPaymentsForInvoices(options: {
   return getPaymentRepository().createCustomerPaymentsForInvoices(options);
 }
 
+/** Marks customer payments as FAILED when gateway call fails. */
+export function markCustomerPaymentsAsFailed(paymentIds: string[]) {
+  return getPaymentRepository().markAsFailed(paymentIds);
+}
+
 /** Stores payment gateway metadata on customer payments. */
 export function updateCustomerPaymentGatewayMetadata(options: {
   paymentIds: string[];

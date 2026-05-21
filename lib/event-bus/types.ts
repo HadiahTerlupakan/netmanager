@@ -36,7 +36,6 @@ export const EVENT_NAMES = {
   INVOICE_OVERDUE: "billing:invoice.overdue",
   INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
-  PAYMENT_RECEIVED: "billing:payment.received",
   PAYMENT_FAILED: "billing:payment.failed",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
@@ -382,7 +381,6 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
-  [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
   [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
@@ -499,13 +497,6 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.INVOICE_REMINDER_DUE,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
-    persistent: true,
-    async: true,
-  },
-  [EVENT_NAMES.PAYMENT_RECEIVED]: {
-    name: EVENT_NAMES.PAYMENT_RECEIVED,
-    category: "billing",
-    priority: JOB_PRIORITIES.HIGH,
     persistent: true,
     async: true,
   },

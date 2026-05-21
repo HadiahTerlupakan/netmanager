@@ -1,4 +1,4 @@
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { getPelangganBillingBridge } from "../pelanggan-registry";
 import { getAutoIsolationSettings } from "@/modules/settings";
 import type { InvoiceEntity } from "../domain/entities/InvoiceEntity";
 import { Status } from "../types/invoice.enums";
@@ -8,7 +8,7 @@ import { BillingScheduleService } from "./BillingScheduleService";
 export class AutomaticIsolationSchedulerService {
   constructor(
     private readonly billingScheduleService = new BillingScheduleService(),
-    private readonly pelangganBridge = new PelangganBillingBridgeService(),
+    private readonly pelangganBridge = getPelangganBillingBridge(),
   ) {}
 
   async syncForInvoice(

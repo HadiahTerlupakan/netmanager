@@ -180,6 +180,14 @@ export class PaymentRepository implements IPaymentRepository {
     });
   }
 
+  /** Marks payment records as FAILED (gateway call failed). */
+  async markAsFailed(paymentIds: string[]) {
+    return prismaBilling.payment.updateMany({
+      where: { id: { in: paymentIds } },
+      data: { gatewayStatus: "FAILED" },
+    });
+  }
+
   /** Mengambil pembayaran pertama dengan client auth untuk webhook. */
   async findFirstAuth(where: Prisma.PaymentWhereInput) {
     return findFirstAuthPayment(where);

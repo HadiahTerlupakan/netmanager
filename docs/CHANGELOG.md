@@ -45,6 +45,53 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-21] — Refactor circular dependency finance ↔ pelanggan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Menghilangkan runtime circular dependency antara finance dan pelanggan module.
+  Semua 11 file di finance yang import langsung dari pelanggan sekarang menggunakan
+  lazy-loading registry (`pelanggan-registry.ts`) dengan `require()` yang di-resolve
+  saat pertama kali diakses. Type-only imports tetap dipertahankan (di-strip saat compile).
+  Ini memastikan module loading order tidak lagi saling bergantung di runtime.
+- **Files**: `modules/finance/pelanggan-registry.ts` (new),
+  `modules/finance/domain/ports/IPelangganBillingBridge.ts` (new),
+  `modules/finance/services/AutomaticBillingService.ts`,
+  `modules/finance/services/AutomaticIsolationSchedulerService.ts`,
+  `modules/finance/services/AutomaticIsolationExecutionService.ts`,
+  `modules/finance/services/ManualPaymentAdminRouteService.ts`,
+  `modules/finance/services/VoidInvoiceService.ts`,
+  `modules/finance/services/PaymentRouteService.ts`,
+  `modules/finance/services/InvoiceRouteService.ts`,
+  `modules/finance/services/PaymentCancellationService.ts`,
+  `modules/finance/services/InvoiceCollectionRouteService.ts`,
+  `modules/finance/services/manual-payment-admin.helpers.ts`,
+  `modules/finance/services/automatic-billing-payment.helpers.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-21] — Fix integrasi payment-billing: transaction safety dan gateway failure handling
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`, `modules/finance`, `modules/pelanggan`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Perbaikan 4 issue integrasi payment-billing:
+  (1) Invoice read di `updateInvoiceStatus` dipindah ke dalam transaction context (`tx`) untuk
+  mencegah stale data pada concurrent webhook processing.
+  (2) Silent gateway failure di `createGatewayPaymentIfNeeded` sekarang mark payment records
+  sebagai FAILED dan throw error ke customer (bukan return null diam-diam).
+  (3) Circular dependency finance↔pelanggan didokumentasikan dan interface
+  `IPelangganBillingBridge` dibuat di finance ports untuk future decoupling.
+  (4) Dead event `PAYMENT_RECEIVED` dihapus dari event-bus types (tidak pernah di-emit,
+  tidak ada handler).
+- **Files**: `modules/payment-gateway/services/webhook-invoice-settlement-service.ts`,
+  `modules/pelanggan/services/CustomerPaymentRouteService.ts`,
+  `modules/finance/services/CustomerPaymentFinanceService.ts`,
+  `modules/finance/repositories/PaymentRepository.ts`,
+  `modules/finance/domain/ports/IPelangganBillingBridge.ts` (new),
+  `lib/event-bus/types.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-21] — Hardening payment gateway module (security, reliability, robustness)
 
 - **Tipe**: [SECURITY]

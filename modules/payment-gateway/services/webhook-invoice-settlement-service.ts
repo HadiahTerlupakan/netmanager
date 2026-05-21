@@ -63,8 +63,14 @@ export class WebhookInvoiceSettlementService {
   }
 
   private async updateInvoiceStatus(tx: BillingTx, invoiceId: string) {
-    const invoice =
-      await this.invoiceRepository.findUniqueAuthWithPayment(invoiceId);
+    const invoice = await tx.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        payment: {
+          select: { amount: true, gatewayStatus: true },
+        },
+      },
+    });
 
     if (!invoice) {
       logger.warn(`[Webhook] Invoice ${invoiceId} not found`);

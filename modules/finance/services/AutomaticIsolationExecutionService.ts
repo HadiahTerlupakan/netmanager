@@ -1,9 +1,9 @@
 import { logger } from "@/lib/logger";
 import { getAutoIsolationSettings } from "@/modules/settings";
 import {
-  getPelangganService,
-  PelangganBillingBridgeService,
-} from "@/modules/pelanggan";
+  getPelangganBillingBridge,
+  getPelangganServiceFromRegistry,
+} from "../pelanggan-registry";
 import type {
   IInvoiceRepository,
   InvoiceWithPayment,
@@ -19,7 +19,7 @@ function getInvoiceRepository(): IInvoiceRepository {
 export class AutomaticIsolationExecutionService {
   constructor(
     private readonly invoiceRepository: IInvoiceRepository = getInvoiceRepository(),
-    private readonly pelangganBridge = new PelangganBillingBridgeService(),
+    private readonly pelangganBridge = getPelangganBillingBridge(),
   ) {}
 
   async execute(
@@ -60,7 +60,7 @@ export class AutomaticIsolationExecutionService {
       return false;
     }
 
-    await getPelangganService().updateStatusPelanggan(
+    await getPelangganServiceFromRegistry().updateStatusPelanggan(
       pelanggan.id,
       Status.ISOLIR,
     );

@@ -1,6 +1,7 @@
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { BillingEventDispatcher } from "@/modules/events/dispatchers/BillingEventDispatcher";
+import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
 import type {
   PaymentWhereInput,
@@ -8,7 +9,7 @@ import type {
 } from "../types/payment.types";
 import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { getPelangganBillingBridge } from "../pelanggan-registry";
 
 export type PendingManualPaymentsInput = {
   startDate?: string | null;

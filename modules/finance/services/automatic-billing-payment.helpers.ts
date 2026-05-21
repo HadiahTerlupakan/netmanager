@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
-import { type PelangganBillingBridgeService } from "@/modules/pelanggan";
+import type { PelangganBillingBridgeService as IPelangganBillingBridge } from "@/modules/pelanggan";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
 import type { PaymentRepository } from "../repositories/PaymentRepository";
 import {
@@ -11,10 +11,10 @@ import type { BillingInvoiceCreationService } from "./BillingInvoiceCreationServ
 import { settleImmediateInvoice } from "./automatic-billing-payment.settlement";
 
 type ImmediateInvoiceCustomer = NonNullable<
-  Awaited<ReturnType<PelangganBillingBridgeService["findByIdWithHargaPaket"]>>
+  Awaited<ReturnType<IPelangganBillingBridge["findByIdWithHargaPaket"]>>
 >;
 type PaidInvoiceCustomer = NonNullable<
-  Awaited<ReturnType<PelangganBillingBridgeService["findById"]>>
+  Awaited<ReturnType<IPelangganBillingBridge["findById"]>>
 >;
 type PaidInvoice = NonNullable<
   Awaited<ReturnType<InvoiceRepository["findUnique"]>>
@@ -23,7 +23,7 @@ type PaidInvoice = NonNullable<
 /** Membuat invoice instan untuk pelanggan yang valid. */
 export async function createImmediateInvoice(options: {
   pelangganId: string;
-  pelangganBridge: PelangganBillingBridgeService;
+  pelangganBridge: IPelangganBillingBridge;
   invoiceCreationService: BillingInvoiceCreationService;
   invoiceRepo: InvoiceRepository;
   paymentRepo: PaymentRepository;
@@ -63,7 +63,7 @@ async function finalizeImmediateInvoiceCreation(
 }
 
 async function loadImmediateInvoiceCustomer(
-  pelangganBridge: PelangganBillingBridgeService,
+  pelangganBridge: IPelangganBillingBridge,
   pelangganId: string,
 ) {
   const customer = await pelangganBridge.findByIdWithHargaPaket(pelangganId);
@@ -103,7 +103,7 @@ function logImmediateInvoiceGeneration(customerName: string, isPaid: boolean) {
 export async function handlePaidInvoiceCustomerState(options: {
   invoiceId: string;
   invoiceRepo: InvoiceRepository;
-  pelangganBridge: PelangganBillingBridgeService;
+  pelangganBridge: IPelangganBillingBridge;
 }) {
   const invoice = await loadPaidInvoice(options.invoiceRepo, options.invoiceId);
   if (!isPaidInvoice(invoice)) {
@@ -118,7 +118,7 @@ export async function handlePaidInvoiceCustomerState(options: {
 
 async function syncPaidInvoiceCustomerState(
   options: {
-    pelangganBridge: PelangganBillingBridgeService;
+    pelangganBridge: IPelangganBillingBridge;
   },
   invoice: PaidInvoice,
 ) {
@@ -155,7 +155,7 @@ function isPaidInvoice(invoice: PaidInvoice | null): invoice is PaidInvoice {
 }
 
 async function loadPaidInvoiceCustomer(
-  pelangganBridge: PelangganBillingBridgeService,
+  pelangganBridge: IPelangganBillingBridge,
   pelangganId: string,
 ) {
   const customer = await pelangganBridge.findById(pelangganId);
@@ -170,7 +170,7 @@ async function loadPaidInvoiceCustomer(
 async function syncPaidCustomerDueDate(
   options: {
     customer: PaidInvoiceCustomer;
-    pelangganBridge: PelangganBillingBridgeService;
+    pelangganBridge: IPelangganBillingBridge;
   },
   nextDueDate: Date,
 ) {

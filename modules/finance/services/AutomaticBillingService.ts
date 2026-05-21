@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { AttendanceSettingsService } from "@/modules/attendance";
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { getPelangganBillingBridge } from "../pelanggan-registry";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
@@ -31,7 +32,7 @@ export class AutomaticBillingService {
 
   private static getPelangganBridge() {
     if (!this.pelangganBridge) {
-      this.pelangganBridge = new PelangganBillingBridgeService();
+      this.pelangganBridge = getPelangganBillingBridge();
     }
 
     return this.pelangganBridge;

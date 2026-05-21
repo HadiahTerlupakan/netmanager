@@ -1,6 +1,6 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { getPelangganBillingBridge } from "../pelanggan-registry";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import {
   approveManualPayment,
@@ -20,7 +20,7 @@ export class ManualPaymentAdminRouteService {
   constructor(
     private readonly paymentRepository = new PaymentRepository(),
     private readonly invoiceRepository = new InvoiceRepository(),
-    private readonly pelangganRepository = new PelangganBillingBridgeService(),
+    private readonly pelangganRepository = getPelangganBillingBridge(),
   ) {}
 
   /** Get pending manual payments with optional date and site filters. */

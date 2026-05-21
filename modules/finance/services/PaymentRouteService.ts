@@ -6,7 +6,7 @@ import {
   Prisma as PrismaBilling,
 } from "../lib/billing-prisma-boundary";
 import { logActivitySafe } from "@/lib/logger";
-import { getPelangganService } from "@/modules/pelanggan";
+import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { AutomaticBillingService } from "./AutomaticBillingService";
@@ -64,7 +64,7 @@ function getPaymentRepository() {
 }
 
 function getPelangganLookupService() {
-  return getPelangganService();
+  return getPelangganServiceFromRegistry();
 }
 
 /** Lists payments for route responses with pagination. */

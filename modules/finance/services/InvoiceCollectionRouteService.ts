@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { Prisma as PrismaBilling } from "../lib/billing-prisma-boundary";
 import { logActivitySafe } from "@/lib/logger";
-import { PelangganAdminQueryService } from "@/modules/pelanggan";
+import { getPelangganAdminQueryFromRegistry } from "../pelanggan-registry";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import {
@@ -70,7 +70,6 @@ type SerializedCreatedInvoice = {
 
 let invoiceRepository: InvoiceRepository | null = null;
 let userLookupService: UserLookupService | null = null;
-let pelangganAdminQueryService: PelangganAdminQueryService | null = null;
 
 function getInvoiceRepository() {
   invoiceRepository ??= new InvoiceRepository();
@@ -83,8 +82,7 @@ function getUserLookupService() {
 }
 
 function getPelangganAdminQueryService() {
-  pelangganAdminQueryService ??= new PelangganAdminQueryService();
-  return pelangganAdminQueryService;
+  return getPelangganAdminQueryFromRegistry();
 }
 
 /** Lists invoices for route responses with pagination and site restrictions. */

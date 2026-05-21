@@ -1,7 +1,7 @@
 import { InvoiceStatus } from "../types/invoice.enums";
 import { prismaBilling } from "@/modules/database";
 import { sendCustomerPushNotification } from "@/modules/notification";
-import { getPelangganService } from "@/modules/pelanggan";
+import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 
 export class PaymentCancellationError extends Error {
   constructor(
@@ -23,7 +23,7 @@ export async function cancelPaidPayment(options: {
 
   // Validate scope: payment must belong to pelanggan in allowed sites
   if (options.allowedSiteIds && options.allowedSiteIds.length > 0) {
-    const pelanggan = await getPelangganService().getPelanggan(
+    const pelanggan = await getPelangganServiceFromRegistry().getPelanggan(
       invoice.pelangganId,
     );
     if (

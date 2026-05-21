@@ -3,6 +3,7 @@ import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
 import {
   createCustomerPaymentsForInvoices,
+  markCustomerPaymentsAsFailed,
   PaymentGatewayManager,
   updateCustomerPaymentGatewayMetadata,
 } from "@/modules/finance";
@@ -151,7 +152,12 @@ async function createGatewayPaymentIfNeeded(
     return { paymentUrl, transactionId };
   } catch (error) {
     logger.error("[Gateway Integration Error]:", error);
-    return { paymentUrl: null, transactionId: null };
+    await markCustomerPaymentsAsFailed(
+      input.payments.map((payment) => payment.id),
+    );
+    throw new Error(
+      "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.",
+    );
   }
 }
 

@@ -1,6 +1,6 @@
 import type { Prisma } from "../lib/billing-prisma-boundary";
 import type { InvoiceStatus } from "../types/invoice.enums";
-import { getPelangganService } from "@/modules/pelanggan";
+import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
@@ -56,7 +56,7 @@ const invoiceRepository = new InvoiceRepository();
 const userLookupService = new UserLookupService();
 
 function getPelangganLookupService() {
-  return getPelangganService();
+  return getPelangganServiceFromRegistry();
 }
 
 /** Returns invoice detail data for route responses. */

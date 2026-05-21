@@ -1,5 +1,6 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import { getPelangganBillingBridge } from "../pelanggan-registry";
 import { CustomerEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
 
@@ -9,7 +10,7 @@ export class VoidInvoiceService {
 
   constructor() {
     this.invoiceRepo = new InvoiceRepository();
-    this.pelangganBridge = new PelangganBillingBridgeService();
+    this.pelangganBridge = getPelangganBillingBridge();
   }
 
   static async voidInvoice(
