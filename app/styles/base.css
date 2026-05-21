@@ -262,20 +262,20 @@ a.touch-target {
   }
 }
 
-/* Link colors */
-.light a {
+/* Link colors — only apply to unstyled links (not those with explicit Tailwind color classes) */
+.light a:not([class*="text-"]) {
   color: rgb(var(--color-primary));
 }
 
-.dark a {
+.dark a:not([class*="text-"]) {
   color: rgb(var(--color-primary));
 }
 
-.light a:hover {
+.light a:not([class*="text-"]):hover {
   color: rgb(var(--color-primary-variant));
 }
 
-.dark a:hover {
+.dark a:not([class*="text-"]):hover {
   color: rgb(var(--color-primary-variant));
 }
 
