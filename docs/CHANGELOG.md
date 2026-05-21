@@ -45,6 +45,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-22] — Website CMS untuk manage konten landing page
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/website`, `app/admin/website/`, `app/api/admin/website/`
+- **Author**: agent
+- **Deskripsi**: Admin panel baru untuk super admin manage konten SaaS landing page
+  (hero, fitur, pricing, testimonial, FAQ, footer). Kategori "Website" ditambahkan
+  di sidebar. Landing page sekarang render konten dari database dengan fallback
+  ke default hardcoded.
+- **Migration**: `20260522120000_add_landing_content_tables`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-22] — Multi-tenant landing page dengan custom domain management
 
 - **Tipe**: [ADDED]
