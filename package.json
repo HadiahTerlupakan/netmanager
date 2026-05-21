@@ -55,6 +55,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1015.0",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
+    "@kubernetes/client-node": "^1.4.0",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "@tanstack/react-query": "^5.100.10",
