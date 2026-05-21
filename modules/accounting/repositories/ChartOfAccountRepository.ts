@@ -3,6 +3,7 @@ import type {
   IChartOfAccountRepository,
   CoaCreateInput,
   CoaUpdateInput,
+  AccountBalanceRow,
 } from "../domain/ports/IChartOfAccountRepository";
 import type {
   ChartOfAccount,
@@ -85,5 +86,25 @@ export class ChartOfAccountRepository implements IChartOfAccountRepository {
 
   async countLines(coaId: string): Promise<number> {
     return prisma.journalLine.count({ where: { coaId } });
+  }
+
+  async getAccountBalances(
+    tenantId: string,
+    coaIds: string[],
+  ): Promise<AccountBalanceRow[]> {
+    if (coaIds.length === 0) return [];
+    const rows = await prisma.journalLine.groupBy({
+      by: ["coaId", "side"],
+      where: {
+        entry: { tenantId, status: "POSTED" },
+        coaId: { in: coaIds },
+      },
+      _sum: { amount: true },
+    });
+    return rows.map((row) => ({
+      coaId: row.coaId,
+      side: row.side as "DEBIT" | "CREDIT",
+      total: Number(row._sum.amount ?? 0),
+    }));
   }
 }

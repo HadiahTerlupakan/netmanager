@@ -10,6 +10,8 @@ import type {
 import { normalSideForType } from "../../domain/entities/ChartOfAccount";
 import { AccountingError } from "../../errors";
 
+export type ChartOfAccountWithBalance = ChartOfAccount & { balance: number };
+
 export class ChartOfAccountService {
   constructor(private readonly coaRepo: IChartOfAccountRepository) {}
 
@@ -98,6 +100,32 @@ export class ChartOfAccountService {
     filter?: { type?: COAType; isActive?: boolean },
   ): Promise<ChartOfAccount[]> {
     return this.coaRepo.list(tenantId, filter);
+  }
+
+  async listWithBalances(
+    tenantId: string,
+    filter?: { type?: COAType; isActive?: boolean },
+  ): Promise<ChartOfAccountWithBalance[]> {
+    const items = await this.coaRepo.list(tenantId, filter);
+    const balanceRows = await this.coaRepo.getAccountBalances(
+      tenantId,
+      items.map((i) => i.id),
+    );
+
+    const balanceMap = new Map<string, number>();
+    for (const row of balanceRows) {
+      const current = balanceMap.get(row.coaId) ?? 0;
+      if (row.side === "DEBIT") {
+        balanceMap.set(row.coaId, current + row.total);
+      } else {
+        balanceMap.set(row.coaId, current - row.total);
+      }
+    }
+
+    return items.map((item) => ({
+      ...item,
+      balance: balanceMap.get(item.id) ?? 0,
+    }));
   }
 
   async findById(id: string): Promise<ChartOfAccount | null> {

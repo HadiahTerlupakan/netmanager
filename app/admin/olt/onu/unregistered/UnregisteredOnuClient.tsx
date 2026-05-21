@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect, useReducer } from "react";
+import { useState, useEffect, useReducer, useTransition } from "react";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import ResponsiveTable, { type Column } from "@/components/ui/ResponsiveTable";
+import PageLoader from "@/components/ui/PageLoader";
 
 interface UnregisteredOnu {
   id: string;
@@ -20,7 +24,7 @@ interface OltOption {
 export default function UnregisteredOnuClient() {
   const [onus, setOnus] = useState<UnregisteredOnu[]>([]);
   const [olts, setOlts] = useState<OltOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, startTransition] = useTransition();
   const [scanning, setScanning] = useState<string | null>(null);
   const [selectedOlt, setSelectedOlt] = useState("");
   const [searchSn, setSearchSn] = useState("");
@@ -50,14 +54,12 @@ export default function UnregisteredOnuClient() {
     let cancelled = false;
     const params = new URLSearchParams();
     if (selectedOlt) params.set("oltId", selectedOlt);
-    fetch(`/api/olt/onu/unregistered?${params}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled && json.success) setOnus(json.data);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    startTransition(async () => {
+      const res = await fetch(`/api/olt/onu/unregistered?${params}`);
+      const json = await res.json();
+      if (!cancelled && json.success) setOnus(json.data);
+    });
     return () => {
       cancelled = true;
     };
@@ -67,7 +69,6 @@ export default function UnregisteredOnuClient() {
     setScanning(oltId);
     try {
       await fetch(`/api/olt/devices/${oltId}/scan`, { method: "POST" });
-      setLoading(true);
       refresh();
     } finally {
       setScanning(null);
@@ -99,7 +100,6 @@ export default function UnregisteredOnuClient() {
       const json = await res.json();
       if (json.success) {
         setRegisterModal(null);
-        setLoading(true);
         refresh();
       }
     } finally {
@@ -107,160 +107,199 @@ export default function UnregisteredOnuClient() {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">ONU Unregistered</h1>
-      </div>
+  const columns: Column<UnregisteredOnu>[] = [
+    {
+      key: "serialNumber",
+      header: "Serial Number",
+      priority: "primary",
+      render: (item) => (
+        <span className="font-mono text-xs text-gray-900 dark:text-white">
+          {item.serialNumber}
+        </span>
+      ),
+    },
+    {
+      key: "olt",
+      header: "OLT",
+      priority: "secondary",
+      render: (item) => (
+        <span className="text-gray-700 dark:text-gray-300 text-xs">
+          {item.olt?.name ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "ponPort",
+      header: "PON Port",
+      priority: "secondary",
+      render: (item) => (
+        <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+          {item.ponPort}
+        </span>
+      ),
+    },
+    {
+      key: "lastSeen",
+      header: "Last Seen",
+      priority: "tertiary",
+      render: (item) => (
+        <span className="text-gray-600 dark:text-gray-400 text-xs">
+          {item.lastSeen
+            ? new Date(item.lastSeen).toLocaleString("id-ID")
+            : "-"}
+        </span>
+      ),
+    },
+  ];
 
-      <div className="flex gap-3 items-end">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Filter OLT
-          </label>
-          <select
-            value={selectedOlt}
-            onChange={(e) => setSelectedOlt(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
-          >
-            <option value="">Semua OLT</option>
-            {olts.map((olt) => (
-              <option key={olt.id} value={olt.id}>
-                {olt.name} ({olt.vendor})
-              </option>
-            ))}
-          </select>
+  if (loading && onus.length === 0) {
+    return (
+      <PageLoader variant="section" message="Memuat ONU unregistered..." />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            ONU Unregistered
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            ONU yang terdeteksi namun belum terdaftar di sistem
+          </p>
         </div>
         {selectedOlt && (
-          <button
+          <Button
+            variant="success"
+            size="sm"
+            loading={!!scanning}
             onClick={() => handleScan(selectedOlt)}
-            disabled={!!scanning}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
           >
             {scanning ? "Scanning..." : "Scan OLT"}
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="flex gap-3 items-end">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Cari by Serial Number
-          </label>
-          <input
-            type="text"
-            value={searchSn}
-            onChange={(e) => setSearchSn(e.target.value)}
-            placeholder="Masukkan SN ONU..."
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <button
-          onClick={handleSearch}
-          disabled={!searchSn || !selectedOlt}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          Cari
-        </button>
+      {/* Filter & Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter & Pencarian</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Filter OLT
+              </label>
+              <select
+                value={selectedOlt}
+                onChange={(e) => setSelectedOlt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Semua OLT</option>
+                {olts.map((olt) => (
+                  <option key={olt.id} value={olt.id}>
+                    {olt.name} ({olt.vendor})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Cari by Serial Number
+              </label>
+              <input
+                type="text"
+                value={searchSn}
+                onChange={(e) => setSearchSn(e.target.value)}
+                placeholder="Masukkan SN ONU..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+              />
+            </div>
+            <Button
+              variant="default"
+              size="default"
+              onClick={handleSearch}
+              disabled={!searchSn || !selectedOlt}
+            >
+              Cari
+            </Button>
+          </div>
+
+          {searchResult && (
+            <div
+              className={`p-3 rounded-lg text-sm ${
+                searchResult.found
+                  ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 border border-green-200 dark:border-green-800"
+                  : "bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800"
+              }`}
+            >
+              {searchResult.found
+                ? `ONU ditemukan: ${JSON.stringify(searchResult.onu)}`
+                : "ONU tidak ditemukan di OLT"}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={onus}
+          columns={columns}
+          keyField="id"
+          loading={loading}
+          emptyMessage="Tidak ada ONU unregistered"
+          renderActions={(item) => (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setRegisterModal(item)}
+            >
+              Register
+            </Button>
+          )}
+        />
       </div>
 
-      {searchResult && (
-        <div
-          className={`p-3 rounded-lg ${searchResult.found ? "bg-green-50 text-green-800" : "bg-yellow-50 text-yellow-800"}`}
-        >
-          {searchResult.found
-            ? `ONU ditemukan: ${JSON.stringify(searchResult.onu)}`
-            : "ONU tidak ditemukan di OLT"}
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Serial Number
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                OLT
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                PON Port
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Last Seen
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Memuat...
-                </td>
-              </tr>
-            ) : onus.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Tidak ada ONU unregistered
-                </td>
-              </tr>
-            ) : (
-              onus.map((onu) => (
-                <tr key={onu.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {onu.serialNumber}
-                  </td>
-                  <td className="px-4 py-3 text-xs">{onu.olt?.name ?? "-"}</td>
-                  <td className="px-4 py-3">{onu.ponPort}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {onu.lastSeen
-                      ? new Date(onu.lastSeen).toLocaleString("id-ID")
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setRegisterModal(onu)}
-                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Register
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
+      {/* Register Modal */}
       {registerModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-bold mb-4">Register ONU</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              SN:{" "}
-              <span className="font-mono">{registerModal.serialNumber}</span>
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              PON Port: {registerModal.ponPort}
-            </p>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-96 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+              Register ONU
+            </h3>
+            <div className="space-y-2 mb-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Serial Number:{" "}
+                <span className="font-mono text-gray-900 dark:text-white">
+                  {registerModal.serialNumber}
+                </span>
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                PON Port:{" "}
+                <span className="text-gray-900 dark:text-white">
+                  {registerModal.ponPort}
+                </span>
+              </p>
+            </div>
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="default"
+                className="flex-1"
+                loading={registering}
                 onClick={() => handleRegister(registerModal)}
-                disabled={registering}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {registering ? "Registering..." : "Confirm Register"}
-              </button>
-              <button
-                onClick={() => setRegisterModal(null)}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
+                Confirm Register
+              </Button>
+              <Button variant="outline" onClick={() => setRegisterModal(null)}>
                 Batal
-              </button>
+              </Button>
             </div>
           </div>
         </div>

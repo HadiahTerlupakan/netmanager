@@ -23,6 +23,12 @@ export interface CoaUpdateInput {
   description?: string | null;
 }
 
+export interface AccountBalanceRow {
+  coaId: string;
+  side: "DEBIT" | "CREDIT";
+  total: number;
+}
+
 export interface IChartOfAccountRepository {
   create(input: CoaCreateInput): Promise<ChartOfAccount>;
   update(id: string, input: CoaUpdateInput): Promise<ChartOfAccount>;
@@ -35,4 +41,8 @@ export interface IChartOfAccountRepository {
   delete(id: string): Promise<void>;
   countChildren(parentId: string): Promise<number>;
   countLines(coaId: string): Promise<number>;
+  getAccountBalances(
+    tenantId: string,
+    coaIds: string[],
+  ): Promise<AccountBalanceRow[]>;
 }

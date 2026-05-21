@@ -41,9 +41,26 @@ export const GET = createHandler(
     const tenantId = ctx.session!.user.tenantId;
     const type = ctx.query?.type as string | undefined;
     const isActive = ctx.query?.isActive;
+    const includeBalance = ctx.query?.includeBalance === "true";
 
     const service = getChartOfAccountService();
-    const items = await service.list(tenantId, {
+
+    if (!includeBalance) {
+      const items = await service.list(tenantId, {
+        type: type as
+          | "ASSET"
+          | "LIABILITY"
+          | "EQUITY"
+          | "REVENUE"
+          | "EXPENSE"
+          | undefined,
+        isActive:
+          isActive === "true" ? true : isActive === "false" ? false : undefined,
+      });
+      return apiSuccess(items);
+    }
+
+    const itemsWithBalance = await service.listWithBalances(tenantId, {
       type: type as
         | "ASSET"
         | "LIABILITY"
@@ -54,7 +71,8 @@ export const GET = createHandler(
       isActive:
         isActive === "true" ? true : isActive === "false" ? false : undefined,
     });
-    return apiSuccess(items);
+
+    return apiSuccess(itemsWithBalance);
   },
 );
 
