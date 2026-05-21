@@ -45,6 +45,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-21] — Hardening payment gateway module (security, reliability, robustness)
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/payment-gateway`, `app/api/payments/`, `app/api/admin/payments/`, `app/api/customer/payments/`
+- **Author**: agent
+- **Deskripsi**: Perbaikan 14 issue dari code review payment gateway:
+  **Security (Wave 1):** Tambah RBAC permission check di 3 API route (cancel, verify-manual, payments CRUD),
+  fix Moota webhook verification bypass (reject jika apiSecret kosong), validasi amount > 0 sebelum
+  dikirim ke provider, reject empty API key saat initialize provider.
+  **Reliability (Wave 2):** Fix Xendit async race condition (lazy-load SDK pattern), tambah fetch timeout
+  30s di semua provider via `fetchWithTimeout` helper, fix UUID fallback di idempotency (throw error
+  bukan random UUID), fix amount mismatch handling (markAsFailed bukan PROCESSED untuk audit trail),
+  fix re-parse di catch block yang bisa throw.
+  **Robustness (Wave 3):** Fix Midtrans signature config (verifikasi di body bukan header),
+  fix BRI hardcoded webhook URL, tambah Zod validation di customer payment route,
+  bounded metrics ring buffer (max 1000 entries).
+- **Files**: `modules/payment-gateway/services/PaymentGatewayService.ts`,
+  `modules/payment-gateway/services/providers/xendit-provider.ts`,
+  `modules/payment-gateway/services/providers/moota-provider.ts`,
+  `modules/payment-gateway/services/providers/fetch-with-timeout.ts` (new),
+  `modules/payment-gateway/services/WebhookIdempotencyService.ts`,
+  `modules/payment-gateway/services/webhook-processing-service.ts`,
+  `modules/payment-gateway/services/PaymentGatewayMetrics.ts`,
+  `modules/payment-gateway/services/WebhookVerificationService.ts`,
+  `modules/payment-gateway/services/provider-interface.ts`,
+  `modules/payment-gateway/services/providers/bri-provider-utils.ts`,
+  `modules/payment-gateway/domain/value-objects/ProviderType.ts`,
+  `app/api/admin/payments/[id]/cancel/route.ts`,
+  `app/api/admin/payments/verify-manual/route.ts`,
+  `app/api/payments/route.ts`,
+  `app/api/customer/payments/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-21] — Tambah UI pages setoran masuk dan bagi hasil investor
 
 - **Tipe**: [ADDED]

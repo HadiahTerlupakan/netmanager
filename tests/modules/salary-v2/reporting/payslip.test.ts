@@ -8,8 +8,6 @@ import type { PayrollEntry } from "@/modules/salary-v2/core";
 import {
   ComponentCategory,
   PayrollEntryStatus,
-  EmployeeType,
-  TaxMethod,
 } from "@/modules/salary-v2/core";
 import { buildLine } from "@/modules/salary-v2/calculation/helpers/line-builder";
 
@@ -19,8 +17,8 @@ function makeEntry(overrides: Partial<PayrollEntry> = {}): PayrollEntry {
     payrollRunId: "run-1",
     tenantId: "tenant-1",
     userId: "user-1",
-    employeeType: EmployeeType.PERMANENT,
-    taxMethod: TaxMethod.GROSS,
+    employeeType: "PKWTT",
+    taxMethod: "NET",
     basicSalary: 5_000_000,
     effectiveSalary: 5_000_000,
     totalEarnings: 6_000_000,

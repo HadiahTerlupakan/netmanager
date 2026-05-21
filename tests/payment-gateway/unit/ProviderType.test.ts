@@ -31,7 +31,7 @@ describe("ProviderType", () => {
 
   it("should have signature requirements defined", () => {
     expect(SIGNATURE_REQUIRED.XENDIT).toBe(true);
-    expect(SIGNATURE_REQUIRED.MIDTRANS).toBe(true);
+    expect(SIGNATURE_REQUIRED.MIDTRANS).toBe(false);
     expect(SIGNATURE_REQUIRED.DUITKU).toBe(false);
   });
 });
