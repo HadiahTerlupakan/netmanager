@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   HiOutlineArrowLeft,
@@ -111,7 +110,6 @@ interface RunDetailClientProps {
 }
 
 export default function RunDetailClient({ runId }: RunDetailClientProps) {
-  const router = useRouter();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const {
