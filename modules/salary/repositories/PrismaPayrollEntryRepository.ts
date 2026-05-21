@@ -17,7 +17,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     id: string,
     tenantId: string,
   ): Promise<PayrollEntryWithLines | null> {
-    const record = await prisma.payrollEntryV2.findFirst({
+    const record = await prisma.payrollEntry.findFirst({
       where: { id, tenantId },
       include: { lines: { orderBy: { sortOrder: "asc" } } },
     });
@@ -28,7 +28,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     userId: string,
     tenantId: string,
   ): Promise<PayrollEntry[]> {
-    const records = await prisma.payrollEntryV2.findMany({
+    const records = await prisma.payrollEntry.findMany({
       where: {
         userId,
         tenantId,
@@ -47,7 +47,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
   }
 
   async findByRunId(runId: string, tenantId: string): Promise<PayrollEntry[]> {
-    const records = await prisma.payrollEntryV2.findMany({
+    const records = await prisma.payrollEntry.findMany({
       where: { payrollRunId: runId, tenantId },
     });
     return records.map((r) => this.toEntity(r));
@@ -58,7 +58,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     runId: string,
     tenantId: string,
   ): Promise<PayrollEntryWithLines | null> {
-    const record = await prisma.payrollEntryV2.findFirst({
+    const record = await prisma.payrollEntry.findFirst({
       where: { userId, payrollRunId: runId, tenantId },
       include: { lines: { orderBy: { sortOrder: "asc" } } },
     });
@@ -68,7 +68,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
   async create(
     data: Omit<PayrollEntry, "id" | "createdAt" | "updatedAt">,
   ): Promise<PayrollEntry> {
-    const record = await prisma.payrollEntryV2.create({ data });
+    const record = await prisma.payrollEntry.create({ data });
     return this.toEntity(record);
   }
 
@@ -79,7 +79,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
 
     // Use transaction to ensure atomicity
     const records = await prisma.$transaction(
-      data.map((entry) => prisma.payrollEntryV2.create({ data: entry })),
+      data.map((entry) => prisma.payrollEntry.create({ data: entry })),
     );
     return records.map((r) => this.toEntity(r));
   }
@@ -89,7 +89,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     tenantId: string,
     data: Partial<PayrollEntry>,
   ): Promise<PayrollEntry> {
-    const existing = await prisma.payrollEntryV2.findFirst({
+    const existing = await prisma.payrollEntry.findFirst({
       where: { id, tenantId },
     });
     if (!existing) {
@@ -97,7 +97,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     }
 
     const { id: _id, tenantId: _tid, createdAt: _ca, ...updateData } = data;
-    const record = await prisma.payrollEntryV2.update({
+    const record = await prisma.payrollEntry.update({
       where: { id },
       data: updateData,
     });
@@ -110,14 +110,14 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
     status: PayrollEntryStatus,
     errorMessage?: string,
   ): Promise<PayrollEntry> {
-    const existing = await prisma.payrollEntryV2.findFirst({
+    const existing = await prisma.payrollEntry.findFirst({
       where: { id, tenantId },
     });
     if (!existing) {
       throw new Error(`PayrollEntry not found: ${id}`);
     }
 
-    const record = await prisma.payrollEntryV2.update({
+    const record = await prisma.payrollEntry.update({
       where: { id },
       data: { status, errorMessage: errorMessage ?? null },
     });
@@ -125,18 +125,18 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
   }
 
   async delete(id: string, tenantId: string): Promise<void> {
-    const existing = await prisma.payrollEntryV2.findFirst({
+    const existing = await prisma.payrollEntry.findFirst({
       where: { id, tenantId },
     });
     if (!existing) {
       throw new Error(`PayrollEntry not found: ${id}`);
     }
 
-    await prisma.payrollEntryV2.delete({ where: { id } });
+    await prisma.payrollEntry.delete({ where: { id } });
   }
 
   async deleteByRunId(runId: string, tenantId: string): Promise<void> {
-    await prisma.payrollEntryV2.deleteMany({
+    await prisma.payrollEntry.deleteMany({
       where: { payrollRunId: runId, tenantId },
     });
   }
@@ -148,10 +148,10 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
   ): Promise<PayrollLine[]> {
     // Replace all lines atomically
     const result = await prisma.$transaction(async (tx) => {
-      await tx.payrollLineV2.deleteMany({ where: { entryId, tenantId } });
+      await tx.payrollLine.deleteMany({ where: { entryId, tenantId } });
       const created = await Promise.all(
         lines.map((line) =>
-          tx.payrollLineV2.create({
+          tx.payrollLine.create({
             data: {
               entryId,
               tenantId,
@@ -176,7 +176,7 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
   }
 
   async clearLines(entryId: string, tenantId: string): Promise<void> {
-    await prisma.payrollLineV2.deleteMany({ where: { entryId, tenantId } });
+    await prisma.payrollLine.deleteMany({ where: { entryId, tenantId } });
   }
 
   private toEntity(record: {

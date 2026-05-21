@@ -1,28 +1,8 @@
-export type {
-  SalaryListItemDTO,
-  SalaryDetailDTO,
-  SalaryDetailItemDTO,
-  SalaryComponentDTO,
-  SalarySlipDTO,
-  GenerateSalaryDTO,
-  UpdateSalaryDTO,
-  SalaryRevisionDTO,
-} from "./dto/SalaryDTO";
-
-export { SalaryCalculatorService } from "./services/SalaryCalculatorService";
-export { SalaryAuditService } from "./services/SalaryAuditService";
-export {
-  SalaryComponentService,
-  getSalaryComponentService,
-} from "./services/SalaryComponentService";
-export { SalaryService, getSalaryService } from "./services/SalaryService";
-export {
-  formatSalarySlipReceipt,
-  mapSalaryReceiptData,
-  type SalaryReceiptData,
-} from "./services/SalarySlipReceiptFormatter";
-export {
-  SalaryUserService,
-  getSalaryUserService,
-} from "./services/SalaryUserService";
-export * from "./services/MobileSalaryRouteService";
+export * from "./core";
+export * from "./calculation";
+export * from "./tax";
+export * from "./benefits";
+export * from "./payment";
+export * from "./workflow";
+export * from "./reporting";
+export * from "./factory";

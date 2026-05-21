@@ -1,7 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import SalaryListClient from './SalaryListClient'
+import { ensurePermission } from "@/lib/rbac";
+import PayrollRunsClient from "./PayrollRunsClient";
 
-export default async function SalaryPage() {
-    await ensurePermission('salary:read')
-    return <SalaryListClient />
+export default async function PayrollRunsPage() {
+  await ensurePermission("salary:read");
+  return <PayrollRunsClient />;
 }

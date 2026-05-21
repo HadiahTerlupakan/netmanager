@@ -1266,13 +1266,13 @@ model User {
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
   workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
-  payrollPeriodsLockedV2                     PayrollPeriodV2[]         @relation("PeriodV2LockedBy")
-  payrollRunsCreatedV2                       PayrollRunV2[]            @relation("PayrollRunV2CreatedBy")
-  payrollEntriesV2                           PayrollEntryV2[]          @relation("PayrollEntryV2User")
-  employeePayrollProfileV2                   EmployeePayrollProfileV2? @relation("EmployeePayrollProfileV2")
-  salaryAdvancesV2                           SalaryAdvanceV2[]         @relation("SalaryAdvanceV2User")
-  salaryAdvancesApprovedV2                   SalaryAdvanceV2[]         @relation("SalaryAdvanceV2Approver")
-  payrollAuditLogsV2                         PayrollAuditLogV2[]       @relation("PayrollAuditV2Performer")
+  payrollPeriodsLocked                     PayrollPeriod[]         @relation("PeriodLockedBy")
+  payrollRunsCreated                       PayrollRun[]            @relation("PayrollRunCreatedBy")
+  payrollEntries                           PayrollEntry[]          @relation("PayrollEntryUser")
+  employeePayrollProfile                    EmployeePayrollProfile? @relation("EmployeePayrollProfile")
+  salaryAdvances                           SalaryAdvance[]         @relation("SalaryAdvanceUser")
+  salaryAdvancesApproved                   SalaryAdvance[]         @relation("SalaryAdvanceApprover")
+  payrollAuditLogs                         PayrollAuditLog[]       @relation("PayrollAuditPerformer")
 
   @@index([departmentId])
   @@index([isActive])
@@ -3426,17 +3426,17 @@ model Tenant {
   proratePaymentLog       ProratePaymentLog[]
   emailDeliveryLogs       EmailDeliveryLog[]
   notificationDeadLetters NotificationDeadLetter[]
-  payScheduleV2           PayScheduleV2[]
-  payrollPeriodV2         PayrollPeriodV2[]
-  payrollRunV2            PayrollRunV2[]
-  payrollEntryV2          PayrollEntryV2[]
-  payrollLineV2           PayrollLineV2[]
-  payrollComponentV2      PayrollComponentV2[]
-  employeePayrollProfileV2 EmployeePayrollProfileV2[]
-  employeeComponentV2     EmployeeComponentV2[]
-  salaryAdvanceV2         SalaryAdvanceV2[]
-  regionalMinimumWageV2   RegionalMinimumWageV2[]
-  payrollAuditLogV2       PayrollAuditLogV2[]
+  paySchedules           PaySchedule[]
+  payrollPeriods         PayrollPeriod[]
+  payrollRuns            PayrollRun[]
+  payrollEntries          PayrollEntry[]
+  payrollLines           PayrollLine[]
+  payrollComponents      PayrollComponent[]
+  employeePayrollProfiles EmployeePayrollProfile[]
+  employeeComponents     EmployeeComponent[]
+  salaryAdvances         SalaryAdvance[]
+  regionalMinimumWages   RegionalMinimumWage[]
+  payrollAuditLogs       PayrollAuditLog[]
 }
 
 model EmailDeliveryLog {
@@ -4740,10 +4740,10 @@ model InvestorConfig {
 }
 
 // ============================================================
-// Payroll V2 — Enums
+// Payroll — Enums
 // ============================================================
 
-enum PayrollRunStatusV2 {
+enum PayrollRunStatus {
   DRAFT
   CALCULATING
   CALCULATED
@@ -4755,7 +4755,7 @@ enum PayrollRunStatusV2 {
   REVISION_REQUESTED
 }
 
-enum PayrollRunTypeV2 {
+enum PayrollRunType {
   REGULAR
   THR
   BONUS
@@ -4763,7 +4763,7 @@ enum PayrollRunTypeV2 {
   ADVANCE
 }
 
-enum PayrollEntryStatusV2 {
+enum PayrollEntryStatus {
   PENDING
   CALCULATED
   ERROR
@@ -4771,20 +4771,20 @@ enum PayrollEntryStatusV2 {
   PAID
 }
 
-enum EmployeeTypeV2 {
+enum PayrollEmployeeType {
   PKWTT
   PKWT
   DAILY
   FREELANCE
 }
 
-enum TaxMethodV2 {
+enum TaxMethod {
   NET
   GROSS_UP
   NETT
 }
 
-enum PayFrequencyV2 {
+enum PayFrequency {
   MONTHLY
   BI_WEEKLY
   WEEKLY
@@ -4792,14 +4792,14 @@ enum PayFrequencyV2 {
   ON_DEMAND
 }
 
-enum ComponentCategoryV2 {
+enum ComponentCategory {
   EARNING
   DEDUCTION
   TAX
   EMPLOYER_COST
 }
 
-enum ComponentCalcTypeV2 {
+enum ComponentCalcType {
   FIXED
   PERCENTAGE
   FORMULA
@@ -4808,14 +4808,14 @@ enum ComponentCalcTypeV2 {
   PER_UNIT
 }
 
-enum PayrollPeriodStatusV2 {
+enum PayrollPeriodStatus {
   OPEN
   PROCESSING
   CLOSED
   LOCKED
 }
 
-enum SalaryAdvanceStatusV2 {
+enum SalaryAdvanceStatus {
   PENDING
   APPROVED
   DISBURSED
@@ -4823,19 +4823,19 @@ enum SalaryAdvanceStatusV2 {
   REJECTED
 }
 
-enum DeductionMethodV2 {
+enum DeductionMethod {
   FULL_NEXT
   INSTALLMENT
 }
 
-enum PaymentBatchStatusV2 {
+enum PaymentBatchStatus {
   PENDING
   PROCESSING
   COMPLETED
   PARTIAL_FAILED
 }
 
-enum PaymentItemStatusV2 {
+enum PaymentItemStatus {
   PENDING
   SUCCESS
   FAILED
@@ -4843,14 +4843,14 @@ enum PaymentItemStatusV2 {
 }
 
 // ============================================================
-// Payroll V2 — Models
+// Payroll — Models
 // ============================================================
 
-model PayScheduleV2 {
+model PaySchedule {
   id              String         @id @default(cuid())
   tenantId        String
   name            String
-  frequency       PayFrequencyV2
+  frequency       PayFrequency
   cutOffDay       Int?
   cutOffDayOfWeek Int?
   payDay          Int
@@ -4862,23 +4862,23 @@ model PayScheduleV2 {
   updatedAt       DateTime       @updatedAt
 
   tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  periods         PayrollPeriodV2[]
-  runs            PayrollRunV2[]
-  profiles        EmployeePayrollProfileV2[]
+  periods         PayrollPeriod[]
+  runs            PayrollRun[]
+  profiles        EmployeePayrollProfile[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
   @@map("pay_schedule_v2")
 }
 
-model PayrollPeriodV2 {
+model PayrollPeriod {
   id           String               @id @default(cuid())
   tenantId     String
   scheduleId   String
   periodStart  DateTime
   periodEnd    DateTime
   payDate      DateTime
-  status       PayrollPeriodStatusV2 @default(OPEN)
+  status       PayrollPeriodStatus @default(OPEN)
   lockedAt     DateTime?
   lockedBy     String?
   unlockReason String?
@@ -4887,8 +4887,8 @@ model PayrollPeriodV2 {
   updatedAt    DateTime             @updatedAt
 
   tenant       Tenant               @relation(fields: [tenantId], references: [id])
-  schedule     PayScheduleV2        @relation(fields: [scheduleId], references: [id])
-  lockedByUser User?                @relation("PeriodV2LockedBy", fields: [lockedBy], references: [id])
+  schedule     PaySchedule        @relation(fields: [scheduleId], references: [id])
+  lockedByUser User?                @relation("PeriodLockedBy", fields: [lockedBy], references: [id])
 
   @@index([tenantId])
   @@index([scheduleId])
@@ -4896,12 +4896,12 @@ model PayrollPeriodV2 {
   @@map("payroll_period_v2")
 }
 
-model PayrollRunV2 {
+model PayrollRun {
   id              String             @id @default(cuid())
   tenantId        String
   scheduleId      String
-  type            PayrollRunTypeV2   @default(REGULAR)
-  status          PayrollRunStatusV2 @default(DRAFT)
+  type            PayrollRunType   @default(REGULAR)
+  status          PayrollRunStatus @default(DRAFT)
   periodStart     DateTime
   periodEnd       DateTime
   payDate         DateTime
@@ -4916,9 +4916,9 @@ model PayrollRunV2 {
   updatedAt       DateTime           @updatedAt
 
   tenant          Tenant             @relation(fields: [tenantId], references: [id])
-  schedule        PayScheduleV2      @relation(fields: [scheduleId], references: [id])
-  createdByUser   User               @relation("PayrollRunV2CreatedBy", fields: [createdBy], references: [id])
-  entries         PayrollEntryV2[]
+  schedule        PaySchedule      @relation(fields: [scheduleId], references: [id])
+  createdByUser   User               @relation("PayrollRunCreatedBy", fields: [createdBy], references: [id])
+  entries         PayrollEntry[]
 
   @@index([tenantId])
   @@index([scheduleId])
@@ -4927,13 +4927,13 @@ model PayrollRunV2 {
   @@map("payroll_run_v2")
 }
 
-model PayrollEntryV2 {
+model PayrollEntry {
   id              String               @id @default(cuid())
   payrollRunId    String
   tenantId        String
   userId          String
-  employeeType    EmployeeTypeV2
-  taxMethod       TaxMethodV2
+  employeeType    PayrollEmployeeType
+  taxMethod       TaxMethod
   basicSalary     Float
   effectiveSalary Float
   totalEarnings   Float                @default(0)
@@ -4941,16 +4941,16 @@ model PayrollEntryV2 {
   totalTax        Float                @default(0)
   netSalary       Float                @default(0)
   employerCost    Float                @default(0)
-  status          PayrollEntryStatusV2 @default(PENDING)
+  status          PayrollEntryStatus @default(PENDING)
   errorMessage    String?
   calculatedAt    DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
   tenant          Tenant               @relation(fields: [tenantId], references: [id])
-  payrollRun      PayrollRunV2         @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  user            User                 @relation("PayrollEntryV2User", fields: [userId], references: [id])
-  lines           PayrollLineV2[]
+  payrollRun      PayrollRun         @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  user            User                 @relation("PayrollEntryUser", fields: [userId], references: [id])
+  lines           PayrollLine[]
 
   @@unique([payrollRunId, userId])
   @@index([tenantId])
@@ -4959,14 +4959,14 @@ model PayrollEntryV2 {
   @@map("payroll_entry_v2")
 }
 
-model PayrollLineV2 {
+model PayrollLine {
   id            String           @id @default(cuid())
   entryId       String
   tenantId      String
   componentId   String?
   componentCode String
   componentName String
-  category      ComponentCategoryV2
+  category      ComponentCategory
   quantity      Float            @default(1)
   rate          Float            @default(0)
   amount        Float            @default(0)
@@ -4975,23 +4975,23 @@ model PayrollLineV2 {
   sortOrder     Int              @default(0)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id])
-  entry         PayrollEntryV2   @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  component     PayrollComponentV2? @relation(fields: [componentId], references: [id])
+  entry         PayrollEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  component     PayrollComponent? @relation(fields: [componentId], references: [id])
 
   @@index([entryId])
   @@index([tenantId])
   @@map("payroll_line_v2")
 }
 
-model PayrollComponentV2 {
+model PayrollComponent {
   id              String              @id @default(cuid())
   tenantId        String
   name            String
   code            String
-  category        ComponentCategoryV2
-  calculationType ComponentCalcTypeV2
+  category        ComponentCategory
+  calculationType ComponentCalcType
   taxable         Boolean             @default(true)
-  applicableTo    EmployeeTypeV2[]
+  applicableTo    PayrollEmployeeType[]
   isStatutory     Boolean             @default(false)
   formula         String?
   defaultAmount   Float?
@@ -5002,8 +5002,8 @@ model PayrollComponentV2 {
   updatedAt       DateTime            @updatedAt
 
   tenant          Tenant              @relation(fields: [tenantId], references: [id])
-  lines           PayrollLineV2[]
-  employeeComponents EmployeeComponentV2[]
+  lines           PayrollLine[]
+  employeeComponents EmployeeComponent[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -5011,12 +5011,12 @@ model PayrollComponentV2 {
   @@map("payroll_component_v2")
 }
 
-model EmployeePayrollProfileV2 {
+model EmployeePayrollProfile {
   id              String         @id @default(cuid())
   userId          String         @unique
   tenantId        String
-  employeeType    EmployeeTypeV2
-  taxMethod       TaxMethodV2    @default(NET)
+  employeeType    PayrollEmployeeType
+  taxMethod       TaxMethod    @default(NET)
   payScheduleId   String
   basicSalary     Float
   payPeriodDay    Int            @default(25)
@@ -5037,9 +5037,9 @@ model EmployeePayrollProfileV2 {
   updatedAt       DateTime       @updatedAt
 
   tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  user            User           @relation("EmployeePayrollProfileV2", fields: [userId], references: [id])
-  schedule        PayScheduleV2  @relation(fields: [payScheduleId], references: [id])
-  components      EmployeeComponentV2[]
+  user            User           @relation("EmployeePayrollProfile", fields: [userId], references: [id])
+  schedule        PaySchedule  @relation(fields: [payScheduleId], references: [id])
+  components      EmployeeComponent[]
 
   @@unique([userId, tenantId])
   @@index([tenantId])
@@ -5048,7 +5048,7 @@ model EmployeePayrollProfileV2 {
   @@map("employee_payroll_profile_v2")
 }
 
-model EmployeeComponentV2 {
+model EmployeeComponent {
   id              String              @id @default(cuid())
   profileId       String
   tenantId        String
@@ -5059,15 +5059,15 @@ model EmployeeComponentV2 {
   updatedAt       DateTime            @updatedAt
 
   tenant          Tenant              @relation(fields: [tenantId], references: [id])
-  profile         EmployeePayrollProfileV2 @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  component       PayrollComponentV2  @relation(fields: [componentId], references: [id])
+  profile         EmployeePayrollProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  component       PayrollComponent  @relation(fields: [componentId], references: [id])
 
   @@unique([profileId, componentId])
   @@index([tenantId])
   @@map("employee_component_v2")
 }
 
-model SalaryAdvanceV2 {
+model SalaryAdvance {
   id              String                @id @default(cuid())
   tenantId        String
   userId          String
@@ -5075,8 +5075,8 @@ model SalaryAdvanceV2 {
   requestDate     DateTime              @default(now())
   approvedBy      String?
   approvedAt      DateTime?
-  status          SalaryAdvanceStatusV2 @default(PENDING)
-  deductionMethod DeductionMethodV2     @default(FULL_NEXT)
+  status          SalaryAdvanceStatus @default(PENDING)
+  deductionMethod DeductionMethod     @default(FULL_NEXT)
   installmentCount Int?
   remainingAmount Float
   reason          String?
@@ -5086,8 +5086,8 @@ model SalaryAdvanceV2 {
   updatedAt       DateTime              @updatedAt
 
   tenant          Tenant                @relation(fields: [tenantId], references: [id])
-  user            User                  @relation("SalaryAdvanceV2User", fields: [userId], references: [id])
-  approvedByUser  User?                 @relation("SalaryAdvanceV2Approver", fields: [approvedBy], references: [id])
+  user            User                  @relation("SalaryAdvanceUser", fields: [userId], references: [id])
+  approvedByUser  User?                 @relation("SalaryAdvanceApprover", fields: [approvedBy], references: [id])
 
   @@index([tenantId])
   @@index([userId])
@@ -5095,7 +5095,7 @@ model SalaryAdvanceV2 {
   @@map("salary_advance_v2")
 }
 
-model RegionalMinimumWageV2 {
+model RegionalMinimumWage {
   id            String   @id @default(cuid())
   tenantId      String
   regionCode    String
@@ -5115,7 +5115,7 @@ model RegionalMinimumWageV2 {
   @@map("regional_minimum_wage_v2")
 }
 
-model PayrollAuditLogV2 {
+model PayrollAuditLog {
   id          String   @id @default(cuid())
   tenantId    String
   entityType  String
@@ -5128,7 +5128,7 @@ model PayrollAuditLogV2 {
   ipAddress   String?
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  performer   User     @relation("PayrollAuditV2Performer", fields: [performedBy], references: [id])
+  performer   User     @relation("PayrollAuditPerformer", fields: [performedBy], references: [id])
 
   @@index([tenantId])
   @@index([entityType, entityId])
