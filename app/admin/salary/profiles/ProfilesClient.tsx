@@ -25,8 +25,8 @@ interface EmployeeProfile {
   employeeId: string;
   employeeName: string;
   employeeEmail: string;
-  employeeType: "TETAP" | "KONTRAK" | "HARIAN";
-  taxMethod: "GROSS" | "GROSS_UP" | "NET";
+  employeeType: "PKWTT" | "PKWT" | "DAILY" | "FREELANCE";
+  taxMethod: "NET" | "GROSS_UP" | "NETT";
   taxStatus: string;
   basicSalary: number;
   bankName: string | null;
@@ -43,8 +43,8 @@ interface ProfilesResponse {
 }
 
 interface ProfileFormData {
-  employeeType: "TETAP" | "KONTRAK" | "HARIAN";
-  taxMethod: "GROSS" | "GROSS_UP" | "NET";
+  employeeType: "PKWTT" | "PKWT" | "DAILY" | "FREELANCE";
+  taxMethod: "NET" | "GROSS_UP" | "NETT";
   taxStatus: string;
   basicSalary: number;
   bankName: string;
@@ -81,21 +81,24 @@ interface PayrollComponent {
 // ============================================================================
 
 const TYPE_LABELS: Record<string, string> = {
-  TETAP: "Tetap",
-  KONTRAK: "Kontrak",
-  HARIAN: "Harian",
+  PKWTT: "Tetap",
+  PKWT: "Kontrak",
+  DAILY: "Harian",
+  FREELANCE: "Freelance",
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  TETAP: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  KONTRAK:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  HARIAN: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  PKWTT: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  PKWT: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  DAILY: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  FREELANCE:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
 };
 
 const TAX_METHOD_LABELS: Record<string, string> = {
-  GROSS: "Gross",
+  NET: "Net",
   GROSS_UP: "Gross Up",
+  NETT: "Nett",
   NET: "Nett",
 };
 
@@ -141,8 +144,8 @@ export default function ProfilesClient() {
   );
   const [activeTab, setActiveTab] = useState<"profil" | "komponen">("profil");
   const [form, setForm] = useState<ProfileFormData>({
-    employeeType: "TETAP",
-    taxMethod: "GROSS",
+    employeeType: "PKWTT",
+    taxMethod: "NET",
     taxStatus: "TK/0",
     basicSalary: 0,
     bankName: "",

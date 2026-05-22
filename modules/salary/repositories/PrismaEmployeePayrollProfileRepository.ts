@@ -270,4 +270,62 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
       })),
     };
   }
+  async findAllWithUserData(filter: ProfileFilter) {
+    const records = await prisma.employeePayrollProfile.findMany({
+      where: {
+        tenantId: filter.tenantId,
+        ...(filter.employeeType && { employeeType: filter.employeeType }),
+        ...(filter.payScheduleId && { payScheduleId: filter.payScheduleId }),
+        ...(filter.isActive !== undefined && { isActive: filter.isActive }),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            employeeId: true,
+          },
+        },
+        schedule: {
+          select: {
+            id: true,
+            name: true,
+            frequency: true,
+          },
+        },
+        components: {
+          include: { component: true },
+          where: { isActive: true },
+        },
+      },
+      orderBy: { user: { name: "asc" } },
+    });
+
+    return records.map((p) => ({
+      id: p.id,
+      userId: p.userId,
+      employeeName: p.user?.name ?? "-",
+      employeeEmail: p.user?.email ?? "-",
+      employeeId: (p.user as Record<string, unknown>)?.employeeId ?? "-",
+      employeeType: p.employeeType,
+      taxMethod: p.taxMethod,
+      basicSalary: p.basicSalary,
+      ptkpStatus: p.ptkpStatus,
+      npwp: p.npwp,
+      scheduleType: p.schedule?.frequency ?? "MONTHLY",
+      scheduleName: p.schedule?.name ?? "-",
+      bpjsKesehatan: p.bpjsKesehatan,
+      bpjsJht: p.bpjsJht,
+      bpjsJp: p.bpjsJp,
+      bpjsJkk: p.bpjsJkk,
+      bpjsJkm: p.bpjsJkm,
+      regionCode: p.regionCode,
+      contractStart: p.contractStart,
+      contractEnd: p.contractEnd,
+      overtimeEligible: p.overtimeEligible,
+      thrEligible: p.thrEligible,
+      isActive: p.isActive,
+    }));
+  }
 }

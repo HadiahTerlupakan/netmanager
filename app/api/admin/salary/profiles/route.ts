@@ -4,7 +4,7 @@ import { getEmployeeProfileRepository } from "@/modules/salary";
 
 const profileRepo = getEmployeeProfileRepository();
 
-/** GET /api/admin/salary/profiles — List employee payroll profiles */
+/** GET /api/admin/salary/profiles — List employee payroll profiles with user data */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("salary:read"))) {
     return ApiErrors.forbidden(
@@ -28,7 +28,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }),
   } as Parameters<typeof profileRepo.findAll>[0];
 
-  const profiles = await profileRepo.findAll(filter);
+  const profiles = await profileRepo.findAllWithUserData(filter);
 
   return apiSuccess({ profiles });
 });
