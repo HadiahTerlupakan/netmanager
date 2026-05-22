@@ -22,6 +22,7 @@ import Link from "next/link";
 
 interface EmployeeProfile {
   id: string;
+  userId: string;
   employeeId: string;
   employeeName: string;
   employeeEmail: string;
@@ -32,9 +33,9 @@ interface EmployeeProfile {
   bankName: string | null;
   bankAccount: string | null;
   npwp: string | null;
-  bpjsKesehatan: string | null;
-  bpjsKetenagakerjaan: string | null;
-  scheduleType: "MONTHLY" | "WEEKLY" | "DAILY";
+  bpjsKesehatan: boolean | string | null;
+  bpjsKetenagakerjaan: boolean | string | null;
+  scheduleType: "MONTHLY" | "BI_WEEKLY" | "WEEKLY" | "DAILY" | "ON_DEMAND";
   isActive: boolean;
 }
 
@@ -50,9 +51,12 @@ interface ProfileFormData {
   bankName: string;
   bankAccount: string;
   npwp: string;
-  bpjsKesehatan: string;
-  bpjsKetenagakerjaan: string;
-  scheduleType: "MONTHLY" | "WEEKLY" | "DAILY";
+  bpjsKesehatan: boolean;
+  bpjsJht: boolean;
+  bpjsJp: boolean;
+  bpjsJkk: boolean;
+  bpjsJkm: boolean;
+  scheduleType: "MONTHLY" | "BI_WEEKLY" | "WEEKLY" | "DAILY" | "ON_DEMAND";
   isActive: boolean;
 }
 
@@ -99,13 +103,14 @@ const TAX_METHOD_LABELS: Record<string, string> = {
   NET: "Net",
   GROSS_UP: "Gross Up",
   NETT: "Nett",
-  NET: "Nett",
 };
 
 const SCHEDULE_LABELS: Record<string, string> = {
   MONTHLY: "Bulanan",
+  BI_WEEKLY: "Dua Mingguan",
   WEEKLY: "Mingguan",
   DAILY: "Harian",
+  ON_DEMAND: "Sesuai Kebutuhan",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -151,8 +156,11 @@ export default function ProfilesClient() {
     bankName: "",
     bankAccount: "",
     npwp: "",
-    bpjsKesehatan: "",
-    bpjsKetenagakerjaan: "",
+    bpjsKesehatan: false,
+    bpjsJht: false,
+    bpjsJp: false,
+    bpjsJkk: false,
+    bpjsJkm: false,
     scheduleType: "MONTHLY",
     isActive: true,
   });
@@ -224,8 +232,11 @@ export default function ProfilesClient() {
       bankName: profile.bankName || "",
       bankAccount: profile.bankAccount || "",
       npwp: profile.npwp || "",
-      bpjsKesehatan: profile.bpjsKesehatan || "",
-      bpjsKetenagakerjaan: profile.bpjsKetenagakerjaan || "",
+      bpjsKesehatan: !!profile.bpjsKesehatan,
+      bpjsJht: !!profile.bpjsKetenagakerjaan,
+      bpjsJp: !!profile.bpjsKetenagakerjaan,
+      bpjsJkk: !!profile.bpjsKetenagakerjaan,
+      bpjsJkm: !!profile.bpjsKetenagakerjaan,
       scheduleType: profile.scheduleType,
       isActive: profile.isActive,
     });
@@ -516,186 +527,264 @@ export default function ProfilesClient() {
 
           {/* Tab: Profil */}
           {activeTab === "profil" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Tipe Karyawan
-                  </label>
-                  <select
-                    value={form.employeeType}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        employeeType: e.target
-                          .value as ProfileFormData["employeeType"],
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                  >
-                    <option value="TETAP">Tetap</option>
-                    <option value="KONTRAK">Kontrak</option>
-                    <option value="HARIAN">Harian</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Gaji Pokok
-                  </label>
-                  <input
-                    type="number"
-                    value={form.basicSalary}
-                    onChange={(e) =>
-                      setForm({ ...form, basicSalary: Number(e.target.value) })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Metode Pajak
-                  </label>
-                  <select
-                    value={form.taxMethod}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        taxMethod: e.target
-                          .value as ProfileFormData["taxMethod"],
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                  >
-                    <option value="GROSS">Gross</option>
-                    <option value="GROSS_UP">Gross Up</option>
-                    <option value="NET">Nett</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Status Pajak (PTKP)
-                  </label>
-                  <select
-                    value={form.taxStatus}
-                    onChange={(e) =>
-                      setForm({ ...form, taxStatus: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                  >
-                    <option value="TK/0">TK/0</option>
-                    <option value="TK/1">TK/1</option>
-                    <option value="TK/2">TK/2</option>
-                    <option value="TK/3">TK/3</option>
-                    <option value="K/0">K/0</option>
-                    <option value="K/1">K/1</option>
-                    <option value="K/2">K/2</option>
-                    <option value="K/3">K/3</option>
-                    <option value="K/I/0">K/I/0</option>
-                    <option value="K/I/1">K/I/1</option>
-                    <option value="K/I/2">K/I/2</option>
-                    <option value="K/I/3">K/I/3</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Jadwal Gaji
-                  </label>
-                  <select
-                    value={form.scheduleType}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        scheduleType: e.target
-                          .value as ProfileFormData["scheduleType"],
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                  >
-                    <option value="MONTHLY">Bulanan</option>
-                    <option value="WEEKLY">Mingguan</option>
-                    <option value="DAILY">Harian</option>
-                  </select>
+            <div className="space-y-6">
+              {/* Section 1: Informasi Dasar */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold tracking-wide">
+                  Informasi Dasar
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Tipe Karyawan
+                    </label>
+                    <select
+                      value={form.employeeType}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          employeeType: e.target
+                            .value as ProfileFormData["employeeType"],
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                    >
+                      <option value="PKWTT">Tetap</option>
+                      <option value="PKWT">Kontrak</option>
+                      <option value="DAILY">Harian</option>
+                      <option value="FREELANCE">Freelance</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Gaji Pokok
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        value={form.basicSalary}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            basicSalary: Number(e.target.value),
+                          })
+                        }
+                        className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Jadwal Gaji
+                    </label>
+                    <select
+                      value={form.scheduleType}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          scheduleType: e.target
+                            .value as ProfileFormData["scheduleType"],
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                    >
+                      <option value="MONTHLY">Bulanan</option>
+                      <option value="BI_WEEKLY">Dua Mingguan</option>
+                      <option value="WEEKLY">Mingguan</option>
+                      <option value="DAILY">Harian</option>
+                      <option value="ON_DEMAND">Sesuai Kebutuhan</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Nama Bank
-                  </label>
-                  <input
-                    type="text"
-                    value={form.bankName}
-                    onChange={(e) =>
-                      setForm({ ...form, bankName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                    placeholder="BCA"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    No. Rekening
-                  </label>
-                  <input
-                    type="text"
-                    value={form.bankAccount}
-                    onChange={(e) =>
-                      setForm({ ...form, bankAccount: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                    placeholder="1234567890"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    NPWP
-                  </label>
-                  <input
-                    type="text"
-                    value={form.npwp}
-                    onChange={(e) => setForm({ ...form, npwp: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                    placeholder="00.000.000.0-000.000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    BPJS Kesehatan
-                  </label>
-                  <input
-                    type="text"
-                    value={form.bpjsKesehatan}
-                    onChange={(e) =>
-                      setForm({ ...form, bpjsKesehatan: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                    placeholder="0001234567890"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    BPJS Ketenagakerjaan
-                  </label>
-                  <input
-                    type="text"
-                    value={form.bpjsKetenagakerjaan}
-                    onChange={(e) =>
-                      setForm({ ...form, bpjsKetenagakerjaan: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
-                    placeholder="0001234567890"
-                  />
+              {/* Section 2: Perpajakan */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold tracking-wide">
+                  Perpajakan
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Metode Pajak
+                    </label>
+                    <select
+                      value={form.taxMethod}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          taxMethod: e.target
+                            .value as ProfileFormData["taxMethod"],
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                    >
+                      <option value="NET">Net (Karyawan tanggung)</option>
+                      <option value="GROSS_UP">
+                        Gross Up (Perusahaan tanggung)
+                      </option>
+                      <option value="NETT">
+                        Nett (Perusahaan tanggung, tidak masuk penghasilan)
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Status PTKP
+                    </label>
+                    <select
+                      value={form.taxStatus}
+                      onChange={(e) =>
+                        setForm({ ...form, taxStatus: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                    >
+                      <option value="TK/0">TK/0</option>
+                      <option value="TK/1">TK/1</option>
+                      <option value="TK/2">TK/2</option>
+                      <option value="TK/3">TK/3</option>
+                      <option value="K/0">K/0</option>
+                      <option value="K/1">K/1</option>
+                      <option value="K/2">K/2</option>
+                      <option value="K/3">K/3</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      NPWP
+                    </label>
+                    <input
+                      type="text"
+                      value={form.npwp}
+                      onChange={(e) =>
+                        setForm({ ...form, npwp: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                      placeholder="00.000.000.0-000.000"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              {/* Section 3: BPJS */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold tracking-wide">
+                  BPJS
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.bpjsKesehatan}
+                      onChange={(e) =>
+                        setForm({ ...form, bpjsKesehatan: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Kesehatan
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.bpjsJht}
+                      onChange={(e) =>
+                        setForm({ ...form, bpjsJht: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      JHT
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.bpjsJp}
+                      onChange={(e) =>
+                        setForm({ ...form, bpjsJp: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      JP
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.bpjsJkk}
+                      onChange={(e) =>
+                        setForm({ ...form, bpjsJkk: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      JKK
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.bpjsJkm}
+                      onChange={(e) =>
+                        setForm({ ...form, bpjsJkm: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      JKM
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Section 4: Informasi Bank */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold tracking-wide">
+                  Informasi Bank
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      Nama Bank
+                    </label>
+                    <input
+                      type="text"
+                      value={form.bankName}
+                      onChange={(e) =>
+                        setForm({ ...form, bankName: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                      placeholder="BCA"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      No. Rekening
+                    </label>
+                    <input
+                      type="text"
+                      value={form.bankAccount}
+                      onChange={(e) =>
+                        setForm({ ...form, bankAccount: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
+                      placeholder="1234567890"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Status */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold tracking-wide">
+                  Status
+                </h4>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
