@@ -20,6 +20,7 @@ export const EVENT_CATEGORIES = {
   NETWORK: "network",
   SYSTEM: "system",
   SALARY: "salary",
+  USERS: "users",
 } as const;
 
 export type EventCategory =
@@ -39,6 +40,11 @@ export const EVENT_NAMES = {
   PAYMENT_FAILED: "billing:payment.failed",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
+
+  // User Lifecycle Events
+  USER_CREATED: "users:user.created",
+  USER_UPDATED: "users:user.updated",
+  USER_DEACTIVATED: "users:user.deactivated",
 
   // Finance Events (for accounting consumption)
   EXPENSE_APPROVED: "finance:expense.approved",
@@ -371,6 +377,30 @@ export interface InvestorDepositCompletedPayload extends BaseEventPayload {
   completedAt: string;
 }
 
+export interface UserCreatedPayload extends BaseEventPayload {
+  userId: string;
+  tenantId: string;
+  name: string | null;
+  email: string;
+  basicSalary: number | null;
+  ptkpStatus: string | null;
+  isActive: boolean;
+}
+
+export interface UserUpdatedPayload extends BaseEventPayload {
+  userId: string;
+  tenantId: string;
+  basicSalary?: number | null;
+  ptkpStatus?: string | null;
+  isActive?: boolean;
+  changedFields: string[];
+}
+
+export interface UserDeactivatedPayload extends BaseEventPayload {
+  userId: string;
+  tenantId: string;
+}
+
 // ============================================
 // PAYLOAD MAP (Type-safe event → payload mapping)
 // ============================================
@@ -420,6 +450,9 @@ export interface EventPayloadMap {
   [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
   [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
+  [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
+  [EVENT_NAMES.USER_UPDATED]: UserUpdatedPayload;
+  [EVENT_NAMES.USER_DEACTIVATED]: UserDeactivatedPayload;
 }
 
 // ============================================
@@ -777,6 +810,27 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   [EVENT_NAMES.COUPON_USED]: {
     name: EVENT_NAMES.COUPON_USED,
     category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.USER_CREATED]: {
+    name: EVENT_NAMES.USER_CREATED,
+    category: "system",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.USER_UPDATED]: {
+    name: EVENT_NAMES.USER_UPDATED,
+    category: "system",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.USER_DEACTIVATED]: {
+    name: EVENT_NAMES.USER_DEACTIVATED,
+    category: "system",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,

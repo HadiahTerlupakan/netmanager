@@ -80,6 +80,9 @@ export type {
   PushNotificationPayload,
   SystemEventPayload,
   InvestorDepositCompletedPayload,
+  UserCreatedPayload,
+  UserUpdatedPayload,
+  UserDeactivatedPayload,
 } from "./types";
 
 // Outbox (for transactional event persistence)

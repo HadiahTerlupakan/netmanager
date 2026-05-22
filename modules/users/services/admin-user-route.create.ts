@@ -1,6 +1,8 @@
 import { getTenantAdminRoleId } from "@/modules/mitra";
 import { prismaAuth } from "@/modules/database";
 import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
+import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
+import { logger } from "@/lib/logger";
 
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { UserService } from "./UserService";
@@ -49,6 +51,9 @@ export class AdminUserRouteCreateService {
       scopedPayload.leaveQuotas,
       context.targetTenantId,
     );
+
+    // Emit USER_CREATED event for cross-module integration (salary, etc.)
+    this.emitUserCreatedEvent(user, scopedPayload, context.targetTenantId);
 
     return user;
   }
@@ -228,5 +233,32 @@ export class AdminUserRouteCreateService {
       quotas as Partial<Record<LeaveType, number>>,
       tenantId,
     );
+  }
+
+  /** Emit USER_CREATED event for cross-module integrations (salary profile, etc.). */
+  private emitUserCreatedEvent(
+    user: { id: string; email: string; name?: string | null },
+    payload: CreateAdminUserInput,
+    tenantId?: string,
+  ) {
+    if (!tenantId) return;
+
+    eventBus
+      .publish(EVENT_NAMES.USER_CREATED, {
+        userId: user.id,
+        tenantId,
+        name: user.name ?? null,
+        email: user.email,
+        basicSalary: payload.basicSalary ?? null,
+        ptkpStatus: null, // ptkpStatus not part of create payload
+        isActive: payload.isActive !== false,
+        timestamp: new Date().toISOString(),
+      })
+      .catch((err) => {
+        logger.error(
+          `[AdminUserRouteCreateService] Failed to emit USER_CREATED event for ${user.id}:`,
+          err,
+        );
+      });
   }
 }

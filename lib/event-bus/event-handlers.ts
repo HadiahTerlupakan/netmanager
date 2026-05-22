@@ -25,6 +25,11 @@ import {
   handleInvestorPayoutTax,
 } from "@/modules/tax";
 import {
+  handleUserCreatedPayrollSync,
+  handleUserUpdatedPayrollSync,
+  handleUserDeactivatedPayrollSync,
+} from "@/modules/salary";
+import {
   handleInvoiceAutoIsolate,
   handleInvoicePaidActivation,
 } from "@/modules/pelanggan";
@@ -461,5 +466,14 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
     handleInvestorPayoutTax,
+  );
+
+  // --- USER LIFECYCLE → SALARY SYNC ---
+
+  registerEventHandler(EVENT_NAMES.USER_CREATED, handleUserCreatedPayrollSync);
+  registerEventHandler(EVENT_NAMES.USER_UPDATED, handleUserUpdatedPayrollSync);
+  registerEventHandler(
+    EVENT_NAMES.USER_DEACTIVATED,
+    handleUserDeactivatedPayrollSync,
   );
 }

@@ -7,6 +7,8 @@ import { UserService } from "./UserService";
 import { fail } from "./AdminUserRouteService.helpers";
 import { AdminUserRouteCreateService } from "./admin-user-route.create";
 import { AdminUserRouteUpdateService } from "./admin-user-route.update";
+import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
+import { logger } from "@/lib/logger";
 import type {
   AdminSession,
   AdminUserListQuery,
@@ -139,6 +141,10 @@ export class AdminUserRouteService {
       throw error;
     }
     await this.updateService.runAfterUpdate(userId, payload);
+
+    // Emit user lifecycle events for cross-module integration
+    this.emitUserUpdateEvents(userId, currentUser, payload);
+
     return { ok: true, data: { ok: true } } satisfies UserRouteResult<{
       ok: true;
     }>;
@@ -193,5 +199,62 @@ export class AdminUserRouteService {
     if (status === "active") return true;
     if (status === "inactive") return false;
     return undefined;
+  }
+
+  /** Emit USER_UPDATED or USER_DEACTIVATED events for cross-module sync. */
+  private emitUserUpdateEvents(
+    userId: string,
+    currentUser: { tenantId?: string | null; isActive?: boolean },
+    payload: UpdateUserPayload,
+  ) {
+    const tenantId = payload.tenantId ?? currentUser.tenantId;
+    if (!tenantId) return;
+
+    // Detect deactivation: user was active and is now being set to inactive
+    const wasActive = currentUser.isActive !== false;
+    const isBeingDeactivated = payload.isActive === false && wasActive;
+
+    if (isBeingDeactivated) {
+      eventBus
+        .publish(EVENT_NAMES.USER_DEACTIVATED, {
+          userId,
+          tenantId,
+          timestamp: new Date().toISOString(),
+        })
+        .catch((err) => {
+          logger.error(
+            `[AdminUserRouteService] Failed to emit USER_DEACTIVATED for ${userId}:`,
+            err,
+          );
+        });
+      return;
+    }
+
+    // Emit USER_UPDATED for salary-relevant field changes
+    const changedFields = Object.keys(payload).filter(
+      (key) => payload[key as keyof UpdateUserPayload] !== undefined,
+    );
+
+    const salaryRelevantFields = ["basicSalary"];
+    const hasSalaryChange = changedFields.some((f) =>
+      salaryRelevantFields.includes(f),
+    );
+
+    if (hasSalaryChange) {
+      eventBus
+        .publish(EVENT_NAMES.USER_UPDATED, {
+          userId,
+          tenantId,
+          basicSalary: payload.basicSalary,
+          changedFields,
+          timestamp: new Date().toISOString(),
+        })
+        .catch((err) => {
+          logger.error(
+            `[AdminUserRouteService] Failed to emit USER_UPDATED for ${userId}:`,
+            err,
+          );
+        });
+    }
   }
 }
