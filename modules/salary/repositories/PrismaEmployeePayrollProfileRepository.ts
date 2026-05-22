@@ -284,7 +284,6 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
             id: true,
             name: true,
             email: true,
-            employeeId: true,
           },
         },
         schedule: {
