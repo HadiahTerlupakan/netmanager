@@ -16,6 +16,12 @@ const ignoreModels = [
   "SystemLog",
   "JournalLine",
   "BankReconciliationLine",
+  "LandingHero",
+  "LandingFeature",
+  "LandingPricing",
+  "LandingTestimonial",
+  "LandingFaq",
+  "LandingFooter",
 ];
 
 let prismaClient: PrismaClient | undefined;
