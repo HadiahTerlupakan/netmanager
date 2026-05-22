@@ -15,7 +15,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     userId: string,
     tenantId: string,
   ): Promise<EmployeePayrollProfile | null> {
-    const record = await prisma.employeePayrollProfile.findFirst({
+    const record = await prismaAuth.employeePayrollProfile.findFirst({
       where: { userId, tenantId },
       include: {
         components: {
@@ -28,7 +28,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
   }
 
   async findAll(filter: ProfileFilter): Promise<EmployeePayrollProfile[]> {
-    const records = await prisma.employeePayrollProfile.findMany({
+    const records = await prismaAuth.employeePayrollProfile.findMany({
       where: {
         tenantId: filter.tenantId,
         ...(filter.employeeType && { employeeType: filter.employeeType }),
@@ -46,7 +46,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
   }
 
   async create(data: EmployeePayrollProfile): Promise<EmployeePayrollProfile> {
-    const record = await prisma.employeePayrollProfile.create({
+    const record = await prismaAuth.employeePayrollProfile.create({
       data: {
         userId: data.userId,
         tenantId: data.tenantId,
@@ -83,7 +83,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     tenantId: string,
     data: Partial<EmployeePayrollProfile>,
   ): Promise<EmployeePayrollProfile> {
-    const existing = await prisma.employeePayrollProfile.findFirst({
+    const existing = await prismaAuth.employeePayrollProfile.findFirst({
       where: { userId, tenantId },
     });
     if (!existing) {
@@ -121,7 +121,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
       updateData.bpjsJkm = data.bpjsConfig.jkm;
     }
 
-    const record = await prisma.employeePayrollProfile.update({
+    const record = await prismaAuth.employeePayrollProfile.update({
       where: { id: existing.id },
       data: updateData,
       include: {
@@ -139,14 +139,14 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     tenantId: string,
     component: EmployeeComponent,
   ): Promise<void> {
-    const profile = await prisma.employeePayrollProfile.findFirst({
+    const profile = await prismaAuth.employeePayrollProfile.findFirst({
       where: { userId, tenantId },
     });
     if (!profile) {
       throw new Error(`Profile not found for user ${userId}`);
     }
 
-    await prisma.employeeComponent.upsert({
+    await prismaAuth.employeeComponent.upsert({
       where: {
         profileId_componentId: {
           profileId: profile.id,
@@ -172,12 +172,12 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     tenantId: string,
     componentId: string,
   ): Promise<void> {
-    const profile = await prisma.employeePayrollProfile.findFirst({
+    const profile = await prismaAuth.employeePayrollProfile.findFirst({
       where: { userId, tenantId },
     });
     if (!profile) return;
 
-    await prisma.employeeComponent.deleteMany({
+    await prismaAuth.employeeComponent.deleteMany({
       where: { profileId: profile.id, componentId },
     });
   }
@@ -188,7 +188,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     componentId: string,
     data: Partial<EmployeeComponent>,
   ): Promise<void> {
-    const profile = await prisma.employeePayrollProfile.findFirst({
+    const profile = await prismaAuth.employeePayrollProfile.findFirst({
       where: { userId, tenantId },
     });
     if (!profile) return;
@@ -197,7 +197,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-    await prisma.employeeComponent.updateMany({
+    await prismaAuth.employeeComponent.updateMany({
       where: { profileId: profile.id, componentId },
       data: updateData,
     });

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, prismaAuth } from "@/lib/prisma";
 import type {
   IPayrollComponentRepository,
   ComponentFilter,
@@ -14,7 +14,7 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
     id: string,
     tenantId: string,
   ): Promise<PayrollComponent | null> {
-    const record = await prisma.payrollComponent.findFirst({
+    const record = await prismaAuth.payrollComponent.findFirst({
       where: { id, tenantId },
     });
     return record ? this.toEntity(record) : null;
@@ -24,14 +24,14 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
     code: string,
     tenantId: string,
   ): Promise<PayrollComponent | null> {
-    const record = await prisma.payrollComponent.findFirst({
+    const record = await prismaAuth.payrollComponent.findFirst({
       where: { code, tenantId },
     });
     return record ? this.toEntity(record) : null;
   }
 
   async findAll(filter: ComponentFilter): Promise<PayrollComponent[]> {
-    const records = await prisma.payrollComponent.findMany({
+    const records = await prismaAuth.payrollComponent.findMany({
       where: {
         tenantId: filter.tenantId,
         ...(filter.category && { category: filter.category }),
@@ -48,7 +48,7 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
   async create(
     data: Omit<PayrollComponent, "id" | "createdAt" | "updatedAt">,
   ): Promise<PayrollComponent> {
-    const record = await prisma.payrollComponent.create({ data });
+    const record = await prismaAuth.payrollComponent.create({ data });
     return this.toEntity(record);
   }
 
@@ -57,7 +57,7 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
     tenantId: string,
     data: Partial<PayrollComponent>,
   ): Promise<PayrollComponent> {
-    const existing = await prisma.payrollComponent.findFirst({
+    const existing = await prismaAuth.payrollComponent.findFirst({
       where: { id, tenantId },
     });
     if (!existing) {
@@ -65,7 +65,7 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
     }
 
     const { id: _id, tenantId: _tid, createdAt: _ca, ...updateData } = data;
-    const record = await prisma.payrollComponent.update({
+    const record = await prismaAuth.payrollComponent.update({
       where: { id },
       data: updateData,
     });
@@ -73,14 +73,14 @@ export class PrismaPayrollComponentRepository implements IPayrollComponentReposi
   }
 
   async delete(id: string, tenantId: string): Promise<void> {
-    const existing = await prisma.payrollComponent.findFirst({
+    const existing = await prismaAuth.payrollComponent.findFirst({
       where: { id, tenantId },
     });
     if (!existing) {
       throw new Error(`PayrollComponent not found: ${id}`);
     }
 
-    await prisma.payrollComponent.delete({ where: { id } });
+    await prismaAuth.payrollComponent.delete({ where: { id } });
   }
 
   private toEntity(record: {
