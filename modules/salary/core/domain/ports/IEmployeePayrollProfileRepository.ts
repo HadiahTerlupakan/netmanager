@@ -13,6 +13,22 @@ export interface ProfileFilter {
   isActive?: boolean;
 }
 
+/** Salary config fields stored on the User table */
+export interface UserSalaryConfig {
+  payPeriodDay?: number;
+  payDay?: number;
+  woIncentiveEnabled?: boolean;
+  woIncentiveRate?: number;
+  lateDeductionRate?: number;
+  absentDeductionRate?: number;
+  overtimeRateNormal?: number;
+  overtimeRateHoliday?: number;
+  overtimeRateNational?: number;
+  overtimeCalcTypeNormal?: string;
+  overtimeCalcTypeHoliday?: string;
+  overtimeCalcTypeNational?: string;
+}
+
 export interface IEmployeePayrollProfileRepository {
   findByUserId(
     userId: string,
@@ -40,5 +56,14 @@ export interface IEmployeePayrollProfileRepository {
     tenantId: string,
     componentId: string,
     data: Partial<EmployeeComponent>,
+  ): Promise<void>;
+  /** Get salary config fields from User table for multiple users */
+  getUserSalaryConfigs(
+    userIds: string[],
+  ): Promise<Map<string, UserSalaryConfig>>;
+  /** Update salary config fields on the User table */
+  updateUserSalaryConfig(
+    userId: string,
+    config: UserSalaryConfig,
   ): Promise<void>;
 }

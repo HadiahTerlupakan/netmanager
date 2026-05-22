@@ -20,19 +20,12 @@ import {
   HiOutlineShieldCheck,
   HiOutlineIdentification,
   HiOutlineGlobeAlt,
-  HiOutlineStar,
   HiOutlineCurrencyDollar,
-  HiOutlineClock,
 } from "react-icons/hi2";
 import MultiSiteSelect from "../components/MultiSiteSelect";
 import WorkingHoursSettings from "../[id]/WorkingHoursSettings";
 import LeaveBalanceSettings from "../[id]/LeaveBalanceSettings";
 import { usePermission } from "@/hooks/use-permission";
-import {
-  OVERTIME_CALC_TYPE_OPTIONS,
-  OVERTIME_COLOR_CLASSES,
-  OVERTIME_CONFIGS,
-} from "../lib/overtime-config";
 import { generateStrongPassword } from "../lib/password-generator";
 import { useUserReferenceData } from "../lib/useUserDetailData";
 
@@ -79,20 +72,6 @@ export function ClientComponent() {
     // Sales Target
     canvasingTarget: 0,
     targetSchema: "REVENUE",
-    // Salary configuration
-    basicSalary: 0,
-    payPeriodDay: 1,
-    payDay: 25,
-    woIncentiveEnabled: false,
-    woIncentiveRate: 0,
-    lateDeductionRate: 0,
-    absentDeductionRate: 0,
-    overtimeRateNormal: 0,
-    overtimeRateHoliday: 0,
-    overtimeRateNational: 0,
-    overtimeCalcTypeNormal: "FIXED",
-    overtimeCalcTypeHoliday: "FIXED",
-    overtimeCalcTypeNational: "FIXED",
   });
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
 
@@ -826,178 +805,7 @@ export function ClientComponent() {
               </div>
             )}
 
-            {/* Basic Salary - Only if admin has permission */}
-            {hasPermission("salary:read") && (
-              <div className="p-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
-                <h3 className="font-medium text-emerald-900 dark:text-emerald-300 mb-3 flex items-center gap-2">
-                  <HiOutlineStar className="w-4 h-4" />
-                  Konfigurasi Gaji Pokok
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
-                      Gaji Pokok (Rp)
-                    </label>
-                    <input
-                      type="number"
-                      name="basicSalary"
-                      value={formData.basicSalary}
-                      onChange={handleChange}
-                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
-                      Tgl Mulai Periode
-                    </label>
-                    <input
-                      type="number"
-                      name="payPeriodDay"
-                      min="1"
-                      max="31"
-                      value={formData.payPeriodDay}
-                      onChange={handleChange}
-                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
-                      Tgl Gajian
-                    </label>
-                    <input
-                      type="number"
-                      name="payDay"
-                      min="1"
-                      max="31"
-                      value={formData.payDay}
-                      onChange={handleChange}
-                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Incentives & Deductions */}
-                <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/20">
-                  <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-500 uppercase tracking-wider mb-3">
-                    Insentif & Potongan
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
-                      <div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Insentif WO
-                        </span>
-                        <p className="text-[10px] text-gray-500">
-                          Aktifkan bonus per WO selesai
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {formData.woIncentiveEnabled && (
-                          <input
-                            type="number"
-                            name="woIncentiveRate"
-                            value={formData.woIncentiveRate}
-                            onChange={handleChange}
-                            placeholder="Rp/WO"
-                            className="w-24 px-2 py-1 text-xs border border-emerald-200 dark:border-emerald-800 rounded bg-emerald-50/50 dark:bg-emerald-900/20 text-gray-900 dark:text-white"
-                          />
-                        )}
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            name="woIncentiveEnabled"
-                            checked={formData.woIncentiveEnabled}
-                            onChange={handleChange}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
-                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">
-                          Denda Terlambat
-                        </span>
-                        <input
-                          type="number"
-                          name="lateDeductionRate"
-                          value={formData.lateDeductionRate}
-                          onChange={handleChange}
-                          placeholder="Rp/Menit"
-                          className="w-full px-2 py-1 text-xs border border-rose-100 dark:border-rose-900/30 rounded bg-rose-50/30 dark:bg-rose-900/10 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
-                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">
-                          Denda Mangkir
-                        </span>
-                        <input
-                          type="number"
-                          name="absentDeductionRate"
-                          value={formData.absentDeductionRate}
-                          onChange={handleChange}
-                          placeholder="Rp/Hari"
-                          className="w-full px-2 py-1 text-xs border border-rose-100 dark:border-rose-900/30 rounded bg-rose-50/30 dark:bg-rose-900/10 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Overtime Configuration */}
-                <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/20">
-                  <h4 className="text-xs font-bold text-indigo-800 dark:text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <HiOutlineClock className="w-3.5 h-3.5" />
-                    Konfigurasi Lembur
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {OVERTIME_CONFIGS.map((item) => {
-                      const colorCls = OVERTIME_COLOR_CLASSES[item.color];
-                      return (
-                        <div
-                          key={item.key}
-                          className={`p-3 bg-white dark:bg-gray-800 rounded-lg border ${colorCls.border}`}
-                        >
-                          <span
-                            className={`text-xs font-bold ${colorCls.text} ${colorCls.textDark} block mb-2`}
-                          >
-                            {item.label}
-                          </span>
-                          <div className="space-y-2">
-                            <select
-                              name={item.calcTypeKey}
-                              value={formData[item.calcTypeKey]}
-                              onChange={handleChange}
-                              className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
-                            >
-                              {OVERTIME_CALC_TYPE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="relative">
-                              <input
-                                type="number"
-                                name={item.rateKey}
-                                value={formData[item.rateKey]}
-                                onChange={handleChange}
-                                className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
-                              />
-                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                                Rp
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Basic Salary section moved to /admin/salary/profiles */}
           </div>
         </div>
 

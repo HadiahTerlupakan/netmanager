@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { clientLogger } from "@/lib/client-logger";
 import { USER_LIST_CONSTANTS, USER_LIST_MESSAGES } from "./constants";
@@ -36,11 +36,13 @@ export function useUserList(tenantIdFilter?: string | null) {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Reset to page 1 when filter changes
+  // Reset to page 1 when filter changes (compare prev value during render)
+  const [prevFilterKey, setPrevFilterKey] = useState<string>(
+    `${debouncedSearchTerm}|${statusFilter}|${tenantIdFilter ?? ""}`,
+  );
   const filterKey = `${debouncedSearchTerm}|${statusFilter}|${tenantIdFilter ?? ""}`;
-  const prevFilterKeyRef = useRef(filterKey);
-  if (prevFilterKeyRef.current !== filterKey) {
-    prevFilterKeyRef.current = filterKey;
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
   }
 

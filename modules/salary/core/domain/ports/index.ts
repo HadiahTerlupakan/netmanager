@@ -5,6 +5,7 @@ export type {
 export type {
   IPayrollEntryRepository,
   PayrollEntryWithLines,
+  PayrollEntrySummary,
 } from "./IPayrollEntryRepository";
 export type {
   IPayrollComponentRepository,
@@ -13,6 +14,7 @@ export type {
 export type {
   IEmployeePayrollProfileRepository,
   ProfileFilter,
+  UserSalaryConfig,
 } from "./IEmployeePayrollProfileRepository";
 export type { IPayScheduleRepository } from "./IPayScheduleRepository";
 export type {

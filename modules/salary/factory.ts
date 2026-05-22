@@ -28,6 +28,9 @@ import { RapelCalculationService } from "./benefits";
 import { SalaryAdvanceService } from "./benefits";
 import { PayslipGenerator } from "./reporting";
 import { PayrollExportService } from "./reporting";
+import { AttendancePayrollBridge } from "./integrations/AttendancePayrollBridge";
+import { OvertimePayrollBridge } from "./integrations/OvertimePayrollBridge";
+import { LoanPayrollBridge } from "./integrations/LoanPayrollBridge";
 
 // --- Repositories (singletons) ---
 
@@ -104,6 +107,27 @@ export function getPayslipGenerator() {
 /** Get Payroll export service */
 export function getExportService() {
   return new PayrollExportService();
+}
+
+// --- Integration Bridges ---
+
+const attendanceBridge = new AttendancePayrollBridge();
+const overtimeBridge = new OvertimePayrollBridge();
+const loanBridge = new LoanPayrollBridge();
+
+/** Get AttendancePayrollBridge instance */
+export function getAttendanceBridge() {
+  return attendanceBridge;
+}
+
+/** Get OvertimePayrollBridge instance */
+export function getOvertimeBridge() {
+  return overtimeBridge;
+}
+
+/** Get LoanPayrollBridge instance */
+export function getLoanBridge() {
+  return loanBridge;
 }
 
 // --- Services requiring unimplemented repos (TODO: enable when ready) ---

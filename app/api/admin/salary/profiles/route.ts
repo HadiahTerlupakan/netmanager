@@ -30,5 +30,29 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const profiles = await profileRepo.findAllWithUserData(filter);
 
-  return apiSuccess({ profiles });
+  // Enrich profiles with salary config fields from User table
+  const userIds = profiles.map((p) => p.userId);
+  const userSalaryMap = await profileRepo.getUserSalaryConfigs(userIds);
+
+  const enrichedProfiles = profiles.map((p) => {
+    const salaryConfig = userSalaryMap.get(p.userId);
+    return {
+      ...p,
+      payPeriodDay: salaryConfig?.payPeriodDay ?? 1,
+      payDay: salaryConfig?.payDay ?? 25,
+      woIncentiveEnabled: salaryConfig?.woIncentiveEnabled ?? false,
+      woIncentiveRate: salaryConfig?.woIncentiveRate ?? 0,
+      lateDeductionRate: salaryConfig?.lateDeductionRate ?? 0,
+      absentDeductionRate: salaryConfig?.absentDeductionRate ?? 0,
+      overtimeRateNormal: salaryConfig?.overtimeRateNormal ?? 0,
+      overtimeRateHoliday: salaryConfig?.overtimeRateHoliday ?? 0,
+      overtimeRateNational: salaryConfig?.overtimeRateNational ?? 0,
+      overtimeCalcTypeNormal: salaryConfig?.overtimeCalcTypeNormal ?? "FIXED",
+      overtimeCalcTypeHoliday: salaryConfig?.overtimeCalcTypeHoliday ?? "FIXED",
+      overtimeCalcTypeNational:
+        salaryConfig?.overtimeCalcTypeNational ?? "FIXED",
+    };
+  });
+
+  return apiSuccess({ profiles: enrichedProfiles });
 });

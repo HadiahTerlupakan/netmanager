@@ -75,6 +75,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const config = await service.updateConfig(
     tenantId,
     validation.data as z.infer<typeof updateConfigSchema>,
+    ctx.session!.user.id,
   );
   return apiSuccess(config, { message: "Konfigurasi pajak berhasil disimpan" });
 });

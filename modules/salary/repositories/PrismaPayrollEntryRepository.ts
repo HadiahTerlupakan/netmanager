@@ -4,6 +4,7 @@ import type {
   IPayrollEntryRepository,
   PayrollEntryWithLines,
   PayrollEntry,
+  PayrollEntrySummary,
   PayrollLine,
   PayrollEntryStatus,
 } from "@/modules/salary/core";
@@ -13,6 +14,24 @@ import type {
  * Handles CRUD for payroll entries and their line items with tenant isolation.
  */
 export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
+  async findCalculatedSummaries(
+    runId: string,
+    tenantId: string,
+  ): Promise<PayrollEntrySummary[]> {
+    const records = await prisma.payrollEntry.findMany({
+      where: { payrollRunId: runId, tenantId, status: "CALCULATED" },
+      select: {
+        id: true,
+        userId: true,
+        basicSalary: true,
+        totalEarnings: true,
+        totalTax: true,
+        netSalary: true,
+      },
+    });
+    return records;
+  }
+
   async findById(
     id: string,
     tenantId: string,

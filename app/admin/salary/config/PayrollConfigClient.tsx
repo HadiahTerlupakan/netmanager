@@ -540,8 +540,8 @@ function OvertimeTab({ config, setConfig }: TabProps) {
               Warning (tetap hitung, tampilkan peringatan)
             </option>
             <option value="HARD_BLOCK">Block (tidak hitung di atas cap)</option>
-            <option value="LOG_ONLY">
-              Log Only (hitung normal, catat saja)
+            <option value="NONE">
+              None (hitung normal, tanpa enforcement)
             </option>
           </select>
         </FormField>

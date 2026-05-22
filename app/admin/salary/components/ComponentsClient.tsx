@@ -23,13 +23,13 @@ interface PayrollComponent {
   id: string;
   name: string;
   code: string;
-  category: "EARNING" | "DEDUCTION" | "BENEFIT";
+  category: "EARNING" | "DEDUCTION" | "EMPLOYER_COST" | "TAX";
   calculationType: "FIXED" | "PERCENTAGE" | "FORMULA";
   defaultAmount: number | null;
   percentageBase: string | null;
   percentageRate: number | null;
   isActive: boolean;
-  isTaxable: boolean;
+  taxable: boolean;
   description: string | null;
 }
 
@@ -40,12 +40,12 @@ interface ComponentsResponse {
 interface ComponentFormData {
   name: string;
   code: string;
-  category: "EARNING" | "DEDUCTION" | "BENEFIT";
+  category: "EARNING" | "DEDUCTION" | "EMPLOYER_COST" | "TAX";
   calculationType: "FIXED" | "PERCENTAGE" | "FORMULA";
   defaultAmount: number | null;
   percentageRate: number | null;
   isActive: boolean;
-  isTaxable: boolean;
+  taxable: boolean;
   description: string;
 }
 
@@ -56,14 +56,17 @@ interface ComponentFormData {
 const CATEGORY_LABELS: Record<string, string> = {
   EARNING: "Pendapatan",
   DEDUCTION: "Potongan",
-  BENEFIT: "Benefit",
+  EMPLOYER_COST: "Biaya Perusahaan",
+  TAX: "Pajak",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
   EARNING:
     "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   DEDUCTION: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  BENEFIT: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  EMPLOYER_COST:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  TAX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
 };
 
 const CALC_TYPE_LABELS: Record<string, string> = {
@@ -80,7 +83,7 @@ const INITIAL_FORM: ComponentFormData = {
   defaultAmount: null,
   percentageRate: null,
   isActive: true,
-  isTaxable: true,
+  taxable: true,
   description: "",
 };
 
@@ -120,7 +123,7 @@ export default function ComponentsClient() {
       defaultAmount: component.defaultAmount,
       percentageRate: component.percentageRate,
       isActive: component.isActive,
-      isTaxable: component.isTaxable,
+      taxable: component.taxable,
       description: component.description || "",
     });
     setModalOpen(true);
@@ -237,15 +240,15 @@ export default function ComponentsClient() {
       },
     },
     {
-      key: "isTaxable",
+      key: "taxable",
       header: "Kena Pajak",
       priority: "tertiary",
       align: "center",
       render: (item) => (
         <span
-          className={`text-xs font-medium ${item.isTaxable ? "text-orange-600" : "text-gray-400"}`}
+          className={`text-xs font-medium ${item.taxable ? "text-orange-600" : "text-gray-400"}`}
         >
-          {item.isTaxable ? "Ya" : "Tidak"}
+          {item.taxable ? "Ya" : "Tidak"}
         </span>
       ),
     },
@@ -396,7 +399,8 @@ export default function ComponentsClient() {
               >
                 <option value="EARNING">Pendapatan</option>
                 <option value="DEDUCTION">Potongan</option>
-                <option value="BENEFIT">Benefit</option>
+                <option value="EMPLOYER_COST">Biaya Perusahaan</option>
+                <option value="TAX">Pajak</option>
               </select>
             </div>
             <div>
@@ -498,9 +502,9 @@ export default function ComponentsClient() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form.isTaxable}
+                checked={form.taxable}
                 onChange={(e) =>
-                  setForm({ ...form, isTaxable: e.target.checked })
+                  setForm({ ...form, taxable: e.target.checked })
                 }
                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />

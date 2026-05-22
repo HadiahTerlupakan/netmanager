@@ -72,6 +72,7 @@ describe("Domain Entities", () => {
         isActive: true,
       };
       const profile: EmployeePayrollProfile = {
+        id: "profile-1",
         userId: "user-1",
         tenantId: "tenant-1",
         employeeType: EmployeeType.PKWTT,
@@ -87,6 +88,7 @@ describe("Domain Entities", () => {
         contractEnd: null,
         overtimeEligible: true,
         thrEligible: true,
+        isActive: true,
         components: [component],
       };
       expect(profile.employeeType).toBe("PKWTT");

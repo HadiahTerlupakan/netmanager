@@ -1,8 +1,57 @@
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { getPayrollRunRepository } from "@/modules/salary";
+import {
+  getPayrollRunRepository,
+  getPayrollEntryRepository,
+} from "@/modules/salary";
+import { logger } from "@/lib/logger";
 
 const runRepo = getPayrollRunRepository();
+const entryRepo = getPayrollEntryRepository();
+
+const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["CALCULATING"],
+  CALCULATING: ["CALCULATED", "DRAFT"],
+  CALCULATED: ["APPROVED", "REVISION_REQUESTED"],
+  REVISION_REQUESTED: ["CALCULATING"],
+  APPROVED: ["PAID"],
+  PAID: [],
+};
+
+async function publishSalaryProcessedEvents(
+  runId: string,
+  tenantId: string,
+  periodStart: Date,
+) {
+  const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+  const entries = await entryRepo.findCalculatedSummaries(runId, tenantId);
+
+  const month = periodStart.getMonth() + 1;
+  const year = periodStart.getFullYear();
+
+  for (const entry of entries) {
+    await eventBus
+      .publish(EVENT_NAMES.SALARY_PROCESSED, {
+        salaryId: entry.id,
+        tenantId,
+        userId: entry.userId,
+        grossSalary: String(entry.totalEarnings),
+        pph21Amount: String(entry.totalTax),
+        month,
+        year,
+        processedAt: new Date().toISOString(),
+      })
+      .catch((err: unknown) => {
+        logger.warn(
+          `[SalaryRun] Failed to publish SALARY_PROCESSED for entry ${entry.id}: ${err instanceof Error ? err.message : "unknown"}`,
+        );
+      });
+  }
+
+  logger.info(
+    `[SalaryRun] Published SALARY_PROCESSED for ${entries.length} entries in run ${runId}`,
+  );
+}
 
 /** GET /api/admin/salary/runs/[id] — Get payroll run detail */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
@@ -40,7 +89,29 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.notFound("Payroll run");
   }
 
-  const run = await runRepo.update(id, tenantId, body);
+  if (body.status && body.status !== existing.status) {
+    const allowed = VALID_STATUS_TRANSITIONS[existing.status] ?? [];
+    if (!allowed.includes(body.status)) {
+      return ApiErrors.badRequest(
+        `Transisi status dari ${existing.status} ke ${body.status} tidak diizinkan`,
+      );
+    }
+  }
+
+  const { status, type, ...safeFields } = body;
+  const updateData = {
+    ...(status && { status }),
+    ...(type && { type }),
+    ...safeFields,
+  };
+
+  const run = await runRepo.update(id, tenantId, updateData);
+
+  if (body.status === "APPROVED" && existing.status !== "APPROVED") {
+    publishSalaryProcessedEvents(id, tenantId, existing.periodStart).catch(
+      () => {},
+    );
+  }
 
   return apiSuccess({ run }, { message: "Payroll run berhasil diperbarui" });
 });

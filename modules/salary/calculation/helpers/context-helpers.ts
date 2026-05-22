@@ -19,6 +19,7 @@ export function createTestContext(
   overrides?: Partial<CalculationContext>,
 ): CalculationContext {
   const defaultEmployee: EmployeePayrollProfile = {
+    id: "profile-test-1",
     userId: "user-1",
     tenantId: "tenant-1",
     employeeType: "PKWTT",
@@ -34,6 +35,7 @@ export function createTestContext(
     contractEnd: null,
     overtimeEligible: true,
     thrEligible: true,
+    isActive: true,
     components: [],
   };
 

@@ -29,16 +29,24 @@ interface EmployeeProfile {
   employeeEmail: string;
   employeeType: "PKWTT" | "PKWT" | "DAILY" | "FREELANCE";
   taxMethod: "NET" | "GROSS_UP" | "NETT";
-  taxStatus: string;
+  ptkpStatus: string;
   basicSalary: number;
   bankName: string | null;
   bankAccount: string | null;
   npwp: string | null;
-  bpjsKesehatan: boolean | string | null;
-  bpjsKetenagakerjaan: boolean | string | null;
+  bpjsKesehatan: boolean;
+  bpjsJht: boolean;
+  bpjsJp: boolean;
+  bpjsJkk: boolean;
+  bpjsJkm: boolean;
   scheduleType: "MONTHLY" | "BI_WEEKLY" | "WEEKLY" | "DAILY" | "ON_DEMAND";
+  scheduleName: string;
+  regionCode: string;
+  contractStart: string | null;
+  contractEnd: string | null;
+  overtimeEligible: boolean;
+  thrEligible: boolean;
   isActive: boolean;
-  // Salary config fields (from User table)
   payPeriodDay: number;
   payDay: number;
   woIncentiveEnabled: boolean;
@@ -60,7 +68,7 @@ interface ProfilesResponse {
 interface ProfileFormData {
   employeeType: "PKWTT" | "PKWT" | "DAILY" | "FREELANCE";
   taxMethod: "NET" | "GROSS_UP" | "NETT";
-  taxStatus: string;
+  ptkpStatus: string;
   basicSalary: number;
   bankName: string;
   bankAccount: string;
@@ -72,7 +80,6 @@ interface ProfileFormData {
   bpjsJkm: boolean;
   scheduleType: "MONTHLY" | "BI_WEEKLY" | "WEEKLY" | "DAILY" | "ON_DEMAND";
   isActive: boolean;
-  // Salary config fields
   payPeriodDay: number;
   payDay: number;
   woIncentiveEnabled: boolean;
@@ -230,7 +237,7 @@ export default function ProfilesClient() {
   const [form, setForm] = useState<ProfileFormData>({
     employeeType: "PKWTT",
     taxMethod: "NET",
-    taxStatus: "TK/0",
+    ptkpStatus: "TK/0",
     basicSalary: 0,
     bankName: "",
     bankAccount: "",
@@ -318,16 +325,16 @@ export default function ProfilesClient() {
     setForm({
       employeeType: profile.employeeType,
       taxMethod: profile.taxMethod,
-      taxStatus: profile.taxStatus,
+      ptkpStatus: profile.ptkpStatus || "TK/0",
       basicSalary: profile.basicSalary,
       bankName: profile.bankName || "",
       bankAccount: profile.bankAccount || "",
       npwp: profile.npwp || "",
       bpjsKesehatan: !!profile.bpjsKesehatan,
-      bpjsJht: !!profile.bpjsKetenagakerjaan,
-      bpjsJp: !!profile.bpjsKetenagakerjaan,
-      bpjsJkk: !!profile.bpjsKetenagakerjaan,
-      bpjsJkm: !!profile.bpjsKetenagakerjaan,
+      bpjsJht: !!profile.bpjsJht,
+      bpjsJp: !!profile.bpjsJp,
+      bpjsJkk: !!profile.bpjsJkk,
+      bpjsJkm: !!profile.bpjsJkm,
       scheduleType: profile.scheduleType,
       isActive: profile.isActive,
       payPeriodDay: profile.payPeriodDay ?? 1,
@@ -351,12 +358,24 @@ export default function ProfilesClient() {
     if (!editingProfile) return;
     setSaving(true);
     try {
+      const { bpjsKesehatan, bpjsJht, bpjsJp, bpjsJkk, bpjsJkm, ...rest } =
+        form;
+      const payload = {
+        ...rest,
+        bpjsConfig: {
+          kesehatan: bpjsKesehatan,
+          jht: bpjsJht,
+          jp: bpjsJp,
+          jkk: bpjsJkk,
+          jkm: bpjsJkm,
+        },
+      };
       const res = await fetch(
         `/api/admin/salary/profiles/${editingProfile.userId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         },
       );
       const data = await res.json();
@@ -929,9 +948,9 @@ export default function ProfilesClient() {
                       Status PTKP
                     </label>
                     <select
-                      value={form.taxStatus}
+                      value={form.ptkpStatus}
                       onChange={(e) =>
-                        setForm({ ...form, taxStatus: e.target.value })
+                        setForm({ ...form, ptkpStatus: e.target.value })
                       }
                       className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-gray-900 dark:text-gray-50"
                     >

@@ -1,4 +1,4 @@
-import { prisma, prismaAuth } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prisma";
 import type {
   IPayrollComponentRepository,
   ComponentFilter,

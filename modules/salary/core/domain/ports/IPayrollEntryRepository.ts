@@ -6,7 +6,20 @@ export interface PayrollEntryWithLines extends PayrollEntry {
   lines: PayrollLine[];
 }
 
+export interface PayrollEntrySummary {
+  id: string;
+  userId: string;
+  basicSalary: number;
+  totalEarnings: number;
+  totalTax: number;
+  netSalary: number;
+}
+
 export interface IPayrollEntryRepository {
+  findCalculatedSummaries(
+    runId: string,
+    tenantId: string,
+  ): Promise<PayrollEntrySummary[]>;
   findById(id: string, tenantId: string): Promise<PayrollEntryWithLines | null>;
   findByUserId(userId: string, tenantId: string): Promise<PayrollEntry[]>;
   findByRunId(runId: string, tenantId: string): Promise<PayrollEntry[]>;

@@ -1,7 +1,8 @@
-import { prisma, prismaAuth } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prisma";
 import type {
   IEmployeePayrollProfileRepository,
   ProfileFilter,
+  UserSalaryConfig,
   EmployeePayrollProfile,
   EmployeeComponent,
 } from "@/modules/salary/core";
@@ -204,6 +205,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
   }
 
   private toEntity(record: {
+    id: string;
     userId: string;
     tenantId: string;
     employeeType: string;
@@ -223,6 +225,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     contractEnd: Date | null;
     overtimeEligible: boolean;
     thrEligible: boolean;
+    isActive: boolean;
     components: Array<{
       componentId: string;
       amount: number | null;
@@ -236,6 +239,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     }>;
   }): EmployeePayrollProfile {
     return {
+      id: record.id,
       userId: record.userId,
       tenantId: record.tenantId,
       employeeType:
@@ -258,6 +262,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
       contractEnd: record.contractEnd,
       overtimeEligible: record.overtimeEligible,
       thrEligible: record.thrEligible,
+      isActive: record.isActive,
       components: record.components.map((c) => ({
         componentId: c.componentId,
         componentCode: c.component.code,
@@ -326,5 +331,87 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
       thrEligible: p.thrEligible,
       isActive: p.isActive,
     }));
+  }
+
+  async getUserSalaryConfigs(
+    userIds: string[],
+  ): Promise<Map<string, UserSalaryConfig>> {
+    if (userIds.length === 0) return new Map();
+
+    const users = await prismaAuth.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        payPeriodDay: true,
+        payDay: true,
+        woIncentiveEnabled: true,
+        woIncentiveRate: true,
+        lateDeductionRate: true,
+        absentDeductionRate: true,
+        overtimeRateNormal: true,
+        overtimeRateHoliday: true,
+        overtimeRateNational: true,
+        overtimeCalcTypeNormal: true,
+        overtimeCalcTypeHoliday: true,
+        overtimeCalcTypeNational: true,
+      },
+    });
+
+    const map = new Map<string, UserSalaryConfig>();
+    for (const u of users) {
+      map.set(u.id, {
+        payPeriodDay: u.payPeriodDay ?? 1,
+        payDay: u.payDay ?? 25,
+        woIncentiveEnabled: u.woIncentiveEnabled ?? false,
+        woIncentiveRate: u.woIncentiveRate ?? 0,
+        lateDeductionRate: u.lateDeductionRate ?? 0,
+        absentDeductionRate: u.absentDeductionRate ?? 0,
+        overtimeRateNormal: u.overtimeRateNormal ?? 0,
+        overtimeRateHoliday: u.overtimeRateHoliday ?? 0,
+        overtimeRateNational: u.overtimeRateNational ?? 0,
+        overtimeCalcTypeNormal: u.overtimeCalcTypeNormal ?? "FIXED",
+        overtimeCalcTypeHoliday: u.overtimeCalcTypeHoliday ?? "FIXED",
+        overtimeCalcTypeNational: u.overtimeCalcTypeNational ?? "FIXED",
+      });
+    }
+    return map;
+  }
+
+  async updateUserSalaryConfig(
+    userId: string,
+    config: UserSalaryConfig,
+  ): Promise<void> {
+    const updateData: Record<string, unknown> = {};
+
+    if (config.payPeriodDay !== undefined)
+      updateData.payPeriodDay = config.payPeriodDay;
+    if (config.payDay !== undefined) updateData.payDay = config.payDay;
+    if (config.woIncentiveEnabled !== undefined)
+      updateData.woIncentiveEnabled = config.woIncentiveEnabled;
+    if (config.woIncentiveRate !== undefined)
+      updateData.woIncentiveRate = config.woIncentiveRate;
+    if (config.lateDeductionRate !== undefined)
+      updateData.lateDeductionRate = config.lateDeductionRate;
+    if (config.absentDeductionRate !== undefined)
+      updateData.absentDeductionRate = config.absentDeductionRate;
+    if (config.overtimeRateNormal !== undefined)
+      updateData.overtimeRateNormal = config.overtimeRateNormal;
+    if (config.overtimeRateHoliday !== undefined)
+      updateData.overtimeRateHoliday = config.overtimeRateHoliday;
+    if (config.overtimeRateNational !== undefined)
+      updateData.overtimeRateNational = config.overtimeRateNational;
+    if (config.overtimeCalcTypeNormal !== undefined)
+      updateData.overtimeCalcTypeNormal = config.overtimeCalcTypeNormal;
+    if (config.overtimeCalcTypeHoliday !== undefined)
+      updateData.overtimeCalcTypeHoliday = config.overtimeCalcTypeHoliday;
+    if (config.overtimeCalcTypeNational !== undefined)
+      updateData.overtimeCalcTypeNational = config.overtimeCalcTypeNational;
+
+    if (Object.keys(updateData).length > 0) {
+      await prismaAuth.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+    }
   }
 }

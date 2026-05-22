@@ -25,6 +25,7 @@ export interface EmployeeComponent {
 }
 
 export interface EmployeePayrollProfile {
+  id: string;
   userId: string;
   tenantId: string;
   employeeType: EmployeeType;
@@ -40,5 +41,6 @@ export interface EmployeePayrollProfile {
   contractEnd: Date | null;
   overtimeEligible: boolean;
   thrEligible: boolean;
+  isActive: boolean;
   components: EmployeeComponent[];
 }
