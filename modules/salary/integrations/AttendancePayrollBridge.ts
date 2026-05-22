@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AttendanceSummary } from "@/modules/salary/core";
-import { calculateWorkingDays } from "@/modules/attendance/utils/calculateWorkingDays";
+import { calculateWorkingDays } from "@/modules/attendance";
 
 /** Port for fetching attendance data for payroll calculation. */
 export interface IAttendancePayrollBridge {

@@ -6,6 +6,8 @@ const mockFns = vi.hoisted(() => ({
   getToken: vi.fn(),
   jwtVerify: vi.fn(),
   findFirst: vi.fn(),
+  tenantDomainFindFirst: vi.fn(),
+  tenantDomainFindUnique: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -26,6 +28,10 @@ vi.mock("@/modules/database", () => ({
     tenant: {
       findFirst: mockFns.findFirst,
     },
+    tenantDomain: {
+      findFirst: mockFns.tenantDomainFindFirst,
+      findUnique: mockFns.tenantDomainFindUnique,
+    },
   },
 }));
 
@@ -38,6 +44,8 @@ describe("tenant-context host domain", () => {
     mockFns.getToken.mockReset();
     mockFns.jwtVerify.mockReset();
     mockFns.findFirst.mockReset();
+    mockFns.tenantDomainFindFirst.mockReset();
+    mockFns.tenantDomainFindUnique.mockReset();
 
     mockFns.headers.mockResolvedValue(
       new Headers({ host: "tenant-a.example.com" }),
@@ -46,11 +54,10 @@ describe("tenant-context host domain", () => {
       get: vi.fn().mockReturnValue(undefined),
     });
     mockFns.getToken.mockResolvedValue(null);
-    mockFns.findFirst.mockResolvedValue({
-      id: "tenant-1",
-      domain: "tenant-a.example.com",
-      isActive: true,
+    mockFns.tenantDomainFindFirst.mockResolvedValue({
+      tenantId: "tenant-1",
     });
+    mockFns.findFirst.mockResolvedValue(null);
     (globalThis as Record<string, unknown>).IS_CUSTOM_SERVER = false;
     process.env.NEXTAUTH_SECRET = "test-secret-123-at-least-32-chars-long";
   });
@@ -61,13 +68,13 @@ describe("tenant-context host domain", () => {
     const result = await getTenantIdFromContext();
 
     expect(result).toEqual({ tenantId: "tenant-1", isSuperAdmin: false });
-    expect(mockFns.findFirst).toHaveBeenCalledWith({
+    expect(mockFns.tenantDomainFindFirst).toHaveBeenCalledWith({
       where: {
         domain: "tenant-a.example.com",
-        isActive: true,
+        status: "active",
       },
       select: {
-        id: true,
+        tenantId: true,
       },
     });
   }, 20000);

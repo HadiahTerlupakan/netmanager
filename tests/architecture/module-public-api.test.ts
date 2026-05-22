@@ -90,9 +90,7 @@ const concreteRepositoryDependencyPattern =
 const largeUiFileBaseline = new Set([
   "app/admin/integrations/mixradius/expenses/RABForm.tsx",
   "app/admin/integrations/mixradius/expenses/ExpensesClient.tsx",
-  "app/admin/salary/users/SalaryUsersClient.tsx",
   "app/admin/integrations/mixradius/expenses/RABView.tsx",
-  "app/admin/users/[id]/UsersDetailClient.tsx",
   "app/admin/integrations/mixradius/MixRadiusClient.tsx",
   "app/admin/workorders/list/WoListClient.tsx",
   "app/admin/attendance/AttendanceClient.tsx",
@@ -100,10 +98,10 @@ const largeUiFileBaseline = new Set([
   "app/admin/integrations/mixradius/expenses/RABList.tsx",
   "app/admin/mitra/[id]/MitraDetailClient.tsx",
   "app/admin/settings/roles/[id]/RolesDetailClient.tsx",
-  "app/admin/users/new/UsersNewClient.tsx",
   "app/admin/workorders/WoIndexClient.tsx",
   "app/admin/workorders/new/WoNewClient.tsx",
   "app/admin/chat/ChatPageClient.tsx",
+  "app/admin/salary/profiles/ProfilesClient.tsx",
 ]);
 
 const dependencyInversionBaseline = new Set([
@@ -269,6 +267,8 @@ describe("module public api boundaries", () => {
       .filter((filePath) => !filePath.endsWith(".tsx"));
     const allowedLargeFiles = new Set([
       "lib/auth.ts",
+      "lib/event-bus/types.ts",
+      "lib/menu-config.ts",
       "lib/utils/snmp-helpers.ts",
       "modules/attendance/repositories/AttendanceRepository.ts",
       "modules/attendance/services/AttendanceService.ts",

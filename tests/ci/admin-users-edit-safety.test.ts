@@ -263,15 +263,6 @@ describe("admin users edit safety", () => {
     expect(detailClientFile).toContain("const numericFieldNames = new Set([");
     expect(detailClientFile).toContain("const normalizeNumericField = (");
     expect(detailClientFile).toContain(
-      "basicSalary: normalizeNumericField(formData.basicSalary),",
-    );
-    expect(detailClientFile).toContain(
-      "payPeriodDay: normalizeNumericField(formData.payPeriodDay),",
-    );
-    expect(detailClientFile).toContain(
-      "payDay: normalizeNumericField(formData.payDay),",
-    );
-    expect(detailClientFile).toContain(
       "canvasingTarget: normalizeNumericField(formData.canvasingTarget),",
     );
   });

@@ -22,6 +22,7 @@ vi.mock("@/modules/attendance", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
+  prisma: {},
   prismaAuth: {
     sites: {
       count: mockFns.sitesCount,

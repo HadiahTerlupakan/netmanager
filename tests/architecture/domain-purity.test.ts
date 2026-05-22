@@ -14,7 +14,7 @@ const collectTypeScriptFiles = (directory: string): string[] => {
 
 const domainFiles = collectTypeScriptFiles(join(process.cwd(), "modules"))
   .filter((filePath) => filePath.includes(`${join("modules", "")}`))
-  .filter((filePath) => filePath.includes(`${join("domain", "")}`));
+  .filter((filePath) => filePath.includes(`/domain/`));
 
 describe("domain layer purity", () => {
   it.each(domainFiles)("does not import external modules in %s", (filePath) => {

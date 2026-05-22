@@ -1,4 +1,3 @@
-export { LandingContentRepository } from "./repositories/LandingContentRepository";
 export { LandingContentService } from "./services/LandingContentService";
 export type {
   LandingHero,

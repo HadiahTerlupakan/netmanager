@@ -53,3 +53,4 @@ export * from "./services/MobileAttendanceCheckInRouteService";
 export * from "./services/LeaveAutoRejectCronService";
 export * from "./services/LeaveReminderCronService";
 export * from "./services/TenantSettingsService";
+export { calculateWorkingDays } from "./utils/calculateWorkingDays";
