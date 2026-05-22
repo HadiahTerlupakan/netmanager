@@ -214,7 +214,7 @@ export default function ProfilesClient() {
   const handleEdit = (profile: EmployeeProfile) => {
     setEditingProfile(profile);
     setActiveTab("profil");
-    fetchEmployeeComponents(profile.id);
+    fetchEmployeeComponents(profile.userId);
     fetchAvailableComponents();
     setForm({
       employeeType: profile.employeeType,
@@ -265,7 +265,7 @@ export default function ProfilesClient() {
     setSavingComponent(true);
     try {
       const res = await fetch(
-        `/api/admin/salary/profiles/${editingProfile.id}/components`,
+        `/api/admin/salary/profiles/${editingProfile.userId}/components`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -297,7 +297,7 @@ export default function ProfilesClient() {
     if (!confirm("Hapus komponen ini dari karyawan?")) return;
     try {
       const res = await fetch(
-        `/api/admin/salary/profiles/${editingProfile.id}/components`,
+        `/api/admin/salary/profiles/${editingProfile.userId}/components`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
