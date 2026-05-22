@@ -3,6 +3,9 @@ import {
   getPayrollEntryRepository,
   getEmployeeProfileRepository,
   getCalculationEngine,
+  getAttendanceBridge,
+  getOvertimeBridge,
+  getLoanBridge,
   PayrollRunStatus,
   DEFAULT_BPJS_CONFIG,
   DEFAULT_TAX_CONFIG,
@@ -27,9 +30,16 @@ export type CalculateRunError =
   | { code: "INVALID_STATUS"; message: string }
   | { code: "NO_EMPLOYEES"; message: string };
 
-const runRepo = getPayrollRunRepository();
-const entryRepo = getPayrollEntryRepository();
-const profileRepo = getEmployeeProfileRepository();
+function getRepos() {
+  return {
+    runRepo: getPayrollRunRepository(),
+    entryRepo: getPayrollEntryRepository(),
+    profileRepo: getEmployeeProfileRepository(),
+    attendanceBridge: getAttendanceBridge(),
+    overtimeBridge: getOvertimeBridge(),
+    loanBridge: getLoanBridge(),
+  };
+}
 
 function buildTenantConfig(tenantId: string): TenantPayrollConfig {
   return {
@@ -61,32 +71,42 @@ function buildTenantConfig(tenantId: string): TenantPayrollConfig {
   };
 }
 
-function buildCalculationContext(
-  profile: Awaited<ReturnType<typeof profileRepo.findAll>>[number],
+async function buildCalculationContext(
+  profile: CalculationContext["employee"],
   run: { periodStart: Date; periodEnd: Date },
   tenantConfig: TenantPayrollConfig,
-): CalculationContext {
+): Promise<CalculationContext> {
+  const { attendanceBridge, overtimeBridge, loanBridge } = getRepos();
+  const [attendance, overtime, activeLoans, activeAdvances] = await Promise.all(
+    [
+      attendanceBridge.getAttendanceSummary(
+        profile.userId,
+        run.periodStart,
+        run.periodEnd,
+        tenantConfig.tenantId,
+      ),
+      overtimeBridge.getOvertimeSummary(
+        profile.userId,
+        run.periodStart,
+        run.periodEnd,
+        tenantConfig.tenantId,
+      ),
+      loanBridge.getActiveLoans(profile.userId, tenantConfig.tenantId),
+      loanBridge.getActiveAdvances(profile.userId, tenantConfig.tenantId),
+    ],
+  );
+
   return {
     employee: profile,
     period: { start: run.periodStart, end: run.periodEnd },
-    attendance: {
-      totalWorkDays: 22,
-      presentDays: 22,
-      absentDays: 0,
-      lateDays: 0,
-      sickDays: 0,
-      permitDays: 0,
-      effectiveDays: 22,
-    },
-    overtime: {
-      normalMinutes: 0,
-      holidayMinutes: 0,
-      nationalHolidayMinutes: 0,
-      totalMinutes: 0,
-    },
+    attendance,
+    overtime,
     previousLines: [],
     config: tenantConfig,
-    metadata: {},
+    metadata: {
+      activeLoans,
+      activeAdvances,
+    },
   };
 }
 
@@ -97,6 +117,7 @@ export async function calculatePayrollRun(
   | { success: true; data: CalculateRunResult }
   | { success: false; error: CalculateRunError }
 > {
+  const { runRepo, entryRepo, profileRepo } = getRepos();
   const run = await runRepo.findById(runId, tenantId);
   if (!run) {
     return { success: false, error: { code: "NOT_FOUND" } };
@@ -162,7 +183,11 @@ export async function calculatePayrollRun(
           calculatedAt: null,
         });
 
-        const calcContext = buildCalculationContext(profile, run, tenantConfig);
+        const calcContext = await buildCalculationContext(
+          profile,
+          run,
+          tenantConfig,
+        );
         const result = engine.calculate(calcContext);
         const lines = result.lines;
 
