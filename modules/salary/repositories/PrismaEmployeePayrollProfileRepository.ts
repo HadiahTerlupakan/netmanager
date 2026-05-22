@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, prismaAuth } from "@/lib/prisma";
 import type {
   IEmployeePayrollProfileRepository,
   ProfileFilter,
@@ -271,7 +271,7 @@ export class PrismaEmployeePayrollProfileRepository implements IEmployeePayrollP
     };
   }
   async findAllWithUserData(filter: ProfileFilter) {
-    const records = await prisma.employeePayrollProfile.findMany({
+    const records = await prismaAuth.employeePayrollProfile.findMany({
       where: {
         tenantId: filter.tenantId,
         ...(filter.employeeType && { employeeType: filter.employeeType }),
