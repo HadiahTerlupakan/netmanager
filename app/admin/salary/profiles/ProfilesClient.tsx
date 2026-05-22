@@ -352,7 +352,7 @@ export default function ProfilesClient() {
     setSaving(true);
     try {
       const res = await fetch(
-        `/api/admin/salary/profiles/${editingProfile.id}`,
+        `/api/admin/salary/profiles/${editingProfile.userId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
