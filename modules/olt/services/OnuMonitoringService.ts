@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { prisma } from "@/modules/database";
 import { OltRepository } from "../repositories/OltRepository";
 import { OnuRepository } from "../repositories/OnuRepository";
 import { OnuPowerHistoryRepository } from "../repositories/OnuPowerHistoryRepository";
@@ -24,72 +25,9 @@ export class OnuMonitoringService {
 
     for (const olt of olts) {
       try {
-        const adapter = this.adapterFactory.getAdapter(olt.vendor);
-        const statusResult = await adapter.getAllOnuStatuses(olt);
-
-        if (!statusResult.success || !statusResult.data) continue;
-
-        for (const onuStatus of statusResult.data) {
-          const onu = await this.findOnuRecord(
-            olt.id,
-            onuStatus.ponPort,
-            onuStatus.onuIndex,
-          );
-          if (!onu) continue;
-
-          if (onuStatus.status === "los" && onu.status !== "LOS") {
-            await this.onuRepo.updateStatus(onu.id, "LOS");
-            await this.alertService.createAlert({
-              tenantId: olt.tenantId,
-              oltId: olt.id,
-              onuId: onu.id,
-              type: "LOS",
-              message: `ONU ${onu.serialNumber} Loss of Signal pada port ${onuStatus.ponPort}:${onuStatus.onuIndex}`,
-              severity: "CRITICAL",
-            });
-            totalAlerts++;
-          }
-
-          const powerResult = await adapter.getOnuOpticalPower(
-            olt,
-            onuStatus.ponPort,
-            onuStatus.onuIndex,
-          );
-          if (powerResult.success && powerResult.data) {
-            await this.powerRepo.record({
-              tenantId: olt.tenantId,
-              onuId: onu.id,
-              rxPower: powerResult.data.rxPower,
-              txPower: powerResult.data.txPower,
-            });
-
-            if (powerResult.data.rxPower !== null) {
-              if (powerResult.data.rxPower < RX_CRITICAL_THRESHOLD) {
-                await this.alertService.createAlert({
-                  tenantId: olt.tenantId,
-                  oltId: olt.id,
-                  onuId: onu.id,
-                  type: "CRITICAL_POWER",
-                  message: `ONU ${onu.serialNumber} RX power critical: ${powerResult.data.rxPower} dBm`,
-                  severity: "CRITICAL",
-                });
-                totalAlerts++;
-              } else if (powerResult.data.rxPower < RX_WARNING_THRESHOLD) {
-                await this.alertService.createAlert({
-                  tenantId: olt.tenantId,
-                  oltId: olt.id,
-                  onuId: onu.id,
-                  type: "LOW_POWER",
-                  message: `ONU ${onu.serialNumber} RX power low: ${powerResult.data.rxPower} dBm`,
-                  severity: "WARNING",
-                });
-                totalAlerts++;
-              }
-            }
-
-            totalPolled++;
-          }
-        }
+        const stats = await this.pollOlt(olt.id, olt.tenantId, olt.vendor);
+        totalPolled += stats.polled;
+        totalAlerts += stats.alerts;
       } catch (error) {
         logger.error(`[OnuMonitoring] Error polling ${olt.name}:`, error);
       }
@@ -101,14 +39,126 @@ export class OnuMonitoringService {
     return { polled: totalPolled, alerts: totalAlerts };
   }
 
-  private async findOnuRecord(
+  async pollSingleOlt(
     oltId: string,
-    ponPort: number,
-    onuIndex: number,
-  ) {
-    const { prisma } = await import("@/modules/database");
-    return prisma.onuDevice.findFirst({
-      where: { oltId, ponPort, onuIndex, status: { not: "UNREGISTERED" } },
+    tenantId: string,
+  ): Promise<{ polled: number; alerts: number }> {
+    const olt = await this.oltRepo.findById(oltId, tenantId);
+    if (!olt) return { polled: 0, alerts: 0 };
+    return this.pollOlt(olt.id, olt.tenantId, olt.vendor);
+  }
+
+  private async pollOlt(
+    oltId: string,
+    tenantId: string,
+    vendor: string,
+  ): Promise<{ polled: number; alerts: number }> {
+    const olt = await this.oltRepo.findById(oltId, tenantId);
+    if (!olt) return { polled: 0, alerts: 0 };
+
+    const adapter = this.adapterFactory.getAdapter(olt.vendor);
+    const statusResult = await adapter.getAllOnuStatuses(olt);
+    if (!statusResult.success || !statusResult.data) {
+      return { polled: 0, alerts: 0 };
+    }
+
+    const onuMap = await this.buildOnuMap(oltId, tenantId);
+
+    let polled = 0;
+    let alerts = 0;
+
+    for (const status of statusResult.data) {
+      const key = `${status.ponPort}:${status.onuIndex}`;
+      const onu = onuMap.get(key);
+      if (!onu) continue;
+
+      if (status.status === "los" && onu.status !== "LOS") {
+        await this.onuRepo.updateStatus(onu.id, tenantId, "LOS");
+        await this.alertService.createAlert({
+          tenantId,
+          oltId,
+          onuId: onu.id,
+          type: "LOS",
+          message: `ONU ${onu.serialNumber} Loss of Signal pada port ${status.ponPort}:${status.onuIndex}`,
+          severity: "CRITICAL",
+        });
+        alerts++;
+      }
+
+      const powerResult = await adapter.getOnuOpticalPower(
+        olt,
+        status.ponPort,
+        status.onuIndex,
+      );
+      if (!powerResult.success || !powerResult.data) continue;
+
+      await this.powerRepo.record({
+        tenantId,
+        onuId: onu.id,
+        rxPower: powerResult.data.rxPower,
+        txPower: powerResult.data.txPower,
+      });
+
+      const rx = powerResult.data.rxPower;
+      if (rx !== null) {
+        if (rx < RX_CRITICAL_THRESHOLD) {
+          await this.alertService.createAlert({
+            tenantId,
+            oltId,
+            onuId: onu.id,
+            type: "CRITICAL_POWER",
+            message: `ONU ${onu.serialNumber} RX power critical: ${rx} dBm`,
+            severity: "CRITICAL",
+          });
+          alerts++;
+        } else if (rx < RX_WARNING_THRESHOLD) {
+          await this.alertService.createAlert({
+            tenantId,
+            oltId,
+            onuId: onu.id,
+            type: "LOW_POWER",
+            message: `ONU ${onu.serialNumber} RX power low: ${rx} dBm`,
+            severity: "WARNING",
+          });
+          alerts++;
+        }
+      }
+
+      polled++;
+    }
+
+    void vendor;
+    return { polled, alerts };
+  }
+
+  private async buildOnuMap(
+    oltId: string,
+    tenantId: string,
+  ): Promise<
+    Map<string, { id: string; serialNumber: string; status: string }>
+  > {
+    const onus = await prisma.onuDevice.findMany({
+      where: { oltId, tenantId, status: { not: "UNREGISTERED" } },
+      select: {
+        id: true,
+        ponPort: true,
+        onuIndex: true,
+        serialNumber: true,
+        status: true,
+      },
     });
+    const map = new Map<
+      string,
+      { id: string; serialNumber: string; status: string }
+    >();
+    for (const onu of onus) {
+      if (onu.onuIndex === null) continue;
+      map.set(`${onu.ponPort}:${onu.onuIndex}`, {
+        id: onu.id,
+        serialNumber: onu.serialNumber,
+        status: onu.status,
+      });
+    }
+    return map;
   }
 }

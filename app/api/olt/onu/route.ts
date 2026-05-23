@@ -5,9 +5,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { OltOnuService, onuListQuerySchema } from "@/modules/olt";
+import {
+  OltOnuService,
+  OnuMonitoringService,
+  onuListQuerySchema,
+} from "@/modules/olt";
 
 const onuService = new OltOnuService();
+const monitoringService = new OnuMonitoringService();
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +33,22 @@ export async function GET(req: NextRequest) {
       status: searchParams.get("status") ?? undefined,
       search: searchParams.get("search") ?? undefined,
     });
+
+    // Auto-refresh: poll OLT secara real-time saat user filter by OLT
+    // (skip kalau search aktif — search global lintas OLT terlalu mahal)
+    if (query.oltId && !query.search) {
+      try {
+        await monitoringService.pollSingleOlt(
+          query.oltId,
+          session.user.tenantId,
+        );
+      } catch (error) {
+        logger.warn(
+          `[ONU List] Real-time poll failed for ${query.oltId}, falling back to DB:`,
+          error,
+        );
+      }
+    }
 
     const result = await onuService.listOnus({
       tenantId: session.user.tenantId,
