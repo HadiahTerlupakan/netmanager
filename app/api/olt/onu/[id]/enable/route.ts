@@ -20,7 +20,11 @@ export async function POST(
     }
 
     const { id } = await params;
-    const result = await onuControl.enableOnu(id, session.user.id);
+    const result = await onuControl.enableOnu(
+      id,
+      session.user.tenantId,
+      session.user.id,
+    );
 
     if (!result.success) {
       return apiSuccess({ enabled: false, error: result.error });

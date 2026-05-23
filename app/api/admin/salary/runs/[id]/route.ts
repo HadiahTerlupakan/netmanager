@@ -3,6 +3,7 @@ import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
   getPayrollRunRepository,
   getPayrollEntryRepository,
+  processAdvanceDeductions,
 } from "@/modules/salary";
 import { logger } from "@/lib/logger";
 
@@ -24,7 +25,7 @@ async function publishSalaryProcessedEvents(
   periodStart: Date,
 ) {
   const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
-  const entries = await entryRepo.findCalculatedSummaries(runId, tenantId);
+  const entries = await entryRepo.findCalculatedEventDetails(runId, tenantId);
 
   const month = periodStart.getMonth() + 1;
   const year = periodStart.getFullYear();
@@ -37,6 +38,15 @@ async function publishSalaryProcessedEvents(
         userId: entry.userId,
         grossSalary: String(entry.totalEarnings),
         pph21Amount: String(entry.totalTax),
+        totalDeductions: String(entry.totalDeductions),
+        bpjsEmployee: String(entry.bpjsEmployee),
+        bpjsEmployer: String(entry.bpjsEmployer),
+        advanceDeducted: String(entry.advanceDeducted),
+        netSalary: String(entry.netSalary),
+        advanceDeductions: entry.advanceDeductions.map((a) => ({
+          advanceId: a.advanceId,
+          amount: String(a.amount),
+        })),
         month,
         year,
         processedAt: new Date().toISOString(),
@@ -111,6 +121,14 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     publishSalaryProcessedEvents(id, tenantId, existing.periodStart).catch(
       () => {},
     );
+  }
+
+  if (body.status === "PAID" && existing.status !== "PAID") {
+    processAdvanceDeductions(id, tenantId).catch((err: unknown) => {
+      logger.warn(
+        `[SalaryRun] Failed to process advance deductions for run ${id}: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+    });
   }
 
   return apiSuccess({ run }, { message: "Payroll run berhasil diperbarui" });

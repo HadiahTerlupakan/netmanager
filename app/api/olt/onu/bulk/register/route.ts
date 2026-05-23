@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -28,12 +29,17 @@ export async function POST(req: NextRequest) {
       },
     }));
 
-    const result = await bulkService.bulkRegister(items, session.user.id);
+    const result = await bulkService.bulkRegister(
+      items,
+      session.user.tenantId,
+      session.user.id,
+    );
     return apiSuccess(result.data);
   } catch (error) {
-    logger.error("Error bulk register:", error);
-    if (error instanceof Error && error.name === "ZodError")
+    if (error instanceof ZodError) {
       return ApiErrors.badRequest("Data tidak valid");
+    }
+    logger.error("Error bulk register:", error);
     const msg = error instanceof Error ? error.message : "Bulk register gagal";
     return ApiErrors.internalError(msg);
   }

@@ -17,10 +17,13 @@ import {
   handleMitraWithdrawalAccounting,
   handleInvestorPayoutAccounting,
   handleInvestorDepositAccounting,
+  handleSalaryProcessedAccounting,
+  handleAdvanceDisbursedAccounting,
 } from "@/modules/accounting";
 import {
   handleInvoiceCreatedTax,
   handleExpenseApprovedTax,
+  handlePurchaseOrderPaidTax,
   handleSalaryProcessedTax,
   handleInvestorPayoutTax,
 } from "@/modules/tax";
@@ -38,6 +41,7 @@ import {
   handleInvoiceNotification,
 } from "@/modules/notification";
 import { handleInvoicePaidBilling } from "@/modules/finance";
+import { handlePelangganStatusForOlt } from "@/modules/olt";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -125,6 +129,21 @@ export function registerDefaultHandlers(): void {
     handleCustomerStatusEvent,
   );
   registerEventHandler(EVENT_NAMES.CUSTOMER_DELETED, handleCustomerStatusEvent);
+
+  // --- OLT SYNC: disable/enable ONU saat lifecycle pelanggan ---
+
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_SUSPENDED,
+    handlePelangganStatusForOlt,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ISOLATED,
+    handlePelangganStatusForOlt,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ACTIVATED,
+    handlePelangganStatusForOlt,
+  );
 
   // --- NOTIFICATION DISPATCH (multi-channel WA/Email/Push/In-App) ---
   // Fan-out: CUSTOMER_* events sudah punya handler sync MikroTik di atas;
@@ -457,11 +476,23 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
     handleInvestorDepositAccounting,
   );
+  registerEventHandler(
+    EVENT_NAMES.SALARY_PROCESSED,
+    handleSalaryProcessedAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.SALARY_ADVANCE_DISBURSED,
+    handleAdvanceDisbursedAccounting,
+  );
 
   // --- TAX EVENTS ---
 
   registerEventHandler(EVENT_NAMES.INVOICE_CREATED, handleInvoiceCreatedTax);
   registerEventHandler(EVENT_NAMES.EXPENSE_APPROVED, handleExpenseApprovedTax);
+  registerEventHandler(
+    EVENT_NAMES.PURCHASE_ORDER_PAID,
+    handlePurchaseOrderPaidTax,
+  );
   registerEventHandler(EVENT_NAMES.SALARY_PROCESSED, handleSalaryProcessedTax);
   registerEventHandler(
     EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,

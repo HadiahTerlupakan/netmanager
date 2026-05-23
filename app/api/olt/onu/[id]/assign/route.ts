@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -25,6 +26,7 @@ export async function POST(
 
     const result = await provisioningService.assignOnuToPelanggan(
       id,
+      session.user.tenantId,
       validated.pelangganId,
       session.user.id,
     );
@@ -35,10 +37,10 @@ export async function POST(
 
     return apiSuccess(result.data);
   } catch (error) {
-    logger.error("Error assigning ONU:", error);
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error assigning ONU:", error);
     const msg = error instanceof Error ? error.message : "Gagal assign ONU";
     return ApiErrors.internalError(msg);
   }

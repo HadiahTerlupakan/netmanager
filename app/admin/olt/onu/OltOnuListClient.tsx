@@ -22,7 +22,6 @@ interface OnuItem {
   txPower: number | null;
   oltRxPower: number | null;
   olt?: { name: string; vendor: string };
-  pelanggan?: { nama: string; username: string } | null;
 }
 
 interface OltOption {
@@ -219,27 +218,6 @@ export default function OltOnuListClient() {
     return "•";
   };
 
-  const extractPppoe = (item: OnuItem): string => {
-    if (item.pelanggan?.username) return item.pelanggan.username;
-    const desc = item.description ?? "";
-
-    // Kalau description berisi format email (contains @), pakai email itu
-    const emailMatch = desc.match(/[\w.-]+@[\w.-]+/);
-    if (emailMatch) return emailMatch[0];
-
-    // Strip prefix "ONU-X:Y-" kalau ada, lalu ambil token sebelum tanda dash
-    const stripped = desc.replace(/^ONU-\d+:\d+-?/i, "");
-
-    // Format "idpelanggan-Nama" → ambil idpelanggan
-    const idMatch = stripped.match(/^(\S+?)-/);
-    if (idMatch) return idMatch[1];
-
-    // Kalau cuma satu kata (contoh: "ROSIDIN", "ONU-7:5") → tampilkan apa adanya
-    if (stripped) return stripped;
-
-    return item.serialNumber;
-  };
-
   const columns: Column<OnuItem>[] = [
     {
       key: "olt",
@@ -287,16 +265,6 @@ export default function OltOnuListClient() {
       render: (item) => (
         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
           ONU-{item.ponPort}:{item.onuIndex}
-        </span>
-      ),
-    },
-    {
-      key: "pppoe",
-      header: "PPPoE",
-      priority: "secondary",
-      render: (item) => (
-        <span className="text-gray-700 dark:text-gray-300 text-xs">
-          {extractPppoe(item)}
         </span>
       ),
     },

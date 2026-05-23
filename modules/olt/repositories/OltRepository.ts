@@ -9,8 +9,10 @@ import type {
 import type { IOltRepository } from "../domain/ports/IOltRepository";
 
 export class OltRepository implements IOltRepository {
-  async findById(id: string): Promise<OltDevice | null> {
-    const device = await prisma.oltDevice.findUnique({ where: { id } });
+  async findById(id: string, tenantId: string): Promise<OltDevice | null> {
+    const device = await prisma.oltDevice.findFirst({
+      where: { id, tenantId },
+    });
     return device as OltDevice | null;
   }
 
@@ -58,6 +60,9 @@ export class OltRepository implements IOltRepository {
         telnetPort: input.telnetPort ?? null,
         telnetUser: input.telnetUser ?? null,
         telnetPass: input.telnetPass ?? null,
+        telnetEnablePass: input.telnetEnablePass ?? null,
+        defaultSlotFrame: input.defaultSlotFrame ?? 1,
+        defaultSlot: input.defaultSlot ?? 1,
         totalPonPorts: input.totalPonPorts,
         location: input.location ?? null,
       },
@@ -65,16 +70,29 @@ export class OltRepository implements IOltRepository {
     return device as OltDevice;
   }
 
-  async update(id: string, input: OltDeviceUpdateInput): Promise<OltDevice> {
-    const device = await prisma.oltDevice.update({
-      where: { id },
+  async update(
+    id: string,
+    tenantId: string,
+    input: OltDeviceUpdateInput,
+  ): Promise<OltDevice> {
+    const result = await prisma.oltDevice.updateMany({
+      where: { id, tenantId },
       data: input,
     });
+    if (result.count === 0) {
+      throw new Error("OLT tidak ditemukan");
+    }
+    const device = await prisma.oltDevice.findUnique({ where: { id } });
     return device as OltDevice;
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.oltDevice.delete({ where: { id } });
+  async delete(id: string, tenantId: string): Promise<void> {
+    const result = await prisma.oltDevice.deleteMany({
+      where: { id, tenantId },
+    });
+    if (result.count === 0) {
+      throw new Error("OLT tidak ditemukan");
+    }
   }
 
   private buildWhereClause(filters: OltDeviceListFilters) {

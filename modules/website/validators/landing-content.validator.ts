@@ -8,6 +8,7 @@ export const heroSchema = z.object({
   ctaPrimary: z.string().min(1).max(50),
   ctaSecondary: z.string().min(1).max(50),
   ctaLink: z.string().min(1).max(200),
+  logoUrl: z.string().max(500).nullable().optional(),
 });
 
 export const featureSchema = z.object({
@@ -58,4 +59,5 @@ export const footerSchema = z.object({
     z.array(z.object({ label: z.string(), href: z.string() })),
   ),
   socials: z.record(z.string(), z.string()).nullable().optional(),
+  logoUrl: z.string().max(500).nullable().optional(),
 });

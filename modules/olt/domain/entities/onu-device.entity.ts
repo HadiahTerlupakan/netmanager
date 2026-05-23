@@ -85,6 +85,7 @@ export interface RemoveVlanParams {
 }
 
 export interface OnuStatusInfo {
+  slot: number;
   ponPort: number;
   onuIndex: number;
   serialNumber: string;

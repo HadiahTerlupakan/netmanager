@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import {
@@ -16,9 +16,11 @@ import {
   FiFileText,
   FiUser,
 } from "react-icons/fi";
-import { getWithAuth, deleteWithAuth } from "@/lib/api-client";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { useApi } from "@/lib/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
 
 interface BarangKeluar {
@@ -58,6 +60,16 @@ interface BarangKeluar {
   } | null;
 }
 
+interface KeluarListResponse {
+  keluarList: BarangKeluar[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 interface KeluarTableProps {
   onEdit?: ((keluar: BarangKeluar) => void) | undefined;
   onView?: ((keluar: BarangKeluar) => void) | undefined;
@@ -69,6 +81,8 @@ interface KeluarTableProps {
   gudangId?: string;
 }
 
+const PAGE_LIMIT = 20;
+
 export function KeluarTable({
   onEdit,
   onView,
@@ -79,81 +93,60 @@ export function KeluarTable({
   siteId = "",
   gudangId = "",
 }: KeluarTableProps) {
-  const [keluarList, setKeluarList] = useState<BarangKeluar[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    kode: string;
+    jumlah: number;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: PAGE_LIMIT.toString(),
+    });
+    if (search) params.append("search", search);
+    if (startDate)
+      params.append("startDate", new Date(startDate).toISOString());
+    if (endDate) params.append("endDate", new Date(endDate).toISOString());
+    if (siteId) params.append("siteId", siteId);
+    if (gudangId) params.append("gudangId", gudangId);
+    return `/api/inventory/keluar?${params.toString()}${
+      refreshTrigger > 0 ? `&_r=${refreshTrigger}` : ""
+    }`;
+  }, [page, search, startDate, endDate, siteId, gudangId, refreshTrigger]);
+
+  const {
+    data,
+    error,
+    isLoading: loading,
+    mutate,
+  } = useApi<KeluarListResponse>(url);
+
+  const keluarList = data?.keluarList ?? [];
+  const pagination = data?.pagination ?? {
     page: 1,
-    limit: 20,
+    limit: PAGE_LIMIT,
     total: 0,
     totalPages: 0,
-  });
-
-  const fetchKeluarList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "20",
-      });
-
-      if (search) params.append("search", search);
-      if (startDate)
-        params.append("startDate", new Date(startDate).toISOString());
-      if (endDate) params.append("endDate", new Date(endDate).toISOString());
-      if (siteId) params.append("siteId", siteId);
-      if (gudangId) params.append("gudangId", gudangId);
-
-      const response = await getWithAuth(`/api/inventory/keluar?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal memuat data");
-      }
-
-      const responseData = data.data || data;
-      setKeluarList(responseData.keluarList || []);
-      setPagination((prev) => ({
-        ...prev,
-        ...(responseData.pagination || {}),
-      }));
-    } catch (error) {
-      clientLogger.error("Failed to fetch barang keluar:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, startDate, endDate, siteId, gudangId]);
-
-  // Fetch on mount + refreshTrigger via comparator (selama render, bukan effect)
-  const [prevTrigger, setPrevTrigger] = useState<number | null>(null);
-  if (prevTrigger !== refreshTrigger) {
-    setPrevTrigger(refreshTrigger);
-    void fetchKeluarList();
-  }
+  };
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
-
-  // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    clientLogger.info("[Inventory] KeluarTable received update, refreshing...");
-    fetchKeluarList();
+    void mutate();
   });
 
-  const handleDelete = async (id: string, kode: string, jumlah: number) => {
-    if (
-      !confirm(
-        `Apakah Anda yakin ingin menghapus record barang keluar ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan menambah stok barang kembali!`,
-      )
-    ) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, kode } = confirmDelete;
+    setDeleting(true);
 
     try {
-      const response = await deleteWithAuth(`/api/inventory/keluar/${id}`);
+      const response = await fetch(`/api/inventory/keluar/${id}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -162,19 +155,22 @@ export function KeluarTable({
         );
       }
 
-      // Refresh data
-      window.location.reload();
-    } catch (error) {
-      clientLogger.error("Failed to delete barang keluar:", error);
-      alert(
-        error instanceof Error
-          ? error.message
+      showToast("success", `Record barang keluar ${kode} berhasil dihapus`);
+      await mutate();
+      setConfirmDelete(null);
+    } catch (err) {
+      clientLogger.error("Failed to delete barang keluar:", err);
+      showToast(
+        "error",
+        err instanceof Error
+          ? err.message
           : "Gagal menghapus record barang keluar",
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
-  // Define columns for ResponsiveTable
   const columns: Column<BarangKeluar>[] = [
     {
       key: "tanggal",
@@ -329,7 +325,6 @@ export function KeluarTable({
     },
   ];
 
-  // Render actions for each row
   const renderActions = (item: BarangKeluar) => (
     <>
       <Button
@@ -351,7 +346,13 @@ export function KeluarTable({
       <Button
         variant="destructive"
         size="icon-sm"
-        onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
+        onClick={() =>
+          setConfirmDelete({
+            id: item.id,
+            kode: item.barang.kode,
+            jumlah: item.jumlah,
+          })
+        }
         title="Hapus"
       >
         <FiTrash2 className="h-4 w-4" />
@@ -363,11 +364,10 @@ export function KeluarTable({
     <div>
       {error && (
         <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {error.message || "Gagal memuat data"}
         </div>
       )}
 
-      {/* Responsive Table */}
       <ResponsiveTable
         data={keluarList}
         columns={columns}
@@ -378,7 +378,6 @@ export function KeluarTable({
         renderActions={renderActions}
       />
 
-      {/* Pagination */}
       {pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 gap-3">
           <div className="text-sm text-gray-700 dark:text-gray-300">
@@ -409,6 +408,21 @@ export function KeluarTable({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Hapus Record Barang Keluar"
+        description={
+          confirmDelete
+            ? `Apakah Anda yakin ingin menghapus record barang keluar ${confirmDelete.kode} (${confirmDelete.jumlah} pcs)? Stok barang akan ditambahkan kembali.`
+            : ""
+        }
+        confirmText={deleting ? "Menghapus..." : "Hapus"}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) setConfirmDelete(null);
+        }}
+      />
     </div>
   );
 }

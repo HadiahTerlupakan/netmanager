@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { serialNumberSchema } from "./onu.validator";
 
 export const bulkDisableEnableSchema = z.object({
   onuIds: z
@@ -12,7 +13,7 @@ export const bulkRegisterSchema = z.object({
     .array(
       z.object({
         oltId: z.string().min(1),
-        serialNumber: z.string().min(1),
+        serialNumber: serialNumberSchema,
         ponPort: z.coerce.number().int().min(1),
         onuIndex: z.coerce.number().int().min(1).optional(),
       }),

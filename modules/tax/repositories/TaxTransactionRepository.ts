@@ -23,6 +23,9 @@ function toDomain(row: {
   periodMonth: number;
   journalId: string | null;
   notes: string | null;
+  fakturPajakNo: string | null;
+  fakturPajakDate: Date | null;
+  counterpartNpwp: string | null;
   createdAt: Date;
 }): TaxTransaction {
   return {
@@ -39,6 +42,9 @@ function toDomain(row: {
     periodMonth: row.periodMonth,
     journalId: row.journalId,
     notes: row.notes,
+    fakturPajakNo: row.fakturPajakNo,
+    fakturPajakDate: row.fakturPajakDate,
+    counterpartNpwp: row.counterpartNpwp,
     createdAt: row.createdAt,
   };
 }
@@ -59,6 +65,9 @@ export class TaxTransactionRepository implements ITaxTransactionRepository {
         periodMonth: input.periodMonth,
         journalId: input.journalId ?? null,
         notes: input.notes ?? null,
+        fakturPajakNo: input.fakturPajakNo ?? null,
+        fakturPajakDate: input.fakturPajakDate ?? null,
+        counterpartNpwp: input.counterpartNpwp ?? null,
       },
     });
     return toDomain(row);

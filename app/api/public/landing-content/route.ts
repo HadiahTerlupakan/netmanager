@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { apiSuccess, createHandler } from "@/lib/api";
 import { LandingContentService } from "@/modules/website";
 
 const service = new LandingContentService();
 
-export async function GET(_request: NextRequest) {
+export const GET = createHandler({ auth: false }, async () => {
   const content = await service.getAllContent();
-
-  return NextResponse.json(
-    { success: true, data: content },
-    {
-      headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-      },
+  return apiSuccess(content, {
+    headers: {
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
     },
-  );
-}
+  });
+});

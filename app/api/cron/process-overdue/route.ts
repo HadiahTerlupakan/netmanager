@@ -9,10 +9,17 @@ import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
+import { logger } from "@/lib/logger";
 import { AutomaticIsolationService } from "@/modules/finance";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * @deprecated Gunakan `/api/cron/reconcile-billing-schedules` sebagai canonical
+ * endpoint. Route ini dipertahankan hanya untuk backward-compatibility dan
+ * akan dihapus pada rilis berikutnya. Logika eksekusi delegasi ke
+ * `BillingScheduleReconciliationService` lewat `AutomaticIsolationService`.
+ */
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -21,6 +28,10 @@ export async function GET(request: NextRequest) {
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return ApiErrors.unauthorized("Tidak terautentikasi");
     }
+
+    logger.warn(
+      "[Cron process-overdue] Endpoint deprecated — beralih ke /api/cron/reconcile-billing-schedules",
+    );
 
     const lockResult = await acquireCronLock(
       "route:processOverdueCompatibility",
@@ -40,6 +51,7 @@ export async function GET(request: NextRequest) {
           skipped: true,
           reason: "Lock already held",
           mode: "compatibility",
+          deprecated: true,
         },
         {
           message:
@@ -53,6 +65,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess(
       {
         mode: "compatibility",
+        deprecated: true,
         ...result,
       },
       {

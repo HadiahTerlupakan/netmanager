@@ -134,7 +134,7 @@ export class PeriodCloseService {
     const labaDitahan = await this.coaRepo.findByCode(period.tenantId, "3-200");
     if (!labaRugiBerjalan || !labaDitahan) {
       throw new AccountingError(
-        "COA 3-300 atau 3-200 tidak ditemukan",
+        "COA 3-300 (Laba/Rugi Berjalan) atau 3-200 (Laba Ditahan) belum di-seed",
         "COA_NOT_FOUND",
       );
     }

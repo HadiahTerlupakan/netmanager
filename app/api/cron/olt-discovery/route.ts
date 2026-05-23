@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { OnuDiscoveryService } from "@/modules/olt";
 import { prisma } from "@/modules/database";
@@ -7,10 +8,13 @@ import { prisma } from "@/modules/database";
 const discoveryService = new OnuDiscoveryService();
 
 function validateCronSecret(request: NextRequest): boolean {
-  const authHeader = request.headers.get("authorization");
+  const authHeader = request.headers.get("authorization") ?? "";
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return false;
-  return authHeader === `Bearer ${cronSecret}`;
+
+  const expected = `Bearer ${cronSecret}`;
+  if (authHeader.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
 }
 
 export async function POST(request: NextRequest) {
@@ -37,8 +41,4 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : "Discovery cron failed";
     return ApiErrors.internalError(msg);
   }
-}
-
-export async function GET(request: NextRequest) {
-  return POST(request);
 }

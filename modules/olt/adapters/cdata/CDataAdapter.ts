@@ -5,6 +5,7 @@ import type {
 } from "../../domain/ports/IOltAdapter";
 import type {
   DeregisterOnuParams,
+  DiscoveredRegisteredOnu,
   OnuStatusInfo,
   OpticalPower,
   RegisteredOnu,
@@ -30,6 +31,32 @@ export class CDataAdapter implements IOltAdapter {
     _device: OltDevice,
   ): Promise<ServiceResult<UnregisteredOnu[]>> {
     return this.notImplemented("discoverUnregisteredOnus");
+  }
+  async discoverRegisteredOnus(
+    _device: OltDevice,
+  ): Promise<ServiceResult<DiscoveredRegisteredOnu[]>> {
+    return this.notImplemented("discoverRegisteredOnus");
+  }
+  async discoverServicePortVlans(
+    _device: OltDevice,
+  ): Promise<
+    ServiceResult<Map<string, { vlanId: number; serviceMode: number }>>
+  > {
+    return this.notImplemented("discoverServicePortVlans");
+  }
+  async discoverOnuPhaseStates(
+    _device: OltDevice,
+  ): Promise<ServiceResult<Map<string, OnuStatusInfo["status"]>>> {
+    return this.notImplemented("discoverOnuPhaseStates");
+  }
+  async discoverOnuRxPowers(
+    _device: OltDevice,
+  ): Promise<
+    ServiceResult<
+      Map<string, { rxPower: number | null; txPower: number | null }>
+    >
+  > {
+    return this.notImplemented("discoverOnuRxPowers");
   }
   async findOnuBySerialNumber(
     _device: OltDevice,

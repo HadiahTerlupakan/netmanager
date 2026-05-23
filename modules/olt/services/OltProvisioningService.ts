@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { ServiceResult } from "../domain/ports/IOltAdapter";
 import type {
   OnuDevice,
@@ -12,6 +12,8 @@ import { OltAdapterFactory } from "../adapters/OltAdapterFactory";
 import { OltConnectionManager } from "../adapters/OltConnectionManager";
 import { OltCommandLogService } from "./OltCommandLogService";
 
+const PRISMA_UNIQUE_VIOLATION = "P2002";
+
 export class OltProvisioningService {
   private oltRepo = new OltRepository();
   private onuRepo = new OnuRepository();
@@ -22,10 +24,11 @@ export class OltProvisioningService {
 
   async registerOnu(
     oltId: string,
+    tenantId: string,
     params: RegisterOnuParams,
     userId: string,
   ): Promise<ServiceResult<OnuDevice>> {
-    const olt = await this.oltRepo.findById(oltId);
+    const olt = await this.oltRepo.findById(oltId, tenantId);
     if (!olt) {
       return {
         success: false,
@@ -34,12 +37,30 @@ export class OltProvisioningService {
       };
     }
 
-    const existing = await this.onuRepo.findBySerialNumber(params.serialNumber);
+    const existing = await this.onuRepo.findBySerialNumber(
+      tenantId,
+      params.serialNumber,
+    );
     if (existing && existing.status !== "UNREGISTERED") {
       return {
         success: false,
         error: `ONU ${params.serialNumber} sudah terdaftar`,
         code: "ONU_ALREADY_REGISTERED",
+      };
+    }
+
+    if (
+      params.onuIndex !== undefined &&
+      (await this.onuRepo.findRegisteredAtPosition(
+        olt.id,
+        params.ponPort,
+        params.onuIndex,
+      ))
+    ) {
+      return {
+        success: false,
+        error: `Posisi ${params.ponPort}:${params.onuIndex} sudah terpakai`,
+        code: "POSITION_TAKEN",
       };
     }
 
@@ -63,26 +84,41 @@ export class OltProvisioningService {
       return { success: false, error: result.error, code: result.code };
     }
 
-    const onu = existing
-      ? await this.onuRepo.update(existing.id, {
-          ponPort: result.data.ponPort,
-          onuIndex: result.data.onuIndex,
-          status: "REGISTERED" as OnuDevice["status"],
-          registeredAt: new Date(),
-          bandwidthProfile: params.bandwidthProfile ?? null,
-          vlanId: params.vlanId ?? null,
-        })
-      : await this.onuRepo.create({
-          tenantId: olt.tenantId,
-          oltId: olt.id,
-          serialNumber: params.serialNumber,
-          ponPort: result.data.ponPort,
-          onuIndex: result.data.onuIndex,
-          status: "REGISTERED",
-          registeredAt: new Date(),
-          bandwidthProfile: params.bandwidthProfile,
-          vlanId: params.vlanId,
-        });
+    let onu: OnuDevice;
+    try {
+      onu = existing
+        ? await this.onuRepo.update(existing.id, tenantId, {
+            ponPort: result.data.ponPort,
+            onuIndex: result.data.onuIndex,
+            status: "REGISTERED",
+            registeredAt: new Date(),
+            bandwidthProfile: params.bandwidthProfile ?? null,
+            vlanId: params.vlanId ?? null,
+          })
+        : await this.onuRepo.create({
+            tenantId: olt.tenantId,
+            oltId: olt.id,
+            serialNumber: params.serialNumber,
+            ponPort: result.data.ponPort,
+            onuIndex: result.data.onuIndex,
+            status: "REGISTERED",
+            registeredAt: new Date(),
+            bandwidthProfile: params.bandwidthProfile,
+            vlanId: params.vlanId,
+          });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === PRISMA_UNIQUE_VIOLATION
+      ) {
+        return {
+          success: false,
+          error: `ONU ${params.serialNumber} sudah terdaftar (race)`,
+          code: "ONU_ALREADY_REGISTERED",
+        };
+      }
+      throw error;
+    }
 
     await this.commandLog.log({
       tenantId: olt.tenantId,
@@ -95,10 +131,11 @@ export class OltProvisioningService {
     });
 
     const preReg = await this.preRegRepo.findPendingBySerialNumber(
+      tenantId,
       params.serialNumber,
     );
     if (preReg) {
-      await this.preRegRepo.markCompleted(preReg.id);
+      await this.preRegRepo.markCompleted(preReg.id, tenantId);
     }
 
     logger.info(
@@ -109,9 +146,10 @@ export class OltProvisioningService {
 
   async deregisterOnu(
     onuId: string,
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<void>> {
-    const onu = await this.onuRepo.findById(onuId);
+    const onu = await this.onuRepo.findById(onuId, tenantId);
     if (!onu) {
       return {
         success: false,
@@ -119,8 +157,12 @@ export class OltProvisioningService {
         code: "NOT_FOUND",
       };
     }
+    if (onu.onuIndex === null) {
+      await this.onuRepo.delete(onuId, tenantId);
+      return { success: true, data: undefined };
+    }
 
-    const olt = await this.oltRepo.findById(onu.oltId);
+    const olt = await this.oltRepo.findById(onu.oltId, tenantId);
     if (!olt) {
       return {
         success: false,
@@ -149,7 +191,7 @@ export class OltProvisioningService {
       return result;
     }
 
-    await this.onuRepo.delete(onuId);
+    await this.onuRepo.delete(onuId, tenantId);
 
     await this.commandLog.log({
       tenantId: olt.tenantId,
@@ -172,10 +214,11 @@ export class OltProvisioningService {
 
   async assignOnuToPelanggan(
     onuId: string,
+    tenantId: string,
     pelangganId: string,
     userId: string,
   ): Promise<ServiceResult<OnuDevice>> {
-    const onu = await this.onuRepo.findById(onuId);
+    const onu = await this.onuRepo.findById(onuId, tenantId);
     if (!onu) {
       return {
         success: false,
@@ -184,9 +227,9 @@ export class OltProvisioningService {
       };
     }
 
-    const updated = await this.onuRepo.update(onuId, {
+    const updated = await this.onuRepo.update(onuId, tenantId, {
       pelangganId,
-      status: "ACTIVE" as OnuDevice["status"],
+      status: "ACTIVE",
     });
 
     await this.commandLog.log({

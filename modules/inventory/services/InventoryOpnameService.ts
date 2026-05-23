@@ -2,6 +2,13 @@ import { isSuperAdmin } from "@/lib/auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { prisma } from "@/modules/database";
 
+import { InventoryRepository } from "../repositories/InventoryRepository";
+import type {
+  InventoryOpnameRecord,
+  UpdateStockOpnameInput,
+  UpdatedStockOpnameResult,
+} from "../domain/ports/IInventoryOperationRepository";
+
 import {
   createInventoryOpname,
   createOpnameInTransaction,
@@ -9,8 +16,11 @@ import {
 } from "./inventory-opname-create.helpers";
 import {
   buildEmptyOpnameListResponse,
+  buildListOpnameStatsWhere,
   buildListOpnameWhere,
+  computeOpnameHistoryStats,
   findPagedOpnameRecords,
+  type OpnameHistoryStats,
 } from "./inventory-opname-list.helpers";
 
 type InventoryUserContext = {
@@ -27,9 +37,28 @@ export type ListInventoryOpnameInput = {
   user: InventoryUserContext;
   barangId?: string;
   gudangId?: string;
+  tanggalMulai?: string;
+  tanggalSelesai?: string;
+  alasanSelisih?: string;
   page: number;
   limit: number;
 };
+
+export type OpnameHistoryStatsInput = Omit<
+  ListInventoryOpnameInput,
+  "page" | "limit"
+>;
+
+export type UpdateInventoryOpnameInput = UpdateStockOpnameInput & {
+  user: InventoryUserContext;
+};
+
+export type DeleteInventoryOpnameInput = {
+  id: string;
+  user: InventoryUserContext;
+};
+
+export type GetInventoryOpnameRecordInput = DeleteInventoryOpnameInput;
 
 export type CreateInventoryOpnameInput = {
   user: InventoryUserContext;
@@ -74,6 +103,10 @@ async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
 }
 
 export class InventoryOpnameService {
+  constructor(
+    private readonly inventoryRepository: InventoryRepository = new InventoryRepository(),
+  ) {}
+
   async listOpname(input: ListInventoryOpnameInput) {
     await ensureTenantContextForNonSuperAdmin(input.user);
     const where = await buildListOpnameWhere(input);
@@ -83,6 +116,39 @@ export class InventoryOpnameService {
       page: input.page,
       limit: input.limit,
     });
+  }
+
+  /** Hitung agregat statistik untuk Riwayat Opname dengan filter yang sama. */
+  async getHistoryStats(
+    input: OpnameHistoryStatsInput,
+  ): Promise<OpnameHistoryStats> {
+    await ensureTenantContextForNonSuperAdmin(input.user);
+    const where = await buildListOpnameStatsWhere(input);
+    if (!where) return computeOpnameHistoryStats(null);
+    return computeOpnameHistoryStats(where);
+  }
+
+  /** Ambil satu record opname (tenant-scoped). */
+  async getOpnameRecord(
+    input: GetInventoryOpnameRecordInput,
+  ): Promise<InventoryOpnameRecord | null> {
+    await ensureTenantContextForNonSuperAdmin(input.user);
+    return this.inventoryRepository.getOpnameRecord(input.id);
+  }
+
+  /** Update opname dan sinkronkan stok. */
+  async updateOpname(
+    input: UpdateInventoryOpnameInput,
+  ): Promise<UpdatedStockOpnameResult> {
+    await ensureTenantContextForNonSuperAdmin(input.user);
+    const { user: _user, ...payload } = input;
+    return this.inventoryRepository.updateOpname(payload);
+  }
+
+  /** Hapus opname dan kembalikan stok ke kondisi sebelum opname. */
+  async deleteOpname(input: DeleteInventoryOpnameInput): Promise<void> {
+    await ensureTenantContextForNonSuperAdmin(input.user);
+    await this.inventoryRepository.deleteOpname(input.id);
   }
 
   /** Buat stock opname dan sinkronkan selisih stok. */

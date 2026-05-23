@@ -1,7 +1,7 @@
-import { InvoiceStatus } from "../types/invoice.enums";
 import { prismaBilling } from "@/modules/database";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
+import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 export class PaymentCancellationError extends Error {
   constructor(
@@ -38,22 +38,8 @@ export async function cancelPaidPayment(options: {
     }
   }
 
-  const newPaidAmount = calculatePaidAmount(invoice.paidAmount, payment.amount);
-  const newStatus = calculateInvoiceStatus(
-    newPaidAmount,
-    invoice.totalAmount,
-    invoice.status,
-  );
-
   await cancelPayment(options.paymentId, options.adminLabel);
-  const updatedInvoice = await updateInvoice(
-    invoice.id,
-    newPaidAmount,
-    newStatus,
-  );
-  const { syncInvoiceBillingSchedules } =
-    await import("./billingScheduleLifecycle");
-  await syncInvoiceBillingSchedules(updatedInvoice);
+  await new InvoicePaymentStateService().recompute(invoice.id);
   await notifyCustomer(payment.id, invoice.id, invoice.pelangganId);
 }
 
@@ -83,54 +69,12 @@ function assertCancellablePayment(
   }
 }
 
-function calculatePaidAmount(paidAmount: bigint, paymentAmount: bigint) {
-  const diff = paidAmount - paymentAmount;
-  return diff > 0n ? diff : 0n;
-}
-
-function calculateInvoiceStatus(
-  paidAmount: bigint,
-  totalAmount: bigint,
-  currentStatus: InvoiceStatus,
-): InvoiceStatus {
-  if (paidAmount === 0n) {
-    return InvoiceStatus.SENT;
-  }
-
-  if (paidAmount < totalAmount) {
-    return InvoiceStatus.PARTIAL_PAID;
-  }
-
-  return currentStatus;
-}
-
 function cancelPayment(paymentId: string, adminLabel: string) {
   return prismaBilling.payment.update({
     where: { id: paymentId },
     data: {
       gatewayStatus: "CANCELLED",
       notes: `Cancelled by admin ${adminLabel} on ${new Date().toISOString()}`,
-    },
-  });
-}
-
-function updateInvoice(
-  invoiceId: string,
-  paidAmount: bigint,
-  status: InvoiceStatus,
-) {
-  return prismaBilling.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      paidAmount,
-      status,
-      ...(status !== InvoiceStatus.PAID ? { paidAt: null } : {}),
-    },
-    select: {
-      id: true,
-      pelangganId: true,
-      dueDate: true,
-      status: true,
     },
   });
 }

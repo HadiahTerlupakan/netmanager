@@ -36,3 +36,5 @@ export {
   calculatePayrollRun,
   type CalculateRunError,
 } from "./services/PayrollCalculationRunService";
+
+export { processAdvanceDeductions } from "./services/AdvancePostPayrollService";

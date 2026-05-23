@@ -50,6 +50,7 @@ export const EVENT_NAMES = {
   EXPENSE_APPROVED: "finance:expense.approved",
   PURCHASE_ORDER_PAID: "finance:purchase_order.paid",
   SALARY_PROCESSED: "salary:salary.processed",
+  SALARY_ADVANCE_DISBURSED: "salary:advance.disbursed",
   MITRA_WITHDRAWAL_COMPLETED: "mitra:withdrawal.completed",
   INVESTOR_PAYOUT_COMPLETED: "investor:payout.completed",
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
@@ -346,9 +347,30 @@ export interface SalaryProcessedPayload extends BaseEventPayload {
   userId: string;
   grossSalary: string;
   pph21Amount: string;
+  /** Total potongan non-pajak (BPJS karyawan + kasbon + lainnya) */
+  totalDeductions?: string;
+  /** Iuran BPJS karyawan (deduction dari gaji) */
+  bpjsEmployee?: string;
+  /** Iuran BPJS perusahaan (employer cost, tambahan ke beban gaji) */
+  bpjsEmployer?: string;
+  /** Total kasbon yang dipotong di periode ini */
+  advanceDeducted?: string;
+  /** Net salary yang dibayarkan ke karyawan (gross - all deductions - pph21) */
+  netSalary?: string;
+  /** Detail pemotongan kasbon per advanceId */
+  advanceDeductions?: { advanceId: string; amount: string }[];
   month: number;
   year: number;
   processedAt: string;
+}
+
+export interface SalaryAdvanceDisbursedPayload extends BaseEventPayload {
+  advanceId: string;
+  tenantId: string;
+  userId: string;
+  amount: string;
+  accountId?: string;
+  disbursedAt: string;
 }
 
 export interface MitraWithdrawalCompletedPayload extends BaseEventPayload {
@@ -447,6 +469,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.EXPENSE_APPROVED]: ExpenseApprovedPayload;
   [EVENT_NAMES.PURCHASE_ORDER_PAID]: PurchaseOrderPaidPayload;
   [EVENT_NAMES.SALARY_PROCESSED]: SalaryProcessedPayload;
+  [EVENT_NAMES.SALARY_ADVANCE_DISBURSED]: SalaryAdvanceDisbursedPayload;
   [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
   [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
@@ -781,6 +804,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.SALARY_PROCESSED]: {
     name: EVENT_NAMES.SALARY_PROCESSED,
+    category: "salary",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.SALARY_ADVANCE_DISBURSED]: {
+    name: EVENT_NAMES.SALARY_ADVANCE_DISBURSED,
     category: "salary",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

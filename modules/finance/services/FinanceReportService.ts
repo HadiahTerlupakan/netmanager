@@ -1,10 +1,13 @@
-import { PurchaseOrderRepository } from "../repositories";
+import {
+  getPurchaseOrderRepository,
+  type IPurchaseOrderRepository,
+} from "@/modules/procurement";
 
-type PurchaseOrderRepo = Pick<PurchaseOrderRepository, "findManyWithTax">;
+type PurchaseOrderRepo = Pick<IPurchaseOrderRepository, "findManyWithTax">;
 
 export class FinanceReportService {
   constructor(
-    private readonly purchaseOrderRepo: PurchaseOrderRepo = new PurchaseOrderRepository(),
+    private readonly purchaseOrderRepo: PurchaseOrderRepo = getPurchaseOrderRepository(),
   ) {}
 
   /** Get reports for finance dashboard. */

@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     const oltId = searchParams.get("oltId");
 
     const profiles = oltId
-      ? await bwService.listByOlt(oltId)
+      ? await bwService.listByOlt(oltId, session.user.tenantId)
       : await bwService.listByTenant(session.user.tenantId);
 
     return apiSuccess(profiles);
@@ -52,10 +53,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(profile, { status: 201 });
   } catch (error) {
-    logger.error("Error creating bandwidth profile:", error);
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error creating bandwidth profile:", error);
     const msg =
       error instanceof Error ? error.message : "Gagal membuat profile";
     return ApiErrors.internalError(msg);

@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
-import { calculateStockByCondition } from "./inventory-api-repository-helpers";
 import { calculateInitialOpnameItems } from "./inventory-opname-api-calculation.helpers";
 
 type PrismaClientLike = Prisma.TransactionClient;
@@ -62,24 +61,38 @@ export class InventoryOpnameApiRepository {
       },
       orderBy: { nama: "asc" },
     });
-    const gudangList = [];
-    for (const gudang of gudangs) {
-      const items = await this.buildOpnameReportItems(
-        gudang.barangGudang,
-        gudang.id,
-      );
-      gudangList.push({
+
+    const lostByPair = await this.aggregateLostStockByPair(
+      gudangs.map((gudang) => gudang.id),
+    );
+
+    return gudangs.map((gudang) => {
+      const items = gudang.barangGudang.map((stockItem) => ({
+        barangId: stockItem.barangId,
+        barangKode: stockItem.barang.kode,
+        barangNama: stockItem.barang.nama,
+        barangSatuan: stockItem.barang.satuan,
+        stokTotal: stockItem.stok,
+        stokBaru: stockItem.stokBaru,
+        stokBekas: stockItem.stokBekas,
+        stokRusak: stockItem.stokRusak,
+        totalHilang: lostByPair.get(`${gudang.id}:${stockItem.barangId}`) ?? 0,
+      }));
+
+      return {
         gudangId: gudang.id,
         gudangKode: gudang.kode,
         gudangNama: gudang.nama,
         gudangLokasi: gudang.lokasi,
         totalBarang: items.length,
         totalStok: items.reduce((sum, item) => sum + item.stokTotal, 0),
+        totalStokBaru: items.reduce((sum, item) => sum + item.stokBaru, 0),
+        totalStokBekas: items.reduce((sum, item) => sum + item.stokBekas, 0),
+        totalStokRusak: items.reduce((sum, item) => sum + item.stokRusak, 0),
         totalHilang: items.reduce((sum, item) => sum + item.totalHilang, 0),
         items,
-      });
-    }
-    return gudangList;
+      };
+    });
   }
 
   /** Hitung data awal opname untuk satu gudang, scoped to tenant. */
@@ -201,41 +214,25 @@ export class InventoryOpnameApiRepository {
     });
   }
 
-  private async buildOpnameReportItems(
-    barangGudangItems: Array<{
-      barangId: string;
-      stok: number;
-      barang: { kode: string; nama: string; satuan: string };
-    }>,
-    gudangId: string,
-  ) {
-    const items = [];
-    for (const stockItem of barangGudangItems) {
-      const [masukData, keluarData] = await Promise.all([
-        this.db.barangMasuk.findMany({
-          where: { barangId: stockItem.barangId, gudangId },
-        }),
-        this.db.barangKeluar.findMany({
-          where: { barangId: stockItem.barangId, gudangId },
-        }),
-      ]);
-      const stockByCondition = calculateStockByCondition(masukData, keluarData);
-      const totalHilang = keluarData
-        .filter((item) => item.isHilang)
-        .reduce((sum, item) => sum + item.jumlah, 0);
-      items.push({
-        barangId: stockItem.barangId,
-        barangKode: stockItem.barang.kode,
-        barangNama: stockItem.barang.nama,
-        barangSatuan: stockItem.barang.satuan,
-        stokTotal: stockItem.stok,
-        stokBaru: stockByCondition.stokBaru,
-        stokBekas: stockByCondition.stokBekas,
-        stokRusak: stockByCondition.stokRusak,
-        totalHilang,
-      });
+  private async aggregateLostStockByPair(
+    gudangIds: string[],
+  ): Promise<Map<string, number>> {
+    const lostMap = new Map<string, number>();
+    if (gudangIds.length === 0) return lostMap;
+
+    const grouped = await this.db.barangKeluar.groupBy({
+      by: ["gudangId", "barangId"],
+      where: { gudangId: { in: gudangIds }, isHilang: true },
+      _sum: { jumlah: true },
+    });
+
+    for (const entry of grouped) {
+      lostMap.set(
+        `${entry.gudangId}:${entry.barangId}`,
+        entry._sum.jumlah ?? 0,
+      );
     }
-    return items;
+    return lostMap;
   }
 
   private async requireCurrentStock(

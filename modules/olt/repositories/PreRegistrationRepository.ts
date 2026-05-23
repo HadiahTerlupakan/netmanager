@@ -25,20 +25,22 @@ interface CreatePreRegInput {
 }
 
 export class PreRegistrationRepository {
-  async findBySerialNumber(
-    serialNumber: string,
+  async findById(
+    id: string,
+    tenantId: string,
   ): Promise<PreRegistration | null> {
-    const record = await prisma.onuPreRegistration.findUnique({
-      where: { serialNumber },
+    const record = await prisma.onuPreRegistration.findFirst({
+      where: { id, tenantId },
     });
     return record as PreRegistration | null;
   }
 
   async findPendingBySerialNumber(
+    tenantId: string,
     serialNumber: string,
   ): Promise<PreRegistration | null> {
     const record = await prisma.onuPreRegistration.findFirst({
-      where: { serialNumber, status: "PENDING" },
+      where: { tenantId, serialNumber, status: "PENDING" },
     });
     return record as PreRegistration | null;
   }
@@ -83,28 +85,28 @@ export class PreRegistrationRepository {
     return record as PreRegistration;
   }
 
-  async markCompleted(id: string): Promise<void> {
-    await prisma.onuPreRegistration.update({
-      where: { id },
+  async markCompleted(id: string, tenantId: string): Promise<void> {
+    await prisma.onuPreRegistration.updateMany({
+      where: { id, tenantId },
       data: { status: "COMPLETED", completedAt: new Date() },
     });
   }
 
-  async markExpired(id: string): Promise<void> {
-    await prisma.onuPreRegistration.update({
-      where: { id },
+  async markExpired(id: string, tenantId: string): Promise<void> {
+    await prisma.onuPreRegistration.updateMany({
+      where: { id, tenantId },
       data: { status: "EXPIRED" },
     });
   }
 
-  async cancel(id: string): Promise<void> {
-    await prisma.onuPreRegistration.update({
-      where: { id },
+  async cancel(id: string, tenantId: string): Promise<void> {
+    await prisma.onuPreRegistration.updateMany({
+      where: { id, tenantId },
       data: { status: "CANCELLED" },
     });
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.onuPreRegistration.delete({ where: { id } });
+  async delete(id: string, tenantId: string): Promise<void> {
+    await prisma.onuPreRegistration.deleteMany({ where: { id, tenantId } });
   }
 }

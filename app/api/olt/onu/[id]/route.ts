@@ -4,9 +4,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { OltOnuService } from "@/modules/olt";
+import { OltOnuService, OltProvisioningService } from "@/modules/olt";
 
 const onuService = new OltOnuService();
+const provisioning = new OltProvisioningService();
 
 export async function GET(
   _req: NextRequest,
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const onu = await onuService.getOnuById(id);
+    const onu = await onuService.getOnuById(id, session.user.tenantId);
     if (!onu) return ApiErrors.notFound("ONU tidak ditemukan");
 
     return apiSuccess(onu);
@@ -44,7 +45,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await onuService.deleteOnu(id);
+    const result = await provisioning.deregisterOnu(
+      id,
+      session.user.tenantId,
+      session.user.id,
+    );
+    if (!result.success) {
+      return ApiErrors.internalError(result.error ?? "Gagal hapus ONU");
+    }
     return apiSuccess({ deleted: true });
   } catch (error) {
     logger.error("Error deleting ONU:", error);

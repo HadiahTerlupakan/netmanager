@@ -1,12 +1,14 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { FiPlus, FiEdit, FiTrash2, FiHome } from "react-icons/fi";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 interface Gudang {
   id: string;
@@ -18,33 +20,40 @@ interface Gudang {
   updatedAt: string;
 }
 
-type GudangPayload = Gudang[] | { gudangs?: Gudang[] };
+interface GudangListResponse {
+  gudangs: Gudang[];
+}
 
 export default function GudangPage() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("gudang:create");
   const canUpdate = hasPermission("gudang:update");
   const canDelete = hasPermission("gudang:delete");
+  const { showToast } = useToast();
 
   const {
-    data: rawGudangs,
+    data,
     error,
     isLoading: loading,
-  } = useApi<GudangPayload>("/api/inventory/gudang?view=all", {
+    mutate,
+  } = useApi<GudangListResponse>("/api/inventory/gudang?view=all", {
     onError: (err) => {
       clientLogger.error("Failed to fetch gudangs:", err);
     },
   });
 
-  const gudangs = useMemo<Gudang[]>(() => {
-    if (Array.isArray(rawGudangs)) return rawGudangs;
-    return rawGudangs?.gudangs ?? [];
-  }, [rawGudangs]);
+  const gudangs = data?.gudangs ?? [];
 
-  const handleDelete = async (id: string, nama: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus gudang "${nama}"?`)) {
-      return;
-    }
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    nama: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, nama } = confirmDelete;
+    setDeleting(true);
 
     try {
       const response = await fetch(`/api/inventory/gudang/${id}`, {
@@ -56,11 +65,17 @@ export default function GudangPage() {
         throw new Error(errData.error || "Gagal menghapus gudang");
       }
 
-      // Refresh data
-      window.location.reload();
-    } catch (error: unknown) {
-      clientLogger.error("Failed to delete gudang:", error);
-      alert(error instanceof Error ? error.message : "Gagal menghapus gudang");
+      showToast("success", `Gudang ${nama} berhasil dihapus`);
+      await mutate();
+      setConfirmDelete(null);
+    } catch (err: unknown) {
+      clientLogger.error("Failed to delete gudang:", err);
+      showToast(
+        "error",
+        err instanceof Error ? err.message : "Gagal menghapus gudang",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -212,7 +227,9 @@ export default function GudangPage() {
                   )}
                   {canDelete && (
                     <button
-                      onClick={() => handleDelete(item.id, item.nama)}
+                      onClick={() =>
+                        setConfirmDelete({ id: item.id, nama: item.nama })
+                      }
                       className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
                       title="Hapus"
                     >
@@ -225,6 +242,21 @@ export default function GudangPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Hapus Gudang"
+        description={
+          confirmDelete
+            ? `Apakah Anda yakin ingin menghapus gudang "${confirmDelete.nama}"? Tindakan ini tidak dapat dibatalkan.`
+            : ""
+        }
+        confirmText={deleting ? "Menghapus..." : "Hapus"}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) setConfirmDelete(null);
+        }}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { inventoryDashboardService } from "@/modules/inventory";
+import { apiSuccess } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const searchParams = req.nextUrl.searchParams;
-    const result = await inventoryDashboardService.getDashboardData({
+    const data = await inventoryDashboardService.getDashboardData({
       session,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
     });
 
-    return NextResponse.json(result);
+    return apiSuccess(data);
   } catch {
     return NextResponse.json(
       { error: "Gagal memuat data dashboard inventaris" },

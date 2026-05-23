@@ -64,28 +64,25 @@ export class InventoryDashboardService {
       });
 
       return {
-        success: true,
-        data: {
-          stats: {
-            totalJenisBarang: dashboardData.totalJenisBarang,
-            totalStokUnit: dashboardData.stockData._sum.stok || 0,
-            totalGudang: dashboardData.totalGudang,
-            totalAsset: dashboardData.totalAsset,
-            lowStockItems: dashboardData.lowStockItems,
-            barangMasukBulanIni: dashboardData.barangMasukBulanIni,
-            barangKeluarBulanIni: dashboardData.barangKeluarBulanIni,
-          },
-          monthlyTrend: this.processMonthlyTrend(
-            dashboardData.monthlyMasuk,
-            dashboardData.monthlyKeluar,
-            trendRange.start,
-            trendRange.end,
-          ),
-          fastMoving,
-          slowMoving,
-          alerts,
-          recentActivities,
+        stats: {
+          totalJenisBarang: dashboardData.totalJenisBarang,
+          totalStokUnit: dashboardData.stockData._sum.stok || 0,
+          totalGudang: dashboardData.totalGudang,
+          totalAsset: dashboardData.totalAsset,
+          lowStockItems: dashboardData.lowStockItems,
+          barangMasukBulanIni: dashboardData.barangMasukBulanIni,
+          barangKeluarBulanIni: dashboardData.barangKeluarBulanIni,
         },
+        monthlyTrend: this.processMonthlyTrend(
+          dashboardData.monthlyMasuk,
+          dashboardData.monthlyKeluar,
+          trendRange.start,
+          trendRange.end,
+        ),
+        fastMoving,
+        slowMoving,
+        alerts,
+        recentActivities,
       };
     } catch (error) {
       logger.error("Error fetching inventory dashboard:", error as Error);

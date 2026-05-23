@@ -6,6 +6,19 @@ const TELNET_TIMEOUT = 30000;
 const LOGIN_PROMPT = /Username:|Login:/i;
 const PASSWORD_PROMPT = /Password:/i;
 const COMMAND_PROMPT = /[#>]\s*$/;
+const ENABLE_PROMPT = /[#]\s*$/;
+
+const ERROR_PATTERNS: RegExp[] = [
+  /\berror\b/i,
+  /\bfail(?:ed|ure)?\b/i,
+  /\binvalid\b/i,
+  /\bnot exist\b/i,
+  /\balready exist\b/i,
+  /\bunknown command\b/i,
+  /\bincomplete\b/i,
+  /\bambiguous\b/i,
+  /%/,
+];
 
 export class ZteTelnetClient {
   private connection: Telnet | null = null;
@@ -32,6 +45,8 @@ export class ZteTelnetClient {
     logger.info(
       `[ZteTelnet] Connected to ${device.name} (${device.ipAddress})`,
     );
+
+    await this.disablePagination();
   }
 
   async execute(command: string): Promise<string> {
@@ -47,22 +62,51 @@ export class ZteTelnetClient {
     return result;
   }
 
+  async executeAndAssertSuccess(command: string): Promise<string> {
+    const output = await this.execute(command);
+    if (this.isErrorOutput(output)) {
+      throw new Error(
+        `Command rejected: "${command}" → ${output.trim().slice(0, 200)}`,
+      );
+    }
+    return output;
+  }
+
   async executeMultiple(commands: string[]): Promise<string[]> {
     const results: string[] = [];
     for (const cmd of commands) {
-      const result = await this.execute(cmd);
+      const result = await this.executeAndAssertSuccess(cmd);
       results.push(result);
     }
     return results;
   }
 
-  async enableMode(): Promise<void> {
-    await this.execute("enable");
+  async enableMode(device: OltDevice): Promise<void> {
+    if (!this.connection) throw new Error("Telnet tidak terkoneksi");
+
+    const enablePass = device.telnetEnablePass ?? device.telnetPass;
+    const result = await this.connection.send("enable", {
+      timeout: TELNET_TIMEOUT,
+      shellPrompt: new RegExp(
+        `${PASSWORD_PROMPT.source}|${ENABLE_PROMPT.source}`,
+        "i",
+      ),
+    });
+
+    if (PASSWORD_PROMPT.test(result)) {
+      if (!enablePass) {
+        throw new Error("Enable password dibutuhkan tapi tidak dikonfigurasi");
+      }
+      await this.connection.send(enablePass, {
+        timeout: TELNET_TIMEOUT,
+        shellPrompt: ENABLE_PROMPT,
+      });
+    }
   }
 
-  async configMode(): Promise<void> {
-    await this.enableMode();
-    await this.execute("configure terminal");
+  async configMode(device: OltDevice): Promise<void> {
+    await this.enableMode(device);
+    await this.executeAndAssertSuccess("configure terminal");
   }
 
   async exitConfig(): Promise<void> {
@@ -91,5 +135,24 @@ export class ZteTelnetClient {
       await this.disconnect();
       throw error;
     }
+  }
+
+  private async disablePagination(): Promise<void> {
+    try {
+      await this.execute("terminal length 0");
+    } catch {
+      // ZTE C300 lama pakai "screen-length 0 temporary"
+      try {
+        await this.execute("screen-length 0 temporary");
+      } catch {
+        logger.warn(
+          "[ZteTelnet] Tidak bisa disable pagination — output mungkin terpotong",
+        );
+      }
+    }
+  }
+
+  private isErrorOutput(output: string): boolean {
+    return ERROR_PATTERNS.some((pattern) => pattern.test(output));
   }
 }

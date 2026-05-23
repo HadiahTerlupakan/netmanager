@@ -29,6 +29,7 @@ describe("PayrollPeriodService", () => {
     mockRepo = {
       findById: vi.fn().mockResolvedValue(mockPeriod),
       findCurrent: vi.fn().mockResolvedValue(mockPeriod),
+      findContainingDate: vi.fn().mockResolvedValue(null),
       findAll: vi.fn().mockResolvedValue([mockPeriod]),
       create: vi.fn().mockResolvedValue(mockPeriod),
       update: vi.fn().mockResolvedValue(mockPeriod),

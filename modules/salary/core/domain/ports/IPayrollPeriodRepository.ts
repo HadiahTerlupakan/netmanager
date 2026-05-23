@@ -15,6 +15,14 @@ export interface IPayrollPeriodRepository {
     scheduleId: string,
     tenantId: string,
   ): Promise<PayrollPeriod | null>;
+  /**
+   * Cari periode yang covers tanggal tertentu (untuk guard locking).
+   * Mengembalikan periode pertama yang cocok di tenant; null kalau tidak ada.
+   */
+  findContainingDate(
+    tenantId: string,
+    date: Date,
+  ): Promise<PayrollPeriod | null>;
   findAll(filter: PeriodFilter): Promise<PayrollPeriod[]>;
   create(
     data: Omit<PayrollPeriod, "id" | "createdAt" | "updatedAt">,

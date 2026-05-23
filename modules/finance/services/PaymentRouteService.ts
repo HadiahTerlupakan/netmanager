@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import {
   GatewayPaymentStatus,
-  InvoiceStatus,
   PaymentMethod,
   Prisma as PrismaBilling,
 } from "../lib/billing-prisma-boundary";
@@ -9,7 +8,7 @@ import { logActivitySafe } from "@/lib/logger";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
-import { AutomaticBillingService } from "./AutomaticBillingService";
+import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 type PaymentListFilters = {
   pelangganId?: string | null;
@@ -230,7 +229,7 @@ async function syncLinkedInvoicePaymentStatus(invoiceId?: string | null) {
     return;
   }
 
-  await updateLinkedInvoicePaymentStatus(invoiceId);
+  await new InvoicePaymentStateService().recompute(invoiceId);
 }
 
 /** Logs payment creation using route-compatible activity payload. */
@@ -280,70 +279,4 @@ function buildPaymentDateFilter(filters: PaymentListFilters) {
   }
 
   return paymentDate;
-}
-
-async function updateLinkedInvoicePaymentStatus(invoiceId: string) {
-  const invoice = await getInvoiceRepository().findWithPayment(invoiceId);
-  if (!invoice) {
-    return;
-  }
-
-  const totalPaid = invoice.payment.reduce((sum, payment) => {
-    if (
-      !payment.gatewayStatus ||
-      payment.gatewayStatus === GatewayPaymentStatus.PAID
-    ) {
-      return sum + payment.amount;
-    }
-
-    return sum;
-  }, 0n);
-  const updatedInvoice = await getInvoiceRepository().updatePaymentStatus(
-    invoiceId,
-    {
-      paidAmount: totalPaid,
-      status: calculateInvoiceStatus(
-        totalPaid,
-        invoice.totalAmount,
-        invoice.status as InvoiceStatus,
-      ),
-      paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
-    },
-  );
-
-  await syncInvoiceBillingLifecycle(updatedInvoice);
-}
-
-async function syncInvoiceBillingLifecycle(invoice: {
-  id: string;
-  status: string;
-  dueDate: Date;
-  pelangganId: string | null;
-}) {
-  const { cancelInvoiceBillingSchedules, syncInvoiceBillingSchedules } =
-    await import("./billingScheduleLifecycle");
-
-  if (invoice.status === InvoiceStatus.PAID) {
-    await cancelInvoiceBillingSchedules(invoice.id);
-    await AutomaticBillingService.handleInvoicePaid(invoice.id);
-    return;
-  }
-
-  await syncInvoiceBillingSchedules(invoice);
-}
-
-function calculateInvoiceStatus(
-  totalPaid: bigint,
-  totalAmount: bigint,
-  currentStatus: InvoiceStatus,
-): InvoiceStatus {
-  if (totalPaid >= totalAmount) {
-    return InvoiceStatus.PAID;
-  }
-
-  if (totalPaid > 0n) {
-    return InvoiceStatus.PARTIAL_PAID;
-  }
-
-  return currentStatus;
 }

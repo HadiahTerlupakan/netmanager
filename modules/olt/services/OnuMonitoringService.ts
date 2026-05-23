@@ -51,6 +51,7 @@ export class OnuMonitoringService {
   async pollOnusByPon(
     oltId: string,
     tenantId: string,
+    slot: number,
     ponPort: number,
   ): Promise<{ polled: number; alerts: number }> {
     const olt = await this.oltRepo.findById(oltId, tenantId);
@@ -67,9 +68,11 @@ export class OnuMonitoringService {
     let polled = 0;
     let alerts = 0;
 
-    const filtered = statusResult.data.filter((s) => s.ponPort === ponPort);
+    const filtered = statusResult.data.filter(
+      (s) => s.slot === slot && s.ponPort === ponPort,
+    );
     for (const status of filtered) {
-      const key = `${status.ponPort}:${status.onuIndex}`;
+      const key = `${status.slot}:${status.ponPort}:${status.onuIndex}`;
       const onu = onuMap.get(key);
       if (!onu) continue;
 
@@ -114,7 +117,7 @@ export class OnuMonitoringService {
     }
 
     logger.info(
-      `[OnuMonitoring] Polled ${polled} ONUs on PON ${ponPort} of OLT ${olt.name}`,
+      `[OnuMonitoring] Polled ${polled} ONUs on slot ${slot} PON ${ponPort} of OLT ${olt.name}`,
     );
     return { polled, alerts };
   }
@@ -139,7 +142,7 @@ export class OnuMonitoringService {
     let alerts = 0;
 
     for (const status of statusResult.data) {
-      const key = `${status.ponPort}:${status.onuIndex}`;
+      const key = `${status.slot}:${status.ponPort}:${status.onuIndex}`;
       const onu = onuMap.get(key);
       if (!onu) continue;
 
@@ -176,6 +179,7 @@ export class OnuMonitoringService {
       await this.onuRepo.update(onu.id, tenantId, {
         rxPower: powerResult.data.rxPower,
         txPower: powerResult.data.txPower,
+        oltRxPower: powerResult.data.oltRxPower,
         lastSeen: new Date(),
       });
 
@@ -255,7 +259,7 @@ export class OnuMonitoringService {
     >();
     for (const onu of onus) {
       if (onu.onuIndex === null) continue;
-      map.set(`${onu.ponPort}:${onu.onuIndex}`, {
+      map.set(`${onu.slot}:${onu.ponPort}:${onu.onuIndex}`, {
         id: onu.id,
         serialNumber: onu.serialNumber,
         status: onu.status,

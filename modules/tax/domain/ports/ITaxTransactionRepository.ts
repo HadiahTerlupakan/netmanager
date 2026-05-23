@@ -14,6 +14,9 @@ export interface TaxTransactionCreateInput {
   periodMonth: number;
   journalId?: string;
   notes?: string;
+  fakturPajakNo?: string | null;
+  fakturPajakDate?: Date | null;
+  counterpartNpwp?: string | null;
 }
 
 export interface TaxTransactionListFilter {

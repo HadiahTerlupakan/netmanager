@@ -49,6 +49,7 @@ describe("BillingInvoiceCreationService", () => {
     jatuhTempo: new Date("2026-05-31"),
     userId: "user-1",
     usePPN: true,
+    tenantId: null as string | null,
     hargaPaket: {
       id: "paket-1",
       name: "Paket Premium",

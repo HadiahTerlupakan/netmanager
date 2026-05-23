@@ -26,6 +26,11 @@ export class PelangganBillingBridgeService {
     return this.pelangganRepo.findManyWithPushToken(tokens);
   }
 
+  /** Batch lookup id+nama; pakai ini alih-alih loop findById. */
+  findManyByIds(ids: string[]) {
+    return this.pelangganRepo.findManyByIds(ids);
+  }
+
   clearPushTokens(tokens: string[]) {
     return this.pelangganRepo.clearPushTokens(tokens);
   }

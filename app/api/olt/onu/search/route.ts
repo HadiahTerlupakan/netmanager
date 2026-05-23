@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
 
     const result = await discoveryService.searchBySerialNumber(
       query.oltId,
+      session.user.tenantId,
       query.sn,
     );
 
@@ -37,6 +39,9 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({ found: !!result.data, onu: result.data });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Data tidak valid");
+    }
     logger.error("Error searching ONU:", error);
     const msg = error instanceof Error ? error.message : "Gagal mencari ONU";
     return ApiErrors.internalError(msg);

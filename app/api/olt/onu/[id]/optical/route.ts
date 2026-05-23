@@ -20,7 +20,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const result = await onuControl.getOpticalPower(id);
+    const result = await onuControl.getOpticalPower(id, session.user.tenantId);
 
     if (!result.success) {
       return apiSuccess({ rxPower: null, txPower: null, error: result.error });

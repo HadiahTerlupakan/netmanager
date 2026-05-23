@@ -112,3 +112,40 @@ export const opnameBatchSchema = z.object({
 });
 
 export type OpnameBatchInput = z.infer<typeof opnameBatchSchema>;
+
+/** Schema update opname dari endpoint PUT /api/inventory/opname/[id]. */
+export const opnameUpdateSchema = z
+  .object({
+    stokFisik: nonNegativeInt,
+    keterangan: optionalString,
+    kondisiBaik: optionalNonNegativeInt,
+    kondisiRusak: optionalNonNegativeInt,
+    kondisiExpire: optionalNonNegativeInt,
+    lokasiPenyimpanan: optionalString,
+    nomorRak: optionalString,
+    nomorBox: optionalString,
+    pic: optionalString,
+    suhuPenyimpanan: optionalString,
+    kelembaban: optionalString,
+    tanggalExpire: optionalString,
+    nomorBatch: optionalString,
+    catatanDetail: optionalString,
+    alasanSelisih: reasonSchema,
+  })
+  .superRefine((value, ctx) => {
+    const total =
+      (value.kondisiBaik ?? 0) +
+      (value.kondisiRusak ?? 0) +
+      (value.kondisiExpire ?? 0);
+
+    if (total > value.stokFisik) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stokFisik"],
+        message:
+          "Total kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik",
+      });
+    }
+  });
+
+export type OpnameUpdateInput = z.infer<typeof opnameUpdateSchema>;

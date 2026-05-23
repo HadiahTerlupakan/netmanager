@@ -22,7 +22,11 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const hours = Number(searchParams.get("hours") ?? 24);
 
-    const history = await onuService.getPowerHistory(id, hours);
+    const history = await onuService.getPowerHistory(
+      id,
+      session.user.tenantId,
+      hours,
+    );
     return apiSuccess(history);
   } catch (error) {
     logger.error("Error fetching power history:", error);

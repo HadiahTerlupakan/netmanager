@@ -17,24 +17,27 @@ export class BulkOperationService {
 
   async bulkDisable(
     onuIds: string[],
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<BulkResult>> {
     return this.executeBulk(onuIds, (id) =>
-      this.onuControl.disableOnu(id, userId),
+      this.onuControl.disableOnu(id, tenantId, userId),
     );
   }
 
   async bulkEnable(
     onuIds: string[],
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<BulkResult>> {
     return this.executeBulk(onuIds, (id) =>
-      this.onuControl.enableOnu(id, userId),
+      this.onuControl.enableOnu(id, tenantId, userId),
     );
   }
 
   async bulkRegister(
     items: Array<{ oltId: string; params: RegisterOnuParams }>,
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<BulkResult>> {
     const results: BulkResult = {
@@ -47,6 +50,7 @@ export class BulkOperationService {
     for (const item of items) {
       const result = await this.provisioning.registerOnu(
         item.oltId,
+        tenantId,
         item.params,
         userId,
       );

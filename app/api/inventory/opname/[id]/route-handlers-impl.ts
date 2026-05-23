@@ -1,29 +1,56 @@
-import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryStockMovementService } from "@/modules/inventory";
+import {
+  getInventoryOpnameService,
+  opnameUpdateSchema,
+} from "@/modules/inventory";
 
-const stockMovementService = getInventoryStockMovementService();
+const NOT_FOUND_MESSAGE = "Record stock opname tidak ditemukan";
+const FORBIDDEN_MESSAGE_PREFIX = "Akses ditolak";
 
-/** Handle stock opname detail request. */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+function toUserContext(user: {
+  id: string;
+  role?: string;
+  siteId?: string;
+  tenantId?: string;
+}) {
+  return {
+    id: user.id,
+    role: user.role,
+    siteId: user.siteId,
+    tenantId: user.tenantId,
+  };
+}
+
+function isNotFoundError(message: string) {
+  return message.includes("tidak ditemukan");
+}
+
+function isForbiddenError(message: string) {
+  return message.startsWith(FORBIDDEN_MESSAGE_PREFIX);
+}
+
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const startTime = Date.now();
-  try {
-    const session = await getServerSession(authConfig);
-    if (!session?.user) return ApiErrors.unauthorized();
-    if (!(await hasPermission("opname:read"))) return ApiErrors.forbidden();
+  const user = ctx.session!.user;
 
-    const { id } = await params;
+  if (!(await hasPermission("opname:read"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
+
+  const { id } = ctx.params;
+  if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
+
+  try {
+    const opnameService = getInventoryOpnameService();
     const dbStart = Date.now();
-    const opnameRecord = await stockMovementService.getOpnameRecord(id);
-    if (!opnameRecord)
-      return ApiErrors.notFound("Record stock opname tidak ditemukan");
+    const record = await opnameService.getOpnameRecord({
+      id: id.trim(),
+      user: toUserContext(user),
+    });
+
+    if (!record) return ApiErrors.notFound(NOT_FOUND_MESSAGE);
 
     logger.dbOperation(
       "findUnique",
@@ -35,110 +62,112 @@ export async function GET(
       "/api/inventory/opname/[id]",
       200,
       Date.now() - startTime,
-      {
-        userId: session.user.id,
-        opnameId: id,
-      },
+      { userId: user.id, opnameId: id },
     );
-    return apiSuccess(opnameRecord);
+
+    return apiSuccess(record);
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error fetching stock opname record", err, {
       path: "/api/inventory/opname/[id]",
       method: "GET",
-      id: "unknown",
+      id,
     });
+    if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
+    if (isForbiddenError(err.message)) return ApiErrors.forbidden(err.message);
     return ApiErrors.internalError("Gagal memuat data stock opname");
   }
-}
+});
 
-/** Handle stock opname update request. */
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const startTime = Date.now();
-  try {
-    const session = await getServerSession(authConfig);
-    if (!session?.user) return ApiErrors.unauthorized();
-    if (!(await hasPermission("opname:update"))) return ApiErrors.forbidden();
+export const PUT = createHandler(
+  { auth: true, schema: opnameUpdateSchema },
+  async (_req, ctx) => {
+    const startTime = Date.now();
+    const user = ctx.session!.user;
 
-    const { id } = await params;
-    const body = await req.json();
-    if (body.stokFisik === undefined || body.stokFisik < 0) {
-      return ApiErrors.badRequest("Stok fisik harus berupa angka non-negatif");
+    if (!(await hasPermission("opname:update"))) {
+      return ApiErrors.forbidden("Akses ditolak");
     }
 
-    if (
-      body.kondisiBaik !== undefined &&
-      body.kondisiRusak !== undefined &&
-      body.kondisiExpire !== undefined &&
-      body.kondisiBaik + body.kondisiRusak + body.kondisiExpire > body.stokFisik
-    ) {
-      return ApiErrors.badRequest(
-        "Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik",
-      );
-    }
-
-    const dbStart = Date.now();
-    const result = await stockMovementService.updateOpname({ id, ...body });
-    logger.dbOperation(
-      "transaction",
-      "StockOpname+BarangGudang",
-      Date.now() - dbStart,
-    );
-    logger.apiRequest(
-      "PUT",
-      "/api/inventory/opname/[id]",
-      200,
-      Date.now() - startTime,
-      {
-        userId: session.user.id,
-        opnameId: id,
-        stokFisik: body.stokFisik,
-        stokSistem: result.stokSistem,
-        selisih: result.selisih,
-      },
-    );
-    return apiSuccess({
-      message: "Stock opname berhasil diperbarui",
-      record: result.record,
-    });
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error updating stock opname", err, {
-      path: "/api/inventory/opname/[id]",
-      method: "PUT",
-      id: "unknown",
-    });
-    if (err.message === "Record stock opname tidak ditemukan") {
-      return ApiErrors.notFound(err.message);
-    }
-    return ApiErrors.internalError("Gagal memperbarui stock opname");
-  }
-}
-
-/** Handle stock opname delete request. */
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const session = await getServerSession(authConfig);
-    if (!session?.user) return ApiErrors.unauthorized();
-    if (!(await hasPermission("opname:delete"))) return ApiErrors.forbidden();
-
-    const { id } = await params;
+    const { id } = ctx.params;
     if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
-    await stockMovementService.deleteOpname(id);
+
+    try {
+      const opnameService = getInventoryOpnameService();
+      const dbStart = Date.now();
+      const result = await opnameService.updateOpname({
+        id: id.trim(),
+        ...ctx.validated,
+        user: toUserContext(user),
+      });
+
+      logger.dbOperation(
+        "transaction",
+        "StockOpname+BarangGudang",
+        Date.now() - dbStart,
+      );
+      logger.apiRequest(
+        "PUT",
+        "/api/inventory/opname/[id]",
+        200,
+        Date.now() - startTime,
+        {
+          userId: user.id,
+          opnameId: id,
+          stokFisik: ctx.validated.stokFisik,
+          stokSistem: result.stokSistem,
+          selisih: result.selisih,
+        },
+      );
+
+      return apiSuccess({
+        message: "Stock opname berhasil diperbarui",
+        record: result.record,
+      });
+    } catch (error: unknown) {
+      const err =
+        error instanceof Error ? error : new Error("Terjadi kesalahan");
+      logger.error("Error updating stock opname", err, {
+        path: "/api/inventory/opname/[id]",
+        method: "PUT",
+        id,
+      });
+      if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
+      if (isForbiddenError(err.message))
+        return ApiErrors.forbidden(err.message);
+      return ApiErrors.internalError("Gagal memperbarui stock opname");
+    }
+  },
+);
+
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("opname:delete"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
+
+  const { id } = ctx.params;
+  if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
+
+  try {
+    const opnameService = getInventoryOpnameService();
+    await opnameService.deleteOpname({
+      id: id.trim(),
+      user: toUserContext(user),
+    });
     return apiSuccess({ message: "Stock opname berhasil dihapus" });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Delete error:", err.message);
-    if (err.message.includes("tidak ditemukan"))
-      return ApiErrors.notFound(err.message);
+    logger.error("Error deleting stock opname", err, {
+      path: "/api/inventory/opname/[id]",
+      method: "DELETE",
+      id,
+    });
+    if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
+    if (isForbiddenError(err.message)) return ApiErrors.forbidden(err.message);
     return ApiErrors.internalError(
       err.message || "Gagal menghapus stock opname",
     );
   }
-}
+});

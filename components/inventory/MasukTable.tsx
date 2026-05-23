@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
@@ -16,7 +16,9 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
-import { getWithAuth } from "@/lib/api-client";
+import { useApi } from "@/lib/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
 
 interface BarangMasuk {
@@ -49,6 +51,16 @@ interface BarangMasuk {
   } | null;
 }
 
+interface MasukListResponse {
+  masukList: BarangMasuk[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 interface MasukTableProps {
   onEdit?: ((masuk: BarangMasuk) => void) | undefined;
   onView?: ((masuk: BarangMasuk) => void) | undefined;
@@ -60,6 +72,8 @@ interface MasukTableProps {
   gudangId?: string;
 }
 
+const PAGE_LIMIT = 20;
+
 export function MasukTable({
   onEdit,
   onView,
@@ -70,77 +84,56 @@ export function MasukTable({
   siteId = "",
   gudangId = "",
 }: MasukTableProps) {
-  const [masukList, setMasukList] = useState<BarangMasuk[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    kode: string;
+    jumlah: number;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: PAGE_LIMIT.toString(),
+    });
+    if (search) params.append("search", search);
+    if (startDate)
+      params.append("startDate", new Date(startDate).toISOString());
+    if (endDate) params.append("endDate", new Date(endDate).toISOString());
+    if (siteId) params.append("siteId", siteId);
+    if (gudangId) params.append("gudangId", gudangId);
+    // refreshTrigger sebagai cache key augmentation, tidak dikirim ke server
+    return `/api/inventory/masuk?${params.toString()}${
+      refreshTrigger > 0 ? `&_r=${refreshTrigger}` : ""
+    }`;
+  }, [page, search, startDate, endDate, siteId, gudangId, refreshTrigger]);
+
+  const {
+    data,
+    error,
+    isLoading: loading,
+    mutate,
+  } = useApi<MasukListResponse>(url);
+
+  const masukList = data?.masukList ?? [];
+  const pagination = data?.pagination ?? {
     page: 1,
-    limit: 20,
+    limit: PAGE_LIMIT,
     total: 0,
     totalPages: 0,
-  });
-
-  const fetchMasukList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "20",
-      });
-
-      if (search) params.append("search", search);
-      if (startDate)
-        params.append("startDate", new Date(startDate).toISOString());
-      if (endDate) params.append("endDate", new Date(endDate).toISOString());
-      if (siteId) params.append("siteId", siteId);
-      if (gudangId) params.append("gudangId", gudangId);
-
-      const response = await getWithAuth(`/api/inventory/masuk?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal memuat data");
-      }
-
-      const responseData = data.data || data;
-      setMasukList(responseData.masukList || []);
-      if (responseData.pagination) {
-        setPagination((prev) => ({ ...prev, ...responseData.pagination }));
-      }
-    } catch (error) {
-      clientLogger.error("Failed to fetch barang masuk:", error);
-      setError(error instanceof Error ? error.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, startDate, endDate, siteId, gudangId]);
-
-  // Fetch on mount + refreshTrigger via comparator (selama render, bukan effect)
-  const [prevTrigger, setPrevTrigger] = useState<number | null>(null);
-  if (prevTrigger !== refreshTrigger) {
-    setPrevTrigger(refreshTrigger);
-    void fetchMasukList();
-  }
+  };
 
   useRealtimeScope({ kind: "admin", id: "inventory" });
-
-  // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    clientLogger.info("[Inventory] MasukTable received update, refreshing...");
-    fetchMasukList();
+    void mutate();
   });
 
-  const handleDelete = async (id: string, kode: string, jumlah: number) => {
-    if (
-      !confirm(
-        `Apakah Anda yakin ingin menghapus record barang masuk ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan mengurangi stok barang!`,
-      )
-    ) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, kode } = confirmDelete;
+    setDeleting(true);
 
     try {
       const response = await fetch(`/api/inventory/masuk/${id}`, {
@@ -148,25 +141,28 @@ export function MasukTable({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.error || "Gagal menghapus record barang masuk",
         );
       }
 
-      // Refresh data
-      window.location.reload();
-    } catch (error) {
-      clientLogger.error("Failed to delete barang masuk:", error);
-      alert(
-        error instanceof Error
-          ? error.message
+      showToast("success", `Record barang masuk ${kode} berhasil dihapus`);
+      await mutate();
+      setConfirmDelete(null);
+    } catch (err) {
+      clientLogger.error("Failed to delete barang masuk:", err);
+      showToast(
+        "error",
+        err instanceof Error
+          ? err.message
           : "Gagal menghapus record barang masuk",
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
-  // Define columns for ResponsiveTable
   const columns: Column<BarangMasuk>[] = [
     {
       key: "tanggal",
@@ -299,7 +295,6 @@ export function MasukTable({
     },
   ];
 
-  // Render actions for each row
   const renderActions = (item: BarangMasuk) => (
     <>
       <Button
@@ -323,7 +318,13 @@ export function MasukTable({
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
+        onClick={() =>
+          setConfirmDelete({
+            id: item.id,
+            kode: item.barang.kode,
+            jumlah: item.jumlah,
+          })
+        }
         className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors"
         title="Hapus"
       >
@@ -336,11 +337,10 @@ export function MasukTable({
     <div>
       {error && (
         <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
+          {error.message || "Gagal memuat data"}
         </div>
       )}
 
-      {/* Responsive Table */}
       <ResponsiveTable
         data={masukList}
         columns={columns}
@@ -351,7 +351,6 @@ export function MasukTable({
         renderActions={renderActions}
       />
 
-      {/* Pagination */}
       {pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 gap-3">
           <div className="text-sm text-gray-700 dark:text-gray-300">
@@ -380,6 +379,21 @@ export function MasukTable({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Hapus Record Barang Masuk"
+        description={
+          confirmDelete
+            ? `Apakah Anda yakin ingin menghapus record barang masuk ${confirmDelete.kode} (${confirmDelete.jumlah} pcs)? Stok barang akan dikurangi sesuai jumlah ini.`
+            : ""
+        }
+        confirmText={deleting ? "Menghapus..." : "Hapus"}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) setConfirmDelete(null);
+        }}
+      />
     </div>
   );
 }

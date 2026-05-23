@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -22,7 +23,7 @@ export async function GET(
       return ApiErrors.forbidden("Anda tidak memiliki akses");
 
     const { id } = await params;
-    const profile = await bwService.getById(id);
+    const profile = await bwService.getById(id, session.user.tenantId);
     if (!profile) return ApiErrors.notFound("Profile tidak ditemukan");
 
     return apiSuccess(profile);
@@ -46,9 +47,16 @@ export async function PATCH(
     const body = await req.json();
     const validated = updateBandwidthProfileSchema.parse(body);
 
-    const profile = await bwService.update(id, validated);
+    const profile = await bwService.update(
+      id,
+      session.user.tenantId,
+      validated,
+    );
     return apiSuccess(profile);
   } catch (error) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Data tidak valid");
+    }
     logger.error("Error updating bandwidth profile:", error);
     return ApiErrors.internalError("Gagal mengubah profile");
   }
@@ -65,7 +73,7 @@ export async function DELETE(
       return ApiErrors.forbidden("Anda tidak memiliki akses");
 
     const { id } = await params;
-    await bwService.delete(id);
+    await bwService.delete(id, session.user.tenantId);
     return apiSuccess({ deleted: true });
   } catch (error) {
     logger.error("Error deleting bandwidth profile:", error);

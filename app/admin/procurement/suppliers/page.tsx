@@ -1,8 +1,13 @@
-export const dynamic = "force-dynamic"
+import { ensurePermission } from "@/lib/rbac";
+import { SupplierListClient } from "./SupplierListClient";
 
+export const dynamic = "force-dynamic";
 
-import { notFound } from 'next/navigation'
+export const metadata = {
+  title: "Master Supplier - Admin Portal",
+};
 
 export default async function SuppliersPage() {
-    notFound()
+  await ensurePermission("supplier:read");
+  return <SupplierListClient />;
 }

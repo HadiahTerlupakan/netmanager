@@ -22,8 +22,8 @@ export class OltDeviceService {
     return this.repository.findMany(filters);
   }
 
-  async getById(id: string): Promise<OltDevice | null> {
-    return this.repository.findById(id);
+  async getById(id: string, tenantId: string): Promise<OltDevice | null> {
+    return this.repository.findById(id, tenantId);
   }
 
   async create(input: OltDeviceCreateInput): Promise<OltDevice> {
@@ -34,24 +34,29 @@ export class OltDeviceService {
     return device;
   }
 
-  async update(id: string, input: OltDeviceUpdateInput): Promise<OltDevice> {
-    const device = await this.repository.update(id, input);
+  async update(
+    id: string,
+    tenantId: string,
+    input: OltDeviceUpdateInput,
+  ): Promise<OltDevice> {
+    const device = await this.repository.update(id, tenantId, input);
     logger.info(`[OltDeviceService] OLT updated: ${device.name}`);
     return device;
   }
 
-  async delete(id: string): Promise<void> {
-    const device = await this.repository.findById(id);
+  async delete(id: string, tenantId: string): Promise<void> {
+    const device = await this.repository.findById(id, tenantId);
     if (!device) return;
-    await this.repository.delete(id);
+    await this.repository.delete(id, tenantId);
     logger.info(`[OltDeviceService] OLT deleted: ${device.name}`);
   }
 
   async testConnection(
     id: string,
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<boolean>> {
-    const device = await this.repository.findById(id);
+    const device = await this.repository.findById(id, tenantId);
     if (!device) {
       return {
         success: false,

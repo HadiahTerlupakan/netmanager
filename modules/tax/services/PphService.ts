@@ -92,34 +92,9 @@ export class PphService {
       return existing;
     }
 
-    // 2. Ensure period is open
-    const periodService = getPeriodService();
-    await periodService.ensureCurrentPeriod(tenantId, processedDate);
-
-    // 3. Resolve COA
-    const [debitCoaId, creditCoaId] = await Promise.all([
-      resolveCoaId(tenantId, "5-100"), // Beban Gaji
-      resolveCoaId(tenantId, "2-400"), // Hutang PPh 21
-    ]);
-    if (!debitCoaId || !creditCoaId) {
-      throw new CoaNotFoundError(!debitCoaId ? "5-100" : "2-400");
-    }
-
-    // 4. Post journal
-    const postingService = getJournalPostingService();
-    const journal = await postingService.postAuto(tenantId, {
-      source: "AUTO_TAX_PPH_21",
-      sourceRefType: "Salary",
-      sourceRefId: salaryId,
-      entryDate: processedDate,
-      description: `PPh 21 — Salary ${salaryId}`,
-      lines: [
-        { coaId: debitCoaId, side: "DEBIT", amount: String(pph21Amount) },
-        { coaId: creditCoaId, side: "CREDIT", amount: String(pph21Amount) },
-      ],
-    });
-
-    // 5. Create TaxTransaction record
+    // 2. Create TaxTransaction record only.
+    // Journal posting is handled by the accounting module's salary-processed handler
+    // to avoid double-debit on Beban Gaji.
     const periodYear = processedDate.getFullYear();
     const periodMonth = processedDate.getMonth() + 1;
 
@@ -134,7 +109,7 @@ export class PphService {
       sourceRefId: salaryId,
       periodYear,
       periodMonth,
-      journalId: journal.id,
+      journalId: null,
       notes: `PPh 21 dari Salary ${salaryId}`,
     });
 

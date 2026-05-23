@@ -5,44 +5,9 @@ import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { CoaNotFoundError } from "@/modules/accounting";
 import { getPphService, getPpnService } from "../../index";
+import { classifyPph } from "../PphClassifier";
 
 const SOURCE = "ExpenseApprovedTaxHandler";
-
-/** PPh category classification based on expense category type/name */
-type PphClassification = "jasa" | "sewa_tanah" | "sewa" | null;
-
-/**
- * Determines PPh classification from expense category.
- * - type "sewa_tanah" or name containing "sewa tanah"/"sewa bangunan" → PPh 4(2)
- * - type "sewa" or name containing "sewa" → PPh 23 (sewa)
- * - type "jasa" or name containing "jasa" → PPh 23 (jasa)
- * - otherwise → no PPh
- */
-function classifyPph(
-  categoryType: string,
-  categoryName: string,
-): PphClassification {
-  const typeLower = categoryType.toLowerCase();
-  const nameLower = categoryName.toLowerCase();
-
-  if (
-    typeLower === "sewa_tanah" ||
-    nameLower.includes("sewa tanah") ||
-    nameLower.includes("sewa bangunan")
-  ) {
-    return "sewa_tanah";
-  }
-
-  if (typeLower === "sewa" || nameLower.includes("sewa")) {
-    return "sewa";
-  }
-
-  if (typeLower === "jasa" || nameLower.includes("jasa")) {
-    return "jasa";
-  }
-
-  return null;
-}
 
 /**
  * Handles EXPENSE_APPROVED event to record PPh and PPN Masukan.
@@ -91,7 +56,10 @@ export async function handleExpenseApprovedTax(
     }
 
     // 2. Record PPh based on classification
-    const classification = classifyPph(category.type, category.name);
+    const classification = classifyPph({
+      categoryType: category.type,
+      categoryName: category.name,
+    });
     const pphService = getPphService();
 
     if (classification === "sewa_tanah") {
@@ -120,12 +88,24 @@ export async function handleExpenseApprovedTax(
     }
 
     // 3. Record PPN Masukan if tenant is PKP
+    const expense = await prisma.expense.findUnique({
+      where: { id: expenseId },
+      select: {
+        fakturPajakNo: true,
+        fakturPajakDate: true,
+        vendorNpwp: true,
+      },
+    });
+
     const ppnService = getPpnService();
     await ppnService.recordPpnMasukan({
       tenantId,
       expenseId,
       expenseAmount,
       expenseDate: entryDate,
+      fakturPajakNo: expense?.fakturPajakNo ?? null,
+      fakturPajakDate: expense?.fakturPajakDate ?? null,
+      counterpartNpwp: expense?.vendorNpwp ?? null,
     });
   } catch (error) {
     if (error instanceof CoaNotFoundError) {

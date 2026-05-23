@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockFns = vi.hoisted(() => ({
   paymentFindUnique: vi.fn(),
   paymentUpdate: vi.fn(),
-  invoiceUpdate: vi.fn(),
   pelangganFindUnique: vi.fn(),
   updateStatusPelanggan: vi.fn(),
   sendCustomerPushNotification: vi.fn(),
-  syncInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
-  cancelInvoiceBillingSchedules: vi.fn(() => Promise.resolve()),
+  recompute: vi.fn<(invoiceId: string) => Promise<unknown>>(() =>
+    Promise.resolve(null),
+  ),
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -16,9 +16,6 @@ vi.mock("@/modules/database", () => ({
     payment: {
       findUnique: mockFns.paymentFindUnique,
       update: mockFns.paymentUpdate,
-    },
-    invoice: {
-      update: mockFns.invoiceUpdate,
     },
   },
   prisma: {
@@ -38,9 +35,12 @@ vi.mock("@/modules/notification", () => ({
   sendCustomerPushNotification: mockFns.sendCustomerPushNotification,
 }));
 
-vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
-  syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
-  cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
+vi.mock("@/modules/finance/services/InvoicePaymentStateService", () => ({
+  InvoicePaymentStateService: class MockInvoicePaymentStateService {
+    recompute(...args: [string]) {
+      return mockFns.recompute(...args);
+    }
+  },
 }));
 
 import {
@@ -68,38 +68,17 @@ describe("cancelPaidPayment", () => {
       id: "cust-1",
       status: "AKTIF",
     });
-    mockFns.invoiceUpdate.mockResolvedValue({
-      id: "inv-1",
-      pelangganId: "cust-1",
-      dueDate: new Date("2026-05-31T00:00:00.000Z"),
-      status: "SENT",
-    });
   });
 
-  it("cancels a paid payment, recalculates invoice, resyncs schedule, and notifies customer", async () => {
+  it("cancels a paid payment, delegates invoice recompute, and notifies customer", async () => {
     await cancelPaidPayment({ paymentId: "pay-1", adminLabel: "Admin" });
 
     expect(mockFns.paymentUpdate).toHaveBeenCalledWith({
       where: { id: "pay-1" },
       data: expect.objectContaining({ gatewayStatus: "CANCELLED" }),
     });
-    expect(mockFns.invoiceUpdate).toHaveBeenCalledWith({
-      where: { id: "inv-1" },
-      data: { paidAmount: 0n, status: "SENT", paidAt: null },
-      select: {
-        id: true,
-        pelangganId: true,
-        dueDate: true,
-        status: true,
-      },
-    });
+    expect(mockFns.recompute).toHaveBeenCalledWith("inv-1");
     expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
-    expect(mockFns.syncInvoiceBillingSchedules).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "inv-1",
-        status: "SENT",
-      }),
-    );
     expect(mockFns.sendCustomerPushNotification).toHaveBeenCalledWith(
       "cust-1",
       "Pembayaran Dibatalkan",
@@ -121,5 +100,6 @@ describe("cancelPaidPayment", () => {
       new PaymentCancellationError("Only PAID payments can be cancelled", 400),
     );
     expect(mockFns.paymentUpdate).not.toHaveBeenCalled();
+    expect(mockFns.recompute).not.toHaveBeenCalled();
   });
 });

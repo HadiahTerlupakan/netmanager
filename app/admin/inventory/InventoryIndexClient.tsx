@@ -67,14 +67,8 @@ export function InventoryDashboardClient() {
     }`;
   })();
 
-  const { data: result, isLoading: loading } = useApi<{
-    success?: boolean;
-    data?: DashboardData;
-  }>(dashboardUrl);
-
-  const dashboardData: DashboardData | null = result
-    ? (result.data ?? (result as unknown as DashboardData))
-    : null;
+  const { data: dashboardData, isLoading: loading } =
+    useApi<DashboardData>(dashboardUrl);
 
   const handleDateRangeChange = (startDate: string, endDate: string) => {
     setDateRange({ startDate, endDate });

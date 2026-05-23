@@ -6,6 +6,7 @@ const ALLOWED_FOLDERS = new Set([
   "mitra-document",
   "work-orders",
   "izin",
+  "landing-logo",
 ]);
 
 const PUBLIC_UPLOAD_PREFIXES = [

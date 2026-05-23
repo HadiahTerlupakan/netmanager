@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const configs = await vlanService.getVlanConfigs(id);
+    const configs = await vlanService.getVlanConfigs(id, session.user.tenantId);
     return apiSuccess(configs);
   } catch (error) {
     logger.error("Error fetching VLAN configs:", error);
@@ -52,10 +53,10 @@ export async function POST(
 
     return apiSuccess(config, { status: 201 });
   } catch (error) {
-    logger.error("Error creating VLAN config:", error);
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error creating VLAN config:", error);
     const msg =
       error instanceof Error ? error.message : "Gagal membuat VLAN config";
     return ApiErrors.internalError(msg);
@@ -77,7 +78,7 @@ export async function DELETE(
     const configId = searchParams.get("configId");
     if (!configId) return ApiErrors.badRequest("configId wajib diisi");
 
-    await vlanService.deleteVlanConfig(configId);
+    await vlanService.deleteVlanConfig(configId, session.user.tenantId);
     return apiSuccess({ deleted: true });
   } catch (error) {
     logger.error("Error deleting VLAN config:", error);

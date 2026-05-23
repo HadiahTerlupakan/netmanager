@@ -26,6 +26,7 @@ export * from "./services/PaymentGatewayConfigService";
 export * from "./services/UnmatchedMutationService";
 export * from "./services/FinancePageQueriesService";
 export * from "./services/PaymentCancellationService";
+export * from "./services/InvoicePaymentStateService";
 export * from "./services/InvoiceRouteService";
 export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";

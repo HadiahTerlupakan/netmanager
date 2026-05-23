@@ -91,6 +91,9 @@ export function buildOpnameReportResponse(
   gudangList: Array<{
     totalBarang: number;
     totalStok: number;
+    totalStokBaru: number;
+    totalStokBekas: number;
+    totalStokRusak: number;
     totalHilang: number;
   }>,
 ) {
@@ -100,6 +103,9 @@ export function buildOpnameReportResponse(
       totalGudang: gudangList.length,
       totalBarang: sumBy(gudangList, "totalBarang"),
       totalStok: sumBy(gudangList, "totalStok"),
+      totalStokBaru: sumBy(gudangList, "totalStokBaru"),
+      totalStokBekas: sumBy(gudangList, "totalStokBekas"),
+      totalStokRusak: sumBy(gudangList, "totalStokRusak"),
       totalHilang: sumBy(gudangList, "totalHilang"),
     },
   };

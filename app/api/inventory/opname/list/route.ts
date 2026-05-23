@@ -1,8 +1,18 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getInventoryOpnameService } from "@/modules/inventory";
+import {
+  getInventoryOpnameService,
+  OPNAME_REASON_CODES,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { parsePaginationParams } from "@/lib/utils/pagination";
+
+const ALLOWED_REASONS = new Set<string>(OPNAME_REASON_CODES);
+
+function readReasonParam(value: string | null) {
+  if (!value) return undefined;
+  return ALLOWED_REASONS.has(value) ? value : undefined;
+}
 
 /**
  * GET /api/inventory/opname/list
@@ -20,6 +30,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const searchParams = req.nextUrl.searchParams;
     const barangId = searchParams.get("barangId") || undefined;
     const gudangId = searchParams.get("gudangId") || undefined;
+    const tanggalMulai = searchParams.get("tanggalMulai") || undefined;
+    const tanggalSelesai = searchParams.get("tanggalSelesai") || undefined;
+    const alasanSelisih = readReasonParam(searchParams.get("alasanSelisih"));
     const { page, limit } = parsePaginationParams(searchParams, {
       page: 1,
       limit: 20,
@@ -35,6 +48,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       },
       barangId,
       gudangId,
+      tanggalMulai,
+      tanggalSelesai,
+      alasanSelisih,
       page,
       limit,
     });
@@ -57,6 +73,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         total: result.pagination.total,
         barangId,
         gudangId,
+        tanggalMulai,
+        tanggalSelesai,
+        alasanSelisih,
       },
     );
 

@@ -1,8 +1,13 @@
-export const dynamic = "force-dynamic"
+import { ensurePermission } from "@/lib/rbac";
+import { PurchaseOrderListClient } from "./PurchaseOrderListClient";
 
+export const dynamic = "force-dynamic";
 
-import { notFound } from 'next/navigation'
+export const metadata = {
+  title: "Purchase Order - Admin Portal",
+};
 
 export default async function PurchaseOrderListPage() {
-    notFound()
+  await ensurePermission("purchase_orders:read");
+  return <PurchaseOrderListClient />;
 }

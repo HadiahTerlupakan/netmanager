@@ -7,6 +7,7 @@ import {
   HiExclamationCircle,
 } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
+import { LogoUploader } from "@/components/admin/website/LogoUploader";
 
 interface HeroForm {
   badge: string;
@@ -16,6 +17,7 @@ interface HeroForm {
   ctaPrimary: string;
   ctaSecondary: string;
   ctaLink: string;
+  logoUrl: string;
 }
 
 const EMPTY_FORM: HeroForm = {
@@ -26,6 +28,7 @@ const EMPTY_FORM: HeroForm = {
   ctaPrimary: "",
   ctaSecondary: "",
   ctaLink: "",
+  logoUrl: "",
 };
 
 export default function HeroPage() {
@@ -52,6 +55,7 @@ export default function HeroPage() {
           ctaPrimary: json.data.ctaPrimary ?? "",
           ctaSecondary: json.data.ctaSecondary ?? "",
           ctaLink: json.data.ctaLink ?? "",
+          logoUrl: json.data.logoUrl ?? "",
         });
       }
     } catch (e) {
@@ -78,6 +82,7 @@ export default function HeroPage() {
         ...form,
         badge: form.badge || null,
         highlight: form.highlight || null,
+        logoUrl: form.logoUrl || null,
       };
       const res = await fetch("/api/admin/website/hero", {
         method: "PUT",
@@ -143,6 +148,13 @@ export default function HeroPage() {
           onSubmit={handleSubmit}
           className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-5"
         >
+          <LogoUploader
+            label="Logo Navbar"
+            hint="Logo berwarna untuk navbar di atas background terang. Jika kosong, ikon default ditampilkan."
+            value={form.logoUrl}
+            onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
+          />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Badge{" "}

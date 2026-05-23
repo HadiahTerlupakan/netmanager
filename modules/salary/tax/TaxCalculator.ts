@@ -214,7 +214,13 @@ export class TaxCalculator implements IPayrollCalculator {
       npwpSurcharge: taxConfig.npwpSurcharge,
     });
 
-    const finalTax = Math.max(0, result.finalMonthTax);
+    // Catatan restitusi: bila annualTaxDue < totalTaxPaidYtd, finalMonthTax negatif
+    // — artinya ada kelebihan potong PPh21 yang harus dikembalikan ke karyawan.
+    // Kita tidak boleh discard nilai negatif itu (silent loss); expose ke metadata
+    // agar UI/laporan bisa menandai "lebih bayar" dan memproses restitusi.
+    const rawFinalTax = result.finalMonthTax;
+    const finalTax = Math.max(0, rawFinalTax);
+    const restitusiAmount = rawFinalTax < 0 ? Math.abs(rawFinalTax) : 0;
     const category =
       employee.taxMethod === "NETT"
         ? ComponentCategory.EMPLOYER_COST
@@ -247,6 +253,21 @@ export class TaxCalculator implements IPayrollCalculator {
       }),
     );
 
+    // Expose restitusi sebagai earning line (tunjangan kelebihan bayar).
+    // Karyawan menerima kelebihan yang sudah dipotong selama tahun berjalan.
+    if (restitusiAmount > 0) {
+      lines.push(
+        buildLine({
+          componentCode: "PPH21_RESTITUSI",
+          componentName: "Restitusi PPh 21 (Lebih Bayar)",
+          category: ComponentCategory.EARNING,
+          amount: restitusiAmount,
+          formula: `due=${result.annualTaxDue} < paid=${history.totalTaxPaid}`,
+          sortOrder: 41,
+        }),
+      );
+    }
+
     return {
       lines,
       metadata: {
@@ -254,6 +275,8 @@ export class TaxCalculator implements IPayrollCalculator {
         isAnnualCorrection: true,
         annualTaxDue: result.annualTaxDue,
         ytdTaxPaid: history.totalTaxPaid,
+        restitusiAmount,
+        hasOverpaid: restitusiAmount > 0,
       },
     };
   }

@@ -9,6 +9,7 @@ import {
   HiTrash,
 } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
+import { LogoUploader } from "@/components/admin/website/LogoUploader";
 
 interface FooterLink {
   label: string;
@@ -27,6 +28,7 @@ interface FooterForm {
   phone: string;
   links: FooterLinks;
   socials: Record<string, string>;
+  logoUrl: string;
 }
 
 const EMPTY_FORM: FooterForm = {
@@ -41,6 +43,7 @@ const EMPTY_FORM: FooterForm = {
     akun: [],
   },
   socials: {},
+  logoUrl: "",
 };
 
 const DEFAULT_SECTIONS = ["produk", "perusahaan", "akun"];
@@ -75,6 +78,7 @@ export default function FooterPage() {
           phone: d.phone ?? "",
           links,
           socials: d.socials ?? {},
+          logoUrl: d.logoUrl ?? "",
         });
       }
     } catch (e) {
@@ -105,6 +109,7 @@ export default function FooterPage() {
         phone: form.phone || null,
         links: form.links,
         socials: Object.keys(form.socials).length > 0 ? form.socials : null,
+        logoUrl: form.logoUrl || null,
       };
       const res = await fetch("/api/admin/website/footer", {
         method: "PUT",
@@ -235,6 +240,14 @@ export default function FooterPage() {
             <h2 className="text-base font-semibold text-gray-900 dark:text-white">
               Info Perusahaan
             </h2>
+
+            <LogoUploader
+              label="Logo Footer"
+              hint="Logo versi terang (putih/light) untuk footer dengan background gelap. Jika kosong, ikon default ditampilkan."
+              value={form.logoUrl}
+              onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
+              darkPreview
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

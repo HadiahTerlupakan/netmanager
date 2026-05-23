@@ -6,6 +6,8 @@ export type {
   IPayrollEntryRepository,
   PayrollEntryWithLines,
   PayrollEntrySummary,
+  PayrollEntryEventDetails,
+  AdvanceDeductionLine,
 } from "./IPayrollEntryRepository";
 export type {
   IPayrollComponentRepository,

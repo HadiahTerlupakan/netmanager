@@ -13,8 +13,8 @@ interface CreateVlanInput {
 export class OltVlanService {
   private vlanRepo = new VlanConfigRepository();
 
-  async getVlanConfigs(oltId: string) {
-    return this.vlanRepo.findByOlt(oltId);
+  async getVlanConfigs(oltId: string, tenantId: string) {
+    return this.vlanRepo.findByOlt(oltId, tenantId);
   }
 
   async createVlanConfig(input: CreateVlanInput) {
@@ -25,8 +25,8 @@ export class OltVlanService {
     return config;
   }
 
-  async deleteVlanConfig(id: string) {
-    await this.vlanRepo.delete(id);
+  async deleteVlanConfig(id: string, tenantId: string) {
+    await this.vlanRepo.delete(id, tenantId);
     logger.info(`[OltVlan] Deleted VLAN config ${id}`);
   }
 

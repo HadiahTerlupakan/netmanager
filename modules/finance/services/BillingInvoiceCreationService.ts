@@ -1,9 +1,8 @@
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
+import { getPpnRateResolver } from "@/modules/tax";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
-
-const DEFAULT_PPN_PERCENTAGE = 11;
 
 type BillingCustomerPayload = {
   id: string;
@@ -11,6 +10,7 @@ type BillingCustomerPayload = {
   jatuhTempo: Date;
   userId: string | null;
   usePPN: boolean;
+  tenantId: string | null;
   hargaPaket: {
     id: string;
     name: string;
@@ -29,7 +29,7 @@ export class BillingInvoiceCreationService {
     dueDate: Date,
   ) {
     const subtotal = BigInt(customer.hargaPaket.harga);
-    const taxAmount = this.calculateTaxAmount(customer, subtotal);
+    const taxAmount = await this.calculateTaxAmount(customer, subtotal);
     const grossTotal = subtotal + taxAmount;
 
     // Konsumsi saldo kredit (mis. dari downgrade prorate sebelumnya).
@@ -113,10 +113,17 @@ export class BillingInvoiceCreationService {
     };
   }
 
-  private calculateTaxAmount(customer: BillingCustomerPayload, amount: bigint) {
+  private async calculateTaxAmount(
+    customer: BillingCustomerPayload,
+    amount: bigint,
+  ) {
     if (!customer.usePPN && !customer.hargaPaket.usePPN) return 0n;
 
-    const ppnRate = customer.hargaPaket.ppnPercentage || DEFAULT_PPN_PERCENTAGE;
+    const ppnRate = await getPpnRateResolver().resolveOptional(
+      customer.tenantId,
+      customer.hargaPaket.ppnPercentage,
+    );
+
     return (amount * BigInt(Math.round(ppnRate * 100))) / 10000n;
   }
 

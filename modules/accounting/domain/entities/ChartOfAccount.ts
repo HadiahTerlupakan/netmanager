@@ -11,6 +11,7 @@ export type COASubtype =
   | "OTHER_REVENUE"
   | "COGS"
   | "OPEX"
+  | "CAPEX"
   | "OTHER_EXPENSE";
 
 export type DebitCredit = "DEBIT" | "CREDIT";

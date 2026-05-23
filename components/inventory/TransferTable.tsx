@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/Button";
 import { deleteWithAuth } from "@/lib/api-client";
 import { buildTransferDeleteConfirmMessage } from "@/lib/utils/inventory-helpers";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { useToast } from "@/hooks/use-toast";
 import { clientLogger } from "@/lib/client-logger";
 
 interface Transfer {
@@ -66,14 +68,15 @@ export function TransferTable({
   onViewDetails,
   onDelete: _onDelete,
 }: TransferTableProps) {
+  const { showToast } = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmTransfer, setConfirmTransfer] = useState<Transfer | null>(null);
 
-  const handleDelete = async (transfer: Transfer) => {
-    if (!confirm(buildTransferDeleteConfirmMessage(transfer))) {
-      return;
-    }
-
+  const handleConfirmDelete = async () => {
+    if (!confirmTransfer) return;
+    const transfer = confirmTransfer;
     setDeletingId(transfer.id);
+
     try {
       const response = await deleteWithAuth(
         `/api/inventory/transfer/${transfer.id}`,
@@ -84,10 +87,16 @@ export function TransferTable({
         throw new Error(data.error || "Gagal membatalkan transfer");
       }
 
+      showToast(
+        "success",
+        `Transfer ${transfer.kodeTransfer} berhasil dibatalkan`,
+      );
       onRefresh();
+      setConfirmTransfer(null);
     } catch (error) {
       clientLogger.error("Error deleting transfer:", error);
-      alert(
+      showToast(
+        "error",
         error instanceof Error ? error.message : "Gagal membatalkan transfer",
       );
     } finally {
@@ -207,57 +216,75 @@ export function TransferTable({
   ];
 
   return (
-    <ResponsiveTable
-      data={transfers}
-      columns={columns}
-      keyField="id"
-      emptyMessage="Belum ada data transfer barang antar gudang."
-      renderActions={(item) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onViewDetails(item)}
-            className="text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
-            title="Detail"
-          >
-            <FiEye className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => handleDelete(item)}
-            disabled={deletingId === item.id}
-            className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-            title="Batalkan Transfer"
-          >
-            {deletingId === item.id ? (
-              <svg
-                className="animate-spin w-5 h-5"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-            ) : (
-              <FiTrash2 className="w-5 h-5" />
-            )}
-          </Button>
-        </div>
-      )}
-    />
+    <>
+      <ResponsiveTable
+        data={transfers}
+        columns={columns}
+        keyField="id"
+        emptyMessage="Belum ada data transfer barang antar gudang."
+        renderActions={(item) => (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onViewDetails(item)}
+              className="text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+              title="Detail"
+            >
+              <FiEye className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setConfirmTransfer(item)}
+              disabled={deletingId === item.id}
+              className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+              title="Batalkan Transfer"
+            >
+              {deletingId === item.id ? (
+                <svg
+                  className="animate-spin w-5 h-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                <FiTrash2 className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
+        )}
+      />
+
+      <ConfirmDialog
+        open={!!confirmTransfer}
+        title="Batalkan Transfer"
+        description={
+          confirmTransfer
+            ? buildTransferDeleteConfirmMessage(confirmTransfer)
+            : ""
+        }
+        confirmText={deletingId ? "Memproses..." : "Batalkan"}
+        cancelText="Tutup"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deletingId) setConfirmTransfer(null);
+        }}
+      />
+    </>
   );
 }

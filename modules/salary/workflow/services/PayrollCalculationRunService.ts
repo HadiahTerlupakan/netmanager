@@ -7,15 +7,14 @@ import {
   getOvertimeBridge,
   getLoanBridge,
   PayrollRunStatus,
-  DEFAULT_BPJS_CONFIG,
-  DEFAULT_TAX_CONFIG,
-  DEFAULT_OVERTIME_CONFIG,
   sumEarnings,
   sumDeductions,
   sumTax,
   sumEmployerCost,
 } from "@/modules/salary";
 import type { CalculationContext, TenantPayrollConfig } from "@/modules/salary";
+import { getPayrollConfig } from "@/modules/salary/config/PayrollConfigStore";
+import { PrismaTaxHistoryLoader } from "@/modules/salary/tax/providers/PrismaTaxHistoryLoader";
 
 type CalculateRunResult = {
   runId: string;
@@ -38,36 +37,6 @@ function getRepos() {
     attendanceBridge: getAttendanceBridge(),
     overtimeBridge: getOvertimeBridge(),
     loanBridge: getLoanBridge(),
-  };
-}
-
-function buildTenantConfig(tenantId: string): TenantPayrollConfig {
-  return {
-    tenantId,
-    bpjs: DEFAULT_BPJS_CONFIG,
-    tax: DEFAULT_TAX_CONFIG,
-    overtime: DEFAULT_OVERTIME_CONFIG,
-    thrConfig: {
-      eligibleAfterMonths: 1,
-      fullEntitlementMonths: 12,
-      prorata: true,
-      components: ["BASIC_SALARY"],
-      paymentDeadlineDays: 7,
-    },
-    advancePolicy: {
-      maxPercentOfSalary: 30,
-      maxActiveAdvances: 1,
-      minDaysBetweenRequests: 30,
-      approvalRequired: true,
-      deductionMethod: "INSTALLMENT",
-      maxInstallments: 3,
-    },
-    periodLocking: {
-      autoLockAfterPaid: true,
-      autoLockDelayDays: 7,
-      requireApprovalToUnlock: true,
-      maxUnlockCount: 2,
-    },
   };
 }
 
@@ -156,8 +125,23 @@ export async function calculatePayrollRun(
 
     await entryRepo.deleteByRunId(runId, tenantId);
 
-    const engine = getCalculationEngine();
-    const tenantConfig = buildTenantConfig(tenantId);
+    const tenantConfig = getPayrollConfig(tenantId);
+
+    // Pre-load YTD tax history dari payroll entries final (APPROVED/PAID/CLOSED)
+    // tahun yang sama. Ini penting untuk:
+    //   1. Koreksi PPh21 Desember (annual reconciliation)
+    //   2. Karyawan resign mid-year (perhitungan totalGross & totalTaxPaid)
+    //   3. Karyawan masuk mid-year (monthsWorked accurate)
+    const periodYear = run.periodStart.getFullYear();
+    const userIds = profiles.map((p) => p.userId);
+    const taxHistoryLoader = new PrismaTaxHistoryLoader();
+    const taxHistoryProvider = await taxHistoryLoader.buildProvider(
+      tenantId,
+      userIds,
+      periodYear,
+    );
+
+    const engine = getCalculationEngine(taxHistoryProvider);
     let successCount = 0;
     let errorCount = 0;
     let totalNet = 0;

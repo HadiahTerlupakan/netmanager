@@ -1,7 +1,13 @@
-export const dynamic = "force-dynamic"
+import { ensurePermission } from "@/lib/rbac";
+import { SupplierCreateClient } from "./SupplierCreateClient";
 
-import { notFound } from 'next/navigation'
+export const dynamic = "force-dynamic";
 
-export default async function CreateSupplierPage() {
-    notFound()
+export const metadata = {
+  title: "Tambah Supplier - Admin Portal",
+};
+
+export default async function SupplierCreatePage() {
+  await ensurePermission("supplier:create");
+  return <SupplierCreateClient />;
 }

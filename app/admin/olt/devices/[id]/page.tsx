@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 export default async function OltDeviceDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await ensurePermission("olt:read");
-  return <OltDeviceDetailClient id={params.id} />;
+  const { id } = await params;
+  return <OltDeviceDetailClient id={id} />;
 }

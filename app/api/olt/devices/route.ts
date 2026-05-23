@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -39,6 +40,9 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(result);
   } catch (error) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Query tidak valid");
+    }
     logger.error("Error fetching OLT devices:", error);
     const msg =
       error instanceof Error ? error.message : "Gagal mengambil data OLT";
@@ -69,10 +73,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(device, { status: 201 });
   } catch (error) {
-    logger.error("Error creating OLT device:", error);
-    if (error instanceof Error && error.name === "ZodError") {
-      return ApiErrors.badRequest("Data tidak valid", { details: error });
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error creating OLT device:", error);
     const msg = error instanceof Error ? error.message : "Gagal menambah OLT";
     return ApiErrors.internalError(msg);
   }

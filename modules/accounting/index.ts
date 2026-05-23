@@ -198,3 +198,5 @@ export { handleCouponUsedAccounting } from "./services/event-handlers/coupon-use
 export { handleMitraWithdrawalAccounting } from "./services/event-handlers/mitra-withdrawal-accounting.handler";
 export { handleInvestorPayoutAccounting } from "./services/event-handlers/investor-payout-accounting.handler";
 export { handleInvestorDepositAccounting } from "./services/event-handlers/investor-deposit-accounting.handler";
+export { handleSalaryProcessedAccounting } from "./services/event-handlers/salary-processed-accounting.handler";
+export { handleAdvanceDisbursedAccounting } from "./services/event-handlers/advance-disbursed-accounting.handler";

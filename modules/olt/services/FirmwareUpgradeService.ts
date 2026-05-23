@@ -13,10 +13,11 @@ export class FirmwareUpgradeService {
 
   async upgradeOnuFirmware(
     onuId: string,
+    tenantId: string,
     firmwareFile: string,
     userId: string,
   ): Promise<ServiceResult<void>> {
-    const onu = await this.onuRepo.findById(onuId);
+    const onu = await this.onuRepo.findById(onuId, tenantId);
     if (!onu)
       return {
         success: false,
@@ -24,7 +25,15 @@ export class FirmwareUpgradeService {
         code: "NOT_FOUND",
       };
 
-    const olt = await this.oltRepo.findById(onu.oltId);
+    if (onu.onuIndex === null) {
+      return {
+        success: false,
+        error: "ONU belum teregistrasi",
+        code: "ONU_NOT_REGISTERED",
+      };
+    }
+
+    const olt = await this.oltRepo.findById(onu.oltId, tenantId);
     if (!olt)
       return {
         success: false,
@@ -43,17 +52,22 @@ export class FirmwareUpgradeService {
     const telnet = new ZteTelnetClient();
     try {
       await telnet.connect(olt);
-      await telnet.configMode();
+      await telnet.configMode(olt);
 
       const onuInterface = ZteOidRegistry.formatOnuInterface(
-        1,
-        1,
+        onu.slotFrame,
+        onu.slot,
         onu.ponPort,
         onu.onuIndex,
       );
-      await telnet.execute(`pon-onu-mng ${onuInterface}`);
-      await telnet.execute(`firmware upgrade ${firmwareFile}`);
-      await telnet.execute("exit");
+      // C300/C320: firmware upgrade per-ONU dilakukan di interface mode.
+      // Sintaks pasti bergantung firmware; kita pakai pattern umum
+      // `system-software upgrade <file>` dan log warn kalau gagal.
+      await telnet.executeAndAssertSuccess(`interface ${onuInterface}`);
+      await telnet.executeAndAssertSuccess(
+        `system-software upgrade ${firmwareFile}`,
+      );
+      await telnet.executeAndAssertSuccess(`exit`);
 
       await telnet.exitConfig();
       await telnet.disconnect();

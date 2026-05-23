@@ -1,5 +1,4 @@
 import { prisma } from "@/modules/database";
-import type { LandingContentAll } from "../domain/LandingContent";
 
 export class LandingContentRepository {
   /** Get active hero section */
@@ -16,6 +15,7 @@ export class LandingContentRepository {
     ctaPrimary: string;
     ctaSecondary: string;
     ctaLink: string;
+    logoUrl?: string | null;
   }) {
     const existing = await prisma.landingHero.findFirst();
     if (existing) {
@@ -99,7 +99,21 @@ export class LandingContentRepository {
   }
 
   /** Update an existing pricing plan by id */
-  async updatePricing(id: string, data: Record<string, unknown>) {
+  async updatePricing(
+    id: string,
+    data: Partial<{
+      name: string;
+      price: string;
+      period: string;
+      description: string | null;
+      features: unknown;
+      isPopular: boolean;
+      ctaText: string;
+      ctaLink: string;
+      sortOrder: number;
+      isActive: boolean;
+    }>,
+  ) {
     return prisma.landingPricing.update({
       where: { id },
       data: data as Parameters<typeof prisma.landingPricing.update>[0]["data"],
@@ -205,7 +219,16 @@ export class LandingContentRepository {
   }
 
   /** Upsert footer — only one footer record is expected */
-  async upsertFooter(data: Record<string, unknown>) {
+  async upsertFooter(data: {
+    companyName: string;
+    description?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    links: Record<string, Array<{ label: string; href: string }>>;
+    socials?: Record<string, string> | null;
+    logoUrl?: string | null;
+  }) {
     const existing = await prisma.landingFooter.findFirst();
     if (existing) {
       return prisma.landingFooter.update({
@@ -218,8 +241,8 @@ export class LandingContentRepository {
     });
   }
 
-  /** Fetch all landing content sections in parallel */
-  async getAllContent(): Promise<LandingContentAll> {
+  /** Fetch all active landing content sections in parallel */
+  async getAllContent() {
     const [hero, features, pricing, testimonials, faq, footer] =
       await Promise.all([
         this.getHero(),
@@ -229,27 +252,6 @@ export class LandingContentRepository {
         this.getFaq(),
         this.getFooter(),
       ]);
-    return {
-      hero,
-      features,
-      // Map JsonValue → string[] for the features field stored as JSON
-      pricing: pricing.map((p) => ({
-        ...p,
-        features: Array.isArray(p.features) ? (p.features as string[]) : [],
-      })),
-      testimonials,
-      faq,
-      // Map JsonValue → typed Record for the links/socials fields stored as JSON
-      footer: footer
-        ? {
-            ...footer,
-            links: (footer.links ?? {}) as Record<
-              string,
-              Array<{ label: string; href: string }>
-            >,
-            socials: footer.socials as Record<string, string> | null,
-          }
-        : null,
-    };
+    return { hero, features, pricing, testimonials, faq, footer };
   }
 }

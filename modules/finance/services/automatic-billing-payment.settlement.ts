@@ -1,8 +1,7 @@
 import { randomUUID } from "crypto";
-import { logger } from "@/lib/logger";
-import { BillingEventDispatcher } from "@/modules/events";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
 import type { PaymentRepository } from "../repositories/PaymentRepository";
+import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 /** Menandai invoice registrasi sebagai lunas dan membuat payment record pendukung. */
 export async function settleImmediateInvoice(options: {
@@ -12,56 +11,20 @@ export async function settleImmediateInvoice(options: {
   invoiceRepo: InvoiceRepository;
   paymentRepo: PaymentRepository;
 }) {
-  const settlement = getImmediateSettlement(options);
-  if (!settlement) {
+  if (!options.shouldMarkPaid || !options.invoice) {
     return;
   }
 
-  await executeImmediateSettlement(settlement);
-}
-
-function getImmediateSettlement(options: {
-  pelangganId: string;
-  invoice: { id: string; totalAmount: bigint } | null;
-  shouldMarkPaid: boolean;
-  invoiceRepo: InvoiceRepository;
-  paymentRepo: PaymentRepository;
-}) {
-  if (!options.shouldMarkPaid || !options.invoice) {
-    return null;
-  }
-
-  return {
+  await createInvoicePaymentRecord(options.paymentRepo, {
     pelangganId: options.pelangganId,
     invoice: options.invoice,
-    invoiceRepo: options.invoiceRepo,
-    paymentRepo: options.paymentRepo,
-  };
-}
-
-async function executeImmediateSettlement(options: {
-  pelangganId: string;
-  invoice: { id: string; totalAmount: bigint };
-  invoiceRepo: InvoiceRepository;
-  paymentRepo: PaymentRepository;
-}) {
-  await markInvoiceAsPaid(options.invoiceRepo, options.invoice);
-  await createInvoicePaymentRecord(options.paymentRepo, options);
-  await publishInvoicePaidEvent({
-    invoiceId: options.invoice.id,
-    customerId: options.pelangganId,
-    totalAmount: options.invoice.totalAmount,
   });
-}
 
-async function markInvoiceAsPaid(
-  invoiceRepo: InvoiceRepository,
-  invoice: { id: string; totalAmount: bigint },
-) {
-  await invoiceRepo.update(invoice.id, {
-    status: "PAID",
-    paidAmount: invoice.totalAmount,
-  });
+  // Recompute akan mark invoice PAID berdasarkan payment yang baru dibuat,
+  // emit INVOICE_PAID sekali, dan cancel durable billing schedule.
+  await new InvoicePaymentStateService(options.invoiceRepo).recompute(
+    options.invoice.id,
+  );
 }
 
 async function createInvoicePaymentRecord(
@@ -93,21 +56,4 @@ function buildPaymentRecord(options: {
     createdAt: now,
     updatedAt: now,
   };
-}
-
-async function publishInvoicePaidEvent(input: {
-  invoiceId: string;
-  customerId: string;
-  totalAmount: bigint;
-}) {
-  await BillingEventDispatcher.onInvoicePaid(
-    input.invoiceId,
-    input.customerId,
-    Number(input.totalAmount),
-  ).catch((error) =>
-    logger.error(
-      "Failed to publish INVOICE_PAID event",
-      error instanceof Error ? error : undefined,
-    ),
-  );
 }

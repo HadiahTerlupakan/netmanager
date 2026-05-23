@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     const validated = preRegisterSchema.parse(body);
 
     const existing = await onuService.findPendingPreRegistration(
+      session.user.tenantId,
       validated.serialNumber,
     );
     if (existing) {
@@ -59,10 +61,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(record, { status: 201 });
   } catch (error) {
-    logger.error("Error creating pre-registration:", error);
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error creating pre-registration:", error);
     const msg = error instanceof Error ? error.message : "Gagal pre-register";
     return ApiErrors.internalError(msg);
   }

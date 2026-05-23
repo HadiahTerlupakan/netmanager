@@ -247,6 +247,7 @@ export class AutomaticBillingService {
       jatuhTempo: Date;
       userId: string | null;
       usePPN: boolean;
+      tenantId: string | null;
       hargaPaket: {
         id: string;
         name: string;

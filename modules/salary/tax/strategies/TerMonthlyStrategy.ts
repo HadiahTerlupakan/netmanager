@@ -1,6 +1,17 @@
 import type { TerBracket } from "@/modules/salary/core";
 
 export class TerMonthlyStrategy {
+  /**
+   * Mapping PTKP status → TER kategori (PMK 168/2023 Lampiran A).
+   *
+   * Kategori A: TK/0, TK/1, K/0
+   * Kategori B: TK/2, TK/3, K/1, K/2
+   * Kategori C: K/3
+   *
+   * Untuk status K/I (penghasilan istri digabung), PTKP setara dengan
+   * K + PTKP istri (Rp 54 jt). Karena PMK 168/2023 tidak eksplisit
+   * mengkategorisasi K/I, kami treat sebagai kategori C (PTKP terbesar).
+   */
   static getPtkpGroup(ptkpStatus: string): string {
     const groupMap: Record<string, string> = {
       TK_0: "A",
@@ -11,8 +22,18 @@ export class TerMonthlyStrategy {
       K_1: "B",
       K_2: "B",
       K_3: "C",
+      KI_0: "C",
+      KI_1: "C",
+      KI_2: "C",
+      KI_3: "C",
     };
-    return groupMap[ptkpStatus] ?? "A";
+    const group = groupMap[ptkpStatus];
+    if (!group) {
+      throw new Error(
+        `[TerMonthlyStrategy] PTKP status tidak dikenal: "${ptkpStatus}". Status valid: TK_0..TK_3, K_0..K_3, KI_0..KI_3`,
+      );
+    }
+    return group;
   }
 
   calculate(

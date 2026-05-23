@@ -9,6 +9,7 @@ export interface BillingCustomerPayload {
   jatuhTempo: Date;
   userId: string | null;
   usePPN: boolean;
+  tenantId: string | null;
   tipe?: string;
   status?: string;
   hargaPaket: {
@@ -26,6 +27,7 @@ interface EligibleBillingRow {
   jatuhTempo: Date;
   userId: string | null;
   usePPN: boolean;
+  tenantId: string | null;
   tipe?: string;
   status?: string;
   hargaPaketId: string;
@@ -84,6 +86,7 @@ export function mapEligibleBillingRowToCustomer(
     jatuhTempo: row.jatuhTempo,
     userId: row.userId,
     usePPN: row.usePPN,
+    tenantId: row.tenantId,
     tipe: row.tipe,
     status: row.status,
     hargaPaket: {
@@ -102,6 +105,7 @@ type RealtimeBillingCustomer = {
   jatuhTempo: Date;
   userId: string | null;
   usePPN: boolean;
+  tenantId: string | null;
   hargaPaket: {
     id: string;
     name: string;
@@ -115,13 +119,15 @@ type RealtimeBillingCustomer = {
 export function mapRealtimeCustomerToBillingPayload(
   customer: RealtimeBillingCustomer,
 ) {
-  const { id, nama, jatuhTempo, userId, usePPN, hargaPaket } = customer;
+  const { id, nama, jatuhTempo, userId, usePPN, tenantId, hargaPaket } =
+    customer;
   return {
     id,
     nama,
     jatuhTempo,
     userId,
     usePPN,
+    tenantId,
     hargaPaket: { ...hargaPaket },
   };
 }

@@ -25,10 +25,14 @@ export class OnuPowerHistoryRepository {
     });
   }
 
-  async getHistory(onuId: string, hours: number = 24): Promise<PowerRecord[]> {
+  async getHistory(
+    onuId: string,
+    tenantId: string,
+    hours: number = 24,
+  ): Promise<PowerRecord[]> {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const records = await prisma.onuPowerHistory.findMany({
-      where: { onuId, recordedAt: { gte: since } },
+      where: { onuId, tenantId, recordedAt: { gte: since } },
       orderBy: { recordedAt: "asc" },
     });
     return records as PowerRecord[];

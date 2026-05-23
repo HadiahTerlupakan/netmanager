@@ -29,9 +29,12 @@ interface UpdateBandwidthProfileInput {
 }
 
 export class BandwidthProfileRepository {
-  async findByOlt(oltId: string): Promise<BandwidthProfile[]> {
+  async findByOlt(
+    oltId: string,
+    tenantId: string,
+  ): Promise<BandwidthProfile[]> {
     const profiles = await prisma.oltBandwidthProfile.findMany({
-      where: { oltId },
+      where: { oltId, tenantId },
       orderBy: { name: "asc" },
     });
     return profiles as BandwidthProfile[];
@@ -45,9 +48,23 @@ export class BandwidthProfileRepository {
     return profiles as BandwidthProfile[];
   }
 
-  async findById(id: string): Promise<BandwidthProfile | null> {
-    const profile = await prisma.oltBandwidthProfile.findUnique({
-      where: { id },
+  async findByName(
+    oltId: string,
+    tenantId: string,
+    name: string,
+  ): Promise<BandwidthProfile | null> {
+    const profile = await prisma.oltBandwidthProfile.findFirst({
+      where: { oltId, tenantId, name },
+    });
+    return profile as BandwidthProfile | null;
+  }
+
+  async findById(
+    id: string,
+    tenantId: string,
+  ): Promise<BandwidthProfile | null> {
+    const profile = await prisma.oltBandwidthProfile.findFirst({
+      where: { id, tenantId },
     });
     return profile as BandwidthProfile | null;
   }
@@ -68,16 +85,28 @@ export class BandwidthProfileRepository {
 
   async update(
     id: string,
+    tenantId: string,
     input: UpdateBandwidthProfileInput,
   ): Promise<BandwidthProfile> {
-    const profile = await prisma.oltBandwidthProfile.update({
-      where: { id },
+    const result = await prisma.oltBandwidthProfile.updateMany({
+      where: { id, tenantId },
       data: input,
+    });
+    if (result.count === 0) {
+      throw new Error("Bandwidth profile tidak ditemukan");
+    }
+    const profile = await prisma.oltBandwidthProfile.findUnique({
+      where: { id },
     });
     return profile as BandwidthProfile;
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.oltBandwidthProfile.delete({ where: { id } });
+  async delete(id: string, tenantId: string): Promise<void> {
+    const result = await prisma.oltBandwidthProfile.deleteMany({
+      where: { id, tenantId },
+    });
+    if (result.count === 0) {
+      throw new Error("Bandwidth profile tidak ditemukan");
+    }
   }
 }

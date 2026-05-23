@@ -15,11 +15,40 @@ export interface PayrollEntrySummary {
   netSalary: number;
 }
 
+export interface AdvanceDeductionLine {
+  advanceId: string;
+  amount: number;
+}
+
+/**
+ * Detail event payload sources untuk SALARY_PROCESSED handler.
+ * Memuat semua angka yang dibutuhkan accounting handler agar
+ * jurnal salary balanced (gaji + BPJS + advance + PPh21).
+ */
+export interface PayrollEntryEventDetails {
+  id: string;
+  userId: string;
+  basicSalary: number;
+  totalEarnings: number;
+  totalDeductions: number;
+  totalTax: number;
+  netSalary: number;
+  employerCost: number;
+  bpjsEmployee: number;
+  bpjsEmployer: number;
+  advanceDeducted: number;
+  advanceDeductions: AdvanceDeductionLine[];
+}
+
 export interface IPayrollEntryRepository {
   findCalculatedSummaries(
     runId: string,
     tenantId: string,
   ): Promise<PayrollEntrySummary[]>;
+  findCalculatedEventDetails(
+    runId: string,
+    tenantId: string,
+  ): Promise<PayrollEntryEventDetails[]>;
   findById(id: string, tenantId: string): Promise<PayrollEntryWithLines | null>;
   findByUserId(userId: string, tenantId: string): Promise<PayrollEntry[]>;
   findByRunId(runId: string, tenantId: string): Promise<PayrollEntry[]>;

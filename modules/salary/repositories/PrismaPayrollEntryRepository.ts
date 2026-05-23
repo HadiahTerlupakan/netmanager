@@ -5,9 +5,22 @@ import type {
   PayrollEntryWithLines,
   PayrollEntry,
   PayrollEntrySummary,
+  PayrollEntryEventDetails,
   PayrollLine,
   PayrollEntryStatus,
 } from "@/modules/salary/core";
+
+const BPJS_EMPLOYEE_CODES = ["BPJS_KES_EE", "BPJS_JHT_EE", "BPJS_JP_EE"];
+
+const BPJS_EMPLOYER_CODES = [
+  "BPJS_KES_ER",
+  "BPJS_JHT_ER",
+  "BPJS_JP_ER",
+  "BPJS_JKK_ER",
+  "BPJS_JKM_ER",
+];
+
+const ADVANCE_CODE_PREFIX = "ADVANCE_";
 
 /**
  * Prisma implementation of IPayrollEntryRepository.
@@ -30,6 +43,64 @@ export class PrismaPayrollEntryRepository implements IPayrollEntryRepository {
       },
     });
     return records;
+  }
+
+  async findCalculatedEventDetails(
+    runId: string,
+    tenantId: string,
+  ): Promise<PayrollEntryEventDetails[]> {
+    const records = await prisma.payrollEntry.findMany({
+      where: { payrollRunId: runId, tenantId, status: "CALCULATED" },
+      select: {
+        id: true,
+        userId: true,
+        basicSalary: true,
+        totalEarnings: true,
+        totalDeductions: true,
+        totalTax: true,
+        netSalary: true,
+        employerCost: true,
+        lines: {
+          select: { componentCode: true, amount: true },
+        },
+      },
+    });
+
+    return records.map((record) => {
+      let bpjsEmployee = 0;
+      let bpjsEmployer = 0;
+      let advanceDeducted = 0;
+      const advanceDeductions: { advanceId: string; amount: number }[] = [];
+
+      for (const line of record.lines) {
+        if (BPJS_EMPLOYEE_CODES.includes(line.componentCode)) {
+          bpjsEmployee += line.amount;
+        } else if (BPJS_EMPLOYER_CODES.includes(line.componentCode)) {
+          bpjsEmployer += line.amount;
+        } else if (line.componentCode.startsWith(ADVANCE_CODE_PREFIX)) {
+          const advanceId = line.componentCode.slice(
+            ADVANCE_CODE_PREFIX.length,
+          );
+          advanceDeducted += line.amount;
+          advanceDeductions.push({ advanceId, amount: line.amount });
+        }
+      }
+
+      return {
+        id: record.id,
+        userId: record.userId,
+        basicSalary: record.basicSalary,
+        totalEarnings: record.totalEarnings,
+        totalDeductions: record.totalDeductions,
+        totalTax: record.totalTax,
+        netSalary: record.netSalary,
+        employerCost: record.employerCost,
+        bpjsEmployee,
+        bpjsEmployer,
+        advanceDeducted,
+        advanceDeductions,
+      };
+    });
   }
 
   async findById(

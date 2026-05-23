@@ -7,9 +7,12 @@ import {
   RabPaymentType,
   RabTargetBasis,
 } from "../repositories/prisma-boundary";
+import {
+  getPurchaseOrderPaymentService,
+  type PurchaseOrderPaymentService,
+} from "@/modules/procurement";
 import { FinanceAccountFacadeService } from "./FinanceAccountFacadeService";
 import { FinanceExpenseFacadeService } from "./FinanceExpenseFacadeService";
-import { FinancePurchaseOrderPaymentService } from "./FinancePurchaseOrderPaymentService";
 import { FinanceRabFacadeService } from "./FinanceRabFacadeService";
 import { FinanceReportService } from "./FinanceReportService";
 
@@ -18,7 +21,7 @@ export class FinanceService {
     private readonly accountService = new FinanceAccountFacadeService(),
     private readonly expenseService = new FinanceExpenseFacadeService(),
     private readonly rabService = new FinanceRabFacadeService(),
-    private readonly paymentService = new FinancePurchaseOrderPaymentService(),
+    private readonly paymentService: PurchaseOrderPaymentService = getPurchaseOrderPaymentService(),
     private readonly reportService = new FinanceReportService(),
   ) {}
 

@@ -20,7 +20,11 @@ export async function POST(
     }
 
     const { id } = await params;
-    const result = await onuControl.rebootOnu(id, session.user.id);
+    const result = await onuControl.rebootOnu(
+      id,
+      session.user.tenantId,
+      session.user.id,
+    );
 
     if (!result.success) {
       return apiSuccess({ rebooted: false, error: result.error });

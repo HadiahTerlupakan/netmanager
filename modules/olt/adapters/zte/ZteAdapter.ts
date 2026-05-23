@@ -788,7 +788,13 @@ export class ZteAdapter implements IOltAdapter {
 
       return {
         success: true,
-        data: { ponPort, onuIndex, serialNumber, status },
+        data: {
+          slot: device.defaultSlot,
+          ponPort,
+          onuIndex,
+          serialNumber,
+          status,
+        },
       };
     } catch (error) {
       return this.snmpFailure(error, "SNMP get failed");
@@ -873,6 +879,7 @@ export class ZteAdapter implements IOltAdapter {
           "unknown") as OnuStatusInfo["status"];
 
         statuses.push({
+          slot: parsed.slot,
           ponPort: parsed.port,
           onuIndex: parsed.onuIndex,
           serialNumber: "",
@@ -1098,10 +1105,13 @@ export class ZteAdapter implements IOltAdapter {
     //   DB slot 9 port 1 onuIndex 1 → 0x90900100
     try {
       const effectiveSlot = slot ?? device.defaultSlot;
+      // Pakai >>> 0 untuk paksa unsigned int32. Tanpa ini, (0x90 << 24)
+      // jadi -1879048192 (signed) → OID string invalid.
       const ifIndex =
-        (0x90 << 24) |
-        ((((effectiveSlot & 0xf) << 4) | ((ponPort - 1) & 0xf)) << 16) |
-        ((onuIndex & 0xff) << 8);
+        ((0x90 << 24) |
+          ((((effectiveSlot & 0xf) << 4) | ((ponPort - 1) & 0xf)) << 16) |
+          ((onuIndex & 0xff) << 8)) >>>
+        0;
 
       const oids = [
         `${ZteOidRegistry.onuTraffic.rxOctetsTable}.${ifIndex}`,
@@ -1116,6 +1126,15 @@ export class ZteAdapter implements IOltAdapter {
       const parse = (idx: number): number => {
         const v = results[idx]?.value;
         if (v === undefined || v === null) return 0;
+        // net-snmp returns Counter64 sebagai Buffer 8-byte big-endian.
+        // Untuk Counter32/INTEGER/Gauge sudah berupa number primitif.
+        if (Buffer.isBuffer(v)) {
+          let big = 0n;
+          for (const byte of v) big = (big << 8n) | BigInt(byte);
+          // Bytes counter aman di Number range untuk traffic harian
+          // (2^53 ≈ 9 PB). Packet counter juga aman di skala normal.
+          return Number(big);
+        }
         const n = Number(v);
         return isNaN(n) ? 0 : n;
       };

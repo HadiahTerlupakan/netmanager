@@ -13,6 +13,9 @@ interface RecordPpnKeluaranParams {
   invoiceId: string;
   invoiceAmount: number;
   invoiceDate: Date;
+  fakturPajakNo?: string | null;
+  fakturPajakDate?: Date | null;
+  counterpartNpwp?: string | null;
 }
 
 interface RecordPpnMasukanParams {
@@ -20,6 +23,10 @@ interface RecordPpnMasukanParams {
   expenseId: string;
   expenseAmount: number;
   expenseDate: Date;
+  fakturPajakNo?: string | null;
+  fakturPajakDate?: Date | null;
+  counterpartNpwp?: string | null;
+  sourceRefType?: string;
 }
 
 /**
@@ -128,6 +135,9 @@ export class PpnService {
       periodMonth,
       journalId: journal.id,
       notes: `PPN Keluaran ${ppnRate}% dari Invoice ${invoiceId}`,
+      fakturPajakNo: params.fakturPajakNo ?? null,
+      fakturPajakDate: params.fakturPajakDate ?? null,
+      counterpartNpwp: params.counterpartNpwp ?? null,
     });
 
     logger.info(
@@ -214,12 +224,15 @@ export class PpnService {
       amount: expenseAmount,
       taxAmount,
       rate: ppnRate,
-      sourceRefType: "Expense",
+      sourceRefType: params.sourceRefType ?? "Expense",
       sourceRefId: expenseId,
       periodYear,
       periodMonth,
       journalId: journal.id,
       notes: `PPN Masukan ${ppnRate}% dari Expense ${expenseId}`,
+      fakturPajakNo: params.fakturPajakNo ?? null,
+      fakturPajakDate: params.fakturPajakDate ?? null,
+      counterpartNpwp: params.counterpartNpwp ?? null,
     });
 
     logger.info(

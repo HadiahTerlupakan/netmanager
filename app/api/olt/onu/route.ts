@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
         await monitoringService.pollOnusByPon(
           query.oltId!,
           session.user.tenantId,
+          query.slot!,
           query.ponPort!,
         );
       } catch (error) {

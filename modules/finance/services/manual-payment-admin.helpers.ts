@@ -1,14 +1,13 @@
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { BillingEventDispatcher } from "@/modules/events/dispatchers/BillingEventDispatcher";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
 import type {
   PaymentWhereInput,
   GatewayPaymentStatus,
 } from "../types/payment.types";
-import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 export type PendingManualPaymentsInput = {
   startDate?: string | null;
@@ -106,15 +105,12 @@ export async function getCustomerNameMap(
   }
 
   const uniqueIds = Array.from(new Set(pelangganIds));
-  const customers = (await Promise.all(
-    uniqueIds.map((id) => pelangganRepository.findById(id)),
-  )) as Array<CustomerNameRecord | null>;
+  const customers = (await pelangganRepository.findManyByIds(
+    uniqueIds,
+  )) as Array<CustomerNameRecord>;
 
   return customers.reduce<Record<string, string>>((nameMap, customer) => {
-    if (customer) {
-      nameMap[customer.id] = customer.nama;
-    }
-
+    nameMap[customer.id] = customer.nama;
     return nameMap;
   }, {});
 }
@@ -168,10 +164,8 @@ export async function approveManualPayment(
   });
 
   if (payment.invoiceId) {
-    await syncInvoiceAfterPaymentApproval(
-      invoiceRepository,
+    await new InvoicePaymentStateService(invoiceRepository).recompute(
       payment.invoiceId,
-      payment.id,
     );
 
     if (payment.invoice?.pelangganId) {
@@ -207,55 +201,4 @@ function mapGatewayStatusFilter(
   }
 
   return undefined;
-}
-
-async function syncInvoiceAfterPaymentApproval(
-  invoiceRepository: InvoiceRepository,
-  invoiceId: string,
-  paymentId: string,
-) {
-  const invoice = await invoiceRepository.findWithPayment(invoiceId);
-  if (!invoice) {
-    return;
-  }
-
-  const totalPaid = (invoice.payment || []).reduce((sum, payment) => {
-    if (payment.id === paymentId) return sum + payment.amount;
-    if (!payment.gatewayStatus || payment.gatewayStatus === "PAID") {
-      return sum + payment.amount;
-    }
-
-    return sum;
-  }, 0n);
-  const invoiceStatus = resolveInvoiceStatus(
-    totalPaid,
-    invoice.totalAmount,
-    invoice.status,
-  );
-
-  await invoiceRepository.updatePaymentStatus(invoice.id, {
-    paidAmount: totalPaid,
-    status: invoiceStatus as never,
-    ...(invoiceStatus === "PAID" ? { paidAt: new Date() } : {}),
-  });
-
-  if (invoiceStatus === "PAID") {
-    await AutomaticBillingService.handleInvoicePaid(invoice.id);
-
-    await BillingEventDispatcher.onInvoicePaid(
-      invoice.id,
-      invoice.pelangganId || "",
-      Number(invoice.totalAmount),
-    ).catch(() => {});
-  }
-}
-
-function resolveInvoiceStatus(
-  totalPaid: bigint,
-  totalAmount: bigint,
-  currentStatus: string,
-) {
-  if (totalPaid >= totalAmount) return "PAID";
-  if (totalPaid > 0n) return "PARTIAL_PAID";
-  return currentStatus;
 }

@@ -6,12 +6,14 @@ import { TaxTransactionRepository } from "./repositories/TaxTransactionRepositor
 import { TaxPeriodRepository } from "./repositories/TaxPeriodRepository";
 import { TaxConfigService } from "./services/TaxConfigService";
 import { PpnService } from "./services/PpnService";
+import { PpnRateResolver } from "./services/PpnRateResolver";
 import { PphService } from "./services/PphService";
 import { BhpUsoService } from "./services/BhpUsoService";
 import { TaxPeriodService } from "./services/TaxPeriodService";
 import { TaxReminderService } from "./services/TaxReminderService";
 import { TaxExportService } from "./services/TaxExportService";
 import { TaxTransactionService } from "./services/TaxTransactionService";
+import { CoretaxExportAdapter } from "./services/CoretaxExportAdapter";
 
 // Factory functions (pre-wired with repositories)
 
@@ -24,6 +26,10 @@ export function getPpnService(): PpnService {
     new TaxConfigRepository(),
     new TaxTransactionRepository(),
   );
+}
+
+export function getPpnRateResolver(): PpnRateResolver {
+  return new PpnRateResolver(new TaxConfigRepository());
 }
 
 export function getPphService(): PphService {
@@ -62,6 +68,13 @@ export function getTaxExportService(): TaxExportService {
   );
 }
 
+export function getCoretaxExportAdapter(): CoretaxExportAdapter {
+  return new CoretaxExportAdapter(
+    new TaxTransactionRepository(),
+    new TaxConfigRepository(),
+  );
+}
+
 export function getTaxTransactionService(): TaxTransactionService {
   return new TaxTransactionService(new TaxTransactionRepository());
 }
@@ -69,6 +82,7 @@ export function getTaxTransactionService(): TaxTransactionService {
 // Event handlers
 export { handleInvoiceCreatedTax } from "./services/event-handlers/invoice-created-tax.handler";
 export { handleExpenseApprovedTax } from "./services/event-handlers/expense-approved-tax.handler";
+export { handlePurchaseOrderPaidTax } from "./services/event-handlers/purchase-order-paid-tax.handler";
 export { handleSalaryProcessedTax } from "./services/event-handlers/salary-processed-tax.handler";
 export { handleInvestorPayoutTax } from "./services/event-handlers/investor-payout-tax.handler";
 
@@ -91,9 +105,13 @@ export type {
 // Services (for direct import if needed)
 export { TaxConfigService } from "./services/TaxConfigService";
 export { PpnService } from "./services/PpnService";
+export { PpnRateResolver } from "./services/PpnRateResolver";
+export { classifyPph } from "./services/PphClassifier";
+export type { PphClassification } from "./services/PphClassifier";
 export { PphService } from "./services/PphService";
 export { BhpUsoService } from "./services/BhpUsoService";
 export { TaxPeriodService } from "./services/TaxPeriodService";
 export { TaxReminderService } from "./services/TaxReminderService";
 export { TaxExportService } from "./services/TaxExportService";
 export { TaxTransactionService } from "./services/TaxTransactionService";
+export { CoretaxExportAdapter } from "./services/CoretaxExportAdapter";

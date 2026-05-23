@@ -1,10 +1,11 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { FirmwareUpgradeService } from "@/modules/olt";
+import { FirmwareUpgradeService, firmwareUpgradeSchema } from "@/modules/olt";
 
 const firmwareService = new FirmwareUpgradeService();
 
@@ -21,15 +22,12 @@ export async function POST(
 
     const { id } = await params;
     const body = await req.json();
-    const firmwareFile = body.firmwareFile;
-
-    if (!firmwareFile || typeof firmwareFile !== "string") {
-      return ApiErrors.badRequest("firmwareFile wajib diisi");
-    }
+    const validated = firmwareUpgradeSchema.parse(body);
 
     const result = await firmwareService.upgradeOnuFirmware(
       id,
-      firmwareFile,
+      session.user.tenantId,
+      validated.firmwareFile,
       session.user.id,
     );
 
@@ -38,6 +36,9 @@ export async function POST(
     }
     return apiSuccess({ upgraded: true });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Data tidak valid");
+    }
     logger.error("Error firmware upgrade:", error);
     const msg =
       error instanceof Error ? error.message : "Firmware upgrade gagal";

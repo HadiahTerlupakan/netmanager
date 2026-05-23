@@ -1,4 +1,5 @@
 import { LandingContentRepository } from "../repositories/LandingContentRepository";
+import type { LandingContentAll } from "../domain/LandingContent";
 
 /** Service layer for landing page content management */
 export class LandingContentService {
@@ -147,7 +148,29 @@ export class LandingContentService {
   }
 
   /** Fetch all active landing content sections in parallel (for public page render) */
-  getAllContent() {
-    return this.repository.getAllContent();
+  async getAllContent(): Promise<LandingContentAll> {
+    const { hero, features, pricing, testimonials, faq, footer } =
+      await this.repository.getAllContent();
+
+    return {
+      hero,
+      features,
+      pricing: pricing.map((p) => ({
+        ...p,
+        features: Array.isArray(p.features) ? (p.features as string[]) : [],
+      })),
+      testimonials,
+      faq,
+      footer: footer
+        ? {
+            ...footer,
+            links: (footer.links ?? {}) as Record<
+              string,
+              Array<{ label: string; href: string }>
+            >,
+            socials: footer.socials as Record<string, string> | null,
+          }
+        : null,
+    };
   }
 }

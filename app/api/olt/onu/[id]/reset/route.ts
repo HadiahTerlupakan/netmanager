@@ -20,7 +20,11 @@ export async function POST(
     }
 
     const { id } = await params;
-    const result = await onuControl.resetOnu(id, session.user.id);
+    const result = await onuControl.resetOnu(
+      id,
+      session.user.tenantId,
+      session.user.id,
+    );
 
     if (!result.success) {
       return apiSuccess({ reset: false, error: result.error });

@@ -25,3 +25,36 @@ export * from "./services/InventoryAccessService";
 
 // DTO
 export * from "./dto/AssetDTO";
+
+// Domain constants (public API for UI consumers)
+export {
+  STOCK_THRESHOLD,
+  getStockStatus,
+  getStockLabel,
+  type StockStatus,
+} from "./domain/constants";
+
+// Validators (public API for cross-layer access)
+export {
+  OPNAME_REASON_CODES,
+  opnameItemSchema,
+  opnameBatchSchema,
+  opnameUpdateSchema,
+  type OpnameReasonCode,
+  type OpnameItemInput,
+  type OpnameBatchInput,
+  type OpnameUpdateInput,
+} from "./validators/opnameValidator";
+
+export {
+  BARANG_VALIDATION,
+  BARANG_JENIS,
+  BARANG_KATEGORI_ASET,
+  barangFormSchema,
+  validateBarangForm,
+  sanitizeBarangInput,
+  type BarangJenis,
+  type BarangKategoriAset,
+  type BarangFormInput,
+  type BarangFormOutput,
+} from "./validators/barangValidator";

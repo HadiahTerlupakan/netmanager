@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -23,7 +24,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const device = await oltDeviceService.getById(id);
+    const device = await oltDeviceService.getById(id, session.user.tenantId);
     if (!device) {
       return ApiErrors.notFound("OLT tidak ditemukan");
     }
@@ -57,13 +58,17 @@ export async function PATCH(
     const body = await req.json();
     const validated = updateOltDeviceSchema.parse(body);
 
-    const device = await oltDeviceService.update(id, validated);
+    const device = await oltDeviceService.update(
+      id,
+      session.user.tenantId,
+      validated,
+    );
     return apiSuccess(device);
   } catch (error) {
-    logger.error("Error updating OLT device:", error);
-    if (error instanceof Error && error.name === "ZodError") {
-      return ApiErrors.badRequest("Data tidak valid", { details: error });
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Data tidak valid");
     }
+    logger.error("Error updating OLT device:", error);
     const msg = error instanceof Error ? error.message : "Gagal mengubah OLT";
     return ApiErrors.internalError(msg);
   }
@@ -86,7 +91,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await oltDeviceService.delete(id);
+    await oltDeviceService.delete(id, session.user.tenantId);
     return apiSuccess({ deleted: true });
   } catch (error) {
     logger.error("Error deleting OLT device:", error);

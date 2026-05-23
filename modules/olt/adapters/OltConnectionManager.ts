@@ -5,18 +5,22 @@ const MAX_RETRIES = 2;
 const BACKOFF_BASE_MS = 1000;
 const BACKOFF_MAX_MS = 5000;
 
+const RETRYABLE_CODES = new Set(["TIMEOUT", "CONNECTION_LOST"]);
+
 export class OltConnectionManager {
   async withRetry<T>(
     operation: () => Promise<ServiceResult<T>>,
     context: string,
   ): Promise<ServiceResult<T>> {
     let lastError: string | undefined;
+    let lastCode: string | undefined;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       const result = await operation();
       if (result.success) return result;
 
       lastError = result.error;
+      lastCode = result.code;
       if (!this.isRetryable(result.code)) break;
 
       if (attempt < MAX_RETRIES) {
@@ -34,12 +38,12 @@ export class OltConnectionManager {
     return {
       success: false,
       error: lastError ?? "Unknown error",
-      code: "RETRY_EXHAUSTED",
+      code: lastCode ?? "RETRY_EXHAUSTED",
     };
   }
 
   private isRetryable(code?: string): boolean {
-    return code === "TIMEOUT" || code === "CONNECTION_LOST";
+    return code !== undefined && RETRYABLE_CODES.has(code);
   }
 
   private sleep(ms: number): Promise<void> {

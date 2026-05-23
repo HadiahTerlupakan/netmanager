@@ -1,6 +1,8 @@
 import { prisma } from "@/modules/database";
 import { logger } from "@/lib/logger";
 
+const ALERT_DEDUP_WINDOW_HOURS = 6;
+
 interface CreateAlertInput {
   tenantId: string;
   oltId: string;
@@ -12,6 +14,10 @@ interface CreateAlertInput {
 
 export class OltAlertService {
   async createAlert(input: CreateAlertInput): Promise<void> {
+    if (await this.hasOpenSimilarAlert(input)) {
+      return;
+    }
+
     await prisma.oltAlert.create({
       data: {
         tenantId: input.tenantId,
@@ -54,8 +60,11 @@ export class OltAlertService {
     };
   }
 
-  async markRead(id: string): Promise<void> {
-    await prisma.oltAlert.update({ where: { id }, data: { isRead: true } });
+  async markRead(id: string, tenantId: string): Promise<void> {
+    await prisma.oltAlert.updateMany({
+      where: { id, tenantId },
+      data: { isRead: true },
+    });
   }
 
   async markAllRead(tenantId: string): Promise<void> {
@@ -63,5 +72,22 @@ export class OltAlertService {
       where: { tenantId, isRead: false },
       data: { isRead: true },
     });
+  }
+
+  private async hasOpenSimilarAlert(input: CreateAlertInput): Promise<boolean> {
+    const since = new Date(
+      Date.now() - ALERT_DEDUP_WINDOW_HOURS * 60 * 60 * 1000,
+    );
+    const existing = await prisma.oltAlert.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        oltId: input.oltId,
+        onuId: input.onuId ?? null,
+        type: input.type,
+        isRead: false,
+        createdAt: { gte: since },
+      },
+    });
+    return existing !== null;
   }
 }

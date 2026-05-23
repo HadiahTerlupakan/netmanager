@@ -293,6 +293,15 @@ export class PelangganRepository implements IPelangganRepository {
     return clearCustomerPushTokens(tokens);
   }
 
+  /** Batch lookup id+nama untuk N pelanggan dalam 1 query. */
+  async findManyByIds(ids: string[]) {
+    if (ids.length === 0) return [] as Array<{ id: string; nama: string }>;
+    return prisma.pelanggan.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, nama: true },
+    });
+  }
+
   /** Batalkan perubahan paket yang dijadwalkan. */
   async cancelPendingPackage(id: string, tenantId?: string | null) {
     const existing = await prisma.pelanggan.findFirst({

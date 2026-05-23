@@ -29,15 +29,39 @@ export class OltCommandLogService {
     });
   }
 
-  async findByOlt(oltId: string, page: number, limit: number) {
+  async findByOlt(
+    oltId: string,
+    tenantId: string,
+    page: number,
+    limit: number,
+  ) {
+    const where = { oltId, tenantId };
     const [data, total] = await Promise.all([
       prisma.oltCommandLog.findMany({
-        where: { oltId },
+        where,
         orderBy: { executedAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.oltCommandLog.count({ where: { oltId } }),
+      prisma.oltCommandLog.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findByTenant(tenantId: string, page: number, limit: number) {
+    const where = { tenantId };
+    const [data, total] = await Promise.all([
+      prisma.oltCommandLog.findMany({
+        where,
+        orderBy: { executedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.oltCommandLog.count({ where }),
     ]);
 
     return {

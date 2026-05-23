@@ -20,7 +20,10 @@ export async function POST(
     }
 
     const { id } = await params;
-    const result = await discoveryService.discoverByOlt(id);
+    const result = await discoveryService.discoverByOlt(
+      id,
+      session.user.tenantId,
+    );
 
     if (!result.success) {
       return apiSuccess({ found: 0, error: result.error });

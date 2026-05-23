@@ -72,6 +72,7 @@ interface DefaultFooter {
   description: string;
   email: string;
   links: Record<string, Array<{ label: string; href: string }>>;
+  logoUrl: string | null;
 }
 
 // ── Default content (mirrors current hardcoded values) ─────────────────────
@@ -85,6 +86,7 @@ const DEFAULT_HERO = {
   ctaPrimary: "Mulai Gratis 14 Hari",
   ctaSecondary: "Lihat Fitur",
   ctaLink: "/admin/login",
+  logoUrl: null as string | null,
 };
 
 const DEFAULT_FEATURES: DefaultFeature[] = [
@@ -263,6 +265,7 @@ const DEFAULT_FOOTER: DefaultFooter = {
       { label: "Portal Pelanggan", href: "/login" },
     ],
   },
+  logoUrl: null,
 };
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -303,12 +306,23 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                <MdRocketLaunch className="text-white text-lg" />
-              </div>
-              <span className="font-extrabold text-xl tracking-tight text-slate-900">
-                RADPRO<span className="text-indigo-600">.ID</span>
-              </span>
+              {hero.logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={hero.logoUrl}
+                  alt={footer.companyName}
+                  className="h-8 w-auto object-contain"
+                />
+              ) : (
+                <>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                    <MdRocketLaunch className="text-white text-lg" />
+                  </div>
+                  <span className="font-extrabold text-xl tracking-tight text-slate-900">
+                    RADPRO<span className="text-indigo-600">.ID</span>
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Desktop nav links */}
@@ -749,12 +763,23 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
             {/* Brand */}
             <div className="max-w-xs">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-md bg-indigo-600 flex items-center justify-center">
-                  <MdRocketLaunch className="text-white text-sm" />
-                </div>
-                <span className="font-extrabold text-lg text-white">
-                  {footer.companyName}
-                </span>
+                {footer.logoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={footer.logoUrl}
+                    alt={footer.companyName}
+                    className="h-7 w-auto object-contain"
+                  />
+                ) : (
+                  <>
+                    <div className="w-7 h-7 rounded-md bg-indigo-600 flex items-center justify-center">
+                      <MdRocketLaunch className="text-white text-sm" />
+                    </div>
+                    <span className="font-extrabold text-lg text-white">
+                      {footer.companyName}
+                    </span>
+                  </>
+                )}
               </div>
               {footer.description && (
                 <p className="text-sm leading-relaxed">{footer.description}</p>

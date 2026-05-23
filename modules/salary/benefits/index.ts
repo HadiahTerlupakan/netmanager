@@ -9,6 +9,7 @@ export type {
   RapelReason,
 } from "./rapel/RapelCalculationService";
 export { SalaryAdvanceService } from "./advance/SalaryAdvanceService";
+export { SalaryAdvanceManagementService } from "./advance/SalaryAdvanceManagementService";
 export type {
   ValidateRequestInput,
   ValidationResult,
@@ -16,3 +17,7 @@ export type {
   DeductionInput,
   DeductionResult,
 } from "./advance/SalaryAdvanceService";
+export type {
+  RequestAdvanceInput,
+  ActionResult,
+} from "./advance/SalaryAdvanceManagementService";

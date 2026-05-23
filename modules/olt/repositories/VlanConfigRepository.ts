@@ -22,9 +22,9 @@ interface CreateVlanConfigInput {
 }
 
 export class VlanConfigRepository {
-  async findByOlt(oltId: string): Promise<VlanConfig[]> {
+  async findByOlt(oltId: string, tenantId: string): Promise<VlanConfig[]> {
     const configs = await prisma.oltVlanConfig.findMany({
-      where: { oltId },
+      where: { oltId, tenantId },
       orderBy: [{ ponPort: "asc" }, { vlanId: "asc" }],
     });
     return configs as VlanConfig[];
@@ -55,7 +55,12 @@ export class VlanConfigRepository {
     return config as VlanConfig;
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.oltVlanConfig.delete({ where: { id } });
+  async delete(id: string, tenantId: string): Promise<void> {
+    const result = await prisma.oltVlanConfig.deleteMany({
+      where: { id, tenantId },
+    });
+    if (result.count === 0) {
+      throw new Error("VLAN config tidak ditemukan");
+    }
   }
 }

@@ -2,15 +2,14 @@ import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
-import { CoaNotFoundError } from "@/modules/accounting";
 import { getPphService } from "../../index";
 
 const SOURCE = "SalaryProcessedTaxHandler";
 
 /**
- * Handles SALARY_PROCESSED event to record PPh 21.
- * The PPh 21 amount is pre-calculated by the salary module.
- * Gracefully skips if COA not seeded or pph21Amount is 0.
+ * Handles SALARY_PROCESSED event to record PPh 21 tax transaction.
+ * Only creates a TaxTransaction record — journal posting is handled
+ * by the accounting module's salary-processed handler to prevent double-debit.
  */
 export async function handleSalaryProcessedTax(
   job: Job<EventJobData>,
@@ -34,22 +33,29 @@ export async function handleSalaryProcessedTax(
     SOURCE,
   );
 
-  try {
-    const pphService = getPphService();
-    await pphService.recordPph21({
-      tenantId,
-      salaryId,
-      grossSalary: Number(grossSalary),
-      pph21Amount: Number(pph21Amount),
-      processedDate: new Date(processedAt),
-    });
-  } catch (error) {
-    if (error instanceof CoaNotFoundError) {
-      logger.warn(
-        `[${SOURCE}] COA belum di-seed untuk tenant ${tenantId}, skipping: ${error.message}`,
-      );
-      return;
-    }
-    throw error;
+  const grossSalaryNum = Number(grossSalary);
+  const pph21AmountNum = Number(pph21Amount);
+
+  if (isNaN(grossSalaryNum) || isNaN(pph21AmountNum)) {
+    logger.warn(
+      `[${SOURCE}] Invalid numeric payload for entry ${salaryId}: grossSalary="${grossSalary}", pph21Amount="${pph21Amount}", skipping`,
+    );
+    return;
   }
+
+  if (pph21AmountNum === 0) {
+    logger.info(
+      `[${SOURCE}] PPh 21 amount is 0 for entry ${salaryId}, skipping`,
+    );
+    return;
+  }
+
+  const pphService = getPphService();
+  await pphService.recordPph21({
+    tenantId,
+    salaryId,
+    grossSalary: grossSalaryNum,
+    pph21Amount: pph21AmountNum,
+    processedDate: new Date(processedAt),
+  });
 }

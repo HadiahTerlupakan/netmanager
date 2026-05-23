@@ -10,6 +10,8 @@ import { PrismaPayrollRunRepository } from "./repositories/PrismaPayrollRunRepos
 import { PrismaPayrollEntryRepository } from "./repositories/PrismaPayrollEntryRepository";
 import { PrismaPayrollComponentRepository } from "./repositories/PrismaPayrollComponentRepository";
 import { PrismaEmployeePayrollProfileRepository } from "./repositories/PrismaEmployeePayrollProfileRepository";
+import { PrismaPayrollPeriodRepository } from "./repositories/PrismaPayrollPeriodRepository";
+import { PrismaSalaryAdvanceRepository } from "./repositories/PrismaSalaryAdvanceRepository";
 import {
   PayrollCalculationEngine,
   BasicSalaryCalculator,
@@ -31,6 +33,9 @@ import { PayrollExportService } from "./reporting";
 import { AttendancePayrollBridge } from "./integrations/AttendancePayrollBridge";
 import { OvertimePayrollBridge } from "./integrations/OvertimePayrollBridge";
 import { LoanPayrollBridge } from "./integrations/LoanPayrollBridge";
+import { PrismaApprovalWorkflowRepository } from "./repositories/PrismaApprovalWorkflowRepository";
+import { PayrollApprovalService } from "./workflow/approval/PayrollApprovalService";
+import { SalaryAdvanceManagementService } from "./benefits/advance/SalaryAdvanceManagementService";
 
 // --- Repositories (singletons) ---
 
@@ -38,6 +43,8 @@ const payrollRunRepo = new PrismaPayrollRunRepository();
 const payrollEntryRepo = new PrismaPayrollEntryRepository();
 const payrollComponentRepo = new PrismaPayrollComponentRepository();
 const employeeProfileRepo = new PrismaEmployeePayrollProfileRepository();
+const payrollPeriodRepo = new PrismaPayrollPeriodRepository();
+const salaryAdvanceRepo = new PrismaSalaryAdvanceRepository();
 
 /** Get PayrollRun repository instance */
 export function getPayrollRunRepository() {
@@ -59,11 +66,28 @@ export function getEmployeeProfileRepository() {
   return employeeProfileRepo;
 }
 
+/** Get PayrollPeriod repository instance */
+export function getPayrollPeriodRepository() {
+  return payrollPeriodRepo;
+}
+
+/** Get SalaryAdvance repository instance */
+export function getSalaryAdvanceRepository() {
+  return salaryAdvanceRepo;
+}
+
 // --- Calculation Engine ---
 
-/** Create a new PayrollCalculationEngine with all calculators */
-export function getCalculationEngine() {
-  const taxHistoryProvider = new InMemoryTaxHistoryProvider([]);
+/** Create a new PayrollCalculationEngine with all calculators.
+ *
+ *  taxHistoryProvider opsional — kalau null, default `InMemoryTaxHistoryProvider([])`
+ *  yang HANYA cocok untuk testing. Untuk production, caller WAJIB pass
+ *  provider yang sudah pre-loaded dari DB (lihat PrismaTaxHistoryLoader).
+ */
+export function getCalculationEngine(
+  taxHistoryProvider?: import("./tax/providers/TaxHistoryProvider").ITaxHistoryProvider,
+) {
+  const provider = taxHistoryProvider ?? new InMemoryTaxHistoryProvider([]);
   return new PayrollCalculationEngine([
     new BasicSalaryCalculator(),
     new ProrataCalculator(),
@@ -71,7 +95,7 @@ export function getCalculationEngine() {
     new OvertimeCalculator(),
     new ComponentCalculator(),
     new BpjsCalculator(),
-    new TaxCalculator(taxHistoryProvider),
+    new TaxCalculator(provider),
     new LoanDeductionCalculator(),
     new NetSalaryCalculator(),
   ]);
@@ -130,9 +154,20 @@ export function getLoanBridge() {
   return loanBridge;
 }
 
+/** Get PayrollApprovalService instance (2-level: HR → Finance) */
+export function getPayrollApprovalService() {
+  return new PayrollApprovalService(new PrismaApprovalWorkflowRepository());
+}
+
+/** Get SalaryAdvanceManagementService for advance lifecycle orchestration */
+export function getAdvanceManagementService() {
+  return new SalaryAdvanceManagementService(
+    salaryAdvanceRepo,
+    payrollPeriodRepo,
+  );
+}
+
 // --- Services requiring unimplemented repos (TODO: enable when ready) ---
 // export function getPayScheduleService() { return new PayScheduleService(payScheduleRepo); }
-// export function getPayrollPeriodService() { return new PayrollPeriodService(periodRepo); }
 // export function getComplianceRuleEngine() { return new ComplianceRuleEngine(); }
-// export function getPayrollApprovalService() { return new PayrollApprovalService(); }
 // export function getPayrollAuditService() { return new PayrollAuditService(); }

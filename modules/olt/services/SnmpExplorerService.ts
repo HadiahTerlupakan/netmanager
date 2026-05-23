@@ -15,9 +15,10 @@ export class SnmpExplorerService {
 
   async walkOidTree(
     oltId: string,
+    tenantId: string,
     baseOid: string,
   ): Promise<ServiceResult<OidEntry[]>> {
-    const olt = await this.oltRepo.findById(oltId);
+    const olt = await this.oltRepo.findById(oltId, tenantId);
     if (!olt) {
       return {
         success: false,
@@ -46,9 +47,10 @@ export class SnmpExplorerService {
 
   async getOidValue(
     oltId: string,
+    tenantId: string,
     oid: string,
   ): Promise<ServiceResult<OidEntry>> {
-    const olt = await this.oltRepo.findById(oltId);
+    const olt = await this.oltRepo.findById(oltId, tenantId);
     if (!olt) {
       return {
         success: false,

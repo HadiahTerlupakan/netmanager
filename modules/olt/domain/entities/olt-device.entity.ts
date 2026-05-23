@@ -13,6 +13,9 @@ export interface OltDevice {
   telnetPort: number | null;
   telnetUser: string | null;
   telnetPass: string | null;
+  telnetEnablePass: string | null;
+  defaultSlotFrame: number;
+  defaultSlot: number;
   totalPonPorts: number;
   location: string | null;
   status: OltStatus;
@@ -31,6 +34,9 @@ export interface OltDeviceCreateInput {
   telnetPort?: number;
   telnetUser?: string;
   telnetPass?: string;
+  telnetEnablePass?: string;
+  defaultSlotFrame?: number;
+  defaultSlot?: number;
   totalPonPorts: number;
   location?: string;
 }
@@ -44,6 +50,9 @@ export interface OltDeviceUpdateInput {
   telnetPort?: number;
   telnetUser?: string;
   telnetPass?: string;
+  telnetEnablePass?: string;
+  defaultSlotFrame?: number;
+  defaultSlot?: number;
   totalPonPorts?: number;
   location?: string;
   status?: OltStatus;

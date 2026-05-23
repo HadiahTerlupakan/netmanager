@@ -1,380 +1,228 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState } from "react";
 import {
-  FiCheckCircle,
   FiAlertTriangle,
-  FiXCircle,
-  FiMinusCircle,
   FiInfo,
+  FiMinusCircle,
+  FiXCircle,
 } from "react-icons/fi";
-import { PhotoUpload } from "./PhotoUpload";
-import type { PhotoUploadRef } from "./PhotoUpload";
+
 import { Button } from "@/components/ui/Button";
-import { useApi } from "@/lib/hooks/useApi";
-
-interface Barang {
-  id: string;
-  kode: string;
-  nama: string;
-  satuan: string;
-  stockPerGudang?: Array<{ gudangId: string; stok: number }>;
-}
-
-interface GudangOption {
-  id: string;
-  kode: string;
-  nama: string;
-  lokasi?: string;
-}
-
-import {
-  getStockStatusColor,
-  getKondisiColor,
-} from "@/lib/utils/inventory-helpers";
 import { clientLogger } from "@/lib/client-logger";
 
+import {
+  BarangSelector,
+  FormAlert,
+  FotoBuktiSection,
+  GudangSelector,
+  KondisiSelector,
+  SelectionSummary,
+  StockByConditionPanel,
+  TextAreaField,
+  TextField,
+  useBarangOptions,
+  useFotoBuktiUpload,
+  useGudangOptions,
+  useStockByCondition,
+  type BarangOption,
+  type Kondisi,
+  type StockByCondition,
+  type UploadedPhotoState,
+} from "./form-shared";
+
+interface KeluarInitialData {
+  id?: string;
+  barangId: string;
+  gudangId: string;
+  jumlah: number;
+  kondisi: Kondisi;
+  isHilang?: boolean;
+  tujuanPenggunaan?: string;
+  keterangan?: string;
+  tanggal?: string;
+}
+
 interface KeluarFormProps {
-  initialData?: {
-    id?: string;
-    barangId: string;
-    gudangId: string;
-    jumlah: number;
-    kondisi: "BARU" | "BEKAS" | "RUSAK";
-    isHilang?: boolean;
-    tujuanPenggunaan?: string;
-    keterangan?: string;
-    tanggal?: string;
-  };
+  initialData?: KeluarInitialData;
   onClose: () => void;
 }
 
+interface FormState {
+  barangId: string;
+  gudangId: string;
+  jumlah: string;
+  kondisi: Kondisi;
+  isHilang: boolean;
+  tujuanPenggunaan: string;
+  keterangan: string;
+  tanggal: string;
+}
+
+const buildInitialFormState = (initial?: KeluarInitialData): FormState => ({
+  barangId: initial?.barangId || "",
+  gudangId: initial?.gudangId || "",
+  jumlah: initial?.jumlah?.toString() || "",
+  kondisi: initial?.kondisi || "BARU",
+  isHilang: initial?.isHilang || false,
+  tujuanPenggunaan: initial?.tujuanPenggunaan || "",
+  keterangan: initial?.keterangan || "",
+  tanggal: initial?.tanggal
+    ? new Date(initial.tanggal).toISOString().split("T")[0]!
+    : new Date().toISOString().split("T")[0]!,
+});
+
 export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
-  const [formData, setFormData] = useState(() => ({
-    barangId: initialData?.barangId || "",
-    gudangId: initialData?.gudangId || "",
-    jumlah: initialData?.jumlah?.toString() || "",
-    kondisi: (initialData?.kondisi || "BARU") as "BARU" | "BEKAS" | "RUSAK",
-    isHilang: initialData?.isHilang || false, // Checkbox for lost items
-    tujuanPenggunaan: initialData?.tujuanPenggunaan || "",
-    keterangan: initialData?.keterangan || "",
-    tanggal: initialData?.tanggal
-      ? new Date(initialData.tanggal).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
-  }));
-  const [stockByCondition, setStockByCondition] = useState({
-    BARU: 0,
-    BEKAS: 0,
-    RUSAK: 0,
-    totalStok: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [uploadedPhotos, setUploadedPhotos] = useState<
-    { status: string; error?: string }[]
-  >([]);
+  const isEditMode = !!initialData;
+
+  const [formData, setFormData] = useState<FormState>(() =>
+    buildInitialFormState(initialData),
+  );
   const [transactionId, setTransactionId] = useState<string | null>(
     initialData?.id ?? null,
   );
-  const photoUploadRef = useRef<PhotoUploadRef>(null);
-  const [tempId] = useState<string>(() => `temp-${Date.now()}`);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const { data: barangData, error: barangError } = useApi<{
-    barangs?: Barang[];
-  }>("/api/inventory/barang?limit=100");
-  const { data: gudangData, error: gudangError } = useApi<{
-    gudangs?: GudangOption[];
-  }>("/api/inventory/gudang");
-  const barangs: Barang[] = useMemo(
-    () => barangData?.barangs ?? [],
-    [barangData?.barangs],
-  );
-  const gudangs: GudangOption[] = gudangData?.gudangs ?? [];
+  const { gudangs } = useGudangOptions();
+  const { isSearching, fetchBarangs, findBarang, buildOptions } =
+    useBarangOptions();
+  const {
+    photoUploadRef,
+    tempId,
+    setUploadedPhotos,
+    uploadPendingPhotos,
+    buildFotoMetadata,
+    resetFotoState,
+  } = useFotoBuktiUpload();
 
-  useEffect(() => {
-    if (barangError || gudangError) {
-      clientLogger.error("Error fetching initial data:", {
-        barangError,
-        gudangError,
-      });
-    }
-  }, [barangError, gudangError]);
+  const selectedBarang = findBarang(formData.barangId);
+  const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
+  const stockByCondition = useStockByCondition({
+    barangId: formData.barangId,
+    gudangId: formData.gudangId,
+    endpoint: "keluar",
+    fallbackBarang: selectedBarang,
+  });
 
-  const initialError =
-    barangError || gudangError ? "Gagal memuat data awal" : null;
-  const displayError = error || initialError || "";
-
-  /** Get available stock for the currently selected kondisi */
-  const getStockForKondisi = useCallback(
-    (kondisi: string = formData.kondisi): number =>
-      stockByCondition[kondisi as keyof typeof stockByCondition] ??
-      stockByCondition.BARU,
-    [formData.kondisi, stockByCondition],
+  const stokTersediaKondisi = getStockForKondisi(
+    stockByCondition,
+    formData.kondisi,
   );
 
-  useEffect(() => {
-    async function fetchCurrentStock() {
-      if (formData.barangId && formData.gudangId) {
-        try {
-          // Check current stock by condition for this barang-gudang combination
-          const response = await fetch(
-            `/api/inventory/keluar?checkStock=true&barangId=${formData.barangId}&gudangId=${formData.gudangId}`,
-          );
-          if (response.ok) {
-            const data = await response.json();
-            const result = data.data || data;
-            if (result.stokByKondisi) {
-              setStockByCondition({
-                BARU: result.stokByKondisi.BARU,
-                BEKAS: result.stokByKondisi.BEKAS,
-                RUSAK: result.stokByKondisi.RUSAK,
-                totalStok: result.stokByKondisi.total,
-              });
-            }
-          } else {
-            // Fallback to old method if API fails
-            const selectedBarang = barangs.find(
-              (b) => b.id === formData.barangId,
-            );
-            if (selectedBarang) {
-              const stockInfo = selectedBarang.stockPerGudang?.find(
-                (s: { gudangId: string; stok: number }) =>
-                  s.gudangId === formData.gudangId,
-              );
-              setStockByCondition({
-                BARU: 0,
-                BEKAS: 0,
-                RUSAK: 0,
-                totalStok: stockInfo?.stok || 0,
-              });
-            }
-          }
-        } catch (error) {
-          clientLogger.error("Error fetching current stock:", error);
-          // Fallback to old method
-          const selectedBarang = barangs.find(
-            (b) => b.id === formData.barangId,
-          );
-          if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find(
-              (s: { gudangId: string; stok: number }) =>
-                s.gudangId === formData.gudangId,
-            );
-            setStockByCondition({
-              BARU: 0,
-              BEKAS: 0,
-              RUSAK: 0,
-              totalStok: stockInfo?.stok || 0,
-            });
-          }
-        }
-      } else {
-        setStockByCondition({
-          BARU: 0,
-          BEKAS: 0,
-          RUSAK: 0,
-          totalStok: 0,
-        });
-      }
-    }
-
-    fetchCurrentStock();
-  }, [formData.barangId, formData.gudangId, barangs]);
-
-  // Pattern C: reset jumlah saat kondisi/stok/barang/gudang berubah (render-time)
-  const kondisiResetKey = `${formData.barangId}|${formData.gudangId}|${formData.kondisi}|${stockByCondition.totalStok}`;
-  const [prevKondisiResetKey, setPrevKondisiResetKey] = useState<string | null>(
-    null,
-  );
-  if (prevKondisiResetKey !== kondisiResetKey) {
-    setPrevKondisiResetKey(kondisiResetKey);
-    if (
-      formData.barangId &&
-      formData.gudangId &&
-      stockByCondition.totalStok > 0
-    ) {
-      const kondisiStok = getStockForKondisi();
-
-      if (
-        kondisiStok > 0 &&
-        (parseInt(formData.jumlah || "0") > kondisiStok ||
-          parseInt(formData.jumlah || "0") === 0)
-      ) {
-        setFormData((prev) => ({ ...prev, jumlah: "1" }));
-      } else if (kondisiStok === 0) {
-        setFormData((prev) => ({ ...prev, jumlah: "" }));
-      }
-    }
-  }
-
-  // Pattern C: photo upload completion handler (render-time prev comparator)
-  const photoCompletionKey = transactionId
-    ? `${transactionId}|${uploadedPhotos.length}|${uploadedPhotos.map((p) => p.status).join(",")}`
-    : null;
-  const [prevPhotoCompletionKey, setPrevPhotoCompletionKey] = useState<
-    string | null
-  >(null);
-  if (prevPhotoCompletionKey !== photoCompletionKey) {
-    setPrevPhotoCompletionKey(photoCompletionKey);
-    if (transactionId && uploadedPhotos.length > 0) {
-      const allUploaded = uploadedPhotos.every(
-        (photo) => photo.status === "success",
+  const handlePhotosChange = (photos: UploadedPhotoState[]) => {
+    setUploadedPhotos(photos);
+    if (!transactionId || photos.length === 0) return;
+    if (photos.every((p) => p.status === "success")) {
+      setSuccess("Barang keluar berhasil dicatat. Foto berhasil diunggah.");
+      setTimeout(() => resetForm(), 2000);
+    } else if (photos.some((p) => p.status === "error")) {
+      setSuccess(
+        "Barang keluar berhasil dicatat, namun beberapa foto gagal diunggah.",
       );
-      const hasError = uploadedPhotos.some((photo) => photo.status === "error");
+    }
+  };
 
-      if (allUploaded) {
-        setSuccess("Barang keluar berhasil dicatat! Foto berhasil diunggah.");
+  const resetForm = () => {
+    setFormData(buildInitialFormState());
+    setTransactionId(null);
+    resetFotoState();
+    onClose();
+  };
 
-        // Reset form after a short delay
-        setTimeout(() => {
-          setFormData({
-            barangId: "",
-            gudangId: "",
-            jumlah: "",
-            kondisi: "BARU",
-            isHilang: false,
-            tujuanPenggunaan: "",
-            keterangan: "",
-            tanggal: new Date().toISOString().split("T")[0],
-          });
-          setStockByCondition((prev) => ({ ...prev, totalStok: 0 }));
-          setUploadedPhotos([]);
-          setTransactionId(null);
-          onClose();
-        }, 2000);
-      } else if (hasError) {
-        setSuccess(
-          "Barang keluar berhasil dicatat, namun beberapa foto gagal diunggah.",
-        );
+  const updateField = <K extends keyof FormState>(
+    field: K,
+    value: FormState[K],
+  ) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      // Saat kondisi berubah, clamp jumlah ke stok kondisi baru.
+      if (field === "kondisi") {
+        const newStok = getStockForKondisi(stockByCondition, value as Kondisi);
+        const current = parseInt(prev.jumlah || "0");
+        if (newStok === 0) {
+          next.jumlah = "";
+        } else if (current > newStok || current === 0) {
+          next.jumlah = "1";
+        }
       }
+      return next;
+    });
+    setError("");
+  };
+
+  const handleJumlahChange = (value: string) => {
+    if (parseInt(value) > stokTersediaKondisi) {
+      updateField("jumlah", stokTersediaKondisi.toString());
+    } else {
+      updateField("jumlah", value);
     }
-  }
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validation
+  const validatePayload = () => {
     if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
-      setError("Barang, gudang, dan jumlah harus diisi");
-      return;
+      return "Barang, gudang, dan jumlah harus diisi";
     }
-
     const jumlah = parseInt(formData.jumlah);
     if (isNaN(jumlah) || jumlah <= 0) {
-      setError("Jumlah harus berupa angka positif");
-      return;
+      return "Jumlah harus berupa angka positif";
     }
+    if (jumlah > stokTersediaKondisi) {
+      return `Jumlah tidak boleh melebihi stok tersedia untuk kondisi ${formData.kondisi} (${stokTersediaKondisi})`;
+    }
+    return null;
+  };
 
-    // Check stock availability for selected condition
-    const stokTersedia = getStockForKondisi();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
 
-    if (jumlah > stokTersedia) {
-      setError(
-        `Jumlah tidak boleh melebihi stok tersedia untuk kondisi ${formData.kondisi} (${stokTersedia})`,
-      );
+    const validationError = validatePayload();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setLoading(true);
-    setError("");
-    setSuccess("");
-
     try {
-      // Upload photos first if any exist
-      let fotoBuktiUrls: string[] = [];
-      let uploadedPhotosList: {
-        status: string;
-        file?: File;
-        error?: string;
-      }[] = [];
-
-      if (photoUploadRef.current) {
-        const currentPhotos = photoUploadRef.current.getPhotos();
-
-        if (currentPhotos.length > 0) {
-          setSuccess("Mengunggah foto...");
-
-          // Upload photos automatically
-          fotoBuktiUrls = await photoUploadRef.current.uploadPhotos();
-
-          // Get updated photos after upload
-          uploadedPhotosList = photoUploadRef.current.getPhotos();
-
-          // Check if any photos failed to upload
-          const failedPhotos = uploadedPhotosList.filter(
-            (photo) => photo.status === "error",
-          );
-          if (failedPhotos.length > 0) {
-            throw new Error(
-              `Beberapa foto gagal diunggah: ${failedPhotos.map((p) => p.error).join(", ")}`,
-            );
-          }
-        }
-      }
-
-      // Create the inventory transaction with photo URLs
-      const requestBody = {
-        barangId: formData.barangId,
-        gudangId: formData.gudangId,
-        jumlah: parseInt(formData.jumlah),
-        kondisi: formData.kondisi,
-        isHilang: formData.isHilang || false,
-        tujuanPenggunaan: formData.tujuanPenggunaan || null,
-        keterangan: formData.keterangan || null,
-        tanggal: formData.tanggal || new Date().toISOString(),
-        fotoBukti: fotoBuktiUrls,
-        fotoMetadata:
-          uploadedPhotosList.length > 0
-            ? {
-                uploadedAt: new Date().toISOString(),
-                count: uploadedPhotosList.length,
-                totalSize: uploadedPhotosList.reduce(
-                  (sum, photo) => sum + (photo.file?.size || 0),
-                  0,
-                ),
-              }
-            : null,
-      };
-
-      clientLogger.info("DEBUG - KeluarForm submitting with:", {
-        fotoBuktiCount: fotoBuktiUrls.length,
-        fotoBuktiUrls,
-        requestBody,
-      });
+      setSuccess("Mengunggah foto...");
+      const { urls, photos } = await uploadPendingPhotos();
+      setSuccess("");
 
       const response = await fetch("/api/inventory/keluar", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barangId: formData.barangId,
+          gudangId: formData.gudangId,
+          jumlah: parseInt(formData.jumlah),
+          kondisi: formData.kondisi,
+          isHilang: formData.isHilang,
+          tujuanPenggunaan: formData.tujuanPenggunaan || null,
+          keterangan: formData.keterangan || null,
+          tanggal: formData.tanggal || new Date().toISOString(),
+          fotoBukti: urls,
+          fotoMetadata: buildFotoMetadata(photos),
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Gagal menyimpan barang keluar");
       }
 
-      const result = await response.json();
-      clientLogger.info("DEBUG - API response:", result);
+      const data = await response.json();
+      const result = data.data || data;
+      if (result.keluarId) setTransactionId(result.keluarId);
 
       setSuccess("Barang keluar berhasil disimpan!");
-
-      // Clear form and close
-      setTimeout(() => {
-        onClose();
-        // Reset photo upload component
-        if (photoUploadRef.current) {
-          photoUploadRef.current.resetPhotos();
-        }
-      }, 1500);
-    } catch (error: unknown) {
-      clientLogger.error("Error in handleSubmit:", error);
+      setTimeout(() => resetForm(), 1500);
+    } catch (err) {
+      clientLogger.error("Error submitting barang keluar:", err);
       setError(
-        error instanceof Error
-          ? error.message
-          : "Gagal menyimpan barang keluar",
+        err instanceof Error ? err.message : "Gagal menyimpan barang keluar",
       );
       setSuccess("");
     } finally {
@@ -382,413 +230,111 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     }
   };
 
-  const selectedBarang = barangs.find((b) => b.id === formData.barangId);
-  const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
+  const submitDisabled =
+    loading || (!isEditMode && stockByCondition.totalStok === 0);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Form Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {initialData ? "Edit Barang Keluar" : "Catat Barang Keluar"}
-        </h2>
-        {initialData && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Tambahkan foto untuk dokumentasi transaksi yang sudah ada
-          </p>
-        )}
-      </div>
+      <FormHeader isEditMode={isEditMode} />
 
-      {displayError && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {displayError}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-green-800 dark:text-green-400">
-          {success}
-        </div>
-      )}
+      {error && <FormAlert tone="error">{error}</FormAlert>}
+      {success && <FormAlert tone="success">{success}</FormAlert>}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="barangId"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            Barang *
-          </label>
-          <select
-            id="barangId"
-            value={formData.barangId}
-            onChange={(e) =>
-              setFormData({ ...formData, barangId: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading}
-          >
-            <option value="">Pilih barang</option>
-            {barangs.map((barang) => (
-              <option key={barang.id} value={barang.id}>
-                {barang.kode} - {barang.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label
-            htmlFor="gudangId"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            Gudang *
-          </label>
-          <select
-            id="gudangId"
-            value={formData.gudangId}
-            onChange={(e) =>
-              setFormData({ ...formData, gudangId: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading}
-          >
-            <option value="">Pilih gudang</option>
-            {gudangs.map((gudang) => (
-              <option key={gudang.id} value={gudang.id}>
-                {gudang.kode} - {gudang.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Selected Barang & Gudang Info */}
-      {(selectedBarang || selectedGudang) && (
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {selectedBarang && (
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Barang terpilih:
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedBarang.kode} - {selectedBarang.nama}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Satuan: {selectedBarang.satuan}
-                </p>
-              </div>
-            )}
-            {selectedGudang && (
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Gudang terpilih:
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedGudang.kode} - {selectedGudang.nama}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Lokasi: {selectedGudang.lokasi || "-"}
-                </p>
-              </div>
-            )}
-            {stockByCondition.totalStok >= 0 && (
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Stok tersedia per kondisi:
-                </p>
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <FiCheckCircle className="w-3 h-3 text-green-500" /> Baru:
-                    </span>
-                    <span className="text-sm font-medium text-green-600">
-                      {stockByCondition.BARU}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <FiAlertTriangle className="w-3 h-3 text-yellow-500" />{" "}
-                      Bekas:
-                    </span>
-                    <span className="text-sm font-medium text-yellow-600">
-                      {stockByCondition.BEKAS}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <FiXCircle className="w-3 h-3 text-red-500" /> Rusak:
-                    </span>
-                    <span className="text-sm font-medium text-red-600">
-                      {stockByCondition.RUSAK}
-                    </span>
-                  </div>
-                  <div className="pt-1 mt-1 border-t border-gray-200 dark:border-gray-600">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Total:
-                      </span>
-                      <span
-                        className={`text-lg font-bold ${getStockStatusColor(stockByCondition.totalStok)}`}
-                      >
-                        {stockByCondition.totalStok}{" "}
-                        {selectedBarang?.satuan || "pcs"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {stockByCondition.totalStok === 0 && (
-                  <p className="text-xs text-red-500 mt-2">Stok habis!</p>
-                )}
-                {stockByCondition.totalStok > 0 &&
-                  stockByCondition.totalStok < 5 && (
-                    <p className="text-xs text-yellow-500 mt-2">
-                      Stok menipis!
-                    </p>
-                  )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="jumlah"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            Jumlah *
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              id="jumlah"
-              value={formData.jumlah}
-              onChange={(e) => {
-                const value = e.target.value;
-                const kondisiStok = getStockForKondisi();
-
-                // If value exceeds available stock, adjust to maximum
-                if (parseInt(value) > kondisiStok) {
-                  setFormData({ ...formData, jumlah: kondisiStok.toString() });
-                } else {
-                  setFormData({ ...formData, jumlah: value });
-                }
-              }}
-              className={`w-full px-3 py-2 pr-16 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white ${
-                parseInt(formData.jumlah) > getStockForKondisi()
-                  ? "border-red-500 border-2"
-                  : "border-gray-300"
-              }`}
-              placeholder="0"
-              min="1"
-              max={getStockForKondisi()}
-              disabled={
-                loading ||
-                stockByCondition.totalStok === 0 ||
-                getStockForKondisi() === 0
-              }
-            />
-            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
-              {selectedBarang?.satuan || "pcs"}
-            </span>
-          </div>
-          {stockByCondition.totalStok > 0 && (
-            <div className="mt-1 space-y-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Maks: {getStockForKondisi()} {selectedBarang?.satuan || "pcs"}{" "}
-                (kondisi: {formData.kondisi})
-              </p>
-              {parseInt(formData.jumlah) > getStockForKondisi() && (
-                <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
-                  <FiAlertTriangle className="w-3 h-3" /> Jumlah disesuaikan ke
-                  maksimal stock tersedia
-                </p>
-              )}
-              {getStockForKondisi() === 0 && (
-                <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
-                  <FiXCircle className="w-3 h-3" /> Stock kondisi{" "}
-                  {formData.kondisi} = 0, input dinonaktifkan
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="kondisi"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            Kondisi Barang *
-          </label>
-          <select
-            id="kondisi"
-            value={formData.kondisi}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                kondisi: e.target.value as "BARU" | "BEKAS" | "RUSAK",
-              })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading}
-          >
-            <option value="BARU">Baru</option>
-            <option value="BEKAS">Bekas</option>
-            <option value="RUSAK">Rusak</option>
-          </select>
-          <div className="mt-1">
-            <span
-              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}
-            >
-              {formData.kondisi === "BARU" && "Baru - Siap pakai"}
-              {formData.kondisi === "BEKAS" && "Bekas - Pernah dipakai"}
-              {formData.kondisi === "RUSAK" && "Rusak - Perlu perbaikan"}
-            </span>
-          </div>
-          {/* Checkbox for lost items */}
-          <div className="mt-3">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isHilang}
-                onChange={(e) =>
-                  setFormData({ ...formData, isHilang: e.target.checked })
-                }
-                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                disabled={loading}
-              />
-              <span className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <FiMinusCircle className="w-4 h-4 text-purple-600" /> Barang
-                Hilang (tidak ada fisiknya)
-              </span>
-            </label>
-            {formData.isHilang && (
-              <p className="mt-1 ml-6 flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
-                <FiAlertTriangle className="w-3 h-3" /> Barang ini ditandai
-                sebagai hilang/tidak ditemukan
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label
-          htmlFor="tanggal"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
-          Tanggal
-        </label>
-        <input
-          type="date"
-          id="tanggal"
-          value={formData.tanggal}
-          onChange={(e) =>
-            setFormData({ ...formData, tanggal: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          disabled={loading || !!initialData}
+        <BarangSelector
+          value={formData.barangId}
+          onChange={(value) => updateField("barangId", value)}
+          options={buildOptions()}
+          onSearch={fetchBarangs}
+          loading={isSearching}
+          disabled={loading}
         />
-        {initialData && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Tanggal tidak dapat diubah pada mode edit
-          </p>
-        )}
-      </div>
-
-      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-        <p className="text-sm text-blue-800 dark:text-blue-200">
-          <strong>
-            <FiInfo className="inline w-4 h-4 mr-1" /> Informasi:
-          </strong>{" "}
-          Pelaksana barang keluar akan dicatat secara otomatis menggunakan akun
-          Anda yang sedang aktif.
-        </p>
-      </div>
-
-      <div>
-        <label
-          htmlFor="tujuanPenggunaan"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
-          Tujuan Penggunaan
-        </label>
-        <input
-          type="text"
-          id="tujuanPenggunaan"
-          value={formData.tujuanPenggunaan}
-          onChange={(e) =>
-            setFormData({ ...formData, tujuanPenggunaan: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          placeholder="Contoh: Instalasi pelanggan, maintenance, dll"
+        <GudangSelector
+          value={formData.gudangId}
+          onChange={(value) => updateField("gudangId", value)}
+          gudangs={gudangs}
           disabled={loading}
         />
       </div>
 
-      <div>
-        <label
-          htmlFor="keterangan"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
-          Keterangan
-        </label>
-        <textarea
-          id="keterangan"
-          value={formData.keterangan}
-          onChange={(e) =>
-            setFormData({ ...formData, keterangan: e.target.value })
-          }
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          placeholder="Catatan tambahan (opsional)"
-          disabled={loading}
-        />
-      </div>
-
-      {/* Photo Upload Section */}
-      {(!initialData || transactionId) && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Foto Barang (Opsional)
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {initialData
-              ? "Tambah foto barang untuk dokumentasi (maksimal 5 foto)"
-              : "Upload foto barang saat keluar untuk dokumentasi (maksimal 5 foto)"}
-          </p>
-          {initialData && (
-            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                <strong>Mode Edit:</strong> Anda dapat menambahkan foto baru
-                untuk transaksi ini.
-              </p>
-            </div>
-          )}
-          <PhotoUpload
-            ref={photoUploadRef}
-            transactionId={transactionId || tempId}
-            transactionType="inventory-keluar"
-            onPhotosChange={setUploadedPhotos}
-            maxPhotos={5}
-            maxSizeMB={5}
-            disabled={loading}
-            className="border border-gray-200 dark:border-gray-600 rounded-lg"
+      <SelectionSummary
+        selectedBarang={selectedBarang}
+        selectedGudang={selectedGudang}
+        renderStockSlot={() => (
+          <StockByConditionPanel
+            stock={stockByCondition}
+            satuan={selectedBarang?.satuan}
           />
-        </div>
-      )}
-      {initialData && !transactionId && (
-        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-          <p className="text-sm text-yellow-800">
-            <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat
-            ditambahkan setelah data tersedia.
-          </p>
-        </div>
-      )}
+        )}
+      />
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <JumlahFieldKeluar
+          value={formData.jumlah}
+          onChange={handleJumlahChange}
+          satuan={selectedBarang?.satuan}
+          stockByCondition={stockByCondition}
+          stokKondisi={stokTersediaKondisi}
+          kondisi={formData.kondisi}
+          loading={loading}
+        />
+        <KondisiWithIsHilang
+          kondisi={formData.kondisi}
+          isHilang={formData.isHilang}
+          onKondisiChange={(value) => updateField("kondisi", value)}
+          onIsHilangChange={(value) => updateField("isHilang", value)}
+          loading={loading}
+        />
+      </div>
+
+      <TextField
+        id="tanggal"
+        label="Tanggal"
+        type="date"
+        value={formData.tanggal}
+        onChange={(value) => updateField("tanggal", value)}
+        disabled={loading || isEditMode}
+        lockedNote={
+          isEditMode ? "Tanggal tidak dapat diubah pada mode edit" : ""
+        }
+      />
+
+      <FormAlert tone="info">
+        <strong>
+          <FiInfo className="inline w-4 h-4 mr-1" /> Informasi:
+        </strong>{" "}
+        Pelaksana barang keluar akan dicatat secara otomatis menggunakan akun
+        Anda yang sedang aktif.
+      </FormAlert>
+
+      <TextField
+        id="tujuanPenggunaan"
+        label="Tujuan Penggunaan"
+        value={formData.tujuanPenggunaan}
+        onChange={(value) => updateField("tujuanPenggunaan", value)}
+        placeholder="Contoh: Instalasi pelanggan, maintenance, dll"
+        disabled={loading}
+      />
+
+      <TextAreaField
+        id="keterangan"
+        label="Keterangan"
+        value={formData.keterangan}
+        onChange={(value) => updateField("keterangan", value)}
+        placeholder="Catatan tambahan (opsional)"
+        disabled={loading}
+      />
+
+      <FotoBuktiSection
+        ref={photoUploadRef}
+        transactionId={transactionId}
+        fallbackId={tempId}
+        transactionType="inventory-keluar"
+        onPhotosChange={handlePhotosChange}
+        isEditMode={isEditMode}
+        hideWhileNoTransaction
+        loading={loading}
+      />
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button
@@ -799,16 +345,10 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         >
           Batal
         </Button>
-        <Button
-          variant="warning"
-          type="submit"
-          disabled={
-            loading || (!initialData && stockByCondition.totalStok === 0)
-          }
-        >
+        <Button variant="warning" type="submit" disabled={submitDisabled}>
           {loading
             ? "Menyimpan..."
-            : initialData
+            : isEditMode
               ? "Update & Upload Foto"
               : "Simpan"}
         </Button>
@@ -816,3 +356,143 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     </form>
   );
 }
+
+function getStockForKondisi(stock: StockByCondition, kondisi: Kondisi): number {
+  return stock[kondisi] ?? 0;
+}
+
+function FormHeader({ isEditMode }: { isEditMode: boolean }) {
+  return (
+    <div className="text-center">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        {isEditMode ? "Edit Barang Keluar" : "Catat Barang Keluar"}
+      </h2>
+      {isEditMode && (
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Tambahkan foto untuk dokumentasi transaksi yang sudah ada
+        </p>
+      )}
+    </div>
+  );
+}
+
+interface JumlahFieldKeluarProps {
+  value: string;
+  onChange: (value: string) => void;
+  satuan?: string;
+  stockByCondition: StockByCondition;
+  stokKondisi: number;
+  kondisi: Kondisi;
+  loading: boolean;
+}
+
+function JumlahFieldKeluar({
+  value,
+  onChange,
+  satuan,
+  stockByCondition,
+  stokKondisi,
+  kondisi,
+  loading,
+}: JumlahFieldKeluarProps) {
+  const overLimit = parseInt(value || "0") > stokKondisi;
+  return (
+    <div>
+      <label
+        htmlFor="jumlah"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+      >
+        Jumlah *
+      </label>
+      <div className="relative">
+        <input
+          type="number"
+          id="jumlah"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={`w-full px-3 py-2 pr-16 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white ${
+            overLimit ? "border-red-500 border-2" : "border-gray-300"
+          }`}
+          placeholder="0"
+          min="1"
+          max={stokKondisi}
+          disabled={
+            loading || stockByCondition.totalStok === 0 || stokKondisi === 0
+          }
+        />
+        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
+          {satuan || "pcs"}
+        </span>
+      </div>
+      {stockByCondition.totalStok > 0 && (
+        <div className="mt-1 space-y-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Maks: {stokKondisi} {satuan || "pcs"} (kondisi: {kondisi})
+          </p>
+          {overLimit && (
+            <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
+              <FiAlertTriangle className="w-3 h-3" /> Jumlah disesuaikan ke
+              maksimal stock tersedia
+            </p>
+          )}
+          {stokKondisi === 0 && (
+            <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
+              <FiXCircle className="w-3 h-3" /> Stock kondisi {kondisi} = 0,
+              input dinonaktifkan
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface KondisiWithIsHilangProps {
+  kondisi: Kondisi;
+  isHilang: boolean;
+  onKondisiChange: (value: Kondisi) => void;
+  onIsHilangChange: (value: boolean) => void;
+  loading: boolean;
+}
+
+function KondisiWithIsHilang({
+  kondisi,
+  isHilang,
+  onKondisiChange,
+  onIsHilangChange,
+  loading,
+}: KondisiWithIsHilangProps) {
+  return (
+    <div>
+      <KondisiSelector
+        value={kondisi}
+        onChange={onKondisiChange}
+        disabled={loading}
+      />
+      <div className="mt-3">
+        <label className="flex items-center space-x-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isHilang}
+            onChange={(event) => onIsHilangChange(event.target.checked)}
+            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+            disabled={loading}
+          />
+          <span className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <FiMinusCircle className="w-4 h-4 text-purple-600" /> Barang Hilang
+            (tidak ada fisiknya)
+          </span>
+        </label>
+        {isHilang && (
+          <p className="mt-1 ml-6 flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
+            <FiAlertTriangle className="w-3 h-3" /> Barang ini ditandai sebagai
+            hilang/tidak ditemukan
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Avoid unused: BarangOption pakai untuk type alias dari module shared.
+export type { BarangOption };

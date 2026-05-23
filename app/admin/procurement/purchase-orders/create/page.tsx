@@ -1,8 +1,13 @@
-export const dynamic = "force-dynamic"
+import { ensurePermission } from "@/lib/rbac";
+import { PurchaseOrderCreateClient } from "./PurchaseOrderCreateClient";
 
+export const dynamic = "force-dynamic";
 
-import { notFound } from 'next/navigation'
+export const metadata = {
+  title: "Buat Purchase Order - Admin Portal",
+};
 
 export default async function CreatePurchaseOrderPage() {
-    notFound()
+  await ensurePermission("purchase_orders:create");
+  return <PurchaseOrderCreateClient />;
 }

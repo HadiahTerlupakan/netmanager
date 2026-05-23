@@ -7,6 +7,7 @@ export interface LandingHero {
   ctaPrimary: string;
   ctaSecondary: string;
   ctaLink: string;
+  logoUrl: string | null;
   isActive: boolean;
 }
 
@@ -60,6 +61,7 @@ export interface LandingFooter {
   phone: string | null;
   links: Record<string, Array<{ label: string; href: string }>>;
   socials: Record<string, string> | null;
+  logoUrl: string | null;
   isActive: boolean;
 }
 

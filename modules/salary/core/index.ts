@@ -50,6 +50,8 @@ export type {
   IPayrollEntryRepository,
   PayrollEntryWithLines,
   PayrollEntrySummary,
+  PayrollEntryEventDetails,
+  AdvanceDeductionLine,
   IPayrollComponentRepository,
   ComponentFilter,
   IEmployeePayrollProfileRepository,

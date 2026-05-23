@@ -104,7 +104,6 @@ export class OnuRepository {
         take: filters.limit,
         include: {
           olt: { select: { name: true, vendor: true } },
-          pelanggan: { select: { nama: true, username: true } },
         },
       }),
       prisma.onuDevice.count({ where }),

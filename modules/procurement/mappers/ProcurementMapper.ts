@@ -61,6 +61,9 @@ export function toPurchaseOrderDomain(
     paymentStatus: record.paymentStatus,
     ppnAmount: record.ppnAmount,
     ppnRate: record.ppnRate,
+    fakturPajakNo: record.fakturPajakNo,
+    fakturPajakDate: record.fakturPajakDate,
+    vendorNpwp: record.vendorNpwp,
     tenantId: record.tenantId,
     items: record.items?.map(toPurchaseOrderItemDomain),
   };
