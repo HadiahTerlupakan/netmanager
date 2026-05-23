@@ -81,4 +81,21 @@ export class OltCardRepository {
     const card = await prisma.oltCard.findUnique({ where: { id } });
     return card as unknown as OltCard;
   }
+
+  async findOnuPositions(
+    tenantId: string,
+    oltId: string,
+  ): Promise<{ slotFrame: number; slot: number; maxPonPort: number }[]> {
+    const positions = await prisma.onuDevice.groupBy({
+      by: ["slotFrame", "slot"],
+      where: { oltId, tenantId },
+      _max: { ponPort: true },
+    });
+
+    return positions.map((p) => ({
+      slotFrame: p.slotFrame,
+      slot: p.slot,
+      maxPonPort: p._max.ponPort ?? 0,
+    }));
+  }
 }

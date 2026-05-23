@@ -43,6 +43,16 @@ export class OltCardService {
     tenantId: string,
     device: OltDevice,
   ): Promise<void> {
+    // Strategy 1: derive cards from existing ONU data (paling reliable)
+    const seeded = await this.seedFromOnuData(tenantId, device);
+    if (seeded > 0) {
+      logger.info(
+        `[OltCardService] Auto-seeded ${seeded} cards from ONU data for ${device.id}`,
+      );
+      return;
+    }
+
+    // Strategy 2: SNMP discovery untuk ZTE (kalau ONU table juga kosong)
     if (device.vendor === "ZTE" && device.snmpCommunity) {
       const adapter = this.adapterFactory.getAdapter("ZTE");
       if (adapter.discoverCards) {
@@ -64,12 +74,10 @@ export class OltCardService {
           );
           return;
         }
-        logger.warn(
-          `[OltCardService] SNMP auto-seed gagal untuk ${device.id}, fallback ke BUILTIN`,
-        );
       }
     }
 
+    // Strategy 3: BUILTIN fallback dari device defaults
     if (device.totalPonPorts && device.totalPonPorts >= 1) {
       await this.repo.upsertByPosition({
         tenantId,
@@ -82,6 +90,29 @@ export class OltCardService {
       });
       logger.info(`[OltCardService] Auto-seeded BUILTIN card for ${device.id}`);
     }
+  }
+
+  private async seedFromOnuData(
+    tenantId: string,
+    device: OltDevice,
+  ): Promise<number> {
+    const positions = await this.repo.findOnuPositions(tenantId, device.id);
+    if (positions.length === 0) return 0;
+
+    for (const pos of positions) {
+      const ponCount = pos.maxPonPort > 0 ? pos.maxPonPort : 8;
+      await this.repo.upsertByPosition({
+        tenantId,
+        oltId: device.id,
+        slotFrame: pos.slotFrame,
+        slot: pos.slot,
+        cardType: null,
+        ponCount,
+        status: "ACTIVE",
+      });
+    }
+
+    return positions.length;
   }
 
   async syncCards(
