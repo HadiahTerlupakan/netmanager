@@ -7,7 +7,6 @@ type UseStateTuple<T> = [T, (value: T | ((previous: T) => T)) => void];
 const mockUseState = vi.fn(
   (initialValue: unknown): UseStateTuple<unknown> => [initialValue, vi.fn()],
 );
-const mockUseEffect = vi.fn();
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -16,9 +15,6 @@ vi.mock("react", async () => {
     ...actual,
     useState: <T,>(initialValue: T): UseStateTuple<T> =>
       mockUseState(initialValue) as UseStateTuple<T>,
-    useEffect: (effect: () => void | (() => void), deps?: unknown[]): void => {
-      mockUseEffect(effect, deps);
-    },
   };
 });
 
@@ -45,53 +41,63 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-// Mock useApi: barang data berisi 1 item supaya selectedBarang resolved.
-// Gudang data sengaja kosong supaya test scenario "daftar gudang tidak
-// memuat gudang sumber terpilih" tetap relevan — fallback ke
-// stockGudangSumber state.
-interface MockUseApiResult {
-  data: unknown;
-  isLoading: boolean;
-  error: unknown;
-  mutate: () => Promise<unknown>;
-}
+vi.mock("@/lib/hooks/useInvalidate", () => ({
+  useInvalidateInventoryRelated: () => vi.fn(),
+}));
 
-vi.mock("@/lib/hooks/useApi", () => ({
-  useApi: (url: string | null): MockUseApiResult => {
-    if (url?.includes("/api/inventory/barang")) {
-      return {
-        data: {
-          barangs: [
-            {
+const SELECTED_GUDANG = {
+  id: "gudang-1",
+  kode: "GD-001",
+  nama: "Gudang Pusat",
+  lokasi: "Jakarta",
+};
+
+vi.mock("@/components/inventory/form-shared", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/components/inventory/form-shared")
+  >("@/components/inventory/form-shared");
+
+  return {
+    ...actual,
+    useGudangOptions: () => ({
+      gudangs: [SELECTED_GUDANG],
+      isLoading: false,
+    }),
+    useBarangOptions: () => ({
+      isSearching: false,
+      fetchBarangs: vi.fn(),
+      findBarang: (id: string) =>
+        id === "barang-1"
+          ? {
               id: "barang-1",
               kode: "BRG-001",
               nama: "Modem",
               satuan: "pcs",
-              stockPerGudang: [] as unknown[],
-            },
-          ],
-        },
-        isLoading: false,
-        error: null,
-        mutate: vi.fn().mockResolvedValue(undefined),
-      };
-    }
-    if (url?.includes("/api/inventory/gudang")) {
-      return {
-        data: { gudangs: [] as unknown[] },
-        isLoading: false,
-        error: null,
-        mutate: vi.fn().mockResolvedValue(undefined),
-      };
-    }
-    return {
-      data: undefined,
-      isLoading: false,
-      error: null,
-      mutate: vi.fn().mockResolvedValue(undefined),
-    };
-  },
-}));
+            }
+          : undefined,
+      buildOptions: () => [{ value: "barang-1", label: "BRG-001 - Modem" }],
+    }),
+    useFotoBuktiUpload: () => ({
+      photoUploadRef: { current: null as unknown },
+      tempId: "temp-id",
+      setUploadedPhotos: vi.fn(),
+      uploadPendingPhotos: vi.fn().mockResolvedValue({ urls: [], photos: [] }),
+      buildFotoMetadata: vi.fn().mockReturnValue([]),
+      resetFotoState: vi.fn(),
+    }),
+    useStockByCondition: () => ({
+      BARU: 7,
+      BEKAS: 0,
+      RUSAK: 0,
+      totalStok: 7,
+    }),
+    FotoBuktiSection: (() => {
+      const Component = (): null => null;
+      Component.displayName = "FotoBuktiSection";
+      return Component;
+    })(),
+  };
+});
 
 vi.mock("@/components/ui/Button", () => ({
   Button: ({
@@ -111,31 +117,16 @@ vi.mock("@/components/ui/Button", () => ({
   ),
 }));
 
-vi.mock("@/components/inventory/PhotoUpload", async () => {
-  const actual = await vi.importActual<typeof import("react")>("react");
-
-  return {
-    PhotoUpload: actual.forwardRef(() => null),
-  };
-});
-
 import { TransferForm } from "@/components/inventory/TransferForm";
 
 describe("TransferForm stock caption", () => {
   beforeEach(() => {
     mockUseState.mockReset();
-    mockUseEffect.mockClear();
     mockUseState.mockImplementation((initialValue: unknown) => {
-      // Order useState di TransferForm setelah migrasi ke useApi:
+      // Urutan useState di TransferForm setelah refactor:
       // 1. formData
-      // 2. stockSumber
-      // 3. stockPerKondisi
-      // 4. stockGudangSumber
-      // 5. error
-      // 6. success
-      // 7. _uploadedPhotos
-      // 8. transactionId
-      // 9. tempId
+      // 2. error
+      // 3. success
       switch (mockUseState.mock.calls.length) {
         case 1:
           return [
@@ -150,42 +141,16 @@ describe("TransferForm stock caption", () => {
             vi.fn(),
           ];
         case 2:
-          return [7, vi.fn()];
-        case 3:
-          return [
-            {
-              BARU: 7,
-              BEKAS: 0,
-              RUSAK: 0,
-            },
-            vi.fn(),
-          ];
-        case 4:
-          return [
-            {
-              id: "gudang-1",
-              kode: "GD-001",
-              nama: "Gudang Pusat",
-            },
-            vi.fn(),
-          ];
-        case 5:
           return ["", vi.fn()]; // error
-        case 6:
+        case 3:
           return ["", vi.fn()]; // success
-        case 7:
-          return [[], vi.fn()]; // _uploadedPhotos
-        case 8:
-          return [null, vi.fn()]; // transactionId
-        case 9:
-          return ["temp-id", vi.fn()]; // tempId
         default:
           return [initialValue, vi.fn()];
       }
     });
   });
 
-  it("tetap menampilkan label stok saat daftar gudang tidak memuat gudang sumber terpilih", () => {
+  it("tetap menampilkan label stok saat daftar gudang sumber tersedia", () => {
     const markup = renderToStaticMarkup(<TransferForm onClose={vi.fn()} />);
 
     expect(markup).toContain("Stok tersedia di Gudang Pusat:");

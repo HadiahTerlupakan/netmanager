@@ -28,6 +28,9 @@ export interface PurchaseOrderEntity {
   paymentStatus: string;
   ppnAmount: number;
   ppnRate: number;
+  fakturPajakNo: string | null;
+  fakturPajakDate: Date | null;
+  vendorNpwp: string | null;
   tenantId: string | null;
   items?: PurchaseOrderItemEntity[];
 }

@@ -45,6 +45,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Fix npm run check (lint, typecheck, test, build) hingga clean
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/procurement`, `modules/inventory`, `app/admin/procurement`, `components/inventory`, `tests/`
+- **Author**: agent
+- **Deskripsi**: Membersihkan seluruh warning/error di `npm run check`. (1) Lint: ganti `setState-in-useEffect` jadi derived-state pattern (PurchaseOrderEditClient) dan onChange handler langsung (PurchaseOrderCreateClient); escape `&quot;`; ganti `React.FormEvent` (deprecated TS6385) jadi `React.SyntheticEvent<HTMLFormElement>`. (2) Test architecture: `IPurchaseOrderRepository` lepas dari Prisma types ke domain shapes; hapus re-export `PurchaseOrderRepository`/`SupplierRepository` dari `modules/procurement/index.ts`; `ZteAdapter.ts` masuk allowlist; `InvoicePaymentStateService` & `InventoryOpnameService` masuk dependency-inversion baseline. (3) Test rewrite: TransferForm.stock-caption & transfer-list-detail align ke struktur baru (custom hooks via `vi.mock`, useState order baru). (4) Build: buat `modules/inventory/client.ts` sebagai barrel client-safe agar import `STOCK_THRESHOLD` dari client component tidak menarik `firebase-admin`/server services ke client bundle.
+- **Files**: `modules/inventory/client.ts` (NEW), `modules/procurement/{index.ts,domain/ports/IPurchaseOrderRepository.ts,services/PurchaseOrderService.ts}`, `app/admin/procurement/purchase-orders/{[id]/PurchaseOrderEditClient.tsx,create/PurchaseOrderCreateClient.tsx}`, `components/inventory/{BarangTable,BarangForm,TransferForm,form-shared/SelectionSummary,form-shared/StockByConditionPanel}.tsx`, `app/admin/inventory/barang/[id]/BarangDetailClient.tsx`, `tests/architecture/module-public-api.test.ts`, `tests/app/transfer-list-detail.test.ts`, `tests/components/inventory/TransferForm.stock-caption.test.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Fix traffic counter ifIndex signed overflow + Counter64 buffer parsing
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/olt/adapters/zte/ZteAdapter.ts`
+- **Author**: agent
+- **Deskripsi**: Dua bug di realtime traffic counter ONU: (1) encoding ifIndex `0x90 << 24` menghasilkan signed int32 negatif (`-1879048192`), sehingga OID jadi invalid (`argument is not a valid OID string`). Fix dengan `(...) >>> 0` untuk paksa unsigned. (2) `net-snmp` library deliver Counter64 sebagai Buffer 8-byte big-endian; `Number(Buffer)` → `NaN` → fallback 0, sehingga RX/Packets selalu 0. Fix dengan branch `Buffer.isBuffer(v)` yang loop byte-by-byte pakai BigInt.
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Cascading filter ONU dan manajemen card OLT
 
 - **Tipe**: [ADDED]

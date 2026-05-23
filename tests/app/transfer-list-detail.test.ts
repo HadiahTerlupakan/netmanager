@@ -35,6 +35,39 @@ vi.mock("@/hooks/use-permission", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    error: null as unknown,
+    data: undefined as unknown,
+    reset: vi.fn(),
+  }),
+  useQuery: () => ({
+    data: undefined as unknown,
+    error: null as unknown,
+    isLoading: false,
+    isFetching: false,
+    refetch: vi.fn().mockResolvedValue({ data: undefined }),
+  }),
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
+    getQueryData: vi.fn(),
+    setQueryData: vi.fn(),
+    fetchQuery: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 vi.mock("@/components/inventory/TransferForm", () => ({
   TransferForm: (): null => null,
 }));
@@ -123,61 +156,53 @@ describe("TransferPage related transactions", () => {
   });
 
   it("shows related transactions section when only keluar exists", () => {
+    const transferDetail = {
+      id: "transfer-1",
+      kodeTransfer: "TRF-001",
+      tanggal: "2026-01-01T07:00:00.000Z",
+      barangId: "barang-1",
+      jumlah: 3,
+      kondisi: "BARU" as const,
+      barang: {
+        id: "barang-1",
+        kode: "BRG-001",
+        nama: "Kabel Fiber",
+        satuan: "Meter",
+      },
+      dariGudang: {
+        kode: "GDP",
+        nama: "Gudang Pusat",
+      },
+      keGudang: {
+        kode: "GDC",
+        nama: "Gudang Cabang",
+      },
+      keluar: {
+        tanggal: "2026-01-01T07:00:00.000Z",
+        keterangan: "Transfer ke Gudang Cabang",
+      },
+    };
+
     mockUseState.mockImplementation((initialValue: unknown) => {
+      // useState order:
+      // 1. useTransferList → page (number)
+      // 2. TransferPage → showForm (boolean)
+      // 3. TransferPage → selectedTransfer (Transfer | null)
+      // 4. TransferPage → showDetails (boolean)
+      // 5. TransferDetailModal → lightboxOpen (boolean)
+      // 6. TransferDetailModal → lightboxIndex (number)
       switch (mockUseState.mock.calls.length) {
         case 1:
-          return [[], vi.fn()];
+          return [1, vi.fn()];
         case 2:
           return [false, vi.fn()];
         case 3:
-          return ["", vi.fn()];
+          return [transferDetail, vi.fn()];
         case 4:
-          return [false, vi.fn()];
-        case 5:
-          return [
-            {
-              id: "transfer-1",
-              kodeTransfer: "TRF-001",
-              tanggal: "2026-01-01T07:00:00.000Z",
-              barangId: "barang-1",
-              jumlah: 3,
-              kondisi: "BARU",
-              barang: {
-                id: "barang-1",
-                kode: "BRG-001",
-                nama: "Kabel Fiber",
-                satuan: "Meter",
-              },
-              dariGudang: {
-                kode: "GDP",
-                nama: "Gudang Pusat",
-              },
-              keGudang: {
-                kode: "GDC",
-                nama: "Gudang Cabang",
-              },
-              keluar: {
-                tanggal: "2026-01-01T07:00:00.000Z",
-                keterangan: "Transfer ke Gudang Cabang",
-              },
-            },
-            vi.fn(),
-          ];
-        case 6:
           return [true, vi.fn()];
-        case 7:
-          return [
-            {
-              page: 1,
-              limit: 20,
-              total: 1,
-              totalPages: 1,
-            },
-            vi.fn(),
-          ];
-        case 8:
+        case 5:
           return [false, vi.fn()];
-        case 9:
+        case 6:
           return [0, vi.fn()];
         default:
           return [initialValue, vi.fn()];

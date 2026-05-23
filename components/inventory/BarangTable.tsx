@@ -12,6 +12,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { STOCK_THRESHOLD } from "@/modules/inventory/client";
 
 interface Barang {
   id: string;
@@ -67,6 +69,11 @@ export function BarangTable() {
   const [search, setSearch] = useState("");
   const [gudangId, setGudangId] = useState("");
   const [page, setPage] = useState(1);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    kode: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Debounce search to reduce API calls
   const debouncedSearch = useDebounce(search, 500);
@@ -111,10 +118,10 @@ export function BarangTable() {
 
   const errorMessage = error ? error.message || "Gagal memuat data" : null;
 
-  const handleDelete = async (id: string, kode: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus barang ${kode}?`)) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, kode } = confirmDelete;
+    setDeleting(true);
 
     try {
       const response = await fetch(`/api/inventory/barang/${id}`, {
@@ -126,11 +133,9 @@ export function BarangTable() {
         throw new Error(errorData.error || "Gagal menghapus barang");
       }
 
-      // Show success toast
       showToast("success", `Barang ${kode} berhasil dihapus`);
-
-      // Soft refresh - reload data without full page reload
       await mutate();
+      setConfirmDelete(null);
     } catch (deleteError) {
       clientLogger.error("Failed to delete barang:", deleteError);
       showToast(
@@ -139,6 +144,8 @@ export function BarangTable() {
           ? deleteError.message
           : "Gagal menghapus barang",
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -183,9 +190,9 @@ export function BarangTable() {
       render: (item) => (
         <span
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            item.totalStock === 0
+            item.totalStock <= STOCK_THRESHOLD.OUT
               ? "bg-red-100 text-red-800"
-              : item.totalStock < 5
+              : item.totalStock < STOCK_THRESHOLD.LOW
                 ? "bg-yellow-100 text-yellow-800"
                 : "bg-green-100 text-green-800"
           }`}
@@ -215,9 +222,9 @@ export function BarangTable() {
                   </span>
                   <span
                     className={`px-1.5 py-0.5 text-xs rounded ${
-                      stock.stok === 0
+                      stock.stok <= STOCK_THRESHOLD.OUT
                         ? "bg-red-100 text-red-800"
-                        : stock.stok < 5
+                        : stock.stok < STOCK_THRESHOLD.LOW
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-green-100 text-green-800"
                     }`}
@@ -272,7 +279,7 @@ export function BarangTable() {
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => handleDelete(item.id, item.kode)}
+          onClick={() => setConfirmDelete({ id: item.id, kode: item.kode })}
           className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
           title="Hapus"
         >
@@ -367,6 +374,21 @@ export function BarangTable() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Hapus Barang"
+        description={
+          confirmDelete
+            ? `Apakah Anda yakin ingin menghapus barang ${confirmDelete.kode}? Tindakan ini tidak dapat dibatalkan.`
+            : ""
+        }
+        confirmText={deleting ? "Menghapus..." : "Hapus"}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) setConfirmDelete(null);
+        }}
+      />
     </div>
   );
 }

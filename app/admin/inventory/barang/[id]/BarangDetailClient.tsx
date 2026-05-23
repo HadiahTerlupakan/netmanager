@@ -15,6 +15,7 @@ import {
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
+import { STOCK_THRESHOLD, getStockLabel } from "@/modules/inventory/client";
 
 interface Gudang {
   kode: string;
@@ -39,13 +40,21 @@ interface BarangDetail {
   kode: string;
   nama: string;
   satuan: string;
-  stockPerGudang?: BarangGudang[];
   barangGudang?: RawBarangGudang[];
-  stok?: RawBarangGudang[];
 }
 
 interface BarangDetailResponse {
-  barang?: BarangDetail;
+  barang: BarangDetail;
+}
+
+function toStockPerGudang(barang: BarangDetail | null): BarangGudang[] {
+  if (!barang?.barangGudang) return [];
+  return barang.barangGudang.map((s) => ({
+    gudangId: s.gudangId,
+    gudangKode: s.gudang?.kode || "-",
+    gudangNama: s.gudang?.nama || "-",
+    stok: s.stok || 0,
+  }));
 }
 
 export function BarangDetailClient() {
@@ -53,7 +62,6 @@ export function BarangDetailClient() {
   const { hasPermission } = usePermission();
   const barangId = typeof params.id === "string" ? params.id : null;
 
-  // Permission checks
   const canUpdate = hasPermission("barang:update");
   const canCreateMasuk =
     hasPermission("masuk:create") || hasPermission("stockmasuk:create");
@@ -66,27 +74,12 @@ export function BarangDetailClient() {
     data,
     isLoading: loading,
     error: fetchError,
-  } = useApi<BarangDetail | BarangDetailResponse>(
+  } = useApi<BarangDetailResponse>(
     barangId ? `/api/inventory/barang/${barangId}` : null,
   );
 
-  const barang: BarangDetail | null = (() => {
-    if (!data) return null;
-    const raw: BarangDetail | undefined =
-      "barang" in data && data.barang ? data.barang : (data as BarangDetail);
-    if (!raw) return null;
-    const cloned: BarangDetail = { ...raw };
-    if (!cloned.stockPerGudang) {
-      const rawStock = cloned.barangGudang || cloned.stok || [];
-      cloned.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
-        gudangId: s.gudangId,
-        gudangKode: s.gudang?.kode || "-",
-        gudangNama: s.gudang?.nama || "-",
-        stok: s.stok || 0,
-      }));
-    }
-    return cloned;
-  })();
+  const barang = data?.barang ?? null;
+  const stockPerGudang = toStockPerGudang(barang);
 
   const error = fetchError
     ? fetchError.message || "Gagal memuat data barang"
@@ -135,16 +128,15 @@ export function BarangDetailClient() {
   }
 
   const getStockStatusColor = (stock: number) => {
-    if (stock === 0) return "bg-red-100 text-red-800";
-    if (stock < 5) return "bg-yellow-100 text-yellow-800";
+    if (stock <= STOCK_THRESHOLD.OUT) return "bg-red-100 text-red-800";
+    if (stock < STOCK_THRESHOLD.LOW) return "bg-yellow-100 text-yellow-800";
     return "bg-green-100 text-green-800";
   };
 
-  const totalStock =
-    barang.stockPerGudang?.reduce(
-      (sum: number, stock: BarangGudang) => sum + stock.stok,
-      0,
-    ) || 0;
+  const totalStock = stockPerGudang.reduce(
+    (sum: number, stock: BarangGudang) => sum + stock.stok,
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -275,7 +267,7 @@ export function BarangDetailClient() {
                   </dt>
                   <dd>
                     <div className="text-lg font-medium text-gray-900 dark:text-white">
-                      {barang.stockPerGudang?.length || 0} gudang
+                      {stockPerGudang.length} gudang
                     </div>
                   </dd>
                 </dl>
@@ -292,7 +284,7 @@ export function BarangDetailClient() {
             Stok per Gudang
           </h3>
 
-          {!barang.stockPerGudang || barang.stockPerGudang.length === 0 ? (
+          {stockPerGudang.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400">
                 Barang ini belum memiliki stok di gudang manapun
@@ -321,7 +313,7 @@ export function BarangDetailClient() {
           ) : (
             <div className="overflow-hidden">
               <ResponsiveTable
-                data={barang.stockPerGudang || []}
+                data={stockPerGudang}
                 keyField="gudangId"
                 columns={[
                   {
@@ -365,11 +357,7 @@ export function BarangDetailClient() {
                     priority: "secondary",
                     render: (item: BarangGudang) => (
                       <span className="text-gray-500 dark:text-gray-400">
-                        {item.stok === 0
-                          ? "Habis"
-                          : item.stok < 5
-                            ? "Menipis"
-                            : "Tersedia"}
+                        {getStockLabel(item.stok)}
                       </span>
                     ),
                   },

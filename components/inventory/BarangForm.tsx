@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { FiInfo } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
-import { validateBarangForm, sanitizeInput } from "@/lib/validations/barang";
+import {
+  validateBarangForm,
+  sanitizeBarangInput,
+} from "@/modules/inventory/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePermission } from "@/hooks/use-permission";
 import { clientLogger } from "@/lib/client-logger";
@@ -115,8 +118,8 @@ export function BarangForm({
     try {
       // Sanitize inputs before sending
       const sanitizedData = {
-        nama: sanitizeInput(formData.nama),
-        satuan: sanitizeInput(formData.satuan),
+        nama: sanitizeBarangInput(formData.nama),
+        satuan: sanitizeBarangInput(formData.satuan),
         isWorkOrderMaterial: formData.isWorkOrderMaterial,
         jenis: formData.jenis,
         kategoriAset: formData.jenis === "ASET" ? formData.kategoriAset : null,
