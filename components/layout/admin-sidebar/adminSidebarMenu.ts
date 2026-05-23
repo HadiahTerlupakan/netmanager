@@ -1,12 +1,19 @@
 import type { MenuConfig } from "@/lib/menu-config";
 
 type SidebarPermissionChecker = (permission: string) => boolean;
+type SidebarFeatureChecker = (feature: string) => boolean;
 
 type FilterAdminMenuItemsParams = {
   items: MenuConfig[];
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
   isSuperAdmin?: boolean;
+  /**
+   * Cek apakah feature module aktif untuk tenant aktif. Default = always true
+   * (jika undefined → tidak ada filter feature flag, behavior backward-compatible).
+   * Lihat `lib/feature-modules.ts` dan `contexts/FeatureFlagsContext.tsx`.
+   */
+  isFeatureEnabled?: SidebarFeatureChecker;
 };
 
 type SidebarPathCheckParams = {
@@ -17,12 +24,13 @@ type SidebarPathCheckParams = {
 const MIKROTIK_API_MODE = "MIKROTIK_API";
 const INTEGRATION_MENU_CODE = "INTEGRATION";
 
-/** Tujuan: memfilter menu admin sesuai permission, mode koneksi PPP, dan status super admin. */
+/** Tujuan: memfilter menu admin sesuai permission, mode koneksi PPP, status super admin, dan feature flag tenant. */
 export function filterAdminMenuItems({
   items,
   hasPermission,
   pppConnectionMode,
   isSuperAdmin,
+  isFeatureEnabled,
 }: FilterAdminMenuItemsParams): MenuConfig[] {
   return items
     .map((item) =>
@@ -31,6 +39,7 @@ export function filterAdminMenuItems({
         hasPermission,
         pppConnectionMode,
         isSuperAdmin,
+        isFeatureEnabled,
       }),
     )
     .filter((item): item is MenuConfig => item !== null);
@@ -78,13 +87,26 @@ function filterAdminMenuItem({
   hasPermission,
   pppConnectionMode,
   isSuperAdmin,
+  isFeatureEnabled,
 }: {
   item: MenuConfig;
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
   isSuperAdmin?: boolean;
+  isFeatureEnabled?: SidebarFeatureChecker;
 }): MenuConfig | null {
   if (item.superAdminOnly && !isSuperAdmin) {
+    return null;
+  }
+
+  // Feature flag gate: super admin tetap lihat semua untuk keperluan
+  // konfigurasi cross-tenant. Tenant biasa di-hide bila modul disable.
+  if (
+    !isSuperAdmin &&
+    item.featureModule &&
+    isFeatureEnabled &&
+    !isFeatureEnabled(item.featureModule)
+  ) {
     return null;
   }
 
@@ -99,6 +121,7 @@ function filterAdminMenuItem({
         hasPermission,
         pppConnectionMode,
         isSuperAdmin,
+        isFeatureEnabled,
       }),
     )
     .filter((child): child is MenuConfig => child !== null);

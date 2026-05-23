@@ -20,6 +20,7 @@ import { AdminSidebarNav } from "@/components/layout/admin-sidebar/AdminSidebarN
 import { AdminSidebarProfile } from "@/components/layout/admin-sidebar/AdminSidebarProfile";
 import { useFilteredAdminMenu } from "@/components/layout/admin-sidebar/useFilteredAdminMenu";
 import { hasActiveSidebarChild } from "@/components/layout/admin-sidebar/adminSidebarMenu";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import { usePermission } from "@/hooks/use-permission";
 import { useSettings } from "@/hooks/useSettings";
 import {
@@ -257,10 +258,12 @@ function useSidebarBranding() {
   const { settings, loading: isSettingsLoading } = useSettings();
   const { branding, loading: isBrandingLoading } = usePublicBranding();
   const { hasPermission, isSuperAdmin } = usePermission();
+  const { isFeatureEnabled } = useFeatureFlags();
   const navItems = useFilteredAdminMenu({
     hasPermission,
     pppConnectionMode: settings?.pppConnectionMode,
     isSuperAdmin,
+    isFeatureEnabled,
   });
   const appName =
     branding?.namaAplikasi || settings?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;

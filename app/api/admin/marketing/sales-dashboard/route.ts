@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/rbac";
 import { AdminSalesRouteService } from "@/modules/marketing";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { isSuperAdmin } from "@/lib/auth";
+import { getFeatureFlagService } from "@/modules/feature-flags";
 
 const adminSalesRouteService = new AdminSalesRouteService();
 
@@ -15,6 +16,20 @@ export async function GET(request: NextRequest) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat sales dashboard",
     );
+  }
+
+  // Feature flag gate (super admin bypass)
+  const tenantId = session.user.tenantId;
+  if (tenantId && !isSuperAdmin(session.user)) {
+    const enabled = await getFeatureFlagService().isEnabled(
+      tenantId,
+      "marketing",
+    );
+    if (!enabled) {
+      return ApiErrors.forbidden(
+        "Modul Marketing tidak aktif untuk tenant Anda.",
+      );
+    }
   }
 
   // Site restriction only applies if user has sales_dashboard:site_only permission

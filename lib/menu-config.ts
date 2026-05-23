@@ -12,6 +12,8 @@
  * 4. Restart aplikasi untuk melihat perubahan
  */
 
+import type { FeatureModuleCode } from "@/lib/feature-modules";
+
 export interface MenuConfig {
   code: string; // Unique identifier
   name: string; // Display name
@@ -22,6 +24,13 @@ export interface MenuConfig {
   section?: string | undefined; // Section label for grouping
   divider?: boolean | undefined; // Show divider before this item
   superAdminOnly?: boolean | undefined; // Hide from non-super-admin users
+  /**
+   * Feature module yang harus aktif untuk tenant agar item ini muncul di sidebar.
+   * Lihat `lib/feature-modules.ts` untuk daftar valid. Bila tidak diset → item
+   * selalu muncul (independen dari tenant feature flag). Tag hanya menu utama
+   * (parent); children mengikuti parent.
+   */
+  featureModule?: FeatureModuleCode | undefined;
 }
 
 /**
@@ -55,6 +64,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/network",
     icon: "HiOutlineGlobeAlt",
     section: "Operasional",
+    featureModule: "network",
     children: [
       {
         code: "NETWORK.MAP",
@@ -88,6 +98,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/olt",
     icon: "HiOutlineServerStack",
     section: "Operasional",
+    featureModule: "olt",
     children: [
       {
         code: "OLT.DEVICES",
@@ -164,6 +175,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Pelanggan",
     path: "/admin/pelanggan",
     icon: "HiOutlineUsers",
+    featureModule: "pelanggan",
     children: [
       {
         code: "PELANGGAN.PPP",
@@ -184,6 +196,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Work Orders",
     path: "/admin/workorders",
     icon: "HiOutlineWrench",
+    featureModule: "work-order",
     children: [
       {
         code: "WORKORDERS.WORK_ORDER_DASHBOARD",
@@ -222,6 +235,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/inventory",
     icon: "HiOutlineCube",
     section: "Inventaris",
+    featureModule: "inventory",
     children: [
       {
         code: "INVENTORY.INVENTORY",
@@ -284,6 +298,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/users",
     icon: "HiOutlineUsers",
     section: "SDM",
+    featureModule: "users",
   },
   {
     code: "MITRA",
@@ -311,6 +326,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Investor",
     path: "/admin/investors",
     icon: "HiOutlineBriefcase",
+    featureModule: "investor",
     children: [
       {
         code: "INVESTORS.LIST",
@@ -338,6 +354,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Kehadiran",
     path: "/admin/kehadiran",
     icon: "HiOutlineClipboardDocumentCheck",
+    featureModule: "attendance",
     children: [
       {
         code: "KEHADIRAN.REPORT",
@@ -388,6 +405,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Penggajian",
     path: "/admin/salary",
     icon: "HiOutlineCurrencyDollar",
+    featureModule: "salary",
     children: [
       {
         code: "SALARY.SALARY",
@@ -426,6 +444,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/marketing",
     icon: "HiOutlineMegaphone",
     section: "Pemasaran",
+    featureModule: "marketing",
     children: [
       {
         code: "MARKETING.SALES_DASHBOARD",
@@ -469,6 +488,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/finance",
     icon: "HiOutlineBuildingLibrary",
     section: "Keuangan",
+    featureModule: "finance",
     children: [
       {
         code: "FINANCE.ACCOUNTS",
@@ -489,6 +509,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Akuntansi",
     path: "/admin/akuntansi",
     icon: "HiOutlineCalculator",
+    featureModule: "accounting",
     children: [
       {
         code: "ACCOUNTING.JOURNAL",
@@ -527,6 +548,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Pajak",
     path: "/admin/pajak",
     icon: "HiOutlineReceiptPercent",
+    featureModule: "tax",
     children: [
       {
         code: "TAX.DASHBOARD",
@@ -577,6 +599,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     name: "Chat",
     path: "/admin/chat",
     icon: "HiOutlineChatBubbleLeftRight",
+    featureModule: "chat",
   },
 
   // ═══════════════════════════════════════════
@@ -627,6 +650,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/integrations",
     icon: "HiOutlineArrowsRightLeft",
     section: "Sistem",
+    featureModule: "integrations",
     children: [
       {
         code: "INTEGRATION.MIXRADIUS",

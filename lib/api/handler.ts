@@ -41,9 +41,11 @@ import type { ZodType, ZodError } from "zod";
 import { authOptions, getUserPermissions } from "@/lib/auth";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import type { ErrorResponse } from "@/lib/api-response";
+import type { FeatureModuleCode } from "@/lib/feature-modules";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { TenantContextError } from "@/lib/prisma-extension";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
+import { getFeatureFlagService } from "@/modules/feature-flags";
 import { parseQuery } from "./query-parser";
 import {
   logRequest,
@@ -86,6 +88,12 @@ export interface HandlerOptions<T = unknown> {
   schema?: ZodType<T>;
   /** Custom rate limit (requests per minute) */
   rateLimit?: number;
+  /**
+   * Feature module yang harus aktif untuk tenant agar route ini bisa diakses.
+   * Lihat `lib/feature-modules.ts` untuk daftar kode valid. Super admin
+   * bypass gate ini. Lihat juga `modules/feature-flags`.
+   */
+  feature?: FeatureModuleCode;
 }
 
 type RouteHandler<T> = (
@@ -232,6 +240,24 @@ export function createHandler<T = unknown>(
           return ApiErrors.forbidden(
             `Akses ditolak. Anda memerlukan permission: ${missingPerms}`,
           );
+        }
+      }
+
+      // 2b. Feature flag gate. Super admin bypass — kebijakan konsisten
+      // dengan permission check di tempat lain. Tenant tanpa flag explicit
+      // dianggap enabled (default open).
+      if (options.feature && !ctx.session?.user?.isSuperAdmin) {
+        const tenantId = ctx.session?.user?.tenantId;
+        if (tenantId) {
+          const enabled = await getFeatureFlagService().isEnabled(
+            tenantId,
+            options.feature,
+          );
+          if (!enabled) {
+            return ApiErrors.forbidden(
+              "Modul tidak aktif untuk tenant Anda. Hubungi administrator.",
+            );
+          }
         }
       }
 

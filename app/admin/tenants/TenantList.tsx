@@ -1,6 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   HiOutlinePencilSquare,
@@ -8,6 +9,7 @@ import {
   HiOutlinePlus,
   HiOutlineBuildingOffice,
   HiOutlineGlobeAlt,
+  HiOutlineSquares2X2,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
@@ -225,6 +227,14 @@ export default function TenantList({
         <HiOutlineBuildingOffice className="w-4 h-4" />
         Kelola Admin
       </button>
+      <Link
+        href={`/admin/tenants/${tenant.id}/features`}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+        title="Atur Modul"
+      >
+        <HiOutlineSquares2X2 className="w-4 h-4" />
+        Atur Modul
+      </Link>
       <button
         onClick={() => setDeleteId(tenant.id)}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"

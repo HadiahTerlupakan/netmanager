@@ -36,7 +36,7 @@ const createCoaSchema = z.object({
 });
 
 export const GET = createHandler(
-  { auth: true, permissions: ["accounting:read"] },
+  { auth: true, permissions: ["accounting:read"], feature: "accounting" },
   async (_request, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const type = ctx.query?.type as string | undefined;
@@ -77,7 +77,7 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["coa:manage"] },
+  { auth: true, permissions: ["coa:manage"], feature: "accounting" },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createCoaSchema.safeParse(body);

@@ -672,6 +672,41 @@ model MikroTikRouter {
   @@index([tenantId])
 }
 
+model AccelPppServer {
+  id              String    @id @default(cuid())
+  name            String
+  ipAddress       String
+  description     String?
+
+  nasIdentifier   String?
+  radiusSecret    String
+  authPort        Int       @default(1812)
+  acctPort        Int       @default(1813)
+  coaPort         Int       @default(3799)
+
+  cliHost         String
+  cliPort         Int       @default(2001)
+  cliPassword     String?
+
+  pingStatus      String    @default("offline")
+  userOnline      Int       @default(0)
+  lastStatusCheck DateTime?
+
+  siteId          String?
+  tenantId        String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  site            Sites?    @relation(fields: [siteId], references: [id])
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, ipAddress])
+  @@index([pingStatus])
+  @@index([siteId])
+  @@index([tenantId])
+}
+
 model Odc {
   id                          String      @id
   name                        String
@@ -1878,6 +1913,7 @@ model Sites {
   joinboxes        Joinbox[]
   kmzFiles         KmzFile[]
   mikrotikRouter   MikroTikRouter[]
+  accelPppServer   AccelPppServer[]
   odcs             Odc[]
   odps             Odp[]
   otbs             Otb[]
@@ -3340,6 +3376,7 @@ model Tenant {
   mRRMovement             MRRMovement[]
   message                 Message[]
   mikroTikRouter          MikroTikRouter[]
+  accelPppServer          AccelPppServer[]
   odc                     Odc[]
   odcOutput               OdcOutput[]
   odp                     Odp[]
@@ -3447,6 +3484,7 @@ model Tenant {
   regionalMinimumWages   RegionalMinimumWage[]
   payrollAuditLogs       PayrollAuditLog[]
   tenantDomain           TenantDomain?
+  featureFlags           TenantFeatureFlag[]
 }
 
 model TenantDomain {
@@ -3463,6 +3501,24 @@ model TenantDomain {
 
   @@index([tenantId])
   @@index([status])
+}
+
+/// Feature flag per tenant (disable module tertentu untuk tenant tertentu).
+/// Default behavior: bila tidak ada row → module dianggap enabled. Disable
+/// dilakukan dengan create row `enabled: false` eksplisit. Lihat
+/// `lib/feature-modules.ts` untuk daftar kode module yang valid.
+model TenantFeatureFlag {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feature   String
+  enabled   Boolean  @default(true)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, feature])
+  @@index([tenantId])
 }
 
 model EmailDeliveryLog {

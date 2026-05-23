@@ -12,6 +12,7 @@ export const GET = createHandler(
   {
     auth: true,
     permissions: ["investors:read"],
+    feature: "investor",
   },
   async () => {
     const result = await getInvestors();
@@ -29,6 +30,7 @@ export const POST = createHandler(
     auth: true,
     permissions: ["investors:create"],
     schema: investorSchema,
+    feature: "investor",
   },
   async (_req, ctx) => {
     const {

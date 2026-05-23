@@ -30,37 +30,40 @@ const createComponentSchema = z.object({
 });
 
 /** GET /api/admin/salary/components — List payroll components */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("salary:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat komponen payroll",
-    );
-  }
+export const GET = createHandler(
+  { auth: true, feature: "salary" },
+  async (req, ctx) => {
+    if (!(await hasPermission("salary:read"))) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk melihat komponen payroll",
+      );
+    }
 
-  const tenantId = ctx.session!.user.tenantId!;
-  const { searchParams } = req.nextUrl;
+    const tenantId = ctx.session!.user.tenantId!;
+    const { searchParams } = req.nextUrl;
 
-  const filter = {
-    tenantId,
-    ...(searchParams.get("category") && {
-      category: searchParams.get("category")!,
-    }),
-    ...(searchParams.get("isActive") && {
-      isActive: searchParams.get("isActive") === "true",
-    }),
-    ...(searchParams.get("isStatutory") && {
-      isStatutory: searchParams.get("isStatutory") === "true",
-    }),
-  } as Parameters<typeof componentRepo.findAll>[0];
+    const filter = {
+      tenantId,
+      ...(searchParams.get("category") && {
+        category: searchParams.get("category")!,
+      }),
+      ...(searchParams.get("isActive") && {
+        isActive: searchParams.get("isActive") === "true",
+      }),
+      ...(searchParams.get("isStatutory") && {
+        isStatutory: searchParams.get("isStatutory") === "true",
+      }),
+    } as Parameters<typeof componentRepo.findAll>[0];
 
-  const components = await componentRepo.findAll(filter);
+    const components = await componentRepo.findAll(filter);
 
-  return apiSuccess({ components });
-});
+    return apiSuccess({ components });
+  },
+);
 
 /** POST /api/admin/salary/components — Create a payroll component */
 export const POST = createHandler(
-  { auth: true, schema: createComponentSchema },
+  { auth: true, schema: createComponentSchema, feature: "salary" },
   async (_req, ctx) => {
     if (!(await hasPermission("salary:create"))) {
       return ApiErrors.forbidden(

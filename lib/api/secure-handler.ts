@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isSuperAdmin, getUserPermissions } from "@/lib/auth";
 import { ApiErrors } from "@/lib/api-response";
+import type { FeatureModuleCode } from "@/lib/feature-modules";
 import { logger } from "@/lib/logger";
 import { TenantContextError } from "@/lib/prisma-extension";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
+import { getFeatureFlagService } from "@/modules/feature-flags";
 
 export type SecureContext = {
   user: {
@@ -43,6 +45,14 @@ interface SecureOptions {
    * Default: true
    */
   bypassSuperAdmin?: boolean;
+
+  /**
+   * Feature module yang harus aktif untuk tenant agar route ini bisa diakses.
+   * Lihat `lib/feature-modules.ts` untuk daftar kode valid. Super admin
+   * bypass gate ini bila `bypassSuperAdmin !== false`. Lihat juga
+   * `modules/feature-flags`.
+   */
+  feature?: FeatureModuleCode;
 }
 
 /**
@@ -109,6 +119,26 @@ export function secure(handler: HandlerFunction, options: SecureOptions = {}) {
             );
             return ApiErrors.forbidden(
               `Akses ditolak. Anda memerlukan permission: ${requiredPerm}`,
+            );
+          }
+        }
+      }
+
+      // 3b. Feature flag gate. Super admin bypass bila `bypassSuperAdmin`
+      // tidak di-disable. Tenant tanpa flag explicit dianggap enabled.
+      if (options.feature && !(options.bypassSuperAdmin !== false && isSuper)) {
+        const tenantId = user.tenantId;
+        if (tenantId) {
+          const enabled = await getFeatureFlagService().isEnabled(
+            tenantId,
+            options.feature,
+          );
+          if (!enabled) {
+            logger.warn(
+              `Feature ${options.feature} disabled for tenant ${tenantId} on ${method} ${path}`,
+            );
+            return ApiErrors.forbidden(
+              "Modul tidak aktif untuk tenant Anda. Hubungi administrator.",
             );
           }
         }

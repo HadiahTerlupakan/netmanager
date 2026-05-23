@@ -45,6 +45,182 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Marketing: hardening, transaksi, & route service point claim
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/marketing`, `app/api/marketing`
+- **Author**: agent
+- **Deskripsi**: Tujuh perbaikan modul pemasaran sesuai temuan review.
+  1. Tenant scoping: `getTechnicalDepartmentId` pindah dari `prismaAuth`
+     (bypass) ke `prisma` agar ikut auto-isolation Prisma extension. Repository
+     `Canvasing` & `PointClaim` sebenarnya sudah ter-scope via
+     `withTenantIsolation` (model tidak di `ignoreModels`), jadi tidak ada
+     manual `tenantId` filter yang ditambahkan.
+  2. Multi-site bug: route `app/api/marketing/canvasing/route.ts` sebelumnya
+     hanya pakai `siteIds[0]` saat user punya banyak site → data site lain
+     tersembunyi. Sekarang pakai `siteIds: { in }` lewat helper
+     `buildMultiSiteScope` baru di `canvasing.repository.helpers.ts`.
+  3. Transaksi multi-write: `submitClaim` (create + lock canvasing),
+     `rejectClaim` (update + unlock), `deleteClaim` (delete + unlock), dan
+     `cashoutAccumulatedClaims` (`updateMany`) di-wrap satu transaksi.
+     `approveRequest` Canvasing dapat kompensasi rollback (delete WO) bila
+     `canvasing.update` gagal — full prisma transaction tidak feasible
+     karena WO menyebrang modul.
+  4. Reject claim: dari DELETE row jadi UPDATE status REJECTED + reviewer +
+     notes. Audit trail kini terjaga.
+  5. `MarketingPointClaimRouteService` baru: tarik logika permission, error
+     mapping, dan validasi dari 5 route handler (`point-claims/route.ts`,
+     `[id]/route.ts`, `summary/route.ts`, `canvasing/[id]/claim/route.ts`,
+     `claims/cashout/route.ts`) ke service dengan typed `Result` (sejalan
+     `MarketingCanvasingDetailRouteService`). Pesan error tidak lagi bocor
+     nama permission internal.
+  6. Magic number poin & cashout dipindah ke `modules/marketing/config/marketing-points.ts`
+     (WO_IN_PROGRESS_POINT, WO_COMPLETED_POINT, APPROVED_CLAIM_POINT,
+     DEFAULT_POINT_VALUE, CASHOUT_DEFAULT_TARGET, ACCUMULATED_TARGET_SCHEMA,
+     COMPLETED/IN_PROGRESS_WORK_ORDER_STATUSES). Mempersiapkan tuning
+     per-tenant.
+  7. Cleanup: `MarketingFactory.ts` (dead, tidak di-import siapa pun) dihapus
+     bersama folder `factories/`. `getUserFeaturesWithCanvasing` masih
+     dipakai mobile auth, tag `@deprecated` dihapus karena memang masih
+     load-bearing.
+- **Files**:
+  - `modules/marketing/services/canvasing.service.helpers.ts`
+  - `modules/marketing/services/CanvasingService.ts`
+  - `modules/marketing/services/PointClaimService.ts`
+  - `modules/marketing/services/point-claim.service.helpers.ts`
+  - `modules/marketing/services/MarketingPointClaimRouteService.ts` (baru)
+  - `modules/marketing/services/marketing-point-claim-route.helpers.ts` (baru)
+  - `modules/marketing/services/CanvasingAccessService.ts`
+  - `modules/marketing/repositories/PointClaimRepository.ts`
+  - `modules/marketing/repositories/canvasing.repository.helpers.ts`
+  - `modules/marketing/domain/ports/IPointClaimRepository.ts`
+  - `modules/marketing/domain/ports/ICanvasingRepository.ts`
+  - `modules/marketing/config/marketing-points.ts` (baru)
+  - `modules/marketing/mappers/marketing-canvasing.mapper.ts`
+  - `modules/marketing/index.ts`
+  - `modules/work-order/services/WorkOrderQueryService.ts`
+  - `app/api/marketing/canvasing/route.ts`
+  - `app/api/marketing/canvasing/[id]/claim/route.ts`
+  - `app/api/marketing/claims/cashout/route.ts`
+  - `app/api/marketing/point-claims/route.ts`
+  - `app/api/marketing/point-claims/[id]/route.ts`
+  - `app/api/marketing/point-claims/summary/route.ts`
+  - `modules/marketing/factories/MarketingFactory.ts` (dihapus)
+- **Verifikasi**: `npm run typecheck` clean, `npm run lint` clean,
+  `npm run build` sukses.
+- **Breaking**: ❌ Tidak — semua kontrak API & response shape dipertahankan;
+  reject claim tetap return DTO dengan struktur sama (sebelumnya in-memory,
+  sekarang dari row update).
+
+
+### [2026-05-23] — Feature flag: unit test & tag API representative
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/feature-flags`, `app/api/admin/{accounting,marketing,salary,tax,investors,payment-gateway,chat}`
+- **Author**: agent
+- **Deskripsi**: (1) Unit test `FeatureFlagService` dengan mocked repository — 12 test mencakup default-enabled behavior, explicit disable, cache hit/invalidation, isolasi cache per-tenant, getDisabledFeatures filter, getCatalogForTenant merge, dan setBatch. (2) Tag opsi `feature` di route inti tiap module domain sebagai proof-of-concept incremental adoption: `accounting/coa` (GET+POST), `marketing/sales-dashboard` (manual gate karena pakai `requireAdmin`), `salary/components` (GET+POST), `tax/transactions` (GET), `investors` (GET+POST), `payment-gateway/configs` (GET), `chat/conversations` (GET+POST). Route lain dapat di-tag bertahap saat di-sentuh.
+- **Files**:
+  - `tests/modules/feature-flags/FeatureFlagService.test.ts` (NEW)
+  - `app/api/admin/accounting/coa/route.ts` (tag GET+POST)
+  - `app/api/admin/marketing/sales-dashboard/route.ts` (manual gate via getFeatureFlagService)
+  - `app/api/admin/salary/components/route.ts` (tag GET+POST)
+  - `app/api/admin/tax/transactions/route.ts` (tag GET, fix indentasi)
+  - `app/api/admin/investors/route.ts` (tag GET+POST)
+  - `app/api/admin/payment-gateway/configs/route.ts` (tag GET)
+  - `app/api/admin/chat/conversations/route.ts` (tag GET+POST)
+- **Breaking**: ❌ Tidak — feature flag default open untuk tenant existing; gate hanya aktif setelah super admin disable modul.
+
+### [2026-05-23] — Per-tenant feature flag (module-level menu customization)
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/`, `modules/feature-flags`, `contexts/`, `app/api/tenant/feature-flags`, `app/api/admin/tenants/[id]/feature-flags`, `app/admin/tenants/[id]/features`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Sistem feature flag tingkat module per tenant. Super admin dapat enable/disable modul (akuntansi, marketing, work-order, salary, dst) per tenant agar menu sidebar dan akses API terkunci sesuai paket / kebutuhan tenant. Default behavior: tenant baru otomatis dapat semua modul (no row di tabel = enabled). Disable hanya direpresentasikan oleh row eksplisit `enabled: false`. RBAC tetap menangani granular permission dalam suatu module yang aktif.
+  - **Module catalog** `lib/feature-modules.ts`: 26 modul domain (network, olt, pelanggan, work-order, finance, accounting, dst), grouped (core/operasional/keuangan/sdm/lainnya), const tuple dengan `FeatureModuleCode` type union.
+  - **Schema** `TenantFeatureFlag(tenantId, feature, enabled, updatedBy, ...)` + relasi cascade ke `Tenant`. Migration: `20260523173439_add_tenant_feature_flag`.
+  - **Module Clean Architecture** `modules/feature-flags/` (domain port, repository, service, dto, validator, index). Caching pakai `lib/cache.ts` tenant-aware (TTL 5 menit, invalidate per-tenant on update).
+  - **Backend gate**: `HandlerOptions.feature` di `lib/api/handler.ts` & `SecureOptions.feature` di `lib/api/secure-handler.ts`. Super admin bypass. Pemakaian opsional per route (incremental adoption).
+  - **Frontend**: `MenuConfig.featureModule?` di `lib/menu-config.ts` (tagged 13 menu utama: NETWORK, OLT, PELANGGAN, WORKORDERS, INVENTORY, USERS, INVESTORS, KEHADIRAN, SALARY, MARKETING, FINANCE, ACCOUNTING, TAX, CHAT, INTEGRATION). `contexts/FeatureFlagsContext.tsx` fetch `/api/tenant/feature-flags`, hook `useFeatureFlags()`. Sidebar filter via `adminSidebarMenu.ts` (parameter `isFeatureEnabled`).
+  - **API endpoints**: `GET /api/tenant/feature-flags` (user aktif), `GET/PATCH /api/admin/tenants/[id]/feature-flags` (super admin only).
+  - **Super admin UI**: `/admin/tenants/[id]/features` — tabel toggle per modul dengan grouping dan batch save. Tombol "Atur Modul" ditambah di `TenantList.tsx`.
+  - **Audit**: `updatedBy` disimpan per row; `logger.info` setiap toggle.
+- **Files**:
+  - `lib/feature-modules.ts` (NEW)
+  - `lib/menu-config.ts` (tag `featureModule` di 13 menu utama)
+  - `lib/api/handler.ts`, `lib/api/secure-handler.ts` (gate)
+  - `prisma/schema.prisma` + `prisma/migrations/20260523173439_add_tenant_feature_flag/`
+  - `modules/feature-flags/{domain/ports,repositories,services,dto,validators,index.ts}` (NEW)
+  - `contexts/FeatureFlagsContext.tsx` (NEW)
+  - `components/layout/admin-sidebar/{adminSidebarMenu,useFilteredAdminMenu}.ts` (filter)
+  - `components/layout/Sidebar.tsx` (inject hook)
+  - `app/admin/layout.tsx` (wrap `FeatureFlagsProvider`)
+  - `app/admin/tenants/{TenantList.tsx,[id]/features/{page,TenantFeaturesClient}.tsx}` (UI)
+  - `app/api/{tenant/feature-flags/route.ts,admin/tenants/[id]/feature-flags/route.ts}` (NEW)
+- **Migration**: `20260523173439_add_tenant_feature_flag`
+- **Breaking**: ❌ Tidak — tenant existing langsung enabled untuk semua modul (no row = enabled by default). Pemakaian gate di route handler bersifat opt-in incremental.
+
+### [2026-05-23] — Review modul mitra: hardening multi-tenant, race wallet/withdraw, silent failure
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/mitra`, `app/api/admin/mitra`, `app/api/mobile/mitra`, `app/mitra-id`
+- **Author**: agent
+- **Deskripsi**: Hasil review menyeluruh modul mitra. Memperbaiki beberapa lubang multi-tenant
+  (admin tenant lain bisa membaca/mengubah mitra, withdrawal, atau sync komisi tanpa filter
+  `tenantId`), menutup race condition wallet & withdraw, menghilangkan silent failure event,
+  dan migrasi service yang masih pola lama.
+  - Multi-tenant: route `[id]/route.ts`, `[id]/face-verifications`, `[id]/wallet`,
+    `withdrawals/route.ts`, `withdrawals/[id]/route.ts`, dan `sync-commissions/route.ts`
+    sekarang **selalu meneruskan `user.tenantId`** ke service. `MitraCommissionSyncService`
+    menambahkan guard `assertMitraInTenant` untuk menolak sync ke mitra di luar tenant pemanggil.
+  - Race wallet: `findOrCreateWalletTx` & `ensureWalletExistsTx` sekarang pakai
+    `prisma.mitraWallet.upsert` (mengandalkan `mitraId @unique`) untuk menghilangkan window
+    duplicate-create antar transaksi paralel.
+  - Race withdraw: `MitraWithdrawRepository.createWithdrawRequestAtomic` baru — memvalidasi
+    saldo dan jumlah pending **di dalam satu transaksi DB** lalu insert. `MitraWithdrawService.requestWithdraw`
+    direfactor untuk memakainya, sehingga dua POST `/withdraw` paralel tidak bisa lolos
+    pengecekan pending=0 secara berbarengan. Helper `getWalletValidationError`/`validateWalletBasics`
+    yang sudah usang dihapus.
+  - Silent failure: event `MITRA_WITHDRAWAL_COMPLETED` tidak lagi ditelan dengan
+    `.catch(() => {})`. Kegagalan publish di-log via `logWithdrawServiceError` agar tetap
+    terlacak.
+  - Sync I/O: `saveFaceVerificationPhoto` di `MobileMitraRouteService.helpers` migrasi dari
+    `fs.mkdirSync`/`fs.writeFileSync` ke `fs/promises` agar tidak memblok event loop di
+    Node runtime.
+  - Validasi: `MitraCommissionSyncService.validateInput` mengganti truthy-check `amount`
+    dengan `validatePositiveAmount` (mencegah amount negatif). `MitraWalletService.addAdjustment`
+    menambahkan guard `Number.isFinite(amount) && amount !== 0`.
+  - Pola lama → baru: `MitraIdCardService` sekarang pakai factory `getMitraIdCardService()`
+    + injeksi via `getMitraRepository()`, menggantikan instance const lama. Caller di
+    `app/mitra-id/[id]/page.tsx` ikut diupdate.
+  - Konsistensi mobile route: `dashboard/route.ts`, `wallet/route.ts`, `withdraw/route.ts`,
+    dan `verify-face/route.ts` tidak lagi mengeksekusi `getMobileMitraRouteService()` di
+    module top-level (eager init); diubah jadi lazy. `parseInt` page param diberi NaN guard.
+- **Files**:
+  `modules/mitra/services/MitraWithdrawService.ts`,
+  `modules/mitra/services/MitraWithdrawService.helpers.ts`,
+  `modules/mitra/services/MitraCommissionSyncService.ts`,
+  `modules/mitra/services/MitraWalletService.ts`,
+  `modules/mitra/services/MitraIdCardService.ts`,
+  `modules/mitra/services/MobileMitraRouteService.helpers.ts`,
+  `modules/mitra/repositories/MitraWalletRepository.ts`,
+  `modules/mitra/repositories/MitraWithdrawRepository.ts`,
+  `modules/mitra/repositories/MitraRepository.helpers.ts`,
+  `modules/mitra/domain/ports/IMitraWithdrawRepository.ts`,
+  `modules/mitra/index.ts`,
+  `app/api/admin/mitra/[id]/route.ts`,
+  `app/api/admin/mitra/[id]/face-verifications/route.ts`,
+  `app/api/admin/mitra/[id]/wallet/route.ts`,
+  `app/api/admin/mitra/withdrawals/route.ts`,
+  `app/api/admin/mitra/withdrawals/[id]/route.ts`,
+  `app/api/admin/mitra/sync-commissions/route.ts`,
+  `app/api/mobile/mitra/dashboard/route.ts`,
+  `app/api/mobile/mitra/wallet/route.ts`,
+  `app/api/mobile/mitra/withdraw/route.ts`,
+  `app/api/mobile/mitra/verify-face/route.ts`,
+  `app/mitra-id/[id]/page.tsx`
+- **Breaking**: ❌ Tidak (signature publik service tetap; `mitraIdCardService` const lama
+  diganti oleh factory `getMitraIdCardService()` — caller internal sudah diupdate)
+
 ### [2026-05-23] — Acknowledge safe-guard untuk migration OLT enum & multi-tenancy
 
 - **Tipe**: [FIXED]

@@ -9,21 +9,25 @@ const createConversationSchema = z.object({
 });
 
 // GET - Get all conversations for current admin user
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const chatService = new ChatService();
-  const conversations = await chatService.getConversations(
-    ctx.session!.user.id,
-    ctx.session!.user.tenantId as string,
-  );
+export const GET = createHandler(
+  { auth: true, feature: "chat" },
+  async (_req, ctx) => {
+    const chatService = new ChatService();
+    const conversations = await chatService.getConversations(
+      ctx.session!.user.id,
+      ctx.session!.user.tenantId as string,
+    );
 
-  return apiSuccess(conversations);
-});
+    return apiSuccess(conversations);
+  },
+);
 
 // POST - Create a new conversation
 export const POST = createHandler(
   {
     auth: true,
     schema: createConversationSchema,
+    feature: "chat",
   },
   async (_req, ctx) => {
     // Check permission
