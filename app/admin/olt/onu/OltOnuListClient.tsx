@@ -219,6 +219,15 @@ export default function OltOnuListClient() {
     return "•";
   };
 
+  const extractPppoe = (item: OnuItem): string => {
+    if (item.pelanggan?.username) return item.pelanggan.username;
+    if (item.description) {
+      const match = item.description.match(/^(\S+)-/);
+      if (match) return match[1];
+    }
+    return item.serialNumber;
+  };
+
   const columns: Column<OnuItem>[] = [
     {
       key: "olt",
@@ -253,7 +262,7 @@ export default function OltOnuListClient() {
       priority: "secondary",
       render: (item) => (
         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
-          ONU-{item.slot}:{item.onuIndex}
+          ONU-{item.ponPort}:{item.onuIndex}
         </span>
       ),
     },
@@ -263,7 +272,7 @@ export default function OltOnuListClient() {
       priority: "secondary",
       render: (item) => (
         <span className="text-gray-700 dark:text-gray-300 text-xs">
-          {item.pelanggan?.username ?? item.serialNumber}
+          {extractPppoe(item)}
         </span>
       ),
     },

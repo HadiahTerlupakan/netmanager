@@ -93,6 +93,7 @@ export class OnuMonitoringService {
         olt,
         status.ponPort,
         status.onuIndex,
+        onu.slot,
       );
       if (powerResult.success && powerResult.data) {
         await this.powerRepo.record({
@@ -162,6 +163,7 @@ export class OnuMonitoringService {
         olt,
         status.ponPort,
         status.onuIndex,
+        onu.slot,
       );
       if (!powerResult.success || !powerResult.data) continue;
 
@@ -231,12 +233,16 @@ export class OnuMonitoringService {
     oltId: string,
     tenantId: string,
   ): Promise<
-    Map<string, { id: string; serialNumber: string; status: string }>
+    Map<
+      string,
+      { id: string; serialNumber: string; status: string; slot: number }
+    >
   > {
     const onus = await prisma.onuDevice.findMany({
       where: { oltId, tenantId, status: { not: "UNREGISTERED" } },
       select: {
         id: true,
+        slot: true,
         ponPort: true,
         onuIndex: true,
         serialNumber: true,
@@ -245,7 +251,7 @@ export class OnuMonitoringService {
     });
     const map = new Map<
       string,
-      { id: string; serialNumber: string; status: string }
+      { id: string; serialNumber: string; status: string; slot: number }
     >();
     for (const onu of onus) {
       if (onu.onuIndex === null) continue;
@@ -253,6 +259,7 @@ export class OnuMonitoringService {
         id: onu.id,
         serialNumber: onu.serialNumber,
         status: onu.status,
+        slot: onu.slot,
       });
     }
     return map;

@@ -109,6 +109,7 @@ export interface IOltAdapter {
     device: OltDevice,
     ponPort: number,
     onuIndex: number,
+    slot?: number,
   ): Promise<ServiceResult<OpticalPower>>;
   getAllOnuStatuses(device: OltDevice): Promise<ServiceResult<OnuStatusInfo[]>>;
   discoverCards?(device: OltDevice): Promise<ServiceResult<DiscoveredCard[]>>;

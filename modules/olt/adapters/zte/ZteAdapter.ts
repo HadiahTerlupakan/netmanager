@@ -798,6 +798,7 @@ export class ZteAdapter implements IOltAdapter {
     device: OltDevice,
     ponPort: number,
     onuIndex: number,
+    slot?: number,
   ): Promise<ServiceResult<OpticalPower>> {
     // SNMP via ZXGPON-MIB + zxGponOptical. Verified di C300 V2.1.0 lapangan:
     //   RX ONU (downstream, what ONU receives): .1012.3.50.12.1.1.10
@@ -808,8 +809,9 @@ export class ZteAdapter implements IOltAdapter {
     // Decode ZXGPON: raw * 0.002 - 30 = dBm. Sentinel raw >= 30000 = null.
     // Decode OLT-side: raw / 1000 = dBm. Sentinel raw <= -80000 = null.
     try {
+      const effectiveSlot = slot ?? device.defaultSlot;
       const zxIfIndex = ZteOidRegistry.encodeZxGponIfIndex(
-        device.defaultSlot,
+        effectiveSlot,
         ponPort,
       );
       const rxOid = `${ZteOidRegistry.zxGponOnuPower.onuRxPowerTable}.${zxIfIndex}.${onuIndex}.1`;
