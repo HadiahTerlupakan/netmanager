@@ -1,6 +1,8 @@
 import type { OltDevice } from "../entities/olt-device.entity";
+import type { DiscoveredCard } from "../entities/olt-card.entity";
 import type {
   DeregisterOnuParams,
+  DiscoveredRegisteredOnu,
   OnuStatusInfo,
   OpticalPower,
   RegisteredOnu,
@@ -22,6 +24,42 @@ export interface IOltAdapter {
   discoverUnregisteredOnus(
     device: OltDevice,
   ): Promise<ServiceResult<UnregisteredOnu[]>>;
+  /**
+   * Discover ONU yang sudah teregistrasi di OLT.
+   * Dipakai untuk import existing ONU ke DB app saat OLT pertama kali
+   * ditambahkan / sync ulang state.
+   */
+  discoverRegisteredOnus(
+    device: OltDevice,
+  ): Promise<ServiceResult<DiscoveredRegisteredOnu[]>>;
+  /**
+   * Discover VLAN per-ONU dari service-port table.
+   * Return Map keyed by `${frame}:${slot}:${port}:${onuIndex}` ke VLAN ID.
+   */
+  discoverServicePortVlans(
+    device: OltDevice,
+  ): Promise<
+    ServiceResult<Map<string, { vlanId: number; serviceMode: number }>>
+  >;
+  /**
+   * Discover phase state real per ONU (working/offline/dying_gasp).
+   * Return Map keyed by `${frame}:${slot}:${port}:${onuIndex}` ke OnuStatusInfo["status"].
+   */
+  discoverOnuPhaseStates(
+    device: OltDevice,
+  ): Promise<ServiceResult<Map<string, OnuStatusInfo["status"]>>>;
+  /**
+   * Discover RX+TX power per ONU dari ZXGPON-MIB.
+   * Return Map keyed by `${frame}:${slot}:${port}:${onuIndex}` ke
+   * { rxPower, txPower } dalam dBm.
+   */
+  discoverOnuRxPowers(
+    device: OltDevice,
+  ): Promise<
+    ServiceResult<
+      Map<string, { rxPower: number | null; txPower: number | null }>
+    >
+  >;
   findOnuBySerialNumber(
     device: OltDevice,
     sn: string,
@@ -73,4 +111,5 @@ export interface IOltAdapter {
     onuIndex: number,
   ): Promise<ServiceResult<OpticalPower>>;
   getAllOnuStatuses(device: OltDevice): Promise<ServiceResult<OnuStatusInfo[]>>;
+  discoverCards?(device: OltDevice): Promise<ServiceResult<DiscoveredCard[]>>;
 }
