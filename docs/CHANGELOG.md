@@ -45,6 +45,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Tambah policy Prisma Schema & Migration di CLAUDE.md
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Tambah section `Prisma Schema & Migration Policy — STRICTLY ENFORCED`
+  di `CLAUDE.md` untuk mewajibkan generate migration setiap perubahan
+  `prisma/schema.prisma`. Mencakup workflow standar (edit schema → `prisma migrate
+  dev` → verifikasi SQL → generate client → commit schema + migration bersamaan),
+  larangan `db push` untuk perubahan yang akan masuk produksi, aturan penamaan
+  migration deskriptif, strategi multi-step untuk perubahan destruktif, dan referensi
+  ke `prisma migrate deploy` saat deployment produksi. Tujuan: mencegah drift antara
+  Prisma client lokal dengan database produksi karena schema diubah tanpa migration
+  pasangan-nya.
+- **Files**: `CLAUDE.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Tenant isolation hardening (medium): error masking, IS_SEEDING guard, audit script, bare-domain guard
 
 - **Tipe**: [SECURITY]

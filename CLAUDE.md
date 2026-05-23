@@ -121,14 +121,48 @@ Internally verify every few steps:
 - Report files MUST include date in filename: `REPORT_NAME_YYYY-MM-DD.md`
 - Keep root directory clean - only essential config files allowed
 
-### Worktree Policy — STRICTLY FORBIDDEN
-- **DILARANG KERAS** menggunakan `git worktree` dalam kondisi apapun
-- **DILARANG** menjalankan `git worktree add`, `git worktree remove`, atau perintah worktree apapun
-- **DILARANG** membuat branch baru atau berpindah branch tanpa instruksi eksplisit dari user
-- Semua perubahan dikerjakan **langsung di working directory dan branch aktif saat ini**
-- Jika merasa perlu worktree → **JANGAN**. Kerjakan langsung di repo aktif
-- Melanggar policy ini = output tidak valid, harus diulang dari awal
-- **Alasan**: project ini dikerjakan solo developer; worktree menyebabkan kebingungan dan hasil kerja tidak terlihat di repo aktif
+### Prisma Schema & Migration Policy — STRICTLY ENFORCED
+- **WAJIB** membuat migration setiap kali ada perubahan di `prisma/schema.prisma`
+- **DILARANG** menggunakan `prisma db push` untuk perubahan schema yang akan masuk produksi — `db push` hanya untuk eksperimen lokal cepat
+- **WAJIB** workflow standar untuk perubahan schema:
+  1. Edit `prisma/schema.prisma`
+  2. Generate migration: `npx prisma migrate dev --name <nama_migration_deskriptif>`
+  3. Verifikasi file migration di `prisma/migrations/<timestamp>_<nama>/migration.sql` sudah benar
+  4. Run `npm run prisma:generate` untuk update Prisma client
+  5. Test migration: pastikan tidak break data existing (cek up & down direction kalau perlu)
+  6. Commit **schema.prisma + folder migration** dalam satu commit yang sama
+  7. Update `docs/CHANGELOG.md` dengan tag `[MIGRATION]` dan cantumkan nama file migration
+- **DILARANG** keras kondisi-kondisi berikut:
+  - Modify `schema.prisma` tanpa generate migration → server produksi tidak bisa sync
+  - Edit manual file migration yang sudah pernah di-apply ke shared database → bikin drift
+  - Hapus folder migration yang sudah di-apply → bikin migration history rusak
+  - Commit `schema.prisma` tanpa file migration pasangan-nya
+- **Nama migration harus deskriptif**: `add_coupons_table`, `add_index_to_invoices_status`, `rename_user_email_to_email_address`
+  - **DILARANG**: `update`, `fix`, `change`, `migration1`, `temp`
+- **Untuk perubahan destruktif** (drop column, drop table, rename dengan data loss):
+  - Gunakan strategi multi-step: tambah dulu kolom/tabel baru → backfill data → baru drop yang lama di migration berikutnya
+  - **WAJIB** lapor ke user sebelum apply migration yang berpotensi data loss
+- **Production deployment**: gunakan `npx prisma migrate deploy` (bukan `migrate dev`) — sudah dikonfigurasi di pipeline deploy
+- **Alasan**: production server hanya bisa apply schema melalui migration files. Skema lokal yang tidak punya migration = production database tidak akan pernah ikut berubah, dan mismatch antara Prisma client dengan DB akan bikin runtime error tak terduga
+
+### Worktree Policy — ALLOWED WITH CLEANUP REQUIREMENT
+- **DIPERBOLEHKAN** menggunakan `git worktree` untuk isolasi pekerjaan paralel, eksperimen, atau task yang butuh konteks branch berbeda
+- **WAJIB** mengikuti siklus lengkap: buat → kerjakan → commit → push → **hapus worktree**
+- Workflow standar:
+  1. Buat worktree: `git worktree add <path> <branch>`
+  2. Kerjakan perubahan di dalam worktree tersebut
+  3. Commit & push perubahan ke remote
+  4. Setelah pekerjaan selesai (atau sudah merged) → `git worktree remove <path>`
+  5. Jika branch worktree juga tidak dipakai lagi → hapus branch lokal
+  6. Verifikasi dengan `git worktree list` — pastikan tidak ada worktree menggantung
+- **DILARANG** meninggalkan worktree dalam kondisi:
+  - Sudah selesai/sudah di-merge tapi tidak dihapus (jadi sampah & rancu di repo utama)
+  - Berisi perubahan belum di-commit lalu ditinggalkan tanpa kelanjutan
+  - Worktree orphan yang tidak jelas tujuannya
+- **DILARANG** membuat branch baru atau berpindah branch di repo utama tanpa instruksi eksplisit dari user
+- Jika ragu butuh worktree atau tidak → default kerjakan langsung di working directory & branch aktif
+- Setelah cleanup, **wajib** lapor ke user bahwa worktree sudah dihapus (transparansi)
+- **Alasan**: project ini dikerjakan solo developer; worktree berguna untuk paralel task tapi sampah worktree menyebabkan kebingungan dan rancu di repo utama
 
 ---
 
@@ -479,5 +513,5 @@ Detail lengkap: `docs/standards/mobile-update-strategy.md`
 
 ---
 
-*Last Updated: 2026-05-20*
-*Version: 3.5 - Added Accounting Module*
+*Last Updated: 2026-05-23*
+*Version: 3.7 - Added Prisma Schema & Migration Policy (mandatory migration files)*
