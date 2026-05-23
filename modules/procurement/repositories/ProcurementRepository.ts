@@ -1,11 +1,20 @@
 import { prisma } from "@/lib/prisma";
-import { PurchaseOrderStatus } from "@prisma/client";
+import {
+  PurchaseOrderStatus,
+  PurchaseRequestStatus,
+  Prisma,
+} from "@prisma/client";
 
 import type { PurchaseOrderEntity } from "../domain/entities/PurchaseOrder";
-import type { PurchaseRequestEntity } from "../domain/entities/PurchaseRequest";
+import type {
+  PurchaseRequestEntity,
+  PurchaseRequestSummaryEntity,
+} from "../domain/entities/PurchaseRequest";
 import type {
   CreatePurchaseOrderInput,
   IProcurementRepository,
+  PurchaseRequestListFilter,
+  PurchaseRequestListResult,
 } from "../domain/ports/IProcurementRepository";
 import {
   toPurchaseOrderDomain,
@@ -85,6 +94,76 @@ export class ProcurementRepository implements IProcurementRepository {
 
     return `${prefix}${PO_NUMBER_SEPARATOR}${nextSequence}`;
   }
+
+  /** Listing ringkas purchase request — read-only untuk view procurement. */
+  async listPurchaseRequests(
+    filter: PurchaseRequestListFilter,
+  ): Promise<PurchaseRequestListResult> {
+    const where = buildPurchaseRequestListWhere(filter);
+    const [records, total] = await Promise.all([
+      prisma.purchaseRequest.findMany({
+        where,
+        include: {
+          items: { select: { jumlah: true, totalHarga: true } },
+          requester: { select: { name: true } },
+          gudang: { select: { nama: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (filter.page - 1) * filter.limit,
+        take: filter.limit,
+      }),
+      prisma.purchaseRequest.count({ where }),
+    ]);
+
+    return {
+      data: records.map(toPurchaseRequestSummary),
+      total,
+      page: filter.page,
+      limit: filter.limit,
+    };
+  }
+}
+
+function buildPurchaseRequestListWhere(
+  filter: PurchaseRequestListFilter,
+): Prisma.PurchaseRequestWhereInput {
+  const where: Prisma.PurchaseRequestWhereInput = { tenantId: filter.tenantId };
+  if (filter.status) {
+    where.status = filter.status as PurchaseRequestStatus;
+  }
+  if (filter.search) {
+    where.nomorRequest = { contains: filter.search, mode: "insensitive" };
+  }
+  return where;
+}
+
+function toPurchaseRequestSummary(record: {
+  id: string;
+  nomorRequest: string;
+  status: string;
+  prioritas: string;
+  tanggal: Date;
+  approvedAt: Date | null;
+  purchaseOrderId: string | null;
+  tenantId: string | null;
+  items: { jumlah: number; totalHarga: number }[];
+  requester: { name: string | null } | null;
+  gudang: { nama: string | null } | null;
+}): PurchaseRequestSummaryEntity {
+  return {
+    id: record.id,
+    nomorRequest: record.nomorRequest,
+    status: record.status,
+    prioritas: record.prioritas,
+    tanggal: record.tanggal,
+    approvedAt: record.approvedAt,
+    purchaseOrderId: record.purchaseOrderId,
+    tenantId: record.tenantId,
+    requesterName: record.requester?.name ?? null,
+    gudangNama: record.gudang?.nama ?? null,
+    totalItems: record.items.reduce((sum, item) => sum + item.jumlah, 0),
+    totalNilai: record.items.reduce((sum, item) => sum + item.totalHarga, 0),
+  };
 }
 
 function buildPurchaseOrderCreateData(input: CreatePurchaseOrderInput) {

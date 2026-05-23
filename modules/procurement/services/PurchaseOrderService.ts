@@ -31,11 +31,12 @@ interface CreatePurchaseOrderServiceInput extends CreatePurchaseOrderInput {
 }
 
 /**
- * Service Purchase Order: CRUD + integrasi vendor master.
+ * Service Purchase Order: CRUD + snapshot data Supplier.
  *
- * Saat create, kalau supplier dipilih dan `vendorNpwp` tidak di-supply,
- * NPWP otomatis dipopulasi dari `Supplier.npwp` agar PO punya snapshot
- * vendor yang konsisten saat pembayaran nanti.
+ * Catatan istilah: di project ini "vendor" === "supplier".
+ * Field DB `PurchaseOrder.vendorNpwp` adalah snapshot NPWP dari
+ * `Supplier.npwp` saat PO dibuat — disnapshot supaya posisi pajak
+ * tidak berubah jika master Supplier diedit setelah PO issued.
  */
 export class PurchaseOrderService {
   constructor(

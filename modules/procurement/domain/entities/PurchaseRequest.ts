@@ -21,3 +21,18 @@ export interface PurchaseRequestEntity {
   purchaseOrderId: string | null;
   items: PurchaseRequestItemEntity[];
 }
+
+export interface PurchaseRequestSummaryEntity {
+  id: string;
+  nomorRequest: string;
+  status: string;
+  prioritas: string;
+  tanggal: Date;
+  approvedAt: Date | null;
+  purchaseOrderId: string | null;
+  tenantId: string | null;
+  requesterName: string | null;
+  gudangNama: string | null;
+  totalItems: number;
+  totalNilai: number;
+}

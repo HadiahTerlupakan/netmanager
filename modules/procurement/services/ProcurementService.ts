@@ -5,6 +5,8 @@ import type { PurchaseRequestEntity } from "../domain/entities/PurchaseRequest";
 import type {
   CreatePurchaseOrderItemInput,
   IProcurementRepository,
+  PurchaseRequestListFilter,
+  PurchaseRequestListResult,
 } from "../domain/ports/IProcurementRepository";
 import { toPurchaseOrderDTO } from "../mappers/ProcurementMapper";
 import { ProcurementRepository } from "../repositories/ProcurementRepository";
@@ -44,6 +46,13 @@ export class ProcurementService {
     );
 
     return await this.createPurchaseOrders(purchaseRequestsBySupplier, userId);
+  }
+
+  /** Listing read-only purchase request — view procurement (PR pemilik tetap inventory/restock). */
+  listPurchaseRequests(
+    filter: PurchaseRequestListFilter,
+  ): Promise<PurchaseRequestListResult> {
+    return this.procurementRepository.listPurchaseRequests(filter);
   }
 
   /** Menghasilkan purchase order untuk setiap grup supplier. */

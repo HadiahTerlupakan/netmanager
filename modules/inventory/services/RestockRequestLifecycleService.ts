@@ -3,8 +3,6 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { ProcurementService } from "@/modules/procurement";
 
-const procurementService = new ProcurementService();
-
 type RestockAction = "APPROVE" | "REJECT" | "START_SHOPPING" | "RECEIVE";
 
 interface RestockRequestLifecycleInput {
@@ -15,6 +13,9 @@ interface RestockRequestLifecycleInput {
 }
 
 export class RestockRequestLifecycleService {
+  constructor(
+    private readonly procurementService: ProcurementService = new ProcurementService(),
+  ) {}
   /** Ubah lifecycle approval purchase request restock. */
   async patchRestockRequestLifecycle(input: RestockRequestLifecycleInput) {
     const startTime = Date.now();
@@ -168,7 +169,7 @@ export class RestockRequestLifecycleService {
   }> {
     try {
       const generatedPurchaseOrders =
-        await procurementService.generatePOFromPRs([id], actorId);
+        await this.procurementService.generatePOFromPRs([id], actorId);
       return {
         generatedPO: generatedPurchaseOrders?.[0] ?? null,
         poError: null,

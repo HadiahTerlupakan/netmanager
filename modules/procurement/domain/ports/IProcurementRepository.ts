@@ -1,5 +1,8 @@
 import type { PurchaseOrderEntity } from "../entities/PurchaseOrder";
-import type { PurchaseRequestEntity } from "../entities/PurchaseRequest";
+import type {
+  PurchaseRequestEntity,
+  PurchaseRequestSummaryEntity,
+} from "../entities/PurchaseRequest";
 
 export interface CreatePurchaseOrderItemInput {
   id: string;
@@ -21,6 +24,21 @@ export interface CreatePurchaseOrderInput {
   prIds: string[];
 }
 
+export interface PurchaseRequestListFilter {
+  tenantId: string | null;
+  status?: string;
+  search?: string;
+  page: number;
+  limit: number;
+}
+
+export interface PurchaseRequestListResult {
+  data: PurchaseRequestSummaryEntity[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface IProcurementRepository {
   /** Mengambil purchase request APPROVED yang masih eligible untuk dibuatkan PO. */
   findApprovedPRs(prIds: string[]): Promise<PurchaseRequestEntity[]>;
@@ -38,4 +56,9 @@ export interface IProcurementRepository {
 
   /** Membuat nomor purchase order baru berdasarkan tenant dan periode aktif. */
   generatePONumber(tenantId?: string | null): Promise<string>;
+
+  /** Listing ringkas purchase request untuk view procurement (read-only). */
+  listPurchaseRequests(
+    filter: PurchaseRequestListFilter,
+  ): Promise<PurchaseRequestListResult>;
 }

@@ -45,6 +45,60 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Procurement: API listing PR + batch generate PO from PR
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/api/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Dua endpoint procurement-side untuk PR. (1) `GET /api/admin/procurement/purchase-requests` — listing read-only PR (paginated, filter by status & search nomor) untuk view procurement; lifecycle PR (approve/reject/process/receive) tetap dimiliki modul inventory/restock. (2) `POST /api/admin/procurement/purchase-orders/from-pr` — batch generate PO dari sekumpulan PR APPROVED dengan optional `overrideSupplierId`, melengkapi auto-generate per-1-PR yang sudah ada di restock approve flow. Sub-tugas pendukung: (a) `RestockRequestLifecycleService` di inventory pakai DI constructor untuk `ProcurementService` (singleton module-level dihapus). (b) `ProcurementRepository.listPurchaseRequests` baru. (c) Klarifikasi semantik di komentar `PurchaseOrderService` & `index.ts`: "vendor" === "supplier", `vendorNpwp` adalah snapshot dari `Supplier.npwp` saat PO dibuat.
+- **Files**:
+  - `modules/procurement/index.ts` (export `getProcurementService`, validator + DTO PR)
+  - `modules/procurement/services/ProcurementService.ts` (`listPurchaseRequests`)
+  - `modules/procurement/services/PurchaseOrderService.ts` (komentar)
+  - `modules/procurement/repositories/ProcurementRepository.ts` (`listPurchaseRequests`)
+  - `modules/procurement/domain/ports/IProcurementRepository.ts` (port baru)
+  - `modules/procurement/domain/entities/PurchaseRequest.ts` (`PurchaseRequestSummaryEntity`)
+  - `modules/procurement/dto/PurchaseRequestDTO.ts` (NEW)
+  - `modules/procurement/validators/purchase-request.ts` (NEW)
+  - `modules/inventory/services/RestockRequestLifecycleService.ts` (DI ProcurementService)
+  - `app/api/admin/procurement/purchase-requests/route.ts` (NEW)
+  - `app/api/admin/procurement/purchase-orders/from-pr/route.ts` (NEW)
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Hardening sistem email: tenant isolation, klasifikasi error, DTO masking
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `modules/settings`, `app/api/admin/settings/email`, `app/api/admin/notifications/email-logs`
+- **Author**: agent
+- **Deskripsi**: Audit menyeluruh review sistem email + fix 10 issue prioritas tinggi.
+  Perbaikan utama:
+  1. **Tenant isolation kritis** — `EmailService.loadConfig` query Settings tanpa filter `tenantId` sehingga config SMTP antar-tenant bisa saling overwrite. Dipindah pakai `getTenantSettingsMap(tenantId, EMAIL_SETTINGS_FIELDS)` dan `tenantId` jadi parameter wajib di `SendEmailParams`.
+  2. **Konsolidasi transporter** — duplikasi `nodemailer.createTransport` di `emailSettings.helpers` dihapus; `testEmailSettings` sekarang delegate ke `EmailService.testWithConfig`.
+  3. **Error classifier baru** (`email-error-classifier.ts`) — kategorikan error ke `TRANSIENT`/`AUTH`/`INVALID_RECIPIENT`/`CONFIG`/`PERMANENT`/`UNKNOWN` sebagai basis retry decision. Pesan stack trace tidak lagi disimpan ke kolom `error`, hanya `[CATEGORY] safe message`.
+  4. **Body plain text** — template `EmailContent.body` sekarang dikirim sebagai parameter `text` nodemailer (bukan `html`) sehingga newline preserved. Field `html` jadi opsional override.
+  5. **Validasi `FROM_EMAIL`** — guard `validateEmail` di `loadEmailConfig` reject empty/format invalid.
+  6. **DTO + masking** — listing `email-logs` super admin lintas-tenant kini di-mask alamat penerimanya. Field `errorCategory` & `errorMessage` di-extract dari prefix.
+  7. **Permission check konsisten** — semua API email pakai `createHandler({ permissions: ['email:read'/'email:update'] })` deklaratif.
+  8. **Constructor injection** — `EmailService` terima `EmailDeliveryLogRepository` via constructor untuk testability.
+  9. **BOUNCED dead code** — `markBounced()` dihapus (tidak ada caller). Kolom `bouncedAt` di schema dibiarkan untuk migrasi terpisah.
+  10. **Attachment size guard** — limit 10 MB total per email.
+- **Files**:
+  - `modules/notification/services/email-service.ts` (rewrite)
+  - `modules/notification/services/email-error-classifier.ts` (new)
+  - `modules/notification/services/EmailLogQueryService.ts` (return DTO)
+  - `modules/notification/services/NotificationDispatcher.ts` (forward tenantId, kirim text)
+  - `modules/notification/repositories/EmailDeliveryLogRepository.ts` (signature markFailed + remove markBounced)
+  - `modules/notification/dto/EmailDeliveryLogDTO.ts` (new)
+  - `modules/notification/templates/billing-templates.ts` (EmailContent.html optional)
+  - `modules/notification/index.ts` (re-exports)
+  - `modules/settings/services/emailSettings.ts` (delegate ke EmailService)
+  - `modules/settings/services/emailSettings.helpers.ts` (cleanup transporter dupe)
+  - `modules/settings/index.ts` (export EMAIL_SETTINGS_FIELDS)
+  - `modules/inventory/services/inventory-restock-check.helpers.ts` (pass tenantId)
+  - `app/api/admin/settings/email/route.ts` & `test/route.ts` (permissions deklaratif)
+  - `tests/modules/notification/repositories/EmailDeliveryLogRepository.test.ts` (sesuaikan signature)
+- **Breaking**: ✅ Ya — `SendEmailParams.tenantId` jadi wajib (bukan optional). Pemanggil di `inventory` dan `NotificationDispatcher` sudah disesuaikan.
+
 ### [2026-05-23] — Fix npm run check (lint, typecheck, test, build) hingga clean
 
 - **Tipe**: [FIXED]

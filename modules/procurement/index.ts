@@ -2,12 +2,18 @@ export type {
   PurchaseOrderDTO,
   PurchaseOrderItemDTO,
 } from "./dto/ProcurementDTO";
+export { toPurchaseRequestSummaryDTO } from "./dto/PurchaseRequestDTO";
+export type {
+  PurchaseRequestSummaryDTO,
+  PurchaseRequestListResponseDTO,
+} from "./dto/PurchaseRequestDTO";
 export * from "./services/ProcurementService";
 
 // Purchase Order — fully owned by procurement now (sebelumnya di finance).
 import { PurchaseOrderRepository } from "./repositories/PurchaseOrderRepository";
 import { PurchaseOrderPaymentService } from "./services/PurchaseOrderPaymentService";
 import { PurchaseOrderService } from "./services/PurchaseOrderService";
+import { ProcurementService } from "./services/ProcurementService";
 import { SupplierRepository } from "./repositories/SupplierRepository";
 import { SupplierService } from "./services/SupplierService";
 
@@ -61,7 +67,27 @@ export type {
   PurchaseOrderListQuery,
 } from "./validators/purchase-order";
 
-// Supplier sub-module — master vendor untuk PO/Expense (NPWP, defaultPphCategory)
+export {
+  purchaseRequestListQuerySchema,
+  generatePOFromPRSchema,
+} from "./validators/purchase-request";
+export type {
+  PurchaseRequestListQuery,
+  GeneratePOFromPRInput,
+} from "./validators/purchase-request";
+
+export type { PurchaseRequestSummaryEntity } from "./domain/entities/PurchaseRequest";
+export type {
+  PurchaseRequestListFilter,
+  PurchaseRequestListResult,
+} from "./domain/ports/IProcurementRepository";
+
+export function getProcurementService(): ProcurementService {
+  return new ProcurementService();
+}
+
+// Supplier sub-module — master pihak ketiga (alias: "vendor") untuk PO/Expense.
+// Memuat NPWP & defaultPphCategory yang dipakai modul tax saat PO dibayar.
 export function getSupplierService(): SupplierService {
   return new SupplierService(new SupplierRepository());
 }
