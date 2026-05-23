@@ -244,7 +244,9 @@ export default function OltOnuListClient() {
       header: "Name",
       priority: "primary",
       render: (item) => {
-        const label = item.description ?? item.serialNumber;
+        const label = item.description
+          ? `ONU-${item.ponPort}:${item.onuIndex}-${item.description}`
+          : `ONU-${item.ponPort}:${item.onuIndex}`;
         return (
           <Link
             href={`/admin/olt/onu/${item.id}`}
@@ -257,9 +259,19 @@ export default function OltOnuListClient() {
       },
     },
     {
+      key: "serialNumber",
+      header: "SN",
+      priority: "secondary",
+      render: (item) => (
+        <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+          {item.serialNumber}
+        </span>
+      ),
+    },
+    {
       key: "description",
       header: "Description",
-      priority: "secondary",
+      priority: "tertiary",
       render: (item) => (
         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
           ONU-{item.ponPort}:{item.onuIndex}
