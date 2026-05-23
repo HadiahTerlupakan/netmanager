@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import PageLoader from "@/components/ui/PageLoader";
+import OltCardSection from "./OltCardSection";
 
 interface OltDevice {
   id: string;
@@ -33,6 +34,12 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
     success: boolean;
     error?: string;
   } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [actionResult, setActionResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch(`/api/olt/devices/${id}`)
@@ -46,6 +53,7 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
+    setActionResult(null);
     try {
       const res = await fetch(`/api/olt/devices/${id}/test-connection`, {
         method: "POST",
@@ -56,6 +64,66 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
       }
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleSyncOnu = async () => {
+    setSyncing(true);
+    setActionResult(null);
+    setTestResult(null);
+    try {
+      const res = await fetch(`/api/olt/devices/${id}/sync-onu`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.success && json.data?.error) {
+        setActionResult({
+          success: false,
+          message: `Sync gagal: ${json.data.error}`,
+        });
+      } else if (json.success) {
+        setActionResult({
+          success: true,
+          message: `Berhasil import ${json.data.imported} dari ${json.data.total} ONU teregistrasi dari OLT`,
+        });
+      } else {
+        setActionResult({
+          success: false,
+          message: json.error || "Sync gagal",
+        });
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleScanUnregistered = async () => {
+    setScanning(true);
+    setActionResult(null);
+    setTestResult(null);
+    try {
+      const res = await fetch(`/api/olt/devices/${id}/scan`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.success && json.data?.error) {
+        setActionResult({
+          success: false,
+          message: `Scan gagal: ${json.data.error}`,
+        });
+      } else if (json.success) {
+        setActionResult({
+          success: true,
+          message: `Discovered ${json.data.found} ONU baru (unregistered)`,
+        });
+      } else {
+        setActionResult({
+          success: false,
+          message: json.error || "Scan gagal",
+        });
+      }
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -102,13 +170,29 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
             Detail dan konfigurasi perangkat OLT
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="success"
             onClick={handleTestConnection}
             loading={testing}
           >
             Test Connection
+          </Button>
+          <Button
+            variant="default"
+            onClick={handleSyncOnu}
+            loading={syncing}
+            disabled={syncing}
+          >
+            Import ONU dari OLT
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleScanUnregistered}
+            loading={scanning}
+            disabled={scanning}
+          >
+            Scan ONU Baru
           </Button>
           <Link href={`/admin/olt/devices/${id}/vlan`}>
             <Button variant="outline">VLAN Config</Button>
@@ -134,6 +218,19 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
           {testResult.success
             ? "Koneksi berhasil! SNMP dan Telnet OK."
             : `Koneksi gagal: ${testResult.error}`}
+        </div>
+      )}
+
+      {/* Action Result Alert (sync/scan) */}
+      {actionResult && (
+        <div
+          className={`p-3 rounded-lg text-sm ${
+            actionResult.success
+              ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+              : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300"
+          }`}
+        >
+          {actionResult.message}
         </div>
       )}
 
@@ -246,6 +343,8 @@ export default function OltDeviceDetailClient({ id }: { id: string }) {
           </div>
         </CardContent>
       </Card>
+
+      <OltCardSection oltId={id} vendor={device.vendor} />
     </div>
   );
 }
