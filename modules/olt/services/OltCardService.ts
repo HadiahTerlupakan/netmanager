@@ -43,16 +43,7 @@ export class OltCardService {
     tenantId: string,
     device: OltDevice,
   ): Promise<void> {
-    // Strategy 1: derive cards from existing ONU data (paling reliable)
-    const seeded = await this.seedFromOnuData(tenantId, device);
-    if (seeded > 0) {
-      logger.info(
-        `[OltCardService] Auto-seeded ${seeded} cards from ONU data for ${device.id}`,
-      );
-      return;
-    }
-
-    // Strategy 2: SNMP discovery untuk ZTE (kalau ONU table juga kosong)
+    // Strategy 1: SNMP discovery untuk ZTE (paling akurat — dapat cardType asli)
     if (device.vendor === "ZTE" && device.snmpCommunity) {
       const adapter = this.adapterFactory.getAdapter("ZTE");
       if (adapter.discoverCards) {
@@ -74,7 +65,19 @@ export class OltCardService {
           );
           return;
         }
+        logger.warn(
+          `[OltCardService] SNMP discovery returned no cards for ${device.id}, falling back to ONU data`,
+        );
       }
+    }
+
+    // Strategy 2: derive cards from existing ONU data
+    const seeded = await this.seedFromOnuData(tenantId, device);
+    if (seeded > 0) {
+      logger.info(
+        `[OltCardService] Auto-seeded ${seeded} cards from ONU data for ${device.id}`,
+      );
+      return;
     }
 
     // Strategy 3: BUILTIN fallback dari device defaults

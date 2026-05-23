@@ -991,7 +991,7 @@ export class ZteAdapter implements IOltAdapter {
     try {
       const typeResults = await this.snmp.walk(
         device,
-        ZteOidRegistry.card.typeTable,
+        ZteOidRegistry.card.actualTypeTable,
       );
 
       if (!typeResults || typeResults.length === 0) {
@@ -1003,13 +1003,15 @@ export class ZteAdapter implements IOltAdapter {
         ZteOidRegistry.card.operStatus,
       );
 
-      const statusMap = new Map<string, number>();
+      const statusBySlot = new Map<number, number>();
       for (const item of statusResults ?? []) {
-        const suffix = item.oid.replace(
-          ZteOidRegistry.card.operStatus + ".",
-          "",
+        const slot = this.parseSlotSuffix(
+          item.oid,
+          ZteOidRegistry.card.operStatus,
         );
-        statusMap.set(suffix, Number(item.value));
+        if (slot !== null) {
+          statusBySlot.set(slot, Number(item.value));
+        }
       }
 
       const cards: DiscoveredCard[] = [];
@@ -1017,36 +1019,24 @@ export class ZteAdapter implements IOltAdapter {
         const cardType = this.extractStringValue(item.value);
         if (!cardType) continue;
 
-        const suffix = item.oid.replace(
-          ZteOidRegistry.card.typeTable + ".",
-          "",
+        const slot = this.parseSlotSuffix(
+          item.oid,
+          ZteOidRegistry.card.actualTypeTable,
         );
-        const parts = suffix.split(".");
-        if (parts.length < 3) continue;
+        if (slot === null) continue;
 
-        const slotFrame = parseInt(parts[0], 10);
-        const slot = parseInt(parts[2], 10);
-
-        if (isNaN(slotFrame) || isNaN(slot)) continue;
-
-        const rawStatus = statusMap.get(suffix);
+        const rawStatus = statusBySlot.get(slot);
         let status: DiscoveredCard["status"] = "ACTIVE";
         if (rawStatus === 2) status = "MAINTENANCE";
         else if (rawStatus !== undefined && rawStatus !== 1) status = "OFFLINE";
 
         cards.push({
-          slotFrame,
+          slotFrame: 1,
           slot,
           cardType,
-          ponCount: 8,
+          ponCount: this.inferPonCountFromCardType(cardType),
           status,
         });
-      }
-
-      if (cards.length > 0) {
-        logger.warn(
-          `[ZteAdapter] discoverCards: ponCount default 8 untuk ${cards.length} card(s). Edit manual jika berbeda.`,
-        );
       }
 
       return { success: true, data: cards };
@@ -1058,5 +1048,19 @@ export class ZteAdapter implements IOltAdapter {
       }
       return { success: false, error: msg, code: "ADAPTER_ERROR" };
     }
+  }
+
+  private parseSlotSuffix(oid: string, baseOid: string): number | null {
+    const suffix = oid.replace(baseOid + ".", "");
+    const slot = parseInt(suffix.split(".")[0], 10);
+    return isNaN(slot) ? null : slot;
+  }
+
+  private inferPonCountFromCardType(cardType: string): number {
+    const upper = cardType.toUpperCase();
+    if (/16/.test(upper)) return 16;
+    if (/8/.test(upper)) return 8;
+    if (/4/.test(upper)) return 4;
+    return 8;
   }
 }

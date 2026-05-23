@@ -149,8 +149,13 @@ export const ZteOidRegistry = {
   },
 
   card: {
-    typeTable: "1.3.6.1.4.1.3902.1015.100.1.1.5",
-    operStatus: "1.3.6.1.4.1.3902.1015.100.1.1.7",
+    // ZTE-AN-CHASSIS-MIB (zxAnCardTable) — verified ZTE C300 GPON OLT.
+    // Branch: 1.3.6.1.4.1.3902.1082.10.1.2.4 (zxAnCardTable)
+    //   .1.4 = zxAnCardActualType (string, model card seperti "ATUGA")
+    //   .1.5 = zxAnCardOperStatus (INTEGER: 1=inService, 2=notInService, ...)
+    // OID suffix di walk: <slot> (0~20 IEC, 0~22 ETSI)
+    actualTypeTable: "1.3.6.1.4.1.3902.1082.10.1.2.4.1.4",
+    operStatus: "1.3.6.1.4.1.3902.1082.10.1.2.4.1.5",
   },
 
   gpon: {
