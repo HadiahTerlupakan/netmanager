@@ -202,13 +202,14 @@ export class OnuMonitoringService {
 
   private mapPhaseToOnuStatus(
     phase: "online" | "offline" | "los" | "dying_gasp" | "unknown",
-  ): "ACTIVE" | "OFFLINE" | "LOS" | null {
+  ): "ACTIVE" | "OFFLINE" | "LOS" | "DYING_GASP" | null {
     switch (phase) {
       case "online":
         return "ACTIVE";
       case "offline":
-      case "dying_gasp":
         return "OFFLINE";
+      case "dying_gasp":
+        return "DYING_GASP";
       case "los":
         return "LOS";
       case "unknown":

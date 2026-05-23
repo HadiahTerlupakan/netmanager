@@ -4,7 +4,8 @@ export type OnuStatus =
   | "ACTIVE"
   | "OFFLINE"
   | "DISABLED"
-  | "LOS";
+  | "LOS"
+  | "DYING_GASP";
 
 export interface OnuDevice {
   id: string;
@@ -12,15 +13,20 @@ export interface OnuDevice {
   oltId: string;
   pelangganId: string | null;
   serialNumber: string;
+  slotFrame: number;
+  slot: number;
   ponPort: number;
-  onuIndex: number;
+  onuIndex: number | null;
   vendor: string | null;
   model: string | null;
+  softwareVersion: string | null;
+  distance: number | null;
   status: OnuStatus;
   rxPower: number | null;
   txPower: number | null;
   vlanId: number | null;
   bandwidthProfile: string | null;
+  description: string | null;
   lastSeen: Date | null;
   registeredAt: Date | null;
   createdAt: Date;
@@ -48,6 +54,20 @@ export interface UnregisteredOnu {
   vendor?: string;
   model?: string;
   lastSeen: Date;
+}
+
+export interface DiscoveredRegisteredOnu {
+  serialNumber: string;
+  slotFrame: number;
+  slot: number;
+  ponPort: number;
+  onuIndex: number;
+  description: string | null;
+  vendor: string | null;
+  model: string | null;
+  softwareVersion: string | null;
+  distance: number | null;
+  status?: OnuStatus;
 }
 
 export interface SetVlanParams {

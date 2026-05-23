@@ -50,6 +50,8 @@ const STATUS_COLORS: Record<string, string> = {
   DISABLED:
     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800",
   LOS: "bg-red-200 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-800",
+  DYING_GASP:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800",
 };
 
 export default function OltOnuListClient() {
@@ -373,6 +375,7 @@ export default function OltOnuListClient() {
           <option value="OFFLINE">Offline</option>
           <option value="DISABLED">Disabled</option>
           <option value="LOS">LOS</option>
+          <option value="DYING_GASP">Dying Gasp</option>
         </select>
       </div>
 

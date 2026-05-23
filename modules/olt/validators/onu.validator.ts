@@ -52,6 +52,7 @@ export const onuListQuerySchema = z.object({
       "OFFLINE",
       "DISABLED",
       "LOS",
+      "DYING_GASP",
     ])
     .optional(),
   search: z.string().optional(),

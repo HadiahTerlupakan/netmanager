@@ -4469,6 +4469,7 @@ enum OnuStatus {
   OFFLINE
   DISABLED
   LOS
+  DYING_GASP
 }
 
 enum VlanPurpose {
