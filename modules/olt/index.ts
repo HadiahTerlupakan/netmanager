@@ -11,7 +11,9 @@ export { OltAlertService } from "./services/OltAlertService";
 export { FirmwareUpgradeService } from "./services/FirmwareUpgradeService";
 export { SnmpExplorerService } from "./services/SnmpExplorerService";
 export { OltOnuService } from "./services/OltOnuService";
+export { OltCardService } from "./services/OltCardService";
 export { OltAdapterFactory } from "./adapters/OltAdapterFactory";
+export { handlePelangganStatusForOlt } from "./services/event-handlers/pelanggan-status.handler";
 
 export {
   createBandwidthProfileSchema,
@@ -39,11 +41,14 @@ export {
   preRegisterSchema,
   onuListQuerySchema,
   searchOnuSchema,
+  firmwareUpgradeSchema,
+  serialNumberSchema,
   type RegisterOnuInput,
   type AssignOnuInput,
   type PreRegisterInput,
   type OnuListQuery,
   type SearchOnuInput,
+  type FirmwareUpgradeInput,
 } from "./validators/onu.validator";
 export {
   createVlanConfigSchema,
@@ -57,3 +62,15 @@ export type {
 } from "./domain/entities/olt-device.entity";
 export type { OnuDevice, OnuStatus } from "./domain/entities/onu-device.entity";
 export type { IOltAdapter, ServiceResult } from "./domain/ports/IOltAdapter";
+export type {
+  OltCard,
+  OltCardListItem,
+  OltCardStatus,
+  DiscoveredCard,
+} from "./domain/entities/olt-card.entity";
+export {
+  updateOltCardSchema,
+  listOltCardsQuerySchema,
+  type UpdateOltCardInput,
+  type ListOltCardsQuery,
+} from "./validators/olt-card.validator";
