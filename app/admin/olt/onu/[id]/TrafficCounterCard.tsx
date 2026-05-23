@@ -69,7 +69,12 @@ export default function TrafficCounterCard({ onuId }: { onuId: string }) {
         const json = await res.json();
         if (cancelled) return;
 
-        if (!json.success || !json.data || !json.data.rxBytes === undefined) {
+        if (
+          !json.success ||
+          !json.data ||
+          json.data.rxBytes === undefined ||
+          json.data.rxBytes === null
+        ) {
           setError(json.data?.error ?? "Gagal membaca traffic");
           previousRef.current = null;
           setSnapshot({ stats: null, rxRate: 0, txRate: 0 });
