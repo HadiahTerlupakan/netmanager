@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest) {
       page: searchParams.get("page") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
       oltId: searchParams.get("oltId") ?? undefined,
+      slotFrame: searchParams.get("slotFrame") ?? undefined,
+      slot: searchParams.get("slot") ?? undefined,
+      ponPort: searchParams.get("ponPort") ?? undefined,
       status: searchParams.get("status") ?? undefined,
       search: searchParams.get("search") ?? undefined,
     });
@@ -32,6 +36,9 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(result);
   } catch (error) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest("Query tidak valid");
+    }
     logger.error("Error fetching ONUs:", error);
     const msg =
       error instanceof Error ? error.message : "Gagal mengambil data ONU";

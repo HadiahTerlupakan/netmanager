@@ -6,6 +6,9 @@ import type { OnuDevice } from "../domain/entities/onu-device.entity";
 interface OnuListFilters {
   tenantId: string;
   oltId?: string;
+  slotFrame?: number;
+  slot?: number;
+  ponPort?: number;
   status?: string;
   search?: string;
   page: number;
@@ -27,8 +30,8 @@ export class OltOnuService {
   private preRegRepo = new PreRegistrationRepository();
   private powerRepo = new OnuPowerHistoryRepository();
 
-  async getOnuById(id: string): Promise<OnuDevice | null> {
-    return this.onuRepo.findById(id);
+  async getOnuById(id: string, tenantId: string): Promise<OnuDevice | null> {
+    return this.onuRepo.findById(id, tenantId);
   }
 
   async listOnus(filters: OnuListFilters): Promise<OnuListResult> {
@@ -40,10 +43,6 @@ export class OltOnuService {
     oltId?: string,
   ): Promise<OnuDevice[]> {
     return this.onuRepo.findUnregistered(tenantId, oltId);
-  }
-
-  async deleteOnu(id: string): Promise<void> {
-    return this.onuRepo.delete(id);
   }
 
   async listPreRegistrations(tenantId: string, page: number, limit: number) {
@@ -62,11 +61,11 @@ export class OltOnuService {
     return this.preRegRepo.create(input);
   }
 
-  async getPowerHistory(onuId: string, hours: number = 24) {
-    return this.powerRepo.getHistory(onuId, hours);
+  async getPowerHistory(onuId: string, tenantId: string, hours: number = 24) {
+    return this.powerRepo.getHistory(onuId, tenantId, hours);
   }
 
-  async findPendingPreRegistration(serialNumber: string) {
-    return this.preRegRepo.findPendingBySerialNumber(serialNumber);
+  async findPendingPreRegistration(tenantId: string, serialNumber: string) {
+    return this.preRegRepo.findPendingBySerialNumber(tenantId, serialNumber);
   }
 }
