@@ -43,13 +43,26 @@ export class OltCardService {
     tenantId: string,
     device: OltDevice,
   ): Promise<void> {
-    // Strategy 1: SNMP discovery untuk ZTE (paling akurat — dapat cardType asli)
+    // Get ONU positions sebagai source of truth untuk GPON line cards
+    const onuPositions = await this.repo.findOnuPositions(tenantId, device.id);
+    const onuSlotKeys = new Set(
+      onuPositions.map((p) => `${p.slotFrame}:${p.slot}`),
+    );
+
+    // Strategy 1: SNMP discovery untuk ZTE (dapat cardType asli)
     if (device.vendor === "ZTE" && device.snmpCommunity) {
       const adapter = this.adapterFactory.getAdapter("ZTE");
       if (adapter.discoverCards) {
         const result = await adapter.discoverCards(device);
         if (result.success && result.data && result.data.length > 0) {
-          for (const card of result.data) {
+          // Filter: hanya GPON line cards (yang punya ONU di slot itu).
+          // Kalau intersect kosong (ONU table belum ter-sync), seed semua.
+          const ponCards = result.data.filter((c) =>
+            onuSlotKeys.has(`${c.slotFrame}:${c.slot}`),
+          );
+          const cardsToSeed = ponCards.length > 0 ? ponCards : result.data;
+
+          for (const card of cardsToSeed) {
             await this.repo.upsertByPosition({
               tenantId,
               oltId: device.id,
@@ -61,7 +74,7 @@ export class OltCardService {
             });
           }
           logger.info(
-            `[OltCardService] Auto-seeded ${result.data.length} cards via SNMP for ${device.id}`,
+            `[OltCardService] Auto-seeded ${cardsToSeed.length} cards via SNMP for ${device.id}`,
           );
           return;
         }

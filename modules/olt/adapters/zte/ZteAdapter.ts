@@ -1052,7 +1052,10 @@ export class ZteAdapter implements IOltAdapter {
 
   private parseSlotSuffix(oid: string, baseOid: string): number | null {
     const suffix = oid.replace(baseOid + ".", "");
-    const slot = parseInt(suffix.split(".")[0], 10);
+    const parts = suffix.split(".");
+    // Suffix format: <rack>.<shelf>.<slot> (e.g. "1.1.7" = rack 1, shelf 1, slot 7)
+    if (parts.length < 3) return null;
+    const slot = parseInt(parts[2], 10);
     return isNaN(slot) ? null : slot;
   }
 
