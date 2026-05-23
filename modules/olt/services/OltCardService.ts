@@ -29,8 +29,59 @@ export class OltCardService {
       };
     }
 
-    const cards = await this.repo.listByOlt(tenantId, oltId);
+    let cards = await this.repo.listByOlt(tenantId, oltId);
+
+    if (cards.length === 0) {
+      await this.autoSeedFallback(tenantId, device);
+      cards = await this.repo.listByOlt(tenantId, oltId);
+    }
+
     return { success: true, data: cards };
+  }
+
+  private async autoSeedFallback(
+    tenantId: string,
+    device: OltDevice,
+  ): Promise<void> {
+    if (device.vendor === "ZTE" && device.snmpCommunity) {
+      const adapter = this.adapterFactory.getAdapter("ZTE");
+      if (adapter.discoverCards) {
+        const result = await adapter.discoverCards(device);
+        if (result.success && result.data && result.data.length > 0) {
+          for (const card of result.data) {
+            await this.repo.upsertByPosition({
+              tenantId,
+              oltId: device.id,
+              slotFrame: card.slotFrame,
+              slot: card.slot,
+              cardType: card.cardType,
+              ponCount: card.ponCount,
+              status: card.status,
+            });
+          }
+          logger.info(
+            `[OltCardService] Auto-seeded ${result.data.length} cards via SNMP for ${device.id}`,
+          );
+          return;
+        }
+        logger.warn(
+          `[OltCardService] SNMP auto-seed gagal untuk ${device.id}, fallback ke BUILTIN`,
+        );
+      }
+    }
+
+    if (device.totalPonPorts && device.totalPonPorts >= 1) {
+      await this.repo.upsertByPosition({
+        tenantId,
+        oltId: device.id,
+        slotFrame: device.defaultSlotFrame ?? 1,
+        slot: device.defaultSlot ?? 1,
+        cardType: "BUILTIN",
+        ponCount: device.totalPonPorts,
+        status: "ACTIVE",
+      });
+      logger.info(`[OltCardService] Auto-seeded BUILTIN card for ${device.id}`);
+    }
   }
 
   async syncCards(
