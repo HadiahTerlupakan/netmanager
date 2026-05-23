@@ -221,10 +221,22 @@ export default function OltOnuListClient() {
 
   const extractPppoe = (item: OnuItem): string => {
     if (item.pelanggan?.username) return item.pelanggan.username;
-    if (item.description) {
-      const match = item.description.match(/^(\S+)-/);
-      if (match) return match[1];
-    }
+    const desc = item.description ?? "";
+
+    // Kalau description berisi format email (contains @), pakai email itu
+    const emailMatch = desc.match(/[\w.-]+@[\w.-]+/);
+    if (emailMatch) return emailMatch[0];
+
+    // Strip prefix "ONU-X:Y-" kalau ada, lalu ambil token sebelum tanda dash
+    const stripped = desc.replace(/^ONU-\d+:\d+-?/i, "");
+
+    // Format "idpelanggan-Nama" → ambil idpelanggan
+    const idMatch = stripped.match(/^(\S+?)-/);
+    if (idMatch) return idMatch[1];
+
+    // Kalau cuma satu kata (contoh: "ROSIDIN", "ONU-7:5") → tampilkan apa adanya
+    if (stripped) return stripped;
+
     return item.serialNumber;
   };
 
