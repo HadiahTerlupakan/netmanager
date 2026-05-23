@@ -1,3 +1,4 @@
+-- @safe-guard-ack: ALTER COLUMN "onuIndex" DROP NOT NULL (longgarkan constraint, tidak drop data) + drop/recreate unique index untuk per-tenant scoping. Tidak ada DROP TABLE/DROP COLUMN/TRUNCATE.
 -- OLT multi-tenancy hardening
 -- 1. ONU serialNumber: drop global unique, add per-tenant + per-OLT unique
 -- 2. ONU onuIndex: nullable (multiple unregistered ONU per port allowed)

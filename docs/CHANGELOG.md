@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Acknowledge safe-guard untuk migration OLT enum & multi-tenancy
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/migrations/`
+- **Author**: agent
+- **Deskripsi**: Pipeline staging gagal di stage Database Migration karena Safe Migration Guard memblokir 2 file migration OLT akibat pattern `ALTER TABLE ... ALTER COLUMN ...` yang dianggap destruktif. Faktanya kedua migration non-destruktif (TEXT → ENUM via `USING ::enum` cast yang preserve data + fail-loud guard, plus `DROP NOT NULL` & re-scope unique index per-tenant). Ditambahkan acknowledgment `-- @safe-guard-ack: <alasan>` di baris pertama tiap file sesuai mekanisme bypass yang sudah disediakan pipeline.
+- **Files**: `prisma/migrations/20260522166000_olt_module_enums_and_schema_evolve/migration.sql`, `prisma/migrations/20260522170000_olt_multi_tenancy_hardening/migration.sql`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Tambah policy Prisma Schema & Migration di CLAUDE.md
 
 - **Tipe**: [DOCS]

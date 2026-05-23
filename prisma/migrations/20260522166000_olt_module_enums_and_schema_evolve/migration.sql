@@ -1,3 +1,4 @@
+-- @safe-guard-ack: ALTER COLUMN TYPE TEXT->ENUM via USING cast (preserve data, fail-loud guard untuk nilai invalid), DROP NOT NULL/SET NOT NULL setelah backfill, dan rename kolom. Tidak ada DROP TABLE/DROP COLUMN/TRUNCATE.
 -- ============================================
 -- OLT Module: Evolve from TEXT-based to ENUM-based, restructure command logs
 -- ============================================
