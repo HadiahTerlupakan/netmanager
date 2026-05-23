@@ -45,6 +45,719 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Cascading filter ONU dan manajemen card OLT
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/olt`, `app/admin/olt/onu`, `app/admin/olt/devices/[id]`, `app/api/olt/devices/[id]/cards`
+- **Author**: agent
+- **Deskripsi**: Tambah model `OltCard` untuk merepresentasikan card per OLT. Auto-discovery via SNMP (ZTE) atau seed BUILTIN (pizza-box). UI section manajemen card di halaman detail OLT. Rewrite halaman Daftar ONU menjadi cascading filter OLT → Card → PON dengan global search bypass (SN/description/nama pelanggan lintas OLT).
+- **Migration**: `20260523000001_add_olt_card_table`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Extend ONU list endpoint dengan scope filter dan global search
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/olt/onu`, `modules/olt/repositories/OnuRepository.ts`, `modules/olt/validators/onu.validator.ts`
+- **Author**: agent
+- **Deskripsi**: Endpoint GET /api/olt/onu menerima parameter scope (oltId, slotFrame, slot, ponPort) dan search yang OR-match SN/description/pelanggan.nama. Saat search aktif, parameter scope diabaikan (global search). Status filter tetap aktif di kedua mode.
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — OLT ZTE adapter kalibrasi terhadap C300 lapangan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/olt/adapters/zte`, `modules/olt/config/oid-registry`
+- **Author**: agent
+- **Deskripsi**: Hasil verifikasi telnet+SNMP terhadap OLT C300 production
+  (BRAS-CARIU-BGR, firmware ZTE V2.x), tiga asumsi adapter sebelumnya yang
+  salah dikoreksi: (1) **SNMP ifIndex encoding** — ZTE C300 pakai
+  single 32-bit ifIndex `(frame<<28)|(0xFF<<16)|(slot<<8)|port` + onuIndex
+  (2 segments), bukan 4-tuple `frame.slot.port.onuIndex` seperti yang
+  saya tulis sebelumnya. Helper `encodeOltIfIndex/decodeOltIfIndex`
+  ditambahkan dan dipakai di semua OID generator. (2) **Sintaks register
+  ONU** — C300 produksi pakai `onu N type ALL sn X` (bukan
+  `type default`); `type ALL` = profile generic accept-all. (3) **Mode
+  provisioning** — T-CONT/GEM/service-port disetting di
+  `interface gpon-onu_F/S/P:N` mode, BUKAN `pon-onu-mng` mode. Adapter
+  sebelumnya masuk `pon-onu-mng` dan akan gagal di firmware ini.
+  `resetOnu` pakai command `clear` di config-if mode. `firmware upgrade`
+  pakai `system-software upgrade <file>` di config-if mode. Beberapa
+  kolom OID untuk status & optical power masih ditandai UNVERIFIED di
+  registry — perlu snmpwalk lanjutan untuk konfirmasi mapping kolom
+  status integer ↔ phase state (working/offline/los/dyingGasp).
+- **Files**: `modules/olt/adapters/zte/ZteAdapter.ts`,
+  `modules/olt/config/oid-registry/zte.oid.ts`,
+  `modules/olt/services/FirmwareUpgradeService.ts`
+- **Breaking**: ❌ Tidak (perbaikan terhadap kode yang tidak pernah
+  berhasil di-eksekusi terhadap device asli)
+
+### [2026-05-22] — Hapus legacy procurement endpoints + helper disabled
+
+- **Tipe**: [REMOVED]
+- **Scope**: `app/api/procurement`, `app/api/inventory/procurement`, `modules/procurement`, `tests/api`, `tests/admin`
+- **Author**: agent
+- **Deskripsi**: Hapus semua endpoint legacy procurement yang sebelumnya
+  return `procurementEndpointDisabled` (HTTP 410), karena sudah ada
+  pengganti aktif di `app/api/admin/procurement/*` dan tidak ada UI/lib
+  produksi yang refer ke route lama:
+  - Hapus folder `app/api/procurement/` (purchase-orders, purchase-requests,
+    suppliers + nested routes).
+  - Hapus `app/api/inventory/procurement/purchase-request/route.ts`
+    (kompatibilitas inventory legacy).
+  - Hapus helper `procurementEndpointDisabled` dan service
+    `ProcurementDisabledEndpointService.ts` di modul procurement.
+  - Hapus test `tests/api/procurement-disabled-routes.test.ts` (sudah
+    obsolete karena route-nya tidak ada lagi).
+  - Update `tests/admin/removed-surfaces.test.ts`: hapus assertion untuk
+    page-page yang sudah aktif (PurchaseOrders, Suppliers, dan sub-page),
+    sisakan hanya `procurement/page.tsx` (landing) dan
+    `procurement/market-price/page.tsx` yang masih `notFound`.
+  - Update `modules/procurement/index.ts`: hapus
+    `export * from "./services/ProcurementDisabledEndpointService"`.
+- **Files**:
+  `app/api/procurement/**` (deleted),
+  `app/api/inventory/procurement/**` (deleted),
+  `modules/procurement/services/ProcurementDisabledEndpointService.ts` (deleted),
+  `modules/procurement/index.ts`,
+  `tests/api/procurement-disabled-routes.test.ts` (deleted),
+  `tests/admin/removed-surfaces.test.ts`
+- **Breaking**: ✅ Ya — endpoint `/api/procurement/*` dan
+  `/api/inventory/procurement/purchase-request` tidak lagi tersedia
+  (sebelumnya return 410, sekarang return 404). Konsumen baru wajib pakai
+  `/api/admin/procurement/*` dan `/api/inventory/restock/*`.
+
+### [2026-05-22] — Decompose god component MasukForm/KeluarForm/TransferForm
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Pecah tiga form inventory besar (total 2.259 LOC → 1.417 LOC,
+  37% reduction) dengan extract building block bersama:
+  1. **MasukForm**: 695 → 319 LOC (54% turun).
+  2. **KeluarForm**: 818 → 497 LOC (39% turun).
+  3. **TransferForm**: 746 → 601 LOC (19% turun).
+  4. Hilangkan anti-pattern render-comparator state init (`if (prev !== curr) { setState; void fetch }`)
+     di KeluarForm — clamp jumlah dipindah ke handler kondisi change.
+  5. Hilangkan setState-in-effect di useStockByCondition — pakai derived value
+     untuk reset saat barang/gudang kosong.
+  6. `useBarangOptions` migrasi dari `useState+useEffect+fetch` ke `useApi`
+     (TanStack Query) untuk caching otomatis dan eliminasi rules-of-hooks issue.
+- **Files baru** (10 file shared di `components/inventory/form-shared/`):
+  - **Hooks**: `useBarangOptions`, `useGudangOptions`, `useFotoBuktiUpload`,
+    `useStockByCondition`.
+  - **Sub-components**: `BarangSelector`, `GudangSelector`, `KondisiSelector`,
+    `FotoBuktiSection`, `SelectionSummary`, `StockByConditionPanel`,
+    `FormFields` (FormAlert/TextField/TextAreaField/JumlahField).
+- **Files diubah**:
+  - `components/inventory/MasukForm.tsx`
+  - `components/inventory/KeluarForm.tsx`
+  - `components/inventory/TransferForm.tsx`
+- **Breaking**: ❌ Tidak (perilaku UI dan API contract tetap; refactor murni
+  internal).
+
+### [2026-05-22] — Aktifkan PO admin UI/API dengan vendor auto-populate
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/api/admin/procurement/purchase-orders`, `app/admin/procurement/purchase-orders`
+- **Author**: agent
+- **Deskripsi**: Mengaktifkan kembali Purchase Order admin UI/API yang
+  sebelumnya placeholder (`procurementEndpointDisabled` + `notFound`):
+  - Service baru `PurchaseOrderService` di `modules/procurement/services/`
+    dengan operasi `list`, `getById`, `create`, `update` (faktur metadata),
+    `delete`. Vendor `npwp` otomatis dipopulasi dari supplier master saat
+    create kalau tidak di-supply manual — snapshot tersimpan di PO untuk
+    konsistensi pelaporan PPN saat pembayaran.
+  - Repository diperluas: `findByIdWithRelations`, `list` (paginated +
+    filter), `create` (kalkulasi PPN otomatis), `updateMetadata`, `delete`,
+    `generatePoNumber`. Port `IPurchaseOrderRepository` ikut diperluas
+    menggunakan `Prisma.PurchaseOrderGetPayload<...>` untuk presisi tipe.
+  - Validators baru: `createPurchaseOrderSchema`, `updatePurchaseOrderSchema`,
+    `purchaseOrderListQuerySchema` di `validators/purchase-order.ts`.
+  - API admin baru: `GET/POST /api/admin/procurement/purchase-orders` dan
+    `GET/PATCH/DELETE /api/admin/procurement/purchase-orders/[id]` dengan
+    permission `purchase_orders:read|create|update|delete`.
+  - UI admin: list page (filter status bayar + search), create page (vendor
+    auto-populate via `useEffect` saat supplier dipilih, kalkulasi PPN/grand
+    total live), detail/edit page (faktur pajak metadata, hapus PO yang
+    masih `UNPAID`).
+- **Files**: `modules/procurement/services/PurchaseOrderService.ts`,
+  `modules/procurement/repositories/PurchaseOrderRepository.ts`,
+  `modules/procurement/domain/ports/IPurchaseOrderRepository.ts`,
+  `modules/procurement/validators/purchase-order.ts`,
+  `modules/procurement/index.ts`,
+  `modules/procurement/dto/ProcurementDTO.ts`,
+  `app/api/admin/procurement/purchase-orders/route.ts`,
+  `app/api/admin/procurement/purchase-orders/[id]/route.ts`,
+  `app/admin/procurement/purchase-orders/page.tsx`,
+  `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`,
+  `app/admin/procurement/purchase-orders/create/page.tsx`,
+  `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`,
+  `app/admin/procurement/purchase-orders/[id]/page.tsx`,
+  `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`
+- **Breaking**: ❌ Tidak (endpoint lama `/api/procurement/purchase-orders/*`
+  tetap return `procurementEndpointDisabled` untuk backward-compat; admin
+  baru dipisah path `/api/admin/procurement/*`)
+
+### [2026-05-22] — Konsolidasi PurchaseOrder ke modul procurement (jalan B)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/procurement`, `modules/finance`, `modules/tax`
+- **Author**: agent
+- **Deskripsi**: PurchaseOrder sebelumnya terpecah: domain entity di
+  `procurement` (orphan), repository + payment service di `finance`. Sekarang
+  semua kepemilikan dipindah ke `procurement` dengan port-based access:
+  - `PurchaseOrderRepository` → pindah dari `modules/finance/repositories/`
+    ke `modules/procurement/repositories/`, implement port baru
+    `IPurchaseOrderRepository` di `domain/ports/`.
+  - `FinancePurchaseOrderPaymentService` → pindah jadi
+    `PurchaseOrderPaymentService` di `modules/procurement/services/`. Method
+    publik tetap `payPurchaseOrder` agar route `app/api/finance/pay-po`
+    tidak perlu berubah.
+  - `FinanceService.payPurchaseOrder` tetap ada (delegate ke procurement
+    via factory `getPurchaseOrderPaymentService()`) untuk backward-compat.
+  - `FinanceReportService.findManyWithTax` sekarang konsumsi
+    `IPurchaseOrderRepository` dari procurement (port, bukan concrete).
+  - `handlePurchaseOrderPaidTax` di `modules/tax` tidak lagi `prisma.purchaseOrder.findUnique`
+    inline — pakai `getPurchaseOrderRepository().findById()`.
+  - Entity `PurchaseOrderEntity` ditambah field faktur pajak
+    (`fakturPajakNo`, `fakturPajakDate`, `vendorNpwp`) supaya selaras
+    dengan schema Prisma.
+  - **Catatan `RestockPurchaseOrderStatusService` di inventory**: tetap di
+    inventory karena workflow-nya dipicu event "barang diterima di gudang"
+    dan butuh single-transaction integrity dengan stock movement. Status
+    update PO yang dilakukan service ini dianggap acceptable cross-cutting
+    untuk sekarang. Akan dipertimbangkan untuk pecah menjadi event-based
+    (procurement listen `INVENTORY_RECEIVED`) di refactor berikutnya.
+- **Files**:
+  - `modules/procurement/domain/ports/IPurchaseOrderRepository.ts` (NEW)
+  - `modules/procurement/repositories/PurchaseOrderRepository.ts` (NEW — pindahan)
+  - `modules/procurement/services/PurchaseOrderPaymentService.ts` (NEW — pindahan)
+  - `modules/procurement/domain/entities/PurchaseOrder.ts` (tambah field faktur pajak)
+  - `modules/procurement/mappers/ProcurementMapper.ts` (mapping field faktur pajak)
+  - `modules/procurement/index.ts` (export `getPurchaseOrderPaymentService`, `getPurchaseOrderRepository`)
+  - `modules/finance/repositories/PurchaseOrderRepository.ts` (DELETED)
+  - `modules/finance/services/FinancePurchaseOrderPaymentService.ts` (DELETED)
+  - `modules/finance/repositories/index.ts` (hapus PurchaseOrderRepository export)
+  - `modules/finance/services/FinanceService.ts` (delegate ke procurement)
+  - `modules/finance/services/FinanceReportService.ts` (pakai port procurement)
+  - `modules/tax/services/event-handlers/purchase-order-paid-tax.handler.ts` (pakai repo procurement)
+- **Breaking**: ❌ Tidak (semua entry point publik tetap; perubahan internal saja)
+
+### [2026-05-22] — Cleanup billing P3: batch customer lookup, konsolidasi PPN fallback, deprecate process-overdue
+
+- **Tipe**: [CHANGED] [DEPRECATED]
+- **Scope**: `modules/finance`, `modules/tax`, `modules/pelanggan`, `app/api/cron/process-overdue`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan code-quality di pipeline billing.
+  1. **N+1 customer name lookup**: `getCustomerNameMap` di
+     `manual-payment-admin.helpers` sebelumnya melakukan
+     `Promise.all(uniqueIds.map(findById))` — untuk 500 pending payment jadi
+     500 query terpisah. Diganti pakai method baru
+     `PelangganBillingBridgeService.findManyByIds(ids)` →
+     `PelangganRepository.findManyByIds(ids)` yang menerjemahkan jadi 1
+     query `findMany({ where: { id: { in } } })`.
+  2. **Konsolidasi PPN fallback**: konstanta
+     `FALLBACK_PPN_PERCENTAGE = 11` di `BillingInvoiceCreationService`
+     dihapus. Logic pemilihan rate untuk pelanggan tenantless dipindah ke
+     `PpnRateResolver.resolveOptional(tenantId | null, paketPercentage)`,
+     sehingga tax module menjadi satu-satunya source of truth untuk rate
+     PPN (sebelumnya double-fallback yang rawan drift).
+  3. **Deprecate `/api/cron/process-overdue`**: route ini sudah jadi alias
+     murni untuk `BillingScheduleReconciliationService.reconcile()`.
+     Ditandai `@deprecated` di JSDoc, log warning ditambahkan, dan
+     response payload sekarang menyertakan `deprecated: true` agar
+     monitoring/cron operator bisa migrasi ke `/api/cron/reconcile-billing-schedules`.
+- **Files**:
+  `modules/finance/services/BillingInvoiceCreationService.ts`,
+  `modules/finance/services/manual-payment-admin.helpers.ts`,
+  `modules/tax/services/PpnRateResolver.ts`,
+  `modules/pelanggan/repositories/PelangganRepository.ts`,
+  `modules/pelanggan/services/PelangganBillingBridgeService.ts`,
+  `app/api/cron/process-overdue/route.ts`
+- **Breaking**: ❌ Tidak (perubahan internal; response `process-overdue`
+  hanya menambah field `deprecated`)
+
+### [2026-05-22] — Refactor inventory tabs (Dashboard, Master Barang, Gudang, Masuk, Keluar, Transfer)
+
+- **Tipe**: [CHANGED] [FIXED]
+- **Scope**: `components/inventory`, `app/admin/inventory`, `app/api/inventory/dashboard`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Bersihkan anti-pattern sistemik di 5 tab inventory:
+  1. Hapus pola `confirm() + window.location.reload() + alert()` di seluruh tabel
+     (Barang/Gudang/Masuk/Keluar/Transfer) → ganti dengan `ConfirmDialog` +
+     `useToast` + `mutate()` dari useApi (soft refresh, themable, non-blocking).
+  2. Hapus anti-pattern fetch via render-comparator (`if (prev !== curr) { setState; void fetch }`)
+     di MasukTable & KeluarTable → migrasi ke `useApi` (TanStack Query) dengan
+     URL ber-cache key. Konsolidasi state pagination ganda menjadi satu sumber.
+  3. Pindahkan `lib/validations/barang.ts` (imperative) ke
+     `modules/inventory/validators/barangValidator.ts` sebagai Zod schema dengan
+     `superRefine` untuk cross-field validation. Re-export public API dari
+     `modules/inventory/index.ts`. Hapus file lama.
+  4. Decompose `app/admin/inventory/transfer/TransferList.tsx` (528 LOC, god component)
+     menjadi `useTransferList` hook + `TransferDetailModal` + `TransferPagination`
+     + composer tipis (~150 LOC). `fetchTransferDetail` dipindahkan ke
+     `transferDetailFetcher.ts` (re-export di parent untuk kompatibilitas test).
+  5. Extract konstanta `STOCK_THRESHOLD` + helper `getStockStatus/getStockLabel`
+     ke `modules/inventory/domain/constants.ts` — hilangkan magic number `< 5`
+     di Dashboard, BarangTable, BarangDetailClient.
+  6. Standarisasi response API dashboard inventory: `InventoryDashboardService`
+     return data langsung (bukan wrap manual `{success, data}`), route handler
+     pakai `apiSuccess()`. Hapus fallback `result.data ?? (result as unknown as T)`
+     di `InventoryIndexClient`. Buang dual-shape parser di `BarangDetailClient`
+     dan `GudangList`.
+- **Files**:
+  - `components/inventory/{BarangTable,MasukTable,KeluarTable,TransferTable,BarangForm}.tsx`
+  - `components/inventory/transfer/{useTransferList,TransferDetailModal,TransferPagination,transferDetailFetcher,index}.{ts,tsx}`
+  - `app/admin/inventory/{InventoryIndexClient,gudang/GudangList,transfer/TransferList,barang/[id]/BarangDetailClient}.tsx`
+  - `app/api/inventory/dashboard/route.ts`
+  - `modules/inventory/services/InventoryDashboardService.ts`
+  - `modules/inventory/validators/barangValidator.ts` (new)
+  - `modules/inventory/domain/constants.ts` (new)
+  - `modules/inventory/index.ts`
+  - `lib/validations/barang.ts` (deleted)
+- **Breaking**: ❌ Tidak (response shape `/api/inventory/dashboard` berubah ke
+  format standar `apiSuccess` — frontend di repo sudah disesuaikan, konsumer
+  eksternal tidak ada)
+
+### [2026-05-22] — BillingReminderService toleran drift cron + idempotent per hari
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `BillingReminderService.isReminderTime` sebelumnya
+  membandingkan `HH:MM` saat ini dengan `GENERAL_REMINDER_TIME` secara
+  exact-match per menit. Akibatnya kalau cron `* * * * *` telat 1 menit
+  (event loop sibuk, GC pause, restart aplikasi) reminder hari itu hilang
+  total. Diperbarui menjadi window 5 menit `[reminderTime,
+  reminderTime + 5min)` untuk mentolerir drift, ditambah Redis cron-lock
+  harian (`billing:reminder:daily:YYYY-MM-DD`, TTL 24h) untuk memastikan
+  reminder hanya benar-benar terkirim sekali per hari per cluster meski
+  cron menyala beberapa kali dalam window. Validasi format
+  `GENERAL_REMINDER_TIME` ditambahkan; nilai invalid di-log dan reminder
+  di-skip alih-alih meledak. Method `sendDailyReminders` sekarang
+  menerima parameter `now` opsional supaya bisa diuji deterministik.
+- **Files**:
+  `modules/finance/services/BillingReminderService.ts`,
+  `tests/modules/finance/BillingReminderService.test.ts` (NEW)
+- **Breaking**: ❌ Tidak (signature publik kompatibel; perilaku eksternal
+  konsisten kecuali sekarang reminder benar-benar terkirim setiap hari)
+
+### [2026-05-22] — Aktivasi CRUD Supplier (API + UI admin) di sub-modul procurement
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/admin/procurement/suppliers`, `app/admin/procurement/suppliers`, `modules/procurement`
+- **Author**: agent
+- **Deskripsi**: Endpoint dan UI admin untuk CRUD supplier sekarang aktif —
+  sebelumnya disabled via `procurementEndpointDisabled`. Konsumsi public API
+  procurement (`getSupplierService`) yang baru di-introduce sebelumnya.
+  Mencakup:
+  - **API**: `GET/POST /api/admin/procurement/suppliers` (list+create dengan
+    search, paginated), `GET/PATCH/DELETE /api/admin/procurement/suppliers/[id]`.
+    Permission: `supplier:read|create|update|delete`.
+  - **UI**: list page dengan search & pagination, form create/edit unified
+    (`SupplierForm.tsx`) dengan section Identitas / Kontak / Pajak. Field
+    NPWP otomatis filter ke digit-only (15-16 chars), kategori PPh sebagai
+    select dengan label informatif (jasa/sewa/sewa_tanah).
+  - **Catatan PO form**: wiring auto-populate vendor di Purchase Order form
+    masih belum bisa dikerjakan karena PO admin UI & API masih disabled
+    (`procurementEndpointDisabled`). Akan ditangani di iterasi berikutnya
+    saat PO modul diaktifkan.
+- **Files**:
+  - `app/api/admin/procurement/suppliers/route.ts` (NEW)
+  - `app/api/admin/procurement/suppliers/[id]/route.ts` (NEW)
+  - `app/admin/procurement/suppliers/page.tsx` (replace placeholder)
+  - `app/admin/procurement/suppliers/create/page.tsx` (replace placeholder)
+  - `app/admin/procurement/suppliers/[id]/page.tsx` (replace placeholder)
+  - `app/admin/procurement/suppliers/SupplierForm.tsx` (NEW — shared)
+  - `app/admin/procurement/suppliers/SupplierListClient.tsx` (NEW)
+  - `app/admin/procurement/suppliers/create/SupplierCreateClient.tsx` (NEW)
+  - `app/admin/procurement/suppliers/[id]/SupplierEditClient.tsx` (NEW)
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Konsolidasi handler invoice paid via InvoicePaymentStateService
+
+- **Tipe**: [FIXED] [CHANGED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Endpoint `POST /api/payments` (admin manual) sebelumnya
+  hanya memanggil `AutomaticBillingService.handleInvoicePaid` langsung
+  tanpa emit event `INVOICE_PAID`, sehingga handler akuntansi
+  (`handleInvoicePaidAccounting`) dan aktivasi pelanggan
+  (`handleInvoicePaidActivation`) tidak ter-trigger — jurnal akuntansi
+  tidak dibuat dan pelanggan ISOLIR tetap ISOLIR meski sudah bayar.
+  Sekaligus, jalur verify-manual dan immediate settlement memanggil
+  `handleInvoicePaid` dua kali (sekali langsung, sekali via event handler)
+  sehingga side-effect billing dieksekusi ganda. Diperkenalkan
+  `InvoicePaymentStateService.recompute(invoiceId)` sebagai single source
+  untuk: hitung ulang `paidAmount` dari payment aktif, set status
+  invoice, sync durable billing schedule, dan emit `INVOICE_PAID` sekali
+  saat transisi menjadi PAID. `PaymentRouteService`,
+  `manual-payment-admin.helpers`, `automatic-billing-payment.settlement`,
+  dan `PaymentCancellationService` sekarang delegasi ke service ini.
+- **Files**:
+  `modules/finance/services/InvoicePaymentStateService.ts` (NEW),
+  `modules/finance/services/PaymentRouteService.ts`,
+  `modules/finance/services/manual-payment-admin.helpers.ts`,
+  `modules/finance/services/automatic-billing-payment.settlement.ts`,
+  `modules/finance/services/PaymentCancellationService.ts`,
+  `modules/finance/index.ts`,
+  `tests/modules/finance/PaymentCancellationService.test.ts`,
+  `tests/modules/finance/services/PaymentRouteService.test.ts`
+- **Breaking**: ❌ Tidak (kontrak API tidak berubah; perilaku internal
+  konsisten — semua jalur lunas sekarang mengikuti event-driven side-effect)
+
+### [2026-05-22] — Sub-modul Supplier di procurement (master vendor)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`
+- **Author**: agent
+- **Deskripsi**: Sub-modul Supplier baru di `modules/procurement` sebagai
+  rumah resmi master vendor. Sebelumnya `Supplier` hanya ada di Prisma
+  schema tanpa repository/service di module manapun. Sub-modul ini
+  menyediakan domain entity, port, repository, service, DTO, dan validator
+  Zod, plus public API factory `getSupplierService()`. Validator NPWP
+  mendukung 15 digit (legacy) dan 16 digit (NIK Coretax 2025).
+  `purchase-order-paid-tax.handler` di-refactor agar fetch supplier via
+  public API procurement (bukan inline Prisma `select`), menjaga module
+  boundary.
+- **Files**:
+  - `modules/procurement/domain/entities/Supplier.ts` (NEW)
+  - `modules/procurement/domain/ports/ISupplierRepository.ts` (NEW)
+  - `modules/procurement/repositories/SupplierRepository.ts` (NEW)
+  - `modules/procurement/services/SupplierService.ts` (NEW)
+  - `modules/procurement/dto/SupplierDTO.ts` (NEW)
+  - `modules/procurement/validators/supplier.ts` (NEW)
+  - `modules/procurement/index.ts` (export public API)
+  - `modules/tax/services/event-handlers/purchase-order-paid-tax.handler.ts` (pakai getSupplierService)
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Refactor Laporan Stok Gudang (snapshot-based, batch query, modular UI)
+
+- **Tipe**: [CHANGED] [FIXED]
+- **Scope**: `app/api/inventory/opname/report`, `modules/inventory`, `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Tab "Laporan Stok per Gudang" direfactor end-to-end. Backend
+  repository `InventoryOpnameApiRepository.findOpnameReport` sebelumnya N+1
+  (untuk N items menjalankan 2 query history `barangMasuk/Keluar`) dan
+  re-compute stok kondisi dari history transaksi sehingga inkonsisten dengan
+  snapshot `barangGudang.stokBaru/Bekas/Rusak` yang dimaintain mutation paths
+  (terutama hasil opname tidak tercermin). Sekarang: kondisi stok diambil
+  langsung dari snapshot `barangGudang`, total hilang di-aggregate via
+  `prisma.barangKeluar.groupBy({ by: ["gudangId","barangId"], _sum: { jumlah } })`
+  satu query untuk semua gudang, response `gudangList` di-extend dengan
+  `totalStokBaru/Bekas/Rusak` per gudang dan `summary.*` global. Frontend
+  `StockReport.tsx` (400 LOC) dipecah jadi composer tipis + `useStockReport`
+  hook + `StockReportSelector`/`StockReportHeader`/`StockReportTable`. Card
+  ringkasan kini punya 6 metrik terpisah (Jenis Barang, Total Stok, Stok Baru,
+  Stok Bekas, Stok Rusak, Barang Hilang) — sebelumnya "Stok Baik" menggabungkan
+  baru+bekas yang menyesatkan. Tabel barang dapat search filter
+  kode/nama. Fetch via `useEffect` + `AbortController` (sebelumnya pakai SWR
+  `useApi` tanpa abort). CSV export pakai escape `"` proper, append/remove DOM
+  link, dan `URL.revokeObjectURL`; sukses notif via `useToast`.
+- **Files**:
+  `modules/inventory/repositories/InventoryOpnameApiRepository.ts`,
+  `modules/inventory/services/inventory-route.helpers.ts`,
+  `components/inventory/StockReport.tsx`,
+  `components/inventory/opname/stock-report/*` (baru: `useStockReport.ts`,
+  `StockReportSelector.tsx`, `StockReportHeader.tsx`, `StockReportTable.tsx`)
+- **Breaking**: ❌ Tidak (response API menambah field `totalStokBaru/Bekas/Rusak`
+  per gudang dan di summary; field lama tetap dipertahankan)
+
+### [2026-05-22] — Pengerasan integrasi Pajak: rate PPN, vendor NPWP, faktur pajak, PO handler, Coretax export
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/tax`, `modules/finance`, `prisma/schema.prisma`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Lima penguatan integrasi pajak ke finance/akuntansi:
+  1. **Konsolidasi rate PPN** — `PpnRateResolver` baru di `modules/tax`. `BillingInvoiceCreationService` resolve rate via TaxConfig (lapor DJP) saat tenant PKP, fallback ke `hargaPaket.ppnPercentage`. Mismatch antara rate paket dan TaxConfig PKP di-warn agar tidak silent drift.
+  2. **Master vendor pajak** — kolom `npwp` & `defaultPphCategory` di `Supplier`. Helper `classifyPph` di-extract ke `PphClassifier.ts` dengan resolution order: vendor override → category type → name string-match.
+  3. **Metadata faktur pajak** — kolom `fakturPajakNo`, `fakturPajakDate`, `vendorNpwp` di `Expense`, `PurchaseOrder`, dan `TaxTransaction` (denormalized). `PpnService.recordPpnMasukan/Keluaran` accept & persist metadata; expense-approved-tax handler propagate dari Expense.
+  4. **Handler PO_PAID ke pajak** — `handlePurchaseOrderPaidTax` baru. Record PPN Masukan + PPh 23/4(2) untuk PO yang ada komponen pajaknya, pakai supplier `defaultPphCategory` & `npwp`. Wired ke `EVENT_NAMES.PURCHASE_ORDER_PAID`.
+  5. **Adapter Coretax DJP** — `CoretaxExportAdapter` baru menghasilkan CSV format e-Faktur Coretax (FK/LT/OF row schema) untuk PPN keluaran/masukan. Faktur tanpa `fakturPajakNo` di-skip dan dilaporkan via summary.
+- **Files**:
+  - `modules/tax/services/PpnRateResolver.ts` (NEW)
+  - `modules/tax/services/PphClassifier.ts` (NEW)
+  - `modules/tax/services/CoretaxExportAdapter.ts` (NEW)
+  - `modules/tax/services/event-handlers/purchase-order-paid-tax.handler.ts` (NEW)
+  - `modules/tax/services/PpnService.ts` (faktur metadata params)
+  - `modules/tax/services/event-handlers/expense-approved-tax.handler.ts` (lookup faktur metadata)
+  - `modules/tax/repositories/TaxTransactionRepository.ts` (faktur fields)
+  - `modules/tax/domain/entities/TaxTransaction.ts`, `domain/ports/ITaxTransactionRepository.ts`
+  - `modules/tax/index.ts` (factories & exports)
+  - `modules/finance/services/BillingInvoiceCreationService.ts` (PpnRateResolver)
+  - `modules/finance/services/automatic-billing.helpers.ts`, `services/AutomaticBillingService.ts` (tenantId di payload)
+  - `lib/event-bus/event-handlers.ts` (registrasi PO_PAID tax handler)
+  - `tests/modules/finance/services/BillingInvoiceCreationService.test.ts` (fixture tenantId)
+- **Migration**:
+  - `20260522180000_add_supplier_tax_fields` — `suppliers.npwp`, `suppliers.defaultPphCategory`
+  - `20260522181000_add_faktur_pajak_metadata` — faktur pajak metadata di `Expense`, `purchase_orders`, `tax_transactions`
+- **Breaking**: ❌ Tidak (semua field baru nullable; payload `BillingCustomerPayload` extend dengan `tenantId` yang sudah otomatis tersedia dari Pelanggan)
+
+### [2026-05-22] — OLT ZTE production-readiness (multi-slot, telnet flow, provisioning)
+
+- **Tipe**: [CHANGED] [ADDED] [MIGRATION]
+- **Scope**: `modules/olt`, `app/admin/olt/devices/tambah`, `lib/event-bus`,
+  `prisma/schema.prisma`, `docs/guides/olt-zte-testing-checklist.md`
+- **Author**: agent
+- **Deskripsi**: Membuat modul OLT siap dipakai untuk control device ZTE riil
+  (target C300 multi-slot dan C320 stand-alone). Schema `OltDevice` ditambah
+  `telnetEnablePass`, `defaultSlotFrame`, `defaultSlot`. `ZteAdapter` baca
+  slot dari device—tidak lagi hardcode 1/1. `ZteTelnetClient` menangani
+  enable password dua-tahap, auto-disable pagination (`terminal length 0`
+  fallback `screen-length 0 temporary`). `registerOnu` dipisah jadi dua
+  tahap: **bind (mandatory, assert success)** + **provisioning best-effort**
+  (T-CONT, GEM port, service-port — kalau gagal, ONU tetap ter-bind dan
+  user bisa atur VLAN manual via "Set VLAN"). Service-port pakai syntax
+  universal `vport gpon-onu_F/S/P:O.1` yang berlaku di C300+C320 (sebelumnya
+  pakai `vport-mode manual` yang vendor-specific). `service HSI ... vlan`
+  tanpa `type internet` (firmware V4.x reject `type` keyword).
+  `deregisterOnu` lakukan cleanup berurutan: hapus service-port → service →
+  gemport → tcont → unbind ONU. OID registry diberi dokumentasi compatibility
+  per model. `OnuDiscoveryService` sekarang **auto-register** ONU yang punya
+  pre-registration match (otomatis assign ke pelanggan jika `pelangganId`
+  di-set). Handler `handlePelangganStatusForOlt` didaftarkan ke event-bus
+  untuk `CUSTOMER_SUSPENDED`/`CUSTOMER_ACTIVATED`/`CUSTOMER_ISOLATED`.
+  UI form OLT: dropdown vendor non-ZTE ditandai "Coming soon" disabled,
+  tambah field enable password & slot. Testing checklist 17 langkah dibuat
+  di `docs/guides/olt-zte-testing-checklist.md` untuk validasi terhadap
+  device asli.
+- **Files**: `modules/olt/adapters/zte/{ZteAdapter,ZteTelnetClient}.ts`,
+  `modules/olt/config/oid-registry/zte.oid.ts`,
+  `modules/olt/domain/entities/olt-device.entity.ts`,
+  `modules/olt/repositories/{OltRepository,BandwidthProfileRepository}.ts`,
+  `modules/olt/services/{OnuDiscoveryService,FirmwareUpgradeService,event-handlers/pelanggan-status.handler}.ts`,
+  `modules/olt/validators/olt-device.validator.ts`, `modules/olt/index.ts`,
+  `app/admin/olt/devices/tambah/OltDeviceFormClient.tsx`,
+  `lib/event-bus/event-handlers.ts`, `prisma/schema.prisma`,
+  `docs/guides/olt-zte-testing-checklist.md`
+- **Migration**: `20260522180000_olt_add_slot_and_enable_pass`
+  (kolom baru `telnetEnablePass`, `defaultSlotFrame`, `defaultSlot` dengan
+  default 1; non-destruktif via `IF NOT EXISTS`). **Catatan deploy**: lokal DB
+  saat ini punya banyak migration historis yang sudah applied tapi absen dari
+  filesystem (drift). Jangan jalankan `prisma migrate dev` di lingkungan
+  itu—pakai `prisma migrate resolve --applied 20260522180000_olt_add_slot_and_enable_pass`
+  setelah eksekusi SQL manual, atau `prisma migrate deploy` di environment
+  bersih (staging/prod) yang baseline-nya sinkron.
+- **Breaking**: ❌ Tidak (migration non-destruktif, default slot 1/1 sama
+  dengan perilaku sebelumnya, vendor non-ZTE memang sebelumnya sudah ditolak
+  validator)
+
+### [2026-05-22] — Hardening end-to-end modul Salary, Accounting, dan Tax
+
+- **Tipe**: [FIXED] [CHANGED] [SECURITY] [MIGRATION]
+- **Scope**: `modules/salary`, `modules/accounting`, `modules/tax`, `app/api/admin/salary`, `app/api/mobile/salary`
+- **Author**: agent
+- **Deskripsi**: Hasil review komprehensif tiga modul finansial menemukan 10 issue lintas-batas yang membahayakan integritas data. Semua diperbaiki dalam batch ini.
+  1. **COA mapping mismatch (HIGH)** — `coa-mapping-config.ts` menunjuk ke kode COA yang tidak ada / akun header non-postable di `DEFAULT_COA`. Diperbaiki agar match satu-satu, ditambah unit test verifikasi (`tests/accounting/coa-mapping-config.test.ts`). Mapping baru: `BEBAN_GAJI=5-100`, `UTANG_GAJI=2-350`, `UTANG_BPJS=2-360`, `UTANG_PPH_21=2-400`, `KAS_UTAMA=1-110`, `BANK_UTAMA=1-120`, `KAS_KECIL=1-130`, dst.
+  2. **DEFAULT_COA duplikat (HIGH)** — `seedDefaultCoa.ts` di-deprecate menjadi thin wrapper ke `ChartOfAccountService.ensureDefaultCoa`. Sumber kebenaran tunggal sekarang ada di `ChartOfAccountService`. Naming "Hutang"→"Utang" konsisten (PSAK).
+  3. **Akuntansi gaji tidak lengkap (HIGH)** — handler `salary-processed-accounting` sekarang menjurnal: DR Beban Gaji + DR Beban BPJS Employer; CR Utang Gaji + Utang PPh21 + Utang BPJS + Piutang Karyawan (kasbon yang dipotong). Sebelumnya BPJS & kasbon tidak terjurnal sama sekali — ledger misstated.
+  4. **Event payload SALARY_PROCESSED diperkaya** — sekarang membawa `totalDeductions, bpjsEmployee, bpjsEmployer, advanceDeducted, netSalary, advanceDeductions[]`. Repository PayrollEntry tambah method `findCalculatedEventDetails`.
+  5. **Idempotency processAdvanceDeductions (HIGH)** — tambah kolom `PayrollRun.advancesProcessedAt` (migration: `20260522160000_add_payroll_run_advances_processed_at`). Service di-rewrite atomic via `prisma.$transaction`; PUT status=PAID dua kali tidak lagi memotong saldo kasbon ganda.
+  6. **Server-side basicSalary di mobile advance (SECURITY)** — `app/api/mobile/salary/advances` tidak lagi menerima `basicSalary` dari body; diambil dari `EmployeePayrollProfile` server-side. Mencegah karyawan kirim nilai palsu untuk lolos validasi `EXCEEDS_MAX_PERCENT`.
+  7. **Period-locking guard di disburse** — `SalaryAdvanceManagementService.disburse()` cek `PayrollPeriod.findContainingDate(disbursedAt)` dan menolak bila status LOCKED. Mencegah jurnal salah periode.
+  8. **Konsolidasi maxPercentOfSalary** — hapus `buildTenantConfig` di `PayrollCalculationRunService` (yang hardcode `30`); semua path sekarang pakai `getPayrollConfig` (decimal `0.3`). Unit ambiguity hilang.
+  9. **PrismaTaxHistoryLoader (HIGH)** — implementasi nyata pengganti `InMemoryTaxHistoryProvider([])` hardcoded. Membaca PayrollEntry/Line tahun berjalan untuk membangun YTD history sebelum kalkulasi. Koreksi PPh21 Desember & resign mid-year sekarang akurat.
+ 10. **TER PMK 168/2023 di-seed di DEFAULT_TAX_CONFIG** — 132 baris tarif (kategori A/B/C). Tenant baru langsung compliant. PTKP table dilengkapi `KI_0..KI_3` (gabung penghasilan istri). `TerMonthlyStrategy.getPtkpGroup` throw error untuk status tidak dikenal.
+ 11. **Restitusi PPh21 (HIGH)** — `Math.max(0, finalMonthTax)` tidak lagi menyembunyikan over-collect. Bila negatif, kelebihan bayar di-expose sebagai komponen earning `PPH21_RESTITUSI` plus metadata `restitusiAmount, hasOverpaid`.
+- **Files**:
+  - `modules/accounting/services/coa/ChartOfAccountService.ts` (tambah Kas Kecil 1-130, Utang BPJS 2-360, 3-300 Laba/Rugi Berjalan; "Hutang"→"Utang")
+  - `modules/accounting/services/coa/seedDefaultCoa.ts` (deprecated, jadi wrapper)
+  - `modules/accounting/services/event-handlers/coa-mapping-config.ts` (mapping baru, listCoaPurposes)
+  - `modules/accounting/services/event-handlers/coa-resolver.ts` (tambah BPJS, Piutang Karyawan)
+  - `modules/accounting/services/event-handlers/salary-processed-accounting.handler.ts` (jurnal lengkap)
+  - `modules/salary/repositories/PrismaPayrollEntryRepository.ts` (findCalculatedEventDetails)
+  - `modules/salary/repositories/PrismaPayrollPeriodRepository.ts` (findContainingDate)
+  - `modules/salary/workflow/services/AdvancePostPayrollService.ts` (atomic + idempotent)
+  - `modules/salary/workflow/services/PayrollCalculationRunService.ts` (pakai PayrollConfigStore + TaxHistoryLoader)
+  - `modules/salary/benefits/advance/SalaryAdvanceManagementService.ts` (period-lock guard, periodRepo injection)
+  - `modules/salary/tax/providers/PrismaTaxHistoryLoader.ts` (NEW)
+  - `modules/salary/tax/strategies/TerMonthlyStrategy.ts` (KI mapping + throw)
+  - `modules/salary/tax/TaxCalculator.ts` (restitusi exposure)
+  - `modules/salary/core/config/TaxConfig.ts` (TER PMK 168 + KI PTKP)
+  - `modules/salary/factory.ts` (engine accept taxHistoryProvider; advanceManagement inject periodRepo)
+  - `modules/salary/workflow/index.ts` (re-export processAdvanceDeductions)
+  - `app/api/admin/salary/runs/[id]/route.ts` (publisher payload diperkaya, import via public API)
+  - `app/api/mobile/salary/advances/route.ts` (basicSalary server-side)
+  - `lib/event-bus/types.ts` (SalaryProcessedPayload diperkaya)
+  - `tests/accounting/coa-mapping-config.test.ts` (NEW)
+  - `tests/modules/salary/payment/payroll-period-service.test.ts` (mock findContainingDate)
+- **Migration**: `20260522160000_add_payroll_run_advances_processed_at`
+- **Breaking**: ✅ Ya — payload event `SALARY_PROCESSED` mengandung field baru. Handler accounting mengasumsikan field-field ini ada (semuanya optional di types untuk backward-compat, tapi flow yang publish tanpa field BPJS/advance akan menghasilkan jurnal yang lebih sederhana). Mapping COA berubah; tenant existing yang sudah ada COA non-default perlu memverifikasi mapping mereka.
+
+### [2026-05-22] — Refactor Riwayat Stock Opname (filter, stats, modular UI)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/inventory/opname`, `modules/inventory`, `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Riwayat Opname direfactor end-to-end. Backend: konsolidasi
+  `getOpnameRecord/updateOpname/deleteOpname` ke `InventoryOpnameService`
+  (sebelumnya tersebar di `InventoryStockMovementService`); endpoint `[id]`
+  sekarang pakai `createHandler` + Zod (`opnameUpdateSchema`); list endpoint
+  menerima filter `gudangId/tanggalMulai/tanggalSelesai/alasanSelisih`; ditambah
+  endpoint baru `GET /api/inventory/opname/history-stats` untuk agregat
+  akurasi/kondisi/hilang dengan filter sama. Frontend: `OpnameReportTable`
+  (629 LOC, god component) dipecah jadi composer tipis + `useOpnameHistory`
+  hook + `OpnameStatsCards`/`OpnameHistoryFiltersBar`/`OpnameHistoryTable`/
+  `OpnameHistoryPaginationBar`; filter bar punya dropdown gudang (fetch
+  `/api/inventory/gudang?view=all`), tanggal mulai/selesai, dan alasan selisih
+  — Riwayat sekarang bisa difilter per gudang; statistik dihitung di backend
+  (sebelumnya hanya agregasi page aktif sehingga menyesatkan); fetch via
+  `useEffect` dengan `AbortController` (sebelumnya side-effect di body render);
+  `confirm/alert` diganti `ConfirmDialog` + `useToast`; CSV export pakai
+  dataset terfilter via list endpoint dengan escaping `"` proper; pagination
+  windowed (max 5 tombol). Dead code `components/inventory/OpnameTable.tsx`
+  (549 LOC, no consumer) dihapus.
+- **Files**:
+  `modules/inventory/services/InventoryOpnameService.ts`,
+  `modules/inventory/services/inventory-opname-list.helpers.ts`,
+  `modules/inventory/services/InventoryStockMovementService.ts`,
+  `modules/inventory/validators/opnameValidator.ts`,
+  `modules/inventory/index.ts`,
+  `app/api/inventory/opname/list/route.ts`,
+  `app/api/inventory/opname/[id]/route-handlers-impl.ts`,
+  `app/api/inventory/opname/history-stats/route.ts` (baru),
+  `components/inventory/OpnameReportTable.tsx`,
+  `components/inventory/opname/history/*` (baru),
+  `components/inventory/OpnameTable.tsx` (dihapus)
+- **Breaking**: ❌ Tidak (kontrak API `list` & `[id]` tetap kompatibel; method
+  opname pada `InventoryStockMovementService` dihapus tapi tidak ada consumer
+  eksternal)
+
+### [2026-05-22] — Hardening modul OLT (security, multi-tenancy, reliability)
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/olt`, `app/api/olt`, `app/api/cron/olt-discovery`, `app/api/cron/olt-monitoring`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Audit ulang modul OLT dan tutup tujuh celah kritis sekaligus rapikan beberapa code smell.
+  Multi-tenancy: semua repository (`OltRepository`, `OnuRepository`, `BandwidthProfileRepository`,
+  `VlanConfigRepository`, `PreRegistrationRepository`, `OnuPowerHistoryRepository`,
+  `OltCommandLogService`, `OltAlertService`) sekarang wajib `tenantId` di setiap operasi
+  by-id; service & API route mem-forward `session.user.tenantId`; query global cross-tenant
+  hilang. Validator: `serialNumber` wajib `^[A-Za-z0-9]{1,32}$`, `firmwareFile` strict
+  whitelist, OID di `/snmp-walk` dibatasi `^[0-9.]+$`, vendor `create` dibatasi ke `ZTE`
+  (HSGQ/Hioso/CData baru stub, dicegah agar tidak bisa dibuat). Cron auth: pakai
+  `crypto.timingSafeEqual` dan hapus alias `GET`. Telnet: helper `executeAndAssertSuccess`
+  menolak output dengan kata kunci error/failed/invalid; `OnuControlService` tidak lagi
+  memutakhirkan status DB saat command sebenarnya gagal. Reliability: race-safe
+  `registerOnu` (handle `P2002`), `OnuMonitoringService` batch query (1× per OLT, bukan
+  N+1), alert dedup window 6 jam, `discoverByOlt` tidak lagi hardcode `onuIndex=0`
+  (kolom dijadikan nullable, `@@unique([oltId, serialNumber])` & `@@unique([tenantId, serialNumber])`).
+  Workflow: `deleteOnu` route sekarang panggil `deregisterOnu` agar state OLT konsisten;
+  pelanggan-status handler pakai static import.
+- **Files**: `modules/olt/repositories/*`, `modules/olt/services/*`,
+  `modules/olt/adapters/zte/{ZteAdapter,ZteTelnetClient}.ts`,
+  `modules/olt/adapters/OltConnectionManager.ts`,
+  `modules/olt/validators/*`, `modules/olt/index.ts`,
+  `modules/olt/services/event-handlers/pelanggan-status.handler.ts`,
+  semua `app/api/olt/**/*.ts`, `app/api/cron/olt-{discovery,monitoring}/route.ts`,
+  `prisma/schema.prisma`
+- **Migration**: `20260522170000_olt_multi_tenancy_hardening`
+- **Breaking**: ✅ Ya — kontrak `IOltRepository`/`IOnuRepository` berubah (semua operasi
+  by-id menerima `tenantId`), `OnuDevice.onuIndex` jadi nullable, validator
+  vendor `create` hanya menerima `ZTE`, dan response gagal command tetap `200` tapi
+  signature kontrol service berubah (semua method `OnuControlService`/
+  `OltProvisioningService`/`BandwidthProfileService`/`OltVlanService`/`FirmwareUpgradeService`
+  butuh argument `tenantId`).
+
+### [2026-05-22] — Sinkronisasi Prisma migrations dengan schema (drift recovery)
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/migrations`, `scripts/db-audit`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki drift antara `prisma/schema.prisma` dan migrations directory. Drift terjadi karena beberapa perubahan schema (OLT enums, kolom-kolom baru, FK rule) sudah pernah diterapkan ke DB lewat `db push` atau SQL manual tanpa generate file migration. Membuat 8 migration baru yang **idempotent** dan **non-destruktif** (pakai `IF NOT EXISTS`, `IF EXISTS`, dan `ALTER TYPE ... USING` untuk preserve data production). Migration OLT (`20260522166000`) memakai **pre-flight validation pattern**: kalau ada nilai di luar enum target, migration **fail loud** dengan `RAISE EXCEPTION` yang mencantumkan nilai bermasalah—bukan menelan error secara diam-diam. Hasil verifikasi `prisma migrate diff` setelah perbaikan: `No difference detected`.
+- **Files**:
+  - `20260522140000_add_salary_advance_approval_workflow/migration.sql` — fix referensi tabel `tenants` → `Tenant`
+  - `20260522160000_add_investor_config_tax_fields/migration.sql` — kolom `isTaxable`, `taxType`, `taxRate`
+  - `20260522161000_add_whatsapp_account_type/migration.sql` — kolom `accountType` + index
+  - `20260522162000_add_assets_actor_assignment/migration.sql` — kolom `assignedActorId`/`assignedActorType` + composite index
+  - `20260522163000_add_inventory_actor_indexes/migration.sql` — index `(actorType, actorId)` di `barang_keluar`/`barang_masuk`
+  - `20260522164000_drop_redundant_attendance_indexes/migration.sql` — drop 3 index Attendance obsolete
+  - `20260522165000_add_tax_config_histories_table/migration.sql` — tabel audit trail tax config
+  - `20260522166000_olt_module_enums_and_schema_evolve/migration.sql` — enum `OltVendor`/`OltStatus`/`OnuStatus`/`OltCommandResult`/`PreRegStatus`, evolusi kolom `olt_devices`/`onu_devices`/`olt_command_logs`/`onu_pre_registrations`, dengan pre-flight validation per kolom enum
+  - `20260522167000_fix_tenant_settings_fk_on_delete/migration.sql` — alignment FK `TenantSettings.tenantId` ke `ON DELETE RESTRICT` (sebelumnya `CASCADE`); behavior change: delete tenant dengan settings sekarang akan FK violation, perlu cleanup settings dulu di app layer
+  - `scripts/db-audit/pre-olt-enum-migration.sql` — script audit read-only untuk inventarisir nilai existing di kolom OLT/ONU sebelum migration enum dijalankan di production
+- **Migration**: 8 file baru di `prisma/migrations/`
+- **Breaking**: ⚠️ Sebagian — `TenantSettings` FK rule berubah dari `CASCADE` ke `RESTRICT`. App code yang panggil `prisma.tenant.delete()` harus handle case settings exists (delete settings dulu). Migrasi enum OLT akan **gagal** kalau ada data nilai out-of-range; jalankan dulu `scripts/db-audit/pre-olt-enum-migration.sql` di production untuk audit.
+
+### [2026-05-22] — Tambah super admin guard di /admin/website layout
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/admin/website`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya halaman `/admin/website/*` (hero, footer, fitur, pricing, testimonial, faq) tidak punya page-level auth guard — meskipun semua API route sudah pakai `isSuperAdmin` check, user non-super-admin yang mengetik URL langsung akan tetap bisa load halaman (walau API call akan gagal403). Ditambah `app/admin/website/layout.tsx` server component yang verifikasi `isSuperAdmin(session.user)` dan redirect ke `/admin?error=SuperAdminOnly` jika bukan. Ini memastikan konsistensi authorization antara API layer dan UI layer.
+- **Files**: `app/admin/website/layout.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Tambah unit tests untuk modul website
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/website`, `tests/api/admin-website-upload-logo-route.test.ts`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya modul `website` tidak punya tests sama sekali. Ditambah36 unit tests yang cover: (1) Zod validators untuk6 schemas (hero, footer, feature, pricing, testimonial, faq) termasuk constraint dan field `logoUrl` baru, (2) `LandingContentService` dengan mock repository yang verify delegasi method dan mapping JSON→typed di `getAllContent`, (3) endpoint `POST /api/admin/website/upload-logo` cover auth (super admin only), validasi file, success path, error handling.
+- **Files**: `tests/modules/website/landing-content.validator.test.ts`, `tests/modules/website/LandingContentService.test.ts`, `tests/api/admin-website-upload-logo-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Tambah upload logo navbar dan footer di landing page
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/website`, `app/api/admin/website/upload-logo`, `app/admin/website/hero`, `app/admin/website/footer`, `components/landing/SaasLandingPage.tsx`
+- **Author**: agent
+- **Deskripsi**: Super admin sekarang dapat upload2 logo terpisah untuk landing page SaaS: logo navbar (background terang) lewat halaman Hero, dan logo footer (background gelap) lewat halaman Footer. Render di komponen pakai `<img>` dengan fallback ke ikon `MdRocketLaunch` default jika belum di-upload. Endpoint upload baru `POST /api/admin/website/upload-logo` (super admin only) menyimpan ke folder `public/uploads/landing-logo/`. Komponen reusable `LogoUploader` dipakai di kedua halaman admin.
+- **Files**: `prisma/schema.prisma` (LandingHero.logoUrl, LandingFooter.logoUrl), `modules/website/domain/LandingContent.ts`, `modules/website/validators/landing-content.validator.ts`, `modules/website/repositories/LandingContentRepository.ts`, `lib/upload/upload-policy.ts`, `app/api/admin/website/upload-logo/route.ts`, `components/admin/website/LogoUploader.tsx`, `components/landing/SaasLandingPage.tsx`
+- **Migration**: `20260522150000_add_logo_url_to_landing_hero_and_footer`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Refactor modul website (clean architecture cleanup)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/website`, `app/api/public/landing-content`
+- **Author**: agent
+- **Deskripsi**: Perbaikan code smell di modul website: weak typing (`Record<string, unknown>`) di `updatePricing` dan `upsertFooter` diganti typed struct, data mapping JSON→typed dipindah dari repository ke service layer (proper layering), dan public route `landing-content` di-migrasi ke `createHandler` agar punya error boundary konsisten dengan admin routes. Tidak mengubah API contract.
+- **Files**: `modules/website/repositories/LandingContentRepository.ts`, `modules/website/services/LandingContentService.ts`, `app/api/public/landing-content/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Implementasi fitur kasbon (salary advance) end-to-end
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/salary`, `modules/accounting`, `app/api/admin/salary/advances/`, `app/api/mobile/salary/advances/`
+- **Author**: agent
+- **Deskripsi**: Implementasi lengkap lifecycle kasbon: request (mobile) → approve/reject → disburse → auto-deduct di payroll → mark DEDUCTED. Termasuk:
+  1. API admin: list, create, approve, reject, disburse kasbon
+  2. API mobile: request dan list kasbon karyawan
+  3. Event `SALARY_ADVANCE_DISBURSED` → auto-posting journal (DR Piutang Karyawan / CR Kas)
+  4. Post-payroll service: auto-update `remainingAmount` dan status DEDUCTED saat payroll PAID
+  5. COA baru: 1-150 Piutang Karyawan
+- **Files**:
+  - `app/api/admin/salary/advances/route.ts`
+  - `app/api/admin/salary/advances/[id]/route.ts`
+  - `app/api/mobile/salary/advances/route.ts`
+  - `modules/salary/workflow/services/AdvancePostPayrollService.ts`
+  - `modules/accounting/services/event-handlers/advance-disbursed-accounting.handler.ts`
+- **Migration**: Butuh migration untuk enum `AUTO_SALARY_ADVANCE` di JournalSource
+- **Breaking**: ❌ Tidak
+
+### [2026-05-22] — Integrasi salary→accounting dan hardening module keuangan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/accounting`, `modules/salary`, `modules/tax`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Lima perbaikan hasil code review module penggajian, akuntan, dan pajak:
+  1. Event handler `salary-processed-accounting` untuk auto-posting journal beban gaji (DR Beban Gaji 5-200, CR Utang Gaji 2-300)
+  2. PayrollApprovalService dengan repository Prisma — approval workflow 2-level (HR → Finance)
+  3. Implementasi `PrismaPayrollPeriodRepository` dan `PrismaSalaryAdvanceRepository`
+  4. COA mapping configurable per tenant via `coa-mapping-config.ts` (menghilangkan hardcoded magic strings)
+  5. Hardening: NaN validation di salary-processed-tax handler, warning log di COA fallback
+- **Files**:
+  - `modules/accounting/services/event-handlers/salary-processed-accounting.handler.ts`
+  - `modules/accounting/services/event-handlers/coa-mapping-config.ts`
+  - `modules/accounting/services/event-handlers/coa-resolver.ts`
+  - `modules/salary/repositories/PrismaPayrollPeriodRepository.ts`
+  - `modules/salary/repositories/PrismaSalaryAdvanceRepository.ts`
+  - `modules/salary/repositories/PrismaApprovalWorkflowRepository.ts`
+  - `modules/salary/factory.ts`
+  - `modules/tax/services/event-handlers/salary-processed-tax.handler.ts`
+- **Migration**: Butuh migration untuk model `PayrollApprovalWorkflow` dan enum `AUTO_SALARY`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-22] — Website CMS untuk manage konten landing page
 
 - **Tipe**: [ADDED]
