@@ -4,7 +4,7 @@ import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getMobileMitraRouteService } from "@/modules/mitra";
 import { withdrawRequestSchema } from "@/lib/validations/mitra";
 
-const mobileMitraRouteService = getMobileMitraRouteService();
+const DEFAULT_PAGE = 1;
 
 // GET /api/mobile/mitra/withdraw — List user's withdrawal history
 export async function GET(req: NextRequest) {
@@ -16,9 +16,8 @@ export async function GET(req: NextRequest) {
       return ApiErrors.forbidden("Bukan akun mitra");
     }
 
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const result = await mobileMitraRouteService.getWithdrawHistory(
+    const page = parsePageParam(req.url);
+    const result = await getMobileMitraRouteService().getWithdrawHistory(
       {
         id: authResult.id as string,
         userId: authResult.userId as string | undefined,
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await mobileMitraRouteService.requestWithdraw(
+    const result = await getMobileMitraRouteService().requestWithdraw(
       {
         id: authResult.id as string,
         userId: authResult.userId as string | undefined,
@@ -92,4 +91,13 @@ function buildErrorResponse(message?: string, status?: number) {
   if (status === 403) return ApiErrors.forbidden(message);
   if (status === 404) return ApiErrors.notFound(message || "Mitra");
   return ApiErrors.badRequest(message || "Permintaan tidak valid");
+}
+
+/** Mengambil dan memvalidasi parameter page dari URL. */
+function parsePageParam(url: string): number {
+  const { searchParams } = new URL(url);
+  const raw = searchParams.get("page");
+  if (!raw) return DEFAULT_PAGE;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_PAGE;
 }

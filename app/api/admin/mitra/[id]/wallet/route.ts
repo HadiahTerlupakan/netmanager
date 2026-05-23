@@ -11,16 +11,19 @@ const pageQuerySchema = z.object({
 
 async function ensureMitraInScope(
   mitraId: string,
-  user: { id: string; name?: string },
+  user: { id: string; name?: string; tenantId?: string | null },
 ): Promise<{ allowed: boolean; error?: string }> {
+  const tenantId = user.tenantId ?? undefined;
+  const mitra = await getMitraService().getMitraById(mitraId, tenantId);
+  if (!mitra.success) {
+    return { allowed: false, error: "Mitra tidak ditemukan" };
+  }
+
   const { isRestricted, siteIds } = checkSiteRestriction(
     { user } as never,
     "mitra",
   );
   if (!isRestricted) return { allowed: true };
-
-  const mitra = await getMitraService().getMitraById(mitraId);
-  if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
     return {

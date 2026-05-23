@@ -9,8 +9,6 @@ import {
 } from "@/lib/api-response";
 import { getMobileMitraRouteService } from "@/modules/mitra";
 
-const mobileMitraRouteService = getMobileMitraRouteService();
-
 // POST /api/mobile/mitra/verify-face — Verify mitra face with uploaded photo
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const photo = formData.get("photo") as File | null;
-    const result = await mobileMitraRouteService.verifyFace(
+    const result = await getMobileMitraRouteService().verifyFace(
       {
         id: authResult.id as string,
         userId: authResult.userId as string | undefined,

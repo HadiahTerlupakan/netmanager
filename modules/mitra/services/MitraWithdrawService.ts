@@ -8,7 +8,6 @@ import {
   getApprovalRequestValidationError,
   getMinimumWithdrawValidationError,
   getPendingRequestValidationError,
-  getWalletValidationError,
   logWithdrawActivity,
   logWithdrawServiceError,
   resolveMinWithdraw,
@@ -66,23 +65,23 @@ export class MitraWithdrawService {
         userId,
         tenantId,
       );
-      const walletError = await getWalletValidationError({
-        walletId: wallet?.id,
-        balance: wallet?.balance,
-        amount: data.amount,
-        withdrawRepository: this.withdrawRepo,
-      });
-      if (walletError) {
-        return { success: false, error: walletError };
+      if (!wallet) {
+        return { success: false, error: "Wallet tidak ditemukan" };
       }
 
       const id = randomUUID();
-      await this.withdrawRepo.createWithdrawRequest({
+      const atomic = await this.withdrawRepo.createWithdrawRequestAtomic({
         id,
         userId,
-        walletId: wallet!.id,
+        walletId: wallet.id,
         payload: data,
       });
+      if (atomic.success === false) {
+        return {
+          success: false,
+          error: this.getAtomicWithdrawError(atomic.reason),
+        };
+      }
 
       return { success: true, data: { id } };
     } catch (error) {
@@ -92,6 +91,14 @@ export class MitraWithdrawService {
       );
       return { success: false, error: "Gagal membuat request penarikan" };
     }
+  }
+
+  private getAtomicWithdrawError(
+    reason: "WALLET_NOT_FOUND" | "INSUFFICIENT_BALANCE" | "PENDING_EXISTS",
+  ) {
+    if (reason === "WALLET_NOT_FOUND") return "Wallet tidak ditemukan";
+    if (reason === "INSUFFICIENT_BALANCE") return "Saldo tidak cukup";
+    return "Masih ada request penarikan yang belum selesai";
   }
 
   /** Menyetujui request penarikan yang masih pending. */
@@ -201,16 +208,21 @@ export class MitraWithdrawService {
       });
 
       const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
-      await eventBus
-        .publish(EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED, {
+      try {
+        await eventBus.publish(EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED, {
           withdrawalId: id,
           tenantId: tenantId || "",
           mitraId: request!.mitraId,
           amount: String(request!.amount),
           method: request!.method,
           completedAt: new Date().toISOString(),
-        })
-        .catch(() => {});
+        });
+      } catch (publishError) {
+        logWithdrawServiceError(
+          "[MitraWithdrawService] Failed to publish MITRA_WITHDRAWAL_COMPLETED event:",
+          publishError,
+        );
+      }
 
       logWithdrawActivity("COMPLETE", processedById, {
         requestId: id,

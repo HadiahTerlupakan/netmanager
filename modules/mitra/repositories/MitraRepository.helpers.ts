@@ -254,10 +254,11 @@ export async function ensureWalletExistsTx(
   tx: Prisma.TransactionClient,
   mitraId: string,
 ) {
-  const wallet = await tx.mitraWallet.findFirst({ where: { mitraId } });
-  if (!wallet) {
-    await tx.mitraWallet.create({ data: { mitraId } });
-  }
+  await tx.mitraWallet.upsert({
+    where: { mitraId },
+    create: { mitraId },
+    update: {},
+  });
 }
 
 function resolveMitraType(employeeType: string): MitraType {

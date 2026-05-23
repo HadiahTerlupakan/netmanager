@@ -5,7 +5,7 @@ export {
 } from "./services/MitraLookupService";
 export {
   MitraIdCardService,
-  mitraIdCardService,
+  getMitraIdCardService,
 } from "./services/MitraIdCardService";
 export {
   MitraWalletService,

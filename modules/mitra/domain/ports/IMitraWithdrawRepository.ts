@@ -68,6 +68,19 @@ export interface IMitraWithdrawRepository {
   /** Membuat request penarikan baru. */
   createWithdrawRequest(record: CreateWithdrawRequestRecord): Promise<void>;
 
+  /**
+   * Membuat request penarikan baru secara atomik:
+   * memvalidasi saldo & jumlah pending dalam satu transaksi DB
+   * untuk menghindari race condition di antara request paralel.
+   */
+  createWithdrawRequestAtomic(record: CreateWithdrawRequestRecord): Promise<
+    | { success: true }
+    | {
+        success: false;
+        reason: "WALLET_NOT_FOUND" | "INSUFFICIENT_BALANCE" | "PENDING_EXISTS";
+      }
+  >;
+
   /** Mengambil request penarikan lengkap berdasarkan id. */
   findWithdrawRequestById(
     id: string,

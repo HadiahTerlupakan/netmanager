@@ -3,8 +3,6 @@ import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getMobileMitraRouteService } from "@/modules/mitra";
 
-const mobileMitraRouteService = getMobileMitraRouteService();
-
 // GET /api/mobile/mitra/dashboard — Mitra dashboard stats
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +13,7 @@ export async function GET(req: NextRequest) {
       return ApiErrors.forbidden("Bukan akun mitra");
     }
 
-    const result = await mobileMitraRouteService.getDashboard({
+    const result = await getMobileMitraRouteService().getDashboard({
       id: authResult.id as string,
       userId: authResult.userId as string | undefined,
       tenantId: authResult.tenantId as string | null,

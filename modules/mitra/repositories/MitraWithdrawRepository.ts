@@ -58,6 +58,46 @@ export class MitraWithdrawRepository implements IMitraWithdrawRepository {
     });
   }
 
+  /**
+   * Membuat request penarikan secara atomik dalam satu transaksi:
+   * mengecek wallet+saldo, jumlah pending, lalu insert.
+   * Mencegah race antara dua POST /withdraw paralel.
+   */
+  async createWithdrawRequestAtomic(record: CreateWithdrawRequestRecord) {
+    return prismaMitra.$transaction(async (tx) => {
+      const wallet = await tx.mitraWallet.findUnique({
+        where: { id: record.walletId },
+        select: { id: true, balance: true },
+      });
+      if (!wallet) {
+        return { success: false as const, reason: "WALLET_NOT_FOUND" as const };
+      }
+
+      if (wallet.balance.toNumber() < record.payload.amount) {
+        return {
+          success: false as const,
+          reason: "INSUFFICIENT_BALANCE" as const,
+        };
+      }
+
+      const pendingCount = await tx.withdrawRequest.count({
+        where: {
+          mitraWalletId: wallet.id,
+          status: { in: [...ACTIVE_WITHDRAW_STATUSES] },
+        },
+      });
+      if (pendingCount > 0) {
+        return { success: false as const, reason: "PENDING_EXISTS" as const };
+      }
+
+      await tx.withdrawRequest.create({
+        data: this.buildWithdrawCreateData(record),
+      });
+
+      return { success: true as const };
+    });
+  }
+
   /** Mengambil request penarikan lengkap berdasarkan id. */
   async findWithdrawRequestById(id: string, tenantId?: string) {
     const request = await prismaMitra.withdrawRequest.findFirst({

@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { logger, logActivitySafe } from "@/lib/logger";
@@ -93,7 +93,7 @@ export async function saveFaceVerificationPhoto(
     /*turbopackIgnore: true*/ process.cwd(),
     ...UPLOAD_ROOT_SEGMENTS,
   );
-  fs.mkdirSync(uploadDirectory, { recursive: true });
+  await fs.mkdir(uploadDirectory, { recursive: true });
 
   const fileBuffer = Buffer.from(await photo.arrayBuffer());
   const normalizedBuffer = await sharp(fileBuffer)
@@ -103,7 +103,7 @@ export async function saveFaceVerificationPhoto(
     .toBuffer();
   const filename = `${FACE_VERIFICATION_PREFIX}_${mitraId}_${Date.now()}.${FACE_PHOTO_EXTENSION}`;
   const filePath = path.join(uploadDirectory, filename);
-  fs.writeFileSync(filePath, normalizedBuffer);
+  await fs.writeFile(filePath, normalizedBuffer);
   return `/uploads/mitra/${filename}`;
 }
 

@@ -6,10 +6,6 @@ interface AttendanceSettingsReader {
   findByKey(key: string): Promise<{ value?: string | null } | null>;
 }
 
-interface PendingWithdrawCounter {
-  countPendingWithdrawals(walletId: string): Promise<number>;
-}
-
 /** Resolve the active minimum withdraw setting with a safe fallback. */
 export async function resolveMinWithdraw(
   attendanceSettingsService: AttendanceSettingsReader,
@@ -38,50 +34,6 @@ export async function getMinimumWithdrawValidationError(input: {
   }
 
   return `Minimum penarikan Anda adalah Rp ${minWithdraw.toLocaleString("id-ID")}`;
-}
-
-/**
- * Validate wallet existence, balance, and active pending requests.
- * Note: 22 baris - sudah optimal dengan sequential validation steps.
- * Memecah lebih lanjut akan memisahkan validation logic yang harus berurutan.
- */
-export async function getWalletValidationError(input: {
-  walletId?: string;
-  balance?: number;
-  amount: number;
-  withdrawRepository: PendingWithdrawCounter;
-}) {
-  const basicError = validateWalletBasics(
-    input.walletId,
-    input.balance,
-    input.amount,
-  );
-  if (basicError) return basicError;
-
-  const pendingCount = await input.withdrawRepository.countPendingWithdrawals(
-    input.walletId!,
-  );
-  if (pendingCount > 0) {
-    return "Masih ada request penarikan yang belum selesai";
-  }
-
-  return null;
-}
-
-function validateWalletBasics(
-  walletId?: string,
-  balance?: number,
-  amount?: number,
-) {
-  if (!walletId || balance === undefined) {
-    return "Wallet tidak ditemukan";
-  }
-
-  if (balance < amount!) {
-    return "Saldo tidak cukup";
-  }
-
-  return null;
 }
 
 /** Validate that a withdraw request is still pending. */

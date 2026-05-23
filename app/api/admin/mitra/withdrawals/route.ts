@@ -31,6 +31,7 @@ export const GET = createHandler(
       status,
       page,
       limit,
+      tenantId: ctx.session!.user.tenantId ?? undefined,
       allowedSiteIds: isRestricted ? siteIds : undefined,
     });
 

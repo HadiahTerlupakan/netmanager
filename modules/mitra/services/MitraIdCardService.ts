@@ -1,13 +1,13 @@
-import { MitraRepository } from "../repositories/MitraRepository";
 import type { MitraIdCardEntity } from "../domain/entities/MitraEntity";
 import type { IMitraRepository } from "../domain/ports/IMitraRepository";
 import type { MitraIdCardDTO } from "../dto/MitraIdCardDTO";
+import { getMitraRepository } from "../repositories/MitraRepository";
 
 const DEFAULT_TITLE_NAME = "Mitra";
 
 export class MitraIdCardService {
   constructor(
-    private readonly repository: IMitraRepository = new MitraRepository(),
+    private readonly repository: IMitraRepository = getMitraRepository(),
   ) {}
 
   /** Ambil data ID card mitra yang siap dikirim ke client. */
@@ -36,4 +36,12 @@ export class MitraIdCardService {
   }
 }
 
-export const mitraIdCardService = new MitraIdCardService();
+let instance: MitraIdCardService | null = null;
+
+export function getMitraIdCardService(): MitraIdCardService {
+  if (!instance) {
+    instance = new MitraIdCardService();
+  }
+
+  return instance;
+}

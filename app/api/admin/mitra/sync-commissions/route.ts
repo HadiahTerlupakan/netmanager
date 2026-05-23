@@ -9,9 +9,10 @@ export const POST = createHandler(
     schema: syncCommissionSchema,
   },
   async (_req, ctx) => {
-    const result = await getMitraCommissionSyncService().syncCommission(
-      ctx.validated,
-    );
+    const result = await getMitraCommissionSyncService().syncCommission({
+      ...ctx.validated,
+      tenantId: ctx.session!.user.tenantId ?? undefined,
+    });
 
     if (!result.success) {
       if (result.code === "VALIDATION_ERROR" || result.code === "DUPLICATE") {

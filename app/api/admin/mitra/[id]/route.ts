@@ -8,16 +8,19 @@ const patchSchema = updateMitraSchema;
 
 async function ensureMitraInScope(
   mitraId: string,
-  user: { id: string; name?: string },
+  user: { id: string; name?: string; tenantId?: string | null },
 ): Promise<{ allowed: boolean; error?: string }> {
+  const tenantId = user.tenantId ?? undefined;
+  const mitra = await getMitraService().getMitraById(mitraId, tenantId);
+  if (!mitra.success) {
+    return { allowed: false, error: "Mitra tidak ditemukan" };
+  }
+
   const { isRestricted, siteIds } = checkSiteRestriction(
     { user } as never,
     "mitra",
   );
   if (!isRestricted) return { allowed: true };
-
-  const mitra = await getMitraService().getMitraById(mitraId);
-  if (!mitra.success) return { allowed: false, error: "Mitra tidak ditemukan" };
 
   if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
     return {
@@ -62,7 +65,10 @@ export const GET = createHandler(
       return ApiErrors.forbidden(access.error);
     }
 
-    const result = await getMitraService().getMitraById(id);
+    const result = await getMitraService().getMitraById(
+      id,
+      user.tenantId ?? undefined,
+    );
     if (!result.success) {
       return ApiErrors.notFound(result.error);
     }
@@ -93,7 +99,7 @@ export const PUT = createHandler(
 
     const result = await getMitraService().updateMitra(
       id,
-      ctx.validated,
+      { ...ctx.validated, tenantId: user.tenantId ?? undefined },
       user.id,
     );
 
@@ -119,7 +125,11 @@ export const DELETE = createHandler(
       return ApiErrors.forbidden(access.error);
     }
 
-    const result = await getMitraService().deleteMitra(id, user.id);
+    const result = await getMitraService().deleteMitra(
+      id,
+      user.id,
+      user.tenantId ?? undefined,
+    );
     if (!result.success) {
       return ApiErrors.badRequest(result.error);
     }
@@ -150,7 +160,7 @@ export const PATCH = createHandler(
 
     const result = await getMitraService().updateMitra(
       id,
-      ctx.validated,
+      { ...ctx.validated, tenantId: user.tenantId ?? undefined },
       user.id,
     );
 

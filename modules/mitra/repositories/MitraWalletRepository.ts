@@ -240,11 +240,11 @@ export class MitraWalletRepository implements IMitraWalletRepository {
     tx: Prisma.TransactionClient,
     userId: string,
   ) {
-    const wallet = await tx.mitraWallet.findFirst({
+    return tx.mitraWallet.upsert({
       where: { mitraId: userId },
+      create: { mitraId: userId },
+      update: {},
     });
-    if (wallet) return wallet;
-    return tx.mitraWallet.create({ data: { mitraId: userId } });
   }
 
   private async assertNoDuplicateEarningTx(

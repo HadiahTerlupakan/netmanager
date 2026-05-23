@@ -35,10 +35,12 @@ export const POST = createHandler(
       { user } as never,
       "withdrawals",
     );
+    const tenantId = user.tenantId ?? undefined;
     if (isRestricted) {
       const inScope = await getMitraWithdrawService().isWithdrawInScope(
         id,
         siteIds,
+        tenantId,
       );
       if (!inScope) {
         return ApiErrors.forbidden(
@@ -50,12 +52,12 @@ export const POST = createHandler(
     const service = getMitraWithdrawService();
     let result;
     if (actionParam === "approve") {
-      result = await service.approveWithdraw(id, user.id);
+      result = await service.approveWithdraw(id, user.id, tenantId);
     } else if (actionParam === "reject") {
       const reason = ctx.validated.reason || "Ditolak oleh admin";
-      result = await service.rejectWithdraw(id, reason, user.id);
+      result = await service.rejectWithdraw(id, reason, user.id, tenantId);
     } else {
-      result = await service.completeWithdraw(id, user.id);
+      result = await service.completeWithdraw(id, user.id, tenantId);
     }
 
     if (!result.success) {

@@ -123,6 +123,9 @@ export class MitraWalletService {
     tenantId?: string,
   ): Promise<ServiceResult> {
     try {
+      if (!Number.isFinite(amount) || amount === 0) {
+        return { success: false, error: "Jumlah penyesuaian tidak valid" };
+      }
       await this.mitraWalletRepository.addAdjustment({
         userId,
         amount,
