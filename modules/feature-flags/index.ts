@@ -1,7 +1,6 @@
 import { FeatureFlagService } from "./services/FeatureFlagService";
 
 export { FeatureFlagService } from "./services/FeatureFlagService";
-export { FeatureFlagRepository } from "./repositories/FeatureFlagRepository";
 export type {
   FeatureFlagDTO,
   TenantFeatureFlagsResponseDTO,

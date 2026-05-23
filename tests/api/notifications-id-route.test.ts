@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const mockFns = vi.hoisted(() => ({
-  requireAuth: vi.fn(),
   getReadableNotificationForUser: vi.fn(),
   getUnreadCount: vi.fn(),
   markAsRead: vi.fn(),
@@ -11,9 +10,36 @@ const mockFns = vi.hoisted(() => ({
   updateNotificationCount: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-helpers", () => ({
-  requireAuth: mockFns.requireAuth,
-}));
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    createHandler: (
+      _options: unknown,
+      handler: (req: NextRequest, ctx: unknown) => Promise<NextResponse>,
+    ) => handler,
+    apiSuccess: (
+      data: unknown,
+      options?: { status?: number; message?: string },
+    ) =>
+      NextResponse.json(
+        {
+          success: true,
+          data,
+          ...(options?.message ? { message: options.message } : {}),
+        },
+        { status: options?.status ?? 200 },
+      ),
+    ApiErrors: {
+      notFound: (msg: string) =>
+        NextResponse.json({ error: msg }, { status: 404 }),
+      badRequest: (msg: string) =>
+        NextResponse.json({ error: msg }, { status: 400 }),
+      forbidden: (msg: string) =>
+        NextResponse.json({ error: msg }, { status: 403 }),
+    },
+  };
+});
 
 vi.mock("@/modules/notification/api", () => ({
   getReadableNotificationForUser: mockFns.getReadableNotificationForUser,
@@ -34,18 +60,32 @@ vi.mock("@/lib/websocket/emitter", () => ({
 
 import { PATCH } from "@/app/api/notifications/[id]/route";
 
+type RouteContext = Parameters<typeof PATCH>[1];
+
+const buildContext = (
+  id: string,
+  overrides?: {
+    permissions?: string[];
+    siteId?: string;
+    departmentId?: string;
+  },
+): RouteContext =>
+  ({
+    params: { id },
+    session: {
+      user: {
+        id: "user-1",
+        departmentId: overrides?.departmentId ?? "dept-1",
+        siteId: overrides?.siteId ?? "site-1",
+        role: "USER",
+      },
+    },
+    permissions: overrides?.permissions ?? [],
+  }) as unknown as RouteContext;
+
 describe("web notifications id route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.requireAuth.mockResolvedValue({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "USER",
-        permissions: [],
-      },
-    });
     mockFns.getUserPermissions.mockResolvedValue([]);
     mockFns.isSuperAdmin.mockReturnValue(false);
     mockFns.getUnreadCount.mockResolvedValue(4);
@@ -60,7 +100,7 @@ describe("web notifications id route", () => {
       new NextRequest("http://localhost/api/notifications/notif-1", {
         method: "PATCH",
       }),
-      { params: Promise.resolve({ id: "notif-1" }) },
+      buildContext("notif-1"),
     );
     const json = await response.json();
 
@@ -84,15 +124,6 @@ describe("web notifications id route", () => {
   });
 
   it("reuses session permissions for site-only users after mark read", async () => {
-    mockFns.requireAuth.mockResolvedValueOnce({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "USER",
-        permissions: ["site_only"],
-      },
-    });
     mockFns.getReadableNotificationForUser.mockResolvedValueOnce({
       id: "notif-site-1",
     });
@@ -101,7 +132,7 @@ describe("web notifications id route", () => {
       new NextRequest("http://localhost/api/notifications/notif-site-1", {
         method: "PATCH",
       }),
-      { params: Promise.resolve({ id: "notif-site-1" }) },
+      buildContext("notif-site-1", { permissions: ["site_only"] }),
     );
 
     expect(response.status).toBe(200);
@@ -130,7 +161,7 @@ describe("web notifications id route", () => {
       new NextRequest("http://localhost/api/notifications/notif-2", {
         method: "PATCH",
       }),
-      { params: Promise.resolve({ id: "notif-2" }) },
+      buildContext("notif-2"),
     );
 
     expect(response.status).toBe(404);

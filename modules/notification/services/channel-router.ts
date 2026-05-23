@@ -1,4 +1,4 @@
-import { pelangganContactService } from "@/modules/pelanggan/services/PelangganContactService";
+import { pelangganContactService } from "@/modules/pelanggan";
 
 import type { IPelangganContactPort } from "../domain/ports/IPelangganContactPort";
 

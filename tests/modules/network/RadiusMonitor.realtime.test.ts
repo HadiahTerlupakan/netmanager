@@ -9,6 +9,13 @@ const mockFns = vi.hoisted(() => ({
   start: vi.fn(),
 }));
 
+vi.mock("@/lib/tenant-context", () => ({
+  runAsSystemContext: <T>(_reason: string, callback: () => Promise<T>) =>
+    callback(),
+  runWithRequestTenantContext: <T>(_ctx: unknown, callback: () => Promise<T>) =>
+    callback(),
+}));
+
 vi.mock("@/lib/realtime", () => ({
   firebaseRealtimeService: {
     publish: mockFns.publish,

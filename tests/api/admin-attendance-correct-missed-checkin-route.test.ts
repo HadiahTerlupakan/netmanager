@@ -73,6 +73,10 @@ vi.mock("@/lib/utils/image-upload", () => ({
 
 vi.mock("@/lib/upload/upload-policy", () => ({
   validateUploadFile: mockFns.validateUploadFile,
+  buildTenantUploadDir: (
+    baseDir: string,
+    tenantId: string | null | undefined,
+  ) => (tenantId ? `${baseDir}/${tenantId}` : baseDir),
 }));
 
 vi.mock("@/modules/attendance/services/AttendanceCorrectionService", () => ({
@@ -190,7 +194,7 @@ describe("admin attendance correct missed check-in route", () => {
     });
     expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
       expect.any(File),
-      "public/uploads/employee/attendance",
+      "public/uploads/employee/attendance/tenant-1",
       expect.any(String),
       "employee-attendance",
       "admin-1",

@@ -1,4 +1,10 @@
-import type { FeatureModuleCode } from "@/lib/feature-modules";
+/**
+ * Kode feature module yang dipakai sebagai key di tabel TenantFeatureFlag.
+ * Domain layer hanya butuh string opaque — definisi catalog konkretnya
+ * tinggal di lib/feature-modules.ts (infrastruktur). Adapter/services
+ * boleh menyempitkan tipe ini ke union literal saat memanggil port.
+ */
+export type FeatureModuleCode = string;
 
 export interface TenantFeatureFlagRow {
   feature: string;

@@ -100,9 +100,9 @@ export class CronRegistry {
           async () => {
             if (!(await canRunCronJob("attendanceOrchestrator", 55))) return;
             logger.info("[Cron] Running attendance orchestrator");
-            await runCronTask("attendanceOrchestrator", () =>
-              runAttendanceCronOrchestrator(),
-            );
+            await runCronTask("attendanceOrchestrator", async () => {
+              await runAttendanceCronOrchestrator();
+            });
           },
         );
         this.tasks.set("attendanceOrchestrator", attendanceOrchestratorTask);
@@ -303,6 +303,28 @@ export class CronRegistry {
           "[CronRegistry] Failed to start OnuMonitoringService:",
           err,
         ),
+      );
+
+    // Start Accel-PPP Health Check (Every minute)
+    import("../modules/network")
+      .then(({ AccelPppMonitor }) => {
+        const accelPppMonitorTask = cron.schedule("* * * * *", async () => {
+          if (!(await canRunCronJob("accelPppHealthCheck", 55))) return;
+          await runCronTask("accelPppHealthCheck", async () => {
+            try {
+              await new AccelPppMonitor().checkAll();
+            } catch (err) {
+              logger.error("[Cron] Accel-PPP health check failed:", err);
+            }
+          });
+        });
+        this.tasks.set("accelPppHealthCheck", accelPppMonitorTask);
+        logger.info(
+          "[CronRegistry] Accel-PPP health check cron scheduled (Every minute)",
+        );
+      })
+      .catch((err) =>
+        logger.error("[CronRegistry] Failed to start Accel-PPP Monitor:", err),
       );
   }
 

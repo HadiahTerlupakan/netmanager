@@ -45,6 +45,159 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Stabilkan quality gate (test/lint/typecheck/build)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/feature-flags`, `modules/network`, `modules/notification`,
+  `lib/cron-registry.ts`, `lib/security/requireFullRadiusMode.ts`,
+  `app/api/mobile/chat/upload/`, `tests/`
+- **Author**: agent
+- **Deskripsi**: Perbaiki 17 test failure & 1 build warning untuk mengembalikan
+  semua quality gate ke hijau. Akar masalah:
+  (1) `modules/feature-flags/index.ts` mengekspos `FeatureFlagRepository` &
+  `modules/network/index.ts` mengekspos `AccelPppServerRepository` — repository
+  bukan public boundary, dihapus dari index.
+  (2) `modules/notification/services/channel-router.ts` impor langsung
+  `@/modules/pelanggan/services/...` dan `lib/security/requireFullRadiusMode.ts`
+  impor `@/modules/network/domain/errors/...` — dipindah ke public API masing-
+  masing modul untuk patuh module boundary.
+  (3) `modules/feature-flags/domain/ports/IFeatureFlagRepository.ts` impor
+  `@/lib/feature-modules` dari domain layer — domain harus pure, dipindah jadi
+  type alias lokal.
+  (4) `lib/cron-registry.ts` belum punya literal `await
+  runAttendanceCronOrchestrator()` yang dijaga oleh test attendance
+  orchestrator — disesuaikan agar inline.
+  (5) Test monitor (RadiusMonitor/MikroTikMonitor) & worker
+  (attendance/overtime auto-checkout) belum mock `@/lib/tenant-context` setelah
+  monitor/worker migrasi pakai `runAsSystemContext` — ditambah mock pass-
+  through.
+  (6) Test `notifications-id-route` masih pakai pola lama (`requireAuth`)
+  setelah route migrasi ke `createHandler` — ditulis ulang pakai pola bypass
+  handler.
+  (7) Test `notification-route-tenant-context` mengasumsikan tenant wrapping
+  di route file langsung; setelah migrasi ke `createHandler`, kontrak digeser
+  ke shared handler — test diupdate agar verify wrapping tetap dipertahankan
+  di `lib/api/handler.ts`.
+  (8) Test `admin-attendance-correct-missed-checkin-route` belum mock
+  `buildTenantUploadDir` & belum tahu output path baru ber-namespace tenant.
+  (9) Build Turbopack memunculkan warning NFT di `app/api/mobile/chat/upload/
+  route.ts` karena `path.join(process.cwd(), dynamicDir)` — diberi anotasi
+  `/*turbopackIgnore: true*/` agar tracker tidak menyapu seluruh project.
+- **Files**:
+  `modules/feature-flags/index.ts`,
+  `modules/feature-flags/domain/ports/IFeatureFlagRepository.ts`,
+  `modules/network/index.ts`,
+  `modules/notification/services/channel-router.ts`,
+  `lib/cron-registry.ts`,
+  `lib/security/requireFullRadiusMode.ts`,
+  `app/api/mobile/chat/upload/route.ts`,
+  `tests/api/admin-attendance-correct-missed-checkin-route.test.ts`,
+  `tests/api/notifications-id-route.test.ts`,
+  `tests/lib/event-bus/attendance-auto-checkout-worker.test.ts`,
+  `tests/lib/event-bus/overtime-auto-checkout-worker.test.ts`,
+  `tests/modules/network/MikroTikMonitor.realtime.test.ts`,
+  `tests/modules/network/RadiusMonitor.realtime.test.ts`,
+  `tests/notification-route-tenant-context.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Accel-PPP FreeRADIUS bundle + setup guide (M7)
+
+- **Tipe**: [DOCS]
+- **Scope**: `freeradius-config/`, `docs/guides/`
+- **Author**: agent
+- **Deskripsi**: Tambah konfigurasi FreeRADIUS yang versioned di repo
+  (`huntgroups`, `policy.d/per-nas-routing`, snippet `sites-available/default`)
+  agar reply attribute spesifik per-NAS ter-inject saat coexist MikroTik dan
+  accel-ppp. Bundle disertai README dengan langkah apply, validasi, dan
+  troubleshooting umum. Buat panduan operator end-to-end di
+  `docs/guides/accel-ppp-setup.md`: topologi, install accel-ppp + sample
+  `accel-ppp.conf`, sinkronisasi nilai (`gw-ip-address` ↔ `nasname` ↔
+  `ipAddress` di app, `radiusSecret` ↔ `[radius] server=`, `cliPassword`
+  ↔ `[cli] password=`), prosedur registrasi via UI admin, verifikasi
+  end-to-end (`radclient`, `freeradius -X`, dial PPPoE), operasi rutin (kick,
+  monitor cron), dan tabel troubleshooting.
+- **Files**:
+  `freeradius-config/README.md`,
+  `freeradius-config/huntgroups`,
+  `freeradius-config/policy.d/per-nas-routing`,
+  `freeradius-config/sites-available/default.snippet`,
+  `docs/guides/accel-ppp-setup.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Accel-PPP admin UI (M6)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/network/accel-ppp/`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah halaman admin untuk modul accel-ppp: list, new (form),
+  dan detail (tab Sessions Live + tab Edit). Sessions di-poll tiap 10 detik,
+  dengan tombol kick langsung dari row. Hooks data-fetching sederhana
+  (`useAccelPppServers`, `useAccelPppServer`, `useAccelPppSessions`) dibuat
+  custom—tanpa TanStack Query—sesuai pola network module dan menghindari
+  setState-in-effect violation lewat counter-tick refresh pattern. Mutations
+  di-export sebagai object (`accelPppMutations.create/update/remove/
+  testConnection/kick`) untuk dipakai komponen UI. Menu config `NETWORK.ACCEL_PPP`
+  ditambah di sidebar admin (icon HiOutlineCpuChip).
+- **Files**:
+  `app/admin/network/accel-ppp/page.tsx`,
+  `app/admin/network/accel-ppp/AccelPppServerList.tsx`,
+  `app/admin/network/accel-ppp/AccelPppServerForm.tsx`,
+  `app/admin/network/accel-ppp/hooks.ts`,
+  `app/admin/network/accel-ppp/new/page.tsx`,
+  `app/admin/network/accel-ppp/[id]/page.tsx`,
+  `app/admin/network/accel-ppp/[id]/AccelPppServerDetail.tsx`,
+  `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Accel-PPP periodic health monitor (M5)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/network/services/accel-ppp/`, `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah `AccelPppMonitor` yang dijalankan tiap 60 detik via
+  `cron-registry`. Monitor iterasi seluruh accel-ppp server (lintas tenant)
+  dengan `Promise.allSettled`—satu server hang tidak mengganggu yang lain.
+  Liveness check dilakukan via CLI `show stat` (lebih kuat dari ICMP karena
+  langsung membuktikan service responsif), lalu `pingStatus`/`userOnline`/
+  `lastStatusCheck` di-persist ke DB. Multi-tenant aware: scoping per
+  tenant via `runWithRequestTenantContext` supaya Prisma extension
+  fail-closed tetap pass. CLI factory di-inject untuk memudahkan unit test.
+  Disertai 4 unit test (empty, multi-server, isolation timeout, transition).
+- **Files**:
+  `modules/network/services/accel-ppp/AccelPppMonitor.ts`,
+  `modules/network/index.ts`,
+  `lib/cron-registry.ts`,
+  `tests/modules/network/accel-ppp/unit/AccelPppMonitor.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Accel-PPP API routes + permission catalog (M4)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/admin/accel-ppp-servers/`, `lib/permission-config.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah 5 endpoint admin untuk modul accel-ppp:
+  `GET/POST /accel-ppp-servers`, `GET/PATCH/DELETE /accel-ppp-servers/[id]`,
+  `POST /accel-ppp-servers/[id]/test-connection`,
+  `GET /accel-ppp-servers/[id]/sessions`,
+  `POST /accel-ppp-servers/[id]/sessions/[username]/kick`. Setiap handler
+  panggil `requireFullRadiusMode()` dulu (403 bila toggle global OFF) lalu
+  `hasPermission(...)` baru delegate ke `AccelPppServerService`. Tambah
+  resource `accel_ppp` di `PERMISSION_GROUPS.NETWORK` dan granular
+  `ACCEL_PPP_SESSION_KICK = "accel_ppp:session:kick"` untuk operasi kick
+  yang sensitif. Helper `mapAccelPppErrorToResponse` dipakai semua handler
+  untuk pemetaan domain error → status code yang konsisten (403/404/409/
+  503/504). Disertai 10 unit test untuk error mapping helper.
+- **Files**:
+  `app/api/admin/accel-ppp-servers/route.ts`,
+  `app/api/admin/accel-ppp-servers/_helpers.ts`,
+  `app/api/admin/accel-ppp-servers/[id]/route.ts`,
+  `app/api/admin/accel-ppp-servers/[id]/test-connection/route.ts`,
+  `app/api/admin/accel-ppp-servers/[id]/sessions/route.ts`,
+  `app/api/admin/accel-ppp-servers/[id]/sessions/[username]/kick/route.ts`,
+  `lib/permission-config.ts`,
+  `tests/modules/network/accel-ppp/unit/errorMapping.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Marketing: koreksi self-review
 
 - **Tipe**: [FIXED]

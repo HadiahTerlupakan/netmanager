@@ -57,7 +57,10 @@ export const POST = createHandler(
       "public/uploads/chat",
       tenantId,
     );
-    const uploadDir = path.join(process.cwd(), relativeUploadDir);
+    const uploadDir = path.join(
+      /*turbopackIgnore: true*/ process.cwd(),
+      relativeUploadDir,
+    );
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
     }
