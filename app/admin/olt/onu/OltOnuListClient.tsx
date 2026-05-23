@@ -9,14 +9,34 @@ import PageLoader from "@/components/ui/PageLoader";
 interface OnuItem {
   id: string;
   serialNumber: string;
+  slotFrame: number;
+  slot: number;
   ponPort: number;
   onuIndex: number;
   status: string;
   vlanId: number | null;
   bandwidthProfile: string | null;
   pelangganId: string | null;
+  description: string | null;
   olt?: { name: string; vendor: string };
+  pelanggan?: { nama: string } | null;
 }
+
+interface OltOption {
+  id: string;
+  name: string;
+  vendor: string;
+}
+
+interface CardOption {
+  id: string;
+  slotFrame: number;
+  slot: number;
+  cardType: string | null;
+  ponCount: number;
+}
+
+type Mode = "idle" | "browsing" | "searching";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE:
@@ -38,14 +58,81 @@ export default function OltOnuListClient() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
+
+  const [olts, setOlts] = useState<OltOption[]>([]);
+  const [cards, setCards] = useState<CardOption[]>([]);
+
+  const [selectedOltId, setSelectedOltId] = useState("");
+  const [selectedCard, setSelectedCard] = useState<CardOption | null>(null);
+  const [selectedPonPort, setSelectedPonPort] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const mode: Mode = debouncedSearch
+    ? "searching"
+    : selectedOltId
+      ? "browsing"
+      : "idle";
 
   useEffect(() => {
     let cancelled = false;
+    const load = async () => {
+      const res = await fetch("/api/olt/devices?status=ACTIVE&limit=200");
+      const json = await res.json();
+      if (cancelled) return;
+      if (json.success) {
+        setOlts(json.data?.data ?? json.data ?? []);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!selectedOltId) return;
+    let cancelled = false;
+    const load = async () => {
+      const res = await fetch(`/api/olt/devices/${selectedOltId}/cards`);
+      const json = await res.json();
+      if (cancelled) return;
+      if (json.success) {
+        setCards(json.data ?? []);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOltId]);
+
+  useEffect(() => {
+    if (mode === "idle") return;
+
+    let cancelled = false;
     const params = new URLSearchParams({ page: String(page), limit: "20" });
+
+    if (mode === "searching") {
+      params.set("search", debouncedSearch);
+    } else {
+      if (selectedOltId) params.set("oltId", selectedOltId);
+      if (selectedCard) {
+        params.set("slotFrame", String(selectedCard.slotFrame));
+        params.set("slot", String(selectedCard.slot));
+      }
+      if (selectedPonPort) params.set("ponPort", selectedPonPort);
+    }
+
     if (statusFilter) params.set("status", statusFilter);
-    if (search) params.set("search", search);
 
     startTransition(async () => {
       const res = await fetch(`/api/olt/onu?${params}`);
@@ -57,10 +144,46 @@ export default function OltOnuListClient() {
         setTotal(json.data.pagination.total);
       }
     });
+
     return () => {
       cancelled = true;
     };
-  }, [page, statusFilter, search]);
+  }, [
+    mode,
+    page,
+    debouncedSearch,
+    selectedOltId,
+    selectedCard,
+    selectedPonPort,
+    statusFilter,
+  ]);
+
+  const handleOltChange = (oltId: string) => {
+    setSelectedOltId(oltId);
+    setSelectedCard(null);
+    setSelectedPonPort("");
+    setPage(1);
+  };
+
+  const handleCardChange = (cardId: string) => {
+    if (cardId === "") {
+      setSelectedCard(null);
+      setSelectedPonPort("");
+    } else {
+      const card = cards.find((c) => c.id === cardId) ?? null;
+      setSelectedCard(card);
+      setSelectedPonPort("");
+    }
+    setPage(1);
+  };
+
+  const handlePonChange = (pon: string) => {
+    setSelectedPonPort(pon);
+    setPage(1);
+  };
+
+  const isSearching = mode === "searching";
+  const scopeDisabled = isSearching ? "opacity-50 pointer-events-none" : "";
 
   const columns: Column<OnuItem>[] = [
     {
@@ -88,11 +211,11 @@ export default function OltOnuListClient() {
     },
     {
       key: "ponPort",
-      header: "PON:Index",
+      header: "Frame/Slot/Port:Index",
       priority: "secondary",
       render: (item) => (
         <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
-          {item.ponPort}:{item.onuIndex}
+          {item.slotFrame}/{item.slot}/{item.ponPort}:{item.onuIndex}
         </span>
       ),
     },
@@ -123,27 +246,32 @@ export default function OltOnuListClient() {
       header: "Pelanggan",
       priority: "tertiary",
       render: (item) => (
-        <span className="text-gray-600 dark:text-gray-400 text-xs">
-          {item.pelangganId ? "Assigned" : "-"}
+        <span
+          className="text-gray-700 dark:text-gray-300 text-xs"
+          title={item.description ?? undefined}
+        >
+          {item.pelanggan?.nama ?? item.description ?? "-"}
         </span>
       ),
     },
   ];
 
-  if (loading && onus.length === 0) {
+  if (loading && onus.length === 0 && mode !== "idle") {
     return <PageLoader variant="section" message="Memuat data ONU..." />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Daftar ONU
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {total} ONU terdaftar di sistem
+            {mode === "idle"
+              ? "Pilih OLT atau ketik pencarian untuk memulai"
+              : `${total} ONU ditemukan`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -160,25 +288,83 @@ export default function OltOnuListClient() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search Bar */}
+      <div>
         <input
           type="text"
-          placeholder="Cari serial number..."
-          value={search}
+          placeholder="Cari SN, deskripsi, atau nama pelanggan (lintas semua OLT)"
+          value={searchQuery}
           onChange={(e) => {
-            setSearch(e.target.value);
+            setSearchQuery(e.target.value);
             setPage(1);
           }}
-          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
         />
+        {isSearching && (
+          <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">
+            Pencarian global aktif — filter scope dinonaktifkan
+          </p>
+        )}
+      </div>
+
+      {/* Scope Filters */}
+      <div className={`flex flex-col sm:flex-row gap-3 ${scopeDisabled}`}>
+        <select
+          value={selectedOltId}
+          onChange={(e) => handleOltChange(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+        >
+          <option value="">Pilih OLT...</option>
+          {olts.map((olt) => (
+            <option key={olt.id} value={olt.id}>
+              {olt.name} ({olt.vendor})
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedCard?.id ?? ""}
+          onChange={(e) => handleCardChange(e.target.value)}
+          disabled={!selectedOltId}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm disabled:opacity-50"
+        >
+          <option value="">
+            {cards.length === 0 && selectedOltId
+              ? "Belum ada card — sync di halaman OLT"
+              : "Semua Card"}
+          </option>
+          {cards.map((card) => (
+            <option key={card.id} value={card.id}>
+              Frame {card.slotFrame} / Slot {card.slot}
+              {card.cardType ? ` (${card.cardType})` : ""}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedPonPort}
+          onChange={(e) => handlePonChange(e.target.value)}
+          disabled={!selectedCard}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm disabled:opacity-50"
+        >
+          <option value="">Semua PON</option>
+          {selectedCard &&
+            Array.from({ length: selectedCard.ponCount }, (_, i) => i + 1).map(
+              (pon) => (
+                <option key={pon} value={pon}>
+                  PON {pon}
+                </option>
+              ),
+            )}
+        </select>
+
         <select
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         >
           <option value="">Semua Status</option>
           <option value="ACTIVE">Active</option>
@@ -190,19 +376,31 @@ export default function OltOnuListClient() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <ResponsiveTable
-          data={onus}
-          columns={columns}
-          keyField="id"
-          loading={loading}
-          emptyMessage="Tidak ada data ONU"
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-      </div>
+      {/* Content */}
+      {mode === "idle" ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-12 text-center">
+          <p className="text-gray-500 dark:text-gray-400">
+            Pilih OLT atau ketik pencarian untuk memulai
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <ResponsiveTable
+            data={onus}
+            columns={columns}
+            keyField="id"
+            loading={loading}
+            emptyMessage={
+              mode === "searching"
+                ? `Tidak ada ONU dengan kata kunci '${debouncedSearch}'`
+                : "Tidak ada ONU pada scope ini"
+            }
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </div>
   );
 }
