@@ -846,12 +846,12 @@ export class ZteAdapter implements IOltAdapter {
     device: OltDevice,
   ): Promise<ServiceResult<OnuStatusInfo[]>> {
     try {
-      const baseOid = ZteOidRegistry.gpon.onuStatusTable;
+      const baseOid = ZteOidRegistry.zxGpon.onuPhaseStateTable;
       const varbinds = await this.snmp.walk(device, baseOid);
 
       const statuses: OnuStatusInfo[] = [];
       for (const vb of varbinds) {
-        const parsed = ZteOidRegistry.parseOnuIndex(vb.oid, baseOid);
+        const parsed = ZteOidRegistry.parseZxGponOnuIndex(vb.oid, baseOid);
         if (!parsed) continue;
 
         const statusValue = Number(vb.value);
