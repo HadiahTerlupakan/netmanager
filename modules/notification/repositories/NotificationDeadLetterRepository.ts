@@ -1,3 +1,4 @@
+import type { NotificationDeadLetter, Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 
 export interface DeadLetterInput {
@@ -8,6 +9,19 @@ export interface DeadLetterInput {
   error: string;
   attemptCount?: number;
   tenantId?: string | null;
+}
+
+export interface DeadLetterFilter {
+  resolved: boolean;
+  channel?: string | null;
+  pelangganId?: string | null;
+  tenantId?: string | null;
+  isSuperAdmin: boolean;
+}
+
+export interface DeadLetterPagination {
+  skip: number;
+  take: number;
 }
 
 /** Repository untuk notifikasi yang ultimate gagal setelah retry. Admin bisa resend manual. */
@@ -27,6 +41,24 @@ export class NotificationDeadLetterRepository {
       },
     });
     return dlq.id;
+  }
+
+  /** Ambil DLQ entry by id (tanpa filter tenant — caller wajib enforce). */
+  async findById(id: string): Promise<NotificationDeadLetter | null> {
+    return prisma.notificationDeadLetter.findUnique({ where: { id } });
+  }
+
+  /**
+   * Mark DLQ entry resolved hanya bila masih pending (resolvedAt = null).
+   * Atomic — mencegah race condition saat dua admin retry/resolve bersamaan.
+   * Return true bila berhasil claim, false bila sudah resolved.
+   */
+  async markResolvedIfPending(id: string): Promise<boolean> {
+    const result = await prisma.notificationDeadLetter.updateMany({
+      where: { id, resolvedAt: null },
+      data: { resolvedAt: new Date() },
+    });
+    return result.count > 0;
   }
 
   /** Tandai DLQ entry sebagai resolved (sudah di-handle manual oleh admin). */
@@ -65,5 +97,35 @@ export class NotificationDeadLetterRepository {
       orderBy: { createdAt: "desc" },
       take: options?.limit ?? 100,
     });
+  }
+
+  /** Listing DLQ dengan filter & pagination untuk admin route. */
+  async findManyWithFilter(
+    filter: DeadLetterFilter,
+    pagination: DeadLetterPagination,
+  ): Promise<{ items: NotificationDeadLetter[]; total: number }> {
+    const where = this.buildWhere(filter);
+    const [items, total] = await Promise.all([
+      prisma.notificationDeadLetter.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      prisma.notificationDeadLetter.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  private buildWhere(
+    filter: DeadLetterFilter,
+  ): Prisma.NotificationDeadLetterWhereInput {
+    const where: Prisma.NotificationDeadLetterWhereInput = {
+      resolvedAt: filter.resolved ? { not: null } : null,
+    };
+    if (!filter.isSuperAdmin) where.tenantId = filter.tenantId;
+    if (filter.channel) where.channel = filter.channel;
+    if (filter.pelangganId) where.pelangganId = filter.pelangganId;
+    return where;
   }
 }

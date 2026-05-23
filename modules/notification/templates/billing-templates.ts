@@ -10,7 +10,10 @@ export interface BillingTemplateParams {
 
 export interface EmailContent {
   subject: string;
+  /** Plain text body — kirim sebagai parameter `text` ke transporter agar newline preserved. */
   body: string;
+  /** Opsional HTML body. Kalau diisi, override rendering plain text. */
+  html?: string;
 }
 
 export interface BillingTemplate {

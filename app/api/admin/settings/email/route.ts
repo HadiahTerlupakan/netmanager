@@ -1,28 +1,34 @@
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { getEmailSettings, updateEmailSettings, type EmailSettingsUpdatePayload } from '@/modules/settings'
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  getEmailSettings,
+  updateEmailSettings,
+  type EmailSettingsUpdatePayload,
+} from "@/modules/settings";
 
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-    const tenantId = ctx.session!.user.tenantId
-
-    if (!await hasPermission('email:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan email')
+export const GET = createHandler(
+  { auth: true, permissions: ["email:read"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session!.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
     }
 
-    const payload = await getEmailSettings(tenantId)
-    return apiSuccess(payload)
-})
+    const payload = await getEmailSettings(tenantId);
+    return apiSuccess(payload);
+  },
+);
 
-export const PUT = createHandler({ auth: true }, async (req, ctx) => {
-    const tenantId = ctx.session!.user.tenantId
-
-    // Permission check
-    if (!await hasPermission('email:update')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah pengaturan email')
+export const PUT = createHandler(
+  { auth: true, permissions: ["email:update"] },
+  async (req, ctx) => {
+    const tenantId = ctx.session!.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
     }
 
-    const payload = (await req.json()) as EmailSettingsUpdatePayload
-    await updateEmailSettings(tenantId, ctx.session!.user.id, payload)
+    const payload = (await req.json()) as EmailSettingsUpdatePayload;
+    await updateEmailSettings(tenantId, ctx.session!.user.id, payload);
 
-    return apiSuccess(null, { message: 'Pengaturan email berhasil disimpan' })
-})
+    return apiSuccess(null, { message: "Pengaturan email berhasil disimpan" });
+  },
+);

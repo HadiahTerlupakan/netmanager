@@ -1,10 +1,9 @@
 import { logger } from "@/lib/logger";
+import { EmailService } from "@/modules/notification";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import type { SettingsUpsertEntity } from "../domain/entities/Settings";
 import {
   buildEmailTestSuccess,
-  buildTestEmailHtml,
-  createEmailTransporter,
   logEmailTestFailure,
   mapSettingsToPayload,
   sanitizePassword,
@@ -183,14 +182,27 @@ async function sendTestEmail(
   settings: ResolvedEmailTestSettings,
 ): Promise<EmailTestServiceResult> {
   try {
-    const mailInfo = await createEmailTransporter(settings).sendMail({
-      from: `"${settings.fromName}" <${settings.fromEmail}>`,
-      to: settings.testEmail,
-      subject: "Email Percobaan dari NetManager",
-      html: buildTestEmailHtml(settings.testEmail),
-    });
+    const result = await new EmailService().testWithConfig(
+      {
+        smtpHost: settings.smtpHost,
+        smtpPort: settings.smtpPort,
+        smtpUser: settings.smtpUser,
+        smtpPass: settings.smtpPass,
+        fromName: settings.fromName,
+        fromEmail: settings.fromEmail,
+      },
+      settings.testEmail,
+    );
 
-    return buildEmailTestSuccess(settings.testEmail, mailInfo.messageId);
+    if (!result.success || !result.messageId) {
+      return logEmailTestFailure(
+        options,
+        settings,
+        new Error(result.error ?? "Email test gagal"),
+      );
+    }
+
+    return buildEmailTestSuccess(settings.testEmail, result.messageId);
   } catch (error) {
     return logEmailTestFailure(options, settings, error);
   }

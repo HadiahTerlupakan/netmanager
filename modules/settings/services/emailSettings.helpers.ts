@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 import { logger } from "@/lib/logger";
 import type {
   EmailSettingsPayload,
@@ -48,21 +46,6 @@ export function sanitizePassword(value?: string): string {
   return value.trim().replace(/\s+/g, "");
 }
 
-export function buildTestEmailHtml(testEmail: string) {
-  return `
-  <div style="font-family: Arial, sans-serif; padding: 20px;">
-      <h2 style="color: #10b981;">✅ Tes Konfigurasi Email</h2>
-      <p>Ini adalah email percobaan untuk memverifikasi konfigurasi email Anda.</p>
-      <p style="margin-top: 20px; color: #10b981; font-weight: bold;">
-          Jika Anda menerima email ini, konfigurasi Anda berfungsi dengan benar!
-      </p>
-      <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">
-          Dikirim ke ${testEmail}
-      </p>
-  </div>
-`;
-}
-
 export function mapSettingsToPayload(
   settingsMap: TenantSettingsMap,
 ): EmailSettingsPayload {
@@ -108,15 +91,6 @@ export function validateEmailTestSettings(
 
 function emailValidationError(message: string): EmailTestServiceValidation {
   return { type: "validation_error", message };
-}
-
-export function createEmailTransporter(settings: ResolvedEmailTestSettings) {
-  return nodemailer.createTransport({
-    host: settings.smtpHost,
-    port: settings.smtpPort,
-    secure: settings.smtpPort === 465,
-    auth: { user: settings.smtpUser, pass: settings.smtpPass },
-  });
 }
 
 export function buildEmailTestSuccess(

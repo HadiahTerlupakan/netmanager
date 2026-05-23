@@ -3,6 +3,7 @@ import type {
   AnnouncementEntity,
   AnnouncementExistenceEntity,
   AnnouncementListItemEntity,
+  AnnouncementMobileItemEntity,
   AnnouncementReaderEntity,
   AnnouncementReaderNameEntity,
   AnnouncementReadEntity,
@@ -59,6 +60,11 @@ export interface IAnnouncementRepository {
     where: AnnouncementRepositoryWhere;
     includeReadCount?: boolean;
   }): Promise<AnnouncementListItemEntity[]>;
+
+  /** Ambil daftar announcement aktif untuk mobile portal user. */
+  findMobileItems?(
+    where: AnnouncementRepositoryWhere,
+  ): Promise<AnnouncementMobileItemEntity[]>;
 
   /** Membuat announcement baru. */
   create?(data: AnnouncementCreateRepositoryInput): Promise<AnnouncementEntity>;

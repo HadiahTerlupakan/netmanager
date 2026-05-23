@@ -41,6 +41,8 @@ const DEFAULT_CHANNELS: NotificationChannel[] = [
 const DEDUPE_KEY_PREFIX = "notif-dedupe:";
 /** TTL idempotency token — cukup untuk window retry BullMQ standar. */
 const DEDUPE_TTL_SECONDS = 600;
+/** Window dedup pengiriman email billing — cegah double-send dalam 5 menit. */
+const EMAIL_DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * Orchestrator pengiriman notifikasi ke multi-channel (In-App, Push, WhatsApp, Email).
@@ -202,7 +204,11 @@ export class NotificationDispatcher {
   ): Promise<void> {
     if (!contact.noTelp) return;
     // WhatsAppService.sendMessage pakai { phone, message } — bukan { to, message }
-    await new WhatsAppService().sendMessage({
+    await new WhatsAppService(
+      undefined,
+      undefined,
+      contact.tenantId,
+    ).sendMessage({
       phone: contact.noTelp,
       message: template.whatsapp(params),
     });
@@ -214,12 +220,22 @@ export class NotificationDispatcher {
     params: BillingTemplateParams,
   ): Promise<void> {
     if (!contact.email) return;
+    if (!contact.tenantId) {
+      logger.warn(
+        `[NotificationDispatcher] Skip email — pelanggan ${contact.customerId} tidak punya tenantId`,
+      );
+      return;
+    }
     const emailContent = template.email(params);
     await new EmailService().sendEmail({
       to: contact.email,
       subject: emailContent.subject,
-      html: emailContent.body,
-      tenantId: contact.tenantId ?? null,
+      html: emailContent.html,
+      text: emailContent.body,
+      tenantId: contact.tenantId,
+      // Dedup billing notification 5 menit — cegah scheduler/event handler
+      // mengirim ulang reminder/invoice yang sama dalam waktu dekat.
+      dedupeWindowMs: EMAIL_DEDUPE_WINDOW_MS,
     });
   }
 }

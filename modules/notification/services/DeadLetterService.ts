@@ -1,5 +1,4 @@
 import type { NotificationDeadLetter } from "@prisma/client";
-import { prisma } from "@/modules/database";
 import {
   NotificationDispatcher,
   type NotificationChannel,
@@ -8,6 +7,7 @@ import {
   BILLING_TEMPLATES,
   type BillingTemplateKey,
 } from "../templates/billing-templates";
+import { NotificationDeadLetterRepository } from "../repositories/NotificationDeadLetterRepository";
 
 const VALID_CHANNELS = new Set<NotificationChannel>([
   "inApp",
@@ -45,7 +45,7 @@ export interface DeadLetterListResult {
 
 export class DeadLetterNotFoundError extends Error {
   constructor() {
-    super("Entry dead letter");
+    super("Entry dead letter tidak ditemukan");
     this.name = "DeadLetterNotFoundError";
   }
 }
@@ -91,56 +91,6 @@ export function normalizeDeadLetterLimit(raw: string | null): number {
   );
 }
 
-/**
- * Ambil daftar dead letter notifikasi dengan filter & pagination.
- * Tenant filter di-spread agar non-super admin tidak akses tenant lain.
- */
-export async function listNotificationDeadLetters(
-  params: DeadLetterListParams,
-): Promise<DeadLetterListResult> {
-  const { isSuperAdmin, tenantId, resolved, page, limit } = params;
-
-  // Validasi channel — value invalid diabaikan (lenient)
-  const channel =
-    params.channel && VALID_CHANNELS.has(params.channel as NotificationChannel)
-      ? (params.channel as NotificationChannel)
-      : null;
-
-  // Validasi pelangganId — max 100 karakter; jika lebih diabaikan
-  const pelangganId =
-    params.pelangganId && params.pelangganId.length <= PELANGGAN_ID_MAX_LENGTH
-      ? params.pelangganId
-      : null;
-
-  const where: Record<string, unknown> = {
-    resolvedAt: resolved ? { not: null } : null,
-    ...(!isSuperAdmin ? { tenantId } : {}),
-  };
-  if (channel) where.channel = channel;
-  if (pelangganId) where.pelangganId = pelangganId;
-
-  const skip = (page - 1) * limit;
-  const [items, total] = await Promise.all([
-    prisma.notificationDeadLetter.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      skip,
-    }),
-    prisma.notificationDeadLetter.count({ where }),
-  ]);
-
-  return {
-    items,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
-
 interface MutateDeadLetterParams {
   id: string;
   isSuperAdmin: boolean;
@@ -148,70 +98,130 @@ interface MutateDeadLetterParams {
 }
 
 /**
- * Tandai DLQ entry sebagai resolved tanpa retry.
- * Throw DeadLetterNotFoundError / AccessDenied / AlreadyResolved bila gagal.
+ * DeadLetterService — orchestrator query/mutasi DLQ notifikasi.
+ *
+ * Why: route admin (resolve/retry/list) butuh akses DLQ tanpa langsung pakai
+ * Prisma. Service ini wrap repository + integrasi ke `NotificationDispatcher`
+ * untuk operasi retry.
  */
-export async function resolveDeadLetter(
-  params: MutateDeadLetterParams,
-): Promise<{ resolved: true }> {
-  const entry = await prisma.notificationDeadLetter.findUnique({
-    where: { id: params.id },
-  });
+export class DeadLetterService {
+  constructor(
+    private readonly dlqRepository: NotificationDeadLetterRepository = new NotificationDeadLetterRepository(),
+    private readonly dispatcherFactory: () => NotificationDispatcher = () =>
+      new NotificationDispatcher(),
+  ) {}
 
-  if (!entry) throw new DeadLetterNotFoundError();
-  if (!params.isSuperAdmin && entry.tenantId !== params.tenantId) {
-    throw new DeadLetterAccessDeniedError();
+  /** Listing dengan tenant filter — non-super admin di-restrict ke tenant-nya. */
+  async list(params: DeadLetterListParams): Promise<DeadLetterListResult> {
+    const channel = this.normalizeChannel(params.channel);
+    const pelangganId = this.normalizePelangganId(params.pelangganId);
+    const skip = (params.page - 1) * params.limit;
+
+    const { items, total } = await this.dlqRepository.findManyWithFilter(
+      {
+        isSuperAdmin: params.isSuperAdmin,
+        tenantId: params.tenantId,
+        resolved: params.resolved,
+        channel,
+        pelangganId,
+      },
+      { skip, take: params.limit },
+    );
+
+    return {
+      items,
+      pagination: {
+        page: params.page,
+        limit: params.limit,
+        total,
+        totalPages: Math.ceil(total / params.limit),
+      },
+    };
   }
-  if (entry.resolvedAt) throw new DeadLetterAlreadyResolvedError();
 
-  await prisma.notificationDeadLetter.update({
-    where: { id: params.id },
-    data: { resolvedAt: new Date() },
-  });
+  /** Tandai resolved tanpa retry (pakai atomic conditional update). */
+  async resolve(params: MutateDeadLetterParams): Promise<{ resolved: true }> {
+    const entry = await this.findAndAuthorize(params);
+    if (entry.resolvedAt) throw new DeadLetterAlreadyResolvedError();
 
-  return { resolved: true };
+    const claimed = await this.dlqRepository.markResolvedIfPending(params.id);
+    if (!claimed) throw new DeadLetterAlreadyResolvedError();
+
+    return { resolved: true };
+  }
+
+  /**
+   * Resend notifikasi DLQ via channel yang sama, lalu mark resolved.
+   * Atomic claim dilakukan SEBELUM dispatch agar dua request retry bersamaan
+   * tidak menyebabkan double-send.
+   */
+  async retry(params: MutateDeadLetterParams): Promise<{ retried: true }> {
+    const entry = await this.findAndAuthorize(params);
+    if (entry.resolvedAt) throw new DeadLetterAlreadyResolvedError();
+    if (!(entry.templateKey in BILLING_TEMPLATES)) {
+      throw new DeadLetterInvalidTemplateError();
+    }
+    if (!VALID_CHANNELS.has(entry.channel as NotificationChannel)) {
+      throw new DeadLetterInvalidChannelError();
+    }
+
+    const claimed = await this.dlqRepository.markResolvedIfPending(params.id);
+    if (!claimed) throw new DeadLetterAlreadyResolvedError();
+
+    const dispatcher = this.dispatcherFactory();
+    await dispatcher.dispatch({
+      pelangganId: entry.pelangganId,
+      templateKey: entry.templateKey as BillingTemplateKey,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      params: entry.params as any,
+      sourceType: "RETRY_DLQ",
+      sourceId: entry.id,
+      channels: [entry.channel as NotificationChannel],
+      dedupeKey: `retry-dlq:${entry.id}`,
+    });
+
+    return { retried: true };
+  }
+
+  private async findAndAuthorize(
+    params: MutateDeadLetterParams,
+  ): Promise<NotificationDeadLetter> {
+    const entry = await this.dlqRepository.findById(params.id);
+    if (!entry) throw new DeadLetterNotFoundError();
+    if (!params.isSuperAdmin && entry.tenantId !== params.tenantId) {
+      throw new DeadLetterAccessDeniedError();
+    }
+    return entry;
+  }
+
+  private normalizeChannel(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    return VALID_CHANNELS.has(raw as NotificationChannel) ? raw : null;
+  }
+
+  private normalizePelangganId(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    return raw.length <= PELANGGAN_ID_MAX_LENGTH ? raw : null;
+  }
 }
 
-/**
- * Resend notifikasi DLQ via channel yang sama, lalu mark resolved.
- * Throw DeadLetterNotFoundError / AccessDenied / AlreadyResolved /
- * InvalidTemplate / InvalidChannel bila gagal.
- */
-export async function retryDeadLetter(
+const defaultService = new DeadLetterService();
+
+/** Backward-compatible function wrapper — caller existing tetap bisa import as function. */
+export function listNotificationDeadLetters(
+  params: DeadLetterListParams,
+): Promise<DeadLetterListResult> {
+  return defaultService.list(params);
+}
+
+export function resolveDeadLetter(
+  params: MutateDeadLetterParams,
+): Promise<{ resolved: true }> {
+  return defaultService.resolve(params);
+}
+
+export function retryDeadLetter(
   params: MutateDeadLetterParams,
 ): Promise<{ retried: true }> {
-  const entry = await prisma.notificationDeadLetter.findUnique({
-    where: { id: params.id },
-  });
-
-  if (!entry) throw new DeadLetterNotFoundError();
-  if (!params.isSuperAdmin && entry.tenantId !== params.tenantId) {
-    throw new DeadLetterAccessDeniedError();
-  }
-  if (entry.resolvedAt) throw new DeadLetterAlreadyResolvedError();
-  if (!(entry.templateKey in BILLING_TEMPLATES)) {
-    throw new DeadLetterInvalidTemplateError();
-  }
-  if (!VALID_CHANNELS.has(entry.channel as NotificationChannel)) {
-    throw new DeadLetterInvalidChannelError();
-  }
-
-  const dispatcher = new NotificationDispatcher();
-  await dispatcher.dispatch({
-    pelangganId: entry.pelangganId,
-    templateKey: entry.templateKey as BillingTemplateKey,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    params: entry.params as any,
-    sourceType: "RETRY_DLQ",
-    sourceId: entry.id,
-    channels: [entry.channel as NotificationChannel],
-    dedupeKey: `retry-dlq:${entry.id}`,
-  });
-
-  await prisma.notificationDeadLetter.update({
-    where: { id: params.id },
-    data: { resolvedAt: new Date() },
-  });
-
-  return { retried: true };
+  return defaultService.retry(params);
 }

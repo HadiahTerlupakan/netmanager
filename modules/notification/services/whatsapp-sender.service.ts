@@ -31,6 +31,9 @@ export interface BroadcastOptions {
   tenantId?: string;
 }
 
+/** Jeda antar pesan saat broadcast — cegah rate-limit di provider WhatsApp. */
+const BROADCAST_INTER_MESSAGE_DELAY_MS = 100;
+
 export class WhatsAppSenderService {
   private accountRepo: WhatsAppAccountRepository;
   private messageRepo: WhatsAppMessageRepository;
@@ -131,7 +134,9 @@ export class WhatsAppSenderService {
         accountIndex++;
 
         // Small delay to prevent rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) =>
+          setTimeout(resolve, BROADCAST_INTER_MESSAGE_DELAY_MS),
+        );
       }
     } else {
       // Use single account for all
@@ -147,7 +152,9 @@ export class WhatsAppSenderService {
         results.push(result);
 
         // Small delay
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) =>
+          setTimeout(resolve, BROADCAST_INTER_MESSAGE_DELAY_MS),
+        );
       }
     }
 

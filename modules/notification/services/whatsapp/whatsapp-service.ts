@@ -18,13 +18,16 @@ type WhatsAppSettingsProvider = () => Promise<Record<string, string>>;
 export class WhatsAppService {
   private settingsRepo?: AttendanceSettingsService;
   private readonly settingsProvider?: WhatsAppSettingsProvider;
+  private readonly tenantId: string | null;
 
   constructor(
     settingsRepo?: AttendanceSettingsService,
     settingsProvider?: WhatsAppSettingsProvider,
+    tenantId: string | null = null,
   ) {
     this.settingsRepo = settingsRepo;
     this.settingsProvider = settingsProvider;
+    this.tenantId = tenantId;
   }
 
   private getSettingsRepo(): AttendanceSettingsService {
@@ -40,9 +43,10 @@ export class WhatsAppService {
    */
   async isConfigured(): Promise<boolean> {
     try {
-      const settings = await this.getSettingsRepo().findManyByKeys([
-        "WHATSAPP_API_KEY",
-      ]);
+      const settings = await this.getSettingsRepo().findManyByKeys(
+        ["WHATSAPP_API_KEY"],
+        this.tenantId ?? undefined,
+      );
 
       const apiKey = settings.find((s) => s.key === "WHATSAPP_API_KEY")?.value;
       const envKey = process.env.FONNTE_API_KEY;
@@ -80,12 +84,15 @@ export class WhatsAppService {
   }
 
   private async loadLegacySettingsMap() {
-    const settings = await this.getSettingsRepo().findManyByKeys([
-      "WHATSAPP_PROVIDER",
-      "WHATSAPP_API_KEY",
-      "WABLAS_DOMAIN",
-      "WABLAS_DEVICE_ID",
-    ]);
+    const settings = await this.getSettingsRepo().findManyByKeys(
+      [
+        "WHATSAPP_PROVIDER",
+        "WHATSAPP_API_KEY",
+        "WABLAS_DOMAIN",
+        "WABLAS_DEVICE_ID",
+      ],
+      this.tenantId ?? undefined,
+    );
     const settingsMap: Record<string, string> = {};
 
     for (const setting of settings) {
@@ -126,8 +133,7 @@ export class WhatsAppService {
       const provider = WhatsAppFactory.createProvider(config);
       const result = await provider.sendMessage(params);
 
-      if (result.success) {
-      } else {
+      if (!result.success) {
         logger.error(`[WhatsApp] Failed to send:`, result.error);
       }
 
@@ -166,8 +172,7 @@ export class WhatsAppService {
       }
       const result = await provider.sendFile(params);
 
-      if (result.success) {
-      } else {
+      if (!result.success) {
         logger.error(`[WhatsApp] Failed to send file:`, result.error);
       }
 

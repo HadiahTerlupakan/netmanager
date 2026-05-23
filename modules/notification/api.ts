@@ -4,5 +4,5 @@ export {
   getUnreadCount,
   markAllAsRead,
   markAsRead,
-  type NotificationType,
-} from "./services/NotificationReadService";
+} from "./services/NotificationService";
+export type { NotificationType } from "./services/NotificationService.types";

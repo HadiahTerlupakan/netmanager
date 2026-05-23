@@ -1,25 +1,15 @@
-import { logger } from "@/lib/logger";
-import { NextResponse } from "next/server";
-import { ensureAdminAccess } from "@/lib/server-auth";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { AdminNotificationMonitoringRouteService } from "@/modules/notification";
 
 const monitoringService = new AdminNotificationMonitoringRouteService();
 
-export async function GET() {
-  try {
-    await ensureAdminAccess();
+/** GET /api/admin/notifications/monitoring — statistik antrean push retry. */
+export const GET = createHandler(
+  { auth: true, permissions: ["notifications:read"] },
+  async () => {
     const stats = await monitoringService.getPushRetryQueueStats();
-    return NextResponse.json({
-      success: true,
-      data: stats,
+    return apiSuccess(stats, {
       message: "Berhasil mengambil statistik antrean push retry",
     });
-  } catch (error: unknown) {
-    logger.error("[API] Error fetching push queue stats:", error);
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Gagal mengambil statistik antrean push";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
-}
+  },
+);

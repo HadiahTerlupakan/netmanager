@@ -42,6 +42,7 @@ import { authOptions, getUserPermissions } from "@/lib/auth";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import type { ErrorResponse } from "@/lib/api-response";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import { TenantContextError } from "@/lib/prisma-extension";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
 import { parseQuery } from "./query-parser";
 import {
@@ -68,6 +69,7 @@ export interface HandlerContext<T = unknown> {
       role?: string;
       tenantId?: string;
       siteId?: string;
+      departmentId?: string;
       isSuperAdmin?: boolean;
     };
   } | null;
@@ -136,6 +138,8 @@ export function createHandler<T = unknown>(
               role: session.user.role,
               tenantId: session.user.tenantId,
               siteId: (session.user as { siteId?: string }).siteId,
+              departmentId: (session.user as { departmentId?: string })
+                .departmentId,
               isSuperAdmin: session.user.isSuperAdmin,
             },
           };
@@ -314,6 +318,13 @@ function handleError(
     method: request.method,
     error,
   });
+
+  // TenantContextError adalah indikator akses tanpa konteks tenant valid.
+  // Jangan ekspos detail (mekanisme isolasi internal) ke client; map ke 500
+  // generik. Detail spesifik sudah masuk ke logger.error di atas.
+  if (error instanceof TenantContextError) {
+    return ApiErrors.internalError("Terjadi kesalahan pada server");
+  }
 
   if (
     isPrismaRecordNotFoundError(error) ||

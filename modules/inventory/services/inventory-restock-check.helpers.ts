@@ -189,6 +189,7 @@ async function sendCriticalStockEmails(
             to: recipient.email!,
             subject: `[CRITICAL] Stock Alert: ${input.setting.barang.nama}`,
             html: buildCriticalStockEmail(input.setting, alertInput),
+            tenantId: input.setting.tenantId,
           })
           .catch((error) =>
             logger.error(`Failed to send email to ${recipient.email}`, error),

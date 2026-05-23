@@ -1,11 +1,3 @@
-/**
- * NOTE: Prisma import is intentionally kept here for type safety.
- * This service uses Prisma types for dynamic query building and filtering.
- * Removing this would require duplicating all Prisma types or losing type safety.
- * This is a valid use case and does not violate Clean Architecture principles.
- */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/modules/database";
 import type { IAnnouncementRepository } from "../domain/ports/IAnnouncementRepository";
 import { AnnouncementRepository } from "../repositories/AnnouncementRepository";
 import {
@@ -154,25 +146,21 @@ export class AnnouncementService {
 
   /** Mengambil daftar announcement untuk mobile berdasarkan portal user. */
   async getMobileAnnouncements(actor: MobileAnnouncementActor) {
-    const announcements = await prisma.announcement.findMany({
-      where: buildMobileAnnouncementWhere(
-        actor.tenantId ?? null,
-        resolveMobilePortal(
-          actor.role,
-          actor.isSuperAdmin,
-          actor.accessAdminPanel,
-        ),
-        new Date(),
-      ) as Prisma.AnnouncementWhereInput,
-      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        isPinned: true,
-        createdAt: true,
-      },
-    });
+    const where = buildMobileAnnouncementWhere(
+      actor.tenantId ?? null,
+      resolveMobilePortal(
+        actor.role,
+        actor.isSuperAdmin,
+        actor.accessAdminPanel,
+      ),
+      new Date(),
+    );
+
+    const announcements = await getAnnouncementRepositoryMethod(
+      this.announcementRepository,
+      this.announcementRepository.findMobileItems,
+      "findMobileItems",
+    )(where);
 
     return announcements.map((announcement) => ({
       ...announcement,

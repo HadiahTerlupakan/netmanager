@@ -46,6 +46,14 @@ export interface AnnouncementListItemEntity extends AnnouncementEntity {
   };
 }
 
+export interface AnnouncementMobileItemEntity {
+  id: string;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  createdAt: Date;
+}
+
 export interface AnnouncementExistenceEntity {
   id: string;
 }

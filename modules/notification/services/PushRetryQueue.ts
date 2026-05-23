@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
+import { runAsSystemContext } from "@/lib/tenant-context";
 
 import {
   createEmptyRetryStats,
@@ -174,7 +175,9 @@ async function retryQueueItem(
 
 async function runRetryProcessorSafely(): Promise<void> {
   try {
-    await processRetryQueue();
+    await runAsSystemContext("PushRetryQueue.processRetryQueue", () =>
+      processRetryQueue(),
+    );
   } catch (error) {
     logger.error("[PushRetry] Processor error:", error);
   }
@@ -195,4 +198,50 @@ export async function getRetryQueueStats(): Promise<{
     logger.error("[PushRetry] Failed to get queue stats:", error);
     return { queueLength: 0, processingLength: 0 };
   }
+}
+
+/** Default ambang stuck — item lebih lama dari ini di processing list dianggap macet. */
+export const DEFAULT_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+
+/**
+ * Requeue item yang stuck di RETRY_PROCESSING_KEY kembali ke RETRY_QUEUE_KEY.
+ *
+ * Why: pop processing pakai `rpoplpush`. Bila proses crash sebelum
+ * `removeProcessingItem`, item tersangkut di processing list selamanya.
+ * Recovery ini memindahkan item yang `createdAt` lebih lama dari threshold
+ * agar diproses ulang. Item yang gagal di-parse di-drop (tidak di-requeue).
+ *
+ * Return jumlah item yang berhasil di-requeue dan jumlah yang di-drop.
+ */
+export async function requeueStuckProcessingItems(
+  stuckThresholdMs: number = DEFAULT_STUCK_THRESHOLD_MS,
+): Promise<{ requeued: number; dropped: number }> {
+  const result = { requeued: 0, dropped: 0 };
+  try {
+    const items = await redis.lrange(RETRY_PROCESSING_KEY, 0, -1);
+    const now = Date.now();
+
+    for (const rawItem of items) {
+      const parsed = parseRetryItem(rawItem);
+      if (!parsed) {
+        // Corrupt entry — buang dari processing list
+        const removed = await redis.lrem(RETRY_PROCESSING_KEY, 1, rawItem);
+        if (removed > 0) result.dropped += 1;
+        continue;
+      }
+
+      if (now - parsed.createdAt < stuckThresholdMs) continue;
+
+      // Atomic move: hapus dari processing, push kembali ke queue.
+      // Kalau lrem gagal (item dihapus oleh worker lain), skip — jangan double-push.
+      const removed = await redis.lrem(RETRY_PROCESSING_KEY, 1, rawItem);
+      if (removed > 0) {
+        await redis.lpush(RETRY_QUEUE_KEY, rawItem);
+        result.requeued += 1;
+      }
+    }
+  } catch (error) {
+    logger.error("[PushRetry] Failed to requeue stuck items:", error);
+  }
+  return result;
 }

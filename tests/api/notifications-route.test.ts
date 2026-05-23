@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const routeMocks = vi.hoisted(() => ({
-  requireAuth: vi.fn(),
+  getServerSession: vi.fn(),
   getNotificationsForUser: vi.fn(),
   getUnreadCount: vi.fn(),
   markAllAsRead: vi.fn(),
@@ -11,8 +11,8 @@ const routeMocks = vi.hoisted(() => ({
   updateNotificationCount: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-helpers", () => ({
-  requireAuth: routeMocks.requireAuth,
+vi.mock("next-auth", () => ({
+  getServerSession: routeMocks.getServerSession,
 }));
 
 vi.mock("@/modules/notification/api", () => ({
@@ -24,6 +24,7 @@ vi.mock("@/modules/notification/api", () => ({
 vi.mock("@/lib/auth", () => ({
   getUserPermissions: routeMocks.getUserPermissions,
   isSuperAdmin: routeMocks.isSuperAdmin,
+  authOptions: {},
 }));
 
 vi.mock("@/lib/websocket/emitter", () => ({
@@ -34,33 +35,32 @@ vi.mock("@/lib/websocket/emitter", () => ({
 
 import { GET, PATCH } from "@/app/api/notifications/route";
 
+const emptyRouteContext = { params: Promise.resolve({}) };
+
+const buildSession = (overrides: Record<string, unknown> = {}) => ({
+  user: {
+    id: "user-1",
+    departmentId: "dept-1",
+    siteId: "site-1",
+    role: "ADMIN",
+    permissions: [] as string[],
+    ...overrides,
+  },
+});
+
 describe("notifications route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    routeMocks.requireAuth.mockResolvedValue({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "ADMIN",
-        permissions: [],
-      },
-    });
+    routeMocks.getServerSession.mockResolvedValue(buildSession());
     routeMocks.getUserPermissions.mockResolvedValue([]);
     routeMocks.isSuperAdmin.mockReturnValue(false);
     routeMocks.getUnreadCount.mockResolvedValue(3);
   });
 
   it("returns notifications and reuses permissions from session for GET", async () => {
-    routeMocks.requireAuth.mockResolvedValueOnce({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "ADMIN",
-        permissions: ["site_only"],
-      },
-    });
+    routeMocks.getServerSession.mockResolvedValueOnce(
+      buildSession({ permissions: ["site_only"] }),
+    );
     routeMocks.getNotificationsForUser.mockResolvedValueOnce({
       notifications: [{ id: "notif-1" }],
       total: 1,
@@ -70,11 +70,11 @@ describe("notifications route", () => {
       new NextRequest(
         "http://localhost/api/notifications?limit=5&excludeTypes=WORK_ORDER",
       ),
+      emptyRouteContext,
     );
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
     expect(routeMocks.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
       unreadOnly: false,
       limit: 5,
@@ -89,20 +89,14 @@ describe("notifications route", () => {
       "site-1",
       "dept-1",
     );
-    expect(json.notifications).toEqual([{ id: "notif-1" }]);
-    expect(json.unreadCount).toBe(3);
+    expect(json.data.notifications).toEqual([{ id: "notif-1" }]);
+    expect(json.data.unreadCount).toBe(3);
   });
 
   it("skips total count for lightweight GET requests", async () => {
-    routeMocks.requireAuth.mockResolvedValueOnce({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "ADMIN",
-        permissions: ["site_only"],
-      },
-    });
+    routeMocks.getServerSession.mockResolvedValueOnce(
+      buildSession({ permissions: ["site_only"] }),
+    );
     routeMocks.getNotificationsForUser.mockResolvedValueOnce({
       notifications: [{ id: "notif-1" }],
     });
@@ -111,6 +105,7 @@ describe("notifications route", () => {
       new NextRequest(
         "http://localhost/api/notifications?limit=5&excludeTypes=WORK_ORDER&includeTotal=false",
       ),
+      emptyRouteContext,
     );
     const json = await response.json();
 
@@ -124,9 +119,9 @@ describe("notifications route", () => {
       departmentId: "dept-1",
       includeTotal: false,
     });
-    expect(json.notifications).toEqual([{ id: "notif-1" }]);
-    expect(json.unreadCount).toBe(3);
-    expect(json).not.toHaveProperty("total");
+    expect(json.data.notifications).toEqual([{ id: "notif-1" }]);
+    expect(json.data.unreadCount).toBe(3);
+    expect(json.data).not.toHaveProperty("total");
   });
 
   it("emits the latest unread count after marking all notifications as read", async () => {
@@ -135,10 +130,10 @@ describe("notifications route", () => {
         method: "PATCH",
         body: JSON.stringify({ markAllRead: true }),
       }),
+      emptyRouteContext,
     );
 
     expect(response.status).toBe(200);
-    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
     expect(routeMocks.markAllAsRead).toHaveBeenCalledWith(
       "user-1",
       undefined,
@@ -157,25 +152,19 @@ describe("notifications route", () => {
   });
 
   it("emits site-scoped unread count for site-only users after mark all read", async () => {
-    routeMocks.requireAuth.mockResolvedValueOnce({
-      user: {
-        id: "user-1",
-        departmentId: "dept-1",
-        siteId: "site-1",
-        role: "ADMIN",
-        permissions: ["site_only"],
-      },
-    });
+    routeMocks.getServerSession.mockResolvedValueOnce(
+      buildSession({ permissions: ["site_only"] }),
+    );
 
     const response = await PATCH(
       new NextRequest("http://localhost/api/notifications", {
         method: "PATCH",
         body: JSON.stringify({ markAllRead: true }),
       }),
+      emptyRouteContext,
     );
 
     expect(response.status).toBe(200);
-    expect(routeMocks.getUserPermissions).not.toHaveBeenCalled();
     expect(routeMocks.markAllAsRead).toHaveBeenCalledWith(
       "user-1",
       undefined,

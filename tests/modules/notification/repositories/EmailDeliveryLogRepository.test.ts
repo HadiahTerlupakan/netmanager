@@ -34,6 +34,7 @@ describe("EmailDeliveryLogRepository", () => {
       const id = await repo.logAttempt({
         to: "user@test.id",
         subject: "Test Subject",
+        tenantId: null,
       });
 
       expect(id).toBe("log-1");
@@ -103,27 +104,14 @@ describe("EmailDeliveryLogRepository", () => {
   });
 
   describe("markFailed", () => {
-    it("update status ke FAILED dengan pesan error", async () => {
+    it("update status ke FAILED dengan pesan error berformat kategori", async () => {
       prismaMock.emailDeliveryLog.update.mockResolvedValue({} as never);
 
-      await repo.markFailed("log-1", "Connection refused");
+      await repo.markFailed("log-1", "Autentikasi SMTP gagal", "AUTH");
 
       expect(prismaMock.emailDeliveryLog.update).toHaveBeenCalledWith({
         where: { id: "log-1" },
-        data: { status: "FAILED", error: "Connection refused" },
-      });
-    });
-  });
-
-  describe("markBounced", () => {
-    it("update status ke BOUNCED dengan bouncedAt", async () => {
-      prismaMock.emailDeliveryLog.update.mockResolvedValue({} as never);
-
-      await repo.markBounced("log-1");
-
-      expect(prismaMock.emailDeliveryLog.update).toHaveBeenCalledWith({
-        where: { id: "log-1" },
-        data: { status: "BOUNCED", bouncedAt: expect.any(Date) },
+        data: { status: "FAILED", error: "[AUTH] Autentikasi SMTP gagal" },
       });
     });
   });

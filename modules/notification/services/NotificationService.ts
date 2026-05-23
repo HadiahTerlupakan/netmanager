@@ -240,21 +240,25 @@ export async function notifyHolidayCreated(
   );
   const link = buildHolidayNotificationLink();
 
-  const notifications = activeUsers.map((user: { id: string }) =>
-    createNotification({
-      type: "HOLIDAY_CREATED",
-      priority: "NORMAL",
-      title,
-      message,
-      link,
-      userId: user.id,
-      sourceType: "Holiday",
-      sourceId: data.holidayId,
-      tenantId: data.tenantId,
-    }),
-  );
+  const notificationPayload = activeUsers.map((user: { id: string }) => ({
+    type: "HOLIDAY_CREATED" as const,
+    priority: "NORMAL" as const,
+    title,
+    message,
+    link,
+    userId: user.id,
+    sourceType: "Holiday",
+    sourceId: data.holidayId,
+    tenantId: data.tenantId,
+  }));
 
-  await Promise.all(notifications);
+  // Batched fan-out — hindari connection-pool exhaustion saat tenant punya
+  // banyak active user. 50 sekaligus aman untuk pool default Prisma.
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < notificationPayload.length; i += BATCH_SIZE) {
+    const slice = notificationPayload.slice(i, i + BATCH_SIZE);
+    await Promise.all(slice.map((payload) => createNotification(payload)));
+  }
 }
 
 export type {

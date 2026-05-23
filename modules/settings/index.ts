@@ -21,6 +21,7 @@ export {
   getPublicGeneralSettings,
 } from "./services/generalSettings";
 export {
+  EMAIL_SETTINGS_FIELDS,
   getEmailSettings,
   testEmailSettings,
   updateEmailSettings,

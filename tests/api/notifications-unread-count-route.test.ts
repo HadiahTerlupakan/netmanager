@@ -59,6 +59,7 @@ describe("notifications unread-count route", () => {
       new NextRequest(
         "http://localhost/api/notifications/unread-count?excludeTypes=WORK_ORDER,ANNOUNCEMENT",
       ),
+      { params: Promise.resolve({}) },
     );
     const json = await response.json();
 

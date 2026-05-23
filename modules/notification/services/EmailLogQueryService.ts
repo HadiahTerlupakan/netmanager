@@ -1,5 +1,8 @@
-import type { EmailDeliveryLog } from "@prisma/client";
 import { prisma } from "@/modules/database";
+import {
+  toEmailDeliveryLogDTO,
+  type EmailDeliveryLogDTO,
+} from "../dto/EmailDeliveryLogDTO";
 
 const SEARCH_MAX_LENGTH = 255;
 const DEFAULT_PAGE_SIZE = 50;
@@ -18,7 +21,7 @@ export interface EmailLogListParams {
 }
 
 export interface EmailLogListResult {
-  items: EmailDeliveryLog[];
+  items: EmailDeliveryLogDTO[];
   pagination: {
     page: number;
     limit: number;
@@ -48,6 +51,7 @@ export function normalizeEmailLogLimit(raw: string | null): number {
 /**
  * Ambil daftar log pengiriman email dengan filter & pagination.
  * Tenant filter di-spread agar non-super admin tidak akses tenant lain.
+ * Super admin lihat lintas-tenant → alamat email penerima dimask.
  */
 export async function listEmailDeliveryLogs(
   params: EmailLogListParams,
@@ -83,7 +87,9 @@ export async function listEmailDeliveryLogs(
   ]);
 
   return {
-    items,
+    items: items.map((item) =>
+      toEmailDeliveryLogDTO(item, { maskRecipient: isSuperAdmin }),
+    ),
     pagination: {
       page,
       limit,

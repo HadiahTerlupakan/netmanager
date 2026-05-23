@@ -16,7 +16,7 @@ export class AttendanceSettingsService {
   }
 
   /** Find multiple attendance-related settings. */
-  async findManyByKeys(keys: string[]) {
-    return this.settingsRepository.findManyByKeys(keys);
+  async findManyByKeys(keys: string[], tenantId?: string) {
+    return this.settingsRepository.findManyByKeys(keys, tenantId);
   }
 }

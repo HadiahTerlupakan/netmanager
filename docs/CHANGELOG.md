@@ -45,6 +45,48 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Refactor & hardening modul notification (P0–P2)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/notification`, `modules/pelanggan`, `modules/attendance`, `app/api/notifications`, `app/api/admin/notifications/monitoring`, `app/api/cron/cleanup-notification-logs`, `lib/api/handler.ts`
+- **Author**: agent
+- **Deskripsi**: Hasil review komprehensif modul notification — perbaikan pelanggaran dependency rule, module boundary, race condition, multi-tenant isolation, dan inkonsistensi pola route.
+  - **P0-1**: `channel-router.ts` tidak lagi query Prisma langsung dan tidak lagi cross-module access ke tabel `pelanggan`. Diperkenalkan port `IPelangganContactPort` di `modules/notification/domain/ports` + adapter `PelangganContactService` yang diekspos via `modules/pelanggan/index.ts`. `resolveCustomerContact` menerima port via DI (default = adapter).
+  - **P0-2**: `DeadLetterService` tidak lagi bypass repository. Direfactor menjadi class `DeadLetterService` (DI repo + dispatcher factory) dengan backward-compatible function exports. Sekaligus memperbaiki **P1-9** race condition pada `retryDeadLetter`/`resolveDeadLetter` melalui atomic conditional update `markResolvedIfPending` di `NotificationDeadLetterRepository`.
+  - **P0-3**: Hapus `NotificationReadService.ts` (duplikat `NotificationService.ts`). `modules/notification/api.ts` migrasi ke `NotificationService` langsung.
+  - **P0-4**: `AnnouncementService.getMobileAnnouncements` tidak lagi bypass injected repository. Ditambahkan method `findMobileItems` di `IAnnouncementRepository` + entity `AnnouncementMobileItemEntity`.
+  - **P0-5**: Hapus export `EmailDeliveryLogRepository` dan `NotificationDeadLetterRepository` dari public API modul (`index.ts`) — repository tidak boleh jadi public boundary.
+  - **P1-2**: `ExpoPushService.sendPushToDepartment` filter `pushToken` null sebelum kirim ke Expo (hindari kirim token null).
+  - **P1-4**: `WhatsAppService` menerima `tenantId` via constructor; `findManyByKeys` di `AttendanceSettingsService`/`SettingsRepository`/`ISettingsRepository` menerima param `tenantId` opsional → mencegah cross-tenant credential leak untuk WhatsApp API key/Wablas device. `NotificationDispatcher.sendWhatsApp` mem-pass `contact.tenantId`.
+  - **P1-5**: Route `app/api/admin/notifications/monitoring` migrasi dari `ensureAdminAccess` ke `createHandler({ auth: true, permissions: ["notifications:read"] })`.
+  - **P1-6/7**: Route `app/api/notifications/route.ts`, `[id]/route.ts`, `[id]/read/route.ts`, `unread-count/route.ts` migrasi penuh ke `createHandler` + `apiSuccess/ApiErrors`. `unread-count` tidak lagi swallow error menjadi `count: 0`.
+  - **P1-8**: `PushRetryQueue` mendapatkan `requeueStuckProcessingItems(thresholdMs)` untuk pemulihan item yang macet di `RETRY_PROCESSING_KEY` (mis. crash setelah `rpoplpush` sebelum `removeProcessingItem`). Dipanggil dari cron `cleanup-notification-logs`.
+  - **P2**: hapus `validators/index.ts` kosong; magic number `100` ms di `whatsapp-sender.service.ts` jadi `BROADCAST_INTER_MESSAGE_DELAY_MS`; hapus empty `if (result.success) {}` di `whatsapp-service.ts` (`sendMessage`/`sendFile`); `notifyHolidayCreated` pakai chunked batching (50 per batch) untuk menghindari connection pool exhaustion.
+  - **Bug fix bonus**: `lib/api/handler.ts` tidak meneruskan `departmentId` dari NextAuth session ke `ctx.session.user.departmentId` — diperbaiki agar route yang butuh departmentId-aware scoping berfungsi. Tipe `HandlerContext.session.user` ditambahkan `departmentId?: string`.
+- **Files**: `modules/notification/services/{channel-router,DeadLetterService,NotificationDispatcher,NotificationService,AnnouncementService,ExpoPushService,PushRetryQueue,whatsapp-sender.service,whatsapp/whatsapp-service,whatsapp/whatsapp-throttler}.ts`, `modules/notification/repositories/{NotificationDeadLetterRepository,AnnouncementRepository}.ts`, `modules/notification/domain/{entities/AnnouncementEntity,ports/IAnnouncementRepository,ports/IPelangganContactPort}.ts`, `modules/notification/{api,index}.ts`, `modules/pelanggan/{index.ts,services/PelangganContactService.ts}`, `modules/attendance/{services/AttendanceSettingsService,repositories/SettingsRepository,domain/ports/ISettingsRepository}.ts`, `app/api/notifications/{route,[id]/route,[id]/read/route,unread-count/route}.ts`, `app/api/admin/notifications/monitoring/route.ts`, `app/api/cron/cleanup-notification-logs/route.ts`, `lib/api/handler.ts`, `tests/api/notifications-{route,unread-count-route}.test.ts`
+- **Breaking**: ❌ Tidak (backward-compatible — function exports `listNotificationDeadLetters/resolveDeadLetter/retryDeadLetter` tetap, signature `findManyByKeys` tambah param opsional)
+
+### [2026-05-23] — Tenant isolation hardening: bypass, cross-check, namespace cache/rate-limit/upload
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`, `modules/network`, `modules/notification`, `app/api/upload`, `app/api/admin/profile/photo`, `app/api/admin/attendance`, `app/api/map/upload`, `app/api/mobile`
+- **Author**: agent
+- **Deskripsi**: Lima perbaikan keamanan multi-tenant. (1) **IS_CUSTOM_SERVER bypass**: `getTenantIdFromContext()` tidak lagi otomatis mengembalikan `isSuperAdmin: true` ketika dipanggil dari custom server tanpa request context — sebelumnya setiap handler Socket.IO/cron yang lupa wrap konteks otomatis berjalan lintas tenant. Default kini fail-closed; tambah utilitas eksplisit `runAsSystemContext(reason, fn)` yang wajib dipakai oleh kode background, dengan logging untuk audit. Cron registry, RadiusMonitor, MikroTikMonitor, mikrotik-ping-check, OLT monitoring, PushRetryQueue, outbox processor, dan BullMQ workers diperbarui agar wrap konteks secara eksplisit. (2) **Session/host cross-check**: setelah resolve tenant dari NextAuth/mobile JWT/investor cookie/customer cookie, divalidasi terhadap tenant dari host (subdomain/custom domain). Jika user tenant A mengakses domain tenant B dan bukan superadmin → context dikosongkan (fail-closed) untuk mencegah confused-deputy attack. (3) **Cache key tenant namespace**: `lib/cache.ts` menambah API tenant-aware (`tenantCacheKey`, `globalCacheKey`, `setForTenant`, `getForTenant`, `invalidateTenant`) sehingga konsumen tidak lagi berbagi bucket lintas tenant untuk key generik. (4) **Redis rate limit**: `checkRateLimit`/`checkDelay` kini wajib menerima `tenantId` (atau `null` → bucket "global"); ditambah opsi `failClosed` untuk endpoint sensitif (`RateLimits.LOGIN`) agar Redis outage tidak membuka jalan brute-force lintas tenant. (5) **Upload path tenant namespace**: helper `buildTenantUploadDir()` menyisipkan segmen `tenants/{tenantId}/` ke `public/uploads/...` dan dipakai di endpoint upload generic, profile photo (admin & mobile), map upload, chat upload, attendance correction, dan overtime — mencegah collision filename serta akses lintas tenant via static URL.
+- **Files**:
+  - `lib/tenant-context.ts` (`runAsSystemContext`, `enforceSessionHostMatch`, fail-closed default)
+  - `lib/cron-registry.ts` (`runCronTask` wrapper untuk semua cron callback)
+  - `lib/event-bus/workers.ts` (`withTenantContext` BullMQ adapter)
+  - `lib/event-bus/outbox-processor.ts` (wrap polling dengan `runAsSystemContext`)
+  - `lib/event-bus/index.ts` (rehydrate jobs di system context)
+  - `lib/redis.ts` (`checkRateLimit`/`checkDelay` namespace + `failClosed`)
+  - `lib/middleware/rate-limit.ts` (forward tenantId & failClosed; `RateLimits.LOGIN.failClosed: true`)
+  - `lib/cache.ts` (`tenantCacheKey`, `globalCacheKey`, `setForTenant`, `getForTenant`, `invalidateTenant`)
+  - `lib/upload/upload-policy.ts` (`buildTenantUploadDir`, `sanitizeTenantUploadSegment`)
+  - `modules/network/services/{RadiusMonitor,MikroTikMonitor,mikrotik-ping-check}.ts` (per-tenant context loop)
+  - `modules/notification/services/PushRetryQueue.ts` (system context untuk processor)
+  - `app/api/upload/route.ts`, `app/api/admin/profile/photo/route.ts`, `app/api/mobile/profile/photo/route.ts`, `app/api/admin/attendance/[id]/correct-missed-checkin/route.ts`, `app/api/map/upload/route.ts`, `app/api/mobile/chat/upload/route.ts`, `app/api/mobile/overtime/route.ts` (tenant-namespaced upload dir)
+- **Breaking**: ✅ Ya — (a) `checkRateLimit`/`checkDelay` di `lib/redis.ts` mengubah signature: parameter ke-4 berupa `RateLimitOptions { tenantId: string | null, failClosed?: boolean }`. Pemanggil di luar `lib/middleware/rate-limit.ts` perlu disesuaikan. (b) Path upload pindah dari `public/uploads/{folder}/...` ke `public/uploads/tenants/{tenantId}/{folder}/...` untuk endpoint yang dimigrasi — file yang sudah ada di path lama tetap dapat diakses (tidak dipindah otomatis), tetapi upload baru memakai struktur baru. (c) Custom server entrypoint yang query Prisma harus eksplisit `runAsSystemContext()` atau `runWithRequestTenantContext()` — fail-closed jika tidak.
+
 ### [2026-05-23] — Procurement: API listing PR + batch generate PO from PR
 
 - **Tipe**: [ADDED]
@@ -65,12 +107,12 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - `app/api/admin/procurement/purchase-orders/from-pr/route.ts` (NEW)
 - **Breaking**: ❌ Tidak
 
-### [2026-05-23] — Hardening sistem email: tenant isolation, klasifikasi error, DTO masking
+### [2026-05-23] — Hardening sistem email: tenant isolation, klasifikasi error, dedup, DTO masking
 
 - **Tipe**: [FIXED]
 - **Scope**: `modules/notification`, `modules/settings`, `app/api/admin/settings/email`, `app/api/admin/notifications/email-logs`
 - **Author**: agent
-- **Deskripsi**: Audit menyeluruh review sistem email + fix 10 issue prioritas tinggi.
+- **Deskripsi**: Audit menyeluruh review sistem email + fix 15 issue (10 prioritas tinggi + 5 medium/low).
   Perbaikan utama:
   1. **Tenant isolation kritis** — `EmailService.loadConfig` query Settings tanpa filter `tenantId` sehingga config SMTP antar-tenant bisa saling overwrite. Dipindah pakai `getTenantSettingsMap(tenantId, EMAIL_SETTINGS_FIELDS)` dan `tenantId` jadi parameter wajib di `SendEmailParams`.
   2. **Konsolidasi transporter** — duplikasi `nodemailer.createTransport` di `emailSettings.helpers` dihapus; `testEmailSettings` sekarang delegate ke `EmailService.testWithConfig`.
@@ -81,19 +123,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   7. **Permission check konsisten** — semua API email pakai `createHandler({ permissions: ['email:read'/'email:update'] })` deklaratif.
   8. **Constructor injection** — `EmailService` terima `EmailDeliveryLogRepository` via constructor untuk testability.
   9. **BOUNCED dead code** — `markBounced()` dihapus (tidak ada caller). Kolom `bouncedAt` di schema dibiarkan untuk migrasi terpisah.
-  10. **Attachment size guard** — limit 10 MB total per email.
+  10. **Attachment size guard** — limit 10 MB total per email + per-attachment guard, error message spesifik nama file pelanggar.
+  11. **Konstanta `TEST_EMAIL_SUBJECT` + helper `buildTestEmailPayload`** — dipakai bersama `testConnection` & `testWithConfig`, hilangkan duplikasi subject string.
+  12. **Port parsing tervalidasi** — `parseSmtpPort` dengan `radix=10`, NaN check, dan bound check (1-65535).
+  13. **JSDoc boundary type** — `EmailConfig` (runtime: port number, password decrypted) vs `EmailSettingsPayload` (boundary: port string) di-dokumentasi pemisahannya.
+  14. **Dedup per recipient** — `SendEmailParams.dedupeWindowMs` baru: cek `EmailDeliveryLog` untuk recipient+subject yang sudah `SENT`/`PENDING` dalam window waktu, skip kalau ada. `NotificationDispatcher` aktifkan default 5 menit untuk billing email — cegah scheduler/event handler trigger ulang.
+  15. **`SendEmailResult.deduped`** — flag baru untuk caller bedakan skip-dedup vs error.
 - **Files**:
-  - `modules/notification/services/email-service.ts` (rewrite)
+  - `modules/notification/services/email-service.ts` (rewrite + dedup + attachment guard)
   - `modules/notification/services/email-error-classifier.ts` (new)
   - `modules/notification/services/EmailLogQueryService.ts` (return DTO)
-  - `modules/notification/services/NotificationDispatcher.ts` (forward tenantId, kirim text)
-  - `modules/notification/repositories/EmailDeliveryLogRepository.ts` (signature markFailed + remove markBounced)
+  - `modules/notification/services/NotificationDispatcher.ts` (forward tenantId, kirim text, aktifkan dedup 5 menit)
+  - `modules/notification/repositories/EmailDeliveryLogRepository.ts` (signature `markFailed` + `hasRecentDelivery` + remove `markBounced`)
   - `modules/notification/dto/EmailDeliveryLogDTO.ts` (new)
-  - `modules/notification/templates/billing-templates.ts` (EmailContent.html optional)
+  - `modules/notification/templates/billing-templates.ts` (`EmailContent.html` optional)
   - `modules/notification/index.ts` (re-exports)
-  - `modules/settings/services/emailSettings.ts` (delegate ke EmailService)
+  - `modules/settings/services/emailSettings.ts` (delegate ke `EmailService`)
   - `modules/settings/services/emailSettings.helpers.ts` (cleanup transporter dupe)
-  - `modules/settings/index.ts` (export EMAIL_SETTINGS_FIELDS)
+  - `modules/settings/index.ts` (export `EMAIL_SETTINGS_FIELDS`)
   - `modules/inventory/services/inventory-restock-check.helpers.ts` (pass tenantId)
   - `app/api/admin/settings/email/route.ts` & `test/route.ts` (permissions deklaratif)
   - `tests/modules/notification/repositories/EmailDeliveryLogRepository.test.ts` (sesuaikan signature)

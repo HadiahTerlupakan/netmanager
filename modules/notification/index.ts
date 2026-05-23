@@ -57,6 +57,12 @@ export {
   type EmailLogListResult,
 } from "./services/EmailLogQueryService";
 export {
+  maskEmailAddress,
+  toEmailDeliveryLogDTO,
+  type EmailDeliveryLogDTO,
+  type EmailLogStatus,
+} from "./dto/EmailDeliveryLogDTO";
+export {
   cleanupExpiredNotificationLogs,
   NOTIFICATION_LOGS_CLEANUP_CONFIG,
   type NotificationLogsCleanupResult,
@@ -84,13 +90,21 @@ export {
   type SendEmailResult,
 } from "./services/email-service";
 export {
+  classifyEmailError,
+  type EmailErrorCategory,
+  type ClassifiedEmailError,
+} from "./services/email-error-classifier";
+export {
   sendCustomerPushNotification,
   sendPushNotification,
   sendPushToUsers,
   sendPushForNotification,
   sendPushToDepartment,
 } from "./services/ExpoPushService";
-export { enqueuePushRetry } from "./services/PushRetryQueue";
+export {
+  enqueuePushRetry,
+  requeueStuckProcessingItems,
+} from "./services/PushRetryQueue";
 export { WhatsAppService } from "./services/whatsapp/whatsapp-service";
 export { NotificationDispatcher } from "./services/NotificationDispatcher";
 export type {
@@ -135,16 +149,6 @@ export {
   SendWhatsAppMessageSchema,
   BroadcastWhatsAppMessageSchema,
 } from "./dto/send-whatsapp-message.dto";
-
-// Phase 8 Observability — repositories
-export {
-  EmailDeliveryLogRepository,
-  type EmailLogCreateInput,
-} from "./repositories/EmailDeliveryLogRepository";
-export {
-  NotificationDeadLetterRepository,
-  type DeadLetterInput,
-} from "./repositories/NotificationDeadLetterRepository";
 
 // Event handlers — exposed via public API supaya lib/event-bus tidak
 // import path internal services/.

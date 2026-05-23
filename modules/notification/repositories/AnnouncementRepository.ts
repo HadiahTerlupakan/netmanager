@@ -32,6 +32,21 @@ export class AnnouncementRepository implements IAnnouncementRepository {
     });
   }
 
+  /** Ambil daftar announcement aktif untuk mobile portal user. */
+  findMobileItems(where: AnnouncementRepositoryWhere) {
+    return prisma.announcement.findMany({
+      where: where as Prisma.AnnouncementWhereInput,
+      orderBy: DEFAULT_ANNOUNCEMENT_ORDER,
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        isPinned: true,
+        createdAt: true,
+      },
+    });
+  }
+
   /** Membuat announcement baru. */
   create(data: AnnouncementCreateRepositoryInput) {
     return prisma.announcement.create({

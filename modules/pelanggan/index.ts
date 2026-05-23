@@ -60,6 +60,11 @@ export { CustomerDashboardService } from "./services/dashboard/CustomerDashboard
 export { PelangganBillingBridgeService } from "./services/PelangganBillingBridgeService";
 export { PelangganPushTokenService } from "./services/PelangganPushTokenService";
 export {
+  PelangganContactService,
+  pelangganContactService,
+  type PelangganContactSnapshot,
+} from "./services/PelangganContactService";
+export {
   CustomerNotificationService,
   getCustomerNotificationService,
 } from "./services/CustomerNotificationService";

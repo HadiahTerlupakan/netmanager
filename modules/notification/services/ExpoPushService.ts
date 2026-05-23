@@ -247,15 +247,21 @@ export async function sendPushToDepartment(
   try {
     const users =
       await getUserRepo().findManyByDepartmentWithPushToken(departmentId);
-    if (users.length === 0) return 0;
-    const messages: ExpoPushMessage[] = users.map(
-      (user: { id: string; pushToken: string | null }) =>
-        createExpoPushMessage({ token: user.pushToken!, title, body, data }),
+    const usersWithToken = users.filter(
+      (user: {
+        id: string;
+        pushToken: string | null;
+      }): user is { id: string; pushToken: string } =>
+        user.pushToken !== null && user.pushToken.length > 0,
+    );
+    if (usersWithToken.length === 0) return 0;
+    const messages: ExpoPushMessage[] = usersWithToken.map((user) =>
+      createExpoPushMessage({ token: user.pushToken, title, body, data }),
     );
     const { success, failedTokens } = await sendExpoPush(messages);
     if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
-    return users.length - failedTokens.length;
+    return usersWithToken.length - failedTokens.length;
   } catch (error) {
     logger.error("[Push] Error sending to department:", error);
     return 0;

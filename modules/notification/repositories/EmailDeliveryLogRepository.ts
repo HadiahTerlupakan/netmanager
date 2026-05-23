@@ -1,12 +1,13 @@
 import { prisma } from "@/modules/database";
+import type { EmailErrorCategory } from "../services/email-error-classifier";
 
 export interface EmailLogCreateInput {
   to: string;
   subject: string;
-  tenantId?: string | null;
+  tenantId: string | null;
 }
 
-/** Repository untuk log pengiriman email (PENDING → SENT/FAILED/BOUNCED tracking). */
+/** Repository untuk log pengiriman email (PENDING → SENT/FAILED tracking). */
 export class EmailDeliveryLogRepository {
   /** Buat log baru dengan status PENDING, return id untuk update selanjutnya. */
   async logAttempt(input: EmailLogCreateInput): Promise<string> {
@@ -15,7 +16,7 @@ export class EmailDeliveryLogRepository {
         to: input.to,
         subject: input.subject,
         status: "PENDING",
-        tenantId: input.tenantId ?? null,
+        tenantId: input.tenantId,
       },
     });
     return log.id;
@@ -33,19 +34,43 @@ export class EmailDeliveryLogRepository {
     });
   }
 
-  /** Tandai pengiriman gagal, simpan pesan error. */
-  async markFailed(id: string, error: string): Promise<void> {
+  /**
+   * Tandai pengiriman gagal. Pesan error disanitasi pemanggil; kategori
+   * di-prefix ke string `error` agar tidak butuh migration kolom baru.
+   * Format: `[CATEGORY] safe message`.
+   */
+  async markFailed(
+    id: string,
+    safeMessage: string,
+    category: EmailErrorCategory,
+  ): Promise<void> {
     await prisma.emailDeliveryLog.update({
       where: { id },
-      data: { status: "FAILED", error },
+      data: { status: "FAILED", error: `[${category}] ${safeMessage}` },
     });
   }
 
-  /** Tandai email bounced (dipanggil dari webhook provider). */
-  async markBounced(id: string): Promise<void> {
-    await prisma.emailDeliveryLog.update({
-      where: { id },
-      data: { status: "BOUNCED", bouncedAt: new Date() },
+  /**
+   * Cek apakah ada email dengan to+subject yang sudah SENT/PENDING dalam window
+   * waktu tertentu. Dipakai sebagai dedup guard untuk cegah double-send akibat
+   * scheduler/event handler yang ter-trigger berulang.
+   */
+  async hasRecentDelivery(input: {
+    to: string;
+    subject: string;
+    tenantId: string | null;
+    sinceMs: number;
+  }): Promise<boolean> {
+    const since = new Date(Date.now() - input.sinceMs);
+    const count = await prisma.emailDeliveryLog.count({
+      where: {
+        to: input.to,
+        subject: input.subject,
+        tenantId: input.tenantId,
+        status: { in: ["SENT", "PENDING"] },
+        createdAt: { gte: since },
+      },
     });
+    return count > 0;
   }
 }

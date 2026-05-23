@@ -1,4 +1,6 @@
-import { prisma } from "@/lib/prisma";
+import { pelangganContactService } from "@/modules/pelanggan/services/PelangganContactService";
+
+import type { IPelangganContactPort } from "../domain/ports/IPelangganContactPort";
 
 export interface CustomerContact {
   userId: string | null;
@@ -13,29 +15,18 @@ export interface CustomerContact {
 /** Resolve informasi kontak pelanggan untuk dispatch notifikasi. */
 export async function resolveCustomerContact(
   pelangganId: string,
+  contactPort: IPelangganContactPort = pelangganContactService,
 ): Promise<CustomerContact | null> {
-  const pelanggan = await prisma.pelanggan.findUnique({
-    where: { id: pelangganId },
-    select: {
-      id: true,
-      nama: true,
-      userId: true,
-      email: true,
-      noTelp: true,
-      isBillNotifEnabled: true,
-      tenantId: true,
-    },
-  });
-
-  if (!pelanggan) return null;
+  const contact = await contactPort.findContactById(pelangganId);
+  if (!contact) return null;
 
   return {
-    userId: pelanggan.userId,
-    customerId: pelanggan.id,
-    customerName: pelanggan.nama,
-    email: pelanggan.email,
-    noTelp: pelanggan.noTelp,
-    isBillNotifEnabled: pelanggan.isBillNotifEnabled,
-    tenantId: pelanggan.tenantId,
+    userId: contact.userId,
+    customerId: contact.customerId,
+    customerName: contact.customerName,
+    email: contact.email,
+    noTelp: contact.noTelp,
+    isBillNotifEnabled: contact.isBillNotifEnabled,
+    tenantId: contact.tenantId,
   };
 }

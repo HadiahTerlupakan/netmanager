@@ -20,10 +20,15 @@ export class SettingsRepository implements ISettingsRepository {
 
   /**
    * Find multiple settings by an array of keys.
+   * Saat tenantId diisi, hasil dibatasi ke tenant tersebut untuk mencegah
+   * cross-tenant credential leak (mis. SMTP/WhatsApp API key per-tenant).
    */
-  async findManyByKeys(keys: string[]) {
+  async findManyByKeys(keys: string[], tenantId?: string) {
     const settings = await prisma.settings.findMany({
-      where: { key: { in: keys } },
+      where: {
+        key: { in: keys },
+        ...(tenantId ? { tenantId } : {}),
+      },
     });
 
     return settings.map(toSettingEntity);
