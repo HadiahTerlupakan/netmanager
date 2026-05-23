@@ -78,7 +78,7 @@ export default function OltOnuListClient() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const res = await fetch("/api/olt/devices?status=ACTIVE&limit=200");
+      const res = await fetch("/api/olt/devices?status=ACTIVE&limit=100");
       const json = await res.json();
       if (cancelled) return;
       if (json.success) {
