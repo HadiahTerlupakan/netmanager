@@ -1,6 +1,7 @@
 export * from "./JoinboxEntity";
 export * from "./KmzEntity";
 export * from "./MikroTikRouterEntity";
+export * from "./AccelPppServerEntity";
 export * from "./MobileTopologyEntity";
 export * from "./DeviceBackupEntity";
 export * from "./NetworkAlertEntity";

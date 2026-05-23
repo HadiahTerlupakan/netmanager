@@ -1,0 +1,54 @@
+# /etc/freeradius/3.0/policy.d/per-nas-routing
+#
+# Policy unlang yang dipanggil dari `post-auth` di sites-available/default.
+# Tujuan: inject reply attribute yang berbeda tergantung huntgroup
+# asal Access-Request.
+#
+# Asumsi:
+#   - Profile pelanggan menyimpan rate-limit di radreply sebagai
+#     `Mikrotik-Rate-Limit` (untuk MikroTik). Kalau sudah ada lewat
+#     query SQL standard, biarkan—policy ini hanya menambah attribute
+#     untuk accel-ppp yang TIDAK kompatibel format MikroTik.
+#   - Untuk accel-ppp dipakai `Filter-Id` (atau attribute akhir custom)
+#     dengan format yang dimengerti `pppd` shaper accel-ppp.
+#
+# Aktifkan dengan menambahkan baris berikut di sites-available/default:
+#
+#   post-auth {
+#     ...
+#     per-nas-routing
+#     ...
+#   }
+
+per-nas-routing {
+    if (Huntgroup-Name == "accel_ppp") {
+        # Salin Mikrotik-Rate-Limit ke Filter-Id supaya accel-ppp
+        # bisa pakai shaper format-nya sendiri.
+        if (&reply:Mikrotik-Rate-Limit) {
+            update reply {
+                Filter-Id := &reply:Mikrotik-Rate-Limit
+            }
+            # Hapus attribute spesifik MikroTik supaya tidak bocor ke accel-ppp.
+            update reply {
+                Mikrotik-Rate-Limit !* ANY
+            }
+        }
+        # Optional: framed protocol explicit untuk PPPoE
+        update reply {
+            Service-Type := Framed-User
+            Framed-Protocol := PPP
+        }
+    }
+    elsif (Huntgroup-Name == "mikrotik") {
+        # MikroTik sudah dapat Mikrotik-Rate-Limit dari radreply standard.
+        # Tidak perlu inject tambahan—tetap di sini untuk future proofing.
+        noop
+    }
+    else {
+        # NAS tidak terdaftar di huntgroups → log saja, jangan reject.
+        # Reject baru terjadi kalau secret di tabel `nas` mismatch.
+        update reply {
+            Reply-Message += "NAS-IP %{NAS-IP-Address} tidak terdaftar di huntgroups"
+        }
+    }
+}

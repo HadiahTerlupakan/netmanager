@@ -93,6 +93,11 @@ export {
 } from "./constants/secretConstants";
 export { getPppConnectionMode } from "./services/pppConnectionModeSettings";
 export {
+  getFullRadiusMode,
+  setFullRadiusMode,
+  FULL_RADIUS_MODE_KEY,
+} from "./services/fullRadiusModeSettings";
+export {
   GeminiOcrService,
   resolveGeminiMimeType,
 } from "./services/GeminiOcrService";

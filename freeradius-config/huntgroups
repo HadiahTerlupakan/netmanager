@@ -1,0 +1,16 @@
+# /etc/freeradius/3.0/huntgroups
+#
+# Mapping NAS-IP → group untuk per-NAS routing reply attribute.
+# Update setiap kali ada router MikroTik / server accel-ppp baru.
+#
+# Format:
+#   <groupname>    NAS-IP-Address == <ip-nas>
+#
+# Contoh template — sesuaikan IP dengan inventaris NAS Anda.
+
+mikrotik     NAS-IP-Address == 10.0.0.1
+mikrotik     NAS-IP-Address == 10.0.0.2
+mikrotik     NAS-IP-Address == 10.0.0.3
+
+accel_ppp    NAS-IP-Address == 10.10.0.1
+accel_ppp    NAS-IP-Address == 10.10.0.2

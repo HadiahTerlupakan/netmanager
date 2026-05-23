@@ -1,6 +1,7 @@
 export * from "./IJoinboxRepository";
 export * from "./IKmzRepository";
 export * from "./IMikroTikRouterRepository";
+export * from "./IAccelPppServerRepository";
 export * from "./IMobileTopologyRepository";
 export * from "./IDeviceBackupRepository";
 export * from "./INetworkAlertRepository";

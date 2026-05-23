@@ -1,0 +1,28 @@
+cpu: 4%
+mem(rss/virt): 18532/89344 kb
+core:
+  mempool_allocated: 1245184
+  mempool_available: 1048576
+  thread_count: 8
+  thread_active: 2
+  context_count: 12
+  context_sleeping: 0
+  context_pending: 0
+  md_handler_count: 64
+  md_handler_pending: 0
+  timer_count: 8
+  timer_pending: 0
+sessions:
+  starting: 0
+  active: 2
+  finishing: 0
+pppoe:
+  starting: 0
+  active: 2
+  delayed PADO: 0
+  recv:
+    PADI: 154
+    PADR: 87
+  sent:
+    PADO: 154
+    PADS: 87

@@ -1,0 +1,5 @@
+ifname | username      | calling-sid       | ip            | rate-limit  | type  | comp | state  | uptime
+-------+---------------+-------------------+---------------+-------------+-------+------+--------+----------
+ppp0   | budi.santoso  | aa:bb:cc:dd:ee:01 | 10.10.0.12    | 10240/10240 | pppoe |      | active | 02:14:33
+ppp1   | siti.rahayu   | aa:bb:cc:dd:ee:02 | 10.10.0.18    | 5120/5120   | pppoe |      | active | 00:42:09
+ppp2   | andi.wijaya   | aa:bb:cc:dd:ee:03 | 10.10.0.31    | 20480/20480 | pppoe |      | start  | 00:00:04

@@ -5,6 +5,7 @@ export const PERMISSION_GROUPS = {
     "map",
     "mikrotik",
     "radius",
+    "accel_ppp",
     "acs_dashboard",
     "acs_mapping",
     "acs_devices",
@@ -218,6 +219,9 @@ export const GRANULAR_PERMISSIONS = {
 
   // MixRadius sensitive operations
   MIXRADIUS_SYNC: "mixradius:calculate", // Manual sync MixRadius data to local DB
+
+  // Accel-PPP sensitive operations
+  ACCEL_PPP_SESSION_KICK: "accel_ppp:session:kick", // Putuskan sesi PPPoE aktif
 } as const;
 
 export type GranularPermission =

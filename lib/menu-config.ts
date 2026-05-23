@@ -79,6 +79,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineServer",
       },
       {
+        code: "NETWORK.ACCEL_PPP",
+        name: "Accel-PPP",
+        path: "/admin/network/accel-ppp",
+        icon: "HiOutlineCpuChip",
+      },
+      {
         code: "NETWORK.RADIUS",
         name: "RADIUS",
         path: "/admin/network/radius",

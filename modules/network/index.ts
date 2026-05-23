@@ -67,6 +67,45 @@ export {
   networkPerformanceQuerySchema,
 } from "./validation";
 export * from "./domain/errors/RouterErrors";
+export * from "./domain/errors/AccelPppErrors";
+
+// Accel-PPP module — Public API
+export type {
+  AccelPppServerCreateData,
+  AccelPppServerEntity,
+  AccelPppServerFilters,
+  AccelPppServerStatusUpdate,
+  AccelPppServerUpdateData,
+} from "./domain/entities/AccelPppServerEntity";
+export type { IAccelPppServerRepository } from "./domain/ports/IAccelPppServerRepository";
+export {
+  accelPppServerCreateSchema,
+  accelPppServerUpdateSchema,
+  accelPppServerIdParamSchema,
+  accelPppKickParamSchema,
+  accelPppServerListQuerySchema,
+} from "./validators/accelPppServer";
+export type {
+  AccelPppServerCreateInput,
+  AccelPppServerUpdateInput,
+  AccelPppServerListQuery,
+} from "./validators/accelPppServer";
+export { AccelPppCliClient } from "./services/accel-ppp/AccelPppCliClient";
+export type { AccelPppCliClientOptions } from "./services/accel-ppp/AccelPppCliClient";
+export { AccelPppServerService } from "./services/accel-ppp/AccelPppServerService";
+export type {
+  AccelPppCliClientFactory,
+  KickResult,
+} from "./services/accel-ppp/AccelPppServerService";
+export type {
+  AccelPppSessionDTO,
+  AccelPppStatDTO,
+} from "./services/accel-ppp/parsers";
+export { AccelPppMonitor } from "./services/accel-ppp/AccelPppMonitor";
+export type {
+  AccelPppMonitorCliFactory,
+  AccelPppMonitorRunResult,
+} from "./services/accel-ppp/AccelPppMonitor";
 
 // Event handlers — exposed via public API supaya lib/event-bus tidak
 // import path internal services/.

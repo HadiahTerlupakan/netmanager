@@ -1,0 +1,2 @@
+ifname | username | calling-sid       | ip            | rate-limit | type  | comp | state  | uptime
+-------+----------+-------------------+---------------+------------+-------+------+--------+-------

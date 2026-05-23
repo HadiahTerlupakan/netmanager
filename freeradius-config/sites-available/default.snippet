@@ -1,0 +1,15 @@
+# Cuplikan untuk /etc/freeradius/3.0/sites-available/default
+#
+# Tambahkan satu baris di blok `post-auth { ... }` yang sudah ada.
+# Jangan replace seluruh file `default`—biarkan baris-baris lain apa adanya.
+
+post-auth {
+    # ... baris standar yang sudah ada (sql, etc.) ...
+
+    # ↓ TAMBAHKAN BARIS INI tepat setelah `sql` (atau setelah lookup
+    #   reply attribute apapun yang Anda pakai), supaya policy ini
+    #   melihat &reply:Mikrotik-Rate-Limit yang sudah ter-set.
+    per-nas-routing
+
+    # ... sisa konfigurasi ...
+}
