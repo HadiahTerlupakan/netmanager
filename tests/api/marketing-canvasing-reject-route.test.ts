@@ -109,8 +109,13 @@ describe("POST /api/marketing/canvasing/[id]/reject", () => {
   });
 
   it("mengembalikan 400 ketika service reject gagal karena status bukan PENDING", async () => {
+    const { MarketingError } =
+      await import("@/modules/marketing/domain/errors/MarketingError");
     mockFns.rejectRequest.mockRejectedValue(
-      new Error("Hanya request PENDING yang bisa ditolak"),
+      new MarketingError(
+        "invalid_status",
+        "Hanya request PENDING yang bisa ditolak",
+      ),
     );
 
     const response = await POST(

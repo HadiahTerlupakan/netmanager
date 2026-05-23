@@ -1,30 +1,42 @@
 import { NextRequest } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
-import { createPointClaimService } from "@/modules/marketing";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import {
+  isPointClaimRouteFailure,
+  marketingPointClaimRouteService,
+  type PointClaimRouteFailure,
+} from "@/modules/marketing";
+import {
+  apiSuccess,
+  ApiErrors,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api-response";
+
+function mapClaimRouteFailure(result: PointClaimRouteFailure) {
+  if (result.status === 404) return ApiErrors.notFound(result.error);
+  if (result.status === 403) return ApiErrors.forbidden(result.error);
+  if (result.status === 400) {
+    return apiError(result.error, result.code ?? ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
+  }
+  return ApiErrors.internalError(result.error);
+}
 
 // GET - Get point summary for current user or specific sales
 export async function GET(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req);
-    if (!session) return ApiErrors.unauthorized("Session tidak valid");
+  const session = await verifyAuth(req);
+  if (!session) return ApiErrors.unauthorized("Session tidak valid");
 
-    const { searchParams } = new URL(req.url);
-    let salesId = searchParams.get("salesId") || session.id;
+  const { searchParams } = new URL(req.url);
+  const result = await marketingPointClaimRouteService.getSummary({
+    session,
+    permissions: await getUserPermissions(session.id),
+    isSuperAdmin: isSuperAdminRole(session.role),
+    salesId: searchParams.get("salesId") ?? undefined,
+  });
 
-    const isSuperAdmin = isSuperAdminRole(session.role);
-    if (!isSuperAdmin && salesId !== session.id) {
-      salesId = session.id;
-    }
-
-    const service = createPointClaimService();
-    const summary = await service.getPointSummary(salesId);
-
-    return apiSuccess(summary);
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Gagal mengambil summary points";
-    return ApiErrors.internalError(errorMessage);
-  }
+  if (isPointClaimRouteFailure(result)) return mapClaimRouteFailure(result);
+  return apiSuccess(result.data);
 }

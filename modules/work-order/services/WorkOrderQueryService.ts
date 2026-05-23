@@ -51,4 +51,14 @@ export class WorkOrderQueryService {
   addTask(data: Parameters<WorkOrderRepository["addTask"]>[0]) {
     return this.repository.addTask(data);
   }
+
+  /** Delete a work order — used for compensating rollbacks across domains. */
+  delete(id: string) {
+    return this.repository.delete(id);
+  }
+
+  /** Cancel a work order with a reason. */
+  cancel(id: string, reason: string, userId?: string) {
+    return this.repository.cancel(id, reason, userId);
+  }
 }

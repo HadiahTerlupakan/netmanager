@@ -4,20 +4,29 @@ import type {
   CanvasingEntity,
 } from "../domain/entities/CanvasingEntity";
 import type { ICanvasingRepository } from "../domain/ports/ICanvasingRepository";
-import { prismaAuth } from "@/modules/database";
+import { prisma } from "@/modules/database";
+import { MarketingError } from "../domain/errors/MarketingError";
 
 export const NORMAL_PRIORITY = "NORMAL" as const;
 export const INSTALLATION_TYPE = "INSTALLATION" as const;
 export const PENDING_STATUS = "PENDING" as const;
 export const APPROVED_STATUS = "APPROVED" as const;
 export const REJECTED_STATUS = "REJECTED" as const;
+const TECHNICAL_DEPARTMENT_CANDIDATES = [
+  "Technical",
+  "Teknik",
+  "Teknisi",
+  "Engineering",
+];
 
 /**
- * Get Technical department ID based on site's tenantId.
- * INSTALLATION work orders should be routed to Technical department.
+ * Resolve Technical department id untuk INSTALLATION work order.
  *
- * Uses prismaAuth to bypass tenant isolation since we need to query
- * departments across tenants based on the site's tenantId.
+ * Why: nama departemen tidak punya kolom type/tag, sementara tenant Indonesia
+ * sering pakai "Teknik" atau "Teknisi" alih-alih "Technical". Pencarian
+ * case-insensitive multi-kandidat lebih robust dibanding literal exact match
+ * yang sebelumnya membuat WO tidak mendapat departmentId untuk tenant
+ * non-English.
  */
 async function getTechnicalDepartmentId(
   siteId: string | undefined,
@@ -26,19 +35,11 @@ async function getTechnicalDepartmentId(
     return undefined;
   }
 
-  const site = await prismaAuth.sites.findUnique({
-    where: { id: siteId },
-    select: { tenantId: true },
-  });
-
-  if (!site?.tenantId) {
-    return undefined;
-  }
-
-  const technicalDept = await prismaAuth.departments.findFirst({
+  const technicalDept = await prisma.departments.findFirst({
     where: {
-      name: "Technical",
-      tenantId: site.tenantId,
+      OR: TECHNICAL_DEPARTMENT_CANDIDATES.map((name) => ({
+        name: { equals: name, mode: "insensitive" as const },
+      })),
     },
     select: { id: true },
   });
@@ -75,7 +76,7 @@ export async function requireCanvasing(
     return request;
   }
 
-  throw new Error("Request tidak ditemukan");
+  throw new MarketingError("not_found", "Request tidak ditemukan");
 }
 
 export async function requirePendingCanvasingForApproval(
@@ -84,7 +85,7 @@ export async function requirePendingCanvasingForApproval(
 ): Promise<CanvasingEntity> {
   const request = await repository.findByIdWithSales(id);
   if (!request) {
-    throw new Error("Request tidak ditemukan");
+    throw new MarketingError("not_found", "Request tidak ditemukan");
   }
 
   ensurePendingCanvasingStatus(request.status, "disetujui");
@@ -99,7 +100,10 @@ export function ensurePendingCanvasingStatus(
     return;
   }
 
-  throw new Error(`Hanya request PENDING yang bisa ${action}`);
+  throw new MarketingError(
+    "invalid_status",
+    `Hanya request PENDING yang bisa ${action}`,
+  );
 }
 
 export async function buildWorkOrderCreateInput(

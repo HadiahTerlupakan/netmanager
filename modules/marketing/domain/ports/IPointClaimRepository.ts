@@ -14,7 +14,7 @@ export interface CreatePointClaimInput {
 }
 
 export interface UpdatePointClaimInput {
-  status?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
   reviewedById?: string;
   reviewedAt?: Date;
   reviewNotes?: string;
@@ -28,6 +28,11 @@ export interface PointClaimFilters {
 }
 
 export interface IPointClaimRepository {
+  /** Create a new point claim and lock its canvasing atomically. */
+  createWithCanvasingLock(
+    data: CreatePointClaimInput,
+  ): Promise<PointClaimEntity>;
+
   /** Create a new point claim and return its domain entity. */
   create(data: CreatePointClaimInput): Promise<PointClaimEntity>;
 
@@ -58,6 +63,20 @@ export interface IPointClaimRepository {
 
   /** Delete a point claim by id. */
   delete(id: string): Promise<void>;
+
+  /** Mark all approved & not-cashed claims for the sales user as cashed out. */
+  markClaimsAsCashedOut(claimIds: string[]): Promise<void>;
+
+  /** Reject a pending point claim and unlock the canvasing atomically. */
+  rejectAndUnlock(input: {
+    id: string;
+    reviewerId: string;
+    reviewNotes: string;
+    canvasingId: string;
+  }): Promise<PointClaimEntity>;
+
+  /** Delete a pending claim and unlock its canvasing atomically. */
+  deleteAndUnlock(input: { id: string; canvasingId: string }): Promise<void>;
 
   /** Return point summary for a sales user. */
   getPointSummaryBySales(salesId: string): Promise<PointSummaryEntity>;

@@ -10,6 +10,7 @@ export interface CanvasingListFilters {
   salesId?: string;
   mitraId?: string;
   siteId?: string;
+  siteIds?: string[];
   search?: string;
 }
 

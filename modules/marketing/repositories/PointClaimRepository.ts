@@ -1,21 +1,19 @@
 import { Prisma, PointClaimStatus } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import { MarketingMapper } from "../mappers/MarketingMapper";
+import {
+  APPROVED_CLAIM_POINT,
+  COMPLETED_WORK_ORDER_STATUSES,
+  IN_PROGRESS_WORK_ORDER_STATUSES,
+  WO_COMPLETED_POINT,
+  WO_IN_PROGRESS_POINT,
+} from "../config/marketing-points";
 import type {
   IPointClaimRepository,
   CreatePointClaimInput,
   UpdatePointClaimInput,
   PointClaimFilters,
 } from "../domain/ports/IPointClaimRepository";
-
-const WO_IN_PROGRESS_POINT = 5;
-const WO_COMPLETED_POINT = 3;
-const APPROVED_CLAIM_POINT = 2;
-const COMPLETED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"];
-const IN_PROGRESS_WORK_ORDER_STATUSES = [
-  "IN_PROGRESS",
-  ...COMPLETED_WORK_ORDER_STATUSES,
-];
 
 export class PointClaimRepository implements IPointClaimRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -57,6 +55,32 @@ export class PointClaimRepository implements IPointClaimRepository {
           Prisma.JsonNull) as Prisma.InputJsonValue,
         keterangan: data.keterangan ?? null,
       },
+    });
+    return MarketingMapper.toPointClaimDomain(claim);
+  }
+
+  /**
+   * Create a point claim and lock its canvasing in a single transaction.
+   * Why: tanpa transaksi, claim bisa terbuat tapi canvasing tetap unlocked,
+   * sehingga submission ganda bisa lolos via race condition.
+   */
+  async createWithCanvasingLock(data: CreatePointClaimInput) {
+    const claim = await this.db.$transaction(async (tx) => {
+      const created = await tx.pointClaim.create({
+        data: {
+          canvasingId: data.canvasingId,
+          salesId: data.salesId,
+          buktiUrls: data.buktiUrls,
+          buktiMetadata: (data.buktiMetadata ??
+            Prisma.JsonNull) as Prisma.InputJsonValue,
+          keterangan: data.keterangan ?? null,
+        },
+      });
+      await tx.canvasing.update({
+        where: { id: data.canvasingId },
+        data: { isLocked: true },
+      });
+      return created;
     });
     return MarketingMapper.toPointClaimDomain(claim);
   }
@@ -122,9 +146,25 @@ export class PointClaimRepository implements IPointClaimRepository {
 
   /** Update a point claim. */
   async update(id: string, data: UpdatePointClaimInput) {
+    const updateInput: Prisma.PointClaimUpdateInput = {
+      ...(data.status !== undefined
+        ? { status: data.status as PointClaimStatus }
+        : {}),
+      ...(data.reviewedById !== undefined
+        ? { reviewedBy: { connect: { id: data.reviewedById } } }
+        : {}),
+      ...(data.reviewedAt !== undefined ? { reviewedAt: data.reviewedAt } : {}),
+      ...(data.reviewNotes !== undefined
+        ? { reviewNotes: data.reviewNotes }
+        : {}),
+      ...(data.isCashedOut !== undefined
+        ? { isCashedOut: data.isCashedOut }
+        : {}),
+    };
+
     const claim = await this.db.pointClaim.update({
       where: { id },
-      data: data as never,
+      data: updateInput,
       include: this.createPointClaimInclude(),
     });
     return MarketingMapper.toPointClaimDomain(claim);
@@ -133,6 +173,62 @@ export class PointClaimRepository implements IPointClaimRepository {
   /** Delete a point claim by id. */
   async delete(id: string): Promise<void> {
     await this.db.pointClaim.delete({ where: { id } });
+  }
+
+  /**
+   * Reject a pending point claim and unlock its canvasing in one transaction.
+   * Why: setelah migrasi reject DELETE→UPDATE, claim tetap audit-trail tapi
+   * canvasing harus dibuka agar sales bisa resubmit.
+   */
+  async rejectAndUnlock(input: {
+    id: string;
+    reviewerId: string;
+    reviewNotes: string;
+    canvasingId: string;
+  }) {
+    const claim = await this.db.$transaction(async (tx) => {
+      const rejected = await tx.pointClaim.update({
+        where: { id: input.id },
+        data: {
+          status: "REJECTED" as PointClaimStatus,
+          reviewedById: input.reviewerId,
+          reviewedAt: new Date(),
+          reviewNotes: input.reviewNotes,
+        },
+        include: this.createPointClaimInclude(),
+      });
+      await tx.canvasing.update({
+        where: { id: input.canvasingId },
+        data: { isLocked: false },
+      });
+      return rejected;
+    });
+    return MarketingMapper.toPointClaimDomain(claim);
+  }
+
+  /** Delete a claim and unlock its canvasing in one transaction. */
+  async deleteAndUnlock(input: {
+    id: string;
+    canvasingId: string;
+  }): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      await tx.pointClaim.delete({ where: { id: input.id } });
+      await tx.canvasing.update({
+        where: { id: input.canvasingId },
+        data: { isLocked: false },
+      });
+    });
+  }
+
+  /** Mark a list of claims as cashed out atomically. */
+  async markClaimsAsCashedOut(claimIds: string[]): Promise<void> {
+    if (claimIds.length === 0) {
+      return;
+    }
+    await this.db.pointClaim.updateMany({
+      where: { id: { in: claimIds } },
+      data: { isCashedOut: true },
+    });
   }
 
   /** Return point summary for a sales user. */

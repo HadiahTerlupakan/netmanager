@@ -4,6 +4,7 @@ import { isSuperAdminRole } from "@/lib/auth-helpers";
 import {
   canAccessCanvasingSite,
   createCanvasingService,
+  isMarketingError,
 } from "@/modules/marketing";
 import {
   apiSuccess,
@@ -56,14 +57,21 @@ export async function POST(
       message: "Canvasing berhasil disetujui dan Work Order telah dibuat",
     });
   } catch (error: unknown) {
+    if (isMarketingError(error)) {
+      if (error.kind === "not_found") {
+        return ApiErrors.notFound("Data canvasing");
+      }
+      if (error.kind === "invalid_status" || error.kind === "validation") {
+        return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
+          status: 400,
+        });
+      }
+      if (error.kind === "forbidden") {
+        return ApiErrors.forbidden(error.message);
+      }
+    }
     const message =
       error instanceof Error ? error.message : "Gagal menyetujui canvasing";
-    if (message.includes("tidak ditemukan")) {
-      return ApiErrors.notFound("Data canvasing");
-    }
-    if (message.includes("Hanya request PENDING")) {
-      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
     return ApiErrors.internalError(message);
   }
 }

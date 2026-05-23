@@ -10,7 +10,7 @@ import type {
   SiteReferenceEntity,
 } from "../domain/entities/CanvasingEntity";
 
-const DEFAULT_POINT_VALUE = 2;
+import { DEFAULT_POINT_VALUE } from "../config/marketing-points";
 
 export type PrismaCanvasingDetail = Canvasing & {
   user?: {

@@ -8,6 +8,10 @@ import {
 } from "../validators/canvasingValidation";
 import type { CanvasingEntity } from "../domain/entities/CanvasingEntity";
 import type { CanvasingDetailDTO } from "../dto/MarketingDTO";
+import {
+  isMarketingError,
+  type MarketingErrorKind,
+} from "../domain/errors/MarketingError";
 
 export const CANVASING_NOT_FOUND = "Data canvasing";
 export const FORBIDDEN_VIEW_MESSAGE =
@@ -40,7 +44,10 @@ export interface CanvasingRouteRepositoryPort {
   getRequestById(id: string): Promise<CanvasingDetailDTO | null>;
   getRequestByIdWithSales(id: string): Promise<CanvasingEntity | null>;
   updateRequest(id: string, payload: unknown): Promise<CanvasingDetailDTO>;
-  cancelApproval(id: string): Promise<CanvasingDetailDTO>;
+  cancelApproval(
+    id: string,
+    cancelledById?: string,
+  ): Promise<CanvasingDetailDTO>;
   deleteRequest(id: string): Promise<void>;
 }
 
@@ -123,12 +130,25 @@ export function mapCanvasingRouteError(
     return badRequestCanvasing(getCanvasingValidationMessage(error));
   }
 
-  const message = error instanceof Error ? error.message : fallback;
-  if (message.includes("tidak ditemukan")) {
-    return notFoundCanvasing();
+  if (isMarketingError(error)) {
+    return mapMarketingError(error.kind, error.message);
   }
 
-  if (message.includes("APPROVED") || message.includes("PENDING")) {
+  const message = error instanceof Error ? error.message : fallback;
+  return { success: false, status: 500, error: message };
+}
+
+function mapMarketingError(
+  kind: MarketingErrorKind,
+  message: string,
+): MarketingCanvasingDetailRouteResult<never> {
+  if (kind === "not_found") {
+    return notFoundCanvasing();
+  }
+  if (kind === "forbidden") {
+    return forbiddenCanvasing(message);
+  }
+  if (kind === "invalid_status" || kind === "validation") {
     return {
       success: false,
       status: 400,
@@ -136,7 +156,6 @@ export function mapCanvasingRouteError(
       code: ErrorCodes.VALIDATION_ERROR,
     };
   }
-
   return { success: false, status: 500, error: message };
 }
 

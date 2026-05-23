@@ -15,6 +15,7 @@ import type {
   CanvasingListItemDTO,
 } from "../dto/MarketingDTO";
 import type { WorkOrderQueryService } from "@/modules/work-order";
+import { MarketingError } from "../domain/errors/MarketingError";
 import { MarketingMapper } from "../mappers/MarketingMapper";
 import {
   notifyApprovedCanvasing,
@@ -35,7 +36,7 @@ import {
 
 type CanvasingWorkOrderPort = Pick<
   WorkOrderQueryService,
-  "generateWorkOrderNumber" | "create" | "addTask"
+  "generateWorkOrderNumber" | "create" | "addTask" | "delete" | "cancel"
 >;
 
 export class CanvasingService {
@@ -108,7 +109,15 @@ export class CanvasingService {
     return MarketingMapper.toCanvasingDetailDTO(canvasing);
   }
 
-  /** Approve canvasing, create work order, and return a response DTO. */
+  /**
+   * Approve canvasing, create work order, dan return DTO.
+   *
+   * Why: operasi mencakup dua domain (work-order & marketing) sehingga tidak
+   * mungkin satu prisma transaction. Pola yang dipakai: bila canvasing.update
+   * gagal setelah WO terbuat, jalankan kompensasi (delete WO) agar tidak ada
+   * orphan WO. Tasks dibuat setelah update sukses untuk memastikan invariant
+   * status canvasing+workOrderId konsisten dulu.
+   */
   async approveRequest(
     id: string,
     approverId: string,
@@ -125,18 +134,24 @@ export class CanvasingService {
     );
     const workOrder = await this.woRepository.create(workOrderInput);
 
+    let approved;
+    try {
+      approved = await this.repository.update(id, {
+        status: APPROVED_STATUS,
+        approvedBy: approverId,
+        approvedAt: new Date(),
+        workOrderId: workOrder.id,
+      });
+    } catch (error) {
+      await this.woRepository.delete(workOrder.id).catch((): void => undefined);
+      throw error;
+    }
+
     await Promise.all(
       buildInstallationTasks(request).map((task) =>
         this.woRepository.addTask({ workOrderId: workOrder.id, ...task }),
       ),
     );
-
-    const approved = await this.repository.update(id, {
-      status: APPROVED_STATUS,
-      approvedBy: approverId,
-      approvedAt: new Date(),
-      workOrderId: workOrder.id,
-    });
     notifyApprovedCanvasing(request, id, workOrder.workOrderNumber);
     return MarketingMapper.toCanvasingDetailDTO(approved);
   }
@@ -157,19 +172,37 @@ export class CanvasingService {
     return this.repository.delete(id);
   }
 
-  /** Cancel approved canvasing and return a response DTO. */
-  async cancelApproval(id: string): Promise<CanvasingDetailDTO> {
+  /** Cancel approval canvasing dan cancel WO terkait. */
+  async cancelApproval(
+    id: string,
+    cancelledById?: string,
+  ): Promise<CanvasingDetailDTO> {
     const request = await requireCanvasing(this.repository, id);
     if (request.status !== APPROVED_STATUS) {
-      throw new Error("Hanya canvasing APPROVED yang bisa dibatalkan");
+      throw new MarketingError(
+        "invalid_status",
+        "Hanya canvasing APPROVED yang bisa dibatalkan",
+      );
     }
 
+    const previousWorkOrderId = request.workOrderId;
     const updated = await this.repository.update(id, {
       status: PENDING_STATUS,
       workOrderId: null,
       approvedBy: null,
       approvedAt: null,
     });
+
+    if (previousWorkOrderId) {
+      await this.woRepository
+        .cancel(
+          previousWorkOrderId,
+          `Canvasing #${id} approval dibatalkan`,
+          cancelledById,
+        )
+        .catch((): void => undefined);
+    }
+
     return MarketingMapper.toCanvasingDetailDTO(updated);
   }
 }

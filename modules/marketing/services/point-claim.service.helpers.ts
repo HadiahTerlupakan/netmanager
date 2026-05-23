@@ -1,4 +1,10 @@
 import { prisma } from "@/modules/database";
+import {
+  ACCUMULATED_TARGET_SCHEMA,
+  CASHOUT_DEFAULT_TARGET,
+  COMPLETED_WORK_ORDER_STATUSES,
+} from "../config/marketing-points";
+import { MarketingError } from "../domain/errors/MarketingError";
 import type {
   CanvasingClaimSubmissionEntity,
   PointClaimEntity,
@@ -12,10 +18,6 @@ export const PENDING_STATUS = "PENDING" as const;
 export const APPROVED_STATUS = "APPROVED" as const;
 export const REJECTED_STATUS = "REJECTED" as const;
 
-const CASHOUT_DEFAULT_TARGET = 30;
-const ACCUMULATED_TARGET_SCHEMA = "ACCUMULATED" as const;
-const COMPLETED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"];
-
 export async function requireClaimableCanvasing(
   repository: IPointClaimRepository,
   data: CreatePointClaimInput,
@@ -25,29 +27,42 @@ export async function requireClaimableCanvasing(
   );
 
   if (!canvasing) {
-    throw new Error("Canvasing tidak ditemukan");
+    throw new MarketingError("not_found", "Canvasing tidak ditemukan");
   }
 
   if (canvasing.salesId !== data.salesId) {
-    throw new Error("Anda tidak memiliki akses ke canvasing ini");
+    throw new MarketingError(
+      "forbidden",
+      "Anda tidak memiliki akses ke canvasing ini",
+    );
   }
 
   if (canvasing.isLocked) {
-    throw new Error("Canvasing sudah dikunci, tidak bisa diubah");
+    throw new MarketingError(
+      "forbidden",
+      "Canvasing sudah dikunci, tidak bisa diubah",
+    );
   }
 
   if (!canvasing.workOrderStatus) {
-    throw new Error("Work Order belum dibuat untuk canvasing ini");
+    throw new MarketingError(
+      "validation",
+      "Work Order belum dibuat untuk canvasing ini",
+    );
   }
 
   if (!COMPLETED_WORK_ORDER_STATUSES.includes(canvasing.workOrderStatus)) {
-    throw new Error(
+    throw new MarketingError(
+      "validation",
       `Work Order belum selesai. Status saat ini: ${canvasing.workOrderStatus}`,
     );
   }
 
   if (canvasing.hasPointClaim) {
-    throw new Error("Claim sudah pernah diajukan untuk canvasing ini");
+    throw new MarketingError(
+      "validation",
+      "Claim sudah pernah diajukan untuk canvasing ini",
+    );
   }
 
   return canvasing;
@@ -62,7 +77,7 @@ export async function requireExistingClaim(
     return claim;
   }
 
-  throw new Error("Claim tidak ditemukan");
+  throw new MarketingError("not_found", "Claim tidak ditemukan");
 }
 
 export async function requirePendingClaim(
@@ -74,7 +89,10 @@ export async function requirePendingClaim(
     return claim;
   }
 
-  throw new Error("Hanya claim dengan status PENDING yang bisa diproses");
+  throw new MarketingError(
+    "invalid_status",
+    "Hanya claim dengan status PENDING yang bisa diproses",
+  );
 }
 
 export function ensureRejectNotes(notes: string): void {
@@ -82,21 +100,7 @@ export function ensureRejectNotes(notes: string): void {
     return;
   }
 
-  throw new Error("Alasan penolakan wajib diisi");
-}
-
-export function createRejectedClaim(
-  claim: PointClaimEntity,
-  reviewerId: string,
-  notes: string,
-): PointClaimEntity {
-  return {
-    ...claim,
-    status: REJECTED_STATUS,
-    reviewedById: reviewerId,
-    reviewedAt: new Date(),
-    reviewNotes: notes,
-  };
+  throw new MarketingError("validation", "Alasan penolakan wajib diisi");
 }
 
 export async function requireEligibleCashoutUser(userId: string) {
@@ -106,15 +110,19 @@ export async function requireEligibleCashoutUser(userId: string) {
   });
 
   if (!user) {
-    throw new Error("User tidak ditemukan");
+    throw new MarketingError("not_found", "User tidak ditemukan");
   }
 
   if (!user.isSales) {
-    throw new Error("Hanya akun sales yang dapat mencairkan bonus canvasing.");
+    throw new MarketingError(
+      "forbidden",
+      "Hanya akun sales yang dapat mencairkan bonus canvasing.",
+    );
   }
 
   if (user.targetSchema !== ACCUMULATED_TARGET_SCHEMA) {
-    throw new Error(
+    throw new MarketingError(
+      "validation",
       "Akun Anda menggunakan skema Target Bulanan. Pencairan dilakukan otomatis di akhir bulan.",
     );
   }

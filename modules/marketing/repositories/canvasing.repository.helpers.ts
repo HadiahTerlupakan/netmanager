@@ -112,9 +112,7 @@ export async function buildCanvasingWhereClause(
   filters?: CanvasingListFilters,
 ): Promise<Prisma.CanvasingWhereInput> {
   const normalizedSearch = normalizeSearch(filters?.search);
-  const siteScope = filters?.siteId
-    ? await buildSiteScope(lookup, filters.siteId)
-    : {};
+  const siteScope = await resolveSiteScope(lookup, filters);
 
   return {
     AND: [
@@ -276,6 +274,39 @@ async function buildSiteScope(
         : { mitraId: EMPTY_MITRA_MATCH },
     ],
   };
+}
+
+async function buildMultiSiteScope(
+  lookup: CanvasingMitraLookup,
+  siteIds: string[],
+): Promise<Prisma.CanvasingWhereInput> {
+  const mitraIdLists = await Promise.all(
+    siteIds.map((siteId) => lookup.findMitraIdsBySite(siteId)),
+  );
+  const mitraIds = Array.from(new Set(mitraIdLists.flat()));
+  return {
+    OR: [
+      { user: { siteId: { in: siteIds } } },
+      mitraIds.length > 0
+        ? { mitraId: { in: mitraIds } }
+        : { mitraId: EMPTY_MITRA_MATCH },
+    ],
+  };
+}
+
+async function resolveSiteScope(
+  lookup: CanvasingMitraLookup,
+  filters?: CanvasingListFilters,
+): Promise<Prisma.CanvasingWhereInput> {
+  if (filters?.siteId) {
+    return buildSiteScope(lookup, filters.siteId);
+  }
+
+  if (filters?.siteIds && filters.siteIds.length > 0) {
+    return buildMultiSiteScope(lookup, filters.siteIds);
+  }
+
+  return {};
 }
 
 function normalizeSearch(search?: string): string | undefined {

@@ -93,14 +93,16 @@ export const canvasingFormSchema = z.object({
   sn: optionalNullableTextField,
 });
 
-export const createCanvasingSchema = canvasingFormSchema.extend({
-  latitude: optionalCoordinateField,
-  longitude: optionalCoordinateField,
-  foto: optionalNullableTextField,
-  fotoKtp: optionalNullableTextField,
-  salesId: optionalNullableTextField,
-  mitraId: optionalNullableTextField,
-});
+export const createCanvasingSchema = canvasingFormSchema
+  .extend({
+    latitude: optionalCoordinateField,
+    longitude: optionalCoordinateField,
+    foto: optionalNullableTextField,
+    fotoKtp: optionalNullableTextField,
+    salesId: optionalNullableTextField,
+    mitraId: optionalNullableTextField,
+  })
+  .strict();
 
 export const updateCanvasingSchema = z
   .object({

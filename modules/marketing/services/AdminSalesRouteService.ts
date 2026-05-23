@@ -1,4 +1,5 @@
 import { prisma } from "@/modules/database";
+import { SalesAnalyticsRepository } from "../repositories/SalesAnalyticsRepository";
 import {
   buildDashboardRange,
   type DashboardPeriod,
@@ -15,37 +16,22 @@ import {
 } from "./admin-sales-dashboard.helpers";
 
 export class AdminSalesRouteService {
+  constructor(
+    private readonly repository: SalesAnalyticsRepository = new SalesAnalyticsRepository(
+      prisma,
+    ),
+  ) {}
+
   /** Get aggregate monthly sales overview for admin list route. */
   async getSalesOverview(input?: { allowedSiteIds?: string[] }) {
-    const siteFilter =
-      input?.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { siteId: { in: input.allowedSiteIds } }
-        : {};
-
-    const salesUsers = await prisma.user.findMany({
-      where: { isSales: true, isActive: true, ...siteFilter },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        canvasingTarget: true,
-        targetSchema: true,
-        departments: { select: { name: true } },
-        sites: { select: { code: true, name: true } },
-      },
-      orderBy: { name: "asc" },
-    });
+    const salesUsers = await this.repository.findSalesUsersForOverview(input);
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const canvasingData = await prisma.canvasing.groupBy({
-      by: ["salesId", "status"],
-      where: {
-        salesId: { in: salesUsers.map((user) => user.id) },
-        createdAt: { gte: startOfMonth, lte: endOfMonth },
-      },
-      _count: { _all: true },
+
+    const canvasingData = await this.repository.groupCanvasingByStatus({
+      salesUserIds: salesUsers.map((user) => user.id),
+      range: { startDate: startOfMonth, endDate: endOfMonth },
     });
 
     return buildSalesOverview(salesUsers, canvasingData);
@@ -59,55 +45,28 @@ export class AdminSalesRouteService {
     customEnd?: string | null;
     allowedSiteIds?: string[];
   }) {
-    const siteFilter =
-      input.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { id: { in: input.allowedSiteIds } }
-        : {};
-
-    const sites = await prisma.sites.findMany({
-      where: { isActive: true, ...siteFilter },
-      select: { id: true, code: true, name: true },
-      orderBy: { code: "asc" },
+    const sites = await this.repository.findActiveSites({
+      allowedSiteIds: input.allowedSiteIds,
     });
-
     const { startDate, endDate } = buildDashboardRange(input);
-
-    const userSiteFilter =
-      input.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { siteId: { in: input.allowedSiteIds } }
-        : {};
-
-    const salesUsers = await prisma.user.findMany({
-      where: {
-        isSales: true,
-        isActive: true,
-        ...userSiteFilter,
-        ...(input.siteId ? { siteId: input.siteId } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        canvasingTarget: true,
-        sites: { select: { code: true, name: true } },
-      },
-      orderBy: { name: "asc" },
+    const salesUsers = await this.repository.findSalesUsersForDashboard({
+      allowedSiteIds: input.allowedSiteIds,
+      siteId: input.siteId,
     });
 
     const salesUserIds = salesUsers.map((user) => user.id);
+    const dateFilter = getDateFilter(input.period, startDate, endDate);
 
     const leaderboard = await Promise.all(
       salesUsers.map(async (user) => {
-        const dateFilter = getDateFilter(input.period, startDate, endDate);
         const [canvasingStats, pointsResult] = await Promise.all([
-          prisma.canvasing.groupBy({
-            by: ["status"],
-            where: { salesId: user.id, ...dateFilter },
-            _count: { _all: true },
+          this.repository.groupCanvasingForSales({
+            salesId: user.id,
+            dateFilter,
           }),
-          prisma.pointClaim.aggregate({
-            where: { salesId: user.id, status: "APPROVED", ...dateFilter },
-            _sum: { pointValue: true },
+          this.repository.sumApprovedPointsForSales({
+            salesId: user.id,
+            dateFilter,
           }),
         ]);
 
@@ -121,14 +80,9 @@ export class AdminSalesRouteService {
 
     const rankedLeaderboard = buildRankedLeaderboard(leaderboard);
 
-    const siteStats = await prisma.canvasing.groupBy({
-      by: ["salesId"],
-      where: {
-        status: "APPROVED",
-        salesId: { in: salesUserIds },
-        ...getDateFilter(input.period, startDate, endDate),
-      },
-      _count: { _all: true },
+    const siteStats = await this.repository.groupApprovedCanvasingBySales({
+      salesUserIds,
+      dateFilter,
     });
 
     return {
@@ -140,12 +94,10 @@ export class AdminSalesRouteService {
       topSites: buildTopSites({ sites, salesUsers, siteStats }),
       leaderboard: rankedLeaderboard,
       weeklyTrend: await buildWeeklyTrend((date, nextDate) =>
-        prisma.canvasing.count({
-          where: {
-            status: "APPROVED",
-            salesId: { in: salesUserIds },
-            createdAt: { gte: date, lt: nextDate },
-          },
+        this.repository.countApprovedCanvasingInRange({
+          salesUserIds,
+          startDate: date,
+          endDate: nextDate,
         }),
       ),
     };

@@ -45,6 +45,184 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Marketing: koreksi self-review
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/marketing`, `app/api/marketing/canvasing`, `tests/api`
+- **Author**: agent
+- **Deskripsi**: Koreksi setelah self-review menemukan tiga masalah dari
+  perubahan medium/low sebelumnya.
+  1. **Regresi response shape canvasing list**: route `GET /api/marketing/canvasing`
+     setelah refactor saya bungkus dengan `apiSuccess(...)` (jadi `{success,data:{...}}`),
+     padahal client di `app/admin/marketing/canvasing/useCanvasingListQuery.ts`
+     membaca `data?.data` dan `data?.summary` di top-level. Dikembalikan ke
+     `NextResponse.json(result.data)` agar contract tetap utuh.
+  2. **Inkonsistensi typed error mapping**: PR sebelumnya hanya migrasi
+     `mapCanvasingRouteError` ke `MarketingError`, sementara
+     `mapPointClaimRouteError` dan `point-claim.service.helpers` masih
+     `throw new Error(...)` + substring match. Kini seluruh helper
+     point-claim pakai `MarketingError` dengan `kind`
+     (`not_found | forbidden | invalid_status | validation`), dan mapper
+     route point-claim switch by `error.kind`.
+  3. **Test mock outdated**: `tests/api/marketing-canvasing-reject-route.test.ts`
+     masih `mockRejectedValue(new Error("Hanya request PENDING ..."))`
+     sehingga gagal setelah service mulai throw `MarketingError`. Test
+     diupdate untuk pakai `MarketingError("invalid_status", ...)`.
+- **Files**:
+  - `app/api/marketing/canvasing/route.ts`
+  - `modules/marketing/services/PointClaimService.ts`
+  - `modules/marketing/services/point-claim.service.helpers.ts`
+  - `modules/marketing/services/marketing-point-claim-route.helpers.ts`
+  - `tests/api/marketing-canvasing-reject-route.test.ts`
+- **Verifikasi**: `npm run typecheck` clean, `npm run lint` clean,
+  46 test marketing passed.
+- **Breaking**: ❌ Tidak — koreksi #1 memulihkan contract original yang
+  sempat patah; #2 dan #3 internal.
+
+### [2026-05-23] — Accel-PPP service layer + Full RADIUS Mode guard (M3)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/network/services/accel-ppp/`, `lib/security/`
+- **Author**: agent
+- **Deskripsi**: Tambah `AccelPppServerService` sebagai orkestrator CRUD +
+  operasi runtime accel-ppp. Service melakukan transactional create dengan
+  rollback Prisma jika sinkronisasi NAS row ke FreeRADIUS DB gagal—berbeda
+  dari pola legacy MikroTik yang menelan error sync. Operasi update otomatis
+  re-sync NAS row hanya bila field NAS-relevan berubah (IP/secret/name/port/
+  description). Delete default tolak server yang masih punya sesi aktif di
+  `radacct`; bisa di-bypass dengan `force=true`. Operasi runtime (`getLiveSessions`,
+  `getStat`, `kickSession`, `testConnection`) memakai `AccelPppCliClient`
+  via injected factory supaya unit-test mudah. Tambah util
+  `lib/security/requireFullRadiusMode` sebagai guard untuk dipanggil di awal
+  setiap route handler accel-ppp—throw `FullRadiusModeDisabledError` saat
+  toggle global OFF (akan dipetakan ke 403 di lapisan API). Disertai 10 unit
+  test service yang mock repository + radius client + CLI client.
+- **Files**:
+  `modules/network/services/accel-ppp/AccelPppServerService.ts`,
+  `lib/security/requireFullRadiusMode.ts`,
+  `modules/network/index.ts`,
+  `tests/modules/network/accel-ppp/unit/AccelPppServerService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Accel-PPP CLI client (M2: parser + TCP socket client)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/network/services/accel-ppp/`
+- **Author**: agent
+- **Deskripsi**: Tambah klien TCP CLI accel-ppp pada port 2001 dengan
+  pemisahan tegas antara parser pure (text → DTO) dan layer socket I/O.
+  Wire protocol mengikuti accel-cmd resmi: `<password>\n<command>\nexit\n`,
+  baca semua stdout sampai server menutup koneksi. Klien ekspos
+  `showSessions`, `showStat`, `terminateByUsername`, dan `ping`. Argument
+  username di-sanitasi (whitelist alfanumerik+`._@-:`) untuk cegah CLI
+  command injection. Domain errors dipakai untuk membedakan timeout,
+  connection refused, command error, dan auth failure. Disertai 12 unit
+  test parser dengan golden fixtures (multi/empty session, stat, terminate
+  success/not-found, auth-failed) dan 8 integration test pakai `net.createServer`
+  lokal—tanpa mock library—untuk memvalidasi flow connect/write/read/close.
+- **Files**:
+  `modules/network/services/accel-ppp/parsers.ts`,
+  `modules/network/services/accel-ppp/AccelPppCliClient.ts`,
+  `tests/modules/network/accel-ppp/fixtures/*.txt`,
+  `tests/modules/network/accel-ppp/unit/parsers.test.ts`,
+  `tests/modules/network/accel-ppp/integration.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-23] — Marketing: lanjutan review (medium & low)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/marketing`, `app/api/marketing`, `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Lanjutan dari hardening sebelumnya, menyentuh poin-poin
+  medium/low di review awal.
+  - **Orphan WorkOrder fix (#38)**: `cancelApproval` sekarang juga
+    membatalkan WO terkait via `WorkOrderQueryService.cancel(reason, userId)`
+    sehingga tidak ada WO yatim saat approval canvasing dibatalkan.
+  - **Guard cashout (#29)**: `deleteClaim` menolak claim yang sudah
+    `isCashedOut=true` selain APPROVED, agar komisi yang sudah masuk wallet
+    mitra tidak hilang konteks asalnya.
+  - **`MarketingCanvasingListRouteService` (#22)**: ekstrak permission/site
+    scope dari `app/api/marketing/canvasing/route.ts` jadi service. Helper
+    multi-site (`buildMultiSiteScope`) tetap dipakai. Route tinggal thin
+    controller.
+  - **`SalesAnalyticsRepository` (#24)**: tarik query `prisma.user`,
+    `prisma.canvasing.groupBy`, `prisma.pointClaim.aggregate` dari
+    `AdminSalesRouteService` ke repository baru — service kini bersih dari
+    Prisma direct call dan ikut dependency rule.
+  - **Robust technical department lookup (#33)**: pakai daftar kandidat
+    case-insensitive (`Technical`, `Teknik`, `Teknisi`, `Engineering`)
+    alih-alih literal exact match supaya tenant berbahasa Indonesia tetap
+    dapat departmentId untuk INSTALLATION WO.
+  - **Tightened typing (#28)**: `UpdatePointClaimInput.status` jadi union
+    enum, `data: data as never` di `PointClaimRepository.update` diganti
+    typed mapping ke `Prisma.PointClaimUpdateInput`.
+  - **Strict create canvasing schema (#35)**: `createCanvasingSchema`
+    pakai `.strict()` agar field di luar contract ditolak.
+  - **Auth guard test endpoint (#36)**: `/api/marketing/test-canvasing`
+    sekarang wajib super admin; sebelumnya bocor data ke unauthenticated.
+  - **Typed error mapping (#37)**: tambah `MarketingError` (kind:
+    `not_found | invalid_status | forbidden | validation`) di
+    `modules/marketing/domain/errors/`. `mapCanvasingRouteError` &
+    route approve/reject canvasing migrasi dari substring match
+    error.message ke `isMarketingError(error)` + switch-by-kind. Lebih
+    stabil terhadap perubahan wording pesan.
+- **Dilewati**:
+  - **#27** rename `pointClaims`→`pointClaim`: lapor saja, **tidak**
+    dieksekusi karena field DTO sudah dipakai client UI (`app/admin/marketing`,
+    mobile). Mengubahnya = breaking change yang lebih besar dari benefit.
+- **Files**:
+  - `modules/marketing/services/CanvasingService.ts`
+  - `modules/marketing/services/MarketingCanvasingListRouteService.ts` (baru)
+  - `modules/marketing/services/MarketingCanvasingDetailRouteService.ts`
+  - `modules/marketing/services/marketing-canvasing-detail-route.helpers.ts`
+  - `modules/marketing/services/AdminSalesRouteService.ts`
+  - `modules/marketing/services/PointClaimService.ts`
+  - `modules/marketing/services/canvasing.service.helpers.ts`
+  - `modules/marketing/repositories/SalesAnalyticsRepository.ts` (baru)
+  - `modules/marketing/repositories/PointClaimRepository.ts`
+  - `modules/marketing/domain/errors/MarketingError.ts` (baru)
+  - `modules/marketing/domain/ports/IPointClaimRepository.ts`
+  - `modules/marketing/validators/canvasingValidation.ts`
+  - `modules/marketing/index.ts`
+  - `modules/work-order/services/WorkOrderQueryService.ts`
+  - `app/api/marketing/canvasing/route.ts`
+  - `app/api/marketing/canvasing/[id]/approve/route.ts`
+  - `app/api/marketing/canvasing/[id]/reject/route.ts`
+  - `app/api/marketing/test-canvasing/route.ts`
+- **Verifikasi**: `npm run typecheck` clean, `npm run lint` clean,
+  `npm run build` sukses.
+- **Breaking**: ❌ Tidak — DTO `CanvasingListItemDTO`/`CanvasingDetailDTO`
+  tetap utuh, response shape route tidak berubah, behavior auth pada
+  test-canvasing memang sebelumnya security gap (sekarang ditutup).
+
+### [2026-05-23] — Foundation accel-ppp server (M1: schema, domain, repository, settings)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/network`, `modules/settings`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Tambah pondasi modul accel-ppp pada strategi coexist dengan MikroTik.
+  Mencakup model `AccelPppServer`, domain entity + port repository, 8 domain error
+  class (`FullRadiusModeDisabledError`, `AccelPppServerNotFoundError`,
+  `AccelPppDuplicateIpError`, `AccelPppCliConnectionError`,
+  `AccelPppCliCommandError`, `AccelPppCliTimeoutError`,
+  `AccelPppRadiusNasSyncError`, `AccelPppSessionNotFoundError`), validator Zod,
+  serta `AccelPppServerRepository` dengan auto encrypt/decrypt secrets via
+  `encryptApiKey/decryptApiKey` (lebih kuat dari pola legacy MikroTik plain text).
+  Tambah service `fullRadiusModeSettings` di `modules/settings` (key
+  `FULL_RADIUS_MODE` di tabel `Settings`) sebagai single switch global.
+- **Files**:
+  `modules/network/domain/entities/AccelPppServerEntity.ts`,
+  `modules/network/domain/ports/IAccelPppServerRepository.ts`,
+  `modules/network/domain/errors/AccelPppErrors.ts`,
+  `modules/network/validators/accelPppServer.ts`,
+  `modules/network/repositories/AccelPppServerRepository.ts`,
+  `modules/network/index.ts`,
+  `modules/settings/services/fullRadiusModeSettings.ts`,
+  `modules/settings/index.ts`,
+  `prisma/schema.prisma`
+- **Migration**: `20260523180000_add_accel_ppp_server`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Marketing: hardening, transaksi, & route service point claim
 
 - **Tipe**: [CHANGED]

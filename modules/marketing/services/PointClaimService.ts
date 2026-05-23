@@ -8,6 +8,7 @@ import type {
   PointSummaryEntity,
 } from "../domain/entities/PointClaimEntity";
 import type { PointClaimDTO, PointClaimListItemDTO } from "../dto/MarketingDTO";
+import { MarketingError } from "../domain/errors/MarketingError";
 import { MarketingMapper } from "../mappers/MarketingMapper";
 import { addMitraCommissionIfEligible } from "./point-claim.commission";
 import {
@@ -17,7 +18,6 @@ import {
 } from "./point-claim.notifications";
 import {
   APPROVED_STATUS,
-  createRejectedClaim,
   ensureRejectNotes,
   filterCashoutEligibleClaims,
   requireClaimableCanvasing,
@@ -33,8 +33,7 @@ export class PointClaimService {
   /** Submit a point claim and return a response DTO. */
   async submitClaim(data: CreatePointClaimInput): Promise<PointClaimDTO> {
     const canvasing = await requireClaimableCanvasing(this.repository, data);
-    const claim = await this.repository.create(data);
-    await this.repository.updateCanvasingLock(data.canvasingId, true);
+    const claim = await this.repository.createWithCanvasingLock(data);
     notifySubmittedClaim(canvasing, claim);
     return MarketingMapper.toPointClaimDTO(claim);
   }
@@ -91,7 +90,12 @@ export class PointClaimService {
     return MarketingMapper.toPointClaimDTO(approved);
   }
 
-  /** Reject point claim and return a response DTO. */
+  /**
+   * Reject point claim, unlock canvasing, and return a response DTO.
+   * Why: sebelumnya reject DELETE row sehingga audit trail hilang. Sekarang
+   * tetap simpan record dengan status REJECTED + alasan reviewer, dan unlock
+   * canvasing dilakukan atomik bersama update status.
+   */
   async rejectClaim(
     id: string,
     reviewerId: string,
@@ -99,23 +103,36 @@ export class PointClaimService {
   ): Promise<PointClaimDTO> {
     const claim = await requirePendingClaim(this.repository, id);
     ensureRejectNotes(notes);
-    await this.repository.updateCanvasingLock(claim.canvasingId, false);
-    notifyRejectedClaim(claim, notes, id);
-    await this.repository.delete(id);
-    return MarketingMapper.toPointClaimDTO(
-      createRejectedClaim(claim, reviewerId, notes),
-    );
+    const rejected = await this.repository.rejectAndUnlock({
+      id,
+      reviewerId,
+      reviewNotes: notes,
+      canvasingId: claim.canvasingId,
+    });
+    notifyRejectedClaim(rejected, notes, id);
+    return MarketingMapper.toPointClaimDTO(rejected);
   }
 
   /** Delete a pending point claim. */
   async deleteClaim(id: string): Promise<void> {
     const claim = await requireExistingClaim(this.repository, id);
     if (claim.status === APPROVED_STATUS) {
-      throw new Error("Claim yang sudah disetujui tidak bisa dihapus");
+      throw new MarketingError(
+        "invalid_status",
+        "Claim yang sudah disetujui tidak bisa dihapus",
+      );
+    }
+    if (claim.isCashedOut) {
+      throw new MarketingError(
+        "invalid_status",
+        "Claim yang sudah dicairkan tidak bisa dihapus",
+      );
     }
 
-    await this.repository.updateCanvasingLock(claim.canvasingId, false);
-    await this.repository.delete(id);
+    await this.repository.deleteAndUnlock({
+      id,
+      canvasingId: claim.canvasingId,
+    });
   }
 
   /** Cash out approved accumulated claims for a sales user. */
@@ -132,16 +149,13 @@ export class PointClaimService {
     );
 
     if (claims.length < target) {
-      throw new Error(
+      throw new MarketingError(
+        "validation",
         `Belum mencapai target minimal pencairan (${target} canvasing). Poin saat ini: ${claims.length}.`,
       );
     }
 
-    await Promise.all(
-      claims.map((claim) =>
-        this.repository.update(claim.id, { isCashedOut: true }),
-      ),
-    );
+    await this.repository.markClaimsAsCashedOut(claims.map((c) => c.id));
     return { cashedOutCount: claims.length };
   }
 }

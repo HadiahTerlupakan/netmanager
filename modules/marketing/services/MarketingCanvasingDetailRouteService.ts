@@ -173,7 +173,10 @@ export class MarketingCanvasingDetailRouteService {
       return forbiddenCanvasing(FORBIDDEN_UPDATE_MESSAGE);
     }
 
-    const updated = await this.canvasing.cancelApproval(input.id);
+    const updated = await this.canvasing.cancelApproval(
+      input.id,
+      input.session.id,
+    );
     return {
       success: true,
       data: updated,

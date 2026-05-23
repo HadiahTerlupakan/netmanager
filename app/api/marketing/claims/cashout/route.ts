@@ -1,33 +1,38 @@
 import { NextRequest } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { createPointClaimService } from "@/modules/marketing";
+import {
+  isPointClaimRouteFailure,
+  marketingPointClaimRouteService,
+  type PointClaimRouteFailure,
+} from "@/modules/marketing";
+import {
+  apiSuccess,
+  ApiErrors,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api-response";
 
-const service = createPointClaimService();
+function mapClaimRouteFailure(result: PointClaimRouteFailure) {
+  if (result.status === 404) return ApiErrors.notFound(result.error);
+  if (result.status === 403) return ApiErrors.forbidden(result.error);
+  if (result.status === 400) {
+    return apiError(result.error, result.code ?? ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
+  }
+  return ApiErrors.internalError(result.error);
+}
 
 /** Cash out accumulated approved point claims for the authenticated sales user. */
 export async function POST(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req);
-    if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
+  const session = await verifyAuth(req);
+  if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    const result = await service.cashoutAccumulatedClaims(session.id);
-    return apiSuccess(result, {
-      status: 200,
-      message: `Berhasil mencairkan ${result.cashedOutCount} poin canvasing.`,
-    });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Gagal mencairkan bonus canvasing";
-    if (message === "User tidak ditemukan") return ApiErrors.notFound(message);
-    if (message.includes("Hanya akun sales"))
-      return ApiErrors.forbidden(message);
-    if (message.includes("skema Target Bulanan"))
-      return ApiErrors.badRequest(message);
-    if (message.includes("Belum mencapai target"))
-      return ApiErrors.badRequest(message);
-    return ApiErrors.internalError(message);
-  }
+  const result = await marketingPointClaimRouteService.cashout({ session });
+  if (isPointClaimRouteFailure(result)) return mapClaimRouteFailure(result);
+
+  return apiSuccess(result.data, {
+    status: 200,
+    ...(result.message ? { message: result.message } : {}),
+  });
 }
