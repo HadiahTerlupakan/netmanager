@@ -34,17 +34,26 @@ export async function GET(req: NextRequest) {
       search: searchParams.get("search") ?? undefined,
     });
 
-    // Auto-refresh: poll OLT secara real-time saat user filter by OLT
-    // (skip kalau search aktif — search global lintas OLT terlalu mahal)
-    if (query.oltId && !query.search) {
+    // Auto-refresh: poll PON port secara real-time HANYA saat user filter
+    // sampai level PON port (oltId + slotFrame + slot + ponPort). Pilih OLT
+    // atau Card saja tidak trigger poll agar UI tetap responsif. Search
+    // global skip poll karena terlalu mahal lintas OLT.
+    const isPonScopeSelected =
+      query.oltId !== undefined &&
+      query.slotFrame !== undefined &&
+      query.slot !== undefined &&
+      query.ponPort !== undefined;
+
+    if (isPonScopeSelected && !query.search) {
       try {
-        await monitoringService.pollSingleOlt(
-          query.oltId,
+        await monitoringService.pollOnusByPon(
+          query.oltId!,
           session.user.tenantId,
+          query.ponPort!,
         );
       } catch (error) {
         logger.warn(
-          `[ONU List] Real-time poll failed for ${query.oltId}, falling back to DB:`,
+          `[ONU List] Real-time poll failed for ${query.oltId}/PON${query.ponPort}, falling back to DB:`,
           error,
         );
       }

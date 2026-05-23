@@ -48,6 +48,69 @@ export class OnuMonitoringService {
     return this.pollOlt(olt.id, olt.tenantId, olt.vendor);
   }
 
+  async pollOnusByPon(
+    oltId: string,
+    tenantId: string,
+    ponPort: number,
+  ): Promise<{ polled: number; alerts: number }> {
+    const olt = await this.oltRepo.findById(oltId, tenantId);
+    if (!olt) return { polled: 0, alerts: 0 };
+
+    const adapter = this.adapterFactory.getAdapter(olt.vendor);
+    const statusResult = await adapter.getAllOnuStatuses(olt);
+    if (!statusResult.success || !statusResult.data) {
+      return { polled: 0, alerts: 0 };
+    }
+
+    const onuMap = await this.buildOnuMap(oltId, tenantId);
+
+    let polled = 0;
+    let alerts = 0;
+
+    const filtered = statusResult.data.filter((s) => s.ponPort === ponPort);
+    for (const status of filtered) {
+      const key = `${status.ponPort}:${status.onuIndex}`;
+      const onu = onuMap.get(key);
+      if (!onu) continue;
+
+      if (status.status === "los" && onu.status !== "LOS") {
+        await this.onuRepo.updateStatus(onu.id, tenantId, "LOS");
+        await this.alertService.createAlert({
+          tenantId,
+          oltId,
+          onuId: onu.id,
+          type: "LOS",
+          message: `ONU ${onu.serialNumber} Loss of Signal pada port ${status.ponPort}:${status.onuIndex}`,
+          severity: "CRITICAL",
+        });
+        alerts++;
+      } else if (status.status !== "los" && onu.status === "LOS") {
+        await this.onuRepo.updateStatus(onu.id, tenantId, "ACTIVE");
+      }
+
+      const powerResult = await adapter.getOnuOpticalPower(
+        olt,
+        status.ponPort,
+        status.onuIndex,
+      );
+      if (powerResult.success && powerResult.data) {
+        await this.powerRepo.record({
+          tenantId,
+          onuId: onu.id,
+          rxPower: powerResult.data.rxPower,
+          txPower: powerResult.data.txPower,
+        });
+      }
+
+      polled++;
+    }
+
+    logger.info(
+      `[OnuMonitoring] Polled ${polled} ONUs on PON ${ponPort} of OLT ${olt.name}`,
+    );
+    return { polled, alerts };
+  }
+
   private async pollOlt(
     oltId: string,
     tenantId: string,
