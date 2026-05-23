@@ -354,6 +354,9 @@ model Expense {
   rabProjectId      String?
   invoiceFile       String?
   invoiceNumber     String?
+  fakturPajakNo     String?
+  fakturPajakDate   DateTime?
+  vendorNpwp        String?
   tenantId          String?
   financialAccount  FinancialAccount? @relation(fields: [accountId], references: [id])
   expenseCategory   ExpenseCategory?  @relation(fields: [expenseCategoryId], references: [id])
@@ -2613,19 +2616,21 @@ model PurchaseRequestItem {
 }
 
 model Supplier {
-  id        String          @id @default(uuid())
-  code      String          @unique
-  name      String
-  address   String?
-  contact   String?
-  email     String?
-  phone     String?
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  tenantId  String?
-  items     Barang[]
-  pos       PurchaseOrder[]
-  tenant    Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                 String          @id @default(uuid())
+  code               String          @unique
+  name               String
+  address            String?
+  contact            String?
+  email              String?
+  phone              String?
+  npwp               String?
+  defaultPphCategory String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  tenantId           String?
+  items              Barang[]
+  pos                PurchaseOrder[]
+  tenant             Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@map("suppliers")
@@ -2651,6 +2656,9 @@ model PurchaseOrder {
   paymentStatus     PaymentStatus       @default(UNPAID)
   ppnAmount         Float               @default(0)
   ppnRate           Float               @default(0)
+  fakturPajakNo     String?
+  fakturPajakDate   DateTime?
+  vendorNpwp        String?
   tenantId          String?
   items             PurchaseOrderItem[]
   creator           User                @relation("POCreator", fields: [createdBy], references: [id])
@@ -3435,6 +3443,7 @@ model Tenant {
   employeePayrollProfiles EmployeePayrollProfile[]
   employeeComponents     EmployeeComponent[]
   salaryAdvances         SalaryAdvance[]
+  payrollApprovalWorkflows PayrollApprovalWorkflow[]
   regionalMinimumWages   RegionalMinimumWage[]
   payrollAuditLogs       PayrollAuditLog[]
   tenantDomain           TenantDomain?
@@ -4079,6 +4088,7 @@ enum COASubtype {
   OTHER_REVENUE
   COGS
   OPEX
+  CAPEX
   OTHER_EXPENSE
 }
 
@@ -4103,6 +4113,8 @@ enum JournalSource {
   AUTO_MITRA_WITHDRAWAL
   AUTO_INVESTOR_PAYOUT
   AUTO_INVESTOR_DEPOSIT
+  AUTO_SALARY
+  AUTO_SALARY_ADVANCE
   AUTO_TAX_PPN_KELUARAN
   AUTO_TAX_PPN_MASUKAN
   AUTO_TAX_PPH_21
@@ -4342,24 +4354,28 @@ model TaxConfig {
 }
 
 model TaxTransaction {
-  id            String       @id @default(cuid())
-  tenantId      String
-  taxType       TaxType
-  direction     TaxDirection
-  amount        Decimal      @db.Decimal(19, 2)
-  taxAmount     Decimal      @db.Decimal(19, 2)
-  rate          Decimal      @db.Decimal(5, 2)
-  sourceRefType String
-  sourceRefId   String
-  periodYear    Int
-  periodMonth   Int
-  journalId     String?
-  notes         String?
-  createdAt     DateTime     @default(now())
+  id              String       @id @default(cuid())
+  tenantId        String
+  taxType         TaxType
+  direction       TaxDirection
+  amount          Decimal      @db.Decimal(19, 2)
+  taxAmount       Decimal      @db.Decimal(19, 2)
+  rate            Decimal      @db.Decimal(5, 2)
+  sourceRefType   String
+  sourceRefId     String
+  periodYear      Int
+  periodMonth     Int
+  journalId       String?
+  notes           String?
+  fakturPajakNo   String?
+  fakturPajakDate DateTime?
+  counterpartNpwp String?
+  createdAt       DateTime     @default(now())
 
   @@unique([tenantId, sourceRefType, sourceRefId, taxType])
   @@index([tenantId, periodYear, periodMonth])
   @@index([tenantId, taxType])
+  @@index([fakturPajakNo])
   @@map("tax_transactions")
 }
 
@@ -4476,6 +4492,12 @@ enum PreRegStatus {
   CANCELLED
 }
 
+enum OltCardStatus {
+  ACTIVE
+  MAINTENANCE
+  OFFLINE
+}
+
 model OltDevice {
   id            String      @id @default(cuid())
   tenantId      String
@@ -4488,6 +4510,9 @@ model OltDevice {
   telnetPort    Int?        @default(23)
   telnetUser    String?
   telnetPass    String?
+  telnetEnablePass String?
+  defaultSlotFrame Int      @default(1)
+  defaultSlot   Int         @default(1)
   totalPonPorts Int
   location      String?
   status        OltStatus   @default(ACTIVE)
@@ -4498,9 +4523,29 @@ model OltDevice {
   vlanConfigs       OltVlanConfig[]
   bandwidthProfiles OltBandwidthProfile[]
   alerts            OltAlert[]
+  cards             OltCard[]
 
   @@index([tenantId])
   @@map("olt_devices")
+}
+
+model OltCard {
+  id        String        @id @default(cuid())
+  tenantId  String
+  oltId     String
+  slotFrame Int
+  slot      Int
+  cardType  String?
+  ponCount  Int
+  status    OltCardStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  olt OltDevice @relation(fields: [oltId], references: [id], onDelete: Cascade)
+
+  @@unique([oltId, slotFrame, slot])
+  @@index([tenantId])
+  @@map("olt_cards")
 }
 
 model OnuDevice {
@@ -4509,15 +4554,20 @@ model OnuDevice {
   oltId            String
   pelangganId      String?
   serialNumber     String
+  slotFrame        Int       @default(1)
+  slot             Int       @default(1)
   ponPort          Int
-  onuIndex         Int
+  onuIndex         Int?
   vendor           String?
   model            String?
+  softwareVersion  String?
+  distance         Int?
   status           OnuStatus @default(UNREGISTERED)
   rxPower          Float?
   txPower          Float?
   vlanId           Int?
   bandwidthProfile String?
+  description      String?
   lastSeen         DateTime?
   registeredAt     DateTime?
   createdAt        DateTime  @default(now())
@@ -4529,12 +4579,13 @@ model OnuDevice {
   powerHistory     OnuPowerHistory[]
   alerts           OltAlert[]
 
-  @@unique([oltId, ponPort, onuIndex])
-  @@unique([serialNumber])
+  @@unique([oltId, serialNumber])
+  @@unique([tenantId, serialNumber])
   @@index([tenantId])
   @@index([oltId])
   @@index([pelangganId])
   @@index([status])
+  @@index([oltId, ponPort, onuIndex])
   @@map("onu_devices")
 }
 
@@ -4587,7 +4638,7 @@ model OnuPreRegistration {
   createdBy        String
   createdAt        DateTime     @default(now())
 
-  @@unique([serialNumber])
+  @@unique([tenantId, serialNumber])
   @@index([tenantId, status])
   @@map("onu_pre_registrations")
 }
@@ -4941,6 +4992,9 @@ model PayrollRun {
   totalEmployerCost Float            @default(0)
   lockedAt        DateTime?
   lockedBy        String?
+  /// Marker idempotensi pemotongan kasbon: di-set saat run pertama kali transition ke PAID.
+  /// Jika sudah ada, processAdvanceDeductions early-return — mencegah double-deduction.
+  advancesProcessedAt DateTime?
   notes           String?
   createdBy       String
   createdAt       DateTime           @default(now())
@@ -4950,12 +5004,33 @@ model PayrollRun {
   schedule        PaySchedule      @relation(fields: [scheduleId], references: [id])
   createdByUser   User               @relation("PayrollRunCreatedBy", fields: [createdBy], references: [id])
   entries         PayrollEntry[]
+  approvalWorkflow PayrollApprovalWorkflow?
 
   @@index([tenantId])
   @@index([scheduleId])
   @@index([status])
   @@index([tenantId, periodStart, periodEnd])
   @@map("payroll_run_v2")
+}
+
+model PayrollApprovalWorkflow {
+  id                   String   @id @default(cuid())
+  payrollRunId         String
+  tenantId             String
+  currentStep          Int      @default(1)
+  steps                Json     @default("[]")
+  status               String   @default("PENDING")
+  autoApproveThreshold Float?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  payrollRun           PayrollRun @relation(fields: [payrollRunId], references: [id])
+
+  @@unique([payrollRunId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("payroll_approval_workflow")
 }
 
 model PayrollEntry {
@@ -5178,6 +5253,7 @@ model LandingHero {
   ctaPrimary   String   @default("Mulai Gratis 14 Hari")
   ctaSecondary String   @default("Lihat Fitur")
   ctaLink      String   @default("/admin/login")
+  logoUrl      String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -5249,6 +5325,7 @@ model LandingFooter {
   phone       String?
   links       Json
   socials     Json?
+  logoUrl     String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
