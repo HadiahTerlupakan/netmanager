@@ -9,6 +9,7 @@ import type {
   DeregisterOnuParams,
   DiscoveredRegisteredOnu,
   OnuStatusInfo,
+  OnuTrafficStats,
   OpticalPower,
   RegisteredOnu,
   RegisterOnuParams,
@@ -1078,5 +1079,74 @@ export class ZteAdapter implements IOltAdapter {
     if (/8/.test(upper)) return 8;
     if (/4/.test(upper)) return 4;
     return 8;
+  }
+
+  async getOnuTrafficStats(
+    device: OltDevice,
+    ponPort: number,
+    onuIndex: number,
+    slot?: number,
+  ): Promise<ServiceResult<OnuTrafficStats>> {
+    // ZXAN GPON traffic counter pakai encoding ifIndex khusus per-ONU.
+    // Kita walk seluruh table sekali, lalu match by posisi index.
+    // Encoding sample (verified C300 lapangan): 0x9077XX00 dimana XX = onuIndex.
+    // Untuk simplicity, kita walk sekali per request dan return data terbaru.
+    try {
+      const effectiveSlot = slot ?? device.defaultSlot;
+      const ifIndex = this.encodeTrafficIfIndex(
+        effectiveSlot,
+        ponPort,
+        onuIndex,
+      );
+
+      const oids = [
+        `${ZteOidRegistry.onuTraffic.rxOctetsTable}.${ifIndex}`,
+        `${ZteOidRegistry.onuTraffic.txOctetsTable}.${ifIndex}`,
+        `${ZteOidRegistry.onuTraffic.rxUnicastTable}.${ifIndex}`,
+        `${ZteOidRegistry.onuTraffic.txUnicastTable}.${ifIndex}`,
+        `${ZteOidRegistry.onuTraffic.rxNonUnicastTable}.${ifIndex}`,
+        `${ZteOidRegistry.onuTraffic.txNonUnicastTable}.${ifIndex}`,
+      ];
+
+      const results = await this.snmp.get(device, oids);
+      const parse = (idx: number): number => {
+        const v = results[idx]?.value;
+        if (v === undefined || v === null) return 0;
+        const n = Number(v);
+        return isNaN(n) ? 0 : n;
+      };
+
+      return {
+        success: true,
+        data: {
+          rxBytes: parse(0),
+          txBytes: parse(1),
+          rxUnicastPkts: parse(2),
+          txUnicastPkts: parse(3),
+          rxNonUnicastPkts: parse(4),
+          txNonUnicastPkts: parse(5),
+          timestamp: new Date(),
+        },
+      };
+    } catch (error) {
+      return this.snmpFailure(error, "SNMP traffic stats failed");
+    }
+  }
+
+  private encodeTrafficIfIndex(
+    slot: number,
+    port: number,
+    onuIndex: number,
+  ): number {
+    // Pattern observed pada C300 lapangan:
+    //   slot 7 port 7 onuIndex 1 → 0x90770100 = 2423718144
+    //   slot 7 port 7 onuIndex 2 → 0x90770200 = 2423718400
+    //   diff per onuIndex = 0x100
+    // Encoding: 0x90 marker + (slot<<4|port) byte + onuIndex byte + reserved byte
+    return (
+      (0x90 << 24) |
+      ((((slot & 0xf) << 4) | (port & 0xf)) << 16) |
+      ((onuIndex & 0xff) << 8)
+    );
   }
 }

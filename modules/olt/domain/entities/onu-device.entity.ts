@@ -98,6 +98,16 @@ export interface OpticalPower {
   oltRxPower: number | null;
 }
 
+export interface OnuTrafficStats {
+  rxBytes: number;
+  txBytes: number;
+  rxUnicastPkts: number;
+  txUnicastPkts: number;
+  rxNonUnicastPkts: number;
+  txNonUnicastPkts: number;
+  timestamp: Date;
+}
+
 export interface DeregisterOnuParams {
   ponPort: number;
   onuIndex: number;

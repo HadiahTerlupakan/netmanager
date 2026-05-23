@@ -1,6 +1,9 @@
 import { logger } from "@/lib/logger";
 import type { ServiceResult } from "../domain/ports/IOltAdapter";
-import type { OpticalPower } from "../domain/entities/onu-device.entity";
+import type {
+  OpticalPower,
+  OnuTrafficStats,
+} from "../domain/entities/onu-device.entity";
 import { OltRepository } from "../repositories/OltRepository";
 import { OnuRepository } from "../repositories/OnuRepository";
 import { OltAdapterFactory } from "../adapters/OltAdapterFactory";
@@ -16,24 +19,22 @@ export class OnuControlService {
 
   async disableOnu(
     onuId: string,
+    tenantId: string,
     userId: string,
   ): Promise<ServiceResult<void>> {
-    const ctx = await this.resolveContext(onuId);
-    if (!ctx)
-      return {
-        success: false,
-        error: "ONU atau OLT tidak ditemukan",
-        code: "NOT_FOUND",
-      };
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) return notFoundResult();
 
     const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) return onuIndexMissing();
+
     const result = await this.connectionManager.withRetry(
-      () => adapter.disableOnu(olt, onu.ponPort, onu.onuIndex),
+      () => adapter.disableOnu(olt, onu.ponPort, onu.onuIndex as number),
       `disableOnu ${onu.serialNumber}`,
     );
 
     if (result.success) {
-      await this.onuRepo.updateStatus(onuId, "DISABLED");
+      await this.onuRepo.updateStatus(onuId, tenantId, "DISABLED");
       logger.info(`[OnuControl] Disabled ONU ${onu.serialNumber}`);
     }
 
@@ -55,23 +56,24 @@ export class OnuControlService {
     return result;
   }
 
-  async enableOnu(onuId: string, userId: string): Promise<ServiceResult<void>> {
-    const ctx = await this.resolveContext(onuId);
-    if (!ctx)
-      return {
-        success: false,
-        error: "ONU atau OLT tidak ditemukan",
-        code: "NOT_FOUND",
-      };
+  async enableOnu(
+    onuId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ServiceResult<void>> {
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) return notFoundResult();
 
     const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) return onuIndexMissing();
+
     const result = await this.connectionManager.withRetry(
-      () => adapter.enableOnu(olt, onu.ponPort, onu.onuIndex),
+      () => adapter.enableOnu(olt, onu.ponPort, onu.onuIndex as number),
       `enableOnu ${onu.serialNumber}`,
     );
 
     if (result.success) {
-      await this.onuRepo.updateStatus(onuId, "ACTIVE");
+      await this.onuRepo.updateStatus(onuId, tenantId, "ACTIVE");
       logger.info(`[OnuControl] Enabled ONU ${onu.serialNumber}`);
     }
 
@@ -93,18 +95,19 @@ export class OnuControlService {
     return result;
   }
 
-  async resetOnu(onuId: string, userId: string): Promise<ServiceResult<void>> {
-    const ctx = await this.resolveContext(onuId);
-    if (!ctx)
-      return {
-        success: false,
-        error: "ONU atau OLT tidak ditemukan",
-        code: "NOT_FOUND",
-      };
+  async resetOnu(
+    onuId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ServiceResult<void>> {
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) return notFoundResult();
 
     const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) return onuIndexMissing();
+
     const result = await this.connectionManager.withRetry(
-      () => adapter.resetOnu(olt, onu.ponPort, onu.onuIndex),
+      () => adapter.resetOnu(olt, onu.ponPort, onu.onuIndex as number),
       `resetOnu ${onu.serialNumber}`,
     );
 
@@ -126,18 +129,19 @@ export class OnuControlService {
     return result;
   }
 
-  async rebootOnu(onuId: string, userId: string): Promise<ServiceResult<void>> {
-    const ctx = await this.resolveContext(onuId);
-    if (!ctx)
-      return {
-        success: false,
-        error: "ONU atau OLT tidak ditemukan",
-        code: "NOT_FOUND",
-      };
+  async rebootOnu(
+    onuId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ServiceResult<void>> {
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) return notFoundResult();
 
     const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) return onuIndexMissing();
+
     const result = await this.connectionManager.withRetry(
-      () => adapter.rebootOnu(olt, onu.ponPort, onu.onuIndex),
+      () => adapter.rebootOnu(olt, onu.ponPort, onu.onuIndex as number),
       `rebootOnu ${onu.serialNumber}`,
     );
 
@@ -159,27 +163,94 @@ export class OnuControlService {
     return result;
   }
 
-  async getOpticalPower(onuId: string): Promise<ServiceResult<OpticalPower>> {
-    const ctx = await this.resolveContext(onuId);
-    if (!ctx)
+  async getOpticalPower(
+    onuId: string,
+    tenantId: string,
+  ): Promise<ServiceResult<OpticalPower>> {
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) {
       return {
         success: false,
         error: "ONU atau OLT tidak ditemukan",
         code: "NOT_FOUND",
       };
+    }
 
     const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) {
+      return {
+        success: false,
+        error: "ONU belum teregistrasi",
+        code: "ONU_NOT_REGISTERED",
+      };
+    }
     return adapter.getOnuOpticalPower(olt, onu.ponPort, onu.onuIndex);
   }
 
-  private async resolveContext(onuId: string) {
-    const onu = await this.onuRepo.findById(onuId);
+  async getTrafficStats(
+    onuId: string,
+    tenantId: string,
+  ): Promise<ServiceResult<OnuTrafficStats>> {
+    const ctx = await this.resolveContext(onuId, tenantId);
+    if (!ctx) {
+      return {
+        success: false,
+        error: "ONU atau OLT tidak ditemukan",
+        code: "NOT_FOUND",
+      };
+    }
+
+    const { olt, onu, adapter } = ctx;
+    if (onu.onuIndex === null) {
+      return {
+        success: false,
+        error: "ONU belum teregistrasi",
+        code: "ONU_NOT_REGISTERED",
+      };
+    }
+    if (!adapter.getOnuTrafficStats) {
+      return {
+        success: false,
+        error: "Adapter tidak support traffic stats",
+        code: "NOT_SUPPORTED",
+      };
+    }
+    return adapter.getOnuTrafficStats(olt, onu.ponPort, onu.onuIndex, onu.slot);
+  }
+
+  private async resolveContext(onuId: string, tenantId: string) {
+    const onu = await this.onuRepo.findById(onuId, tenantId);
     if (!onu) return null;
 
-    const olt = await this.oltRepo.findById(onu.oltId);
+    const olt = await this.oltRepo.findById(onu.oltId, tenantId);
     if (!olt) return null;
 
+    // Override device default slot dengan slot real dari ONU. ONU bisa
+    // di slot berbeda dari device.defaultSlot (multi-slot OLT C300).
+    // Semua command CLI/SNMP per-ONU akan pakai slot ONU itu sendiri.
+    const oltWithOnuSlot = {
+      ...olt,
+      defaultSlotFrame: onu.slotFrame,
+      defaultSlot: onu.slot,
+    };
+
     const adapter = this.adapterFactory.getAdapter(olt.vendor);
-    return { olt, onu, adapter };
+    return { olt: oltWithOnuSlot, onu, adapter };
   }
+}
+
+function notFoundResult(): ServiceResult<void> {
+  return {
+    success: false,
+    error: "ONU atau OLT tidak ditemukan",
+    code: "NOT_FOUND",
+  };
+}
+
+function onuIndexMissing(): ServiceResult<void> {
+  return {
+    success: false,
+    error: "ONU belum teregistrasi",
+    code: "ONU_NOT_REGISTERED",
+  };
 }

@@ -158,6 +158,24 @@ export const ZteOidRegistry = {
     operStatus: "1.3.6.1.4.1.3902.1082.10.1.2.4.1.5",
   },
 
+  onuTraffic: {
+    // ZXAN GPON ONU traffic counter table.
+    // Branch: 1.3.6.1.4.1.3902.1015.1010.5.5.1
+    // Suffix: encoded ifIndex per ONU (format khusus, decode via parseTrafficIfIndex)
+    //   .2 = RX Octets (Counter64, total bytes received from ONU)
+    //   .3 = RX Unicast packets
+    //   .6 = TX Octets (Counter64, total bytes transmitted to ONU)
+    //   .8 = TX Unicast packets (mirror of RX in some firmware)
+    //   .18 = RX Non-unicast packets (broadcast/multicast)
+    //   .23 = TX Non-unicast packets
+    rxOctetsTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.2",
+    rxUnicastTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.3",
+    txOctetsTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.6",
+    txUnicastTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.8",
+    rxNonUnicastTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.18",
+    txNonUnicastTable: "1.3.6.1.4.1.3902.1015.1010.5.5.1.23",
+  },
+
   gpon: {
     /**
      * Generate OID untuk attribute spesifik ONU.

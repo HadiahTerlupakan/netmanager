@@ -5,19 +5,25 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import PageLoader from "@/components/ui/PageLoader";
+import TrafficCounterCard from "./TrafficCounterCard";
 
 interface OnuDetail {
   id: string;
   serialNumber: string;
+  slotFrame: number;
+  slot: number;
   ponPort: number;
   onuIndex: number;
   status: string;
   vendor: string | null;
   model: string | null;
+  softwareVersion: string | null;
+  distance: number | null;
   rxPower: number | null;
   txPower: number | null;
   vlanId: number | null;
   bandwidthProfile: string | null;
+  description: string | null;
   pelangganId: string | null;
   lastSeen: string | null;
   registeredAt: string | null;
@@ -187,12 +193,20 @@ export default function OnuDetailClient({ id }: { id: string }) {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <InfoField
-              label="PON Port : Index"
-              value={`${onu.ponPort} : ${onu.onuIndex}`}
+              label="Frame/Slot/Port:Index"
+              value={`${onu.slotFrame}/${onu.slot}/${onu.ponPort}:${onu.onuIndex}`}
               mono
             />
             <InfoField label="Vendor" value={onu.vendor ?? "-"} />
             <InfoField label="Model" value={onu.model ?? "-"} />
+            <InfoField
+              label="Software Version"
+              value={onu.softwareVersion ?? "-"}
+            />
+            <InfoField
+              label="Jarak Fiber"
+              value={onu.distance != null ? `${onu.distance} m` : "-"}
+            />
             <InfoField
               label="VLAN"
               value={onu.vlanId != null ? String(onu.vlanId) : "-"}
@@ -203,7 +217,7 @@ export default function OnuDetailClient({ id }: { id: string }) {
             />
             <InfoField
               label="Pelanggan"
-              value={onu.pelangganId ?? "Belum di-assign"}
+              value={onu.description ?? onu.pelangganId ?? "Belum di-assign"}
             />
             <InfoField
               label="Registered At"
@@ -259,6 +273,8 @@ export default function OnuDetailClient({ id }: { id: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {onu.status === "ACTIVE" && <TrafficCounterCard onuId={onu.id} />}
     </div>
   );
 }
