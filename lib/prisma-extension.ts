@@ -2,6 +2,35 @@
  * Prisma Extension for Multi-tenancy isolation.
  * Based on Prisma 7 best practices (2025/2026).
  */
+
+/**
+ * Error class internal yang menandakan kegagalan resolusi tenant context atau
+ * upaya akses data tanpa konteks valid. Why: pesan error mentah seperti
+ * "Security Breach: ..." dapat ter-bubble ke client dan membocorkan mekanisme
+ * isolasi internal kepada attacker. Class ini ditangkap di centralized
+ * handleError (lib/api/handler.ts) dan diterjemahkan ke 401/403 generik —
+ * detail hanya masuk ke logger.
+ *
+ * How to apply: throw `TenantContextError` daripada `new Error(...)` di
+ * jalur isolasi tenant. Lihat handleError untuk integrasi response.
+ */
+export class TenantContextError extends Error {
+  readonly kind: "missing-context" | "resolution-failed";
+
+  constructor(
+    kind: "missing-context" | "resolution-failed",
+    detail: string,
+    options?: { cause?: unknown },
+  ) {
+    super(detail);
+    this.name = "TenantContextError";
+    this.kind = kind;
+    if (options?.cause !== undefined) {
+      (this as { cause?: unknown }).cause = options.cause;
+    }
+  }
+}
+
 const READ_OPERATIONS = new Set([
   "findUnique",
   "findUniqueOrThrow",
@@ -179,8 +208,18 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             return query(args);
           }
 
-          // 2. Bypass for seeding or critical internal tasks
+          // 2. Bypass for seeding or critical internal tasks.
+          // IS_SEEDING dimaksudkan hanya untuk script seed lokal/CI yang
+          // mem-bootstrap data lintas tenant. Jika flag ini aktif di
+          // NODE_ENV=production, itu indikasi misconfiguration berbahaya
+          // (env bocor ke pod produksi) — fail loudly sebelum menyentuh data.
           if (process.env.IS_SEEDING === "true") {
+            if (process.env.NODE_ENV === "production") {
+              throw new TenantContextError(
+                "missing-context",
+                "IS_SEEDING=true is forbidden in production. This flag is for seed scripts only.",
+              );
+            }
             return query(args);
           }
 
@@ -190,9 +229,13 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             const { getTenantIdFromContext } = await import("./tenant-context");
             ctx = await getTenantIdFromContext();
           } catch (err) {
-            // High security: fail closed if context resolution errors out
-            throw new Error(
-              `Critical: Failed to resolve tenant context: ${err}`,
+            // High security: fail closed if context resolution errors out.
+            // Detail tidak boleh ter-bubble ke client; pakai TenantContextError
+            // agar handleError menerjemahkannya ke 500 generik.
+            throw new TenantContextError(
+              "resolution-failed",
+              `Failed to resolve tenant context for ${model ?? "unknown"}.${operation}`,
+              { cause: err },
             );
           }
 
@@ -200,8 +243,9 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
 
           // 4. Security Enforcement: If not superadmin and no tenant resolved, reject request
           if (!isSuperAdmin && !tenantId) {
-            throw new Error(
-              "Security Breach: Attempted data access without valid tenant context.",
+            throw new TenantContextError(
+              "missing-context",
+              `Attempted data access without valid tenant context: ${model ?? "unknown"}.${operation}`,
             );
           }
 

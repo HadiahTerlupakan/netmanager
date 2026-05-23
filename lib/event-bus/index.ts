@@ -136,6 +136,7 @@ export {
  * Call this once during application startup (in server.ts).
  */
 export async function initializeEventBus(): Promise<void> {
+  const { runAsSystemContext } = await import("@/lib/tenant-context");
   const {
     startWorkers,
     rehydrateOvertimeAutoCheckoutJobs,
@@ -144,8 +145,10 @@ export async function initializeEventBus(): Promise<void> {
   const { startOutboxProcessor } = await import("./outbox-processor");
 
   startWorkers();
-  await rehydrateOvertimeAutoCheckoutJobs();
-  await rehydrateBillingScheduleJobs();
+  await runAsSystemContext("event-bus.initialize.rehydrate", async () => {
+    await rehydrateOvertimeAutoCheckoutJobs();
+    await rehydrateBillingScheduleJobs();
+  });
   startOutboxProcessor();
 
   logger.info(

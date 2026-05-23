@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
+import {
+  runAsSystemContext,
+  runWithRequestTenantContext,
+} from "@/lib/tenant-context";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { BaseMonitor } from "./BaseMonitor";
 import { NetworkRepository } from "../repositories/NetworkRepository";
@@ -28,45 +32,53 @@ export class RadiusMonitor extends BaseMonitor {
   }
 
   protected override async poll(): Promise<void> {
-    const tenants = await this.networkRepo.findActiveTenants();
+    const tenants = await runAsSystemContext(
+      "RadiusMonitor: discover active tenants",
+      () => this.networkRepo.findActiveTenants(),
+    );
 
     for (const tenant of tenants) {
-      try {
-        const scope = { kind: "admin", id: `radius:${tenant.id}` } as const;
+      await runWithRequestTenantContext(
+        { tenantId: tenant.id, isSuperAdmin: false },
+        async () => {
+          try {
+            const scope = { kind: "admin", id: `radius:${tenant.id}` } as const;
 
-        // Check if there are active consumers before publishing
-        // This prevents unnecessary Firestore writes when no one is listening
-        const hasConsumers =
-          await firebaseRealtimeService.hasActiveScopeConsumers(scope);
+            // Check if there are active consumers before publishing
+            // This prevents unnecessary Firestore writes when no one is listening
+            const hasConsumers =
+              await firebaseRealtimeService.hasActiveScopeConsumers(scope);
 
-        if (!hasConsumers) {
-          continue; // Skip this tenant if no active consumers
-        }
+            if (!hasConsumers) {
+              return;
+            }
 
-        const [stats, recentSessions] = await Promise.all([
-          this.repository.getDashboardStats(tenant.id),
-          this.repository.getRecentSessions(tenant.id, {
-            limit: 50,
-            status: "active",
-          }),
-        ]);
+            const [stats, recentSessions] = await Promise.all([
+              this.repository.getDashboardStats(tenant.id),
+              this.repository.getRecentSessions(tenant.id, {
+                limit: 50,
+                status: "active",
+              }),
+            ]);
 
-        await firebaseRealtimeService.publish({
-          type: "radius.stats",
-          scope,
-          payload: stats,
-        });
-        await firebaseRealtimeService.publish({
-          type: "radius.sessions",
-          scope,
-          payload: recentSessions,
-        });
-      } catch (error) {
-        logger.error(
-          `[RadiusMonitor] Error polling for tenant ${tenant.id}:`,
-          error,
-        );
-      }
+            await firebaseRealtimeService.publish({
+              type: "radius.stats",
+              scope,
+              payload: stats,
+            });
+            await firebaseRealtimeService.publish({
+              type: "radius.sessions",
+              scope,
+              payload: recentSessions,
+            });
+          } catch (error) {
+            logger.error(
+              `[RadiusMonitor] Error polling for tenant ${tenant.id}:`,
+              error,
+            );
+          }
+        },
+      );
     }
   }
 }

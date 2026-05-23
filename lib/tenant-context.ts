@@ -17,14 +17,34 @@ async function resolveTenantContextFromHost(
     return null;
   }
 
+  // Localhost di production tidak boleh otomatis di-mapping ke tenant utama —
+  // pasti misconfiguration ingress/proxy. Default fail-closed kecuali di env
+  // selain production.
   if (normalizedHost === "localhost") {
+    if (process.env.NODE_ENV === "production") {
+      logger.warn(
+        "[TENANT_CONTEXT] Localhost host header in production — refusing to map to MAIN_TENANT_ID.",
+      );
+      return null;
+    }
     return resolvePrimaryTenantContext();
   }
 
   const baseDomain = process.env.DOMAIN || "radpro.id";
 
-  // Check if bare domain (main tenant)
+  // Bare/apex domain biasanya dipakai untuk landing/marketing page, bukan
+  // aplikasi tenant. Auto-map ke MAIN_TENANT_ID di production menyaru
+  // misconfiguration ingress (mestinya redirect ke landing). Default
+  // fail-closed di production; opt-in via ALLOW_BARE_DOMAIN_AS_MAIN_TENANT.
   if (normalizedHost === baseDomain) {
+    const allowBareDomain =
+      process.env.ALLOW_BARE_DOMAIN_AS_MAIN_TENANT === "true";
+    if (process.env.NODE_ENV === "production" && !allowBareDomain) {
+      logger.warn(
+        `[TENANT_CONTEXT] Bare domain "${baseDomain}" hit in production without ALLOW_BARE_DOMAIN_AS_MAIN_TENANT=true — refusing to map to MAIN_TENANT_ID.`,
+      );
+      return null;
+    }
     return resolvePrimaryTenantContext();
   }
 
@@ -93,6 +113,30 @@ export function runWithRequestTenantContext<T>(
   return requestTenantContextStorage.run(tenantContext, callback);
 }
 
+/**
+ * Eksplisit elevasi konteks untuk pekerjaan sistem (cron, monitor, bootstrap)
+ * yang BUKAN berasal dari request user. Memberi `isSuperAdmin: true` sehingga
+ * Prisma extension melewatkan tenant filter.
+ *
+ * Why: bypass otomatis berbasis flag global IS_CUSTOM_SERVER membuat setiap
+ * Socket.IO handler atau handler request non-Next berjalan sebagai super admin —
+ * potensi data leak antar tenant. Pemanggil yang sah HARUS memilih bypass
+ * secara eksplisit dan disertai alasan untuk audit trail.
+ *
+ * How to apply: wrap kode bootstrap/loop yang perlu lihat semua tenant.
+ * Untuk per-tenant operasi, prefer runWithRequestTenantContext({ tenantId, isSuperAdmin: false }).
+ */
+export function runAsSystemContext<T>(
+  reason: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  logger.info(`[TENANT_CONTEXT] System context elevated: ${reason}`);
+  return requestTenantContextStorage.run(
+    { tenantId: null, isSuperAdmin: true },
+    callback,
+  );
+}
+
 function getCachedTenantContextForRequest(
   requestHeaders: unknown,
 ): TenantContextResult | null {
@@ -119,6 +163,45 @@ function resolvePrimaryTenantContext(): TenantContextResult {
     tenantId: MAIN_TENANT_ID,
     isSuperAdmin: false,
   };
+}
+
+/**
+ * Pastikan tenant dari sesi user cocok dengan tenant dari host (subdomain /
+ * custom domain). Jika user tenant A mengakses domain tenant B, kita tolak
+ * akses dengan mengembalikan empty context — fail-closed di Prisma extension.
+ *
+ * Why: tanpa cross-check ini, request bisa berjalan dengan otoritas tenant
+ * dari sesi user di domain tenant lain (confused deputy). Super admin
+ * dikecualikan karena memang berhak lintas tenant.
+ *
+ * How to apply: dipanggil sebelum mengembalikan tenant context yang berasal
+ * dari token/cookie (NextAuth, mobile JWT, investor, customer).
+ */
+async function enforceSessionHostMatch(
+  sessionContext: TenantContextResult,
+  requestHeaders: Headers | null,
+): Promise<TenantContextResult> {
+  if (sessionContext.isSuperAdmin) {
+    return sessionContext;
+  }
+
+  if (!sessionContext.tenantId) {
+    return sessionContext;
+  }
+
+  const hostContext = await resolveTenantContextFromHost(requestHeaders);
+  if (!hostContext || !hostContext.tenantId) {
+    return sessionContext;
+  }
+
+  if (hostContext.tenantId === sessionContext.tenantId) {
+    return sessionContext;
+  }
+
+  logger.warn(
+    `[TENANT_CONTEXT] Session/host mismatch: session tenant=${sessionContext.tenantId} host tenant=${hostContext.tenantId}. Rejecting request (fail-closed).`,
+  );
+  return { tenantId: null, isSuperAdmin: false };
 }
 
 function getAuthSecret(): Uint8Array {
@@ -161,14 +244,19 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
     return cachedRequestTenantContext;
   }
 
-  // If we are NOT in a standard Next.js request context BUT we are running via the
-  // custom server (e.g. WebSocket handshake, cron jobs, etc.), we return isSuperAdmin: true.
-  // This allows these internal/system operations to bypass automatic isolation filters.
+  // If we are NOT in a standard Next.js request context (custom server entry
+  // such as Socket.IO, internal cron, bootstrap), do NOT auto-elevate to
+  // super admin. Caller harus eksplisit pakai runAsSystemContext() atau
+  // runWithRequestTenantContext({ tenantId, ... }). Default = fail-closed
+  // sehingga Prisma extension menolak akses tanpa konteks valid.
   const globalObj = globalThis as Record<string, unknown>;
   if (!isNextRequest && globalObj.IS_CUSTOM_SERVER) {
+    logger.warn(
+      "[TENANT_CONTEXT] Custom server call without explicit tenant context. Returning empty context (fail-closed). Wrap caller with runAsSystemContext() or runWithRequestTenantContext().",
+    );
     return cacheTenantContextForRequest(requestHeaders, {
       tenantId: null,
-      isSuperAdmin: true,
+      isSuperAdmin: false,
     });
   }
 
@@ -205,10 +293,14 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
         const mobilePayload = await verifyMobileToken(token);
         if (mobilePayload) {
           const mp = mobilePayload as Record<string, unknown>;
-          return cacheTenantContextForRequest(requestHeaders, {
+          const sessionContext: TenantContextResult = {
             tenantId: (mp.tenantId as string) || null,
             isSuperAdmin: !!mp.isSuperAdmin,
-          });
+          };
+          return cacheTenantContextForRequest(
+            requestHeaders,
+            await enforceSessionHostMatch(sessionContext, requestHeaders),
+          );
         }
       }
     }
@@ -230,10 +322,14 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
         if (token) {
           const isSuperAdmin =
             !!token.isSuperAdmin || isSuperAdminRole(token.role);
-          return cacheTenantContextForRequest(requestHeaders, {
+          const sessionContext: TenantContextResult = {
             tenantId: (token.tenantId as string) || null,
             isSuperAdmin,
-          });
+          };
+          return cacheTenantContextForRequest(
+            requestHeaders,
+            await enforceSessionHostMatch(sessionContext, requestHeaders),
+          );
         }
 
         // 2b. Check for Investor Auth Cookie
@@ -245,10 +341,14 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
           try {
             const { payload } = await jwtVerify(investorToken, secret);
             if (payload && payload.tenantId) {
-              return cacheTenantContextForRequest(requestHeaders, {
+              const sessionContext: TenantContextResult = {
                 tenantId: payload.tenantId as string,
                 isSuperAdmin: false,
-              });
+              };
+              return cacheTenantContextForRequest(
+                requestHeaders,
+                await enforceSessionHostMatch(sessionContext, requestHeaders),
+              );
             }
           } catch (err) {
             logger.error(
@@ -265,10 +365,14 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
             const { payload } = await jwtVerify(customerToken, secret);
             const tenantId = (payload as { tenantId?: string }).tenantId;
             if (payload && tenantId) {
-              return cacheTenantContextForRequest(requestHeaders, {
+              const sessionContext: TenantContextResult = {
                 tenantId,
                 isSuperAdmin: false,
-              });
+              };
+              return cacheTenantContextForRequest(
+                requestHeaders,
+                await enforceSessionHostMatch(sessionContext, requestHeaders),
+              );
             }
           } catch {
             // Silently ignore invalid customer tokens

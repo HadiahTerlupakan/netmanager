@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
 import { acquireCronLock } from "@/lib/cron-lock";
+import { runAsSystemContext } from "@/lib/tenant-context";
 
 export async function canRunCronJob(
   jobName: string,
@@ -9,6 +10,23 @@ export async function canRunCronJob(
 ): Promise<boolean> {
   const lockResult = await acquireCronLock(jobName, ttlSeconds);
   return lockResult === "acquired";
+}
+
+/**
+ * Bungkus body cron job dengan elevasi konteks sistem.
+ * Why: cron berjalan di custom server tanpa request context. Tanpa elevasi
+ * eksplisit, Prisma extension menolak query (fail-closed) — ini disengaja
+ * untuk mencegah handler lain ikut terbypass.
+ * How to apply: pakai untuk setiap callback `cron.schedule(...)` yang butuh
+ * akses lintas-tenant (batch billing, sync, monitoring).
+ */
+function runCronTask(
+  jobName: string,
+  body: () => Promise<unknown> | unknown,
+): Promise<void> {
+  return runAsSystemContext(`cron:${jobName}`, async () => {
+    await body();
+  });
 }
 
 export class CronRegistry {
@@ -23,14 +41,18 @@ export class CronRegistry {
         const billingCronTask = cron.schedule("0 1 * * *", async () => {
           if (!(await canRunCronJob("billing", 82800))) return;
           logger.info("[Cron] Running daily billing check");
-          AutomaticBillingService.generateDailyInvoices();
+          await runCronTask("billing", () =>
+            AutomaticBillingService.generateDailyInvoices(),
+          );
         });
         this.tasks.set("billing", billingCronTask);
         logger.info("[CronRegistry] Automatic billing cron scheduled");
 
         const reminderCronTask = cron.schedule("* * * * *", async () => {
           if (!(await canRunCronJob("reminder", 55))) return;
-          AutomaticBillingService.sendDailyReminders();
+          await runCronTask("reminder", () =>
+            AutomaticBillingService.sendDailyReminders(),
+          );
         });
         this.tasks.set("reminder", reminderCronTask);
         logger.info(
@@ -54,7 +76,9 @@ export class CronRegistry {
             return;
           }
           logger.info("[Cron] Running billing schedule reconciliation");
-          AutomaticIsolationService.runDailyCheck();
+          await runCronTask("billingScheduleReconciliation", () =>
+            AutomaticIsolationService.runDailyCheck(),
+          );
         });
         this.tasks.set("billingScheduleReconciliation", isolationTask);
         logger.info(
@@ -76,7 +100,9 @@ export class CronRegistry {
           async () => {
             if (!(await canRunCronJob("attendanceOrchestrator", 55))) return;
             logger.info("[Cron] Running attendance orchestrator");
-            await runAttendanceCronOrchestrator();
+            await runCronTask("attendanceOrchestrator", () =>
+              runAttendanceCronOrchestrator(),
+            );
           },
         );
         this.tasks.set("attendanceOrchestrator", attendanceOrchestratorTask);
@@ -97,12 +123,14 @@ export class CronRegistry {
         const locationCleanupTask = cron.schedule("0 2 * * *", async () => {
           if (!(await canRunCronJob("locationCleanup", 82800))) return;
           logger.info("[Cron] Running daily location cleanup");
-          const service = new LocationTrackingService();
-          service
-            .cleanupOldLocations()
-            .catch((err) =>
-              logger.error("[Cron] Location cleanup failed:", err),
-            );
+          await runCronTask("locationCleanup", async () => {
+            const service = new LocationTrackingService();
+            try {
+              await service.cleanupOldLocations();
+            } catch (err) {
+              logger.error("[Cron] Location cleanup failed:", err);
+            }
+          });
         });
         this.tasks.set("locationCleanup", locationCleanupTask);
         logger.info("[CronRegistry] Location cleanup cron scheduled (02:00)");
@@ -120,29 +148,31 @@ export class CronRegistry {
         const assetDepreciationTask = cron.schedule("0 2 1 * *", async () => {
           if (!(await canRunCronJob("assetDepreciation", 2505600))) return;
           logger.info("[Cron] Running monthly asset depreciation");
-          try {
-            const { prisma } = await import("./prisma");
-            const systemUser =
-              (await prisma.user.findFirst({
-                where: { role: { isSuperAdmin: true } },
-              })) || (await prisma.user.findFirst());
+          await runCronTask("assetDepreciation", async () => {
+            try {
+              const { prisma } = await import("./prisma");
+              const systemUser =
+                (await prisma.user.findFirst({
+                  where: { role: { isSuperAdmin: true } },
+                })) || (await prisma.user.findFirst());
 
-            if (systemUser) {
-              const assetService = new AssetService();
-              const results = await assetService.runMonthlyDepreciationCycle(
-                systemUser.id,
-              );
-              logger.info(
-                `[Cron] Depreciation complete. Processed ${results.length} assets.`,
-              );
-            } else {
-              logger.error(
-                "[Cron] Failed to run depreciation: No system user found",
-              );
+              if (systemUser) {
+                const assetService = new AssetService();
+                const results = await assetService.runMonthlyDepreciationCycle(
+                  systemUser.id,
+                );
+                logger.info(
+                  `[Cron] Depreciation complete. Processed ${results.length} assets.`,
+                );
+              } else {
+                logger.error(
+                  "[Cron] Failed to run depreciation: No system user found",
+                );
+              }
+            } catch (err) {
+              logger.error("[Cron] Depreciation cycle failed:", err);
             }
-          } catch (err) {
-            logger.error("[Cron] Depreciation cycle failed:", err);
-          }
+          });
         });
         this.tasks.set("assetDepreciation", assetDepreciationTask);
         logger.info(
@@ -159,7 +189,9 @@ export class CronRegistry {
         const mixRadiusInvoiceTask = cron.schedule("0 * * * *", async () => {
           if (!(await canRunCronJob("mixRadiusInvoiceSync", 3540))) return;
           logger.info("[Cron] Running hourly MixRadius invoice sync");
-          getMixRadiusSyncService().syncInvoices();
+          await runCronTask("mixRadiusInvoiceSync", () =>
+            getMixRadiusSyncService().syncInvoices(),
+          );
         });
         this.tasks.set("mixRadiusInvoiceSync", mixRadiusInvoiceTask);
         logger.info(
@@ -169,7 +201,9 @@ export class CronRegistry {
         const mixRadiusSettlementTask = cron.schedule("5 0 * * *", async () => {
           if (!(await canRunCronJob("mixRadiusSettlementSync", 82800))) return;
           logger.info("[Cron] Running daily MixRadius settlement sync (T-1)");
-          getMixRadiusSyncService().syncYesterdaySettlement();
+          await runCronTask("mixRadiusSettlementSync", () =>
+            getMixRadiusSyncService().syncYesterdaySettlement(),
+          );
         });
         this.tasks.set("mixRadiusSettlementSync", mixRadiusSettlementTask);
         logger.info(
@@ -214,11 +248,13 @@ export class CronRegistry {
           if (!(await canRunCronJob("route:applyPendingPackages", 82800)))
             return;
           logger.info("[Cron] Running daily pending package applier");
-          new PendingPackageApplierService()
-            .applyDuePending()
-            .catch((err) =>
-              logger.error("[Cron] Pending package applier failed:", err),
-            );
+          await runCronTask("applyPendingPackages", async () => {
+            try {
+              await new PendingPackageApplierService().applyDuePending();
+            } catch (err) {
+              logger.error("[Cron] Pending package applier failed:", err);
+            }
+          });
         });
         this.tasks.set("applyPendingPackages", pendingPackageTask);
         logger.info(
@@ -241,11 +277,17 @@ export class CronRegistry {
           logger.info("[Cron] Running OLT monitoring poll");
           try {
             const { prisma } = await import("../modules/database");
-            const tenants = await prisma.tenant.findMany({
-              select: { id: true },
-            });
+            const { runWithRequestTenantContext } =
+              await import("./tenant-context");
+            const tenants = await runAsSystemContext(
+              "oltMonitoring: discover tenants",
+              () => prisma.tenant.findMany({ select: { id: true } }),
+            );
             for (const tenant of tenants) {
-              await monitoringService.pollAllOlts(tenant.id);
+              await runWithRequestTenantContext(
+                { tenantId: tenant.id, isSuperAdmin: false },
+                () => monitoringService.pollAllOlts(tenant.id),
+              );
             }
           } catch (err) {
             logger.error("[Cron] OLT monitoring failed:", err);

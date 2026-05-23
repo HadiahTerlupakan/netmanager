@@ -45,6 +45,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-23] — Tenant isolation hardening (medium): error masking, IS_SEEDING guard, audit script, bare-domain guard
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`, `scripts/`
+- **Author**: agent
+- **Deskripsi**: Empat perbaikan keamanan multi-tenant tingkat medium. (1) **Error masking**: `lib/prisma-extension.ts` mengganti `throw new Error("Security Breach: ...")` dengan class internal `TenantContextError`. Centralized error handler di `lib/api/handler.ts`, `lib/api/secure-handler.ts`, dan `lib/middleware/error-handler.ts` menerjemahkannya ke 500 generik tanpa membocorkan pesan internal — detail hanya masuk ke logger. (2) **IS_SEEDING production guard**: `prisma-extension` sekarang menolak (throw) ketika `IS_SEEDING=true` aktif di `NODE_ENV=production` — mencegah ENV bocor ke pod produksi membatalkan seluruh isolasi. Sekaligus refactor `lib/logger.ts` (`logActivity`/`logAuth`) yang dulu memanipulasi `process.env.IS_SEEDING` (race-prone, global state) menjadi pakai `runAsSystemContext()` (AsyncLocalStorage). (3) **Audit script** baru `scripts/audit-global-reference-rows.ts` melaporkan jumlah dan sample row Role/Departments/Sites yang `tenantId: null`; bisa dijadwalkan rutin untuk deteksi anomali. (4) **Bare-domain guard**: localhost dan bare/apex domain (`radpro.id`) tidak lagi otomatis di-mapping ke `MAIN_TENANT_ID` di `NODE_ENV=production`. Bare domain wajib opt-in via ENV `ALLOW_BARE_DOMAIN_AS_MAIN_TENANT=true` agar misconfiguration ingress tidak menyaru sebagai akses tenant utama.
+- **Files**:
+  - `lib/prisma-extension.ts` (`TenantContextError` class, IS_SEEDING production guard)
+  - `lib/api/handler.ts` (mask `TenantContextError`)
+  - `lib/api/secure-handler.ts` (mask `TenantContextError`)
+  - `lib/middleware/error-handler.ts` (mask `TenantContextError`)
+  - `lib/logger.ts` (refactor `logActivity`/`logAuth` ke `runAsSystemContext`)
+  - `lib/tenant-context.ts` (localhost & bare-domain guard di production)
+  - `scripts/audit-global-reference-rows.ts` (NEW)
+- **Breaking**: ❌ Tidak — selama `NODE_ENV=production` tidak men-set `IS_SEEDING=true` dan ingress production tidak mengandalkan auto-map bare domain (yang memang tidak seharusnya). Untuk environment yang masih perlu, set `ALLOW_BARE_DOMAIN_AS_MAIN_TENANT=true`.
+
 ### [2026-05-23] — Refactor & hardening modul notification (P0–P2)
 
 - **Tipe**: [CHANGED]

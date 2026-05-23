@@ -4,7 +4,10 @@ import * as z from "zod";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { logActivitySafe } from "@/lib/logger";
-import { validateUploadFile } from "@/lib/upload/upload-policy";
+import {
+  buildTenantUploadDir,
+  validateUploadFile,
+} from "@/lib/upload/upload-policy";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { attendanceMissedCheckInCorrectionSchema } from "@/lib/validations/attendance";
@@ -112,7 +115,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const evidencePhotoUrl = await convertAndSaveImage(
     photo,
-    ATTENDANCE_UPLOAD_DIR,
+    buildTenantUploadDir(ATTENDANCE_UPLOAD_DIR, tenantId),
     buildEvidencePhotoName(user.id),
     "employee-attendance",
     user.id,

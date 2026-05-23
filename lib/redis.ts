@@ -27,26 +27,54 @@ if (process.env.NODE_ENV !== "production") {
 // Hindari crash/logging bising saat build bila Redis belum siap/NOAUTH
 redis.on("error", () => {});
 
+interface RateLimitOptions {
+  /**
+   * Tenant scope untuk rate limit. Tanpa ini, key dishare lintas tenant
+   * (mis. user-id 123 di tenant A dan tenant B berbagi bucket yang sama).
+   * Bila tidak diketahui (request publik tanpa tenant resolved), gunakan
+   * `"global"` agar tetap eksplisit.
+   */
+  tenantId: string | null;
+  /**
+   * Bila true, gagal ketika Redis tidak available (mis. login, OTP, password
+   * reset). Default false (fail-open) untuk endpoint umum.
+   */
+  failClosed?: boolean;
+}
+
+function buildSafeKey(rawKey: string): string | null {
+  if (!rawKey || typeof rawKey !== "string" || rawKey.length === 0) {
+    return null;
+  }
+  const safeKey = String(rawKey)
+    .trim()
+    .replace(/[^a-zA-Z0-9:_-]/g, "_");
+  return safeKey || null;
+}
+
+function buildTenantScope(tenantId: string | null): string {
+  if (!tenantId) {
+    return "global";
+  }
+  return tenantId.replace(/[^a-zA-Z0-9_-]/g, "_") || "global";
+}
+
 export async function checkRateLimit(
   key: string,
   maxAttempts: number,
   windowSeconds: number,
+  options: RateLimitOptions = { tenantId: null },
 ) {
-  // Validasi input
-  if (!key || typeof key !== "string" || key.length === 0) {
+  const safeKey = buildSafeKey(key);
+  if (!safeKey) {
     return true; // Skip rate limiting jika key tidak valid
   }
 
-  // Pastikan key aman (tidak mengandung karakter berbahaya)
-  const safeKey = String(key)
-    .trim()
-    .replace(/[^a-zA-Z0-9:_-]/g, "_");
-  if (!safeKey || safeKey.length === 0) {
-    return true;
-  }
+  const tenantScope = buildTenantScope(options.tenantId);
+  const failClosed = options.failClosed ?? false;
 
   const now = Date.now();
-  const bucketKey = `rl:${safeKey}:${Math.floor(now / (windowSeconds * 1000))}`;
+  const bucketKey = `rl:${tenantScope}:${safeKey}:${Math.floor(now / (windowSeconds * 1000))}`;
 
   try {
     const count = await redis.incr(bucketKey);
@@ -61,20 +89,24 @@ export async function checkRateLimit(
       const delaySeconds = Math.min(excessAttempts * 30, 300); // Max 5 menit delay
 
       // Set a separate key for tracking the delay
-      const delayKey = `delay:${safeKey}`;
+      const delayKey = `delay:${tenantScope}:${safeKey}`;
       await redis.setex(delayKey, delaySeconds, "1");
 
       logger.info(
-        `Rate limit exceeded for ${safeKey}. Delay: ${delaySeconds}s`,
+        `Rate limit exceeded for ${tenantScope}:${safeKey}. Delay: ${delaySeconds}s`,
       );
       return false;
     }
 
     return count <= maxAttempts;
   } catch (error: unknown) {
-    // Jika Redis gagal (misconfig/NOAUTH), jangan blokir request (fail open)
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("Redis rate limit error:", errorMessage);
+    // Endpoint sensitif (login/OTP) WAJIB fail-closed agar Redis outage tidak
+    // membuka jalan brute-force. Endpoint umum tetap fail-open.
+    if (failClosed) {
+      return false;
+    }
     return true;
   }
 }
@@ -82,15 +114,17 @@ export async function checkRateLimit(
 /**
  * Check if there's an active delay for a key and return remaining time
  */
-export async function checkDelay(key: string): Promise<number> {
-  if (!key || typeof key !== "string" || key.length === 0) {
+export async function checkDelay(
+  key: string,
+  options: { tenantId: string | null } = { tenantId: null },
+): Promise<number> {
+  const safeKey = buildSafeKey(key);
+  if (!safeKey) {
     return 0;
   }
 
-  const safeKey = String(key)
-    .trim()
-    .replace(/[^a-zA-Z0-9:_-]/g, "_");
-  const delayKey = `delay:${safeKey}`;
+  const tenantScope = buildTenantScope(options.tenantId);
+  const delayKey = `delay:${tenantScope}:${safeKey}`;
 
   try {
     const ttl = await redis.ttl(delayKey);

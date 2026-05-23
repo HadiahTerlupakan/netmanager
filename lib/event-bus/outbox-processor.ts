@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { runAsSystemContext } from "@/lib/tenant-context";
 import {
   fetchPendingEvents,
   markEventProcessed,
@@ -80,7 +81,7 @@ export function startOutboxProcessor(): void {
 
   processorInterval = setInterval(async () => {
     try {
-      await processOutbox();
+      await runAsSystemContext("outbox-processor.poll", () => processOutbox());
     } catch (error) {
       logger.error("[OutboxProcessor] Error in poll cycle:", error);
     }
@@ -109,5 +110,7 @@ export async function runOutboxCycle(): Promise<{
   dispatched: number;
   failed: number;
 }> {
-  return processOutbox();
+  return runAsSystemContext("outbox-processor.runOutboxCycle", () =>
+    processOutbox(),
+  );
 }

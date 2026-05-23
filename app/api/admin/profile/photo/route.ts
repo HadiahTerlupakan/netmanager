@@ -7,6 +7,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import {
   AdminProfileRouteError,
   AdminProfileRouteService,
@@ -38,12 +39,18 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
+  const tenantId = ctx.session!.user.tenantId;
+  if (!tenantId) {
+    return ApiErrors.badRequest("Tenant ID tidak ditemukan");
+  }
+
   const fileName = `${ctx.session!.user.id}_${Date.now()}`;
+  const uploadDir = buildTenantUploadDir(PROFILE_UPLOAD_DIR, tenantId);
 
   try {
     const imageUrl = await convertAndSaveImage(
       photo,
-      PROFILE_UPLOAD_DIR,
+      uploadDir,
       fileName,
       "user-profile",
       ctx.session!.user.id,

@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/redis";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type { AuthContext } from "./auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 
@@ -21,6 +22,12 @@ export interface RateLimitConfig {
   keyPrefix?: string;
   /** Skip rate limit for authenticated users (default: false) */
   skipAuthenticated?: boolean;
+  /**
+   * Fail-closed saat Redis tidak available. Wajib true untuk endpoint
+   * sensitif (login, OTP, password reset) agar outage Redis tidak membuka
+   * jalan brute-force. Default false untuk endpoint umum.
+   */
+  failClosed?: boolean;
 }
 
 /**
@@ -80,10 +87,20 @@ export function withRateLimit<T = unknown>(
       }
 
       // Check rate limit
+      const tenantContext = await getTenantIdFromContext().catch(
+        (): { tenantId: string | null; isSuperAdmin: boolean } => ({
+          tenantId: null,
+          isSuperAdmin: false,
+        }),
+      );
       const allowed = await checkRateLimit(
         rateLimitKey,
         config.limit,
         config.window,
+        {
+          tenantId: tenantContext.tenantId,
+          failClosed: config.failClosed,
+        },
       );
 
       if (!allowed) {
@@ -135,10 +152,20 @@ export function withAuthRateLimit<T = unknown>(
     try {
       const rateLimitKey = `${config.keyPrefix || "api"}:${context.user.id}`;
 
+      const tenantContext = await getTenantIdFromContext().catch(
+        (): { tenantId: string | null; isSuperAdmin: boolean } => ({
+          tenantId: context.user.tenantId ?? null,
+          isSuperAdmin: false,
+        }),
+      );
       const allowed = await checkRateLimit(
         rateLimitKey,
         config.limit,
         config.window,
+        {
+          tenantId: tenantContext.tenantId ?? context.user.tenantId ?? null,
+          failClosed: (config as RateLimitConfig).failClosed,
+        },
       );
 
       if (!allowed) {
@@ -180,7 +207,7 @@ export const RateLimits = {
   HOURLY: { limit: 1000, window: 3600 },
 
   /** Login: 5 attempts per 5 minutes */
-  LOGIN: { limit: 5, window: 300, keyPrefix: "login" },
+  LOGIN: { limit: 5, window: 300, keyPrefix: "login", failClosed: true },
 
   /** Export: 3 exports per 10 minutes */
   EXPORT: { limit: 3, window: 600, keyPrefix: "export" },

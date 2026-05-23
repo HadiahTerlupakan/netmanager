@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, apiError } from "@/lib/api";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { randomUUID } from "crypto";
 
@@ -15,7 +16,7 @@ export const POST = createHandler(
     auth: true,
     permissions: ["map:create", "map:update"],
   },
-  async (req) => {
+  async (req, ctx) => {
     const formData = await req.formData();
     const file = formData.get("photo") as File;
 
@@ -36,7 +37,17 @@ export const POST = createHandler(
       });
     }
 
-    const uploadDir = "public/uploads/map/nodes";
+    const tenantId = ctx.session?.user?.tenantId;
+    if (!tenantId) {
+      return apiError("Tenant tidak ditemukan", "VALIDATION_ERROR", {
+        status: 400,
+      });
+    }
+
+    const uploadDir = buildTenantUploadDir(
+      "public/uploads/map/nodes",
+      tenantId,
+    );
     const fileName = `node_${Date.now()}_${randomUUID().split("-")[0]}`;
 
     try {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { saveMobileProfilePhoto } from "@/modules/users";
 
@@ -38,9 +39,17 @@ export async function POST(request: Request) {
     }
 
     const userId = authResult.id as string;
+    const tenantId = authResult.tenantId as string;
+    if (!tenantId) {
+      return apiError("Tenant tidak ditemukan", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
+    const uploadDir = buildTenantUploadDir(PROFILE_UPLOAD_DIR, tenantId);
     const imageUrl = await convertAndSaveImage(
       photo,
-      PROFILE_UPLOAD_DIR,
+      uploadDir,
       `${userId}_${Date.now()}`,
       "user-profile",
       userId,
@@ -49,7 +58,7 @@ export async function POST(request: Request) {
     return apiSuccess(
       await saveMobileProfilePhoto({
         userId,
-        tenantId: authResult.tenantId as string,
+        tenantId,
         imageUrl,
       }),
     );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isSuperAdmin, getUserPermissions } from "@/lib/auth";
 import { ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
+import { TenantContextError } from "@/lib/prisma-extension";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
 
 export type SecureContext = {
@@ -124,6 +125,12 @@ export function secure(handler: HandlerFunction, options: SecureOptions = {}) {
     } catch (error) {
       // 5. Global Error Handling
       logger.error(`[SecureHandler] Error in ${method} ${path}:`, error);
+
+      // TenantContextError membocorkan mekanisme isolasi tenant — jangan
+      // ekspos ke client. Detail sudah tercatat di logger di atas.
+      if (error instanceof TenantContextError) {
+        return ApiErrors.internalError("Terjadi kesalahan internal server");
+      }
 
       if (error instanceof Error) {
         // If it's already a known API error response structure, return strictly

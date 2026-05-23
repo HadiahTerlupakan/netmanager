@@ -344,10 +344,8 @@ class Logger {
         }
       }
 
-      const originalIsSeeding = process.env.IS_SEEDING;
-      process.env.IS_SEEDING = "true";
-
-      try {
+      const { runAsSystemContext } = await import("@/lib/tenant-context");
+      await runAsSystemContext("logger.logActivity", async () => {
         await prisma.systemLog.create({
           data: {
             id: randomUUID(),
@@ -363,9 +361,7 @@ class Logger {
             tenantId: data.tenantId || null,
           },
         });
-      } finally {
-        process.env.IS_SEEDING = originalIsSeeding;
-      }
+      });
     } catch (error) {
       this.error("Failed to save activity log to DB", error as Error);
     }
@@ -392,10 +388,8 @@ class Logger {
         }
       }
 
-      const originalIsSeeding = process.env.IS_SEEDING;
-      process.env.IS_SEEDING = "true";
-
-      try {
+      const { runAsSystemContext } = await import("@/lib/tenant-context");
+      await runAsSystemContext("logger.logAuth", async () => {
         await prisma.systemLog.create({
           data: {
             id: randomUUID(),
@@ -411,9 +405,7 @@ class Logger {
             tenantId: data.tenantId || null,
           },
         });
-      } finally {
-        process.env.IS_SEEDING = originalIsSeeding;
-      }
+      });
     } catch (error) {
       this.error("Failed to save auth log to DB", error as Error);
     }

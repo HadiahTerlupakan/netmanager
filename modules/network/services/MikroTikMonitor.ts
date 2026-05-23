@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
+import {
+  runAsSystemContext,
+  runWithRequestTenantContext,
+} from "@/lib/tenant-context";
 import type {
   RealtimeEventType,
   RealtimeScope,
@@ -71,22 +75,30 @@ async function publishTenantStats(
   statsRepository: RouterStatsRepository,
   publisher: RealtimePublisher,
 ) {
-  const tenants = await tenantRepository.findActiveTenants();
+  const tenants = await runAsSystemContext(
+    "MikroTikMonitor: discover active tenants",
+    () => tenantRepository.findActiveTenants(),
+  );
 
   for (const tenant of tenants) {
-    try {
-      const stats = await statsRepository.getStatistics(tenant.id);
-      await publisher.publish({
-        type: REALTIME_EVENT_TYPE,
-        scope: REALTIME_SCOPE,
-        payload: stats,
-      });
-    } catch (error) {
-      logger.error(
-        `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
-        error,
-      );
-    }
+    await runWithRequestTenantContext(
+      { tenantId: tenant.id, isSuperAdmin: false },
+      async () => {
+        try {
+          const stats = await statsRepository.getStatistics(tenant.id);
+          await publisher.publish({
+            type: REALTIME_EVENT_TYPE,
+            scope: REALTIME_SCOPE,
+            payload: stats,
+          });
+        } catch (error) {
+          logger.error(
+            `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
+            error,
+          );
+        }
+      },
+    );
   }
 }
 

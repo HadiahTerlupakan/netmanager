@@ -6,6 +6,7 @@ import {
   createHandler,
   executeMobileWithIdempotency,
 } from "@/lib/api";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
 import { OvertimeRouteService, OvertimeService } from "@/modules/overtime";
 
@@ -25,6 +26,7 @@ function createDateFolder(): string {
 async function resolvePhotoUrl(
   photo: string,
   userId: string,
+  tenantId: string,
   action: "start" | "stop",
 ): Promise<string> {
   if (photo.startsWith("http") || photo.startsWith("/uploads")) {
@@ -33,7 +35,10 @@ async function resolvePhotoUrl(
 
   return convertAndSaveBase64(
     photo,
-    `public/uploads/overtime/${createDateFolder()}`,
+    buildTenantUploadDir(
+      `public/uploads/overtime/${createDateFolder()}`,
+      tenantId,
+    ),
     `${userId}_${action}_${Date.now()}`,
     "employee-attendance",
     userId,
@@ -105,7 +110,7 @@ export const POST = createHandler(
         userId,
         body.overtimeId,
         {
-          photo: await resolvePhotoUrl(body.photo, userId, "start"),
+          photo: await resolvePhotoUrl(body.photo, userId, tenantId, "start"),
           location: body.location as string,
           timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
           tenantId,
@@ -128,7 +133,7 @@ export const POST = createHandler(
         userId,
         body.overtimeId,
         {
-          photo: await resolvePhotoUrl(body.photo, userId, "stop"),
+          photo: await resolvePhotoUrl(body.photo, userId, tenantId, "stop"),
           location: body.location as string,
           timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
         },

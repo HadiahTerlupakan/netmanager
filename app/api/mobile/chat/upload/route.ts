@@ -1,4 +1,5 @@
 import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
@@ -8,6 +9,13 @@ export const POST = createHandler(
   { auth: true, permissions: ["m_chat:create"] },
   async (req, ctx) => {
     const userId = ctx.session!.user.id;
+    const tenantId = ctx.session!.user.tenantId;
+
+    if (!tenantId) {
+      return apiError("Tenant tidak ditemukan", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
 
     const formData = await req.formData();
     const file = formData.get("image") as File | null;
@@ -44,8 +52,12 @@ export const POST = createHandler(
       );
     }
 
-    // Create upload directory
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "chat");
+    // Create upload directory namespaced per tenant
+    const relativeUploadDir = buildTenantUploadDir(
+      "public/uploads/chat",
+      tenantId,
+    );
+    const uploadDir = path.join(process.cwd(), relativeUploadDir);
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
     }
@@ -64,7 +76,8 @@ export const POST = createHandler(
     const protocol = req.headers.get("x-forwarded-proto") || "http";
     const host = req.headers.get("host");
     const baseUrl = `${protocol}://${host}`;
-    const imageUrl = `${baseUrl}/uploads/chat/${filename}`;
+    const publicPath = relativeUploadDir.replace(/^public/, "");
+    const imageUrl = `${baseUrl}${publicPath}/${filename}`;
 
     return apiSuccess({ imageUrl });
   },

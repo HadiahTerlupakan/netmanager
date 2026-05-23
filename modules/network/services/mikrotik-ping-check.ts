@@ -1,4 +1,8 @@
 import { logger } from "@/lib/logger";
+import {
+  runAsSystemContext,
+  runWithRequestTenantContext,
+} from "@/lib/tenant-context";
 import { RouterOSAPI } from "node-routeros-v2";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
@@ -72,12 +76,18 @@ async function testMikroTikAPI(
 export async function checkAllMikroTikRouterStatus(): Promise<number> {
   const routerRepository = new MikroTikRouterRepository();
   const networkRepository = new NetworkRepository();
-  const tenants = await networkRepository.findActiveTenants();
+  const tenants = await runAsSystemContext(
+    "checkAllMikroTikRouterStatus: discover active tenants",
+    () => networkRepository.findActiveTenants(),
+  );
 
   let totalUpdatedCount = 0;
 
   for (const tenant of tenants) {
-    totalUpdatedCount += await checkTenantRouters(routerRepository, tenant.id);
+    totalUpdatedCount += await runWithRequestTenantContext(
+      { tenantId: tenant.id, isSuperAdmin: false },
+      () => checkTenantRouters(routerRepository, tenant.id),
+    );
   }
 
   return totalUpdatedCount;

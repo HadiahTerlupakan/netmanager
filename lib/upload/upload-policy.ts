@@ -138,3 +138,55 @@ export function validateUploadFile(
 export function getUploadMaxBytes(): number {
   return MAX_UPLOAD_BYTES;
 }
+
+/**
+ * Validasi tenantId untuk dipakai sebagai segmen path upload. Why: tanpa
+ * sanitasi, value dari sesi yang ter-tamper bisa berisi `..` atau separator
+ * path → path traversal. UUID Prisma cukup ketat, tetapi guardrail ini wajib
+ * tetap ada untuk mencegah regresi.
+ */
+export function sanitizeTenantUploadSegment(
+  tenantId: string | null | undefined,
+): string | null {
+  if (!tenantId || typeof tenantId !== "string") {
+    return null;
+  }
+  const safe = tenantId.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!safe || safe.length === 0 || safe.length > 64) {
+    return null;
+  }
+  return safe;
+}
+
+/**
+ * Bangun direktori upload yang ter-namespace per tenant. Contoh:
+ *   buildTenantUploadDir("public/uploads/profiles", tenantId)
+ *     → "public/uploads/tenants/{tenantId}/profiles"
+ *
+ * Why: path lama `public/uploads/{folder}` membuat file lintas tenant berbagi
+ * namespace yang sama — collision dan data leak via static URL. Namespace
+ * eksplisit `tenants/{tenantId}/` memastikan isolasi di filesystem.
+ */
+export function buildTenantUploadDir(
+  baseDir: string,
+  tenantId: string | null | undefined,
+): string {
+  const safeTenant = sanitizeTenantUploadSegment(tenantId);
+  if (!safeTenant) {
+    throw new Error("Tenant ID tidak valid untuk upload path");
+  }
+
+  const trimmed = baseDir.replace(/\/+$/, "");
+  const PUBLIC_UPLOADS_PREFIX = "public/uploads";
+
+  if (trimmed === PUBLIC_UPLOADS_PREFIX) {
+    return `${PUBLIC_UPLOADS_PREFIX}/tenants/${safeTenant}`;
+  }
+
+  if (trimmed.startsWith(`${PUBLIC_UPLOADS_PREFIX}/`)) {
+    const suffix = trimmed.slice(PUBLIC_UPLOADS_PREFIX.length + 1);
+    return `${PUBLIC_UPLOADS_PREFIX}/tenants/${safeTenant}/${suffix}`;
+  }
+
+  return `${trimmed}/tenants/${safeTenant}`;
+}

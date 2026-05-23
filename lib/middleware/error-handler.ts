@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { TenantContextError } from "@/lib/prisma-extension";
 
 /**
  * Base application error class
@@ -98,6 +99,15 @@ export function withErrorHandler<T = unknown>(
       return await handler(request, context);
     } catch (error) {
       logger.error("[API Error Handler]", error);
+
+      // TenantContextError adalah indikator akses tanpa konteks tenant valid.
+      // Jangan ekspos detail (mekanisme isolasi internal) ke client; map ke
+      // 500 generik. Detail spesifik sudah masuk ke logger di atas.
+      if (error instanceof TenantContextError) {
+        return apiError("Internal server error", ErrorCodes.INTERNAL_ERROR, {
+          status: 500,
+        });
+      }
 
       // Handle custom AppError instances
       if (error instanceof AppError) {
