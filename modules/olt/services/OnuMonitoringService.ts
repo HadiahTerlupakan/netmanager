@@ -141,17 +141,20 @@ export class OnuMonitoringService {
       const onu = onuMap.get(key);
       if (!onu) continue;
 
-      if (status.status === "los" && onu.status !== "LOS") {
-        await this.onuRepo.updateStatus(onu.id, tenantId, "LOS");
-        await this.alertService.createAlert({
-          tenantId,
-          oltId,
-          onuId: onu.id,
-          type: "LOS",
-          message: `ONU ${onu.serialNumber} Loss of Signal pada port ${status.ponPort}:${status.onuIndex}`,
-          severity: "CRITICAL",
-        });
-        alerts++;
+      const newStatus = this.mapPhaseToOnuStatus(status.status);
+      if (newStatus && newStatus !== onu.status) {
+        await this.onuRepo.updateStatus(onu.id, tenantId, newStatus);
+        if (newStatus === "LOS") {
+          await this.alertService.createAlert({
+            tenantId,
+            oltId,
+            onuId: onu.id,
+            type: "LOS",
+            message: `ONU ${onu.serialNumber} Loss of Signal pada port ${status.ponPort}:${status.onuIndex}`,
+            severity: "CRITICAL",
+          });
+          alerts++;
+        }
       }
 
       const powerResult = await adapter.getOnuOpticalPower(
@@ -166,6 +169,11 @@ export class OnuMonitoringService {
         onuId: onu.id,
         rxPower: powerResult.data.rxPower,
         txPower: powerResult.data.txPower,
+      });
+      await this.onuRepo.update(onu.id, tenantId, {
+        rxPower: powerResult.data.rxPower,
+        txPower: powerResult.data.txPower,
+        lastSeen: new Date(),
       });
 
       const rx = powerResult.data.rxPower;
