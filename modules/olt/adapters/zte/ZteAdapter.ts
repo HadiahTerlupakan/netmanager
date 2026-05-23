@@ -1087,33 +1087,21 @@ export class ZteAdapter implements IOltAdapter {
     onuIndex: number,
     slot?: number,
   ): Promise<ServiceResult<OnuTrafficStats>> {
-    // ZXAN GPON traffic counter pakai encoding ifIndex khusus per-ONU.
-    // Format encoding tidak konsisten antar firmware, jadi kita walk
-    // table sekali (cached 30 detik) dan map ke (slot, port, onuIndex)
-    // dengan asumsi urutan ifIndex sesuai urutan onuPhaseStateTable.
+    // ZXAN GPON OnuPerformance table (.1015.1010.5.5.1) — encoding ifIndex
+    // verified C300 lapangan: 0x90<slotPortByte><onuIndex>00 dimana
+    // slotPortByte = (slot << 4) | (port - 1). Port indexing 0-based di
+    // table ini, sementara DB pakai 1-based.
+    //
+    // Sample verified:
+    //   DB slot 7 port 8 onuIndex 1 → 0x90770100 = 2423718144 ✓
+    //   DB slot 8 port 1 onuIndex 1 → 0x90800100 = 2424307968 ✓
+    //   DB slot 9 port 1 onuIndex 1 → 0x90900100
     try {
       const effectiveSlot = slot ?? device.defaultSlot;
-      const ifIndex = await this.resolveTrafficIfIndex(
-        device,
-        effectiveSlot,
-        ponPort,
-        onuIndex,
-      );
-
-      if (ifIndex === null) {
-        return {
-          success: true,
-          data: {
-            rxBytes: 0,
-            txBytes: 0,
-            rxUnicastPkts: 0,
-            txUnicastPkts: 0,
-            rxNonUnicastPkts: 0,
-            txNonUnicastPkts: 0,
-            timestamp: new Date(),
-          },
-        };
-      }
+      const ifIndex =
+        (0x90 << 24) |
+        ((((effectiveSlot & 0xf) << 4) | ((ponPort - 1) & 0xf)) << 16) |
+        ((onuIndex & 0xff) << 8);
 
       const oids = [
         `${ZteOidRegistry.onuTraffic.rxOctetsTable}.${ifIndex}`,
@@ -1147,98 +1135,5 @@ export class ZteAdapter implements IOltAdapter {
     } catch (error) {
       return this.snmpFailure(error, "SNMP traffic stats failed");
     }
-  }
-
-  private trafficIfIndexCache = new Map<
-    string,
-    { map: Map<string, number>; expiresAt: number }
-  >();
-
-  private async resolveTrafficIfIndex(
-    device: OltDevice,
-    slot: number,
-    ponPort: number,
-    onuIndex: number,
-  ): Promise<number | null> {
-    const cacheKey = device.id;
-    const cached = this.trafficIfIndexCache.get(cacheKey);
-    const now = Date.now();
-    let map: Map<string, number>;
-
-    if (cached && cached.expiresAt > now) {
-      map = cached.map;
-    } else {
-      map = await this.buildTrafficIfIndexMap(device);
-      this.trafficIfIndexCache.set(cacheKey, {
-        map,
-        expiresAt: now + 30000,
-      });
-    }
-
-    return map.get(`${slot}:${ponPort}:${onuIndex}`) ?? null;
-  }
-
-  private async buildTrafficIfIndexMap(
-    device: OltDevice,
-  ): Promise<Map<string, number>> {
-    const map = new Map<string, number>();
-    try {
-      const trafficWalk = await this.snmp.walk(
-        device,
-        ZteOidRegistry.onuTraffic.rxOctetsTable,
-      );
-      const trafficIfIndices = trafficWalk
-        .map((vb) => {
-          const suffix = vb.oid.replace(
-            ZteOidRegistry.onuTraffic.rxOctetsTable + ".",
-            "",
-          );
-          return parseInt(suffix, 10);
-        })
-        .filter((n) => !isNaN(n) && n > 0)
-        .sort((a, b) => a - b);
-
-      const statusWalk = await this.snmp.walk(
-        device,
-        ZteOidRegistry.zxGpon.onuPhaseStateTable,
-      );
-      const onuPositions: Array<{
-        slot: number;
-        port: number;
-        onuIndex: number;
-        sortKey: number;
-      }> = [];
-      for (const vb of statusWalk) {
-        const parsed = ZteOidRegistry.parseZxGponOnuIndex(
-          vb.oid,
-          ZteOidRegistry.zxGpon.onuPhaseStateTable,
-        );
-        if (parsed) {
-          onuPositions.push({
-            slot: parsed.slot,
-            port: parsed.port,
-            onuIndex: parsed.onuIndex,
-            sortKey: (parsed.slot << 16) | (parsed.port << 8) | parsed.onuIndex,
-          });
-        }
-      }
-      onuPositions.sort((a, b) => a.sortKey - b.sortKey);
-
-      const length = Math.min(trafficIfIndices.length, onuPositions.length);
-      for (let i = 0; i < length; i++) {
-        const pos = onuPositions[i];
-        const key = `${pos.slot}:${pos.port}:${pos.onuIndex}`;
-        map.set(key, trafficIfIndices[i]);
-      }
-
-      logger.info(
-        `[ZteAdapter] Built traffic ifIndex map: ${map.size} entries for ${device.name}`,
-      );
-    } catch (error) {
-      logger.warn(
-        `[ZteAdapter] Failed to build traffic ifIndex map: ${error instanceof Error ? error.message : "unknown"}`,
-      );
-    }
-    return map;
   }
 }
