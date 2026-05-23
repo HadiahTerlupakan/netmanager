@@ -38,20 +38,7 @@ export default function OltCardSection({
   });
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  const fetchCards = async () => {
-    try {
-      const res = await fetch(`/api/olt/devices/${oltId}/cards`);
-      const json = await res.json();
-      if (json.success) {
-        setCards(json.data);
-      }
-    } catch {
-      setError("Gagal memuat data card");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +60,7 @@ export default function OltCardSection({
     return () => {
       cancelled = true;
     };
-  }, [oltId]);
+  }, [oltId, refreshKey]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -88,7 +75,7 @@ export default function OltCardSection({
         setSuccessMsg(
           `Berhasil sync ${json.data.synced} card (${json.data.mode})`,
         );
-        await fetchCards();
+        setRefreshKey((k) => k + 1);
       } else {
         setError(json.error?.message ?? "Sync gagal");
       }
@@ -123,7 +110,7 @@ export default function OltCardSection({
       const json = await res.json();
       if (json.success) {
         setEditingId(null);
-        await fetchCards();
+        setRefreshKey((k) => k + 1);
       } else {
         setError(json.error?.message ?? "Gagal update card");
       }

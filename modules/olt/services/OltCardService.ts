@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { OltCardRepository } from "../repositories/OltCardRepository";
 import { OltRepository } from "../repositories/OltRepository";
 import { OltAdapterFactory } from "../adapters/OltAdapterFactory";
+import type { OltDevice } from "../domain/entities/olt-device.entity";
 import type {
   OltCard,
   OltCardListItem,
@@ -79,7 +80,7 @@ export class OltCardService {
 
   private async syncCardsViaSnmp(
     tenantId: string,
-    device: { id: string; vendor: string; snmpCommunity: string | null },
+    device: OltDevice,
   ): Promise<Result<{ synced: number; mode: string }, OltCardError>> {
     if (!device.snmpCommunity) {
       return {
@@ -102,7 +103,7 @@ export class OltCardService {
       };
     }
 
-    const result = await adapter.discoverCards(device as never);
+    const result = await adapter.discoverCards(device);
     if (!result.success) {
       const code =
         result.code === "SNMP_TIMEOUT" ? "SNMP_TIMEOUT" : "ADAPTER_ERROR";
@@ -138,12 +139,7 @@ export class OltCardService {
 
   private async syncCardsBuiltin(
     tenantId: string,
-    device: {
-      id: string;
-      defaultSlotFrame: number;
-      defaultSlot: number;
-      totalPonPorts: number;
-    },
+    device: OltDevice,
   ): Promise<Result<{ synced: number; mode: string }, OltCardError>> {
     if (!device.totalPonPorts || device.totalPonPorts < 1) {
       return {
