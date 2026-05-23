@@ -18,8 +18,10 @@ interface OnuItem {
   bandwidthProfile: string | null;
   pelangganId: string | null;
   description: string | null;
+  rxPower: number | null;
+  txPower: number | null;
   olt?: { name: string; vendor: string };
-  pelanggan?: { nama: string } | null;
+  pelanggan?: { nama: string; username: string } | null;
 }
 
 interface OltOption {
@@ -187,36 +189,89 @@ export default function OltOnuListClient() {
   const isSearching = mode === "searching";
   const scopeDisabled = isSearching ? "opacity-50 pointer-events-none" : "";
 
+  const formatPower = (power: number | null): string =>
+    power === null ? "N/A" : `${power.toFixed(2)} dBm`;
+
+  const powerColor = (power: number | null): string => {
+    if (power === null) return "text-gray-400 dark:text-gray-500";
+    if (power < -28) return "text-red-600 dark:text-red-400";
+    if (power < -25) return "text-orange-600 dark:text-orange-400";
+    return "text-green-600 dark:text-green-400";
+  };
+
+  const statusLabel = (status: string): string => {
+    if (status === "ACTIVE") return "Online";
+    if (status === "OFFLINE") return "Offline";
+    if (status === "LOS") return "LOS";
+    if (status === "DYING_GASP") return "DyingGasp";
+    if (status === "DISABLED") return "Disabled";
+    if (status === "REGISTERED") return "Registered";
+    if (status === "UNREGISTERED") return "Unregistered";
+    return status;
+  };
+
+  const statusIcon = (status: string): string => {
+    if (status === "ACTIVE") return "✓";
+    if (status === "OFFLINE") return "○";
+    if (status === "LOS") return "✕";
+    if (status === "DYING_GASP") return "◐";
+    return "•";
+  };
+
   const columns: Column<OnuItem>[] = [
-    {
-      key: "serialNumber",
-      header: "Serial Number",
-      priority: "primary",
-      render: (item) => (
-        <Link
-          href={`/admin/olt/onu/${item.id}`}
-          className="text-indigo-600 dark:text-indigo-400 hover:underline font-mono text-xs"
-        >
-          {item.serialNumber}
-        </Link>
-      ),
-    },
     {
       key: "olt",
       header: "OLT",
-      priority: "secondary",
+      priority: "primary",
       render: (item) => (
-        <span className="text-gray-700 dark:text-gray-300 text-xs">
+        <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
           {item.olt?.name ?? "-"}
         </span>
       ),
     },
     {
-      key: "ponPort",
-      header: "Frame/Slot/Port:Index",
+      key: "name",
+      header: "Name",
+      priority: "primary",
+      render: (item) => {
+        const label = item.description ?? item.serialNumber;
+        return (
+          <Link
+            href={`/admin/olt/onu/${item.id}`}
+            className="text-indigo-600 dark:text-indigo-400 hover:underline text-xs"
+            title={label}
+          >
+            {label}
+          </Link>
+        );
+      },
+    },
+    {
+      key: "description",
+      header: "Description",
       priority: "secondary",
       render: (item) => (
-        <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+        <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
+          ONU-{item.slot}:{item.onuIndex}
+        </span>
+      ),
+    },
+    {
+      key: "pppoe",
+      header: "PPPoE",
+      priority: "secondary",
+      render: (item) => (
+        <span className="text-gray-700 dark:text-gray-300 text-xs">
+          {item.pelanggan?.username ?? item.serialNumber}
+        </span>
+      ),
+    },
+    {
+      key: "onuId",
+      header: "ONU ID",
+      priority: "primary",
+      render: (item) => (
+        <span className="inline-flex px-2 py-0.5 rounded font-mono text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800">
           {item.slotFrame}/{item.slot}/{item.ponPort}:{item.onuIndex}
         </span>
       ),
@@ -227,32 +282,36 @@ export default function OltOnuListClient() {
       priority: "primary",
       render: (item) => (
         <span
-          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[item.status] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[item.status] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
         >
-          {item.status}
+          <span aria-hidden>{statusIcon(item.status)}</span>
+          {statusLabel(item.status)}
         </span>
       ),
     },
     {
-      key: "vlanId",
-      header: "VLAN",
-      priority: "tertiary",
-      render: (item) => (
-        <span className="text-gray-600 dark:text-gray-400 text-xs">
-          {item.vlanId ?? "-"}
-        </span>
-      ),
-    },
-    {
-      key: "pelangganId",
-      header: "Pelanggan",
+      key: "rxOlt",
+      header: "RX OLT",
       priority: "tertiary",
       render: (item) => (
         <span
-          className="text-gray-700 dark:text-gray-300 text-xs"
-          title={item.description ?? undefined}
+          className={`text-xs font-mono ${powerColor(item.txPower)}`}
+          title="Power yang diterima OLT dari ONU"
         >
-          {item.pelanggan?.nama ?? item.description ?? "-"}
+          {formatPower(item.txPower)}
+        </span>
+      ),
+    },
+    {
+      key: "rxOnu",
+      header: "RX ONU",
+      priority: "tertiary",
+      render: (item) => (
+        <span
+          className={`text-xs font-mono ${powerColor(item.rxPower)}`}
+          title="Power yang diterima ONU dari OLT"
+        >
+          {formatPower(item.rxPower)}
         </span>
       ),
     },
