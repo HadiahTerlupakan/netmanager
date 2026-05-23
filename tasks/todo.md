@@ -2686,5 +2686,184 @@ bug + code smell, dan perbaiki end-to-end sesuai standar project.
 - Unit test pure-function tanpa mock DB → cepat & deterministik.
 - Validasi Zod baru menutup gap NaN/non-int/negative/total-kondisi-melebihi-stokFisik.
 
+---
 
+## accel-ppp Server Coexist with MikroTik (Pure RADIUS-driven)
 
+**Spec source:** `docs/superpowers/specs/2026-05-23-accel-ppp-server-coexist-design.md`
+**Status:** Plan disusun 2026-05-23 setelah review terhadap codebase
+**Approach:** B — Coexist tanpa abstraksi (MikroTik existing tidak disentuh)
+
+### Objective
+Tambahkan accel-ppp on Linux sebagai PPPoE server alternatif, coexist dengan MikroTik. End-to-end auth via FreeRADIUS, dashboard monitoring, CRUD admin, dengan toggle global `fullRadiusMode`.
+
+### Koreksi Penting Terhadap Spec (Hasil Review)
+
+| # | Topik | Spec | Realitas | Keputusan |
+|---|---|---|---|---|
+| 1 | Encryption secret | "ikut pattern `apiPassword` MikroTik" | MikroTik plain text (legacy smell) | Pakai `encryptApiKey/decryptApiKey` dari `@/lib/utils/encryption` |
+| 2 | Permission format | `network:accel-ppp:*` | Catalog pakai resource flat + GRANULAR | Resource `accel_ppp` di `PERMISSION_GROUPS.NETWORK` + granular `accel_ppp:session:kick` |
+| 3 | Lokasi `fullRadiusMode` | "settings network" | Pattern `pppConnectionMode` pakai key string di tabel `Settings` | Key `FULL_RADIUS_MODE`, service `fullRadiusModeSettings.ts` |
+| 4 | RADIUS NAS sync API | `RadiusRepository.upsertNas` | `RadiusNasRepository.createNas(nas, tenantId)` (kelas terpisah, sudah upsert) | Pakai kelas existing |
+| 5 | API path | `app/api/accel-ppp-servers/` | Konvensi admin = `app/api/admin/...` | `app/api/admin/accel-ppp-servers/` |
+| 6 | Cron 30s | `*/30 * * * * *` | node-cron 5-field standard | 60s minimum (`* * * * *`) |
+| 7 | tenantId | opsional | Multi-tenant guard mandatory di route | Field opsional, route enforce filter |
+
+### Asumsi Aktif (akan dipakai tanpa konfirmasi ulang)
+- API path: `app/api/admin/accel-ppp-servers/`
+- Cron interval: 60s (every minute)
+- Encryption: `encryptApiKey` untuk `radiusSecret` & `cliPassword`
+- Permission resource: `accel_ppp` (snake_case)
+- Setting key: `FULL_RADIUS_MODE` di tabel `Settings`
+
+---
+
+### M1 — Foundation: Schema, Domain, Repository, Settings
+
+- [ ] Tambah model `AccelPppServer` di `prisma/schema.prisma` (siteId, tenantId opsional, secrets akan di-encrypt di app layer)
+- [ ] Generate migration: `npx prisma migrate dev --name add_accel_ppp_server`
+- [ ] Run `npm run prisma:generate`
+- [ ] Buat domain entity `modules/network/domain/entities/AccelPppServerEntity.ts`
+- [ ] Buat port `modules/network/domain/ports/IAccelPppServerRepository.ts`
+- [ ] Buat domain errors `modules/network/domain/errors/AccelPppErrors.ts` (8 error class sesuai spec)
+- [ ] Buat validator Zod `modules/network/validators/accelPppServer.ts` (create/update schemas)
+- [ ] Implement `modules/network/repositories/AccelPppServerRepository.ts` dengan tenant isolation + auto encrypt/decrypt secrets via `encryptApiKey`/`decryptApiKey`
+- [ ] Buat service setting baru `modules/settings/services/fullRadiusModeSettings.ts` (`getFullRadiusMode`, `setFullRadiusMode(value, userId)`) — pakai key `FULL_RADIUS_MODE` di tabel `Settings`
+- [ ] Export `getFullRadiusMode`/`setFullRadiusMode` dari `modules/settings/index.ts`
+- [ ] Update `modules/network/index.ts` export public API accel-ppp (entity types, errors, repo class, service interface)
+- [ ] Update `docs/CHANGELOG.md` `[Unreleased]` dengan tag `[ADDED]` + `[MIGRATION]`
+
+### M2 — CLI Client: TCP Socket accel-ppp
+
+- [ ] Implement `modules/network/services/AccelPppCliClient.ts` (connect, sendCommand, parseResponse, timeout 5s) pakai `net` Node
+- [ ] Buat parser untuk:
+  - [ ] `show sessions` → `SessionDTO[]`
+  - [ ] `show stat` → `{ activeSessions, ... }`
+  - [ ] `terminate username <u>` response check
+- [ ] Tambah fixtures di `tests/fixtures/accel-ppp/`:
+  - `show-sessions-empty.txt`
+  - `show-sessions-multi.txt`
+  - `show-stat.txt`
+  - `auth-failed.txt`
+- [ ] Unit tests `tests/network/accel-ppp/unit/AccelPppCliClient.test.ts`:
+  - [ ] connect + sendCommand + parse golden fixtures
+  - [ ] timeout 5s
+  - [ ] connection unreachable
+  - [ ] auth failure
+- [ ] Mock socket pakai `net.createServer` lokal (jangan mock library)
+
+### M3 — Service Layer + Full Radius Mode Guard
+
+- [ ] Buat util `lib/security/requireFullRadiusMode.ts` — read setting, throw `FullRadiusModeDisabledError` jika OFF
+- [ ] Implement `modules/network/services/AccelPppServerService.ts`:
+  - [ ] `create(input)` — transactional: AccelPppServerRepository.create + RadiusNasRepository.createNas (rollback bila NAS sync gagal)
+  - [ ] `update(id, input)` — handle perubahan IP → update nas row
+  - [ ] `delete(id, force)` — block jika ada session aktif tanpa force; cleanup nas row
+  - [ ] `getById(id)`, `list({ tenantId, siteId })`
+  - [ ] `testConnection(id)` — pakai CLI client
+  - [ ] `getLiveSessions(serverId)` — via CLI `show sessions`
+  - [ ] `kickSession(serverId, username)` — via CLI `terminate username`, audit log
+- [ ] Audit log integration via pattern existing
+- [ ] Service tests `tests/network/accel-ppp/services/`:
+  - [ ] happy path create → server di DB + nas row di RADIUS DB
+  - [ ] setting OFF → `FullRadiusModeDisabledError`
+  - [ ] duplicate IP → `AccelPppDuplicateIpError`
+  - [ ] RADIUS NAS sync gagal → rollback Prisma
+  - [ ] kick username tidak ada → `AccelPppSessionNotFoundError`
+
+### M4 — API Routes + Authorization
+
+- [ ] Tambah resource `"accel_ppp"` ke `PERMISSION_GROUPS.NETWORK` di `lib/permission-config.ts`
+- [ ] Tambah granular `ACCEL_PPP_KICK = "accel_ppp:session:kick"` di `GRANULAR_PERMISSIONS`
+- [ ] Hook permission ke role default (Admin, NetworkOps) lewat seed/migration role
+- [ ] Buat route `app/api/admin/accel-ppp-servers/route.ts` — GET (list), POST (create)
+- [ ] Buat route `app/api/admin/accel-ppp-servers/[id]/route.ts` — GET, PATCH, DELETE
+- [ ] Buat route `app/api/admin/accel-ppp-servers/[id]/test-connection/route.ts` — POST
+- [ ] Buat route `app/api/admin/accel-ppp-servers/[id]/sessions/route.ts` — GET (live)
+- [ ] Buat route `app/api/admin/accel-ppp-servers/[id]/sessions/[username]/kick/route.ts` — POST
+- [ ] Setiap route: `requireFullRadiusMode()` → `hasPermission(...)` → service call
+- [ ] Map domain errors ke `ApiErrors.*` (403/404/409/503/504)
+- [ ] Integration tests `tests/network/accel-ppp/integration/`:
+  - [ ] guard 403 saat setting OFF
+  - [ ] POST: 201/409/422/503
+  - [ ] DELETE active session: 409 tanpa force, 200 dengan force
+  - [ ] kick: 200/404
+  - [ ] permission catalog match: tes via role custom (memo `feedback-permission-catalog-mismatch.md`)
+
+### M5 — Periodic Health Check Monitor
+
+- [ ] Implement `modules/network/services/AccelPppMonitor.ts`:
+  - [ ] `checkAll()` — load all servers (lintas tenant), `Promise.allSettled` per server
+  - [ ] Per-server: ICMP ping → CLI `show stat` → update `pingStatus`, `userOnline`, `lastStatusCheck`
+  - [ ] 1 server timeout tidak ganggu lain
+- [ ] Register di `lib/cron-registry.ts` interval `* * * * *` (60s):
+  - jobName: `accelPppHealthCheck`, ttl 55s
+  - pakai `runCronTask` (system context elevation)
+- [ ] Monitor tests:
+  - [ ] multi-server parallel
+  - [ ] 1 server timeout → lain tetap diproses
+  - [ ] status transition online↔offline
+
+### M6 — Admin UI
+
+- [ ] Cek pola live data MikroTik dashboard existing (Socket.IO vs polling) → pilih konsisten
+- [ ] Buat hook `lib/hooks/useFullRadiusMode.ts` (TanStack Query)
+- [ ] Buat halaman `app/admin/network/accel-ppp/page.tsx` (list + status badges)
+- [ ] Buat halaman `app/admin/network/accel-ppp/new/page.tsx` (create form)
+- [ ] Buat halaman `app/admin/network/accel-ppp/[id]/page.tsx` (detail/edit + tab sessions live)
+- [ ] Sidebar conditional rendering via `useFullRadiusMode` (`components/layout/admin-sidebar/`)
+- [ ] Settings page entry untuk toggle `fullRadiusMode` (`app/admin/pengaturan/...`)
+- [ ] Sessions polling 10s (atau Socket.IO jika konsisten dgn MikroTik)
+- [ ] React Query invalidate pasca mutation
+- [ ] E2E tests Playwright `tests/e2e/accel-ppp/`:
+  - create server flow
+  - toggle fullRadiusMode → UI hide/show
+  - kick session button
+
+### M7 — FreeRADIUS Config Bundle + Docs
+
+- [ ] Buat folder `freeradius-config/` versioned di repo:
+  - `README.md` (apply instruction)
+  - `huntgroups` (per-NAS huntgroup definition)
+  - `policy.d/per-nas-routing` (unlang rules: huntgroup → reply attribute)
+  - `sites-available/default.snippet` (cara include policy)
+- [ ] Buat `docs/guides/accel-ppp-setup.md`:
+  - Topology overview
+  - accel-ppp install + config minimal
+  - FreeRADIUS apply config bundle
+  - Verifikasi end-to-end auth
+- [ ] Update `docs/CHANGELOG.md` final entry: `[ADDED]` modul + `[MIGRATION]` + `[DOCS]`
+
+### Dependency Graph
+```
+M1 ──┬─→ M2 ─┐
+     │       │
+     ├───────┴─→ M3 ─→ M4 ─→ M6
+     │           │
+     │           └────→ M5
+     │
+     └───→ M7 (paralel)
+```
+
+### Verifikasi Sebelum Task Closed (per milestone)
+- [ ] `npm run lint`
+- [ ] `npm run typecheck`
+- [ ] `npm test -- network/accel-ppp` → 100% pass
+- [ ] `npm run build` lulus
+- [ ] Manual: toggle Full RADIUS Mode ON/OFF → API guard respons benar
+- [ ] Manual lab (M6 done): dial PPPoE dari accel-ppp box dummy → AccessAccept dengan attribute benar
+- [ ] `docs/CHANGELOG.md` updated
+
+### Risiko & Open Questions Aktif
+- **Pola Socket.IO vs polling untuk live sessions** — resolve di awal M6 dengan inspeksi `RadiusDashboardService`/MikroTik dashboard.
+- **accel-ppp CLI auth versi target** — test di lab; abstraksi parser by capability.
+- **FreeRADIUS huntgroup config drift box production vs bundle** — versioned di repo + dokumentasi diff/apply.
+- **Behavior delete server saat banyak session aktif** — default block 409, future bisa Disconnect-Request via CoA.
+
+### Out of Scope (Future)
+- Migrasi MikroTik existing ke pure-RADIUS (drop `/ppp/secret` provisioning)
+- Failover / load balancing antar PPPoE server
+- Protokol non-PPPoE (L2TP, SSTP, PPTP)
+- Multi-instance accel-ppp di satu IP
+- Auto-provisioning accel-ppp box (ansible)
+- Disconnect-Request via CoA saat delete server
