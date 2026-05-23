@@ -104,6 +104,7 @@ export class OnuMonitoringService {
         await this.onuRepo.update(onu.id, tenantId, {
           rxPower: powerResult.data.rxPower,
           txPower: powerResult.data.txPower,
+          oltRxPower: powerResult.data.oltRxPower,
           lastSeen: new Date(),
         });
       }

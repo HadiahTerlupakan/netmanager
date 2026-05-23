@@ -24,6 +24,7 @@ export interface OnuDevice {
   status: OnuStatus;
   rxPower: number | null;
   txPower: number | null;
+  oltRxPower: number | null;
   vlanId: number | null;
   bandwidthProfile: string | null;
   description: string | null;
@@ -94,6 +95,7 @@ export interface OnuStatusInfo {
 export interface OpticalPower {
   rxPower: number | null;
   txPower: number | null;
+  oltRxPower: number | null;
 }
 
 export interface DeregisterOnuParams {

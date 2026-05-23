@@ -20,6 +20,7 @@ interface OnuItem {
   description: string | null;
   rxPower: number | null;
   txPower: number | null;
+  oltRxPower: number | null;
   olt?: { name: string; vendor: string };
   pelanggan?: { nama: string; username: string } | null;
 }
@@ -295,10 +296,10 @@ export default function OltOnuListClient() {
       priority: "tertiary",
       render: (item) => (
         <span
-          className={`text-xs font-mono ${powerColor(item.txPower)}`}
+          className={`text-xs font-mono ${powerColor(item.oltRxPower)}`}
           title="Power yang diterima OLT dari ONU"
         >
-          {formatPower(item.txPower)}
+          {formatPower(item.oltRxPower)}
         </span>
       ),
     },

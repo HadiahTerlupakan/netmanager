@@ -799,12 +799,14 @@ export class ZteAdapter implements IOltAdapter {
     ponPort: number,
     onuIndex: number,
   ): Promise<ServiceResult<OpticalPower>> {
-    // SNMP-only via ZXGPON-MIB. Verified di C300 V2.1.0 lapangan:
-    //   RX (downstream, what ONU receives): .1012.3.50.12.1.1.10
-    //   TX (upstream, what ONU transmits):  .1012.3.50.12.1.1.14
-    // Format: <branch>.<oltIfIndex>.<onuIndex>.1
-    // Decode: raw * 0.002 - 30 = dBm
-    // Sentinel: raw >= 30000 atau 65535 = no signal/offline.
+    // SNMP via ZXGPON-MIB + zxGponOptical. Verified di C300 V2.1.0 lapangan:
+    //   RX ONU (downstream, what ONU receives): .1012.3.50.12.1.1.10
+    //   TX ONU (upstream, what ONU transmits):  .1012.3.50.12.1.1.14
+    //   RX OLT (what OLT receives from ONU):    .1015.1010.11.2.1.2
+    // Format ZXGPON: <branch>.<oltIfIndex>.<onuIndex>.1
+    // Format OLT-side: <branch>.<oltIfIndex>.<onuIndex> (tanpa trailing .1)
+    // Decode ZXGPON: raw * 0.002 - 30 = dBm. Sentinel raw >= 30000 = null.
+    // Decode OLT-side: raw / 1000 = dBm. Sentinel raw <= -80000 = null.
     try {
       const zxIfIndex = ZteOidRegistry.encodeZxGponIfIndex(
         device.defaultSlot,
@@ -812,21 +814,30 @@ export class ZteAdapter implements IOltAdapter {
       );
       const rxOid = `${ZteOidRegistry.zxGponOnuPower.onuRxPowerTable}.${zxIfIndex}.${onuIndex}.1`;
       const txOid = `${ZteOidRegistry.zxGponOnuPower.onuTxPowerTable}.${zxIfIndex}.${onuIndex}.1`;
+      const oltRxOid = `${ZteOidRegistry.zxGponOptical.oltRxPowerTable}.${zxIfIndex}.${onuIndex}`;
 
-      const results = await this.snmp.get(device, [rxOid, txOid]);
+      const results = await this.snmp.get(device, [rxOid, txOid, oltRxOid]);
       const rxRaw = Number(results[0]?.value);
       const txRaw = Number(results[1]?.value);
+      const oltRxRaw = Number(results[2]?.value);
 
       const rxPower = this.decodeZxGponPower(rxRaw);
       const txPower = this.decodeZxGponPower(txRaw);
+      const oltRxPower = this.decodeOltRxPower(oltRxRaw);
 
       return {
         success: true,
-        data: { rxPower, txPower },
+        data: { rxPower, txPower, oltRxPower },
       };
     } catch (error) {
       return this.snmpFailure(error, "SNMP get optical power failed");
     }
+  }
+
+  private decodeOltRxPower(raw: number): number | null {
+    if (isNaN(raw)) return null;
+    if (raw <= -80000) return null;
+    return raw / 1000;
   }
 
   /**

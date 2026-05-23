@@ -4566,6 +4566,7 @@ model OnuDevice {
   status           OnuStatus @default(UNREGISTERED)
   rxPower          Float?
   txPower          Float?
+  oltRxPower       Float?
   vlanId           Int?
   bandwidthProfile String?
   description      String?
