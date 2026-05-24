@@ -40,7 +40,12 @@ import {
   handleCustomerNotification,
   handleInvoiceNotification,
 } from "@/modules/notification";
-import { handleInvoicePaidBilling } from "@/modules/finance";
+import {
+  handleInvoicePaidBilling,
+  handleCustomerActivatedMrr,
+  handleCustomerChurnedMrr,
+  handlePackageChangedMrr,
+} from "@/modules/finance";
 import { handlePelangganStatusForOlt } from "@/modules/olt";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
@@ -144,6 +149,22 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.CUSTOMER_ACTIVATED,
     handlePelangganStatusForOlt,
   );
+
+  // --- MRR MOVEMENT TRACKING (finance analytics) ---
+  // Tulis row di MRRMovement setiap lifecycle pelanggan untuk hitung
+  // NEW / EXPANSION / CONTRACTION / CHURN / REACTIVATION per bulan.
+
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_ACTIVATED,
+    handleCustomerActivatedMrr,
+  );
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_SUSPENDED,
+    handleCustomerChurnedMrr,
+  );
+  registerEventHandler(EVENT_NAMES.CUSTOMER_ISOLATED, handleCustomerChurnedMrr);
+  registerEventHandler(EVENT_NAMES.CUSTOMER_DELETED, handleCustomerChurnedMrr);
+  registerEventHandler(EVENT_NAMES.PACKAGE_CHANGED, handlePackageChangedMrr);
 
   // --- NOTIFICATION DISPATCH (multi-channel WA/Email/Push/In-App) ---
   // Fan-out: CUSTOMER_* events sudah punya handler sync MikroTik di atas;

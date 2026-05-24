@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-25] — Finance: MRR movement tracking via event handler
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/finance`, `lib/event-bus/event-handlers.ts`
+- **Author**: agent
+- **Deskripsi**: Mengaktifkan model `MRRMovement` yang sebelumnya kosong di schema. Service `MRRMovementService` menulis row MRR setiap kali ada lifecycle pelanggan, dengan kategori NEW (aktivasi pertama), EXPANSION (upgrade paket, delta positif), CONTRACTION (downgrade, delta negatif), CHURN (suspended/isolated/deleted, current MRR negatif), atau REACTIVATION (kembali aktif setelah pernah churn). Event handler menangani 5 event existing di event bus: `CUSTOMER_ACTIVATED` (NEW atau REACTIVATION berdasarkan oldStatus), `CUSTOMER_SUSPENDED`/`CUSTOMER_ISOLATED`/`CUSTOMER_DELETED` (CHURN), dan `PACKAGE_CHANGED` (EXPANSION/CONTRACTION dari delta `oldPackagePrice` vs `newPackagePrice`). Handler juga expose `getMonthSummary()` aggregat untuk dipakai cron RevenueSnapshot. Tracking dimulai dari go-live, tidak backfill historis.
+- **Files**: `modules/finance/services/MRRMovementService.ts`, `modules/finance/services/event-handlers/mrr-movement-handler.ts`, `modules/finance/index.ts`, `lib/event-bus/event-handlers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-25] — Finance: AR Aging snapshot + report dashboard
 
 - **Tipe**: [ADDED]
