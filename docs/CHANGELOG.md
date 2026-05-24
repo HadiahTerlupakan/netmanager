@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-25] — Finance: Revenue snapshot + executive dashboard
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/finance`, `app/api/admin/finance/revenue-snapshot`, `app/api/cron/revenue-snapshot`, `app/admin/finance/executive`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Mengaktifkan model `RevenueSnapshot` yang sebelumnya kosong di schema. Service `RevenueSnapshotService` agregat MRR/ARR harian dengan: total MRR = sum(harga paket pelanggan AKTIF), ARR = totalMRR × 12, ARPU = totalMRR / activeCustomers, plus 5 movement bucket (NEW/EXPANSION/CONTRACTION/CHURN/REACTIVATION) bulan berjalan dari `MRRMovementService.getMonthSummary()`. Cron `revenue-snapshot` jalan harian dengan distributed lock (Redis), upsert ke `RevenueSnapshot` per (snapshotDate, snapshotType) — re-run aman, tidak duplikat. API `GET /api/admin/finance/revenue-snapshot` mendukung query `history=<days>` (default 30) dan `recompute=true`. Dashboard executive di `/admin/finance/executive` menampilkan 4 metric card (MRR dengan delta vs sebelumnya, ARR, Active Customers, ARPU), 5 movement card per kategori, dan trend chart 30 hari (MRR + Active Customers bar chart sederhana). Menu "Executive Dashboard" ditambahkan di group Keuangan.
+- **Files**: `modules/finance/services/RevenueSnapshotService.ts`, `modules/finance/index.ts`, `app/api/admin/finance/revenue-snapshot/route.ts`, `app/api/cron/revenue-snapshot/route.ts`, `app/admin/finance/executive/page.tsx`, `app/admin/finance/executive/ExecutiveDashboardClient.tsx`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-25] — Finance: MRR movement tracking via event handler
 
 - **Tipe**: [ADDED]

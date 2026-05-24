@@ -591,6 +591,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/finance/ar-aging",
         icon: "HiOutlineChartBar",
       },
+      {
+        code: "FINANCE.EXECUTIVE",
+        name: "Executive Dashboard",
+        path: "/admin/finance/executive",
+        icon: "HiOutlinePresentationChartLine",
+      },
     ],
   },
   {

@@ -20,6 +20,7 @@ export * from "./services/BillingScheduleService";
 export * from "./services/BillingScheduleReconciliationService";
 export * from "./services/ARAgingService";
 export * from "./services/MRRMovementService";
+export * from "./services/RevenueSnapshotService";
 export {
   handleCustomerActivatedMrr,
   handleCustomerChurnedMrr,
