@@ -2,6 +2,7 @@ export * from "./services/WorkOrderService";
 export * from "./services/WorkOrderSyncService";
 export * from "./services/WorkOrderNotifications";
 export * from "./services/WorkOrderReminderService";
+export * from "./services/SlaMonitorService";
 export * from "./services/WorkOrderCacheService";
 export * from "./services/AdminWorkOrderRouteService";
 export * from "./services/AdminWorkOrderConfigService";

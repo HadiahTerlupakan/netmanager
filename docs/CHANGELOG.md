@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-25] — Work Order: SLA monitor engine + auto-escalation
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/work-order/services/SlaMonitorService.ts`, `app/api/cron/workorder-sla-monitor`
+- **Author**: agent
+- **Deskripsi**: Tambah engine monitoring SLA work order yang jalan via cron. Service `SlaMonitorService` query semua WO open (PENDING/ASSIGNED/IN_PROGRESS/ON_HOLD) yang punya `slaId`, lalu klasifikasi tiap WO ke tiga state: OK, AT_RISK (≥80% target), atau BREACHED. Saat breach response time terdeteksi (dan WO belum di-`startedAt`), service tulis audit `WorkOrderUpdates` dengan `updateType=SLA_RESPONSE_BREACH` + kirim push notification ke teknisi. Saat breach resolution time terdeteksi, service trigger semua `WorkOrderEscalations` rule yang match (slaId atau workOrderType+priority+departmentId), urut by `escalationLevel`, masing-masing tulis audit `SLA_ESC_LEVEL_<n>` + notif. Idempotent: setiap (workOrderId, updateType) hanya di-fire sekali — re-run cron tidak duplikat. Cron handler tipis di `app/api/cron/workorder-sla-monitor` mengikuti pola `workorder-reminder` (auth via `CRON_SECRET`).
+- **Files**: `modules/work-order/services/SlaMonitorService.ts`, `modules/work-order/index.ts`, `app/api/cron/workorder-sla-monitor/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-25] — Work Order: UI admin untuk aturan SLA
 
 - **Tipe**: [ADDED]
