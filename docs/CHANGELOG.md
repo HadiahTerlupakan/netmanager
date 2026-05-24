@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-25] — Work Order: UI admin untuk aturan SLA
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/workorders/slas`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah halaman admin lengkap untuk CRUD aturan SLA work order yang sebelumnya hanya bisa diakses lewat API. Halaman list dengan filter status (aktif/nonaktif) & search by nama, plus form create/edit dengan field workOrderType, priority, departmentId, responseTime (menit), resolutionTime (menit), businessHoursOnly, dan isActive. Form re-use `SlaForm` shared component (pola sama dengan `DepartmentForm`). Menu "Aturan SLA" ditambahkan di group Work Orders di sidebar. Service & API SLA sudah ada sebelumnya di `modules/work-order/services/AdminWorkOrderConfigService.ts` — task ini hanya melengkapi bagian UI yang missing.
+- **Files**: `app/admin/workorders/slas/page.tsx`, `app/admin/workorders/slas/SlasIndexClient.tsx`, `app/admin/workorders/slas/components/SlaForm.tsx`, `app/admin/workorders/slas/new/page.tsx`, `app/admin/workorders/slas/new/SlaNewClient.tsx`, `app/admin/workorders/slas/[id]/edit/page.tsx`, `app/admin/workorders/slas/[id]/edit/SlaEditClient.tsx`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-24] — Stabilkan quality gate: lint, prisma boundary, dan test sinkronisasi
 
 - **Tipe**: [FIXED]

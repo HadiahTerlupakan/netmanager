@@ -236,6 +236,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/workorders/departments",
         icon: "HiOutlineUserGroup",
       },
+      {
+        code: "WORKORDERS.SLA",
+        name: "Aturan SLA",
+        path: "/admin/workorders/slas",
+        icon: "HiOutlineShieldCheck",
+      },
     ],
   },
 
