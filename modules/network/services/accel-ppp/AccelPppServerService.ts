@@ -113,6 +113,11 @@ export class AccelPppServerService {
       tenantId: server.tenantId,
     });
 
+    // Best-effort: cek liveness sekali supaya status di list page langsung
+    // akurat tanpa menunggu cron tick berikutnya. Tidak throw bila gagal—
+    // monitor periodik yang akan retry.
+    await this.refreshHealthSafely(server);
+
     return server;
   }
 
@@ -208,7 +213,33 @@ export class AccelPppServerService {
     const server = await this.getById(id, tenantId);
     const cli = this.cliClientFactory(server);
     const raw = await cli.ping();
+    // Sukses test = bukti server hidup → opportunistic update pingStatus
+    // supaya UI tidak harus menunggu cron 60-detik untuk lihat hasil terbaru.
+    await this.refreshHealthSafely(server);
     return { ok: true, raw };
+  }
+
+  /**
+   * Cek `show stat` lalu persist `pingStatus`/`userOnline`/`lastStatusCheck`.
+   * Tidak throw — gagal di sini berarti monitor cron yang nanti meng-update.
+   */
+  private async refreshHealthSafely(
+    server: AccelPppServerEntity,
+  ): Promise<void> {
+    try {
+      const cli = this.cliClientFactory(server);
+      const stat = await cli.showStat();
+      await this.serverRepo.updateStatus(server.id, {
+        pingStatus: "online",
+        userOnline: stat.activeSessions,
+        lastStatusCheck: new Date(),
+      });
+    } catch (err) {
+      logger.warn("[accel-ppp] refreshHealthSafely failed", {
+        serverId: server.id,
+        error: (err as Error).message,
+      });
+    }
   }
 
   /** Ambil daftar sesi live dari accel-ppp. */
@@ -298,17 +329,32 @@ export class AccelPppServerService {
     await this.radiusNasRepo.deleteNas(existing.id, server.tenantId);
   }
 
+  /**
+   * Tentukan apakah perubahan ini menyentuh field-field yang berdampak ke
+   * baris `nas` di FreeRADIUS DB. Kalau iya, sync ulang.
+   *
+   * Bedanya dengan helper MikroTik (yang membandingkan `description` apa
+   * adanya): kita pakai pendekatan eksplisit—hanya re-sync ketika user
+   * benar-benar mengirim field tersebut di payload (bukan refleksi
+   * `after.description !== before.description` yang bisa keliru saat
+   * payload kosong tapi entity di-reload). Ini juga menambah `nasIdentifier`
+   * yang relevan ke baris NAS.
+   */
   private shouldResyncNas(
     before: AccelPppServerEntity,
-    after: AccelPppServerEntity,
+    _after: AccelPppServerEntity,
     data: AccelPppServerUpdateData,
   ): boolean {
     return Boolean(
-      (data.ipAddress && data.ipAddress !== before.ipAddress) ||
-      (data.radiusSecret && data.radiusSecret !== before.radiusSecret) ||
-      (data.name && data.name !== before.name) ||
-      (data.authPort && data.authPort !== before.authPort) ||
-      after.description !== before.description,
+      (data.ipAddress !== undefined && data.ipAddress !== before.ipAddress) ||
+      (data.radiusSecret !== undefined &&
+        data.radiusSecret !== before.radiusSecret) ||
+      (data.name !== undefined && data.name !== before.name) ||
+      (data.authPort !== undefined && data.authPort !== before.authPort) ||
+      (data.nasIdentifier !== undefined &&
+        data.nasIdentifier !== before.nasIdentifier) ||
+      (data.description !== undefined &&
+        data.description !== before.description),
     );
   }
 

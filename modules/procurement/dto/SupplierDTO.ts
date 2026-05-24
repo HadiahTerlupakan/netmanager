@@ -10,6 +10,16 @@ export interface SupplierDTO {
   phone: string | null;
   npwp: string | null;
   defaultPphCategory: string | null;
+  status: string;
+  blacklistReason: string | null;
+  siupNumber: string | null;
+  siupDocumentUrl: string | null;
+  npwpDocumentUrl: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountHolder: string | null;
+  contractDocumentUrl: string | null;
+  contractExpiresAt: string | null;
   tenantId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -33,6 +43,18 @@ export function toSupplierDTO(supplier: Supplier): SupplierDTO {
     phone: supplier.phone,
     npwp: supplier.npwp,
     defaultPphCategory: supplier.defaultPphCategory,
+    status: supplier.status,
+    blacklistReason: supplier.blacklistReason,
+    siupNumber: supplier.siupNumber,
+    siupDocumentUrl: supplier.siupDocumentUrl,
+    npwpDocumentUrl: supplier.npwpDocumentUrl,
+    bankName: supplier.bankName,
+    bankAccountNumber: supplier.bankAccountNumber,
+    bankAccountHolder: supplier.bankAccountHolder,
+    contractDocumentUrl: supplier.contractDocumentUrl,
+    contractExpiresAt: supplier.contractExpiresAt
+      ? supplier.contractExpiresAt.toISOString()
+      : null,
     tenantId: supplier.tenantId,
     createdAt: supplier.createdAt.toISOString(),
     updatedAt: supplier.updatedAt.toISOString(),

@@ -38,7 +38,13 @@ export default function AccelPppServerList() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Hapus server ${name}?`)) return;
+    if (
+      !confirm(
+        `Hapus server "${name}"?\n\nServer akan dihapus dari aplikasi dan baris NAS-nya akan dilepas dari FreeRADIUS DB. Pelanggan yang sedang dial ke server ini akan ditolak saat re-auth berikutnya.`,
+      )
+    ) {
+      return;
+    }
     setBusyId(id);
     setActionError(null);
     try {
@@ -49,7 +55,12 @@ export default function AccelPppServerList() {
       if (msg.toLowerCase().includes("sesi aktif")) {
         if (
           confirm(
-            `${msg}\n\nServer masih punya sesi aktif. Tetap hapus dengan force?`,
+            `${msg}\n\n⚠️ PERINGATAN PENTING:\n` +
+              `• Force delete TIDAK menutup sesi yang sedang aktif di accel-ppp box.\n` +
+              `• Sesi akan terus berjalan sampai pelanggan disconnect manual atau timeout dari NAS.\n` +
+              `• Setelah delete, baris NAS dilepas dari RADIUS — Acct-Update dari sesi tersebut akan ditolak.\n\n` +
+              `Disarankan: kick semua sesi dulu via tab Sessions Live, baru delete.\n\n` +
+              `Tetap force delete sekarang?`,
           )
         ) {
           try {

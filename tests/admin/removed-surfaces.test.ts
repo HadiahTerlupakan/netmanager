@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { ADMIN_MENU_CONFIG } from "@/lib/menu-config";
-import ProcurementPage from "@/app/admin/procurement/page";
 import MarketPricePage from "@/app/admin/procurement/market-price/page";
 import AssetsPage from "@/app/admin/inventory/assets/page";
 
@@ -25,10 +24,7 @@ const expectRetiredPage = async (
 };
 
 describe("removed admin surfaces", () => {
-  it("does not expose procurement or assets in main menu config", () => {
-    const procurementMenu = ADMIN_MENU_CONFIG.find(
-      (item) => item.code === "PROCUREMENT",
-    );
+  it("does not expose assets in main menu config", () => {
     const inventoryMenu = ADMIN_MENU_CONFIG.find(
       (item) => item.code === "INVENTORY",
     );
@@ -36,12 +32,7 @@ describe("removed admin surfaces", () => {
       (item) => item.path === "/admin/inventory/assets",
     );
 
-    expect(procurementMenu).toBeUndefined();
     expect(assetMenu).toBeUndefined();
-  });
-
-  it("retires the procurement landing page", async () => {
-    await expectRetiredPage(() => ProcurementPage());
   });
 
   it("retires the market price page", async () => {

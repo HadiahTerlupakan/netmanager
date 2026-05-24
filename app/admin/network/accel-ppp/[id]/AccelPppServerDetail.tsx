@@ -119,7 +119,13 @@ function SessionsTab({ id }: { id: string }) {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const handleKick = async (username: string) => {
-    if (!confirm(`Putuskan sesi ${username}?`)) return;
+    if (
+      !confirm(
+        `Putuskan sesi pelanggan "${username}"?\n\nServer akan menjalankan "terminate username ${username}" — sesi PPPoE-nya akan terputus dan pelanggan harus dial ulang.`,
+      )
+    ) {
+      return;
+    }
     setBusyUsername(username);
     setActionMsg(null);
     try {
@@ -159,6 +165,7 @@ function SessionsTab({ id }: { id: string }) {
               <th className="px-3 py-2 text-left">IP</th>
               <th className="px-3 py-2 text-left">Calling SID</th>
               <th className="px-3 py-2 text-left">Type</th>
+              <th className="px-3 py-2 text-left">Comp</th>
               <th className="px-3 py-2 text-left">State</th>
               <th className="px-3 py-2 text-left">Uptime</th>
               <th className="px-3 py-2 text-right">Aksi</th>
@@ -168,7 +175,7 @@ function SessionsTab({ id }: { id: string }) {
             {loading && items.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-3 py-4 text-center text-slate-500"
                 >
                   Memuat sesi…
@@ -178,7 +185,7 @@ function SessionsTab({ id }: { id: string }) {
             {!loading && items.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-3 py-4 text-center text-slate-500"
                 >
                   Tidak ada sesi aktif.
@@ -195,6 +202,9 @@ function SessionsTab({ id }: { id: string }) {
                 <td className="px-3 py-2 font-mono text-xs">{s.ip}</td>
                 <td className="px-3 py-2 font-mono text-xs">{s.callingSid}</td>
                 <td className="px-3 py-2">{s.type}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">
+                  {s.comp ?? "—"}
+                </td>
                 <td className="px-3 py-2">{s.state}</td>
                 <td className="px-3 py-2">{s.uptime}</td>
                 <td className="px-3 py-2 text-right">

@@ -180,9 +180,25 @@ export function PurchaseOrderEditClient({ poId }: Props) {
           </div>
         </div>
         {data.paymentStatus === "UNPAID" && (
-          <Button variant="outline" onClick={handleDelete}>
-            Hapus PO
-          </Button>
+          <div className="flex gap-2">
+            <Link
+              href={`/admin/procurement/goods-receipts/create?poId=${data.id}`}
+              className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+            >
+              Buat GRN
+            </Link>
+            <Button variant="outline" onClick={handleDelete}>
+              Hapus PO
+            </Button>
+          </div>
+        )}
+        {data.paymentStatus !== "UNPAID" && data.status !== "RECEIVED" && (
+          <Link
+            href={`/admin/procurement/goods-receipts/create?poId=${data.id}`}
+            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+          >
+            Buat GRN
+          </Link>
         )}
       </div>
 

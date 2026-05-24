@@ -10,6 +10,20 @@ export const SUPPLIER_PPH_CATEGORIES: readonly SupplierPphCategory[] = [
   "sewa_tanah",
 ] as const;
 
+/**
+ * Lifecycle status supplier:
+ * - ACTIVE: dapat dipilih saat create PO
+ * - INACTIVE: dinonaktifkan sementara (mis. masa kontrak habis), tidak boleh dipakai PO baru
+ * - BLACKLISTED: diblokir permanen karena masalah; dilarang untuk PO baru, butuh `blacklistReason`
+ */
+export type SupplierStatus = "ACTIVE" | "INACTIVE" | "BLACKLISTED";
+
+export const SUPPLIER_STATUSES: readonly SupplierStatus[] = [
+  "ACTIVE",
+  "INACTIVE",
+  "BLACKLISTED",
+] as const;
+
 export interface Supplier {
   id: string;
   code: string;
@@ -20,6 +34,16 @@ export interface Supplier {
   phone: string | null;
   npwp: string | null;
   defaultPphCategory: SupplierPphCategory | null;
+  status: SupplierStatus;
+  blacklistReason: string | null;
+  siupNumber: string | null;
+  siupDocumentUrl: string | null;
+  npwpDocumentUrl: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountHolder: string | null;
+  contractDocumentUrl: string | null;
+  contractExpiresAt: Date | null;
   tenantId: string | null;
   createdAt: Date;
   updatedAt: Date;

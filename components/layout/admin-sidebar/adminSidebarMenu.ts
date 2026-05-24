@@ -7,6 +7,14 @@ type FilterAdminMenuItemsParams = {
   items: MenuConfig[];
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
+  /**
+   * Status setting global Full RADIUS Mode. Bila `false`, semua menu yang
+   * di-tag `requiresFullRadiusMode: true` akan disembunyikan (mis. modul
+   * accel-ppp). Bila `undefined`, behavior fallback = item tetap muncul
+   * supaya tidak menghilangkan menu di environment lama yang belum
+   * mengirim flag ini.
+   */
+  fullRadiusMode?: boolean;
   isSuperAdmin?: boolean;
   /**
    * Cek apakah feature module aktif untuk tenant aktif. Default = always true
@@ -29,6 +37,7 @@ export function filterAdminMenuItems({
   items,
   hasPermission,
   pppConnectionMode,
+  fullRadiusMode,
   isSuperAdmin,
   isFeatureEnabled,
 }: FilterAdminMenuItemsParams): MenuConfig[] {
@@ -38,6 +47,7 @@ export function filterAdminMenuItems({
         item,
         hasPermission,
         pppConnectionMode,
+        fullRadiusMode,
         isSuperAdmin,
         isFeatureEnabled,
       }),
@@ -86,12 +96,14 @@ function filterAdminMenuItem({
   item,
   hasPermission,
   pppConnectionMode,
+  fullRadiusMode,
   isSuperAdmin,
   isFeatureEnabled,
 }: {
   item: MenuConfig;
   hasPermission: SidebarPermissionChecker;
   pppConnectionMode?: string | null;
+  fullRadiusMode?: boolean;
   isSuperAdmin?: boolean;
   isFeatureEnabled?: SidebarFeatureChecker;
 }): MenuConfig | null {
@@ -110,6 +122,14 @@ function filterAdminMenuItem({
     return null;
   }
 
+  // Full RADIUS Mode gate: item yang di-tag `requiresFullRadiusMode` hanya
+  // tampil saat toggle global aktif. Bila flag tidak diberikan (undefined),
+  // item juga disembunyikan—sumber kebenaran adalah backend, bukan asumsi
+  // implicit.
+  if (item.requiresFullRadiusMode && !fullRadiusMode) {
+    return null;
+  }
+
   if (shouldHideRadiusMenu(item, pppConnectionMode)) {
     return null;
   }
@@ -120,6 +140,7 @@ function filterAdminMenuItem({
         item: child,
         hasPermission,
         pppConnectionMode,
+        fullRadiusMode,
         isSuperAdmin,
         isFeatureEnabled,
       }),
@@ -213,6 +234,10 @@ function getPermissionResource(code: string): string {
     "SALARY.PROFILES": "salary",
     "SALARY.COMPONENTS": "salary",
     "SALARY.CONFIG": "salary",
+    // Procurement: child code "APPROVAL_THRESHOLDS" tidak punya permission
+    // resource sendiri; gating-nya pakai permission group `procurement`
+    // karena dianggap konfigurasi internal procurement.
+    "PROCUREMENT.APPROVAL_THRESHOLDS": "procurement",
   };
 
   if (specialMappings[code]) {

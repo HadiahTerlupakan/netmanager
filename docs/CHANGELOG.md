@@ -45,6 +45,263 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-24] — Stabilkan quality gate: lint, prisma boundary, dan test sinkronisasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/procurement/`, `app/api/admin/procurement/purchase-orders/`, `modules/procurement/validators/`, `tests/admin/`
+- **Author**: agent
+- **Deskripsi**: Perbaiki 5 lint error yang memblokir `npm run check`:
+  (1) `react-hooks/set-state-in-effect` di tiga client component procurement —
+  reset state dipindah ke handler `onChange` dan `setLoading(true)` dipindah
+  ke dalam IIFE async untuk menghindari setState sinkron di body effect;
+  (2) larangan import `@/lib/prisma` di route handler `purchase-orders` —
+  lookup roleId user dipindah ke `UserLookupService` (boundary Clean
+  Architecture); (3) `no-explicit-any` di validator `approval-threshold` —
+  ganti `data as any` dengan struct eksplisit. Sinkronkan
+  `tests/admin/removed-surfaces.test.ts` dengan kondisi nyata: procurement
+  landing page sudah aktif kembali, jadi assertion "retired" untuk
+  Procurement dihapus, sementara assertion untuk market-price & assets
+  tetap dipertahankan.
+- **Files**:
+  `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`,
+  `app/admin/procurement/goods-returns/create/GoodsReturnCreateClient.tsx`,
+  `app/admin/procurement/goods-returns/[id]/GoodsReturnDetailClient.tsx`,
+  `app/api/admin/procurement/purchase-orders/route.ts`,
+  `modules/procurement/validators/approval-threshold.ts`,
+  `tests/admin/removed-surfaces.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: tambah menu sidebar + register icon
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/menu-config.ts`, `components/layout/admin-sidebar/`
+- **Author**: agent
+- **Deskripsi**: Tambah parent menu "Procurement" di sidebar admin (section
+  "Inventaris", featureModule `inventory`) dengan child: Dashboard, Master
+  Supplier, Purchase Request, Purchase Order, Goods Receipt, Retur Vendor,
+  Referensi Harga, Approval Threshold. Resolver permission default
+  `<resource>:read` cocok dengan permission yang sudah di-register di
+  `PERMISSION_GROUPS.PROCUREMENT`. Mapping khusus `PROCUREMENT.APPROVAL_THRESHOLDS`
+  → `procurement` ditambah di `getPermissionResource`. Register icon
+  `HiOutlineInbox` & `HiOutlineArrowUturnLeft` di `adminSidebarIcons.tsx`.
+- **Files**: `lib/menu-config.ts`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`,
+  `components/layout/admin-sidebar/adminSidebarIcons.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: Approval Threshold by Amount (Sprint 5)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/admin/procurement/approval-thresholds`, `app/api/admin/procurement/approval-thresholds`, `app/api/admin/procurement/purchase-orders`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Tambah model `ApprovalThreshold` (scope × role × range nominal)
+  + service `ApprovalThresholdService.assertCanApprove` yang dipanggil sebagai
+  guard saat user create PO. Kalau nominal grand-total melebihi range yang
+  cover role user, lempar `ApprovalThresholdExceededError` (HTTP 403).
+  `maxAmount = null` artinya unlimited untuk role tertinggi. Kalau tenant
+  belum config threshold sama sekali untuk scope, guard no-op (backward compat).
+  UI admin di `/admin/procurement/approval-thresholds` untuk CRUD rule:
+  pilih scope, role, range nominal, toggle aktif/nonaktif. Schema scope
+  saat ini cover PURCHASE_REQUEST + PURCHASE_ORDER; integrasi service-side
+  baru aktif untuk PO (PR lifecycle masih di modul inventory/restock).
+- **Files**: `modules/procurement/domain/entities/ApprovalThreshold.ts`,
+  `modules/procurement/domain/ports/IApprovalThresholdRepository.ts`,
+  `modules/procurement/repositories/ApprovalThresholdRepository.ts`,
+  `modules/procurement/dto/ApprovalThresholdDTO.ts`,
+  `modules/procurement/validators/approval-threshold.ts`,
+  `modules/procurement/services/ApprovalThresholdService.ts`,
+  `modules/procurement/services/PurchaseOrderService.ts`,
+  `app/admin/procurement/approval-thresholds/**`,
+  `app/api/admin/procurement/approval-thresholds/**`,
+  `app/api/admin/procurement/purchase-orders/route.ts`
+- **Migration**: `20260524030000_add_approval_thresholds`
+- **Breaking**: ❌ Tidak (no threshold = no gating)
+
+### [2026-05-24] — Procurement: Return to Vendor (RTV) (Sprint 4)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/admin/procurement/goods-returns`, `app/api/admin/procurement/goods-returns`, `lib/permission-config.ts`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Tambah modul Return to Vendor (RTV) — retur barang yang
+  sudah diterima kembali ke supplier. Model `GoodsReturn` + `GoodsReturnItem`
+  dengan referensi ke `GoodsReceipt` (audit trail batch mana yang diretur).
+  Reason: `DAMAGED`, `WRONG_SPEC`, `EXCESS`, `OTHER`. Status: `DRAFT`/`SENT`
+  → `REFUNDED`/`REPLACED`/`CREDIT_NOTE`/`CANCELLED`. Service `create` jalankan
+  transaksi atomic: insert RTV, kurangi stok gudang (DAMAGED → `stokRusak`,
+  lainnya → `stokBaru`), insert `barang_keluar` audit. Service `resolve`
+  mendukung CANCELLED yang mengembalikan stok. Validasi quantity per item ≤
+  qty diterima minus yang sudah pernah diretur sebelumnya. UI: list, halaman
+  detail dengan action button Refunded/Replaced/Credit Note/Cancel, halaman
+  create dengan GRN selector + per-item return line. Link "Buat Retur"
+  ditambahkan di halaman GRN detail. Permission baru `goods_return`.
+- **Files**: `modules/procurement/domain/entities/GoodsReturn.ts`,
+  `modules/procurement/domain/ports/IGoodsReturnRepository.ts`,
+  `modules/procurement/repositories/GoodsReturnRepository.ts`,
+  `modules/procurement/dto/GoodsReturnDTO.ts`,
+  `modules/procurement/validators/goods-return.ts`,
+  `modules/procurement/services/GoodsReturnService.ts`,
+  `app/admin/procurement/goods-returns/**`,
+  `app/api/admin/procurement/goods-returns/**`
+- **Migration**: `20260524020000_add_goods_returns`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: Goods Receipt Note (GRN) sebagai dokumen terpisah (Sprint 3)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/admin/procurement/goods-receipts`, `app/api/admin/procurement/goods-receipts`, `lib/permission-config.ts`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Tambah model `GoodsReceipt` + `GoodsReceiptItem` sebagai
+  dokumen penerimaan barang per batch (GRN). Satu PO bisa punya banyak GRN
+  karena vendor dapat kirim parsial. Service `GoodsReceiptService.create`
+  jalankan transaksi atomic: insert GRN, update `purchaseOrderItem.receivedQuantity`,
+  upsert `barang_gudang` (stok bertambah), insert `barang_masuk` (audit trail),
+  dan re-evaluate status PO ke PARTIAL/RECEIVED. Validasi quantity per item
+  ≤ sisa (PO.quantity − receivedQuantity) dengan defense-in-depth: schema Zod +
+  service-layer guard. UI: list GRN, form create dengan PO selector + per-item
+  receive line, halaman detail. Link "Buat GRN" ditambahkan di halaman PO detail.
+  Permission baru `goods_receipt` ditambah ke `PROCUREMENT` group.
+- **Files**: `modules/procurement/domain/entities/GoodsReceipt.ts`,
+  `modules/procurement/domain/ports/IGoodsReceiptRepository.ts`,
+  `modules/procurement/repositories/GoodsReceiptRepository.ts`,
+  `modules/procurement/dto/GoodsReceiptDTO.ts`,
+  `modules/procurement/validators/goods-receipt.ts`,
+  `modules/procurement/services/GoodsReceiptService.ts`,
+  `app/admin/procurement/goods-receipts/**`,
+  `app/api/admin/procurement/goods-receipts/**`
+- **Migration**: `20260524010000_add_goods_receipts`
+- **Breaking**: ❌ Tidak (RestockStockReceiptService existing tetap jalan untuk flow lewat inventory/restock; GRN adalah jalur baru parallel)
+
+### [2026-05-24] — Accel-PPP: post-audit fixes (data loss, sidebar, race, UX)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network`, `app/admin/network/accel-ppp`,
+  `components/layout`, `components/admin/settings`, `lib/menu-config.ts`,
+  `lib/hooks`
+- **Author**: agent
+- **Deskripsi**: Audit menyeluruh terhadap flow modul accel-ppp menemukan 14
+  isu (kritis sampai minor). Semuanya diperbaiki dalam batch ini:
+  - **#1 Race duplicate IP**: tambah catch `Prisma.PrismaClientKnownRequestError`
+    code `P2002` di repository sebagai backstop bila dua request bersamaan
+    lolos dari `findFirst`.
+  - **#4 Edit form data loss**: pre-fill `nasIdentifier`, `acctPort`, `coaPort`
+    yang sebelumnya hilang saat user buka mode edit—update tanpa modifikasi
+    field tersebut tidak lagi mereset ke nilai default.
+  - **#5 Kolom comp di sessions table**: parser sudah ekstraksi tapi UI tidak
+    menampilkannya. Sekarang muncul sebagai kolom tersendiri.
+  - **#6 Confirm UX**: pesan delete/kick lebih informatif tentang konsekuensi
+    (server side-effect, pengaruh ke pelanggan aktif, risiko force delete).
+  - **#7 Warning force delete sesi aktif**: dialog konfirmasi force delete
+    eksplisit menyebut bahwa sesi pelanggan tidak ikut terputus secara abrupt
+    (CoA Disconnect-Request masih out of scope) dan menyarankan kick manual
+    via tab Sessions Live dulu.
+  - **#8 Server-side guard pages**: `page.tsx` accel-ppp sekarang panggil
+    `getFullRadiusMode()` di server. Bila OFF → redirect ke halaman
+    `/admin/network/accel-ppp/disabled` yang menjelaskan cara mengaktifkan.
+  - **#9 Sidebar conditional**: tambah field `requiresFullRadiusMode` di
+    `MenuConfig`, propagate ke filter sidebar. Menu Accel-PPP otomatis
+    hilang saat toggle OFF.
+  - **#10 Health check on create**: setelah server berhasil dibuat (atau
+    saat user klik Test Connection), service melakukan `show stat` cepat
+    dan persist `pingStatus`/`userOnline`/`lastStatusCheck`. Status di list
+    page tidak lagi harus menunggu 60-detik cron tick berikutnya.
+  - **#11 Permission user existing**: setup guide diberi section khusus
+    cara grant permission `accel_ppp:*` ke role yang sudah ada di DB
+    (re-seed atau manual via Roles UI / SQL).
+  - **#12 shouldResyncNas precision**: ganti perbandingan `after.description
+    !== before.description` dengan pendekatan eksplisit `data.* !== undefined`,
+    plus menambah `nasIdentifier` ke field-field yang trigger re-sync.
+  - **#14 coaPort docs**: tambah JSDoc di entity bahwa `coaPort` placeholder
+    untuk fitur CoA Disconnect-Request future.
+  - **#15 Sidebar refresh after toggle**: hook baru `useFullRadiusMode`
+    + helper `dispatchFullRadiusModeChange()`. Saat user toggle di
+    `Pengaturan → Umum`, event `fullRadiusMode:changed` mem-broadcast ke
+    seluruh tab/window dan sidebar refresh tanpa F5.
+- **Files**:
+  `modules/network/repositories/AccelPppServerRepository.ts`,
+  `modules/network/services/accel-ppp/AccelPppServerService.ts`,
+  `modules/network/domain/entities/AccelPppServerEntity.ts`,
+  `app/admin/network/accel-ppp/AccelPppServerForm.tsx`,
+  `app/admin/network/accel-ppp/AccelPppServerList.tsx`,
+  `app/admin/network/accel-ppp/[id]/AccelPppServerDetail.tsx`,
+  `app/admin/network/accel-ppp/[id]/page.tsx`,
+  `app/admin/network/accel-ppp/page.tsx`,
+  `app/admin/network/accel-ppp/new/page.tsx`,
+  `app/admin/network/accel-ppp/disabled/page.tsx`,
+  `app/admin/network/accel-ppp/hooks.ts`,
+  `components/layout/Sidebar.tsx`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`,
+  `components/layout/admin-sidebar/useFilteredAdminMenu.ts`,
+  `components/admin/settings/NetworkSettings.tsx`,
+  `lib/hooks/useFullRadiusMode.ts`,
+  `lib/menu-config.ts`,
+  `docs/guides/accel-ppp-setup.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: halaman Purchase Request + landing hub (Sprint 2)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Tambah halaman read-only Purchase Request di
+  `/admin/procurement/purchase-requests` dengan filter status/search,
+  badge status & prioritas, link ke PO terkait, dan action multi-select
+  untuk generate PO dari PR APPROVED. Landing page `/admin/procurement`
+  dijadikan hub navigasi (sebelumnya `notFound`) — kartu menu untuk
+  Supplier, PR, PO, dan Market Price. Lifecycle PR (create/approve/
+  reject/process/receive) tetap di modul `inventory/restock`; halaman
+  ini menyediakan view dari sudut procurement saja.
+- **Files**: `app/admin/procurement/page.tsx`,
+  `app/admin/procurement/purchase-requests/page.tsx`,
+  `app/admin/procurement/purchase-requests/ProcurementPRListClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: Vendor Status + Dokumen Kelengkapan (Sprint 1)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement`, `app/admin/procurement/suppliers`, `app/api/admin/procurement/suppliers`, `app/api/admin/procurement/purchase-orders`
+- **Author**: agent
+- **Deskripsi**: Tambah lifecycle status (ACTIVE/INACTIVE/BLACKLISTED) dan
+  field dokumen compliance (SIUP, NPWP scan, rekening pembayaran, kontrak)
+  ke master Supplier. Guard di `PurchaseOrderService.create` dan
+  `ProcurementService.generatePOFromPRs` reject PO baru ke supplier
+  non-aktif via `SupplierNotActiveError` (HTTP 409). Status BLACKLISTED
+  wajib menyertakan `blacklistReason` (validasi service + Zod). UI list
+  supplier menampilkan badge status dan filter per status; form supplier
+  punya section Status, Pajak & Compliance, Rekening, dan Kontrak.
+- **Files**: `modules/procurement/domain/entities/Supplier.ts`,
+  `modules/procurement/domain/ports/ISupplierRepository.ts`,
+  `modules/procurement/repositories/SupplierRepository.ts`,
+  `modules/procurement/dto/SupplierDTO.ts`,
+  `modules/procurement/validators/supplier.ts`,
+  `modules/procurement/services/SupplierService.ts`,
+  `modules/procurement/services/PurchaseOrderService.ts`,
+  `modules/procurement/services/ProcurementService.ts`,
+  `app/admin/procurement/suppliers/SupplierForm.tsx`,
+  `app/admin/procurement/suppliers/SupplierListClient.tsx`
+- **Migration**: `20260524000000_add_supplier_status_and_documents`
+- **Breaking**: ❌ Tidak (default `status = ACTIVE` untuk semua row existing)
+
+### [2026-05-24] — Fix: UI toggle Full RADIUS Mode
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/admin/settings/full-radius-mode/`, `components/admin/settings/NetworkSettings.tsx`
+- **Author**: agent
+- **Deskripsi**: Toggle global `FULL_RADIUS_MODE` sebelumnya hanya ada di
+  service layer (M1) tanpa UI/endpoint, sehingga setting selalu OFF (default
+  `undefined !== "true"`) dan API accel-ppp menolak semua request dengan 403
+  walau modul sudah terdaftar. Diperbaiki dengan: (1) endpoint
+  `GET/POST /api/admin/settings/full-radius-mode` yang panggil
+  `getFullRadiusMode`/`setFullRadiusMode` dari `modules/settings`,
+  (2) toggle UI di komponen `NetworkSettings` (halaman `Pengaturan → Umum`)
+  dengan state lokal terpisah dari form general settings—save instan,
+  tidak menyentuh field lain. Label dibuat eksplisit "Full RADIUS Mode
+  (accel-ppp)" untuk membedakan dengan dropdown "Mode Koneksi PPP" yang
+  scope-nya berbeda (auth strategy pelanggan, bukan toggle modul).
+- **Files**:
+  `app/api/admin/settings/full-radius-mode/route.ts`,
+  `components/admin/settings/NetworkSettings.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-23] — Stabilkan quality gate (test/lint/typecheck/build)
 
 - **Tipe**: [FIXED]

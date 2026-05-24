@@ -31,6 +31,12 @@ export interface MenuConfig {
    * (parent); children mengikuti parent.
    */
   featureModule?: FeatureModuleCode | undefined;
+  /**
+   * Bila `true`, item ini hanya tampil ketika setting global
+   * `FULL_RADIUS_MODE` aktif. Dipakai untuk modul accel-ppp yang
+   * di-gating server-side oleh `requireFullRadiusMode()`.
+   */
+  requiresFullRadiusMode?: boolean | undefined;
 }
 
 /**
@@ -83,6 +89,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         name: "Accel-PPP",
         path: "/admin/network/accel-ppp",
         icon: "HiOutlineCpuChip",
+        requiresFullRadiusMode: true,
       },
       {
         code: "NETWORK.RADIUS",
@@ -291,6 +298,70 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         name: "Restock",
         path: "/admin/inventory/restock",
         icon: "HiOutlineArrowTrendingUp",
+      },
+    ],
+  },
+
+  // ───────────────────────── Procurement ─────────────────────────
+  // Sub-modul terpisah dari Inventory karena fokus ke pengadaan eksternal:
+  // supplier, PO, GRN, RTV, approval threshold. Code child dipakai
+  // resolver permission (`split(".").pop()`) untuk cek `<resource>:read`.
+  {
+    code: "PROCUREMENT",
+    name: "Procurement",
+    path: "/admin/procurement",
+    icon: "HiOutlineShoppingCart",
+    section: "Inventaris",
+    featureModule: "inventory",
+    children: [
+      {
+        code: "PROCUREMENT.PROCUREMENT",
+        name: "Dashboard",
+        path: "/admin/procurement",
+        icon: "HiOutlineChartBar",
+        exact: true,
+      },
+      {
+        code: "PROCUREMENT.SUPPLIER",
+        name: "Master Supplier",
+        path: "/admin/procurement/suppliers",
+        icon: "HiOutlineUserGroup",
+      },
+      {
+        code: "PROCUREMENT.PURCHASE_REQUESTS",
+        name: "Purchase Request",
+        path: "/admin/procurement/purchase-requests",
+        icon: "HiOutlineClipboardDocumentList",
+      },
+      {
+        code: "PROCUREMENT.PURCHASE_ORDERS",
+        name: "Purchase Order",
+        path: "/admin/procurement/purchase-orders",
+        icon: "HiOutlineDocumentText",
+      },
+      {
+        code: "PROCUREMENT.GOODS_RECEIPT",
+        name: "Goods Receipt",
+        path: "/admin/procurement/goods-receipts",
+        icon: "HiOutlineInbox",
+      },
+      {
+        code: "PROCUREMENT.GOODS_RETURN",
+        name: "Retur Vendor",
+        path: "/admin/procurement/goods-returns",
+        icon: "HiOutlineArrowUturnLeft",
+      },
+      {
+        code: "PROCUREMENT.MARKET_PRICE",
+        name: "Referensi Harga",
+        path: "/admin/procurement/market-price",
+        icon: "HiOutlineCurrencyDollar",
+      },
+      {
+        code: "PROCUREMENT.APPROVAL_THRESHOLDS",
+        name: "Approval Threshold",
+        path: "/admin/procurement/approval-thresholds",
+        icon: "HiOutlineShieldCheck",
       },
     ],
   },

@@ -1,4 +1,4 @@
-import type { Supplier } from "../domain/entities/Supplier";
+import type { Supplier, SupplierStatus } from "../domain/entities/Supplier";
 import type {
   ISupplierRepository,
   SupplierCreateInput,
@@ -22,6 +22,24 @@ export class SupplierNotFoundError extends Error {
   }
 }
 
+/**
+ * Dilempar oleh use case yang membutuhkan supplier aktif (mis. create PO).
+ * Pesan default mencakup status terkini supaya caller bisa langsung tampilkan ke user.
+ */
+export class SupplierNotActiveError extends Error {
+  constructor(
+    public readonly supplierId: string,
+    public readonly status: SupplierStatus,
+    public readonly reason: string | null = null,
+  ) {
+    const reasonSuffix = reason ? ` (${reason})` : "";
+    super(
+      `Supplier ${supplierId} berstatus ${status} dan tidak dapat digunakan${reasonSuffix}`,
+    );
+    this.name = "SupplierNotActiveError";
+  }
+}
+
 export class SupplierService {
   constructor(
     private readonly repo: ISupplierRepository = new SupplierRepository(),
@@ -32,6 +50,7 @@ export class SupplierService {
     if (existing) {
       throw new SupplierCodeAlreadyExistsError(input.code);
     }
+    this.assertBlacklistConsistency(input.status, input.blacklistReason);
     return this.repo.create(input);
   }
 
@@ -40,6 +59,12 @@ export class SupplierService {
     if (!existing) {
       throw new SupplierNotFoundError(id);
     }
+    const targetStatus = input.status ?? existing.status;
+    const targetReason =
+      input.blacklistReason !== undefined
+        ? input.blacklistReason
+        : existing.blacklistReason;
+    this.assertBlacklistConsistency(targetStatus, targetReason);
     return this.repo.update(id, input);
   }
 
@@ -61,5 +86,32 @@ export class SupplierService {
       throw new SupplierNotFoundError(id);
     }
     await this.repo.delete(id);
+  }
+
+  /**
+   * Guard untuk use case yang butuh supplier aktif (mis. PO create/update).
+   * Lempar `SupplierNotActiveError` kalau status bukan ACTIVE.
+   */
+  async assertActive(id: string): Promise<Supplier> {
+    const supplier = await this.getById(id);
+    if (supplier.status !== "ACTIVE") {
+      throw new SupplierNotActiveError(
+        supplier.id,
+        supplier.status,
+        supplier.blacklistReason,
+      );
+    }
+    return supplier;
+  }
+
+  private assertBlacklistConsistency(
+    status: SupplierStatus | undefined,
+    reason: string | null | undefined,
+  ): void {
+    if (status === "BLACKLISTED" && (!reason || reason.trim() === "")) {
+      throw new Error(
+        "Alasan blacklist wajib diisi saat status supplier BLACKLISTED",
+      );
+    }
   }
 }

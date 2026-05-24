@@ -7,9 +7,12 @@ export interface AccelPppServerListItem {
   name: string;
   ipAddress: string;
   description: string | null;
+  nasIdentifier: string | null;
   cliHost: string;
   cliPort: number;
   authPort: number;
+  acctPort: number;
+  coaPort: number;
   pingStatus: string;
   userOnline: number;
   lastStatusCheck: string | null;
@@ -26,6 +29,7 @@ export interface AccelPppSessionItem {
   ip: string;
   rateLimit: string | null;
   type: string;
+  comp: string | null;
   state: string;
   uptime: string;
 }

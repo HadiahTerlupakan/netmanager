@@ -1135,6 +1135,7 @@ model Role {
   user                User[]
   tenant              Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   permission          Permission[] @relation("PermissionToRole")
+  approvalThresholds  ApprovalThreshold[]
 
   @@unique([name, tenantId], name: "name_tenantId")
   @@index([accessAdminPanel])
@@ -1142,6 +1143,28 @@ model Role {
   @@index([isRestricted])
   @@index([tenantId])
   @@map("roles")
+}
+
+/// Approval matrix: role × scope × nominal range. Saat approve PR/PO,
+/// guard memastikan role approver punya threshold yang cover nominal.
+/// `maxAmount` null artinya tidak ada batas atas (untuk role tertinggi).
+model ApprovalThreshold {
+  id          String                  @id @default(uuid())
+  scope       ApprovalThresholdScope
+  roleId      String
+  minAmount   Float                   @default(0)
+  maxAmount   Float?
+  description String?
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  tenantId    String?
+  role        Role                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant      Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, scope, isActive])
+  @@index([roleId])
+  @@map("approval_thresholds")
 }
 
 model Session {
@@ -1280,6 +1303,8 @@ model User {
   poCreated                                  PurchaseOrder[]           @relation("POCreator")
   poProcessed                                PurchaseOrder[]           @relation("POProcessor")
   poReceived                                 PurchaseOrder[]           @relation("POReceiver")
+  goodsReceiptsReceived                      GoodsReceipt[]            @relation("GRNReceiver")
+  goodsReturnsReturned                       GoodsReturn[]             @relation("RTVReturner")
   purchaseRequests                           PurchaseRequest[]         @relation("Requester")
   approverPurchaseRequests                   PurchaseRequest[]         @relation("ApproverPR")
   rabApprovals                               RabApproval[]
@@ -1367,6 +1392,8 @@ model Barang {
   barang_masuk         BarangMasuk[]
   purchaseOrderItems   PurchaseOrderItem[]
   purchaseRequestItems PurchaseRequestItem[]
+  goodsReceiptItems    GoodsReceiptItem[]
+  goodsReturnItems     GoodsReturnItem[]
   restockAlerts        RestockAlerts[]
   restockSettings      RestockSettings[]
   stockOpname          StockOpname[]
@@ -1622,6 +1649,8 @@ model Gudang {
   barangMasuk             BarangMasuk[]
   tenant                  Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseRequests        PurchaseRequest[]
+  goodsReceipts           GoodsReceipt[]
+  goodsReturns            GoodsReturn[]
   restockAlerts           RestockAlerts[]
   restockSettings         RestockSettings[]
   stockOpname             StockOpname[]
@@ -2661,14 +2690,26 @@ model Supplier {
   phone              String?
   npwp               String?
   defaultPphCategory String?
+  status             SupplierStatus  @default(ACTIVE)
+  blacklistReason    String?
+  siupNumber         String?
+  siupDocumentUrl    String?
+  npwpDocumentUrl    String?
+  bankName           String?
+  bankAccountNumber  String?
+  bankAccountHolder  String?
+  contractDocumentUrl String?
+  contractExpiresAt  DateTime?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   tenantId           String?
   items              Barang[]
   pos                PurchaseOrder[]
+  goodsReturns       GoodsReturn[]
   tenant             Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
+  @@index([status])
   @@map("suppliers")
 }
 
@@ -2697,6 +2738,7 @@ model PurchaseOrder {
   vendorNpwp        String?
   tenantId          String?
   items             PurchaseOrderItem[]
+  goodsReceipts     GoodsReceipt[]
   creator           User                @relation("POCreator", fields: [createdBy], references: [id])
   paidFromAccount   FinancialAccount?   @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
   processedBy       User?               @relation("POProcessor", fields: [processedById], references: [id])
@@ -2722,9 +2764,119 @@ model PurchaseOrderItem {
   barang           Barang        @relation(fields: [barangId], references: [id])
   purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   tenant           Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  goodsReceiptItems GoodsReceiptItem[]
 
   @@index([tenantId])
   @@map("purchase_order_items")
+}
+
+/// Dokumen penerimaan barang per batch (GRN). Satu PO bisa punya banyak GRN
+/// karena vendor bisa kirim parsial. Header GRN menyimpan referensi PO,
+/// gudang tujuan, penerima, dan foto bukti; detail per barang di
+/// GoodsReceiptItem. Status DRAFT → POSTED setelah stok benar-benar
+/// di-update, supaya tidak double-count.
+model GoodsReceipt {
+  id              String              @id @default(uuid())
+  grnNumber       String
+  purchaseOrderId String
+  gudangId        String
+  receivedById    String
+  receivedAt      DateTime            @default(now())
+  status          GoodsReceiptStatus  @default(POSTED)
+  notes           String?
+  fotoBukti       String[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  tenantId        String?
+  items           GoodsReceiptItem[]
+  goodsReturns    GoodsReturn[]
+  purchaseOrder   PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  gudang          Gudang              @relation(fields: [gudangId], references: [id])
+  receivedBy      User                @relation("GRNReceiver", fields: [receivedById], references: [id])
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, grnNumber], name: "tenantId_grnNumber")
+  @@index([purchaseOrderId])
+  @@index([tenantId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id                  String            @id @default(uuid())
+  goodsReceiptId      String
+  purchaseOrderItemId String
+  barangId            String
+  quantity            Int
+  notes               String?
+  tenantId            String?
+  goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  barang              Barang            @relation(fields: [barangId], references: [id])
+  tenant              Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  goodsReturnItems    GoodsReturnItem[]
+
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderItemId])
+  @@index([tenantId])
+  @@map("goods_receipt_items")
+}
+
+/// Dokumen Return to Vendor (RTV). Retur barang yang sudah diterima
+/// kembali ke supplier karena rusak (DAMAGED), salah spesifikasi
+/// (WRONG_SPEC), kelebihan kirim (EXCESS), atau alasan lain (OTHER).
+/// Reference ke GoodsReceipt: traceability batch mana yang diretur.
+/// Status SENT → RESOLVED (REFUNDED/REPLACED/CREDIT_NOTE) menandai
+/// gimana vendor menyelesaikan klaim.
+model GoodsReturn {
+  id              String              @id @default(uuid())
+  rtvNumber       String
+  goodsReceiptId  String
+  supplierId      String?
+  gudangId        String
+  reason          GoodsReturnReason
+  status          GoodsReturnStatus   @default(SENT)
+  returnedById    String
+  returnedAt      DateTime            @default(now())
+  resolvedAt      DateTime?
+  notes           String?
+  fotoBukti       String[]
+  refundAmount    Float?
+  replacementGrnId String?
+  creditNoteRef   String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  tenantId        String?
+  items           GoodsReturnItem[]
+  goodsReceipt    GoodsReceipt        @relation(fields: [goodsReceiptId], references: [id], onDelete: Restrict)
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id])
+  gudang          Gudang              @relation(fields: [gudangId], references: [id])
+  returnedBy      User                @relation("RTVReturner", fields: [returnedById], references: [id])
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, rtvNumber], name: "tenantId_rtvNumber")
+  @@index([goodsReceiptId])
+  @@index([supplierId])
+  @@index([tenantId])
+  @@map("goods_returns")
+}
+
+model GoodsReturnItem {
+  id                 String           @id @default(uuid())
+  goodsReturnId      String
+  goodsReceiptItemId String
+  barangId           String
+  quantity           Int
+  notes              String?
+  tenantId           String?
+  goodsReturn        GoodsReturn      @relation(fields: [goodsReturnId], references: [id], onDelete: Cascade)
+  goodsReceiptItem   GoodsReceiptItem @relation(fields: [goodsReceiptItemId], references: [id], onDelete: Restrict)
+  barang             Barang           @relation(fields: [barangId], references: [id])
+  tenant             Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([goodsReturnId])
+  @@index([goodsReceiptItemId])
+  @@index([tenantId])
+  @@map("goods_return_items")
 }
 
 model FinancialAccount {
@@ -3425,6 +3577,11 @@ model Tenant {
   positions               Positions[]
   purchaseOrderItem       PurchaseOrderItem[]
   purchaseOrder           PurchaseOrder[]
+  goodsReceipts           GoodsReceipt[]
+  goodsReceiptItems       GoodsReceiptItem[]
+  goodsReturns            GoodsReturn[]
+  goodsReturnItems        GoodsReturnItem[]
+  approvalThresholds      ApprovalThreshold[]
   purchaseRequestItem     PurchaseRequestItem[]
   purchaseRequest         PurchaseRequest[]
   rabActualAchievement    RabActualAchievement[]
@@ -3683,6 +3840,33 @@ enum KondisiBarang {
   RUSAK
 }
 
+enum GoodsReceiptStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum GoodsReturnReason {
+  DAMAGED
+  WRONG_SPEC
+  EXCESS
+  OTHER
+}
+
+enum GoodsReturnStatus {
+  DRAFT
+  SENT
+  REFUNDED
+  REPLACED
+  CREDIT_NOTE
+  CANCELLED
+}
+
+enum ApprovalThresholdScope {
+  PURCHASE_REQUEST
+  PURCHASE_ORDER
+}
+
 enum LeaveStatus {
   PENDING
   APPROVED
@@ -3748,6 +3932,12 @@ enum Status {
   MAINTENANCE
   ISOLIR
   DISMANTLE
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
 }
 
 enum TargetAudience {

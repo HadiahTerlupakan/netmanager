@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type {
   Supplier,
   SupplierPphCategory,
+  SupplierStatus,
 } from "../domain/entities/Supplier";
 import type {
   ISupplierRepository,
@@ -21,6 +22,16 @@ interface SupplierRow {
   phone: string | null;
   npwp: string | null;
   defaultPphCategory: string | null;
+  status: SupplierStatus;
+  blacklistReason: string | null;
+  siupNumber: string | null;
+  siupDocumentUrl: string | null;
+  npwpDocumentUrl: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountHolder: string | null;
+  contractDocumentUrl: string | null;
+  contractExpiresAt: Date | null;
   tenantId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +49,16 @@ function toDomain(row: SupplierRow): Supplier {
     npwp: row.npwp,
     defaultPphCategory:
       (row.defaultPphCategory as SupplierPphCategory | null) ?? null,
+    status: row.status,
+    blacklistReason: row.blacklistReason,
+    siupNumber: row.siupNumber,
+    siupDocumentUrl: row.siupDocumentUrl,
+    npwpDocumentUrl: row.npwpDocumentUrl,
+    bankName: row.bankName,
+    bankAccountNumber: row.bankAccountNumber,
+    bankAccountHolder: row.bankAccountHolder,
+    contractDocumentUrl: row.contractDocumentUrl,
+    contractExpiresAt: row.contractExpiresAt,
     tenantId: row.tenantId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -56,6 +77,16 @@ export class SupplierRepository implements ISupplierRepository {
         phone: input.phone ?? null,
         npwp: input.npwp ?? null,
         defaultPphCategory: input.defaultPphCategory ?? null,
+        status: input.status ?? "ACTIVE",
+        blacklistReason: input.blacklistReason ?? null,
+        siupNumber: input.siupNumber ?? null,
+        siupDocumentUrl: input.siupDocumentUrl ?? null,
+        npwpDocumentUrl: input.npwpDocumentUrl ?? null,
+        bankName: input.bankName ?? null,
+        bankAccountNumber: input.bankAccountNumber ?? null,
+        bankAccountHolder: input.bankAccountHolder ?? null,
+        contractDocumentUrl: input.contractDocumentUrl ?? null,
+        contractExpiresAt: input.contractExpiresAt ?? null,
         tenantId: input.tenantId,
       },
     });
@@ -74,6 +105,30 @@ export class SupplierRepository implements ISupplierRepository {
         ...(input.npwp !== undefined && { npwp: input.npwp }),
         ...(input.defaultPphCategory !== undefined && {
           defaultPphCategory: input.defaultPphCategory,
+        }),
+        ...(input.status !== undefined && { status: input.status }),
+        ...(input.blacklistReason !== undefined && {
+          blacklistReason: input.blacklistReason,
+        }),
+        ...(input.siupNumber !== undefined && { siupNumber: input.siupNumber }),
+        ...(input.siupDocumentUrl !== undefined && {
+          siupDocumentUrl: input.siupDocumentUrl,
+        }),
+        ...(input.npwpDocumentUrl !== undefined && {
+          npwpDocumentUrl: input.npwpDocumentUrl,
+        }),
+        ...(input.bankName !== undefined && { bankName: input.bankName }),
+        ...(input.bankAccountNumber !== undefined && {
+          bankAccountNumber: input.bankAccountNumber,
+        }),
+        ...(input.bankAccountHolder !== undefined && {
+          bankAccountHolder: input.bankAccountHolder,
+        }),
+        ...(input.contractDocumentUrl !== undefined && {
+          contractDocumentUrl: input.contractDocumentUrl,
+        }),
+        ...(input.contractExpiresAt !== undefined && {
+          contractExpiresAt: input.contractExpiresAt,
         }),
       },
     });
@@ -102,6 +157,9 @@ export class SupplierRepository implements ISupplierRepository {
 
   async list(filter: SupplierListFilter): Promise<SupplierListResult> {
     const where: Record<string, unknown> = { tenantId: filter.tenantId };
+    if (filter.status) {
+      where.status = filter.status;
+    }
     if (filter.search) {
       where.OR = [
         { code: { contains: filter.search, mode: "insensitive" } },

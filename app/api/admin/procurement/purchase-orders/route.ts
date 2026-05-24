@@ -5,14 +5,19 @@ import {
   validateRequestBody,
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { UserLookupService } from "@/modules/users";
 import {
   getPurchaseOrderService,
   createPurchaseOrderSchema,
   purchaseOrderListQuerySchema,
   PurchaseOrderNotFoundError,
+  SupplierNotActiveError,
+  ApprovalThresholdExceededError,
 } from "@/modules/procurement";
 
 export const dynamic = "force-dynamic";
+
+const userLookupService = new UserLookupService();
 
 /**
  * GET /api/admin/procurement/purchase-orders - List PO (paginated, filterable).
@@ -76,6 +81,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const tenantId = ctx.session?.user.tenantId ?? null;
+  const userRecord = await userLookupService.findById(userId);
+  const creatorRoleIds = userRecord?.roleId ? [userRecord.roleId] : [];
+
   try {
     const data = validation.data as {
       supplierId?: string | null;
@@ -93,11 +101,18 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       ...data,
       createdBy: userId,
       tenantId,
+      creatorRoleIds,
     });
     return apiSuccess(po, { message: "Purchase Order berhasil dibuat" });
   } catch (error) {
     if (error instanceof PurchaseOrderNotFoundError) {
       return ApiErrors.notFound(error.message);
+    }
+    if (error instanceof SupplierNotActiveError) {
+      return ApiErrors.conflict(error.message);
+    }
+    if (error instanceof ApprovalThresholdExceededError) {
+      return ApiErrors.forbidden(error.message);
     }
     throw error;
   }

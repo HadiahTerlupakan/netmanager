@@ -105,25 +105,41 @@ export class AccelPppServerRepository implements IAccelPppServerRepository {
       );
     }
 
-    const row = await this.client.accelPppServer.create({
-      data: {
-        name: data.name,
-        ipAddress: data.ipAddress,
-        description: data.description ?? null,
-        nasIdentifier: data.nasIdentifier ?? null,
-        radiusSecret: encryptApiKey(data.radiusSecret),
-        authPort: data.authPort ?? 1812,
-        acctPort: data.acctPort ?? 1813,
-        coaPort: data.coaPort ?? 3799,
-        cliHost: data.cliHost,
-        cliPort: data.cliPort ?? 2001,
-        cliPassword: data.cliPassword ? encryptApiKey(data.cliPassword) : null,
-        siteId: data.siteId ?? null,
-        tenantId: data.tenantId ?? null,
-      },
-    });
+    try {
+      const row = await this.client.accelPppServer.create({
+        data: {
+          name: data.name,
+          ipAddress: data.ipAddress,
+          description: data.description ?? null,
+          nasIdentifier: data.nasIdentifier ?? null,
+          radiusSecret: encryptApiKey(data.radiusSecret),
+          authPort: data.authPort ?? 1812,
+          acctPort: data.acctPort ?? 1813,
+          coaPort: data.coaPort ?? 3799,
+          cliHost: data.cliHost,
+          cliPort: data.cliPort ?? 2001,
+          cliPassword: data.cliPassword
+            ? encryptApiKey(data.cliPassword)
+            : null,
+          siteId: data.siteId ?? null,
+          tenantId: data.tenantId ?? null,
+        },
+      });
 
-    return this.toEntity(row);
+      return this.toEntity(row);
+    } catch (err) {
+      // Backstop untuk race condition: dua request masuk bersamaan, lolos
+      // findFirst di atas, lalu salah satunya kena unique constraint.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        throw new AccelPppDuplicateIpError(
+          `Accel-PPP server dengan IP ${data.ipAddress} sudah terdaftar`,
+        );
+      }
+      throw err;
+    }
   }
 
   async update(

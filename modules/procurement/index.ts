@@ -96,10 +96,18 @@ export {
   SupplierService,
   SupplierCodeAlreadyExistsError,
   SupplierNotFoundError,
+  SupplierNotActiveError,
 } from "./services/SupplierService";
 
-export type { Supplier, SupplierPphCategory } from "./domain/entities/Supplier";
-export { SUPPLIER_PPH_CATEGORIES } from "./domain/entities/Supplier";
+export type {
+  Supplier,
+  SupplierPphCategory,
+  SupplierStatus,
+} from "./domain/entities/Supplier";
+export {
+  SUPPLIER_PPH_CATEGORIES,
+  SUPPLIER_STATUSES,
+} from "./domain/entities/Supplier";
 
 export type {
   ISupplierRepository,
@@ -122,3 +130,160 @@ export type {
   UpdateSupplierInput,
   SupplierListQuery,
 } from "./validators/supplier";
+
+// Goods Receipt Note (GRN) — dokumen penerimaan barang per batch.
+import { GoodsReceiptRepository } from "./repositories/GoodsReceiptRepository";
+import { GoodsReceiptService } from "./services/GoodsReceiptService";
+
+export function getGoodsReceiptService(): GoodsReceiptService {
+  return new GoodsReceiptService(
+    new GoodsReceiptRepository(),
+    new PurchaseOrderRepository(),
+  );
+}
+
+export {
+  GoodsReceiptService,
+  GoodsReceiptNotFoundError,
+  GoodsReceiptInvalidError,
+} from "./services/GoodsReceiptService";
+
+export type {
+  GoodsReceiptEntity,
+  GoodsReceiptItemEntity,
+  GoodsReceiptStatus,
+} from "./domain/entities/GoodsReceipt";
+export { GOODS_RECEIPT_STATUSES } from "./domain/entities/GoodsReceipt";
+
+export type {
+  IGoodsReceiptRepository,
+  GoodsReceiptCreateInput,
+  GoodsReceiptListFilter,
+  GoodsReceiptListResult,
+  GoodsReceiptListSummary,
+  GoodsReceiptWithRelations,
+  GoodsReceiptItemCreateInput,
+} from "./domain/ports/IGoodsReceiptRepository";
+
+export {
+  toGoodsReceiptDTO,
+  toGoodsReceiptListItemDTO,
+} from "./dto/GoodsReceiptDTO";
+export type {
+  GoodsReceiptDTO,
+  GoodsReceiptItemDTO,
+  GoodsReceiptListItemDTO,
+  GoodsReceiptListResponseDTO,
+} from "./dto/GoodsReceiptDTO";
+
+export {
+  createGoodsReceiptSchema,
+  goodsReceiptListQuerySchema,
+} from "./validators/goods-receipt";
+export type {
+  CreateGoodsReceiptInput,
+  GoodsReceiptListQuery,
+} from "./validators/goods-receipt";
+
+// Return to Vendor (RTV) — retur barang yang sudah diterima ke supplier.
+import { GoodsReturnRepository } from "./repositories/GoodsReturnRepository";
+import { GoodsReturnService } from "./services/GoodsReturnService";
+
+export function getGoodsReturnService(): GoodsReturnService {
+  return new GoodsReturnService(
+    new GoodsReturnRepository(),
+    new GoodsReceiptRepository(),
+  );
+}
+
+export {
+  GoodsReturnService,
+  GoodsReturnNotFoundError,
+  GoodsReturnInvalidError,
+} from "./services/GoodsReturnService";
+
+export type {
+  GoodsReturnEntity,
+  GoodsReturnItemEntity,
+  GoodsReturnReason,
+  GoodsReturnStatus,
+} from "./domain/entities/GoodsReturn";
+export {
+  GOODS_RETURN_REASONS,
+  GOODS_RETURN_STATUSES,
+} from "./domain/entities/GoodsReturn";
+
+export type {
+  IGoodsReturnRepository,
+  GoodsReturnCreateInput,
+  GoodsReturnResolveInput,
+  GoodsReturnListFilter,
+  GoodsReturnListResult,
+  GoodsReturnListSummary,
+  GoodsReturnWithRelations,
+} from "./domain/ports/IGoodsReturnRepository";
+
+export {
+  toGoodsReturnDTO,
+  toGoodsReturnListItemDTO,
+} from "./dto/GoodsReturnDTO";
+export type {
+  GoodsReturnDTO,
+  GoodsReturnItemDTO,
+  GoodsReturnListItemDTO,
+  GoodsReturnListResponseDTO,
+} from "./dto/GoodsReturnDTO";
+
+export {
+  createGoodsReturnSchema,
+  resolveGoodsReturnSchema,
+  goodsReturnListQuerySchema,
+} from "./validators/goods-return";
+export type {
+  CreateGoodsReturnInput,
+  ResolveGoodsReturnInput,
+  GoodsReturnListQuery,
+} from "./validators/goods-return";
+
+// Approval Threshold — guard role × scope × nominal range untuk approve PR/PO.
+import { ApprovalThresholdRepository } from "./repositories/ApprovalThresholdRepository";
+import { ApprovalThresholdService } from "./services/ApprovalThresholdService";
+
+export function getApprovalThresholdService(): ApprovalThresholdService {
+  return new ApprovalThresholdService(new ApprovalThresholdRepository());
+}
+
+export {
+  ApprovalThresholdService,
+  ApprovalThresholdNotFoundError,
+  ApprovalThresholdInvalidError,
+  ApprovalThresholdExceededError,
+} from "./services/ApprovalThresholdService";
+
+export type {
+  ApprovalThreshold,
+  ApprovalThresholdScope,
+} from "./domain/entities/ApprovalThreshold";
+export { APPROVAL_THRESHOLD_SCOPES } from "./domain/entities/ApprovalThreshold";
+
+export type {
+  IApprovalThresholdRepository,
+  ApprovalThresholdCreateInput,
+  ApprovalThresholdUpdateInput,
+  ApprovalThresholdListFilter,
+  ApprovalThresholdWithRole,
+} from "./domain/ports/IApprovalThresholdRepository";
+
+export { toApprovalThresholdDTO } from "./dto/ApprovalThresholdDTO";
+export type { ApprovalThresholdDTO } from "./dto/ApprovalThresholdDTO";
+
+export {
+  createApprovalThresholdSchema,
+  updateApprovalThresholdSchema,
+  approvalThresholdListQuerySchema,
+} from "./validators/approval-threshold";
+export type {
+  CreateApprovalThresholdInput,
+  UpdateApprovalThresholdInput,
+  ApprovalThresholdListQuery,
+} from "./validators/approval-threshold";

@@ -1,4 +1,8 @@
-import type { Supplier, SupplierPphCategory } from "../entities/Supplier";
+import type {
+  Supplier,
+  SupplierPphCategory,
+  SupplierStatus,
+} from "../entities/Supplier";
 
 export interface SupplierCreateInput {
   code: string;
@@ -9,6 +13,16 @@ export interface SupplierCreateInput {
   phone?: string | null;
   npwp?: string | null;
   defaultPphCategory?: SupplierPphCategory | null;
+  status?: SupplierStatus;
+  blacklistReason?: string | null;
+  siupNumber?: string | null;
+  siupDocumentUrl?: string | null;
+  npwpDocumentUrl?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountHolder?: string | null;
+  contractDocumentUrl?: string | null;
+  contractExpiresAt?: Date | null;
   tenantId: string | null;
 }
 
@@ -20,11 +34,22 @@ export interface SupplierUpdateInput {
   phone?: string | null;
   npwp?: string | null;
   defaultPphCategory?: SupplierPphCategory | null;
+  status?: SupplierStatus;
+  blacklistReason?: string | null;
+  siupNumber?: string | null;
+  siupDocumentUrl?: string | null;
+  npwpDocumentUrl?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountHolder?: string | null;
+  contractDocumentUrl?: string | null;
+  contractExpiresAt?: Date | null;
 }
 
 export interface SupplierListFilter {
   tenantId: string | null;
   search?: string;
+  status?: SupplierStatus;
   page: number;
   limit: number;
 }

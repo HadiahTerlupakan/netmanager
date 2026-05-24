@@ -6,6 +6,7 @@ import { filterAdminMenuItems } from "./adminSidebarMenu";
 type UseFilteredAdminMenuParams = {
   hasPermission: (permission: string) => boolean;
   pppConnectionMode?: string | null;
+  fullRadiusMode?: boolean;
   isSuperAdmin?: boolean;
   isFeatureEnabled?: (feature: string) => boolean;
 };
@@ -14,6 +15,7 @@ type UseFilteredAdminMenuParams = {
 export function useFilteredAdminMenu({
   hasPermission,
   pppConnectionMode,
+  fullRadiusMode,
   isSuperAdmin,
   isFeatureEnabled,
 }: UseFilteredAdminMenuParams) {
@@ -23,9 +25,16 @@ export function useFilteredAdminMenu({
         items: ADMIN_MENU_CONFIG,
         hasPermission,
         pppConnectionMode,
+        fullRadiusMode,
         isSuperAdmin,
         isFeatureEnabled,
       }),
-    [hasPermission, pppConnectionMode, isSuperAdmin, isFeatureEnabled],
+    [
+      hasPermission,
+      pppConnectionMode,
+      fullRadiusMode,
+      isSuperAdmin,
+      isFeatureEnabled,
+    ],
   );
 }

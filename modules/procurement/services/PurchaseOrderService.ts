@@ -1,5 +1,6 @@
 import { PurchaseOrderRepository } from "../repositories/PurchaseOrderRepository";
 import { SupplierRepository } from "../repositories/SupplierRepository";
+import { ApprovalThresholdRepository } from "../repositories/ApprovalThresholdRepository";
 import type { PurchaseOrderEntity } from "../domain/entities/PurchaseOrder";
 import type {
   IPurchaseOrderRepository,
@@ -9,7 +10,10 @@ import type {
   PurchaseOrderWithRelations,
 } from "../domain/ports/IPurchaseOrderRepository";
 import type { ISupplierRepository } from "../domain/ports/ISupplierRepository";
+import type { IApprovalThresholdRepository } from "../domain/ports/IApprovalThresholdRepository";
 import type { CreatePurchaseOrderInput } from "../validators/purchase-order";
+import { SupplierNotActiveError } from "./SupplierService";
+import { ApprovalThresholdService } from "./ApprovalThresholdService";
 
 export class PurchaseOrderNotFoundError extends Error {
   constructor(id: string) {
@@ -28,6 +32,13 @@ export class PurchaseOrderNotEditableError extends Error {
 interface CreatePurchaseOrderServiceInput extends CreatePurchaseOrderInput {
   createdBy: string;
   tenantId: string | null;
+  /**
+   * Daftar roleId milik user yang membuat PO. Dipakai guard
+   * `ApprovalThresholdService.assertCanApprove` untuk gating create PO
+   * ke nominal yang melebihi wewenang. Kalau tenant belum config threshold
+   * apa pun, guard ini no-op (backward compat).
+   */
+  creatorRoleIds?: string[];
 }
 
 /**
@@ -39,10 +50,17 @@ interface CreatePurchaseOrderServiceInput extends CreatePurchaseOrderInput {
  * tidak berubah jika master Supplier diedit setelah PO issued.
  */
 export class PurchaseOrderService {
+  private readonly approvalThresholdService: ApprovalThresholdService;
+
   constructor(
     private readonly poRepo: IPurchaseOrderRepository = new PurchaseOrderRepository(),
     private readonly supplierRepo: ISupplierRepository = new SupplierRepository(),
-  ) {}
+    approvalThresholdRepo: IApprovalThresholdRepository = new ApprovalThresholdRepository(),
+  ) {
+    this.approvalThresholdService = new ApprovalThresholdService(
+      approvalThresholdRepo,
+    );
+  }
 
   list(filter: PurchaseOrderListFilter): Promise<PurchaseOrderListResult> {
     return this.poRepo.list(filter);
@@ -61,6 +79,22 @@ export class PurchaseOrderService {
       input.supplierId ?? null,
       input.vendorNpwp ?? null,
     );
+
+    const subtotal = input.items.reduce(
+      (sum, it) => sum + it.quantity * it.unitPrice,
+      0,
+    );
+    const ppnAmount = subtotal * ((input.ppnRate ?? 0) / 100);
+    const grandTotalEstimate = subtotal + ppnAmount;
+
+    if (input.creatorRoleIds && input.creatorRoleIds.length > 0) {
+      await this.approvalThresholdService.assertCanApprove({
+        tenantId: input.tenantId,
+        scope: "PURCHASE_ORDER",
+        amount: grandTotalEstimate,
+        roleIds: input.creatorRoleIds,
+      });
+    }
 
     const poNumber = await this.poRepo.generatePoNumber(input.tenantId);
 
@@ -102,13 +136,25 @@ export class PurchaseOrderService {
     await this.poRepo.delete(id);
   }
 
+  /**
+   * Cari NPWP vendor untuk disnapshot ke PO.
+   * Sekaligus validasi supplier wajib ACTIVE saat PO dibuat — INACTIVE/BLACKLISTED
+   * dilarang supaya tidak ada commitment baru ke vendor bermasalah.
+   */
   private async resolveVendorNpwp(
     supplierId: string | null,
     overrideNpwp: string | null,
   ): Promise<string | null> {
-    if (overrideNpwp) return overrideNpwp;
-    if (!supplierId) return null;
+    if (!supplierId) return overrideNpwp;
     const supplier = await this.supplierRepo.findById(supplierId);
-    return supplier?.npwp ?? null;
+    if (!supplier) return overrideNpwp;
+    if (supplier.status !== "ACTIVE") {
+      throw new SupplierNotActiveError(
+        supplier.id,
+        supplier.status,
+        supplier.blacklistReason,
+      );
+    }
+    return overrideNpwp ?? supplier.npwp ?? null;
   }
 }

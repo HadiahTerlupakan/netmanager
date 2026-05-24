@@ -8,8 +8,11 @@ import type {
   PurchaseRequestListFilter,
   PurchaseRequestListResult,
 } from "../domain/ports/IProcurementRepository";
+import type { ISupplierRepository } from "../domain/ports/ISupplierRepository";
 import { toPurchaseOrderDTO } from "../mappers/ProcurementMapper";
 import { ProcurementRepository } from "../repositories/ProcurementRepository";
+import { SupplierRepository } from "../repositories/SupplierRepository";
+import { SupplierNotActiveError } from "./SupplierService";
 
 const EMPTY_RESULT_TOTAL = 0;
 const NO_SUPPLIER_KEY = "NO_SUPPLIER";
@@ -23,11 +26,14 @@ interface AggregatedPurchaseOrderItem {
 
 export class ProcurementService {
   private readonly procurementRepository: IProcurementRepository;
+  private readonly supplierRepository: ISupplierRepository;
 
   constructor(
     procurementRepository: IProcurementRepository = new ProcurementRepository(),
+    supplierRepository: ISupplierRepository = new SupplierRepository(),
   ) {
     this.procurementRepository = procurementRepository;
+    this.supplierRepository = supplierRepository;
   }
 
   /** Membuat purchase order dari kumpulan purchase request yang sudah approved. */
@@ -44,6 +50,8 @@ export class ProcurementService {
       purchaseRequests,
       overrideSupplierId,
     );
+
+    await this.assertSupplierGroupsActive(purchaseRequestsBySupplier);
 
     return await this.createPurchaseOrders(purchaseRequestsBySupplier, userId);
   }
@@ -98,6 +106,29 @@ export class ProcurementService {
         (purchaseRequest) => purchaseRequest.id,
       ),
     });
+  }
+
+  /**
+   * Tolak generate PO jika ada supplier non-aktif/blacklisted di grup.
+   * Cegah PR yang sudah approved nyangkut ke vendor bermasalah.
+   */
+  private async assertSupplierGroupsActive(
+    groups: Map<string, PurchaseRequestEntity[]>,
+  ): Promise<void> {
+    const supplierIds = Array.from(groups.keys())
+      .map(normalizeSupplierId)
+      .filter((id): id is string => Boolean(id));
+
+    for (const supplierId of supplierIds) {
+      const supplier = await this.supplierRepository.findById(supplierId);
+      if (supplier && supplier.status !== "ACTIVE") {
+        throw new SupplierNotActiveError(
+          supplier.id,
+          supplier.status,
+          supplier.blacklistReason,
+        );
+      }
+    }
   }
 }
 

@@ -8,6 +8,7 @@ import {
   HiOutlineArrowPath,
   HiOutlineArrowTrendingUp,
   HiOutlineArrowUpTray,
+  HiOutlineArrowUturnLeft,
   HiOutlineArrowsRightLeft,
   HiOutlineBanknotes,
   HiOutlineBolt,
@@ -36,6 +37,7 @@ import {
   HiOutlineEnvelope,
   HiOutlineGlobeAlt,
   HiOutlineHome,
+  HiOutlineInbox,
   HiOutlineKey,
   HiOutlineLink,
   HiOutlineMap,
@@ -114,6 +116,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineTruck,
   HiOutlineArrowDownTray,
   HiOutlineArrowUpTray,
+  HiOutlineArrowUturnLeft,
   HiOutlineCurrencyDollar,
   HiXMark,
   HiArrowRightOnRectangle,
@@ -146,6 +149,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineAdjustmentsHorizontal,
   HiOutlineBellAlert,
   HiOutlineExclamationCircle,
+  HiOutlineInbox,
   HiOutlineReceiptPercent,
 };
 

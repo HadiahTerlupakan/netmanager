@@ -14,6 +14,14 @@ const PPH_OPTIONS = [
   { value: "sewa_tanah", label: "Sewa Tanah/Bangunan (PPh 4(2) — 10%)" },
 ] as const;
 
+const STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Aktif" },
+  { value: "INACTIVE", label: "Non-aktif" },
+  { value: "BLACKLISTED", label: "Blacklist" },
+] as const;
+
+type StatusValue = (typeof STATUS_OPTIONS)[number]["value"];
+
 interface SupplierFormData {
   code: string;
   name: string;
@@ -23,6 +31,16 @@ interface SupplierFormData {
   phone: string;
   npwp: string;
   defaultPphCategory: string;
+  status: StatusValue;
+  blacklistReason: string;
+  siupNumber: string;
+  siupDocumentUrl: string;
+  npwpDocumentUrl: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountHolder: string;
+  contractDocumentUrl: string;
+  contractExpiresAt: string; // ISO date YYYY-MM-DD
 }
 
 const EMPTY_FORM: SupplierFormData = {
@@ -34,6 +52,16 @@ const EMPTY_FORM: SupplierFormData = {
   phone: "",
   npwp: "",
   defaultPphCategory: "",
+  status: "ACTIVE",
+  blacklistReason: "",
+  siupNumber: "",
+  siupDocumentUrl: "",
+  npwpDocumentUrl: "",
+  bankName: "",
+  bankAccountNumber: "",
+  bankAccountHolder: "",
+  contractDocumentUrl: "",
+  contractExpiresAt: "",
 };
 
 interface SupplierFormProps {
@@ -45,6 +73,10 @@ interface SupplierFormProps {
  * Form CRUD supplier. Mode create kalau `supplierId` tidak diberi, mode edit
  * kalau diberi (form akan auto-load data). NPWP & defaultPphCategory dipakai
  * oleh modul tax saat record PPN Masukan / PPh dari PO/Expense.
+ *
+ * Status BLACKLISTED wajib disertai `blacklistReason` — divalidasi server-side
+ * dan UI-side. Saat status non-aktif/blacklist, supplier tidak bisa dipilih
+ * untuk PO baru.
  */
 export function SupplierForm({ supplierId }: SupplierFormProps) {
   const router = useRouter();
@@ -76,6 +108,18 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
           phone: json.data.phone ?? "",
           npwp: json.data.npwp ?? "",
           defaultPphCategory: json.data.defaultPphCategory ?? "",
+          status: (json.data.status as StatusValue) ?? "ACTIVE",
+          blacklistReason: json.data.blacklistReason ?? "",
+          siupNumber: json.data.siupNumber ?? "",
+          siupDocumentUrl: json.data.siupDocumentUrl ?? "",
+          npwpDocumentUrl: json.data.npwpDocumentUrl ?? "",
+          bankName: json.data.bankName ?? "",
+          bankAccountNumber: json.data.bankAccountNumber ?? "",
+          bankAccountHolder: json.data.bankAccountHolder ?? "",
+          contractDocumentUrl: json.data.contractDocumentUrl ?? "",
+          contractExpiresAt: json.data.contractExpiresAt
+            ? json.data.contractExpiresAt.slice(0, 10)
+            : "",
         });
       } catch (err) {
         toast.error(
@@ -99,6 +143,15 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (
+      formData.status === "BLACKLISTED" &&
+      formData.blacklistReason.trim() === ""
+    ) {
+      toast.error("Alasan blacklist wajib diisi saat status BLACKLISTED");
+      return;
+    }
+
     setLoading(true);
     try {
       const url = isEdit
@@ -115,6 +168,20 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
         phone: formData.phone || null,
         npwp: formData.npwp || null,
         defaultPphCategory: formData.defaultPphCategory || null,
+        status: formData.status,
+        blacklistReason: formData.blacklistReason || null,
+        siupNumber: formData.siupNumber || null,
+        siupDocumentUrl: formData.siupDocumentUrl || null,
+        npwpDocumentUrl: formData.npwpDocumentUrl || null,
+        bankName: formData.bankName || null,
+        bankAccountNumber: formData.bankAccountNumber || null,
+        bankAccountHolder: formData.bankAccountHolder || null,
+        contractDocumentUrl: formData.contractDocumentUrl || null,
+        contractExpiresAt: formData.contractExpiresAt
+          ? new Date(
+              `${formData.contractExpiresAt}T00:00:00.000Z`,
+            ).toISOString()
+          : null,
       };
 
       const res = await fetch(url, {
@@ -183,6 +250,40 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
           </Field>
         </Section>
 
+        <Section title="Status">
+          <Field
+            label="Status Supplier"
+            help="Hanya supplier ACTIVE yang dapat dipilih untuk PO baru"
+          >
+            <select
+              value={formData.status}
+              onChange={(e) =>
+                updateField("status", e.target.value as StatusValue)
+              }
+              className="form-input"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {formData.status === "BLACKLISTED" && (
+            <Field label="Alasan Blacklist" required>
+              <textarea
+                value={formData.blacklistReason}
+                onChange={(e) => updateField("blacklistReason", e.target.value)}
+                rows={3}
+                maxLength={500}
+                required
+                placeholder="Mis. barang sering tidak sesuai spesifikasi, terlambat kirim 3x berturut-turut, dll"
+                className="form-input"
+              />
+            </Field>
+          )}
+        </Section>
+
         <Section title="Kontak">
           <Field label="Alamat">
             <textarea
@@ -221,7 +322,7 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
           </Field>
         </Section>
 
-        <Section title="Pajak">
+        <Section title="Pajak & Compliance">
           <Field
             label="NPWP"
             help="15 digit (NPWP lama) atau 16 digit (NIK Coretax 2025)"
@@ -256,6 +357,91 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="No. SIUP">
+            <input
+              type="text"
+              value={formData.siupNumber}
+              onChange={(e) => updateField("siupNumber", e.target.value)}
+              maxLength={200}
+              className="form-input"
+            />
+          </Field>
+          <Field
+            label="URL Dokumen SIUP"
+            help="Link cloud storage / arsip internal"
+          >
+            <input
+              type="url"
+              value={formData.siupDocumentUrl}
+              onChange={(e) => updateField("siupDocumentUrl", e.target.value)}
+              maxLength={500}
+              placeholder="https://..."
+              className="form-input"
+            />
+          </Field>
+          <Field label="URL Dokumen NPWP">
+            <input
+              type="url"
+              value={formData.npwpDocumentUrl}
+              onChange={(e) => updateField("npwpDocumentUrl", e.target.value)}
+              maxLength={500}
+              placeholder="https://..."
+              className="form-input"
+            />
+          </Field>
+        </Section>
+
+        <Section title="Rekening Pembayaran">
+          <Field label="Nama Bank">
+            <input
+              type="text"
+              value={formData.bankName}
+              onChange={(e) => updateField("bankName", e.target.value)}
+              maxLength={200}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Nomor Rekening">
+            <input
+              type="text"
+              value={formData.bankAccountNumber}
+              onChange={(e) => updateField("bankAccountNumber", e.target.value)}
+              maxLength={50}
+              className="form-input font-mono"
+            />
+          </Field>
+          <Field label="Atas Nama">
+            <input
+              type="text"
+              value={formData.bankAccountHolder}
+              onChange={(e) => updateField("bankAccountHolder", e.target.value)}
+              maxLength={200}
+              className="form-input"
+            />
+          </Field>
+        </Section>
+
+        <Section title="Kontrak">
+          <Field label="URL Dokumen Kontrak">
+            <input
+              type="url"
+              value={formData.contractDocumentUrl}
+              onChange={(e) =>
+                updateField("contractDocumentUrl", e.target.value)
+              }
+              maxLength={500}
+              placeholder="https://..."
+              className="form-input"
+            />
+          </Field>
+          <Field label="Tanggal Berakhir Kontrak">
+            <input
+              type="date"
+              value={formData.contractExpiresAt}
+              onChange={(e) => updateField("contractExpiresAt", e.target.value)}
+              className="form-input"
+            />
           </Field>
         </Section>
 

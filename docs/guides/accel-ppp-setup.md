@@ -48,6 +48,21 @@ NAS di-inject lewat policy unlang per-NAS-routing (lihat `freeradius-config/`).
   - `accel_ppp:session:kick` (untuk operasi kick)
 - Toggle global `Full RADIUS Mode` ON di `Settings`.
 
+> **Penting untuk environment yang sudah pernah di-seed sebelum modul accel-ppp**
+>
+> Permission `accel_ppp:*` baru ditambahkan saat modul ini di-deploy.
+> Role-role yang sudah ada di DB **tidak otomatis** mendapat permission ini.
+> Lakukan salah satu:
+>
+> - Re-run seed permissions: `npm run prisma:seed-permissions` lalu assign ulang
+>   permission baru ke role admin via halaman `Pengaturan → Roles`.
+> - Atau via SQL: insert row di tabel `_PermissionToRole` untuk role admin
+>   dengan permission_id baru `accel_ppp:read`, `accel_ppp:create`,
+>   `accel_ppp:update`, `accel_ppp:delete`, `accel_ppp:session:kick`.
+>
+> Verifikasi: login sebagai user dengan role admin → buka
+> `/admin/network/accel-ppp` → tidak boleh redirect ke `/admin/forbidden`.
+
 ---
 
 ## 3. Install accel-ppp

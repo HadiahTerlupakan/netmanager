@@ -23,7 +23,15 @@ export const PERMISSION_GROUPS = {
     "gudang",
     "assets",
   ],
-  PROCUREMENT: ["procurement", "supplier", "purchase_orders", "market_price"],
+  PROCUREMENT: [
+    "procurement",
+    "supplier",
+    "purchase_orders",
+    "purchase_requests",
+    "goods_receipt",
+    "goods_return",
+    "market_price",
+  ],
   WORKORDERS: [
     "workorders",
     "work_order_dashboard",

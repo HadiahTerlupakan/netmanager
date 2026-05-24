@@ -11,9 +11,40 @@ import {
   supplierListQuerySchema,
   toSupplierDTO,
   SupplierCodeAlreadyExistsError,
+  SUPPLIER_STATUSES,
+  type SupplierStatus,
+  type CreateSupplierInput,
 } from "@/modules/procurement";
 
 export const dynamic = "force-dynamic";
+
+function parseStatus(raw: string | null): SupplierStatus | undefined {
+  if (!raw) return undefined;
+  return (SUPPLIER_STATUSES as readonly string[]).includes(raw)
+    ? (raw as SupplierStatus)
+    : undefined;
+}
+
+/**
+ * Konversi field tanggal ISO string → Date untuk service.
+ * Cast `status` & `defaultPphCategory` dari string Zod-enum ke literal union
+ * domain (Zod v4 type inference-nya melebar ke `string`).
+ */
+function toServiceInput(data: CreateSupplierInput, tenantId: string | null) {
+  const { contractExpiresAt, status, defaultPphCategory, ...rest } = data;
+  return {
+    ...rest,
+    status: status as SupplierStatus | undefined,
+    defaultPphCategory: defaultPphCategory as
+      | "jasa"
+      | "sewa"
+      | "sewa_tanah"
+      | null
+      | undefined,
+    contractExpiresAt: contractExpiresAt ? new Date(contractExpiresAt) : null,
+    tenantId,
+  };
+}
 
 /**
  * GET /api/admin/procurement/suppliers - List suppliers (paginated, search-able)
@@ -28,6 +59,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const url = new URL(req.url);
   const queryParse = supplierListQuerySchema.safeParse({
     search: url.searchParams.get("search") ?? undefined,
+    status: url.searchParams.get("status") ?? undefined,
     page: url.searchParams.get("page") ?? undefined,
     limit: url.searchParams.get("limit") ?? undefined,
   });
@@ -41,6 +73,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const result = await getSupplierService().list({
     tenantId,
     search: queryParse.data.search,
+    status: parseStatus(queryParse.data.status ?? null),
     page: queryParse.data.page,
     limit: queryParse.data.limit,
   });
@@ -73,20 +106,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const tenantId = ctx.session?.user.tenantId ?? null;
   try {
-    const data = validation.data as {
-      code: string;
-      name: string;
-      address?: string | null;
-      contact?: string | null;
-      email?: string | null;
-      phone?: string | null;
-      npwp?: string | null;
-      defaultPphCategory?: "jasa" | "sewa" | "sewa_tanah" | null;
-    };
-    const supplier = await getSupplierService().create({
-      ...data,
-      tenantId,
-    });
+    const supplier = await getSupplierService().create(
+      toServiceInput(validation.data as CreateSupplierInput, tenantId),
+    );
     return apiSuccess(toSupplierDTO(supplier), {
       message: "Supplier berhasil dibuat",
     });

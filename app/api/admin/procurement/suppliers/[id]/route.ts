@@ -10,9 +10,36 @@ import {
   updateSupplierSchema,
   toSupplierDTO,
   SupplierNotFoundError,
+  type UpdateSupplierInput,
+  type SupplierStatus,
 } from "@/modules/procurement";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Konversi payload PATCH (Zod) ke shape `SupplierUpdateInput` untuk service.
+ * - `contractExpiresAt`: ISO string → Date | null
+ * - `status` & `defaultPphCategory`: cast dari `string` Zod-enum ke literal union
+ */
+function toUpdateInput(data: UpdateSupplierInput) {
+  const { contractExpiresAt, status, defaultPphCategory, ...rest } = data;
+  return {
+    ...rest,
+    ...(status !== undefined && {
+      status: status as SupplierStatus,
+    }),
+    ...(defaultPphCategory !== undefined && {
+      defaultPphCategory: defaultPphCategory as
+        | "jasa"
+        | "sewa"
+        | "sewa_tanah"
+        | null,
+    }),
+    ...(contractExpiresAt !== undefined && {
+      contractExpiresAt: contractExpiresAt ? new Date(contractExpiresAt) : null,
+    }),
+  };
+}
 
 /**
  * GET /api/admin/procurement/suppliers/[id]
@@ -64,7 +91,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   try {
-    const supplier = await getSupplierService().update(id, validation.data);
+    const supplier = await getSupplierService().update(
+      id,
+      toUpdateInput(validation.data as UpdateSupplierInput),
+    );
     return apiSuccess(toSupplierDTO(supplier), {
       message: "Supplier berhasil diperbarui",
     });

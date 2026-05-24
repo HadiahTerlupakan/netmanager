@@ -9,6 +9,7 @@ import {
   type GeneratePOFromPRInput,
   generatePOFromPRSchema,
   getProcurementService,
+  SupplierNotActiveError,
 } from "@/modules/procurement";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       message: `${purchaseOrders.length} Purchase Order berhasil dibuat`,
     });
   } catch (error) {
+    if (error instanceof SupplierNotActiveError) {
+      return ApiErrors.conflict(error.message);
+    }
     const message =
       error instanceof Error ? error.message : "Gagal membuat Purchase Order";
     return ApiErrors.badRequest(message);

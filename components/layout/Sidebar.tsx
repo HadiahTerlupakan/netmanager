@@ -23,6 +23,7 @@ import { hasActiveSidebarChild } from "@/components/layout/admin-sidebar/adminSi
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import { usePermission } from "@/hooks/use-permission";
 import { useSettings } from "@/hooks/useSettings";
+import { useFullRadiusMode } from "@/lib/hooks/useFullRadiusMode";
 import {
   DEFAULT_PUBLIC_APP_NAME,
   usePublicBranding,
@@ -259,9 +260,11 @@ function useSidebarBranding() {
   const { branding, loading: isBrandingLoading } = usePublicBranding();
   const { hasPermission, isSuperAdmin } = usePermission();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { enabled: fullRadiusMode } = useFullRadiusMode();
   const navItems = useFilteredAdminMenu({
     hasPermission,
     pppConnectionMode: settings?.pppConnectionMode,
+    fullRadiusMode,
     isSuperAdmin,
     isFeatureEnabled,
   });
