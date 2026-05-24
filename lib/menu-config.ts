@@ -585,6 +585,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/finance/manual-payments",
         icon: "HiOutlineShieldCheck",
       },
+      {
+        code: "FINANCE.AR_AGING",
+        name: "AR Aging",
+        path: "/admin/finance/ar-aging",
+        icon: "HiOutlineChartBar",
+      },
     ],
   },
   {

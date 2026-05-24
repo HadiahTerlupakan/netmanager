@@ -18,6 +18,7 @@ export * from "./services/AutomaticIsolationExecutionService";
 export * from "./services/AutomaticIsolationSchedulerService";
 export * from "./services/BillingScheduleService";
 export * from "./services/BillingScheduleReconciliationService";
+export * from "./services/ARAgingService";
 export * from "./services/InvoiceOverdueExecutionService";
 export * from "./services/InvoiceOverdueSchedulerService";
 export * from "./services/BillingAnalyticsService";

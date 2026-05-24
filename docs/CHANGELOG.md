@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-25] — Finance: AR Aging snapshot + report dashboard
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/finance`, `app/api/admin/finance/ar-aging`, `app/api/cron/ar-aging-snapshot`, `app/admin/finance/ar-aging`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Mengaktifkan model `ARAgingSnapshot` yang sebelumnya kosong di schema. Service `ARAgingService` menghitung outstanding piutang dari `Invoice` (status NOT IN PAID/CANCELLED, outstanding = totalAmount - paidAmount), dikelompokkan ke 4 bucket aging berdasarkan dueDate: belum jatuh tempo, 1-30 hari, 31-60 hari, dan 60+ hari overdue. Cron `ar-aging-snapshot` jalan harian dengan distributed lock (Redis), simpan snapshot ke `ARAgingSnapshot` table di main DB. API `GET /api/admin/finance/ar-aging` mendukung query `history=<days>` (default 30), `breakdown=true` (drill-down per pelanggan realtime), dan `recompute=true` (skip cache). Dashboard di `/admin/finance/ar-aging` menampilkan 4 bucket card, summary total outstanding & jumlah pelanggan, trend table 30 hari, plus breakdown per pelanggan on-demand. Menu "AR Aging" ditambahkan di group Keuangan di sidebar.
+- **Files**: `modules/finance/repositories/ARAgingSnapshotRepository.ts`, `modules/finance/services/ARAgingService.ts`, `modules/finance/index.ts`, `app/api/admin/finance/ar-aging/route.ts`, `app/api/cron/ar-aging-snapshot/route.ts`, `app/admin/finance/ar-aging/page.tsx`, `app/admin/finance/ar-aging/ARAgingClient.tsx`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-25] — Work Order: SLA monitor engine + auto-escalation
 
 - **Tipe**: [ADDED]
