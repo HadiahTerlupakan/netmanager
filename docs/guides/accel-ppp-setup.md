@@ -54,14 +54,28 @@ NAS di-inject lewat policy unlang per-NAS-routing (lihat `freeradius-config/`).
 > Role-role yang sudah ada di DB **tidak otomatis** mendapat permission ini.
 > Lakukan salah satu:
 >
-> - Re-run seed permissions: `npm run prisma:seed-permissions` lalu assign ulang
->   permission baru ke role admin via halaman `Pengaturan → Roles`.
+> - **Cara cepat (recommended)**: jalankan script seed:
+>   ```bash
+>   docker exec netmanager-postgres-app psql -U netmgr -d netmanager \
+>     -f /path/to/scripts/seed-accel-ppp-permissions.sql
+>   ```
+>   Atau via host langsung:
+>   ```bash
+>   psql "$DATABASE_URL" -f scripts/seed-accel-ppp-permissions.sql
+>   ```
+>   Script idempotent—aman dijalankan berkali-kali.
+> - Re-run seed permissions: `npm run prisma:seed-permissions` lalu assign
+>   ulang permission baru ke role admin via halaman `Pengaturan → Roles`.
 > - Atau via SQL: insert row di tabel `_PermissionToRole` untuk role admin
 >   dengan permission_id baru `accel_ppp:read`, `accel_ppp:create`,
 >   `accel_ppp:update`, `accel_ppp:delete`, `accel_ppp:session:kick`.
 >
+> **Setelah seed**: user harus **logout-login ulang** karena permission
+> di-cache di session token NextAuth.
+>
 > Verifikasi: login sebagai user dengan role admin → buka
-> `/admin/network/accel-ppp` → tidak boleh redirect ke `/admin/forbidden`.
+> `/admin/network/accel-ppp` → tidak boleh redirect ke `/admin/forbidden`,
+> dan menu **Accel-PPP** muncul di sidebar di bawah Network.
 
 ---
 
