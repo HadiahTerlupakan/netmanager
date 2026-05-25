@@ -597,6 +597,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/finance/executive",
         icon: "HiOutlinePresentationChartLine",
       },
+      {
+        code: "FINANCE.COHORT",
+        name: "Customer Cohort",
+        path: "/admin/finance/cohort",
+        icon: "HiOutlineUserGroup",
+      },
     ],
   },
   {

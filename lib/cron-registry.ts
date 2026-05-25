@@ -395,6 +395,28 @@ export class CronRegistry {
       .catch((err) =>
         logger.error("[CronRegistry] Failed to start Revenue Snapshot:", err),
       );
+
+    // Start Customer Cohort (Monthly on 1st at 02:00)
+    import("../modules/finance")
+      .then(({ getCustomerCohortService }) => {
+        const cohortTask = cron.schedule("0 2 1 * *", async () => {
+          if (!(await canRunCronJob("customerCohort", 3300))) return;
+          await runCronTask("customerCohort", async () => {
+            try {
+              await getCustomerCohortService().computeAndSaveAll();
+            } catch (err) {
+              logger.error("[Cron] Customer cohort failed:", err);
+            }
+          });
+        });
+        this.tasks.set("customerCohort", cohortTask);
+        logger.info(
+          "[CronRegistry] Customer cohort cron scheduled (Monthly 1st 02:00)",
+        );
+      })
+      .catch((err) =>
+        logger.error("[CronRegistry] Failed to start Customer Cohort:", err),
+      );
   }
 
   public stopAll() {

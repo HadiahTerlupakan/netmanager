@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-26] — Finance: Customer cohort retention analysis
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/finance`, `app/api/admin/finance/customer-cohort`, `app/api/cron/customer-cohort`, `app/admin/finance/cohort`, `lib/menu-config.ts`, `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Mengaktifkan model `CustomerCohort` yang sebelumnya kosong di schema. Service `CustomerCohortService` menghitung cohort retention dari `Pelanggan.tanggalAktif` — kelompokkan pelanggan per (cohortYear, cohortMonth), lalu untuk tiap cohort hitung berapa yang masih AKTIF di checkpoint M0/M1/M3/M6/M12 plus total revenue (sum harga paket) per checkpoint. `computeAndSaveAll()` recompute 12 cohort terakhir dengan upsert per (cohortYear, cohortMonth) — re-run aman. Cron `customer-cohort` jalan bulanan tanggal 1 jam 02:00 (TTL 3300s) sudah didaftarkan ke `cron-registry`. API `GET /api/admin/finance/customer-cohort` dengan query `months=<n>` dan `recompute=true`. Dashboard `/admin/finance/cohort` menampilkan retention heatmap (color-coded percentage bar per checkpoint) dan revenue table per cohort. Catatan: MVP pakai snapshot status saat ini (heuristic AKTIF=hidup di semua checkpoint lewat) — akurasi historis penuh perlu trace MRRMovement events, deferred. Menu "Customer Cohort" di group Keuangan.
+- **Files**: `modules/finance/services/CustomerCohortService.ts`, `modules/finance/index.ts`, `app/api/admin/finance/customer-cohort/route.ts`, `app/api/cron/customer-cohort/route.ts`, `app/admin/finance/cohort/page.tsx`, `app/admin/finance/cohort/CustomerCohortClient.tsx`, `lib/menu-config.ts`, `lib/cron-registry.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-26] — Cron registry: daftarkan SLA monitor, AR aging, revenue snapshot
 
 - **Tipe**: [INFRA]
