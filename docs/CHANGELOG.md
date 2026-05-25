@@ -45,6 +45,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-26] — Incident: outage management + status page publik (MVP)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/incident`, `app/api/admin/incidents`, `app/api/public/status`, `app/admin/incidents`, `app/status`, `lib/permission-config.ts`, `lib/menu-config.ts`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Modul baru `incident` untuk pencatatan & broadcast gangguan layanan ke pelanggan. Schema baru: model `Incident` (title, description, severity CRITICAL/MAJOR/MINOR, status INVESTIGATING/IDENTIFIED/MONITORING/RESOLVED, affectedAreas, startedAt, resolvedAt, isPublic) dan `IncidentUpdate` (timeline status changes per incident, dengan transactional update saat addUpdate sehingga `Incident.status` & `Incident.resolvedAt` selalu sinkron). Service expose CRUD + addUpdate dengan auto-set resolvedAt saat status RESOLVED. API admin di `/api/admin/incidents` (list, create, detail, update, delete) dengan permission `incidents:read/create/update/delete` di catalog baru group INCIDENT. API publik di `/api/public/status` (no auth) return active + 10 recent resolved incidents (publicOnly filter). UI admin: list dengan filter berlangsung/selesai/semua + inline create form, detail dengan timeline updates + form add update. Status page publik di `/status` mirror cloudflarestatus pattern: summary banner (semua normal vs N gangguan berlangsung), section gangguan aktif, riwayat insiden, auto-refresh 60 detik. Menu "Manajemen Insiden" di group Keuangan sidebar. **Deferred (follow-up):** multi-channel broadcast (WA/Email/Push otomatis), MTTR analytics, SLA credit otomatis ke invoice pelanggan terdampak.
+- **Files**: `prisma/schema.prisma`, `prisma/migrations/20260526043850_add_incident_management/migration.sql`, `modules/incident/index.ts`, `modules/incident/repositories/IncidentRepository.ts`, `modules/incident/services/IncidentService.ts`, `app/api/admin/incidents/route.ts`, `app/api/admin/incidents/[id]/route.ts`, `app/api/public/status/route.ts`, `app/admin/incidents/page.tsx`, `app/admin/incidents/IncidentsListClient.tsx`, `app/admin/incidents/[id]/page.tsx`, `app/admin/incidents/[id]/IncidentDetailClient.tsx`, `app/status/page.tsx`, `app/status/StatusPageClient.tsx`, `lib/permission-config.ts`, `lib/menu-config.ts`
+- **Migration**: `20260526043850_add_incident_management`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-26] — Finance: Customer cohort retention analysis
 
 - **Tipe**: [ADDED]

@@ -1336,6 +1336,8 @@ model User {
   salaryAdvances                           SalaryAdvance[]         @relation("SalaryAdvanceUser")
   salaryAdvancesApproved                   SalaryAdvance[]         @relation("SalaryAdvanceApprover")
   payrollAuditLogs                         PayrollAuditLog[]       @relation("PayrollAuditPerformer")
+  incidents                                Incident[]
+  incidentUpdates                          IncidentUpdate[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -3517,6 +3519,8 @@ model Tenant {
   expenseCategory         ExpenseCategory[]
   hargaPaket              HargaPaket[]
   holiday                 Holiday[]
+  incident                Incident[]
+  incidentUpdate          IncidentUpdate[]
   investor                Investor[]
   investorPayout          InvestorPayout[]
   joinbox                 Joinbox[]
@@ -5577,4 +5581,59 @@ model LandingFooter {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Incident {
+  id          String           @id
+  title       String
+  description String
+  severity    IncidentSeverity @default(MINOR)
+  status      IncidentStatus   @default(INVESTIGATING)
+  affectedAreas String[]
+  startedAt   DateTime         @default(now())
+  resolvedAt  DateTime?
+  isPublic    Boolean          @default(true)
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime
+  tenantId    String?
+  user        User?            @relation(fields: [createdById], references: [id])
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  updates     IncidentUpdate[]
+
+  @@index([status])
+  @@index([severity])
+  @@index([startedAt])
+  @@index([isPublic])
+  @@index([tenantId])
+}
+
+model IncidentUpdate {
+  id          String         @id
+  incidentId  String
+  status      IncidentStatus
+  message     String
+  postedById  String?
+  createdAt   DateTime       @default(now())
+  tenantId    String?
+  incident    Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [postedById], references: [id])
+  tenant      Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+enum IncidentSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
 }

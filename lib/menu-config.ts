@@ -603,6 +603,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/finance/cohort",
         icon: "HiOutlineUserGroup",
       },
+      {
+        code: "FINANCE.INCIDENTS",
+        name: "Manajemen Insiden",
+        path: "/admin/incidents",
+        icon: "HiOutlineExclamationCircle",
+      },
     ],
   },
   {
