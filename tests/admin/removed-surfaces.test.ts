@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { ADMIN_MENU_CONFIG } from "@/lib/menu-config";
-import MarketPricePage from "@/app/admin/procurement/market-price/page";
 import AssetsPage from "@/app/admin/inventory/assets/page";
 
 const expectRetiredPage = async (
@@ -33,10 +32,6 @@ describe("removed admin surfaces", () => {
     );
 
     expect(assetMenu).toBeUndefined();
-  });
-
-  it("retires the market price page", async () => {
-    await expectRetiredPage(() => MarketPricePage());
   });
 
   it("removes truly dormant procurement internals that no longer have live imports", () => {

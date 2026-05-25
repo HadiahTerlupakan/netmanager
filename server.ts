@@ -29,12 +29,17 @@ import {
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { isPublicUploadPath } from "./lib/upload/upload-policy";
 import { logger } from "./lib/logger";
+import { redis } from "./lib/redis";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "127.0.0.1";
 const port = parseInt(process.env.PORT || "3000", 10);
 
-const app = next({ dev, hostname, port });
+// Turbopack di custom server tidak aktif otomatis seperti `next dev` standar.
+// Wajib opt-in eksplisit. Bisa di-disable via NEXT_DISABLE_TURBOPACK=1 jika perlu fallback ke webpack.
+const useTurbopack = dev && process.env.NEXT_DISABLE_TURBOPACK !== "1";
+
+const app = next({ dev, hostname, port, turbopack: useTurbopack });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -158,6 +163,14 @@ app.prepare().then(() => {
       logger.error("[Server] Failed to initialize Event Bus:", err),
     );
   }
+  // Eager-connect shared Redis client supaya cron tick pertama tidak race
+  // dengan koneksi yang masih lazy. Tanpa ini, cron yang fire di menit pertama
+  // setelah bootstrap bisa kena `Stream isn't writeable` karena
+  // enableOfflineQueue: false dan koneksi belum ready.
+  redis.connect().catch((err) => {
+    if (err.message?.includes("already connecting")) return;
+    logger.warn(`[Server] Shared Redis eager connect failed: ${err.message}`);
+  });
   startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() });
 
   void import("./modules/network/services/monitorBootstrap")

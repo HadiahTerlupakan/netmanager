@@ -81,70 +81,73 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   outputFileTracingRoot: __dirname,
-  // Enable standalone output for Docker deployment
-  output: "standalone",
-  // Force include prisma CLI and its config package in standalone output
-  // This fixes "Cannot find module 'prisma/config'" in Docker
-  outputFileTracingIncludes: {
-    "/api/:path*": [
-      "prisma.config.ts",
-      "prisma.radius.config.ts",
-      "prisma.billing.config.ts",
-      "prisma.mitra.config.ts",
-      "prisma/*.prisma",
-      "prisma/schema.prisma",
-      "prisma/schema.radius.prisma",
-      "prisma/billing.prisma",
-      "prisma/mitra.prisma",
-      "node_modules/prisma/**",
-      "node_modules/@prisma/**",
-      "node_modules/valibot/**",
-      "node_modules/pathe/**",
-      "node_modules/remeda/**",
-      "node_modules/std-env/**",
-      "node_modules/zeptomatch/**",
-      "node_modules/graphmatch/**",
-      "node_modules/grammex/**",
-      "node_modules/tsx/**",
-      "node_modules/esbuild/**",
-      "node_modules/@esbuild/**",
-      "node_modules/get-tsconfig/**",
-      "node_modules/source-map-support/**",
-      "node_modules/buffer-from/**",
-      "node_modules/effect/**",
-      "node_modules/@standard-schema/spec/**",
-      "node_modules/fast-check/**",
-      "node_modules/deepmerge-ts/**",
-      "node_modules/empathic/**",
-      "node_modules/chokidar/**",
-      "node_modules/jiti/**",
-      "node_modules/defu/**",
-      "node_modules/ohash/**",
-      "node_modules/confbox/**",
-      "node_modules/exsolve/**",
-      "node_modules/giget/**",
-      "node_modules/perfect-debounce/**",
-      "node_modules/pkg-types/**",
-      "node_modules/rc9/**",
-      "node_modules/postgres/**",
-      "node_modules/mysql2/**",
-      "node_modules/arg/**",
-      "node_modules/dotenv/**",
-      "node_modules/cross-spawn/**",
-      "node_modules/cli-cursor/**",
-      "node_modules/restore-cursor/**",
-      "node_modules/hono/**",
-      "node_modules/@hono/**",
-      "node_modules/proper-lockfile/**",
-      "node_modules/graceful-fs/**",
-      "node_modules/retry/**",
-      "node_modules/signal-exit/**",
-      "node_modules/fs-extra/**",
-      "node_modules/@mrleebo/**",
-      "node_modules/@electric-sql/**",
-      "node_modules/undici/**",
-    ],
-  },
+  // Standalone output hanya untuk Docker production build.
+  // Di dev, mode ini menambah overhead trace dependency yang tidak perlu.
+  ...(isDev ? {} : { output: "standalone" as const }),
+  // outputFileTracingIncludes hanya relevan untuk standalone build (production).
+  // Di dev, list 40+ pattern node_modules ini bikin Turbopack lambat resolve.
+  outputFileTracingIncludes: isDev
+    ? undefined
+    : {
+        "/api/:path*": [
+          "prisma.config.ts",
+          "prisma.radius.config.ts",
+          "prisma.billing.config.ts",
+          "prisma.mitra.config.ts",
+          "prisma/*.prisma",
+          "prisma/schema.prisma",
+          "prisma/schema.radius.prisma",
+          "prisma/billing.prisma",
+          "prisma/mitra.prisma",
+          "node_modules/prisma/**",
+          "node_modules/@prisma/**",
+          "node_modules/valibot/**",
+          "node_modules/pathe/**",
+          "node_modules/remeda/**",
+          "node_modules/std-env/**",
+          "node_modules/zeptomatch/**",
+          "node_modules/graphmatch/**",
+          "node_modules/grammex/**",
+          "node_modules/tsx/**",
+          "node_modules/esbuild/**",
+          "node_modules/@esbuild/**",
+          "node_modules/get-tsconfig/**",
+          "node_modules/source-map-support/**",
+          "node_modules/buffer-from/**",
+          "node_modules/effect/**",
+          "node_modules/@standard-schema/spec/**",
+          "node_modules/fast-check/**",
+          "node_modules/deepmerge-ts/**",
+          "node_modules/empathic/**",
+          "node_modules/chokidar/**",
+          "node_modules/jiti/**",
+          "node_modules/defu/**",
+          "node_modules/ohash/**",
+          "node_modules/confbox/**",
+          "node_modules/exsolve/**",
+          "node_modules/giget/**",
+          "node_modules/perfect-debounce/**",
+          "node_modules/pkg-types/**",
+          "node_modules/rc9/**",
+          "node_modules/postgres/**",
+          "node_modules/mysql2/**",
+          "node_modules/arg/**",
+          "node_modules/dotenv/**",
+          "node_modules/cross-spawn/**",
+          "node_modules/cli-cursor/**",
+          "node_modules/restore-cursor/**",
+          "node_modules/hono/**",
+          "node_modules/@hono/**",
+          "node_modules/proper-lockfile/**",
+          "node_modules/graceful-fs/**",
+          "node_modules/retry/**",
+          "node_modules/signal-exit/**",
+          "node_modules/fs-extra/**",
+          "node_modules/@mrleebo/**",
+          "node_modules/@electric-sql/**",
+          "node_modules/undici/**",
+        ],
+      },
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
@@ -172,10 +175,18 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "1gb",
     },
     proxyClientMaxBodySize: "1gb",
+    // Filesystem cache untuk dev — compile result di-persist antar restart, bukan in-memory only.
+    // Ini paling impactful untuk project besar dengan banyak route.
+    turbopackFileSystemCacheForDev: true,
+    // Catatan: turbopackTreeShaking + turbopackRemoveUnusedImports/Exports
+    // memicu Rust panic "index out of bounds" di Next 16.2.2 (bug upstream).
+    // Re-evaluasi saat upgrade Next.
   },
 
   // Webpack configuration to suppress known non-critical warnings.
-  webpack: (config, { isServer }) => {
+  // Catatan: Turbopack (default di `next dev`) tidak baca config ini.
+  // Webpack hanya jalan saat `next build` (production) atau jika Turbopack di-disable.
+  webpack: (config, { isServer, dev }) => {
     config.ignoreWarnings = [
       /UNSAFE_componentWillReceiveProps/,
       /componentWillReceiveProps/,
@@ -183,8 +194,9 @@ const nextConfig: NextConfig = {
       /Critical dependency: the request of a dependency is an expression/,
     ];
 
-    // Optimize memory usage during build
-    if (!isServer) {
+    // Optimasi splitChunks hanya untuk production build (mengurangi bundle size FE).
+    // Di dev, splitChunks justru memperlambat compile karena overhead chunking.
+    if (!isServer && !dev) {
       config.optimization = {
         ...config.optimization,
         moduleIds: "deterministic",
@@ -192,21 +204,23 @@ const nextConfig: NextConfig = {
           ...config.optimization.splitChunks,
           cacheGroups: {
             ...config.optimization.splitChunks?.cacheGroups,
-            // Split large modules into smaller chunks
             commons: {
               test: /[\\/]node_modules[\\/]/,
               name: "vendors",
               chunks: "all",
               priority: 10,
-              maxSize: 244000, // ~244KB per chunk
+              maxSize: 244000,
             },
           },
         },
       };
     }
 
-    // Reduce memory pressure by limiting parallel processing
-    config.parallelism = 1;
+    // parallelism=1 hanya saat production build (untuk hemat memory di CI/Docker).
+    // Di dev, paksa multi-thread biar compile cepat.
+    if (!dev) {
+      config.parallelism = 1;
+    }
 
     return config;
   },

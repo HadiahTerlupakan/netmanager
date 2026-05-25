@@ -24,7 +24,7 @@ describe("custom server bootstrap", () => {
     const manifest = readPackageJson();
 
     expect(manifest.scripts?.dev).toBe(
-      "NODE_OPTIONS='--no-deprecation' tsx server.ts",
+      "NODE_OPTIONS='--no-deprecation --max-old-space-size=8192' tsx server.ts",
     );
   });
 
