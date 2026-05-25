@@ -8,10 +8,11 @@ export const metadata = {
 };
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function PurchaseOrderDetailPage({ params }: Props) {
   await ensurePermission("purchase_orders:read");
-  return <PurchaseOrderEditClient poId={params.id} />;
+  const { id } = await params;
+  return <PurchaseOrderEditClient poId={id} />;
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HiArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface GoodsReceiptItemDetail {
   id: string;
@@ -102,28 +102,21 @@ export function GoodsReceiptDetailClient({ grnId }: { grnId: string }) {
   );
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/procurement/goods-receipts"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <HiArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Detail Goods Receipt</h1>
-        </div>
-        {data.status === "POSTED" && (
+    <ProcurementPageShell
+      title="Detail Goods Receipt"
+      backHref="/admin/procurement/goods-receipts"
+      actions={
+        data.status === "POSTED" ? (
           <Link
             href={`/admin/procurement/goods-returns/create?grnId=${data.id}`}
             className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700"
           >
             Buat Retur ke Vendor
           </Link>
-        )}
-      </div>
-
-      <div className="bg-white border rounded-lg p-5 mb-5">
+        ) : null
+      }
+    >
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5 mb-5">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <Info
             label="No. GRN"
@@ -163,10 +156,10 @@ export function GoodsReceiptDetailClient({ grnId }: { grnId: string }) {
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">Barang</th>
               <th className="px-4 py-3 font-medium text-right">Qty Diterima</th>
               <th className="px-4 py-3 font-medium text-right">Harga Satuan</th>
@@ -213,7 +206,7 @@ export function GoodsReceiptDetailClient({ grnId }: { grnId: string }) {
           </tfoot>
         </table>
       </div>
-    </div>
+    </ProcurementPageShell>
   );
 }
 

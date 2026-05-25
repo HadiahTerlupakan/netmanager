@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface ApprovalThreshold {
   id: string;
@@ -83,9 +88,11 @@ export function ApprovalThresholdClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat data threshold");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data threshold");
+    }
+  }, [error]);
 
   const items = data ?? [];
 
@@ -170,18 +177,14 @@ export function ApprovalThresholdClient() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-2">Approval Threshold</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Atur batas nominal yang dapat di-approve oleh setiap role per scope (PR
-        / PO). Saat user membuat PO, sistem akan menolak nominal yang melebihi
-        wewenang role-nya. Jika tidak ada threshold yang dikonfigurasi untuk
-        scope tertentu, gating dinonaktifkan (backward compatible).
-      </p>
-
+    <ProcurementPageShell
+      title="Approval Threshold"
+      subtitle="Atur batas nominal yang dapat di-approve oleh setiap role per scope (PR / PO). Saat user membuat PO, sistem akan menolak nominal yang melebihi wewenang role-nya. Jika tidak ada threshold yang dikonfigurasi untuk scope tertentu, gating dinonaktifkan (backward compatible)."
+      backHref="/admin/procurement"
+    >
       <form
         onSubmit={handleCreate}
-        className="bg-white border rounded-lg p-4 mb-6 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end"
+        className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end"
       >
         <div className="sm:col-span-1">
           <label className="block text-xs text-gray-700 mb-1">Scope</label>
@@ -193,7 +196,7 @@ export function ApprovalThresholdClient() {
                 scope: e.target.value as FormState["scope"],
               }))
             }
-            className="w-full px-2 py-2 border rounded text-sm"
+            className="w-full h-10 px-3 rounded-lg border border-gray-100 bg-white text-sm shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           >
             <option value="PURCHASE_ORDER">PO</option>
             <option value="PURCHASE_REQUEST">PR</option>
@@ -207,7 +210,7 @@ export function ApprovalThresholdClient() {
               setForm((prev) => ({ ...prev, roleId: e.target.value }))
             }
             required
-            className="w-full px-2 py-2 border rounded text-sm"
+            className="w-full h-10 px-3 rounded-lg border border-gray-100 bg-white text-sm shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           >
             <option value="">— Pilih role —</option>
             {roles.map((r) => (
@@ -227,7 +230,7 @@ export function ApprovalThresholdClient() {
               setForm((prev) => ({ ...prev, minAmount: e.target.value }))
             }
             required
-            className="w-full px-2 py-2 border rounded text-sm font-mono"
+            className="w-full h-10 px-3 rounded-lg border border-gray-100 bg-white text-sm font-mono shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="sm:col-span-1">
@@ -241,7 +244,7 @@ export function ApprovalThresholdClient() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, maxAmount: e.target.value }))
             }
-            className="w-full px-2 py-2 border rounded text-sm font-mono"
+            className="w-full h-10 px-3 rounded-lg border border-gray-100 bg-white text-sm font-mono shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="sm:col-span-1">
@@ -253,7 +256,7 @@ export function ApprovalThresholdClient() {
               setForm((prev) => ({ ...prev, description: e.target.value }))
             }
             maxLength={500}
-            className="w-full px-2 py-2 border rounded text-sm"
+            className="w-full h-10 px-3 rounded-lg border border-gray-100 bg-white text-sm shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="sm:col-span-1">
@@ -267,7 +270,7 @@ export function ApprovalThresholdClient() {
         <select
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value)}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           <option value="">Semua scope</option>
           <option value="PURCHASE_ORDER">PO</option>
@@ -275,9 +278,9 @@ export function ApprovalThresholdClient() {
         </select>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
             <tr className="text-left text-gray-700">
               <th className="px-4 py-3 font-medium">Scope</th>
               <th className="px-4 py-3 font-medium">Role</th>
@@ -288,7 +291,7 @@ export function ApprovalThresholdClient() {
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -304,7 +307,10 @@ export function ApprovalThresholdClient() {
               </tr>
             )}
             {items.map((t) => (
-              <tr key={t.id} className="border-t hover:bg-gray-50">
+              <tr
+                key={t.id}
+                className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+              >
                 <td className="px-4 py-3">{SCOPE_LABEL[t.scope] ?? t.scope}</td>
                 <td className="px-4 py-3">{t.roleName ?? t.roleId}</td>
                 <td className="px-4 py-3 text-right font-mono">
@@ -340,7 +346,7 @@ export function ApprovalThresholdClient() {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ProcurementListCard>
+    </ProcurementPageShell>
   );
 }

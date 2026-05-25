@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface GoodsReturnListItem {
   id: string;
@@ -73,39 +78,38 @@ export function GoodsReturnListClient() {
     `/api/admin/procurement/goods-returns?${queryString}`,
   );
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat data RTV");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data RTV");
+    }
+  }, [error]);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-semibold">Retur Vendor (RTV)</h1>
+    <ProcurementPageShell
+      title="Retur Vendor (RTV)"
+      subtitle="Retur barang yang sudah diterima ke supplier. RTV dibuat dari halaman detail GRN. Status SENT → REFUNDED/REPLACED/CREDIT_NOTE menandai gimana vendor menyelesaikan klaim."
+      backHref="/admin/procurement"
+      actions={
         <Link
           href="/admin/procurement/goods-receipts"
           className="text-sm text-blue-600 hover:underline"
         >
           Pilih GRN untuk buat RTV →
         </Link>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        Retur barang yang sudah diterima ke supplier. RTV dibuat dari halaman
-        detail GRN. Status SENT → REFUNDED/REPLACED/CREDIT_NOTE menandai gimana
-        vendor menyelesaikan klaim.
-      </p>
-
-      <div className="mb-4">
+      }
+    >
+      <div>
         <select
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -115,10 +119,10 @@ export function GoodsReturnListClient() {
         </select>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">No. RTV</th>
               <th className="px-4 py-3 font-medium">Tanggal</th>
               <th className="px-4 py-3 font-medium">GRN</th>
@@ -128,7 +132,7 @@ export function GoodsReturnListClient() {
               <th className="px-4 py-3 font-medium text-right">Total Qty</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -144,7 +148,10 @@ export function GoodsReturnListClient() {
               </tr>
             )}
             {items.map((r) => (
-              <tr key={r.id} className="border-t hover:bg-gray-50">
+              <tr
+                key={r.id}
+                className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+              >
                 <td className="px-4 py-3 font-mono text-xs">
                   <Link
                     href={`/admin/procurement/goods-returns/${r.id}`}
@@ -186,7 +193,7 @@ export function GoodsReturnListClient() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ProcurementListCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
@@ -197,7 +204,7 @@ export function GoodsReturnListClient() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Sebelumnya
             </button>
@@ -207,13 +214,13 @@ export function GoodsReturnListClient() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Selanjutnya
             </button>
           </div>
         </div>
       )}
-    </div>
+    </ProcurementPageShell>
   );
 }

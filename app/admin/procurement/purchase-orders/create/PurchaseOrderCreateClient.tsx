@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HiOutlineArrowLeft, HiPlus, HiTrash } from "react-icons/hi2";
+import { HiPlus, HiTrash } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { getPphLabel } from "@/modules/tax/client";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface SupplierOption {
   id: string;
@@ -29,12 +31,6 @@ interface POItem {
   quantity: number;
   unitPrice: number;
 }
-
-const PPH_LABEL: Record<string, string> = {
-  jasa: "Jasa (PPh 23)",
-  sewa: "Sewa (PPh 23)",
-  sewa_tanah: "Sewa Tanah/Bangunan (PPh 4(2))",
-};
 
 const DEFAULT_PPN_RATE = 11;
 
@@ -151,19 +147,12 @@ export function PurchaseOrderCreateClient() {
   };
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center gap-3 mb-6">
-        <Link
-          href="/admin/procurement/purchase-orders"
-          className="p-2 hover:bg-gray-100 rounded"
-        >
-          <HiOutlineArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-semibold">Buat Purchase Order</h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="bg-white border rounded-lg p-5">
+    <ProcurementPageShell
+      title="Buat Purchase Order"
+      backHref="/admin/procurement/purchase-orders"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
+        <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5">
           <h2 className="font-medium mb-4">Vendor & Pajak</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -173,7 +162,7 @@ export function PurchaseOrderCreateClient() {
               <select
                 value={supplierId}
                 onChange={(e) => handleSupplierChange(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               >
                 <option value="">— Tanpa supplier master —</option>
                 {suppliers.map((s) => (
@@ -185,7 +174,7 @@ export function PurchaseOrderCreateClient() {
               {defaultPphCategory && (
                 <p className="text-xs text-blue-600 mt-1">
                   Kategori PPh otomatis:{" "}
-                  {PPH_LABEL[defaultPphCategory] ?? defaultPphCategory}
+                  {getPphLabel(defaultPphCategory) ?? defaultPphCategory}
                 </p>
               )}
             </div>
@@ -199,7 +188,7 @@ export function PurchaseOrderCreateClient() {
                 onChange={(e) => setVendorNpwp(e.target.value)}
                 placeholder="15 atau 16 digit"
                 maxLength={16}
-                className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Otomatis terisi dari supplier; bisa di-override per PO.
@@ -216,7 +205,7 @@ export function PurchaseOrderCreateClient() {
                 min={0}
                 max={100}
                 step="0.01"
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
             <div>
@@ -227,7 +216,7 @@ export function PurchaseOrderCreateClient() {
                 type="date"
                 value={expectedDate}
                 onChange={(e) => setExpectedDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
             <div className="md:col-span-2">
@@ -238,13 +227,13 @@ export function PurchaseOrderCreateClient() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
           </div>
         </section>
 
-        <section className="bg-white border rounded-lg p-5">
+        <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium">Item PO</h2>
             <button
@@ -263,8 +252,8 @@ export function PurchaseOrderCreateClient() {
             </p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+                <tr className="text-left">
                   <th className="px-3 py-2 font-medium">Barang</th>
                   <th className="px-3 py-2 font-medium w-28">Qty</th>
                   <th className="px-3 py-2 font-medium w-40">Harga Satuan</th>
@@ -276,7 +265,10 @@ export function PurchaseOrderCreateClient() {
               </thead>
               <tbody>
                 {items.map((it, i) => (
-                  <tr key={i} className="border-t">
+                  <tr
+                    key={i}
+                    className="border-t border-gray-100 dark:border-gray-800"
+                  >
                     <td className="px-3 py-2">
                       <select
                         value={it.barangId}
@@ -290,7 +282,7 @@ export function PurchaseOrderCreateClient() {
                             unitPrice: it.unitPrice || (barang?.hargaBeli ?? 0),
                           });
                         }}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-100 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                         required
                       >
                         <option value="">— Pilih barang —</option>
@@ -309,7 +301,7 @@ export function PurchaseOrderCreateClient() {
                           updateItem(i, { quantity: Number(e.target.value) })
                         }
                         min={1}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-100 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                         required
                       />
                     </td>
@@ -321,7 +313,7 @@ export function PurchaseOrderCreateClient() {
                           updateItem(i, { unitPrice: Number(e.target.value) })
                         }
                         min={0}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
+                        className="w-full px-2 py-1.5 border border-gray-100 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>
                     <td className="px-3 py-2 text-right font-medium">
@@ -369,6 +361,6 @@ export function PurchaseOrderCreateClient() {
           </Button>
         </div>
       </form>
-    </div>
+    </ProcurementPageShell>
   );
 }

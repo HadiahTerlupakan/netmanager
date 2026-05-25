@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface GoodsReceiptListItem {
   id: string;
@@ -62,38 +67,38 @@ export function GoodsReceiptListClient() {
     `/api/admin/procurement/goods-receipts?${queryString}`,
   );
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat data goods receipt");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data goods receipt");
+    }
+  }, [error]);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-semibold">Goods Receipt</h1>
+    <ProcurementPageShell
+      title="Goods Receipt"
+      subtitle="Dokumen penerimaan barang per batch. Satu PO bisa punya banyak GRN karena vendor dapat kirim parsial. GRN dibuat dari halaman detail PO."
+      backHref="/admin/procurement"
+      actions={
         <Link
           href="/admin/procurement/purchase-orders"
           className="text-sm text-blue-600 hover:underline"
         >
           Pilih PO untuk buat GRN baru →
         </Link>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        Dokumen penerimaan barang per batch. Satu PO bisa punya banyak GRN
-        karena vendor dapat kirim parsial. GRN dibuat dari halaman detail PO.
-      </p>
-
-      <div className="mb-4">
+      }
+    >
+      <div>
         <select
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -103,10 +108,10 @@ export function GoodsReceiptListClient() {
         </select>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">No. GRN</th>
               <th className="px-4 py-3 font-medium">Tanggal</th>
               <th className="px-4 py-3 font-medium">PO</th>
@@ -116,7 +121,7 @@ export function GoodsReceiptListClient() {
               <th className="px-4 py-3 font-medium text-right">Total Qty</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -132,7 +137,10 @@ export function GoodsReceiptListClient() {
               </tr>
             )}
             {items.map((g) => (
-              <tr key={g.id} className="border-t hover:bg-gray-50">
+              <tr
+                key={g.id}
+                className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+              >
                 <td className="px-4 py-3 font-mono text-xs">
                   <Link
                     href={`/admin/procurement/goods-receipts/${g.id}`}
@@ -174,7 +182,7 @@ export function GoodsReceiptListClient() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ProcurementListCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
@@ -185,7 +193,7 @@ export function GoodsReceiptListClient() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Sebelumnya
             </button>
@@ -195,13 +203,13 @@ export function GoodsReceiptListClient() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Selanjutnya
             </button>
           </div>
         </div>
       )}
-    </div>
+    </ProcurementPageShell>
   );
 }

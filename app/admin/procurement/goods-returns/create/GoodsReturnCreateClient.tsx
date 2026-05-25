@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HiArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface GrnItem {
   id: string;
@@ -154,19 +154,12 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <Link
-          href="/admin/procurement/goods-returns"
-          className="text-gray-600 hover:text-gray-900"
-        >
-          <HiArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-semibold">Buat Retur Vendor</h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <fieldset className="border rounded-lg p-4">
+    <ProcurementPageShell
+      title="Buat Retur Vendor"
+      backHref="/admin/procurement/goods-returns"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
+        <fieldset className="border border-gray-100 dark:border-gray-700 rounded-2xl p-4 bg-white dark:bg-gray-900 shadow-sm">
           <legend className="px-2 text-sm font-medium text-gray-700">
             Header
           </legend>
@@ -181,7 +174,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
                 onChange={(e) => handleGrnIdChange(e.target.value)}
                 placeholder="Tempel ID GRN atau buka dari halaman GRN"
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100"
               />
               {grn && (
                 <p className="mt-1 text-xs text-gray-500">
@@ -209,7 +202,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
                   )
                 }
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               >
                 {REASON_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -228,13 +221,13 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 maxLength={500}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
           </div>
         </fieldset>
 
-        <fieldset className="border rounded-lg p-4">
+        <fieldset className="border border-gray-100 dark:border-gray-700 rounded-2xl p-4 bg-white dark:bg-gray-900 shadow-sm">
           <legend className="px-2 text-sm font-medium text-gray-700">
             Item Diretur
           </legend>
@@ -255,8 +248,8 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
           )}
           {selectedGrnId && !loading && lines.length > 0 && (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+                <tr className="text-left">
                   <th className="px-2 py-2 font-medium">Barang</th>
                   <th className="px-2 py-2 font-medium text-right">Diterima</th>
                   <th className="px-2 py-2 font-medium text-right">
@@ -267,7 +260,10 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
               </thead>
               <tbody>
                 {lines.map((line, idx) => (
-                  <tr key={line.goodsReceiptItemId} className="border-t">
+                  <tr
+                    key={line.goodsReceiptItemId}
+                    className="border-t border-gray-100 dark:border-gray-800"
+                  >
                     <td className="px-2 py-2">
                       <div className="font-medium">{line.barangNama}</div>
                       <div className="text-xs text-gray-500 font-mono">
@@ -291,7 +287,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
                             ),
                           })
                         }
-                        className="w-20 px-2 py-1 border rounded text-right"
+                        className="w-20 px-2 py-1 border border-gray-100 dark:border-gray-700 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -303,7 +299,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
                         }
                         placeholder="opsional"
                         maxLength={500}
-                        className="w-full px-2 py-1 border rounded"
+                        className="w-full px-2 py-1 border border-gray-100 dark:border-gray-700 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>
                   </tr>
@@ -313,7 +309,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
           )}
         </fieldset>
 
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
           <span className="text-sm text-gray-600">
             Total qty diretur:{" "}
             <span className="font-semibold">{totalReturn}</span>
@@ -321,7 +317,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
           <div className="flex gap-3">
             <Link
               href="/admin/procurement/goods-returns"
-              className="px-4 py-2 text-gray-700 border rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Batal
             </Link>
@@ -331,6 +327,6 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
           </div>
         </div>
       </form>
-    </div>
+    </ProcurementPageShell>
   );
 }

@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HiOutlineArrowTopRightOnSquare } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface PurchaseRequestSummary {
   id: string;
@@ -98,9 +103,11 @@ export function ProcurementPRListClient() {
       `/api/admin/procurement/purchase-requests?${queryString}`,
     );
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat purchase request");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat purchase request");
+    }
+  }, [error]);
 
   const items = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -160,9 +167,11 @@ export function ProcurementPRListClient() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-semibold">Purchase Request</h1>
+    <ProcurementPageShell
+      title="Purchase Request"
+      subtitle="View read-only PR dari sudut procurement. Lifecycle (approve/reject/process/receive) dilakukan di modul Inventory Restock."
+      backHref="/admin/procurement"
+      actions={
         <Link
           href="/admin/inventory/restock"
           className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
@@ -170,13 +179,9 @@ export function ProcurementPRListClient() {
           Buat / kelola PR di Inventory Restock
           <HiOutlineArrowTopRightOnSquare className="w-4 h-4" />
         </Link>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        View read-only PR dari sudut procurement. Lifecycle (approve/reject/
-        process/receive) dilakukan di modul Inventory Restock.
-      </p>
-
-      <div className="mb-4 flex flex-wrap gap-3">
+      }
+    >
+      <div className="flex flex-wrap gap-3">
         <input
           type="search"
           placeholder="Cari nomor PR..."
@@ -185,7 +190,7 @@ export function ProcurementPRListClient() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="flex-1 max-w-md px-3 py-2 border rounded-md text-sm"
+          className={`${PROCUREMENT_INPUT_CLASS} flex-1 max-w-md`}
         />
         <select
           value={statusFilter}
@@ -194,7 +199,7 @@ export function ProcurementPRListClient() {
             setSelected(new Set());
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -212,10 +217,10 @@ export function ProcurementPRListClient() {
         </Button>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <tr className="text-left">
               <th className="w-10 px-4 py-3"></th>
               <th className="px-4 py-3 font-medium">No. PR</th>
               <th className="px-4 py-3 font-medium">Tanggal</th>
@@ -228,7 +233,7 @@ export function ProcurementPRListClient() {
               <th className="px-4 py-3 font-medium">PO</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td
@@ -254,7 +259,10 @@ export function ProcurementPRListClient() {
                 pr.status === "APPROVED" && !pr.purchaseOrderId;
               const isSelected = selected.has(pr.id);
               return (
-                <tr key={pr.id} className="border-t hover:bg-gray-50">
+                <tr
+                  key={pr.id}
+                  className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+                >
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -318,7 +326,7 @@ export function ProcurementPRListClient() {
             })}
           </tbody>
         </table>
-      </div>
+      </ProcurementListCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
@@ -329,7 +337,7 @@ export function ProcurementPRListClient() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Sebelumnya
             </button>
@@ -339,13 +347,13 @@ export function ProcurementPRListClient() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Selanjutnya
             </button>
           </div>
         </div>
       )}
-    </div>
+    </ProcurementPageShell>
   );
 }

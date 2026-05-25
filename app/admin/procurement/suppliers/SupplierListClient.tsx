@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HiOutlinePlus, HiPencil, HiTrash } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { getPphLabel } from "@/modules/tax/client";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface SupplierListItem {
   id: string;
@@ -25,12 +31,6 @@ interface SupplierListResponse {
   page: number;
   limit: number;
 }
-
-const PPH_LABEL: Record<string, string> = {
-  jasa: "Jasa (PPh 23)",
-  sewa: "Sewa (PPh 23)",
-  sewa_tanah: "Sewa Tanah/Bangunan (PPh 4(2))",
-};
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "Semua status" },
@@ -71,9 +71,11 @@ export function SupplierListClient() {
     `/api/admin/procurement/suppliers?${queryString}`,
   );
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat data supplier");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data supplier");
+    }
+  }, [error]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Hapus supplier "${name}"?`)) return;
@@ -98,18 +100,20 @@ export function SupplierListClient() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Master Supplier</h1>
+    <ProcurementPageShell
+      title="Master Supplier"
+      subtitle="Kelola data supplier — status aktif, dokumen SIUP/NPWP, rekening, kontrak."
+      backHref="/admin/procurement"
+      actions={
         <Link href="/admin/procurement/suppliers/create">
           <Button>
             <HiOutlinePlus className="w-4 h-4 mr-1" />
             Tambah Supplier
           </Button>
         </Link>
-      </div>
-
-      <div className="mb-4 flex flex-wrap gap-3">
+      }
+    >
+      <div className="flex flex-wrap gap-3">
         <input
           type="search"
           placeholder="Cari kode, nama, atau NPWP..."
@@ -118,7 +122,7 @@ export function SupplierListClient() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="flex-1 max-w-md px-3 py-2 border rounded-md text-sm"
+          className={`${PROCUREMENT_INPUT_CLASS} flex-1 max-w-md`}
         />
         <select
           value={statusFilter}
@@ -126,7 +130,7 @@ export function SupplierListClient() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -136,10 +140,10 @@ export function SupplierListClient() {
         </select>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">Kode</th>
               <th className="px-4 py-3 font-medium">Nama</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -149,7 +153,7 @@ export function SupplierListClient() {
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -170,7 +174,10 @@ export function SupplierListClient() {
                 className: "bg-gray-100 text-gray-600",
               };
               return (
-                <tr key={s.id} className="border-t hover:bg-gray-50">
+                <tr
+                  key={s.id}
+                  className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+                >
                   <td className="px-4 py-3 font-mono text-xs">{s.code}</td>
                   <td className="px-4 py-3 font-medium">{s.name}</td>
                   <td className="px-4 py-3">
@@ -185,10 +192,9 @@ export function SupplierListClient() {
                     {s.npwp ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    {s.defaultPphCategory
-                      ? (PPH_LABEL[s.defaultPphCategory] ??
-                        s.defaultPphCategory)
-                      : "—"}
+                    {getPphLabel(s.defaultPphCategory) ??
+                      s.defaultPphCategory ??
+                      "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
                     {s.email ?? s.phone ?? "—"}
@@ -216,7 +222,7 @@ export function SupplierListClient() {
             })}
           </tbody>
         </table>
-      </div>
+      </ProcurementListCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
@@ -227,7 +233,7 @@ export function SupplierListClient() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Sebelumnya
             </button>
@@ -237,13 +243,13 @@ export function SupplierListClient() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Selanjutnya
             </button>
           </div>
         </div>
       )}
-    </div>
+    </ProcurementPageShell>
   );
 }

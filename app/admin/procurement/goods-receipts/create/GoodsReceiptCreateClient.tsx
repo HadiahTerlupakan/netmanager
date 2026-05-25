@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HiArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface PurchaseOrderItem {
   id: string;
@@ -23,6 +23,10 @@ interface PurchaseOrderDetail {
   paymentStatus: string;
   supplier: { id: string; name: string } | null;
   items: PurchaseOrderItem[];
+  ppnAmount: number | null;
+  vendorNpwp: string | null;
+  fakturPajakNo: string | null;
+  fakturPajakDate: string | null;
 }
 
 interface PurchaseOrderListItem {
@@ -225,19 +229,12 @@ export function GoodsReceiptCreateClient({
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <Link
-          href="/admin/procurement/goods-receipts"
-          className="text-gray-600 hover:text-gray-900"
-        >
-          <HiArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-semibold">Buat Goods Receipt</h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <fieldset className="border rounded-lg p-4">
+    <ProcurementPageShell
+      title="Buat Goods Receipt"
+      backHref="/admin/procurement/goods-receipts"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
+        <fieldset className="border border-gray-100 dark:border-gray-700 rounded-2xl p-4 bg-white dark:bg-gray-900 shadow-sm">
           <legend className="px-2 text-sm font-medium text-gray-700">
             Header
           </legend>
@@ -250,7 +247,7 @@ export function GoodsReceiptCreateClient({
                 value={selectedPoId}
                 onChange={(e) => handlePoChange(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               >
                 <option value="">— Pilih PO —</option>
                 {poList.map((po) => (
@@ -264,6 +261,9 @@ export function GoodsReceiptCreateClient({
                   </option>
                 )}
               </select>
+              {poDetail && (poDetail.ppnAmount ?? 0) > 0 && (
+                <FakturPajakInfo poDetail={poDetail} />
+              )}
             </div>
 
             <div>
@@ -274,7 +274,7 @@ export function GoodsReceiptCreateClient({
                 value={gudangId}
                 onChange={(e) => setGudangId(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               >
                 <option value="">— Pilih gudang —</option>
                 {gudangs.map((g) => (
@@ -294,13 +294,13 @@ export function GoodsReceiptCreateClient({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 maxLength={500}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
           </div>
         </fieldset>
 
-        <fieldset className="border rounded-lg p-4">
+        <fieldset className="border border-gray-100 dark:border-gray-700 rounded-2xl p-4 bg-white dark:bg-gray-900 shadow-sm">
           <legend className="px-2 text-sm font-medium text-gray-700">
             Item Diterima
           </legend>
@@ -321,8 +321,8 @@ export function GoodsReceiptCreateClient({
           )}
           {selectedPoId && !loading && lines.length > 0 && (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+                <tr className="text-left">
                   <th className="px-2 py-2 font-medium">Barang</th>
                   <th className="px-2 py-2 font-medium text-right">Order</th>
                   <th className="px-2 py-2 font-medium text-right">
@@ -337,7 +337,10 @@ export function GoodsReceiptCreateClient({
               </thead>
               <tbody>
                 {lines.map((line, idx) => (
-                  <tr key={line.purchaseOrderItemId} className="border-t">
+                  <tr
+                    key={line.purchaseOrderItemId}
+                    className="border-t border-gray-100 dark:border-gray-800"
+                  >
                     <td className="px-2 py-2">
                       <div className="font-medium">{line.barangNama}</div>
                       <div className="text-xs text-gray-500 font-mono">
@@ -366,7 +369,7 @@ export function GoodsReceiptCreateClient({
                           })
                         }
                         disabled={line.remaining === 0}
-                        className="w-20 px-2 py-1 border rounded text-right"
+                        className="w-20 px-2 py-1 border border-gray-100 dark:border-gray-700 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -378,7 +381,7 @@ export function GoodsReceiptCreateClient({
                         }
                         placeholder="opsional"
                         maxLength={500}
-                        className="w-full px-2 py-1 border rounded"
+                        className="w-full px-2 py-1 border border-gray-100 dark:border-gray-700 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>
                   </tr>
@@ -388,7 +391,7 @@ export function GoodsReceiptCreateClient({
           )}
         </fieldset>
 
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
           <span className="text-sm text-gray-600">
             Total qty diterima:{" "}
             <span className="font-semibold">{totalReceiveNow}</span>
@@ -396,7 +399,7 @@ export function GoodsReceiptCreateClient({
           <div className="flex gap-3">
             <Link
               href="/admin/procurement/goods-receipts"
-              className="px-4 py-2 text-gray-700 border rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Batal
             </Link>
@@ -409,6 +412,44 @@ export function GoodsReceiptCreateClient({
           </div>
         </div>
       </form>
-    </div>
+    </ProcurementPageShell>
+  );
+}
+
+interface FakturPajakInfoProps {
+  poDetail: PurchaseOrderDetail;
+}
+
+/**
+ * Info box yang menampilkan status faktur pajak PO. Tujuan: ingatkan
+ * operator melengkapi `vendorNpwp` / `fakturPajakNo` / `fakturPajakDate`
+ * di PO sebelum buat GRN supaya pencatatan PPN Masukan langsung punya
+ * metadata DJP. Tanpa data ini PPN tetap di-record, tapi laporan ke
+ * Coretax akan kurang field — perlu di-update manual nanti.
+ */
+function FakturPajakInfo({ poDetail }: FakturPajakInfoProps) {
+  const hasFaktur =
+    !!poDetail.vendorNpwp &&
+    !!poDetail.fakturPajakNo &&
+    !!poDetail.fakturPajakDate;
+
+  if (hasFaktur) {
+    return (
+      <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+        ✓ Faktur Pajak: {poDetail.fakturPajakNo} (
+        {new Date(poDetail.fakturPajakDate as string).toLocaleDateString(
+          "id-ID",
+        )}
+        ) · NPWP: {poDetail.vendorNpwp}
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+      ⚠ PO ini belum lengkap data faktur pajak (NPWP / Nomor Faktur / Tanggal).
+      PPN Masukan akan dicatat tapi laporan Coretax kurang metadata. Idealnya
+      lengkapi di Edit PO sebelum buat GRN.
+    </p>
   );
 }

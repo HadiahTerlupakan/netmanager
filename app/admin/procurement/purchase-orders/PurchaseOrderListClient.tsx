@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HiOutlinePlus, HiPencil, HiTrash } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  ProcurementListCard,
+  ProcurementPageShell,
+  PROCUREMENT_INPUT_CLASS,
+} from "../_components/ProcurementPageShell";
 
 interface PurchaseOrderListItem {
   id: string;
@@ -75,9 +80,11 @@ export function PurchaseOrderListClient() {
     `/api/admin/procurement/purchase-orders?${queryString}`,
   );
 
-  if (error) {
-    toast.error(error.message || "Gagal memuat data PO");
-  }
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Gagal memuat data PO");
+    }
+  }, [error]);
 
   const handleDelete = async (id: string, poNumber: string) => {
     if (!confirm(`Hapus Purchase Order "${poNumber}"?`)) return;
@@ -100,18 +107,20 @@ export function PurchaseOrderListClient() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Purchase Order</h1>
+    <ProcurementPageShell
+      title="Purchase Order"
+      subtitle="Kelola PO ke supplier — buat, lihat, dan track pembayaran."
+      backHref="/admin/procurement"
+      actions={
         <Link href="/admin/procurement/purchase-orders/create">
           <Button>
             <HiOutlinePlus className="w-4 h-4 mr-1" />
             Buat PO
           </Button>
         </Link>
-      </div>
-
-      <div className="flex flex-wrap gap-3 mb-4">
+      }
+    >
+      <div className="flex flex-wrap gap-3">
         <input
           type="search"
           placeholder="Cari nomor PO..."
@@ -120,7 +129,7 @@ export function PurchaseOrderListClient() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm flex-1 min-w-[240px] max-w-md"
+          className={`${PROCUREMENT_INPUT_CLASS} flex-1 min-w-[240px] max-w-md`}
         />
         <select
           value={paymentStatus}
@@ -128,7 +137,7 @@ export function PurchaseOrderListClient() {
             setPaymentStatus(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={PROCUREMENT_INPUT_CLASS}
         >
           <option value="">Semua status bayar</option>
           <option value="UNPAID">Belum Bayar</option>
@@ -137,10 +146,10 @@ export function PurchaseOrderListClient() {
         </select>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <ProcurementListCard>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">No. PO</th>
               <th className="px-4 py-3 font-medium">Tanggal</th>
               <th className="px-4 py-3 font-medium">Supplier</th>
@@ -152,7 +161,7 @@ export function PurchaseOrderListClient() {
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading && (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
@@ -173,7 +182,10 @@ export function PurchaseOrderListClient() {
                 color: "bg-gray-100 text-gray-700",
               };
               return (
-                <tr key={po.id} className="border-t hover:bg-gray-50">
+                <tr
+                  key={po.id}
+                  className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition"
+                >
                   <td className="px-4 py-3 font-mono text-xs">{po.poNumber}</td>
                   <td className="px-4 py-3 text-gray-600">
                     {formatDate(po.createdAt)}
@@ -223,7 +235,7 @@ export function PurchaseOrderListClient() {
             })}
           </tbody>
         </table>
-      </div>
+      </ProcurementListCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
@@ -234,7 +246,7 @@ export function PurchaseOrderListClient() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Sebelumnya
             </button>
@@ -244,13 +256,13 @@ export function PurchaseOrderListClient() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Selanjutnya
             </button>
           </div>
         </div>
       )}
-    </div>
+    </ProcurementPageShell>
   );
 }

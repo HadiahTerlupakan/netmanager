@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface PurchaseOrderDetail {
   id: string;
@@ -150,65 +150,62 @@ export function PurchaseOrderEditClient({ poId }: Props) {
   };
 
   if (isLoading) {
-    return <div className="p-6">Memuat...</div>;
+    return (
+      <ProcurementPageShell
+        title="Detail Purchase Order"
+        backHref="/admin/procurement/purchase-orders"
+      >
+        <p className="text-gray-500">Memuat...</p>
+      </ProcurementPageShell>
+    );
   }
   if (error || !data) {
     return (
-      <div className="p-6">
+      <ProcurementPageShell
+        title="Detail Purchase Order"
+        backHref="/admin/procurement/purchase-orders"
+      >
         <p className="text-red-600">Gagal memuat data PO.</p>
-      </div>
+      </ProcurementPageShell>
     );
   }
 
+  const showGrnButton =
+    data.paymentStatus === "UNPAID" ||
+    (data.paymentStatus !== "UNPAID" && data.status !== "RECEIVED");
+
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/procurement/purchase-orders"
-            className="p-2 hover:bg-gray-100 rounded"
-          >
-            <HiOutlineArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold">{data.poNumber}</h1>
-            <p className="text-sm text-gray-600">
-              Status: {STATUS_LABEL[data.status] ?? data.status} ·{" "}
-              {PAYMENT_LABEL[data.paymentStatus] ?? data.paymentStatus} ·{" "}
-              {formatDate(data.createdAt)}
-            </p>
-          </div>
-        </div>
-        {data.paymentStatus === "UNPAID" && (
-          <div className="flex gap-2">
+    <ProcurementPageShell
+      title={data.poNumber}
+      subtitle={`Status: ${STATUS_LABEL[data.status] ?? data.status} · ${
+        PAYMENT_LABEL[data.paymentStatus] ?? data.paymentStatus
+      } · ${formatDate(data.createdAt)}`}
+      backHref="/admin/procurement/purchase-orders"
+      actions={
+        <div className="flex flex-wrap gap-2">
+          {showGrnButton && (
             <Link
               href={`/admin/procurement/goods-receipts/create?poId=${data.id}`}
               className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
             >
               Buat GRN
             </Link>
+          )}
+          {data.paymentStatus === "UNPAID" && (
             <Button variant="outline" onClick={handleDelete}>
               Hapus PO
             </Button>
-          </div>
-        )}
-        {data.paymentStatus !== "UNPAID" && data.status !== "RECEIVED" && (
-          <Link
-            href={`/admin/procurement/goods-receipts/create?poId=${data.id}`}
-            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
-          >
-            Buat GRN
-          </Link>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          )}
+        </div>
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl">
         <div className="lg:col-span-2 space-y-6">
-          <section className="bg-white border rounded-lg p-5">
+          <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5">
             <h2 className="font-medium mb-4">Item PO</h2>
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+                <tr className="text-left">
                   <th className="px-3 py-2 font-medium">Barang</th>
                   <th className="px-3 py-2 font-medium text-right">Qty</th>
                   <th className="px-3 py-2 font-medium text-right">Diterima</th>
@@ -273,7 +270,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
         </div>
 
         <form onSubmit={handleSave} className="space-y-6">
-          <section className="bg-white border rounded-lg p-5">
+          <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5">
             <h2 className="font-medium mb-4">Vendor & Faktur Pajak</h2>
             <div className="space-y-3">
               <div>
@@ -296,7 +293,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                   onChange={(e) => setVendorNpwp(e.target.value)}
                   maxLength={16}
                   placeholder="15 atau 16 digit"
-                  className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+                  className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
               <div>
@@ -307,7 +304,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                   type="text"
                   value={fakturPajakNo}
                   onChange={(e) => setFakturPajakNo(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Untuk klaim PPN Masukan saat PO dibayar.
@@ -321,7 +318,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                   type="date"
                   value={fakturPajakDate}
                   onChange={(e) => setFakturPajakDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
               <div>
@@ -332,7 +329,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                   type="date"
                   value={expectedDate}
                   onChange={(e) => setExpectedDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
               <div>
@@ -343,7 +340,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-gray-100 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
               <Button type="submit" disabled={submitting} className="w-full">
@@ -353,6 +350,6 @@ export function PurchaseOrderEditClient({ poId }: Props) {
           </section>
         </form>
       </div>
-    </div>
+    </ProcurementPageShell>
   );
 }

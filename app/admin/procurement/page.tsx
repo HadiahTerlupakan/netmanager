@@ -77,27 +77,33 @@ export default async function ProcurementLandingPage() {
   await ensurePermission("purchase_orders:read");
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Procurement</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Pusat pengadaan: supplier, purchase request, purchase order, dan
-          referensi harga.
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Procurement
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Pusat pengadaan: supplier, purchase request, purchase order, GRN, RTV,
+          approval threshold, dan referensi harga.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {MENU.map(({ href, title, description, icon: Icon }) => (
           <Link
             key={href}
             href={href}
-            className="block p-5 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition"
+            className="block p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm hover:border-blue-300 hover:shadow-md transition"
           >
             <div className="flex items-start gap-4">
               <Icon className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">{title}</h2>
-                <p className="text-sm text-gray-600 mt-1">{description}</p>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {title}
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {description}
+                </p>
               </div>
             </div>
           </Link>

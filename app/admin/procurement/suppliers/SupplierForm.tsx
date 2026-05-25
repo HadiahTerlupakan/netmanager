@@ -3,16 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HiArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
-
-const PPH_OPTIONS = [
-  { value: "", label: "(Tidak ada)" },
-  { value: "jasa", label: "Jasa (PPh 23 — 2%)" },
-  { value: "sewa", label: "Sewa (PPh 23 — 2%)" },
-  { value: "sewa_tanah", label: "Sewa Tanah/Bangunan (PPh 4(2) — 10%)" },
-] as const;
+import { PPH_OPTIONS } from "@/modules/tax/client";
+import { ProcurementPageShell } from "../_components/ProcurementPageShell";
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Aktif" },
@@ -141,7 +135,7 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (
@@ -212,20 +206,11 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <Link
-          href="/admin/procurement/suppliers"
-          className="text-gray-600 hover:text-gray-900"
-        >
-          <HiArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-semibold">
-          {isEdit ? "Edit Supplier" : "Tambah Supplier"}
-        </h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <ProcurementPageShell
+      title={isEdit ? "Edit Supplier" : "Tambah Supplier"}
+      backHref="/admin/procurement/suppliers"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5 max-w-3xl">
         <Section title="Identitas">
           <Field label="Kode Supplier" required>
             <input
@@ -351,9 +336,10 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
               }
               className="form-input"
             >
+              <option value="">(Tidak ada)</option>
               {PPH_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {opt.label} ({opt.rateLabel})
                 </option>
               ))}
             </select>
@@ -445,10 +431,10 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
           </Field>
         </Section>
 
-        <div className="flex gap-3 justify-end pt-4 border-t">
+        <div className="flex gap-3 justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
           <Link
             href="/admin/procurement/suppliers"
-            className="px-4 py-2 text-gray-700 border rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Batal
           </Link>
@@ -477,7 +463,7 @@ export function SupplierForm({ supplierId }: SupplierFormProps) {
           color: #6b7280;
         }
       `}</style>
-    </div>
+    </ProcurementPageShell>
   );
 }
 
@@ -489,7 +475,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="border rounded-lg p-4">
+    <fieldset className="border border-gray-100 dark:border-gray-700 rounded-2xl p-4 bg-white dark:bg-gray-900 shadow-sm">
       <legend className="px-2 text-sm font-medium text-gray-700">
         {title}
       </legend>

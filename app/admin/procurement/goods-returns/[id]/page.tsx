@@ -8,10 +8,11 @@ export const metadata = {
 };
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function GoodsReturnDetailPage({ params }: Props) {
   await ensurePermission("goods_return:read");
-  return <GoodsReturnDetailClient rtvId={params.id} />;
+  const { id } = await params;
+  return <GoodsReturnDetailClient rtvId={id} />;
 }

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HiArrowLeft } from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
+import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface RtvItem {
   id: string;
@@ -174,18 +174,11 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
   const canResolve = data.status === "SENT";
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/procurement/goods-returns"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <HiArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Detail Retur Vendor</h1>
-        </div>
-        {canResolve && (
+    <ProcurementPageShell
+      title="Detail Retur Vendor"
+      backHref="/admin/procurement/goods-returns"
+      actions={
+        canResolve ? (
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -216,10 +209,10 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
               Cancel
             </Button>
           </div>
-        )}
-      </div>
-
-      <div className="bg-white border rounded-lg p-5 mb-5">
+        ) : null
+      }
+    >
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm p-5 mb-5">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <Info
             label="No. RTV"
@@ -276,10 +269,10 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-700">
+          <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+            <tr className="text-left">
               <th className="px-4 py-3 font-medium">Barang</th>
               <th className="px-4 py-3 font-medium text-right">Qty Diretur</th>
               <th className="px-4 py-3 font-medium text-right">Harga Satuan</th>
@@ -289,7 +282,10 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
           </thead>
           <tbody>
             {data.items.map((it) => (
-              <tr key={it.id} className="border-t">
+              <tr
+                key={it.id}
+                className="border-t border-gray-100 dark:border-gray-800"
+              >
                 <td className="px-4 py-3">
                   <div className="font-medium">{it.barangNama ?? "—"}</div>
                   {it.barangKode && (
@@ -311,8 +307,8 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-gray-50">
-            <tr className="border-t">
+          <tfoot className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+            <tr className="border-t border-gray-100 dark:border-gray-800">
               <td className="px-4 py-3 text-right font-medium">Total</td>
               <td className="px-4 py-3 text-right font-medium">{totalQty}</td>
               <td></td>
@@ -324,7 +320,7 @@ export function GoodsReturnDetailClient({ rtvId }: { rtvId: string }) {
           </tfoot>
         </table>
       </div>
-    </div>
+    </ProcurementPageShell>
   );
 }
 
