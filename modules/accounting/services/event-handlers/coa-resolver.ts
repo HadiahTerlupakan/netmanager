@@ -85,14 +85,59 @@ export async function resolveExpenseApprovedCoa(
   return { debitCoaId, creditCoaId };
 }
 
+/**
+ * PO dibayar → Dr Hutang Usaha / Cr Bank.
+ *
+ * Pasangannya: saat GRN dibuat sudah ada jurnal Dr Persediaan / Cr Hutang
+ * Usaha (lihat resolveGoodsReceiptCreatedCoa). Jadi alur lengkap:
+ *   1. Buat GRN  → Dr Persediaan      / Cr Hutang Usaha
+ *   2. Bayar PO  → Dr Hutang Usaha    / Cr Bank
+ *
+ * Sebelumnya resolver ini debit Persediaan langsung saat bayar — itu
+ * compile-only-correct (kalau tidak ada GRN flow), tapi salah secara
+ * akuntansi karena Persediaan di-debit 2x bila ada GRN. Sekarang sudah
+ * benar.
+ */
 export async function resolvePurchaseOrderPaidCoa(
   tenantId: string,
   accountId: string,
 ): Promise<ResolvedCoa> {
   const [debitCoaId, creditCoaId] = await Promise.all([
-    resolveCoaId(tenantId, "PERSEDIAAN").then((ids) => ids[0]),
+    resolveCoaId(tenantId, "UTANG_USAHA").then((ids) => ids[0]),
     findBankCoaByAccountId(tenantId, accountId),
   ]);
+  return { debitCoaId, creditCoaId };
+}
+
+/**
+ * GRN created → Dr Persediaan / Cr Hutang Usaha (AP).
+ * Dipakai saat barang fisik diterima di gudang. Saat PO dibayar nanti,
+ * jurnal-nya: Dr Hutang Usaha / Cr Bank (handled by separate resolver).
+ */
+export async function resolveGoodsReceiptCreatedCoa(
+  tenantId: string,
+): Promise<ResolvedCoa> {
+  const [debitCoaId, creditCoaId] = await resolveCoaId(
+    tenantId,
+    "PERSEDIAAN",
+    "UTANG_USAHA",
+  );
+  return { debitCoaId, creditCoaId };
+}
+
+/**
+ * RTV sent → Dr Hutang Usaha / Cr Persediaan.
+ * Kebalikan dari GRN: barang dikembalikan, hutang berkurang, persediaan
+ * berkurang.
+ */
+export async function resolveGoodsReturnSentCoa(
+  tenantId: string,
+): Promise<ResolvedCoa> {
+  const [debitCoaId, creditCoaId] = await resolveCoaId(
+    tenantId,
+    "UTANG_USAHA",
+    "PERSEDIAAN",
+  );
   return { debitCoaId, creditCoaId };
 }
 

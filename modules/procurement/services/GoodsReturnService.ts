@@ -1,3 +1,5 @@
+import { eventBus } from "@/lib/event-bus";
+import { EVENT_NAMES } from "@/lib/event-bus/types";
 import type { GoodsReturnEntity } from "../domain/entities/GoodsReturn";
 import type {
   GoodsReturnListFilter,
@@ -93,7 +95,7 @@ export class GoodsReturnService {
     const supplierId = await this.resolveSupplierId(grn.purchaseOrder?.id);
     const rtvNumber = await this.returnRepo.generateRtvNumber(input.tenantId);
 
-    return this.returnRepo.createAndSend({
+    const rtv = await this.returnRepo.createAndSend({
       rtvNumber,
       goodsReceiptId: input.goodsReceiptId,
       supplierId,
@@ -111,6 +113,30 @@ export class GoodsReturnService {
         notes: it.notes ?? null,
       })),
     });
+
+    if (input.tenantId) {
+      eventBus
+        .publish(EVENT_NAMES.GOODS_RETURN_SENT, {
+          goodsReturnId: rtv.id,
+          rtvNumber: rtv.rtvNumber,
+          goodsReceiptId: input.goodsReceiptId,
+          supplierId,
+          gudangId: grn.gudangId,
+          reason: input.reason,
+          returnedById: input.returnedById,
+          returnedAt: (input.returnedAt ?? new Date()).toISOString(),
+          tenantId: input.tenantId,
+          items: input.items.map((it) => ({
+            goodsReturnItemId: "",
+            goodsReceiptItemId: it.goodsReceiptItemId,
+            barangId: it.barangId,
+            quantity: it.quantity,
+          })),
+        })
+        .catch(() => {});
+    }
+
+    return rtv;
   }
 
   async resolve(

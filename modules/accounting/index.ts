@@ -194,6 +194,8 @@ export { handleInvoiceCreatedAccounting } from "./services/event-handlers/invoic
 export { handleInvoicePaidAccounting } from "./services/event-handlers/invoice-paid-accounting.handler";
 export { handleExpenseApprovedAccounting } from "./services/event-handlers/expense-approved-accounting.handler";
 export { handlePurchaseOrderPaidAccounting } from "./services/event-handlers/purchase-order-paid-accounting.handler";
+export { handleGoodsReceiptCreatedAccounting } from "./services/event-handlers/goods-receipt-created-accounting.handler";
+export { handleGoodsReturnSentAccounting } from "./services/event-handlers/goods-return-sent-accounting.handler";
 export { handleCouponUsedAccounting } from "./services/event-handlers/coupon-used-accounting.handler";
 export { handleMitraWithdrawalAccounting } from "./services/event-handlers/mitra-withdrawal-accounting.handler";
 export { handleInvestorPayoutAccounting } from "./services/event-handlers/investor-payout-accounting.handler";

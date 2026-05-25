@@ -58,3 +58,7 @@ export {
   type BarangFormInput,
   type BarangFormOutput,
 } from "./validators/barangValidator";
+
+// Event handlers
+export { handleGoodsReceiptCreatedInventory } from "./services/event-handlers/goods-receipt-inventory.handler";
+export { handleGoodsReturnSentInventory } from "./services/event-handlers/goods-return-inventory.handler";

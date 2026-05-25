@@ -1,3 +1,5 @@
+import { eventBus } from "@/lib/event-bus";
+import { EVENT_NAMES } from "@/lib/event-bus/types";
 import type { GoodsReceiptEntity } from "../domain/entities/GoodsReceipt";
 import type {
   GoodsReceiptListFilter,
@@ -81,7 +83,7 @@ export class GoodsReceiptService {
 
     const grnNumber = await this.grnRepo.generateGrnNumber(input.tenantId);
 
-    return this.grnRepo.createAndPost({
+    const grn = await this.grnRepo.createAndPost({
       grnNumber,
       purchaseOrderId: input.purchaseOrderId,
       gudangId: input.gudangId,
@@ -97,6 +99,45 @@ export class GoodsReceiptService {
         notes: it.notes ?? null,
       })),
     });
+
+    if (input.tenantId) {
+      const itemsPayload = input.items.map((it) => {
+        const poItem = po.items.find((pi) => pi.id === it.purchaseOrderItemId);
+        return {
+          goodsReceiptItemId: "",
+          purchaseOrderItemId: it.purchaseOrderItemId,
+          barangId: it.barangId,
+          quantity: it.quantity,
+          unitPrice: String(poItem?.unitPrice ?? 0),
+        };
+      });
+      const totalAmount = itemsPayload
+        .reduce((sum, it) => sum + Number(it.unitPrice) * it.quantity, 0)
+        .toString();
+      eventBus
+        .publish(EVENT_NAMES.GOODS_RECEIPT_CREATED, {
+          goodsReceiptId: grn.id,
+          grnNumber: grn.grnNumber,
+          purchaseOrderId: po.id,
+          poNumber: po.poNumber,
+          gudangId: input.gudangId,
+          receivedById: input.receivedById,
+          receivedAt: (input.receivedAt ?? new Date()).toISOString(),
+          tenantId: input.tenantId,
+          fotoBukti: input.fotoBukti ?? [],
+          items: itemsPayload,
+          totalAmount,
+          ppnAmount: String(po.ppnAmount ?? 0),
+          vendorNpwp: po.vendorNpwp ?? null,
+          fakturPajakNo: po.fakturPajakNo ?? null,
+          fakturPajakDate: po.fakturPajakDate
+            ? new Date(po.fakturPajakDate).toISOString()
+            : null,
+        })
+        .catch(() => {});
+    }
+
+    return grn;
   }
 
   private assertPoEligible(

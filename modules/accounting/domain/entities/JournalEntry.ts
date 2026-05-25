@@ -6,6 +6,8 @@ export type JournalSource =
   | "AUTO_PAYMENT"
   | "AUTO_EXPENSE"
   | "AUTO_PO_PAID"
+  | "AUTO_GRN_CREATED"
+  | "AUTO_RTV_SENT"
   | "AUTO_COUPON_USED"
   | "AUTO_MITRA_WITHDRAWAL"
   | "AUTO_INVESTOR_PAYOUT"
