@@ -49,6 +49,9 @@ export const EVENT_NAMES = {
   // Finance Events (for accounting consumption)
   EXPENSE_APPROVED: "finance:expense.approved",
   PURCHASE_ORDER_PAID: "finance:purchase_order.paid",
+  GOODS_RECEIPT_CREATED: "procurement:goods_receipt.created",
+  GOODS_RETURN_SENT: "procurement:goods_return.sent",
+  PURCHASE_REQUEST_APPROVED: "procurement:purchase_request.approved",
   SALARY_PROCESSED: "salary:salary.processed",
   SALARY_ADVANCE_DISBURSED: "salary:advance.disbursed",
   MITRA_WITHDRAWAL_COMPLETED: "mitra:withdrawal.completed",
@@ -341,6 +344,61 @@ export interface PurchaseOrderPaidPayload extends BaseEventPayload {
   paidAt: string;
 }
 
+export interface GoodsReceiptItemPayload {
+  goodsReceiptItemId: string;
+  purchaseOrderItemId: string;
+  barangId: string;
+  quantity: number;
+  unitPrice: string;
+}
+
+export interface GoodsReceiptCreatedPayload extends BaseEventPayload {
+  goodsReceiptId: string;
+  grnNumber: string;
+  purchaseOrderId: string;
+  poNumber: string;
+  gudangId: string;
+  receivedById: string;
+  receivedAt: string;
+  tenantId: string;
+  fotoBukti: string[];
+  items: GoodsReceiptItemPayload[];
+  totalAmount: string;
+  ppnAmount: string;
+  vendorNpwp: string | null;
+  fakturPajakNo: string | null;
+  fakturPajakDate: string | null;
+}
+
+export interface GoodsReturnItemPayload {
+  goodsReturnItemId: string;
+  goodsReceiptItemId: string;
+  barangId: string;
+  quantity: number;
+}
+
+export interface GoodsReturnSentPayload extends BaseEventPayload {
+  goodsReturnId: string;
+  rtvNumber: string;
+  goodsReceiptId: string;
+  supplierId: string | null;
+  gudangId: string;
+  reason: string;
+  returnedById: string;
+  returnedAt: string;
+  tenantId: string;
+  items: GoodsReturnItemPayload[];
+}
+
+export interface PurchaseRequestApprovedPayload extends BaseEventPayload {
+  purchaseRequestId: string;
+  prNumber: string;
+  approvedById: string;
+  approvedAt: string;
+  totalAmount: string;
+  tenantId: string;
+}
+
 export interface SalaryProcessedPayload extends BaseEventPayload {
   salaryId: string;
   tenantId: string;
@@ -468,6 +526,9 @@ export interface EventPayloadMap {
   [EVENT_NAMES.PROFILE_PPP_UPDATED]: ProfilePppUpdatedPayload;
   [EVENT_NAMES.EXPENSE_APPROVED]: ExpenseApprovedPayload;
   [EVENT_NAMES.PURCHASE_ORDER_PAID]: PurchaseOrderPaidPayload;
+  [EVENT_NAMES.GOODS_RECEIPT_CREATED]: GoodsReceiptCreatedPayload;
+  [EVENT_NAMES.GOODS_RETURN_SENT]: GoodsReturnSentPayload;
+  [EVENT_NAMES.PURCHASE_REQUEST_APPROVED]: PurchaseRequestApprovedPayload;
   [EVENT_NAMES.SALARY_PROCESSED]: SalaryProcessedPayload;
   [EVENT_NAMES.SALARY_ADVANCE_DISBURSED]: SalaryAdvanceDisbursedPayload;
   [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
@@ -797,6 +858,27 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PURCHASE_ORDER_PAID]: {
     name: EVENT_NAMES.PURCHASE_ORDER_PAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.GOODS_RECEIPT_CREATED]: {
+    name: EVENT_NAMES.GOODS_RECEIPT_CREATED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.GOODS_RETURN_SENT]: {
+    name: EVENT_NAMES.GOODS_RETURN_SENT,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PURCHASE_REQUEST_APPROVED]: {
+    name: EVENT_NAMES.PURCHASE_REQUEST_APPROVED,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

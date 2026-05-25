@@ -129,8 +129,11 @@ export function runWithRequestTenantContext<T>(
 export function runAsSystemContext<T>(
   reason: string,
   callback: () => Promise<T>,
+  options?: { silent?: boolean },
 ): Promise<T> {
-  logger.info(`[TENANT_CONTEXT] System context elevated: ${reason}`);
+  if (!options?.silent) {
+    logger.info(`[TENANT_CONTEXT] System context elevated: ${reason}`);
+  }
   return requestTenantContextStorage.run(
     { tenantId: null, isSuperAdmin: true },
     callback,

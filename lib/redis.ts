@@ -10,22 +10,48 @@ const redisUrl = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
 export const redis =
   globalForRedis.redis ??
   new Redis(redisUrl, {
+    // Per-command retry tetap fail-fast supaya endpoint sensitif (rate limiter,
+    // cron lock) tidak ngegantung saat Redis sempat unhealthy.
     maxRetriesPerRequest: 2,
     lazyConnect: true,
+    // Tetap false: kalau Redis down, command langsung throw — jangan ngantri
+    // dalam memori (penting untuk rate limiter & login flow).
     enableOfflineQueue: false,
-    retryStrategy: (times) => {
-      // Stop retrying after 3 attempts to avoid log spam
-      if (times > 3) return null;
-      return Math.min(times * 500, 3000);
+    // Infinite reconnect dengan exponential backoff. Sebelumnya retryStrategy
+    // give up setelah 3 attempt → client mati permanen, butuh restart proses.
+    // Sekarang client self-heal: cron worker dan background job bisa lanjut
+    // begitu Redis kembali up.
+    retryStrategy: (times) => Math.min(times * 500, 5000),
+    reconnectOnError: (err) => {
+      // Force reconnect untuk error yang menandakan koneksi rusak. Tanpa ini,
+      // ioredis bisa stuck di state `end` walau Redis sudah pulih.
+      const reconnectableErrors = ["READONLY", "ECONNRESET", "ETIMEDOUT"];
+      return reconnectableErrors.some((marker) => err.message.includes(marker));
     },
+    keepAlive: 30000,
   });
 
 if (process.env.NODE_ENV !== "production") {
   globalForRedis.redis = redis;
 }
 
-// Hindari crash/logging bising saat build bila Redis belum siap/NOAUTH
-redis.on("error", () => {});
+// Silence noisy build-time errors (Redis belum siap / NOAUTH) sambil tetap
+// melaporkan masalah runtime via logger.
+redis.on("error", (err) => {
+  if (process.env.NODE_ENV === "test") return;
+  if (err.message.includes("NOAUTH")) return;
+  logger.warn(`[Redis] Connection error: ${err.message}`);
+});
+
+redis.on("reconnecting", (delay: number) => {
+  if (process.env.NODE_ENV === "test") return;
+  logger.info(`[Redis] Reconnecting in ${delay}ms`);
+});
+
+redis.on("ready", () => {
+  if (process.env.NODE_ENV === "test") return;
+  logger.info("[Redis] Shared client ready");
+});
 
 interface RateLimitOptions {
   /**

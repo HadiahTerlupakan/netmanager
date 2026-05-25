@@ -1,4 +1,5 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+import { logger } from "@/lib/logger";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getAcsSettings } from "@/modules/settings";
 import {
@@ -24,6 +25,45 @@ const DEVICE_REQUEST_TIMEOUT_MS = 15_000;
 const TASK_REQUEST_TIMEOUT_MS = 10_000;
 const SUCCESS_TASK_STATUSES = new Set([200, 201, 202]);
 
+/**
+ * Format axios error jadi pesan user-friendly + log detail teknis untuk
+ * debugging. axios.message kadang kosong untuk error koneksi tertentu, jadi
+ * kita pakai error.code + url + status untuk bangun pesan yang berguna.
+ */
+function describeAcsError(error: unknown, context: string): string {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError;
+    const url = axiosError.config?.url;
+    const code = axiosError.code;
+    const status = axiosError.response?.status;
+
+    logger.error(`[AcsDeviceService] ${context} failed`, undefined, {
+      code,
+      status,
+      url,
+      message: axiosError.message,
+    });
+
+    if (code === "ECONNREFUSED") {
+      return "Server GenieACS tidak dapat dihubungi (connection refused). Pastikan service GenieACS berjalan.";
+    }
+    if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+      return "Hostname GenieACS tidak dapat di-resolve. Periksa konfigurasi URL di Pengaturan.";
+    }
+    if (code === "ETIMEDOUT" || code === "ECONNABORTED") {
+      return "Koneksi ke GenieACS timeout. Server mungkin sibuk atau tidak responsif.";
+    }
+    if (status) {
+      return `GenieACS merespon dengan status ${status}.`;
+    }
+    return `Koneksi ke GenieACS gagal${axiosError.message ? `: ${axiosError.message}` : ""}.`;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  logger.error(`[AcsDeviceService] ${context} unexpected error`, error);
+  return message || "Terjadi kesalahan tak terduga saat menghubungi GenieACS.";
+}
+
 export class AcsDeviceService {
   /** Lists ACS devices with tenant isolation and configured virtual parameter mapping. */
   async listDevices() {
@@ -41,28 +81,36 @@ export class AcsDeviceService {
     const apiUrl = `${normalizeDevicesUrl(settings.genieAcsUrl)}?query=${encodeURIComponent(
       JSON.stringify(query),
     )}&projection=${encodeURIComponent(projection)}`;
-    const response = await axios.get(apiUrl, {
-      timeout: DEVICE_REQUEST_TIMEOUT_MS,
-      headers: { Accept: "application/json" },
-    });
 
-    if (response.status !== 200 && response.status !== 201) {
+    try {
+      const response = await axios.get(apiUrl, {
+        timeout: DEVICE_REQUEST_TIMEOUT_MS,
+        headers: { Accept: "application/json" },
+      });
+
+      if (response.status !== 200 && response.status !== 201) {
+        return {
+          ok: false as const,
+          message: `Gagal mengambil data dari GenieACS (Status: ${response.status})`,
+        };
+      }
+      if (!Array.isArray(response.data)) {
+        return {
+          ok: false as const,
+          message: "Format respon dari GenieACS tidak valid (bukan array)",
+        };
+      }
+
+      const devices = response.data
+        .map((device: GenieAcsDevice) => formatDeviceSummary(device, settings))
+        .reverse();
+      return { ok: true as const, data: { devices } };
+    } catch (error) {
       return {
         ok: false as const,
-        message: `Gagal mengambil data dari GenieACS (Status: ${response.status})`,
+        message: describeAcsError(error, "listDevices"),
       };
     }
-    if (!Array.isArray(response.data)) {
-      return {
-        ok: false as const,
-        message: "Format respon dari GenieACS tidak valid (bukan array)",
-      };
-    }
-
-    const devices = response.data
-      .map((device: GenieAcsDevice) => formatDeviceSummary(device, settings))
-      .reverse();
-    return { ok: true as const, data: { devices } };
   }
 
   /** Gets one ACS device detail with tenant isolation. */

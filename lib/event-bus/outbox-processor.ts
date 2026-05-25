@@ -81,7 +81,9 @@ export function startOutboxProcessor(): void {
 
   processorInterval = setInterval(async () => {
     try {
-      await runAsSystemContext("outbox-processor.poll", () => processOutbox());
+      await runAsSystemContext("outbox-processor.poll", () => processOutbox(), {
+        silent: true,
+      });
     } catch (error) {
       logger.error("[OutboxProcessor] Error in poll cycle:", error);
     }

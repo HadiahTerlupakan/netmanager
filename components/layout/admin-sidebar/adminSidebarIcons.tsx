@@ -72,6 +72,7 @@ import {
   HiOutlineScale,
   HiOutlineAdjustmentsHorizontal,
   HiOutlineBellAlert,
+  HiOutlineCpuChip,
   HiOutlineExclamationCircle,
   HiOutlineReceiptPercent,
 } from "react-icons/hi2";
@@ -93,6 +94,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiChevronRight,
   HiChevronDown,
   HiOutlineWifi,
+  HiOutlineCpuChip,
   HiOutlineArchiveBox,
   HiOutlineSquares2X2,
   HiOutlineQueueList,

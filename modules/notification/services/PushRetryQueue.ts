@@ -175,8 +175,10 @@ async function retryQueueItem(
 
 async function runRetryProcessorSafely(): Promise<void> {
   try {
-    await runAsSystemContext("PushRetryQueue.processRetryQueue", () =>
-      processRetryQueue(),
+    await runAsSystemContext(
+      "PushRetryQueue.processRetryQueue",
+      () => processRetryQueue(),
+      { silent: true },
     );
   } catch (error) {
     logger.error("[PushRetry] Processor error:", error);

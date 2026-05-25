@@ -13,6 +13,8 @@ import {
   handleInvoicePaidAccounting,
   handleExpenseApprovedAccounting,
   handlePurchaseOrderPaidAccounting,
+  handleGoodsReceiptCreatedAccounting,
+  handleGoodsReturnSentAccounting,
   handleCouponUsedAccounting,
   handleMitraWithdrawalAccounting,
   handleInvestorPayoutAccounting,
@@ -21,9 +23,14 @@ import {
   handleAdvanceDisbursedAccounting,
 } from "@/modules/accounting";
 import {
+  handleGoodsReceiptCreatedInventory,
+  handleGoodsReturnSentInventory,
+} from "@/modules/inventory";
+import {
   handleInvoiceCreatedTax,
   handleExpenseApprovedTax,
   handlePurchaseOrderPaidTax,
+  handleGoodsReceiptCreatedTax,
   handleSalaryProcessedTax,
   handleInvestorPayoutTax,
 } from "@/modules/tax";
@@ -484,6 +491,25 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.PURCHASE_ORDER_PAID,
     handlePurchaseOrderPaidAccounting,
   );
+  registerEventHandler(
+    EVENT_NAMES.GOODS_RECEIPT_CREATED,
+    handleGoodsReceiptCreatedAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.GOODS_RETURN_SENT,
+    handleGoodsReturnSentAccounting,
+  );
+
+  // --- PROCUREMENT → INVENTORY (auto adjust stok) ---
+
+  registerEventHandler(
+    EVENT_NAMES.GOODS_RECEIPT_CREATED,
+    handleGoodsReceiptCreatedInventory,
+  );
+  registerEventHandler(
+    EVENT_NAMES.GOODS_RETURN_SENT,
+    handleGoodsReturnSentInventory,
+  );
   registerEventHandler(EVENT_NAMES.COUPON_USED, handleCouponUsedAccounting);
   registerEventHandler(
     EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED,
@@ -513,6 +539,10 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.PURCHASE_ORDER_PAID,
     handlePurchaseOrderPaidTax,
+  );
+  registerEventHandler(
+    EVENT_NAMES.GOODS_RECEIPT_CREATED,
+    handleGoodsReceiptCreatedTax,
   );
   registerEventHandler(EVENT_NAMES.SALARY_PROCESSED, handleSalaryProcessedTax);
   registerEventHandler(

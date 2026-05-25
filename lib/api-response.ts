@@ -315,4 +315,7 @@ export const ApiErrors = {
 
   internalError: (message = "Internal server error") =>
     apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 }),
+
+  badGateway: (message = "Layanan eksternal tidak tersedia") =>
+    apiError(message, ErrorCodes.EXTERNAL_SERVICE_ERROR, { status: 502 }),
 };
