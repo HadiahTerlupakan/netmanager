@@ -51,7 +51,6 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Scope**: `modules/incident`, `app/api/admin/incidents`, `app/api/public/status`, `app/admin/incidents`, `app/status`, `lib/permission-config.ts`, `lib/menu-config.ts`, `prisma/schema.prisma`
 - **Author**: agent
 - **Deskripsi**: Modul baru `incident` untuk pencatatan & broadcast gangguan layanan ke pelanggan. Schema baru: model `Incident` (title, description, severity CRITICAL/MAJOR/MINOR, status INVESTIGATING/IDENTIFIED/MONITORING/RESOLVED, affectedAreas, startedAt, resolvedAt, isPublic) dan `IncidentUpdate` (timeline status changes per incident, dengan transactional update saat addUpdate sehingga `Incident.status` & `Incident.resolvedAt` selalu sinkron). Service expose CRUD + addUpdate dengan auto-set resolvedAt saat status RESOLVED. API admin di `/api/admin/incidents` (list, create, detail, update, delete) dengan permission `incidents:read/create/update/delete` di catalog baru group INCIDENT. API publik di `/api/public/status` (no auth) return active + 10 recent resolved incidents (publicOnly filter). UI admin: list dengan filter berlangsung/selesai/semua + inline create form, detail dengan timeline updates + form add update. Status page publik di `/status` mirror cloudflarestatus pattern: summary banner (semua normal vs N gangguan berlangsung), section gangguan aktif, riwayat insiden, auto-refresh 60 detik. Menu "Manajemen Insiden" di group Keuangan sidebar. **Deferred (follow-up):** multi-channel broadcast (WA/Email/Push otomatis), MTTR analytics, SLA credit otomatis ke invoice pelanggan terdampak.
-- **Files**: `prisma/schema.prisma`, `prisma/migrations/20260526043850_add_incident_management/migration.sql`, `modules/incident/index.ts`, `modules/incident/repositories/IncidentRepository.ts`, `modules/incident/services/IncidentService.ts`, `app/api/admin/incidents/route.ts`, `app/api/admin/incidents/[id]/route.ts`, `app/api/public/status/route.ts`, `app/admin/incidents/page.tsx`, `app/admin/incidents/IncidentsListClient.tsx`, `app/admin/incidents/[id]/page.tsx`, `app/admin/incidents/[id]/IncidentDetailClient.tsx`, `app/status/page.tsx`, `app/status/StatusPageClient.tsx`, `lib/permission-config.ts`, `lib/menu-config.ts`
 - **Migration**: `20260526043850_add_incident_management`
 - **Breaking**: ❌ Tidak
 
@@ -71,6 +70,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Author**: agent
 - **Deskripsi**: Daftarkan 3 cron job yang sebelumnya hanya tersedia sebagai HTTP endpoint manual ke `CronRegistry` (node-cron self-hosted scheduler) supaya jalan otomatis di production: `workOrderSlaMonitor` setiap 10 menit (TTL lock 540s), `arAgingSnapshot` harian jam 23:55 (TTL 3300s), `revenueSnapshot` harian jam 23:58 setelah AR aging (TTL 3300s). Semua pakai pola standar `canRunCronJob()` Redis lock + `runCronTask()` system context elevation, dengan dynamic import service untuk tree-shake.
 - **Files**: `lib/cron-registry.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-26] — Tax: tambah client-safe entrypoint + perbaikan quality gate
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/tax`, `app/admin/procurement/suppliers`, `app/admin/procurement/purchase-orders/create`, `app/admin/pajak/konfigurasi`, `tests/admin`, `tests/server`
+- **Author**: agent
+- **Deskripsi**: Menambahkan sub-entrypoint `@/modules/tax/client` yang hanya re-export `PphClassifier` (pure helpers + types) dan tipe `TaxRateConfig` agar client component bisa pakai tanpa menarik service/event-handler server-only (firebase-admin, prisma) ke browser bundle. `SupplierForm`, `SupplierListClient`, dan `PurchaseOrderCreateClient` dipindah dari import dalam (`@/modules/tax/services/PphClassifier`) ke entrypoint client tersebut, menghilangkan pelanggaran `no-restricted-imports`. `TarifPajakFleksibelSection` direfactor pakai TanStack Query (`useQuery` + `useMutation`) untuk menghapus error `react-hooks/set-state-in-effect`. `SupplierForm.handleSubmit` di-typing ulang ke `React.SyntheticEvent<HTMLFormElement>` untuk hindari API React 19 yang sudah deprecated. Test `removed-surfaces` dibersihkan — case "retires the market price page" dihapus karena halaman sudah jadi placeholder aktif (bukan `notFound()`); test `custom-server-bootstrap` disinkronkan dengan script `dev` yang sekarang membawa `--max-old-space-size=8192`.
+- **Files**: `modules/tax/client.ts`, `app/admin/procurement/suppliers/SupplierForm.tsx`, `app/admin/procurement/suppliers/SupplierListClient.tsx`, `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`, `app/admin/pajak/konfigurasi/TarifPajakFleksibelSection.tsx`, `tests/admin/removed-surfaces.test.ts`, `tests/server/custom-server-bootstrap.test.ts`
 - **Breaking**: ❌ Tidak
 
 ### [2026-05-25] — Finance: Revenue snapshot + executive dashboard
@@ -117,6 +125,322 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Deskripsi**: Tambah halaman admin lengkap untuk CRUD aturan SLA work order yang sebelumnya hanya bisa diakses lewat API. Halaman list dengan filter status (aktif/nonaktif) & search by nama, plus form create/edit dengan field workOrderType, priority, departmentId, responseTime (menit), resolutionTime (menit), businessHoursOnly, dan isActive. Form re-use `SlaForm` shared component (pola sama dengan `DepartmentForm`). Menu "Aturan SLA" ditambahkan di group Work Orders di sidebar. Service & API SLA sudah ada sebelumnya di `modules/work-order/services/AdminWorkOrderConfigService.ts` — task ini hanya melengkapi bagian UI yang missing.
 - **Files**: `app/admin/workorders/slas/page.tsx`, `app/admin/workorders/slas/SlasIndexClient.tsx`, `app/admin/workorders/slas/components/SlaForm.tsx`, `app/admin/workorders/slas/new/page.tsx`, `app/admin/workorders/slas/new/SlaNewClient.tsx`, `app/admin/workorders/slas/[id]/edit/page.tsx`, `app/admin/workorders/slas/[id]/edit/SlaEditClient.tsx`, `lib/menu-config.ts`
 - **Breaking**: ❌ Tidak
+
+### [2026-05-25] — Tax: drop legacy field di TaxConfig + cleanup UI
+
+- **Tipe**: [REMOVED]
+- **Scope**: `prisma/schema.prisma`, `modules/tax`, `app/admin/pajak/konfigurasi`, `app/api/admin/tax/config`
+- **Author**: agent
+- **Deskripsi**: Setelah TaxRateConfig stabil dan semua tenant ter-seed, field tarif & jatuh tempo legacy di-drop dari TaxConfig untuk hilangkan dual-source confusion. Yang di-drop: `ppnRate`, `pph23RateJasa`, `pph23RateSewa`, `pph4Rate`, `bhpRate`, `usoRate`, `ksoRate`, `ppnDueDay`, `pph21DueDay`, `pph23DueDay`, `bhpDueMonth`. TaxConfig sekarang murni identitas pelapor pajak (`npwp`, `companyName`, `isPkp`, `ppnIncluded`). Semua consumer service (`PpnService`, `PpnRateResolver`, `PphService`, `BhpUsoService`, `TaxExportService`, `TaxReminderService`) dimigrasi pakai `TaxRateConfig.findByCode()` direct — fallback ke default standar Indonesia bila row TaxRateConfig kosong (defensive). Section "Tarif Pajak (%)" dan "Tanggal Jatuh Tempo" di tab "Identitas Perusahaan" dihapus karena duplikat dengan tab "Tarif Pajak per Jenis". Validator API config drop field tarif/dueDay dari Zod schema. Helper `FieldNumber` di-drop karena tidak terpakai. Tab Identitas sekarang cuma berisi: NPWP, Nama Perusahaan, status PKP, status PPN included, + tombol Save.
+- **Files**: `prisma/schema.prisma`, `prisma/migrations/20260525010000_drop_tax_config_legacy_fields/migration.sql`, `prisma/seed-tax-rate-configs.ts`, `modules/tax/domain/entities/TaxConfig.ts`, `modules/tax/repositories/TaxConfigRepository.ts`, `modules/tax/services/PpnService.ts`, `modules/tax/services/PpnRateResolver.ts`, `modules/tax/services/PphService.ts`, `modules/tax/services/BhpUsoService.ts`, `modules/tax/services/TaxExportService.ts`, `modules/tax/services/TaxReminderService.ts`, `modules/tax/services/TaxConfigService.ts`, `modules/tax/index.ts`, `app/admin/pajak/konfigurasi/KonfigurasiPajakClient.tsx`, `app/api/admin/tax/config/route.ts`
+- **Migration**: `20260525010000_drop_tax_config_legacy_fields`
+- **Breaking**: ✅ Ya — field legacy di tax_configs dihapus permanen. Tarif & jatuh tempo wajib pakai TaxRateConfig (sumber tunggal). API `PUT /api/admin/tax/config` tidak lagi terima field tarif/dueDay legacy. Frontend yang masih kirim field lama akan error dari Zod validator.
+
+### [2026-05-25] — Hub procurement-akuntansi-pajak: timing & jurnal benar (full sync)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/accounting/services/event-handlers/coa-resolver.ts`, `modules/tax/services/event-handlers/purchase-order-paid-tax.handler.ts`, `modules/tax/services/event-handlers/goods-receipt-created-tax.handler.ts`, `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan hub yang masih ada gap setelah integrasi event-driven sebelumnya. (1) **Fix double-jurnal Persediaan**: `resolvePurchaseOrderPaidCoa` sebelumnya bikin jurnal `Dr Persediaan / Cr Bank` saat PO bayar, padahal GRN handler juga sudah debit Persediaan → ketika alur normal (PO → GRN → bayar), Persediaan ke-debit 2x. Fix: PO bayar sekarang `Dr Hutang Usaha / Cr Bank` (benar secara akuntansi). (2) **PPN Masukan timing**: dipindah dari `handlePurchaseOrderPaidTax` (saat bayar, bisa beda bulan dengan tanggal faktur) ke `handleGoodsReceiptCreatedTax` (saat barang+faktur diterima). Sesuai praktik DJP. PPh tetap di handler PO_PAID (PPh dipotong saat bayar). `expenseId` di tax_transactions sekarang pakai `goodsReceiptId` (idempotent per GRN). (3) **UI hint faktur pajak**: di form Create GRN, kalau PO punya PPN tapi belum punya `vendorNpwp`/`fakturPajakNo`/`fakturPajakDate` lengkap, muncul warning amber yang mengarahkan operator melengkapi di Edit PO sebelum buat GRN. Kalau lengkap, muncul info hijau dengan ringkasan faktur pajak.
+- **Files**: `modules/accounting/services/event-handlers/coa-resolver.ts`, `modules/tax/services/event-handlers/purchase-order-paid-tax.handler.ts`, `modules/tax/services/event-handlers/goods-receipt-created-tax.handler.ts`, `modules/tax/index.ts`, `lib/event-bus/event-handlers.ts`, `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`
+- **Breaking**: ❌ Tidak (PO yang dibayar tanpa GRN flow tetap akan punya jurnal AP, tapi AP-nya kosong → operator perlu jurnal manual penyesuaian. Untuk alur normal yang lewat GRN, jurnal sekarang benar otomatis.)
+
+### [2026-05-25] — Hub procurement-akuntansi-pajak-keuangan: integrasi event-driven full
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/event-bus/types.ts`, `lib/event-bus/event-handlers.ts`, `modules/procurement`, `modules/inventory`, `modules/accounting`, `modules/tax`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya integrasi 4 modul cuma satu titik (PO dibayar → accounting + tax). GRN dan RTV tidak punya efek lintas modul → operator harus input stok manual ke modul inventory dan jurnal Persediaan/AP tidak otomatis. Sekarang ada 3 event procurement baru: `GOODS_RECEIPT_CREATED`, `GOODS_RETURN_SENT`, `PURCHASE_REQUEST_APPROVED` dengan payload lengkap (item-level, harga, faktur pajak). Handler yang ter-register: (1) **Inventory**: GRN auto-increment `BarangGudang.stok` & `stokBaru`, RTV auto-decrement. Idempotent via upsert. (2) **Accounting**: GRN bikin jurnal Dr Persediaan / Cr Hutang Usaha, RTV bikin jurnal kebalikan. Pakai COA `UTANG_USAHA` (2-100) yang sudah ada di default mapping. JournalSource enum ditambah `AUTO_GRN_CREATED` & `AUTO_RTV_SENT` (migrasi DB). (3) **Tax**: `PpnService` dan `BhpUsoService` dimigrasi pakai pattern hybrid — prefer `TaxRateConfig.findByCode()`, fallback ke field legacy `TaxConfig.ppnRate`/`bhpRate`/`usoRate`. Ini menyatukan single source of truth tarif: ubah di `/admin/pajak/konfigurasi` tab "Tarif Pajak per Jenis", semua modul (procurement, finance, payroll) ikut. Procurement publish event setelah create di `GoodsReceiptService` dan `GoodsReturnService`. CoaResolver ditambah `resolveGoodsReceiptCreatedCoa` dan `resolveGoodsReturnSentCoa` — resolver lama PO_PAID dibiarkan untuk backward compat (jurnal akan sedikit duplicate sementara, bisa dirapihkan saat migrasi penuh).
+- **Files**: `lib/event-bus/types.ts`, `lib/event-bus/event-handlers.ts`, `modules/procurement/services/GoodsReceiptService.ts`, `modules/procurement/services/GoodsReturnService.ts`, `modules/inventory/services/event-handlers/goods-receipt-inventory.handler.ts`, `modules/inventory/services/event-handlers/goods-return-inventory.handler.ts`, `modules/inventory/index.ts`, `modules/accounting/services/event-handlers/goods-receipt-created-accounting.handler.ts`, `modules/accounting/services/event-handlers/goods-return-sent-accounting.handler.ts`, `modules/accounting/services/event-handlers/coa-resolver.ts`, `modules/accounting/domain/entities/JournalEntry.ts`, `modules/accounting/index.ts`, `modules/tax/services/PpnService.ts`, `modules/tax/services/BhpUsoService.ts`, `modules/tax/index.ts`, `prisma/schema.prisma`
+- **Migration**: `20260525000000_add_journal_source_grn_rtv`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-25] — Konfigurasi pajak: pisah jadi 2 tab (Identitas + Tarif per Jenis)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pajak/konfigurasi/KonfigurasiPajakClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya semua section (Identitas Perusahaan, Tarif legacy, Jatuh Tempo, dan card Tarif per Jenis) ditumpuk vertikal — page jadi panjang dan campur antara identitas pelapor pajak vs konfigurasi tarif. Sekarang dipisah dengan tab: **Tab "Identitas Perusahaan"** berisi NPWP, nama, status PKP + tarif legacy + jatuh tempo (yang masih dipakai service `PpnService`/`BhpUsoService`/`TaxReminderService` selama belum migrasi penuh). **Tab "Tarif Pajak per Jenis"** berisi card per jenis pajak (PPN, PPh21, PPh23 Jasa+Sewa, PPh4(2), BHP, USO) — sumber kebenaran baru untuk konsumen modul lain (procurement, finance, payroll). Tarif legacy dikasih hint kuning yang mengarahkan ke tab kedua.
+- **Files**: `app/admin/pajak/konfigurasi/KonfigurasiPajakClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-25] — Tarif pajak: rombak UI ke card per jenis (PPN/PPh21/PPh23/PPh4(2)/BHP/USO)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pajak/konfigurasi/TarifPajakFleksibelSection.tsx`
+- **Author**: agent
+- **Deskripsi**: Versi awal pakai 1 tabel CRUD generic — terlalu generik, user harus pilih kategori/code sendiri saat tambah tarif. Diganti jadi card terpisah per jenis pajak (PPN, PPh 21, PPh 23 dengan dua tarif Jasa+Sewa, PPh 4(2), BHP, USO) dengan field yang sesuai konteks: PPN/PPh pakai jatuh tempo tanggal, BHP/USO pakai jatuh tempo bulan ke- (tahunan). Backend `TaxRateConfig` dan API yang sudah dibuat tetap dipakai — perubahan hanya UI. Kode tarif (`PPN`, `PPH21`, `PPH23_JASA`, dst.) eksplisit ditampilkan di tiap row supaya developer modul lain tahu cara lookup-nya. Inline edit per row, tidak ada modal.
+- **Files**: `app/admin/pajak/konfigurasi/TarifPajakFleksibelSection.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Tarif pajak fleksibel: tenant bisa CRUD jenis pajak custom
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/tax`, `app/api/admin/tax/rate-configs`, `app/admin/pajak/konfigurasi`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya konfigurasi tarif pajak hardcoded sebagai kolom di `TaxConfig` (ppnRate, pph23RateJasa, pph23RateSewa, pph4Rate, bhpRate, usoRate, ksoRate). Untuk menambah jenis pajak baru (mis. PPh 26 vendor LN, retribusi daerah) harus migration + ubah schema + ubah service. Sekarang ada model baru `TaxRateConfig` (id/code/name/category/rate/dueDay/dueMonth/isActive/description/sortOrder) per-tenant — tenant bebas CRUD via UI di `/admin/pajak/konfigurasi`. **TaxConfig lama tetap ada** untuk backward compatibility selama transisi: `PpnRateResolver` prefer `TaxRateConfig` (code `PPN`) dan fallback ke `TaxConfig.ppnRate` kalau row belum ada. Seed otomatis 7 tarif default (PPN, PPH23_JASA, PPH23_SEWA, PPH4_FINAL, PPH21, BHP, USO) yang nilainya diambil dari `TaxConfig` existing kalau ada — zero data loss.
+- **Files**: `prisma/schema.prisma`, `prisma/migrations/20260524140000_add_tax_rate_configs/migration.sql`, `prisma/seed-tax-rate-configs.ts`, `modules/tax/domain/entities/TaxRateConfig.ts`, `modules/tax/domain/ports/ITaxRateConfigRepository.ts`, `modules/tax/repositories/TaxRateConfigRepository.ts`, `modules/tax/services/TaxRateConfigService.ts`, `modules/tax/services/PpnRateResolver.ts`, `modules/tax/index.ts`, `app/api/admin/tax/rate-configs/route.ts`, `app/api/admin/tax/rate-configs/[id]/route.ts`, `app/admin/pajak/konfigurasi/TarifPajakFleksibelSection.tsx`, `app/admin/pajak/konfigurasi/KonfigurasiPajakClient.tsx`
+- **Migration**: `20260524140000_add_tax_rate_configs`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: dropdown kategori PPh consume single source dari tax module
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/tax`, `app/admin/procurement/suppliers/SupplierForm.tsx`, `app/admin/procurement/suppliers/SupplierListClient.tsx`, `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya list kategori PPh dan label-nya di-hardcode di **3 tempat** (SupplierForm, SupplierListClient, PurchaseOrderCreateClient) dengan format yang sedikit beda — "Jasa (PPh 23)" vs "Jasa (PPh 23 — 2%)". Risiko: kalau ada penambahan kategori baru (mis. PPh 26 vendor luar negeri) atau perubahan tarif, harus update di 3 tempat dan rentan inkonsisten. Tax module sudah punya `PphClassification` type sebagai source kebenaran, tapi belum expose sebagai opsi UI. Refactor: tambah `PPH_OPTIONS` (dengan `value/label/rateLabel`), `PPH_LABEL` (display map), dan helper `getPphLabel()` di `modules/tax/services/PphClassifier.ts` sebagai single source of truth. Export via `@/modules/tax`. Tiga file procurement consume dari sini, hapus konstanta lokal. Tambah kategori baru → cukup edit 1 file di tax, semua dropdown otomatis ikut.
+- **Files**: `modules/tax/services/PphClassifier.ts`, `modules/tax/index.ts`, `app/admin/procurement/suppliers/SupplierForm.tsx`, `app/admin/procurement/suppliers/SupplierListClient.tsx`, `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Tambah seed data sample untuk modul Procurement
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/seed-procurement.ts`
+- **Author**: agent
+- **Deskripsi**: Database lokal kosong di sisi Procurement (suppliers/GRN/RTV = 0) sehingga UI hanya menampilkan empty state dan tidak bisa diuji ujung-ke-ujung. Tambah seed standalone idempotent yang membuat 5 supplier ISP-relevan (FO cable, network gear, kabel optik, dll. dengan kode `SUP-001..SUP-005`), me-link semua PO yang belum punya supplier ke salah satu supplier baru, membuat 1 GRN dari PO berstatus RECEIVED, dan 1 RTV dari GRN tersebut (alasan DAMAGED). Aman di-run berulang karena cek existence berdasarkan kode unik. Run via `IS_SEEDING=true npx tsx prisma/seed-procurement.ts`.
+- **Files**: `prisma/seed-procurement.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: polish border supaya tidak ada "garis hitam" di tabel & form
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/procurement/**`
+- **Author**: agent
+- **Deskripsi**: Banyak page procurement pakai class `border` plain tanpa color spec — di Tailwind v4 default-nya `currentColor` dan kelihatan seperti garis hitam pekat di card, fieldset, input, button, dan separator. Sweep menyeluruh ganti jadi `border-gray-100/200` (light) + `border-gray-700/800` (dark) sesuai konteks: card/fieldset pakai `border-gray-100` (subtle), input pakai `border-gray-100`, button secondary & pagination pakai `border-gray-200`, separator/divider pakai `border-gray-100 dark:border-gray-800`. Container & section di-upgrade ke `rounded-2xl shadow-sm` agar konsisten dengan `ProcurementListCard` yang sudah ada. Thead tabel diseragamkan ke `bg-gray-50/80 dark:bg-gray-800/60`. Constant `PROCUREMENT_INPUT_CLASS` & `HeaderActionButton` di `_components/ProcurementPageShell.tsx` juga ikut di-soften (border-gray-200 → border-gray-100/border-gray-300 → border-gray-200) supaya semua page yang konsumsi helper ini langsung halus tanpa perubahan tambahan.
+- **Files**: `app/admin/procurement/_components/ProcurementPageShell.tsx`, `app/admin/procurement/page.tsx`, `app/admin/procurement/market-price/MarketPriceClient.tsx`, `app/admin/procurement/approval-thresholds/ApprovalThresholdClient.tsx`, `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`, `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`, `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`, `app/admin/procurement/purchase-requests/ProcurementPRListClient.tsx`, `app/admin/procurement/goods-receipts/GoodsReceiptListClient.tsx`, `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`, `app/admin/procurement/goods-receipts/[id]/GoodsReceiptDetailClient.tsx`, `app/admin/procurement/goods-returns/GoodsReturnListClient.tsx`, `app/admin/procurement/goods-returns/create/GoodsReturnCreateClient.tsx`, `app/admin/procurement/goods-returns/[id]/GoodsReturnDetailClient.tsx`, `app/admin/procurement/suppliers/SupplierListClient.tsx`, `app/admin/procurement/suppliers/SupplierForm.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix Next.js 15 sync dynamic API: params Promise di 3 page detail procurement
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/procurement/purchase-orders/[id]`, `app/admin/procurement/goods-receipts/[id]`, `app/admin/procurement/goods-returns/[id]`
+- **Author**: agent
+- **Deskripsi**: Tiga page detail procurement masih pakai pola lama `params: { id: string }` lalu akses langsung `params.id`. Di Next.js 15, `params` adalah Promise dan harus di-`await` dulu — pola lama memicu warning `Route used \`params.id\`. \`params\` is a Promise...` dan request ke API jadi `/.../undefined` (404). Migrasi ke pola Next 15 yang sudah konsisten dipakai di page lain (mis. `suppliers/[id]/page.tsx`): `params: Promise<{ id: string }>` lalu `const { id } = await params;`.
+- **Files**: `app/admin/procurement/purchase-orders/[id]/page.tsx`, `app/admin/procurement/goods-receipts/[id]/page.tsx`, `app/admin/procurement/goods-returns/[id]/page.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix error /api/acs/devices: graceful degradation saat GenieACS unreachable
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network/services/AcsDeviceService.ts`, `app/api/acs/devices/route.ts`, `lib/api-response.ts`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya ketika server GenieACS tidak running atau unreachable, axios throw error yang `error.message`-nya kosong → log cuma menampilkan `[ERROR] Error fetching ACS devices:` tanpa konteks dan response 500 Internal Server Error (padahal ini external service issue). Sekarang `AcsDeviceService.listDevices()` membungkus axios call dengan try/catch dan helper `describeAcsError()` yang menerjemahkan axios error code (`ECONNREFUSED`, `ENOTFOUND`, `ETIMEDOUT`, dll.) jadi pesan user-friendly + log struktural berisi `code`, `status`, `url`. Route `/api/acs/devices` disederhanakan: tidak ada try/catch lagi (service sudah return Result), dan response code-nya jadi 502 Bad Gateway lewat helper baru `ApiErrors.badGateway()` (pakai `EXTERNAL_SERVICE_ERROR` code yang sudah ada di `ErrorCodes`).
+- **Files**: `modules/network/services/AcsDeviceService.ts`, `app/api/acs/devices/route.ts`, `lib/api-response.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Senyapkan log `System context elevated` di hot loop
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/tenant-context.ts`, `lib/event-bus/outbox-processor.ts`, `modules/notification/services/PushRetryQueue.ts`
+- **Author**: agent
+- **Deskripsi**: `runAsSystemContext()` sebelumnya selalu menulis `[INFO] [TENANT_CONTEXT] System context elevated: ...` setiap kali dipanggil. Untuk caller bootstrap (sekali jalan) ini berguna, tapi untuk caller polling (`outbox-processor.poll` tiap 5s, `PushRetryQueue.processRetryQueue` tiap 30s) jadi spam — ~12 baris/menit hanya untuk outbox. Sekarang `runAsSystemContext()` menerima opsi opsional `{ silent?: boolean }`; dua caller polling tersebut diset `silent: true`. Caller bootstrap (RadiusMonitor, MikroTikMonitor, event-bus.initialize.rehydrate, dst.) tetap log seperti biasa untuk audit trail.
+- **Files**: `lib/tenant-context.ts`, `lib/event-bus/outbox-processor.ts`, `modules/notification/services/PushRetryQueue.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix shared Redis client biar self-heal saat koneksi putus
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/redis.ts`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya `retryStrategy` give up setelah 3 attempt → kalau Redis sempat putus (mis. dev server crash setengah jalan, container restart), shared client masuk state `end` permanen tanpa self-heal. Akibatnya cron lock tiap menit melempar `Stream isn't writeable and enableOfflineQueue options is false` sampai proses Node di-restart manual. Sekarang `retryStrategy` infinite dengan exponential backoff (cap 5 detik), ditambah `reconnectOnError` untuk `READONLY`/`ECONNRESET`/`ETIMEDOUT`, `keepAlive: 30s`, dan event listener (`error`/`reconnecting`/`ready`) untuk visibility. `maxRetriesPerRequest: 2` dan `enableOfflineQueue: false` tetap dijaga supaya rate limiter & login flow tetap fail-fast saat Redis benar-benar down. Tambahan: `server.ts` sekarang eager-connect shared Redis client setelah bootstrap event bus tapi sebelum `cronRegistry.startAll()` — tanpa ini, cron tick pertama (menit pertama setelah startup) bisa kena race dengan `lazyConnect: true` dan melempar error yang sama walau hanya di first-tick.
+- **Files**: `lib/redis.ts`, `server.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: haluskan styling tabel & input filter
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Tambah komponen `ProcurementListCard` (rounded-2xl + shadow
+  lembut) dan konstanta `PROCUREMENT_INPUT_CLASS` (input rounded-xl + ring
+  fokus indigo) di `_components/ProcurementPageShell.tsx`. Refactor 6
+  halaman list (Supplier, PO, PR, GRN, RTV, Approval Threshold) supaya:
+  pakai card pembungkus tabel yang konsisten, ganti `<tbody>` ke
+  `divide-y divide-gray-100` (garis baris halus, bukan `border-t` keras),
+  ganti input/select filter ke `PROCUREMENT_INPUT_CLASS` (rounded penuh,
+  ring fokus indigo, support dark mode). Form Approval Threshold dijadikan
+  card dengan style yang sama. Tujuan: tampilan procurement match dengan
+  modul Inventory/Restock yang sudah pakai pattern visual modern.
+- **Files**: `app/admin/procurement/_components/ProcurementPageShell.tsx`,
+  `app/admin/procurement/suppliers/SupplierListClient.tsx`,
+  `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`,
+  `app/admin/procurement/purchase-requests/ProcurementPRListClient.tsx`,
+  `app/admin/procurement/goods-receipts/GoodsReceiptListClient.tsx`,
+  `app/admin/procurement/goods-returns/GoodsReturnListClient.tsx`,
+  `app/admin/procurement/approval-thresholds/ApprovalThresholdClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: refactor PO pages ke ProcurementPageShell
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/procurement/purchase-orders`
+- **Author**: agent
+- **Deskripsi**: Refactor 3 halaman Purchase Order (list, create, detail/edit)
+  agar pakai `ProcurementPageShell` yang sama dengan halaman procurement
+  lain. Sebelumnya PO list tampilannya beda (tidak ada back button, layout
+  `p-6` polos, no dark mode), PO create pakai inline header sendiri, PO
+  detail punya stack tombol custom di header. Sekarang ketiganya konsisten
+  dengan modul Inventory dan halaman procurement lain — header bold,
+  subtitle status, back button, slot actions, dark mode aware.
+- **Files**:
+  `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`,
+  `app/admin/procurement/purchase-orders/create/PurchaseOrderCreateClient.tsx`,
+  `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Aktifkan Turbopack filesystem cache untuk dev
+
+- **Tipe**: [CHANGED]
+- **Scope**: `next.config.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah `experimental.turbopackFileSystemCacheForDev: true` agar hasil compile Turbopack di-persist ke disk, bukan in-memory only. Restart dev jadi jauh lebih cepat karena tidak compile dari nol. Catatan: flag `turbopackTreeShaking`, `turbopackRemoveUnusedImports`, dan `turbopackRemoveUnusedExports` sempat dicoba tapi memicu Rust panic "index out of bounds" di Next 16.2.2 (bug upstream Turbopack di `tree_shake/graph.rs:743`) — tidak dipakai, re-evaluasi saat upgrade Next.
+- **Files**: `next.config.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix dev server lambat & OOM (Turbopack opt-in + heap 8GB)
+
+- **Tipe**: [FIXED]
+- **Scope**: `next.config.ts`, `server.ts`, `package.json`
+- **Author**: agent
+- **Deskripsi**: Dev server `npm run dev` lemot (cold start lama) dan crash OOM saat first compile. Root cause: (1) custom server programmatic Next 16 tidak auto-enable Turbopack — perlu opsi `turbopack: true` eksplisit; (2) `output: "standalone"` + `outputFileTracingIncludes` (40+ pattern) aktif di dev, padahal hanya relevan untuk Docker production build; (3) `webpack.config.parallelism = 1` & `splitChunks` paksa single-thread + chunking di dev; (4) `NODE_OPTIONS` dev tidak punya `--max-old-space-size`, heap default 4GB habis saat compile project 4096 file TS + 4 Prisma client → JavaScript heap OOM. Cache `.next/dev` juga membengkak ke 21GB → dibersihkan. Hasil: cold start 10s, first compile 4.2s, hit kedua 66ms (sebelumnya OOM crash >68s).
+- **Files**: `next.config.ts`, `server.ts`, `package.json`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Accel-PPP UI: align ke template MikroTik (dark mode + ResponsiveTable)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/network/accel-ppp/`
+- **Author**: agent
+- **Deskripsi**: Rewrite seluruh UI modul accel-ppp agar konsisten dengan
+  template halaman lain (MikroTik sebagai reference):
+  - **List page**: pakai `ResponsiveTable` (responsive desktop+mobile,
+    column priority), heading 2xl bold, info banner biru, status pill
+    online/offline, tombol action dengan icon `react-icons/hi2`,
+    full dark mode support.
+  - **Form**: layout card putih dengan border, section grouping
+    (Identitas Server / Kredensial RADIUS / Akses CLI), input style
+    konsisten, button cancel+submit di bawah dengan separator.
+  - **Detail page**: header dengan back button, status pill di sebelah
+    nama, 4 summary card (User Online, Cek Terakhir, Auth Port, Acct
+    Port), tab navigation underline-style. Tab Sessions Live pakai
+    `ResponsiveTable` dengan kolom username, interface, IP, calling SID,
+    type, comp, state pill, uptime, dan action kick.
+  - **Disabled page**: card warning amber dengan icon, instruksi
+    aktivasi yang jelas, link ke pengaturan.
+  - Icon `HiOutlineCpuChip` di-register ke `adminSidebarIconMap` agar
+    muncul di sidebar.
+- **Files**:
+  `app/admin/network/accel-ppp/AccelPppServerList.tsx`,
+  `app/admin/network/accel-ppp/AccelPppServerForm.tsx`,
+  `app/admin/network/accel-ppp/[id]/AccelPppServerDetail.tsx`,
+  `app/admin/network/accel-ppp/disabled/page.tsx`,
+  `components/layout/admin-sidebar/adminSidebarIcons.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: fix React warning toast.error during render
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Pindahkan pemanggilan `toast.error()` dari blok render ke
+  `useEffect` di 6 list client component (`SupplierListClient`,
+  `PurchaseOrderListClient`, `ProcurementPRListClient`,
+  `GoodsReceiptListClient`, `GoodsReturnListClient`,
+  `ApprovalThresholdClient`). Sebelumnya pola `if (error) toast.error(...)` di
+  body komponen memicu warning React "Cannot update a component while
+  rendering a different component" karena toaster (`react-hot-toast`)
+  dispatch setState saat parent component sedang render.
+- **Files**: `app/admin/procurement/suppliers/SupplierListClient.tsx`,
+  `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`,
+  `app/admin/procurement/purchase-requests/ProcurementPRListClient.tsx`,
+  `app/admin/procurement/goods-receipts/GoodsReceiptListClient.tsx`,
+  `app/admin/procurement/goods-returns/GoodsReturnListClient.tsx`,
+  `app/admin/procurement/approval-thresholds/ApprovalThresholdClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix: seed permission accel_ppp + sidebar visibility
+
+- **Tipe**: [FIXED]
+- **Scope**: `scripts/seed-accel-ppp-permissions.sql`, `docs/guides/accel-ppp-setup.md`
+- **Author**: agent
+- **Deskripsi**: Walau resource `accel_ppp` sudah ditambah ke
+  `PERMISSION_GROUPS.NETWORK` di `lib/permission-config.ts`, environment
+  yang sudah pernah seeded sebelumnya tidak otomatis punya permission
+  baru di DB. Akibatnya sidebar tetap menyembunyikan menu Accel-PPP
+  walau Full RADIUS Mode sudah ON—`hasMenuPermission` resolve
+  `accel_ppp:read` tidak match permission user.
+  - **Akar masalah**: dependency dua arah—(1) modul perlu permission
+    seeded ke DB, (2) permission user perlu diassign ke role. Tanpa
+    re-seed, tidak ada keduanya.
+  - **Fix**: tambah script idempotent
+    `scripts/seed-accel-ppp-permissions.sql` yang insert 5 permission
+    `accel_ppp:*` ke tabel `Permission` per tenant lalu auto-assign ke
+    role `isSuperAdmin = true`. Aman dijalankan berkali-kali. Setup
+    guide diupdate dengan instruksi pemakaian.
+  - **Catatan operasional**: setelah run script, **user harus logout-
+    login ulang** karena permission di-cache di session token NextAuth.
+- **Files**:
+  `scripts/seed-accel-ppp-permissions.sql`,
+  `docs/guides/accel-ppp-setup.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Procurement: standardisasi UI shell + fix Market Price 404
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Tambah komponen `ProcurementPageShell` reusable di
+  `_components/` sebagai template UI standar untuk seluruh halaman
+  procurement (max-w-7xl container, header `text-2xl font-bold` dengan
+  subtitle, support dark mode, tombol back, slot actions). Refactor 9
+  halaman procurement existing (landing, supplier list/form, PR list, PO
+  detail link, GRN list/create/detail, RTV list/create/detail, approval
+  threshold) supaya konsisten dengan modul Inventory. Halaman Market Price
+  yang sebelumnya `notFound()` (404 saat diklik dari sidebar) diganti
+  dengan placeholder client component informatif yang memakai shell yang
+  sama. Permission `market_price:read` di-enforce sebelum render.
+- **Files**: `app/admin/procurement/_components/ProcurementPageShell.tsx`,
+  `app/admin/procurement/page.tsx`,
+  `app/admin/procurement/market-price/page.tsx`,
+  `app/admin/procurement/market-price/MarketPriceClient.tsx`,
+  `app/admin/procurement/suppliers/SupplierListClient.tsx`,
+  `app/admin/procurement/suppliers/SupplierForm.tsx`,
+  `app/admin/procurement/purchase-requests/ProcurementPRListClient.tsx`,
+  `app/admin/procurement/goods-receipts/GoodsReceiptListClient.tsx`,
+  `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`,
+  `app/admin/procurement/goods-receipts/[id]/GoodsReceiptDetailClient.tsx`,
+  `app/admin/procurement/goods-returns/GoodsReturnListClient.tsx`,
+  `app/admin/procurement/goods-returns/create/GoodsReturnCreateClient.tsx`,
+  `app/admin/procurement/goods-returns/[id]/GoodsReturnDetailClient.tsx`,
+  `app/admin/procurement/approval-thresholds/ApprovalThresholdClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-05-24] — Fix kritis: FULL_RADIUS_MODE storage scope (write-vs-read mismatch)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings/services/fullRadiusModeSettings.ts`
+- **Author**: agent
+- **Deskripsi**: Bug kritis: toggle Full RADIUS Mode di pengaturan tampak
+  berhasil di UI tapi `requireFullRadiusMode()` tetap menolak (403) karena
+  read & write **tidak konsisten** dalam scope storage.
+  - **Akar masalah**: `setFullRadiusMode` lama panggil
+    `SettingsRepository.upsertMany` yang hardcoded pakai `prisma`
+    (tenant-isolated client). Prisma extension `withTenantIsolation`
+    auto-inject `tenantId = user.tenantId` ke `applyTenantToCreateData`,
+    sehingga row tersimpan per-tenant — bukan global. Sebaliknya
+    `getFullRadiusMode` panggil `findManyByKeys` tanpa tenantId →
+    `resolveSettingsClient(undefined)` → `prismaAuth` → query
+    `WHERE tenantId IS NULL` → tidak match row tenant-scoped → return
+    false selamanya.
+  - **Fix**: `setFullRadiusMode` & `getFullRadiusMode` sekarang langsung
+    pakai `prismaAuth` (base client tanpa tenant isolation extension),
+    eksplisit set/cari `tenantId: null`. Setting ini system-wide; tidak
+    tepat di-scope per tenant. JSDoc ditambah supaya developer berikutnya
+    paham kenapa repository pattern dilewati di sini.
+- **Files**: `modules/settings/services/fullRadiusModeSettings.ts`
+- **Breaking**: ❌ Tidak (interface getFullRadiusMode/setFullRadiusMode tidak
+  berubah; argument repository legacy dihapus dari signature publik—tapi
+  hanya dipakai internal & test, tidak tersentuh konsumen lain).
 
 ### [2026-05-24] — Stabilkan quality gate: lint, prisma boundary, dan test sinkronisasi
 
