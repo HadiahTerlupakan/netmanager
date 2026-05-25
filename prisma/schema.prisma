@@ -688,6 +688,14 @@ model AccelPppServer {
   cliPort         Int       @default(2001)
   cliPassword     String?
 
+  sshHost             String?
+  sshPort             Int       @default(22)
+  sshUser             String?
+  sshPassword         String?
+  sshPrivateKey       String?
+  lastProvisionAt     DateTime?
+  lastProvisionStatus String?
+
   pingStatus      String    @default("offline")
   userOnline      Int       @default(0)
   lastStatusCheck DateTime?
@@ -4359,6 +4367,8 @@ enum JournalSource {
   AUTO_PAYMENT
   AUTO_EXPENSE
   AUTO_PO_PAID
+  AUTO_GRN_CREATED
+  AUTO_RTV_SENT
   AUTO_COUPON_USED
   AUTO_MITRA_WITHDRAWAL
   AUTO_INVESTOR_PAYOUT
@@ -4585,18 +4595,7 @@ model TaxConfig {
   npwp          String?
   companyName   String?
   isPkp         Boolean  @default(false)
-  ppnRate       Decimal  @default(11) @db.Decimal(5, 2)
   ppnIncluded   Boolean  @default(false)
-  pph23RateJasa Decimal  @default(2) @db.Decimal(5, 2)
-  pph23RateSewa Decimal  @default(2) @db.Decimal(5, 2)
-  pph4Rate      Decimal  @default(10) @db.Decimal(5, 2)
-  bhpRate       Decimal  @default(0.5) @db.Decimal(5, 2)
-  usoRate       Decimal  @default(1.25) @db.Decimal(5, 2)
-  ksoRate       Decimal  @default(0) @db.Decimal(5, 2)
-  ppnDueDay     Int      @default(15)
-  pph21DueDay   Int      @default(10)
-  pph23DueDay   Int      @default(10)
-  bhpDueMonth   Int      @default(4)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -4693,6 +4692,43 @@ model TaxConfigHistory {
   @@index([tenantId, changedAt])
   @@index([tenantId, field])
   @@map("tax_config_histories")
+}
+
+/// Konfigurasi tarif pajak fleksibel per-tenant.
+///
+/// Sebelumnya tarif pajak (PPN, PPh 23, PPh 4(2), BHP, USO) di-hardcode
+/// sebagai kolom di `TaxConfig`. Sekarang setiap tenant bebas tambah/hapus
+/// jenis pajak custom (mis. PPh 26 vendor LN, retribusi daerah, dst).
+///
+/// `code` adalah identifier unik per-tenant yang dipakai oleh resolver di
+/// service layer (`getRateByCode`). Kode reserved yang dipakai default seed:
+/// `PPN`, `PPH23_JASA`, `PPH23_SEWA`, `PPH4_FINAL`, `BHP`, `USO`, `KSO`.
+model TaxRateConfig {
+  id          String              @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  category    TaxRateCategory
+  rate        Decimal             @db.Decimal(5, 2)
+  dueDay      Int?
+  dueMonth    Int?
+  isActive    Boolean             @default(true)
+  description String?
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, category])
+  @@index([tenantId, isActive])
+  @@map("tax_rate_configs")
+}
+
+enum TaxRateCategory {
+  PPN
+  PPH
+  BHP_USO
+  OTHER
 }
 
 // ============================================================

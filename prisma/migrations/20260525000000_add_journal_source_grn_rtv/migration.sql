@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "JournalSource" ADD VALUE 'AUTO_GRN_CREATED';
+ALTER TYPE "JournalSource" ADD VALUE 'AUTO_RTV_SENT';
