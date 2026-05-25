@@ -326,6 +326,75 @@ export class CronRegistry {
       .catch((err) =>
         logger.error("[CronRegistry] Failed to start Accel-PPP Monitor:", err),
       );
+
+    // Start Work Order SLA Monitor (Every 10 minutes)
+    import("../modules/work-order")
+      .then(({ runSlaMonitorCron }) => {
+        const slaMonitorTask = cron.schedule("*/10 * * * *", async () => {
+          if (!(await canRunCronJob("workOrderSlaMonitor", 540))) return;
+          await runCronTask("workOrderSlaMonitor", async () => {
+            try {
+              await runSlaMonitorCron();
+            } catch (err) {
+              logger.error("[Cron] Work order SLA monitor failed:", err);
+            }
+          });
+        });
+        this.tasks.set("workOrderSlaMonitor", slaMonitorTask);
+        logger.info(
+          "[CronRegistry] Work order SLA monitor cron scheduled (Every 10 minutes)",
+        );
+      })
+      .catch((err) =>
+        logger.error(
+          "[CronRegistry] Failed to start Work Order SLA Monitor:",
+          err,
+        ),
+      );
+
+    // Start AR Aging Snapshot (Daily at 23:55)
+    import("../modules/finance")
+      .then(({ getARAgingService }) => {
+        const arAgingTask = cron.schedule("55 23 * * *", async () => {
+          if (!(await canRunCronJob("arAgingSnapshot", 3300))) return;
+          await runCronTask("arAgingSnapshot", async () => {
+            try {
+              await getARAgingService().computeAndSave();
+            } catch (err) {
+              logger.error("[Cron] AR Aging snapshot failed:", err);
+            }
+          });
+        });
+        this.tasks.set("arAgingSnapshot", arAgingTask);
+        logger.info(
+          "[CronRegistry] AR Aging snapshot cron scheduled (Daily 23:55)",
+        );
+      })
+      .catch((err) =>
+        logger.error("[CronRegistry] Failed to start AR Aging Snapshot:", err),
+      );
+
+    // Start Revenue Snapshot (Daily at 23:58 — after AR Aging)
+    import("../modules/finance")
+      .then(({ getRevenueSnapshotService }) => {
+        const revenueSnapshotTask = cron.schedule("58 23 * * *", async () => {
+          if (!(await canRunCronJob("revenueSnapshot", 3300))) return;
+          await runCronTask("revenueSnapshot", async () => {
+            try {
+              await getRevenueSnapshotService().computeAndSave();
+            } catch (err) {
+              logger.error("[Cron] Revenue snapshot failed:", err);
+            }
+          });
+        });
+        this.tasks.set("revenueSnapshot", revenueSnapshotTask);
+        logger.info(
+          "[CronRegistry] Revenue snapshot cron scheduled (Daily 23:58)",
+        );
+      })
+      .catch((err) =>
+        logger.error("[CronRegistry] Failed to start Revenue Snapshot:", err),
+      );
   }
 
   public stopAll() {

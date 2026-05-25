@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-26] — Cron registry: daftarkan SLA monitor, AR aging, revenue snapshot
+
+- **Tipe**: [INFRA]
+- **Scope**: `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Daftarkan 3 cron job yang sebelumnya hanya tersedia sebagai HTTP endpoint manual ke `CronRegistry` (node-cron self-hosted scheduler) supaya jalan otomatis di production: `workOrderSlaMonitor` setiap 10 menit (TTL lock 540s), `arAgingSnapshot` harian jam 23:55 (TTL 3300s), `revenueSnapshot` harian jam 23:58 setelah AR aging (TTL 3300s). Semua pakai pola standar `canRunCronJob()` Redis lock + `runCronTask()` system context elevation, dengan dynamic import service untuk tree-shake.
+- **Files**: `lib/cron-registry.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-25] — Finance: Revenue snapshot + executive dashboard
 
 - **Tipe**: [ADDED]
