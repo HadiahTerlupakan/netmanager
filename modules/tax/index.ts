@@ -4,6 +4,7 @@
 import { TaxConfigRepository } from "./repositories/TaxConfigRepository";
 import { TaxTransactionRepository } from "./repositories/TaxTransactionRepository";
 import { TaxPeriodRepository } from "./repositories/TaxPeriodRepository";
+import { TaxRateConfigRepository } from "./repositories/TaxRateConfigRepository";
 import { TaxConfigService } from "./services/TaxConfigService";
 import { PpnService } from "./services/PpnService";
 import { PpnRateResolver } from "./services/PpnRateResolver";
@@ -13,6 +14,7 @@ import { TaxPeriodService } from "./services/TaxPeriodService";
 import { TaxReminderService } from "./services/TaxReminderService";
 import { TaxExportService } from "./services/TaxExportService";
 import { TaxTransactionService } from "./services/TaxTransactionService";
+import { TaxRateConfigService } from "./services/TaxRateConfigService";
 import { CoretaxExportAdapter } from "./services/CoretaxExportAdapter";
 
 // Factory functions (pre-wired with repositories)
@@ -25,17 +27,22 @@ export function getPpnService(): PpnService {
   return new PpnService(
     new TaxConfigRepository(),
     new TaxTransactionRepository(),
+    new TaxRateConfigRepository(),
   );
 }
 
 export function getPpnRateResolver(): PpnRateResolver {
-  return new PpnRateResolver(new TaxConfigRepository());
+  return new PpnRateResolver(
+    new TaxConfigRepository(),
+    new TaxRateConfigRepository(),
+  );
 }
 
 export function getPphService(): PphService {
   return new PphService(
     new TaxConfigRepository(),
     new TaxTransactionRepository(),
+    new TaxRateConfigRepository(),
   );
 }
 
@@ -43,6 +50,7 @@ export function getBhpUsoService(): BhpUsoService {
   return new BhpUsoService(
     new TaxConfigRepository(),
     new TaxTransactionRepository(),
+    new TaxRateConfigRepository(),
   );
 }
 
@@ -57,6 +65,7 @@ export function getTaxReminderService(): TaxReminderService {
   return new TaxReminderService(
     new TaxConfigRepository(),
     new TaxPeriodRepository(),
+    new TaxRateConfigRepository(),
   );
 }
 
@@ -65,6 +74,7 @@ export function getTaxExportService(): TaxExportService {
     new TaxTransactionRepository(),
     new TaxPeriodRepository(),
     new TaxConfigRepository(),
+    new TaxRateConfigRepository(),
   );
 }
 
@@ -79,10 +89,15 @@ export function getTaxTransactionService(): TaxTransactionService {
   return new TaxTransactionService(new TaxTransactionRepository());
 }
 
+export function getTaxRateConfigService(): TaxRateConfigService {
+  return new TaxRateConfigService(new TaxRateConfigRepository());
+}
+
 // Event handlers
 export { handleInvoiceCreatedTax } from "./services/event-handlers/invoice-created-tax.handler";
 export { handleExpenseApprovedTax } from "./services/event-handlers/expense-approved-tax.handler";
 export { handlePurchaseOrderPaidTax } from "./services/event-handlers/purchase-order-paid-tax.handler";
+export { handleGoodsReceiptCreatedTax } from "./services/event-handlers/goods-receipt-created-tax.handler";
 export { handleSalaryProcessedTax } from "./services/event-handlers/salary-processed-tax.handler";
 export { handleInvestorPayoutTax } from "./services/event-handlers/investor-payout-tax.handler";
 
@@ -106,12 +121,26 @@ export type {
 export { TaxConfigService } from "./services/TaxConfigService";
 export { PpnService } from "./services/PpnService";
 export { PpnRateResolver } from "./services/PpnRateResolver";
-export { classifyPph } from "./services/PphClassifier";
-export type { PphClassification } from "./services/PphClassifier";
+export {
+  classifyPph,
+  PPH_OPTIONS,
+  PPH_LABEL,
+  getPphLabel,
+} from "./services/PphClassifier";
+export type { PphClassification, PphOption } from "./services/PphClassifier";
 export { PphService } from "./services/PphService";
 export { BhpUsoService } from "./services/BhpUsoService";
 export { TaxPeriodService } from "./services/TaxPeriodService";
 export { TaxReminderService } from "./services/TaxReminderService";
 export { TaxExportService } from "./services/TaxExportService";
 export { TaxTransactionService } from "./services/TaxTransactionService";
+export { TaxRateConfigService } from "./services/TaxRateConfigService";
 export { CoretaxExportAdapter } from "./services/CoretaxExportAdapter";
+
+// Tax rate config types (boleh di-import dari client juga - pure types)
+export type {
+  TaxRateConfig,
+  TaxRateCategoryValue,
+  CreateTaxRateConfigInput,
+  UpdateTaxRateConfigInput,
+} from "./domain/entities/TaxRateConfig";

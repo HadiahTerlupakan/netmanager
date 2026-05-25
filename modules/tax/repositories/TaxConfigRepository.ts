@@ -2,25 +2,14 @@ import { prisma } from "@/lib/prisma";
 import type { TaxConfig } from "../domain/entities/TaxConfig";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
 
-/** Maps Prisma TaxConfig row to domain entity (Decimal → number) */
+/** Maps Prisma TaxConfig row to domain entity */
 function toDomain(row: {
   id: string;
   tenantId: string;
   npwp: string | null;
   companyName: string | null;
   isPkp: boolean;
-  ppnRate: unknown;
   ppnIncluded: boolean;
-  pph23RateJasa: unknown;
-  pph23RateSewa: unknown;
-  pph4Rate: unknown;
-  bhpRate: unknown;
-  usoRate: unknown;
-  ksoRate: unknown;
-  ppnDueDay: number;
-  pph21DueDay: number;
-  pph23DueDay: number;
-  bhpDueMonth: number;
   createdAt: Date;
   updatedAt: Date;
 }): TaxConfig {
@@ -30,18 +19,7 @@ function toDomain(row: {
     npwp: row.npwp,
     companyName: row.companyName,
     isPkp: row.isPkp,
-    ppnRate: Number(row.ppnRate),
     ppnIncluded: row.ppnIncluded,
-    pph23RateJasa: Number(row.pph23RateJasa),
-    pph23RateSewa: Number(row.pph23RateSewa),
-    pph4Rate: Number(row.pph4Rate),
-    bhpRate: Number(row.bhpRate),
-    usoRate: Number(row.usoRate),
-    ksoRate: Number(row.ksoRate),
-    ppnDueDay: row.ppnDueDay,
-    pph21DueDay: row.pph21DueDay,
-    pph23DueDay: row.pph23DueDay,
-    bhpDueMonth: row.bhpDueMonth,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

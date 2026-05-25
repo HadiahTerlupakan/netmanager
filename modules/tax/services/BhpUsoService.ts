@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import { getJournalPostingService } from "@/modules/accounting";
 import { CoaNotFoundError } from "@/modules/accounting";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
+import type { ITaxRateConfigRepository } from "../domain/ports/ITaxRateConfigRepository";
 import type { ITaxTransactionRepository } from "../domain/ports/ITaxTransactionRepository";
 
 const SOURCE = "BhpUsoService";
@@ -53,7 +54,31 @@ export class BhpUsoService {
   constructor(
     private readonly configRepo: ITaxConfigRepository,
     private readonly txnRepo: ITaxTransactionRepository,
+    private readonly rateConfigRepo: ITaxRateConfigRepository,
   ) {}
+
+  /**
+   * Resolve rate dari TaxRateConfig (single source of truth). Return 0
+   * kalau code tidak ada / inactive — interpretasi: kewajiban tidak
+   * berlaku untuk tenant ini (mis. ISP non-frequency-licensed).
+   */
+  private async getRate(
+    tenantId: string,
+    code: "BHP" | "USO",
+  ): Promise<number> {
+    try {
+      const rateConfig = await this.rateConfigRepo.findByCode(tenantId, code);
+      if (rateConfig && rateConfig.isActive) {
+        return rateConfig.rate;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn(
+        `[${SOURCE}] Gagal baca TaxRateConfig ${code} untuk tenant ${tenantId}: ${message}`,
+      );
+    }
+    return 0;
+  }
 
   /**
    * Calculate BHP/USO for all tenants for the previous month.
@@ -123,8 +148,8 @@ export class BhpUsoService {
       return { bhpAmount: 0, usoAmount: 0, revenue: 0 };
     }
 
-    const bhpRate = Number(config.bhpRate);
-    const usoRate = Number(config.usoRate);
+    const bhpRate = await this.getRate(tenantId, "BHP");
+    const usoRate = await this.getRate(tenantId, "USO");
 
     if (bhpRate === 0 && usoRate === 0) {
       logger.debug(

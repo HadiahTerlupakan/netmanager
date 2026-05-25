@@ -34,18 +34,7 @@ const updateConfigSchema = z.object({
   npwp: z.string().nullable().optional(),
   companyName: z.string().nullable().optional(),
   isPkp: z.boolean().optional(),
-  ppnRate: z.number().min(0).max(100).optional(),
   ppnIncluded: z.boolean().optional(),
-  pph23RateJasa: z.number().min(0).max(100).optional(),
-  pph23RateSewa: z.number().min(0).max(100).optional(),
-  pph4Rate: z.number().min(0).max(100).optional(),
-  bhpRate: z.number().min(0).max(100).optional(),
-  usoRate: z.number().min(0).max(100).optional(),
-  ksoRate: z.number().min(0).max(100).optional(),
-  ppnDueDay: z.number().int().min(1).max(31).optional(),
-  pph21DueDay: z.number().int().min(1).max(31).optional(),
-  pph23DueDay: z.number().int().min(1).max(31).optional(),
-  bhpDueMonth: z.number().int().min(1).max(12).optional(),
 });
 
 /**

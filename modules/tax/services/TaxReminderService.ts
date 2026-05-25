@@ -3,6 +3,7 @@ import type { TaxConfig, TaxType } from "../domain/entities/TaxConfig";
 import type { TaxPeriodSummary } from "../domain/entities/TaxPeriod";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
 import type { ITaxPeriodRepository } from "../domain/ports/ITaxPeriodRepository";
+import type { ITaxRateConfigRepository } from "../domain/ports/ITaxRateConfigRepository";
 
 /**
  * Handles tax payment deadline monitoring and penalty calculation.
@@ -12,6 +13,7 @@ export class TaxReminderService {
   constructor(
     private readonly taxConfigRepo: ITaxConfigRepository,
     private readonly periodRepo: ITaxPeriodRepository,
+    private readonly rateConfigRepo: ITaxRateConfigRepository,
   ) {}
 
   /** Check all tenants for due reminders. Called by daily cron. */
@@ -91,7 +93,7 @@ export class TaxReminderService {
     let sent = 0;
     let penalties = 0;
 
-    const checks = this.buildTaxChecks(config, summary, year, month);
+    const checks = await this.buildTaxChecks(config, summary, year, month);
 
     for (const check of checks) {
       if (check.status !== "BELUM_SETOR") continue;
@@ -142,16 +144,62 @@ export class TaxReminderService {
     return { sent, penalties };
   }
 
+  /**
+   * Resolve due day dari TaxRateConfig. Fallback ke default standar
+   * Indonesia bila code/dueDay tidak di-set.
+   */
+  private async getDueDay(
+    tenantId: string,
+    code: string,
+    fallback: number,
+  ): Promise<number> {
+    try {
+      const rateConfig = await this.rateConfigRepo.findByCode(tenantId, code);
+      if (rateConfig && rateConfig.isActive && rateConfig.dueDay !== null) {
+        return rateConfig.dueDay;
+      }
+    } catch {
+      // fallback
+    }
+    return fallback;
+  }
+
+  private async getDueMonth(
+    tenantId: string,
+    code: string,
+    fallback: number,
+  ): Promise<number> {
+    try {
+      const rateConfig = await this.rateConfigRepo.findByCode(tenantId, code);
+      if (rateConfig && rateConfig.isActive && rateConfig.dueMonth !== null) {
+        return rateConfig.dueMonth;
+      }
+    } catch {
+      // fallback
+    }
+    return fallback;
+  }
+
   /** Build list of tax type checks with their due dates and amounts */
-  private buildTaxChecks(
+  private async buildTaxChecks(
     config: TaxConfig,
     summary: TaxPeriodSummary,
     year: number,
     month: number,
-  ): TaxCheck[] {
+  ): Promise<TaxCheck[]> {
     // Due dates are in the month AFTER the tax period
     const dueYear = month === 12 ? year + 1 : year;
     const dueMonth = month === 12 ? 1 : month + 1;
+
+    const tenantId = config.tenantId;
+    const [ppnDueDay, pph21DueDay, pph23DueDay, pph4DueDay, bhpDueMonth] =
+      await Promise.all([
+        this.getDueDay(tenantId, "PPN", 15),
+        this.getDueDay(tenantId, "PPH21", 10),
+        this.getDueDay(tenantId, "PPH23_JASA", 10),
+        this.getDueDay(tenantId, "PPH4_FINAL", 10),
+        this.getDueMonth(tenantId, "BHP", 4),
+      ]);
 
     return [
       {
@@ -160,7 +208,7 @@ export class TaxReminderService {
         statusField: "ppnStatus",
         penaltyField: "ppnPenalty",
         amount: summary.ppnKurangBayar,
-        dueDate: new Date(dueYear, dueMonth - 1, config.ppnDueDay),
+        dueDate: new Date(dueYear, dueMonth - 1, ppnDueDay),
       },
       {
         taxType: "PPH_21" as TaxType,
@@ -168,7 +216,7 @@ export class TaxReminderService {
         statusField: "pph21Status",
         penaltyField: "pph21Penalty",
         amount: summary.pph21Total,
-        dueDate: new Date(dueYear, dueMonth - 1, config.pph21DueDay),
+        dueDate: new Date(dueYear, dueMonth - 1, pph21DueDay),
       },
       {
         taxType: "PPH_23" as TaxType,
@@ -176,23 +224,23 @@ export class TaxReminderService {
         statusField: "pph23Status",
         penaltyField: "pph23Penalty",
         amount: summary.pph23Total,
-        dueDate: new Date(dueYear, dueMonth - 1, config.pph23DueDay),
+        dueDate: new Date(dueYear, dueMonth - 1, pph23DueDay),
       },
       {
         taxType: "PPH_4_2" as TaxType,
         status: summary.pph4Status,
         statusField: "pph4Status",
-        penaltyField: "pph23Penalty", // PPh 4(2) shares penalty tracking with PPh 23 in schema
+        penaltyField: "pph23Penalty",
         amount: summary.pph4Total,
-        dueDate: new Date(dueYear, dueMonth - 1, config.pph23DueDay),
+        dueDate: new Date(dueYear, dueMonth - 1, pph4DueDay),
       },
       {
         taxType: "BHP" as TaxType,
         status: summary.bhpStatus,
         statusField: "bhpStatus",
-        penaltyField: "ppnPenalty", // BHP doesn't have dedicated penalty field; use ppnPenalty as placeholder
+        penaltyField: "ppnPenalty",
         amount: summary.bhpAccrual + summary.usoAccrual,
-        dueDate: new Date(year, config.bhpDueMonth - 1, 15), // BHP annual, due in configured month
+        dueDate: new Date(year, bhpDueMonth - 1, 15),
       },
     ];
   }

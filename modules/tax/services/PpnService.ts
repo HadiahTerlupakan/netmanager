@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import { getJournalPostingService } from "@/modules/accounting";
 import { CoaNotFoundError } from "@/modules/accounting";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
+import type { ITaxRateConfigRepository } from "../domain/ports/ITaxRateConfigRepository";
 import type { ITaxTransactionRepository } from "../domain/ports/ITaxTransactionRepository";
 import type { TaxTransaction } from "../domain/entities/TaxTransaction";
 
@@ -48,7 +49,23 @@ export class PpnService {
   constructor(
     private readonly configRepo: ITaxConfigRepository,
     private readonly txnRepo: ITaxTransactionRepository,
+    private readonly rateConfigRepo: ITaxRateConfigRepository,
   ) {}
+
+  /**
+   * Resolve PPN rate dari TaxRateConfig (single source of truth).
+   * Throw kalau TaxRateConfig PPN tidak ada / inactive — operator wajib
+   * setup di /admin/pajak/konfigurasi sebelum invoice/expense bisa diproses.
+   */
+  private async getPpnRate(tenantId: string): Promise<number> {
+    const rateConfig = await this.rateConfigRepo.findByCode(tenantId, "PPN");
+    if (!rateConfig || !rateConfig.isActive) {
+      throw new Error(
+        `Tarif PPN belum dikonfigurasi untuk tenant ${tenantId}. Setup di /admin/pajak/konfigurasi tab "Tarif Pajak per Jenis".`,
+      );
+    }
+    return rateConfig.rate;
+  }
 
   /**
    * Record PPN Keluaran for an invoice.
@@ -84,7 +101,7 @@ export class PpnService {
     }
 
     // 3. Calculate tax amount
-    const ppnRate = Number(config.ppnRate);
+    const ppnRate = await this.getPpnRate(params.tenantId);
     let taxAmount: number;
     if (config.ppnIncluded) {
       // DPP = invoiceAmount / (1 + rate/100), PPN = DPP * rate/100
@@ -180,7 +197,7 @@ export class PpnService {
     }
 
     // 3. Calculate tax amount
-    const ppnRate = Number(config.ppnRate);
+    const ppnRate = await this.getPpnRate(params.tenantId);
     let taxAmount: number;
     if (config.ppnIncluded) {
       const dpp = expenseAmount / (1 + ppnRate / 100);

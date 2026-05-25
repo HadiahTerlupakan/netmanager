@@ -3,21 +3,7 @@ import type { TaxConfig } from "../domain/entities/TaxConfig";
 import { DEFAULT_TAX_CONFIG } from "../domain/entities/TaxConfig";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
 
-const TRACKED_FIELDS = [
-  "ppnRate",
-  "ppnIncluded",
-  "isPkp",
-  "pph23RateJasa",
-  "pph23RateSewa",
-  "pph4Rate",
-  "bhpRate",
-  "usoRate",
-  "ksoRate",
-  "ppnDueDay",
-  "pph21DueDay",
-  "pph23DueDay",
-  "bhpDueMonth",
-] as const;
+const TRACKED_FIELDS = ["ppnIncluded", "isPkp"] as const;
 
 export class TaxConfigService {
   constructor(private readonly configRepo: ITaxConfigRepository) {}

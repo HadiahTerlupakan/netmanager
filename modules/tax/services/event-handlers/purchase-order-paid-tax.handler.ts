@@ -7,25 +7,25 @@ import {
   getPurchaseOrderRepository,
   getSupplierService,
 } from "@/modules/procurement";
-import { getPphService, getPpnService } from "../../index";
+import { getPphService } from "../../index";
 import { classifyPph } from "../PphClassifier";
 
 const SOURCE = "PurchaseOrderPaidTaxHandler";
 
 /**
- * Handles PURCHASE_ORDER_PAID event to record PPN Masukan dan PPh 23/4(2).
+ * Handles PURCHASE_ORDER_PAID event to record PPh 23/4(2).
+ *
+ * **Catatan timing:** PPN Masukan TIDAK dicatat di sini — sudah dipindah ke
+ * `handleGoodsReceiptCreatedTax` (saat GRN diterima). PPh tetap di sini
+ * karena pemotongan PPh terjadi saat pembayaran, bukan saat terima barang
+ * (per aturan DJP).
  *
  * Resolusi PPh:
  * 1. Supplier `defaultPphCategory` (jasa/sewa/sewa_tanah) — diambil via
  *    procurement public API (`getSupplierService`).
  * 2. PO tidak punya expense category, jadi tanpa fallback string-match.
  *
- * Resolusi PPN:
- * - PO punya `ppnAmount` & `ppnRate` eksplisit, plus optional `fakturPajakNo`,
- *   `fakturPajakDate`, `vendorNpwp` — dipakai sebagai metadata DJP claim.
- *   Bila `vendorNpwp` di PO kosong, fallback ke supplier.npwp dari master vendor.
- *
- * Skip silently jika tenant bukan PKP atau COA belum di-seed.
+ * Skip silently jika supplier tidak punya kategori PPh atau COA belum di-seed.
  */
 export async function handlePurchaseOrderPaidTax(
   job: Job<EventJobData>,
@@ -57,9 +57,7 @@ export async function handlePurchaseOrderPaidTax(
       : null;
 
     const grandTotal = Number(po.grandTotal);
-    const counterpartNpwp = po.vendorNpwp ?? supplier?.npwp ?? null;
 
-    // 1. Record PPh berdasarkan defaultPphCategory supplier
     const pphClassification = classifyPph({
       categoryType: "",
       categoryName: "",
@@ -93,21 +91,6 @@ export async function handlePurchaseOrderPaidTax(
         category: "jasa",
         expenseDate: entryDate,
         sourceRefType: "PurchaseOrder",
-      });
-    }
-
-    // 2. Record PPN Masukan jika PO punya komponen PPN
-    if (Number(po.ppnAmount) > 0) {
-      const ppnService = getPpnService();
-      await ppnService.recordPpnMasukan({
-        tenantId,
-        expenseId: purchaseOrderId,
-        expenseAmount: grandTotal,
-        expenseDate: entryDate,
-        sourceRefType: "PurchaseOrder",
-        fakturPajakNo: po.fakturPajakNo ?? null,
-        fakturPajakDate: po.fakturPajakDate ?? null,
-        counterpartNpwp,
       });
     }
   } catch (error) {

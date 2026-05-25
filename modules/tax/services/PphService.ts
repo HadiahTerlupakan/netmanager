@@ -6,6 +6,7 @@ import {
 } from "@/modules/accounting";
 import { CoaNotFoundError } from "@/modules/accounting";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
+import type { ITaxRateConfigRepository } from "../domain/ports/ITaxRateConfigRepository";
 import type { ITaxTransactionRepository } from "../domain/ports/ITaxTransactionRepository";
 import type { TaxTransaction } from "../domain/entities/TaxTransaction";
 
@@ -61,7 +62,28 @@ export class PphService {
   constructor(
     private readonly configRepo: ITaxConfigRepository,
     private readonly txnRepo: ITaxTransactionRepository,
+    private readonly rateConfigRepo: ITaxRateConfigRepository,
   ) {}
+
+  /**
+   * Resolve rate dari TaxRateConfig (single source of truth) untuk PPh.
+   * Fallback ke default standar Indonesia bila code tidak ditemukan.
+   */
+  private async getRate(
+    tenantId: string,
+    code: string,
+    fallback: number,
+  ): Promise<number> {
+    try {
+      const rateConfig = await this.rateConfigRepo.findByCode(tenantId, code);
+      if (rateConfig && rateConfig.isActive) {
+        return rateConfig.rate;
+      }
+    } catch {
+      // fallback
+    }
+    return fallback;
+  }
 
   /**
    * Record PPh 21 from salary — amount already calculated by salary module.
@@ -140,13 +162,12 @@ export class PphService {
       return existing;
     }
 
-    // 2. Get rate from config
-    const config = await this.configRepo.findByTenantId(tenantId);
+    // 2. Get rate from TaxRateConfig
     const rate =
       params.customRate ??
       (category === "jasa"
-        ? Number(config?.pph23RateJasa ?? 2)
-        : Number(config?.pph23RateSewa ?? 2));
+        ? await this.getRate(tenantId, "PPH23_JASA", 2)
+        : await this.getRate(tenantId, "PPH23_SEWA", 2));
 
     // 3. Calculate tax amount
     const taxAmount = Math.round(((amount * rate) / 100) * 100) / 100;
@@ -231,9 +252,9 @@ export class PphService {
       return existing;
     }
 
-    // 2. Get rate from config
-    const config = await this.configRepo.findByTenantId(tenantId);
-    const rate = params.customRate ?? Number(config?.pph4Rate ?? 10);
+    // 2. Get rate from TaxRateConfig
+    const rate =
+      params.customRate ?? (await this.getRate(tenantId, "PPH4_FINAL", 10));
 
     // 3. Calculate tax amount
     const taxAmount = Math.round(((amount * rate) / 100) * 100) / 100;

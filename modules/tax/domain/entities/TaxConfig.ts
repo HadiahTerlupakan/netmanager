@@ -10,24 +10,18 @@ export type TaxType =
 
 export type TaxDirection = "IN" | "OUT";
 
+/**
+ * TaxConfig sekarang hanya simpan **identitas perusahaan** untuk lapor pajak.
+ * Tarif dan jatuh tempo per jenis pajak pindah ke `TaxRateConfig` — single
+ * source of truth yang fleksibel per-tenant.
+ */
 export interface TaxConfig {
   id: string;
   tenantId: string;
   npwp: string | null;
   companyName: string | null;
   isPkp: boolean;
-  ppnRate: number;
   ppnIncluded: boolean;
-  pph23RateJasa: number;
-  pph23RateSewa: number;
-  pph4Rate: number;
-  bhpRate: number;
-  usoRate: number;
-  ksoRate: number;
-  ppnDueDay: number;
-  pph21DueDay: number;
-  pph23DueDay: number;
-  bhpDueMonth: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,16 +34,5 @@ export const DEFAULT_TAX_CONFIG: Omit<
   npwp: null,
   companyName: null,
   isPkp: false,
-  ppnRate: 11,
   ppnIncluded: false,
-  pph23RateJasa: 2,
-  pph23RateSewa: 2,
-  pph4Rate: 10,
-  bhpRate: 0.5,
-  usoRate: 1.25,
-  ksoRate: 0,
-  ppnDueDay: 15,
-  pph21DueDay: 10,
-  pph23DueDay: 10,
-  bhpDueMonth: 4,
 };

@@ -1,6 +1,7 @@
 import type { ITaxTransactionRepository } from "../domain/ports/ITaxTransactionRepository";
 import type { ITaxPeriodRepository } from "../domain/ports/ITaxPeriodRepository";
 import type { ITaxConfigRepository } from "../domain/ports/ITaxConfigRepository";
+import type { ITaxRateConfigRepository } from "../domain/ports/ITaxRateConfigRepository";
 import type { TaxTransaction } from "../domain/entities/TaxTransaction";
 
 const MONTH_NAMES = [
@@ -58,7 +59,28 @@ export class TaxExportService {
     private readonly txRepo: ITaxTransactionRepository,
     private readonly periodRepo: ITaxPeriodRepository,
     private readonly configRepo: ITaxConfigRepository,
+    private readonly rateConfigRepo: ITaxRateConfigRepository,
   ) {}
+
+  /**
+   * Resolve rate dari TaxRateConfig. Fallback ke nilai standar Indonesia
+   * jika code tidak ada (mis. tenant baru sebelum seed).
+   */
+  private async getRate(
+    tenantId: string,
+    code: string,
+    fallback: number,
+  ): Promise<number> {
+    try {
+      const rateConfig = await this.rateConfigRepo.findByCode(tenantId, code);
+      if (rateConfig && rateConfig.isActive) {
+        return rateConfig.rate;
+      }
+    } catch {
+      // fallback
+    }
+    return fallback;
+  }
 
   /** Export rekap PPN bulanan ke CSV string */
   async exportPpnCsv(
@@ -175,9 +197,8 @@ export class TaxExportService {
 
   /** Export rekap BHP/USO tahunan ke CSV string */
   async exportBhpUsoCsv(tenantId: string, year: number): Promise<string> {
-    const config = await this.configRepo.findByTenantId(tenantId);
-    const bhpRate = config?.bhpRate ?? 0.5;
-    const usoRate = config?.usoRate ?? 1.25;
+    const bhpRate = await this.getRate(tenantId, "BHP", 0.5);
+    const usoRate = await this.getRate(tenantId, "USO", 1.25);
 
     const headers = [
       "No",
