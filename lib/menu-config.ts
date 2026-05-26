@@ -876,6 +876,18 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineDevicePhoneMobile",
       },
       {
+        code: "PENGATURAN.APP_RELEASES",
+        name: "App Releases",
+        path: "/admin/app-releases",
+        icon: "HiOutlineCloud",
+      },
+      {
+        code: "PENGATURAN.FEATURE_FLAGS",
+        name: "Feature Flags",
+        path: "/admin/pengaturan/feature-flags",
+        icon: "HiOutlineAdjustmentsHorizontal",
+      },
+      {
         code: "PENGATURAN.BACKUP_DATABASE",
         name: "Backup Database",
         path: "/admin/pengaturan/backup",

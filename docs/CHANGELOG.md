@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-27] — Settings: app releases + feature flags hub di sidebar
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/pengaturan/feature-flags`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Tambah dua entry menu di group Pengaturan: (1) "App Releases" link ke `/admin/app-releases` (page existing untuk upload & manage APK release per platform yang sebelumnya tidak terdaftar di sidebar — hanya bisa diakses lewat URL langsung), dan (2) "Feature Flags" hub baru di `/admin/pengaturan/feature-flags` yang list semua tenant dengan search, klik tenant → arahkan ke halaman per-tenant existing `/admin/tenants/[id]/features`. Hub ini meminimalisir duplikasi UI: reuse halaman feature flag per-tenant yang sudah ada, hanya tambah entry point dari sidebar Pengaturan.
+- **Files**: `app/admin/pengaturan/feature-flags/page.tsx`, `app/admin/pengaturan/feature-flags/FeatureFlagsHubClient.tsx`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-26] — Incident: outage management + status page publik (MVP)
 
 - **Tipe**: [ADDED]
