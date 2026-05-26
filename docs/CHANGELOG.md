@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-27] — Registration: customer-facing status tracking page
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/registrasi/status/[id]`, `app/api/public/registration-status/[id]`, `app/register/page.tsx`
+- **Author**: agent
+- **Deskripsi**: Tambah status tracking page untuk customer yang sudah submit pendaftaran supaya bisa pantau progress tanpa hubungi admin. Page `/registrasi/status/[id]` minta verifikasi nomor telepon (cocok dengan yang didaftarkan untuk privacy), lalu tampilkan timeline progress dalam 4 stage (PENDING → VERIFIED → SURVEYED → INSTALLED) dengan visual stepper. State terminal REJECTED/CANCELLED ditampilkan dengan card terpisah berisi alasan. Auto-refresh 60 detik supaya customer tidak perlu reload manual. API publik `/api/public/registration-status/[id]` (no auth) cek match `phone` query param vs registered phone — return 404 kalau salah, jadi tidak leak info pendaftaran lain. Page `/register` di-update: setelah submit sukses, tangkap `registrationId` dari API response dan tampilkan tombol "Cek Status Pendaftaran" yang link ke status page sehingga customer langsung punya entry point.
+- **Files**: `app/registrasi/status/[id]/page.tsx`, `app/registrasi/status/[id]/RegistrationStatusClient.tsx`, `app/api/public/registration-status/[id]/route.ts`, `app/register/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-27] — Marketing: event integration approval + coupons analytics dashboard
 
 - **Tipe**: [ADDED]

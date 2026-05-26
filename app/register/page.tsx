@@ -43,6 +43,7 @@ interface CaptchaSettings {
 export default function RegistrationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -173,6 +174,7 @@ export default function RegistrationPage() {
       const data = await res.json();
 
       if (res.ok) {
+        setRegistrationId(data?.data?.id ?? null);
         setIsSuccess(true);
       } else {
         alert(data.error || "Terjadi kesalahan. Silakan coba lagi.");
@@ -200,6 +202,18 @@ export default function RegistrationPage() {
             melalui WhatsApp/Email untuk verifikasi data dan jadwal survei
             lokasi.
           </p>
+          {registrationId && (
+            <div className="mb-6 p-4 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl">
+              <p className="text-xs text-sky-700 dark:text-sky-300 mb-2">
+                Pantau progress pendaftaran Anda:
+              </p>
+              <Link href={`/registrasi/status/${registrationId}`}>
+                <Button variant="outline" size="lg" className="w-full">
+                  Cek Status Pendaftaran
+                </Button>
+              </Link>
+            </div>
+          )}
           <Link href="/">
             <Button size="lg" className="w-full">
               Kembali ke Beranda
