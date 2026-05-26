@@ -553,6 +553,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/marketing/coupons",
         icon: "HiOutlineTicket",
       },
+      {
+        code: "MARKETING.COUPON_ANALYTICS",
+        name: "Coupons Analytics",
+        path: "/admin/marketing/coupons/analytics",
+        icon: "HiOutlineChartBar",
+      },
     ],
   },
   {

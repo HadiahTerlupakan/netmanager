@@ -87,6 +87,19 @@ export class PointClaimService {
     });
     notifyApprovedClaim(claim);
     await addMitraCommissionIfEligible(approved, id);
+
+    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+    await eventBus.publish(EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED, {
+      claimId: approved.id,
+      canvasingId: approved.canvasingId,
+      salesId: approved.salesId,
+      reviewerId,
+      pointValue: approved.pointValue,
+      approvedAt: (approved.reviewedAt ?? new Date()).toISOString(),
+      tenantId: approved.tenantId ?? undefined,
+      triggeredBy: reviewerId,
+    });
+
     return MarketingMapper.toPointClaimDTO(approved);
   }
 

@@ -21,6 +21,7 @@ export const EVENT_CATEGORIES = {
   SYSTEM: "system",
   SALARY: "salary",
   USERS: "users",
+  MARKETING: "marketing",
 } as const;
 
 export type EventCategory =
@@ -57,6 +58,8 @@ export const EVENT_NAMES = {
   MITRA_WITHDRAWAL_COMPLETED: "mitra:withdrawal.completed",
   INVESTOR_PAYOUT_COMPLETED: "investor:payout.completed",
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
+  MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
+  MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
 
   // Customer Events
   CUSTOMER_CREATED: "customer:created",
@@ -457,6 +460,25 @@ export interface InvestorDepositCompletedPayload extends BaseEventPayload {
   completedAt: string;
 }
 
+export interface MarketingPointClaimApprovedPayload extends BaseEventPayload {
+  claimId: string;
+  canvasingId: string;
+  salesId: string;
+  reviewerId: string;
+  pointValue: number;
+  approvedAt: string;
+}
+
+export interface MarketingCanvasingApprovedPayload extends BaseEventPayload {
+  canvasingId: string;
+  salesId: string | null;
+  approverId: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  prospectName: string;
+  approvedAt: string;
+}
+
 export interface UserCreatedPayload extends BaseEventPayload {
   userId: string;
   tenantId: string;
@@ -534,6 +556,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
   [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
+  [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
+  [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
   [EVENT_NAMES.USER_UPDATED]: UserUpdatedPayload;
   [EVENT_NAMES.USER_DEACTIVATED]: UserDeactivatedPayload;
@@ -915,6 +939,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: {
     name: EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
     category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: {
+    name: EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED,
+    category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: {
+    name: EVENT_NAMES.MARKETING_CANVASING_APPROVED,
+    category: "marketing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,

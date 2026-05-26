@@ -3,6 +3,16 @@
 // Services (public)
 export { CouponService } from "./services/CouponService";
 export {
+  CouponAnalyticsService,
+  getCouponAnalyticsService,
+} from "./services/CouponAnalyticsService";
+export type {
+  CouponAnalyticsResult,
+  CouponAnalyticsSummary,
+  TopCoupon,
+  ExpiringCoupon,
+} from "./services/CouponAnalyticsService";
+export {
   couponService,
   createCouponService,
 } from "./services/CouponServiceFactory";

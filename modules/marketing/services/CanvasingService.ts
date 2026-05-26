@@ -153,6 +153,19 @@ export class CanvasingService {
       ),
     );
     notifyApprovedCanvasing(request, id, workOrder.workOrderNumber);
+
+    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+    await eventBus.publish(EVENT_NAMES.MARKETING_CANVASING_APPROVED, {
+      canvasingId: approved.id,
+      salesId: approved.salesId ?? null,
+      approverId: approverId,
+      workOrderId: workOrder.id,
+      workOrderNumber: workOrder.workOrderNumber,
+      prospectName: approved.nama,
+      approvedAt: (approved.approvedAt ?? new Date()).toISOString(),
+      triggeredBy: approverId,
+    });
+
     return MarketingMapper.toCanvasingDetailDTO(approved);
   }
 

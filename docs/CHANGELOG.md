@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-27] — Marketing: event integration approval + coupons analytics dashboard
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/event-bus/types.ts`, `modules/marketing/services`, `modules/coupons`, `app/admin/marketing/coupons/analytics`, `app/api/admin/coupons/analytics`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Dua peningkatan modul marketing yang sebelumnya backend-heavy tapi belum cross-module event-driven dan tidak punya analytics dashboard. (1) Event bus: tambah dua event domain baru `MARKETING_POINT_CLAIM_APPROVED` dan `MARKETING_CANVASING_APPROVED` (category baru "marketing", priority NORMAL, persistent), emit dari `PointClaimService.approveClaim` dan `CanvasingService.approveRequest` setelah update sukses. Payload mencakup id claim/canvasing, salesId, reviewerId/approverId, pointValue/workOrderNumber. Sekarang downstream module (finance/MRR, mitra commission, analytics) bisa subscribe event ini tanpa coupling langsung ke marketing. (2) Coupons analytics dashboard di `/admin/marketing/coupons/analytics`: 4 summary card (kupon aktif, akan kedaluwarsa 14 hari, pemakaian 30 hari, redemption rate + estimasi total diskon), top 10 kupon by usage dengan progress bar redemption, dan section warning kupon yang akan kedaluwarsa dengan visual urgency (≤3 hari merah, sisanya orange). Service `CouponAnalyticsService` aggregat dari `Coupon.usedCount`, `CouponUsage` events 30 hari, plus estimate diskon berdasarkan `discountType` (PERCENT pakai maxDiscount upper bound, FIXED pakai discountValue). Menu "Coupons Analytics" ditambahkan di group Marketing di sidebar.
+- **Files**: `lib/event-bus/types.ts`, `modules/marketing/services/PointClaimService.ts`, `modules/marketing/services/CanvasingService.ts`, `modules/coupons/services/CouponAnalyticsService.ts`, `modules/coupons/index.ts`, `app/api/admin/coupons/analytics/route.ts`, `app/admin/marketing/coupons/analytics/page.tsx`, `app/admin/marketing/coupons/analytics/CouponAnalyticsClient.tsx`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-27] — Settings: app releases + feature flags hub di sidebar
 
 - **Tipe**: [ADDED]
