@@ -22,6 +22,7 @@ export const EVENT_CATEGORIES = {
   SALARY: "salary",
   USERS: "users",
   MARKETING: "marketing",
+  INCIDENT: "incident",
 } as const;
 
 export type EventCategory =
@@ -60,6 +61,8 @@ export const EVENT_NAMES = {
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
+  INCIDENT_CREATED: "incident:created",
+  INCIDENT_RESOLVED: "incident:resolved",
 
   // Customer Events
   CUSTOMER_CREATED: "customer:created",
@@ -479,6 +482,25 @@ export interface MarketingCanvasingApprovedPayload extends BaseEventPayload {
   approvedAt: string;
 }
 
+export interface IncidentCreatedPayload extends BaseEventPayload {
+  incidentId: string;
+  title: string;
+  severity: "CRITICAL" | "MAJOR" | "MINOR";
+  affectedAreas: string[];
+  isPublic: boolean;
+  startedAt: string;
+  createdById: string | null;
+}
+
+export interface IncidentResolvedPayload extends BaseEventPayload {
+  incidentId: string;
+  title: string;
+  severity: "CRITICAL" | "MAJOR" | "MINOR";
+  durationMinutes: number;
+  resolvedAt: string;
+  resolvedById: string | null;
+}
+
 export interface UserCreatedPayload extends BaseEventPayload {
   userId: string;
   tenantId: string;
@@ -558,6 +580,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
+  [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
+  [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
   [EVENT_NAMES.USER_UPDATED]: UserUpdatedPayload;
   [EVENT_NAMES.USER_DEACTIVATED]: UserDeactivatedPayload;
@@ -953,6 +977,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: {
     name: EVENT_NAMES.MARKETING_CANVASING_APPROVED,
     category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INCIDENT_CREATED]: {
+    name: EVENT_NAMES.INCIDENT_CREATED,
+    category: "incident",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INCIDENT_RESOLVED]: {
+    name: EVENT_NAMES.INCIDENT_RESOLVED,
+    category: "incident",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,

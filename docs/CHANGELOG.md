@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-05-27] — Incident: event integration + MTTR analytics dashboard
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/event-bus/types.ts`, `modules/incident`, `app/api/admin/incidents/analytics`, `app/admin/incidents`
+- **Author**: agent
+- **Deskripsi**: Lanjutan dari incident MVP (commit `12728b306`) yang sebelumnya tag broadcast & MTTR sebagai deferred. (1) Event integration: tambah dua event domain `INCIDENT_CREATED` (priority HIGH) dan `INCIDENT_RESOLVED` (priority NORMAL) dengan category baru "incident" di EVENT_CATEGORIES. Emit otomatis dari `IncidentService.create` dan `addUpdate` saat status RESOLVED — payload `INCIDENT_RESOLVED` mencakup `durationMinutes` (resolvedAt - startedAt) supaya downstream module bisa hitung MTTR atau trigger SLA credit tanpa recompute. (2) MTTR analytics: method `getAnalytics(windowDays=30)` di `IncidentService` aggregat total/active/resolved counts, average resolution time, breakdown by severity (CRITICAL/MAJOR/MINOR), dan top 10 recently resolved. API `GET /api/admin/incidents/analytics?days=<n>` expose ini ke admin. UI: component `IncidentMetricsCards` ditambahkan ke `/admin/incidents` di atas list — 4 metric card (total 30 hari, MTTR rata-rata, jumlah kritis, jumlah besar) plus list "Resolved Terakhir" dengan duration per incident. **Masih deferred:** multi-channel broadcast otomatis ke pelanggan terdampak (WA/Email/Push), SLA credit otomatis ke invoice — keduanya butuh logic targeting yang lebih kompleks dan worth dikerjakan sebagai phase berikut.
+- **Files**: `lib/event-bus/types.ts`, `modules/incident/services/IncidentService.ts`, `modules/incident/index.ts`, `app/api/admin/incidents/analytics/route.ts`, `app/admin/incidents/IncidentsListClient.tsx`, `app/admin/incidents/IncidentMetricsCards.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-27] — Registration: customer-facing status tracking page
 
 - **Tipe**: [ADDED]

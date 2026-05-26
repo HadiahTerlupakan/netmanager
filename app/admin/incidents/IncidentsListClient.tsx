@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import PageLoader from "@/components/ui/PageLoader";
 import { usePermission } from "@/hooks/use-permission";
 import { toast } from "react-hot-toast";
+import { IncidentMetricsCards } from "./IncidentMetricsCards";
 import {
   HiOutlinePlus,
   HiOutlineCheckCircle,
@@ -116,6 +117,8 @@ export function IncidentsListClient() {
           }}
         />
       )}
+
+      <IncidentMetricsCards />
 
       <div className="flex gap-2">
         {(["ACTIVE", "RESOLVED", "all"] as const).map((opt) => (
