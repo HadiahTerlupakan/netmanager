@@ -34,21 +34,39 @@ import {
 } from "./worker-processors";
 
 /**
+ * Ambil tenantId dari payload job, mendukung dua bentuk yang dipakai di
+ * codebase: tenantId di top-level (mis. AttendanceAutoCheckoutJobData) dan
+ * tenantId bersarang di `payload` (mis. EventJobData/OutboxJobData). Tanpa
+ * mendukung keduanya, job ber-tenantId top-level lolos deteksi dan terlanjur
+ * berjalan sebagai super admin lintas tenant.
+ */
+function resolveJobTenantId<T>(job: Job<T>): string | undefined {
+  const data = job.data as
+    | { tenantId?: unknown; payload?: { tenantId?: unknown } }
+    | undefined;
+  const direct = typeof data?.tenantId === "string" ? data.tenantId : undefined;
+  const nested =
+    typeof data?.payload?.tenantId === "string"
+      ? data.payload.tenantId
+      : undefined;
+  return direct ?? nested;
+}
+
+/**
  * Wrap BullMQ processor agar setiap job berjalan dalam tenant context yang
  * benar. Why: worker dijalankan di custom server tanpa request context;
  * tanpa pembungkus ini Prisma extension menolak akses (fail-closed) atau —
  * sebelum perbaikan ini — diam-diam berjalan sebagai super admin lintas tenant.
- * How to apply: payload event yang membawa tenantId dipakai sebagai konteks
- * tenant; jika tidak ada, fallback ke system context (untuk job yang memang
- * cross-tenant seperti outbox dispatch).
+ * How to apply: tenantId yang dibawa job (top-level atau dalam payload) dipakai
+ * sebagai konteks tenant; jika tidak ada, fallback ke system context (untuk job
+ * yang memang cross-tenant seperti outbox dispatch).
  */
 function withTenantContext<T>(
   processorName: string,
   processor: Processor<T>,
 ): Processor<T> {
   return async (job: Job<T>) => {
-    const data = job.data as { payload?: { tenantId?: string } } | undefined;
-    const tenantId = data?.payload?.tenantId;
+    const tenantId = resolveJobTenantId(job);
     if (tenantId) {
       return runWithRequestTenantContext(
         { tenantId, isSuperAdmin: false },

@@ -14,6 +14,12 @@ const mockFns = vi.hoisted(() => ({
     attendanceId: "attendance-1",
     status: "processed",
   }),
+  runWithRequestTenantContext: vi.fn(
+    <T>(_ctx: unknown, callback: () => Promise<T>) => callback(),
+  ),
+  runAsSystemContext: vi.fn(<T>(_reason: string, callback: () => Promise<T>) =>
+    callback(),
+  ),
 }));
 
 vi.mock("bullmq", () => {
@@ -67,10 +73,8 @@ class RedisMock {
 vi.mock("ioredis", () => ({ default: RedisMock }));
 
 vi.mock("@/lib/tenant-context", () => ({
-  runAsSystemContext: <T>(_reason: string, callback: () => Promise<T>) =>
-    callback(),
-  runWithRequestTenantContext: <T>(_ctx: unknown, callback: () => Promise<T>) =>
-    callback(),
+  runAsSystemContext: mockFns.runAsSystemContext,
+  runWithRequestTenantContext: mockFns.runWithRequestTenantContext,
 }));
 
 vi.mock("@/lib/realtime", () => ({
@@ -230,5 +234,14 @@ describe("attendance auto checkout worker startup", () => {
       expectedAutoCheckoutAt: "2026-04-24T10:00:00.000Z",
       sourceCheckInDate: "2026-04-24",
     });
+
+    // Job ini membawa tenantId di top-level (bukan di payload). Worker WAJIB
+    // menjalankannya dalam konteks tenant tersebut, bukan jatuh ke system
+    // context (super admin lintas tenant) yang membocorkan isolasi.
+    expect(mockFns.runWithRequestTenantContext).toHaveBeenCalledWith(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      expect.any(Function),
+    );
+    expect(mockFns.runAsSystemContext).not.toHaveBeenCalled();
   }, 20000);
 });

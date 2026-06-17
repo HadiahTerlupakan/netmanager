@@ -45,6 +45,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-17] — Worker: resolve tenant context dari tenantId top-level job
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/event-bus/workers.ts`
+- **Author**: agent
+- **Deskripsi**: Wrapper `withTenantContext` di BullMQ worker sebelumnya hanya
+  membaca `job.data.payload.tenantId` (bentuk nested untuk event/outbox),
+  sehingga job dengan `tenantId` di top-level — seperti `attendance:auto-checkout`
+  (`AttendanceAutoCheckoutJobData`) — tidak terdeteksi dan jatuh ke
+  `runAsSystemContext` (super admin lintas tenant). Akibatnya auto-checkout
+  attendance berjalan tanpa scoping tenant yang benar (fail-closed/throw
+  "missing-context" pada build pra-hardening, atau diam-diam super admin pada
+  HEAD). Ditambahkan helper `resolveJobTenantId` yang mendukung tenantId
+  top-level maupun nested. Test worker diperkuat untuk membuktikan job
+  ber-tenantId top-level dijalankan via `runWithRequestTenantContext`
+  (`{ tenantId, isSuperAdmin: false }`) dan tidak menyentuh system context.
+- **Files**: `lib/event-bus/workers.ts`,
+  `tests/lib/event-bus/attendance-auto-checkout-worker.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-05-27] — Incident: event integration + MTTR analytics dashboard
 
 - **Tipe**: [ADDED]
