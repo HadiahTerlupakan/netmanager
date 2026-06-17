@@ -3,6 +3,12 @@ import { AutoRejectService } from "@/modules/attendance/services/AutoRejectServi
 import type { AutoRejectInput } from "@/modules/attendance/services/AutoRejectService";
 
 describe("AutoRejectService", () => {
+  const futureDate = (daysFromNow: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromNow);
+    return date;
+  };
+
   let service: AutoRejectService;
 
   beforeEach(() => {
@@ -15,8 +21,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "CUTI",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-05"),
+        startDate: futureDate(30),
+        endDate: futureDate(34),
         leaveDays: 5,
         hasAttachment: false,
       };
@@ -39,8 +45,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "CUTI",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-05"),
+        startDate: futureDate(30),
+        endDate: futureDate(34),
         leaveDays: 5,
         hasAttachment: false,
       };
@@ -64,11 +70,11 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "TUKAR_LIBUR",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-01"),
+        startDate: futureDate(30),
+        endDate: futureDate(30),
         leaveDays: 1,
         hasAttachment: false,
-        replacementDate: new Date("2026-06-15"),
+        replacementDate: futureDate(44),
       };
 
       vi.spyOn(
@@ -143,8 +149,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "CUTI",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-05"),
+        startDate: futureDate(30),
+        endDate: futureDate(34),
         leaveDays: 5,
         hasAttachment: false,
       };
@@ -174,8 +180,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "CUTI",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-20"),
+        startDate: futureDate(30),
+        endDate: futureDate(49),
         leaveDays: 20,
         hasAttachment: false,
       };
@@ -202,8 +208,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "SAKIT",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-03"),
+        startDate: futureDate(30),
+        endDate: futureDate(32),
         leaveDays: 3,
         hasAttachment: false,
       };
@@ -228,8 +234,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "SAKIT",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-03"),
+        startDate: futureDate(30),
+        endDate: futureDate(32),
         leaveDays: 3,
         hasAttachment: true,
       };
@@ -314,8 +320,8 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "TUKAR_LIBUR",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-01"),
+        startDate: futureDate(30),
+        endDate: futureDate(30),
         leaveDays: 1,
         hasAttachment: false,
       };
@@ -336,11 +342,11 @@ describe("AutoRejectService", () => {
         userId: "user-1",
         tenantId: "tenant-1",
         leaveType: "TUKAR_LIBUR",
-        startDate: new Date("2026-06-01"),
-        endDate: new Date("2026-06-01"),
+        startDate: futureDate(30),
+        endDate: futureDate(30),
         leaveDays: 1,
         hasAttachment: false,
-        replacementDate: new Date("2026-06-15"),
+        replacementDate: futureDate(44),
       };
 
       vi.spyOn(

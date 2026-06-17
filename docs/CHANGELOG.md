@@ -45,6 +45,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-17] — Fix test AutoRejectService time-bomb (tanggal statis)
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/modules/attendance`
+- **Author**: agent
+- **Deskripsi**: 8 test di `AutoRejectService.test.ts` gagal karena memakai
+  tanggal statis (`2026-06-01` dst) yang kini sudah lewat, sehingga aturan
+  backdate ter-trigger lebih dulu sebelum aturan yang sedang diuji. Diganti
+  dengan helper `futureDate(daysFromNow)` agar tanggal selalu relatif terhadap
+  hari ini (tidak menjadi time-bomb). Tidak ada perubahan kode produksi.
+- **Files**: `tests/modules/attendance/AutoRejectService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-17] — Fix data izin/cuti tidak reload saat ganti filter status
 
 - **Tipe**: [FIXED]
