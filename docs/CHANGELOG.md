@@ -45,6 +45,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-17] — Fix data izin/cuti tidak reload saat ganti filter status
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/kehadiran/izin` | `app/api/admin/leaves` | `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Halaman Manajemen Izin & Cuti tidak memuat ulang data saat
+  user berpindah tab status (Menunggu/Disetujui/Ditolak/Semua). Akar masalah:
+  guard `hasFetchedRef` (boolean) di `IzinClient` membuat fetch hanya jalan
+  sekali saat mount, sehingga perubahan `filterStatus` tidak memicu refetch —
+  semua tab menampilkan data tab default (PENDING). Diganti dengan comparator
+  berbasis `filterStatus` (pola filter-key comparator) agar refetch saat mount
+  dan setiap filter berubah, tanpa double-fetch di StrictMode. Sekaligus
+  memperbaiki truncation: API `GET /api/admin/leaves` default `limit=20` tapi
+  route tidak meneruskan `limit`, sehingga tab "Semua" terpotong (mis. 26→20).
+  Route kini membaca `page`/`limit` dan client meminta `limit=1000` (konsisten
+  dengan `/api/admin/users?limit=1000`) karena halaman belum punya UI pagination.
+- **Files**: `app/admin/kehadiran/izin/IzinClient.tsx`,
+  `app/api/admin/leaves/route.ts`,
+  `modules/attendance/services/AdminLeaveRouteService.ts`,
+  `modules/attendance/services/admin-leave-route.types.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-06-17] — Work order list: filter rentang tanggal (createdAt)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/workorders/list` | `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Tambah filter rentang tanggal (Tanggal Dari / Sampai) pada
+  halaman admin work order list, difilter berdasarkan `createdAt`. Backend
+  (`WorkOrderFilters.dateFrom/dateTo` + query builder) sudah mendukung; yang
+  ditambahkan: parsing `dateFrom`/`dateTo` di `AdminWorkOrderFilterBuilder`
+  (dipatok awal hari / akhir hari inklusif, abaikan tanggal invalid) dan UI
+  input tanggal di `WoListClient` (ikut clear-filter, active-filter, reset page).
+- **Files**: `modules/work-order/services/AdminWorkOrderFilterBuilder.ts`,
+  `app/admin/workorders/list/WoListClient.tsx`,
+  `tests/modules/work-order/AdminWorkOrderFilterBuilder.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-17] — Worker: resolve tenant context dari tenantId top-level job
 
 - **Tipe**: [FIXED]

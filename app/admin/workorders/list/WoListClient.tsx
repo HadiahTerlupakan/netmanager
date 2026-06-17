@@ -163,6 +163,8 @@ export function ClientComponent() {
   const [filterSite, setFilterSite] = useState("");
   const [filterWoType, setFilterWoType] = useState(""); // 'customer' | 'internal' | ''
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
 
   // Build URL untuk fetch work orders via TanStack Query
   const workOrdersUrl = useMemo(() => {
@@ -177,6 +179,8 @@ export function ClientComponent() {
     if (filterSite) params.append("siteId", filterSite);
     if (filterWoType) params.append("woType", filterWoType);
     if (unassignedOnly) params.append("unassignedOnly", "true");
+    if (filterDateFrom) params.append("dateFrom", filterDateFrom);
+    if (filterDateTo) params.append("dateTo", filterDateTo);
     return `/api/admin/workorders?${params}`;
   }, [
     page,
@@ -187,6 +191,8 @@ export function ClientComponent() {
     filterSite,
     filterWoType,
     unassignedOnly,
+    filterDateFrom,
+    filterDateTo,
   ]);
 
   interface WorkOrderListData {
@@ -595,6 +601,8 @@ export function ClientComponent() {
     setFilterSite("");
     setFilterWoType("");
     setUnassignedOnly(false);
+    setFilterDateFrom("");
+    setFilterDateTo("");
     setPinnedTopCustomers([]);
     setSearch("");
   };
@@ -613,6 +621,8 @@ export function ClientComponent() {
     filterType ||
     filterWoType ||
     unassignedOnly ||
+    filterDateFrom ||
+    filterDateTo ||
     search;
   const summaryCards = buildWorkOrderSummaryCardsFromCounts(summary);
   const visibleTopCustomers = buildVisibleTopCustomers(
@@ -1137,6 +1147,39 @@ export function ClientComponent() {
                 <option value="customer">Customer</option>
                 <option value="internal">Internal (FOC)</option>
               </select>
+            </div>
+
+            {/* Rentang Tanggal (berdasarkan tanggal dibuat) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tanggal Dari
+              </label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                max={filterDateTo || undefined}
+                onChange={(e) => {
+                  setFilterDateFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tanggal Sampai
+              </label>
+              <input
+                type="date"
+                value={filterDateTo}
+                min={filterDateFrom || undefined}
+                onChange={(e) => {
+                  setFilterDateTo(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
+              />
             </div>
           </div>
         </div>

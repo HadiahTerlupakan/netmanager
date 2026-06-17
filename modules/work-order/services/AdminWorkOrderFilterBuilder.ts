@@ -1,4 +1,7 @@
-type WorkOrderListRouteFilters = Record<string, string | string[] | boolean>;
+type WorkOrderListRouteFilters = Record<
+  string,
+  string | string[] | boolean | Date
+>;
 
 export class AdminWorkOrderFilterBuilder {
   /** Bangun filter list work order dari query string route admin. */
@@ -7,6 +10,7 @@ export class AdminWorkOrderFilterBuilder {
 
     this.assignListFilters(filters, searchParams);
     this.assignScalarFilters(filters, searchParams);
+    this.assignDateRangeFilters(filters, searchParams);
     this.assignUnassignedFilter(filters, searchParams.get("unassignedOnly"));
     this.assignWorkOrderTypeFilter(filters, searchParams.get("woType"));
     return filters;
@@ -59,6 +63,35 @@ export class AdminWorkOrderFilterBuilder {
   ) {
     if (!value) return;
     filters[key] = value;
+  }
+
+  /**
+   * Petakan rentang tanggal (createdAt) dari query string. `dateFrom` dipatok
+   * ke awal hari dan `dateTo` ke akhir hari agar batas atas inklusif terhadap
+   * seluruh work order pada tanggal tersebut.
+   */
+  private assignDateRangeFilters(
+    filters: WorkOrderListRouteFilters,
+    searchParams: URLSearchParams,
+  ) {
+    const dateFrom = this.parseDateBoundary(
+      searchParams.get("dateFrom"),
+      "start",
+    );
+    if (dateFrom) filters.dateFrom = dateFrom;
+
+    const dateTo = this.parseDateBoundary(searchParams.get("dateTo"), "end");
+    if (dateTo) filters.dateTo = dateTo;
+  }
+
+  private parseDateBoundary(
+    value: string | null,
+    boundary: "start" | "end",
+  ): Date | null {
+    if (!value) return null;
+    const time = boundary === "start" ? "T00:00:00.000" : "T23:59:59.999";
+    const parsed = new Date(`${value}${time}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private assignUnassignedFilter(
