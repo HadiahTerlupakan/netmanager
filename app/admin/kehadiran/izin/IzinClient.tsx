@@ -106,8 +106,9 @@ export function IzinClient() {
   const fetchLeaves = useCallback(async () => {
     setLoading(true);
     try {
-      const query = filterStatus === "ALL" ? "" : `?status=${filterStatus}`;
-      const res = await fetch(`/api/admin/leaves${query}`);
+      const params = new URLSearchParams({ limit: "1000" });
+      if (filterStatus !== "ALL") params.set("status", filterStatus);
+      const res = await fetch(`/api/admin/leaves?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         const leavesData = data.data || [];
@@ -120,12 +121,12 @@ export function IzinClient() {
     }
   }, [filterStatus]);
 
-  const hasFetchedRef = useRef(false);
+  const lastFetchedStatusRef = useRef<string | null>(null);
   useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    if (lastFetchedStatusRef.current === filterStatus) return;
+    lastFetchedStatusRef.current = filterStatus;
     void fetchLeaves();
-  }, [fetchLeaves]);
+  }, [filterStatus, fetchLeaves]);
 
   const fetchUsers = async () => {
     try {

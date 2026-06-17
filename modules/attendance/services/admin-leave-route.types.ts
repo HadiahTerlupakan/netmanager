@@ -27,6 +27,8 @@ export interface AdminLeaveListInput {
   status?: LeaveStatusValue;
   tenantId: string;
   session: AdminLeaveSession;
+  page?: number;
+  limit?: number;
 }
 
 export interface AdminLeaveCreateInput {

@@ -36,7 +36,7 @@ export class AdminLeaveRouteService {
   async getLeaves(input: AdminLeaveListInput) {
     const scope = await this.resolveScope(input.session);
     const filters = this.buildLeaveFilters(input, scope);
-    return this.leaveService.getLeaves(filters);
+    return this.leaveService.getLeaves(filters, input.page, input.limit);
   }
 
   /** Buat leave manual oleh admin. */

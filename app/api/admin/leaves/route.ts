@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { AdminLeaveRouteService } from "@/modules/attendance";
+import { parsePaginationParams } from "@/lib/utils/pagination";
 
 const leaveRouteService = new AdminLeaveRouteService();
 
@@ -49,9 +50,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const status = req.nextUrl.searchParams.get("status");
+  const { page, limit } = parsePaginationParams(req.nextUrl.searchParams, {
+    page: 1,
+    limit: 20,
+  });
   const result = await leaveRouteService.getLeaves({
     session: ctx.session as never,
     tenantId,
+    page,
+    limit,
     ...(status ? { status: status as LeaveStatusFilter } : {}),
   });
 
