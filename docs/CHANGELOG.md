@@ -45,6 +45,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-18] — Acknowledge destructive tax config legacy migration
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/migrations`
+- **Author**: agent
+- **Deskripsi**: Tambah `-- @safe-guard-ack` pada migration
+  `20260525010000_drop_tax_config_legacy_fields` agar Safe Migration Guard
+  Jenkins mengizinkan penghapusan kolom legacy `tax_configs`. Field tarif dan
+  due day legacy sudah digantikan oleh `tax_rate_configs`; migration memakai
+  `DROP COLUMN IF EXISTS` dan catatan SQL sudah menegaskan data pengganti harus
+  tersedia via `seed-tax-rate-configs` sebelum apply.
+- **Files**: `prisma/migrations/20260525010000_drop_tax_config_legacy_fields/migration.sql`
+- **Migration**: `20260525010000_drop_tax_config_legacy_fields`
+- **Breaking**: ✅ Ya
+
 ### [2026-06-17] — Fix test AutoRejectService time-bomb (tanggal statis)
 
 - **Tipe**: [FIXED]

@@ -1,3 +1,4 @@
+-- @safe-guard-ack: legacy tax config fields sudah digantikan oleh tax_rate_configs; migration memakai DROP COLUMN IF EXISTS dan data pengganti wajib tersedia via seed-tax-rate-configs sebelum apply.
 -- Drop legacy tarif & due day fields from tax_configs.
 -- Source of truth pindah ke `tax_rate_configs` (TaxRateConfig).
 -- Sebelum apply migration ini, pastikan semua tenant punya entry
