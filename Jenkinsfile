@@ -385,7 +385,7 @@ spec:
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
             options {
-                timeout(time: 35, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
             steps {
                 container('kubectl') {
