@@ -195,24 +195,19 @@ describe("Jenkinsfile deploy safety", () => {
     );
   });
 
-  it("skips optional backfill by default for production and staging migration jobs", () => {
+  it("disables optional backfill for all environments (manual-only)", () => {
     const jenkinsfile = readJenkinsfile();
+    const migrationYaml = readFileSync(
+      resolve(process.cwd(), "k8s/migration-job.yaml"),
+      "utf-8",
+    );
 
     expect(jenkinsfile).toContain(
-      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-production" ] || [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
+      'echo "Migration optional backfill policy: DISABLED (manual-only)"',
     );
-    expect(jenkinsfile).toContain(
-      'echo "Migration optional backfill policy: SKIP_OPTIONAL_BACKFILL=\\$SKIP_OPTIONAL_BACKFILL"',
-    );
-    expect(jenkinsfile).toContain(
-      '-e "s|{{SKIP_OPTIONAL_BACKFILL}}|\\${SKIP_OPTIONAL_BACKFILL}|g" \\',
-    );
-    expect(jenkinsfile).not.toContain(
-      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
-    );
-    expect(jenkinsfile).not.toContain(
-      "-e 's|{{SKIP_OPTIONAL_BACKFILL}}|\\$SKIP_OPTIONAL_BACKFILL|g' \\",
-    );
+    expect(jenkinsfile).not.toContain("{{SKIP_OPTIONAL_BACKFILL}}");
+    expect(migrationYaml).toContain('value: "true"');
+    expect(migrationYaml).not.toContain("{{SKIP_OPTIONAL_BACKFILL}}");
   });
 
   it("blocks production rollout when the active deployment image drifts from the Jenkins annotation contract", () => {

@@ -351,7 +351,7 @@ describe("migration job safety", () => {
     expect(migration).toContain('DROP TABLE IF EXISTS "push_subscriptions";');
   });
 
-  it("supports explicitly skipping optional tenant backfill steps", () => {
+  it("always skips optional tenant backfill steps (manual-only)", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
       "utf8",
@@ -361,7 +361,8 @@ describe("migration job safety", () => {
       'if [ "${SKIP_OPTIONAL_BACKFILL:-false}" = "true" ]; then',
     );
     expect(migrationJob).toContain("name: SKIP_OPTIONAL_BACKFILL");
-    expect(migrationJob).toContain('value: "{{SKIP_OPTIONAL_BACKFILL}}"');
+    expect(migrationJob).toContain('value: "true"');
+    expect(migrationJob).not.toContain("{{SKIP_OPTIONAL_BACKFILL}}");
     expect(migrationJob).toContain(
       "⏭️ SKIP_OPTIONAL_BACKFILL=true, skipping optional tenant backfill and repair steps",
     );

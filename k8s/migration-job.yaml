@@ -96,7 +96,7 @@ spec:
                   name: netmanager-secrets
                   key: REDIS_URL
             - name: SKIP_OPTIONAL_BACKFILL
-              value: "{{SKIP_OPTIONAL_BACKFILL}}"
+              value: "true"
           command:
             - "sh"
             - "-c"

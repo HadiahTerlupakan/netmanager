@@ -515,12 +515,10 @@ spec:
 
                         sh """
                         set -euo pipefail
-                        SKIP_OPTIONAL_BACKFILL="\$(if [ "${NAMESPACE}" = "netmanager-production" ] || [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"
-                        echo "Migration optional backfill policy: SKIP_OPTIONAL_BACKFILL=\$SKIP_OPTIONAL_BACKFILL"
+                        echo "Migration optional backfill policy: DISABLED (manual-only)"
                         sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \
                             -e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g' \
                             -e 's|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g' \
-                            -e "s|{{SKIP_OPTIONAL_BACKFILL}}|\${SKIP_OPTIONAL_BACKFILL}|g" \
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
 
