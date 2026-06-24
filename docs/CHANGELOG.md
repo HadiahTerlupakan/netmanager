@@ -45,6 +45,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-24] — Fix search restock tidak relevan dan dropdown terlalu pendek
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`, `components/ui`
+- **Author**: agent
+- **Deskripsi**: Perbaikan search restock request agar bisa mencari berdasarkan
+  nama gudang, keterangan, dan nama/kode barang (sebelumnya hanya nomor request).
+  Search sekarang menggunakan word-start matching supaya pencarian dari tengah
+  kata tetap ditemukan. Dropdown SearchableSelect diperbaiki agar trigger lebih
+  tinggi dan teks sublabel lebih terbaca.
+- **Files**: `app/admin/inventory/restock/utils.ts`, `components/ui/SearchableSelect.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-18] — Fix FCM push admin skip karena tenantId tidak dipropagasi ke delivery
 
 - **Tipe**: [FIXED]
