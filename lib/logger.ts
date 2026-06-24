@@ -344,6 +344,21 @@ class Logger {
         }
       }
 
+      // Skip DB logging if tenantId is provided but doesn't exist
+      if (data.tenantId) {
+        const tenantExists = await prisma.tenant.findUnique({
+          where: { id: data.tenantId },
+          select: { id: true },
+        });
+
+        if (!tenantExists) {
+          this.warn(
+            `[ACTIVITY] Skipping DB log - tenantId not found: ${data.tenantId}`,
+          );
+          return;
+        }
+      }
+
       const { runAsSystemContext } = await import("@/lib/tenant-context");
       await runAsSystemContext("logger.logActivity", async () => {
         await prisma.systemLog.create({

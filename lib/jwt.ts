@@ -185,7 +185,7 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
       appVersionName: decoded.appVersionName ?? null,
     };
   } catch (error) {
-    logger.error("Refresh token verification error:", error);
+    logger.debug("Refresh token verification (customer path):", error);
     return { id: "", valid: false };
   }
 }
