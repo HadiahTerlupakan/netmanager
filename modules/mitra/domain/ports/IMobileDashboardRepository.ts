@@ -59,6 +59,9 @@ export interface IMobileDashboardRepository {
   /** Menghitung WO selesai mitra sejak periode tertentu. */
   countClosedMitraWorkOrders(query: PeriodicCountQuery): Promise<number>;
 
+  /** Menghitung WO mitra status ASSIGNED (menunggu dikerjakan). */
+  countPendingMitraWorkOrders(query: MitraWorkOrderCountQuery): Promise<number>;
+
   /** Mengambil profil dashboard employee. */
   findEmployeeDashboardProfile(
     userId: string,

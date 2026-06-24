@@ -1,7 +1,9 @@
 import { getMitraRepository } from "../repositories/MitraRepository";
+import { MobileDashboardRepository } from "../repositories/MobileDashboardRepository";
 import { getMitraWithdrawRepository } from "../repositories/MitraWithdrawRepository";
 import type { MitraEntity } from "../domain/entities/MitraEntity";
 import type { IMitraRepository } from "../domain/ports/IMitraRepository";
+import type { IMobileDashboardRepository } from "../domain/ports/IMobileDashboardRepository";
 import type {
   IMitraWithdrawRepository,
   MobileWithdrawHistoryResult,
@@ -18,6 +20,7 @@ import {
   logMobileFaceVerification,
   saveFaceVerificationPhoto,
 } from "./MobileMitraRouteService.helpers";
+import { createDashboardPeriods } from "./MobileDashboardService.helpers";
 import type {
   MobileMitraSession,
   MobileWithdrawRequestPayload,
@@ -33,6 +36,7 @@ export class MobileMitraRouteService {
   constructor(
     private readonly mitraRepository: IMitraRepository = getMitraRepository(),
     private readonly withdrawRepository: IMitraWithdrawRepository = getMitraWithdrawRepository(),
+    private readonly dashboardRepository: IMobileDashboardRepository = new MobileDashboardRepository(),
   ) {}
 
   /** Mengambil payload dashboard mobile milik mitra. */
@@ -46,6 +50,7 @@ export class MobileMitraRouteService {
 
     const tenantId = session.tenantId ?? undefined;
     const mitraData = mitra.data;
+    const periods = createDashboardPeriods();
     const [
       balance,
       monthly,
@@ -53,6 +58,11 @@ export class MobileMitraRouteService {
       recentTransactions,
       completedJobs,
       feeStats,
+      workOrdersAssigned,
+      pendingTickets,
+      woCompletedToday,
+      woCompletedWeek,
+      woCompletedMonth,
     ] = await Promise.all([
       getMitraWalletService().getBalance(mitraData.id, tenantId),
       getMitraWalletService().getEarningsSummary(mitraData.id, tenantId),
@@ -65,6 +75,29 @@ export class MobileMitraRouteService {
       ),
       this.getCompletedJobsThisMonth(mitraData.id, mitraData.mitraType),
       getFeePelangganStatsForMitra(this.mitraRepository, mitraData),
+      this.dashboardRepository.countAssignedMitraWorkOrders({
+        userId: mitraData.id,
+        tenantId: tenantId || "",
+      }),
+      this.dashboardRepository.countPendingMitraWorkOrders({
+        userId: mitraData.id,
+        tenantId: tenantId || "",
+      }),
+      this.dashboardRepository.countClosedMitraWorkOrders({
+        userId: mitraData.id,
+        tenantId: tenantId || "",
+        since: periods.today,
+      }),
+      this.dashboardRepository.countClosedMitraWorkOrders({
+        userId: mitraData.id,
+        tenantId: tenantId || "",
+        since: periods.weekStart,
+      }),
+      this.dashboardRepository.countClosedMitraWorkOrders({
+        userId: mitraData.id,
+        tenantId: tenantId || "",
+        since: periods.monthStart,
+      }),
     ]);
 
     return {
@@ -81,6 +114,11 @@ export class MobileMitraRouteService {
           feeStats.remainingFeePelanggan,
         totalWithdrawn: balance.success ? balance.data?.totalWithdrawn || 0 : 0,
         completedJobsThisMonth: completedJobs,
+        workOrdersAssigned,
+        pendingTickets,
+        woCompletedToday,
+        woCompletedWeek,
+        woCompletedMonth,
         activeCustomers: feeStats.unpaidCustomersCount,
         totalActiveCustomers: feeStats.activeCustomers,
         targetHarian: mitraData.targetHarian,

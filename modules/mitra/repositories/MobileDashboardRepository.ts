@@ -72,6 +72,17 @@ export class MobileDashboardRepository implements IMobileDashboardRepository {
     });
   }
 
+  /** Menghitung WO mitra status ASSIGNED (menunggu dikerjakan). */
+  countPendingMitraWorkOrders(query: MitraWorkOrderCountQuery) {
+    return prisma.workOrderAssignments.count({
+      where: {
+        mitraId: query.userId,
+        tenantId: query.tenantId,
+        workOrders: { status: "ASSIGNED" },
+      },
+    });
+  }
+
   /** Mengambil profil dashboard employee. */
   findEmployeeDashboardProfile(userId: string, tenantId: string) {
     return prisma.user.findFirst({
