@@ -203,18 +203,46 @@ export function formatStatusLabel(status: PurchaseRequest["status"]): {
   return configs[status];
 }
 
+function wordStartMatch(text: string, term: string): boolean {
+  if (text.includes(term)) return true;
+  const words = text.split(/[\s\-_/,.]+/);
+  return words.some((word) => word.startsWith(term));
+}
+
+function matchesSearchTerms(text: string, terms: string[]): boolean {
+  const lower = text.toLowerCase();
+  return terms.every((term) => wordStartMatch(lower, term));
+}
+
+function requestMatchesSearch(
+  request: PurchaseRequest,
+  terms: string[],
+): boolean {
+  if (terms.length === 0) return true;
+
+  const searchableTexts = [
+    request.nomorRequest,
+    request.gudang?.nama || "",
+    request.keterangan || "",
+    ...(request.items?.flatMap((item) => [
+      item.barang?.nama || "",
+      item.barang?.kode || "",
+    ]) || []),
+  ];
+
+  return searchableTexts.some((text) => matchesSearchTerms(text, terms));
+}
+
 export function getVisibleRestockRequests({
   requests,
   search,
   statusFilter,
   gudangFilter,
 }: VisibleRestockRequestsInput): PurchaseRequest[] {
-  const normalizedSearch = search.trim().toLowerCase();
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
   return requests.filter((request) => {
-    const matchesSearch =
-      !normalizedSearch ||
-      request.nomorRequest.toLowerCase().includes(normalizedSearch);
+    const matchesSearch = requestMatchesSearch(request, terms);
     const matchesStatus =
       statusFilter === "all" || request.status === statusFilter;
     const matchesGudang =

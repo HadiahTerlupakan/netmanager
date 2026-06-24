@@ -1,101 +1,119 @@
-'use client'
+"use client";
 
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { FiSearch, FiChevronDown, FiX, FiInfo } from 'react-icons/fi'
+import { useState, useRef, useEffect, useMemo } from "react";
+import { FiSearch, FiChevronDown, FiX, FiInfo } from "react-icons/fi";
 
 interface Option {
-  value: string
-  label: string
-  subLabel?: string
-  badge?: React.ReactNode
+  value: string;
+  label: string;
+  subLabel?: string;
+  badge?: React.ReactNode;
 }
 
 interface SearchableSelectProps {
-  options: Option[]
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  disabled?: boolean
-  className?: string
+  options: Option[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
 export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = 'Pilih opsi...',
+  placeholder = "Pilih opsi...",
   disabled = false,
-  className = ''
+  className = "",
 }: SearchableSelectProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = useMemo(() => 
-    options.find(opt => opt.value === value), 
-  [options, value])
+  const selectedOption = useMemo(
+    () => options.find((opt) => opt.value === value),
+    [options, value],
+  );
 
   const filteredOptions = useMemo(() => {
-    const term = search.toLowerCase()
-    return options.filter(opt => 
-      opt.label.toLowerCase().includes(term) || 
-      opt.subLabel?.toLowerCase().includes(term)
-    )
-  }, [options, search])
+    const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return options;
+    return options.filter((opt) => {
+      const texts = [opt.label, opt.subLabel || ""].map((t) => t.toLowerCase());
+      return texts.some((text) =>
+        terms.every((term) => {
+          if (text.includes(term)) return true;
+          const words = text.split(/[\s\-_/,.]+/);
+          return words.some((word) => word.startsWith(term));
+        }),
+      );
+    });
+  }, [options, search]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <div ref={containerRef} className={`relative ${className} ${isOpen ? 'z-[100]' : ''}`}>
+    <div
+      ref={containerRef}
+      className={`relative ${className} ${isOpen ? "z-[100]" : ""}`}
+    >
       {/* Trigger */}
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`group flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/50 border rounded-2xl cursor-pointer transition-all duration-200 ${
-          isOpen 
-            ? 'ring-4 ring-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/5' 
-            : 'border-gray-200 dark:border-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-sm'
-        } ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800' : ''}`}
+        className={`group flex items-center justify-between px-4 py-3.5 min-h-[52px] bg-white dark:bg-gray-900/50 border rounded-2xl cursor-pointer transition-all duration-200 ${
+          isOpen
+            ? "ring-4 ring-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/5"
+            : "border-gray-200 dark:border-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-sm"
+        } ${disabled ? "opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800" : ""}`}
       >
-        <div className="flex-1 truncate">
+        <div className="flex-1 min-w-0">
           {selectedOption ? (
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-0.5">
               <span className="text-sm font-black text-gray-900 dark:text-white truncate">
                 {selectedOption.label}
               </span>
               {selectedOption.subLabel && (
-                <div className="flex items-center gap-1 mt-0.5">
-                    <FiInfo className="text-[10px] text-indigo-400" />
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate font-medium">
+                <div className="flex items-center gap-1.5">
+                  <FiInfo className="text-[11px] text-indigo-400 shrink-0" />
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate font-semibold">
                     {selectedOption.subLabel}
-                    </span>
+                  </span>
                 </div>
               )}
             </div>
           ) : (
-            <span className="text-sm font-medium text-gray-400 dark:text-gray-500">{placeholder}</span>
+            <span className="text-sm font-medium text-gray-400 dark:text-gray-500">
+              {placeholder}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-3 ml-3 border-l border-gray-100 dark:border-gray-800 pl-3">
           {value && !disabled && (
             <button
               onClick={(e) => {
-                e.stopPropagation()
-                onChange('')
+                e.stopPropagation();
+                onChange("");
               }}
               className="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors group/x"
             >
               <FiX className="text-gray-400 group-hover/x:text-red-500 text-sm" />
             </button>
           )}
-          <FiChevronDown className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-500' : 'group-hover:text-gray-600'}`} />
+          <FiChevronDown
+            className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180 text-indigo-500" : "group-hover:text-gray-600"}`}
+          />
         </div>
       </div>
 
@@ -122,22 +140,26 @@ export function SearchableSelect({
                 <div
                   key={opt.value}
                   onClick={() => {
-                    onChange(opt.value)
-                    setIsOpen(false)
-                    setSearch('')
+                    onChange(opt.value);
+                    setIsOpen(false);
+                    setSearch("");
                   }}
                   className={`group/item flex items-center justify-between px-4 py-3.5 rounded-2xl cursor-pointer transition-all mb-1 ${
-                    value === opt.value 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' 
-                      : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                    value === opt.value
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none"
+                      : "hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                   }`}
                 >
                   <div className="flex-1 min-w-0 mr-3">
-                    <div className={`text-sm font-bold truncate ${value === opt.value ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                    <div
+                      className={`text-sm font-bold truncate ${value === opt.value ? "text-white" : "text-gray-900 dark:text-white"}`}
+                    >
                       {opt.label}
                     </div>
                     {opt.subLabel && (
-                      <div className={`text-[10px] font-medium truncate mt-0.5 ${value === opt.value ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <div
+                        className={`text-[10px] font-medium truncate mt-0.5 ${value === opt.value ? "text-indigo-100" : "text-gray-500 dark:text-gray-400"}`}
+                      >
                         {opt.subLabel}
                       </div>
                     )}
@@ -152,15 +174,19 @@ export function SearchableSelect({
             ) : (
               <div className="px-4 py-12 text-center">
                 <div className="w-12 h-12 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <FiSearch className="text-gray-300" />
+                  <FiSearch className="text-gray-300" />
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-bold tracking-tight">Barang tidak ditemukan</p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase font-black">Coba kata kunci lain</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-bold tracking-tight">
+                  Barang tidak ditemukan
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1 uppercase font-black">
+                  Coba kata kunci lain
+                </p>
               </div>
             )}
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
