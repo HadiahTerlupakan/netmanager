@@ -5,6 +5,7 @@ export {
   type UserPerformancePeriod,
 } from "./admin-user-performance.period";
 export {
+  buildCompletedWorkOrderDateFilter,
   buildFlexibleStats,
   buildLeadWorkOrderWhere,
   buildOverallWorkOrderWhere,

@@ -108,9 +108,16 @@ export function mapLeaveStats(
   return leaves;
 }
 
-/** Membangun filter tanggal work order untuk query performa. */
+/** Membangun filter tanggal work order untuk query performa (berdasarkan createdAt). */
 export function buildWorkOrderDateFilter(period: UserPerformancePeriod) {
   return { createdAt: { gte: period.startDate, lte: period.endDate } };
+}
+
+/** Membangun filter tanggal untuk work order selesai (berdasarkan completedAt). */
+export function buildCompletedWorkOrderDateFilter(
+  period: UserPerformancePeriod,
+) {
+  return { completedAt: { gte: period.startDate, lte: period.endDate } };
 }
 
 /** Membangun filter work order saat user menjadi lead. */

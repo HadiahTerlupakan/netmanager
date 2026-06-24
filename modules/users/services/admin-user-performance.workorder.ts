@@ -1,6 +1,7 @@
 import { prisma } from "@/modules/database";
 
 import {
+  buildCompletedWorkOrderDateFilter,
   buildLeadWorkOrderWhere,
   buildOverallWorkOrderWhere,
   buildSupportWorkOrderWhere,
@@ -18,6 +19,7 @@ export async function getWorkOrderStats(
   const supportWhere = buildSupportWorkOrderWhere(userId, period);
   const overallWhere = buildOverallWorkOrderWhere(userId, period);
   const completedStatuses = getCompletedWorkOrderStatuses();
+  const completedDateFilter = buildCompletedWorkOrderDateFilter(period);
 
   const [
     leadTotal,
@@ -28,11 +30,20 @@ export async function getWorkOrderStats(
   ] = await Promise.all([
     prisma.workOrders.count({ where: leadWhere }),
     prisma.workOrders.count({
-      where: { ...leadWhere, status: { in: completedStatuses } },
+      where: {
+        assignedToId: userId,
+        status: { in: completedStatuses },
+        ...completedDateFilter,
+      },
     }),
     prisma.workOrders.count({ where: supportWhere }),
     prisma.workOrders.count({
-      where: { ...supportWhere, status: { in: completedStatuses } },
+      where: {
+        assignedToId: { not: userId },
+        assignments: { some: { userId } },
+        status: { in: completedStatuses },
+        ...completedDateFilter,
+      },
     }),
     prisma.workOrders.aggregate({
       where: overallWhere,
