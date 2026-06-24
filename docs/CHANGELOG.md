@@ -45,6 +45,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-18] — Fix FCM push admin skip karena tenantId tidak dipropagasi ke delivery
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: `createNotification` me-resolve `tenantId` dari tenant context
+  (untuk job worker seperti WORK_ORDER yang tidak mengirim `tenantId` eksplisit)
+  dan memakainya saat menulis row DB, tetapi meneruskan `data` mentah ke
+  `deliverNotification`. Akibatnya `notifyAdmins` melihat `data.tenantId`
+  undefined lalu skip push FCM ke admin (log `[FCM Push Admin] Skip`) dan
+  notifikasi WORK_ORDER tidak pernah sampai ke admin. Fix: teruskan `tenantId`
+  hasil resolve ke `data` yang dikirim ke delivery layer. Proteksi cross-tenant
+  tetap terjaga — bila context kosong (system context), `tenantId` tetap null
+  sehingga push admin tetap di-skip.
+- **Files**: `modules/notification/services/NotificationService.ts`,
+  `tests/notification-create-propagates-tenant-context.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-18] — Acknowledge destructive tax config legacy migration
 
 - **Tipe**: [MIGRATION]

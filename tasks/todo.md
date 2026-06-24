@@ -1,5 +1,22 @@
 # TODO
 
+## Fix FCM Push Admin — tenantId missing (WORK_ORDER)
+
+- [x] Investigasi root cause skip push admin (`[FCM Push Admin] Skip`)
+- [x] Tulis failing test propagasi tenantId ke delivery (TDD RED)
+- [x] Fix `createNotification` propagasikan tenantId resolved ke `deliverNotification` (GREEN)
+- [x] Verifikasi: targeted test, full suite (576 files / 3278 pass), typecheck, lint
+- [x] Update `docs/CHANGELOG.md` ([FIXED], scope `modules/notification`)
+
+### Review
+
+- Root cause: `createNotification` (`modules/notification/services/NotificationService.ts:46-58`) me-resolve `tenantId` dari tenant context dan memakainya saat menulis row DB, tapi meneruskan `data` MENTAH (`data.tenantId === undefined`) ke `deliverNotification`. Akibatnya `notifyAdmins` (`NotificationService.delivery.ts:173`) skip push FCM admin. Worker WORK_ORDER memang punya tenant context (via `withTenantContext`) tapi handler tidak pernah isi `tenantId` eksplisit ke payload → 100% notif WO ber-skip, muncul berulang karena fan-out per recipient/event.
+- Fix: `data: { ...data, tenantId: tenantId ?? undefined }` — satu titik, menutup semua jalur karena `deliverNotification` hanya dipanggil dari sini.
+- Proteksi cross-tenant dipertahankan: context kosong (system context) → `tenantId` null → push admin tetap skip (terbukti via test kedua).
+- Verifikasi: targeted PASS, full suite PASS (3278 pass / 7 skip), typecheck PASS, lint PASS.
+
+---
+
 ## Admin Users Detail Fix
 
 - [x] Align GET detail contract for `/admin/users/[id]`

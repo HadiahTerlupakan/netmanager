@@ -52,7 +52,7 @@ export async function createNotification(data: CreateNotificationData) {
 
   await deliverNotification({
     notification,
-    data,
+    data: { ...data, tenantId: tenantId ?? undefined },
     userLookupService: getUserLookupService(),
   });
 
