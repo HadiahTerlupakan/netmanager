@@ -257,7 +257,8 @@ export async function addEventJob(
     jobOptions.delay = options.delay;
   }
 
-  await queue.add(`event:${eventName}`, jobData, jobOptions);
+  const safeJobName = `event:${eventName}`.replace(/:/g, ".");
+  await queue.add(safeJobName, jobData, jobOptions);
 }
 
 /**

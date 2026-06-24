@@ -201,7 +201,7 @@ async function createPurchaseRequestRecord(
   nomorRequest: string,
 ) {
   return await prisma.$transaction(async (transaction) => {
-    return await transaction.purchaseRequest.create({
+    const purchaseRequest = await transaction.purchaseRequest.create({
       data: {
         id: crypto.randomUUID(),
         nomorRequest,
@@ -210,18 +210,24 @@ async function createPurchaseRequestRecord(
         gudangId: input.gudangId,
         keterangan: input.keterangan,
         status: "DRAFT",
-        items: {
-          create: input.items.map((item) => ({
-            id: crypto.randomUUID(),
-            barangId: item.barangId,
-            jumlah: item.quantity,
-            keterangan: item.keterangan || null,
-            hargaPerUnit: 0,
-            totalHarga: 0,
-            tenantId: input.tenantId,
-          })),
-        },
       },
+    });
+
+    await transaction.purchaseRequestItem.createMany({
+      data: input.items.map((item) => ({
+        id: crypto.randomUUID(),
+        purchaseRequestId: purchaseRequest.id,
+        barangId: item.barangId,
+        jumlah: item.quantity,
+        keterangan: item.keterangan || null,
+        hargaPerUnit: 0,
+        totalHarga: 0,
+        tenantId: input.tenantId,
+      })),
+    });
+
+    return transaction.purchaseRequest.findUnique({
+      where: { id: purchaseRequest.id },
       include: {
         items: {
           include: {

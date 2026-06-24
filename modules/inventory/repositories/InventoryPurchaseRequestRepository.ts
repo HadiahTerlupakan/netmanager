@@ -62,23 +62,29 @@ export class InventoryPurchaseRequestRepository {
       await tx.purchaseRequestItem.deleteMany({
         where: { purchaseRequestId: input.id },
       });
-      return tx.purchaseRequest.update({
+      const updated = await tx.purchaseRequest.update({
         where: { id: input.id },
         data: {
           gudangId: input.gudangId,
           keterangan: input.keterangan,
-          items: {
-            create: input.items.map((item) => ({
-              id: randomUUID(),
-              barangId: item.barangId,
-              jumlah: item.quantity,
-              keterangan: item.keterangan || null,
-              hargaPerUnit: 0,
-              totalHarga: 0,
-              tenantId: input.tenantId,
-            })),
-          },
         },
+      });
+
+      await tx.purchaseRequestItem.createMany({
+        data: input.items.map((item) => ({
+          id: randomUUID(),
+          purchaseRequestId: input.id,
+          barangId: item.barangId,
+          jumlah: item.quantity,
+          keterangan: item.keterangan || null,
+          hargaPerUnit: 0,
+          totalHarga: 0,
+          tenantId: input.tenantId,
+        })),
+      });
+
+      return tx.purchaseRequest.findUnique({
+        where: { id: updated.id },
         include: { items: true },
       });
     });
