@@ -45,6 +45,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-24] — Fix PrismaClientValidationError restock create dan BullMQ event name
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Fix production error `Unknown argument 'tenant'` saat POST
+  `/api/inventory/restock/requests`. Penyebab: Prisma extension `withTenantIsolation`
+  mendeteksi nested `items: { create: [...] }` sebagai relation payload dan
+  mengganti `tenantId` dengan `tenant: { connect: { id } }`. Fix: pisahkan
+  create purchase request dan items menjadi dua operasi terpisah dalam transaction.
+  Juga fix BullMQ error `Custom Id cannot contain :` dengan mengganti `:` menjadi
+  `.` di job name event.
+- **Files**: `modules/inventory/services/RestockRequestService.ts`,
+  `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`,
+  `lib/event-bus/queues.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-24] — Fix search restock tidak relevan dan dropdown terlalu pendek
 
 - **Tipe**: [FIXED]
