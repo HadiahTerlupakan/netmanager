@@ -57,6 +57,10 @@ function validateAssigneeAccess(
   workOrder: MobileWorkOrderMaterialAccessWorkOrder,
   userId: string,
 ): void {
+  const isUnclaimedStatus =
+    workOrder.status === "PENDING" || workOrder.status === "REQUESTED";
+  if (isUnclaimedStatus) return;
+
   const isAssignedTechnician = workOrder.assignedToId === userId;
   const isApprovedPartner = workOrder.assignments?.some(
     (assignment) =>
