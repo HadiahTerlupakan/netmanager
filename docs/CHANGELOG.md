@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix 403 work order detail untuk teknisi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order/services/work-order-access.ts`
+- **Author**: agent
+- **Deskripsi**: Teknisi tidak bisa melihat detail work order berstatus PENDING/REQUESTED karena validasi assignee dilakukan sebelum status check. Fix: skip assignee validation untuk status PENDING/REQUESTED (unclaimed) sehingga semua teknisi di tenant yang sama bisa melihat detail WO yang belum di-assign.
+- **Files**: `modules/work-order/services/work-order-access.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-24] — Fix PrismaClientValidationError restock create dan BullMQ event name
 
 - **Tipe**: [FIXED]
