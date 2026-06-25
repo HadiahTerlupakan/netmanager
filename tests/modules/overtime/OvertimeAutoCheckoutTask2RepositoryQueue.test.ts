@@ -59,7 +59,7 @@ describe("Overtime Task 2 repository + queue contract", () => {
       jobId: null,
     });
 
-    const deterministicJobId = `overtime:auto-checkout:${schedule.id}:v${schedule.version}`;
+    const deterministicJobId = `overtime.auto-checkout.${schedule.id}.v${schedule.version}`;
 
     await addOvertimeAutoCheckoutJob(
       {
@@ -105,7 +105,7 @@ describe("Overtime Task 2 repository + queue contract", () => {
         version: 3,
       },
       expect.objectContaining({
-        jobId: "overtime:auto-checkout:schedule-1:v3",
+        jobId: "overtime.auto-checkout.schedule-1.v3",
         delay: 8 * 60 * 60 * 1000,
       }),
     );
@@ -127,10 +127,10 @@ describe("Overtime Task 2 repository + queue contract", () => {
 
     await addOvertimeAutoCheckoutJob(
       { overtimeId: "overtime-1", scheduleId: "schedule-1", version: 3 },
-      { jobId: "overtime:auto-checkout:schedule-1:v3", delay: 1200 },
+      { jobId: "overtime.auto-checkout.schedule-1.v3", delay: 1200 },
     );
 
-    await removeOvertimeAutoCheckoutJob("overtime:auto-checkout:schedule-1:v3");
+    await removeOvertimeAutoCheckoutJob("overtime.auto-checkout.schedule-1.v3");
     await closeAllQueues();
 
     expect(queueConstructor).toHaveBeenCalledWith(
@@ -141,12 +141,12 @@ describe("Overtime Task 2 repository + queue contract", () => {
       "overtime-auto-checkout",
       { overtimeId: "overtime-1", scheduleId: "schedule-1", version: 3 },
       expect.objectContaining({
-        jobId: "overtime:auto-checkout:schedule-1:v3",
+        jobId: "overtime.auto-checkout.schedule-1.v3",
         delay: 1200,
       }),
     );
     expect(queueGetJob).toHaveBeenCalledWith(
-      "overtime:auto-checkout:schedule-1:v3",
+      "overtime.auto-checkout.schedule-1.v3",
     );
     expect(queueRemove).toHaveBeenCalledTimes(1);
     expect(queueClose).toHaveBeenCalled();

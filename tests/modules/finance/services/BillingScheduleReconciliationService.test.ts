@@ -140,7 +140,7 @@ describe("BillingScheduleReconciliationService", () => {
     enqueuePersistedSchedule
       .mockRejectedValueOnce(new Error("queue unavailable"))
       .mockResolvedValueOnce({
-        jobId: "billing-schedule:schedule-failed:v1",
+        jobId: "billing-schedule.schedule-failed.v1",
         delay: 0,
       });
 

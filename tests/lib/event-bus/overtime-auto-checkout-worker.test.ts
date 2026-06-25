@@ -147,7 +147,7 @@ describe("overtime auto checkout worker startup", () => {
     );
     expect(mockFns.getOvertimeAutoCheckoutJob).toHaveBeenNthCalledWith(
       3,
-      "overtime:auto-checkout:schedule-2:v4",
+      "overtime.auto-checkout.schedule-2.v4",
     );
     expect(mockFns.addOvertimeAutoCheckoutJob).toHaveBeenCalledTimes(1);
     expect(mockFns.addOvertimeAutoCheckoutJob).toHaveBeenCalledWith(
@@ -157,7 +157,7 @@ describe("overtime auto checkout worker startup", () => {
         version: 4,
       },
       {
-        jobId: "overtime:auto-checkout:schedule-2:v4",
+        jobId: "overtime.auto-checkout.schedule-2.v4",
         delay: 0,
       },
     );
@@ -168,7 +168,7 @@ describe("overtime auto checkout worker startup", () => {
     expect(prismaMock.overtimeAutoCheckoutSchedule.update).toHaveBeenCalledWith(
       {
         where: { overtimeId: "overtime-2" },
-        data: { jobId: "overtime:auto-checkout:schedule-2:v4" },
+        data: { jobId: "overtime.auto-checkout.schedule-2.v4" },
       },
     );
   }, 20000);

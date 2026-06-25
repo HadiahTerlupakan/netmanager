@@ -69,7 +69,7 @@ describe("AutoCheckoutService semantics", () => {
 
     expect(updatedCount).toBe(1);
     expect(removeFailedAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
-      "attendance:auto-checkout:att-1",
+      "attendance.auto-checkout.att-1",
     );
     expect(addAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
       {
@@ -79,7 +79,7 @@ describe("AutoCheckoutService semantics", () => {
         expectedAutoCheckoutAt: expect.any(String),
         sourceCheckInDate: "2026-03-27",
       },
-      { jobId: "attendance:auto-checkout:att-1" },
+      { jobId: "attendance.auto-checkout.att-1" },
     );
     expect(prismaMock.attendance.update).not.toHaveBeenCalled();
   });
@@ -93,11 +93,11 @@ describe("AutoCheckoutService semantics", () => {
 
     expect(updatedCount).toBe(1);
     expect(removeFailedAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
-      "attendance:auto-checkout:att-1",
+      "attendance.auto-checkout.att-1",
     );
     expect(addAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
       expect.objectContaining({ attendanceId: "att-1" }),
-      { jobId: "attendance:auto-checkout:att-1" },
+      { jobId: "attendance.auto-checkout.att-1" },
     );
   });
 

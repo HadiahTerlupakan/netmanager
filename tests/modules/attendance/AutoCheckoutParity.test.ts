@@ -179,7 +179,7 @@ describe("Attendance session policy parity", () => {
         expectedAutoCheckoutAt: inlineUpdate?.checkOut?.toISOString(),
         sourceCheckInDate: "2026-03-27",
       }),
-      { jobId: "attendance:auto-checkout:attendance-auto-1" },
+      { jobId: "attendance.auto-checkout.attendance-auto-1" },
     );
   });
 });

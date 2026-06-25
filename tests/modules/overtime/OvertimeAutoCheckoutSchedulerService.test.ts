@@ -36,7 +36,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
       overtimeId: "overtime-1",
       version: 3,
       scheduledFor: new Date("2026-04-19T18:00:00.000Z"),
-      jobId: "overtime:auto-checkout:schedule-1:v3",
+      jobId: "overtime.auto-checkout.schedule-1.v3",
       scheduleStatus: "SCHEDULED",
     } as never);
 
@@ -61,14 +61,14 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
         version: 3,
       },
       {
-        jobId: "overtime:auto-checkout:schedule-1:v3",
+        jobId: "overtime.auto-checkout.schedule-1.v3",
         delay: 8 * 60 * 60 * 1000,
       },
     );
     expect(prismaMock.overtimeAutoCheckoutSchedule.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { overtimeId: "overtime-1" },
-        data: { jobId: "overtime:auto-checkout:schedule-1:v3" },
+        data: { jobId: "overtime.auto-checkout.schedule-1.v3" },
       }),
     );
   });
@@ -83,7 +83,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
         id: "schedule-1",
         overtimeId: "overtime-1",
         version: 2,
-        jobId: "overtime:auto-checkout:schedule-1:v2",
+        jobId: "overtime.auto-checkout.schedule-1.v2",
         scheduledFor: new Date("2026-04-19T18:00:00.000Z"),
         scheduleStatus: "SCHEDULED",
       } as never)
@@ -91,7 +91,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
         id: "schedule-1",
         overtimeId: "overtime-1",
         version: 3,
-        jobId: "overtime:auto-checkout:schedule-1:v3",
+        jobId: "overtime.auto-checkout.schedule-1.v3",
         scheduledFor: new Date("2026-04-19T19:00:00.000Z"),
         scheduleStatus: "SCHEDULED",
       } as never);
@@ -109,7 +109,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
       id: "schedule-1",
       overtimeId: "overtime-1",
       version: 3,
-      jobId: "overtime:auto-checkout:schedule-1:v3",
+      jobId: "overtime.auto-checkout.schedule-1.v3",
       scheduledFor: new Date("2026-04-19T19:00:00.000Z"),
       scheduleStatus: "SCHEDULED",
     } as never);
@@ -124,12 +124,12 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
     });
 
     expect(removeOvertimeAutoCheckoutJob).toHaveBeenCalledWith(
-      "overtime:auto-checkout:schedule-1:v2",
+      "overtime.auto-checkout.schedule-1.v2",
     );
     expect(addOvertimeAutoCheckoutJob).toHaveBeenCalledWith(
       expect.objectContaining({ version: 3 }),
       expect.objectContaining({
-        jobId: "overtime:auto-checkout:schedule-1:v3",
+        jobId: "overtime.auto-checkout.schedule-1.v3",
       }),
     );
   });
@@ -139,7 +139,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
       id: "schedule-1",
       overtimeId: "overtime-1",
       version: 3,
-      jobId: "overtime:auto-checkout:schedule-1:v3",
+      jobId: "overtime.auto-checkout.schedule-1.v3",
       scheduledFor: new Date("2026-04-19T18:00:00.000Z"),
       scheduleStatus: "SCHEDULED",
     } as never);
@@ -155,7 +155,7 @@ describe("OvertimeAutoCheckoutSchedulerService", () => {
     await service.cancel("overtime-1");
 
     expect(removeOvertimeAutoCheckoutJob).toHaveBeenCalledWith(
-      "overtime:auto-checkout:schedule-1:v3",
+      "overtime.auto-checkout.schedule-1.v3",
     );
     expect(
       prismaMock.overtimeAutoCheckoutSchedule.updateMany,

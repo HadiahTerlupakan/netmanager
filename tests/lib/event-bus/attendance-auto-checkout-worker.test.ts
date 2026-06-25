@@ -109,7 +109,7 @@ describe("attendance auto checkout worker startup", () => {
         expectedAutoCheckoutAt: "2026-04-24T10:00:00.000Z",
         sourceCheckInDate: "2026-04-24",
       },
-      { jobId: "attendance:auto-checkout:attendance-1" },
+      { jobId: "attendance.auto-checkout.attendance-1" },
     );
 
     expect(queueConstructor).toHaveBeenCalledWith(
@@ -126,7 +126,7 @@ describe("attendance auto checkout worker startup", () => {
         sourceCheckInDate: "2026-04-24",
       },
       expect.objectContaining({
-        jobId: "attendance:auto-checkout:attendance-1",
+        jobId: "attendance.auto-checkout.attendance-1",
       }),
     );
   });
@@ -147,11 +147,11 @@ describe("attendance auto checkout worker startup", () => {
         expectedAutoCheckoutAt: "2026-04-24T10:01:00.000Z",
         sourceCheckInDate: "2026-04-24",
       },
-      { jobId: "attendance:auto-checkout:attendance-1" },
+      { jobId: "attendance.auto-checkout.attendance-1" },
     );
 
     expect(queueGetJob).toHaveBeenCalledWith(
-      "attendance:auto-checkout:attendance-1",
+      "attendance.auto-checkout.attendance-1",
     );
     expect(getState).toHaveBeenCalled();
     expect(remove).toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe("attendance auto checkout worker startup", () => {
         expectedAutoCheckoutAt: "2026-04-24T10:01:00.000Z",
       }),
       expect.objectContaining({
-        jobId: "attendance:auto-checkout:attendance-1",
+        jobId: "attendance.auto-checkout.attendance-1",
       }),
     );
   });
@@ -175,12 +175,12 @@ describe("attendance auto checkout worker startup", () => {
       await import("@/lib/event-bus/queues");
 
     const removed = await removeFailedAttendanceAutoCheckoutJob(
-      "attendance:auto-checkout:attendance-1",
+      "attendance.auto-checkout.attendance-1",
     );
 
     expect(removed).toBe(true);
     expect(queueGetJob).toHaveBeenCalledWith(
-      "attendance:auto-checkout:attendance-1",
+      "attendance.auto-checkout.attendance-1",
     );
     expect(getState).toHaveBeenCalled();
     expect(remove).toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe("attendance auto checkout worker startup", () => {
       await import("@/lib/event-bus/queues");
 
     const removed = await removeFailedAttendanceAutoCheckoutJob(
-      "attendance:auto-checkout:attendance-1",
+      "attendance.auto-checkout.attendance-1",
     );
 
     expect(removed).toBe(false);

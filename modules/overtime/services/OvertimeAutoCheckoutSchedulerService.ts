@@ -70,7 +70,7 @@ export class OvertimeAutoCheckoutSchedulerService {
 
   /** Build deterministic queue job id. */
   private createJobId(scheduleId: string, version: number): string {
-    return `overtime:auto-checkout:${scheduleId}:v${version}`;
+    return `overtime.auto-checkout.${scheduleId}.v${version}`;
   }
 
   /** Push delayed job into queue. */
