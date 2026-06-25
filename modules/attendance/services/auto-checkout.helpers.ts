@@ -24,7 +24,7 @@ type AutoCheckoutAttendance = NonNullable<
 >;
 
 export function buildAttendanceAutoCheckoutJobId(attendanceId: string): string {
-  return `attendance:auto-checkout:${attendanceId}`;
+  return `attendance.auto-checkout.${attendanceId}`;
 }
 
 export function getSourceCheckInDate(checkIn: Date): string {

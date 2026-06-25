@@ -159,7 +159,7 @@ export class BillingScheduleService {
   }
 
   private createJobId(scheduleId: string, version: number): string {
-    return `billing-schedule:${scheduleId}:v${version}`;
+    return `billing-schedule.${scheduleId}.v${version}`;
   }
 
   private async removeExistingJob(

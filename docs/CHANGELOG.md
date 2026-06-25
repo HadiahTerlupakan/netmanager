@@ -45,6 +45,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix BullMQ job ID tidak boleh mengandung karakter :
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/overtime`, `modules/finance`, `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Fix error "Custom Id cannot contain :" dari BullMQ saat rehydrate jobs di startup worker. Semua custom job ID yang menggunakan karakter `:` diganti dengan `.` agar sesuai dengan validasi BullMQ. Job ID yang diubah: overtime auto-checkout, billing schedule, dan attendance auto-checkout.
+- **Files**: 
+  - `modules/overtime/services/OvertimeAutoCheckoutRehydrationService.ts`
+  - `modules/finance/services/BillingScheduleService.ts`
+  - `modules/attendance/services/auto-checkout.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix tenantId tidak di-propagate ke work order events
 
 - **Tipe**: [FIXED]

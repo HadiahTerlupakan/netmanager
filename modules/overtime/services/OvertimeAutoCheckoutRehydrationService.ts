@@ -70,7 +70,7 @@ function createOvertimeAutoCheckoutJobId(
   scheduleId: string,
   version: number,
 ): string {
-  return `overtime:auto-checkout:${scheduleId}:v${version}`;
+  return `overtime.auto-checkout.${scheduleId}.v${version}`;
 }
 
 function collectCandidateJobIds(
