@@ -1,3 +1,4 @@
+-- @safe-guard-ack: Change tenantId to NOT NULL on all WorkOrder tables to prevent future data orphan incidents (follow-up to 24 orphan WOs, 12 Apr - 10 Jun 2026). Data already backfilled and verified clean.
 -- Set tenantId NOT NULL on all WorkOrder-related tables.
 -- Data cleanup (backfill + orphan deletion) was done in the previous migration.
 
