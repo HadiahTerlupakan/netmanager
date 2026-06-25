@@ -152,6 +152,7 @@ export interface FetchCustomersParams {
   groupId?: string;
   onlineStatus?: "online" | "offline";
   siteId?: string;
+  siteIds?: string[];
   sortBy?: string;
   sortDir?: "asc" | "desc";
   forceRefresh?: boolean;

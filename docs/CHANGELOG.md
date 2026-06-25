@@ -45,6 +45,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix multi-site support pada menu isolir mobile
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile/mixradius`, `modules/integrations/services`
+- **Author**: agent
+- **Deskripsi**: Endpoint mobile MixRadius (groups & customers) hanya membaca `user.siteId` (single field) sehingga karyawan multi-site hanya bisa melihat pelanggan dari 1 site. Fix: gunakan `getUserSiteIds()` dari `modules/roles` yang query tabel `UserSite` (many-to-many) dengan fallback ke `user.siteId` untuk backward compatibility.
+- **Files**:
+  - `app/api/mobile/mixradius/groups/route.ts`
+  - `app/api/mobile/mixradius/customers/route.ts`
+  - `modules/integrations/services/MixRadiusGroupRouteService.ts`
+  - `modules/integrations/services/mixradius-customer-filters.ts`
+  - `modules/integrations/services/mixradius-types.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix BullMQ job ID tidak boleh mengandung karakter :
 
 - **Tipe**: [FIXED]

@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockVerifyMobileToken, mockGetMobileGroups } = vi.hoisted(() => ({
-  mockVerifyMobileToken: vi.fn(),
-  mockGetMobileGroups: vi.fn(),
-}));
+const { mockVerifyMobileToken, mockGetMobileGroups, mockGetUserSiteIds } =
+  vi.hoisted(() => ({
+    mockVerifyMobileToken: vi.fn(),
+    mockGetMobileGroups: vi.fn(),
+    mockGetUserSiteIds: vi.fn(),
+  }));
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn().mockResolvedValue(null),
@@ -36,6 +38,10 @@ vi.mock("@/modules/integrations", () => ({
   }),
 }));
 
+vi.mock("@/modules/roles", () => ({
+  getUserSiteIds: (...args: unknown[]) => mockGetUserSiteIds(...args),
+}));
+
 import { GET } from "@/app/api/mobile/mixradius/groups/route";
 
 const authedRequest = (url = "http://localhost/api/mobile/mixradius/groups") =>
@@ -54,6 +60,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
       permissions: ["m_mixradius:read"],
       isSuperAdmin: false,
     });
+    mockGetUserSiteIds.mockReturnValue(["site-1"]);
   });
 
   it("returns only groups that match the mobile user's site", async () => {
@@ -86,7 +93,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
     });
   });
 
-  it("returns all groups when the mobile user has no site restriction", async () => {
+  it("returns empty array when the mobile user has no site assignment", async () => {
     mockVerifyMobileToken.mockResolvedValue({
       userId: "user-1",
       role: "TEKNISI",
@@ -95,21 +102,8 @@ describe("GET /api/mobile/mixradius/groups", () => {
       permissions: ["m_mixradius:read"],
       isSuperAdmin: false,
     });
-    mockGetMobileGroups.mockResolvedValue([
-      {
-        id: "group-1",
-        name: "Site A",
-        owners: ["owner-a"],
-        isActive: true,
-        siteId: "site-1",
-      },
-      {
-        id: "group-2",
-        name: "Site B",
-        owners: ["owner-b"],
-        isActive: false,
-      },
-    ]);
+    mockGetUserSiteIds.mockReturnValue([]);
+    mockGetMobileGroups.mockResolvedValue([]);
 
     const response = await GET(authedRequest(), routeCtx);
     const json = await response.json();
@@ -117,21 +111,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
     expect(response.status).toBe(200);
     expect(json).toEqual({
       success: true,
-      data: [
-        {
-          id: "group-1",
-          name: "Site A",
-          owners: ["owner-a"],
-          isActive: true,
-          siteId: "site-1",
-        },
-        {
-          id: "group-2",
-          name: "Site B",
-          owners: ["owner-b"],
-          isActive: false,
-        },
-      ],
+      data: [],
     });
   });
 

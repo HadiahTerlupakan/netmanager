@@ -2,7 +2,9 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { createHandler } from "@/lib/api";
 import { MixRadiusConfigError, MixRadiusService } from "@/modules/integrations";
+import { getUserSiteIds } from "@/modules/roles";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import type { Session } from "next-auth";
 
 /**
  * GET /api/mobile/mixradius/customers
@@ -20,8 +22,7 @@ export const GET = createHandler(
       const groupId = searchParams.get("groupId") || undefined;
       const authStatus = searchParams.get("authStatus") || undefined;
 
-      // Get user's siteId for filtering by ManagementSite -> OwnerGroup
-      const userSiteId = ctx.session!.user.siteId as string | undefined;
+      const siteIds = getUserSiteIds(ctx.session as Session | null);
 
       const mixRadius = new MixRadiusService();
       const params: {
@@ -29,7 +30,7 @@ export const GET = createHandler(
         start: number;
         length: number;
         searchType: string;
-        siteId?: string;
+        siteIds?: string[];
         groupId?: string;
         authStatus?: string;
       } = {
@@ -38,8 +39,8 @@ export const GET = createHandler(
         length,
         searchType,
       };
-      if (userSiteId) {
-        params.siteId = userSiteId;
+      if (siteIds.length > 0) {
+        params.siteIds = siteIds;
       }
       if (groupId) {
         params.groupId = groupId;

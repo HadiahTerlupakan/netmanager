@@ -62,7 +62,7 @@ describe("MixRadiusGroupRouteService", () => {
   it("filters mobile owner groups by site", async () => {
     const service = createMobileGroupService();
 
-    const result = await service.getMobileGroups("site-1");
+    const result = await service.getMobileGroups(["site-1"]);
 
     expect(result).toEqual([
       {
@@ -75,11 +75,34 @@ describe("MixRadiusGroupRouteService", () => {
     ]);
   });
 
-  it("returns no mobile groups when site is missing", async () => {
+  it("returns no mobile groups when site list is empty", async () => {
     const service = createMobileGroupService();
 
-    const result = await service.getMobileGroups(null);
+    const result = await service.getMobileGroups([]);
 
     expect(result).toEqual([]);
+  });
+
+  it("filters mobile owner groups by multiple sites", async () => {
+    const service = createMobileGroupService();
+
+    const result = await service.getMobileGroups(["site-1", "site-2"]);
+
+    expect(result).toEqual([
+      {
+        id: "group-1",
+        name: "Group Timur",
+        owners: ["Owner A"],
+        isActive: true,
+        siteId: "site-1",
+      },
+      {
+        id: "group-2",
+        name: "Group Barat",
+        owners: ["Owner B"],
+        isActive: false,
+        siteId: "site-2",
+      },
+    ]);
   });
 });

@@ -19,7 +19,10 @@ export async function applyCustomerFilters(
   filters: FetchCustomersParams,
 ): Promise<MixRadiusCustomer[]> {
   let filteredCustomers = customers;
-  filteredCustomers = await filterBySite(filteredCustomers, filters.siteId);
+  filteredCustomers = await filterBySite(
+    filteredCustomers,
+    filters.siteIds ?? (filters.siteId ? [filters.siteId] : undefined),
+  );
   filteredCustomers = filterByAuthStatus(filteredCustomers, filters.authStatus);
   filteredCustomers = filterBySearch(
     filteredCustomers,
@@ -117,13 +120,18 @@ function isDisabledOrExpiredCustomer(customer: MixRadiusCustomer) {
   return isExpiredCustomer(customer);
 }
 
-async function filterBySite(customers: MixRadiusCustomer[], siteId?: string) {
-  if (!siteId) {
+async function filterBySite(
+  customers: MixRadiusCustomer[],
+  siteIds?: string[],
+) {
+  if (!siteIds || siteIds.length === 0) {
     return customers;
   }
 
-  const siteOwners = await ownerGroupService.getOwnersBySiteId(siteId);
-  const allowedOwners = buildMixRadiusOwnerLookup(siteOwners);
+  const allOwners = await Promise.all(
+    siteIds.map((siteId) => ownerGroupService.getOwnersBySiteId(siteId)),
+  );
+  const allowedOwners = buildMixRadiusOwnerLookup(allOwners.flat());
   return customers.filter((customer) =>
     isMixRadiusOwnerAllowed(customer.owner_name, allowedOwners),
   );

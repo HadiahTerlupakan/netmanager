@@ -70,15 +70,17 @@ export class MixRadiusGroupRouteService {
 
   /** Get mobile MixRadius owner groups scoped by site. */
   async getMobileGroups(
-    siteId?: string | null,
+    siteIds: string[],
     tenantId?: string,
   ): Promise<MobileMixRadiusGroupDTO[]> {
-    if (!siteId) {
+    if (siteIds.length === 0) {
       return [];
     }
 
     const groups = await this.mixRadiusService.getOwnerGroups(tenantId);
-    const scopedGroups = groups.filter((group) => group.siteId === siteId);
+    const scopedGroups = groups.filter(
+      (group) => group.siteId && siteIds.includes(group.siteId),
+    );
 
     return scopedGroups.map((group) => ({
       id: group.id,

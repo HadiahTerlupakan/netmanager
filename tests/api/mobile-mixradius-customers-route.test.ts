@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockVerifyMobileToken, mockFetchCustomersPPP } = vi.hoisted(() => ({
-  mockVerifyMobileToken: vi.fn(),
-  mockFetchCustomersPPP: vi.fn(),
-}));
+const { mockVerifyMobileToken, mockFetchCustomersPPP, mockGetUserSiteIds } =
+  vi.hoisted(() => ({
+    mockVerifyMobileToken: vi.fn(),
+    mockFetchCustomersPPP: vi.fn(),
+    mockGetUserSiteIds: vi.fn(),
+  }));
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn().mockResolvedValue(null),
@@ -48,6 +50,10 @@ vi.mock("@/modules/integrations", () => {
   };
 });
 
+vi.mock("@/modules/roles", () => ({
+  getUserSiteIds: (...args: unknown[]) => mockGetUserSiteIds(...args),
+}));
+
 import { GET } from "@/app/api/mobile/mixradius/customers/route";
 
 const authedRequest = (url: string) =>
@@ -66,6 +72,7 @@ describe("GET /api/mobile/mixradius/customers", () => {
       permissions: ["m_mixradius:read"],
       isSuperAdmin: false,
     });
+    mockGetUserSiteIds.mockReturnValue(["site-1"]);
   });
 
   it("returns paginated customers payload and forwards mobile filters", async () => {
@@ -105,7 +112,7 @@ describe("GET /api/mobile/mixradius/customers", () => {
       searchType: "all",
       groupId: "group-1",
       authStatus: "Disabled-Users",
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
     expect(json).toEqual({
       success: true,
