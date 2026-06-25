@@ -45,6 +45,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix stok inventory bisa minus dari RTV handler
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Handler `handleGoodsReturnSentInventory` hanya log warning jika stok tidak cukup untuk RTV (Return to Vendor), tapi tetap menjalankan decrement. Ini menyebabkan stok `BarangGudang` bisa minus. Fix: skip decrement dan log error jika stok tidak mencukupi.
+- **Files**: `modules/inventory/services/event-handlers/goods-return-inventory.handler.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix 403 work order detail untuk teknisi
 
 - **Tipe**: [FIXED]

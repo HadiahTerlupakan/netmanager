@@ -51,9 +51,10 @@ export async function handleGoodsReturnSentInventory(
       continue;
     }
     if (existing.stokBaru < item.quantity || existing.stok < item.quantity) {
-      logger.warn(
-        `[${SOURCE}] Stok kurang untuk RTV: stok=${existing.stok} stokBaru=${existing.stokBaru} qty=${item.quantity}, decrement tetap dijalankan`,
+      logger.error(
+        `[${SOURCE}] Stok tidak cukup untuk RTV: stok=${existing.stok} stokBaru=${existing.stokBaru} qty=${item.quantity}, skip decrement untuk menghindari stok minus`,
       );
+      continue;
     }
     await prisma.barangGudang.update({
       where: { id: existing.id },
