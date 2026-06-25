@@ -35,6 +35,7 @@ export class WorkOrderActivityService {
         activityId: (comment as { id: string }).id,
         activityType: "comment",
         message,
+        tenantId: userContext.tenantId,
         triggeredBy: userContext.id,
       }).catch((err) =>
         logger.error(

@@ -73,6 +73,7 @@ async function publishUpdatedWorkOrderStatusSideEffects(params: {
     previousStatus: params.previousStatus,
     status: params.status,
     userId: params.userId,
+    tenantId: fullWorkOrder.tenantId ?? undefined,
   });
 }
 
@@ -150,6 +151,7 @@ async function publishAssignedWorkOrderSideEffects(params: {
     employeeId: params.employeeId,
     employeeName: params.employee.name || undefined,
     assignedById: params.assignedById,
+    tenantId: fullWorkOrder.tenantId ?? undefined,
   });
 }
 

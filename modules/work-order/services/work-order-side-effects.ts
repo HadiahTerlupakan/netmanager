@@ -85,6 +85,7 @@ export async function notifyWorkOrderCreatedSafely(
 export async function publishWorkOrderCreatedEvent(params: {
   workOrder: WorkOrderNotificationPayload;
   triggeredBy: string;
+  tenantId?: string;
 }): Promise<void> {
   await publishWorkOrderEvent("WORK_ORDER_CREATED", () =>
     WorkOrderEventDispatcher.onCreated(
@@ -96,6 +97,7 @@ export async function publishWorkOrderCreatedEvent(params: {
 function buildCreatedWorkOrderEventPayload(input: {
   workOrder: WorkOrderNotificationPayload;
   triggeredBy: string;
+  tenantId?: string;
 }) {
   return {
     workOrderId: input.workOrder.id,
@@ -106,6 +108,7 @@ function buildCreatedWorkOrderEventPayload(input: {
     departmentId: input.workOrder.departmentId,
     siteId: input.workOrder.siteId,
     assignedToId: input.workOrder.assignedToId,
+    tenantId: input.tenantId,
     triggeredBy: input.triggeredBy,
   };
 }
@@ -176,6 +179,7 @@ export async function publishWorkOrderStatusSideEffects(params: {
   previousStatus: WorkOrderStatus;
   status: WorkOrderStatus;
   userId: string;
+  tenantId?: string;
 }): Promise<void> {
   await notifyWorkOrderStatusChange(params);
   await publishWorkOrderStatusEvent(params);
@@ -186,6 +190,7 @@ async function notifyWorkOrderStatusChange(input: {
   previousStatus: WorkOrderStatus;
   status: WorkOrderStatus;
   userId: string;
+  tenantId?: string;
 }) {
   await onWorkOrderStatusChanged(
     buildNotificationPayload(input.workOrder),
@@ -200,6 +205,7 @@ async function publishWorkOrderStatusEvent(input: {
   previousStatus: WorkOrderStatus;
   status: WorkOrderStatus;
   userId: string;
+  tenantId?: string;
 }) {
   if (input.status === COMPLETED_STATUS) {
     await publishCompletedStatusEvent(input.workOrder, input.userId);
@@ -215,6 +221,7 @@ export async function publishWorkOrderAssignmentSideEffects(params: {
   employeeId: string;
   employeeName?: string;
   assignedById: string;
+  tenantId?: string;
 }): Promise<void> {
   await onWorkOrderAssigned(
     buildNotificationPayload(params.workOrder),
@@ -234,6 +241,7 @@ function buildAssignedWorkOrderEventPayload(input: {
   employeeId: string;
   employeeName?: string;
   assignedById: string;
+  tenantId?: string;
 }) {
   return {
     workOrderId: input.workOrder.id,
@@ -243,6 +251,7 @@ function buildAssignedWorkOrderEventPayload(input: {
     assignedToName: input.employeeName,
     departmentId: input.workOrder.departmentId,
     siteId: input.workOrder.siteId,
+    tenantId: input.tenantId,
     triggeredBy: input.assignedById,
   };
 }

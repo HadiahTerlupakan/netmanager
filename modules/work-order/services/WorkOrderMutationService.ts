@@ -277,7 +277,11 @@ export class WorkOrderMutationService {
     );
 
     await notifyWorkOrderCreatedSafely(workOrder, createdById);
-    await publishWorkOrderCreatedEvent({ workOrder, triggeredBy: createdById });
+    await publishWorkOrderCreatedEvent({
+      workOrder,
+      triggeredBy: createdById,
+      tenantId: userContext.tenantId,
+    });
     broadcastWorkOrderCreatedSafely(workOrder);
     if (input.ticketId) {
       await linkWorkOrderToTicketSafely({

@@ -283,6 +283,7 @@ export function registerDefaultHandlers(): void {
         departmentId: payload.departmentId,
         siteId: payload.siteId,
         assignedToId: payload.assignedToId,
+        tenantId: payload.tenantId,
         triggeredByUserId: payload.triggeredBy,
       });
     } catch (error) {
@@ -322,6 +323,7 @@ export function registerDefaultHandlers(): void {
         assigneeName: payload.assignedToName,
         departmentId: payload.departmentId,
         siteId: payload.siteId,
+        tenantId: payload.tenantId,
         triggeredByUserId: payload.triggeredBy,
       });
     } catch (error) {

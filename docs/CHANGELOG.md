@@ -45,6 +45,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix tenantId tidak di-propagate ke work order events
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`, `modules/events`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Fix bug dimana `tenantId` tidak di-propagate dari HTTP request context ke work order event payloads. Akibatnya, worker memproses event dalam "System context" dan FCM push ke admin di-skip karena dianggap cross-tenant leak. Semua work order events (created, assigned, updated, completed, activity) sekarang menyertakan `tenantId`.
+- **Files**: 
+  - `modules/events/dispatchers/WorkOrderEventDispatcher.ts`
+  - `modules/work-order/services/work-order-side-effects.ts`
+  - `modules/work-order/services/work-order-side-effects.helpers.ts`
+  - `modules/work-order/services/work-order-mutation.helpers.ts`
+  - `modules/work-order/services/WorkOrderMutationService.ts`
+  - `modules/work-order/services/WorkOrderActivityService.ts`
+  - `lib/event-bus/event-handlers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix stok inventory bisa minus dari RTV handler
 
 - **Tipe**: [FIXED]

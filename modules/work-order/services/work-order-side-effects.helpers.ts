@@ -57,6 +57,7 @@ export async function publishCompletedStatusEvent(
     departmentId?: string | null;
     siteId?: string | null;
     assignedToId?: string | null;
+    tenantId?: string | null;
   },
   userId: string,
 ) {
@@ -75,6 +76,7 @@ export async function publishUpdatedStatusEvent(input: {
     departmentId?: string | null;
     siteId?: string | null;
     assignedToId?: string | null;
+    tenantId?: string | null;
   };
   previousStatus: WorkOrderStatus;
   status: WorkOrderStatus;
@@ -93,6 +95,7 @@ function buildCompletedStatusEventPayload(
     departmentId?: string | null;
     siteId?: string | null;
     assignedToId?: string | null;
+    tenantId?: string | null;
   },
   userId: string,
 ) {
@@ -103,6 +106,7 @@ function buildCompletedStatusEventPayload(
     departmentId: workOrder.departmentId,
     siteId: workOrder.siteId,
     assignedToId: workOrder.assignedToId,
+    tenantId: workOrder.tenantId ?? undefined,
     triggeredBy: userId,
   };
 }
@@ -115,6 +119,7 @@ function buildUpdatedStatusEventPayload(input: {
     departmentId?: string | null;
     siteId?: string | null;
     assignedToId?: string | null;
+    tenantId?: string | null;
   };
   previousStatus: WorkOrderStatus;
   status: WorkOrderStatus;
@@ -134,6 +139,7 @@ function buildUpdatedStatusWorkOrderFields(workOrder: {
   departmentId?: string | null;
   siteId?: string | null;
   assignedToId?: string | null;
+  tenantId?: string | null;
 }) {
   return {
     workOrderId: workOrder.id,
@@ -142,6 +148,7 @@ function buildUpdatedStatusWorkOrderFields(workOrder: {
     departmentId: workOrder.departmentId,
     siteId: workOrder.siteId,
     assignedToId: workOrder.assignedToId,
+    tenantId: workOrder.tenantId ?? undefined,
   };
 }
 
