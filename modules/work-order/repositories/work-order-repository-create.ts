@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { acquireLock } from "@/lib/distributed-lock";
 import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
@@ -82,21 +83,28 @@ async function createWorkOrderByMode(
   isRequest: boolean,
 ): Promise<unknown> {
   const persistedTenantId = await resolvePersistedTenantId(data.tenantId);
-  const workOrderNumber = await generateNextWorkOrderNumber(
-    prisma,
-    persistedTenantId ?? undefined,
-  );
-  const payload = isRequest
-    ? buildRequestCreatePayload(data, persistedTenantId, workOrderNumber)
-    : buildDefaultCreatePayload(data, persistedTenantId, workOrderNumber);
-  return prisma.workOrders.create({ data: payload });
+  const lockKey = `wo:create:${buildWorkOrderDateString()}`;
+  const release = await acquireLock(lockKey);
+
+  try {
+    const workOrderNumber = await generateNextWorkOrderNumber(
+      prisma,
+      persistedTenantId,
+    );
+    const payload = isRequest
+      ? buildRequestCreatePayload(data, persistedTenantId, workOrderNumber)
+      : buildDefaultCreatePayload(data, persistedTenantId, workOrderNumber);
+    return await prisma.workOrders.create({ data: payload });
+  } finally {
+    await release?.();
+  }
 }
 
 function buildDefaultCreatePayload(
   data: CreateWorkOrderData,
-  tenantId: string | null,
+  tenantId: string,
   workOrderNumber: string,
-): Prisma.WorkOrdersCreateInput {
+): Prisma.WorkOrdersUncheckedCreateInput {
   const { pelangganId, ...restData } = data;
   return {
     id: randomUUID(),
@@ -125,14 +133,14 @@ function buildDefaultCreatePayload(
     internalNotes: restData.internalNotes ?? null,
     disconnectionReason: restData.disconnectionReason || null,
     isInternal: restData.isInternal || false,
-  } as Prisma.WorkOrdersCreateInput;
+  } as Prisma.WorkOrdersUncheckedCreateInput;
 }
 
 function buildRequestCreatePayload(
   data: CreateWorkOrderData & { requestedById?: string },
-  tenantId: string | null,
+  tenantId: string,
   workOrderNumber: string,
-): Prisma.WorkOrdersCreateInput {
+): Prisma.WorkOrdersUncheckedCreateInput {
   const { pelangganId, requestedById, ...restData } = data;
   return {
     id: randomUUID(),
@@ -159,7 +167,7 @@ function buildRequestCreatePayload(
     scheduledDate: restData.scheduledDate ?? null,
     internalNotes: restData.internalNotes ?? null,
     isInternal: restData.isInternal || false,
-  } as Prisma.WorkOrdersCreateInput;
+  } as Prisma.WorkOrdersUncheckedCreateInput;
 }
 
 function buildWorkOrderDateString(): string {
@@ -181,13 +189,17 @@ function resolveNextSequence(workOrderNumber?: string): number {
   return Number.isNaN(parsedSequence) ? 1 : parsedSequence + 1;
 }
 
-async function resolvePersistedTenantId(
-  tenantId?: string,
-): Promise<string | null> {
+async function resolvePersistedTenantId(tenantId?: string): Promise<string> {
   if (tenantId !== undefined) {
     return tenantId;
   }
-  return (await getTenantIdFromContext()).tenantId ?? null;
+  const fromContext = (await getTenantIdFromContext()).tenantId;
+  if (!fromContext) {
+    throw new Error(
+      "[WorkOrderRepo] tenantId is required but was not resolved from input or context",
+    );
+  }
+  return fromContext;
 }
 
 function isDuplicateNumberError(error: unknown): boolean {

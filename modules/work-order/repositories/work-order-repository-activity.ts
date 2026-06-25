@@ -46,6 +46,7 @@ export async function addAssignment(
         workOrderId,
         userId,
         role: normalizedRole,
+        tenantId: wo.tenantId,
       },
     });
   } catch (error) {
@@ -102,6 +103,7 @@ export async function addTask(
       ...data,
       status: "PENDING",
       updatedAt: new Date(),
+      tenantId: wo.tenantId,
     },
   });
 }
@@ -146,6 +148,11 @@ export async function addUpdate(
   prisma: PrismaClient,
   data: AddUpdateData,
 ): Promise<WorkOrderUpdates> {
+  const wo = await prisma.workOrders.findUnique({
+    where: { id: data.workOrderId },
+    select: { tenantId: true },
+  });
+  if (!wo) throw new Error("Work order not found");
   const update = await prisma.workOrderUpdates.create({
     data: {
       id: randomUUID(),
@@ -155,6 +162,7 @@ export async function addUpdate(
       oldStatus: data.oldStatus ?? null,
       newStatus: data.newStatus ?? null,
       createdById: data.createdById ?? null,
+      tenantId: wo.tenantId,
     },
   });
   // NOTE: Notification moved to Service layer
@@ -228,6 +236,7 @@ export async function addAttachment(
       fileType,
       caption: caption ?? null,
       uploadedById: uploadedById ?? null,
+      tenantId: wo.tenantId,
     },
   });
   // Log photo upload

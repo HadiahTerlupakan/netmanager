@@ -150,6 +150,7 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
                 mitraId: input.userId,
                 role: MOBILE_CLAIM_ROLE,
                 status: "PENDING",
+                tenantId: input.tenantId,
               }
             : {
                 id: randomUUID(),
@@ -157,6 +158,7 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
                 userId: input.userId,
                 role: MOBILE_CLAIM_ROLE,
                 status: "PENDING",
+                tenantId: input.tenantId,
               },
         });
 
@@ -190,6 +192,7 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
           : "Tiket diambil via Mobile App",
         oldStatus: "PENDING",
         newStatus: "ASSIGNED",
+        tenantId: params.tenantId,
       },
     });
   }

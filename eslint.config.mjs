@@ -56,6 +56,7 @@ const eslintConfig = [
       ".next/**",
       "tmp/**",
       "out/**",
+      "coverage/**",
       "public/sw.js",
       "public/sw.js.map",
       "public/workbox-*.js",

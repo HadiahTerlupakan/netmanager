@@ -20,6 +20,7 @@ export interface CreateClaimUpdateData {
   userId: string;
   isMitra: boolean;
   triggeredByName: string;
+  tenantId: string;
 }
 
 export interface IWorkOrderAvailabilityRepository {

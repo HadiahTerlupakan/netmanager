@@ -44,14 +44,20 @@ export class MixRadiusDismantleRepository implements IMixRadiusDismantleReposito
 
   /** Create default dismantle tasks for work order. */
   async createDefaultTasks(workOrderId: string) {
+    const wo = await prisma.workOrders.findUnique({
+      where: { id: workOrderId },
+      select: { tenantId: true },
+    });
+    if (!wo) throw new Error("Work order not found");
     await prisma.workOrderTasks.createMany({
       data: DISMANTLE_TASKS.map((title, index) => ({
         id: randomUUID(),
         workOrderId,
         title,
         order: index,
-        status: "PENDING",
+        status: "PENDING" as const,
         updatedAt: new Date(),
+        tenantId: wo.tenantId,
       })),
     });
   }

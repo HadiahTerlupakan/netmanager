@@ -14,7 +14,7 @@ const DEFAULT_MATERIAL_CONDITION = "BEKAS" as KondisiBarang;
 
 interface WorkOrderMaterialReturnContext {
   id: string;
-  tenantId: string | null;
+  tenantId: string;
   workOrderNumber: string;
   title: string;
   status: WorkOrderStatus;
@@ -177,7 +177,7 @@ function buildMaterialReturnUpdateData(input: {
     message: `Mengembalikan barang: ${buildDetailedMaterialList(input.items)}`,
     oldStatus: input.workOrder.status,
     newStatus: input.workOrder.status,
-    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+    tenantId: input.tenantId ?? input.workOrder.tenantId,
   };
 }
 
