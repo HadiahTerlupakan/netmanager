@@ -45,6 +45,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-25] — Fix FCM stale token cleanup dan tambah periodic cleanup
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `lib/firebase`, `app/api/cron`
+- **Author**: agent
+- **Deskripsi**: Fix root cause tingkat kegagalan FCM ~75%: `clearPushTokens()` hanya bersihkan legacy `pushToken` tapi tidak menyentuh array `fcmTokens[]` sehingga stale token terus menumpuk. Tambah `clearFcmTokensFromArrays()`, pre-send filtering di `getAdminTokens()`, improved error logging, dan cron endpoint `/api/cron/cleanup-stale-fcm-tokens` untuk periodic cleanup harian.
+- **Files**:
+  - `modules/notification/repositories/PushTokenRepository.ts`
+  - `modules/notification/services/MobileFcmTokenCleanupService.ts`
+  - `modules/notification/domain/ports/IPushTokenRepository.ts`
+  - `modules/notification/index.ts`
+  - `lib/firebase/messaging.ts`
+  - `app/api/cron/cleanup-stale-fcm-tokens/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix multi-site support pada menu isolir mobile
 
 - **Tipe**: [FIXED]

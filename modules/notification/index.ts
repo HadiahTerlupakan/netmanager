@@ -81,7 +81,10 @@ export {
   removeMobilePushToken,
 } from "./services/MobilePushTokenRouteService";
 export { submitMobileErrorReport } from "./services/MobileErrorReportService";
-export { clearStaleFcmTokens } from "./services/MobileFcmTokenCleanupService";
+export {
+  clearStaleFcmTokens,
+  cleanupStaleFcmTokenArrays,
+} from "./services/MobileFcmTokenCleanupService";
 export { WhatsAppApprovalButtonService } from "./services/WhatsAppApprovalButtonService";
 export {
   EmailService,

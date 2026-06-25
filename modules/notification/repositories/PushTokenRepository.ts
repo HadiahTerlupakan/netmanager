@@ -115,6 +115,58 @@ export class PushTokenRepository implements IPushTokenRepository {
     ]);
   }
 
+  /**
+   * Hapus token dari array fcmTokens[] di User dan Mitra.
+   * Ini adalah ROOT CAUSE fix — sebelumnya cleanup hanya bersihkan
+   * legacy `pushToken` tapi tidak menyentuh array `fcmTokens[]`
+   * sehingga stale token terus menumpuk dan gagal di setiap multicast.
+   */
+  async clearFcmTokensFromArrays(tokens: string[]): Promise<number> {
+    if (tokens.length === 0) return 0;
+    const tokenSet = new Set(tokens);
+    let removedCount = 0;
+
+    const [users, mitras] = await Promise.all([
+      prisma.user.findMany({
+        where: { fcmTokens: { hasSome: tokens } },
+        select: { id: true, fcmTokens: true },
+      }),
+      prismaMitra.mitra.findMany({
+        where: { fcmTokens: { hasSome: tokens } },
+        select: { id: true, fcmTokens: true },
+      }),
+    ]);
+
+    const userUpdates = users
+      .map((user) => {
+        const filtered = user.fcmTokens.filter((t) => !tokenSet.has(t));
+        const removed = user.fcmTokens.length - filtered.length;
+        if (removed === 0) return null;
+        removedCount += removed;
+        return prisma.user.update({
+          where: { id: user.id },
+          data: { fcmTokens: { set: filtered } },
+        });
+      })
+      .filter(Boolean);
+
+    const mitraUpdates = mitras
+      .map((mitra) => {
+        const filtered = mitra.fcmTokens.filter((t) => !tokenSet.has(t));
+        const removed = mitra.fcmTokens.length - filtered.length;
+        if (removed === 0) return null;
+        removedCount += removed;
+        return prismaMitra.mitra.update({
+          where: { id: mitra.id },
+          data: { fcmTokens: { set: filtered } },
+        });
+      })
+      .filter(Boolean);
+
+    await Promise.all([...userUpdates, ...mitraUpdates]);
+    return removedCount;
+  }
+
   async findUsersByPushTokens(
     tokens: string[],
   ): Promise<Array<{ id: string; pushToken: string }>> {

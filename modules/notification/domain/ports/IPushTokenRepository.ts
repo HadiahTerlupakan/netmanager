@@ -25,6 +25,7 @@ export interface IPushTokenRepository {
     excludeUserId?: string,
   ): Promise<Array<{ id: string }>>;
   clearPushTokens(tokens: string[]): Promise<void>;
+  clearFcmTokensFromArrays(tokens: string[]): Promise<number>;
   findUsersByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
   findMitrasByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
   findPelanggansByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
