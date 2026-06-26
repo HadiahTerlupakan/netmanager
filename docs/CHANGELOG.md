@@ -79,6 +79,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Migration**: `20260626000001_work_orders_global_unique_number`, `20260626000002_work_orders_tenant_id_not_null`
 - **Breaking**: ✅ Ya — `tenantId` kini required di semua Prisma create calls untuk tabel WO
 
+### [2026-06-26] — Mirror FreeRADIUS base image ke GHCR untuk hindari Docker Hub timeout
+
+- **Tipe**: [INFRA]
+- **Scope**: `radius`, `scripts`
+- **Author**: agent
+- **Deskripsi**: Build #720 gagal karena transient TLS handshake timeout saat pull `freeradius/freeradius-server:3.2.5` dari Docker Hub. Mirror base image ke GHCR (`ghcr.io/hadiahterlupakan/freeradius-server:3.2.5`) untuk menghindari Docker Hub rate limits dan network instability.
+- **Files**:
+  - `radius/Dockerfile`
+  - `scripts/mirror-freeradius.sh`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-25] — Fix FCM stale token cleanup dan tambah periodic cleanup
 
 - **Tipe**: [FIXED]

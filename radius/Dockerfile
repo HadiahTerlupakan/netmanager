@@ -1,4 +1,4 @@
-FROM freeradius/freeradius-server:3.2.5
+FROM ghcr.io/hadiahterlupakan/freeradius-server:3.2.5
 
 # 1. Install PostgreSQL Driver (Required for Debian-based images)
 RUN apt-get update && \
