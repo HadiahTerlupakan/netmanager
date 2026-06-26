@@ -50,6 +50,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/mobile-auth.ts`, `lib/api/handler.ts`, `tests/api/mobile-mixradius-customers-route.test.ts`, `tests/api/mobile-mixradius-groups-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-06-26] — Tambah kolom shareloc ke Canvasing untuk link lokasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/marketing`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Mobile app mengirim field `shareloc` (link Google Maps lokasi prospek) saat create canvasing, tapi `createCanvasingSchema` menggunakan `.strict()` sehingga menolak key tersebut dan return error `Unrecognized key: "shareloc"`. Database juga tidak punya kolom ini. Solusi: tambah kolom `shareloc TEXT` ke model Canvasing, extend create/update Zod schema, domain entity, repository input interface, mapper (Prisma→entity dan entity→DTO), dan `CanvasingDetailDTO`.
+- **Files**: `prisma/schema.prisma`, `modules/marketing/domain/entities/CanvasingEntity.ts`, `modules/marketing/domain/ports/ICanvasingRepository.ts`, `modules/marketing/validators/canvasingValidation.ts`, `modules/marketing/mappers/marketing-canvasing.mapper.ts`, `modules/marketing/mappers/marketing-canvasing.mapper.dto.ts`, `modules/marketing/dto/MarketingDTO.ts`, `tests/modules/marketing/MarketingMapper.test.ts`
+- **Migration**: `20260626000000_add_shareloc_to_canvasing` (`ALTER TABLE "canvasing" ADD COLUMN "shareloc" TEXT`)
+- **Breaking**: ❌ Tidak
+
 > Perubahan yang sudah dikerjakan tapi belum di-tag sebagai release.
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->

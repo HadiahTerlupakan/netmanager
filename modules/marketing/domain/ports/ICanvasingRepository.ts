@@ -26,6 +26,7 @@ export interface CreateCanvasingInput {
   sn?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  shareloc?: string | null;
   foto?: string | null;
   fotoKtp?: string | null;
   mitraId?: string | null;

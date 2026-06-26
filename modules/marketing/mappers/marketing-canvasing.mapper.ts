@@ -117,6 +117,7 @@ function buildCanvasingLocationFields(entity: PrismaCanvasingDetail) {
     sn: entity.sn,
     latitude: entity.latitude,
     longitude: entity.longitude,
+    shareloc: entity.shareloc,
     foto: entity.foto,
     fotoKtp: entity.fotoKtp,
   };

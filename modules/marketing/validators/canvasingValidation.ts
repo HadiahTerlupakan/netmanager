@@ -97,6 +97,7 @@ export const createCanvasingSchema = canvasingFormSchema
   .extend({
     latitude: optionalCoordinateField,
     longitude: optionalCoordinateField,
+    shareloc: optionalNullableTextField,
     foto: optionalNullableTextField,
     fotoKtp: optionalNullableTextField,
     salesId: optionalNullableTextField,
@@ -115,6 +116,7 @@ export const updateCanvasingSchema = z
     paket: canvasingPackageField.optional(),
     odp: optionalNullableTextField,
     sn: optionalNullableTextField,
+    shareloc: optionalNullableTextField,
     foto: optionalNullableTextField,
     fotoKtp: optionalNullableTextField,
   })
