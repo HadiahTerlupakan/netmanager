@@ -70,7 +70,9 @@ export interface HandlerContext<T = unknown> {
       name?: string;
       role?: string;
       tenantId?: string;
+      /** @deprecated Use siteIds for multi-site */
       siteId?: string;
+      siteIds?: string[];
       departmentId?: string;
       isSuperAdmin?: boolean;
     };
@@ -146,6 +148,7 @@ export function createHandler<T = unknown>(
               role: session.user.role,
               tenantId: session.user.tenantId,
               siteId: (session.user as { siteId?: string }).siteId,
+              siteIds: (session.user as { siteIds?: string[] }).siteIds,
               departmentId: (session.user as { departmentId?: string })
                 .departmentId,
               isSuperAdmin: session.user.isSuperAdmin,
@@ -211,6 +214,7 @@ export function createHandler<T = unknown>(
                     role: payload.role,
                     tenantId: payload.tenantId || undefined,
                     siteId: payload.siteId || undefined,
+                    siteIds: payload.siteIds,
                     isSuperAdmin: payload.isSuperAdmin,
                   },
                 };

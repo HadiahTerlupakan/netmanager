@@ -2592,6 +2592,7 @@ model Canvasing {
   sn          String?
   latitude    Float?
   longitude   Float?
+  shareloc    String?
   foto        String?
   status      CanvasingStatus @default(PENDING)
   salesId     String?

@@ -123,6 +123,7 @@ export interface MobileTokenPayload {
   permissions?: string[];
   isSales?: boolean;
   siteId?: string | null;
+  siteIds?: string[];
   tenantId?: string | null;
   isSuperAdmin?: boolean;
   accessAdminPanel?: boolean;
@@ -399,6 +400,9 @@ async function verifyValidatedMobileToken(
         isSales: true,
         siteId: true,
         tenantId: true,
+        userSites: {
+          select: { siteId: true },
+        },
         role: {
           include: {
             permission: true,
@@ -430,6 +434,8 @@ async function verifyValidatedMobileToken(
             `${permission.resource}:${permission.action}`,
         ) || [];
 
+    const siteIds = dbUser.userSites.map((s) => s.siteId);
+
     return {
       ...payload,
       sub: userId,
@@ -438,6 +444,7 @@ async function verifyValidatedMobileToken(
       permissions,
       isSales: dbUser.isSales,
       siteId: dbUser.siteId,
+      siteIds,
       tenantId: dbUser.tenantId,
       isSuperAdmin,
       accessAdminPanel: Boolean(dbUser.role?.accessAdminPanel),

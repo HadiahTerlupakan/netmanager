@@ -265,6 +265,11 @@ export function RestockFormModal({
                               ? "Cari nama atau kode barang..."
                               : "Pilih barang stok rendah..."
                           }
+                          onSearchChange={(query) => {
+                            if (query.trim().length > 0 && !showAllItems) {
+                              onShowAllItemsChange(true);
+                            }
+                          }}
                         />
                         {item.barangId && (
                           <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800/50">

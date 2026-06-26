@@ -41,6 +41,46 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Perbaiki UX SearchableSelect di modal Restock (label terpotong + pencarian by kode/ID)
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/ui/SearchableSelect`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan UX pada modal Buat Pengajuan Restock (`/admin/inventory/restock`):
+  1. **Label nama barang terpotong** → hapus class `truncate` pada label utama (trigger & item dropdown), ganti dengan `leading-snug break-words` + `title` attribute → nama wrap multi-baris dengan tooltip hover.
+  2. **Dropdown terlalu sempit** → tambah `min-w-[320px]` pada container dropdown agar tetap lebar ketika trigger berada di kolom flex sempit.
+  3. **Pencarian by kode/ID barang gak nemu** → akar masalah: filter "Stok Minim" (default ON) menyaring dataset di parent sebelum diserahkan ke `SearchableSelect`, sehingga barang stok normal tidak pernah ada di pool pencarian. Fix: tambah prop `onSearchChange` pada `SearchableSelect`, di parent (`RestockFormModal`) auto-disable filter "Stok Minim" begitu user mulai mengetik query. Bonus: tambah normalisasi alphanumeric pada matcher agar `BRG-653-459399` / `brg 653 459399` tetap match `BRG653459399`.
+- **Files**: `components/ui/SearchableSelect.tsx`, `app/admin/inventory/restock/RestockFormModal.tsx`
+- **Breaking**: ❌ Tidak — prop baru `onSearchChange` opsional, perilaku eksisting tidak berubah untuk pemakai lain
+
+### [2026-06-27] — Fix FreeRADIUS staging build error dengan fallback ke official Docker Hub image
+
+- **Tipe**: [INFRA]
+- **Scope**: `radius/Dockerfile`, `infra/k8s`
+- **Author**: agent
+- **Deskripsi**: Build Docker image `netmanager-radius` gagal karena base image `ghcr.io/hadiahterlupakan/freeradius-server:3.2.5` tidak ada di registry GHCR. Fix: ganti ke official `freeradius/freeradius-server:3.2.5` dari Docker Hub, tambahkan `postgresql-client` ke dependencies untuk troubleshooting, dan tambahkan `Dockerfile.base` untuk future mirror setup ke GHCR (opsional).
+- **Files**: `radius/Dockerfile`, `radius/Dockerfile.base`
+- **Breaking**: ❌ Tidak — hanya infra change, tidak ada perubahan runtime behavior
+
+### [2026-06-26] — Fix mobile auth tidak expose siteIds untuk multi-site user
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/mobile-auth`, `lib/api/handler`
+- **Author**: agent
+- **Deskripsi**: Mobile Bearer token verification hanya query `User.siteId` (legacy singular), tidak query table `userSites`. Akibatnya `getUserSiteIds()` fallback ke array 1 elemen → karyawan dengan 2+ sites hanya bisa melihat data dari 1 site di menu MixRadius Isolir. Fix: query `userSites` di `verifyValidatedMobileToken`, expose `siteIds[]` di `MobileTokenPayload`, dan pass ke `ctx.session.user`. Juga fix web session path di handler yang kehilangan `siteIds`.
+- **Files**: `lib/mobile-auth.ts`, `lib/api/handler.ts`, `tests/api/mobile-mixradius-customers-route.test.ts`, `tests/api/mobile-mixradius-groups-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-06-26] — Tambah kolom shareloc ke Canvasing untuk link lokasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/marketing`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Mobile app mengirim field `shareloc` (link Google Maps lokasi prospek) saat create canvasing, tapi `createCanvasingSchema` menggunakan `.strict()` sehingga menolak key tersebut dan return error `Unrecognized key: "shareloc"`. Database juga tidak punya kolom ini. Solusi: tambah kolom `shareloc TEXT` ke model Canvasing, extend create/update Zod schema, domain entity, repository input interface, mapper (Prisma→entity dan entity→DTO), dan `CanvasingDetailDTO`.
+- **Files**: `prisma/schema.prisma`, `modules/marketing/domain/entities/CanvasingEntity.ts`, `modules/marketing/domain/ports/ICanvasingRepository.ts`, `modules/marketing/validators/canvasingValidation.ts`, `modules/marketing/mappers/marketing-canvasing.mapper.ts`, `modules/marketing/mappers/marketing-canvasing.mapper.dto.ts`, `modules/marketing/dto/MarketingDTO.ts`, `tests/modules/marketing/MarketingMapper.test.ts`
+- **Migration**: `20260626000000_add_shareloc_to_canvasing` (`ALTER TABLE "canvasing" ADD COLUMN "shareloc" TEXT`)
+- **Breaking**: ❌ Tidak
+
 > Perubahan yang sudah dikerjakan tapi belum di-tag sebagai release.
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
@@ -69,6 +109,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - `modules/work-order/domain/ports/IWorkOrderAvailabilityRepository.ts` — tambah `tenantId` ke `CreateClaimUpdateData`
 - **Migration**: `20260626000001_work_orders_global_unique_number`, `20260626000002_work_orders_tenant_id_not_null`
 - **Breaking**: ✅ Ya — `tenantId` kini required di semua Prisma create calls untuk tabel WO
+
+### [2026-06-26] — Mirror FreeRADIUS base image ke GHCR untuk hindari Docker Hub timeout
+
+- **Tipe**: [INFRA]
+- **Scope**: `radius`, `scripts`
+- **Author**: agent
+- **Deskripsi**: Build #720 gagal karena transient TLS handshake timeout saat pull `freeradius/freeradius-server:3.2.5` dari Docker Hub. Mirror base image ke GHCR (`ghcr.io/hadiahterlupakan/freeradius-server:3.2.5`) untuk menghindari Docker Hub rate limits dan network instability.
+- **Files**:
+  - `radius/Dockerfile`
+  - `scripts/mirror-freeradius.sh`
+- **Breaking**: ❌ Tidak
 
 ### [2026-06-25] — Fix FCM stale token cleanup dan tambah periodic cleanup
 

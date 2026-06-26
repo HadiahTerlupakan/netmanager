@@ -93,6 +93,37 @@ describe("GET /api/mobile/mixradius/groups", () => {
     });
   });
 
+  it("returns all matching groups for multi-site users", async () => {
+    mockGetUserSiteIds.mockReturnValue(["site-1", "site-2"]);
+
+    mockGetMobileGroups.mockResolvedValue([
+      {
+        id: "group-1",
+        name: "Site A",
+        owners: ["owner-a"],
+        isActive: true,
+        siteId: "site-1",
+      },
+      {
+        id: "group-2",
+        name: "Site B",
+        owners: ["owner-b"],
+        isActive: true,
+        siteId: "site-2",
+      },
+    ]);
+
+    const response = await GET(authedRequest(), routeCtx);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGetMobileGroups).toHaveBeenCalledWith(
+      ["site-1", "site-2"],
+      "tenant-1",
+    );
+    expect(json.data).toHaveLength(2);
+  });
+
   it("returns empty array when the mobile user has no site assignment", async () => {
     mockVerifyMobileToken.mockResolvedValue({
       userId: "user-1",

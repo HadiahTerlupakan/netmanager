@@ -111,6 +111,7 @@ describe("mobile-auth version overrides", () => {
       isSales: false,
       siteId: null,
       tenantId: "tenant-1",
+      userSites: [],
       role: {
         name: "ADMIN",
         isSuperAdmin: false,
@@ -121,6 +122,7 @@ describe("mobile-auth version overrides", () => {
     const payload = await verifyMobileToken("token-1", 100);
 
     expect(payload?.userId).toBe("user-1");
+    expect(payload?.siteIds).toEqual([]);
   });
 
   it("builds Mitra teknisi capabilities from the centralized helper", () => {
@@ -183,6 +185,7 @@ describe("mobile-auth version overrides", () => {
       isSales: false,
       siteId: "site-1",
       tenantId: "tenant-1",
+      userSites: [{ siteId: "site-1" }, { siteId: "site-2" }],
       role: {
         name: "SUPER_ADMIN",
         isSuperAdmin: true,
@@ -194,6 +197,7 @@ describe("mobile-auth version overrides", () => {
 
     expect(payload?.permissions).toEqual(["*"]);
     expect(payload?.isSuperAdmin).toBe(true);
+    expect(payload?.siteIds).toEqual(["site-1", "site-2"]);
     expect(
       hasMobilePermission(payload?.permissions, "m_barang_keluar:create"),
     ).toBe(true);
@@ -233,6 +237,7 @@ describe("mobile-auth version overrides", () => {
       isSales: false,
       siteId: null,
       tenantId: "tenant-1",
+      userSites: [],
       role: {
         name: "ADMIN",
         isSuperAdmin: false,
@@ -243,6 +248,7 @@ describe("mobile-auth version overrides", () => {
     const payload = await verifyMobileRefreshToken("token-1", 100);
 
     expect(payload?.userId).toBe("user-1");
+    expect(payload?.siteIds).toEqual([]);
     expect(mockUserFindUnique).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,9 +1,12 @@
+# Use official FreeRADIUS image from Docker Hub (fallback sampai mirror GHCR ready)
 FROM freeradius/freeradius-server:3.2.5
 
 # 1. Install PostgreSQL Driver (Required for Debian-based images)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends freeradius-postgresql && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        freeradius-postgresql \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # 2. Enable SQL Modules (Create Symlinks)
 RUN ln -sf /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql && \

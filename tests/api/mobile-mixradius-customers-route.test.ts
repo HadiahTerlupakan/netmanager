@@ -191,6 +191,41 @@ describe("GET /api/mobile/mixradius/customers", () => {
     });
   });
 
+  it("forwards all user siteIds to fetchCustomersPPP for multi-site users", async () => {
+    mockGetUserSiteIds.mockReturnValue(["site-1", "site-2"]);
+
+    mockFetchCustomersPPP.mockResolvedValue({
+      draw: 1,
+      recordsTotal: 5,
+      recordsFiltered: 5,
+      data: [
+        {
+          id: "cust-3",
+          member_id: "member-3",
+          username: "multi",
+          fullname: "Multi Site User",
+          phonenumber: "08111111111",
+          address: "Jl. Multi",
+          plan_name: "50 Mbps",
+          owner_name: "Owner C",
+          auth_status: "Enabled-Users",
+          expired_on: "2026-06-01 00:00:00",
+          online: false,
+        },
+      ],
+    });
+
+    const request = authedRequest(
+      "http://localhost/api/mobile/mixradius/customers?authStatus=Isolir&start=0&length=20&search=&searchType=all",
+    );
+
+    await GET(request, routeCtx);
+
+    expect(mockFetchCustomersPPP).toHaveBeenCalledWith(
+      expect.objectContaining({ siteIds: ["site-1", "site-2"] }),
+    );
+  });
+
   it("returns 403 when mobile user lacks mixradius read permission", async () => {
     mockVerifyMobileToken.mockResolvedValue({
       userId: "user-1",
