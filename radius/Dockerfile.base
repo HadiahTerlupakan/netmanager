@@ -1,0 +1,16 @@
+# Base FreeRADIUS Image dengan PostgreSQL support
+# Build dari official FreeRADIUS Debian-based image
+FROM freeradius/freeradius-server:3.2.5
+
+# Install PostgreSQL driver dan dependensi
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        freeradius-postgresql \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Expose RADIUS ports
+EXPOSE 1812/udp 1813/udp
+
+# Use default FreeRADIUS entrypoint
+CMD ["freeradius", "-f", "-X"]
