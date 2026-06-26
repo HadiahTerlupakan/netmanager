@@ -37,6 +37,10 @@ vi.mock("@/lib/websocket/emitter", () => ({
   },
 }));
 
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
 // Helper to create update mock
 const createUpdateMock = (overrides = {}) => ({
   id: "update-1",
@@ -125,6 +129,7 @@ describe("WorkOrderRepository", () => {
         type: WorkOrderType.INSTALLATION,
         title: "Test WO",
         description: "Test description",
+        tenantId: "tenant-test",
       });
 
       expect(result.status).toBe("PENDING");

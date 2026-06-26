@@ -2156,8 +2156,8 @@ model WorkOrderAssignments {
   assignedById String?
   mitraId      String?
   isLead       Boolean    @default(false)
-  tenantId     String?
-  tenant       Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -2179,8 +2179,8 @@ model WorkOrderAttachments {
   caption      String?
   uploadedById String?
   uploadedAt   DateTime   @default(now())
-  tenantId     String?
-  tenant       Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user         User?      @relation(fields: [uploadedById], references: [id])
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -2235,9 +2235,9 @@ model WorkOrderTasks {
   completedAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime
-  tenantId      String?
+  tenantId      String
   user          User?      @relation(fields: [completedById], references: [id])
-  tenant        Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   workOrders    WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([status])
@@ -2288,9 +2288,9 @@ model WorkOrderUpdates {
   newStatus   WorkOrderStatus?
   createdById String?
   createdAt   DateTime         @default(now())
-  tenantId    String?
+  tenantId    String
   user        User?            @relation(fields: [createdById], references: [id])
-  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   workOrders  WorkOrders       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
@@ -2354,7 +2354,7 @@ model WorkOrders {
   isWarranty               Boolean                   @default(false)
   warrantyOwnerId          String?
   warrantySla              DateTime?
-  tenantId                 String?
+  tenantId                 String
   canvasing                Canvasing[]
   assignments              WorkOrderAssignments[]
   attachments              WorkOrderAttachments[]
@@ -2371,7 +2371,7 @@ model WorkOrders {
   site                     Sites?                    @relation(fields: [siteId], references: [id])
   sla                      Sla?                      @relation(fields: [slaId], references: [id])
   template                 WorkOrderTemplates?       @relation(fields: [templateId], references: [id])
-  tenant                   Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
 
   @@index([assignedToId])
@@ -2394,6 +2394,7 @@ model WorkOrders {
   @@index([createdAt])
   @@index([tenantId])
   @@index([tenantId, status, assignedToId, assignedMitraId], map: "idx_wo_available_lookup")
+  @@unique([workOrderNumber], name: "uniq_workOrderNumber_global")
   @@map("work_orders")
 }
 
@@ -2412,8 +2413,8 @@ model WorkOrderMaterialReturn {
   status             MaterialReturnStatus @default(PENDING)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  tenantId           String?
-  tenant             Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   workOrder          WorkOrders           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -3080,9 +3081,9 @@ model WorkOrderMaterial {
   notes       String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-  tenantId    String?
+  tenantId    String
   barang      Barang     @relation(fields: [barangId], references: [id])
-  tenant      Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   workOrder   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])

@@ -106,6 +106,7 @@ export class WorkOrderMaterialRepository {
           quantity,
           notes: notes ?? null,
           satuan: barang.satuan,
+          tenantId: workOrder.tenantId,
         },
         include: {
           barang: true,
@@ -163,6 +164,7 @@ export class WorkOrderMaterialRepository {
           message: `Mengambil barang: ${createMaterialPickupMessage(createdItems)}`,
           oldStatus: workOrder.status,
           newStatus: workOrder.status,
+          tenantId: workOrder.tenantId,
         },
       });
 

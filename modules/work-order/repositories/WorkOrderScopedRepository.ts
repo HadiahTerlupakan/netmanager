@@ -124,6 +124,11 @@ export class WorkOrderScopedRepository extends WorkOrderReportingRepository {
     message: string,
     userId: string,
   ): Promise<WorkOrderUpdates> {
+    const wo = await this.prisma.workOrders.findUnique({
+      where: { id: workOrderId },
+      select: { tenantId: true },
+    });
+    if (!wo) throw new Error("Work order not found");
     return this.prisma.workOrderUpdates.create({
       data: {
         id: randomUUID(),
@@ -131,6 +136,7 @@ export class WorkOrderScopedRepository extends WorkOrderReportingRepository {
         updateType: "COMMENT",
         message,
         createdById: userId,
+        tenantId: wo.tenantId,
       },
     });
   }

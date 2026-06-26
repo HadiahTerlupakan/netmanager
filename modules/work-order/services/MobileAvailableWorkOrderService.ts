@@ -121,6 +121,7 @@ export class MobileAvailableWorkOrderService {
       userId: user.id,
       isMitra,
       triggeredByName,
+      tenantId,
     });
 
     await notifyAdminsAboutMobileAction({

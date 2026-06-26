@@ -45,6 +45,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-06-26] — Preventif WorkOrder: tenantId NOT NULL, global unique number, dan distributed lock
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/work-order`, `prisma/schema.prisma`, `lib/distributed-lock.ts`
+- **Author**: agent
+- **Deskripsi**: Implementasi 3 langkah preventif untuk mencegah insiden orphan WO (tanpa tenantId) dan duplikat workOrderNumber lintas tenant yang terjadi pada 12 April 2026:
+  1. **tenantId NOT NULL** — semua 7 tabel WO (`work_orders`, `work_order_assignments`, `work_order_attachments`, `work_order_tasks`, `work_order_updates`, `work_order_materials`, `work_order_material_returns`) kini wajib punya tenantId di level DB. Backfill 306 child records dari parent WO. Relasi Prisma diubah dari `Tenant?` ke `Tenant`.
+  2. **Global unique index** — `workOrderNumber` kini unik secara global (bukan per-tenant), mencegah duplikat lintas tenant. Orphan duplikat (24 WO, 14 child records) dibersihkan sebelum constraint ditambahkan.
+  3. **Redis distributed lock** — operasi generate workOrderNumber kini dilindungi `acquireLock()` (`lib/distributed-lock.ts`) dengan ownership-based release via Lua script, mencegah race condition pada concurrent creation. Retry pattern tetap dipertahankan sebagai fallback.
+- **Files**:
+  - `prisma/schema.prisma` — 7 model WO: `tenantId String?` → `tenantId String`, relasi `Tenant?` → `Tenant`, tambah `@@unique([workOrderNumber])`
+  - `modules/work-order/repositories/work-order-repository-create.ts` — integrasi distributed lock, `resolvePersistedTenantId` throw jika null, cast ke `UncheckedCreateInput`
+  - `lib/distributed-lock.ts` — utility baru: `acquireLock()` dengan SET NX + Lua release
+  - `modules/work-order/repositories/work-order-repository-activity.ts` — tambah `tenantId` ke semua create child records
+  - `modules/work-order/repositories/MobileAvailableWorkOrderRepository.ts` — tambah `tenantId` ke claim assignment + update
+  - `modules/work-order/repositories/WorkOrderActivityRepository.ts` — tambah `tenantId` ke addComment
+  - `modules/work-order/repositories/WorkOrderScopedRepository.ts` — tambah `tenantId` ke addComment
+  - `modules/work-order/repositories/WorkOrderMaterialRepository.ts` — tambah `tenantId` ke material + pickup update
+  - `modules/work-order/services/work-order-mobile-material-return.ts` — `tenantId` required, fallback ke `workOrder.tenantId`
+  - `modules/integrations/repositories/MixRadiusDismantleRepository.ts` — query WO untuk tenantId sebelum create tasks
+  - `modules/work-order/repositories/WorkOrderSupportRepositories.ts` — tambah `tenantId` ke createManyTasks type
+  - `modules/work-order/domain/ports/IWorkOrderAvailabilityRepository.ts` — tambah `tenantId` ke `CreateClaimUpdateData`
+- **Migration**: `20260626000001_work_orders_global_unique_number`, `20260626000002_work_orders_tenant_id_not_null`
+- **Breaking**: ✅ Ya — `tenantId` kini required di semua Prisma create calls untuk tabel WO
+
 ### [2026-06-25] — Fix FCM stale token cleanup dan tambah periodic cleanup
 
 - **Tipe**: [FIXED]
