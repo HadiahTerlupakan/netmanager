@@ -17,6 +17,11 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  onSearchChange?: (query: string) => void;
+}
+
+function normalizeAlphanumeric(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export function SearchableSelect({
@@ -26,6 +31,7 @@ export function SearchableSelect({
   placeholder = "Pilih opsi...",
   disabled = false,
   className = "",
+  onSearchChange,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -37,17 +43,25 @@ export function SearchableSelect({
   );
 
   const filteredOptions = useMemo(() => {
-    const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return options;
+    const rawTerms = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (rawTerms.length === 0) return options;
     return options.filter((opt) => {
-      const texts = [opt.label, opt.subLabel || ""].map((t) => t.toLowerCase());
-      return texts.some((text) =>
-        terms.every((term) => {
-          if (text.includes(term)) return true;
-          const words = text.split(/[\s\-_/,.]+/);
-          return words.some((word) => word.startsWith(term));
-        }),
+      const rawTexts = [opt.label, opt.subLabel || ""].map((t) =>
+        t.toLowerCase(),
       );
+      const normalizedTexts = rawTexts.map(normalizeAlphanumeric);
+      return rawTerms.every((term) => {
+        const normalizedTerm = normalizeAlphanumeric(term);
+        return (
+          rawTexts.some((text) => {
+            if (text.includes(term)) return true;
+            const words = text.split(/[\s\-_/,.]+/);
+            return words.some((word) => word.startsWith(term));
+          }) ||
+          (normalizedTerm.length > 0 &&
+            normalizedTexts.some((text) => text.includes(normalizedTerm)))
+        );
+      });
     });
   }, [options, search]);
 
@@ -81,7 +95,10 @@ export function SearchableSelect({
         <div className="flex-1 min-w-0">
           {selectedOption ? (
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-black text-gray-900 dark:text-white truncate">
+              <span
+                className="text-sm font-black text-gray-900 dark:text-white leading-snug break-words"
+                title={selectedOption.label}
+              >
                 {selectedOption.label}
               </span>
               {selectedOption.subLabel && (
@@ -119,7 +136,7 @@ export function SearchableSelect({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-[110] w-full mt-2 bg-white dark:bg-gray-800 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="absolute z-[110] left-0 w-full min-w-[320px] mt-2 bg-white dark:bg-gray-800 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="p-4 border-b border-gray-50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
             <div className="relative group">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
@@ -128,7 +145,11 @@ export function SearchableSelect({
                 type="text"
                 placeholder="Cari nama atau kode barang..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setSearch(nextValue);
+                  onSearchChange?.(nextValue);
+                }}
                 className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 shadow-inner"
               />
             </div>
@@ -152,7 +173,8 @@ export function SearchableSelect({
                 >
                   <div className="flex-1 min-w-0 mr-3">
                     <div
-                      className={`text-sm font-bold truncate ${value === opt.value ? "text-white" : "text-gray-900 dark:text-white"}`}
+                      className={`text-sm font-bold leading-snug break-words ${value === opt.value ? "text-white" : "text-gray-900 dark:text-white"}`}
+                      title={opt.label}
                     >
                       {opt.label}
                     </div>

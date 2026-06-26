@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Perbaiki UX SearchableSelect di modal Restock (label terpotong + pencarian by kode/ID)
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/ui/SearchableSelect`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan UX pada modal Buat Pengajuan Restock (`/admin/inventory/restock`):
+  1. **Label nama barang terpotong** → hapus class `truncate` pada label utama (trigger & item dropdown), ganti dengan `leading-snug break-words` + `title` attribute → nama wrap multi-baris dengan tooltip hover.
+  2. **Dropdown terlalu sempit** → tambah `min-w-[320px]` pada container dropdown agar tetap lebar ketika trigger berada di kolom flex sempit.
+  3. **Pencarian by kode/ID barang gak nemu** → akar masalah: filter "Stok Minim" (default ON) menyaring dataset di parent sebelum diserahkan ke `SearchableSelect`, sehingga barang stok normal tidak pernah ada di pool pencarian. Fix: tambah prop `onSearchChange` pada `SearchableSelect`, di parent (`RestockFormModal`) auto-disable filter "Stok Minim" begitu user mulai mengetik query. Bonus: tambah normalisasi alphanumeric pada matcher agar `BRG-653-459399` / `brg 653 459399` tetap match `BRG653459399`.
+- **Files**: `components/ui/SearchableSelect.tsx`, `app/admin/inventory/restock/RestockFormModal.tsx`
+- **Breaking**: ❌ Tidak — prop baru `onSearchChange` opsional, perilaku eksisting tidak berubah untuk pemakai lain
+
 ### [2026-06-27] — Fix FreeRADIUS staging build error dengan fallback ke official Docker Hub image
 
 - **Tipe**: [INFRA]
