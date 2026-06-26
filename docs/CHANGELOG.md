@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-26] — Fix mobile auth tidak expose siteIds untuk multi-site user
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/mobile-auth`, `lib/api/handler`
+- **Author**: agent
+- **Deskripsi**: Mobile Bearer token verification hanya query `User.siteId` (legacy singular), tidak query table `userSites`. Akibatnya `getUserSiteIds()` fallback ke array 1 elemen → karyawan dengan 2+ sites hanya bisa melihat data dari 1 site di menu MixRadius Isolir. Fix: query `userSites` di `verifyValidatedMobileToken`, expose `siteIds[]` di `MobileTokenPayload`, dan pass ke `ctx.session.user`. Juga fix web session path di handler yang kehilangan `siteIds`.
+- **Files**: `lib/mobile-auth.ts`, `lib/api/handler.ts`, `tests/api/mobile-mixradius-customers-route.test.ts`, `tests/api/mobile-mixradius-groups-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 > Perubahan yang sudah dikerjakan tapi belum di-tag sebagai release.
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
