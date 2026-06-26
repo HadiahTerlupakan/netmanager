@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Fix FreeRADIUS staging build error dengan fallback ke official Docker Hub image
+
+- **Tipe**: [INFRA]
+- **Scope**: `radius/Dockerfile`, `infra/k8s`
+- **Author**: agent
+- **Deskripsi**: Build Docker image `netmanager-radius` gagal karena base image `ghcr.io/hadiahterlupakan/freeradius-server:3.2.5` tidak ada di registry GHCR. Fix: ganti ke official `freeradius/freeradius-server:3.2.5` dari Docker Hub, tambahkan `postgresql-client` ke dependencies untuk troubleshooting, dan tambahkan `Dockerfile.base` untuk future mirror setup ke GHCR (opsional).
+- **Files**: `radius/Dockerfile`, `radius/Dockerfile.base`
+- **Breaking**: ❌ Tidak — hanya infra change, tidak ada perubahan runtime behavior
+
 ### [2026-06-26] — Fix mobile auth tidak expose siteIds untuk multi-site user
 
 - **Tipe**: [FIXED]
