@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Fix deploy-prod.sh selalu gagal di promotion ke-2 (ff-only vs divergent main)
+
+- **Tipe**: [INFRA]
+- **Scope**: `deploy-prod.sh`
+- **Author**: agent
+- **Deskripsi**: Script `deploy-prod.sh:103` pakai `git merge --ff-only
+  origin/staging`, padahal history project mengikuti pola merge commit
+  (`--no-ff`). Setiap promotion sebelumnya menghasilkan merge commit baru di
+  `main` yang tidak ada di `staging` → `main` selalu divergen dari `staging`
+  setelah promotion pertama → `--ff-only` PASTI gagal dengan error
+  "Not possible to fast-forward, aborting." di promotion ke-2 dan
+  seterusnya. Fix: ganti jadi `git merge --no-ff origin/staging` dengan
+  pesan commit konsisten dengan history ("chore: merge staging to main
+  for production deployment"). Sekarang `./deploy-prod.sh` jalan
+  end-to-end tanpa intervensi manual untuk semua promotion berikutnya.
+- **Files**: `deploy-prod.sh`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-27] — Fix HTTP 500 "Verifikasi Barang Sampai" — purchaseOrder.create reject `tenant: { connect }`
 
 - **Tipe**: [FIXED]
