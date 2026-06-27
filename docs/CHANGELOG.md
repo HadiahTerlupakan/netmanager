@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Fix flaky test admin-attendance-bulk-delete-route (timeout di Jenkins)
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/api/admin-attendance-bulk-delete-route.test.ts`
+- **Author**: agent
+- **Deskripsi**: Test pertama (`returns 400 for malformed JSON...`) timeout di
+  30s di Jenkins build #134, menyebabkan pipeline production deploy GAGAL.
+  Root cause: file ini punya 11 `await import("@/app/api/admin/attendance/route")`
+  dinamis di dalam test body. Di Jenkins di bawah load tinggi (build #134 total
+  import phase 2543s vs #133 1693s), masing-masing dynamic import bisa makan
+  >5s untuk transform/eval, melewati budget 30s test pertama. Lokal pass dalam
+  4-5s. Fix: naikkan timeout describe block ke 60s, biar masih lewat di Jenkins
+  load tinggi tanpa mengendurkan budget global test lain.
+- **Files**: `tests/api/admin-attendance-bulk-delete-route.test.ts`
+  (tambah `{ timeout: 60000 }` ke describe + komentar penjelas root cause)
+- **Breaking**: ❌ Tidak — perubahan test config saja, tidak menyentuh logic.
+
 ### [2026-06-27] — Fix backend filter Isolir mencampurkan Disabled-Users (semantik mapping salah)
 
 - **Tipe**: [FIXED]
