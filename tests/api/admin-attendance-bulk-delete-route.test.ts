@@ -86,7 +86,10 @@ vi.mock("@/modules/attendance/services/AbsenceService", () => ({
   },
 }));
 
-describe("admin attendance bulk delete route", () => {
+// CI Jenkins membutuhkan waktu lama untuk dynamic import + transform per-test (~5s
+// per `await import("@/app/api/admin/attendance/route")`). 11 dynamic import + load
+// lambat di Jenkins kadang melewati 30s default. Naikkan timeout per-test ke 60s.
+describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
