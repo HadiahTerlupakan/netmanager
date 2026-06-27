@@ -88,14 +88,16 @@ function filterByAuthStatus(
     return customers;
   }
 
+  // Isolir di domain MixRadius == Expired (jatuh tempo lewat) — BUKAN Disabled.
+  // Disabled-Users adalah status terpisah ("Non-Aktif") yang artinya account RADIUS di-disable.
   if (authStatus === "Isolir") {
-    return customers.filter(
-      (c) => isExpiredCustomer(c) || c.auth_status === "Disabled-Users",
-    );
+    return customers.filter(isExpiredCustomer);
   }
 
   if (authStatus === "Disabled-Users") {
-    return customers.filter(isDisabledOrExpiredCustomer);
+    return customers.filter((c) =>
+      ["Disabled-Users", "disabled"].includes(c.auth_status),
+    );
   }
 
   return customers.filter((customer) => customer.auth_status === authStatus);
@@ -110,14 +112,6 @@ function isExpiredCustomer(customer: MixRadiusCustomer) {
     !Number.isNaN(expiredDate.getTime()) &&
     expiredDate < new Date()
   );
-}
-
-function isDisabledOrExpiredCustomer(customer: MixRadiusCustomer) {
-  if (["Disabled-Users", "disabled"].includes(customer.auth_status)) {
-    return true;
-  }
-
-  return isExpiredCustomer(customer);
 }
 
 async function filterBySite(

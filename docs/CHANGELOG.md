@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Fix backend filter Isolir mencampurkan Disabled-Users (semantik mapping salah)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/integrations/services/mixradius-customer-filters.ts`,
+  `mobile-netmanager/app/(app)/mixradius/isolir.tsx`
+- **Author**: agent
+- **Deskripsi**: Status MixRadius punya mapping definitif (sesuai dropdown admin):
+  Aktif=Enabled-Users, Non-Aktif=Disabled-Users, **Isolir=Expired** (`expired_on < now`
+  walaupun `auth_status` masih `Enabled-Users`). Backend `filterByAuthStatus` salah
+  menerjemahkan `authStatus=Isolir` jadi `Expired OR Disabled-Users`, mencampurkan
+  dua status semantik berbeda. Akibat di mobile: defensive filter
+  `!== "Disabled-Users"` di mobile UI membuang sebagian hasil (semua row yang
+  auth_status-nya Disabled-Users) yang seharusnya bukan kategori Isolir tapi terlanjur
+  ikut keluar. Walaupun pada kasus DEPOK aktual semua 158 row adalah Enabled-Users+Expired
+  (tidak terdampak filter mobile), pencampuran ini tetap salah karena untuk group lain
+  bisa tampil customer Disabled-Users sebagai "Isolir" di mobile. Fix: backend dibersihkan
+  (`Isolir = isExpiredCustomer only`), defensive filter mobile dipertahankan dengan
+  komentar penjelas (legacy guard sampai semua client upgrade).
+- **Files**: `modules/integrations/services/mixradius-customer-filters.ts`
+  (buang `OR Disabled-Users` dari branch Isolir + hapus dead helper
+  `isDisabledOrExpiredCustomer`), `mobile-netmanager/app/(app)/mixradius/isolir.tsx`
+  (komentar penjelas defensive filter), `mobile-netmanager/__tests__/app/mixradius-isolir-work-order-request.test.tsx`
+  (test regression: Disabled-Users tidak boleh muncul di tab Isolir, Expired muncul)
+- **Breaking**: ❌ Tidak — semantik di-koreksi ke mapping yang benar; admin UI
+  sudah punya label yang konsisten (Isolir = Expired) sehingga klien admin tidak
+  terpengaruh perubahan ini.
+
 ### [2026-06-27] — Perbaiki UX SearchableSelect di modal Restock (label terpotong + pencarian by kode/ID)
 
 - **Tipe**: [FIXED]
