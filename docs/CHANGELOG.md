@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-06-27] — Fix HTTP 500 "Verifikasi Barang Sampai" — purchaseOrder.create reject `tenant: { connect }`
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/prisma-extension.ts`
+- **Author**: agent
+- **Deskripsi**: PATCH `/api/inventory/restock/requests/{id}/receive` gagal 500
+  saat auto-generate PO dari PR. Prisma menolak payload dengan error
+  `Unknown argument 'tenant'. Did you mean 'tenantId'?`. Root cause:
+  middleware tenant-isolation di `prisma-extension.ts` membungkus payload jadi
+  `tenant: { connect: { id } }` ketika `hasRelationPayload(data)` true
+  (yaitu ada nested `items.create` / `purchaseRequests.connect`). Bentuk
+  relational ini bergantung pada nama relasi `tenant` di Prisma Client
+  generated — kalau client di image production di-build sebelum relasi
+  tersebut ada di schema (drift), payload ditolak. Padahal `tenantId`
+  skalar bekerja di semua versi Prisma Client dan tidak konflik dengan
+  nested relations lain. Fix: hapus cabang `hasRelationPayload`, selalu
+  pakai `tenantId` skalar pada injeksi `create` dan `upsert.create`.
+  Side-effect positif: kode imun terhadap drift Prisma Client di
+  build pipeline.
+- **Files**: `lib/prisma-extension.ts` (hapus fungsi `hasRelationPayload`;
+  sederhanakan `applyTenantToCreateData`, cabang `create` non-isolated, dan
+  cabang `upsert.create` non-isolated)
+- **Verifikasi**: `tests/lib/prisma-extension-tenant-context-alias.test.ts`
+  (5 tests) + `tests/lib/api-handler-mobile-auth.test.ts` (7 tests) PASS;
+  `tsc --noEmit` & `eslint` clean.
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-27] — Fix flaky test admin-attendance-bulk-delete-route (timeout di Jenkins)
 
 - **Tipe**: [FIXED]

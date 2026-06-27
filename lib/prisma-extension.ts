@@ -51,25 +51,6 @@ const WRITE_OPERATIONS = new Set([
 
 const GLOBAL_REFERENCE_MODELS = new Set(["Role", "Departments", "Sites"]);
 
-function hasRelationPayload(obj: Record<string, unknown> | null | undefined) {
-  if (!obj || typeof obj !== "object") {
-    return false;
-  }
-
-  for (const key in obj) {
-    const value = obj[key];
-    if (
-      value &&
-      typeof value === "object" &&
-      ("connect" in value || "create" in value || "connectOrCreate" in value)
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function buildTenantReadWhere(
   model: string | undefined,
   where: Record<string, unknown> | undefined,
@@ -114,13 +95,6 @@ function applyTenantToCreateData(
   const nextData = { ...data };
   delete nextData.tenantId;
   delete nextData.tenant;
-
-  if (hasRelationPayload(nextData)) {
-    return {
-      ...nextData,
-      tenant: { connect: { id: tenantId } },
-    };
-  }
 
   return {
     ...nextData,
@@ -311,12 +285,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
                 dataArgs.tenantId === undefined &&
                 dataArgs.tenant === undefined
               ) {
-                args.data = hasRelationPayload(dataArgs)
-                  ? {
-                      ...dataArgs,
-                      tenant: { connect: { id: tenantId } },
-                    }
-                  : { ...dataArgs, tenantId };
+                args.data = { ...dataArgs, tenantId };
               }
             } else if (operation === "createMany") {
               if (Array.isArray(args.data)) {
@@ -340,12 +309,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
                 createArgs.tenantId === undefined &&
                 createArgs.tenant === undefined
               ) {
-                args.create = hasRelationPayload(createArgs)
-                  ? {
-                      ...createArgs,
-                      tenant: { connect: { id: tenantId } },
-                    }
-                  : { ...createArgs, tenantId };
+                args.create = { ...createArgs, tenantId };
               }
 
               if (!isSuperAdmin) {
