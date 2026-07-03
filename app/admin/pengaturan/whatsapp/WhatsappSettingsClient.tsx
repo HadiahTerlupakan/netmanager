@@ -28,6 +28,8 @@ interface WhatsAppAccount {
   dailyLimit?: number;
   dailyCount: number;
   createdAt: string;
+  domain?: string | null;
+  deviceId?: string | null;
 }
 
 const PROVIDERS = [
@@ -361,8 +363,8 @@ function AccountModal({
     provider: account?.provider || "FONNTE",
     accountType: account?.accountType || "CUSTOMER",
     apiKey: "",
-    domain: "",
-    deviceId: "",
+    domain: account?.domain || "",
+    deviceId: account?.deviceId || "",
     isActive: account?.isActive ?? true,
     priority: account?.priority || 0,
     dailyLimit: account?.dailyLimit || undefined,
