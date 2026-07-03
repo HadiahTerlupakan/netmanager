@@ -121,14 +121,14 @@ export function buildPaidOvertimeWhere(input: {
 
 export function toCreateData(
   data: OvertimeCreateInput,
-): Prisma.OvertimeCreateInput {
+): Prisma.OvertimeUncheckedCreateInput {
   return {
     id: randomUUID(),
+    userId: data.userId,
     reason: data.reason,
     status: data.status as OvertimeStatus,
     updatedAt: new Date(),
-    user: { connect: { id: data.userId } },
-    tenant: data.tenantId ? { connect: { id: data.tenantId } } : undefined,
+    tenantId: data.tenantId ?? null,
   };
 }
 

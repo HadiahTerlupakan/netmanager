@@ -100,7 +100,13 @@ echo "Switching to main branch..."
 git switch main
 git pull --ff-only origin main
 
-git merge --ff-only origin/staging
+# Pakai --no-ff karena history main selalu divergen dari staging setelah
+# promotion sebelumnya (tiap promotion bikin merge commit di main yang
+# tidak ada di staging). --ff-only akan PASTI gagal di promotion ke-2+.
+# --no-ff konsisten dengan pola commit "chore: merge staging to main..."
+# yang sudah ada di history project.
+git merge --no-ff origin/staging \
+  -m "chore: merge staging to main for production deployment"
 
 echo "Pushing to main branch..."
 git push origin main

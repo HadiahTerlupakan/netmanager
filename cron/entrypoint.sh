@@ -38,6 +38,9 @@ cat > /etc/crontabs/root <<CRON_EOF
 
 # Tenant Domain Verification - verifikasi domain tenant setiap 5 menit
 */5 * * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/tenant-domain-verify" >> /var/log/cron.log 2>&1
+
+# Cleanup Stale FCM Tokens - hapus token >30 hari sekali sehari jam 02:00
+0 2 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/cleanup-stale-fcm-tokens" >> /var/log/cron.log 2>&1
 CRON_EOF
 
 echo "Cron jobs configured:"
