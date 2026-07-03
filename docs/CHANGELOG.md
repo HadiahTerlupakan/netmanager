@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-03] — Hotfix P0: Fitur lembur 500 error + P2: event tanpa handler + P3: FCM cron
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/overtime/repositories`, `lib/event-bus/event-handlers.ts`, `lib/realtime/contracts.ts`, `cron/entrypoint.sh`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan sekaligus:
+  1. **P0 (Kritis)**: `prisma.overtime.create()` throw `PrismaClientValidationError` karena `toCreateData()` mengirim payload campuran antara relational form (`user: { connect }`) dan scalar `tenantId` yang disuntik oleh middleware `withTenantIsolation`. Prisma menolak XOR violation ini. Fix: gunakan `OvertimeUncheckedCreateInput` dengan `userId` + `tenantId` sebagai scalar agar konsisten.
+  2. **P2 (Medium)**: Event `workorder:updated` dan `attendance:checkout` di-emit tapi tidak ada handler terdaftar. Tambah handler `WORK_ORDER_UPDATED` (socket realtime) dan `ATTENDANCE_CHECKOUT` (Firebase Realtime publish). Tambah type `"attendance.checkout"` ke `RealtimeEventType`.
+  3. **P3 (Minor)**: Endpoint `/api/cron/cleanup-stale-fcm-tokens` sudah ada tapi belum dijadwalkan di `cron/entrypoint.sh`. Tambah schedule harian jam 02:00.
+- **Files**: `modules/overtime/repositories/OvertimeRepository.helpers.ts`, `lib/event-bus/event-handlers.ts`, `lib/realtime/contracts.ts`, `cron/entrypoint.sh`
+- **Breaking**: ❌ Tidak
+
 ### [2026-06-27] — Fix deploy-prod.sh selalu gagal di promotion ke-2 (ff-only vs divergent main)
 
 - **Tipe**: [INFRA]

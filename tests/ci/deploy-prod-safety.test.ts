@@ -17,7 +17,7 @@ describe("deploy-prod.sh safety", () => {
     expect(deployProdScript).toContain("git fetch origin");
     expect(deployProdScript).toContain("git pull --ff-only origin staging");
     expect(deployProdScript).toContain("git pull --ff-only origin main");
-    expect(deployProdScript).toContain("git merge --ff-only origin/staging");
+    expect(deployProdScript).toContain("git merge --no-ff origin/staging");
     expect(deployProdScript).not.toContain("git add .");
     expect(deployProdScript).not.toContain(
       'git commit -m "chore: Prepare for production deployment"',
