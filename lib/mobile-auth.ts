@@ -273,7 +273,12 @@ export async function getMobileTokenDetails(
       versionAccess,
     };
   } catch (error) {
-    logger.error("[MOBILE_AUTH] Token parsing failed:", error);
+    const code = (error as { code?: string }).code;
+    if (code === "ERR_JWT_EXPIRED") {
+      logger.warn("[MOBILE_AUTH] Token expired — client perlu refresh token");
+    } else {
+      logger.error("[MOBILE_AUTH] Token parsing failed:", error);
+    }
     return null;
   }
 }
