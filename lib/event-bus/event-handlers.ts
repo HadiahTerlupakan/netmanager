@@ -292,6 +292,28 @@ export function registerDefaultHandlers(): void {
     }
   });
 
+  registerEventHandler(EVENT_NAMES.WORK_ORDER_UPDATED, async (job) => {
+    const { payload } = job.data;
+    try {
+      const { socketEmitter } = await import("@/lib/websocket/emitter");
+      socketEmitter.updateWorkOrder(
+        {
+          id: payload.workOrderId,
+          workOrderNumber: payload.workOrderNumber,
+          title: payload.title,
+          type: "WORK_ORDER",
+          status: "UPDATED",
+          priority: "NORMAL",
+          assignedToId: payload.assignedToId ?? null,
+          departmentId: payload.departmentId ?? null,
+        },
+        payload.siteId,
+      );
+    } catch (error) {
+      logger.error("[Worker] Work order updated handler error:", error);
+    }
+  });
+
   registerEventHandler(EVENT_NAMES.WORK_ORDER_ASSIGNED, async (job) => {
     const { payload } = job.data;
 
@@ -443,6 +465,23 @@ export function registerDefaultHandlers(): void {
       });
     } catch (error) {
       logger.error("[Worker] Attendance checkin handler error:", error);
+    }
+  });
+
+  registerEventHandler(EVENT_NAMES.ATTENDANCE_CHECKOUT, async (job) => {
+    const { payload } = job.data;
+    try {
+      await firebaseRealtimeService.publish({
+        type: "attendance.checkout",
+        scope: ATTENDANCE_ADMIN_SCOPE,
+        payload: {
+          userId: payload.userId,
+          attendanceId: payload.attendanceId,
+          timestamp: payload.timestamp,
+        },
+      });
+    } catch (error) {
+      logger.error("[Worker] Attendance checkout handler error:", error);
     }
   });
 

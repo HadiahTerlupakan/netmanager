@@ -13,6 +13,7 @@ export type RealtimeEventType =
   | "inventory.update"
   | "chat.message"
   | "attendance.checkin"
+  | "attendance.checkout"
   | "attendance.absent"
   | "announcement.new"
   | "payment.pending.new"
