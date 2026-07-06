@@ -81,9 +81,11 @@ export class PaymentGatewayConfigService {
     private readonly repository = new PaymentGatewayConfigRepository(),
   ) {}
 
-  async listConfigs(): Promise<ServiceResult<SanitizedPaymentGatewayConfig[]>> {
+  async listConfigs(
+    tenantId?: string,
+  ): Promise<ServiceResult<SanitizedPaymentGatewayConfig[]>> {
     try {
-      const configs = await this.repository.findAll();
+      const configs = await this.repository.findAll(tenantId);
       return { success: true, data: configs.map(sanitizeConfig) };
     } catch {
       return {
