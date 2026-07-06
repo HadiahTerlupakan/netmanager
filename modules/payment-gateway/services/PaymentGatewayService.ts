@@ -20,15 +20,15 @@ export class PaymentGatewayManager {
   /**
    * Get all enabled providers, sorted by priority
    */
-  async getEnabledProviders() {
-    return this.configRepository.findEnabled();
+  async getEnabledProviders(tenantId?: string) {
+    return this.configRepository.findEnabled(tenantId);
   }
 
   /**
    * Get best provider for payment (based on priority)
    */
-  async getBestProvider() {
-    const providers = await this.getEnabledProviders();
+  async getBestProvider(tenantId?: string) {
+    const providers = await this.getEnabledProviders(tenantId);
     const firstProvider = providers[0];
 
     if (!firstProvider) {
@@ -98,7 +98,7 @@ export class PaymentGatewayManager {
       throw new Error("Payment amount must be greater than zero");
     }
 
-    const providers = await this.configRepository.findEnabled();
+    const providers = await this.configRepository.findEnabled(params.tenantId);
     const providerConfig = providers[0];
 
     if (!providerConfig) {
