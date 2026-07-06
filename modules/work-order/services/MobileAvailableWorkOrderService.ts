@@ -1,5 +1,5 @@
-import { ApiErrors, apiError, ErrorCodes } from "@/lib/api";
 import { notifyAdminsAboutMobileAction } from "@/modules/notification";
+import { WorkOrderErrors } from "../domain/errors";
 import type { IWorkOrderAvailabilityRepository } from "../domain/ports/IWorkOrderAvailabilityRepository";
 import { mobileAvailableWorkOrderRepository } from "../repositories/MobileAvailableWorkOrderRepository";
 import {
@@ -7,7 +7,6 @@ import {
   buildMitraWhereClause,
   extractUserSiteIds,
   getScheduledTimeStart,
-  validateClaimState,
   validateEmployeeClaimAccess,
 } from "./mobile-available-work-order.helpers";
 
@@ -63,27 +62,52 @@ export class MobileAvailableWorkOrderService {
     );
 
     if (!workOrder) {
-      return ApiErrors.notFound("Work order tidak ditemukan");
+      throw WorkOrderErrors.notFound(workOrderId, tenantId);
     }
 
-    const invalidStateError = validateClaimState(workOrder);
-    if (invalidStateError) {
-      return invalidStateError;
+    const isMitra = user.role === "MITRA";
+
+    if (isMitra && workOrder.assignedMitraId === user.id) {
+      throw WorkOrderErrors.alreadyClaimed(
+        workOrderId,
+        user.id,
+        workOrder.scheduledDate || new Date(),
+      );
+    }
+    if (!isMitra && workOrder.assignedToId === user.id) {
+      throw WorkOrderErrors.alreadyClaimed(
+        workOrderId,
+        user.id,
+        workOrder.scheduledDate || new Date(),
+      );
+    }
+
+    if (workOrder.assignedToId || workOrder.assignedMitraId) {
+      throw WorkOrderErrors.notAvailable(
+        workOrderId,
+        workOrder.status,
+        workOrder.assignedToId,
+        workOrder.assignedMitraId,
+      );
+    }
+
+    if (workOrder.status !== "PENDING") {
+      throw WorkOrderErrors.invalidState(
+        workOrderId,
+        workOrder.status,
+        "Work order sudah tidak tersedia (status bukan PENDING)",
+      );
     }
 
     const userSiteIds = extractUserSiteIds(dbUser);
-    const accessError = await this.validateClaimAccess({
+    await this.validateClaimAccess({
       user,
       dbUser,
       userSiteIds,
       workOrder,
     });
-    if (accessError) {
-      return accessError;
-    }
 
     const claimTime = new Date();
-    const isMitra = user.role === "MITRA";
     const triggeredByName = await this.resolveTriggeredByName(
       user,
       dbUser?.name,
@@ -100,10 +124,11 @@ export class MobileAvailableWorkOrderService {
     });
 
     if (!hasClaimed) {
-      return apiError(
-        "Work order sudah tidak tersedia",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
+      throw WorkOrderErrors.notAvailable(
+        workOrderId,
+        "CLAIMED",
+        undefined,
+        undefined,
       );
     }
 
@@ -113,7 +138,7 @@ export class MobileAvailableWorkOrderService {
     );
 
     if (!updatedWorkOrder) {
-      return ApiErrors.notFound("Work order tidak ditemukan");
+      throw WorkOrderErrors.notFound(workOrderId, tenantId);
     }
 
     await this.repository.createClaimUpdate({
@@ -149,30 +174,49 @@ export class MobileAvailableWorkOrderService {
     >;
     userSiteIds: string[];
     workOrder: {
+      id?: string;
       siteId: string | null;
       departmentId: string | null;
     };
-  }) {
+  }): Promise<void> {
     if (input.user.role === "MITRA") {
       const mitra = await this.repository.findMitraProfile(input.user.id);
       const mitraSiteId = mitra?.siteId;
 
       if (input.workOrder.siteId && mitraSiteId !== input.workOrder.siteId) {
-        return apiError(
-          "Anda tidak memiliki akses ke Work Order ini (Beda Site)",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
+        throw WorkOrderErrors.accessDenied(
+          input.workOrder.id || "unknown",
+          "Beda Site",
+          {
+            workOrderSiteId: input.workOrder.siteId,
+            mitraSiteId,
+            userId: input.user.id,
+          },
         );
       }
 
-      return null;
+      return;
     }
 
-    return validateEmployeeClaimAccess({
+    const accessError = validateEmployeeClaimAccess({
       dbUser: input.dbUser,
       userSiteIds: input.userSiteIds,
       workOrder: input.workOrder,
     });
+
+    if (accessError) {
+      throw WorkOrderErrors.accessDenied(
+        input.workOrder.id || "unknown",
+        "Beda Department/Site",
+        {
+          workOrderSiteId: input.workOrder.siteId,
+          workOrderDepartmentId: input.workOrder.departmentId,
+          userSiteIds: input.userSiteIds,
+          userDepartmentId: input.dbUser?.departmentId,
+          userId: input.user.id,
+        },
+      );
+    }
   }
 
   /** Resolve actor display name for timeline and notifications. */

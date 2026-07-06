@@ -1,5 +1,7 @@
 import { apiSuccess, apiError, ErrorCodes, createHandler } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { getMobileAvailableWorkOrderService } from "@/modules/work-order";
+import { WorkOrderValidationError } from "@/modules/work-order";
 
 // GET - List available work orders (PENDING status, not assigned)
 export const GET = createHandler(
@@ -27,16 +29,38 @@ export const POST = createHandler(
       });
     }
 
-    const result =
-      await getMobileAvailableWorkOrderService().claimAvailableWorkOrder(
+    try {
+      const result =
+        await getMobileAvailableWorkOrderService().claimAvailableWorkOrder(
+          workOrderId,
+          ctx.session!.user,
+        );
+
+      return apiSuccess(result);
+    } catch (error) {
+      logger.error("Work order claim validation failed", {
         workOrderId,
-        ctx.session!.user,
-      );
+        userId: ctx.session!.user.id,
+        userEmail: ctx.session!.user.email,
+        userRole: ctx.session!.user.role,
+        tenantId: ctx.session!.user.tenantId,
+        errorCode:
+          error instanceof WorkOrderValidationError ? error.code : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorDetails:
+          error instanceof WorkOrderValidationError ? error.details : undefined,
+        timestamp: new Date().toISOString(),
+      });
 
-    if (result instanceof Response) {
-      return result;
+      if (error instanceof WorkOrderValidationError) {
+        const response = error.toApiResponse();
+        return apiError(response.message, response.error, {
+          status: 400,
+          details: response.details,
+        });
+      }
+
+      throw error;
     }
-
-    return apiSuccess(result);
   },
 );

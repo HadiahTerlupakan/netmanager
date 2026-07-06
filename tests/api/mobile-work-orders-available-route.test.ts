@@ -20,9 +20,18 @@ vi.mock("@/lib/api", () => ({
       { success: true, data, message: init?.message },
       { status: init?.status || 200 },
     ),
-  apiError: (message: string, _code?: string, init?: { status?: number }) =>
+  apiError: (
+    message: string,
+    code?: string,
+    init?: { status?: number; details?: Record<string, unknown> },
+  ) =>
     NextResponse.json(
-      { success: false, error: message },
+      {
+        success: false,
+        error: message,
+        ...(code && { code }),
+        ...(init?.details && { details: init.details }),
+      },
       { status: init?.status || 500 },
     ),
   ApiErrors: {
@@ -73,6 +82,10 @@ vi.mock("@/modules/database", () => ({
 
 vi.mock("@/modules/notification", () => ({
   notifyAdminsAboutMobileAction: mockFns.notifyAdminsAboutMobileAction,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
 import { POST } from "@/app/api/mobile/work-orders/available/route";
@@ -141,10 +154,13 @@ describe("mobile work orders available route", () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "Work order sudah tidak tersedia",
-    });
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        success: false,
+        error: "Work order sudah diambil teknisi lain atau tidak tersedia",
+        code: "WO_NOT_AVAILABLE",
+      }),
+    );
     expect(mockFns.workOrderAssignmentsCreate).not.toHaveBeenCalled();
     expect(mockFns.workOrderUpdatesCreate).not.toHaveBeenCalled();
     expect(mockFns.notifyAdminsAboutMobileAction).not.toHaveBeenCalled();
@@ -166,10 +182,13 @@ describe("mobile work orders available route", () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "Work order sudah tidak tersedia",
-    });
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        success: false,
+        error: "Work order sudah diambil teknisi lain atau tidak tersedia",
+        code: "WO_NOT_AVAILABLE",
+      }),
+    );
     expect(mockFns.workOrderUpdatesCreate).not.toHaveBeenCalled();
     expect(mockFns.notifyAdminsAboutMobileAction).not.toHaveBeenCalled();
   });

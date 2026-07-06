@@ -15,6 +15,12 @@ export * from "./services/MobileWorkOrderActionService";
 export * from "./services/AdminWorkOrderDashboardService";
 export * from "./services/WorkOrderQueryService";
 export * from "./services/partner-invite-availability";
+export {
+  WorkOrderValidationError,
+  WorkOrderErrors,
+  WorkOrderErrorCode,
+} from "./domain/errors";
+export type { WorkOrderErrorDetails } from "./domain/errors";
 export { validateMobileMaterialPayload } from "./services/work-order-mobile-material-validator";
 export type { IWorkOrderRepository } from "./services/work-order.contracts";
 export { buildWorkOrderListSummary } from "./client";
