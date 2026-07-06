@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-06] — Fixed mobile work order error logging dan structured error responses
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`, `app/api/mobile/work-orders/available`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki logging dan error handling untuk mobile work order claim endpoint yang menyebabkan debugging sangat sulit. Sebelumnya, validation errors tidak ter-log dengan detail dan user tidak mendapat error message yang informatif. Sekarang semua error memiliki error code yang spesifik (ALREADY_CLAIMED, MAX_LIMIT_REACHED, NOT_AVAILABLE, etc.) dan detail context untuk debugging.
+- **Files**: 
+  - `modules/work-order/domain/errors.ts` (NEW)
+  - `modules/work-order/services/MobileAvailableWorkOrderService.ts`
+  - `app/api/mobile/work-orders/available/route.ts`
+- **Breaking**: ❌ Tidak
+- **Details**:
+  - Menambahkan custom error class `WorkOrderValidationError` dengan error codes spesifik
+  - Menambahkan double-claim detection: user yang sudah claim WO akan dapat error ALREADY_CLAIMED dengan timestamp kapan dia claim
+  - Refactor service layer untuk throw errors instead of returning Response objects (clean architecture pattern)
+  - Menambahkan detailed error logging di API route dengan context lengkap (userId, workOrderId, error code, timestamp)
+  - Structured error response untuk mobile app dengan error code dan details yang bisa di-handle secara spesifik
+  - Fixes bug report: "Mobile API Error 400 - Work Order Management" tanggal 2026-07-06
+
 ### [2026-07-03] — Hotfix P0: Fitur lembur 500 error + P2: event tanpa handler + P3: FCM cron
 
 - **Tipe**: [FIXED]
