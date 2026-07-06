@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Fix robust WhatsApp gateway delivery
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki pengiriman WhatsApp gateway agar nomor tujuan dinormalisasi konsisten, provider tanpa dukungan file tidak menyebabkan runtime crash, daily limit di-reset sebelum account routing, dan response non-JSON dari Fonnte/Wablas/MPWA menghasilkan error detail dengan status serta preview response.
+- **Files**: `modules/notification/services/whatsapp-sender.service.ts`, `modules/notification/services/whatsapp-account-routing.service.ts`, `modules/notification/services/whatsapp-provider-send.service.ts`, `modules/notification/services/whatsapp/whatsapp-gateway-utils.ts`, `modules/notification/services/whatsapp/providers/fonnte-provider.ts`, `modules/notification/services/whatsapp/providers/wablas-provider.ts`, `modules/notification/services/whatsapp/providers/mpwa-provider.ts`, `tests/whatsapp-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-06] — Fix toleransi keterlambatan absensi per tenant
 
 - **Tipe**: [FIXED]
