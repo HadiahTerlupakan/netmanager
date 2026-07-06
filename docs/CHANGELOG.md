@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-06] — Fixed attendance check-in error logging, detail waktu, dan checkInWindow di status endpoint
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`, `app/api/mobile/attendance`
+- **Author**: agent
+- **Deskripsi**: 
+  1. Memperbaiki error logging check-in — sekarang error throw `AttendanceValidationError` dengan detail lengkap (checkInTime, windowStart, windowEnd) menggantikan `Error(CHECKIN_REJECTED:...)` yang kehilangan konteks.
+  2. Menambahkan field `checkInWindow` di response `GET /api/mobile/attendance/status` agar mobile app bisa disable button check-in + tampilkan keterangan saat di luar jam kerja (canCheckIn, windowStart, windowEnd, message).
+- **Files**: 
+  - `modules/attendance/domain/errors.ts` (NEW)
+  - `modules/attendance/services/AttendanceMutationService.ts`
+  - `modules/attendance/services/MobileAttendanceCheckInRouteService.ts`
+  - `modules/attendance/services/AttendanceValidationService.ts`
+  - `modules/attendance/services/MobileAttendanceCheckInTypes.ts`
+  - `app/api/mobile/attendance/status/route.ts`
+  - `modules/attendance/index.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-06] — Fixed mobile work order error logging dan structured error responses
 
 - **Tipe**: [FIXED]

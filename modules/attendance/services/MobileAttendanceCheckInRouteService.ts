@@ -2,7 +2,7 @@ import { AttendanceService } from "./AttendanceService";
 import { AttendanceIdempotencyService } from "./AttendanceIdempotencyService";
 import { AttendancePhotoService } from "./AttendancePhotoService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
-import { ErrorCodes, type ErrorCode } from "@/lib/api";
+import { ErrorCodes } from "@/lib/api";
 import { MobileAttendanceCheckInIdempotencyService } from "./MobileAttendanceCheckInIdempotencyService";
 import { MobileAttendanceCheckInPayloadParser } from "./MobileAttendanceCheckInPayloadParser";
 import type {
@@ -13,6 +13,7 @@ import type {
   MobileCheckInRouteInput,
 } from "./MobileAttendanceCheckInTypes";
 import { logger } from "@/lib/logger";
+import { AttendanceValidationError } from "../domain/errors";
 export type {
   MobileAttendanceCheckInRouteFailure,
   MobileAttendanceCheckInRouteResult,
@@ -175,6 +176,12 @@ export class MobileAttendanceCheckInRouteService {
   private mapCheckInError(error: unknown): MobileAttendanceCheckInRouteResult {
     if (!(error instanceof Error)) throw error;
 
+    if (error instanceof AttendanceValidationError) {
+      return this.fail(error.message, error.code, 400, {
+        ...(error.details as Record<string, unknown>),
+      });
+    }
+
     if (error.message === "OUTSIDE_GEOFENCE") {
       return this.fail(
         "Anda berada di luar area absensi yang diizinkan",
@@ -222,7 +229,7 @@ export class MobileAttendanceCheckInRouteService {
 
   private fail(
     error: string,
-    code: ErrorCode,
+    code: string,
     status: number,
     details?: Record<string, unknown>,
   ): MobileAttendanceCheckInRouteFailure {
