@@ -137,15 +137,17 @@ export class AttendanceTimezoneService {
    * @param checkInTime - The actual check-in time
    * @param scheduleTime - The scheduled start time (e.g., '08:00')
    * @param timezone - Optional timezone (defaults to system timezone)
+   * @param tenantId - Optional tenant ID for tenant-scoped tolerance
    * @returns 'ON_TIME' or 'LATE'
    */
   async calculateStatus(
     checkInTime: Date,
     scheduleTime: string,
     timezone?: string,
+    tenantId?: string,
   ): Promise<"ON_TIME" | "LATE"> {
-    const tz = timezone || (await this.getTimezone());
-    const toleranceMinutes = await this.getTolerance();
+    const tz = timezone || (await this.getTimezone(tenantId));
+    const toleranceMinutes = await this.getTolerance(tenantId);
 
     const scheduleParts = scheduleTime.split(":").map(Number);
     const schedHour = scheduleParts[0] ?? 0;
