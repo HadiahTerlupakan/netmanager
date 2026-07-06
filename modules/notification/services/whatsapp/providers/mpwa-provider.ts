@@ -1,3 +1,10 @@
+import {
+  isSuccessGatewayResponse,
+  normalizeWhatsAppPhone,
+  parseGatewayResponse,
+  resolveGatewayErrorMessage,
+} from "../whatsapp-gateway-utils";
+import { whatsAppThrottler } from "../whatsapp-throttler";
 import type {
   SendButtonParams,
   SendFileParams,
@@ -6,13 +13,11 @@ import type {
   WhatsAppConfig,
   WhatsAppProvider,
 } from "../whatsapp-provider-interface";
-import { whatsAppThrottler } from "../whatsapp-throttler";
 
 const DEFAULT_DOCUMENT_FILENAME = "document.pdf";
 const SEND_BUTTON_PATH = "send-button";
 const SEND_MESSAGE_PATH = "send-message";
 const SEND_MEDIA_PATH = "send-media";
-const RESPONSE_PREVIEW_MAX_LENGTH = 240;
 
 export class MpwaProvider implements WhatsAppProvider {
   name = "MPWA Gateway";
@@ -23,7 +28,7 @@ export class MpwaProvider implements WhatsAppProvider {
     return this.sendRequest(SEND_MESSAGE_PATH, {
       api_key: this.config.apiKey,
       sender: this.getSender(),
-      number: params.phone,
+      number: normalizeWhatsAppPhone(params.phone),
       message: params.message,
     });
   }
@@ -32,7 +37,7 @@ export class MpwaProvider implements WhatsAppProvider {
     return this.sendRequest(SEND_MEDIA_PATH, {
       api_key: this.config.apiKey,
       sender: this.getSender(),
-      number: params.phone,
+      number: normalizeWhatsAppPhone(params.phone),
       url: params.fileUrl,
       media: params.fileUrl,
       caption: params.caption || "",
@@ -44,7 +49,7 @@ export class MpwaProvider implements WhatsAppProvider {
     return this.sendRequest(SEND_BUTTON_PATH, {
       api_key: this.config.apiKey,
       sender: this.getSender(),
-      number: params.phone,
+      number: normalizeWhatsAppPhone(params.phone),
       message: params.message,
       button: params.buttons,
       footer: params.footer || "",
@@ -77,58 +82,36 @@ export class MpwaProvider implements WhatsAppProvider {
         body: JSON.stringify(payload),
       }),
     );
-    const result = await this.parseResponse(response, url);
+    const result = await parseGatewayResponse(response, url);
 
-    if (response.ok && this.isSuccessResponse(result)) {
+    if (response.ok && isSuccessGatewayResponse(result)) {
       return {
         success: true,
-        messageId: result.id || result.messageId || result.data?.id,
-      };
-    }
-
-    return { success: false, error: this.resolveErrorMessage(result) };
-  }
-
-  private async parseResponse(response: Response, url: string) {
-    const contentType = response.headers.get("content-type") || "";
-    const responseText = await response.text();
-
-    if (contentType.includes("application/json")) {
-      return {
-        ...JSON.parse(responseText || "{}"),
-        statusCode: response.status,
-        requestUrl: url,
+        messageId: this.getMessageId(result),
+        response: result,
       };
     }
 
     return {
       success: false,
-      statusCode: response.status,
-      requestUrl: url,
-      error: `Gateway mengembalikan ${contentType || "response non-JSON"} dari ${url} dengan status ${response.status}: ${this.previewResponse(responseText)}`,
+      error: resolveGatewayErrorMessage(result, "Gagal mengirim pesan"),
+      response: result,
     };
   }
 
-  private resolveErrorMessage(result: Record<string, unknown>) {
-    const providerMessage = result.message || result.error || result.reason;
-    const statusCode = result.statusCode ? `status ${result.statusCode}` : null;
-    const requestUrl = result.requestUrl ? `URL ${result.requestUrl}` : null;
-    const detail = [statusCode, requestUrl].filter(Boolean).join(", ");
-
-    if (providerMessage) {
-      return detail
-        ? `${String(providerMessage)} (${detail})`
-        : String(providerMessage);
+  private getMessageId(result: Record<string, unknown>): string | undefined {
+    const id = result.id || result.messageId;
+    if (typeof id === "string") {
+      return id;
     }
 
-    return detail ? `Gagal mengirim pesan (${detail})` : "Gagal mengirim pesan";
-  }
+    const data = result.data;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const dataRecord = Object.fromEntries(Object.entries(data));
+      return typeof dataRecord.id === "string" ? dataRecord.id : undefined;
+    }
 
-  private previewResponse(responseText: string) {
-    return responseText
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, RESPONSE_PREVIEW_MAX_LENGTH);
+    return undefined;
   }
 
   private buildUrl(path: string) {
