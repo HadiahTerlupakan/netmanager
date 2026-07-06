@@ -5,11 +5,11 @@ import {
 } from "@/modules/payment-gateway";
 
 interface GatewayManagerLike {
-  getEnabledProviders(): Promise<Array<{ provider: string }>>;
+  getEnabledProviders(tenantId?: string): Promise<Array<{ provider: string }>>;
 }
 
 interface BankAccountRepositoryLike {
-  findActive(): Promise<ManualBankAccount[]>;
+  findActive(tenantId?: string): Promise<ManualBankAccount[]>;
 }
 
 interface ManualBankAccount {
@@ -26,21 +26,24 @@ export class CustomerPaymentMethodService {
   ) {}
 
   /** Mengambil metode pembayaran customer dari gateway aktif dan rekening manual. */
-  async getCustomerPaymentMethods() {
-    const providers = await this.gatewayManager.getEnabledProviders();
+  async getCustomerPaymentMethods(tenantId?: string) {
+    const providers = await this.gatewayManager.getEnabledProviders(tenantId);
     const paymentMethods = providers.flatMap((provider) =>
       getCustomerPaymentMethodsByProvider(provider.provider),
     );
 
     paymentMethods.push(
-      ...this.mapManualMethods(await this.bankAccountRepository.findActive()),
+      ...this.mapManualMethods(
+        await this.bankAccountRepository.findActive(tenantId),
+      ),
     );
 
-    if (paymentMethods.length === 0 && providers.length > 0) {
+    const firstProvider = providers[0];
+    if (paymentMethods.length === 0 && firstProvider) {
       paymentMethods.push({
         id: "generic_gateway",
         name: "Online Payment",
-        provider: providers[0].provider,
+        provider: firstProvider.provider,
         type: "ONLINE",
         code: "ONLINE",
         group: "Online Payment",

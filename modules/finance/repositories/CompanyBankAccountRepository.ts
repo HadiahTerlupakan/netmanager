@@ -11,9 +11,12 @@ export type CompanyBankAccountInput = {
 };
 
 export class CompanyBankAccountRepository {
-  async findActive(): Promise<CompanyBankAccount[]> {
+  async findActive(tenantId?: string): Promise<CompanyBankAccount[]> {
     return prisma.companyBankAccount.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(tenantId ? { tenantId } : {}),
+      },
       orderBy: { priority: "asc" },
     });
   }
