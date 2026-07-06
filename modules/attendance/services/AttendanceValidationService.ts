@@ -21,12 +21,20 @@ import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { isOffDayForUser } from "../utils/workingDayUtils";
 
+export interface CheckInWindowInfo {
+  canCheckIn: boolean;
+  windowStart: string | null;
+  windowEnd: string | null;
+  message: string | null;
+}
+
 export interface AttendanceDayMetadata {
   isHoliday: boolean;
   holidayName: string | null;
   isOffDay: boolean;
   isTukarLiburWorkDay: boolean;
   isTukarLiburLeaveDay: boolean;
+  checkInWindow: CheckInWindowInfo;
 }
 
 function isDateWithinDay(
@@ -139,6 +147,12 @@ export class AttendanceValidationService {
       isOffDay,
       isTukarLiburWorkDay: tukarLiburFlags.isTukarLiburWorkDay,
       isTukarLiburLeaveDay: tukarLiburFlags.isTukarLiburLeaveDay,
+      checkInWindow: {
+        canCheckIn: true,
+        windowStart: null,
+        windowEnd: null,
+        message: null,
+      },
     };
   }
 

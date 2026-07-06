@@ -5,6 +5,7 @@ import { UserLookupService } from "@/modules/users";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceValidationService } from "./AttendanceValidationService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
+import { AttendanceErrors } from "../domain/errors";
 import {
   buildFixedCheckoutWarning,
   buildFlexibleCheckoutWarning,
@@ -68,7 +69,12 @@ export class AttendanceMutationService {
       context.timezone,
     );
     if (!windowCheck.isValid)
-      throw new Error(`CHECKIN_REJECTED:${windowCheck.reason}`);
+      throw AttendanceErrors.checkInTimeWindow(windowCheck.reason!, {
+        userId: params.userId,
+        checkInTime: context.checkInTime,
+        windowStart: windowCheck.windowStart,
+        windowEnd: windowCheck.windowEnd,
+      });
 
     const geofenceResult = await this.geofenceService.resolveCheckInGeofence(
       params,
@@ -140,7 +146,10 @@ export class AttendanceMutationService {
       params.tenantId,
     );
     if (!eligibility.isValid)
-      throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`);
+      throw AttendanceErrors.checkInEligibility(
+        eligibility.reason!,
+        params.userId,
+      );
 
     const userDetails = await getCachedUserAttendanceSettings({
       userId: params.userId,

@@ -2,7 +2,6 @@ import type { AttendanceIdempotencyService } from "./AttendanceIdempotencyServic
 import type { AttendancePhotoService } from "./AttendancePhotoService";
 import type { AttendanceService } from "./AttendanceService";
 import type { AttendanceTimezoneService } from "./AttendanceTimezoneService";
-import type { ErrorCode } from "@/lib/api";
 
 export interface MobileCheckInUser {
   id: string;
@@ -48,7 +47,7 @@ export type MobileAttendanceCheckInRouteSuccess = {
 export type MobileAttendanceCheckInRouteFailure = {
   success: false;
   status: number;
-  code: ErrorCode;
+  code: string;
   error: string;
   details?: Record<string, unknown>;
 };

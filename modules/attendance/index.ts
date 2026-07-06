@@ -1,3 +1,9 @@
+export {
+  AttendanceValidationError,
+  AttendanceErrors,
+  AttendanceErrorCode,
+} from "./domain/errors";
+export type { AttendanceErrorDetails } from "./domain/errors";
 export * from "./services/AttendanceService";
 export * from "./services/AbsenceService";
 export * from "./services/LeaveService";
