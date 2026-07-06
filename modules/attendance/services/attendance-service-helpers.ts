@@ -296,6 +296,7 @@ export function mergeAttendanceNotes(input: {
 export async function resolveCheckInStatus(input: {
   checkInTime: Date;
   timezone: string;
+  tenantId?: string;
   userDetails: CachedUserAttendanceSettings | null;
   timezoneService: AttendanceTimezoneService;
 }): Promise<AttendanceStatus> {
@@ -306,6 +307,7 @@ export async function resolveCheckInStatus(input: {
     input.checkInTime,
     scheduleTime,
     input.timezone,
+    input.tenantId,
   );
 }
 

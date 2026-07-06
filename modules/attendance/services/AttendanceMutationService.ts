@@ -83,6 +83,7 @@ export class AttendanceMutationService {
     const status = await resolveCheckInStatus({
       checkInTime: context.checkInTime,
       timezone: context.timezone,
+      tenantId: params.tenantId,
       userDetails: context.userDetails,
       timezoneService: this.timezoneService,
     });

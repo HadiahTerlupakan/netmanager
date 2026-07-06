@@ -50,4 +50,25 @@ describe("AttendanceTimezoneService", () => {
       "tenant-1",
     );
   });
+
+  it("uses tenant tolerance when calculating attendance status", async () => {
+    vi.spyOn(SettingsRepository.prototype, "findByKey").mockResolvedValueOnce({
+      key: "GENERAL_ATTENDANCE_TOLERANCE",
+      value: "15",
+    } as never);
+
+    const service = new AttendanceTimezoneService();
+    const status = await service.calculateStatus(
+      new Date("2026-07-06T01:10:00.000Z"),
+      "08:00",
+      "Asia/Jakarta",
+      "tenant-1",
+    );
+
+    expect(status).toBe("ON_TIME");
+    expect(SettingsRepository.prototype.findByKey).toHaveBeenCalledWith(
+      "GENERAL_ATTENDANCE_TOLERANCE",
+      "tenant-1",
+    );
+  });
 });

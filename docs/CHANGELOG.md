@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-06] — Fix toleransi keterlambatan absensi per tenant
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki perhitungan status check-in agar `GENERAL_ATTENDANCE_TOLERANCE` dibaca sesuai `tenantId`, bukan selalu memakai setting global/default. Jalur check-in normal sekarang meneruskan tenant ke kalkulasi status sehingga toleransi keterlambatan berbeda per tenant bekerja konsisten.
+- **Files**: `modules/attendance/services/AttendanceTimezoneService.ts`, `modules/attendance/services/attendance-service-helpers.ts`, `modules/attendance/services/AttendanceMutationService.ts`, `tests/modules/attendance/AttendanceTimezoneService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-06] — Fixed attendance check-in error logging, detail waktu, dan checkInWindow di status endpoint
 
 - **Tipe**: [FIXED]
