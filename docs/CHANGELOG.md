@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Fix tenant isolation payment gateway
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/admin/payment-gateway`, `app/api/customer/payment-methods`, `modules/finance`, `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki isolasi tenant untuk konfigurasi payment gateway, pemilihan provider aktif saat create payment, dan daftar metode pembayaran customer agar selalu memakai `tenantId` request, bukan query global lintas tenant.
+- **Files**: `app/api/admin/payment-gateway/configs/route.ts`, `app/api/customer/payment-methods/route.ts`, `modules/finance/repositories/PaymentGatewayConfigRepository.ts`, `modules/finance/repositories/CompanyBankAccountRepository.ts`, `modules/finance/services/PaymentGatewayConfigService.ts`, `modules/finance/services/CustomerPaymentMethodService.ts`, `modules/payment-gateway/services/PaymentGatewayService.ts`, `tests/payment-gateway/unit/PaymentGatewayService.test.ts`, `tests/modules/finance/CustomerPaymentMethodService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Refactor payment gateway settings UI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pengaturan/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Memecah konfigurasi modal payment gateway dari tab utama agar komponen lebih fokus, lebih mudah direview, dan tetap mempertahankan alur konfigurasi/test koneksi provider.
+- **Files**: `app/admin/pengaturan/payment-gateway/components/PaymentGatewayTab.tsx`, `app/admin/pengaturan/payment-gateway/components/PaymentGatewayConfigModal.tsx`, `app/admin/pengaturan/payment-gateway/hooks/usePaymentGatewayConfigs.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Fix robust WhatsApp gateway delivery
 
 - **Tipe**: [FIXED]
