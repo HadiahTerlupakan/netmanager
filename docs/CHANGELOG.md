@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Normalisasi dan format nomor telepon karyawan
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/utils/phone.ts`, `modules/users/validators/user.ts`, `app/admin/users/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan normalisasi nomor telepon Indonesia (konversi ke format 62xxxxx) dan format tampilan konsisten (+62 xxx-xxxx-xxxx) untuk menu admin/users. Data lama tidak diubah (aman untuk production).
+- **Files**: `lib/utils/phone.ts`, `modules/users/validators/user.ts`, `app/admin/users/lib/userColumns.tsx`, `app/admin/users/[id]/UsersDetailClient.tsx`, `app/admin/users/[id]/UsersDetailView.tsx`, `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Fix test koneksi R2 public URL
 
 - **Tipe**: [FIXED]
