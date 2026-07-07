@@ -53,6 +53,12 @@ export const FEATURE_MODULES = [
     description: "Manajemen data pelanggan, paket, status layanan.",
     group: "core",
   },
+  {
+    code: "reseller",
+    label: "Reseller",
+    description: "Manajemen reseller, outlet, dan harga paket reseller.",
+    group: "core",
+  },
 
   // === OPERASIONAL ===
   {
