@@ -24,8 +24,9 @@ type EmailSettings = {
 export function ClientComponent() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [_error, setError] = useState<string | null>(null);
-  const [_success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("");
   const [formData, setFormData] = useState({
     smtpHost: "",
     smtpPort: "587",
@@ -55,20 +56,27 @@ export function ClientComponent() {
     },
   );
 
+  const getResponseMessage = async (
+    response: Response,
+    fallback: string,
+  ): Promise<string> => {
+    const body = await response.json();
+    if (typeof body?.error === "string") return body.error;
+    if (typeof body?.message === "string") return body.message;
+    return fallback;
+  };
+
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setSuccess(null);
 
     try {
       setSaving(true);
 
-      // Prepare data - trim and remove spaces
       const dataToSend = {
         ...formData,
-        smtpPass: formData.smtpPass
-          ? formData.smtpPass.trim().replace(/\s+/g, "")
-          : "",
+        smtpPass: formData.smtpPass.trim().replace(/\s+/g, ""),
       };
 
       const res = await fetch("/api/admin/settings/email", {
@@ -78,26 +86,25 @@ export function ClientComponent() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Gagal menyimpan pengaturan");
+        setError(await getResponseMessage(res, "Gagal menyimpan pengaturan"));
+        return;
       }
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-      await fetchSettings(); // Reload to show saved password
+      setSuccess("Pengaturan email berhasil disimpan");
+      setTimeout(() => setSuccess(null), 3000);
+      await fetchSettings();
     } catch (err) {
       clientLogger.error("Error saving settings:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat menyimpan pengaturan",
-      );
+      setError("Terjadi kesalahan saat menyimpan pengaturan");
     } finally {
       setSaving(false);
     }
   };
 
   const handleTest = async () => {
+    setError(null);
+    setSuccess(null);
+
     try {
       setTesting(true);
       const response = await fetch("/api/admin/settings/email/test", {
@@ -105,24 +112,25 @@ export function ClientComponent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          testEmail:
-            prompt("Enter email address to send test email:") ||
-            formData.fromEmail,
+          testEmail: testEmail.trim() || formData.fromEmail,
         }),
       });
 
-      const result = await response.json();
+      const message = await getResponseMessage(
+        response,
+        "Gagal mengirim email percobaan",
+      );
 
-      if (response.ok && result.success) {
-        alert(result.message || "Email percobaan berhasil dikirim!");
-      } else {
-        const message =
-          result.error || result.message || "Gagal mengirim email percobaan";
-        alert(`Tes gagal: ${message}`);
+      if (response.ok) {
+        setSuccess(message || "Email percobaan berhasil dikirim");
+        setTimeout(() => setSuccess(null), 3000);
+        return;
       }
+
+      setError(`Tes gagal: ${message}`);
     } catch (error) {
       clientLogger.error("Error testing email:", error);
-      alert("Kesalahan saat testing email");
+      setError("Kesalahan saat testing email");
     } finally {
       setTesting(false);
     }
@@ -227,16 +235,17 @@ export function ClientComponent() {
               htmlFor="smtp-pass"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
-              SMTP Password * (Visible for debugging)
+              SMTP Password *
             </label>
             <input
               id="smtp-pass"
-              type="text"
+              type="password"
               value={formData.smtpPass}
               onChange={(e) =>
                 setFormData({ ...formData, smtpPass: e.target.value })
               }
               placeholder="Enter SMTP password or App Password"
+              autoComplete="new-password"
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors font-mono text-sm"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -296,12 +305,49 @@ export function ClientComponent() {
             </p>
           </div>
 
+          <div>
+            <label
+              htmlFor="test-email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Test Email
+            </label>
+            <input
+              id="test-email"
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder={formData.fromEmail || "test@example.com"}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Kosongkan untuk mengirim email percobaan ke From Email.
+            </p>
+          </div>
+
+          {success && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
+              {success}
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+              {error}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Button
               type="button"
               onClick={handleTest}
-              disabled={testing || !formData.smtpHost || !formData.smtpUser}
+              disabled={
+                testing ||
+                !formData.smtpHost ||
+                !formData.smtpUser ||
+                (!testEmail && !formData.fromEmail)
+              }
               variant="secondary"
             >
               {testing ? (
