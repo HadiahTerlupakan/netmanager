@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Harden email dan WhatsApp settings
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan`, `app/api/admin/settings/email`, `app/api/admin/whatsapp/accounts`, `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki keamanan dan UX konfigurasi Email dengan masking password SMTP, feedback inline, input email test tanpa prompt/alert, validasi Zod di API boundary, mencegah payload numeric `NaN` pada form akun WhatsApp, serta memperketat tenant ownership untuk aksi detail akun WhatsApp agar tenant tidak bisa membaca, mengubah, menghapus, set default, atau test akun tenant lain.
+- **Files**: `app/admin/pengaturan/email/EmailSettingsClient.tsx`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`, `app/api/admin/settings/email/route.ts`, `app/api/admin/whatsapp/accounts/[id]/route.ts`, `app/api/admin/whatsapp/accounts/[id]/test/route.ts`, `modules/notification/services/whatsapp-account.service.ts`, `tests/modules/notification/WhatsAppAccountService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Fix tenant isolation payment gateway
 
 - **Tipe**: [FIXED]
