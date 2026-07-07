@@ -40,6 +40,8 @@ export const buildCreatePelangganData = (
   password: data.password,
   passwordHash: data.passwordHash,
   hargaPaketId: data.hargaPaketId,
+  resellerId: data.resellerId,
+  resellerOutletId: data.resellerOutletId,
   tipe: data.tipe,
   tanggalAktif: data.tanggalAktif,
   jatuhTempo: data.jatuhTempo,

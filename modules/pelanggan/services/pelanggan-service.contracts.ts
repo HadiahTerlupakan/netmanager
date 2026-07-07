@@ -12,6 +12,8 @@ export interface CreatePelangganInput {
   password: string;
   passwordLogin: string;
   hargaPaketId: string;
+  resellerId?: string | null;
+  resellerOutletId?: string | null;
   tipe: TipePelanggan;
   tanggalAktif: string;
   jatuhTempo: string;

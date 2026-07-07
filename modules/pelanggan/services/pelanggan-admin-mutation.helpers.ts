@@ -13,6 +13,8 @@ export type NormalizedUpdatePayload = {
   username: string;
   password: string;
   hargaPaketId: string;
+  resellerId: string | null;
+  resellerOutletId: string | null;
   tipe: TipePelanggan | null;
   tanggalAktif: Date;
   jatuhTempo: Date;
@@ -116,6 +118,8 @@ export const normalizeUpdatePayload = (
     username: data.username,
     password: data.password,
     hargaPaketId: data.hargaPaketId,
+    resellerId: data.resellerId?.trim() || null,
+    resellerOutletId: data.resellerOutletId?.trim() || null,
     tipe: parseEnumValue(data.tipe, TipePelanggan),
     tanggalAktif: assertValidDate(
       data.tanggalAktif,

@@ -1,6 +1,7 @@
 import { Status, TipePelanggan } from "../types/pelanggan.enums";
 
 import { CustomerEventDispatcher } from "@/modules/events";
+import { getResellerCustomerRelationService } from "@/modules/reseller";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
@@ -51,6 +52,8 @@ export type UpdatePppByIdInput = {
     username: string;
     password: string;
     hargaPaketId: string;
+    resellerId?: string | null;
+    resellerOutletId?: string | null;
     tipe: string | null;
     tanggalAktif: Date | string;
     jatuhTempo: Date | string;
@@ -84,6 +87,11 @@ export class PelangganAdminMutationService {
       const existingPelanggan = await this.getExistingPelanggan(input);
       this.assertSiteAccess(input.session, existingPelanggan.siteId);
       this.assertSiteAccess(input.session, normalizedData.siteId);
+      await getResellerCustomerRelationService().validateCustomerRelation({
+        tenantId: input.session.user.tenantId ?? null,
+        resellerId: normalizedData.resellerId,
+        resellerOutletId: normalizedData.resellerOutletId,
+      });
       const updatePayload = await this.buildUpdatePayload(
         existingPelanggan,
         normalizedData,
@@ -195,6 +203,8 @@ export class PelangganAdminMutationService {
         username: nextUsername,
         password: nextPassword,
         hargaPaketId: normalizedData.hargaPaketId,
+        resellerId: normalizedData.resellerId,
+        resellerOutletId: normalizedData.resellerOutletId,
         tipe: nextTipe,
         tanggalAktif: normalizedData.tanggalAktif,
         jatuhTempo: normalizedData.jatuhTempo,

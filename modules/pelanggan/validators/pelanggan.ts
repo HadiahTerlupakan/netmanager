@@ -97,6 +97,8 @@ export const createPelangganSchema = z.object({
   // Infrastructure
   odpId: z.string().optional().nullable(),
   siteId: z.string().optional().nullable(),
+  resellerId: z.string().optional().nullable(),
+  resellerOutletId: z.string().optional().nullable(),
 
   // Billing Action
   billingAction: z
