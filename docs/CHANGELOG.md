@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Refactor laporan kehadiran admin
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/kehadiran/laporan`
+- **Author**: agent
+- **Deskripsi**: Memecah `ReportClient` menjadi komponen filter, summary, chart, breakdown, dan rekap karyawan yang lebih fokus, memindahkan state mutation dari render ke `useEffect`, serta mengganti sorting rekap karyawan dari type assertion ke accessor bertipe aman tanpa mengubah behavior laporan.
+- **Files**: `app/admin/kehadiran/laporan/ReportClient.tsx`, `app/admin/kehadiran/laporan/ReportFilters.tsx`, `app/admin/kehadiran/laporan/AttendanceSummaryCards.tsx`, `app/admin/kehadiran/laporan/AttendanceTrendChart.tsx`, `app/admin/kehadiran/laporan/OvertimeTrendChart.tsx`, `app/admin/kehadiran/laporan/PerformanceTable.tsx`, `app/admin/kehadiran/laporan/EmployeeRecapTable.tsx`, `app/admin/kehadiran/laporan/RateLimitWarning.tsx`, `app/admin/kehadiran/laporan/ReportTabNavigation.tsx`, `app/admin/kehadiran/laporan/useReportChartRegistration.ts`, `app/admin/kehadiran/laporan/types.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Normalisasi dan format nomor telepon karyawan
 
 - **Tipe**: [FIXED]
