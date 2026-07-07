@@ -404,6 +404,7 @@ model HargaPaket {
   tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   pelanggan            Pelanggan[]
   pelangganPending     Pelanggan[]         @relation("PelangganPendingPackage")
+  resellerPackagePrice ResellerPackagePrice[]
 
   @@unique([tenantId, name, siteId], name: "tenantId_name_siteId")
   @@index([bandwidthId])
@@ -959,6 +960,8 @@ model Pelanggan {
   pushToken                     String?
   pushTokenUpdatedAt            DateTime?
   tenantId                      String?
+  resellerId                    String?
+  resellerOutletId              String?
   pendingPackageId              String?
   pendingPackageApplyAt         DateTime?
   saldoKreditRupiah             BigInt              @default(0)
@@ -969,6 +972,8 @@ model Pelanggan {
   odp                           Odp?                @relation(fields: [odpId], references: [id])
   site                          Sites?              @relation(fields: [siteId], references: [id])
   tenant                        Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller                      Reseller?           @relation(fields: [resellerId], references: [id])
+  resellerOutlet                ResellerOutlet?     @relation(fields: [resellerOutletId], references: [id])
   user                          User?               @relation(fields: [userId], references: [id])
   customer_usage                CustomerUsage[]
   service_suspension            ServiceSuspension[]
@@ -985,6 +990,8 @@ model Pelanggan {
   @@index([tipe])
   @@unique([tenantId, idPelanggan], name: "tenantId_idPelanggan")
   @@index([tenantId])
+  @@index([tenantId, resellerId])
+  @@index([tenantId, resellerOutletId])
   @@index([userId])
   @@index([odpId])
   @@index([syncStatus])
@@ -1011,6 +1018,77 @@ model ProratePaymentLog {
   @@index([pelangganId])
   @@index([tenantId])
   @@index([createdAt])
+}
+
+model Reseller {
+  id                   String                 @id @default(uuid())
+  tenantId             String?
+  code                 String
+  name                 String
+  email                String?
+  phone                String?
+  address              String?
+  status               ResellerStatus         @default(ACTIVE)
+  notes                String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  deletedAt            DateTime?
+  tenant               Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  outlets              ResellerOutlet[]
+  packagePrices        ResellerPackagePrice[]
+  pelanggan            Pelanggan[]
+
+  @@unique([tenantId, code], name: "tenantId_resellerCode")
+  @@index([tenantId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ResellerOutlet {
+  id                   String          @id @default(uuid())
+  tenantId             String?
+  resellerId           String
+  code                 String
+  name                 String
+  phone                String?
+  address              String?
+  status               ResellerStatus  @default(ACTIVE)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+  tenant               Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller             Reseller        @relation(fields: [resellerId], references: [id])
+  pelanggan            Pelanggan[]
+
+  @@unique([tenantId, resellerId, code], name: "tenantId_resellerId_outletCode")
+  @@index([tenantId])
+  @@index([resellerId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ResellerPackagePrice {
+  id                   String          @id @default(uuid())
+  tenantId             String?
+  resellerId           String
+  hargaPaketId         String
+  price                Int
+  status               ResellerStatus  @default(ACTIVE)
+  startsAt             DateTime        @default(now())
+  endsAt               DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+  tenant               Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller             Reseller        @relation(fields: [resellerId], references: [id])
+  hargaPaket           HargaPaket      @relation(fields: [hargaPaketId], references: [id])
+
+  @@index([tenantId])
+  @@index([resellerId])
+  @@index([hargaPaketId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([startsAt, endsAt])
 }
 
 model Permission {
@@ -3640,6 +3718,9 @@ model Tenant {
   whatsAppMessages        WhatsAppMessage[]
   tenantSettings          TenantSettings?
   proratePaymentLog       ProratePaymentLog[]
+  reseller                Reseller[]
+  resellerOutlet          ResellerOutlet[]
+  resellerPackagePrice    ResellerPackagePrice[]
   emailDeliveryLogs       EmailDeliveryLog[]
   notificationDeadLetters NotificationDeadLetter[]
   paySchedules           PaySchedule[]
@@ -5661,6 +5742,11 @@ model IncidentUpdate {
   @@index([incidentId])
   @@index([createdAt])
   @@index([tenantId])
+}
+
+enum ResellerStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum IncidentSeverity {
