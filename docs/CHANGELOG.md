@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Fix test koneksi R2 public URL
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan/api`
+- **Author**: agent
+- **Deskripsi**: Memastikan payload test koneksi Cloudflare R2 dari halaman pengaturan API menyertakan `r2PublicUrl`, sesuai kontrak endpoint dan service test R2 yang sudah mendukung public URL.
+- **Files**: `app/admin/pengaturan/api/lib/apiSettingsApi.ts`, `app/admin/pengaturan/api/lib/useApiSettings.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Harden email dan WhatsApp settings
 
 - **Tipe**: [FIXED]

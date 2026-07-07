@@ -146,6 +146,7 @@ export function useApiSettings() {
         accessKeyId: settings.r2AccessKeyId,
         secretAccessKey: settings.r2SecretAccessKey,
         bucketName: settings.r2BucketName,
+        publicUrl: settings.r2PublicUrl,
       });
 
       setTestSuccess(true);
