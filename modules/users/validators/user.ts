@@ -10,6 +10,7 @@ import {
   optionalIdSchema,
 } from "@/lib/validations/common";
 import { workDaysSchema, workDaysOptionalSchema } from "./workDays.validator";
+import { normalizePhone } from "@/lib/utils/phone";
 
 const hasUniqueUserSites = (sites: Array<{ siteId: string }>) =>
   new Set(sites.map((site) => site.siteId)).size === sites.length;
@@ -81,7 +82,10 @@ export const createUserSchema = z.object({
   email: z.email({ error: "Format email tidak valid" }),
   name: z.string().min(1, "Nama wajib diisi"),
   password: z.string().min(8, "Password minimal 8 karakter"),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .optional()
+    .transform((val) => (val ? normalizePhone(val) : undefined)),
   roleId: optionalIdSchema,
   siteId: optionalIdSchema,
   departmentId: optionalIdSchema,
@@ -150,7 +154,10 @@ export const updateUserSchema = z
     email: z.email({ error: "Format email tidak valid" }).optional(),
     name: z.string().min(1, "Nama tidak boleh kosong").optional(),
     password: z.string().min(8, "Password minimal 8 karakter").optional(),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .optional()
+      .transform((val) => (val ? normalizePhone(val) : undefined)),
     roleId: optionalIdSchema,
     siteId: optionalIdSchema,
     isAttendanceRequired: z.boolean().optional(),
