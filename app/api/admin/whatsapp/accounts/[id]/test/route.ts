@@ -25,7 +25,7 @@ export async function POST(
       return ApiErrors.forbidden();
     }
 
-    const result = await service.testConnection(id);
+    const result = await service.testConnection(id, session.tenantId);
 
     if (!result.success) {
       return NextResponse.json(
