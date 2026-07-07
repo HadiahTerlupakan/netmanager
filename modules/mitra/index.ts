@@ -19,6 +19,7 @@ export {
   MitraCommissionSyncService,
   getMitraCommissionSyncService,
 } from "./services/MitraCommissionSyncService";
+export { broadcastMitraProfileRefreshSafely } from "./services/mitra-side-effects";
 export {
   MobileDashboardService,
   getMobileDashboardService,

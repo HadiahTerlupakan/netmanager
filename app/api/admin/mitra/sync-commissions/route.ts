@@ -15,10 +15,11 @@ export const POST = createHandler(
     });
 
     if (!result.success) {
-      if (result.code === "VALIDATION_ERROR" || result.code === "DUPLICATE") {
+      const code = (result as { code?: string }).code;
+      if (code === "VALIDATION_ERROR" || code === "DUPLICATE") {
         return ApiErrors.badRequest(result.error);
       }
-      if (result.code === "NOT_FOUND") {
+      if (code === "NOT_FOUND") {
         return ApiErrors.notFound(result.error);
       }
       return ApiErrors.internalError(result.error);

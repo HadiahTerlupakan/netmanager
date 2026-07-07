@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-07] — Refactor frontend Mitra ke TanStack Query + RHF/Zod
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/mitra`, `lib/validations`
+- **Author**: agent
+- **Deskripsi**: Migrasi data fetching dari manual `useState + useEffect + fetch` ke TanStack Query (`useQuery`, `keepPreviousData`, `queryClient.invalidateQueries`, `signal` abort) untuk list mitra, sites, dan mixradius owners. Migrasi form add/edit dari manual `useState<MitraFormState>` ke React Hook Form + Zod resolver dengan adapter schema di `lib/validations/mitraFormAdapter.ts`. Seluruh behavior, styling, toast, pagination, filtering, upload gambar, dan kontrak API dipertahankan. Hooks mutasi (`useMitraFormActions`, `useMitraDeleteAction`, `useMitraWalletActions`, face verification) melakukan invalidation melalui `queryClient.invalidateQueries`.
+- **Files**: `app/admin/mitra/MitraListClient.tsx`, `app/admin/mitra/hooks/useMitraList.ts`, `app/admin/mitra/hooks/useMitraFormActions.ts`, `app/admin/mitra/components/MitraFormModal.tsx`, `app/admin/mitra/components/MitraFormFields.tsx`, `app/admin/mitra/components/MitraFormIdentitySection.tsx`, `app/admin/mitra/components/MitraFormJobSection.tsx`, `app/admin/mitra/components/MitraFormBankGaransiSection.tsx`, `app/admin/mitra/components/MitraFormShared.tsx`, `lib/validations/mitraFormAdapter.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Fix route aksi withdraw mitra
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/mitra`, `app/api/admin/mitra`
+- **Author**: agent
+- **Deskripsi**: Menambahkan delegasi aksi withdrawal di service mitra dan merapikan route withdrawals serta sync commissions agar memakai pola Result wrapper tanpa mengubah kontrak API.
+- **Files**: `modules/mitra/services/MitraWithdrawService.ts`, `app/api/admin/mitra/withdrawals/[id]/route.ts`, `app/api/admin/mitra/sync-commissions/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Extract guard mitra admin
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/admin/mitra/[id]`, `lib/api`, `modules/mitra`
+- **Author**: agent
+- **Deskripsi**: Memindahkan guard scope mitra/site ke helper bersama dan membungkus broadcast refresh profil mitra dalam side-effect service agar route detail mitra tetap tipis tanpa mengubah kontrak API.
+- **Files**: `lib/api/guards.ts`, `modules/mitra/services/mitra-side-effects.ts`, `app/api/admin/mitra/[id]/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Refactor laporan kehadiran admin
 
 - **Tipe**: [CHANGED]

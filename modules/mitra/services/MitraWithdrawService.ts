@@ -239,6 +239,31 @@ export class MitraWithdrawService {
     }
   }
 
+  /** Process a withdraw action (approve, reject, or complete) based on action string. */
+  async processWithdrawAction(
+    id: string,
+    action: "approve" | "reject" | "complete",
+    userId: string,
+    tenantId?: string,
+    reason?: string,
+  ): Promise<ServiceResult> {
+    switch (action) {
+      case "approve":
+        return this.approveWithdraw(id, userId, tenantId);
+      case "reject":
+        return this.rejectWithdraw(
+          id,
+          reason ?? "Ditolak oleh admin",
+          userId,
+          tenantId,
+        );
+      case "complete":
+        return this.completeWithdraw(id, userId, tenantId);
+      default:
+        return { success: false, error: "Invalid action" };
+    }
+  }
+
   /** Mengambil daftar request penarikan dengan filter dan paginasi. */
   async getWithdrawRequests(filters: {
     userId?: string;
