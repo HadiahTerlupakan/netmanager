@@ -3,12 +3,48 @@ import { ZodError } from "zod";
 
 import { requireAuth } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import {
   announcementService,
   createAnnouncementSchema,
 } from "@/modules/notification";
+
+const ADMIN_PORTAL = "admin";
+
+type AuthSession = {
+  user: {
+    id: string;
+    role?: string;
+    accessAdminPanel?: boolean;
+    isSuperAdmin?: boolean;
+  };
+};
+
+function canAccessAdminPanel(session: AuthSession): boolean {
+  return Boolean(
+    session.user.accessAdminPanel ||
+    session.user.isSuperAdmin ||
+    isSuperAdminRole(session.user.role),
+  );
+}
+
+async function isAnnouncementReadForbidden(
+  session: AuthSession,
+  portal: string | null,
+): Promise<boolean> {
+  if (!portal) {
+    return !(await hasPermission("announcement:read"));
+  }
+
+  if (portal === ADMIN_PORTAL) {
+    if (await hasPermission("announcement:read")) return false;
+    return !canAccessAdminPanel(session);
+  }
+
+  return false;
+}
 
 /** Ambil daftar announcement yang tampil di admin/portal user. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -18,10 +54,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const portal = searchParams.get("portal");
 
-  // Caller tanpa parameter `portal` (mis. halaman admin index) wajib
-  // punya `announcement:read`. Caller dengan portal customer/employee/
-  // admin diasumsikan layout-level guard sudah memvalidasi role.
-  if (!portal && !(await hasPermission("announcement:read"))) {
+  if (await isAnnouncementReadForbidden(session, portal)) {
     return ApiErrors.forbidden();
   }
 
