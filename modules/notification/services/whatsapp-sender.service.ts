@@ -4,10 +4,11 @@ import type { WhatsAppMessage } from "../domain/whatsapp-message.entity";
 import type { WhatsAppAccount } from "../domain/whatsapp-account.entity";
 import { WhatsAppAccountRepository } from "../repositories/whatsapp-account.repository";
 import { WhatsAppMessageRepository } from "../repositories/whatsapp-message.repository";
+import { WhatsAppAccountRoutingService } from "./whatsapp-account-routing.service";
+import { WhatsAppProviderSendService } from "./whatsapp-provider-send.service";
 import { WhatsAppFactory } from "./whatsapp/whatsapp-factory";
+import { normalizeWhatsAppPhone } from "./whatsapp/whatsapp-gateway-utils";
 import type {
-  SendMessageParams,
-  SendFileParams,
   SendResult,
   WhatsAppConfig,
 } from "./whatsapp/whatsapp-provider-interface";
@@ -37,6 +38,8 @@ const BROADCAST_INTER_MESSAGE_DELAY_MS = 100;
 export class WhatsAppSenderService {
   private accountRepo: WhatsAppAccountRepository;
   private messageRepo: WhatsAppMessageRepository;
+  private accountRoutingService: WhatsAppAccountRoutingService;
+  private providerSendService: WhatsAppProviderSendService;
 
   constructor(
     accountRepo?: WhatsAppAccountRepository,
@@ -44,6 +47,10 @@ export class WhatsAppSenderService {
   ) {
     this.accountRepo = accountRepo ?? new WhatsAppAccountRepository();
     this.messageRepo = messageRepo ?? new WhatsAppMessageRepository();
+    this.accountRoutingService = new WhatsAppAccountRoutingService(
+      this.accountRepo,
+    );
+    this.providerSendService = new WhatsAppProviderSendService();
   }
 
   /**
@@ -51,10 +58,9 @@ export class WhatsAppSenderService {
    */
   async send(options: SendOptions): Promise<SendResult> {
     try {
-      // Select account
       const account = options.accountId
-        ? await this.accountRepo.findById(options.accountId)
-        : await this.selectBestAccount(
+        ? await this.accountRoutingService.findById(options.accountId)
+        : await this.accountRoutingService.selectBestAccount(
             options.tenantId,
             [],
             options.accountType,
@@ -69,20 +75,7 @@ export class WhatsAppSenderService {
         };
       }
 
-      // Check daily limit
-      if (account.dailyLimit && account.dailyCount >= account.dailyLimit) {
-        // Try to find another account if auto-routing
-        if (!options.accountId) {
-          const alternativeAccount = await this.selectBestAccount(
-            options.tenantId,
-            [account.id],
-            options.accountType,
-          );
-          if (alternativeAccount) {
-            return this.sendViaAccount(alternativeAccount, options);
-          }
-        }
-
+      if (!this.accountRoutingService.isAccountAvailable(account)) {
         return {
           success: false,
           error: `Akun "${account.name}" telah mencapai batas harian (${account.dailyLimit} pesan)`,
@@ -169,9 +162,10 @@ export class WhatsAppSenderService {
     options: SendOptions,
   ): Promise<SendResult> {
     // Create message record
+    const normalizedPhone = normalizeWhatsAppPhone(options.phone);
     const messageRecord = await this.messageRepo.create({
       accountId: account.id,
-      phone: options.phone,
+      phone: normalizedPhone,
       message: options.message,
       fileUrl: options.fileUrl,
       status: "pending",
@@ -179,8 +173,7 @@ export class WhatsAppSenderService {
     });
 
     try {
-      // Reset daily count if needed
-      await this.resetDailyCountIfNeeded(account);
+      await this.accountRoutingService.resetDailyCountIfNeeded(account);
 
       // Build config
       const config: WhatsAppConfig = {
@@ -193,22 +186,10 @@ export class WhatsAppSenderService {
       // Create provider
       const provider = WhatsAppFactory.createProvider(config);
 
-      // Send message
-      let result: SendResult;
-      if (options.fileUrl) {
-        const params: SendFileParams = {
-          phone: options.phone,
-          fileUrl: options.fileUrl,
-          caption: options.message,
-        };
-        result = await provider.sendFile!(params);
-      } else {
-        const params: SendMessageParams = {
-          phone: options.phone,
-          message: options.message || "",
-        };
-        result = await provider.sendMessage(params);
-      }
+      const result = await this.providerSendService.send(provider, {
+        ...options,
+        phone: normalizedPhone,
+      });
 
       // Update message record
       if (result.success) {
@@ -249,102 +230,6 @@ export class WhatsAppSenderService {
         success: false,
         error: error instanceof Error ? error.message : "Terjadi kesalahan",
       };
-    }
-  }
-
-  /**
-   * Select best available account based on priority and availability
-   */
-  private async selectBestAccount(
-    tenantId?: string,
-    excludeIds: string[] = [],
-    accountType?: "CUSTOMER" | "INTERNAL",
-  ): Promise<WhatsAppAccount | null> {
-    // If accountType specified, try default for that type first
-    if (accountType) {
-      const defaultAccount = await this.accountRepo.findDefaultByAccountType(
-        accountType,
-        tenantId,
-      );
-      if (
-        defaultAccount &&
-        !excludeIds.includes(defaultAccount.id) &&
-        this.isAccountAvailable(defaultAccount)
-      ) {
-        return defaultAccount;
-      }
-
-      // Get accounts filtered by type
-      const accounts = await this.accountRepo.findByAccountType(
-        accountType,
-        tenantId,
-      );
-      const availableAccounts = accounts.filter(
-        (acc) => !excludeIds.includes(acc.id) && this.isAccountAvailable(acc),
-      );
-
-      if (availableAccounts.length === 0) {
-        return null;
-      }
-
-      // Sort by priority (highest first)
-      availableAccounts.sort((a, b) => b.priority - a.priority);
-      return availableAccounts[0];
-    }
-
-    // Original logic for no accountType filter
-    // Try default first
-    const defaultAccount = await this.accountRepo.findDefault(tenantId);
-    if (
-      defaultAccount &&
-      !excludeIds.includes(defaultAccount.id) &&
-      this.isAccountAvailable(defaultAccount)
-    ) {
-      return defaultAccount;
-    }
-
-    // Get all available accounts
-    const accounts = await this.accountRepo.findAvailable(tenantId);
-    const availableAccounts = accounts.filter(
-      (acc) => !excludeIds.includes(acc.id) && this.isAccountAvailable(acc),
-    );
-
-    if (availableAccounts.length === 0) {
-      return null;
-    }
-
-    // Sort by priority (highest first)
-    availableAccounts.sort((a, b) => b.priority - a.priority);
-
-    return availableAccounts[0];
-  }
-
-  /**
-   * Check if account is available (not over daily limit)
-   */
-  private isAccountAvailable(account: WhatsAppAccount): boolean {
-    if (!account.dailyLimit) {
-      return true;
-    }
-
-    return account.dailyCount < account.dailyLimit;
-  }
-
-  /**
-   * Reset daily count if 24 hours have passed
-   */
-  private async resetDailyCountIfNeeded(
-    account: WhatsAppAccount,
-  ): Promise<void> {
-    const now = new Date();
-    const hoursSinceReset =
-      (now.getTime() - account.lastReset.getTime()) / (1000 * 60 * 60);
-
-    if (hoursSinceReset >= 24) {
-      await this.accountRepo.resetDailyCount(account.id);
-      logger.info(
-        `[WhatsAppSender] Reset daily count for account ${account.id}`,
-      );
     }
   }
 

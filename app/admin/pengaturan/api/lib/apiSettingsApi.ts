@@ -20,6 +20,7 @@ export interface R2TestPayload {
   accessKeyId: string;
   secretAccessKey: string;
   bucketName: string;
+  publicUrl?: string;
 }
 
 /**

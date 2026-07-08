@@ -11,7 +11,7 @@ export const PERMISSION_GROUPS = {
     "acs_devices",
   ],
   PAKET: ["paket", "bandwidth", "profileppp", "harga"],
-  PELANGGAN: ["pelanggan", "ppp", "registration"],
+  PELANGGAN: ["pelanggan", "ppp", "registration", "reseller"],
   INVENTORY: [
     "inventory",
     "barang",

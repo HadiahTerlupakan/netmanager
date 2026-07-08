@@ -60,6 +60,24 @@ describe("PaymentGatewayManager", () => {
         }),
       ).rejects.toThrow("No payment gateway enabled.");
     });
+
+    it("should scope enabled provider selection to the payment tenant", async () => {
+      vi.mocked(mockConfigRepository.findEnabled).mockResolvedValue([]);
+
+      await expect(
+        manager.createPayment({
+          orderId: "order-tenant",
+          amount: 50000,
+          customerName: "Tenant Customer",
+          customerEmail: "tenant@test.com",
+          customerPhone: "08123456789",
+          description: "Tenant payment",
+          tenantId: "tenant-1",
+        }),
+      ).rejects.toThrow("No payment gateway enabled.");
+
+      expect(mockConfigRepository.findEnabled).toHaveBeenCalledWith("tenant-1");
+    });
   });
 
   describe("createPaymentWithProvider - amount validation", () => {

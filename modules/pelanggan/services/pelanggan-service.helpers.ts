@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { logger } from "@/lib/logger";
 import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import { CustomerEventDispatcher } from "@/modules/events";
+import { getResellerCustomerRelationService } from "@/modules/reseller";
 import type {
   PelangganEntity,
   PelangganWithPackageEntity,
@@ -30,6 +31,12 @@ export async function validateCreatePelangganInput(
   if (!hargaPaketExists) {
     throw new Error("Harga Paket tidak ditemukan");
   }
+
+  await getResellerCustomerRelationService().validateCustomerRelation({
+    tenantId: data.tenantId ?? null,
+    resellerId: data.resellerId,
+    resellerOutletId: data.resellerOutletId,
+  });
 }
 
 export async function buildCreatePelangganData(
@@ -44,6 +51,8 @@ export async function buildCreatePelangganData(
     password: data.password.trim(),
     passwordHash,
     hargaPaketId: data.hargaPaketId,
+    resellerId: trimNullable(data.resellerId),
+    resellerOutletId: trimNullable(data.resellerOutletId),
     tipe: data.tipe,
     tanggalAktif: parseLocalDate(data.tanggalAktif),
     jatuhTempo: parseLocalDate(data.jatuhTempo),

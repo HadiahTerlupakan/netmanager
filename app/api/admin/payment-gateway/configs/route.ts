@@ -1,6 +1,7 @@
 import { getPaymentGatewayConfigService } from "@/modules/finance";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 const service = getPaymentGatewayConfigService();
 
@@ -14,7 +15,12 @@ export const GET = createHandler(
       );
     }
 
-    const result = await service.listConfigs();
+    const { tenantId } = await getTenantIdFromContext();
+    if (!tenantId) {
+      return ApiErrors.badRequest("Tenant ID tidak ditemukan");
+    }
+
+    const result = await service.listConfigs(tenantId);
     if (!result.success) {
       return ApiErrors.internalError(result.error);
     }

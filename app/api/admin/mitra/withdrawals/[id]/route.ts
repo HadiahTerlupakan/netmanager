@@ -49,16 +49,13 @@ export const POST = createHandler(
       }
     }
 
-    const service = getMitraWithdrawService();
-    let result;
-    if (actionParam === "approve") {
-      result = await service.approveWithdraw(id, user.id, tenantId);
-    } else if (actionParam === "reject") {
-      const reason = ctx.validated.reason || "Ditolak oleh admin";
-      result = await service.rejectWithdraw(id, reason, user.id, tenantId);
-    } else {
-      result = await service.completeWithdraw(id, user.id, tenantId);
-    }
+    const result = await getMitraWithdrawService().processWithdrawAction(
+      id,
+      actionParam,
+      user.id,
+      tenantId,
+      ctx.validated?.reason,
+    );
 
     if (!result.success) {
       return ApiErrors.badRequest(result.error);

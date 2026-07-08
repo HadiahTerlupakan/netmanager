@@ -54,6 +54,7 @@ import {
   handlePackageChangedMrr,
 } from "@/modules/finance";
 import { handlePelangganStatusForOlt } from "@/modules/olt";
+import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -123,6 +124,10 @@ export function registerDefaultHandlers(): void {
   // - notification: kirim notifikasi pembayaran berhasil ke pelanggan
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidBilling);
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoicePaidActivation);
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_PAID,
+    handleInvoicePaidResellerCommission,
+  );
 
   // --- CUSTOMER LIFECYCLE EVENTS (sync MikroTik/RADIUS) ---
 

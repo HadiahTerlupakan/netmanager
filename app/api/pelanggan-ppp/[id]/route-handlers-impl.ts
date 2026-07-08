@@ -122,6 +122,8 @@ export const PUT = createHandler(
           autoIsolir: parseBooleanFlag(formData.get("autoIsolir"), true),
           email: formData.get("email") as string | null,
           siteId: formData.get("siteId") as string | null,
+          resellerId: formData.get("resellerId") as string | null,
+          resellerOutletId: formData.get("resellerOutletId") as string | null,
           invoiceAction: formData.get("invoiceAction") as string | null,
           passwordLogin: formData.get("passwordLogin") as string | null,
         },

@@ -29,8 +29,20 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 });
 
 function handleLocationRouteError(error: unknown) {
-  if (error instanceof AdminLocationRouteError && error.status === 401) {
+  if (!(error instanceof AdminLocationRouteError)) {
+    throw error;
+  }
+
+  if (error.status === 400) {
+    return ApiErrors.badRequest(error.message);
+  }
+
+  if (error.status === 401) {
     return ApiErrors.unauthorized();
+  }
+
+  if (error.status === 403) {
+    return ApiErrors.forbidden(LOCATION_LIVE_FORBIDDEN_MESSAGE);
   }
 
   throw error;

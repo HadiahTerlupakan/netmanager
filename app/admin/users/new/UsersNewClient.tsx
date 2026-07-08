@@ -564,7 +564,7 @@ export function ClientComponent() {
                     value={formData.phone}
                     onChange={handleChange}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+62 812-3456-7890"
+                    placeholder="08123456789 atau 628123456789"
                   />
                 </div>
               </div>

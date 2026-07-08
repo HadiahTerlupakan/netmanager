@@ -50,6 +50,19 @@ type Odp = {
   status: "AKTIF" | "NONAKTIF" | "MAINTENANCE" | "ISOLIR" | "DISMANTLE";
 };
 
+type ResellerOption = {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+};
+
+type ResellerOutletOption = {
+  readonly id: string;
+  readonly resellerId: string;
+  readonly code: string;
+  readonly name: string;
+};
+
 export function PppClientEditForm() {
   const router = useRouter();
   const params = useParams();
@@ -129,6 +142,8 @@ export function PppClientEditForm() {
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: "",
     odpId: "", // ODP yang digunakan pelanggan
+    resellerId: "",
+    resellerOutletId: "",
     siteId: "",
     invoiceAction: "UPDATE_ONLY" as "UPDATE_ONLY" | "VOID_AND_CREATE_NEW",
     // Opsi perubahan paket — hanya dikirim saat hargaPaketId berubah
@@ -269,6 +284,8 @@ export function PppClientEditForm() {
         biayaLainnyaDiskon: data.biayaLainnyaDiskon || null,
         keteranganBiayaLainnya: data.keteranganBiayaLainnya || "",
         odpId: data.odpId || "",
+        resellerId: data.resellerId || "",
+        resellerOutletId: data.resellerOutletId || "",
         siteId: data.siteId || "",
         invoiceAction: "UPDATE_ONLY",
         // Reset opsi perubahan paket ke default saat data dimuat
@@ -301,6 +318,17 @@ export function PppClientEditForm() {
     "/api/hargapakets?status=AKTIF",
   );
   const { data: odpsData } = useApi<{ odps: Odp[] }>("/api/odps");
+  const { data: resellersData } = useApi<readonly ResellerOption[]>(
+    "/api/admin/resellers",
+  );
+  const activeResellers = [...(resellersData ?? [])];
+  const selectedResellerId = formData.resellerId || null;
+  const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
+    selectedResellerId
+      ? `/api/admin/resellers/${selectedResellerId}/outlets`
+      : null,
+  );
+  const resellerOutlets = [...(resellerOutletsData ?? [])];
 
   const [didHydrateHarga, setDidHydrateHarga] = useState(false);
   if (hargaPaketsData && !didHydrateHarga) {
@@ -670,6 +698,8 @@ export function PppClientEditForm() {
                   idPelangganError={idPelangganError}
                   checkingId={checkingId}
                   odps={odps}
+                  resellers={activeResellers}
+                  resellerOutlets={resellerOutlets}
                   showPasswordLogin={showPasswordLogin}
                   onToggleShowPasswordLogin={() =>
                     setShowPasswordLogin(!showPasswordLogin)

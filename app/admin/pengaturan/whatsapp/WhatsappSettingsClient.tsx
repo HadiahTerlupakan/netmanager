@@ -579,7 +579,7 @@ function AccountModal({
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      priority: parseInt(e.target.value),
+                      priority: e.target.value ? Number(e.target.value) : 0,
                     })
                   }
                   min="0"
@@ -602,7 +602,7 @@ function AccountModal({
                     setFormData({
                       ...formData,
                       dailyLimit: e.target.value
-                        ? parseInt(e.target.value)
+                        ? Number(e.target.value)
                         : undefined,
                     })
                   }

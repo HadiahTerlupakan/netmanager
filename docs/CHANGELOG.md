@@ -41,6 +41,134 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-08] — Perbaiki live map kehadiran
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/kehadiran/live-map`, `app/api/admin/location/live`, `components/attendance`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki response error 403 live tracking agar tidak berubah menjadi 500, menghapus log koordinat GPS karyawan dari client logger, dan menyederhanakan refresh realtime tanpa `setTimeout`.
+- **Files**: `app/api/admin/location/live/route.ts`, `app/admin/kehadiran/live-map/LiveMapClient.tsx`, `components/attendance/EmployeeLocationMap.tsx`, `tests/api/admin-location-live-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-08] — Tambah komisi settlement reseller
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers`, `app/admin/resellers`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan Phase 3/4 reseller berupa model aturan komisi, ledger komisi, settlement, accrual komisi dari event invoice paid, endpoint pricing/komisi/settlement, serta ringkasan pricing dan komisi di UI admin reseller.
+- **Files**: `prisma/schema.prisma`, `modules/reseller`, `app/api/admin/resellers/[id]/package-prices/route.ts`, `app/api/admin/resellers/[id]/commissions/route.ts`, `app/api/admin/resellers/[id]/settlements/route.ts`, `app/admin/resellers/ResellersClient.tsx`, `lib/event-bus/event-handlers.ts`
+- **Migration**: `20260708090000_add_reseller_commission_settlement`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-08] — Tambah UI admin reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/resellers`, `app/admin/pelanggan/ppp`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Menambahkan menu dan halaman admin reseller untuk CRUD reseller/outlet, serta assignment reseller/outlet di form create/edit pelanggan PPP agar relasi reseller bisa dikirim ke API.
+- **Files**: `app/admin/resellers/page.tsx`, `app/admin/resellers/ResellersClient.tsx`, `app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection.tsx`, `app/admin/pelanggan/ppp/create/PppNewClient.tsx`, `app/admin/pelanggan/ppp/[id]/edit/PppEditClient.tsx`, `app/api/pelanggan-ppp/route.ts`, `app/api/pelanggan-ppp/[id]/route-handlers-impl.ts`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-08] — Tambah fondasi reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan fondasi modul reseller Phase 1: schema reseller/outlet/harga reseller, service dan repository Clean Architecture, validasi relasi pelanggan-reseller, API admin CRUD reseller/outlet, permission `reseller`, dan feature flag reseller.
+- **Files**: `modules/reseller`, `app/api/admin/resellers`, `modules/pelanggan/services/pelanggan-service.helpers.ts`, `modules/pelanggan/services/PelangganAdminMutationService.ts`, `lib/permission-config.ts`, `lib/feature-modules.ts`, `prisma/schema.prisma`
+- **Migration**: `20260708050000_add_reseller_foundation`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Refactor frontend Mitra ke TanStack Query + RHF/Zod
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/mitra`, `lib/validations`
+- **Author**: agent
+- **Deskripsi**: Migrasi data fetching dari manual `useState + useEffect + fetch` ke TanStack Query (`useQuery`, `keepPreviousData`, `queryClient.invalidateQueries`, `signal` abort) untuk list mitra, sites, dan mixradius owners. Migrasi form add/edit dari manual `useState<MitraFormState>` ke React Hook Form + Zod resolver dengan adapter schema di `lib/validations/mitraFormAdapter.ts`. Seluruh behavior, styling, toast, pagination, filtering, upload gambar, dan kontrak API dipertahankan. Hooks mutasi (`useMitraFormActions`, `useMitraDeleteAction`, `useMitraWalletActions`, face verification) melakukan invalidation melalui `queryClient.invalidateQueries`.
+- **Files**: `app/admin/mitra/MitraListClient.tsx`, `app/admin/mitra/hooks/useMitraList.ts`, `app/admin/mitra/hooks/useMitraFormActions.ts`, `app/admin/mitra/components/MitraFormModal.tsx`, `app/admin/mitra/components/MitraFormFields.tsx`, `app/admin/mitra/components/MitraFormIdentitySection.tsx`, `app/admin/mitra/components/MitraFormJobSection.tsx`, `app/admin/mitra/components/MitraFormBankGaransiSection.tsx`, `app/admin/mitra/components/MitraFormShared.tsx`, `lib/validations/mitraFormAdapter.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Fix route aksi withdraw mitra
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/mitra`, `app/api/admin/mitra`
+- **Author**: agent
+- **Deskripsi**: Menambahkan delegasi aksi withdrawal di service mitra dan merapikan route withdrawals serta sync commissions agar memakai pola Result wrapper tanpa mengubah kontrak API.
+- **Files**: `modules/mitra/services/MitraWithdrawService.ts`, `app/api/admin/mitra/withdrawals/[id]/route.ts`, `app/api/admin/mitra/sync-commissions/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Extract guard mitra admin
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/admin/mitra/[id]`, `lib/api`, `modules/mitra`
+- **Author**: agent
+- **Deskripsi**: Memindahkan guard scope mitra/site ke helper bersama dan membungkus broadcast refresh profil mitra dalam side-effect service agar route detail mitra tetap tipis tanpa mengubah kontrak API.
+- **Files**: `lib/api/guards.ts`, `modules/mitra/services/mitra-side-effects.ts`, `app/api/admin/mitra/[id]/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Refactor laporan kehadiran admin
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/kehadiran/laporan`
+- **Author**: agent
+- **Deskripsi**: Memecah `ReportClient` menjadi komponen filter, summary, chart, breakdown, dan rekap karyawan yang lebih fokus, memindahkan state mutation dari render ke `useEffect`, serta mengganti sorting rekap karyawan dari type assertion ke accessor bertipe aman tanpa mengubah behavior laporan.
+- **Files**: `app/admin/kehadiran/laporan/ReportClient.tsx`, `app/admin/kehadiran/laporan/ReportFilters.tsx`, `app/admin/kehadiran/laporan/AttendanceSummaryCards.tsx`, `app/admin/kehadiran/laporan/AttendanceTrendChart.tsx`, `app/admin/kehadiran/laporan/OvertimeTrendChart.tsx`, `app/admin/kehadiran/laporan/PerformanceTable.tsx`, `app/admin/kehadiran/laporan/EmployeeRecapTable.tsx`, `app/admin/kehadiran/laporan/RateLimitWarning.tsx`, `app/admin/kehadiran/laporan/ReportTabNavigation.tsx`, `app/admin/kehadiran/laporan/useReportChartRegistration.ts`, `app/admin/kehadiran/laporan/types.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Normalisasi dan format nomor telepon karyawan
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/utils/phone.ts`, `modules/users/validators/user.ts`, `app/admin/users/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan normalisasi nomor telepon Indonesia (konversi ke format 62xxxxx) dan format tampilan konsisten (+62 xxx-xxxx-xxxx) untuk menu admin/users. Data lama tidak diubah (aman untuk production).
+- **Files**: `lib/utils/phone.ts`, `modules/users/validators/user.ts`, `app/admin/users/lib/userColumns.tsx`, `app/admin/users/[id]/UsersDetailClient.tsx`, `app/admin/users/[id]/UsersDetailView.tsx`, `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Fix test koneksi R2 public URL
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan/api`
+- **Author**: agent
+- **Deskripsi**: Memastikan payload test koneksi Cloudflare R2 dari halaman pengaturan API menyertakan `r2PublicUrl`, sesuai kontrak endpoint dan service test R2 yang sudah mendukung public URL.
+- **Files**: `app/admin/pengaturan/api/lib/apiSettingsApi.ts`, `app/admin/pengaturan/api/lib/useApiSettings.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Harden email dan WhatsApp settings
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan`, `app/api/admin/settings/email`, `app/api/admin/whatsapp/accounts`, `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki keamanan dan UX konfigurasi Email dengan masking password SMTP, feedback inline, input email test tanpa prompt/alert, validasi Zod di API boundary, mencegah payload numeric `NaN` pada form akun WhatsApp, serta memperketat tenant ownership untuk aksi detail akun WhatsApp agar tenant tidak bisa membaca, mengubah, menghapus, set default, atau test akun tenant lain.
+- **Files**: `app/admin/pengaturan/email/EmailSettingsClient.tsx`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`, `app/api/admin/settings/email/route.ts`, `app/api/admin/whatsapp/accounts/[id]/route.ts`, `app/api/admin/whatsapp/accounts/[id]/test/route.ts`, `modules/notification/services/whatsapp-account.service.ts`, `tests/modules/notification/WhatsAppAccountService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Fix tenant isolation payment gateway
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/admin/payment-gateway`, `app/api/customer/payment-methods`, `modules/finance`, `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki isolasi tenant untuk konfigurasi payment gateway, pemilihan provider aktif saat create payment, dan daftar metode pembayaran customer agar selalu memakai `tenantId` request, bukan query global lintas tenant.
+- **Files**: `app/api/admin/payment-gateway/configs/route.ts`, `app/api/customer/payment-methods/route.ts`, `modules/finance/repositories/PaymentGatewayConfigRepository.ts`, `modules/finance/repositories/CompanyBankAccountRepository.ts`, `modules/finance/services/PaymentGatewayConfigService.ts`, `modules/finance/services/CustomerPaymentMethodService.ts`, `modules/payment-gateway/services/PaymentGatewayService.ts`, `tests/payment-gateway/unit/PaymentGatewayService.test.ts`, `tests/modules/finance/CustomerPaymentMethodService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Refactor payment gateway settings UI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pengaturan/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Memecah konfigurasi modal payment gateway dari tab utama agar komponen lebih fokus, lebih mudah direview, dan tetap mempertahankan alur konfigurasi/test koneksi provider.
+- **Files**: `app/admin/pengaturan/payment-gateway/components/PaymentGatewayTab.tsx`, `app/admin/pengaturan/payment-gateway/components/PaymentGatewayConfigModal.tsx`, `app/admin/pengaturan/payment-gateway/hooks/usePaymentGatewayConfigs.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-07] — Fix robust WhatsApp gateway delivery
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki pengiriman WhatsApp gateway agar nomor tujuan dinormalisasi konsisten, provider tanpa dukungan file tidak menyebabkan runtime crash, daily limit di-reset sebelum account routing, dan response non-JSON dari Fonnte/Wablas/MPWA menghasilkan error detail dengan status serta preview response.
+- **Files**: `modules/notification/services/whatsapp-sender.service.ts`, `modules/notification/services/whatsapp-account-routing.service.ts`, `modules/notification/services/whatsapp-provider-send.service.ts`, `modules/notification/services/whatsapp/whatsapp-gateway-utils.ts`, `modules/notification/services/whatsapp/providers/fonnte-provider.ts`, `modules/notification/services/whatsapp/providers/wablas-provider.ts`, `modules/notification/services/whatsapp/providers/mpwa-provider.ts`, `tests/whatsapp-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-06] — Fix toleransi keterlambatan absensi per tenant
 
 - **Tipe**: [FIXED]

@@ -18,6 +18,7 @@ import type { UserDetailDTO } from "@/modules/users";
 import UserPerformanceStats from "./UserPerformanceStats";
 import LeaveQuotaSummary from "./LeaveQuotaSummary";
 import SalesPerformanceStats from "./SalesPerformanceStats";
+import { formatPhoneDisplay } from "@/lib/utils/phone";
 
 const DAY_LABELS: Record<string, string> = {
   Mon: "Sen",
@@ -151,7 +152,9 @@ export function UsersDetailView({
                 <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
                   <HiOutlinePhone className="w-4 h-4 text-gray-500" />
                 </div>
-                <span className="font-medium">{formData.phone || "-"}</span>
+                <span className="font-medium">
+                  {formatPhoneDisplay(formData.phone)}
+                </span>
               </div>
               <div className="flex items-center text-gray-600 dark:text-gray-300 sm:col-span-2">
                 <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">

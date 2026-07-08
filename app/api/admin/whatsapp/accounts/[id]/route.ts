@@ -29,7 +29,7 @@ export async function GET(
       return ApiErrors.forbidden();
     }
 
-    const account = await service.findById(id);
+    const account = await service.findById(id, session.tenantId);
 
     if (!account) {
       return NextResponse.json(
@@ -88,7 +88,7 @@ export async function PATCH(
     const data: UpdateWhatsAppAccountDTO = validation.data;
 
     // Update account
-    const result = await service.update(id, data);
+    const result = await service.update(id, data, session.tenantId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -132,7 +132,7 @@ export async function DELETE(
       return ApiErrors.forbidden();
     }
 
-    const result = await service.delete(id);
+    const result = await service.delete(id, session.tenantId);
 
     if (!result.success) {
       return NextResponse.json(

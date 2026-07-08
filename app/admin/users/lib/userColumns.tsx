@@ -14,6 +14,7 @@ import type { Column } from "@/components/ui/ResponsiveTable";
 import type { User } from "./types";
 import { formatTimeAgo, formatDateTime } from "./timeUtils";
 import { USER_LIST_CONSTANTS } from "./constants";
+import { formatPhoneDisplay } from "@/lib/utils/phone";
 
 interface UserColumnsOptions {
   onlineUsers: Set<string>;
@@ -85,7 +86,7 @@ export function getUserColumns(options: UserColumnsOptions): Column<User>[] {
       priority: "secondary",
       render: (user) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {user.phone || "-"}
+          {formatPhoneDisplay(user.phone)}
         </span>
       ),
     },

@@ -56,6 +56,8 @@ export interface CreatePelangganDTO {
   password: string;
   passwordHash: string;
   hargaPaketId: string;
+  resellerId?: string | null;
+  resellerOutletId?: string | null;
   tipe: TipePelanggan;
   tanggalAktif: Date;
   jatuhTempo: Date;

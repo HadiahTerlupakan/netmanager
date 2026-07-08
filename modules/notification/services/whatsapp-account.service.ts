@@ -9,11 +9,41 @@ import { WhatsAppAccountRepository } from "../repositories/whatsapp-account.repo
 import { WhatsAppFactory } from "./whatsapp/whatsapp-factory";
 import type { WhatsAppConfig } from "./whatsapp/whatsapp-provider-interface";
 
+type WhatsAppAccountResult = {
+  success: boolean;
+  data?: WhatsAppAccount;
+  error?: string;
+};
+
+type WhatsAppActionResult = {
+  success: boolean;
+  error?: string;
+};
+
 export class WhatsAppAccountService {
   private repository: WhatsAppAccountRepository;
 
   constructor(repository?: WhatsAppAccountRepository) {
     this.repository = repository ?? new WhatsAppAccountRepository();
+  }
+
+  private isTenantAccount(
+    account: WhatsAppAccount,
+    tenantId?: string,
+  ): boolean {
+    return (account.tenantId ?? undefined) === tenantId;
+  }
+
+  private async findTenantAccount(
+    id: string,
+    tenantId?: string,
+  ): Promise<WhatsAppAccount | null> {
+    const account = await this.repository.findById(id);
+    if (!account || !this.isTenantAccount(account, tenantId)) {
+      return null;
+    }
+
+    return account;
   }
 
   async create(
@@ -56,10 +86,10 @@ export class WhatsAppAccountService {
   async update(
     id: string,
     data: WhatsAppAccountUpdateInput,
-  ): Promise<{ success: boolean; data?: WhatsAppAccount; error?: string }> {
+    tenantId?: string,
+  ): Promise<WhatsAppAccountResult> {
     try {
-      // Check if account exists
-      const existing = await this.repository.findById(id);
+      const existing = await this.findTenantAccount(id, tenantId);
       if (!existing) {
         return {
           success: false,
@@ -101,9 +131,9 @@ export class WhatsAppAccountService {
     }
   }
 
-  async delete(id: string): Promise<{ success: boolean; error?: string }> {
+  async delete(id: string, tenantId?: string): Promise<WhatsAppActionResult> {
     try {
-      const existing = await this.repository.findById(id);
+      const existing = await this.findTenantAccount(id, tenantId);
       if (!existing) {
         return {
           success: false,
@@ -125,8 +155,11 @@ export class WhatsAppAccountService {
     }
   }
 
-  async findById(id: string): Promise<WhatsAppAccount | null> {
-    return this.repository.findById(id);
+  async findById(
+    id: string,
+    tenantId?: string,
+  ): Promise<WhatsAppAccount | null> {
+    return this.findTenantAccount(id, tenantId);
   }
 
   async findAll(tenantId?: string): Promise<WhatsAppAccount[]> {
@@ -140,9 +173,9 @@ export class WhatsAppAccountService {
   async setDefault(
     id: string,
     tenantId?: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<WhatsAppActionResult> {
     try {
-      const account = await this.repository.findById(id);
+      const account = await this.findTenantAccount(id, tenantId);
       if (!account) {
         return {
           success: false,
@@ -166,9 +199,10 @@ export class WhatsAppAccountService {
 
   async testConnection(
     id: string,
-  ): Promise<{ success: boolean; error?: string }> {
+    tenantId?: string,
+  ): Promise<WhatsAppActionResult> {
     try {
-      const account = await this.repository.findById(id);
+      const account = await this.findTenantAccount(id, tenantId);
       if (!account) {
         return {
           success: false,

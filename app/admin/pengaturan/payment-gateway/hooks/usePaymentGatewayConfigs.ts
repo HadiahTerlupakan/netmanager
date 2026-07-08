@@ -27,7 +27,7 @@ export interface PaymentGatewayFormPayload {
   merchantId: string;
 }
 
-interface PaymentGatewayTestPayload extends PaymentGatewayFormPayload {
+export interface PaymentGatewayTestPayload extends PaymentGatewayFormPayload {
   provider: string;
 }
 

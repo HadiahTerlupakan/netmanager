@@ -85,6 +85,8 @@ export const POST = createHandler(
     const rawData = Object.fromEntries(formData.entries());
     if (rawData.siteId === "") rawData.siteId = null;
     if (rawData.odpId === "") rawData.odpId = null;
+    if (rawData.resellerId === "") rawData.resellerId = null;
+    if (rawData.resellerOutletId === "") rawData.resellerOutletId = null;
 
     const validationResult = createPelangganSchema.safeParse(rawData);
     if (!validationResult.success) {
@@ -128,6 +130,7 @@ export const POST = createHandler(
       const fileBAST = formData.get("fileBAST") as File | null;
       const pelanggan = await getPelangganService().createPelanggan({
         ...inputWithSite,
+        tenantId: session.user.tenantId ?? null,
         fileKTP: await pelangganUploadService.saveOptionalFile(
           fileKTP,
           pelangganUploadDir,

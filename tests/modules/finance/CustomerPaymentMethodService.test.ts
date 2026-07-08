@@ -26,8 +26,10 @@ describe("CustomerPaymentMethodService", () => {
       bankAccountRepository as never,
     );
 
-    const methods = await service.getCustomerPaymentMethods();
+    const methods = await service.getCustomerPaymentMethods("tenant-1");
 
+    expect(gatewayManager.getEnabledProviders).toHaveBeenCalledWith("tenant-1");
+    expect(bankAccountRepository.findActive).toHaveBeenCalledWith("tenant-1");
     expect(methods).toContainEqual(
       expect.objectContaining({ id: "manual_bank-1", code: "MANUAL_bank-1" }),
     );
