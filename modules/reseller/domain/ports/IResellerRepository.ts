@@ -116,6 +116,11 @@ export interface IResellerRepository {
     tenantId: string | null,
     hargaPaketId: string,
   ): Promise<number | null>;
+  /** List package prices for reseller. */
+  findPackagePricesByResellerId(
+    tenantId: string | null,
+    resellerId: string,
+  ): Promise<readonly ResellerPackagePriceEntity[]>;
   /** Create reseller package override. */
   upsertPackagePrice(
     data: UpsertPackagePriceData,

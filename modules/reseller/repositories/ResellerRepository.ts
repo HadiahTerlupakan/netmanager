@@ -219,6 +219,17 @@ export class ResellerRepository implements IResellerRepository {
     return packagePrice?.harga ?? null;
   }
 
+  /** List package prices for reseller. */
+  async findPackagePricesByResellerId(
+    tenantId: string | null,
+    resellerId: string,
+  ): Promise<readonly ResellerPackagePriceEntity[]> {
+    return this.db.resellerPackagePrice.findMany({
+      where: { tenantId, resellerId, deletedAt: null },
+      orderBy: { startsAt: "desc" },
+    });
+  }
+
   /** Create reseller package override. */
   async upsertPackagePrice(
     data: UpsertPackagePriceData,

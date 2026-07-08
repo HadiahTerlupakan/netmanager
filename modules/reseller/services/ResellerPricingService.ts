@@ -1,4 +1,8 @@
-import type { ResolvedPackagePriceDTO } from "../dto/reseller.dto";
+import type {
+  ResellerPackagePriceDTO,
+  ResolvedPackagePriceDTO,
+} from "../dto/reseller.dto";
+import { ResellerMapper } from "../mappers/ResellerMapper";
 import type { IResellerRepository } from "../domain/ports/IResellerRepository";
 import { ResellerRepository } from "../repositories/ResellerRepository";
 
@@ -6,6 +10,38 @@ export class ResellerPricingService {
   constructor(
     private readonly repository: IResellerRepository = new ResellerRepository(),
   ) {}
+
+  /** List package price overrides for a reseller. */
+  async listPackagePrices(
+    tenantId: string | null,
+    resellerId: string,
+  ): Promise<readonly ResellerPackagePriceDTO[]> {
+    const prices = await this.repository.findPackagePricesByResellerId(
+      tenantId,
+      resellerId,
+    );
+    return prices.map(ResellerMapper.toPackagePriceDTO);
+  }
+
+  /** Create package price override for a reseller. */
+  async upsertPackagePrice(input: {
+    readonly tenantId: string | null;
+    readonly resellerId: string;
+    readonly hargaPaketId: string;
+    readonly price: number;
+    readonly startsAt?: Date;
+    readonly endsAt?: Date | null;
+  }): Promise<ResellerPackagePriceDTO> {
+    const reseller = await this.repository.findById(
+      input.tenantId,
+      input.resellerId,
+    );
+    if (!reseller) {
+      throw new Error("Reseller tidak ditemukan");
+    }
+    const price = await this.repository.upsertPackagePrice(input);
+    return ResellerMapper.toPackagePriceDTO(price);
+  }
 
   /** Resolve effective package price for reseller customer. */
   async resolvePackagePrice(input: {
