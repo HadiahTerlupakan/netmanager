@@ -103,6 +103,11 @@ export class AnnouncementService {
 
   /** Update an announcement using the existing route payload shape. */
   async updateAnnouncement(id: string, input: AnnouncementUpdateInput) {
+    await ensureAnnouncementExists(
+      this.announcementRepository,
+      id,
+      (message, status) => new AnnouncementServiceError(message, status),
+    );
     return getAnnouncementRepositoryMethod(
       this.announcementRepository,
       this.announcementRepository.update,
@@ -112,6 +117,11 @@ export class AnnouncementService {
 
   /** Delete an announcement by id. */
   async deleteAnnouncement(id: string) {
+    await ensureAnnouncementExists(
+      this.announcementRepository,
+      id,
+      (message, status) => new AnnouncementServiceError(message, status),
+    );
     await getAnnouncementRepositoryMethod(
       this.announcementRepository,
       this.announcementRepository.delete,
