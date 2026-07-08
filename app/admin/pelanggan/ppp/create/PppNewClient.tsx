@@ -49,6 +49,19 @@ type Odp = {
   status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
 };
 
+type ResellerOption = {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+};
+
+type ResellerOutletOption = {
+  readonly id: string;
+  readonly resellerId: string;
+  readonly code: string;
+  readonly name: string;
+};
+
 export function PppClientCreateForm() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -108,6 +121,8 @@ export function PppClientCreateForm() {
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: "",
     odpId: "", // ODP yang digunakan pelanggan
+    resellerId: "",
+    resellerOutletId: "",
     siteId: undefined as string | undefined,
     billingAction: "DO_NOTHING" as
       | "CREATE_PAID_INVOICE"
@@ -242,6 +257,17 @@ export function PppClientCreateForm() {
   const { data: hargaPaketsData, isLoading: loadingHarga } =
     useApi<HargaPaket[]>(hargaPaketsUrl);
   const { data: odpsData } = useApi<{ odps: Odp[] }>(odpsUrl);
+  const { data: resellersData } = useApi<readonly ResellerOption[]>(
+    "/api/admin/resellers",
+  );
+  const activeResellers = [...(resellersData ?? [])];
+  const selectedResellerId = formData.resellerId || null;
+  const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
+    selectedResellerId
+      ? `/api/admin/resellers/${selectedResellerId}/outlets`
+      : null,
+  );
+  const resellerOutlets = [...(resellerOutletsData ?? [])];
 
   const [didHydrateHarga, setDidHydrateHarga] = useState(false);
   if (hargaPaketsData && !didHydrateHarga) {
@@ -552,6 +578,8 @@ export function PppClientCreateForm() {
                   idPelangganError={idPelangganError}
                   checkingId={checkingId}
                   odps={odps}
+                  resellers={activeResellers}
+                  resellerOutlets={resellerOutlets}
                   showPasswordLogin={showPasswordLogin}
                   onToggleShowPasswordLogin={() =>
                     setShowPasswordLogin(!showPasswordLogin)
