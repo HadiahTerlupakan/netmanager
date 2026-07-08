@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-09] — Perketat otorisasi & error handling announcement
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/announcements`, `modules/notification`, `app/admin/announcement`
+- **Author**: agent
+- **Deskripsi**: Memperketat otorisasi `GET /api/announcements` untuk query `portal=admin` berdasarkan session (sebelumnya mempercayai layout-level guard sehingga user biasa bisa memalsukan `?portal=admin`). Menambahkan 404 handling pada `PUT`/`DELETE /api/announcements/[id]` via existence check di service. Menambah guard `AnnouncementForm` agar mode edit tanpa `initialData.id` gagal jelas. Melokalkan label target di tabel admin ke Bahasa Indonesia tanpa mengubah API contract.
+- **Files**: `app/api/announcements/route.ts`, `app/api/announcements/[id]/route.ts`, `modules/notification/services/AnnouncementService.ts`, `app/admin/announcement/_components/AnnouncementForm.tsx`, `app/admin/announcement/AnnouncementIndexClient.tsx`, `tests/api/announcements-route.test.ts`, `tests/api/announcements-get-portal-auth.test.ts`, `tests/modules/notification/AnnouncementService.crud.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-08] — Perbaiki live map kehadiran
 
 - **Tipe**: [FIXED]
