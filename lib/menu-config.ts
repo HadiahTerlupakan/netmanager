@@ -205,6 +205,14 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     ],
   },
   {
+    code: "RESELLER",
+    name: "Reseller",
+    path: "/admin/resellers",
+    icon: "HiOutlineBuildingStorefront",
+    section: "Operasional",
+    featureModule: "reseller",
+  },
+  {
     code: "WORKORDERS",
     name: "Work Orders",
     path: "/admin/workorders",
