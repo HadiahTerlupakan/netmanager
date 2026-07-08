@@ -68,6 +68,10 @@ export default function AnnouncementForm({
   const router = useRouter();
   const { showToast } = useToast();
 
+  if (isEdit && !initialData?.id) {
+    throw new Error("Mode edit wajib menyertakan initialData.id");
+  }
+
   const [formData, setFormData] = useState<FormState>({
     title: initialData?.title || "",
     content: initialData?.content || "",
