@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-08] — Tambah fondasi reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan fondasi modul reseller Phase 1: schema reseller/outlet/harga reseller, service dan repository Clean Architecture, validasi relasi pelanggan-reseller, API admin CRUD reseller/outlet, permission `reseller`, dan feature flag reseller.
+- **Files**: `modules/reseller`, `app/api/admin/resellers`, `modules/pelanggan/services/pelanggan-service.helpers.ts`, `modules/pelanggan/services/PelangganAdminMutationService.ts`, `lib/permission-config.ts`, `lib/feature-modules.ts`, `prisma/schema.prisma`
+- **Migration**: `20260708050000_add_reseller_foundation`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-07] — Refactor frontend Mitra ke TanStack Query + RHF/Zod
 
 - **Tipe**: [CHANGED]
