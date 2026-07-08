@@ -186,9 +186,8 @@ export default function EmployeeLocationMap({
   useEffect(() => {
     if (!mapReady) return; // Wait for map to be ready
     clientLogger.info(
-      "[EmployeeLocationMap] Updating markers, locations:",
+      "[EmployeeLocationMap] Updating markers, count:",
       locations.length,
-      locations,
     );
     (async () => {
       if (!markerLayerRef.current || !mapRef.current) return;
