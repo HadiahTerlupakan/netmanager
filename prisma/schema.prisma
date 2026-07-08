@@ -85,43 +85,46 @@ model AnnouncementRead {
 }
 
 model Attendance {
-  id                               String           @id
-  userId                           String
-  checkIn                          DateTime         @default(now())
-  checkInDate                      DateTime?
-  checkOut                         DateTime?
-  checkInPhoto                     String?
-  checkOutPhoto                    String?
-  status                           AttendanceStatus @default(ON_TIME)
-  notes                            String?
-  location                         String?
-  checkOutLocation                 String?
-  createdAt                        DateTime         @default(now())
-  updatedAt                        DateTime
-  geofenceStatus                   String?
-  geofenceDistance                 Float?
-  geofenceSiteName                 String?
-  checkOutGeofenceStatus           String?
-  checkOutGeofenceDistance         Float?
-  geofenceMeta                     Json?
-  tenantId                         String?
-  correctedAt                      DateTime?
-  correctedById                    String?
-  correctionReason                 String?
-  correctionNotes                  String?
-  correctionEvidencePhotoUrl       String?
+  id                                String           @id
+  userId                            String
+  checkIn                           DateTime         @default(now())
+  checkInDate                       DateTime?
+  checkOut                          DateTime?
+  checkInPhoto                      String?
+  checkOutPhoto                     String?
+  status                            AttendanceStatus @default(ON_TIME)
+  notes                             String?
+  location                          String?
+  checkOutLocation                  String?
+  createdAt                         DateTime         @default(now())
+  updatedAt                         DateTime
+  geofenceStatus                    String?
+  geofenceDistance                  Float?
+  geofenceSiteName                  String?
+  checkOutGeofenceStatus            String?
+  checkOutGeofenceDistance          Float?
+  geofenceMeta                      Json?
+  tenantId                          String?
+  correctedAt                       DateTime?
+  correctedById                     String?
+  correctionReason                  String?
+  correctionNotes                   String?
+  correctionEvidencePhotoUrl        String?
   correctionReplacementAttendanceId String?
-  correctionSourceAttendanceId     String?
-  correctionSource                 String?
-  tenant                           Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                             User             @relation(fields: [userId], references: [id])
-  correctedBy                      User?            @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])
-  correctionReplacementAttendance  Attendance?      @relation("AttendanceCorrectionReplacement", fields: [correctionReplacementAttendanceId], references: [id])
-  correctionReplacementSources     Attendance[]     @relation("AttendanceCorrectionReplacement")
-  correctionSourceAttendance       Attendance?      @relation("AttendanceCorrectionSource", fields: [correctionSourceAttendanceId], references: [id])
-  correctionSourceReplacements     Attendance[]     @relation("AttendanceCorrectionSource")
-  overtime                         Overtime[]
+  correctionSourceAttendanceId      String?
+  correctionSource                  String?
+  tenant                            Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                              User             @relation(fields: [userId], references: [id])
+  correctedBy                       User?            @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])
+  correctionReplacementAttendance   Attendance?      @relation("AttendanceCorrectionReplacement", fields: [correctionReplacementAttendanceId], references: [id])
+  correctionReplacementSources      Attendance[]     @relation("AttendanceCorrectionReplacement")
+  correctionSourceAttendance        Attendance?      @relation("AttendanceCorrectionSource", fields: [correctionSourceAttendanceId], references: [id])
+  correctionSourceReplacements      Attendance[]     @relation("AttendanceCorrectionSource")
+  overtime                          Overtime[]
 
+  @@unique([userId, checkInDate, tenantId], map: "idx_attendance_user_checkin_date_tenant")
+  @@unique([correctionReplacementAttendanceId])
+  @@unique([correctionSourceAttendanceId])
   @@index([checkIn])
   @@index([status])
   @@index([userId])
@@ -132,38 +135,35 @@ model Attendance {
   @@index([tenantId, correctedAt])
   @@index([correctionReplacementAttendanceId])
   @@index([correctionSourceAttendanceId])
-  @@unique([userId, checkInDate, tenantId], map: "idx_attendance_user_checkin_date_tenant")
-  @@unique([correctionReplacementAttendanceId])
-  @@unique([correctionSourceAttendanceId])
 }
 
 model AttendanceEvaluation {
-  id                      String                    @id @default(cuid())
+  id                      String                      @id @default(cuid())
   tenantId                String
   userId                  String
   workDate                DateTime
   finalStatus             AttendanceStatus
   reviewState             String
   rawPresenceState        String?
-  workMinutes             Int                       @default(0)
-  lateMinutes             Int                       @default(0)
-  overtimeMinutesApproved Int                       @default(0)
-  overtimeMinutesHeld     Int                       @default(0)
-  payrollHoldState        String                    @default("NONE")
+  workMinutes             Int                         @default(0)
+  lateMinutes             Int                         @default(0)
+  overtimeMinutesApproved Int                         @default(0)
+  overtimeMinutesHeld     Int                         @default(0)
+  payrollHoldState        String                      @default("NONE")
   holidayState            String?
   leaveState              String?
   scheduleState           String?
   evidenceQuality         String?
-  reasonCodes             Json                      @default("[]")
-  anomalyCodes            Json                      @default("[]")
-  sourceRefs              Json                      @default("{}")
-  evaluationVersion       Int                       @default(1)
-  evaluatedAt             DateTime                  @default(now())
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
+  reasonCodes             Json                        @default("[]")
+  anomalyCodes            Json                        @default("[]")
+  sourceRefs              Json                        @default("{}")
+  evaluationVersion       Int                         @default(1)
+  evaluatedAt             DateTime                    @default(now())
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
   audits                  AttendanceEvaluationAudit[]
-  tenant                  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                    User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant                  Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                    User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId, workDate])
   @@index([tenantId, workDate])
@@ -377,34 +377,35 @@ model Expense {
 }
 
 model HargaPaket {
-  id                   String        @id
-  name                 String
-  bandwidthId          String?
-  profilePPPId         String
-  harga                Int
-  durasi               Int           @default(30)
-  durasiUnit           DurasiUnit    @default(HARI)
-  usePPN               Boolean       @default(false)
-  ppnPercentage        Float?
-  useDiscount          Boolean       @default(false)
-  discountType         DiscountType?
-  discountValue        Float?
-  discountDuration     Int?
-  discountDurationUnit DurasiUnit?
-  description          String?
-  featured             Boolean       @default(false)
-  status               Status        @default(AKTIF)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime
-  siteId               String?
-  tenantId             String?
-  bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
-  profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
-  site                 Sites?        @relation(fields: [siteId], references: [id])
-  tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  pelanggan            Pelanggan[]
-  pelangganPending     Pelanggan[]         @relation("PelangganPendingPackage")
-  resellerPackagePrice ResellerPackagePrice[]
+  id                     String                   @id
+  name                   String
+  bandwidthId            String?
+  profilePPPId           String
+  harga                  Int
+  durasi                 Int                      @default(30)
+  durasiUnit             DurasiUnit               @default(HARI)
+  usePPN                 Boolean                  @default(false)
+  ppnPercentage          Float?
+  useDiscount            Boolean                  @default(false)
+  discountType           DiscountType?
+  discountValue          Float?
+  discountDuration       Int?
+  discountDurationUnit   DurasiUnit?
+  description            String?
+  featured               Boolean                  @default(false)
+  status                 Status                   @default(AKTIF)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  siteId                 String?
+  tenantId               String?
+  bandwidth              Bandwidth?               @relation(fields: [bandwidthId], references: [id])
+  profilePPP             ProfilePPP               @relation(fields: [profilePPPId], references: [id])
+  site                   Sites?                   @relation(fields: [siteId], references: [id])
+  tenant                 Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  pelanggan              Pelanggan[]
+  pelangganPending       Pelanggan[]              @relation("PelangganPendingPackage")
+  resellerPackagePrice   ResellerPackagePrice[]
+  resellerCommissionRule ResellerCommissionRule[]
 
   @@unique([tenantId, name, siteId], name: "tenantId_name_siteId")
   @@index([bandwidthId])
@@ -416,18 +417,18 @@ model HargaPaket {
 }
 
 model Investor {
-  id           String           @id @default(uuid())
-  username     String           @unique
+  id           String                @id @default(uuid())
+  username     String                @unique
   passwordHash String?
   namaLengkap  String
   perusahaan   String?
   noTelp       String?
-  email        String?          @unique
-  isActive     Boolean          @default(true)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  email        String?               @unique
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
   tenantId     String?
-  tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant       Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   payouts      InvestorPayout[]
   rabProjects  RabInvestor[]
   deposits     InvestorDeposit[]
@@ -583,15 +584,15 @@ model LeaveRequest {
   tenantId        String?
 
   // Timeline tracking fields
-  submittedAt              DateTime  @default(now())
-  firstReminderSentAt      DateTime?
-  secondReminderSentAt     DateTime?
-  finalReminderSentAt      DateTime?
-  autoRejectedAt           DateTime?
-  autoRejectionReason      String?
+  submittedAt          DateTime  @default(now())
+  firstReminderSentAt  DateTime?
+  secondReminderSentAt DateTime?
+  finalReminderSentAt  DateTime?
+  autoRejectedAt       DateTime?
+  autoRejectionReason  String?
 
-  tenant          Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user            User        @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User    @relation(fields: [userId], references: [id])
 
   @@index([startDate])
   @@index([status])
@@ -667,27 +668,27 @@ model MikroTikRouter {
   network_alerts         NetworkAlerts[]
   network_performance    NetworkPerformance[]
 
+  @@unique([tenantId, ipAddress])
   @@index([pingStatus])
   @@index([siteId])
-  @@unique([tenantId, ipAddress])
   @@index([tenantId])
 }
 
 model AccelPppServer {
-  id              String    @id @default(cuid())
-  name            String
-  ipAddress       String
-  description     String?
+  id          String  @id @default(cuid())
+  name        String
+  ipAddress   String
+  description String?
 
-  nasIdentifier   String?
-  radiusSecret    String
-  authPort        Int       @default(1812)
-  acctPort        Int       @default(1813)
-  coaPort         Int       @default(3799)
+  nasIdentifier String?
+  radiusSecret  String
+  authPort      Int     @default(1812)
+  acctPort      Int     @default(1813)
+  coaPort       Int     @default(3799)
 
-  cliHost         String
-  cliPort         Int       @default(2001)
-  cliPassword     String?
+  cliHost     String
+  cliPort     Int     @default(2001)
+  cliPassword String?
 
   sshHost             String?
   sshPort             Int       @default(22)
@@ -701,14 +702,14 @@ model AccelPppServer {
   userOnline      Int       @default(0)
   lastStatusCheck DateTime?
 
-  siteId          String?
-  tenantId        String?
+  siteId   String?
+  tenantId String?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  site            Sites?    @relation(fields: [siteId], references: [id])
-  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site   Sites?  @relation(fields: [siteId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, ipAddress])
   @@index([pingStatus])
@@ -980,6 +981,7 @@ model Pelanggan {
   support_tickets               SupportTickets[]
   work_orders                   WorkOrders[]
 
+  @@unique([tenantId, idPelanggan], name: "tenantId_idPelanggan")
   @@index([email])
   @@index([siteId])
   @@index([hargaPaketId])
@@ -988,7 +990,6 @@ model Pelanggan {
   @@index([status])
   @@index([tanggalAktif])
   @@index([tipe])
-  @@unique([tenantId, idPelanggan], name: "tenantId_idPelanggan")
   @@index([tenantId])
   @@index([tenantId, resellerId])
   @@index([tenantId, resellerOutletId])
@@ -1021,22 +1022,25 @@ model ProratePaymentLog {
 }
 
 model Reseller {
-  id                   String                 @id @default(uuid())
-  tenantId             String?
-  code                 String
-  name                 String
-  email                String?
-  phone                String?
-  address              String?
-  status               ResellerStatus         @default(ACTIVE)
-  notes                String?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  deletedAt            DateTime?
-  tenant               Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  outlets              ResellerOutlet[]
-  packagePrices        ResellerPackagePrice[]
-  pelanggan            Pelanggan[]
+  id              String                   @id @default(uuid())
+  tenantId        String?
+  code            String
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  status          ResellerStatus           @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  deletedAt       DateTime?
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  outlets         ResellerOutlet[]
+  packagePrices   ResellerPackagePrice[]
+  commissionRules ResellerCommissionRule[]
+  commissions     ResellerCommission[]
+  settlements     ResellerSettlement[]
+  pelanggan       Pelanggan[]
 
   @@unique([tenantId, code], name: "tenantId_resellerCode")
   @@index([tenantId])
@@ -1045,20 +1049,20 @@ model Reseller {
 }
 
 model ResellerOutlet {
-  id                   String          @id @default(uuid())
-  tenantId             String?
-  resellerId           String
-  code                 String
-  name                 String
-  phone                String?
-  address              String?
-  status               ResellerStatus  @default(ACTIVE)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  deletedAt            DateTime?
-  tenant               Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reseller             Reseller        @relation(fields: [resellerId], references: [id])
-  pelanggan            Pelanggan[]
+  id         String         @id @default(uuid())
+  tenantId   String?
+  resellerId String
+  code       String
+  name       String
+  phone      String?
+  address    String?
+  status     ResellerStatus @default(ACTIVE)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+  tenant     Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller   Reseller       @relation(fields: [resellerId], references: [id])
+  pelanggan  Pelanggan[]
 
   @@unique([tenantId, resellerId, code], name: "tenantId_resellerId_outletCode")
   @@index([tenantId])
@@ -1068,20 +1072,20 @@ model ResellerOutlet {
 }
 
 model ResellerPackagePrice {
-  id                   String          @id @default(uuid())
-  tenantId             String?
-  resellerId           String
-  hargaPaketId         String
-  price                Int
-  status               ResellerStatus  @default(ACTIVE)
-  startsAt             DateTime        @default(now())
-  endsAt               DateTime?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  deletedAt            DateTime?
-  tenant               Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reseller             Reseller        @relation(fields: [resellerId], references: [id])
-  hargaPaket           HargaPaket      @relation(fields: [hargaPaketId], references: [id])
+  id           String         @id @default(uuid())
+  tenantId     String?
+  resellerId   String
+  hargaPaketId String
+  price        Int
+  status       ResellerStatus @default(ACTIVE)
+  startsAt     DateTime       @default(now())
+  endsAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+  tenant       Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller     Reseller       @relation(fields: [resellerId], references: [id])
+  hargaPaket   HargaPaket     @relation(fields: [hargaPaketId], references: [id])
 
   @@index([tenantId])
   @@index([resellerId])
@@ -1089,6 +1093,96 @@ model ResellerPackagePrice {
   @@index([status])
   @@index([deletedAt])
   @@index([startsAt, endsAt])
+}
+
+model ResellerCommissionRule {
+  id           String                 @id @default(uuid())
+  tenantId     String?
+  resellerId   String
+  hargaPaketId String?
+  type         ResellerCommissionType
+  rate         Int?
+  fixedAmount  Int?
+  status       ResellerStatus         @default(ACTIVE)
+  startsAt     DateTime               @default(now())
+  endsAt       DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  deletedAt    DateTime?
+  tenant       Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller     Reseller               @relation(fields: [resellerId], references: [id])
+  hargaPaket   HargaPaket?            @relation(fields: [hargaPaketId], references: [id])
+  commissions  ResellerCommission[]
+
+  @@index([tenantId])
+  @@index([resellerId])
+  @@index([hargaPaketId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([startsAt, endsAt])
+}
+
+model ResellerCommission {
+  id               String                   @id @default(uuid())
+  tenantId         String?
+  resellerId       String
+  pelangganId      String
+  invoiceId        String
+  paymentId        String?
+  commissionRuleId String
+  type             ResellerCommissionType
+  rate             Int?
+  baseAmount       Int
+  commissionAmount Int
+  status           ResellerCommissionStatus @default(ACCRUED)
+  period           String
+  settlementId     String?
+  accruedAt        DateTime                 @default(now())
+  settledAt        DateTime?
+  paidAt           DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  deletedAt        DateTime?
+  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller         Reseller                 @relation(fields: [resellerId], references: [id])
+  commissionRule   ResellerCommissionRule   @relation(fields: [commissionRuleId], references: [id])
+  settlement       ResellerSettlement?      @relation(fields: [settlementId], references: [id])
+
+  @@unique([tenantId, invoiceId], name: "tenantId_resellerCommissionInvoiceId")
+  @@index([tenantId])
+  @@index([resellerId])
+  @@index([pelangganId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([period])
+  @@index([settlementId])
+  @@index([deletedAt])
+}
+
+model ResellerSettlement {
+  id              String                   @id @default(uuid())
+  tenantId        String?
+  resellerId      String
+  periodStart     DateTime
+  periodEnd       DateTime
+  totalAmount     Int
+  commissionCount Int
+  status          ResellerSettlementStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  deletedAt       DateTime?
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller        Reseller                 @relation(fields: [resellerId], references: [id])
+  commissions     ResellerCommission[]
+
+  @@index([tenantId])
+  @@index([resellerId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@index([deletedAt])
 }
 
 model Permission {
@@ -1151,9 +1245,9 @@ model ProfilePPP {
   site             Sites?          @relation(fields: [siteId], references: [id])
   tenant           Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@unique([name, tenantId], name: "name_tenantId")
   @@index([mikroTikRouterId])
   @@index([siteId])
-  @@unique([name, tenantId], name: "name_tenantId")
   @@index([tenantId])
 }
 
@@ -1205,23 +1299,23 @@ model RevenueSnapshot {
 }
 
 model Role {
-  id                  String       @id
-  name                String
-  description         String?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime
-  accessAdminPanel    Boolean      @default(false)
-  accessEmployeePanel Boolean      @default(false)
-  isRestricted        Boolean      @default(false)
-  isTechnical         Boolean      @default(false)
-  isSuperAdmin        Boolean      @default(false)
-  canApproveRab       Boolean      @default(false)
-  canReceiveWhatsappApproval Boolean      @default(false)
-  tenantId            String?
-  user                User[]
-  tenant              Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  permission          Permission[] @relation("PermissionToRole")
-  approvalThresholds  ApprovalThreshold[]
+  id                         String              @id
+  name                       String
+  description                String?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime
+  accessAdminPanel           Boolean             @default(false)
+  accessEmployeePanel        Boolean             @default(false)
+  isRestricted               Boolean             @default(false)
+  isTechnical                Boolean             @default(false)
+  isSuperAdmin               Boolean             @default(false)
+  canApproveRab              Boolean             @default(false)
+  canReceiveWhatsappApproval Boolean             @default(false)
+  tenantId                   String?
+  user                       User[]
+  tenant                     Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permission                 Permission[]        @relation("PermissionToRole")
+  approvalThresholds         ApprovalThreshold[]
 
   @@unique([name, tenantId], name: "name_tenantId")
   @@index([accessAdminPanel])
@@ -1235,18 +1329,18 @@ model Role {
 /// guard memastikan role approver punya threshold yang cover nominal.
 /// `maxAmount` null artinya tidak ada batas atas (untuk role tertinggi).
 model ApprovalThreshold {
-  id          String                  @id @default(uuid())
+  id          String                 @id @default(uuid())
   scope       ApprovalThresholdScope
   roleId      String
-  minAmount   Float                   @default(0)
+  minAmount   Float                  @default(0)
   maxAmount   Float?
   description String?
-  isActive    Boolean                 @default(true)
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
   tenantId    String?
-  role        Role                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  tenant      Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  role        Role                   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant      Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, scope, isActive])
   @@index([roleId])
@@ -1259,6 +1353,7 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([expires])
 }
 
@@ -1302,11 +1397,11 @@ model SystemLog {
 }
 
 model User {
-  id                                         String                    @id
+  id                                         String                      @id
   name                                       String?
-  email                                      String                    @unique
+  email                                      String                      @unique
   passwordHash                               String?
-  createdAt                                  DateTime                  @default(now())
+  createdAt                                  DateTime                    @default(now())
   updatedAt                                  DateTime
   emailVerified                              DateTime?
   image                                      String?
@@ -1314,8 +1409,8 @@ model User {
   departmentId                               String?
   siteId                                     String?
   roleId                                     String?
-  isActive                                   Boolean                   @default(true)
-  workingHourMode                            WorkingHourMode           @default(FIXED)
+  isActive                                   Boolean                     @default(true)
+  workingHourMode                            WorkingHourMode             @default(FIXED)
   startWorkTime                              String?
   endWorkTime                                String?
   workDays                                   String?
@@ -1323,43 +1418,43 @@ model User {
   flexibleTargetHour                         Int?
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
-  tokenVersion                               Int                       @default(0)
+  tokenVersion                               Int                         @default(0)
   lastVersionCode                            Int?
   lastVersionName                            String?
   lastVersionUpdate                          DateTime?
-  canvasingTarget                            Int                       @default(50)
-  isSales                                    Boolean                   @default(false)
+  canvasingTarget                            Int                         @default(50)
+  isSales                                    Boolean                     @default(false)
   absentDeductionRate                        Float?
   basicSalary                                Float?
-  employeeType                               EmployeeType              @default(KARYAWAN)
+  employeeType                               EmployeeType                @default(KARYAWAN)
   lateDeductionRate                          Float?
-  overtimeCalcTypeHoliday                    RateType                  @default(PER_HOUR)
-  overtimeCalcTypeNational                   RateType                  @default(PER_HOUR)
-  overtimeCalcTypeNormal                     RateType                  @default(PER_HOUR)
+  overtimeCalcTypeHoliday                    RateType                    @default(PER_HOUR)
+  overtimeCalcTypeNational                   RateType                    @default(PER_HOUR)
+  overtimeCalcTypeNormal                     RateType                    @default(PER_HOUR)
   overtimeRateHoliday                        Float?
   overtimeRateNational                       Float?
   overtimeRateNormal                         Float?
-  payDay                                     Int                       @default(1)
-  payPeriodDay                               Int                       @default(25)
-  woIncentiveEnabled                         Boolean                   @default(true)
+  payDay                                     Int                         @default(1)
+  payPeriodDay                               Int                         @default(25)
+  woIncentiveEnabled                         Boolean                     @default(true)
   woIncentiveRate                            Float?
   lastLoginAt                                DateTime?
   bankName                                   String?
   bankAccountNo                              String?
   bankAccountName                            String?
-  bpjsKesehatan                              Boolean                   @default(false)
-  bpjsKetenagakerjaan                        Boolean                   @default(false)
-  fcmTokens                                  String[]                  @default([])
+  bpjsKesehatan                              Boolean                     @default(false)
+  bpjsKetenagakerjaan                        Boolean                     @default(false)
+  fcmTokens                                  String[]                    @default([])
   joinDate                                   DateTime?
   ptkpStatus                                 PtkpStatus?
-  targetSchema                              TargetSchema              @default(MONTHLY_RESET)
-  attendanceGeofencePolicy                   AttendanceGeofencePolicy  @default(WARN)
-  isAttendanceRequired                       Boolean                   @default(true)
+  targetSchema                               TargetSchema                @default(MONTHLY_RESET)
+  attendanceGeofencePolicy                   AttendanceGeofencePolicy    @default(WARN)
+  isAttendanceRequired                       Boolean                     @default(true)
   tenantId                                   String?
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
-  attendanceCorrections                      Attendance[]               @relation("AttendanceCorrectedBy")
+  attendanceCorrections                      Attendance[]                @relation("AttendanceCorrectedBy")
   attendanceEvaluation                       AttendanceEvaluation[]
   attendanceEvaluationAudit                  AttendanceEvaluationAudit[]
   conversation_participants                  ConversationParticipant[]
@@ -1371,38 +1466,38 @@ model User {
   pelanggan                                  Pelanggan[]
   session                                    Session[]
   systemLog                                  SystemLog[]
-  departments                                Departments?              @relation(fields: [departmentId], references: [id])
-  role                                       Role?                     @relation(fields: [roleId], references: [id])
-  shift                                      Shift?                    @relation(fields: [shiftId], references: [id])
-  sites                                      Sites?                    @relation(fields: [siteId], references: [id])
-  tenant                                     Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  departments                                Departments?                @relation(fields: [departmentId], references: [id])
+  role                                       Role?                       @relation(fields: [roleId], references: [id])
+  shift                                      Shift?                      @relation(fields: [shiftId], references: [id])
+  sites                                      Sites?                      @relation(fields: [siteId], references: [id])
+  tenant                                     Tenant?                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   assets                                     Asset[]
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
-  approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
-  salesCanvasing                             Canvasing[]               @relation("UserSalesCanvasing")
+  approverCanvasing                          Canvasing[]                 @relation("ApproverCanvasing")
+  salesCanvasing                             Canvasing[]                 @relation("UserSalesCanvasing")
   employeeLoans                              EmployeeLoan[]
   employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
-  pointClaimsReviewed                        PointClaim[]              @relation("ReviewerPointClaim")
-  pointClaimsSales                           PointClaim[]              @relation("SalesPointClaim")
-  poCreated                                  PurchaseOrder[]           @relation("POCreator")
-  poProcessed                                PurchaseOrder[]           @relation("POProcessor")
-  poReceived                                 PurchaseOrder[]           @relation("POReceiver")
-  goodsReceiptsReceived                      GoodsReceipt[]            @relation("GRNReceiver")
-  goodsReturnsReturned                       GoodsReturn[]             @relation("RTVReturner")
-  purchaseRequests                           PurchaseRequest[]         @relation("Requester")
-  approverPurchaseRequests                   PurchaseRequest[]         @relation("ApproverPR")
+  pointClaimsReviewed                        PointClaim[]                @relation("ReviewerPointClaim")
+  pointClaimsSales                           PointClaim[]                @relation("SalesPointClaim")
+  poCreated                                  PurchaseOrder[]             @relation("POCreator")
+  poProcessed                                PurchaseOrder[]             @relation("POProcessor")
+  poReceived                                 PurchaseOrder[]             @relation("POReceiver")
+  goodsReceiptsReceived                      GoodsReceipt[]              @relation("GRNReceiver")
+  goodsReturnsReturned                       GoodsReturn[]               @relation("RTVReturner")
+  purchaseRequests                           PurchaseRequest[]           @relation("Requester")
+  approverPurchaseRequests                   PurchaseRequest[]           @relation("ApproverPR")
   rabApprovals                               RabApproval[]
   createdRabProjects                         RabProject[]
   rabRevisionApprovals                       RabRevisionApproval[]
-  salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
-  salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
+  salariesApprovedBy                         Salary[]                    @relation("SalaryApprovedBy")
+  salariesAuditedBy                          Salary[]                    @relation("SalaryAuditedBy")
   salaries                                   Salary[]
   sla                                        Sla[]
   support_tickets                            SupportTickets[]
   ticket_replies                             TicketReplies[]
-  transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
+  transferAntarGudangs                       TransferAntarGudang[]       @relation("TransferCreatedBy")
   userSalaryComponents                       UserSalaryComponent[]
   userSites                                  UserSite[]
   work_order_assignments                     WorkOrderAssignments[]
@@ -1411,19 +1506,19 @@ model User {
   work_order_tasks                           WorkOrderTasks[]
   work_order_templates                       WorkOrderTemplates[]
   work_order_updates                         WorkOrderUpdates[]
-  workOrdersApproved                         WorkOrders[]              @relation("work_orders_approvedByIdToUser")
-  work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
-  work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
-  workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
-  payrollPeriodsLocked                     PayrollPeriod[]         @relation("PeriodLockedBy")
-  payrollRunsCreated                       PayrollRun[]            @relation("PayrollRunCreatedBy")
-  payrollEntries                           PayrollEntry[]          @relation("PayrollEntryUser")
-  employeePayrollProfile                    EmployeePayrollProfile? @relation("EmployeePayrollProfile")
-  salaryAdvances                           SalaryAdvance[]         @relation("SalaryAdvanceUser")
-  salaryAdvancesApproved                   SalaryAdvance[]         @relation("SalaryAdvanceApprover")
-  payrollAuditLogs                         PayrollAuditLog[]       @relation("PayrollAuditPerformer")
-  incidents                                Incident[]
-  incidentUpdates                          IncidentUpdate[]
+  workOrdersApproved                         WorkOrders[]                @relation("work_orders_approvedByIdToUser")
+  work_orders_work_orders_assignedToIdToUser WorkOrders[]                @relation("work_orders_assignedToIdToUser")
+  work_orders_work_orders_createdByIdToUser  WorkOrders[]                @relation("work_orders_createdByIdToUser")
+  workOrdersRequested                        WorkOrders[]                @relation("work_orders_requestedByIdToUser")
+  payrollPeriodsLocked                       PayrollPeriod[]             @relation("PeriodLockedBy")
+  payrollRunsCreated                         PayrollRun[]                @relation("PayrollRunCreatedBy")
+  payrollEntries                             PayrollEntry[]              @relation("PayrollEntryUser")
+  employeePayrollProfile                     EmployeePayrollProfile?     @relation("EmployeePayrollProfile")
+  salaryAdvances                             SalaryAdvance[]             @relation("SalaryAdvanceUser")
+  salaryAdvancesApproved                     SalaryAdvance[]             @relation("SalaryAdvanceApprover")
+  payrollAuditLogs                           PayrollAuditLog[]           @relation("PayrollAuditPerformer")
+  incidents                                  Incident[]
+  incidentUpdates                            IncidentUpdate[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1486,11 +1581,10 @@ model Barang {
   restockSettings      RestockSettings[]
   stockOpname          StockOpname[]
   transferAntarGudang  TransferAntarGudang[]
-
-  @@unique([tenantId, kode], name: "tenantId_kode")
   usageAnalytics       UsageAnalytics[]
   workOrderMaterials   WorkOrderMaterial[]
 
+  @@unique([tenantId, kode], name: "tenantId_kode")
   @@index([tenantId])
   @@map("barang")
 }
@@ -1748,7 +1842,6 @@ model Gudang {
   sites                   Sites[]               @relation("GudangToSite")
 
   @@unique([tenantId, kode], name: "tenantId_kode")
-
   @@index([tenantId])
   @@map("gudang")
 }
@@ -2452,6 +2545,8 @@ model WorkOrders {
   tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
 
+  @@unique([tenantId, workOrderNumber], name: "tenantId_workOrderNumber")
+  @@unique([workOrderNumber], name: "uniq_workOrderNumber_global")
   @@index([assignedToId])
   @@index([assignedMitraId])
   @@index([departmentId])
@@ -2464,7 +2559,6 @@ model WorkOrders {
   @@index([templateId])
   @@index([ticketId])
   @@index([type])
-  @@unique([tenantId, workOrderNumber], name: "tenantId_workOrderNumber")
   @@index([status, priority])
   @@index([status, createdAt])
   @@index([status, departmentId])
@@ -2472,7 +2566,6 @@ model WorkOrders {
   @@index([createdAt])
   @@index([tenantId])
   @@index([tenantId, status, assignedToId, assignedMitraId], map: "idx_wo_available_lookup")
-  @@unique([workOrderNumber], name: "uniq_workOrderNumber_global")
   @@map("work_orders")
 }
 
@@ -2582,25 +2675,25 @@ model AppVersion {
 /// Setiap record merepresentasikan satu manifest update yang dilayani ke
 /// mobile via /api/mobile/manifest. Bundle + assets disimpan di PVC.
 model AppUpdate {
-  id              String   @id @default(uuid())
-  manifestId      String   @unique
-  channel         String
-  runtimeVersion  String
-  platform        String
-  bundleHash      String
-  bundlePath      String
-  bundleSize      BigInt
-  assets          Json
-  metadata        Json?
-  signature       String?
-  signatureKeyId  String?
-  releaseNotes    String?
-  commitTime      DateTime
-  isActive        Boolean  @default(true)
-  tenantId        String?
-  createdBy       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  manifestId     String   @unique
+  channel        String
+  runtimeVersion String
+  platform       String
+  bundleHash     String
+  bundlePath     String
+  bundleSize     BigInt
+  assets         Json
+  metadata       Json?
+  signature      String?
+  signatureKeyId String?
+  releaseNotes   String?
+  commitTime     DateTime
+  isActive       Boolean  @default(true)
+  tenantId       String?
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([channel, runtimeVersion, platform, isActive, commitTime(sort: Desc)], map: "idx_app_updates_lookup")
   @@index([tenantId])
@@ -2622,15 +2715,15 @@ model AppRelease {
   isActive            Boolean  @default(true)
   releasedAt          DateTime @default(now())
 
-  architecture        String?
-  minOsVersion        String?
-  rolloutPercentage   Int      @default(100)
-  apkSizeBytes        BigInt?
+  architecture      String?
+  minOsVersion      String?
+  rolloutPercentage Int     @default(100)
+  apkSizeBytes      BigInt?
 
-  tenantId            String?
-  createdBy           String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  tenantId  String?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([platform, isActive, releasedAt])
   @@index([platform, architecture, isActive])
@@ -2748,7 +2841,6 @@ model PurchaseRequest {
   tenant          Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, nomorRequest], name: "tenantId_nomorRequest")
-
   @@index([tenantId])
   @@map("purchase_requests")
 }
@@ -2771,32 +2863,32 @@ model PurchaseRequestItem {
 }
 
 model Supplier {
-  id                 String          @id @default(uuid())
-  code               String          @unique
-  name               String
-  address            String?
-  contact            String?
-  email              String?
-  phone              String?
-  npwp               String?
-  defaultPphCategory String?
-  status             SupplierStatus  @default(ACTIVE)
-  blacklistReason    String?
-  siupNumber         String?
-  siupDocumentUrl    String?
-  npwpDocumentUrl    String?
-  bankName           String?
-  bankAccountNumber  String?
-  bankAccountHolder  String?
+  id                  String          @id @default(uuid())
+  code                String          @unique
+  name                String
+  address             String?
+  contact             String?
+  email               String?
+  phone               String?
+  npwp                String?
+  defaultPphCategory  String?
+  status              SupplierStatus  @default(ACTIVE)
+  blacklistReason     String?
+  siupNumber          String?
+  siupDocumentUrl     String?
+  npwpDocumentUrl     String?
+  bankName            String?
+  bankAccountNumber   String?
+  bankAccountHolder   String?
   contractDocumentUrl String?
-  contractExpiresAt  DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  tenantId           String?
-  items              Barang[]
-  pos                PurchaseOrder[]
-  goodsReturns       GoodsReturn[]
-  tenant             Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  contractExpiresAt   DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  tenantId            String?
+  items               Barang[]
+  pos                 PurchaseOrder[]
+  goodsReturns        GoodsReturn[]
+  tenant              Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([status])
@@ -2843,17 +2935,17 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id               String        @id @default(uuid())
-  purchaseOrderId  String
-  barangId         String
-  quantity         Int
-  receivedQuantity Int           @default(0)
-  unitPrice        Float
-  totalPrice       Float
-  tenantId         String?
-  barang           Barang        @relation(fields: [barangId], references: [id])
-  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  tenant           Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                String             @id @default(uuid())
+  purchaseOrderId   String
+  barangId          String
+  quantity          Int
+  receivedQuantity  Int                @default(0)
+  unitPrice         Float
+  totalPrice        Float
+  tenantId          String?
+  barang            Barang             @relation(fields: [barangId], references: [id])
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   goodsReceiptItems GoodsReceiptItem[]
 
   @@index([tenantId])
@@ -2866,24 +2958,24 @@ model PurchaseOrderItem {
 /// GoodsReceiptItem. Status DRAFT → POSTED setelah stok benar-benar
 /// di-update, supaya tidak double-count.
 model GoodsReceipt {
-  id              String              @id @default(uuid())
+  id              String             @id @default(uuid())
   grnNumber       String
   purchaseOrderId String
   gudangId        String
   receivedById    String
-  receivedAt      DateTime            @default(now())
-  status          GoodsReceiptStatus  @default(POSTED)
+  receivedAt      DateTime           @default(now())
+  status          GoodsReceiptStatus @default(POSTED)
   notes           String?
   fotoBukti       String[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   tenantId        String?
   items           GoodsReceiptItem[]
   goodsReturns    GoodsReturn[]
-  purchaseOrder   PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  gudang          Gudang              @relation(fields: [gudangId], references: [id])
-  receivedBy      User                @relation("GRNReceiver", fields: [receivedById], references: [id])
-  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  gudang          Gudang             @relation(fields: [gudangId], references: [id])
+  receivedBy      User               @relation("GRNReceiver", fields: [receivedById], references: [id])
+  tenant          Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, grnNumber], name: "tenantId_grnNumber")
   @@index([purchaseOrderId])
@@ -2918,30 +3010,30 @@ model GoodsReceiptItem {
 /// Status SENT → RESOLVED (REFUNDED/REPLACED/CREDIT_NOTE) menandai
 /// gimana vendor menyelesaikan klaim.
 model GoodsReturn {
-  id              String              @id @default(uuid())
-  rtvNumber       String
-  goodsReceiptId  String
-  supplierId      String?
-  gudangId        String
-  reason          GoodsReturnReason
-  status          GoodsReturnStatus   @default(SENT)
-  returnedById    String
-  returnedAt      DateTime            @default(now())
-  resolvedAt      DateTime?
-  notes           String?
-  fotoBukti       String[]
-  refundAmount    Float?
+  id               String            @id @default(uuid())
+  rtvNumber        String
+  goodsReceiptId   String
+  supplierId       String?
+  gudangId         String
+  reason           GoodsReturnReason
+  status           GoodsReturnStatus @default(SENT)
+  returnedById     String
+  returnedAt       DateTime          @default(now())
+  resolvedAt       DateTime?
+  notes            String?
+  fotoBukti        String[]
+  refundAmount     Float?
   replacementGrnId String?
-  creditNoteRef   String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  tenantId        String?
-  items           GoodsReturnItem[]
-  goodsReceipt    GoodsReceipt        @relation(fields: [goodsReceiptId], references: [id], onDelete: Restrict)
-  supplier        Supplier?           @relation(fields: [supplierId], references: [id])
-  gudang          Gudang              @relation(fields: [gudangId], references: [id])
-  returnedBy      User                @relation("RTVReturner", fields: [returnedById], references: [id])
-  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creditNoteRef    String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tenantId         String?
+  items            GoodsReturnItem[]
+  goodsReceipt     GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Restrict)
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  gudang           Gudang            @relation(fields: [gudangId], references: [id])
+  returnedBy       User              @relation("RTVReturner", fields: [returnedById], references: [id])
+  tenant           Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, rtvNumber], name: "tenantId_rtvNumber")
   @@index([goodsReceiptId])
@@ -2990,26 +3082,26 @@ model FinancialAccount {
 }
 
 model Asset {
-  id               String                 @id @default(uuid())
-  barangId         String
-  kodeAsset        String
-  purchaseDate     DateTime
-  purchasePrice    Decimal                @db.Decimal(19, 2)
-  currentValue     Decimal                @db.Decimal(19, 2)
-  residualValue    Decimal                @default(0) @db.Decimal(19, 2)
-  usefulLife       Int
-  status           AssetStatus            @default(ACTIVE)
-  location         String?
-  assignedTo       String?
+  id                String                 @id @default(uuid())
+  barangId          String
+  kodeAsset         String
+  purchaseDate      DateTime
+  purchasePrice     Decimal                @db.Decimal(19, 2)
+  currentValue      Decimal                @db.Decimal(19, 2)
+  residualValue     Decimal                @default(0) @db.Decimal(19, 2)
+  usefulLife        Int
+  status            AssetStatus            @default(ACTIVE)
+  location          String?
+  assignedTo        String?
   assignedActorType String?
-  assignedActorId  String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  tenantId         String?
-  depreciationLogs AssetDepreciationLog[]
-  user             User?                  @relation(fields: [assignedTo], references: [id])
-  barang           Barang                 @relation(fields: [barangId], references: [id])
-  tenant           Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  assignedActorId   String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  tenantId          String?
+  depreciationLogs  AssetDepreciationLog[]
+  user              User?                  @relation(fields: [assignedTo], references: [id])
+  barang            Barang                 @relation(fields: [barangId], references: [id])
+  tenant            Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, kodeAsset], name: "tenantId_kodeAsset")
   @@index([barangId])
@@ -3254,56 +3346,56 @@ model MapSettings {
 }
 
 model RabProject {
-  id                         String                 @id @default(cuid())
-  name                       String
-  description                String?
-  siteId                     String?
-  mixRadiusGroupId           String?
-  projectedRevenue           BigInt                 @default(0)
-  projectedOpex              BigInt                 @default(0)
-  status                     RabStatus              @default(DRAFT)
-  createdBy                  String?
-  createdAt                  DateTime               @default(now())
-  updatedAt                  DateTime               @updatedAt
-  arpu                       BigInt?
-  growthSettings             Json?
-  growthType                 RabGrowthType          @default(LINEAR)
-  startDate                  DateTime?
-  targetBasis                RabTargetBasis         @default(HOMECONNECT)
-  targetHomepass             Int?
-  targetTakeUpRatePercent    Float                  @default(100)
-  targetSubscribers          Int?
-  contingencyAmount          BigInt                 @default(0)
-  contingencyPercent         Float                  @default(0)
-  hasDisbursementPlan        Boolean                @default(false)
-  investmentDurationMonths   Int                    @default(12)
-  investmentRecoveryType     RabRecoveryType        @default(PERCENTAGE)
-  investmentRecoveryValue    Float                  @default(50)
-  investorProfitSharePercent Float                  @default(50)
-  investorProfitShareMode    RabInvestorProfitShareMode @default(FLAT)
-  investorProfitShareBeforeBepPercent Float         @default(80)
-  investorProfitShareAfterBepPercent  Float         @default(60)
-  paymentType                RabPaymentType         @default(PREPAID)
-  nplTolerancePercent        Float                  @default(0)
-  opexBufferFundingMode      RabOpexBufferFundingMode @default(INVESTOR)
-  opexBufferInvestorPercent  Float                  @default(100)
-  opexBufferCompanyPercent   Float                  @default(0)
-  opexBufferInvestorFixedAmount BigInt              @default(0)
-  opexBufferSafetyPercent    Float                  @default(0)
-  mixRadiusInvestorSiteId    String?
-  finalApprovedRevisionId    String?
-  tenantId                   String?
-  expenses                   Expense[]
-  investors                  RabInvestor[]
-  actualAchievements         RabActualAchievement[]
-  approvals                  RabApproval[]
-  items                      RabItem[]
-  creator                    User?                  @relation(fields: [createdBy], references: [id])
-  finalApprovedRevision      RabRevision?           @relation("FinalApprovedRevision", fields: [finalApprovedRevisionId], references: [id])
-  site                       Sites?                 @relation(fields: [siteId], references: [id])
-  tenant                     Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  revisions                  RabRevision[]          @relation("ProjectRevisions")
-  wbsGroups                  RabWbs[]
+  id                                  String                     @id @default(cuid())
+  name                                String
+  description                         String?
+  siteId                              String?
+  mixRadiusGroupId                    String?
+  projectedRevenue                    BigInt                     @default(0)
+  projectedOpex                       BigInt                     @default(0)
+  status                              RabStatus                  @default(DRAFT)
+  createdBy                           String?
+  createdAt                           DateTime                   @default(now())
+  updatedAt                           DateTime                   @updatedAt
+  arpu                                BigInt?
+  growthSettings                      Json?
+  growthType                          RabGrowthType              @default(LINEAR)
+  startDate                           DateTime?
+  targetBasis                         RabTargetBasis             @default(HOMECONNECT)
+  targetHomepass                      Int?
+  targetTakeUpRatePercent             Float                      @default(100)
+  targetSubscribers                   Int?
+  contingencyAmount                   BigInt                     @default(0)
+  contingencyPercent                  Float                      @default(0)
+  hasDisbursementPlan                 Boolean                    @default(false)
+  investmentDurationMonths            Int                        @default(12)
+  investmentRecoveryType              RabRecoveryType            @default(PERCENTAGE)
+  investmentRecoveryValue             Float                      @default(50)
+  investorProfitSharePercent          Float                      @default(50)
+  investorProfitShareMode             RabInvestorProfitShareMode @default(FLAT)
+  investorProfitShareBeforeBepPercent Float                      @default(80)
+  investorProfitShareAfterBepPercent  Float                      @default(60)
+  paymentType                         RabPaymentType             @default(PREPAID)
+  nplTolerancePercent                 Float                      @default(0)
+  opexBufferFundingMode               RabOpexBufferFundingMode   @default(INVESTOR)
+  opexBufferInvestorPercent           Float                      @default(100)
+  opexBufferCompanyPercent            Float                      @default(0)
+  opexBufferInvestorFixedAmount       BigInt                     @default(0)
+  opexBufferSafetyPercent             Float                      @default(0)
+  mixRadiusInvestorSiteId             String?
+  finalApprovedRevisionId             String?
+  tenantId                            String?
+  expenses                            Expense[]
+  investors                           RabInvestor[]
+  actualAchievements                  RabActualAchievement[]
+  approvals                           RabApproval[]
+  items                               RabItem[]
+  creator                             User?                      @relation(fields: [createdBy], references: [id])
+  finalApprovedRevision               RabRevision?               @relation("FinalApprovedRevision", fields: [finalApprovedRevisionId], references: [id])
+  site                                Sites?                     @relation(fields: [siteId], references: [id])
+  tenant                              Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  revisions                           RabRevision[]              @relation("ProjectRevisions")
+  wbsGroups                           RabWbs[]
 
   @@index([finalApprovedRevisionId])
   @@index([siteId])
@@ -3585,158 +3677,161 @@ model LoanPayment {
 }
 
 model Tenant {
-  id                      String                    @id @default(uuid())
-  name                    String
-  domain                  String?                   @unique
-  isActive                Boolean                   @default(true)
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  aRAgingSnapshot         ARAgingSnapshot[]
-  announcement            Announcement[]
-  announcementRead        AnnouncementRead[]
-  attendance              Attendance[]
-  attendanceEvaluation    AttendanceEvaluation[]
+  id                        String                      @id @default(uuid())
+  name                      String
+  domain                    String?                     @unique
+  isActive                  Boolean                     @default(true)
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  aRAgingSnapshot           ARAgingSnapshot[]
+  announcement              Announcement[]
+  announcementRead          AnnouncementRead[]
+  attendance                Attendance[]
+  attendanceEvaluation      AttendanceEvaluation[]
   attendanceEvaluationAudit AttendanceEvaluationAudit[]
-  bandwidth               Bandwidth[]
-  conversation            Conversation[]
-  conversationParticipant ConversationParticipant[]
-  coupon                  Coupon[]
-  couponUsage             CouponUsage[]
-  customerCohort          CustomerCohort[]
-  expense                 Expense[]
-  expenseCategory         ExpenseCategory[]
-  hargaPaket              HargaPaket[]
-  holiday                 Holiday[]
-  incident                Incident[]
-  incidentUpdate          IncidentUpdate[]
-  investor                Investor[]
-  investorPayout          InvestorPayout[]
-  joinbox                 Joinbox[]
-  joinboxInput            JoinboxInput[]
-  joinboxOutput           JoinboxOutput[]
-  kmzFile                 KmzFile[]
-  leaveBalance            LeaveBalance[]
-  leaveRequest            LeaveRequest[]
-  mRRMovement             MRRMovement[]
-  message                 Message[]
-  mikroTikRouter          MikroTikRouter[]
-  accelPppServer          AccelPppServer[]
-  odc                     Odc[]
-  odcOutput               OdcOutput[]
-  odp                     Odp[]
-  odpOutput               OdpOutput[]
-  otb                     Otb[]
-  otbCore                 OtbCore[]
-  overtime                Overtime[]
-  pelanggan               Pelanggan[]
-  permission              Permission[]
-  pole                    Pole[]
-  profilePPP              ProfilePPP[]
-  rabInvestor             RabInvestor[]
-  reminderLog             ReminderLog[]
-  revenueSnapshot         RevenueSnapshot[]
-  settings                Settings[]
-  shift                   Shift[]
-  systemLog               SystemLog[]
-  user                    User[]
-  acsVendor               AcsVendor[]
-  acsWifiSecurity         AcsWifiSecurity[]
-  assetDepreciationLog    AssetDepreciationLog[]
-  asset                   Asset[]
-  barang                  Barang[]
-  barangGudang            BarangGudang[]
-  barangKeluar            BarangKeluar[]
-  barangMasuk             BarangMasuk[]
-  canvasing               Canvasing[]
-  companyBankAccount      CompanyBankAccount[]
-  configurationRestores   ConfigurationRestores[]
-  customerUsage           CustomerUsage[]
-  departments             Departments[]
-  deviceBackups           DeviceBackups[]
-  employeeLoan            EmployeeLoan[]
-  employeeLocation        EmployeeLocation[]
-  financialAccount        FinancialAccount[]
-  gudang                  Gudang[]
-  loanPayment             LoanPayment[]
-  mapSettings             MapSettings[]
-  mappingEdge             MappingEdge[]
-  mappingNode             MappingNode[]
-  networkAlerts           NetworkAlerts[]
-  networkPerformance      NetworkPerformance[]
-  notifications           Notifications[]
-  oauthProviderConfigs    OauthProviderConfigs[]
-  pointClaim              PointClaim[]
-  positions               Positions[]
-  purchaseOrderItem       PurchaseOrderItem[]
-  purchaseOrder           PurchaseOrder[]
-  goodsReceipts           GoodsReceipt[]
-  goodsReceiptItems       GoodsReceiptItem[]
-  goodsReturns            GoodsReturn[]
-  goodsReturnItems        GoodsReturnItem[]
-  approvalThresholds      ApprovalThreshold[]
-  purchaseRequestItem     PurchaseRequestItem[]
-  purchaseRequest         PurchaseRequest[]
-  rabActualAchievement    RabActualAchievement[]
-  rabApproval             RabApproval[]
-  rabDisbursement         RabDisbursement[]
-  rabItem                 RabItem[]
-  rabProject              RabProject[]
-  rabRevisionApproval     RabRevisionApproval[]
-  rabRevisionItem         RabRevisionItem[]
-  rabRevision             RabRevision[]
-  rabWbs                  RabWbs[]
-  registrations           Registrations[]
-  restockAlerts           RestockAlerts[]
-  restockSettings         RestockSettings[]
-  role                    Role[]
-  salary                  Salary[]
-  salaryComponent         SalaryComponent[]
-  salaryDetail            SalaryDetail[]
-  salaryRevision          SalaryRevision[]
-  serviceSuspension       ServiceSuspension[]
-  sites                   Sites[]
-  sla                     Sla[]
-  stockOpname             StockOpname[]
-  supplier                Supplier[]
-  supportTickets          SupportTickets[]
-  ticketReplies           TicketReplies[]
-  transferAntarGudang     TransferAntarGudang[]
-  usageAnalytics          UsageAnalytics[]
-  userSalaryComponent     UserSalaryComponent[]
-  userSite                UserSite[]
-  workOrderAssignments    WorkOrderAssignments[]
-  workOrderAttachments    WorkOrderAttachments[]
-  workOrderEscalations    WorkOrderEscalations[]
-  workOrderMaterialReturn WorkOrderMaterialReturn[]
-  workOrderMaterial       WorkOrderMaterial[]
-  workOrderTasks          WorkOrderTasks[]
-  workOrderTemplateItem   WorkOrderTemplateItem[]
-  workOrderTemplates      WorkOrderTemplates[]
-  workOrderUpdates        WorkOrderUpdates[]
-  workOrders              WorkOrders[]
-  whatsAppAccounts        WhatsAppAccount[]
-  whatsAppMessages        WhatsAppMessage[]
-  tenantSettings          TenantSettings?
-  proratePaymentLog       ProratePaymentLog[]
-  reseller                Reseller[]
-  resellerOutlet          ResellerOutlet[]
-  resellerPackagePrice    ResellerPackagePrice[]
-  emailDeliveryLogs       EmailDeliveryLog[]
-  notificationDeadLetters NotificationDeadLetter[]
-  paySchedules           PaySchedule[]
-  payrollPeriods         PayrollPeriod[]
-  payrollRuns            PayrollRun[]
-  payrollEntries          PayrollEntry[]
-  payrollLines           PayrollLine[]
-  payrollComponents      PayrollComponent[]
-  employeePayrollProfiles EmployeePayrollProfile[]
-  employeeComponents     EmployeeComponent[]
-  salaryAdvances         SalaryAdvance[]
-  payrollApprovalWorkflows PayrollApprovalWorkflow[]
-  regionalMinimumWages   RegionalMinimumWage[]
-  payrollAuditLogs       PayrollAuditLog[]
-  tenantDomain           TenantDomain?
-  featureFlags           TenantFeatureFlag[]
+  bandwidth                 Bandwidth[]
+  conversation              Conversation[]
+  conversationParticipant   ConversationParticipant[]
+  coupon                    Coupon[]
+  couponUsage               CouponUsage[]
+  customerCohort            CustomerCohort[]
+  expense                   Expense[]
+  expenseCategory           ExpenseCategory[]
+  hargaPaket                HargaPaket[]
+  holiday                   Holiday[]
+  incident                  Incident[]
+  incidentUpdate            IncidentUpdate[]
+  investor                  Investor[]
+  investorPayout            InvestorPayout[]
+  joinbox                   Joinbox[]
+  joinboxInput              JoinboxInput[]
+  joinboxOutput             JoinboxOutput[]
+  kmzFile                   KmzFile[]
+  leaveBalance              LeaveBalance[]
+  leaveRequest              LeaveRequest[]
+  mRRMovement               MRRMovement[]
+  message                   Message[]
+  mikroTikRouter            MikroTikRouter[]
+  accelPppServer            AccelPppServer[]
+  odc                       Odc[]
+  odcOutput                 OdcOutput[]
+  odp                       Odp[]
+  odpOutput                 OdpOutput[]
+  otb                       Otb[]
+  otbCore                   OtbCore[]
+  overtime                  Overtime[]
+  pelanggan                 Pelanggan[]
+  permission                Permission[]
+  pole                      Pole[]
+  profilePPP                ProfilePPP[]
+  rabInvestor               RabInvestor[]
+  reminderLog               ReminderLog[]
+  revenueSnapshot           RevenueSnapshot[]
+  settings                  Settings[]
+  shift                     Shift[]
+  systemLog                 SystemLog[]
+  user                      User[]
+  acsVendor                 AcsVendor[]
+  acsWifiSecurity           AcsWifiSecurity[]
+  assetDepreciationLog      AssetDepreciationLog[]
+  asset                     Asset[]
+  barang                    Barang[]
+  barangGudang              BarangGudang[]
+  barangKeluar              BarangKeluar[]
+  barangMasuk               BarangMasuk[]
+  canvasing                 Canvasing[]
+  companyBankAccount        CompanyBankAccount[]
+  configurationRestores     ConfigurationRestores[]
+  customerUsage             CustomerUsage[]
+  departments               Departments[]
+  deviceBackups             DeviceBackups[]
+  employeeLoan              EmployeeLoan[]
+  employeeLocation          EmployeeLocation[]
+  financialAccount          FinancialAccount[]
+  gudang                    Gudang[]
+  loanPayment               LoanPayment[]
+  mapSettings               MapSettings[]
+  mappingEdge               MappingEdge[]
+  mappingNode               MappingNode[]
+  networkAlerts             NetworkAlerts[]
+  networkPerformance        NetworkPerformance[]
+  notifications             Notifications[]
+  oauthProviderConfigs      OauthProviderConfigs[]
+  pointClaim                PointClaim[]
+  positions                 Positions[]
+  purchaseOrderItem         PurchaseOrderItem[]
+  purchaseOrder             PurchaseOrder[]
+  goodsReceipts             GoodsReceipt[]
+  goodsReceiptItems         GoodsReceiptItem[]
+  goodsReturns              GoodsReturn[]
+  goodsReturnItems          GoodsReturnItem[]
+  approvalThresholds        ApprovalThreshold[]
+  purchaseRequestItem       PurchaseRequestItem[]
+  purchaseRequest           PurchaseRequest[]
+  rabActualAchievement      RabActualAchievement[]
+  rabApproval               RabApproval[]
+  rabDisbursement           RabDisbursement[]
+  rabItem                   RabItem[]
+  rabProject                RabProject[]
+  rabRevisionApproval       RabRevisionApproval[]
+  rabRevisionItem           RabRevisionItem[]
+  rabRevision               RabRevision[]
+  rabWbs                    RabWbs[]
+  registrations             Registrations[]
+  restockAlerts             RestockAlerts[]
+  restockSettings           RestockSettings[]
+  role                      Role[]
+  salary                    Salary[]
+  salaryComponent           SalaryComponent[]
+  salaryDetail              SalaryDetail[]
+  salaryRevision            SalaryRevision[]
+  serviceSuspension         ServiceSuspension[]
+  sites                     Sites[]
+  sla                       Sla[]
+  stockOpname               StockOpname[]
+  supplier                  Supplier[]
+  supportTickets            SupportTickets[]
+  ticketReplies             TicketReplies[]
+  transferAntarGudang       TransferAntarGudang[]
+  usageAnalytics            UsageAnalytics[]
+  userSalaryComponent       UserSalaryComponent[]
+  userSite                  UserSite[]
+  workOrderAssignments      WorkOrderAssignments[]
+  workOrderAttachments      WorkOrderAttachments[]
+  workOrderEscalations      WorkOrderEscalations[]
+  workOrderMaterialReturn   WorkOrderMaterialReturn[]
+  workOrderMaterial         WorkOrderMaterial[]
+  workOrderTasks            WorkOrderTasks[]
+  workOrderTemplateItem     WorkOrderTemplateItem[]
+  workOrderTemplates        WorkOrderTemplates[]
+  workOrderUpdates          WorkOrderUpdates[]
+  workOrders                WorkOrders[]
+  whatsAppAccounts          WhatsAppAccount[]
+  whatsAppMessages          WhatsAppMessage[]
+  tenantSettings            TenantSettings?
+  proratePaymentLog         ProratePaymentLog[]
+  reseller                  Reseller[]
+  resellerOutlet            ResellerOutlet[]
+  resellerPackagePrice      ResellerPackagePrice[]
+  emailDeliveryLogs         EmailDeliveryLog[]
+  notificationDeadLetters   NotificationDeadLetter[]
+  paySchedules              PaySchedule[]
+  payrollPeriods            PayrollPeriod[]
+  payrollRuns               PayrollRun[]
+  payrollEntries            PayrollEntry[]
+  payrollLines              PayrollLine[]
+  payrollComponents         PayrollComponent[]
+  employeePayrollProfiles   EmployeePayrollProfile[]
+  employeeComponents        EmployeeComponent[]
+  salaryAdvances            SalaryAdvance[]
+  payrollApprovalWorkflows  PayrollApprovalWorkflow[]
+  regionalMinimumWages      RegionalMinimumWage[]
+  payrollAuditLogs          PayrollAuditLog[]
+  tenantDomain              TenantDomain?
+  featureFlags              TenantFeatureFlag[]
+  resellerCommissionRules   ResellerCommissionRule[]
+  resellerCommissions       ResellerCommission[]
+  resellerSettlements       ResellerSettlement[]
 }
 
 model TenantDomain {
@@ -3777,7 +3872,7 @@ model EmailDeliveryLog {
   id        String    @id @default(uuid())
   to        String
   subject   String
-  status    String    // PENDING | SENT | FAILED | BOUNCED
+  status    String // PENDING | SENT | FAILED | BOUNCED
   provider  String    @default("SMTP")
   messageId String?
   error     String?
@@ -3795,7 +3890,7 @@ model EmailDeliveryLog {
 
 model NotificationDeadLetter {
   id            String    @id @default(uuid())
-  channel       String    // inApp | push | whatsapp | email
+  channel       String // inApp | push | whatsapp | email
   pelangganId   String
   templateKey   String
   params        Json
@@ -4272,27 +4367,27 @@ enum TargetSchema {
 /// with business operations, then dispatched to BullMQ queues asynchronously
 /// for reliable delivery.
 model OutboxEvent {
-  id            String    @id @default(uuid())
-  eventName     String
-  payload       Json      @default("{}")
-  priority      Int       @default(3)
-  category      String    @default("general")
+  id        String @id @default(uuid())
+  eventName String
+  payload   Json   @default("{}")
+  priority  Int    @default(3)
+  category  String @default("general")
 
   // Aggregate reference (optional, for event sourcing)
   aggregateId   String?
   aggregateType String?
 
   // Processing state
-  status        String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | DEAD
-  retryCount    Int       @default(0)
-  maxRetries    Int       @default(5)
-  lastError     String?
+  status     String  @default("PENDING") // PENDING | PROCESSING | COMPLETED | DEAD
+  retryCount Int     @default(0)
+  maxRetries Int     @default(5)
+  lastError  String?
 
   // Timestamps
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  processedAt   DateTime?
-  scheduledAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
+  scheduledAt DateTime?
 
   @@index([status, createdAt])
   @@index([status, scheduledAt])
@@ -4308,24 +4403,24 @@ model OutboxEvent {
 // ============================================
 
 model WhatsAppAccount {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
   phone       String
   provider    String
   apiKey      String
   domain      String?
   deviceId    String?
-  accountType String   @default("CUSTOMER")
-  isActive    Boolean  @default(true)
-  isDefault   Boolean  @default(false)
-  priority    Int      @default(0)
+  accountType String            @default("CUSTOMER")
+  isActive    Boolean           @default(true)
+  isDefault   Boolean           @default(false)
+  priority    Int               @default(0)
   dailyLimit  Int?
-  dailyCount  Int      @default(0)
-  lastReset   DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  dailyCount  Int               @default(0)
+  lastReset   DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   tenantId    String?
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant      Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   messages    WhatsAppMessage[]
 
   @@unique([phone, tenantId])
@@ -4335,20 +4430,20 @@ model WhatsAppAccount {
 }
 
 model WhatsAppMessage {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   accountId String
   account   WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
   phone     String
   message   String?
   fileUrl   String?
-  status    String   @default("pending")
+  status    String          @default("pending")
   error     String?
   messageId String?
   response  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
   sentAt    DateTime?
   tenantId  String?
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant    Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([accountId])
   @@index([status])
@@ -4356,54 +4451,54 @@ model WhatsAppMessage {
 }
 
 model TenantSettings {
-  id        String   @id @default(uuid())
-  tenantId  String   @unique
+  id       String @id @default(uuid())
+  tenantId String @unique
 
   // Auto-reject toggles
-  autoRejectInsufficientQuota   Boolean @default(true)
-  autoRejectBackdate            Boolean @default(true)
-  autoRejectOverlap             Boolean @default(true)
-  autoRejectTooLong             Boolean @default(true)
-  autoRejectSakitNoDocument     Boolean @default(true)
-  autoRejectCutiNoAdvance       Boolean @default(true)
-  autoRejectTukarLiburNoDate    Boolean @default(true)
-  autoRejectBlackoutPeriod      Boolean @default(true)
+  autoRejectInsufficientQuota Boolean @default(true)
+  autoRejectBackdate          Boolean @default(true)
+  autoRejectOverlap           Boolean @default(true)
+  autoRejectTooLong           Boolean @default(true)
+  autoRejectSakitNoDocument   Boolean @default(true)
+  autoRejectCutiNoAdvance     Boolean @default(true)
+  autoRejectTukarLiburNoDate  Boolean @default(true)
+  autoRejectBlackoutPeriod    Boolean @default(true)
 
   // Thresholds
-  maxDaysPerRequest             Int     @default(14)
-  minAdvanceNoticeDays          Int     @default(3)
-  sakitDocumentRequiredDays     Int     @default(2)
+  maxDaysPerRequest         Int @default(14)
+  minAdvanceNoticeDays      Int @default(3)
+  sakitDocumentRequiredDays Int @default(2)
 
   // Blackout periods (JSON array)
-  blackoutPeriods               Json    @default("[]")
+  blackoutPeriods Json @default("[]")
 
   // Timeline-based auto-reject
-  enableTimelineAutoReject      Boolean @default(true)
+  enableTimelineAutoReject Boolean @default(true)
 
   // Mendadak (< 24h)
-  mendadakDeadlineHours         Int     @default(8)
-  mendadakReminder1Hours        Int     @default(4)
-  mendadakReminder2Hours        Int     @default(6)
+  mendadakDeadlineHours  Int @default(8)
+  mendadakReminder1Hours Int @default(4)
+  mendadakReminder2Hours Int @default(6)
 
   // Normal (1-7 days)
-  normalDeadlineDays            Int     @default(1)
-  normalReminder1Days           Int     @default(3)
-  normalReminder2Days           Int     @default(2)
+  normalDeadlineDays  Int @default(1)
+  normalReminder1Days Int @default(3)
+  normalReminder2Days Int @default(2)
 
   // Advance (> 7 days)
-  advanceDeadlineDays           Int     @default(1)
-  advanceReminder1Days          Int     @default(7)
-  advanceReminder2Days          Int     @default(3)
-  advanceReminder3Days          Int     @default(1)
+  advanceDeadlineDays  Int @default(1)
+  advanceReminder1Days Int @default(7)
+  advanceReminder2Days Int @default(3)
+  advanceReminder3Days Int @default(1)
 
   // App update contact info
-  appUpdateContactUrl     String?
-  appUpdateContactLabel   String?
+  appUpdateContactUrl   String?
+  appUpdateContactLabel String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 }
 
 // ============================================
@@ -4531,17 +4626,17 @@ model ChartOfAccount {
 }
 
 model AccountingPeriod {
-  id        String       @id @default(cuid())
+  id        String         @id @default(cuid())
   tenantId  String
   year      Int
   month     Int
-  status    PeriodStatus @default(OPEN)
+  status    PeriodStatus   @default(OPEN)
   closedAt  DateTime?
   closedBy  String?
   startDate DateTime
   endDate   DateTime
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   entries   JournalEntry[]
 
   @@unique([tenantId, year, month])
@@ -4673,14 +4768,14 @@ enum TaxPayStatus {
 }
 
 model TaxConfig {
-  id            String   @id @default(cuid())
-  tenantId      String   @unique
-  npwp          String?
-  companyName   String?
-  isPkp         Boolean  @default(false)
-  ppnIncluded   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  npwp        String?
+  companyName String?
+  isPkp       Boolean  @default(false)
+  ppnIncluded Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("tax_configs")
 }
@@ -4748,15 +4843,15 @@ model TaxPeriodSummary {
 }
 
 model TaxReminder {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   taxType   TaxType
   year      Int
   month     Int
   dueDate   DateTime
-  status    String   @default("PENDING")
+  status    String    @default("PENDING")
   sentAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@unique([tenantId, taxType, year, month])
   @@index([status, dueDate])
@@ -4787,19 +4882,19 @@ model TaxConfigHistory {
 /// service layer (`getRateByCode`). Kode reserved yang dipakai default seed:
 /// `PPN`, `PPH23_JASA`, `PPH23_SEWA`, `PPH4_FINAL`, `BHP`, `USO`, `KSO`.
 model TaxRateConfig {
-  id          String              @id @default(cuid())
+  id          String          @id @default(cuid())
   tenantId    String
   code        String
   name        String
   category    TaxRateCategory
-  rate        Decimal             @db.Decimal(5, 2)
+  rate        Decimal         @db.Decimal(5, 2)
   dueDay      Int?
   dueMonth    Int?
-  isActive    Boolean             @default(true)
+  isActive    Boolean         @default(true)
   description String?
-  sortOrder   Int                 @default(0)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@unique([tenantId, code])
   @@index([tenantId, category])
@@ -4869,25 +4964,25 @@ enum OltCardStatus {
 }
 
 model OltDevice {
-  id            String      @id @default(cuid())
-  tenantId      String
-  name          String
-  vendor        OltVendor
-  model         String
-  ipAddress     String
-  snmpCommunity String?
-  snmpPort      Int         @default(161)
-  telnetPort    Int?        @default(23)
-  telnetUser    String?
-  telnetPass    String?
+  id               String    @id @default(cuid())
+  tenantId         String
+  name             String
+  vendor           OltVendor
+  model            String
+  ipAddress        String
+  snmpCommunity    String?
+  snmpPort         Int       @default(161)
+  telnetPort       Int?      @default(23)
+  telnetUser       String?
+  telnetPass       String?
   telnetEnablePass String?
-  defaultSlotFrame Int      @default(1)
-  defaultSlot   Int         @default(1)
-  totalPonPorts Int
-  location      String?
-  status        OltStatus   @default(ACTIVE)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  defaultSlotFrame Int       @default(1)
+  defaultSlot      Int       @default(1)
+  totalPonPorts    Int
+  location         String?
+  status           OltStatus @default(ACTIVE)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   onus              OnuDevice[]
   vlanConfigs       OltVlanConfig[]
@@ -4944,11 +5039,11 @@ model OnuDevice {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  olt              OltDevice  @relation(fields: [oltId], references: [id])
-  pelanggan        Pelanggan? @relation(fields: [pelangganId], references: [id])
-  commandLogs      OltCommandLog[]
-  powerHistory     OnuPowerHistory[]
-  alerts           OltAlert[]
+  olt          OltDevice         @relation(fields: [oltId], references: [id])
+  pelanggan    Pelanggan?        @relation(fields: [pelangganId], references: [id])
+  commandLogs  OltCommandLog[]
+  powerHistory OnuPowerHistory[]
+  alerts       OltAlert[]
 
   @@unique([oltId, serialNumber])
   @@unique([tenantId, serialNumber])
@@ -4970,7 +5065,7 @@ model OltVlanConfig {
   purpose   VlanPurpose @default(INTERNET)
   createdAt DateTime    @default(now())
 
-  olt       OltDevice   @relation(fields: [oltId], references: [id])
+  olt OltDevice @relation(fields: [oltId], references: [id])
 
   @@index([oltId])
   @@map("olt_vlan_configs")
@@ -4988,7 +5083,7 @@ model OltCommandLog {
   executedBy String
   executedAt DateTime         @default(now())
 
-  onu        OnuDevice?       @relation(fields: [onuId], references: [id])
+  onu OnuDevice? @relation(fields: [onuId], references: [id])
 
   @@index([tenantId, executedAt])
   @@index([oltId])
@@ -5025,7 +5120,7 @@ model OltBandwidthProfile {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  olt          OltDevice @relation(fields: [oltId], references: [id])
+  olt OltDevice @relation(fields: [oltId], references: [id])
 
   @@index([tenantId])
   @@index([oltId])
@@ -5040,7 +5135,7 @@ model OnuPowerHistory {
   txPower    Float?
   recordedAt DateTime @default(now())
 
-  onu        OnuDevice @relation(fields: [onuId], references: [id], onDelete: Cascade)
+  onu OnuDevice @relation(fields: [onuId], references: [id], onDelete: Cascade)
 
   @@index([onuId, recordedAt])
   @@index([tenantId, recordedAt])
@@ -5071,8 +5166,8 @@ model OltAlert {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
-  olt       OltDevice        @relation(fields: [oltId], references: [id])
-  onu       OnuDevice?       @relation(fields: [onuId], references: [id])
+  olt OltDevice  @relation(fields: [oltId], references: [id])
+  onu OnuDevice? @relation(fields: [onuId], references: [id])
 
   @@index([tenantId, isRead, createdAt])
   @@index([oltId])
@@ -5112,9 +5207,9 @@ enum InvestorProfitPeriodType {
 }
 
 model InvestorDeposit {
-  id             String               @id @default(cuid())
+  id             String                @id @default(cuid())
   investorId     String
-  amount         Decimal              @db.Decimal(19, 2)
+  amount         Decimal               @db.Decimal(19, 2)
   depositType    InvestorDepositType
   date           DateTime
   bankName       String?
@@ -5130,10 +5225,10 @@ model InvestorDeposit {
   rejectedAt     DateTime?
   rejectedReason String?
   journalId      String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   tenantId       String?
-  investor       Investor             @relation(fields: [investorId], references: [id])
+  investor       Investor              @relation(fields: [investorId], references: [id])
 
   @@index([investorId])
   @@index([tenantId])
@@ -5173,19 +5268,19 @@ model InvestorProfitShare {
 }
 
 model InvestorConfig {
-  id                String                  @id @default(cuid())
-  investorId        String                  @unique
-  shareMode         InvestorShareMode       @default(PROPORTIONAL)
+  id                String                   @id @default(cuid())
+  investorId        String                   @unique
+  shareMode         InvestorShareMode        @default(PROPORTIONAL)
   fixedSharePercent Float?
   periodType        InvestorProfitPeriodType @default(MONTHLY)
-  isActive          Boolean                 @default(true)
-  isTaxable         Boolean                 @default(false)
-  taxType           String?                 // "PPH_23" | "PPH_4_2" | null
-  taxRate           Decimal?                @db.Decimal(5, 2) // custom rate, null = pakai default dari TaxConfig
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  isActive          Boolean                  @default(true)
+  isTaxable         Boolean                  @default(false)
+  taxType           String? // "PPH_23" | "PPH_4_2" | null
+  taxRate           Decimal?                 @db.Decimal(5, 2) // custom rate, null = pakai default dari TaxConfig
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   tenantId          String?
-  investor          Investor                @relation(fields: [investorId], references: [id])
+  investor          Investor                 @relation(fields: [investorId], references: [id])
   profitShares      InvestorProfitShare[]
 
   @@index([tenantId])
@@ -5300,7 +5395,7 @@ enum PaymentItemStatus {
 // ============================================================
 
 model PaySchedule {
-  id              String         @id @default(cuid())
+  id              String       @id @default(cuid())
   tenantId        String
   name            String
   frequency       PayFrequency
@@ -5308,16 +5403,16 @@ model PaySchedule {
   cutOffDayOfWeek Int?
   payDay          Int
   payDayOffset    Int?
-  gracePeriodDays Int            @default(3)
-  isDefault       Boolean        @default(false)
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  gracePeriodDays Int          @default(3)
+  isDefault       Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  periods         PayrollPeriod[]
-  runs            PayrollRun[]
-  profiles        EmployeePayrollProfile[]
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id])
+  periods  PayrollPeriod[]
+  runs     PayrollRun[]
+  profiles EmployeePayrollProfile[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -5325,7 +5420,7 @@ model PaySchedule {
 }
 
 model PayrollPeriod {
-  id           String               @id @default(cuid())
+  id           String              @id @default(cuid())
   tenantId     String
   scheduleId   String
   periodStart  DateTime
@@ -5335,13 +5430,13 @@ model PayrollPeriod {
   lockedAt     DateTime?
   lockedBy     String?
   unlockReason String?
-  unlockCount  Int                  @default(0)
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  unlockCount  Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
-  tenant       Tenant               @relation(fields: [tenantId], references: [id])
-  schedule     PaySchedule        @relation(fields: [scheduleId], references: [id])
-  lockedByUser User?                @relation("PeriodLockedBy", fields: [lockedBy], references: [id])
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+  schedule     PaySchedule @relation(fields: [scheduleId], references: [id])
+  lockedByUser User?       @relation("PeriodLockedBy", fields: [lockedBy], references: [id])
 
   @@index([tenantId])
   @@index([scheduleId])
@@ -5350,31 +5445,31 @@ model PayrollPeriod {
 }
 
 model PayrollRun {
-  id              String             @id @default(cuid())
-  tenantId        String
-  scheduleId      String
-  type            PayrollRunType   @default(REGULAR)
-  status          PayrollRunStatus @default(DRAFT)
-  periodStart     DateTime
-  periodEnd       DateTime
-  payDate         DateTime
-  totalEntries    Int                @default(0)
-  totalNetSalary  Float              @default(0)
-  totalEmployerCost Float            @default(0)
-  lockedAt        DateTime?
-  lockedBy        String?
+  id                  String           @id @default(cuid())
+  tenantId            String
+  scheduleId          String
+  type                PayrollRunType   @default(REGULAR)
+  status              PayrollRunStatus @default(DRAFT)
+  periodStart         DateTime
+  periodEnd           DateTime
+  payDate             DateTime
+  totalEntries        Int              @default(0)
+  totalNetSalary      Float            @default(0)
+  totalEmployerCost   Float            @default(0)
+  lockedAt            DateTime?
+  lockedBy            String?
   /// Marker idempotensi pemotongan kasbon: di-set saat run pertama kali transition ke PAID.
   /// Jika sudah ada, processAdvanceDeductions early-return — mencegah double-deduction.
   advancesProcessedAt DateTime?
-  notes           String?
-  createdBy       String
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  notes               String?
+  createdBy           String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  tenant          Tenant             @relation(fields: [tenantId], references: [id])
-  schedule        PaySchedule      @relation(fields: [scheduleId], references: [id])
-  createdByUser   User               @relation("PayrollRunCreatedBy", fields: [createdBy], references: [id])
-  entries         PayrollEntry[]
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id])
+  schedule         PaySchedule              @relation(fields: [scheduleId], references: [id])
+  createdByUser    User                     @relation("PayrollRunCreatedBy", fields: [createdBy], references: [id])
+  entries          PayrollEntry[]
   approvalWorkflow PayrollApprovalWorkflow?
 
   @@index([tenantId])
@@ -5395,8 +5490,8 @@ model PayrollApprovalWorkflow {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  tenant               Tenant   @relation(fields: [tenantId], references: [id])
-  payrollRun           PayrollRun @relation(fields: [payrollRunId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id])
 
   @@unique([payrollRunId])
   @@index([tenantId])
@@ -5405,7 +5500,7 @@ model PayrollApprovalWorkflow {
 }
 
 model PayrollEntry {
-  id              String               @id @default(cuid())
+  id              String              @id @default(cuid())
   payrollRunId    String
   tenantId        String
   userId          String
@@ -5413,21 +5508,21 @@ model PayrollEntry {
   taxMethod       TaxMethod
   basicSalary     Float
   effectiveSalary Float
-  totalEarnings   Float                @default(0)
-  totalDeductions Float                @default(0)
-  totalTax        Float                @default(0)
-  netSalary       Float                @default(0)
-  employerCost    Float                @default(0)
-  status          PayrollEntryStatus @default(PENDING)
+  totalEarnings   Float               @default(0)
+  totalDeductions Float               @default(0)
+  totalTax        Float               @default(0)
+  netSalary       Float               @default(0)
+  employerCost    Float               @default(0)
+  status          PayrollEntryStatus  @default(PENDING)
   errorMessage    String?
   calculatedAt    DateTime?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
-  tenant          Tenant               @relation(fields: [tenantId], references: [id])
-  payrollRun      PayrollRun         @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  user            User                 @relation("PayrollEntryUser", fields: [userId], references: [id])
-  lines           PayrollLine[]
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  payrollRun PayrollRun    @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  user       User          @relation("PayrollEntryUser", fields: [userId], references: [id])
+  lines      PayrollLine[]
 
   @@unique([payrollRunId, userId])
   @@index([tenantId])
@@ -5437,23 +5532,23 @@ model PayrollEntry {
 }
 
 model PayrollLine {
-  id            String           @id @default(cuid())
+  id            String            @id @default(cuid())
   entryId       String
   tenantId      String
   componentId   String?
   componentCode String
   componentName String
   category      ComponentCategory
-  quantity      Float            @default(1)
-  rate          Float            @default(0)
-  amount        Float            @default(0)
+  quantity      Float             @default(1)
+  rate          Float             @default(0)
+  amount        Float             @default(0)
   formula       String?
   metadata      Json?
-  sortOrder     Int              @default(0)
+  sortOrder     Int               @default(0)
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id])
-  entry         PayrollEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  component     PayrollComponent? @relation(fields: [componentId], references: [id])
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  entry     PayrollEntry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  component PayrollComponent? @relation(fields: [componentId], references: [id])
 
   @@index([entryId])
   @@index([tenantId])
@@ -5461,25 +5556,25 @@ model PayrollLine {
 }
 
 model PayrollComponent {
-  id              String              @id @default(cuid())
+  id              String                @id @default(cuid())
   tenantId        String
   name            String
   code            String
   category        ComponentCategory
   calculationType ComponentCalcType
-  taxable         Boolean             @default(true)
+  taxable         Boolean               @default(true)
   applicableTo    PayrollEmployeeType[]
-  isStatutory     Boolean             @default(false)
+  isStatutory     Boolean               @default(false)
   formula         String?
   defaultAmount   Float?
-  sortOrder       Int                 @default(0)
-  isActive        Boolean             @default(true)
+  sortOrder       Int                   @default(0)
+  isActive        Boolean               @default(true)
   description     String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
-  tenant          Tenant              @relation(fields: [tenantId], references: [id])
-  lines           PayrollLine[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  lines              PayrollLine[]
   employeeComponents EmployeeComponent[]
 
   @@unique([tenantId, code])
@@ -5489,34 +5584,34 @@ model PayrollComponent {
 }
 
 model EmployeePayrollProfile {
-  id              String         @id @default(cuid())
-  userId          String         @unique
-  tenantId        String
-  employeeType    PayrollEmployeeType
-  taxMethod       TaxMethod    @default(NET)
-  payScheduleId   String
-  basicSalary     Float
-  payPeriodDay    Int            @default(25)
-  ptkpStatus      String         @default("TK_0")
-  npwp            String?
-  bpjsKesehatan   Boolean        @default(true)
-  bpjsJht         Boolean        @default(true)
-  bpjsJp          Boolean        @default(true)
-  bpjsJkk         Boolean        @default(true)
-  bpjsJkm         Boolean        @default(true)
-  regionCode      String
-  contractStart   DateTime
-  contractEnd     DateTime?
-  overtimeEligible Boolean       @default(true)
-  thrEligible     Boolean        @default(true)
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  tenantId         String
+  employeeType     PayrollEmployeeType
+  taxMethod        TaxMethod           @default(NET)
+  payScheduleId    String
+  basicSalary      Float
+  payPeriodDay     Int                 @default(25)
+  ptkpStatus       String              @default("TK_0")
+  npwp             String?
+  bpjsKesehatan    Boolean             @default(true)
+  bpjsJht          Boolean             @default(true)
+  bpjsJp           Boolean             @default(true)
+  bpjsJkk          Boolean             @default(true)
+  bpjsJkm          Boolean             @default(true)
+  regionCode       String
+  contractStart    DateTime
+  contractEnd      DateTime?
+  overtimeEligible Boolean             @default(true)
+  thrEligible      Boolean             @default(true)
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  user            User           @relation("EmployeePayrollProfile", fields: [userId], references: [id])
-  schedule        PaySchedule  @relation(fields: [payScheduleId], references: [id])
-  components      EmployeeComponent[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  user       User                @relation("EmployeePayrollProfile", fields: [userId], references: [id])
+  schedule   PaySchedule         @relation(fields: [payScheduleId], references: [id])
+  components EmployeeComponent[]
 
   @@unique([userId, tenantId])
   @@index([tenantId])
@@ -5526,18 +5621,18 @@ model EmployeePayrollProfile {
 }
 
 model EmployeeComponent {
-  id              String              @id @default(cuid())
-  profileId       String
-  tenantId        String
-  componentId     String
-  amount          Float?
-  isActive        Boolean             @default(true)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id          String   @id @default(cuid())
+  profileId   String
+  tenantId    String
+  componentId String
+  amount      Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant          Tenant              @relation(fields: [tenantId], references: [id])
-  profile         EmployeePayrollProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  component       PayrollComponent  @relation(fields: [componentId], references: [id])
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id])
+  profile   EmployeePayrollProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  component PayrollComponent       @relation(fields: [componentId], references: [id])
 
   @@unique([profileId, componentId])
   @@index([tenantId])
@@ -5545,26 +5640,26 @@ model EmployeeComponent {
 }
 
 model SalaryAdvance {
-  id              String                @id @default(cuid())
-  tenantId        String
-  userId          String
-  amount          Float
-  requestDate     DateTime              @default(now())
-  approvedBy      String?
-  approvedAt      DateTime?
-  status          SalaryAdvanceStatus @default(PENDING)
-  deductionMethod DeductionMethod     @default(FULL_NEXT)
+  id               String              @id @default(cuid())
+  tenantId         String
+  userId           String
+  amount           Float
+  requestDate      DateTime            @default(now())
+  approvedBy       String?
+  approvedAt       DateTime?
+  status           SalaryAdvanceStatus @default(PENDING)
+  deductionMethod  DeductionMethod     @default(FULL_NEXT)
   installmentCount Int?
-  remainingAmount Float
-  reason          String?
-  rejectionReason String?
-  disbursedAt     DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  remainingAmount  Float
+  reason           String?
+  rejectionReason  String?
+  disbursedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  tenant          Tenant                @relation(fields: [tenantId], references: [id])
-  user            User                  @relation("SalaryAdvanceUser", fields: [userId], references: [id])
-  approvedByUser  User?                 @relation("SalaryAdvanceApprover", fields: [approvedBy], references: [id])
+  tenant         Tenant @relation(fields: [tenantId], references: [id])
+  user           User   @relation("SalaryAdvanceUser", fields: [userId], references: [id])
+  approvedByUser User?  @relation("SalaryAdvanceApprover", fields: [approvedBy], references: [id])
 
   @@index([tenantId])
   @@index([userId])
@@ -5585,7 +5680,7 @@ model RegionalMinimumWage {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, regionCode, year])
   @@index([tenantId])
@@ -5604,8 +5699,8 @@ model PayrollAuditLog {
   reason      String?
   ipAddress   String?
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  performer   User     @relation("PayrollAuditPerformer", fields: [performedBy], references: [id])
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  performer User   @relation("PayrollAuditPerformer", fields: [performedBy], references: [id])
 
   @@index([tenantId])
   @@index([entityType, entityId])
@@ -5703,22 +5798,22 @@ model LandingFooter {
 }
 
 model Incident {
-  id          String           @id
-  title       String
-  description String
-  severity    IncidentSeverity @default(MINOR)
-  status      IncidentStatus   @default(INVESTIGATING)
+  id            String           @id
+  title         String
+  description   String
+  severity      IncidentSeverity @default(MINOR)
+  status        IncidentStatus   @default(INVESTIGATING)
   affectedAreas String[]
-  startedAt   DateTime         @default(now())
-  resolvedAt  DateTime?
-  isPublic    Boolean          @default(true)
-  createdById String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime
-  tenantId    String?
-  user        User?            @relation(fields: [createdById], references: [id])
-  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  updates     IncidentUpdate[]
+  startedAt     DateTime         @default(now())
+  resolvedAt    DateTime?
+  isPublic      Boolean          @default(true)
+  createdById   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime
+  tenantId      String?
+  user          User?            @relation(fields: [createdById], references: [id])
+  tenant        Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  updates       IncidentUpdate[]
 
   @@index([status])
   @@index([severity])
@@ -5728,16 +5823,16 @@ model Incident {
 }
 
 model IncidentUpdate {
-  id          String         @id
-  incidentId  String
-  status      IncidentStatus
-  message     String
-  postedById  String?
-  createdAt   DateTime       @default(now())
-  tenantId    String?
-  incident    Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  user        User?          @relation(fields: [postedById], references: [id])
-  tenant      Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id         String         @id
+  incidentId String
+  status     IncidentStatus
+  message    String
+  postedById String?
+  createdAt  DateTime       @default(now())
+  tenantId   String?
+  incident   Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user       User?          @relation(fields: [postedById], references: [id])
+  tenant     Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([incidentId])
   @@index([createdAt])
@@ -5747,6 +5842,23 @@ model IncidentUpdate {
 enum ResellerStatus {
   ACTIVE
   INACTIVE
+}
+
+enum ResellerCommissionType {
+  PERCENTAGE
+  FIXED
+}
+
+enum ResellerCommissionStatus {
+  ACCRUED
+  SETTLED
+  PAID
+}
+
+enum ResellerSettlementStatus {
+  PENDING
+  APPROVED
+  PAID
 }
 
 enum IncidentSeverity {
