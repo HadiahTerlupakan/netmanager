@@ -17,7 +17,6 @@ export interface MitraFormBankGaransiSectionProps {
 export function MitraFormBankGaransiSection({
   register,
   watch,
-  errors,
 }: MitraFormBankGaransiSectionProps) {
   const employeeType = watch("employeeType");
   return (
