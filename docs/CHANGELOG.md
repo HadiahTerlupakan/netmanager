@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-08] — Tambah UI admin reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/resellers`, `app/admin/pelanggan/ppp`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Menambahkan menu dan halaman admin reseller untuk CRUD reseller/outlet, serta assignment reseller/outlet di form create/edit pelanggan PPP agar relasi reseller bisa dikirim ke API.
+- **Files**: `app/admin/resellers/page.tsx`, `app/admin/resellers/ResellersClient.tsx`, `app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection.tsx`, `app/admin/pelanggan/ppp/create/PppNewClient.tsx`, `app/admin/pelanggan/ppp/[id]/edit/PppEditClient.tsx`, `app/api/pelanggan-ppp/route.ts`, `app/api/pelanggan-ppp/[id]/route-handlers-impl.ts`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-08] — Tambah fondasi reseller
 
 - **Tipe**: [ADDED]
