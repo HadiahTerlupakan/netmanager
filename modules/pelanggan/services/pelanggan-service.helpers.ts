@@ -33,7 +33,7 @@ export async function validateCreatePelangganInput(
   }
 
   await getResellerCustomerRelationService().validateCustomerRelation({
-    tenantId: null,
+    tenantId: data.tenantId ?? null,
     resellerId: data.resellerId,
     resellerOutletId: data.resellerOutletId,
   });
