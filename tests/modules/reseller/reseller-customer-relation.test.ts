@@ -18,6 +18,7 @@ function createRepository(): IResellerRepository {
     softDeleteOutlet: vi.fn(),
     findActivePackagePrice: vi.fn(),
     findBasePackagePrice: vi.fn(),
+    findPackagePricesByResellerId: vi.fn(),
     upsertPackagePrice: vi.fn(),
   };
 }

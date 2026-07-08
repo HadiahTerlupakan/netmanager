@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-08] — Tambah komisi settlement reseller
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers`, `app/admin/resellers`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Menambahkan Phase 3/4 reseller berupa model aturan komisi, ledger komisi, settlement, accrual komisi dari event invoice paid, endpoint pricing/komisi/settlement, serta ringkasan pricing dan komisi di UI admin reseller.
+- **Files**: `prisma/schema.prisma`, `modules/reseller`, `app/api/admin/resellers/[id]/package-prices/route.ts`, `app/api/admin/resellers/[id]/commissions/route.ts`, `app/api/admin/resellers/[id]/settlements/route.ts`, `app/admin/resellers/ResellersClient.tsx`, `lib/event-bus/event-handlers.ts`
+- **Migration**: `20260708090000_add_reseller_commission_settlement`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-08] — Tambah UI admin reseller
 
 - **Tipe**: [ADDED]

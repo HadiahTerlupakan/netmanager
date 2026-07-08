@@ -21,6 +21,25 @@ export type ResellerOutlet = {
   readonly status: ResellerStatus;
 };
 
+export type ResellerPackagePrice = {
+  readonly id: string;
+  readonly hargaPaketId: string;
+  readonly price: number;
+  readonly status: ResellerStatus;
+  readonly startsAt: string;
+  readonly endsAt: string | null;
+};
+
+export type ResellerCommission = {
+  readonly id: string;
+  readonly invoiceId: string;
+  readonly pelangganId: string;
+  readonly commissionAmount: number;
+  readonly status: "ACCRUED" | "SETTLED" | "PAID";
+  readonly period: string;
+  readonly accruedAt: string;
+};
+
 export type ApiListResponse<T> = {
   readonly data?: readonly T[];
   readonly pagination?: { readonly total?: number };

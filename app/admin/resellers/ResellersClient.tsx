@@ -17,8 +17,10 @@ import { ResellerModal } from "./ResellerModal";
 import type {
   OutletForm,
   Reseller,
+  ResellerCommission,
   ResellerForm,
   ResellerOutlet,
+  ResellerPackagePrice,
 } from "./types";
 import { emptyOutletForm, emptyResellerForm } from "./types";
 
@@ -26,6 +28,12 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Terjadi kesalahan";
 }
+
+const rupiahFormatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
 
 async function parseMutationResponse(res: Response): Promise<void> {
   let message: string | null = null;
@@ -75,7 +83,29 @@ export default function ResellersClient() {
     onError: () => toast.error("Gagal memuat outlet reseller"),
   });
   const resellers = [...(data ?? [])];
+  const pricingUrl = selectedReseller
+    ? `/api/admin/resellers/${selectedReseller.id}/package-prices`
+    : null;
+  const commissionUrl = selectedReseller
+    ? `/api/admin/resellers/${selectedReseller.id}/commissions?limit=5`
+    : null;
+  const { data: pricingData, isLoading: isLoadingPricing } = useApi<
+    readonly ResellerPackagePrice[]
+  >(pricingUrl, {
+    onError: () => toast.error("Gagal memuat pricing reseller"),
+  });
+  const { data: commissionData, isLoading: isLoadingCommissions } = useApi<
+    readonly ResellerCommission[]
+  >(commissionUrl, {
+    onError: () => toast.error("Gagal memuat komisi reseller"),
+  });
   const outlets = [...(outletData ?? [])];
+  const packagePrices = [...(pricingData ?? [])];
+  const commissions = [...(commissionData ?? [])];
+  const totalRecentCommission = commissions.reduce(
+    (total, commission) => total + commission.commissionAmount,
+    0,
+  );
   const resellerColumns: Column<Reseller>[] = [
     { key: "code", header: "Kode", priority: "primary" },
     { key: "name", header: "Nama", priority: "primary" },
@@ -328,6 +358,82 @@ export default function ResellersClient() {
           )}
         </div>
       </div>
+      {selectedReseller && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-4">
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                Pricing reseller
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Override harga paket aktif untuk {selectedReseller.name}.
+              </p>
+            </div>
+            {isLoadingPricing ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Memuat...
+              </p>
+            ) : packagePrices.length > 0 ? (
+              <div className="space-y-3">
+                {packagePrices.map((price) => (
+                  <div
+                    key={price.id}
+                    className="rounded-xl border border-gray-100 p-3 text-sm dark:border-gray-700"
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {price.hargaPaketId}
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {rupiahFormatter.format(price.price)} · {price.status}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                Belum ada override pricing reseller.
+              </div>
+            )}
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-4">
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                Komisi & settlement
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Total 5 komisi terakhir:{" "}
+                {rupiahFormatter.format(totalRecentCommission)}.
+              </p>
+            </div>
+            {isLoadingCommissions ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Memuat...
+              </p>
+            ) : commissions.length > 0 ? (
+              <div className="space-y-3">
+                {commissions.map((commission) => (
+                  <div
+                    key={commission.id}
+                    className="rounded-xl border border-gray-100 p-3 text-sm dark:border-gray-700"
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      Invoice {commission.invoiceId}
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {rupiahFormatter.format(commission.commissionAmount)} ·{" "}
+                      {commission.status} · {commission.period}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                Belum ada komisi reseller yang tercatat.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <ResellerModal
         isOpen={isResellerModalOpen}
         isEditing={Boolean(editingReseller)}
