@@ -74,6 +74,7 @@ import {
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
   HiOutlineQrCode,
+  HiOutlineBuildingStorefront,
 } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { useSettings } from "@/hooks/useSettings";
@@ -164,6 +165,7 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
   HiOutlineQrCode,
+  HiOutlineBuildingStorefront,
 };
 
 const getIcon = (name: string | undefined, className: string) => {
