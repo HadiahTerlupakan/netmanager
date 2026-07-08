@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-08] — Perbaiki live map kehadiran
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/kehadiran/live-map`, `app/api/admin/location/live`, `components/attendance`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki response error 403 live tracking agar tidak berubah menjadi 500, menghapus log koordinat GPS karyawan dari client logger, dan menyederhanakan refresh realtime tanpa `setTimeout`.
+- **Files**: `app/api/admin/location/live/route.ts`, `app/admin/kehadiran/live-map/LiveMapClient.tsx`, `components/attendance/EmployeeLocationMap.tsx`, `tests/api/admin-location-live-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-08] — Tambah komisi settlement reseller
 
 - **Tipe**: [MIGRATION]

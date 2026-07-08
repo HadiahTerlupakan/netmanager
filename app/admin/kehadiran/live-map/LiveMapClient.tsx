@@ -104,7 +104,7 @@ export default function LiveMapClient() {
           const prevList = prev?.locations ?? [];
           const index = prevList.findIndex((p) => p.userId === incoming.userId);
           if (index === -1) {
-            setTimeout(() => void mutate(), 0);
+            void mutate();
             return prev;
           }
           const newLocations = [...prevList];
