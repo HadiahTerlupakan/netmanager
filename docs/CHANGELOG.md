@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-09] — Perbaiki code smell module restock
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki `isVeryLowStock` yang false-positive saat `minStok` belum diset (0), sehingga badge "Critical Low" muncul tanpa dasar. Menghapus recompute `barangOptions` di dalam `formItems.map` pada `RestockFormModal` dan menggantinya dengan `useMemo` sekali per gudang. Menambahkan kolom/baris catatan di list restock agar konteks PO terlihat langsung, serta mewajibkan `Catatan / Keterangan` saat create/update restock di UI dan API.
+- **Files**: `app/admin/inventory/restock/utils.ts`, `app/admin/inventory/restock/RestockFormModal.tsx`, `app/admin/inventory/restock/RestockTable.tsx`, `app/admin/inventory/restock/useRestockPage.ts`, `lib/validations/restock.ts`, `tests/ui/restock-utils.test.ts`, `tests/ui/restock-table.test.tsx`, `tests/ui/restock-form-modal.test.tsx`, `tests/api/inventory-restock-request-lifecycle-routes.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-09] — Perketat otorisasi & error handling announcement
 
 - **Tipe**: [SECURITY]
