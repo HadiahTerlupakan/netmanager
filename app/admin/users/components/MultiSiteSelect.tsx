@@ -56,18 +56,15 @@ export default function MultiSiteSelect({
 
   const toggleSite = (siteId: string) => {
     if (isSelected(siteId)) {
-      // Remove site
-      const newSites = selectedSites.filter((s) => s.siteId !== siteId);
-      // If removed site was primary, make first remaining site primary
-      if (isPrimarySite(siteId) && newSites.length > 0) {
-        const firstSite = newSites[0];
-        if (firstSite) {
-          firstSite.isPrimary = true;
-        }
-      }
+      const removedWasPrimary = isPrimarySite(siteId);
+      const remaining = selectedSites.filter((s) => s.siteId !== siteId);
+      const newSites = removedWasPrimary
+        ? remaining.map((s, index) =>
+            index === 0 ? { ...s, isPrimary: true } : s,
+          )
+        : remaining;
       onChange(newSites);
     } else {
-      // Add site (make primary if first one)
       const newSite: SelectedSite = {
         siteId,
         isPrimary: selectedSites.length === 0,

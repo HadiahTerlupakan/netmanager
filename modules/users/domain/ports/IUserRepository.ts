@@ -100,4 +100,8 @@ export interface IUserRepository {
   ): Promise<void>;
   /** Update working-hour settings and return its domain entity. */
   updateWorkingHours(id: string, data: UserScheduleEntity): Promise<UserEntity>;
+  /** Increment tokenVersion to invalidate all active sessions for a user. */
+  incrementTokenVersion(
+    userId: string,
+  ): Promise<{ id: string; name: string | null; tokenVersion: number } | null>;
 }

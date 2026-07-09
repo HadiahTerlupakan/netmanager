@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import {
   AttendanceGeofencePolicy,
   Prisma,
+  RateType,
   WorkingHourMode,
 } from "@prisma/client";
 
@@ -26,6 +27,31 @@ import {
   USER_BASE_SELECT,
   USER_DETAIL_SELECT,
 } from "./user-repository.helpers";
+
+/** Cast enum fields sekali di satu tempat agar tidak salah target field. */
+function mapUserEnumFields(data: CreateUserRepositoryInput): {
+  workingHourMode: WorkingHourMode | undefined;
+  attendanceGeofencePolicy: AttendanceGeofencePolicy | undefined;
+  targetSchema: Prisma.UserCreateInput["targetSchema"];
+  overtimeCalcTypeNormal: Prisma.UserCreateInput["overtimeCalcTypeNormal"];
+  overtimeCalcTypeHoliday: Prisma.UserCreateInput["overtimeCalcTypeHoliday"];
+  overtimeCalcTypeNational: Prisma.UserCreateInput["overtimeCalcTypeNational"];
+} {
+  return {
+    workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
+    attendanceGeofencePolicy: data.attendanceGeofencePolicy as
+      | AttendanceGeofencePolicy
+      | undefined,
+    targetSchema: data.targetSchema as Prisma.UserCreateInput["targetSchema"],
+    overtimeCalcTypeNormal:
+      data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+    overtimeCalcTypeHoliday:
+      data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
+    overtimeCalcTypeNational: data.overtimeCalcTypeNational as
+      | RateType
+      | undefined,
+  };
+}
 
 /** Menangani persistence inti user untuk CRUD dan kontrak domain. */
 export class UserRepository implements IUserRepository {
@@ -92,18 +118,7 @@ export class UserRepository implements IUserRepository {
         id: userId,
         updatedAt: new Date(),
         ...UserMapper.toRepositoryCreateInput(data),
-        workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
-        attendanceGeofencePolicy: data.attendanceGeofencePolicy as
-          | AttendanceGeofencePolicy
-          | undefined,
-        targetSchema:
-          data.targetSchema as Prisma.UserCreateInput["targetSchema"],
-        overtimeCalcTypeNormal:
-          data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
-        overtimeCalcTypeHoliday:
-          data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
-        overtimeCalcTypeNational:
-          data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+        ...mapUserEnumFields(data),
       },
     });
 
@@ -145,18 +160,7 @@ export class UserRepository implements IUserRepository {
           updatedAt: new Date(),
           ...UserMapper.toRepositoryCreateInput(data),
           siteId: primarySiteId,
-          workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
-          attendanceGeofencePolicy: data.attendanceGeofencePolicy as
-            | AttendanceGeofencePolicy
-            | undefined,
-          targetSchema:
-            data.targetSchema as Prisma.UserCreateInput["targetSchema"],
-          overtimeCalcTypeNormal:
-            data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
-          overtimeCalcTypeHoliday:
-            data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
-          overtimeCalcTypeNational:
-            data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
+          ...mapUserEnumFields(data),
         },
       });
 
@@ -311,5 +315,24 @@ export class UserRepository implements IUserRepository {
     });
 
     return UserMapper.toDomain(user);
+  }
+
+  /** Increment tokenVersion untuk invalidate semua session aktif user. */
+  async incrementTokenVersion(userId: string): Promise<{
+    id: string;
+    name: string | null;
+    tokenVersion: number;
+  } | null> {
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existing) return null;
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+      select: { id: true, name: true, tokenVersion: true },
+    });
   }
 }

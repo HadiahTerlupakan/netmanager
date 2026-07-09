@@ -34,7 +34,7 @@ export default function UserList() {
   const canCreate = hasPermission("users:create");
   const canUpdate = hasPermission("users:update");
   const canDelete = hasPermission("users:delete");
-  const canForceLogout = hasPermission("users:update");
+  const canForceLogout = hasPermission("users:force_logout");
 
   const {
     users,

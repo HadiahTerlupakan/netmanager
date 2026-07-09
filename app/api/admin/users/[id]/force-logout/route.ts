@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { socketEmitter } from "@/lib/websocket/emitter";
-import { AdminUserPerformanceRouteService } from "@/modules/users";
+import { AdminUserRouteService } from "@/modules/users";
 import { forceLogoutSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 
@@ -15,7 +15,7 @@ import { logger } from "@/lib/logger";
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["users:update"],
+    permissions: ["users:force_logout"],
     schema: forceLogoutSchema,
   },
   async (req, ctx) => {
@@ -32,9 +32,9 @@ export const POST = createHandler(
       return ApiErrors.badRequest("Tidak dapat force logout diri sendiri");
     }
 
-    const userPerformanceRouteService = new AdminUserPerformanceRouteService();
+    const adminUserRouteService = new AdminUserRouteService();
     const updatedUser =
-      await userPerformanceRouteService.forceLogoutUser(targetUserId);
+      await adminUserRouteService.forceLogoutUser(targetUserId);
     if (!updatedUser) return ApiErrors.notFound("User");
     const targetUser = updatedUser;
 

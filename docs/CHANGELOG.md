@@ -41,6 +41,71 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-09] — Refactor module admin/users end-to-end sesuai PRD
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/users`, `app/api/admin/users`, `modules/users`, `lib/permission-config.ts`, `modules/roles`
+- **Author**: agent
+- **Deskripsi**: Implementasi PRD `docs/specifications/admin-users-refactor-prd.md`
+  mencakup 8 task logis untuk menghapus anti-pattern React, memperbaiki bug
+  type-safety, memindahkan method ke service yang tepat, migrasi fetch ke
+  TanStack Query, dan mengekstrak duplikasi UI. Detail per task:
+  (1) **[FIXED]** Bug cast `overtimeCalcTypeNational` di `UserRepository.create`
+  & `createWithSites` — sebelumnya di-cast ke `overtimeCalcTypeNormal` (copy-paste
+  bug lolos compiler karena `as`). Ekstrak helper `mapUserEnumFields` untuk
+  cegah duplikasi cast.
+  (2) **[CHANGED]** Pindah `forceLogoutUser` dari `AdminUserRouteAdminUserPerformanceRouteService` ke
+  `AdminUserRouteService` (correct ownership: force-logout = user-management,
+  bukan performance metric). Tambah method `incrementTokenVersion` di
+  `IUserRepository` + `UserRepository`. Route `/api/admin/users/[id]/force-logout`
+  diupdate ke service yang benar.
+  (3) **[SECURITY]** Tambah permission `users:force_logout` sebagai granular
+  permission terpisah dari `users:update`. Sebelumnya UI & route memakai
+  `users:update` sebagai alias — leak: admin edit user otomatis bisa force-logout.
+  Ditambah di `GRANULAR_PERMISSIONS`, `RoleFactory` (default role admin),
+  route API, dan UI `UserList.tsx`.
+  (4) **[FIXED]** Hapus render-phase `setState` di `useUserList` (pola
+  `if (prev !== curr) setState(...)` di render body — melanggar
+  `react-hooks/set-state-in-effect`). Dipecah jadi 3 hook terfokus:
+  `useUserFetch`, `useUserSelection`, `useUserMutations`. `useUserList` jadi
+  orchestrator tipis.
+  (5) **[CHANGED]** Migrasi fetch ke TanStack Query `useApi` sesuai
+  `docs/standards/data-fetching.md`. `useUserFetch` memakai `useApi` dengan
+  URL sebagai key → dedup, cache, dan abort otomatis saat filter berubah.
+  `fetchAdminUserDetail` return `UserDetailDTO | null` (bukan `unknown`).
+  (6) **[CHANGED]** Hapus type alias `UserData` di `UsersDetailClient.tsx`
+  (mempertahankan duplikasi field `department`/`departments` & `site`/`sites`).
+  Consumer langsung pakai `UserDetailDTO`.
+  (7) **[CHANGED]** Ekstrak `<OrganizationSection>` dan `<StatusAndSalesSection>`
+  ke `components/UserFormSections.tsx` — dipakai di `UsersNewClient` &
+  `UsersDetailClient` untuk hapus ~200 LOC duplikasi.
+  (8) **[FIXED]** `MultiSiteSelect.toggleSite` diubah jadi immutable (sebelumnya
+  mutasi object langsung di array hasil filter → potensi bug subtle).
+- **Files**:
+  `modules/users/repositories/UserRepository.ts`,
+  `modules/users/domain/ports/IUserRepository.ts`,
+  `modules/users/services/AdminUserRouteService.ts`,
+  `modules/users/services/AdminUserPerformanceRouteService.ts`,
+  `app/api/admin/users/[id]/force-logout/route.ts`,
+  `lib/permission-config.ts`,
+  `modules/roles/factories/RoleFactory.ts`,
+  `app/admin/users/UserList.tsx`,
+  `app/admin/users/lib/useUserList.ts`,
+  `app/admin/users/lib/useUserFetch.ts` (baru),
+  `app/admin/users/lib/useUserSelection.ts` (baru),
+  `app/admin/users/lib/useUserMutations.ts` (baru),
+  `app/admin/users/lib/userDetailApi.ts`,
+  `app/admin/users/[id]/UsersDetailClient.tsx`,
+  `app/admin/users/new/UsersNewClient.tsx`,
+  `app/admin/users/components/UserFormSections.tsx` (baru),
+  `app/admin/users/components/MultiSiteSelect.tsx`,
+  `docs/specifications/admin-users-refactor-prd.md` (baru)
+- **Breaking**: ✅ Ya — permission `users:force_logout` terpisah. Admin yang
+  sebelumnya hanya punya `users:update` TANPA `users:force_logout` akan
+  kehilangan tombol & endpoint force-logout sampai seed permission dijalankan
+  (`npm run prisma:seed`). Role admin baru otomatis dapat permission ini via
+  `RoleFactory`.
+
 ### [2026-07-09] — Perbaiki domain purity dan minWidth kolom restock
 
 - **Tipe**: [FIXED]

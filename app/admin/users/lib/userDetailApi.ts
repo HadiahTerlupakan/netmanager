@@ -1,4 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
+import type { UserDetailDTO } from "@/modules/users";
 
 export interface ReferenceDepartment {
   id: string;
@@ -23,14 +24,16 @@ export interface ReferenceTenant {
 }
 
 /** Ambil detail user admin beserta relasinya. */
-export async function fetchAdminUserDetail(userId: string): Promise<unknown> {
+export async function fetchAdminUserDetail(
+  userId: string,
+): Promise<UserDetailDTO | null> {
   const res = await fetch(`/api/admin/users/${userId}`);
   if (!res.ok) {
     const fallback = await res.json().catch(() => ({}));
     throw new Error(fallback?.error || "Gagal memuat data user");
   }
   const data = await res.json();
-  return data.data?.user ?? null;
+  return (data.data?.user ?? null) as UserDetailDTO | null;
 }
 
 /** Ambil daftar departemen untuk opsi form. */

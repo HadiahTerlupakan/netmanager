@@ -76,18 +76,4 @@ export class AdminUserPerformanceRouteService {
       select: { siteId: true, departmentId: true },
     });
   }
-
-  /** Force logout a user by increasing token version. */
-  async forceLogoutUser(targetUserId: string) {
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: { id: true, name: true, tokenVersion: true },
-    });
-    if (!targetUser) return null;
-    return prisma.user.update({
-      where: { id: targetUserId },
-      data: { tokenVersion: { increment: 1 } },
-      select: { id: true, name: true, tokenVersion: true },
-    });
-  }
 }

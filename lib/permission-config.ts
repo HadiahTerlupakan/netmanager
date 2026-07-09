@@ -203,6 +203,7 @@ export const GRANULAR_PERMISSIONS = {
   USERS_UPDATE_DEPARTMENT: "users:update:department", // Update user department assignment
   USERS_UPDATE_STATUS: "users:update:status", // Update user active status (enable/disable)
   USERS_ASSIGN_SUPER_ADMIN: "users:assign_super_admin", // Assign SUPER_ADMIN role to users
+  USERS_FORCE_LOGOUT: "users:force_logout", // Force logout user by incrementing tokenVersion
 
   // Work order sensitive operations
   WORKORDERS_REASSIGN: "workorders:update:assign", // Reassign work order to different technician
