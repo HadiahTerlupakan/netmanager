@@ -12,6 +12,7 @@ import {
   getPaginatedRestockRequests,
   getRestockFilterOptions,
   getVisibleRestockRequests,
+  isVeryLowStock,
 } from "@/app/admin/inventory/restock/utils";
 import type {
   Barang,
@@ -204,11 +205,43 @@ describe("restock utils", () => {
     expect(canReceivePurchaseRequest("ORDERED", false)).toBe(false);
   });
 
+  it("isVeryLowStock returns false when minStok is 0 (no setting)", () => {
+    expect(isVeryLowStock(0, 0)).toBe(false);
+    expect(isVeryLowStock(5, 0)).toBe(false);
+  });
+
+  it("isVeryLowStock returns true when stock is at or below half of minStok", () => {
+    expect(isVeryLowStock(4, 10)).toBe(true);
+    expect(isVeryLowStock(5, 10)).toBe(true);
+    expect(isVeryLowStock(6, 10)).toBe(false);
+  });
+
   it("prevents submit when restock form has no items", () => {
     expect(
       canSubmitRestockForm({
         formGudang: "gudang-a",
+        formNotes: "Restock untuk instalasi pelanggan",
         formItems: [],
+        isSubmitting: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("prevents submit when catatan / keterangan is empty or whitespace", () => {
+    expect(
+      canSubmitRestockForm({
+        formGudang: "gudang-a",
+        formNotes: "",
+        formItems: validFormItems,
+        isSubmitting: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      canSubmitRestockForm({
+        formGudang: "gudang-a",
+        formNotes: "   ",
+        formItems: validFormItems,
         isSubmitting: false,
       }),
     ).toBe(false);
@@ -218,6 +251,7 @@ describe("restock utils", () => {
     expect(
       canSubmitRestockForm({
         formGudang: "gudang-a",
+        formNotes: "Restock untuk instalasi pelanggan",
         formItems: [{ barangId: "", quantity: 1 }],
         isSubmitting: false,
       }),
@@ -226,6 +260,7 @@ describe("restock utils", () => {
     expect(
       canSubmitRestockForm({
         formGudang: "gudang-a",
+        formNotes: "Restock untuk instalasi pelanggan",
         formItems: [{ barangId: "barang-1", quantity: 0 }],
         isSubmitting: false,
       }),
@@ -236,6 +271,7 @@ describe("restock utils", () => {
     expect(
       canSubmitRestockForm({
         formGudang: "gudang-a",
+        formNotes: "Restock untuk instalasi pelanggan",
         formItems: validFormItems,
         isSubmitting: false,
       }),
@@ -246,6 +282,7 @@ describe("restock utils", () => {
     expect(
       canSubmitRestockForm({
         formGudang: "gudang-a",
+        formNotes: "Restock untuk instalasi pelanggan",
         formItems: [
           { barangId: "barang-1", quantity: 1 },
           { barangId: "barang-1", quantity: 2 },
