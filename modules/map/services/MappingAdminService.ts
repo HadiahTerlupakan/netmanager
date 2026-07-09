@@ -1,6 +1,6 @@
 import type { CreateMapNodeDTO } from "../dto/MapDTO";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
-import type { TenantContext } from "../domain/tenantContext";
+import type { TenantContext } from "../utils/tenantContext";
 import type { SyncMapDataInput } from "../types/MappingRepositoryTypes";
 import { MappingService } from "./MappingService";
 

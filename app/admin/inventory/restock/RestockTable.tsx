@@ -330,7 +330,7 @@ export function RestockTable({
       key: "nomor",
       header: "No. Pengajuan",
       priority: "primary",
-      minWidth: "14rem",
+      minWidth: "18rem",
       render: (request) => (
         <span className="text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
           {request.nomorRequest}

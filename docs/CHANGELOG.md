@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-09] — Perbaiki domain purity dan minWidth kolom restock
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map/domain`, `modules/map/utils`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Dua kegagalan test diperbaiki: (1) `modules/map/domain/tenantContext.ts`
+  melanggar domain purity test karena mengimpor `TenantContextError` dari `@/lib/prisma-extension`.
+  Solusi: pindahkan file ke `modules/map/utils/tenantContext.ts` sehingga domain layer tetap
+  bersih. Update semua importir (`MappingRepository`, `MappingService`, `MappingAdminService`,
+  `IMappingRepository`, `modules/map/index.ts`). (2) Test `restock-table.test.tsx` gagal karena
+  kolom "nomor" di `RestockTable` memiliki `minWidth: "14rem"` sedangkan test mengekspektasikan
+  `"18rem"`. Diperbaiki dengan mengubah nilai tersebut.
+- **Files**: `modules/map/utils/tenantContext.ts` (baru, pindahan dari `domain/`),
+  `modules/map/domain/tenantContext.ts` (dihapus),
+  `modules/map/domain/ports/IMappingRepository.ts`,
+  `modules/map/repositories/MappingRepository.ts`,
+  `modules/map/services/MappingService.ts`,
+  `modules/map/services/MappingAdminService.ts`,
+  `modules/map/index.ts`,
+  `app/admin/inventory/restock/RestockTable.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-09] — Tutup celah tenant isolasi menu restock
 
 - **Tipe**: [SECURITY]

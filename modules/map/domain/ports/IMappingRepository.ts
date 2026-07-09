@@ -1,7 +1,7 @@
 import type { MapEdge } from "../entities/MapEdge";
 import type { MapNode } from "../entities/MapNode";
 import type { MapSettings } from "../entities/MapSettings";
-import type { TenantContext } from "../tenantContext";
+import type { TenantContext } from "../../utils/tenantContext";
 import type {
   CreateMapEdgeInput,
   CreateMapNodeInput,

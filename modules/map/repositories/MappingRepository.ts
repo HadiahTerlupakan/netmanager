@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NotFoundError as MapNotFoundError } from "@/lib/errors";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
-import type { TenantContext } from "../domain/tenantContext";
-import { buildTenantWhere } from "../domain/tenantContext";
+import type { TenantContext } from "../utils/tenantContext";
+import { buildTenantWhere } from "../utils/tenantContext";
 import { MapMapper } from "../mappers/MapMapper";
 import type {
   CreateMapEdgeInput,

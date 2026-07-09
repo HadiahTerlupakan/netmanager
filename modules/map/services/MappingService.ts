@@ -11,7 +11,7 @@ import type {
   UpdateMapSettingsDTO,
 } from "../dto/MapDTO";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
-import type { TenantContext } from "../domain/tenantContext";
+import type { TenantContext } from "../utils/tenantContext";
 import { MapFactory } from "../factories/MapFactory";
 import { MapMapper } from "../mappers/MapMapper";
 import { canAddOutgoingEdge } from "../validators/mapCapacityValidator";
