@@ -34,6 +34,13 @@ const TARGET_BADGE_CLASS: Record<Announcement["target"], string> = {
   EMPLOYEE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
+const TARGET_LABEL: Record<Announcement["target"], string> = {
+  ALL: "Semua",
+  CUSTOMER: "Pelanggan",
+  ADMIN: "Admin",
+  EMPLOYEE: "Karyawan",
+};
+
 export function AnnouncementIndexClient() {
   const { showToast } = useToast();
   const {
@@ -94,7 +101,7 @@ export function AnnouncementIndexClient() {
         <span
           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${TARGET_BADGE_CLASS[announcement.target]}`}
         >
-          {announcement.target}
+          {TARGET_LABEL[announcement.target]}
         </span>
       ),
     },

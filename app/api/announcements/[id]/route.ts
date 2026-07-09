@@ -7,6 +7,7 @@ import { ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import {
   announcementService,
+  AnnouncementServiceError,
   updateAnnouncementSchema,
 } from "@/modules/notification";
 
@@ -43,6 +44,9 @@ export async function PUT(
     );
     return NextResponse.json(announcement);
   } catch (error) {
+    if (error instanceof AnnouncementServiceError && error.status === 404) {
+      return ApiErrors.notFound("Pengumuman");
+    }
     logger.error("Failed to update announcement", error as Error, {
       path: "/api/announcements/[id]",
       method: "PUT",
@@ -71,6 +75,9 @@ export async function DELETE(
     const result = await announcementService.deleteAnnouncement(id);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AnnouncementServiceError && error.status === 404) {
+      return ApiErrors.notFound("Pengumuman");
+    }
     logger.error("Failed to delete announcement", error as Error, {
       path: "/api/announcements/[id]",
       method: "DELETE",

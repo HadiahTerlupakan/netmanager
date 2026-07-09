@@ -1,5 +1,26 @@
 # TODO
 
+## Fix Admin Announcement Security & Validation Plan
+
+- [ ] Audit ulang contract validator announcement di `modules/notification/validators/announcementValidator.ts` dan test existing terkait announcement.
+- [ ] Tambahkan server-side authorization untuk query `portal` di `GET /api/announcements`: `portal=admin` wajib admin/permission yang sesuai, `portal=employee/customer` tidak boleh bisa dipalsukan lintas role.
+- [ ] Tambahkan server-side date range validation (`endDate` harus setelah `startDate`) di validator/service agar request bypass client tetap ditolak.
+- [ ] Tambahkan not-found handling untuk update/delete announcement: record tidak ada harus return 404, bukan 500.
+- [ ] Tambahkan guard edit form agar `isEdit` tanpa `initialData.id` gagal jelas dan tidak hit `/api/announcements/undefined`.
+- [ ] Polish UI label target di `AnnouncementIndexClient` dari enum mentah menjadi label Indonesia tanpa mengubah API contract.
+- [ ] Kurangi duplikasi `zodErrorResponse` dengan helper lokal/shared hanya bila diff tetap kecil; kalau terlalu melebar, biarkan duplikasi dulu.
+- [ ] Tambahkan/ubah test targeted untuk authorization portal, date validation, dan 404 update/delete sesuai pola test existing.
+- [ ] Verifikasi: run targeted announcement tests, `npm run typecheck`, `npm run lint` bila perubahan lint-sensitive, dan `npm run check` bila scope melebar.
+- [ ] Update `docs/CHANGELOG.md` bagian `[Unreleased]` setelah fix selesai dengan tipe `[SECURITY]` atau `[FIXED]`, scope `app/api/announcements` + `modules/notification`, Breaking ❌ Tidak.
+
+### Review Plan
+
+- Scope dijaga minimal: tidak ubah schema Prisma, tidak perlu migration.
+- Arsitektur tetap Clean Architecture: API route hanya auth/parse/response; validasi payload di validator/service; query tetap repository.
+- SOT dipenuhi di akhir implementasi melalui `docs/CHANGELOG.md`, bukan saat plan.
+
+---
+
 ## Fix FCM Push Admin — tenantId missing (WORK_ORDER)
 
 - [x] Investigasi root cause skip push admin (`[FCM Push Admin] Skip`)

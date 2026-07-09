@@ -56,6 +56,7 @@ const baseRequest: PurchaseRequest = {
   requester: { name: "Rohadim" },
   gudangId: "gudang-a",
   gudang: { id: "gudang-a", nama: "Gudang A" },
+  keterangan: "Restock untuk instalasi pelanggan cluster Depok",
   items: [],
 };
 
@@ -183,6 +184,9 @@ describe("RestockTable action visibility", () => {
     const gudangColumn = props.columns.find(
       (column) => column.key === "gudang",
     );
+    const keteranganColumn = props.columns.find(
+      (column) => column.key === "keterangan",
+    );
     const statusColumn = props.columns.find(
       (column) => column.key === "status",
     );
@@ -192,6 +196,7 @@ describe("RestockTable action visibility", () => {
 
     expect(nomorColumn?.minWidth).toBe("18rem");
     expect(gudangColumn?.minWidth).toBe("14rem");
+    expect(keteranganColumn?.minWidth).toBe("16rem");
     expect(statusColumn?.align).toBe("center");
     expect(statusColumn?.className).toContain("w-[10rem]");
     expect(actionColumn?.align).toBe("right");
@@ -337,5 +342,48 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain("PR-001");
     expect(markup).toContain("Gudang A");
     expect(markup).toContain("Approve");
+  });
+
+  it("renders the keterangan column value in desktop table rows", () => {
+    const props = renderTable();
+    const keteranganColumn = props.columns.find(
+      (column) => column.key === "keterangan",
+    );
+
+    if (!keteranganColumn) {
+      throw new Error("Kolom keterangan harus tersedia");
+    }
+
+    const markup = renderToStaticMarkup(keteranganColumn.render(baseRequest));
+
+    expect(markup).toContain("Restock untuk instalasi pelanggan cluster Depok");
+  });
+
+  it("shows a placeholder dash when keterangan is empty", () => {
+    const props = renderTable();
+    const keteranganColumn = props.columns.find(
+      (column) => column.key === "keterangan",
+    );
+
+    if (!keteranganColumn) {
+      throw new Error("Kolom keterangan harus tersedia");
+    }
+
+    const markup = renderToStaticMarkup(
+      keteranganColumn.render({ ...baseRequest, keterangan: null }),
+    );
+
+    expect(markup).toContain("italic");
+    expect(markup).toContain("—");
+  });
+
+  it("renders the keterangan line in the mobile card", () => {
+    const props = renderTable();
+    const markup = renderToStaticMarkup(
+      <>{props.renderMobileCard?.(baseRequest, props.columns)}</>,
+    );
+
+    expect(markup).toContain("Catatan:");
+    expect(markup).toContain("Restock untuk instalasi pelanggan cluster Depok");
   });
 });

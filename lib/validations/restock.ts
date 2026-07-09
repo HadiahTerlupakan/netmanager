@@ -10,14 +10,14 @@ const restockItemSchema = z.object({
 /** Schema untuk membuat purchase request restock */
 export const restockCreateSchema = z.object({
   gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
-  keterangan: z.string().trim().optional(),
+  keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
   items: z.array(restockItemSchema).min(1, "Minimal 1 item harus ditambahkan"),
 });
 
 /** Schema untuk update purchase request restock (PUT) */
 export const restockUpdateSchema = z.object({
   gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
-  keterangan: z.string().trim().optional(),
+  keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
   items: z.array(restockItemSchema).min(1, "Minimal 1 item harus ditambahkan"),
 });
 

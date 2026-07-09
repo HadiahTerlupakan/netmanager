@@ -28,6 +28,7 @@ interface GetFilteredBarangsInput {
 
 interface CanSubmitRestockFormInput {
   formGudang: string;
+  formNotes: string;
   formItems: RestockFormItem[];
   isSubmitting: boolean;
 }
@@ -117,10 +118,16 @@ export function canReceivePurchaseRequest(
 
 export function canSubmitRestockForm({
   formGudang,
+  formNotes,
   formItems,
   isSubmitting,
 }: CanSubmitRestockFormInput): boolean {
-  if (isSubmitting || !formGudang || formItems.length === 0) {
+  if (
+    isSubmitting ||
+    !formGudang ||
+    !formNotes.trim() ||
+    formItems.length === 0
+  ) {
     return false;
   }
 
@@ -151,7 +158,7 @@ export function isVeryLowStock(
   currentStockBaru: number,
   minStock: number,
 ): boolean {
-  return currentStockBaru <= minStock / 2;
+  return minStock > 0 && currentStockBaru * 2 <= minStock;
 }
 
 export function getStockSnapshot(

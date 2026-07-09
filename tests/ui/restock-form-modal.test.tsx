@@ -60,7 +60,10 @@ const allSettings: RestockSetting[] = [
   },
 ];
 
-function renderForm(formItems: RestockFormItem[]) {
+function renderForm(
+  formItems: RestockFormItem[],
+  formNotes = "Restock bulanan Site A",
+) {
   const onFormItemsChange = vi.fn();
   const markup = renderToStaticMarkup(
     <RestockFormModal
@@ -68,7 +71,7 @@ function renderForm(formItems: RestockFormItem[]) {
       isEditing={false}
       formGudang="gudang-a"
       onFormGudangChange={vi.fn()}
-      formNotes=""
+      formNotes={formNotes}
       onFormNotesChange={vi.fn()}
       formItems={formItems}
       onFormItemsChange={onFormItemsChange}
@@ -104,5 +107,13 @@ describe("RestockFormModal", () => {
     expect(markup).toContain("Keterangan Item");
     expect(markup).toContain("Untuk ODP baru");
     expect(markup).toContain("Catatan khusus barang ini");
+  });
+
+  it("marks main catatan / keterangan as required", () => {
+    const { markup } = renderForm([{ barangId: "barang-1", quantity: 2 }], "");
+
+    expect(markup).toContain("Catatan / Keterangan wajib diisi");
+    expect(markup).toContain("required");
+    expect(markup).toContain('aria-invalid="true"');
   });
 });

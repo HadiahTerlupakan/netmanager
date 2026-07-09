@@ -117,6 +117,25 @@ describe("inventory restock request lifecycle routes", () => {
     expect(response.status).toBe(201);
   });
 
+  it("rejects request creation when keterangan is empty", async () => {
+    const response = await postRestockRequests(
+      new NextRequest("http://localhost/api/inventory/restock/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          gudangId: "gudang-1",
+          items: [{ barangId: "barang-1", quantity: 3 }],
+          keterangan: "   ",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Catatan / Keterangan wajib diisi",
+    });
+    expect(mockFns.createRestockRequest).not.toHaveBeenCalled();
+  });
+
   it("delegates request detail reads to shared purchase request helper", async () => {
     mockFns.getRestockRequestDetail.mockResolvedValue(
       NextResponse.json({ id: "pr-1" }, { status: 200 }),
