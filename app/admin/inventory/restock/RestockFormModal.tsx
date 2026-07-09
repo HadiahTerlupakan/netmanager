@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { FiCheck, FiFilter, FiPackage, FiPlus, FiTrash2 } from "react-icons/fi";
 
 import { Modal } from "@/components/ui/Modal";
@@ -103,9 +104,19 @@ export function RestockFormModal({
 
   const isSubmitDisabled = !canSubmitRestockForm({
     formGudang,
+    formNotes,
     formItems,
     isSubmitting: submitting,
   });
+
+  const isNotesEmpty = formNotes.trim().length === 0;
+  const barangOptions = useMemo(
+    () =>
+      barangs.map((barang) =>
+        createBarangOption(barang, allSettings, formGudang),
+      ),
+    [barangs, allSettings, formGudang],
+  );
 
   return (
     <Modal
@@ -135,16 +146,38 @@ export function RestockFormModal({
               </select>
             </div>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">
+              <label
+                htmlFor="formNotes"
+                className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest ml-1"
+              >
                 <FiPackage className="text-indigo-500" /> Catatan / Keterangan
+                <span className="text-red-500 normal-case tracking-normal">
+                  *
+                </span>
               </label>
               <input
+                id="formNotes"
                 type="text"
+                required
                 value={formNotes}
                 onChange={(event) => onFormNotesChange(event.target.value)}
-                className="w-full bg-white dark:bg-gray-800 border-none rounded-2xl h-12 px-4 shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
-                placeholder="Contoh: Stok bulanan Site A"
+                aria-invalid={isNotesEmpty}
+                aria-describedby={isNotesEmpty ? "formNotesError" : undefined}
+                className={`w-full bg-white dark:bg-gray-800 border-none rounded-2xl h-12 px-4 shadow-sm focus:ring-2 transition-all font-medium ${
+                  isNotesEmpty
+                    ? "ring-2 ring-red-400 focus:ring-red-500"
+                    : "focus:ring-2 focus:ring-indigo-500"
+                }`}
+                placeholder="Wajib diisi, contoh: Stok bulanan Site A"
               />
+              {isNotesEmpty && (
+                <p
+                  id="formNotesError"
+                  className="text-[10px] font-bold text-red-500 ml-1"
+                >
+                  Catatan / Keterangan wajib diisi.
+                </p>
+              )}
             </div>
           </div>
 
@@ -235,9 +268,6 @@ export function RestockFormModal({
                   selectedBarang,
                   allSettings,
                   formGudang,
-                );
-                const barangOptions = barangs.map((barang) =>
-                  createBarangOption(barang, allSettings, formGudang),
                 );
                 const criticalLow = isVeryLowStock(
                   stock.stokBaru,

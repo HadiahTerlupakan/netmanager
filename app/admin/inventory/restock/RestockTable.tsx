@@ -308,8 +308,11 @@ export function RestockTable({
         </div>
         <RestockStatusBadge status={request.status} />
       </div>
-      <div className="mt-4 rounded-2xl bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 dark:bg-gray-900/50 dark:text-gray-300">
-        Gudang: {request.gudang?.nama || "-"}
+      <div className="mt-4 space-y-2 rounded-2xl bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 dark:bg-gray-900/50 dark:text-gray-300">
+        <div>Gudang: {request.gudang?.nama || "-"}</div>
+        <div className="font-medium text-gray-500 dark:text-gray-400">
+          Catatan: {request.keterangan || "-"}
+        </div>
       </div>
       <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-700">
         {renderActions(request)}
@@ -344,6 +347,22 @@ export function RestockTable({
           {request.gudang?.nama || "-"}
         </span>
       ),
+    },
+    {
+      key: "keterangan",
+      header: "Catatan / Keterangan",
+      priority: "secondary",
+      minWidth: "16rem",
+      render: (request) =>
+        request.keterangan ? (
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300 line-clamp-2">
+            {request.keterangan}
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-gray-300 dark:text-gray-600 italic">
+            —
+          </span>
+        ),
     },
     {
       key: "status",
