@@ -31,6 +31,7 @@ interface RestockRequestLifecycleInput {
   action: unknown;
   catatan: string | null | undefined;
   actorId: string;
+  tenantId: string;
 }
 
 interface RestockRequestStatusInput {
@@ -94,10 +95,13 @@ function handleRequestCreationError(error: unknown, apiPath: string) {
   );
 }
 
-/** Ambil detail purchase request restock. */
-export async function getRestockRequestDetail(id: string) {
+/** Ambil detail purchase request restock milik tenant tertentu. */
+export async function getRestockRequestDetail(id: string, tenantId: string) {
   try {
-    const purchaseRequest = await fetchPurchaseRequestWithRelations(id);
+    const purchaseRequest = await fetchPurchaseRequestWithRelations(
+      id,
+      tenantId,
+    );
 
     if (!purchaseRequest) {
       return NextResponse.json(
@@ -114,9 +118,9 @@ export async function getRestockRequestDetail(id: string) {
   }
 }
 
-function fetchPurchaseRequestWithRelations(id: string) {
-  return prisma.purchaseRequest.findUnique({
-    where: { id },
+function fetchPurchaseRequestWithRelations(id: string, tenantId: string) {
+  return prisma.purchaseRequest.findFirst({
+    where: { id, tenantId },
     include: {
       requester: { select: { name: true, email: true } },
       gudang: { select: { nama: true, kode: true } },

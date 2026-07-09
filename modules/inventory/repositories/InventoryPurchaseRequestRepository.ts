@@ -109,9 +109,9 @@ export class InventoryPurchaseRequestRepository {
   }
 
   /** Ambil ringkasan purchase request untuk proses receive/start shopping. */
-  async findPurchaseRequestProcessInfo(id: string) {
-    return this.db.purchaseRequest.findUnique({
-      where: { id },
+  async findPurchaseRequestProcessInfo(id: string, tenantId: string) {
+    return this.db.purchaseRequest.findFirst({
+      where: { id, tenantId },
       select: { purchaseOrderId: true, status: true },
     });
   }

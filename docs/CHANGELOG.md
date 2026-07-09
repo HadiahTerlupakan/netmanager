@@ -41,6 +41,50 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-09] — Tutup celah tenant isolasi menu restock
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`, `app/api/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Tiga titik akses restock tidak memfilter `tenantId` saat
+  mengambil record purchase request berdasarkan `id`, sehingga tenant A bisa
+  membaca detail, approve/reject, serta trigger receive/start-shopping pada
+  PR milik tenant B cukup dengan menebak ID. Diperbaiki dengan menyuntikkan
+  `tenantId` dari session ke dalam query (`findUnique` → `findFirst` dengan
+  filter `{ id, tenantId }`) di `getRestockRequestDetail`,
+  `getPurchaseRequestForLifecycle`, dan `findPurchaseRequestProcessInfo`.
+  Akses cross-tenant sekarang kembali 404.
+- **Files**: `modules/inventory/services/RestockRequestService.ts`,
+  `modules/inventory/services/RestockRequestLifecycleService.ts`,
+  `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`,
+  `modules/inventory/repositories/InventoryApiRepository.ts`,
+  `modules/inventory/services/InventoryRouteService.ts`,
+  `app/api/inventory/restock/requests/[id]/route.ts`,
+  `app/api/inventory/restock/requests/[id]/receive/route.ts`,
+  `app/api/inventory/restock/requests/[id]/process/route.ts`,
+  `tests/api/inventory-restock-request-lifecycle-routes.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-09] — Refactor admin/map: 10 perbaikan code smell & security
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/map`, `app/api/map`, `app/admin/map`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
+- **Author**: agent
+- **Deskripsi**: Refactor menyeluruh module map mengikuti Clean Architecture:
+  1. [SECURITY] Tenant isolation di semua repository reads & mutations (`buildTenantWhere`/`buildTenantContext`), thread `ctx.session.user.tenantId` + `isSuperAdmin` dari semua API routes → service → repo. Superadmin bypass filter.
+  2. Hapus akses `prisma` + `bcrypt` langsung dari `MappingAdminService.verifyResetPassword`; delegasi ke `UserService.verifyUserPassword` baru di `modules/users` (port `UserPasswordVerifier`).
+  3. Ganti `throw new Error("NODE_NOT_FOUND"|"EDGE_NOT_FOUND"|...)` dengan `NotFoundError`/`ValidationError` dari `lib/errors.ts`. Hapus `error.message === "..."` string-compare di semua routes. Tambah mapping `AppError` subclass → statuscode di `lib/api/handler.ts`.
+  4. Hapus `as MapSettingsDTO` cast via `MapMapper.toSettingsDTORequired` (non-null variant).
+  5. Fix N+1 di `getNodeById` via `repository.findEdgesByNode(nodeId)` (query `WHERE source OR target`), bukan `findAllEdges().filter()`.
+  6. Hapus dead code `modules/map/factories/MapModuleFactory.ts` + `MapServiceSingletons.ts` (orphan, tidak di-export dari index.ts).
+  7. Buat Single Source of Truth `modules/map/domain/nodeType.ts` (`CANONICAL_NODE_TYPES`/`SYNC_NODE_TYPES`/`NODE_TYPE_DEFAULTS`/`normalizeSyncType`). Wire ke `MapFactory.createFromDTO`, `nodes/route.ts`, `sync/route.ts`. Reconcile default case (type tidak dikenal → fallback `ont` dengan defaults, bukan drop).
+  8. Ganti `z.any().nullish()` di `nodes/route.ts` dengan `z.record(z.string(), z.unknown()).nullish()`.
+  9. Pindahkan `import { ensurePermission }` ke grup import atas di `app/admin/map/page.tsx`.
+  10. `MapSettings.updateSettings` thread `tenantId` dari ctx saat create row baru (tidak perlu migration — kolom `tenantId` sudah ada).
+- **Files**: `modules/map/domain/ports/IMappingRepository.ts`, `modules/map/domain/tenantContext.ts` (new), `modules/map/domain/nodeType.ts` (new), `modules/map/repositories/MappingRepository.ts`, `modules/map/repositories/mapping-repository.helpers.ts`, `modules/map/services/MappingService.ts`, `modules/map/services/MappingAdminService.ts`, `modules/map/services/createMappingService.ts`, `modules/map/mappers/MapMapper.ts`, `modules/map/factories/MapFactory.ts`, `modules/map/utils/mapConstants.ts`, `modules/map/index.ts`, `app/api/map/nodes/route.ts`, `app/api/map/nodes/[nodeId]/route.ts`, `app/api/map/edges/route.ts`, `app/api/map/edges/[edgeId]/route.ts`, `app/api/map/settings/route.ts`, `app/api/map/statistics/route.ts`, `app/api/map/reset/route.ts`, `app/api/map/sync/route.ts`, `app/admin/map/page.tsx`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
+- **Breaking**: ✅ Ya — signature `IMappingRepository` & `MappingService` berubah (semua method kini butuh `TenantContext`); konsumen harus update. API contract (request/response) tidak berubah, namun error body kini memakai `{ success: false, error, code }` standar `AppError`.
+- **Migration**: ❌ Tidak ada migration Prisma — kolom `tenantId` sudah ada di `MappingNode`/`MappingEdge`/`MapSettings`; #10 diselesaikan via thread `tenantId` saat create settings row baru.
+
 ### [2026-07-09] — Perbaiki code smell module restock
 
 - **Tipe**: [FIXED]

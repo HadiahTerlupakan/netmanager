@@ -70,7 +70,9 @@ import { PATCH as patchRestockRequestReceive } from "@/app/api/inventory/restock
 describe("inventory restock request lifecycle routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.getServerSession.mockResolvedValue({ user: { id: "user-1" } });
+    mockFns.getServerSession.mockResolvedValue({
+      user: { id: "user-1", tenantId: "tenant-1" },
+    });
     mockFns.rbacHasPermission.mockResolvedValue(true);
     mockFns.verifyAuth.mockResolvedValue({ id: "user-1" });
     mockFns.authHasPermission.mockResolvedValue(true);
@@ -112,6 +114,7 @@ describe("inventory restock request lifecycle routes", () => {
       gudangId: "gudang-1",
       keterangan: "Restock Order: Barang 1",
       requesterId: "user-1",
+      tenantId: "tenant-1",
       apiPath: "/api/inventory/restock/requests",
     });
     expect(response.status).toBe(201);
@@ -147,7 +150,10 @@ describe("inventory restock request lifecycle routes", () => {
     );
 
     expect(mockFns.getRestockRequestDetail).toHaveBeenCalledTimes(1);
-    expect(mockFns.getRestockRequestDetail).toHaveBeenCalledWith("pr-1");
+    expect(mockFns.getRestockRequestDetail).toHaveBeenCalledWith(
+      "pr-1",
+      "tenant-1",
+    );
     expect(response.status).toBe(200);
   });
 
@@ -170,12 +176,13 @@ describe("inventory restock request lifecycle routes", () => {
       action: "APPROVE",
       catatan: undefined,
       actorId: "user-1",
+      tenantId: "tenant-1",
     });
     expect(response.status).toBe(200);
   });
 
   it("maps request receive to linked purchase order status helper", async () => {
-    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",
       purchaseOrderId: "po-1",
     });
@@ -195,8 +202,8 @@ describe("inventory restock request lifecycle routes", () => {
       { params: Promise.resolve({ id: "pr-1" }) },
     );
 
-    expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
-      where: { id: "pr-1" },
+    expect(prismaMock.purchaseRequest.findFirst).toHaveBeenCalledWith({
+      where: { id: "pr-1", tenantId: "tenant-1" },
       select: { purchaseOrderId: true, status: true },
     });
     expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledTimes(1);
@@ -211,7 +218,7 @@ describe("inventory restock request lifecycle routes", () => {
   });
 
   it("maps request process to linked purchase order start-shopping helper", async () => {
-    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",
       purchaseOrderId: "po-1",
     });
@@ -230,8 +237,8 @@ describe("inventory restock request lifecycle routes", () => {
       { params: Promise.resolve({ id: "pr-1" }) },
     );
 
-    expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
-      where: { id: "pr-1" },
+    expect(prismaMock.purchaseRequest.findFirst).toHaveBeenCalledWith({
+      where: { id: "pr-1", tenantId: "tenant-1" },
       select: { purchaseOrderId: true, status: true },
     });
     expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
@@ -243,7 +250,7 @@ describe("inventory restock request lifecycle routes", () => {
   });
 
   it("returns 500 when auto-generate PO fails for receive flow", async () => {
-    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",
       purchaseOrderId: null,
       status: "APPROVED",
@@ -269,7 +276,7 @@ describe("inventory restock request lifecycle routes", () => {
   });
 
   it("returns 400 when request has no linked purchase order for process flow", async () => {
-    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",
       purchaseOrderId: null,
     });
