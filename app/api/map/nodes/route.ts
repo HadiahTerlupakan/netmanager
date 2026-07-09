@@ -1,5 +1,7 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { getMappingAdminService, getMappingService } from "@/modules/map";
+import { CANONICAL_NODE_TYPES } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
@@ -7,7 +9,7 @@ const service = getMappingService();
 const adminService = getMappingAdminService();
 
 const createNodeSchema = z.object({
-  type: z.enum(["olt", "odc", "odp", "ont", "pole", "joinbox"]),
+  type: z.enum(CANONICAL_NODE_TYPES),
   name: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -20,43 +22,24 @@ const createNodeSchema = z.object({
   attenuationOut: z.number().nullish(),
   inputCoreColor: z.string().nullish(),
   photo: z.string().nullish(),
-  metadata: z.any().nullish(),
+  metadata: z.record(z.string(), z.unknown()).nullish(),
 });
 
-/**
- * @swagger
- * /api/map/nodes:
- *   get:
- *     summary: Get all map nodes
- *     tags: [Map]
- */
 export const GET = createHandler(
-  {
-    auth: true,
-    permissions: ["map:read"],
-  },
-  async () => {
-    const nodes = await service.getNodes();
+  { auth: true, permissions: ["map:read"] },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
+    const nodes = await service.getNodes(tenantCtx);
     return apiSuccess(nodes);
   },
 );
 
-/**
- * @swagger
- * /api/map/nodes:
- *   post:
- *     summary: Create a new map node
- *     tags: [Map]
- */
 export const POST = createHandler(
-  {
-    auth: true,
-    permissions: ["map:create"],
-    schema: createNodeSchema,
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:create"], schema: createNodeSchema },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const body = ctx.validated;
-    const newNode = await adminService.createNode({
+    const newNode = await adminService.createNode(tenantCtx, {
       nodeId: crypto.randomUUID(),
       ...body,
     });
@@ -64,11 +47,7 @@ export const POST = createHandler(
     await logger.logActivity({
       action: "CREATE",
       subject: "Node",
-      details: {
-        id: newNode.nodeId,
-        name: newNode.name,
-        type: newNode.type,
-      },
+      details: { id: newNode.nodeId, name: newNode.name, type: newNode.type },
       userId: ctx.session?.user.id,
     });
 

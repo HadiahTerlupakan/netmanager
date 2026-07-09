@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { NotFoundError as MapNotFoundError } from "@/lib/errors";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
+import type { TenantContext } from "../domain/tenantContext";
+import { buildTenantWhere } from "../domain/tenantContext";
 import { MapMapper } from "../mappers/MapMapper";
 import type {
   CreateMapEdgeInput,
@@ -19,169 +22,179 @@ import {
   toNodeUpdateData,
 } from "./mapping-repository.helpers";
 
+const EDGE_INCLUDE = {
+  sourceNode: { select: { name: true } },
+  targetNode: { select: { name: true } },
+} as const;
+
 export class MappingRepository implements IMappingRepository {
-  /** Get all mapping nodes. */
-  async findAllNodes() {
-    const records = await prisma.mappingNode.findMany();
+  async findAllNodes(ctx: TenantContext) {
+    const records = await prisma.mappingNode.findMany({
+      where: buildTenantWhere(ctx),
+    });
     return records.map((record) => MapMapper.toDomainNode(record));
   }
 
-  /** Get all mapping edges. */
-  async findAllEdges() {
+  async findAllEdges(ctx: TenantContext) {
     const records = await prisma.mappingEdge.findMany({
-      include: {
-        sourceNode: { select: { name: true } },
-        targetNode: { select: { name: true } },
-      },
+      where: buildTenantWhere(ctx),
+      include: EDGE_INCLUDE,
     });
-
     return records.map((record) => MapMapper.toDomainEdge(record));
   }
 
-  /** Get latest map settings. */
-  async getSettings() {
+  async getSettings(ctx: TenantContext) {
     const record = await prisma.mapSettings.findFirst({
+      where: buildTenantWhere(ctx),
       orderBy: { updatedAt: SETTINGS_ORDER_DIRECTION },
     });
-
     return record ? MapMapper.toDomainSettings(record) : null;
   }
 
-  /** Create or update map settings. */
-  async updateSettings(data: UpdateMapSettingsInput) {
-    const existingSettings = await prisma.mapSettings.findFirst({
+  async updateSettings(ctx: TenantContext, data: UpdateMapSettingsInput) {
+    const where = buildTenantWhere(ctx);
+    const existing = await prisma.mapSettings.findFirst({
+      where,
       orderBy: { updatedAt: SETTINGS_ORDER_DIRECTION },
     });
 
-    const record = existingSettings
-      ? await prisma.mapSettings.update({
-          where: { id: existingSettings.id },
-          data,
-        })
-      : await prisma.mapSettings.create({ data });
-
+    const record = existing
+      ? await prisma.mapSettings.update({ where: { id: existing.id }, data })
+      : await prisma.mapSettings.create({
+          data: { ...data, tenantId: ctx.tenantId ?? null },
+        });
     return MapMapper.toDomainSettings(record);
   }
 
-  /** Create a new node. */
-  async createNode(data: CreateMapNodeInput) {
+  async createNode(ctx: TenantContext, data: CreateMapNodeInput) {
     const record = await prisma.mappingNode.create({
-      data: toNodeCreateData(data),
+      data: { ...toNodeCreateData(data), tenantId: ctx.tenantId ?? null },
     });
-
     return MapMapper.toDomainNode(record);
   }
 
-  /** Create a new edge. */
-  async createEdge(data: CreateMapEdgeInput) {
+  async createEdge(ctx: TenantContext, data: CreateMapEdgeInput) {
     const record = await prisma.mappingEdge.create({
-      data: toEdgeCreateData(data),
-      include: {
-        sourceNode: { select: { name: true } },
-        targetNode: { select: { name: true } },
-      },
+      data: { ...toEdgeCreateData(data), tenantId: ctx.tenantId ?? null },
+      include: EDGE_INCLUDE,
     });
-
     return MapMapper.toDomainEdge(record);
   }
 
-  /** Find node by ID. */
-  async findNodeById(nodeId: string) {
-    const record = await prisma.mappingNode.findUnique({
-      where: { nodeId },
+  async findNodeById(ctx: TenantContext, nodeId: string) {
+    const record = await prisma.mappingNode.findFirst({
+      where: { nodeId, ...buildTenantWhere(ctx) },
     });
-
     return record ? MapMapper.toDomainNode(record) : null;
   }
 
-  /** Find edge by ID. */
-  async findEdgeById(edgeId: string) {
-    const record = await prisma.mappingEdge.findUnique({
-      where: { edgeId },
-      include: {
-        sourceNode: { select: { name: true } },
-        targetNode: { select: { name: true } },
-      },
+  async findEdgeById(ctx: TenantContext, edgeId: string) {
+    const record = await prisma.mappingEdge.findFirst({
+      where: { edgeId, ...buildTenantWhere(ctx) },
+      include: EDGE_INCLUDE,
     });
-
     return record ? MapMapper.toDomainEdge(record) : null;
   }
 
-  /** Update a node. */
-  async updateNode(nodeId: string, data: UpdateMapNodeInput) {
-    const record = await prisma.mappingNode.update({
-      where: { nodeId },
+  async findEdgesByNode(ctx: TenantContext, nodeId: string) {
+    const records = await prisma.mappingEdge.findMany({
+      where: {
+        OR: [{ source: nodeId }, { target: nodeId }],
+        ...buildTenantWhere(ctx),
+      },
+      include: EDGE_INCLUDE,
+    });
+    return records.map((record) => MapMapper.toDomainEdge(record));
+  }
+
+  async updateNode(
+    ctx: TenantContext,
+    nodeId: string,
+    data: UpdateMapNodeInput,
+  ) {
+    const result = await prisma.mappingNode.updateMany({
+      where: { nodeId, ...buildTenantWhere(ctx) },
       data: toNodeUpdateData(data),
     });
-
+    if (result.count === 0) throw new MapNotFoundError("Node");
+    const record = await prisma.mappingNode.findUniqueOrThrow({
+      where: { nodeId },
+    });
     return MapMapper.toDomainNode(record);
   }
 
-  /** Update an edge. */
-  async updateEdge(edgeId: string, data: UpdateMapEdgeInput) {
-    const record = await prisma.mappingEdge.update({
-      where: { edgeId },
+  async updateEdge(
+    ctx: TenantContext,
+    edgeId: string,
+    data: UpdateMapEdgeInput,
+  ) {
+    const result = await prisma.mappingEdge.updateMany({
+      where: { edgeId, ...buildTenantWhere(ctx) },
       data: toEdgeUpdateData(data),
-      include: {
-        sourceNode: { select: { name: true } },
-        targetNode: { select: { name: true } },
-      },
     });
-
+    if (result.count === 0) throw new MapNotFoundError("Edge");
+    const record = await prisma.mappingEdge.findUniqueOrThrow({
+      where: { edgeId },
+      include: EDGE_INCLUDE,
+    });
     return MapMapper.toDomainEdge(record);
   }
 
-  /** Delete a node and its connected edges. */
-  async deleteNode(nodeId: string) {
+  async deleteNode(ctx: TenantContext, nodeId: string) {
+    const owned = await this.findNodeById(ctx, nodeId);
+    if (!owned) throw new MapNotFoundError("Node");
+
     await prisma.mappingEdge.deleteMany({
       where: {
         OR: [{ source: nodeId }, { target: nodeId }],
+        ...buildTenantWhere(ctx),
       },
     });
-
-    const record = await prisma.mappingNode.delete({
-      where: { nodeId },
+    const result = await prisma.mappingNode.deleteMany({
+      where: { nodeId, ...buildTenantWhere(ctx) },
     });
-
-    return MapMapper.toDomainNode(record);
+    if (result.count === 0) throw new MapNotFoundError("Node");
+    return MapMapper.toDomainNode(owned);
   }
 
-  /** Delete an edge. */
-  async deleteEdge(edgeId: string) {
-    const record = await prisma.mappingEdge.delete({
-      where: { edgeId },
-      include: {
-        sourceNode: { select: { name: true } },
-        targetNode: { select: { name: true } },
-      },
-    });
+  async deleteEdge(ctx: TenantContext, edgeId: string) {
+    const owned = await this.findEdgeById(ctx, edgeId);
+    if (!owned) throw new MapNotFoundError("Edge");
 
-    return MapMapper.toDomainEdge(record);
+    const result = await prisma.mappingEdge.deleteMany({
+      where: { edgeId, ...buildTenantWhere(ctx) },
+    });
+    if (result.count === 0) throw new MapNotFoundError("Edge");
+    return MapMapper.toDomainEdge(owned);
   }
 
-  /** Count outgoing edges from node. */
-  async countEdgesFromSource(sourceNodeId: string) {
+  async countEdgesFromSource(ctx: TenantContext, sourceNodeId: string) {
     return prisma.mappingEdge.count({
-      where: { source: sourceNodeId },
+      where: { source: sourceNodeId, ...buildTenantWhere(ctx) },
     });
   }
 
-  /** Replace all map data with synced payload. */
-  async syncAllMappingData(data: SyncMapDataInput) {
+  async syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput) {
     await prisma.$transaction(async (transaction) => {
-      await transaction.mappingEdge.deleteMany({});
-      await transaction.mappingNode.deleteMany({});
-
-      await createManyMappingNodes(transaction, data.nodes);
-      await createManyMappingEdges(transaction, data.edges);
+      await transaction.mappingEdge.deleteMany({
+        where: buildTenantWhere(ctx),
+      });
+      await transaction.mappingNode.deleteMany({
+        where: buildTenantWhere(ctx),
+      });
+      await createManyMappingNodes(transaction, data.nodes, ctx.tenantId);
+      await createManyMappingEdges(transaction, data.edges, ctx.tenantId);
     });
   }
 
-  /** Delete all mapping data. */
-  async resetAllMappingData() {
+  async resetAllMappingData(ctx: TenantContext) {
     await prisma.$transaction(async (transaction) => {
-      await transaction.mappingEdge.deleteMany({});
-      await transaction.mappingNode.deleteMany({});
+      await transaction.mappingEdge.deleteMany({
+        where: buildTenantWhere(ctx),
+      });
+      await transaction.mappingNode.deleteMany({
+        where: buildTenantWhere(ctx),
+      });
     });
   }
 }

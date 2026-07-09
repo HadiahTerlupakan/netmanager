@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getMappingService } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
@@ -13,121 +14,53 @@ const updateEdgeSchema = z.object({
   notes: z.string().optional(),
 });
 
-/**
- * @swagger
- * /api/map/edges/{edgeId}:
- *   get:
- *     summary: Get edge by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: edgeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const GET = createHandler(
-  {
-    auth: true,
-    permissions: ["map:read"],
-  },
+  { auth: true, permissions: ["map:read"] },
   async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { edgeId } = ctx.params;
-    const edge = await service.getEdgeById(edgeId);
-
-    if (!edge) {
-      return ApiErrors.notFound("Edge");
-    }
-
+    const edge = await service.getEdgeById(tenantCtx, edgeId);
+    if (!edge) return ApiErrors.notFound("Edge");
     return apiSuccess(edge);
   },
 );
 
-/**
- * @swagger
- * /api/map/edges/{edgeId}:
- *   put:
- *     summary: Update edge by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: edgeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const PUT = createHandler(
-  {
-    auth: true,
-    permissions: ["map:update"],
-    schema: updateEdgeSchema,
-  },
+  { auth: true, permissions: ["map:update"], schema: updateEdgeSchema },
   async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { edgeId } = ctx.params;
     const body = ctx.validated;
+    const updatedEdge = await service.updateEdge(tenantCtx, edgeId, body);
 
-    try {
-      const updatedEdge = await service.updateEdge(edgeId, body);
+    await logger.logActivity({
+      action: "UPDATE",
+      subject: "Edge",
+      details: { id: edgeId, changes: body },
+      userId: ctx.session?.user.id,
+    });
 
-      await logger.logActivity({
-        action: "UPDATE",
-        subject: "Edge",
-        details: { id: edgeId, changes: body },
-        userId: ctx.session?.user.id,
-      });
-
-      return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
-    } catch (error) {
-      if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
-        return ApiErrors.notFound("Edge");
-      }
-
-      throw error;
-    }
+    return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
   },
 );
 
-/**
- * @swagger
- * /api/map/edges/{edgeId}:
- *   delete:
- *     summary: Delete edge by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: edgeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const DELETE = createHandler(
-  {
-    auth: true,
-    permissions: ["map:delete"],
-  },
+  { auth: true, permissions: ["map:delete"] },
   async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { edgeId } = ctx.params;
+    await service.deleteEdge(tenantCtx, edgeId);
 
-    try {
-      await service.deleteEdge(edgeId);
+    await logger.logActivity({
+      action: "DELETE",
+      subject: "Edge",
+      details: { id: edgeId },
+      userId: ctx.session?.user.id,
+    });
 
-      await logger.logActivity({
-        action: "DELETE",
-        subject: "Edge",
-        details: { id: edgeId },
-        userId: ctx.session?.user.id,
-      });
-
-      return apiSuccess(
-        { deleted: true },
-        { message: "Edge deleted successfully" },
-      );
-    } catch (error) {
-      if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
-        return ApiErrors.notFound("Edge");
-      }
-
-      throw error;
-    }
+    return apiSuccess(
+      { deleted: true },
+      { message: "Edge deleted successfully" },
+    );
   },
 );

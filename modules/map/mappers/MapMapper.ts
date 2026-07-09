@@ -146,12 +146,17 @@ export class MapMapper {
     return entities.map((entity) => this.toEdgeDTO(entity));
   }
 
-  /** Map domain settings to response DTO. */
+  /** Map domain settings to response DTO. Returns null when entity is null. */
   static toSettingsDTO(entity: MapSettings | null): MapSettingsDTO | null {
     if (!entity) {
       return null;
     }
 
+    return this.toSettingsDTORequired(entity);
+  }
+
+  /** Map non-null domain settings to response DTO. Use when entity is guaranteed non-null. */
+  static toSettingsDTORequired(entity: MapSettings): MapSettingsDTO {
     return {
       centerLat: entity.centerLat,
       centerLng: entity.centerLng,

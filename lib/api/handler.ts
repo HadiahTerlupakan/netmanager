@@ -41,6 +41,7 @@ import type { ZodType, ZodError } from "zod";
 import { authOptions, getUserPermissions } from "@/lib/auth";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import type { ErrorResponse } from "@/lib/api-response";
+import { AppError } from "@/lib/errors";
 import type { FeatureModuleCode } from "@/lib/feature-modules";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { TenantContextError } from "@/lib/prisma-extension";
@@ -354,6 +355,21 @@ function handleError(
   // generik. Detail spesifik sudah masuk ke logger.error di atas.
   if (error instanceof TenantContextError) {
     return ApiErrors.internalError("Terjadi kesalahan pada server");
+  }
+
+  if (error instanceof AppError) {
+    const body = {
+      success: false as const,
+      error: error.message,
+      code: error.code,
+    };
+    if (error.details !== undefined) {
+      return NextResponse.json(
+        { ...body, details: error.details as Record<string, unknown> },
+        { status: error.statusCode },
+      );
+    }
+    return NextResponse.json(body, { status: error.statusCode });
   }
 
   if (

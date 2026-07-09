@@ -70,20 +70,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Tipe**: [CHANGED]
 - **Scope**: `modules/map`, `app/api/map`, `app/admin/map`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
 - **Author**: agent
-- **Deskripsi**: Refactor menyeluruh module map mengikuti Clean Architecture:
-  1. [SECURITY] Tenant isolation di semua repository reads & mutations (`buildTenantWhere`/`buildTenantContext`), thread `ctx.session.user.tenantId` + `isSuperAdmin` dari semua API routes → service → repo. Superadmin bypass filter.
-  2. Hapus akses `prisma` + `bcrypt` langsung dari `MappingAdminService.verifyResetPassword`; delegasi ke `UserService.verifyUserPassword` baru di `modules/users` (port `UserPasswordVerifier`).
-  3. Ganti `throw new Error("NODE_NOT_FOUND"|"EDGE_NOT_FOUND"|...)` dengan `NotFoundError`/`ValidationError` dari `lib/errors.ts`. Hapus `error.message === "..."` string-compare di semua routes. Tambah mapping `AppError` subclass → statuscode di `lib/api/handler.ts`.
-  4. Hapus `as MapSettingsDTO` cast via `MapMapper.toSettingsDTORequired` (non-null variant).
-  5. Fix N+1 di `getNodeById` via `repository.findEdgesByNode(nodeId)` (query `WHERE source OR target`), bukan `findAllEdges().filter()`.
-  6. Hapus dead code `modules/map/factories/MapModuleFactory.ts` + `MapServiceSingletons.ts` (orphan, tidak di-export dari index.ts).
-  7. Buat Single Source of Truth `modules/map/domain/nodeType.ts` (`CANONICAL_NODE_TYPES`/`SYNC_NODE_TYPES`/`NODE_TYPE_DEFAULTS`/`normalizeSyncType`). Wire ke `MapFactory.createFromDTO`, `nodes/route.ts`, `sync/route.ts`. Reconcile default case (type tidak dikenal → fallback `ont` dengan defaults, bukan drop).
-  8. Ganti `z.any().nullish()` di `nodes/route.ts` dengan `z.record(z.string(), z.unknown()).nullish()`.
-  9. Pindahkan `import { ensurePermission }` ke grup import atas di `app/admin/map/page.tsx`.
-  10. `MapSettings.updateSettings` thread `tenantId` dari ctx saat create row baru (tidak perlu migration — kolom `tenantId` sudah ada).
-- **Files**: `modules/map/domain/ports/IMappingRepository.ts`, `modules/map/domain/tenantContext.ts` (new), `modules/map/domain/nodeType.ts` (new), `modules/map/repositories/MappingRepository.ts`, `modules/map/repositories/mapping-repository.helpers.ts`, `modules/map/services/MappingService.ts`, `modules/map/services/MappingAdminService.ts`, `modules/map/services/createMappingService.ts`, `modules/map/mappers/MapMapper.ts`, `modules/map/factories/MapFactory.ts`, `modules/map/utils/mapConstants.ts`, `modules/map/index.ts`, `app/api/map/nodes/route.ts`, `app/api/map/nodes/[nodeId]/route.ts`, `app/api/map/edges/route.ts`, `app/api/map/edges/[edgeId]/route.ts`, `app/api/map/settings/route.ts`, `app/api/map/statistics/route.ts`, `app/api/map/reset/route.ts`, `app/api/map/sync/route.ts`, `app/admin/map/page.tsx`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
-- **Breaking**: ✅ Ya — signature `IMappingRepository` & `MappingService` berubah (semua method kini butuh `TenantContext`); konsumen harus update. API contract (request/response) tidak berubah, namun error body kini memakai `{ success: false, error, code }` standar `AppError`.
-- **Migration**: ❌ Tidak ada migration Prisma — kolom `tenantId` sudah ada di `MappingNode`/`MappingEdge`/`MapSettings`; #10 diselesaikan via thread `tenantId` saat create settings row baru.
+- **Deskripsi**: Refactor menyeluruh module map mengikuti Clean Architecture. 10 fix + 3 security hardening dari Oracle review:
+  1. [SECURITY] Tenant isolation di semua repo reads/mutations (`buildTenantWhere`/`buildTenantContext`). Hardened: non-superadmin tanpa tenantId lempar `TenantContextError` (bukan bypass filter). `deleteNode` cascade edges kini filter tenant. `updateNode`/`updateEdge` kini atomic via `updateMany({ where: { nodeId, tenantId } })` — eliminasi TOCTOU.
+  2. Hapus akses `prisma`+`bcrypt` dari `MappingAdminService`, delegasi ke `UserService.verifyUserPassword` via port `UserPasswordVerifier`.
+  3. `throw new Error("NODE_NOT_FOUND"...)` → `NotFoundError`/`ValidationError`; hapus string-compare di routes; `AppError`→statusCode di `lib/api/handler.ts`.
+  4. Hapus `as MapSettingsDTO` cast via `toSettingsDTORequired`.
+  5. Fix N+1 `getNodeById` via `findEdgesByNode` (WHERE source OR target).
+  6. Hapus dead code `MapModuleFactory.ts` + `MapServiceSingletons.ts`.
+  7. SOT `nodeType.ts` (`CANONICAL_NODE_TYPES`/`SYNC_NODE_TYPES`/`NODE_TYPE_DEFAULTS`/`normalizeSyncType`).
+  8. `z.any()` → `z.record(z.string(), z.unknown())` di node create schema.
+  9. Import order `app/admin/map/page.tsx`.
+  10. `MapSettings.updateSettings` thread `tenantId` dari ctx saat create row baru.
+- **Files**: `modules/map/domain/ports/IMappingRepository.ts`, `modules/map/domain/tenantContext.ts` (new), `modules/map/domain/nodeType.ts` (new), `modules/map/repositories/MappingRepository.ts`, `modules/map/repositories/mapping-repository.helpers.ts`, `modules/map/services/MappingService.ts`, `modules/map/services/MappingAdminService.ts`, `modules/map/services/createMappingService.ts`, `modules/map/mappers/MapMapper.ts`, `modules/map/factories/MapFactory.ts`, `modules/map/utils/mapConstants.ts`, `modules/map/index.ts`, `app/api/map/*.ts`, `app/admin/map/page.tsx`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
+- **Breaking**: ✅ Ya — `IMappingRepository` & `MappingService` signatures berubah (semua method butuh `TenantContext`).
+- **Migration**: ❌ Tidak ada.
 
 ### [2026-07-09] — Perbaiki code smell module restock
 

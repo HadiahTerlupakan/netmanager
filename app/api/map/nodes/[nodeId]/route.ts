@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getMappingService } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
@@ -20,121 +21,53 @@ const updateNodeSchema = z.object({
   photo: z.string().nullish(),
 });
 
-/**
- * @swagger
- * /api/map/nodes/{nodeId}:
- *   get:
- *     summary: Get node by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: nodeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const GET = createHandler(
-  {
-    auth: true,
-    permissions: ["map:read"],
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:read"] },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { nodeId } = ctx.params;
-    const node = await service.getNodeById(nodeId);
-
-    if (!node) {
-      return ApiErrors.notFound("Node");
-    }
-
+    const node = await service.getNodeById(tenantCtx, nodeId);
+    if (!node) return ApiErrors.notFound("Node");
     return apiSuccess(node);
   },
 );
 
-/**
- * @swagger
- * /api/map/nodes/{nodeId}:
- *   put:
- *     summary: Update node by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: nodeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const PUT = createHandler(
-  {
-    auth: true,
-    permissions: ["map:update"],
-    schema: updateNodeSchema,
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:update"], schema: updateNodeSchema },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { nodeId } = ctx.params;
     const body = ctx.validated;
+    const updatedNode = await service.updateNode(tenantCtx, nodeId, body);
 
-    try {
-      const updatedNode = await service.updateNode(nodeId, body);
+    await logger.logActivity({
+      action: "UPDATE",
+      subject: "Node",
+      details: { id: nodeId, changes: body },
+      userId: ctx.session?.user.id,
+    });
 
-      await logger.logActivity({
-        action: "UPDATE",
-        subject: "Node",
-        details: { id: nodeId, changes: body },
-        userId: ctx.session?.user.id,
-      });
-
-      return apiSuccess(updatedNode, { message: "Node updated successfully" });
-    } catch (error) {
-      if (error instanceof Error && error.message === "NODE_NOT_FOUND") {
-        return ApiErrors.notFound("Node");
-      }
-
-      throw error;
-    }
+    return apiSuccess(updatedNode, { message: "Node updated successfully" });
   },
 );
 
-/**
- * @swagger
- * /api/map/nodes/{nodeId}:
- *   delete:
- *     summary: Delete node by ID
- *     tags: [Map]
- *     parameters:
- *       - in: path
- *         name: nodeId
- *         required: true
- *         schema:
- *           type: string
- */
 export const DELETE = createHandler(
-  {
-    auth: true,
-    permissions: ["map:delete"],
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:delete"] },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { nodeId } = ctx.params;
+    await service.deleteNode(tenantCtx, nodeId);
 
-    try {
-      await service.deleteNode(nodeId);
+    await logger.logActivity({
+      action: "DELETE",
+      subject: "Node",
+      details: { id: nodeId },
+      userId: ctx.session?.user.id,
+    });
 
-      await logger.logActivity({
-        action: "DELETE",
-        subject: "Node",
-        details: { id: nodeId },
-        userId: ctx.session?.user.id,
-      });
-
-      return apiSuccess(
-        { deleted: true },
-        { message: "Node deleted successfully" },
-      );
-    } catch (error) {
-      if (error instanceof Error && error.message === "NODE_NOT_FOUND") {
-        return ApiErrors.notFound("Node");
-      }
-
-      throw error;
-    }
+    return apiSuccess(
+      { deleted: true },
+      { message: "Node deleted successfully" },
+    );
   },
 );

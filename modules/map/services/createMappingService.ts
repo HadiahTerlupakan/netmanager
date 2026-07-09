@@ -1,3 +1,4 @@
+import { getUserService } from "@/modules/users";
 import { MappingRepository } from "../repositories/MappingRepository";
 import { MappingAdminService } from "./MappingAdminService";
 import { MappingService } from "./MappingService";
@@ -9,5 +10,5 @@ export function createMappingService(): MappingService {
 export function createMappingAdminService(): MappingAdminService {
   const repository = new MappingRepository();
   const mappingService = new MappingService(repository);
-  return new MappingAdminService(repository, mappingService);
+  return new MappingAdminService(repository, mappingService, getUserService());
 }

@@ -1,4 +1,4 @@
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import type {
   FindUsersParams,
   IUserRepository,
@@ -66,6 +66,14 @@ export class UserService {
   /** Get user domain entity by email for internal consumers. */
   async getUserByEmail(email: string): Promise<UserEntity | null> {
     return this.userRepository.findByEmail(email);
+  }
+
+  async verifyUserPassword(email: string, password: string): Promise<boolean> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user?.passwordHash) {
+      return false;
+    }
+    return compare(password, user.passwordHash);
   }
 
   /** Create a user and return domain entity. */
