@@ -210,7 +210,12 @@ export function useRestockPage() {
 
   const saveRequest = useCallback(async () => {
     if (
-      !canSubmitRestockForm({ formGudang, formItems, isSubmitting: submitting })
+      !canSubmitRestockForm({
+        formGudang,
+        formNotes,
+        formItems,
+        isSubmitting: submitting,
+      })
     ) {
       toast.error("Harap lengkapi data barang dan gudang");
       return;
