@@ -47,6 +47,10 @@ function readUseUserDetailData(): string {
   return readSourceFile("app/admin/users/lib/useUserDetailData.ts");
 }
 
+function readUserFormSections(): string {
+  return readSourceFile("app/admin/users/components/UserFormSections.tsx");
+}
+
 describe("admin users edit safety", () => {
   it("sends attendance requirement changes in the user update payload", () => {
     const clientFile = readUsersDetailClient();
@@ -128,13 +132,21 @@ describe("admin users edit safety", () => {
     const newClientFile = readUsersNewClient();
     const detailClientFile = readUsersDetailClient();
     const leaveBalanceFile = readLeaveBalanceSettings();
+    const formSectionsFile = readUserFormSections();
 
+    // Copy "Akses & Privilege" dan "Fitur Sales & Canvassing" kini tinggal di
+    // shared component `UserFormSections.tsx`. Guard ini memastikan kedua page
+    // memakai component yang sama sehingga copy tetap sinkron (tidak drift).
     for (const clientFile of [newClientFile, detailClientFile]) {
-      expect(clientFile).toContain("Akses & Privilege");
-      expect(clientFile).toContain("Fitur Sales & Canvassing");
+      expect(clientFile).toContain("StatusAndSalesSection");
       expect(clientFile).not.toContain("Akses & Privilese");
       expect(clientFile).not.toContain("Canvasing");
     }
+
+    expect(formSectionsFile).toContain("Akses & Privilege");
+    expect(formSectionsFile).toContain("Fitur Sales & Canvassing");
+    expect(formSectionsFile).not.toContain("Akses & Privilese");
+    expect(formSectionsFile).not.toContain("Canvasing");
 
     expect(leaveBalanceFile).toContain("saveButtonLabel");
     expect(newClientFile).toContain('saveButtonLabel="Simpan Pengguna"');

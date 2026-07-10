@@ -27,7 +27,7 @@ export async function calculateAverageRating(
 ) {
   const closedTickets = await ticketRepo.getClosedTicketsWithReplies(baseWhere);
   return closedTickets.reduce(
-    (summary, ticket) => addTicketRating(summary, ticket.replies[0]?.message),
+    (summary, ticket) => addTicketRating(summary, ticket),
     { avgRating: 0, ratedCount: 0, totalRating: 0 },
   );
 }
@@ -65,15 +65,31 @@ function buildStatusSummary(countMap: Record<string, number>) {
   };
 }
 
+interface TicketWithRating {
+  rating?: number | null;
+  replies?: { message?: string }[];
+}
+
 function addTicketRating(
   summary: RatingAccumulator,
-  message?: string,
+  ticket: TicketWithRating,
 ): RatingAccumulator {
-  const rating = message ? parseRating(message) : 0;
+  let rating: number;
+  if (ticket.rating !== null && ticket.rating !== undefined) {
+    rating = clampRating(ticket.rating);
+  } else {
+    rating = parseRating(ticket.replies?.[0]?.message ?? "");
+  }
   if (rating === 0) return summary;
   const totalRating = summary.totalRating + rating;
   const ratedCount = summary.ratedCount + 1;
   return { totalRating, ratedCount, avgRating: totalRating / ratedCount };
+}
+
+function clampRating(value: number): number {
+  if (!Number.isFinite(value) || value < 1) return 0;
+  if (value > 5) return 5;
+  return Math.trunc(value);
 }
 
 function parseRating(message: string) {

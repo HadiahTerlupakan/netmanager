@@ -31,14 +31,19 @@ export function CustomerInfoSidebar({
   const priority = getPriorityLabel(ticket.priority);
 
   const handleCreateWorkOrder = () => {
-    const params = new URLSearchParams({
+    const draft = {
       ticketId: ticket.id,
       pelangganId: ticket.pelanggan.id,
       title: `[TIKET-${ticket.ticketNumber}] ${ticket.subject}`,
       description: ticket.description,
       priority: ticket.priority,
-    });
-    router.push(`/admin/workorders/new?${params.toString()}`);
+    };
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("workorder-draft", JSON.stringify(draft));
+    }
+    router.push(
+      `/admin/workorders/new?ticketId=${encodeURIComponent(ticket.id)}`,
+    );
   };
 
   return (
@@ -82,7 +87,7 @@ function CustomerInfoSection({ ticket }: { ticket: TicketDetail }) {
           <div className="flex items-center gap-3">
             <HiOutlinePhone className="w-4 h-4 text-gray-400" />
             <a
-              href={`tel:${ticket.pelanggan.noTelp}`}
+              href={`tel:${encodeURIComponent(ticket.pelanggan.noTelp)}`}
               className="text-sm text-teal-600 hover:underline"
             >
               {ticket.pelanggan.noTelp}
@@ -93,7 +98,7 @@ function CustomerInfoSection({ ticket }: { ticket: TicketDetail }) {
           <div className="flex items-center gap-3">
             <HiOutlineEnvelope className="w-4 h-4 text-gray-400" />
             <a
-              href={`mailto:${ticket.pelanggan.email}`}
+              href={`mailto:${encodeURIComponent(ticket.pelanggan.email)}`}
               className="text-sm text-teal-600 hover:underline truncate"
             >
               {ticket.pelanggan.email}

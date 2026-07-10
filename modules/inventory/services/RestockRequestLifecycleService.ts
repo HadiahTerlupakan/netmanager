@@ -10,6 +10,7 @@ interface RestockRequestLifecycleInput {
   action: unknown;
   catatan: string | null | undefined;
   actorId: string;
+  tenantId: string;
 }
 
 export class RestockRequestLifecycleService {
@@ -29,6 +30,7 @@ export class RestockRequestLifecycleService {
       }
       const existingRequest = await this.getPurchaseRequestForLifecycle(
         input.id,
+        input.tenantId,
       );
       if (!existingRequest) {
         return NextResponse.json(
@@ -65,9 +67,9 @@ export class RestockRequestLifecycleService {
     return null;
   }
 
-  private getPurchaseRequestForLifecycle(id: string) {
-    return prisma.purchaseRequest.findUnique({
-      where: { id },
+  private getPurchaseRequestForLifecycle(id: string, tenantId: string) {
+    return prisma.purchaseRequest.findFirst({
+      where: { id, tenantId },
       include: {
         items: {
           include: {

@@ -303,7 +303,12 @@ export function RestockTable({
             {request.nomorRequest}
           </p>
           <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-            {new Date(request.createdAt).toLocaleDateString("id-ID")}
+            Tgl. Pengajuan:{" "}
+            {new Date(request.createdAt).toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
           </p>
         </div>
         <RestockStatusBadge status={request.status} />
@@ -327,14 +332,24 @@ export function RestockTable({
       priority: "primary",
       minWidth: "18rem",
       render: (request) => (
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
-            {request.nomorRequest}
-          </span>
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-            {new Date(request.createdAt).toLocaleDateString("id-ID")}
-          </span>
-        </div>
+        <span className="text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
+          {request.nomorRequest}
+        </span>
+      ),
+    },
+    {
+      key: "tanggalPengajuan",
+      header: "Tanggal Pengajuan",
+      priority: "secondary",
+      minWidth: "11rem",
+      render: (request) => (
+        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+          {new Date(request.createdAt).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
       ),
     },
     {

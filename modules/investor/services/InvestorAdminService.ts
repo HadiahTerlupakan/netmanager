@@ -105,6 +105,17 @@ export class InvestorAdminService {
         };
       }
 
+      if (body.email) {
+        const existingEmail = await this.repository.findByEmail(body.email);
+        if (existingEmail) {
+          return {
+            success: false,
+            error: EMAIL_CONSTRAINT_MESSAGE,
+            code: "BAD_REQUEST",
+          };
+        }
+      }
+
       const passwordHash = await hash(body.password, 12);
       const investor = await this.repository.create({
         username: body.username,

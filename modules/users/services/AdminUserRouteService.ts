@@ -155,6 +155,11 @@ export class AdminUserRouteService {
     return this.createService.createUser(session, payload);
   }
 
+  /** Force logout user dengan increment tokenVersion. */
+  async forceLogoutUser(targetUserId: string) {
+    return this.userRepository.incrementTokenVersion(targetUserId);
+  }
+
   /** Delete user from admin route with scoped access enforcement. */
   async deleteAdminUser(session: AdminSession, userId: string) {
     const targetUser = await this.userRepository.findById(userId);

@@ -42,7 +42,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  return getRestockRequestDetail(id);
+  const tenantId = session.user.tenantId as string;
+  return getRestockRequestDetail(id, tenantId);
 }
 
 /** Ubah lifecycle purchase request restock. */
@@ -80,6 +81,7 @@ export async function PATCH(
     action: parsed.data.action,
     catatan: parsed.data.catatan,
     actorId: session.user.id as string,
+    tenantId: session.user.tenantId as string,
   });
 }
 

@@ -144,18 +144,16 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     pelangganId: string,
     status: string,
     closedAt?: Date,
+    rating?: number | null,
   ) {
     const updatedCount = await updateCustomerOwnedTicketStatus(
       id,
       pelangganId,
       status,
       closedAt,
+      rating,
     );
-
-    if (updatedCount === 0) {
-      return null;
-    }
-
+    if (updatedCount === 0) return null;
     return findByIdForCustomer(id, pelangganId);
   }
 

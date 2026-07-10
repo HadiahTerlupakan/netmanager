@@ -1,22 +1,14 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { getMappingService } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 
 const service = getMappingService();
 
-/**
- * @swagger
- * /api/map/statistics:
- *   get:
- *     summary: Get map statistics
- *     tags: [Map]
- */
 export const GET = createHandler(
-  {
-    auth: true,
-    permissions: ["map:read"],
-  },
-  async () => {
-    const stats = await service.getStatistics();
+  { auth: true, permissions: ["map:read"] },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
+    const stats = await service.getStatistics(tenantCtx);
     return apiSuccess(stats);
   },
 );

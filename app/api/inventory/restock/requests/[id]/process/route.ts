@@ -16,8 +16,9 @@ export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   const { id } = ctx.params;
+  const tenantId = user.tenantId as string;
   const requestRecord =
-    await inventoryRouteService.getPurchaseRequestProcessInfo(id);
+    await inventoryRouteService.getPurchaseRequestProcessInfo(id, tenantId);
 
   if (!requestRecord) {
     return ApiErrors.notFound("Purchase Request not found");

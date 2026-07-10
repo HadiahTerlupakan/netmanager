@@ -1,42 +1,36 @@
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import type { CreateMapNodeDTO } from "../dto/MapDTO";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
+import type { TenantContext } from "../utils/tenantContext";
 import type { SyncMapDataInput } from "../types/MappingRepositoryTypes";
 import { MappingService } from "./MappingService";
+
+export interface UserPasswordVerifier {
+  verifyUserPassword(email: string, password: string): Promise<boolean>;
+}
 
 export class MappingAdminService {
   constructor(
     private readonly repository: IMappingRepository,
     private readonly mappingService: MappingService,
+    private readonly userPasswordVerifier: UserPasswordVerifier,
   ) {}
 
-  /** Verify password before destructive map reset. */
   async verifyResetPassword(email: string, password: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { passwordHash: true },
-    });
-
-    if (!user?.passwordHash) {
-      return false;
-    }
-
-    return bcrypt.compare(password, user.passwordHash);
+    return this.userPasswordVerifier.verifyUserPassword(email, password);
   }
 
-  /** Delete all mapping nodes and edges. */
-  async resetAllMappingData(): Promise<void> {
-    await this.repository.resetAllMappingData();
+  async resetAllMappingData(ctx: TenantContext): Promise<void> {
+    await this.repository.resetAllMappingData(ctx);
   }
 
-  /** Replace all mapping nodes and edges from sync payload. */
-  async syncAllMappingData(data: SyncMapDataInput): Promise<void> {
-    await this.repository.syncAllMappingData(data);
+  async syncAllMappingData(
+    ctx: TenantContext,
+    data: SyncMapDataInput,
+  ): Promise<void> {
+    await this.repository.syncAllMappingData(ctx, data);
   }
 
-  /** Create a node through the standard mapping service flow. */
-  async createNode(data: CreateMapNodeDTO) {
-    return this.mappingService.createNode(data);
+  async createNode(ctx: TenantContext, data: CreateMapNodeDTO) {
+    return this.mappingService.createNode(ctx, data);
   }
 }

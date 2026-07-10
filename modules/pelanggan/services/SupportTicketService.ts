@@ -131,6 +131,7 @@ export class SupportTicketService {
       customerId,
       TicketStatus.CLOSED,
       new Date(),
+      input.rating,
     );
     await this.repository.createReply({
       ticketId,

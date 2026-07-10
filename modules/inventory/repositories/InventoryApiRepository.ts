@@ -143,8 +143,11 @@ export class InventoryApiRepository {
   }
 
   /** Ambil ringkasan purchase request untuk proses receive/start shopping. */
-  async findPurchaseRequestProcessInfo(id: string) {
-    return this.purchaseRequestRepository.findPurchaseRequestProcessInfo(id);
+  async findPurchaseRequestProcessInfo(id: string, tenantId: string) {
+    return this.purchaseRequestRepository.findPurchaseRequestProcessInfo(
+      id,
+      tenantId,
+    );
   }
 
   /** Ambil summary opname berbasis stok dan opname terakhir. */

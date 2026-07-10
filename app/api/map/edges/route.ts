@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { getMappingService } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
@@ -15,40 +16,21 @@ const createEdgeSchema = z.object({
   notes: z.string().optional(),
 });
 
-/**
- * @swagger
- * /api/map/edges:
- *   get:
- *     summary: Get all map edges
- *     tags: [Map]
- */
 export const GET = createHandler(
-  {
-    auth: true,
-    permissions: ["map:read"],
-  },
-  async () => {
-    const edges = await service.getEdges();
+  { auth: true, permissions: ["map:read"] },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
+    const edges = await service.getEdges(tenantCtx);
     return apiSuccess(edges);
   },
 );
 
-/**
- * @swagger
- * /api/map/edges:
- *   post:
- *     summary: Create a new map edge
- *     tags: [Map]
- */
 export const POST = createHandler(
-  {
-    auth: true,
-    permissions: ["map:create"],
-    schema: createEdgeSchema,
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:create"], schema: createEdgeSchema },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const body = ctx.validated;
-    const newEdge = await service.createEdge(body);
+    const newEdge = await service.createEdge(tenantCtx, body);
 
     await logger.logActivity({
       action: "CREATE",

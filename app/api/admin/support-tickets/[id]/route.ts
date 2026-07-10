@@ -1,151 +1,106 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { hasPermission } from "@/lib/rbac";
 import { idSchema } from "@/lib/validations/common";
+import {
+  supportTicketUpdateSchema,
+  type SupportTicketUpdate,
+} from "@/lib/validations/support-ticket";
 import { logger } from "@/lib/logger";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
-import { supportTicketUpdateSchema } from "@/lib/validations/support-ticket";
 import * as z from "zod";
 
 const supportTicketRouteService = getAdminSupportTicketRouteService();
 
-/**
- * GET /api/admin/support-tickets/[id]
- * Get single support ticket with all replies
- */
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const user = ctx.session!.user;
-  const { id } = ctx.params;
-
-  if (!(await hasPermission("support:read"))) {
-    return ApiErrors.forbidden("Akses ditolak");
-  }
-
-  const parseResult = idSchema.safeParse(id);
-  if (!parseResult.success) {
-    return ApiErrors.badRequest("ID tidak valid", {
-      errors: z.flattenError(parseResult.error).fieldErrors,
-    });
-  }
-
-  const result = await supportTicketRouteService.getTicketById(
-    parseResult.data,
-    {
-      user,
-    },
-  );
-
-  if (!result.success) {
-    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
-    if (result.code === "FORBIDDEN") {
-      return ApiErrors.forbidden(result.error || "Akses ditolak");
+export const GET = createHandler(
+  { auth: true, permissions: ["support:read"] },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const parseResult = idSchema.safeParse(id);
+    if (!parseResult.success) {
+      return ApiErrors.badRequest("ID tidak valid", {
+        errors: z.flattenError(parseResult.error).fieldErrors,
+      });
     }
-    logger.error("[support-tickets/[id]] Get detail failed", {
-      error: result.error,
-    });
-    return ApiErrors.internalError("Gagal mengambil detail tiket");
-  }
-
-  return apiSuccess(result.data);
-});
-
-/**
- * PATCH /api/admin/support-tickets/[id]
- * Update ticket (status, priority, assignee)
- */
-export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user;
-  const { id } = ctx.params;
-
-  if (!(await hasPermission("support:update"))) {
-    return ApiErrors.forbidden("Akses ditolak");
-  }
-
-  const idParseResult = idSchema.safeParse(id);
-  if (!idParseResult.success) {
-    return ApiErrors.badRequest("ID tidak valid", {
-      errors: z.flattenError(idParseResult.error).fieldErrors,
-    });
-  }
-
-  const body = await req.json();
-  const parseResult = supportTicketUpdateSchema.safeParse(body);
-  if (!parseResult.success) {
-    return ApiErrors.badRequest("Data tidak valid", {
-      errors: z.flattenError(parseResult.error).fieldErrors,
-    });
-  }
-
-  const updateData = {
-    ...(parseResult.data.status !== undefined && {
-      status: parseResult.data.status,
-    }),
-    ...(parseResult.data.priority !== undefined && {
-      priority: parseResult.data.priority,
-    }),
-    ...(parseResult.data.assignedToId !== undefined && {
-      assignedToId: parseResult.data.assignedToId,
-    }),
-    ...(parseResult.data.resolution && {
-      closingNote: parseResult.data.resolution,
-    }),
-  };
-
-  const result = await supportTicketRouteService.updateTicket(
-    idParseResult.data,
-    updateData,
-    { user },
-  );
-
-  if (!result.success) {
-    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
-    if (result.code === "FORBIDDEN") {
-      return ApiErrors.forbidden(result.error || "Akses ditolak");
+    const result = await supportTicketRouteService.getTicketById(
+      parseResult.data,
+      { user: ctx.session!.user },
+    );
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
+      if (result.code === "FORBIDDEN")
+        return ApiErrors.forbidden(result.error || "Akses ditolak");
+      logger.error("[support-tickets/[id]] Get detail failed", {
+        error: result.error,
+      });
+      return ApiErrors.internalError("Gagal mengambil detail tiket");
     }
-    logger.error("[support-tickets/[id]] Update failed", {
-      error: result.error,
-    });
-    return ApiErrors.internalError("Gagal mengupdate tiket");
-  }
+    return apiSuccess(result.data);
+  },
+);
 
-  return apiSuccess(result.data, { message: "Tiket berhasil diupdate" });
-});
-
-/**
- * DELETE /api/admin/support-tickets/[id]
- * Delete support ticket
- */
-export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  const user = ctx.session!.user;
-  const { id } = ctx.params;
-
-  if (!(await hasPermission("support:delete"))) {
-    return ApiErrors.forbidden("Akses ditolak");
-  }
-
-  const parseResult = idSchema.safeParse(id);
-  if (!parseResult.success) {
-    return ApiErrors.badRequest("ID tidak valid", {
-      errors: z.flattenError(parseResult.error).fieldErrors,
-    });
-  }
-
-  const result = await supportTicketRouteService.deleteTicket(
-    parseResult.data,
-    {
-      user,
-    },
-  );
-
-  if (!result.success) {
-    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
-    if (result.code === "FORBIDDEN") {
-      return ApiErrors.forbidden(result.error || "Akses ditolak");
+export const PATCH = createHandler(
+  {
+    auth: true,
+    permissions: ["support:update"],
+    schema: supportTicketUpdateSchema,
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const idParseResult = idSchema.safeParse(id);
+    if (!idParseResult.success) {
+      return ApiErrors.badRequest("ID tidak valid", {
+        errors: z.flattenError(idParseResult.error).fieldErrors,
+      });
     }
-    logger.error("[support-tickets/[id]] Delete failed", {
-      error: result.error,
-    });
-    return ApiErrors.internalError("Gagal menghapus tiket");
-  }
+    const validated = ctx.validated as SupportTicketUpdate;
+    const updateData = {
+      ...(validated.status !== undefined && { status: validated.status }),
+      ...(validated.priority !== undefined && { priority: validated.priority }),
+      ...(validated.assignedToId !== undefined && {
+        assignedToId: validated.assignedToId,
+      }),
+      ...(validated.resolution && { closingNote: validated.resolution }),
+    };
+    const result = await supportTicketRouteService.updateTicket(
+      idParseResult.data,
+      updateData,
+      { user: ctx.session!.user },
+    );
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
+      if (result.code === "FORBIDDEN")
+        return ApiErrors.forbidden(result.error || "Akses ditolak");
+      logger.error("[support-tickets/[id]] Update failed", {
+        error: result.error,
+      });
+      return ApiErrors.internalError("Gagal mengupdate tiket");
+    }
+    return apiSuccess(result.data, { message: "Tiket berhasil diupdate" });
+  },
+);
 
-  return apiSuccess(result.data, { message: "Tiket berhasil dihapus" });
-});
+export const DELETE = createHandler(
+  { auth: true, permissions: ["support:delete"] },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const parseResult = idSchema.safeParse(id);
+    if (!parseResult.success) {
+      return ApiErrors.badRequest("ID tidak valid", {
+        errors: z.flattenError(parseResult.error).fieldErrors,
+      });
+    }
+    const result = await supportTicketRouteService.deleteTicket(
+      parseResult.data,
+      { user: ctx.session!.user },
+    );
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
+      if (result.code === "FORBIDDEN")
+        return ApiErrors.forbidden(result.error || "Akses ditolak");
+      logger.error("[support-tickets/[id]] Delete failed", {
+        error: result.error,
+      });
+      return ApiErrors.internalError("Gagal menghapus tiket");
+    }
+    return apiSuccess(result.data, { message: "Tiket berhasil dihapus" });
+  },
+);

@@ -1,12 +1,14 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { getMappingAdminService } from "@/modules/map";
+import { SYNC_NODE_TYPES } from "@/modules/map";
+import { buildTenantContext } from "@/modules/map";
 import * as z from "zod";
 
 const service = getMappingAdminService();
 
 const nodeSchema = z.object({
   nodeId: z.string(),
-  type: z.enum(["server", "olt", "odc", "odp", "ont"]),
+  type: z.enum(SYNC_NODE_TYPES),
   name: z.string(),
   latitude: z.number(),
   longitude: z.number(),
@@ -42,29 +44,15 @@ const syncSchema = z.object({
   edges: z.array(edgeSchema),
 });
 
-/**
- * @swagger
- * /api/map/sync:
- *   post:
- *     summary: Bulk sync all mapping data
- *     tags: [Map]
- */
 export const POST = createHandler(
-  {
-    auth: true,
-    permissions: ["map:update"],
-    schema: syncSchema,
-  },
-  async (req, ctx) => {
+  { auth: true, permissions: ["map:update"], schema: syncSchema },
+  async (_req, ctx) => {
+    const tenantCtx = buildTenantContext(ctx.session?.user);
     const { nodes, edges } = ctx.validated;
-    await service.syncAllMappingData({ nodes, edges });
-
+    await service.syncAllMappingData(tenantCtx, { nodes, edges });
     return apiSuccess({
       message: "Mapping data synchronized successfully",
-      summary: {
-        nodes: nodes.length,
-        edges: edges.length,
-      },
+      summary: { nodes: nodes.length, edges: edges.length },
     });
   },
 );

@@ -197,9 +197,9 @@ export class InventoryRouteService {
     return this.repository.approvePurchaseRequest(input);
   }
 
-  /** Ambil info proses purchase request. */
-  async getPurchaseRequestProcessInfo(id: string) {
-    return this.repository.findPurchaseRequestProcessInfo(id);
+  /** Ambil info proses purchase request milik tenant tertentu. */
+  async getPurchaseRequestProcessInfo(id: string, tenantId: string) {
+    return this.repository.findPurchaseRequestProcessInfo(id, tenantId);
   }
 
   /** Ambil summary opname inventory. */

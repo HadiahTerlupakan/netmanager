@@ -89,6 +89,7 @@ export class SupportTicketMapper {
       updatedAt: entity.updatedAt,
       resolvedAt: entity.resolvedAt,
       closedAt: entity.closedAt,
+      rating: (entity as { rating?: number | null }).rating ?? null,
       pelanggan: entity.pelanggan
         ? {
             id: entity.pelanggan.id,
@@ -146,6 +147,7 @@ export class SupportTicketMapper {
       assignedToName: entity.assignedTo?.name ?? null,
       lastReplyAt: lastReply?.createdAt.toISOString() ?? null,
       unreadCount: 0,
+      rating: entity.rating ?? null,
     };
   }
 
@@ -167,6 +169,7 @@ export class SupportTicketMapper {
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
       closedAt: entity.closedAt?.toISOString() ?? null,
+      rating: entity.rating ?? null,
       pelanggan: entity.pelanggan
         ? {
             id: entity.pelanggan.id ?? "",

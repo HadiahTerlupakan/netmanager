@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { sanitizeAttachmentUrl } from "@/lib/utils/sanitize-attachment-url";
 import type { Reply, TicketDetail } from "./types";
+
+const NEAR_BOTTOM_THRESHOLD_PX = 100;
 
 interface MessagesListProps {
   ticket: TicketDetail;
@@ -12,14 +15,26 @@ interface MessagesListProps {
 }
 
 export function MessagesList({ ticket, replies }: MessagesListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = containerRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isNearBottom = distanceFromBottom < NEAR_BOTTOM_THRESHOLD_PX;
+    if (isFirstRenderRef.current || isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isFirstRenderRef.current ? "auto" : "smooth",
+      });
+      isFirstRenderRef.current = false;
+    }
   }, [replies]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
       {/* Initial Ticket Message */}
       <div className="flex justify-start">
         <div className="max-w-[80%] bg-white dark:bg-gray-800 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -90,22 +105,25 @@ function ReplyBubble({
           Array.isArray(reply.attachments) &&
           reply.attachments.length > 0 && (
             <div className="mt-3 space-y-2">
-              {reply.attachments.map((url, idx) => (
-                <a
-                  key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-lg overflow-hidden border border-black/10 dark:border-white/10 relative w-full h-60"
-                >
-                  <Image
-                    src={url}
-                    alt="Lampiran"
-                    fill
-                    className="object-cover"
-                  />
-                </a>
-              ))}
+              {reply.attachments.map((url, idx) => {
+                const safeUrl = sanitizeAttachmentUrl(url);
+                return (
+                  <a
+                    key={idx}
+                    href={safeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg overflow-hidden border border-black/10 dark:border-white/10 relative w-full h-60"
+                  >
+                    <Image
+                      src={safeUrl}
+                      alt="Lampiran"
+                      fill
+                      className="object-cover"
+                    />
+                  </a>
+                );
+              })}
             </div>
           )}
       </div>

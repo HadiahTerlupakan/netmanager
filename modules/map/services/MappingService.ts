@@ -11,179 +11,160 @@ import type {
   UpdateMapSettingsDTO,
 } from "../dto/MapDTO";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
+import type { TenantContext } from "../utils/tenantContext";
 import { MapFactory } from "../factories/MapFactory";
 import { MapMapper } from "../mappers/MapMapper";
 import { canAddOutgoingEdge } from "../validators/mapCapacityValidator";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 
 export class MappingService {
   constructor(private readonly repository: IMappingRepository) {}
 
-  /** Get all map data as DTOs. */
-  async getMappingData(): Promise<MapDataDTO> {
+  async getMappingData(ctx: TenantContext): Promise<MapDataDTO> {
     const [nodes, edges, settings] = await Promise.all([
-      this.repository.findAllNodes(),
-      this.repository.findAllEdges(),
-      this.repository.getSettings(),
+      this.repository.findAllNodes(ctx),
+      this.repository.findAllEdges(ctx),
+      this.repository.getSettings(ctx),
     ]);
-
     return MapMapper.toMapDataDTO({ nodes, edges, settings });
   }
 
-  /** Get all nodes as DTOs. */
-  async getNodes(): Promise<MapNodeListItemDTO[]> {
-    const nodes = await this.repository.findAllNodes();
+  async getNodes(ctx: TenantContext): Promise<MapNodeListItemDTO[]> {
+    const nodes = await this.repository.findAllNodes(ctx);
     return MapMapper.toNodeDTOList(nodes);
   }
 
-  /** Get single node by ID as DTO. */
-  async getNodeById(nodeId: string) {
-    const node = await this.repository.findNodeById(nodeId);
-    if (!node) {
-      return null;
-    }
-
-    const allEdges = await this.repository.findAllEdges();
-    const connectedEdges = allEdges.filter((edge) =>
-      this.isConnected(edge, nodeId),
-    );
+  async getNodeById(ctx: TenantContext, nodeId: string) {
+    const node = await this.repository.findNodeById(ctx, nodeId);
+    if (!node) return null;
+    const connectedEdges = await this.repository.findEdgesByNode(ctx, nodeId);
     return MapMapper.toNodeDetailDTO(node, connectedEdges);
   }
 
-  /** Get all edges as DTOs. */
-  async getEdges(): Promise<MapEdgeDTO[]> {
-    const edges = await this.repository.findAllEdges();
+  async getEdges(ctx: TenantContext): Promise<MapEdgeDTO[]> {
+    const edges = await this.repository.findAllEdges(ctx);
     return MapMapper.toEdgeDTOList(edges);
   }
 
-  /** Get single edge by ID as DTO. */
-  async getEdgeById(edgeId: string): Promise<MapEdgeDTO | null> {
-    const edge = await this.repository.findEdgeById(edgeId);
+  async getEdgeById(
+    ctx: TenantContext,
+    edgeId: string,
+  ): Promise<MapEdgeDTO | null> {
+    const edge = await this.repository.findEdgeById(ctx, edgeId);
     return edge ? MapMapper.toEdgeDTO(edge) : null;
   }
 
-  /** Get settings as DTO. */
-  async getSettings(): Promise<MapSettingsDTO | null> {
-    const settings = await this.repository.getSettings();
+  async getSettings(ctx: TenantContext): Promise<MapSettingsDTO | null> {
+    const settings = await this.repository.getSettings(ctx);
     return MapMapper.toSettingsDTO(settings);
   }
 
-  /** Calculate mapping statistics from domain entities. */
-  async getStatistics(): Promise<MapStatisticsDTO> {
+  async getStatistics(ctx: TenantContext): Promise<MapStatisticsDTO> {
     const [nodes, edges] = await Promise.all([
-      this.repository.findAllNodes(),
-      this.repository.findAllEdges(),
+      this.repository.findAllNodes(ctx),
+      this.repository.findAllEdges(ctx),
     ]);
-
     return MapMapper.toStatisticsDTO(nodes, edges);
   }
 
-  /** Create a new node and return DTO. */
-  async createNode(data: CreateMapNodeDTO): Promise<MapNodeListItemDTO> {
+  async createNode(
+    ctx: TenantContext,
+    data: CreateMapNodeDTO,
+  ): Promise<MapNodeListItemDTO> {
     const nodePayload = MapFactory.createFromDTO(data);
-    const node = await this.repository.createNode(nodePayload);
+    const node = await this.repository.createNode(ctx, nodePayload);
     return MapMapper.toNodeDTO(node);
   }
 
-  /** Update a node and return DTO. */
-  async updateNode(nodeId: string, data: UpdateMapNodeDTO) {
-    await this.ensureNodeExists(nodeId);
-    const node = await this.repository.updateNode(nodeId, data);
+  async updateNode(ctx: TenantContext, nodeId: string, data: UpdateMapNodeDTO) {
+    await this.ensureNodeExists(ctx, nodeId);
+    const node = await this.repository.updateNode(ctx, nodeId, data);
     return MapMapper.toNodeDTO(node);
   }
 
-  /** Create a new edge and return DTO. */
-  async createEdge(data: CreateMapEdgeDTO): Promise<MapEdgeDTO> {
-    await this.ensureEdgeNodesExist(data.source, data.target);
-    await this.ensureSourceHasCapacity(data.source);
-    const edge = await this.repository.createEdge(data);
+  async createEdge(
+    ctx: TenantContext,
+    data: CreateMapEdgeDTO,
+  ): Promise<MapEdgeDTO> {
+    await this.ensureEdgeNodesExist(ctx, data.source, data.target);
+    await this.ensureSourceHasCapacity(ctx, data.source);
+    const edge = await this.repository.createEdge(ctx, data);
     return MapMapper.toEdgeDTO(edge);
   }
 
-  /** Update an edge and return DTO. */
-  async updateEdge(edgeId: string, data: UpdateMapEdgeDTO) {
-    await this.ensureEdgeExists(edgeId);
-    const edge = await this.repository.updateEdge(edgeId, data);
+  async updateEdge(ctx: TenantContext, edgeId: string, data: UpdateMapEdgeDTO) {
+    await this.ensureEdgeExists(ctx, edgeId);
+    const edge = await this.repository.updateEdge(ctx, edgeId, data);
     return MapMapper.toEdgeDTO(edge);
   }
 
-  /** Update settings and return DTO. */
-  async updateSettings(data: UpdateMapSettingsDTO): Promise<MapSettingsDTO> {
-    const settings = await this.repository.updateSettings(data);
-    return MapMapper.toSettingsDTO(settings) as MapSettingsDTO;
+  async updateSettings(
+    ctx: TenantContext,
+    data: UpdateMapSettingsDTO,
+  ): Promise<MapSettingsDTO> {
+    const settings = await this.repository.updateSettings(ctx, data);
+    return MapMapper.toSettingsDTORequired(settings);
   }
 
-  /** Delete node and return DTO. */
-  async deleteNode(nodeId: string): Promise<MapNodeListItemDTO> {
-    await this.ensureNodeExists(nodeId);
-    const node = await this.repository.deleteNode(nodeId);
-    return MapMapper.toNodeDTO(node);
-  }
-
-  /** Delete edge and return DTO. */
-  async deleteEdge(edgeId: string): Promise<MapEdgeDTO> {
-    await this.ensureEdgeExists(edgeId);
-    const edge = await this.repository.deleteEdge(edgeId);
-    return MapMapper.toEdgeDTO(edge);
-  }
-
-  /** Check whether edge is connected to node. */
-  private isConnected(
-    edge: { source: string; target: string },
+  async deleteNode(
+    ctx: TenantContext,
     nodeId: string,
-  ): boolean {
-    return edge.source === nodeId || edge.target === nodeId;
+  ): Promise<MapNodeListItemDTO> {
+    const node = await this.repository.deleteNode(ctx, nodeId);
+    return MapMapper.toNodeDTO(node);
   }
 
-  /** Ensure the requested node exists. */
-  private async ensureNodeExists(nodeId: string): Promise<void> {
-    const existingNode = await this.repository.findNodeById(nodeId);
-    if (!existingNode) {
-      throw new Error("NODE_NOT_FOUND");
-    }
+  async deleteEdge(ctx: TenantContext, edgeId: string): Promise<MapEdgeDTO> {
+    const edge = await this.repository.deleteEdge(ctx, edgeId);
+    return MapMapper.toEdgeDTO(edge);
   }
 
-  /** Ensure the requested edge exists. */
-  private async ensureEdgeExists(edgeId: string): Promise<void> {
-    const existingEdge = await this.repository.findEdgeById(edgeId);
-    if (!existingEdge) {
-      throw new Error("EDGE_NOT_FOUND");
-    }
+  private async ensureNodeExists(
+    ctx: TenantContext,
+    nodeId: string,
+  ): Promise<void> {
+    const node = await this.repository.findNodeById(ctx, nodeId);
+    if (!node) throw new NotFoundError("Node");
   }
 
-  /** Ensure source and target nodes exist before edge creation. */
+  private async ensureEdgeExists(
+    ctx: TenantContext,
+    edgeId: string,
+  ): Promise<void> {
+    const edge = await this.repository.findEdgeById(ctx, edgeId);
+    if (!edge) throw new NotFoundError("Edge");
+  }
+
   private async ensureEdgeNodesExist(
+    ctx: TenantContext,
     source: string,
     target: string,
   ): Promise<void> {
     const [sourceNode, targetNode] = await Promise.all([
-      this.repository.findNodeById(source),
-      this.repository.findNodeById(target),
+      this.repository.findNodeById(ctx, source),
+      this.repository.findNodeById(ctx, target),
     ]);
-
-    if (!sourceNode) {
-      throw new Error("SOURCE_NODE_NOT_FOUND");
-    }
-
-    if (!targetNode) {
-      throw new Error("TARGET_NODE_NOT_FOUND");
-    }
+    if (!sourceNode) throw new NotFoundError("Source node");
+    if (!targetNode) throw new NotFoundError("Target node");
   }
 
-  /** Ensure a source node has available capacity. */
-  private async ensureSourceHasCapacity(sourceNodeId: string): Promise<void> {
-    const sourceNode = await this.repository.findNodeById(sourceNodeId);
-    if (!sourceNode) {
-      throw new Error("SOURCE_NODE_NOT_FOUND");
-    }
+  private async ensureSourceHasCapacity(
+    ctx: TenantContext,
+    sourceNodeId: string,
+  ): Promise<void> {
+    const sourceNode = await this.repository.findNodeById(ctx, sourceNodeId);
+    if (!sourceNode) throw new NotFoundError("Source node");
 
-    const currentConnections =
-      await this.repository.countEdgesFromSource(sourceNodeId);
-    if (canAddOutgoingEdge(sourceNode, currentConnections)) {
-      return;
-    }
-
-    throw new Error(
-      `CAPACITY_FULL:${sourceNode.name}:${currentConnections}/${sourceNode.capacity}`,
+    const currentConnections = await this.repository.countEdgesFromSource(
+      ctx,
+      sourceNodeId,
     );
+    if (canAddOutgoingEdge(sourceNode, currentConnections)) return;
+
+    throw new ValidationError(`Kapasitas penuh: ${sourceNode.name}`, {
+      node: sourceNode.name,
+      used: currentConnections,
+      capacity: sourceNode.capacity,
+    });
   }
 }

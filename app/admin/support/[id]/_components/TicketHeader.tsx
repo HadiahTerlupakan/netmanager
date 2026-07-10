@@ -51,11 +51,13 @@ export function TicketHeader({
           onChange={(e) => onStatusChange(e.target.value)}
           className={`px-3 py-1.5 text-sm font-medium rounded-lg border ${getStatusBorderColor(status)} focus:outline-none focus:ring-2 focus:ring-teal-500`}
         >
-          {TICKET_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          {TICKET_STATUS_OPTIONS.filter((opt) => opt.value !== "CLOSED").map(
+            (opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ),
+          )}
         </select>
         {status !== "CLOSED" && (
           <Button

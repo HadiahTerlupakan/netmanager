@@ -11,6 +11,8 @@ import {
   DEFAULT_NODE_CAPACITY,
   DEFAULT_SYNC_NODE_CAPACITY,
 } from "../utils/mapConstants";
+import { normalizeSyncType } from "../domain/nodeType";
+import type { SyncNodeType } from "../domain/nodeType";
 
 export type MappingTransactionClient = Prisma.TransactionClient;
 
@@ -99,12 +101,13 @@ export function toPrismaMetadata(
 export async function createManyMappingNodes(
   transaction: MappingTransactionClient,
   nodes: SyncMapDataInput["nodes"],
+  tenantId: string | null | undefined,
 ) {
   if (nodes.length === 0) return;
   await transaction.mappingNode.createMany({
     data: nodes.map((node) => ({
       nodeId: node.nodeId,
-      type: node.type === "server" ? "olt" : node.type,
+      type: normalizeSyncType(node.type as SyncNodeType),
       name: node.name,
       latitude: node.latitude,
       longitude: node.longitude,
@@ -113,6 +116,7 @@ export async function createManyMappingNodes(
       pppoe: node.pppoe ?? null,
       serialNumber: node.serialNumber ?? null,
       notes: node.notes ?? null,
+      tenantId: tenantId ?? null,
     })),
   });
 }
@@ -120,6 +124,7 @@ export async function createManyMappingNodes(
 export async function createManyMappingEdges(
   transaction: MappingTransactionClient,
   edges: SyncMapDataInput["edges"],
+  tenantId: string | null | undefined,
 ) {
   if (edges.length === 0) return;
   await transaction.mappingEdge.createMany({
@@ -131,6 +136,7 @@ export async function createManyMappingEdges(
       distance: edge.distance ?? null,
       waypoints: edge.waypoints ?? null,
       notes: edge.notes ?? null,
+      tenantId: tenantId ?? null,
     })),
   });
 }

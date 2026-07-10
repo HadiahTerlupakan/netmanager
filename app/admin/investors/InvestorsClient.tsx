@@ -5,8 +5,8 @@ import { toast } from "react-hot-toast";
 import PageLoader from "@/components/ui/PageLoader";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
-import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { useApi } from "@/lib/hooks/useApi";
+import { formatForDateInput } from "@/lib/utils/datetime";
 import {
   HiOutlinePlus,
   HiOutlineUsers,
@@ -16,122 +16,82 @@ import {
   HiOutlinePower,
   HiOutlineEye,
 } from "react-icons/hi2";
+import type { InvestorListItem, InvestorDetail } from "@/modules/investor/dto";
+import {
+  InvestorFormModal,
+  type InvestorFormValues,
+} from "./_components/InvestorFormModal";
+import { InvestorDetailModal } from "./_components/InvestorDetailModal";
+import { PayoutModal, type PayoutFormValues } from "./_components/PayoutModal";
+import { ConfirmModal } from "./_components/ConfirmModal";
 
-interface Investor {
-  id: string;
-  username: string;
-  namaLengkap: string;
-  email: string | null;
-  noTelp: string | null;
-  perusahaan: string | null;
-  isActive: boolean;
-  createdAt: string;
-  _count?: {
-    rabProjects: number;
-    payouts?: number;
-  };
-}
+const EMPTY_INVESTOR_FORM: InvestorFormValues = {
+  username: "",
+  password: "",
+  namaLengkap: "",
+  email: "",
+  noTelp: "",
+  perusahaan: "",
+};
 
-interface RabProjectItem {
-  id: string;
-  profitSharePercent: number;
-  investmentAmount: number | string;
-  rabProject?: {
-    name: string;
-    site?: {
-      name: string;
-    };
-  };
-}
+const buildEmptyPayoutForm = (): PayoutFormValues => ({
+  amount: "",
+  date: formatForDateInput(new Date()),
+  bankName: "",
+  accountNumber: "",
+  accountName: "",
+  reference: "",
+  notes: "",
+});
 
-interface DetailData extends Investor {
-  rabProjects?: RabProjectItem[];
-  payouts?: Array<{
-    id: string;
-    amount: string | number;
-    date: string | Date;
-    bankName?: string | null;
-    status: string;
-  }>;
-}
+type ConfirmState = {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  variant: "danger" | "warning" | "primary";
+  onConfirm: () => void;
+};
+
+const EMPTY_CONFIRM: ConfirmState = {
+  isOpen: false,
+  title: "",
+  message: "",
+  variant: "primary",
+  onConfirm: () => {},
+};
 
 export default function InvestorsClient() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("investors:create");
+  const canUpdate = hasPermission("investors:update");
+  const canDelete = hasPermission("investors:delete");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [detailData, setDetailData] = useState<DetailData | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const canUpdate = hasPermission("investors:update");
-  const canDelete = hasPermission("investors:delete");
+  const [detailData, setDetailData] = useState<InvestorDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<ConfirmState>(EMPTY_CONFIRM);
 
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    variant: "danger" | "warning" | "primary";
-  }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: () => {},
-    variant: "primary",
-  });
-
-  // Form state
-  const [form, setForm] = useState({
-    username: "",
-    password: "",
-    namaLengkap: "",
-    email: "",
-    noTelp: "",
-    perusahaan: "",
-  });
-
-  const [payoutForm, setPayoutForm] = useState({
-    amount: "",
-    date: (() => {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    })(),
-    bankName: "",
-    accountNumber: "",
-    accountName: "",
-    reference: "",
-    notes: "",
-  });
+  const [form, setForm] = useState<InvestorFormValues>(EMPTY_INVESTOR_FORM);
+  const [payoutForm, setPayoutForm] = useState<PayoutFormValues>(
+    buildEmptyPayoutForm(),
+  );
 
   const {
     data: investorsData,
     isLoading: loading,
     mutate: refetchInvestors,
-  } = useApi<Investor[]>("/api/admin/investors", {
-    onError: () => {
-      toast.error("Terjadi kesalahan saat memuat data investor");
-    },
+  } = useApi<InvestorListItem[]>("/api/admin/investors", {
+    onError: () => toast.error("Terjadi kesalahan saat memuat data investor"),
   });
   const investors = investorsData ?? [];
 
-  const fetchInvestors = () => {
-    void refetchInvestors();
-  };
-
-  const resetForm = () => {
-    setForm({
-      username: "",
-      password: "",
-      namaLengkap: "",
-      email: "",
-      noTelp: "",
-      perusahaan: "",
-    });
-  };
+  const closeConfirm = () =>
+    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
   const handleAdd = async () => {
     if (!form.username || !form.password || !form.namaLengkap) {
@@ -149,8 +109,8 @@ export default function InvestorsClient() {
       if (res.ok) {
         toast.success("Investor berhasil ditambahkan");
         setShowAddModal(false);
-        resetForm();
-        fetchInvestors();
+        setForm(EMPTY_INVESTOR_FORM);
+        void refetchInvestors();
       } else {
         toast.error(data.message || "Gagal menambahkan investor");
       }
@@ -200,19 +160,8 @@ export default function InvestorsClient() {
       if (res.ok) {
         toast.success("Payout berhasil dicatat");
         setShowPayoutModal(false);
-        setPayoutForm({
-          amount: "",
-          date: (() => {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          })(),
-          bankName: "",
-          accountNumber: "",
-          accountName: "",
-          reference: "",
-          notes: "",
-        });
-        handleViewDetail(detailData!.id); // Refresh details
+        setPayoutForm(buildEmptyPayoutForm());
+        if (detailData) void handleViewDetail(detailData.id);
       } else {
         toast.error(data.message || "Gagal mencatat payout");
       }
@@ -223,7 +172,7 @@ export default function InvestorsClient() {
     }
   };
 
-  const handleEditClick = (inv: Investor) => {
+  const handleEditClick = (inv: InvestorListItem) => {
     setForm({
       username: inv.username,
       password: "",
@@ -252,8 +201,8 @@ export default function InvestorsClient() {
       if (res.ok) {
         toast.success("Data Investor berhasil diperbarui");
         setShowEditModal(false);
-        resetForm();
-        fetchInvestors();
+        setForm(EMPTY_INVESTOR_FORM);
+        void refetchInvestors();
       } else {
         toast.error(data.message || "Gagal memperbarui investor");
       }
@@ -264,7 +213,7 @@ export default function InvestorsClient() {
     }
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+  const handleToggleStatus = (id: string, currentStatus: boolean) => {
     setConfirmModal({
       isOpen: true,
       title: currentStatus ? "Nonaktifkan Investor" : "Aktifkan Investor",
@@ -279,7 +228,7 @@ export default function InvestorsClient() {
           });
           if (res.ok) {
             toast.success("Status Investor berhasil diubah");
-            fetchInvestors();
+            void refetchInvestors();
           } else {
             const data = await res.json();
             toast.error(data.message || "Gagal mengubah status");
@@ -287,13 +236,13 @@ export default function InvestorsClient() {
         } catch {
           toast.error("Terjadi kesalahan");
         } finally {
-          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          closeConfirm();
         }
       },
     });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     setConfirmModal({
       isOpen: true,
       title: "Hapus Investor Permanen",
@@ -307,7 +256,7 @@ export default function InvestorsClient() {
           });
           if (res.ok) {
             toast.success("Investor berhasil dihapus");
-            fetchInvestors();
+            void refetchInvestors();
           } else {
             const data = await res.json();
             toast.error(data.message || "Gagal menghapus investor");
@@ -315,13 +264,13 @@ export default function InvestorsClient() {
         } catch {
           toast.error("Terjadi kesalahan");
         } finally {
-          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          closeConfirm();
         }
       },
     });
   };
 
-  const columns: Column<Investor>[] = [
+  const columns: Column<InvestorListItem>[] = [
     {
       key: "namaLengkap",
       header: "Investor",
@@ -430,92 +379,6 @@ export default function InvestorsClient() {
     },
   ];
 
-  const renderFormFields = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Username *
-        </label>
-        <input
-          type="text"
-          value={form.username}
-          onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              username: e.target.value.toLowerCase().replace(/\s/g, ""),
-            }))
-          }
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="investor1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Password *
-        </label>
-        <input
-          type="password"
-          value={form.password}
-          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="••••••••"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Nama Lengkap / PIC *
-        </label>
-        <input
-          type="text"
-          value={form.namaLengkap}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, namaLengkap: e.target.value }))
-          }
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="Nama lengkap"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Institusi / Perusahaan (Opsional)
-        </label>
-        <input
-          type="text"
-          value={form.perusahaan}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, perusahaan: e.target.value }))
-          }
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="PT Investor Kapital"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Email
-        </label>
-        <input
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="email@contoh.com"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          No. Handphone
-        </label>
-        <input
-          type="text"
-          value={form.noTelp}
-          onChange={(e) => setForm((f) => ({ ...f, noTelp: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          placeholder="08xxxxxxxxxx"
-        />
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -530,7 +393,7 @@ export default function InvestorsClient() {
         {canCreate && (
           <button
             onClick={() => {
-              resetForm();
+              setForm(EMPTY_INVESTOR_FORM);
               setShowAddModal(true);
             }}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
@@ -594,353 +457,53 @@ export default function InvestorsClient() {
         )}
       </div>
 
-      <Modal
+      <InvestorFormModal
         isOpen={showAddModal}
+        saving={saving}
+        form={form}
+        onChange={setForm}
         onClose={() => setShowAddModal(false)}
-        title="Tambah Investor Baru"
-        size="lg"
-      >
-        {renderFormFields()}
-        <ModalFooter>
-          <button
-            onClick={() => setShowAddModal(false)}
-            disabled={saving}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleAdd}
-            disabled={saving}
-            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors disabled:opacity-50"
-          >
-            {saving ? "Menyimpan..." : "Simpan"}
-          </button>
-        </ModalFooter>
-      </Modal>
+        onSubmit={handleAdd}
+      />
 
-      <Modal
+      <InvestorFormModal
         isOpen={showEditModal}
+        isEdit
+        saving={saving}
+        form={form}
+        onChange={setForm}
         onClose={() => setShowEditModal(false)}
-        title="Edit Investor"
-        size="lg"
-      >
-        <div className="mb-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Peringatan: Kosongkan password jika Anda tidak ingin mengubahnya.
-          </p>
-        </div>
-        {renderFormFields()}
-        <ModalFooter>
-          <button
-            onClick={() => setShowEditModal(false)}
-            disabled={saving}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleSaveEdit}
-            disabled={saving}
-            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors disabled:opacity-50"
-          >
-            {saving ? "Menyimpan..." : "Simpan Perubahan"}
-          </button>
-        </ModalFooter>
-      </Modal>
+        onSubmit={handleSaveEdit}
+      />
 
-      <Modal
+      <InvestorDetailModal
         isOpen={showDetailModal}
+        loading={loadingDetail}
+        data={detailData}
         onClose={() => {
           setShowDetailModal(false);
           setDetailData(null);
         }}
-        title="Detail Investor"
-        size="lg"
-      >
-        <div className="min-h-[300px] p-2">
-          {loadingDetail ? (
-            <PageLoader
-              variant="section"
-              message="Memuat informasi lengkap investor..."
-            />
-          ) : detailData ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 border-b border-gray-100 dark:border-gray-800 pb-4">
-                <div>
-                  <p className="text-sm text-gray-500">Nama Lengkap</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {detailData.namaLengkap}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Telepon / Email</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {detailData.noTelp || "-"} / {detailData.email || "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Perusahaan</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {detailData.perusahaan || "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <span
-                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${detailData.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                  >
-                    {detailData.isActive ? "Aktif" : "Nonaktif"}
-                  </span>
-                </div>
-              </div>
+        onCreatePayout={() => setShowPayoutModal(true)}
+      />
 
-              <div>
-                <h4 className="text-md font-bold text-gray-900 dark:text-white mb-3">
-                  Daftar Proyek RAB yang didanai (
-                  {detailData.rabProjects?.length || 0})
-                </h4>
-                {detailData.rabProjects && detailData.rabProjects.length > 0 ? (
-                  <div className="space-y-3 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
-                    {detailData.rabProjects.map((rp) => (
-                      <div
-                        key={rp.id}
-                        className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h5 className="font-bold text-gray-900 dark:text-white">
-                              {rp.rabProject?.name}
-                            </h5>
-                            <p className="text-xs text-gray-500">
-                              Site: {rp.rabProject?.site?.name || "Global"}
-                            </p>
-                          </div>
-                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded">
-                            Bagi Hasil: {rp.profitSharePercent}%
-                          </span>
-                        </div>
-                        <div className="mt-3 flex justify-between text-sm">
-                          <span className="text-gray-500">
-                            Nilai Investasi:
-                          </span>
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            Rp{" "}
-                            {Number(rp.investmentAmount).toLocaleString(
-                              "id-ID",
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">
-                    Belum ada proyek yang didanai.
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-3 mt-4">
-                  <h4 className="text-md font-bold text-gray-900 dark:text-white">
-                    Riwayat Payout Terakhir
-                  </h4>
-                  <button
-                    onClick={() => setShowPayoutModal(true)}
-                    className="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
-                  >
-                    Catat Payout Baru
-                  </button>
-                </div>
-                {detailData.payouts && detailData.payouts.length > 0 ? (
-                  <div className="space-y-3 max-h-[150px] overflow-y-auto custom-scrollbar">
-                    {detailData.payouts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 text-sm"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="font-bold text-gray-900 dark:text-white">
-                              Rp {Number(p.amount).toLocaleString("id-ID")}
-                            </span>
-                            <p className="text-xs text-gray-500 uppercase">
-                              {new Date(p.date).toLocaleDateString("id-ID")} -{" "}
-                              {p.bankName || "Transfer Bank"}
-                            </p>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
-                          >
-                            {p.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic mb-2">
-                    Belum ada riwayat payout.
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-red-500">
-              Gagal memuat data.
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      {/* Payout Modal */}
-      <Modal
+      <PayoutModal
         isOpen={showPayoutModal}
+        saving={saving}
+        form={payoutForm}
+        onChange={setPayoutForm}
         onClose={() => setShowPayoutModal(false)}
-        title="Pencatatan Payout Investor"
-        size="md"
-      >
-        <div className="space-y-4 py-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nominal Payout (Rp) *
-            </label>
-            <input
-              type="number"
-              value={payoutForm.amount}
-              onChange={(e) =>
-                setPayoutForm({ ...payoutForm, amount: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tanggal Payout *
-            </label>
-            <input
-              type="date"
-              value={payoutForm.date}
-              onChange={(e) =>
-                setPayoutForm({ ...payoutForm, date: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Bank Tujuan Opsional
-              </label>
-              <input
-                type="text"
-                value={payoutForm.bankName}
-                onChange={(e) =>
-                  setPayoutForm({ ...payoutForm, bankName: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                placeholder="BCA / Mandiri"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                No Rekening
-              </label>
-              <input
-                type="text"
-                value={payoutForm.accountNumber}
-                onChange={(e) =>
-                  setPayoutForm({
-                    ...payoutForm,
-                    accountNumber: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nama Pemilik Rekening *
-            </label>
-            <input
-              type="text"
-              value={payoutForm.accountName}
-              onChange={(e) =>
-                setPayoutForm({ ...payoutForm, accountName: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              placeholder="Nama sesuai di buku tabungan"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Catatan Tambahan
-            </label>
-            <textarea
-              value={payoutForm.notes}
-              onChange={(e) =>
-                setPayoutForm({ ...payoutForm, notes: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              rows={2}
-            />
-          </div>
-        </div>
-        <ModalFooter>
-          <button
-            onClick={() => setShowPayoutModal(false)}
-            disabled={saving}
-            className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleSavePayout}
-            disabled={saving}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-          >
-            {saving ? "Menyimpan..." : "Simpan Payout"}
-          </button>
-        </ModalFooter>
-      </Modal>
+        onSubmit={handleSavePayout}
+      />
 
-      {/* Confirmation Modal */}
-      <Modal
+      <ConfirmModal
         isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
         title={confirmModal.title}
-        size="sm"
-      >
-        <div className="py-2">
-          <p className="text-gray-600 dark:text-gray-400">
-            {confirmModal.message}
-          </p>
-        </div>
-        <ModalFooter>
-          <button
-            onClick={() =>
-              setConfirmModal((prev) => ({ ...prev, isOpen: false }))
-            }
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Batal
-          </button>
-          <button
-            onClick={confirmModal.onConfirm}
-            className={`px-4 py-2 text-white rounded-lg transition-colors ${
-              confirmModal.variant === "danger"
-                ? "bg-red-600 hover:bg-red-700"
-                : confirmModal.variant === "warning"
-                  ? "bg-orange-500 hover:bg-orange-600"
-                  : "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600"
-            }`}
-          >
-            Konfirmasi
-          </button>
-        </ModalFooter>
-      </Modal>
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        onClose={closeConfirm}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 }

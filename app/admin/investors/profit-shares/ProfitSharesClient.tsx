@@ -205,79 +205,15 @@ export default function ProfitSharesClient() {
     "ALL",
   );
 
-  // Fetch all profit shares — gunakan endpoint list by period dengan range lebar
-  // atau fallback ke endpoint yang tersedia. Karena tidak ada GET /profit-shares
-  // global, kita fetch via calculate endpoint tidak bisa. Gunakan investor list
-  // lalu aggregate — tapi lebih simpel: fetch dari endpoint yang ada.
-  // API yang tersedia: GET /api/admin/investors/[id]/profit-shares (per investor)
-  // Untuk list global, kita perlu endpoint baru atau fetch semua investor dulu.
-  // [Asumsi: gunakan endpoint /api/admin/investors/profit-shares/calculate sebagai
-  // POST-only; untuk list, gunakan /api/admin/investors dengan expand profit-shares
-  // tidak tersedia. Solusi: fetch investors list lalu fetch profit-shares per investor
-  // — terlalu banyak request. Alternatif: buat state lokal yang diisi setelah calculate,
-  // dan tambahkan query param ke deposits endpoint yang sudah ada.]
-  //
-  // Setelah review API: tidak ada GET global untuk profit-shares.
-  // Solusi terbaik: fetch investors list, lalu fetch profit-shares per investor
-  // secara parallel. Tapi ini N+1. Alternatif pragmatis: tampilkan hasil kalkulasi
-  // dari response calculate, dan simpan di state. Untuk list existing, perlu
-  // endpoint baru — tapi task ini hanya UI, bukan API.
-  //
-  // [Asumsi final]: Gunakan state lokal untuk menampilkan hasil kalkulasi terbaru,
-  // dan fetch dari /api/admin/investors untuk mendapatkan investor IDs, lalu
-  // fetch profit-shares per investor. Ini adalah pola yang paling sesuai dengan
-  // API yang tersedia tanpa membuat endpoint baru.
-
-  const { data: investorsData, isLoading: loadingInvestors } = useApi<
-    Array<{ id: string; namaLengkap: string; perusahaan: string | null }>
-  >("/api/admin/investors", {
-    onError: () => toast.error("Gagal memuat daftar investor"),
+  const {
+    data: sharesData,
+    isLoading,
+    mutate: refetchShares,
+  } = useApi<ProfitShare[]>("/api/admin/investors/profit-shares", {
+    onError: () => toast.error("Gagal memuat data bagi hasil"),
   });
 
-  const investors = investorsData ?? [];
-
-  // Fetch profit shares untuk semua investor (parallel)
-  // Karena useApi tidak bisa dipanggil dalam loop, kita gunakan state + manual fetch
-  const [profitShares, setProfitShares] = useState<ProfitShare[]>([]);
-  const [loadingShares, setLoadingShares] = useState(false);
-  const [sharesFetched, setSharesFetched] = useState(false);
-
-  async function fetchAllProfitShares() {
-    if (investors.length === 0) return;
-    setLoadingShares(true);
-    try {
-      const results = await Promise.all(
-        investors.map(async (inv) => {
-          const res = await fetch(
-            `/api/admin/investors/${inv.id}/profit-shares`,
-          );
-          if (!res.ok) return [];
-          const data = await res.json();
-          const shares: ProfitShare[] = (data.data ?? []).map(
-            (s: ProfitShare) => ({
-              ...s,
-              investor: {
-                namaLengkap: inv.namaLengkap,
-                perusahaan: inv.perusahaan,
-              },
-            }),
-          );
-          return shares;
-        }),
-      );
-      setProfitShares(results.flat());
-      setSharesFetched(true);
-    } catch {
-      toast.error("Gagal memuat data bagi hasil");
-    } finally {
-      setLoadingShares(false);
-    }
-  }
-
-  // Auto-fetch saat investors tersedia
-  if (!sharesFetched && investors.length > 0 && !loadingShares) {
-    void fetchAllProfitShares();
-  }
+  const profitShares = sharesData ?? [];
 
   const filteredShares =
     statusFilter === "ALL"
@@ -304,7 +240,7 @@ export default function ProfitSharesClient() {
       const data = await res.json();
       if (res.ok) {
         toast.success("Bagi hasil berhasil disetujui");
-        void fetchAllProfitShares();
+        void refetchShares();
       } else {
         toast.error(data.message || "Gagal menyetujui bagi hasil");
       }
@@ -329,7 +265,7 @@ export default function ProfitSharesClient() {
       const data = await res.json();
       if (res.ok) {
         toast.success("Bagi hasil berhasil ditandai sebagai dibayar");
-        void fetchAllProfitShares();
+        void refetchShares();
       } else {
         toast.error(data.message || "Gagal menandai pembayaran");
       }
@@ -339,8 +275,6 @@ export default function ProfitSharesClient() {
       setActionLoading(null);
     }
   }
-
-  const isLoading = loadingInvestors || loadingShares;
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -392,7 +326,7 @@ export default function ProfitSharesClient() {
       {canManage && (
         <CalculateForm
           onSuccess={() => {
-            setSharesFetched(false);
+            void refetchShares();
           }}
         />
       )}

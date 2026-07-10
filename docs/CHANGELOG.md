@@ -41,6 +41,257 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-10] — Bug fixes & refactor modul admin/investors
+
+- **Tipe**: [FIXED] [CHANGED] [ADDED]
+- **Scope**: `modules/investor`, `app/api/admin/investors`, `app/admin/investors`
+- **Author**: agent
+- **Deskripsi**: Perbaikan 10 bug & code smell pada modul investor admin:
+  1. **[FIXED]** Deposits endpoint hanya kembalikan PENDING — ditambah support filter `?status=` sehingga filter UI (VERIFIED, COMPLETED, REJECTED) berfungsi.
+  2. **[FIXED]** N+1 fetch profit shares (1 request per investor) — diganti dengan 1 endpoint global `GET /api/admin/investors/profit-shares`.
+  3. **[FIXED]** Auto-fetch profit shares di render body (bukan useEffect) — diperbaiki dengan `useApi` hook yang reactive.
+  4. **[FIXED]** Field typo `companies` → `perusahaan` di `ctx.validated` audit trail PUT investor.
+  5. **[FIXED]** Email uniqueness tidak dicek saat `createInvestor` — guard ditambah di `InvestorAdminService`.
+  6. **[FIXED]** Module-level service instantiation di `payouts/route.ts` dan `detail/route.ts` — diganti ke factory `getInvestorPayoutAdminService()`.
+  7. **[FIXED]** Double-calculate profit share periode sama — ditambah guard `existsForInvestorPeriod` di repository + service.
+  8. **[CHANGED]** Duplikasi tipe `Investor`/`DetailData` di client — dipindah ke `modules/investor/dto` sebagai `InvestorListItem`, `InvestorDetail`, `InvestorRabProjectItem`, `InvestorPayoutEntry`.
+  9. **[CHANGED]** `InvestorsClient.tsx` god component (946 baris, 5 modal) — dipecah jadi `InvestorFormModal`, `InvestorDetailModal`, `PayoutModal`, `ConfirmModal` di `_components/`.
+  10. **[CHANGED]** Duplikasi logika format tanggal hari ini — diganti dengan `formatForDateInput(new Date())` dari `lib/utils/datetime`.
+  11. **[ADDED]** Endpoint `GET /api/admin/investors/profit-shares` (global list dengan opsional `?status=` filter).
+- **Files**:
+  - `modules/investor/repositories/InvestorDepositRepository.ts` — tambah `listAll()`
+  - `modules/investor/repositories/InvestorProfitShareRepository.ts` — tambah `listAll()`, `existsForInvestorPeriod()`
+  - `modules/investor/services/InvestorDepositService.ts` — tambah `listAllByTenant()`
+  - `modules/investor/services/InvestorProfitShareService.ts` — tambah `listAllByTenant()`, guard duplikasi kalkulasi
+  - `modules/investor/services/InvestorAdminService.ts` — tambah email uniqueness check saat create
+  - `modules/investor/dto/index.ts` — tambah tipe `InvestorListItem`, `InvestorDetail`, `InvestorRabProjectItem`, `InvestorPayoutEntry`
+  - `app/api/admin/investors/deposits/route.ts` — support `?status=` filter
+  - `app/api/admin/investors/profit-shares/route.ts` — endpoint baru (GET global)
+  - `app/api/admin/investors/[id]/payouts/route.ts` — factory pattern
+  - `app/api/admin/investors/[id]/detail/route.ts` — factory pattern
+  - `app/api/admin/investors/[id]/route.ts` — fix typo field audit trail
+  - `app/admin/investors/InvestorsClient.tsx` — rewrite lean, gunakan sub-komponen
+  - `app/admin/investors/_components/` — 4 file komponen baru
+  - `app/admin/investors/deposits/DepositsClient.tsx` — pass `?status=` ke endpoint
+  - `app/admin/investors/profit-shares/ProfitSharesClient.tsx` — pakai endpoint global
+- **Breaking**: ❌ Tidak
+
+### [2026-07-10] — Hardening & quality fixes admin/support tickets (Phase 1–5 PRD)
+
+- **Tipe**: [SECURITY] [CHANGED] [FIXED] [MIGRATION]
+- **Scope**: `app/admin/support`, `app/api/admin/support-tickets`, `modules/pelanggan`, `lib/utils`, `lib/api`, `lib/upload`, `prisma`
+- **Author**: agent
+- **Deskripsi**: Implementasi PRD `docs/reports/PRD_ADMIN_SUPPORT_FIXES_2026-07-10.md`
+  Phase 1–5. Menutup 2 celah security Critical, menstandarkan permission check,
+  menambah kolom rating, split file UI besar, dan backfill test coverage.
+- **Breaking**: ❌ Tidak
+
+  **Phase 1 — Security Critical**:
+  - **[SECURITY]** Fix bypass tenancy di `app/api/admin/support-tickets/[id]/reply/route.ts`:
+    `checkSiteRestriction(ctx.session as never, "support")` sebelumnya selalu return
+    `isRestricted: false` karena `ctx.session.user` tidak punya `permissions` (disimpan
+    terpisah di `ctx.permissions`). Admin dengan `support:site_only` bisa membalas tiket
+    pelanggan di luar site-nya. Fix: inject `permissions` via helper baru
+    `buildSessionWithPermissions` (`lib/api/build-session-with-permissions.ts`).
+  - **[SECURITY]** Sanitasi attachment URL di `MessagesList.tsx` & `ReplyComposer.tsx`
+    via `sanitizeAttachmentUrl` (`lib/utils/sanitize-attachment-url.ts`). Menetralisir
+    `javascript:`, `data:`, `vbscript:`, `file:` ke `"#"` — cegah XSS via attachment link.
+  - **[SECURITY]** Validasi magic-bytes di `SupportTicketUploadService` — sebelumnya
+    hanya cek `file.type` (spoofable browser). Kini cek signature byte asli via
+    `validateFileSignature` (`lib/utils/file-validation.ts`) yang di-extend untuk
+    mendukung `gif` + `webp` (RIFF+WEBP). File EXE yang diklaim `image/png` ditolak
+    dengan 400, bukan meledak di sharp.
+
+  **Phase 2 — API Hardening**:
+  - **[CHANGED]** 4 route (`route.ts`, `[id]/route.ts`, `[id]/reply/route.ts`,
+    `unread-count/route.ts`) distandarkan ke `createHandler({ permissions })` —
+    hapus manual `hasPermission()` yang duplikasi fetch permission.
+  - **[CHANGED]** Reply route pakai Zod schema `supportTicketReplySchema`
+    (`modules/pelanggan/validators/support-ticket.ts`) untuk body validation,
+    `idSchema` untuk param, dan `ctx.validated` typed.
+  - **[CHANGED]** Helper `buildSessionWithPermissions` di-share via `@/lib/api` export.
+  - **[CHANGED]** `unread-count` route tambah `Cache-Control: private, max-age=30`
+    untuk polling sidebar.
+  - **[CHANGED]** `search` filter dibatasi `.max(200)` di `supportTicketFilterSchema`.
+
+  **Phase 3 — Rating Column**:
+  - **[MIGRATION]** `prisma/migrations/20260710120000_add_rating_to_support_ticket`:
+    tambah kolom `rating Int?` + composite index `@@index([status, rating])` di
+    `SupportTickets`. Applied via `prisma db push` (dev DB ada drift history).
+  - **[CHANGED]** Wire `rating` through domain entity → DTO (list/detail) →
+    mapper (`toDomain`/`toListItem`/`toDetail`) → repository interface +
+    impl + prisma-helpers (`updateCustomerStatus`) → service
+    (`SupportTicketService.closeCustomerTicket` persist `input.rating`).
+  - **[CHANGED]** `admin-support-ticket-list.helpers.ts`: `calculateAverageRating`
+    preferensi DB column `rating`, fallback ke emoji-scrape untuk tiket lama
+    (anti double-count).
+  - **[CHANGED]** Frontend `SupportContent.tsx`: `extractRating` baca `ticket.rating`
+    dulu, fallback emoji.
+
+  **Phase 4 — UX & Code Quality**:
+  - **[FIXED]** `MessagesList.tsx`: auto-scroll hanya saat user near-bottom (threshold
+    100px) atau first render — tidak lagi paksa jump ke bawah saat user baca history.
+  - **[FIXED]** `CloseTicketModal.tsx`: reset state `resolution` saat cancel/confirm,
+    tambah `maxLength={2000}`.
+  - **[FIXED]** `TicketHeader.tsx`: filter opsi `CLOSED` dari dropdown status —
+    close butuh konfirmasi via modal (tombol X), bukan dropdown langsung.
+  - **[FIXED]** `CustomerInfoSidebar.tsx`: `encodeURIComponent` untuk `tel:` & `mailto:`;
+    work-order draft via `sessionStorage` bukan URL query string (description panjang).
+  - **[CHANGED]** `SupportContent.tsx` split dari 518 → 182 baris + 3 sub-komponen
+    (`StatCard.tsx`, `FilterBar.tsx`, `TicketTable.tsx`) di `_components/`.
+  - **[CHANGED]** Unifikasi dictionary status/priority/category di
+    `app/admin/support/[id]/_components/types.ts` — hapus duplikasi antara list & detail.
+  - **[FIXED]** `SupportDetailClient.tsx`: hapus `unwrapTicket` dead branch —
+    API selalu return `TicketDetail` langsung.
+  - **[FIXED]** `SupportContent.tsx`: clamp `page` saat `totalPages` berkurang.
+  - **[CHANGED]** `useTicketActions.ts`: magic string `"RESOLVED"`/`"CLOSED"` →
+    `TicketStatus` enum; hapus `void ticket` dead code; `sendClosingMessage`
+    signature disederhanakan.
+
+  **Phase 5 — Test Coverage**:
+  - **[ADDED]** `tests/unit/sanitize-attachment-url.test.ts` (11 tests).
+  - **[ADDED]** `tests/lib/file-validation.test.ts` (7 tests: JPEG/PNG/GIF/WEBP
+    signatures, spoof rejection, empty allowedTypes).
+  - **[ADDED]** `tests/lib/build-session-with-permissions.test.ts` (4 tests).
+  - **[CHANGED]** `tests/modules/pelanggan/SupportTicketUploadService.test.ts`:
+    tambah scenario spoofed MIME + 5MB limit (5 tests, dari 3).
+  - **[ADDED]** `tests/api/admin/support-tickets/reply.test.ts` (6 tests:
+    empty body, site_only scope pass, happy path, FORBIDDEN→403,
+    VALIDATION_ERROR→400, NOT_FOUND→404).
+  - Total: baseline 592 files / 3409 tests → **596 files / 3439 tests pass**,
+    zero regression.
+
+### [2026-07-09] — Refactor module admin/users end-to-end sesuai PRD
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/users`, `app/api/admin/users`, `modules/users`, `lib/permission-config.ts`, `modules/roles`
+- **Author**: agent
+- **Deskripsi**: Implementasi PRD `docs/specifications/admin-users-refactor-prd.md`
+  mencakup 8 task logis untuk menghapus anti-pattern React, memperbaiki bug
+  type-safety, memindahkan method ke service yang tepat, migrasi fetch ke
+  TanStack Query, dan mengekstrak duplikasi UI. Detail per task:
+  (1) **[FIXED]** Bug cast `overtimeCalcTypeNational` di `UserRepository.create`
+  & `createWithSites` — sebelumnya di-cast ke `overtimeCalcTypeNormal` (copy-paste
+  bug lolos compiler karena `as`). Ekstrak helper `mapUserEnumFields` untuk
+  cegah duplikasi cast.
+  (2) **[CHANGED]** Pindah `forceLogoutUser` dari `AdminUserRouteAdminUserPerformanceRouteService` ke
+  `AdminUserRouteService` (correct ownership: force-logout = user-management,
+  bukan performance metric). Tambah method `incrementTokenVersion` di
+  `IUserRepository` + `UserRepository`. Route `/api/admin/users/[id]/force-logout`
+  diupdate ke service yang benar.
+  (3) **[SECURITY]** Tambah permission `users:force_logout` sebagai granular
+  permission terpisah dari `users:update`. Sebelumnya UI & route memakai
+  `users:update` sebagai alias — leak: admin edit user otomatis bisa force-logout.
+  Ditambah di `GRANULAR_PERMISSIONS`, `RoleFactory` (default role admin),
+  route API, dan UI `UserList.tsx`.
+  (4) **[FIXED]** Hapus render-phase `setState` di `useUserList` (pola
+  `if (prev !== curr) setState(...)` di render body — melanggar
+  `react-hooks/set-state-in-effect`). Dipecah jadi 3 hook terfokus:
+  `useUserFetch`, `useUserSelection`, `useUserMutations`. `useUserList` jadi
+  orchestrator tipis.
+  (5) **[CHANGED]** Migrasi fetch ke TanStack Query `useApi` sesuai
+  `docs/standards/data-fetching.md`. `useUserFetch` memakai `useApi` dengan
+  URL sebagai key → dedup, cache, dan abort otomatis saat filter berubah.
+  `fetchAdminUserDetail` return `UserDetailDTO | null` (bukan `unknown`).
+  (6) **[CHANGED]** Hapus type alias `UserData` di `UsersDetailClient.tsx`
+  (mempertahankan duplikasi field `department`/`departments` & `site`/`sites`).
+  Consumer langsung pakai `UserDetailDTO`.
+  (7) **[CHANGED]** Ekstrak `<OrganizationSection>` dan `<StatusAndSalesSection>`
+  ke `components/UserFormSections.tsx` — dipakai di `UsersNewClient` &
+  `UsersDetailClient` untuk hapus ~200 LOC duplikasi.
+  (8) **[FIXED]** `MultiSiteSelect.toggleSite` diubah jadi immutable (sebelumnya
+  mutasi object langsung di array hasil filter → potensi bug subtle).
+- **Files**:
+  `modules/users/repositories/UserRepository.ts`,
+  `modules/users/domain/ports/IUserRepository.ts`,
+  `modules/users/services/AdminUserRouteService.ts`,
+  `modules/users/services/AdminUserPerformanceRouteService.ts`,
+  `app/api/admin/users/[id]/force-logout/route.ts`,
+  `lib/permission-config.ts`,
+  `modules/roles/factories/RoleFactory.ts`,
+  `app/admin/users/UserList.tsx`,
+  `app/admin/users/lib/useUserList.ts`,
+  `app/admin/users/lib/useUserFetch.ts` (baru),
+  `app/admin/users/lib/useUserSelection.ts` (baru),
+  `app/admin/users/lib/useUserMutations.ts` (baru),
+  `app/admin/users/lib/userDetailApi.ts`,
+  `app/admin/users/[id]/UsersDetailClient.tsx`,
+  `app/admin/users/new/UsersNewClient.tsx`,
+  `app/admin/users/components/UserFormSections.tsx` (baru),
+  `app/admin/users/components/MultiSiteSelect.tsx`,
+  `docs/specifications/admin-users-refactor-prd.md` (baru)
+- **Breaking**: ✅ Ya — permission `users:force_logout` terpisah. Admin yang
+  sebelumnya hanya punya `users:update` TANPA `users:force_logout` akan
+  kehilangan tombol & endpoint force-logout sampai seed permission dijalankan
+  (`npm run prisma:seed`). Role admin baru otomatis dapat permission ini via
+  `RoleFactory`.
+
+### [2026-07-09] — Perbaiki domain purity dan minWidth kolom restock
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map/domain`, `modules/map/utils`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Dua kegagalan test diperbaiki: (1) `modules/map/domain/tenantContext.ts`
+  melanggar domain purity test karena mengimpor `TenantContextError` dari `@/lib/prisma-extension`.
+  Solusi: pindahkan file ke `modules/map/utils/tenantContext.ts` sehingga domain layer tetap
+  bersih. Update semua importir (`MappingRepository`, `MappingService`, `MappingAdminService`,
+  `IMappingRepository`, `modules/map/index.ts`). (2) Test `restock-table.test.tsx` gagal karena
+  kolom "nomor" di `RestockTable` memiliki `minWidth: "14rem"` sedangkan test mengekspektasikan
+  `"18rem"`. Diperbaiki dengan mengubah nilai tersebut.
+- **Files**: `modules/map/utils/tenantContext.ts` (baru, pindahan dari `domain/`),
+  `modules/map/domain/tenantContext.ts` (dihapus),
+  `modules/map/domain/ports/IMappingRepository.ts`,
+  `modules/map/repositories/MappingRepository.ts`,
+  `modules/map/services/MappingService.ts`,
+  `modules/map/services/MappingAdminService.ts`,
+  `modules/map/index.ts`,
+  `app/admin/inventory/restock/RestockTable.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-09] — Tutup celah tenant isolasi menu restock
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`, `app/api/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Tiga titik akses restock tidak memfilter `tenantId` saat
+  mengambil record purchase request berdasarkan `id`, sehingga tenant A bisa
+  membaca detail, approve/reject, serta trigger receive/start-shopping pada
+  PR milik tenant B cukup dengan menebak ID. Diperbaiki dengan menyuntikkan
+  `tenantId` dari session ke dalam query (`findUnique` → `findFirst` dengan
+  filter `{ id, tenantId }`) di `getRestockRequestDetail`,
+  `getPurchaseRequestForLifecycle`, dan `findPurchaseRequestProcessInfo`.
+  Akses cross-tenant sekarang kembali 404.
+- **Files**: `modules/inventory/services/RestockRequestService.ts`,
+  `modules/inventory/services/RestockRequestLifecycleService.ts`,
+  `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`,
+  `modules/inventory/repositories/InventoryApiRepository.ts`,
+  `modules/inventory/services/InventoryRouteService.ts`,
+  `app/api/inventory/restock/requests/[id]/route.ts`,
+  `app/api/inventory/restock/requests/[id]/receive/route.ts`,
+  `app/api/inventory/restock/requests/[id]/process/route.ts`,
+  `tests/api/inventory-restock-request-lifecycle-routes.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-09] — Refactor admin/map: 10 perbaikan code smell & security
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/map`, `app/api/map`, `app/admin/map`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
+- **Author**: agent
+- **Deskripsi**: Refactor menyeluruh module map mengikuti Clean Architecture. 10 fix + 3 security hardening dari Oracle review:
+  1. [SECURITY] Tenant isolation di semua repo reads/mutations (`buildTenantWhere`/`buildTenantContext`). Hardened: non-superadmin tanpa tenantId lempar `TenantContextError` (bukan bypass filter). `deleteNode` cascade edges kini filter tenant. `updateNode`/`updateEdge` kini atomic via `updateMany({ where: { nodeId, tenantId } })` — eliminasi TOCTOU.
+  2. Hapus akses `prisma`+`bcrypt` dari `MappingAdminService`, delegasi ke `UserService.verifyUserPassword` via port `UserPasswordVerifier`.
+  3. `throw new Error("NODE_NOT_FOUND"...)` → `NotFoundError`/`ValidationError`; hapus string-compare di routes; `AppError`→statusCode di `lib/api/handler.ts`.
+  4. Hapus `as MapSettingsDTO` cast via `toSettingsDTORequired`.
+  5. Fix N+1 `getNodeById` via `findEdgesByNode` (WHERE source OR target).
+  6. Hapus dead code `MapModuleFactory.ts` + `MapServiceSingletons.ts`.
+  7. SOT `nodeType.ts` (`CANONICAL_NODE_TYPES`/`SYNC_NODE_TYPES`/`NODE_TYPE_DEFAULTS`/`normalizeSyncType`).
+  8. `z.any()` → `z.record(z.string(), z.unknown())` di node create schema.
+  9. Import order `app/admin/map/page.tsx`.
+  10. `MapSettings.updateSettings` thread `tenantId` dari ctx saat create row baru.
+- **Files**: `modules/map/domain/ports/IMappingRepository.ts`, `modules/map/domain/tenantContext.ts` (new), `modules/map/domain/nodeType.ts` (new), `modules/map/repositories/MappingRepository.ts`, `modules/map/repositories/mapping-repository.helpers.ts`, `modules/map/services/MappingService.ts`, `modules/map/services/MappingAdminService.ts`, `modules/map/services/createMappingService.ts`, `modules/map/mappers/MapMapper.ts`, `modules/map/factories/MapFactory.ts`, `modules/map/utils/mapConstants.ts`, `modules/map/index.ts`, `app/api/map/*.ts`, `app/admin/map/page.tsx`, `lib/api/handler.ts`, `modules/users/services/UserService.ts`
+- **Breaking**: ✅ Ya — `IMappingRepository` & `MappingService` signatures berubah (semua method butuh `TenantContext`).
+- **Migration**: ❌ Tidak ada.
+
 ### [2026-07-09] — Perbaiki code smell module restock
 
 - **Tipe**: [FIXED]

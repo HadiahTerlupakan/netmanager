@@ -115,4 +115,12 @@ export class InvestorDepositService {
   async listPending(tenantId: string) {
     return this.depositRepo.listPending(tenantId);
   }
+
+  /** Mengambil semua deposit untuk tenant, opsional filter by status. */
+  async listAllByTenant(
+    tenantId: string,
+    filter?: { status?: InvestorDepositStatus },
+  ) {
+    return this.depositRepo.listAll(tenantId, filter);
+  }
 }

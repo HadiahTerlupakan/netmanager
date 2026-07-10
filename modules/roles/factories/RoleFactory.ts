@@ -24,6 +24,7 @@ export class RoleFactory {
         "users:create",
         "users:update",
         "users:delete",
+        "users:force_logout",
         // Pelanggan
         "pelanggan:read",
         "pelanggan:create",
