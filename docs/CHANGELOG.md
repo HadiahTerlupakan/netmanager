@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-10] — Bug fixes & refactor modul admin/investors
+
+- **Tipe**: [FIXED] [CHANGED] [ADDED]
+- **Scope**: `modules/investor`, `app/api/admin/investors`, `app/admin/investors`
+- **Author**: agent
+- **Deskripsi**: Perbaikan 10 bug & code smell pada modul investor admin:
+  1. **[FIXED]** Deposits endpoint hanya kembalikan PENDING — ditambah support filter `?status=` sehingga filter UI (VERIFIED, COMPLETED, REJECTED) berfungsi.
+  2. **[FIXED]** N+1 fetch profit shares (1 request per investor) — diganti dengan 1 endpoint global `GET /api/admin/investors/profit-shares`.
+  3. **[FIXED]** Auto-fetch profit shares di render body (bukan useEffect) — diperbaiki dengan `useApi` hook yang reactive.
+  4. **[FIXED]** Field typo `companies` → `perusahaan` di `ctx.validated` audit trail PUT investor.
+  5. **[FIXED]** Email uniqueness tidak dicek saat `createInvestor` — guard ditambah di `InvestorAdminService`.
+  6. **[FIXED]** Module-level service instantiation di `payouts/route.ts` dan `detail/route.ts` — diganti ke factory `getInvestorPayoutAdminService()`.
+  7. **[FIXED]** Double-calculate profit share periode sama — ditambah guard `existsForInvestorPeriod` di repository + service.
+  8. **[CHANGED]** Duplikasi tipe `Investor`/`DetailData` di client — dipindah ke `modules/investor/dto` sebagai `InvestorListItem`, `InvestorDetail`, `InvestorRabProjectItem`, `InvestorPayoutEntry`.
+  9. **[CHANGED]** `InvestorsClient.tsx` god component (946 baris, 5 modal) — dipecah jadi `InvestorFormModal`, `InvestorDetailModal`, `PayoutModal`, `ConfirmModal` di `_components/`.
+  10. **[CHANGED]** Duplikasi logika format tanggal hari ini — diganti dengan `formatForDateInput(new Date())` dari `lib/utils/datetime`.
+  11. **[ADDED]** Endpoint `GET /api/admin/investors/profit-shares` (global list dengan opsional `?status=` filter).
+- **Files**:
+  - `modules/investor/repositories/InvestorDepositRepository.ts` — tambah `listAll()`
+  - `modules/investor/repositories/InvestorProfitShareRepository.ts` — tambah `listAll()`, `existsForInvestorPeriod()`
+  - `modules/investor/services/InvestorDepositService.ts` — tambah `listAllByTenant()`
+  - `modules/investor/services/InvestorProfitShareService.ts` — tambah `listAllByTenant()`, guard duplikasi kalkulasi
+  - `modules/investor/services/InvestorAdminService.ts` — tambah email uniqueness check saat create
+  - `modules/investor/dto/index.ts` — tambah tipe `InvestorListItem`, `InvestorDetail`, `InvestorRabProjectItem`, `InvestorPayoutEntry`
+  - `app/api/admin/investors/deposits/route.ts` — support `?status=` filter
+  - `app/api/admin/investors/profit-shares/route.ts` — endpoint baru (GET global)
+  - `app/api/admin/investors/[id]/payouts/route.ts` — factory pattern
+  - `app/api/admin/investors/[id]/detail/route.ts` — factory pattern
+  - `app/api/admin/investors/[id]/route.ts` — fix typo field audit trail
+  - `app/admin/investors/InvestorsClient.tsx` — rewrite lean, gunakan sub-komponen
+  - `app/admin/investors/_components/` — 4 file komponen baru
+  - `app/admin/investors/deposits/DepositsClient.tsx` — pass `?status=` ke endpoint
+  - `app/admin/investors/profit-shares/ProfitSharesClient.tsx` — pakai endpoint global
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-10] — Hardening & quality fixes admin/support tickets (Phase 1–5 PRD)
 
 - **Tipe**: [SECURITY] [CHANGED] [FIXED] [MIGRATION]

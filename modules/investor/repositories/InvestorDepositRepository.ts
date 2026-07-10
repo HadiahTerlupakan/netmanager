@@ -83,6 +83,21 @@ export class InvestorDepositRepository {
     return deposits.map((d) => ({ ...d, amount: Number(d.amount) }));
   }
 
+  /** Mengambil semua deposit untuk tenant, opsional filter by status. */
+  async listAll(tenantId: string, filter?: { status?: InvestorDepositStatus }) {
+    const deposits = await prisma.investorDeposit.findMany({
+      where: {
+        tenantId,
+        ...(filter?.status ? { status: filter.status } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        investor: { select: { namaLengkap: true, perusahaan: true } },
+      },
+    });
+    return deposits.map((d) => ({ ...d, amount: Number(d.amount) }));
+  }
+
   /** Update status deposit. */
   async updateStatus(id: string, data: UpdateDepositStatusInput) {
     const deposit = await prisma.investorDeposit.update({

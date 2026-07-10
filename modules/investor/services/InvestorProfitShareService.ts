@@ -1,6 +1,7 @@
 import { InvestorProfitShareRepository } from "../repositories/InvestorProfitShareRepository";
 import { InvestorConfigRepository } from "../repositories/InvestorConfigRepository";
 import { InvestorDepositRepository } from "../repositories/InvestorDepositRepository";
+import type { InvestorProfitShareStatus } from "@prisma/client";
 
 export class InvestorProfitShareService {
   constructor(
@@ -13,6 +14,7 @@ export class InvestorProfitShareService {
    * Menghitung bagi hasil untuk semua investor aktif dalam periode tertentu.
    * Mode FIXED: gunakan fixedSharePercent dari config.
    * Mode PROPORTIONAL: hitung berdasarkan proporsi deposit terhadap total.
+   * Skip investor yang sudah punya record periode sama (cegah duplikasi kalkulasi).
    */
   async calculateForPeriod(
     tenantId: string,
@@ -27,6 +29,14 @@ export class InvestorProfitShareService {
 
     const results = await Promise.all(
       configs.map(async (config) => {
+        const alreadyCalculated =
+          await this.profitShareRepo.existsForInvestorPeriod(
+            config.investorId,
+            periodStart,
+            periodEnd,
+          );
+        if (alreadyCalculated) return null;
+
         let sharePercent: number;
 
         if (config.shareMode === "FIXED") {
@@ -55,7 +65,7 @@ export class InvestorProfitShareService {
       }),
     );
 
-    return results;
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 
   /** Approve profit share: CALCULATED → APPROVED. */
@@ -96,6 +106,14 @@ export class InvestorProfitShareService {
   /** Mengambil daftar profit share berdasarkan investor. */
   async listByInvestor(investorId: string) {
     return this.profitShareRepo.listByInvestor(investorId);
+  }
+
+  /** Mengambil semua profit share untuk tenant, opsional filter by status. */
+  async listAllByTenant(
+    tenantId: string,
+    filter?: { status?: InvestorProfitShareStatus },
+  ) {
+    return this.profitShareRepo.listAll(tenantId, filter);
   }
 
   /** Mengambil daftar profit share berdasarkan periode. */

@@ -96,25 +96,29 @@ export default function DepositsClient() {
   }>({ isOpen: false, depositId: "", reason: "" });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  const depositUrl =
+    statusFilter === "ALL"
+      ? "/api/admin/investors/deposits"
+      : `/api/admin/investors/deposits?status=${statusFilter}`;
+
   const {
     data: depositsData,
     isLoading,
     mutate: refetch,
-  } = useApi<Deposit[]>("/api/admin/investors/deposits", {
+  } = useApi<Deposit[]>(depositUrl, {
     onError: () => toast.error("Gagal memuat data setoran"),
   });
 
   const allDeposits = depositsData ?? [];
+  const filteredDeposits = allDeposits;
 
-  const filteredDeposits =
-    statusFilter === "ALL"
-      ? allDeposits
-      : allDeposits.filter((d) => d.status === statusFilter);
-
-  const pendingCount = allDeposits.filter((d) => d.status === "PENDING").length;
-  const pendingTotal = allDeposits
-    .filter((d) => d.status === "PENDING")
-    .reduce((sum, d) => sum + d.amount, 0);
+  const { data: pendingDeposits } = useApi<Deposit[]>(
+    "/api/admin/investors/deposits?status=PENDING",
+    { onError: () => {} },
+  );
+  const pendingList = pendingDeposits ?? [];
+  const pendingCount = pendingList.length;
+  const pendingTotal = pendingList.reduce((sum, d) => sum + d.amount, 0);
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -250,11 +254,6 @@ export default function DepositsClient() {
             }`}
           >
             {opt.label}
-            {opt.value !== "ALL" && (
-              <span className="ml-1.5 opacity-70">
-                ({allDeposits.filter((d) => d.status === opt.value).length})
-              </span>
-            )}
           </button>
         ))}
       </div>

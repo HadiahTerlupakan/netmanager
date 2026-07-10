@@ -78,6 +78,41 @@ export class InvestorProfitShareRepository {
     }));
   }
 
+  /** Mengambil semua profit share untuk tenant, opsional filter by status. */
+  async listAll(
+    tenantId: string,
+    filter?: { status?: InvestorProfitShareStatus },
+  ) {
+    const records = await prisma.investorProfitShare.findMany({
+      where: {
+        tenantId,
+        ...(filter?.status ? { status: filter.status } : {}),
+      },
+      include: {
+        investor: { select: { namaLengkap: true, perusahaan: true } },
+      },
+      orderBy: [{ periodStart: "desc" }, { createdAt: "desc" }],
+    });
+    return records.map((r) => ({
+      ...r,
+      netProfit: Number(r.netProfit),
+      shareAmount: Number(r.shareAmount),
+    }));
+  }
+
+  /** Cek apakah sudah ada profit share untuk investor+periode (untuk cegah duplikasi kalkulasi). */
+  async existsForInvestorPeriod(
+    investorId: string,
+    periodStart: Date,
+    periodEnd: Date,
+  ): Promise<boolean> {
+    const record = await prisma.investorProfitShare.findFirst({
+      where: { investorId, periodStart, periodEnd },
+      select: { id: true },
+    });
+    return record !== null;
+  }
+
   /** Update status profit share. */
   async updateStatus(
     id: string,

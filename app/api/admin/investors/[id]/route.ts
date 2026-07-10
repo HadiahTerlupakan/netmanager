@@ -70,7 +70,7 @@ export const PUT = createHandler(
       return internalError(result.error || "Gagal memperbarui investor");
     }
 
-    ctx.validated = { id, username, namaLengkap, companies: perusahaan, email };
+    ctx.validated = { id, username, namaLengkap, perusahaan, email };
 
     return apiSuccess(result.data);
   },
