@@ -8,7 +8,7 @@ export const supportTicketFilterSchema = z.object({
   status: z.enum(TicketStatus).optional(),
   category: z.enum(TicketCategory).optional(),
   priority: z.enum(TicketPriority).optional(),
-  search: z.string().optional(),
+  search: z.string().max(200).optional(),
   assignedToMe: z
     .enum(["true", "false"])
     .optional()
@@ -40,3 +40,13 @@ export const supportTicketUpdateSchema = z.object({
 });
 
 export type SupportTicketUpdate = z.infer<typeof supportTicketUpdateSchema>;
+
+/** Validate payload untuk membalas support ticket. */
+export const supportTicketReplySchema = z.object({
+  message: z.string().max(5000).optional(),
+  updateStatus: z.enum(TicketStatus).optional(),
+  sendWhatsApp: z.boolean().optional(),
+  attachments: z.array(z.string().url()).max(10).optional(),
+});
+
+export type SupportTicketReply = z.infer<typeof supportTicketReplySchema>;

@@ -4,9 +4,11 @@ export {
   supportTicketCreateSchema,
   supportTicketFilterSchema,
   supportTicketUpdateSchema,
+  supportTicketReplySchema,
 } from "./validators/support-ticket";
 export type {
   SupportTicketCreate,
   SupportTicketFilter,
   SupportTicketUpdate,
+  SupportTicketReply,
 } from "./validators/support-ticket";

@@ -1,4 +1,9 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+  createHandler,
+  apiSuccess,
+  ApiErrors,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { getAdminSupportTicketService } from "@/modules/pelanggan";
 import { supportTicketFilterSchema } from "@/lib/validations/support-ticket";
 import { checkSiteRestriction } from "@/modules/roles";
@@ -38,18 +43,12 @@ export const GET = createHandler(
     const validated = parseResult.data;
 
     // Site restriction logic
-    const sessionWithPermissions = {
-      ...session,
-      user: {
-        ...session.user,
-        permissions,
-      },
-    };
+    const sessionWithPermissions = buildSessionWithPermissions(
+      session,
+      permissions,
+    );
     const { primarySiteId, isRestricted: hasSiteRestriction } =
-      checkSiteRestriction(
-        sessionWithPermissions as Parameters<typeof checkSiteRestriction>[0],
-        "support",
-      );
+      checkSiteRestriction(sessionWithPermissions, "support");
 
     // Build service filters
     const serviceFilters = {
