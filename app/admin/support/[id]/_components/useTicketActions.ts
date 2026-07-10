@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { TicketStatus } from "@prisma/client";
 import { useToast } from "@/components/ui/Toast";
 import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
 import { clientLogger } from "@/lib/client-logger";
-import type { Reply, TicketDetail } from "./types";
-
-const RESOLVED_STATUS = "RESOLVED";
-const CLOSED_STATUS = "CLOSED";
+import type { Reply } from "./types";
 
 interface UseTicketActionsArgs {
   ticketId: string;
@@ -30,7 +28,7 @@ interface UseTicketActionsResult {
   sendReply: (args: SendReplyArgs) => Promise<{ ok: boolean; reply?: Reply }>;
   changeStatus: (newStatus: string) => Promise<boolean>;
   closeTicket: (resolution: string) => Promise<boolean>;
-  sendClosingMessage: (ticket: TicketDetail) => Promise<boolean>;
+  sendClosingMessage: () => Promise<boolean>;
   sending: boolean;
   closing: boolean;
   sendingClosingMsg: boolean;
@@ -127,7 +125,7 @@ export function useTicketActions({
         {
           method: "PATCH",
           body: JSON.stringify({
-            status: CLOSED_STATUS,
+            status: TicketStatus.CLOSED,
             resolution: resolution.trim() || undefined,
           }),
         },
@@ -152,7 +150,7 @@ export function useTicketActions({
     }
   };
 
-  const sendClosingMessage = async (ticket: TicketDetail): Promise<boolean> => {
+  const sendClosingMessage = async (): Promise<boolean> => {
     setSendingClosingMsg(true);
     try {
       const closingMessage = buildClosingMessage(pelangganNama);
@@ -169,9 +167,7 @@ export function useTicketActions({
         return false;
       }
 
-      // Set status RESOLVED dan refresh data tiket
-      await changeStatus(RESOLVED_STATUS);
-      void ticket; // ticket arg dipertahankan untuk masa depan (mis. WA template)
+      await changeStatus(TicketStatus.RESOLVED);
       return true;
     } catch (error) {
       clientLogger.error("Error sending closing message:", error);

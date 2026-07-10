@@ -16,32 +16,20 @@ import { CloseTicketModal } from "./_components/CloseTicketModal";
 import { useTicketActions } from "./_components/useTicketActions";
 import type { TicketDetail } from "./_components/types";
 
-type TicketResponse = TicketDetail | { ticket?: TicketDetail };
-
-function unwrapTicket(
-  response: TicketResponse | undefined,
-): TicketDetail | null {
-  if (!response) return null;
-  if ("ticket" in response && response.ticket) return response.ticket;
-  return response as TicketDetail;
-}
-
 export function SupportDetailClient() {
   const router = useRouter();
   const params = useParams();
   const ticketId = params.id as string;
 
-  // Re-render via key={ticketId} dari Page memastikan state reset saat
-  // navigasi antar tiket — tidak butuh effect untuk reset.
   const [statusOverride, setStatusOverride] = useState<string | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
 
   const {
-    data: ticketResponse,
+    data: ticketData,
     isLoading,
     error: ticketError,
     mutate: refetchTicket,
-  } = useApi<TicketResponse>(`/api/admin/support-tickets/${ticketId}`);
+  } = useApi<TicketDetail>(`/api/admin/support-tickets/${ticketId}`);
 
   useEffect(() => {
     if (ticketError) {
@@ -49,7 +37,7 @@ export function SupportDetailClient() {
     }
   }, [ticketError]);
 
-  const ticket = unwrapTicket(ticketResponse);
+  const ticket = ticketData ?? null;
   const status = statusOverride ?? ticket?.status ?? "";
 
   // Real-time chat via WebSocket — initial replies dari ticket detail
@@ -137,7 +125,7 @@ export function SupportDetailClient() {
         ticket={ticket}
         status={status}
         sendingClosingMsg={actions.sendingClosingMsg}
-        onSendClosingMessage={() => actions.sendClosingMessage(ticket)}
+        onSendClosingMessage={() => actions.sendClosingMessage()}
       />
 
       <CloseTicketModal
