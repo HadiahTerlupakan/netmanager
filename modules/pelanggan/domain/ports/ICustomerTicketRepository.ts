@@ -168,6 +168,7 @@ export interface ICustomerTicketRepository {
     pelangganId: string,
     status: string,
     closedAt?: Date,
+    rating?: number | null,
   ): Promise<SupportTicketEntity | null>;
 
   /** Delete ticket by id. */

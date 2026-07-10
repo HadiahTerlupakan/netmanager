@@ -240,15 +240,18 @@ export async function updateCustomerOwnedTicketStatus(
   pelangganId: string,
   status: string,
   closedAt?: Date,
+  rating?: number | null,
 ) {
   const ticket = await prisma.supportTickets.updateMany({
     where: { id, pelangganId },
     data: {
       status: parseTicketStatus(status),
       ...(closedAt ? { closedAt } : {}),
+      ...(rating !== undefined
+        ? { rating: rating === null ? null : rating }
+        : {}),
     },
   });
-
   return ticket.count;
 }
 

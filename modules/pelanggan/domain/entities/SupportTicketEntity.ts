@@ -58,6 +58,7 @@ export interface SupportTicketEntity {
   updatedAt: Date;
   resolvedAt?: Date | null;
   closedAt?: Date | null;
+  rating?: number | null;
   replies?: SupportTicketReplyEntity[];
   pelanggan?: SupportTicketCustomerEntity | null;
   user?: SupportTicketAssigneeEntity | null;

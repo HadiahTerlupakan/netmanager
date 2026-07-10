@@ -29,6 +29,7 @@ export interface TicketListItemDTO {
   assignedToName: string | null;
   lastReplyAt: string | null;
   unreadCount: number;
+  rating: number | null;
 }
 
 /**
@@ -45,6 +46,7 @@ export interface TicketDetailDTO {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  rating: number | null;
   // Relations
   pelanggan: {
     id: string;
