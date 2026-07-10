@@ -7,6 +7,7 @@
 // Unified handler
 export { createHandler } from "./handler";
 export type { HandlerContext, HandlerOptions } from "./handler";
+export { buildSessionWithPermissions } from "./build-session-with-permissions";
 
 // Response utilities
 export {
