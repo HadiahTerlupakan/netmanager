@@ -41,6 +41,91 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-10] — Hardening & quality fixes admin/support tickets (Phase 1–5 PRD)
+
+- **Tipe**: [SECURITY] [CHANGED] [FIXED] [MIGRATION]
+- **Scope**: `app/admin/support`, `app/api/admin/support-tickets`, `modules/pelanggan`, `lib/utils`, `lib/api`, `lib/upload`, `prisma`
+- **Author**: agent
+- **Deskripsi**: Implementasi PRD `docs/reports/PRD_ADMIN_SUPPORT_FIXES_2026-07-10.md`
+  Phase 1–5. Menutup 2 celah security Critical, menstandarkan permission check,
+  menambah kolom rating, split file UI besar, dan backfill test coverage.
+- **Breaking**: ❌ Tidak
+
+  **Phase 1 — Security Critical**:
+  - **[SECURITY]** Fix bypass tenancy di `app/api/admin/support-tickets/[id]/reply/route.ts`:
+    `checkSiteRestriction(ctx.session as never, "support")` sebelumnya selalu return
+    `isRestricted: false` karena `ctx.session.user` tidak punya `permissions` (disimpan
+    terpisah di `ctx.permissions`). Admin dengan `support:site_only` bisa membalas tiket
+    pelanggan di luar site-nya. Fix: inject `permissions` via helper baru
+    `buildSessionWithPermissions` (`lib/api/build-session-with-permissions.ts`).
+  - **[SECURITY]** Sanitasi attachment URL di `MessagesList.tsx` & `ReplyComposer.tsx`
+    via `sanitizeAttachmentUrl` (`lib/utils/sanitize-attachment-url.ts`). Menetralisir
+    `javascript:`, `data:`, `vbscript:`, `file:` ke `"#"` — cegah XSS via attachment link.
+  - **[SECURITY]** Validasi magic-bytes di `SupportTicketUploadService` — sebelumnya
+    hanya cek `file.type` (spoofable browser). Kini cek signature byte asli via
+    `validateFileSignature` (`lib/utils/file-validation.ts`) yang di-extend untuk
+    mendukung `gif` + `webp` (RIFF+WEBP). File EXE yang diklaim `image/png` ditolak
+    dengan 400, bukan meledak di sharp.
+
+  **Phase 2 — API Hardening**:
+  - **[CHANGED]** 4 route (`route.ts`, `[id]/route.ts`, `[id]/reply/route.ts`,
+    `unread-count/route.ts`) distandarkan ke `createHandler({ permissions })` —
+    hapus manual `hasPermission()` yang duplikasi fetch permission.
+  - **[CHANGED]** Reply route pakai Zod schema `supportTicketReplySchema`
+    (`modules/pelanggan/validators/support-ticket.ts`) untuk body validation,
+    `idSchema` untuk param, dan `ctx.validated` typed.
+  - **[CHANGED]** Helper `buildSessionWithPermissions` di-share via `@/lib/api` export.
+  - **[CHANGED]** `unread-count` route tambah `Cache-Control: private, max-age=30`
+    untuk polling sidebar.
+  - **[CHANGED]** `search` filter dibatasi `.max(200)` di `supportTicketFilterSchema`.
+
+  **Phase 3 — Rating Column**:
+  - **[MIGRATION]** `prisma/migrations/20260710120000_add_rating_to_support_ticket`:
+    tambah kolom `rating Int?` + composite index `@@index([status, rating])` di
+    `SupportTickets`. Applied via `prisma db push` (dev DB ada drift history).
+  - **[CHANGED]** Wire `rating` through domain entity → DTO (list/detail) →
+    mapper (`toDomain`/`toListItem`/`toDetail`) → repository interface +
+    impl + prisma-helpers (`updateCustomerStatus`) → service
+    (`SupportTicketService.closeCustomerTicket` persist `input.rating`).
+  - **[CHANGED]** `admin-support-ticket-list.helpers.ts`: `calculateAverageRating`
+    preferensi DB column `rating`, fallback ke emoji-scrape untuk tiket lama
+    (anti double-count).
+  - **[CHANGED]** Frontend `SupportContent.tsx`: `extractRating` baca `ticket.rating`
+    dulu, fallback emoji.
+
+  **Phase 4 — UX & Code Quality**:
+  - **[FIXED]** `MessagesList.tsx`: auto-scroll hanya saat user near-bottom (threshold
+    100px) atau first render — tidak lagi paksa jump ke bawah saat user baca history.
+  - **[FIXED]** `CloseTicketModal.tsx`: reset state `resolution` saat cancel/confirm,
+    tambah `maxLength={2000}`.
+  - **[FIXED]** `TicketHeader.tsx`: filter opsi `CLOSED` dari dropdown status —
+    close butuh konfirmasi via modal (tombol X), bukan dropdown langsung.
+  - **[FIXED]** `CustomerInfoSidebar.tsx`: `encodeURIComponent` untuk `tel:` & `mailto:`;
+    work-order draft via `sessionStorage` bukan URL query string (description panjang).
+  - **[CHANGED]** `SupportContent.tsx` split dari 518 → 182 baris + 3 sub-komponen
+    (`StatCard.tsx`, `FilterBar.tsx`, `TicketTable.tsx`) di `_components/`.
+  - **[CHANGED]** Unifikasi dictionary status/priority/category di
+    `app/admin/support/[id]/_components/types.ts` — hapus duplikasi antara list & detail.
+  - **[FIXED]** `SupportDetailClient.tsx`: hapus `unwrapTicket` dead branch —
+    API selalu return `TicketDetail` langsung.
+  - **[FIXED]** `SupportContent.tsx`: clamp `page` saat `totalPages` berkurang.
+  - **[CHANGED]** `useTicketActions.ts`: magic string `"RESOLVED"`/`"CLOSED"` →
+    `TicketStatus` enum; hapus `void ticket` dead code; `sendClosingMessage`
+    signature disederhanakan.
+
+  **Phase 5 — Test Coverage**:
+  - **[ADDED]** `tests/unit/sanitize-attachment-url.test.ts` (11 tests).
+  - **[ADDED]** `tests/lib/file-validation.test.ts` (7 tests: JPEG/PNG/GIF/WEBP
+    signatures, spoof rejection, empty allowedTypes).
+  - **[ADDED]** `tests/lib/build-session-with-permissions.test.ts` (4 tests).
+  - **[CHANGED]** `tests/modules/pelanggan/SupportTicketUploadService.test.ts`:
+    tambah scenario spoofed MIME + 5MB limit (5 tests, dari 3).
+  - **[ADDED]** `tests/api/admin/support-tickets/reply.test.ts` (6 tests:
+    empty body, site_only scope pass, happy path, FORBIDDEN→403,
+    VALIDATION_ERROR→400, NOT_FOUND→404).
+  - Total: baseline 592 files / 3409 tests → **596 files / 3439 tests pass**,
+    zero regression.
+
 ### [2026-07-09] — Refactor module admin/users end-to-end sesuai PRD
 
 - **Tipe**: [CHANGED]
