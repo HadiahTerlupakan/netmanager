@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-11] — Fix Wablas token delivery via query param + FK WhatsAppMessage
+
+- **Tipe**: [FIXED] [MIGRATION]
+- **Scope**: `modules/notification/services/whatsapp/providers/wablas-provider.ts`, `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Dua fix dari laporan bug server live:
+  - **[FIXED]** WablasProvider mengirim token via field form `api_key`,
+    padahal Wablas hanya menerima token via query param `?token=`. Fix:
+    pindah token dari form body ke query param di `buildUrl()`. Tanpa ini,
+    semua request ke Wablas (send-message, send-document) gagal dengan
+    "token invalid" meski token di DB valid dan device connected.
+  - **[FIXED]** Hapus akun WhatsApp gagal dengan FK constraint violation
+    karena `WhatsAppMessage.accountId` NOT NULL dengan `onDelete:
+    Restrict`. Fix: ubah `accountId` jadi nullable + `onDelete: SetNull`
+    agar pesan history tetap ada sebagai audit log saat akun dihapus.
+- **Migration**: `20260711130000_make_whatsapp_message_account_id_nullable`
+- **Files**: `modules/notification/services/whatsapp/providers/wablas-provider.ts`,
+  `modules/notification/domain/whatsapp-message.entity.ts`,
+  `prisma/schema.prisma`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-11] — Konsolidasi sistem WhatsApp menjadi single source of truth
 
 - **Tipe**: [CHANGED] [REMOVED]
