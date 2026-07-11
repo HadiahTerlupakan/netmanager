@@ -41,6 +41,68 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-11] — Konsolidasi sistem WhatsApp menjadi single source of truth
+
+- **Tipe**: [CHANGED] [REMOVED]
+- **Scope**: `modules/notification`, `modules/settings`, `modules/pelanggan`, `app/api/admin/settings/whatsapp`
+- **Author**: agent
+- **Deskripsi**: Konsolidasi dua sistem WhatsApp paralel menjadi satu SOT di
+  tabel `WhatsAppAccount`. Semua pengiriman pesan WhatsApp (notifikasi
+  billing, reply ticket support, approval, broadcast, test) sekarang lewat
+  `WhatsAppSenderService` yang membaca dari `WhatsAppAccount`. Sistem lama
+  berbasis `Settings` key-value dihapus sepenuhnya.
+  - **[CHANGED]** `NotificationDispatcher.sendWhatsApp()` dan
+    `admin-support-ticket-reply.helpers.ts` dipindahkan dari `WhatsAppService`
+    ke `WhatsAppSenderService.send()` dengan auto-routing akun default.
+  - **[CHANGED]** Script `migrate-whatsapp-settings.ts` di-refactor: hapus
+    `as any`, extract helper terpisah (`loadSettingsMap`,
+    `createAccountFromSettings`, `normalizeProvider`, `ensureEncrypted`),
+    tambah log warning phone placeholder agar admin update via UI.
+  - **[REMOVED]** `app/api/admin/settings/whatsapp/route.ts` (endpoint lama).
+  - **[REMOVED]** `modules/settings/services/whatsappSettings.ts` (service
+    Settings-based).
+  - **[REMOVED]** `modules/notification/services/whatsapp/whatsapp-service.ts`
+    (`WhatsAppService`).
+  - **[REMOVED]** Export `WhatsAppService`, `WhatsAppSettingsUpdatePayload`,
+    `getWhatsAppSettings`, `updateWhatsAppSettings`, `testWhatsAppSettings`
+    dari public API modul.
+- **Files**: `modules/notification/services/NotificationDispatcher.ts`,
+  `modules/pelanggan/services/admin-support-ticket-reply.helpers.ts`,
+  `scripts/migrate-whatsapp-settings.ts`, `modules/notification/index.ts`,
+  `modules/settings/index.ts`
+- **Breaking**: ✅ Ya — endpoint `GET/PUT/POST /api/admin/settings/whatsapp`
+  dihapus; env var `FONNTE_API_KEY`/`WHATSAPP_PROVIDER` tidak lagi dipakai
+  sebagai fallback. Admin wajib setup akun WhatsApp via UI
+  `/admin/pengaturan/whatsapp` sebelum upgrade. Jalankan
+  `npx tsx scripts/migrate-whatsapp-settings.ts` untuk migrasi data lama.
+
+### [2026-07-11] — Fix testConnection WhatsApp kirim API key terenkripsi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp-account.service.ts`
+- **Author**: agent
+- **Deskripsi**: `WhatsAppAccountService.testConnection()` mengirim
+  `account.apiKey` langsung dari DB (masih terenkripsi) ke provider Wablas,
+  sehingga Wablas menolak dengan "token is null". Root cause: komentar
+  salah "Already decrypted by repository" padahal repository tidak
+  mendekripsi. Fix: tambah `decryptApiKey(account.apiKey)` sebelum build
+  config, sesuai pattern yang sudah benar di `WhatsAppSenderService.sendViaAccount()`.
+- **Files**: `modules/notification/services/whatsapp-account.service.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-11] — PRD konsolidasi sistem WhatsApp menjadi single source of truth
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/specifications`
+- **Author**: agent
+- **Deskripsi**: Pembuatan PRD untuk konsolidasi dua sistem WhatsApp paralel
+  (Settings-based legacy vs WhatsAppAccount multi-akun) menjadi satu SOT.
+  Mencakup: migrasi caller `WhatsAppService` ke `WhatsAppSenderService`,
+  migrasi data dari `Settings` ke `WhatsAppAccount`, penghapusan endpoint
+  dan service legacy, acceptance criteria, dan rencana eksekusi 6 fase.
+- **Files**: `docs/specifications/PRD-CONSOLIDATE-WHATSAPP-2026-07-11.md`
+- **Breaking**: ❌ Tidak (PRD saja, eksekusi terpisah)
+
 ### [2026-07-10] — Bug fixes & refactor modul admin/investors
 
 - **Tipe**: [FIXED] [CHANGED] [ADDED]

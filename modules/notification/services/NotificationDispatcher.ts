@@ -9,7 +9,7 @@ import {
 } from "../templates/billing-templates";
 import { createNotification } from "./NotificationService";
 import { sendCustomerPushNotification } from "./ExpoPushService";
-import { WhatsAppService } from "./whatsapp/whatsapp-service";
+import { WhatsAppSenderService } from "./whatsapp-sender.service";
 import { EmailService } from "./email-service";
 import { NotificationDeadLetterRepository } from "../repositories/NotificationDeadLetterRepository";
 
@@ -203,14 +203,11 @@ export class NotificationDispatcher {
     params: BillingTemplateParams,
   ): Promise<void> {
     if (!contact.noTelp) return;
-    // WhatsAppService.sendMessage pakai { phone, message } — bukan { to, message }
-    await new WhatsAppService(
-      undefined,
-      undefined,
-      contact.tenantId,
-    ).sendMessage({
+    await new WhatsAppSenderService().send({
       phone: contact.noTelp,
       message: template.whatsapp(params),
+      tenantId: contact.tenantId ?? undefined,
+      accountType: "CUSTOMER",
     });
   }
 

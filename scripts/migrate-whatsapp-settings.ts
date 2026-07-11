@@ -2,6 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import { logger } from "@/lib/logger";
 
+const MIGRATED_PHONE_PLACEHOLDER = "628000000000";
+
+type WhatsAppProvider = "FONNTE" | "WABLAS" | "MPWA" | "OFFICIAL";
+
+const SETTINGS_KEYS = [
+  "WHATSAPP_PROVIDER",
+  "WHATSAPP_API_KEY",
+  "WABLAS_DOMAIN",
+  "WABLAS_DEVICE_ID",
+] as const;
+
 /**
  * Migrate existing WhatsApp settings to WhatsAppAccount table
  * Run this script once after deploying multi-WhatsApp feature
@@ -10,7 +21,6 @@ async function migrateWhatsAppSettings() {
   try {
     logger.info("[Migration] Starting WhatsApp settings migration...");
 
-    // Get all tenants
     const tenants = await prisma.tenant.findMany({
       select: { id: true, name: true },
     });
@@ -18,167 +28,10 @@ async function migrateWhatsAppSettings() {
     logger.info(`[Migration] Found ${tenants.length} tenants`);
 
     for (const tenant of tenants) {
-      logger.info(
-        `[Migration] Processing tenant: ${tenant.name} (${tenant.id})`,
-      );
-
-      // Get existing WhatsApp settings for this tenant
-      const settings = await prisma.settings.findMany({
-        where: {
-          tenantId: tenant.id,
-          key: {
-            in: [
-              "WHATSAPP_PROVIDER",
-              "WHATSAPP_API_KEY",
-              "WABLAS_DOMAIN",
-              "WABLAS_DEVICE_ID",
-            ],
-          },
-        },
-      });
-
-      if (settings.length === 0) {
-        logger.info(
-          `[Migration] No WhatsApp settings found for tenant ${tenant.name}`,
-        );
-        continue;
-      }
-
-      const settingsMap: Record<string, string> = {};
-      for (const setting of settings) {
-        settingsMap[setting.key] = setting.value || "";
-      }
-
-      // Check if API key exists
-      const apiKey = settingsMap["WHATSAPP_API_KEY"];
-      if (!apiKey) {
-        logger.info(
-          `[Migration] No API key found for tenant ${tenant.name}, skipping`,
-        );
-        continue;
-      }
-
-      // Check if account already exists
-      const existingAccount = await prisma.whatsAppAccount.findFirst({
-        where: {
-          tenantId: tenant.id,
-        },
-      });
-
-      if (existingAccount) {
-        logger.info(
-          `[Migration] WhatsApp account already exists for tenant ${tenant.name}, skipping`,
-        );
-        continue;
-      }
-
-      // Create WhatsApp account from settings
-      const provider = settingsMap["WHATSAPP_PROVIDER"] || "FONNTE";
-      const domain = settingsMap["WABLAS_DOMAIN"];
-      const deviceId = settingsMap["WABLAS_DEVICE_ID"];
-
-      // API key might already be encrypted in settings
-      let encryptedApiKey = apiKey;
-      try {
-        // Try to use it as-is (might already be encrypted)
-        // If it's not encrypted, encrypt it
-        if (!apiKey.includes(":")) {
-          encryptedApiKey = encryptApiKey(apiKey);
-        }
-      } catch (error) {
-        logger.warn(
-          `[Migration] Could not process API key for tenant ${tenant.name}:`,
-          error,
-        );
-        continue;
-      }
-
-      const account = await prisma.whatsAppAccount.create({
-        data: {
-          name: `${tenant.name} - Default`,
-          phone: "628000000000", // Placeholder, admin should update
-          provider: provider as any,
-          apiKey: encryptedApiKey,
-          domain: domain || null,
-          deviceId: deviceId || null,
-          isActive: true,
-          isDefault: true,
-          priority: 10,
-          tenantId: tenant.id,
-        },
-      });
-
-      logger.info(
-        `[Migration] Created WhatsApp account for tenant ${tenant.name}: ${account.id}`,
-      );
+      await migrateTenantWhatsAppSettings(tenant.id, tenant.name);
     }
 
-    // Also check for global settings (no tenantId)
-    const globalSettings = await prisma.settings.findMany({
-      where: {
-        tenantId: null,
-        key: {
-          in: [
-            "WHATSAPP_PROVIDER",
-            "WHATSAPP_API_KEY",
-            "WABLAS_DOMAIN",
-            "WABLAS_DEVICE_ID",
-          ],
-        },
-      },
-    });
-
-    if (globalSettings.length > 0) {
-      logger.info("[Migration] Processing global WhatsApp settings");
-
-      const globalSettingsMap: Record<string, string> = {};
-      for (const setting of globalSettings) {
-        globalSettingsMap[setting.key] = setting.value || "";
-      }
-
-      const globalApiKey = globalSettingsMap["WHATSAPP_API_KEY"];
-      if (globalApiKey) {
-        const existingGlobalAccount = await prisma.whatsAppAccount.findFirst({
-          where: {
-            tenantId: null,
-          },
-        });
-
-        if (!existingGlobalAccount) {
-          const provider = globalSettingsMap["WHATSAPP_PROVIDER"] || "FONNTE";
-          const domain = globalSettingsMap["WABLAS_DOMAIN"];
-          const deviceId = globalSettingsMap["WABLAS_DEVICE_ID"];
-
-          let encryptedApiKey = globalApiKey;
-          try {
-            if (!globalApiKey.includes(":")) {
-              encryptedApiKey = encryptApiKey(globalApiKey);
-            }
-          } catch (error) {
-            logger.warn("[Migration] Could not process global API key:", error);
-          }
-
-          const account = await prisma.whatsAppAccount.create({
-            data: {
-              name: "Global - Default",
-              phone: "628000000000",
-              provider: provider as any,
-              apiKey: encryptedApiKey,
-              domain: domain || null,
-              deviceId: deviceId || null,
-              isActive: true,
-              isDefault: true,
-              priority: 10,
-              tenantId: null,
-            },
-          });
-
-          logger.info(
-            `[Migration] Created global WhatsApp account: ${account.id}`,
-          );
-        }
-      }
-    }
+    await migrateGlobalWhatsAppSettings();
 
     logger.info(
       "[Migration] WhatsApp settings migration completed successfully",
@@ -187,6 +40,129 @@ async function migrateWhatsAppSettings() {
     logger.error("[Migration] Error during migration:", error);
     throw error;
   }
+}
+
+async function migrateTenantWhatsAppSettings(
+  tenantId: string,
+  tenantName: string,
+) {
+  const settingsMap = await loadSettingsMap(tenantId);
+
+  if (!settingsMap.WHATSAPP_API_KEY) {
+    logger.info(
+      `[Migration] No WhatsApp API key for tenant ${tenantName}, skipping`,
+    );
+    return;
+  }
+
+  const existingAccount = await prisma.whatsAppAccount.findFirst({
+    where: { tenantId },
+  });
+
+  if (existingAccount) {
+    logger.info(
+      `[Migration] WhatsApp account already exists for tenant ${tenantName}, skipping`,
+    );
+    return;
+  }
+
+  const account = await createAccountFromSettings(
+    settingsMap,
+    `${tenantName} - Default`,
+    tenantId,
+  );
+
+  logger.info(
+    `[Migration] Created WhatsApp account for tenant ${tenantName}: ${account.id}`,
+  );
+  logger.warn(
+    `[Migration] ⚠️ Tenant ${tenantName}: phone diisi placeholder ${MIGRATED_PHONE_PLACEHOLDER} — admin WAJIB update via UI`,
+  );
+}
+
+async function migrateGlobalWhatsAppSettings() {
+  const settingsMap = await loadSettingsMap(null);
+
+  if (!settingsMap.WHATSAPP_API_KEY) {
+    return;
+  }
+
+  logger.info("[Migration] Processing global WhatsApp settings");
+
+  const existingGlobalAccount = await prisma.whatsAppAccount.findFirst({
+    where: { tenantId: null },
+  });
+
+  if (existingGlobalAccount) {
+    logger.info("[Migration] Global WhatsApp account already exists, skipping");
+    return;
+  }
+
+  const account = await createAccountFromSettings(
+    settingsMap,
+    "Global - Default",
+    null,
+  );
+
+  logger.info(`[Migration] Created global WhatsApp account: ${account.id}`);
+  logger.warn(
+    `[Migration] ⚠️ Global account: phone diisi placeholder ${MIGRATED_PHONE_PLACEHOLDER} — admin WAJIB update via UI`,
+  );
+}
+
+async function loadSettingsMap(
+  tenantId: string | null,
+): Promise<Record<string, string>> {
+  const settings = await prisma.settings.findMany({
+    where: { tenantId, key: { in: [...SETTINGS_KEYS] } },
+  });
+
+  const map: Record<string, string> = {};
+  for (const setting of settings) {
+    map[setting.key] = setting.value || "";
+  }
+  return map;
+}
+
+async function createAccountFromSettings(
+  settingsMap: Record<string, string>,
+  name: string,
+  tenantId: string | null,
+) {
+  const provider = normalizeProvider(settingsMap.WHATSAPP_PROVIDER);
+  const encryptedApiKey = ensureEncrypted(settingsMap.WHATSAPP_API_KEY);
+
+  return prisma.whatsAppAccount.create({
+    data: {
+      name,
+      phone: MIGRATED_PHONE_PLACEHOLDER,
+      provider,
+      apiKey: encryptedApiKey,
+      domain: settingsMap.WABLAS_DOMAIN || null,
+      deviceId: settingsMap.WABLAS_DEVICE_ID || null,
+      isActive: true,
+      isDefault: true,
+      priority: 10,
+      tenantId,
+    },
+  });
+}
+
+function normalizeProvider(value: string): WhatsAppProvider {
+  const candidates: WhatsAppProvider[] = [
+    "FONNTE",
+    "WABLAS",
+    "MPWA",
+    "OFFICIAL",
+  ];
+  return candidates.includes(value as WhatsAppProvider)
+    ? (value as WhatsAppProvider)
+    : "FONNTE";
+}
+
+function ensureEncrypted(apiKey: string): string {
+  // Format encrypted: "<iv-hex>:<ciphertext-hex>". Plain key tidak ada ":".
+  return apiKey.includes(":") ? apiKey : encryptApiKey(apiKey);
 }
 
 // Run migration

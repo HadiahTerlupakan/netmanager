@@ -16,11 +16,11 @@ vi.mock("@/modules/notification/services/ExpoPushService", () => ({
 }));
 
 const mockSendWA = vi.fn();
-vi.mock("@/modules/notification/services/whatsapp/whatsapp-service", () => ({
-  WhatsAppService: vi.fn().mockImplementation(function (this: {
-    sendMessage: typeof mockSendWA;
+vi.mock("@/modules/notification/services/whatsapp-sender.service", () => ({
+  WhatsAppSenderService: vi.fn().mockImplementation(function (this: {
+    send: typeof mockSendWA;
   }) {
-    this.sendMessage = mockSendWA;
+    this.send = mockSendWA;
   }),
 }));
 

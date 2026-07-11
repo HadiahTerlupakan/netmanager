@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { encryptApiKey } from "@/lib/utils/encryption";
+import { decryptApiKey, encryptApiKey } from "@/lib/utils/encryption";
 import type {
   WhatsAppAccount,
   WhatsAppAccountCreateInput,
@@ -210,10 +210,10 @@ export class WhatsAppAccountService {
         };
       }
 
-      // Build config
+      // Build config — apiKey disimpan terenkripsi di DB, harus didekripsi sebelum dikirim
       const config: WhatsAppConfig = {
         provider: account.provider,
-        apiKey: account.apiKey, // Already decrypted by repository
+        apiKey: decryptApiKey(account.apiKey),
         domain: account.domain ?? undefined,
         deviceId: account.deviceId ?? undefined,
       };

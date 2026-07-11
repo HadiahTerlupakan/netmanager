@@ -7,7 +7,6 @@ export type {
   EmailSettingsUpdatePayload,
   EmailTestPayload,
 } from "./services/emailSettings";
-export type { WhatsAppSettingsUpdatePayload } from "./services/whatsappSettings";
 
 export type {
   BankAccount,
@@ -73,11 +72,6 @@ export {
   getTenantSettingsMap,
   upsertTenantSettings,
 } from "./services/tenantSettings";
-export {
-  getWhatsAppSettings,
-  testWhatsAppSettings,
-  updateWhatsAppSettings,
-} from "./services/whatsappSettings";
 export {
   API_SETTINGS_KEYS,
   getApiSettings,

@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
-import { WhatsAppService } from "@/modules/notification";
+import { WhatsAppSenderService } from "@/modules/notification";
 import type { TicketStatus } from "../types/pelanggan.enums";
 
 interface AdminTicketReplyInput {
@@ -34,10 +34,11 @@ export async function sendReplyWhatsapp(
   if (!canSendWhatsapp(input, safeTicket)) return false;
 
   try {
-    const whatsappService = new WhatsAppService();
-    const result = await whatsappService.sendMessage({
+    const whatsappSender = new WhatsAppSenderService();
+    const result = await whatsappSender.send({
       phone: safeTicket.pelanggan.noTelp,
       message: buildWhatsappMessage(safeTicket, input.message?.trim() || ""),
+      accountType: "CUSTOMER",
     });
     return result.success;
   } catch (error) {

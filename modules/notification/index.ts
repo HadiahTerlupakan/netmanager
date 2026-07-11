@@ -108,7 +108,6 @@ export {
   enqueuePushRetry,
   requeueStuckProcessingItems,
 } from "./services/PushRetryQueue";
-export { WhatsAppService } from "./services/whatsapp/whatsapp-service";
 export { NotificationDispatcher } from "./services/NotificationDispatcher";
 export type {
   NotificationChannel,
