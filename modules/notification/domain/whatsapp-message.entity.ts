@@ -1,7 +1,7 @@
 // Domain Entity: WhatsAppMessage
 export interface WhatsAppMessage {
   id: string;
-  accountId: string;
+  accountId?: string | null;
   phone: string;
   message?: string | null;
   fileUrl?: string | null;

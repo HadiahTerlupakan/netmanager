@@ -22,7 +22,6 @@ export class WablasProvider implements WhatsAppProvider {
 
   async sendMessage(params: SendMessageParams): Promise<SendResult> {
     const form = new FormData();
-    form.append("api_key", this.config.apiKey);
     form.append("number", normalizeWhatsAppPhone(params.phone));
     form.append("message", params.message);
     this.appendSender(form);
@@ -32,7 +31,6 @@ export class WablasProvider implements WhatsAppProvider {
 
   async sendFile(params: SendFileParams): Promise<SendResult> {
     const form = new FormData();
-    form.append("api_key", this.config.apiKey);
     form.append("number", normalizeWhatsAppPhone(params.phone));
     form.append("document", params.fileUrl);
     form.append("caption", params.caption || "");
@@ -83,7 +81,10 @@ export class WablasProvider implements WhatsAppProvider {
     const baseUrl = this.config.domain.startsWith("http")
       ? this.config.domain
       : `https://${this.config.domain}`;
-    return `${baseUrl.replace(/\/$/, "")}/api/${path}`;
+    const base = baseUrl.replace(/\/$/, "");
+    // Wablas hanya membaca token via query param ?token=, bukan Authorization
+    // header maupun field form `api_key`.
+    return `${base}/api/${path}?token=${encodeURIComponent(this.config.apiKey)}`;
   }
 
   private appendSender(form: FormData): void {

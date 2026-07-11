@@ -4430,9 +4430,9 @@ model WhatsAppAccount {
 }
 
 model WhatsAppMessage {
-  id        String          @id @default(cuid())
-  accountId String
-  account   WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  id        String           @id @default(cuid())
+  accountId String?
+  account   WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   phone     String
   message   String?
   fileUrl   String?
