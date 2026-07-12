@@ -1,5 +1,3 @@
-// WhatsApp Provider Factory
-
 import type {
   WhatsAppProvider,
   WhatsAppConfig,
@@ -7,6 +5,7 @@ import type {
 import { WablasProvider } from "./providers/wablas-provider";
 import { FonnteProvider } from "./providers/fonnte-provider";
 import { MpwaProvider } from "./providers/mpwa-provider";
+import { BaileysProvider } from "./providers/baileys-provider";
 
 export class WhatsAppFactory {
   static createProvider(config: WhatsAppConfig): WhatsAppProvider {
@@ -19,6 +18,9 @@ export class WhatsAppFactory {
 
       case "MPWA":
         return new MpwaProvider(config);
+
+      case "BAILEYS":
+        return new BaileysProvider(config);
 
       case "OFFICIAL":
         throw new Error("API resmi WhatsApp belum diimplementasikan");
@@ -33,6 +35,7 @@ export class WhatsAppFactory {
       { id: "WABLAS", name: "Wablas" },
       { id: "FONNTE", name: "Fonnte" },
       { id: "MPWA", name: "MPWA Gateway" },
+      { id: "BAILEYS", name: "Baileys (Self-hosted)" },
       { id: "OFFICIAL", name: "API Bisnis WhatsApp Resmi (Segera Hadir)" },
     ];
   }

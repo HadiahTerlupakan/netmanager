@@ -69,14 +69,21 @@ export class WhatsAppAccountService {
         };
       }
 
-      // Encrypt API key
-      const encryptedApiKey = encryptApiKey(data.apiKey);
+      const encryptedApiKey =
+        data.provider === "BAILEYS"
+          ? data.apiKey || "baileys"
+          : encryptApiKey(data.apiKey);
 
-      // Create account
       const account = await this.repository.create({
         ...data,
         apiKey: encryptedApiKey,
       });
+
+      if (data.provider === "BAILEYS") {
+        const { startBaileysSession } =
+          await import("./whatsapp/baileys-session-manager");
+        void startBaileysSession(account.id);
+      }
 
       logger.info(`[WhatsAppAccount] Created account: ${account.id}`);
 
@@ -223,9 +230,13 @@ export class WhatsAppAccountService {
 
       const config: WhatsAppConfig = {
         provider: account.provider,
-        apiKey: decryptApiKey(account.apiKey),
+        apiKey:
+          account.provider === "BAILEYS"
+            ? account.apiKey || account.id
+            : decryptApiKey(account.apiKey),
         domain: account.domain ?? undefined,
         deviceId: account.deviceId ?? undefined,
+        accountId: account.id,
       };
 
       const provider = WhatsAppFactory.createProvider(config);

@@ -8,7 +8,9 @@ export const UpdateWhatsAppAccountSchema = z.object({
     .max(20)
     .regex(/^[0-9+]+$/)
     .optional(),
-  provider: z.enum(["FONNTE", "WABLAS", "MPWA", "OFFICIAL"]).optional(),
+  provider: z
+    .enum(["FONNTE", "WABLAS", "MPWA", "BAILEYS", "OFFICIAL"])
+    .optional(),
   apiKey: z.string().min(1).optional(),
   domain: z.string().optional(),
   deviceId: z.string().optional(),

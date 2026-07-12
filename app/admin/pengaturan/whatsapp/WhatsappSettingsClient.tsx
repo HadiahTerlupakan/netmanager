@@ -1,7 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -11,6 +11,8 @@ import {
   HiOutlineCog6Tooth,
   HiOutlineDevicePhoneMobile,
   HiOutlineArrowPath,
+  HiOutlineQrCode,
+  HiOutlineStopCircle,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +22,7 @@ interface WhatsAppAccount {
   id: string;
   name: string;
   phone: string;
-  provider: "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
+  provider: "WABLAS" | "FONNTE" | "MPWA" | "BAILEYS" | "OFFICIAL";
   accountType: "CUSTOMER" | "INTERNAL";
   isActive: boolean;
   isDefault: boolean;
@@ -32,10 +34,18 @@ interface WhatsAppAccount {
   deviceId?: string | null;
 }
 
+interface BaileysStatus {
+  sessionId: string;
+  status: "disconnected" | "connecting" | "qr" | "connected";
+  qr?: string;
+  phone?: string;
+}
+
 const PROVIDERS = [
   { id: "WABLAS", name: "Wablas" },
   { id: "FONNTE", name: "Fonnte" },
   { id: "MPWA", name: "MPWA Gateway" },
+  { id: "BAILEYS", name: "Baileys (Self-hosted)" },
   {
     id: "OFFICIAL",
     name: "Official WhatsApp Business API (Coming Soon)",
@@ -307,6 +317,10 @@ export function ClientComponent() {
                     </Button>
                   </div>
                 </div>
+
+                {account.provider === "BAILEYS" && (
+                  <BaileysPanel accountId={account.id} />
+                )}
               </div>
             ))}
           </div>
@@ -463,6 +477,7 @@ function AccountModal({
                       | "WABLAS"
                       | "FONNTE"
                       | "MPWA"
+                      | "BAILEYS"
                       | "OFFICIAL",
                   })
                 }
@@ -545,36 +560,42 @@ function AccountModal({
               </>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                API Key / Token {!account && "*"}
-              </label>
-              <input
-                type="text"
-                value={formData.apiKey}
-                onChange={(e) =>
-                  setFormData({ ...formData, apiKey: e.target.value })
-                }
-                placeholder={
-                  account
-                    ? "Kosongkan jika tidak ingin ubah"
-                    : formData.provider === "WABLAS"
-                      ? "token.secret_key (dari Device → Settings)"
-                      : "API Key"
-                }
-                required={!account}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-              />
-              {formData.provider === "WABLAS" && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Wablas: isi dengan format{" "}
-                  <span className="font-mono">token.secret_key</span> — keduanya
-                  dari menu Device → Settings di dashboard Wablas. Tanpa
-                  secret_key, Wablas menolak dengan &quot;IP not
-                  authorized&quot; kecuali IP server di-whitelist.
-                </p>
-              )}
-            </div>
+            {formData.provider === "BAILEYS" ? (
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3 text-sm text-blue-800 dark:text-blue-200">
+                Baileys self-hosted: tidak butuh API key. Setelah simpan, buka
+                panel session di kartu akun → Start → scan QR dengan WhatsApp.
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  API Key / Token {!account && "*"}
+                </label>
+                <input
+                  type="text"
+                  value={formData.apiKey}
+                  onChange={(e) =>
+                    setFormData({ ...formData, apiKey: e.target.value })
+                  }
+                  placeholder={
+                    account
+                      ? "Kosongkan jika tidak ingin ubah"
+                      : formData.provider === "WABLAS"
+                        ? "token.secret_key (dari Device → Settings)"
+                        : "API Key"
+                  }
+                  required={!account}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                />
+                {formData.provider === "WABLAS" && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Wablas: isi dengan format{" "}
+                    <span className="font-mono">token.secret_key</span> —
+                    keduanya dari Device → Settings. Tanpa secret_key, Wablas
+                    menolak dengan &quot;IP not authorized&quot;.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -663,6 +684,128 @@ function AccountModal({
           </form>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BaileysPanel({ accountId }: { accountId: string }) {
+  const [info, setInfo] = useState<BaileysStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/admin/whatsapp/accounts/${accountId}/baileys`,
+      );
+      const json = (await res.json()) as {
+        success: boolean;
+        data?: BaileysStatus;
+      };
+      if (json.success && json.data) setInfo(json.data);
+    } catch {}
+  }, [accountId]);
+
+  useEffect(() => {
+    const t = setInterval(() => void fetchStatus(), 4000);
+    return () => clearInterval(t);
+  }, [fetchStatus]);
+
+  const doAction = async (action: "start" | "stop" | "restart") => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/whatsapp/accounts/${accountId}/baileys`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
+      const json = (await res.json()) as {
+        success: boolean;
+        data?: BaileysStatus;
+      };
+      if (json.success && json.data) setInfo(json.data);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusColor = {
+    disconnected:
+      "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    connecting:
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+    qr: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    connected:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-3 mb-3">
+        <HiOutlineQrCode className="w-5 h-5 text-gray-500" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Baileys Session
+        </span>
+        {info && (
+          <span
+            className={`text-xs px-2 py-0.5 rounded font-medium ${statusColor[info.status]}`}
+          >
+            {info.status}
+          </span>
+        )}
+        {info?.phone && (
+          <span className="text-xs text-gray-500">+{info.phone}</span>
+        )}
+        <div className="ml-auto flex gap-2">
+          {(!info || info.status === "disconnected") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => doAction("start")}
+              disabled={loading}
+            >
+              Start
+            </Button>
+          )}
+          {info && info.status !== "disconnected" && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => doAction("restart")}
+                disabled={loading}
+              >
+                <HiOutlineArrowPath className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => doAction("stop")}
+                disabled={loading}
+                className="text-red-600 dark:text-red-400"
+              >
+                <HiOutlineStopCircle className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+      {info?.status === "qr" && info.qr && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Scan QR ini dengan WhatsApp di HP kamu
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- QR is a base64 data URL */}
+          <img
+            src={info.qr}
+            alt="QR Code"
+            className="w-48 h-48 rounded-lg border border-gray-200 dark:border-gray-700"
+          />
+        </div>
+      )}
     </div>
   );
 }

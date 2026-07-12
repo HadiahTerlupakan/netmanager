@@ -50,12 +50,18 @@ export interface SendResult {
   response?: Record<string, unknown>; // Raw response from provider
 }
 
-export type WhatsAppProviderId = "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
+export type WhatsAppProviderId =
+  | "WABLAS"
+  | "FONNTE"
+  | "MPWA"
+  | "BAILEYS"
+  | "OFFICIAL";
 
 export interface WhatsAppConfig {
   provider: WhatsAppProviderId;
   apiKey: string;
   domain?: string; // For Wablas/MPWA
-  deviceId?: string; // For Wablas/MPWA
+  deviceId?: string; // For Wablas/MPWA; for BAILEYS = account session id
   phoneNumberId?: string; // For Official WhatsApp API
+  accountId?: string; // For BAILEYS session key
 }

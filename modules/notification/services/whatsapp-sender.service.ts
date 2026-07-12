@@ -178,9 +178,13 @@ export class WhatsAppSenderService {
       // Build config
       const config: WhatsAppConfig = {
         provider: account.provider,
-        apiKey: decryptApiKey(account.apiKey),
+        apiKey:
+          account.provider === "BAILEYS"
+            ? account.apiKey || account.id
+            : decryptApiKey(account.apiKey),
         domain: account.domain ?? undefined,
         deviceId: account.deviceId ?? undefined,
+        accountId: account.id,
       };
 
       // Create provider

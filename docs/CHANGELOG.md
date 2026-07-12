@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — Provider Baileys (self-hosted WhatsApp)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/notification/services/whatsapp`, `app/admin/pengaturan/whatsapp`, `app/api/admin/whatsapp/accounts/[id]/baileys`
+- **Author**: agent
+- **Deskripsi**: Provider WhatsApp baru `BAILEYS` berbasis `@whiskeysockets/baileys` yang berjalan in-process di custom server. Admin bisa start/stop session, scan QR, dan mengirim pesan tanpa gateway pihak ketiga. Session auth disimpan di `.baileys-sessions/` (di-gitignore).
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — Validasi format token.secret_key di WablasProvider
 
 - **Tipe**: [FIXED]

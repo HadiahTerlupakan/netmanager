@@ -173,3 +173,6 @@ MEMORY.md
 .kiro/settings/mcp.json.claude/worktrees/
 .omo/
 .mimocode/
+
+# Baileys WhatsApp session state
+.baileys-sessions/

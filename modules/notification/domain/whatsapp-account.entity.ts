@@ -19,7 +19,12 @@ export interface WhatsAppAccount {
   tenantId?: string | null;
 }
 
-export type WhatsAppProviderId = "FONNTE" | "WABLAS" | "MPWA" | "OFFICIAL";
+export type WhatsAppProviderId =
+  | "FONNTE"
+  | "WABLAS"
+  | "MPWA"
+  | "BAILEYS"
+  | "OFFICIAL";
 export type WhatsAppAccountType = "CUSTOMER" | "INTERNAL";
 
 export interface WhatsAppAccountCreateInput {
