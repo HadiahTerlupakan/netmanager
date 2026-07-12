@@ -217,7 +217,7 @@ describe("WhatsApp gateway", () => {
 
     const provider = new WablasProvider({
       provider: "WABLAS",
-      apiKey: "key",
+      apiKey: "key.secret",
       domain: "wablas.example.test",
     });
     const result = await provider.sendMessage({
@@ -228,6 +228,27 @@ describe("WhatsApp gateway", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("status 502");
     expect(result.error).toContain("bad gateway");
+  });
+
+  it("Given Wablas apiKey without secret_key When send Then rejects before network call", async () => {
+    const { WablasProvider } =
+      await import("../modules/notification/services/whatsapp/providers/wablas-provider");
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new WablasProvider({
+      provider: "WABLAS",
+      apiKey: "token-only-no-dot",
+      domain: "kudus.wablas.com",
+    });
+    const result = await provider.sendMessage({
+      phone: "6281234567890",
+      message: "Halo",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("token.secret_key");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("Given Wablas send When request built Then uses Authorization header and phone field", async () => {

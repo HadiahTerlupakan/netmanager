@@ -46,10 +46,19 @@ export class WablasProvider implements WhatsAppProvider {
     fallbackError: string,
   ): Promise<SendResult> {
     try {
-      if (!this.config.apiKey?.trim()) {
+      const authToken = this.config.apiKey?.trim();
+      if (!authToken) {
         return {
           success: false,
           error: "API key / token Wablas belum dikonfigurasi",
+        };
+      }
+
+      if (!authToken.includes(".")) {
+        return {
+          success: false,
+          error:
+            "Format API Key Wablas salah. Isi dengan token.secret_key (keduanya dari Device → Settings di dashboard Wablas). Contoh: abcd1234.xyzsecret. Saat edit akun, field API Key harus diisi ulang — biarkan kosong = token lama tetap dipakai.",
         };
       }
 
@@ -58,7 +67,7 @@ export class WablasProvider implements WhatsAppProvider {
         fetch(url, {
           method: "POST",
           headers: {
-            Authorization: this.config.apiKey,
+            Authorization: authToken,
           },
           body,
         }),
@@ -73,9 +82,10 @@ export class WablasProvider implements WhatsAppProvider {
         };
       }
 
+      const rawError = resolveGatewayErrorMessage(result, fallbackError);
       return {
         success: false,
-        error: resolveGatewayErrorMessage(result, fallbackError),
+        error: this.clarifyWablasError(rawError, response.status),
         response: result,
       };
     } catch (error: unknown) {
@@ -84,6 +94,25 @@ export class WablasProvider implements WhatsAppProvider {
         error: error instanceof Error ? error.message : "Kesalahan jaringan",
       };
     }
+  }
+
+  private clarifyWablasError(rawError: string, status: number): string {
+    const lower = rawError.toLowerCase();
+    if (
+      status === 403 ||
+      lower.includes("not authorized") ||
+      lower.includes("secret key") ||
+      lower.includes("need secret")
+    ) {
+      return (
+        "Wablas menolak: butuh secret_key atau IP server di-whitelist. " +
+        "Edit akun → isi ulang API Key dengan format token.secret_key " +
+        "(secret_key digenerate di Device → Settings Wablas, dikirim ke WhatsApp admin). " +
+        "Detail: " +
+        rawError
+      );
+    }
+    return rawError;
   }
 
   private buildUrl(path: string): string {

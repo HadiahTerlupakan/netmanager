@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — Validasi format token.secret_key di WablasProvider
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/providers/wablas-provider.ts`
+- **Author**: agent
+- **Deskripsi**: Wablas menolak token-only dengan 403. Provider sekarang menolak lebih awal jika API Key tidak berisi titik (format `token.secret_key`), dan memperjelas pesan error 403 agar admin tahu harus isi ulang secret_key saat edit akun.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — UI hint format token.secret_key untuk Wablas
 
 - **Tipe**: [DOCS]
