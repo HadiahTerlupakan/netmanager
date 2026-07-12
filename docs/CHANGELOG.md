@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-11] — WhatsApp bugfix: IDOR stats, testConnection record, dead code
+
+- **Tipe**: [FIXED] [SECURITY]
+- **Scope**: `app/api/admin/whatsapp/stats/route.ts`, `modules/notification/services/whatsapp-account.service.ts`, `modules/notification/services/whatsapp/providers/mpwa-provider.ts`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Empat perbaikan hasil audit mendalam modul WhatsApp:
+  - **[SECURITY]** `stats` route kini validasi kepemilikan `accountId` via `WhatsAppAccountService.findById(id, tenantId)` sebelum query stats — cegah baca statistik lintas tenant (IDOR medium).
+  - **[FIXED]** `testConnection` kini buat record `WhatsAppMessage` (status `pending` → `sent`/`failed`) dan increment `dailyCount` jika berhasil — konsisten dengan `sendViaAccount`. Exception saat kirim ditangani: record tetap diupdate ke `failed` via catch block.
+  - **[FIXED]** Hapus `MpwaProvider.isSuccessResponse` dead code — duplikat `isSuccessGatewayResponse` dari utils yang tidak pernah dipanggil.
+  - **[FIXED]** Hapus `Array.isArray` dead branch di `WhatsappSettingsClient` — API selalu return `{ data: [] }`, branch array langsung tidak pernah tercapai.
+- **Tests**: `tests/modules/notification/WhatsAppAccountService.test.ts` (4 test baru untuk `testConnection`: tenant guard, sukses, gagal, exception), `tests/api/admin-whatsapp-stats-route.test.ts` (3 test baru untuk IDOR guard)
+- **Files**: `app/api/admin/whatsapp/stats/route.ts`, `modules/notification/services/whatsapp-account.service.ts`, `modules/notification/services/whatsapp/providers/mpwa-provider.ts`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-11] — Fix Wablas token delivery via query param + FK WhatsAppMessage
 
 - **Tipe**: [FIXED] [MIGRATION]
