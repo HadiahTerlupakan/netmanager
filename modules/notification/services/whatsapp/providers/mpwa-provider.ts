@@ -140,14 +140,4 @@ export class MpwaProvider implements WhatsAppProvider {
 
     return this.config.deviceId;
   }
-
-  private isSuccessResponse(result: Record<string, unknown>) {
-    return (
-      result.status === true ||
-      result.success === true ||
-      result.status === "success" ||
-      result.status === "sent" ||
-      result.message === "success"
-    );
-  }
 }

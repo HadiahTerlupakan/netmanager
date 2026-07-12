@@ -65,9 +65,8 @@ export function ClientComponent() {
     },
   );
 
-  const accounts: WhatsAppAccount[] = Array.isArray(rawAccounts)
-    ? rawAccounts
-    : (rawAccounts?.data ?? []);
+  const accounts: WhatsAppAccount[] =
+    (rawAccounts as { data?: WhatsAppAccount[] } | null)?.data ?? [];
 
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus akun ini?")) return;
