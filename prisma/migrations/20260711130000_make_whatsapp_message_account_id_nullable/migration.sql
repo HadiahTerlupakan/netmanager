@@ -1,3 +1,4 @@
+-- @safe-guard-ack: make WhatsAppMessage.accountId nullable so deleting a WhatsAppAccount preserves message history (audit log); FK changed from Restrict to SetNull, no data loss.
 -- Make WhatsAppMessage.accountId nullable so deleting a WhatsAppAccount
 -- preserves message history (audit log). FK constraint changed from
 -- Restrict to SetNull.

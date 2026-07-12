@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — Tambah safe-guard-ack pada migration WhatsApp FK nullable
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/migrations/20260711130000_make_whatsapp_message_account_id_nullable`
+- **Author**: agent
+- **Deskripsi**: Menambahkan komentar `-- @safe-guard-ack:` di baris pertama migration SQL agar Safe Migration Guard di pipeline produksi tidak memblokir deployment. Migration ini mengubah kolom `accountId` di tabel `WhatsAppMessage` menjadi nullable (FK SetNull) — tidak ada data loss.
+- **Migration**: `20260711130000_make_whatsapp_message_account_id_nullable`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-11] — WhatsApp bugfix: IDOR stats, testConnection record, dead code
 
 - **Tipe**: [FIXED] [SECURITY]
