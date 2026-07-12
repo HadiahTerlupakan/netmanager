@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — UI hint format token.secret_key untuk Wablas
+
+- **Tipe**: [DOCS]
+- **Scope**: `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Wablas POST memerlukan `Authorization: token.secret_key`. Tanpa secret_key, API membalas 403 "IP not authorized". Field API Key sekarang menampilkan hint format `token.secret_key` untuk provider WABLAS agar admin tahu cara mengisi dengan benar.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — Fix auth Wablas: Authorization header + field phone
 
 - **Tipe**: [FIXED]

@@ -556,11 +556,24 @@ function AccountModal({
                   setFormData({ ...formData, apiKey: e.target.value })
                 }
                 placeholder={
-                  account ? "Kosongkan jika tidak ingin ubah" : "API Key"
+                  account
+                    ? "Kosongkan jika tidak ingin ubah"
+                    : formData.provider === "WABLAS"
+                      ? "token.secret_key (dari Device → Settings)"
+                      : "API Key"
                 }
                 required={!account}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
               />
+              {formData.provider === "WABLAS" && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Wablas: isi dengan format{" "}
+                  <span className="font-mono">token.secret_key</span> — keduanya
+                  dari menu Device → Settings di dashboard Wablas. Tanpa
+                  secret_key, Wablas menolak dengan &quot;IP not
+                  authorized&quot; kecuali IP server di-whitelist.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
