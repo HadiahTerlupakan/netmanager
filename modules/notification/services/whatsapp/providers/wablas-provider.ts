@@ -21,34 +21,47 @@ export class WablasProvider implements WhatsAppProvider {
   constructor(private readonly config: WhatsAppConfig) {}
 
   async sendMessage(params: SendMessageParams): Promise<SendResult> {
-    const form = new FormData();
-    form.append("number", normalizeWhatsAppPhone(params.phone));
-    form.append("message", params.message);
-    this.appendSender(form);
+    const body = new URLSearchParams();
+    body.append("phone", normalizeWhatsAppPhone(params.phone));
+    body.append("message", params.message);
+    this.appendSender(body);
 
-    return this.sendRequest("send-message", form, "Gagal mengirim pesan");
+    return this.sendRequest("send-message", body, "Gagal mengirim pesan");
   }
 
   async sendFile(params: SendFileParams): Promise<SendResult> {
-    const form = new FormData();
-    form.append("number", normalizeWhatsAppPhone(params.phone));
-    form.append("document", params.fileUrl);
-    form.append("caption", params.caption || "");
-    form.append("filename", params.filename || DEFAULT_DOCUMENT_FILENAME);
-    this.appendSender(form);
+    const body = new URLSearchParams();
+    body.append("phone", normalizeWhatsAppPhone(params.phone));
+    body.append("document", params.fileUrl);
+    body.append("caption", params.caption || "");
+    body.append("filename", params.filename || DEFAULT_DOCUMENT_FILENAME);
+    this.appendSender(body);
 
-    return this.sendRequest("send-document", form, "Gagal mengirim file");
+    return this.sendRequest("send-document", body, "Gagal mengirim file");
   }
 
   private async sendRequest(
     path: string,
-    form: FormData,
+    body: URLSearchParams,
     fallbackError: string,
   ): Promise<SendResult> {
     try {
+      if (!this.config.apiKey?.trim()) {
+        return {
+          success: false,
+          error: "API key / token Wablas belum dikonfigurasi",
+        };
+      }
+
       const url = this.buildUrl(path);
       const response = await whatsAppThrottler.add(() =>
-        fetch(url, { method: "POST", body: form }),
+        fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: this.config.apiKey,
+          },
+          body,
+        }),
       );
       const result = await parseGatewayResponse(response, url);
 
@@ -82,14 +95,12 @@ export class WablasProvider implements WhatsAppProvider {
       ? this.config.domain
       : `https://${this.config.domain}`;
     const base = baseUrl.replace(/\/$/, "");
-    // Wablas hanya membaca token via query param ?token=, bukan Authorization
-    // header maupun field form `api_key`.
-    return `${base}/api/${path}?token=${encodeURIComponent(this.config.apiKey)}`;
+    return `${base}/api/${path}`;
   }
 
-  private appendSender(form: FormData): void {
+  private appendSender(body: URLSearchParams): void {
     if (this.config.deviceId) {
-      form.append("sender", this.config.deviceId);
+      body.append("sender", this.config.deviceId);
     }
   }
 

@@ -229,4 +229,39 @@ describe("WhatsApp gateway", () => {
     expect(result.error).toContain("status 502");
     expect(result.error).toContain("bad gateway");
   });
+
+  it("Given Wablas send When request built Then uses Authorization header and phone field", async () => {
+    const { WablasProvider } =
+      await import("../modules/notification/services/whatsapp/providers/wablas-provider");
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ status: true, data: { id: "msg-1" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new WablasProvider({
+      provider: "WABLAS",
+      apiKey: "token.secret",
+      domain: "kudus.wablas.com",
+      deviceId: "device-1",
+    });
+    const result = await provider.sendMessage({
+      phone: "+62812 3456 7890",
+      message: "Halo",
+    });
+
+    expect(result.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe("https://kudus.wablas.com/api/send-message");
+    expect(String(url)).not.toContain("token=");
+    expect(init?.headers).toMatchObject({ Authorization: "token.secret" });
+    const body = init?.body as URLSearchParams;
+    expect(body.get("phone")).toBe("6281234567890");
+    expect(body.get("message")).toBe("Halo");
+    expect(body.get("sender")).toBe("device-1");
+    expect(body.get("number")).toBeNull();
+  });
 });

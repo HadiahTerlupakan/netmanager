@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — Fix auth Wablas: Authorization header + field phone
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/providers/wablas-provider.ts`
+- **Author**: agent
+- **Deskripsi**: Test connection gagal dengan `token is null (status 500)` meski token ada di URL. Wablas POST mengharuskan header `Authorization: {token}` (atau `{token}.{secret_key}`), bukan query `?token=`. Juga ganti field body `number` → `phone` sesuai API Wablas.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — Fix list akun WhatsApp kosong di UI pengaturan
 
 - **Tipe**: [FIXED]
