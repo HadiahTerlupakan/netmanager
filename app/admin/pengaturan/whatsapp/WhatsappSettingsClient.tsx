@@ -55,18 +55,14 @@ export function ClientComponent() {
     data: rawAccounts,
     isLoading: loading,
     mutate: fetchAccounts,
-  } = useApi<WhatsAppAccount[] | { data: WhatsAppAccount[] }>(
-    "/api/admin/whatsapp/accounts",
-    {
-      onError: (err) => {
-        clientLogger.error("Error fetching WhatsApp accounts:", err);
-        setError("Gagal memuat akun WhatsApp");
-      },
+  } = useApi<WhatsAppAccount[]>("/api/admin/whatsapp/accounts", {
+    onError: (err) => {
+      clientLogger.error("Error fetching WhatsApp accounts:", err);
+      setError("Gagal memuat akun WhatsApp");
     },
-  );
+  });
 
-  const accounts: WhatsAppAccount[] =
-    (rawAccounts as { data?: WhatsAppAccount[] } | null)?.data ?? [];
+  const accounts: WhatsAppAccount[] = rawAccounts ?? [];
 
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus akun ini?")) return;

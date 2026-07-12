@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-12] — Fix list akun WhatsApp kosong di UI pengaturan
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Data akun sudah tersimpan di DB tapi UI selalu kosong. Penyebab: double-unwrap — `useApi`/`apiFetcher` sudah mengembalikan `res.data` (array), tapi client masih membaca `.data` lagi sehingga hasilnya selalu `[]`. Diganti ke `rawAccounts ?? []`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — Tambah safe-guard-ack pada migration WhatsApp FK nullable
 
 - **Tipe**: [MIGRATION]
