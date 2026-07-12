@@ -6,6 +6,7 @@ import type {
   WhatsAppAccountUpdateInput,
 } from "../domain/whatsapp-account.entity";
 import { WhatsAppAccountRepository } from "../repositories/whatsapp-account.repository";
+import { WhatsAppMessageRepository } from "../repositories/whatsapp-message.repository";
 import { WhatsAppFactory } from "./whatsapp/whatsapp-factory";
 import type { WhatsAppConfig } from "./whatsapp/whatsapp-provider-interface";
 
@@ -22,9 +23,15 @@ type WhatsAppActionResult = {
 
 export class WhatsAppAccountService {
   private repository: WhatsAppAccountRepository;
+  private messageRepository: WhatsAppMessageRepository;
 
-  constructor(repository?: WhatsAppAccountRepository) {
+  constructor(
+    repository?: WhatsAppAccountRepository,
+    messageRepository?: WhatsAppMessageRepository,
+  ) {
     this.repository = repository ?? new WhatsAppAccountRepository();
+    this.messageRepository =
+      messageRepository ?? new WhatsAppMessageRepository();
   }
 
   private isTenantAccount(
@@ -201,6 +208,8 @@ export class WhatsAppAccountService {
     id: string,
     tenantId?: string,
   ): Promise<WhatsAppActionResult> {
+    let messageRecordId: string | null = null;
+
     try {
       const account = await this.findTenantAccount(id, tenantId);
       if (!account) {
@@ -210,7 +219,8 @@ export class WhatsAppAccountService {
         };
       }
 
-      // Build config — apiKey disimpan terenkripsi di DB, harus didekripsi sebelum dikirim
+      const testMessage = `✅ *Test Connection*\n\nAkun WhatsApp "${account.name}" berhasil terhubung!\n\nTimestamp: ${new Date().toLocaleString("id-ID")}`;
+
       const config: WhatsAppConfig = {
         provider: account.provider,
         apiKey: decryptApiKey(account.apiKey),
@@ -218,16 +228,38 @@ export class WhatsAppAccountService {
         deviceId: account.deviceId ?? undefined,
       };
 
-      // Create provider and test
       const provider = WhatsAppFactory.createProvider(config);
+
+      const messageRecord = await this.messageRepository.create({
+        accountId: account.id,
+        phone: account.phone,
+        message: testMessage,
+        status: "pending",
+        tenantId: account.tenantId ?? undefined,
+      });
+      messageRecordId = messageRecord.id;
+
       const result = await provider.sendMessage({
         phone: account.phone,
-        message: `✅ *Test Connection*\n\nAkun WhatsApp "${account.name}" berhasil terhubung!\n\nTimestamp: ${new Date().toLocaleString("id-ID")}`,
+        message: testMessage,
       });
 
       if (result.success) {
+        await this.messageRepository.updateStatus(
+          messageRecord.id,
+          "sent",
+          undefined,
+          result.messageId,
+          result.response as Record<string, unknown>,
+        );
+        await this.repository.incrementDailyCount(account.id);
         logger.info(`[WhatsAppAccount] Test connection success: ${id}`);
       } else {
+        await this.messageRepository.updateStatus(
+          messageRecord.id,
+          "failed",
+          result.error,
+        );
         logger.error(
           `[WhatsAppAccount] Test connection failed: ${id}`,
           result.error,
@@ -236,6 +268,20 @@ export class WhatsAppAccountService {
 
       return result;
     } catch (error) {
+      if (messageRecordId) {
+        await this.messageRepository
+          .updateStatus(
+            messageRecordId,
+            "failed",
+            error instanceof Error ? error.message : "Unknown error",
+          )
+          .catch((updateErr: unknown) =>
+            logger.error(
+              "[WhatsAppAccount] Failed to mark test message as failed:",
+              updateErr,
+            ),
+          );
+      }
       logger.error("[WhatsAppAccount] Test connection error:", error);
       return {
         success: false,

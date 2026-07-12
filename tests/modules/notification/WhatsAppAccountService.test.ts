@@ -1,10 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   WhatsAppAccount,
   WhatsAppAccountUpdateInput,
 } from "@/modules/notification/domain/whatsapp-account.entity";
 import { WhatsAppAccountRepository } from "@/modules/notification/repositories/whatsapp-account.repository";
+import { WhatsAppMessageRepository } from "@/modules/notification/repositories/whatsapp-message.repository";
+import type { WhatsAppMessage } from "@/modules/notification/domain/whatsapp-message.entity";
+import type { SendResult } from "@/modules/notification/services/whatsapp/whatsapp-provider-interface";
 import { WhatsAppAccountService } from "@/modules/notification/services/whatsapp-account.service";
+
+const mocks = vi.hoisted(() => ({
+  decryptApiKey: vi.fn((value: string) => value),
+  createProvider: vi.fn(),
+  incrementDailyCount: vi.fn(),
+  createMessage: vi.fn(),
+  updateStatus: vi.fn(),
+}));
+
+vi.mock("@/lib/utils/encryption", () => ({
+  decryptApiKey: mocks.decryptApiKey,
+  encryptApiKey: vi.fn((value: string) => value),
+}));
+
+vi.mock("@/modules/notification/services/whatsapp/whatsapp-factory", () => ({
+  WhatsAppFactory: {
+    createProvider: mocks.createProvider,
+  },
+}));
 
 const baseAccount: WhatsAppAccount = {
   id: "wa-1",
@@ -57,6 +79,24 @@ class FakeWhatsAppAccountRepository extends WhatsAppAccountRepository {
 
   override async setDefault(): Promise<void> {
     this.setDefaultCalls += 1;
+  }
+
+  override async incrementDailyCount(id: string): Promise<void> {
+    await mocks.incrementDailyCount(id);
+  }
+}
+
+class FakeWhatsAppMessageRepository extends WhatsAppMessageRepository {
+  override async create(): Promise<WhatsAppMessage> {
+    await mocks.createMessage();
+    return { id: "msg-1" } as WhatsAppMessage;
+  }
+
+  override async updateStatus(
+    ...args: readonly unknown[]
+  ): Promise<WhatsAppMessage> {
+    await mocks.updateStatus(...args);
+    return { id: "msg-1" } as WhatsAppMessage;
   }
 }
 
@@ -131,5 +171,109 @@ describe("WhatsAppAccountService tenant ownership", () => {
     expect(result.success).toBe(true);
     expect(result.data?.name).toBe("Updated");
     expect(repository.updateCalls).toBe(1);
+  });
+});
+
+describe("WhatsAppAccountService testConnection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.decryptApiKey.mockImplementation((value: string) => value);
+    mocks.createMessage.mockResolvedValue(undefined);
+    mocks.updateStatus.mockResolvedValue(undefined);
+    mocks.incrementDailyCount.mockResolvedValue(undefined);
+  });
+
+  it("Given akun tenant berbeda When testConnection Then gagal dan tidak kirim pesan", async () => {
+    const service = new WhatsAppAccountService(
+      new FakeWhatsAppAccountRepository(baseAccount),
+    );
+
+    const result = await service.testConnection("wa-1", "tenant-2");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Akun tidak ditemukan");
+    expect(mocks.createProvider).not.toHaveBeenCalled();
+    expect(mocks.createMessage).not.toHaveBeenCalled();
+  });
+
+  it("Given provider kirim sukses When testConnection Then record message status sent dan dailyCount increment", async () => {
+    mocks.createProvider.mockReturnValue({
+      name: "Fake",
+      sendMessage: vi.fn<() => Promise<SendResult>>().mockResolvedValue({
+        success: true,
+        messageId: "provider-msg-1",
+        response: { status: "send" },
+      }),
+    });
+
+    const service = new WhatsAppAccountService(
+      new FakeWhatsAppAccountRepository(baseAccount),
+      new FakeWhatsAppMessageRepository(),
+    );
+
+    const result = await service.testConnection("wa-1", "tenant-1");
+
+    expect(result.success).toBe(true);
+    expect(mocks.createMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.updateStatus).toHaveBeenCalledWith(
+      "msg-1",
+      "sent",
+      undefined,
+      "provider-msg-1",
+      { status: "send" },
+    );
+    expect(mocks.incrementDailyCount).toHaveBeenCalledWith("wa-1");
+  });
+
+  it("Given provider kirim gagal When testConnection Then record message status failed dan dailyCount tidak increment", async () => {
+    mocks.createProvider.mockReturnValue({
+      name: "Fake",
+      sendMessage: vi.fn<() => Promise<SendResult>>().mockResolvedValue({
+        success: false,
+        error: "Invalid API key",
+      }),
+    });
+
+    const service = new WhatsAppAccountService(
+      new FakeWhatsAppAccountRepository(baseAccount),
+      new FakeWhatsAppMessageRepository(),
+    );
+
+    const result = await service.testConnection("wa-1", "tenant-1");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Invalid API key");
+    expect(mocks.updateStatus).toHaveBeenCalledWith(
+      "msg-1",
+      "failed",
+      "Invalid API key",
+    );
+    expect(mocks.incrementDailyCount).not.toHaveBeenCalled();
+  });
+
+  it("Given provider throw exception When testConnection Then record message tetap diupdate ke failed", async () => {
+    mocks.createProvider.mockReturnValue({
+      name: "Fake",
+      sendMessage: vi
+        .fn<() => Promise<SendResult>>()
+        .mockRejectedValue(new Error("Network down")),
+    });
+
+    const service = new WhatsAppAccountService(
+      new FakeWhatsAppAccountRepository(baseAccount),
+      new FakeWhatsAppMessageRepository(),
+    );
+
+    const result = await service.testConnection("wa-1", "tenant-1");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Network down");
+    expect(mocks.createMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.updateStatus).toHaveBeenCalledWith(
+      "msg-1",
+      "failed",
+      "Network down",
+    );
+    expect(mocks.incrementDailyCount).not.toHaveBeenCalled();
   });
 });
