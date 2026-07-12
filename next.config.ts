@@ -77,6 +77,12 @@ const firebaseRtdbHostPattern =
   "https://*.asia-southeast1.firebasedatabase.app";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: [
+    "@whiskeysockets/baileys",
+    "qrcode",
+    "jimp",
+    "sharp",
+  ],
   turbopack: {
     root: __dirname,
   },

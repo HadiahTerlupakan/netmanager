@@ -1,8 +1,4 @@
 import { normalizeWhatsAppPhone } from "../whatsapp-gateway-utils";
-import {
-  sendBaileysMessage,
-  sendBaileysFile,
-} from "../baileys-session-manager";
 import type {
   SendFileParams,
   SendMessageParams,
@@ -17,6 +13,7 @@ export class BaileysProvider implements WhatsAppProvider {
   constructor(private readonly config: WhatsAppConfig) {}
 
   async sendMessage(params: SendMessageParams): Promise<SendResult> {
+    const { sendBaileysMessage } = await import("../baileys-session-manager");
     return sendBaileysMessage(
       this.sessionId(),
       normalizeWhatsAppPhone(params.phone),
@@ -25,6 +22,7 @@ export class BaileysProvider implements WhatsAppProvider {
   }
 
   async sendFile(params: SendFileParams): Promise<SendResult> {
+    const { sendBaileysFile } = await import("../baileys-session-manager");
     return sendBaileysFile(
       this.sessionId(),
       normalizeWhatsAppPhone(params.phone),

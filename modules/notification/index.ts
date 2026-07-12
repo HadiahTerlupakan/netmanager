@@ -125,19 +125,6 @@ export type {
 export { WhatsAppAccountService } from "./services/whatsapp-account.service";
 export { WhatsAppSenderService } from "./services/whatsapp-sender.service";
 
-export {
-  onBaileysQR,
-  onBaileysStatus,
-  getBaileysSession,
-  listBaileysSessions,
-  startBaileysSession,
-  stopBaileysSession,
-  sendBaileysMessage,
-  sendBaileysFile,
-  type BaileysSessionStatus,
-  type BaileysSessionInfo,
-} from "./services/whatsapp/baileys-session-manager";
-
 // Domain types
 export type {
   WhatsAppAccount,

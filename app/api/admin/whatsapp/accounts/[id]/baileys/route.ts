@@ -2,19 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { ApiErrors } from "@/lib/api";
+import { WhatsAppAccountService } from "@/modules/notification";
 import {
-  WhatsAppAccountService,
   getBaileysSession,
   startBaileysSession,
   stopBaileysSession,
-} from "@/modules/notification";
+} from "@/modules/notification/api";
 
 const service = new WhatsAppAccountService();
 
-/**
- * GET /api/admin/whatsapp/accounts/[id]/baileys
- * Get Baileys session status + QR (if pending)
- */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -41,7 +37,7 @@ export async function GET(
       );
     }
 
-    const info = getBaileysSession(id);
+    const info = await getBaileysSession(id);
     return NextResponse.json({ success: true, data: info });
   } catch (error) {
     console.error("[API] GET baileys status error:", error);
@@ -49,10 +45,6 @@ export async function GET(
   }
 }
 
-/**
- * POST /api/admin/whatsapp/accounts/[id]/baileys
- * body: { action: "start" | "stop" | "restart" }
- */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -91,7 +83,7 @@ export async function POST(
       await startBaileysSession(id);
     }
 
-    const info = getBaileysSession(id);
+    const info = await getBaileysSession(id);
     return NextResponse.json({ success: true, data: info });
   } catch (error) {
     console.error("[API] POST baileys action error:", error);
