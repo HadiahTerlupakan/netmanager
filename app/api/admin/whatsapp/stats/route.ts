@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { ApiErrors } from "@/lib/api";
-import { WhatsAppSenderService } from "@/modules/notification";
+import {
+  WhatsAppSenderService,
+  WhatsAppAccountService,
+} from "@/modules/notification";
 
 const service = new WhatsAppSenderService();
+const accountService = new WhatsAppAccountService();
 
 /**
  * GET /api/admin/whatsapp/stats
@@ -33,6 +37,18 @@ export async function GET(req: NextRequest) {
           error: "accountId wajib diisi",
         },
         { status: 400 },
+      );
+    }
+
+    // Validasi kepemilikan accountId — cegah baca statistik lintas tenant
+    const account = await accountService.findById(accountId, session.tenantId);
+    if (!account) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Akun tidak ditemukan",
+        },
+        { status: 404 },
       );
     }
 
