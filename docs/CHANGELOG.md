@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Baileys: fail-closed lock + Redis command queue ke pod owner
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`
+- **Author**: agent
+- **Deskripsi**: (1) Lock Redis fail-closed saat Redis belum ready (dulu fail-open → 2 pod connect → 440 race ~30s di boot). (2) Send/test di pod non-owner tidak gagal lagi — pesan di-forward via Redis queue ke pod owner (`baileys:cmd:<id>` + result key). (3) Code 440 tidak di-retry (hanya release lock).
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Baileys distributed lock: stop 440 multi-pod conflict
 
 - **Tipe**: [FIXED]

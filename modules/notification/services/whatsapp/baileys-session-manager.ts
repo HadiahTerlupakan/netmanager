@@ -1,4 +1,5 @@
 import path from "path";
+import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import { runAsSystemContext } from "@/lib/tenant-context";
@@ -32,7 +33,23 @@ interface SessionEntry {
   qrWaiters?: Array<(info: BaileysSessionInfo) => void>;
   refreshInterval?: ReturnType<typeof setInterval>;
   lockHeartbeat?: ReturnType<typeof setInterval>;
+  cmdLoopAbort?: AbortController;
 }
+
+type RemoteCmd = {
+  id: string;
+  type: "send" | "send-file";
+  phone: string;
+  message?: string;
+  fileUrl?: string;
+  caption?: string;
+};
+
+type RemoteCmdResult = {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+};
 
 const sessions = new Map<string, SessionEntry>();
 const QR_TTL_SEC = 180;
@@ -41,6 +58,7 @@ const QR_WAIT_MS = 25000;
 const REFRESH_INTERVAL_MS = 240000;
 const LOCK_TTL_SEC = 60;
 const LOCK_HEARTBEAT_MS = 20000;
+const REMOTE_CMD_TIMEOUT_SEC = 15;
 
 const POD_ID =
   process.env.HOSTNAME ?? `pod-${Math.random().toString(36).slice(2, 8)}`;
@@ -53,6 +71,14 @@ function lockKey(sessionId: string) {
   return `baileys:lock:${sessionId}`;
 }
 
+function cmdQueueKey(sessionId: string) {
+  return `baileys:cmd:${sessionId}`;
+}
+
+function cmdResultKey(cmdId: string) {
+  return `baileys:cmd:result:${cmdId}`;
+}
+
 function authDirFor(sessionId: string) {
   return path.resolve(process.cwd(), ".baileys-sessions", sessionId);
 }
@@ -61,9 +87,22 @@ async function acquireLock(sessionId: string): Promise<boolean> {
   try {
     const key = lockKey(sessionId);
     const result = await redis.set(key, POD_ID, "EX", LOCK_TTL_SEC, "NX");
-    return result === "OK";
-  } catch {
-    return true;
+    if (result === "OK") return true;
+    // Already owned — only take over if we already own it (refresh after restart same pod)
+    const owner = await redis.get(key);
+    if (owner === POD_ID) {
+      await redis.expire(key, LOCK_TTL_SEC);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    // Fail-closed: never start socket without lock when Redis is unavailable
+    logger.warn(
+      `[Baileys] acquireLock failed (fail-closed) session=${sessionId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return false;
   }
 }
 
@@ -183,6 +222,106 @@ export async function clearBaileysAuthState(sessionId: string): Promise<void> {
   }
 }
 
+async function dispatchRemoteCmd(
+  sessionId: string,
+  cmd: Omit<RemoteCmd, "id">,
+): Promise<RemoteCmdResult> {
+  const id = randomUUID();
+  const payload: RemoteCmd = { id, ...cmd };
+  try {
+    await redis.lpush(cmdQueueKey(sessionId), JSON.stringify(payload));
+    await redis.expire(cmdQueueKey(sessionId), 60);
+    const result = await redis.brpop(cmdResultKey(id), REMOTE_CMD_TIMEOUT_SEC);
+    if (!result) {
+      return {
+        success: false,
+        error: "Timeout menunggu pod owner memproses pesan Baileys",
+      };
+    }
+    return JSON.parse(result[1]) as RemoteCmdResult;
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "Gagal forward pesan ke pod owner",
+    };
+  }
+}
+
+function startCmdLoop(sessionId: string, entry: SessionEntry) {
+  if (entry.cmdLoopAbort) return;
+  const abort = new AbortController();
+  entry.cmdLoopAbort = abort;
+
+  void (async () => {
+    while (!abort.signal.aborted) {
+      try {
+        const result = await redis.brpop(cmdQueueKey(sessionId), 5);
+        if (!result || abort.signal.aborted) continue;
+        const cmd = JSON.parse(result[1]) as RemoteCmd;
+        const local = sessions.get(sessionId);
+        let reply: RemoteCmdResult;
+        if (!local || local.status !== "connected" || !local.sock) {
+          reply = {
+            success: false,
+            error: "Owner pod lost socket mid-command",
+          };
+        } else if (cmd.type === "send") {
+          try {
+            const jid = cmd.phone.includes("@")
+              ? cmd.phone
+              : `${cmd.phone}@s.whatsapp.net`;
+            const sent = await local.sock.sendMessage(jid, {
+              text: cmd.message ?? "",
+            });
+            reply = { success: true, messageId: sent?.key?.id };
+          } catch (err) {
+            reply = {
+              success: false,
+              error: err instanceof Error ? err.message : "Gagal kirim",
+            };
+          }
+        } else {
+          try {
+            const jid = cmd.phone.includes("@")
+              ? cmd.phone
+              : `${cmd.phone}@s.whatsapp.net`;
+            const sent = await local.sock.sendMessage(jid, {
+              document: { url: cmd.fileUrl },
+              mimetype: "application/octet-stream",
+              fileName: "document",
+              caption: cmd.caption ?? "",
+            });
+            reply = { success: true, messageId: sent?.key?.id };
+          } catch (err) {
+            reply = {
+              success: false,
+              error: err instanceof Error ? err.message : "Gagal kirim file",
+            };
+          }
+        }
+        await redis.lpush(cmdResultKey(cmd.id), JSON.stringify(reply));
+        await redis.expire(cmdResultKey(cmd.id), 30);
+      } catch (err) {
+        if (abort.signal.aborted) break;
+        logger.warn(
+          `[Baileys] cmd loop error session=${sessionId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+  })();
+}
+
+function stopCmdLoop(entry: SessionEntry) {
+  if (entry.cmdLoopAbort) {
+    entry.cmdLoopAbort.abort();
+    entry.cmdLoopAbort = undefined;
+  }
+}
+
 export async function startBaileysSession(
   sessionId: string,
   options?: { forcePairing?: boolean },
@@ -214,11 +353,12 @@ export async function startBaileysSession(
   ) {
     if (existing?.lockHeartbeat) clearInterval(existing.lockHeartbeat);
     if (existing?.refreshInterval) clearInterval(existing.refreshInterval);
+    if (existing) stopCmdLoop(existing);
     if (existing?.stop) {
       try {
         await existing.stop();
       } catch {
-        /* ignore */
+        // ignore
       }
     }
     sessions.delete(sessionId);
@@ -233,6 +373,7 @@ export async function startBaileysSession(
     }
   }
 
+  // Acquire lock BEFORE opening any WhatsApp socket
   const hasLock = await acquireLock(sessionId);
   if (!hasLock) {
     logger.info(
@@ -288,7 +429,7 @@ export async function startBaileysSession(
       try {
         sock.end(undefined);
       } catch {
-        /* ignore */
+        // ignore
       }
     };
     sessions.set(sessionId, entry);
@@ -333,6 +474,7 @@ export async function startBaileysSession(
           void persist(sessionId, current);
           void renewLock(sessionId);
         }, REFRESH_INTERVAL_MS);
+        startCmdLoop(sessionId, current);
         sessions.set(sessionId, current);
         void persist(sessionId, current);
         notifyWaiters(sessionId, current);
@@ -348,6 +490,8 @@ export async function startBaileysSession(
             | undefined
         )?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
+        // 440 = stream conflict (another connection took over)
+        const conflict = code === 440;
         if (current.refreshInterval) {
           clearInterval(current.refreshInterval);
           current.refreshInterval = undefined;
@@ -356,6 +500,7 @@ export async function startBaileysSession(
           clearInterval(current.lockHeartbeat);
           current.lockHeartbeat = undefined;
         }
+        stopCmdLoop(current);
         if (loggedOut) {
           current.status = "needs_reauth";
           current.error =
@@ -363,7 +508,9 @@ export async function startBaileysSession(
           void clearBaileysAuthState(sessionId);
         } else {
           current.status = "disconnected";
-          current.error = undefined;
+          current.error = conflict
+            ? "Session diambil pod lain (conflict 440)"
+            : undefined;
         }
         current.qr = undefined;
         current.sock = undefined;
@@ -374,7 +521,8 @@ export async function startBaileysSession(
         logger.warn(
           `[Baileys] Session ${sessionId} closed (code ${code}) pod=${POD_ID}`,
         );
-        if (!loggedOut) {
+        // Only auto-retry if not logout and not multi-device conflict
+        if (!loggedOut && !conflict) {
           setTimeout(() => {
             void startBaileysSession(sessionId);
           }, 5000);
@@ -387,6 +535,7 @@ export async function startBaileysSession(
       clearInterval(entry.lockHeartbeat);
       entry.lockHeartbeat = undefined;
     }
+    stopCmdLoop(entry);
     entry.status = "error";
     entry.error = err instanceof Error ? err.message : "Gagal start Baileys";
     sessions.set(sessionId, entry);
@@ -448,6 +597,7 @@ export async function stopBaileysSession(sessionId: string): Promise<void> {
   const s = sessions.get(sessionId);
   if (s?.lockHeartbeat) clearInterval(s.lockHeartbeat);
   if (s?.refreshInterval) clearInterval(s.refreshInterval);
+  if (s) stopCmdLoop(s);
   if (s?.stop) await s.stop();
   sessions.delete(sessionId);
   await releaseLock(sessionId);
@@ -464,22 +614,33 @@ export async function sendBaileysMessage(
   message: string,
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const s = sessions.get(sessionId);
-  if (!s || s.status !== "connected" || !s.sock) {
-    return {
-      success: false,
-      error: `Session ${sessionId} belum terkoneksi di pod ini`,
-    };
+  if (s && s.status === "connected" && s.sock) {
+    try {
+      const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+      const result = await s.sock.sendMessage(jid, { text: message });
+      return { success: true, messageId: result?.key?.id };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Gagal kirim pesan",
+      };
+    }
   }
-  try {
-    const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
-    const result = await s.sock.sendMessage(jid, { text: message });
-    return { success: true, messageId: result?.key?.id };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Gagal kirim pesan",
-    };
+
+  // Not on this pod — forward to owner via Redis if session is connected elsewhere
+  const remote = await readFromRedis(sessionId);
+  if (remote?.status === "connected") {
+    return dispatchRemoteCmd(sessionId, {
+      type: "send",
+      phone,
+      message,
+    });
   }
+
+  return {
+    success: false,
+    error: `Session ${sessionId} belum terkoneksi`,
+  };
 }
 
 export async function sendBaileysFile(
@@ -489,31 +650,42 @@ export async function sendBaileysFile(
   caption: string,
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const s = sessions.get(sessionId);
-  if (!s || s.status !== "connected" || !s.sock) {
-    return {
-      success: false,
-      error: `Session ${sessionId} belum terkoneksi di pod ini`,
-    };
+  if (s && s.status === "connected" && s.sock) {
+    try {
+      const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+      const result = await s.sock.sendMessage(jid, {
+        document: { url: fileUrl },
+        mimetype: "application/octet-stream",
+        fileName: "document",
+        caption,
+      });
+      return { success: true, messageId: result?.key?.id };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Gagal kirim file",
+      };
+    }
   }
-  try {
-    const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
-    const result = await s.sock.sendMessage(jid, {
-      document: { url: fileUrl },
-      mimetype: "application/octet-stream",
-      fileName: "document",
+
+  const remote = await readFromRedis(sessionId);
+  if (remote?.status === "connected") {
+    return dispatchRemoteCmd(sessionId, {
+      type: "send-file",
+      phone,
+      fileUrl,
       caption,
     });
-    return { success: true, messageId: result?.key?.id };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Gagal kirim file",
-    };
   }
+
+  return {
+    success: false,
+    error: `Session ${sessionId} belum terkoneksi`,
+  };
 }
 
 export function onBaileysQR(_cb: (sessionId: string, qr: string) => void) {
-  // no-op: status now polled via Redis
+  // no-op
 }
 
 export function onBaileysStatus(
@@ -524,6 +696,13 @@ export function onBaileysStatus(
 
 export async function restoreAllBaileySessions(): Promise<void> {
   try {
+    // Ensure Redis is ready before acquiring locks (prevents fail-open race)
+    try {
+      if (redis.status !== "ready") await redis.connect();
+    } catch {
+      // already connecting / ready
+    }
+
     await runAsSystemContext("Baileys: restoreAllBaileySessions", async () => {
       const { prisma } = await import("@/lib/prisma");
       const accounts = await prisma.whatsAppAccount.findMany({
