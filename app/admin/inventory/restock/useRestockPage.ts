@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "react-hot-toast";
 
 import {
@@ -26,12 +32,15 @@ import {
 import type {
   Barang,
   Gudang,
+  Jasa,
   PurchaseRequest,
   RestockFormItem,
   RestockSetting,
 } from "./types";
+import type { JasaConfirmState } from "./RestockConfirmJasaModal";
 
 const INITIAL_FORM_ITEM: RestockFormItem = {
+  tipe: "BARANG",
   barangId: "",
   quantity: 1,
   keterangan: "",
@@ -40,6 +49,7 @@ const INITIAL_FORM_ITEM: RestockFormItem = {
 export function useRestockPage() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [allBarangsSource, setAllBarangsSource] = useState<Barang[]>([]);
+  const [allJasaSource, setAllJasaSource] = useState<Jasa[]>([]);
   const [allSettingsSource, setAllSettingsSource] = useState<RestockSetting[]>(
     [],
   );
@@ -69,17 +79,28 @@ export function useRestockPage() {
   const [isFinishingPO, setIsFinishingPO] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const [confirmJasaPR, setConfirmJasaPR] = useState<PurchaseRequest | null>(
+    null,
+  );
+  const [jasaConfirmStates, setJasaConfirmStates] = useState<
+    Record<string, JasaConfirmState>
+  >({});
+  const [jasaPhotoUploadRefs, setJasaPhotoUploadRefs] = useState<
+    Record<string, React.RefObject<PhotoUploadRef | null>>
+  >({});
+
   const photoUploadRef = useRef<PhotoUploadRef>(null);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [resRequests, resBarangs, resGudangs, resSettings] =
+      const [resRequests, resBarangs, resGudangs, resSettings, resJasa] =
         await Promise.all([
           getWithAuth("/api/inventory/restock/requests"),
           getWithAuth("/api/inventory/barang?view=all&limit=1000"),
           getWithAuth("/api/inventory/gudang?view=all"),
           getWithAuth("/api/inventory/restock/settings?limit=1000"),
+          getWithAuth("/api/inventory/jasa?limit=1000"),
         ]);
 
       if (resRequests.ok) {
@@ -103,6 +124,12 @@ export function useRestockPage() {
         const data = await resGudangs.json();
         const result = data.data || data;
         setGudangs(result.gudangs || []);
+      }
+
+      if (resJasa.ok) {
+        const data = await resJasa.json();
+        const items = data.data?.items || data.items || [];
+        setAllJasaSource(Array.isArray(items) ? items : []);
       }
     } catch (_error) {
       toast.error("Gagal memuat data");
@@ -194,13 +221,23 @@ export function useRestockPage() {
     setEditingPR(request);
     setFormGudang(request.gudangId);
     setFormNotes(request.keterangan || "");
-    setFormItems(
-      request.items.map((item) => ({
-        barangId: item.barangId,
+    const barangItems: RestockFormItem[] = request.items.map((item) => ({
+      tipe: "BARANG",
+      barangId: item.barangId,
+      quantity: item.jumlah,
+      keterangan: item.keterangan || "",
+    }));
+    const jasaItems: RestockFormItem[] = (request.jasaItems || []).map(
+      (item) => ({
+        tipe: "JASA",
+        barangId: "",
+        jasaId: item.jasaId,
         quantity: item.jumlah,
+        hargaPerUnit: item.hargaPerUnit,
         keterangan: item.keterangan || "",
-      })),
+      }),
     );
+    setFormItems([...barangItems, ...jasaItems]);
     setShowForm(true);
   }, []);
 
@@ -226,7 +263,21 @@ export function useRestockPage() {
       const payload = {
         gudangId: formGudang,
         keterangan: formNotes,
-        items: formItems,
+        items: formItems
+          .filter((item) => item.tipe === "BARANG")
+          .map((item) => ({
+            barangId: item.barangId,
+            quantity: item.quantity,
+            keterangan: item.keterangan || null,
+          })),
+        jasaItems: formItems
+          .filter((item) => item.tipe === "JASA")
+          .map((item) => ({
+            jasaId: item.jasaId,
+            jumlah: item.quantity,
+            hargaPerUnit: item.hargaPerUnit || 0,
+            keterangan: item.keterangan || null,
+          })),
       };
       const response = editingPR
         ? await putWithAuth(
@@ -304,6 +355,119 @@ export function useRestockPage() {
     setReceivingPR(null);
   }, []);
 
+  const openConfirmJasa = useCallback((request: PurchaseRequest) => {
+    const pending = (request.jasaItems ?? []).filter(
+      (item) => item.statusKonfirmasi === "PENDING",
+    );
+    if (pending.length === 0) {
+      toast.error("Tidak ada item jasa yang perlu dikonfirmasi");
+      return;
+    }
+    setConfirmJasaPR(request);
+    const states: Record<string, JasaConfirmState> = {};
+    const refs: Record<string, React.RefObject<PhotoUploadRef | null>> = {};
+    for (const item of pending) {
+      states[item.id] = {
+        tanggalSelesai: "",
+        buktiSelesai: [],
+        confirmed: true,
+      };
+      refs[item.id] = React.createRef<PhotoUploadRef | null>();
+    }
+    setJasaConfirmStates(states);
+    setJasaPhotoUploadRefs(refs);
+  }, []);
+
+  const closeConfirmJasa = useCallback(() => {
+    setConfirmJasaPR(null);
+    setJasaConfirmStates({});
+    setJasaPhotoUploadRefs({});
+  }, []);
+
+  const updateJasaConfirmState = useCallback(
+    (jasaItemId: string, next: Partial<JasaConfirmState>) => {
+      setJasaConfirmStates((prev) => {
+        const current = prev[jasaItemId] ?? {
+          tanggalSelesai: "",
+          buktiSelesai: [],
+          confirmed: false,
+        };
+        const merged: JasaConfirmState = {
+          tanggalSelesai:
+            next.tanggalSelesai !== undefined
+              ? next.tanggalSelesai
+              : current.tanggalSelesai,
+          buktiSelesai:
+            next.buktiSelesai !== undefined
+              ? next.buktiSelesai
+              : current.buktiSelesai,
+          confirmed:
+            next.confirmed !== undefined ? next.confirmed : current.confirmed,
+        };
+        return { ...prev, [jasaItemId]: merged };
+      });
+    },
+    [],
+  );
+
+  const submitConfirmJasa = useCallback(async () => {
+    if (!confirmJasaPR) return;
+    const pending = (confirmJasaPR.jasaItems ?? []).filter(
+      (item) => item.statusKonfirmasi === "PENDING",
+    );
+    const ready = pending.filter((item) => {
+      const state = jasaConfirmStates[item.id];
+      return state?.confirmed && (state.buktiSelesai?.length ?? 0) > 0;
+    });
+
+    if (ready.length === 0) {
+      toast.error("Tidak ada jasa yang siap dikonfirmasi");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const uploadedPayload = [];
+      for (const item of ready) {
+        const state = jasaConfirmStates[item.id];
+        const ref = jasaPhotoUploadRefs[item.id];
+        let urls: string[] = [];
+        if (ref?.current) {
+          urls = await ref.current.uploadPhotos();
+        }
+        uploadedPayload.push({
+          jasaItemId: item.id,
+          tanggalSelesai: state?.tanggalSelesai || null,
+          buktiSelesai: urls,
+        });
+      }
+
+      const response = await patchWithAuth(
+        `/api/inventory/restock/requests/${confirmJasaPR.id}/receive-jasa`,
+        { items: uploadedPayload },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Gagal mengonfirmasi jasa");
+      }
+
+      toast.success("Jasa berhasil dikonfirmasi selesai");
+      closeConfirmJasa();
+      await fetchData();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    closeConfirmJasa,
+    confirmJasaPR,
+    fetchData,
+    jasaConfirmStates,
+    jasaPhotoUploadRefs,
+  ]);
+
   const submitReceipt = useCallback(async () => {
     if (!receivingPR) return;
     if (receivedPhotos.length === 0) {
@@ -354,6 +518,7 @@ export function useRestockPage() {
   return {
     requests: paginatedRequests.data,
     barangs,
+    allJasaSource,
     allSettingsSource,
     gudangs,
     loading,
@@ -400,5 +565,12 @@ export function useRestockPage() {
     openReceive,
     closeReceive,
     submitReceipt,
+    confirmJasaPR,
+    openConfirmJasa,
+    closeConfirmJasa,
+    jasaConfirmStates,
+    updateJasaConfirmState,
+    jasaPhotoUploadRefs,
+    submitConfirmJasa,
   };
 }

@@ -5,6 +5,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { RestockDetailModal } from "./RestockDetailModal";
 import { RestockFormModal } from "./RestockFormModal";
 import { RestockReceiveModal } from "./RestockReceiveModal";
+import { RestockConfirmJasaModal } from "./RestockConfirmJasaModal";
 import { RestockTable } from "./RestockTable";
 import { useRestockPage } from "./useRestockPage";
 
@@ -17,6 +18,7 @@ export default function RestockCRUDPage() {
   const {
     requests,
     barangs,
+    allJasaSource,
     allSettingsSource,
     gudangs,
     loading,
@@ -63,6 +65,13 @@ export default function RestockCRUDPage() {
     openReceive,
     closeReceive,
     submitReceipt,
+    confirmJasaPR,
+    openConfirmJasa,
+    closeConfirmJasa,
+    jasaConfirmStates,
+    updateJasaConfirmState,
+    jasaPhotoUploadRefs,
+    submitConfirmJasa,
   } = useRestockPage();
 
   return (
@@ -91,6 +100,7 @@ export default function RestockCRUDPage() {
         onOpenDetail={setViewingPR}
         onApprove={approveRequest}
         onOpenReceive={openReceive}
+        onOpenConfirmJasa={openConfirmJasa}
         onDelete={deleteRequest}
       />
 
@@ -105,6 +115,7 @@ export default function RestockCRUDPage() {
         onFormItemsChange={setFormItems}
         gudangs={gudangs}
         barangs={barangs}
+        jasaList={allJasaSource}
         allSettings={allSettingsSource}
         showAllItems={showAllItems}
         onShowAllItemsChange={setShowAllItems}
@@ -131,6 +142,16 @@ export default function RestockCRUDPage() {
         photoUploadRef={photoUploadRef}
         onClose={closeReceive}
         onSubmit={submitReceipt}
+      />
+
+      <RestockConfirmJasaModal
+        request={confirmJasaPR}
+        jasaConfirmStates={jasaConfirmStates}
+        onJasaConfirmStateChange={updateJasaConfirmState}
+        photoUploadRefs={jasaPhotoUploadRefs}
+        submitting={submitting}
+        onClose={closeConfirmJasa}
+        onSubmit={submitConfirmJasa}
       />
 
       <style jsx global>{`
