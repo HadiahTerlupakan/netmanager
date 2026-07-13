@@ -1,47 +1,67 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { FiPlus, FiDownload, FiUpload, FiClipboard } from 'react-icons/fi'
-import { usePermission } from '@/hooks/use-permission'
+import Link from "next/link";
+import {
+  FiPlus,
+  FiDownload,
+  FiUpload,
+  FiClipboard,
+  FiTool,
+} from "react-icons/fi";
+import { usePermission } from "@/hooks/use-permission";
 
 export function QuickActions() {
-  const { hasPermission } = usePermission()
+  const { hasPermission } = usePermission();
 
   const allActions = [
     {
-      href: '/admin/inventory/barang/new',
-      label: 'Tambah Barang',
+      href: "/admin/inventory/barang/new",
+      label: "Tambah Barang",
       icon: <FiPlus className="w-5 h-5 text-white" />,
-      color: 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400',
-      permission: 'barang:create'
+      color:
+        "bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400",
+      permission: "barang:create",
     },
     {
-      href: '/admin/inventory/masuk',
-      label: 'Barang Masuk',
+      href: "/admin/inventory/jasa",
+      label: "Master Jasa",
+      icon: <FiTool className="w-5 h-5 text-white" />,
+      color:
+        "bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-400",
+      permission: "barang:read",
+    },
+    {
+      href: "/admin/inventory/masuk",
+      label: "Barang Masuk",
       icon: <FiDownload className="w-5 h-5 text-white" />,
-      color: 'bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-400',
-      permission: 'stockmasuk:read'
+      color:
+        "bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-400",
+      permission: "stockmasuk:read",
     },
     {
-      href: '/admin/inventory/keluar',
-      label: 'Barang Keluar',
+      href: "/admin/inventory/keluar",
+      label: "Barang Keluar",
       icon: <FiUpload className="w-5 h-5 text-white" />,
-      color: 'bg-orange-600 dark:bg-orange-500 hover:bg-orange-700 dark:hover:bg-orange-400',
-      permission: 'stockkeluar:read'
+      color:
+        "bg-orange-600 dark:bg-orange-500 hover:bg-orange-700 dark:hover:bg-orange-400",
+      permission: "stockkeluar:read",
     },
     {
-      href: '/admin/inventory/opname',
-      label: 'Stock Opname',
+      href: "/admin/inventory/opname",
+      label: "Stock Opname",
       icon: <FiClipboard className="w-5 h-5 text-white" />,
-      color: 'bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-400',
-      permission: 'stockopname:read'
+      color:
+        "bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-400",
+      permission: "stockopname:read",
     },
-  ]
+  ];
 
-  const actions = allActions.filter(action => hasPermission(action.permission))
+  const actions = allActions.filter((action) =>
+    hasPermission(action.permission),
+  );
 
   if (actions.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -57,5 +77,5 @@ export function QuickActions() {
         </Link>
       ))}
     </div>
-  )
+  );
 }
