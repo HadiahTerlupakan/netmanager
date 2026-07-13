@@ -51,6 +51,7 @@ interface RestockTableProps {
   onOpenDetail: (request: PurchaseRequest) => void;
   onApprove: (id: string) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
+  onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
 
@@ -59,6 +60,7 @@ interface RestockActionHandlers {
   onOpenDetail: (request: PurchaseRequest) => void;
   onApprove: (id: string) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
+  onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
 
@@ -160,6 +162,7 @@ function renderStatusActions(
       {renderEditAction(request, input)}
       {renderApproveAction(request, input)}
       {renderReceiveAction(request, input)}
+      {renderConfirmJasaAction(request, input)}
       {renderDeleteAction(request, input)}
     </>
   );
@@ -213,6 +216,30 @@ function renderReceiveAction(
       className="inline-flex min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-indigo-500"
     >
       Verifikasi Sampai
+    </PrimaryActionButton>
+  );
+}
+
+function renderConfirmJasaAction(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  if (!input.canVerify || !input.onOpenConfirmJasa) return null;
+  const hasPendingJasa = (request.jasaItems ?? []).some(
+    (item) => item.statusKonfirmasi === "PENDING",
+  );
+  if (!hasPendingJasa) return null;
+  if (!["APPROVED", "ORDERED", "RECEIVED"].includes(request.status)) {
+    return null;
+  }
+
+  return (
+    <PrimaryActionButton
+      label={`Konfirmasi jasa selesai ${request.nomorRequest}`}
+      onClick={() => input.onOpenConfirmJasa?.(request)}
+      className="inline-flex min-w-[8.5rem] items-center justify-center rounded-xl bg-violet-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-violet-500"
+    >
+      Konfirmasi Jasa
     </PrimaryActionButton>
   );
 }
@@ -364,6 +391,22 @@ export function RestockTable({
       ),
     },
     {
+      key: "jasa",
+      header: "Jasa",
+      priority: "secondary",
+      align: "center",
+      className: "w-[7rem]",
+      render: (request) => {
+        const count = request.jasaItems?.length ?? 0;
+        if (count === 0) return null;
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+            Jasa: {count}
+          </span>
+        );
+      },
+    },
+    {
       key: "keterangan",
       header: "Catatan / Keterangan",
       priority: "secondary",
@@ -378,6 +421,33 @@ export function RestockTable({
             —
           </span>
         ),
+    },
+    {
+      key: "items",
+      header: "Item",
+      priority: "secondary",
+      minWidth: "10rem",
+      render: (request) => {
+        const barangCount = request.items?.length ?? 0;
+        const jasaCount = request.jasaItems?.length ?? 0;
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {barangCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
+                Barang: {barangCount}
+              </span>
+            )}
+            {jasaCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+                Jasa: {jasaCount}
+              </span>
+            )}
+            {barangCount === 0 && jasaCount === 0 && (
+              <span className="text-xs text-gray-300">—</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "status",
