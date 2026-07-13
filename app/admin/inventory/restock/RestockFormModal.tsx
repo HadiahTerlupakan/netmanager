@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { FiCheck, FiFilter, FiPackage, FiPlus, FiTrash2 } from "react-icons/fi";
+import {
+  FiCheck,
+  FiFilter,
+  FiPackage,
+  FiPlus,
+  FiTool,
+  FiTrash2,
+} from "react-icons/fi";
 
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -15,7 +22,13 @@ import {
   getStockSnapshot,
   isVeryLowStock,
 } from "./utils";
-import type { Barang, Gudang, RestockFormItem, RestockSetting } from "./types";
+import type {
+  Barang,
+  Gudang,
+  Jasa,
+  RestockFormItem,
+  RestockSetting,
+} from "./types";
 
 interface RestockFormModalProps {
   isOpen: boolean;
@@ -28,6 +41,7 @@ interface RestockFormModalProps {
   onFormItemsChange: (items: RestockFormItem[]) => void;
   gudangs: Gudang[];
   barangs: Barang[];
+  jasaList: Jasa[];
   allSettings: RestockSetting[];
   showAllItems: boolean;
   onShowAllItemsChange: (value: boolean) => void;
@@ -62,6 +76,30 @@ function createBarangOption(
   };
 }
 
+function createJasaOption(jasa: Jasa) {
+  return {
+    value: jasa.id,
+    label: `${jasa.kode} - ${jasa.nama}`,
+    subLabel: `Est. Rp ${Number(jasa.hargaEstimasi || 0).toLocaleString("id-ID")} / ${jasa.satuan}`,
+    badge: (
+      <span className="px-2 py-0.5 bg-violet-500 text-white text-[8px] font-black rounded-full uppercase">
+        Jasa
+      </span>
+    ),
+  };
+}
+
+function emptyItem(tipe: RestockFormItem["tipe"] = "BARANG"): RestockFormItem {
+  return {
+    tipe,
+    barangId: "",
+    jasaId: "",
+    quantity: 1,
+    hargaPerUnit: 0,
+    keterangan: "",
+  };
+}
+
 export function RestockFormModal({
   isOpen,
   isEditing,
@@ -73,6 +111,7 @@ export function RestockFormModal({
   onFormItemsChange,
   gudangs,
   barangs,
+  jasaList,
   allSettings,
   showAllItems,
   onShowAllItemsChange,
@@ -87,18 +126,12 @@ export function RestockFormModal({
     onFormItemsChange(nextItems);
   };
 
-  const addItem = () => {
-    onFormItemsChange([
-      ...formItems,
-      { barangId: "", quantity: 1, keterangan: "" },
-    ]);
+  const addItem = (tipe: RestockFormItem["tipe"] = "BARANG") => {
+    onFormItemsChange([...formItems, emptyItem(tipe)]);
   };
 
   const removeItem = (index: number) => {
-    if (!canRemoveRestockFormItem(formItems.length)) {
-      return;
-    }
-
+    if (!canRemoveRestockFormItem(formItems.length)) return;
     onFormItemsChange(formItems.filter((_, itemIndex) => itemIndex !== index));
   };
 
@@ -116,6 +149,10 @@ export function RestockFormModal({
         createBarangOption(barang, allSettings, formGudang),
       ),
     [barangs, allSettings, formGudang],
+  );
+  const jasaOptions = useMemo(
+    () => jasaList.filter((j) => j.status === "ACTIVE").map(createJasaOption),
+    [jasaList],
   );
 
   return (
@@ -189,7 +226,7 @@ export function RestockFormModal({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-gray-900 dark:text-white tracking-tight">
-                    Daftar Barang
+                    Daftar Item
                   </h3>
                   <p className="text-[11px] text-gray-500 font-bold uppercase tracking-tighter">
                     {getRestockToggleHint(showAllItems)}
@@ -197,7 +234,7 @@ export function RestockFormModal({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div
                   className={`flex items-center gap-2 px-4 py-2 rounded-2xl transition-all border ${showAllItems ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}
                 >
@@ -218,10 +255,16 @@ export function RestockFormModal({
                   </label>
                 </div>
                 <button
-                  onClick={addItem}
+                  onClick={() => addItem("BARANG")}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100 dark:shadow-none"
                 >
-                  <FiPlus /> Tambah
+                  <FiPlus /> Barang
+                </button>
+                <button
+                  onClick={() => addItem("JASA")}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-violet-700 transition-all active:scale-95 shadow-lg shadow-violet-100 dark:shadow-none"
+                >
+                  <FiTool /> Jasa
                 </button>
               </div>
             </div>
@@ -236,7 +279,7 @@ export function RestockFormModal({
                 </p>
                 <p className="text-xs text-blue-500/70 dark:text-blue-400/70 mt-2 font-medium max-w-xs mx-auto text-balance text-center">
                   Sistem akan menyaring barang yang stoknya di bawah batas
-                  minimal pada gudang tersebut.
+                  minimal. Jasa tetap bisa ditambahkan.
                 </p>
               </div>
             )}
@@ -254,15 +297,19 @@ export function RestockFormModal({
                   </p>
                   <p className="text-xs text-green-500/70 dark:text-green-400/70 mt-2 font-medium max-w-xs mx-auto text-balance text-center">
                     Tidak ada barang di bawah limit stok. Aktifkan mode semua
-                    barang untuk restock manual.
+                    barang untuk restock manual, atau tambah item jasa.
                   </p>
                 </div>
               )}
 
             <div className="space-y-5 pb-8">
               {formItems.map((item, index) => {
+                const isJasa = item.tipe === "JASA";
                 const selectedBarang = barangs.find(
                   (barang) => barang.id === item.barangId,
+                );
+                const selectedJasa = jasaList.find(
+                  (jasa) => jasa.id === item.jasaId,
                 );
                 const stock = getStockSnapshot(
                   selectedBarang,
@@ -276,32 +323,90 @@ export function RestockFormModal({
 
                 return (
                   <div
-                    key={`${item.barangId}-${index}`}
-                    className="group relative bg-white dark:bg-gray-800 p-5 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-900/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+                    key={`${item.tipe}-${item.barangId || item.jasaId}-${index}`}
+                    className="group relative bg-white dark:bg-gray-800 p-5 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-900/50 transition-all duration-300"
                   >
                     <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
-                      <div className="hidden lg:flex w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 items-center justify-center text-xs font-black text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 group-hover:scale-110 transition-transform">
+                      <div className="hidden lg:flex w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 items-center justify-center text-xs font-black text-indigo-400 border border-indigo-100 dark:border-indigo-800/50">
                         {index + 1}
                       </div>
                       <div className="flex-1 w-full space-y-3">
-                        <SearchableSelect
-                          options={barangOptions}
-                          value={item.barangId}
-                          onChange={(value) =>
-                            updateItem(index, { ...item, barangId: value })
-                          }
-                          placeholder={
-                            showAllItems
-                              ? "Cari nama atau kode barang..."
-                              : "Pilih barang stok rendah..."
-                          }
-                          onSearchChange={(query) => {
-                            if (query.trim().length > 0 && !showAllItems) {
-                              onShowAllItemsChange(true);
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateItem(index, {
+                                ...emptyItem("BARANG"),
+                                quantity: item.quantity,
+                                keterangan: item.keterangan,
+                              })
                             }
-                          }}
-                        />
-                        {item.barangId && (
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${!isJasa ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-900 text-gray-500"}`}
+                          >
+                            Barang
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateItem(index, {
+                                ...emptyItem("JASA"),
+                                quantity: item.quantity,
+                                keterangan: item.keterangan,
+                              })
+                            }
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${isJasa ? "bg-violet-600 text-white" : "bg-gray-100 dark:bg-gray-900 text-gray-500"}`}
+                          >
+                            Jasa
+                          </button>
+                        </div>
+
+                        {isJasa ? (
+                          <SearchableSelect
+                            options={jasaOptions}
+                            value={item.jasaId || ""}
+                            onChange={(value) => {
+                              const found = jasaList.find(
+                                (j) => j.id === value,
+                              );
+                              updateItem(index, {
+                                ...item,
+                                tipe: "JASA",
+                                jasaId: value,
+                                barangId: "",
+                                hargaPerUnit:
+                                  found?.hargaEstimasi ??
+                                  item.hargaPerUnit ??
+                                  0,
+                              });
+                            }}
+                            placeholder="Cari nama atau kode jasa..."
+                          />
+                        ) : (
+                          <SearchableSelect
+                            options={barangOptions}
+                            value={item.barangId}
+                            onChange={(value) =>
+                              updateItem(index, {
+                                ...item,
+                                tipe: "BARANG",
+                                barangId: value,
+                                jasaId: "",
+                              })
+                            }
+                            placeholder={
+                              showAllItems
+                                ? "Cari nama atau kode barang..."
+                                : "Pilih barang stok rendah..."
+                            }
+                            onSearchChange={(query) => {
+                              if (query.trim().length > 0 && !showAllItems) {
+                                onShowAllItemsChange(true);
+                              }
+                            }}
+                          />
+                        )}
+
+                        {!isJasa && item.barangId && (
                           <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800/50">
                             <div className="flex flex-col items-center justify-center py-1">
                               <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">
@@ -336,7 +441,7 @@ export function RestockFormModal({
                         <div className="flex items-end gap-4">
                           <div className="flex-1 lg:flex-none flex flex-col space-y-1.5">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                              Jumlah Restock
+                              {isJasa ? "Jumlah" : "Jumlah Restock"}
                             </label>
                             <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-2xl px-3 h-12 border border-gray-100 dark:border-gray-800 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
                               <input
@@ -352,7 +457,9 @@ export function RestockFormModal({
                                 className="w-full lg:w-24 bg-transparent border-none rounded-xl text-center font-black text-indigo-600 focus:ring-0 text-xl"
                               />
                               <span className="text-[10px] font-black text-gray-400 uppercase pr-1 hidden lg:block">
-                                {selectedBarang?.satuan || ""}
+                                {isJasa
+                                  ? selectedJasa?.satuan || "job"
+                                  : selectedBarang?.satuan || ""}
                               </span>
                             </div>
                           </div>
@@ -363,6 +470,29 @@ export function RestockFormModal({
                             <FiTrash2 className="text-lg" />
                           </button>
                         </div>
+
+                        {isJasa && (
+                          <div className="flex flex-col space-y-1.5">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                              Harga / Unit
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.hargaPerUnit || 0}
+                              onChange={(event) =>
+                                updateItem(index, {
+                                  ...item,
+                                  hargaPerUnit:
+                                    parseFloat(event.target.value) || 0,
+                                })
+                              }
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-violet-500 transition-all"
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
+
                         <div className="flex flex-col space-y-1.5">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
                             Keterangan Item
@@ -377,14 +507,23 @@ export function RestockFormModal({
                               })
                             }
                             className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl h-12 px-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all"
-                            placeholder="Catatan khusus barang ini"
+                            placeholder={
+                              isJasa
+                                ? "Catatan khusus jasa ini"
+                                : "Catatan khusus barang ini"
+                            }
                           />
                         </div>
                       </div>
                     </div>
-                    {item.barangId && criticalLow && (
+                    {!isJasa && item.barangId && criticalLow && (
                       <div className="absolute -top-2 -right-2 px-3 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded-full shadow-lg shadow-red-200 dark:shadow-none animate-bounce">
                         Critical Low
+                      </div>
+                    )}
+                    {isJasa && (
+                      <div className="absolute -top-2 -right-2 px-3 py-1 bg-violet-500 text-white text-[9px] font-black uppercase rounded-full shadow-lg shadow-violet-200 dark:shadow-none">
+                        Jasa
                       </div>
                     )}
                   </div>
@@ -392,12 +531,20 @@ export function RestockFormModal({
               })}
 
               {formItems.length > 0 && (
-                <button
-                  onClick={addItem}
-                  className="w-full py-5 bg-gray-50 dark:bg-gray-900/50 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-[2.5rem] text-gray-400 text-xs font-black uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-200 dark:hover:border-indigo-900/30 transition-all flex items-center justify-center gap-3"
-                >
-                  <FiPlus className="text-lg" /> Tambah Item Lainnya
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => addItem("BARANG")}
+                    className="w-full py-5 bg-gray-50 dark:bg-gray-900/50 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-[2.5rem] text-gray-400 text-xs font-black uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-200 dark:hover:border-indigo-900/30 transition-all flex items-center justify-center gap-3"
+                  >
+                    <FiPlus className="text-lg" /> Tambah Barang
+                  </button>
+                  <button
+                    onClick={() => addItem("JASA")}
+                    className="w-full py-5 bg-violet-50 dark:bg-violet-900/20 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-[2.5rem] text-violet-400 text-xs font-black uppercase tracking-widest hover:text-violet-600 hover:border-violet-300 dark:hover:border-violet-700 transition-all flex items-center justify-center gap-3"
+                  >
+                    <FiTool className="text-lg" /> Tambah Jasa
+                  </button>
+                </div>
               )}
             </div>
           </div>
