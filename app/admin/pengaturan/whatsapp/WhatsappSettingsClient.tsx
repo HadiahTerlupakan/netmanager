@@ -36,9 +36,10 @@ interface WhatsAppAccount {
 
 interface BaileysStatus {
   sessionId: string;
-  status: "disconnected" | "connecting" | "qr" | "connected";
+  status: "disconnected" | "connecting" | "qr" | "connected" | "error";
   qr?: string;
   phone?: string;
+  error?: string;
 }
 
 const PROVIDERS = [
@@ -692,6 +693,7 @@ function BaileysPanel({ accountId }: { accountId: string }) {
   const [info, setInfo] = useState<BaileysStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -706,6 +708,12 @@ function BaileysPanel({ accountId }: { accountId: string }) {
       if (json.success && json.data) {
         setInfo(json.data);
         setPanelError(null);
+        if (json.data.status === "qr" && json.data.qr) {
+          setShowQrModal(true);
+        }
+        if (json.data.status === "connected") {
+          setShowQrModal(false);
+        }
       } else {
         setPanelError(json.error ?? "Gagal ambil status Baileys");
       }
@@ -717,7 +725,7 @@ function BaileysPanel({ accountId }: { accountId: string }) {
 
   useEffect(() => {
     const initial = setTimeout(() => void fetchStatus(), 0);
-    const t = setInterval(() => void fetchStatus(), 4000);
+    const t = setInterval(() => void fetchStatus(), 3000);
     return () => {
       clearTimeout(initial);
       clearInterval(t);
@@ -727,6 +735,10 @@ function BaileysPanel({ accountId }: { accountId: string }) {
   const doAction = async (action: "start" | "stop" | "restart") => {
     setLoading(true);
     setPanelError(null);
+    if (action === "start" || action === "restart") {
+      setShowQrModal(true);
+      setInfo({ sessionId: accountId, status: "connecting" });
+    }
     try {
       const res = await fetch(
         `/api/admin/whatsapp/accounts/${accountId}/baileys`,
@@ -743,12 +755,17 @@ function BaileysPanel({ accountId }: { accountId: string }) {
       };
       if (json.success && json.data) {
         setInfo(json.data);
-        if (action === "start" || action === "restart") {
-          setTimeout(() => void fetchStatus(), 1500);
-          setTimeout(() => void fetchStatus(), 4000);
+        if (json.data.status === "qr" && json.data.qr) {
+          setShowQrModal(true);
+        } else if (json.data.status === "connected") {
+          setShowQrModal(false);
+        } else if (json.data.status === "error" || json.data.error) {
+          setPanelError(json.data.error ?? "Baileys error");
         }
       } else {
-        setPanelError(json.error ?? `Aksi ${action} gagal`);
+        setPanelError(
+          json.error ?? `Aksi ${action} gagal (HTTP ${res.status})`,
+        );
         clientLogger.error("BaileysPanel doAction error:", json.error);
       }
     } catch (err) {
@@ -759,7 +776,7 @@ function BaileysPanel({ accountId }: { accountId: string }) {
     }
   };
 
-  const statusColor = {
+  const statusColor: Record<string, string> = {
     disconnected:
       "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
     connecting:
@@ -767,6 +784,7 @@ function BaileysPanel({ accountId }: { accountId: string }) {
     qr: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     connected:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    error: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   };
 
   return (
@@ -778,7 +796,7 @@ function BaileysPanel({ accountId }: { accountId: string }) {
         </span>
         {info && (
           <span
-            className={`text-xs px-2 py-0.5 rounded font-medium ${statusColor[info.status]}`}
+            className={`text-xs px-2 py-0.5 rounded font-medium ${statusColor[info.status] ?? statusColor.disconnected}`}
           >
             {info.status}
           </span>
@@ -787,37 +805,51 @@ function BaileysPanel({ accountId }: { accountId: string }) {
           <span className="text-xs text-gray-500">+{info.phone}</span>
         )}
         <div className="ml-auto flex gap-2">
-          {(!info || info.status === "disconnected") && (
+          {(!info ||
+            info.status === "disconnected" ||
+            info.status === "error") && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => doAction("start")}
               disabled={loading}
             >
-              Start
+              {loading ? "Memuat QR..." : "Start / Scan QR"}
             </Button>
           )}
-          {info && info.status !== "disconnected" && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => doAction("restart")}
-                disabled={loading}
-              >
-                <HiOutlineArrowPath className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => doAction("stop")}
-                disabled={loading}
-                className="text-red-600 dark:text-red-400"
-              >
-                <HiOutlineStopCircle className="w-4 h-4" />
-              </Button>
-            </>
-          )}
+          {info &&
+            info.status !== "disconnected" &&
+            info.status !== "error" && (
+              <>
+                {(info.status === "qr" || info.status === "connecting") && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => setShowQrModal(true)}
+                    disabled={loading}
+                  >
+                    Lihat QR
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => doAction("restart")}
+                  disabled={loading}
+                >
+                  <HiOutlineArrowPath className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => doAction("stop")}
+                  disabled={loading}
+                  className="text-red-600 dark:text-red-400"
+                >
+                  <HiOutlineStopCircle className="w-4 h-4" />
+                </Button>
+              </>
+            )}
         </div>
       </div>
       {panelError && (
@@ -825,23 +857,70 @@ function BaileysPanel({ accountId }: { accountId: string }) {
           {panelError}
         </div>
       )}
-      {info?.status === "qr" && info.qr && (
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Scan QR ini dengan WhatsApp di HP kamu
-          </p>
-          {/* eslint-disable-next-line @next/next/no-img-element -- QR is a base64 data URL */}
-          <img
-            src={info.qr}
-            alt="QR Code"
-            className="w-48 h-48 rounded-lg border border-gray-200 dark:border-gray-700"
-          />
-        </div>
-      )}
-      {info?.status === "connecting" && (
+      {info?.status === "connecting" && !showQrModal && (
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Menghubungkan... tunggu QR muncul (polling tiap 4 detik).
+          Menghubungkan... QR sedang digenerate (bisa sampai 25 detik).
         </p>
+      )}
+
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-center">
+              Scan QR WhatsApp
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 text-center">
+              Buka WhatsApp di HP → Linked Devices → Link a Device
+            </p>
+            <div className="flex flex-col items-center gap-3 min-h-[220px] justify-center">
+              {info?.status === "qr" && info.qr ? (
+                // eslint-disable-next-line @next/next/no-img-element -- QR is a base64 data URL
+                <img
+                  src={info.qr}
+                  alt="QR Code Baileys"
+                  className="w-56 h-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white"
+                />
+              ) : info?.status === "connected" ? (
+                <div className="text-center text-green-600 dark:text-green-400">
+                  <HiOutlineCheckCircle className="w-12 h-12 mx-auto mb-2" />
+                  <p className="font-medium">Terhubung</p>
+                  {info.phone && <p className="text-sm">+{info.phone}</p>}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <HiOutlineArrowPath className="w-10 h-10 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">
+                    {loading
+                      ? "Menunggu QR dari server..."
+                      : "QR belum siap. Coba Start lagi."}
+                  </p>
+                  {info?.error && (
+                    <p className="mt-2 text-xs text-red-600">{info.error}</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowQrModal(false)}
+              >
+                Tutup
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                className="flex-1"
+                onClick={() => doAction("restart")}
+                disabled={loading}
+              >
+                {loading ? "..." : "Refresh QR"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

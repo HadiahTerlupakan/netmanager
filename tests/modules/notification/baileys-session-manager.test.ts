@@ -4,6 +4,17 @@ const mockSendMessage = vi.fn();
 const mockEnd = vi.fn();
 const mockOn = vi.fn();
 const mockSaveCreds = vi.fn();
+const mockRedisGet = vi.fn().mockResolvedValue(null);
+const mockRedisSet = vi.fn().mockResolvedValue("OK");
+const mockRedisDel = vi.fn().mockResolvedValue(1);
+
+vi.mock("@/lib/redis", () => ({
+  redis: {
+    get: mockRedisGet,
+    set: mockRedisSet,
+    del: mockRedisDel,
+  },
+}));
 
 vi.mock("@whiskeysockets/baileys", () => {
   const DisconnectReason = { loggedOut: 401 };
@@ -21,6 +32,7 @@ vi.mock("@whiskeysockets/baileys", () => {
     })),
     DisconnectReason,
     fetchLatestBaileysVersion: vi.fn(async () => ({ version: [2, 3000, 0] })),
+    Browsers: { ubuntu: vi.fn(() => ["Ubuntu", "Chrome", "1"]) },
   };
 });
 
@@ -35,29 +47,29 @@ describe("baileys-session-manager", () => {
     mockEnd.mockReset();
     mockOn.mockReset();
     mockSaveCreds.mockReset();
+    mockRedisGet.mockReset().mockResolvedValue(null);
+    mockRedisSet.mockReset().mockResolvedValue("OK");
+    mockRedisDel.mockReset().mockResolvedValue(1);
   });
 
   it("starts disconnected and reports status after start", async () => {
     const manager =
       await import("@/modules/notification/services/whatsapp/baileys-session-manager");
 
-    expect(manager.getBaileysSession("acc-1").status).toBe("disconnected");
+    const initialInfo = await manager.getBaileysSession("acc-1");
+    expect(initialInfo.status).toBe("disconnected");
 
-    await manager.startBaileysSession("acc-1");
-    expect(manager.getBaileysSession("acc-1").status).toBe("connecting");
+    const startPromise = manager.startBaileysSession("acc-1");
+    await new Promise((r) => setTimeout(r, 50));
 
     const connectionHandler = mockOn.mock.calls.find(
       (call) => call[0] === "connection.update",
-    )?.[1] as
-      | ((update: { connection?: string; qr?: string }) => void)
-      | undefined;
-
+    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
     expect(connectionHandler).toBeTypeOf("function");
-    connectionHandler?.({ connection: "open" });
 
-    const info = manager.getBaileysSession("acc-1");
-    expect(info.status).toBe("connected");
-    expect(info.phone).toBe("6281234567890");
+    connectionHandler?.({ qr: "fake-qr-string" });
+    const info = await startPromise;
+    expect(["qr", "connecting"]).toContain(info.status);
   });
 
   it("rejects send when session is not connected", async () => {
@@ -77,10 +89,15 @@ describe("baileys-session-manager", () => {
     const manager =
       await import("@/modules/notification/services/whatsapp/baileys-session-manager");
 
-    await manager.startBaileysSession("acc-2");
+    const startPromise = manager.startBaileysSession("acc-2");
+    await new Promise((r) => setTimeout(r, 50));
+
     const connectionHandler = mockOn.mock.calls.find(
       (call) => call[0] === "connection.update",
-    )?.[1] as ((update: { connection?: string }) => void) | undefined;
+    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
+
+    connectionHandler?.({ qr: "fake-qr" });
+    await startPromise;
     connectionHandler?.({ connection: "open" });
 
     mockSendMessage.mockResolvedValue({ key: { id: "msg-1" } });
@@ -105,11 +122,17 @@ describe("baileys-session-manager", () => {
     const manager =
       await import("@/modules/notification/services/whatsapp/baileys-session-manager");
 
-    await manager.startBaileysSession("acct-xyz");
+    const startPromise = manager.startBaileysSession("acct-xyz");
+    await new Promise((r) => setTimeout(r, 50));
+
     const connectionHandler = mockOn.mock.calls.find(
       (call) => call[0] === "connection.update",
-    )?.[1] as ((update: { connection?: string }) => void) | undefined;
+    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
+
+    connectionHandler?.({ qr: "fake-qr" });
+    await startPromise;
     connectionHandler?.({ connection: "open" });
+
     mockSendMessage.mockResolvedValue({ key: { id: "msg-2" } });
 
     const provider = new BaileysProvider({

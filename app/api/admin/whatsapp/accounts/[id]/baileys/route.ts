@@ -74,16 +74,18 @@ export async function POST(
     const body = (await req.json()) as { action?: string };
     const action = body.action || "start";
 
+    let info;
     if (action === "stop") {
       await stopBaileysSession(id);
+      info = await getBaileysSession(id);
     } else if (action === "restart") {
       await stopBaileysSession(id);
-      await startBaileysSession(id);
+      info = await startBaileysSession(id);
     } else {
-      await startBaileysSession(id);
+      // start — blocks until QR ready (up to 25s) then returns QR in response
+      info = await startBaileysSession(id);
     }
 
-    const info = await getBaileysSession(id);
     console.info(`[API] Baileys ${action} account=${id} status=${info.status}`);
     return NextResponse.json({ success: true, data: info });
   } catch (error) {
