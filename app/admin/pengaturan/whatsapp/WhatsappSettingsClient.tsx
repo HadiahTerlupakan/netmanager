@@ -36,7 +36,13 @@ interface WhatsAppAccount {
 
 interface BaileysStatus {
   sessionId: string;
-  status: "disconnected" | "connecting" | "qr" | "connected" | "error";
+  status:
+    | "disconnected"
+    | "connecting"
+    | "qr"
+    | "connected"
+    | "error"
+    | "needs_reauth";
   qr?: string;
   phone?: string;
   error?: string;
@@ -785,6 +791,8 @@ function BaileysPanel({ accountId }: { accountId: string }) {
     connected:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     error: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    needs_reauth:
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
   };
 
   return (
@@ -807,19 +815,25 @@ function BaileysPanel({ accountId }: { accountId: string }) {
         <div className="ml-auto flex gap-2">
           {(!info ||
             info.status === "disconnected" ||
-            info.status === "error") && (
+            info.status === "error" ||
+            info.status === "needs_reauth") && (
             <Button
               size="sm"
-              variant="outline"
+              variant={info?.status === "needs_reauth" ? "default" : "outline"}
               onClick={() => doAction("start")}
               disabled={loading}
             >
-              {loading ? "Memuat QR..." : "Start / Scan QR"}
+              {loading
+                ? "Memuat QR..."
+                : info?.status === "needs_reauth"
+                  ? "Scan QR Ulang"
+                  : "Start / Scan QR"}
             </Button>
           )}
           {info &&
             info.status !== "disconnected" &&
-            info.status !== "error" && (
+            info.status !== "error" &&
+            info.status !== "needs_reauth" && (
               <>
                 {(info.status === "qr" || info.status === "connecting") && (
                   <Button

@@ -1,13 +1,15 @@
 import path from "path";
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
+import { runAsSystemContext } from "@/lib/tenant-context";
 
 export type BaileysSessionStatus =
   | "disconnected"
   | "connecting"
   | "qr"
   | "connected"
-  | "error";
+  | "error"
+  | "needs_reauth";
 
 export interface BaileysSessionInfo {
   sessionId: string;
@@ -246,7 +248,14 @@ export async function startBaileysSession(
           clearInterval(current.refreshInterval);
           current.refreshInterval = undefined;
         }
-        current.status = "disconnected";
+        if (loggedOut) {
+          current.status = "needs_reauth";
+          current.error =
+            "Session logged out oleh WhatsApp. Scan QR ulang dari UI.";
+        } else {
+          current.status = "disconnected";
+          current.error = undefined;
+        }
         current.qr = undefined;
         current.sock = undefined;
         sessions.set(sessionId, current);
@@ -396,17 +405,27 @@ export function onBaileysStatus(
 
 export async function restoreAllBaileySessions(): Promise<void> {
   try {
-    const { prisma } = await import("@/lib/prisma");
-    const accounts = await prisma.whatsAppAccount.findMany({
-      where: { provider: "BAILEYS", isActive: true },
-      select: { id: true },
+    await runAsSystemContext("Baileys: restoreAllBaileySessions", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      const accounts = await prisma.whatsAppAccount.findMany({
+        where: { provider: "BAILEYS", isActive: true },
+        select: { id: true, name: true },
+      });
+      logger.info(`[Baileys] Restoring ${accounts.length} BAILEYS session(s)`);
+      for (const account of accounts) {
+        try {
+          const info = await startBaileysSession(account.id);
+          logger.info(
+            `[Baileys] Restore ${account.id} (${account.name}): status=${info.status}`,
+          );
+        } catch (err) {
+          logger.error(
+            `[Baileys] Restore failed for ${account.id} (${account.name}):`,
+            err,
+          );
+        }
+      }
     });
-    logger.info(`[Baileys] Restoring ${accounts.length} BAILEYS sessions`);
-    for (const account of accounts) {
-      void startBaileysSession(account.id).catch((err) =>
-        logger.error(`[Baileys] Restore failed for ${account.id}:`, err),
-      );
-    }
   } catch (err) {
     logger.error("[Baileys] restoreAllBaileySessions failed:", err);
   }

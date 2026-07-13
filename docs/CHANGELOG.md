@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Fix restoreAllBaileySessions tanpa tenant context + handle 401 NEEDS_REAUTH
+
+- **Tipe**: [FIXED] [SECURITY]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`
+- **Author**: agent
+- **Deskripsi**: Dua bug: (1) `restoreAllBaileySessions` query `WhatsAppAccount.findMany` tanpa tenant context → Prisma extension fail-closed throw → sessions tidak auto-restore setelah deploy. Fix: wrap dengan `runAsSystemContext` (pattern sama seperti MikroTikMonitor/RadiusMonitor). (2) Saat Baileys close dengan code 401 (logged out), auto-retry loop spam start/restart. Fix: stop retry, set status `needs_reauth`, dan UI tampilkan tombol "Scan QR Ulang".
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Baileys session keep-alive + auto-restore on boot
 
 - **Tipe**: [FIXED]
