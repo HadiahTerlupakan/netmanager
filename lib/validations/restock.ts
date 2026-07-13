@@ -7,19 +7,40 @@ const restockItemSchema = z.object({
   keterangan: z.string().trim().nullable().optional(),
 });
 
-/** Schema untuk membuat purchase request restock */
-export const restockCreateSchema = z.object({
-  gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
-  keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
-  items: z.array(restockItemSchema).min(1, "Minimal 1 item harus ditambahkan"),
+const restockJasaItemSchema = z.object({
+  jasaId: z.string().trim().min(1, "jasaId wajib diisi"),
+  jumlah: z.number().int().min(1, "Jumlah minimal 1").default(1),
+  hargaPerUnit: z.number().min(0).default(0).optional(),
+  keterangan: z.string().trim().nullable().optional(),
 });
 
+/** Schema untuk membuat purchase request restock (bisa barang, jasa, atau keduanya) */
+export const restockCreateSchema = z
+  .object({
+    gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
+    keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
+    items: z.array(restockItemSchema).default([]),
+    jasaItems: z.array(restockJasaItemSchema).default([]),
+  })
+  .refine(
+    (data) =>
+      (data.items?.length ?? 0) > 0 || (data.jasaItems?.length ?? 0) > 0,
+    { message: "Minimal 1 item barang atau jasa harus ditambahkan" },
+  );
+
 /** Schema untuk update purchase request restock (PUT) */
-export const restockUpdateSchema = z.object({
-  gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
-  keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
-  items: z.array(restockItemSchema).min(1, "Minimal 1 item harus ditambahkan"),
-});
+export const restockUpdateSchema = z
+  .object({
+    gudangId: z.string().trim().min(1, "Gudang wajib dipilih"),
+    keterangan: z.string().trim().min(1, "Catatan / Keterangan wajib diisi"),
+    items: z.array(restockItemSchema).default([]),
+    jasaItems: z.array(restockJasaItemSchema).default([]),
+  })
+  .refine(
+    (data) =>
+      (data.items?.length ?? 0) > 0 || (data.jasaItems?.length ?? 0) > 0,
+    { message: "Minimal 1 item barang atau jasa harus ditambahkan" },
+  );
 
 /** Schema untuk lifecycle action (PATCH) */
 export const restockLifecycleSchema = z.object({
