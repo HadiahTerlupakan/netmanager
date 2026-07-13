@@ -173,6 +173,12 @@ app.prepare().then(() => {
   });
   startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() });
 
+  void import("./modules/notification/api")
+    .then(({ restoreAllBaileySessions }) => restoreAllBaileySessions())
+    .catch((err) =>
+      logger.error("[Server] Failed to restore Baileys sessions:", err),
+    );
+
   void import("./modules/network/services/monitorBootstrap")
     .then(async ({ waitForDatabaseReady }) => {
       await waitForDatabaseReady();

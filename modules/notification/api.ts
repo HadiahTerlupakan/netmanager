@@ -48,3 +48,7 @@ export async function sendBaileysFile(
 ) {
   return (await baileys()).sendBaileysFile(sessionId, phone, fileUrl, caption);
 }
+
+export async function restoreAllBaileySessions() {
+  return (await baileys()).restoreAllBaileySessions();
+}

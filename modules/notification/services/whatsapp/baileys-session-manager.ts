@@ -28,11 +28,14 @@ interface SessionEntry {
   sock?: BaileysSock;
   stop?: () => Promise<void>;
   qrWaiters?: Array<(info: BaileysSessionInfo) => void>;
+  refreshInterval?: ReturnType<typeof setInterval>;
 }
 
 const sessions = new Map<string, SessionEntry>();
-const REDIS_TTL_SEC = 300;
+const QR_TTL_SEC = 180;
+const CONNECTED_TTL_SEC = 86400;
 const QR_WAIT_MS = 25000;
+const REFRESH_INTERVAL_MS = 240000;
 
 function redisKey(sessionId: string) {
   return `baileys:session:${sessionId}`;
@@ -46,13 +49,9 @@ async function persist(sessionId: string, entry: SessionEntry): Promise<void> {
     phone: entry.phone,
     error: entry.error,
   };
+  const ttl = entry.status === "connected" ? CONNECTED_TTL_SEC : QR_TTL_SEC;
   try {
-    await redis.set(
-      redisKey(sessionId),
-      JSON.stringify(payload),
-      "EX",
-      REDIS_TTL_SEC,
-    );
+    await redis.set(redisKey(sessionId), JSON.stringify(payload), "EX", ttl);
   } catch (err) {
     logger.warn(
       `[Baileys] Redis persist failed for ${sessionId}: ${
@@ -226,6 +225,10 @@ export async function startBaileysSession(
         current.phone = phone;
         current.qr = undefined;
         current.error = undefined;
+        if (current.refreshInterval) clearInterval(current.refreshInterval);
+        current.refreshInterval = setInterval(() => {
+          void persist(sessionId, current);
+        }, REFRESH_INTERVAL_MS);
         sessions.set(sessionId, current);
         void persist(sessionId, current);
         notifyWaiters(sessionId, current);
@@ -239,6 +242,10 @@ export async function startBaileysSession(
             | undefined
         )?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
+        if (current.refreshInterval) {
+          clearInterval(current.refreshInterval);
+          current.refreshInterval = undefined;
+        }
         current.status = "disconnected";
         current.qr = undefined;
         current.sock = undefined;
@@ -310,6 +317,7 @@ function waitForQrOrTerminal(
 
 export async function stopBaileysSession(sessionId: string): Promise<void> {
   const s = sessions.get(sessionId);
+  if (s?.refreshInterval) clearInterval(s.refreshInterval);
   if (s?.stop) await s.stop();
   sessions.delete(sessionId);
   try {
@@ -382,4 +390,22 @@ export function onBaileysStatus(
   _cb: (sessionId: string, status: BaileysSessionStatus) => void,
 ) {
   // no-op
+}
+
+export async function restoreAllBaileySessions(): Promise<void> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const accounts = await prisma.whatsAppAccount.findMany({
+      where: { provider: "BAILEYS", isActive: true },
+      select: { id: true },
+    });
+    logger.info(`[Baileys] Restoring ${accounts.length} BAILEYS sessions`);
+    for (const account of accounts) {
+      void startBaileysSession(account.id).catch((err) =>
+        logger.error(`[Baileys] Restore failed for ${account.id}:`, err),
+      );
+    }
+  } catch (err) {
+    logger.error("[Baileys] restoreAllBaileySessions failed:", err);
+  }
 }

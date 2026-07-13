@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Baileys session keep-alive + auto-restore on boot
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`, `server.ts`
+- **Author**: agent
+- **Deskripsi**: Session Baileys terlihat "disconnected" saat tinggalkan halaman karena Redis TTL status hanya 5 menit. Diperbaiki: TTL `connected` 24 jam, refresh TTL tiap 4 menit selama session aktif, dan auto-restore semua akun BAILEYS aktif saat server boot (pakai auth state di disk — tidak perlu scan QR ulang).
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — PVC Baileys sessions + sticky session Service
 
 - **Tipe**: [INFRA]
