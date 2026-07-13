@@ -17,6 +17,8 @@ export * from "./services/InventoryRouteService";
 export * from "./services/InventoryPhotoUploadService";
 export * from "./services/InventoryStockEffectService";
 export * from "./services/RestockRequestService";
+export * from "./services/RestockJasaConfirmService";
+export * from "./services/JasaService";
 export * from "./services/MobileInventoryService";
 export type { MobileInventoryError } from "./services/mobile-inventory.types";
 export * from "./services/InventoryStockService";
