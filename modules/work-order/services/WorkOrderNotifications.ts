@@ -12,19 +12,20 @@ import {
   notifyWorkOrderStatusChange,
   notifyWorkOrderUpdate,
   createNotification,
+  sendPushToUsers,
 } from "@/modules/notification";
+import { WhatsAppSenderService } from "@/modules/notification";
 import { CanvasingRepository } from "../repositories/CanvasingRepository";
 import { UserLookupService } from "@/modules/users";
-import { sendPushToUsers } from "@/modules/notification";
 
 let canvasingRepo: CanvasingRepository | null = null;
 let userRepo: UserLookupService | null = null;
+let waSender: WhatsAppSenderService | null = null;
 
 function getCanvasingRepository() {
   if (!canvasingRepo) {
     canvasingRepo = new CanvasingRepository();
   }
-
   return canvasingRepo;
 }
 
@@ -32,8 +33,14 @@ function getUserLookupService() {
   if (!userRepo) {
     userRepo = new UserLookupService();
   }
-
   return userRepo;
+}
+
+function getWaSender() {
+  if (!waSender) {
+    waSender = new WhatsAppSenderService();
+  }
+  return waSender;
 }
 
 interface WorkOrderData {
@@ -257,17 +264,22 @@ export async function sendWorkOrderReminder(
 
     // Case 1: WO sudah diambil → Reminder hanya ke teknisi yang mengambil
     if (workOrder.assignedToId) {
-      // logger.info(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
-      return await sendPushToUsers([workOrder.assignedToId], title, message, {
-        workOrderId: workOrder.id,
-        type: "WORK_ORDER",
-        screen: "WorkOrderDetail",
-      });
+      const sentPush = await sendPushToUsers(
+        [workOrder.assignedToId],
+        title,
+        message,
+        {
+          workOrderId: workOrder.id,
+          type: "WORK_ORDER",
+          screen: "WorkOrderDetail",
+        },
+      );
+      await sendWhatsAppReminderToUser(workOrder.assignedToId, message);
+      return sentPush;
     }
 
     // Case 2: WO belum diambil → WAJIB berdasarkan site
     if (!workOrder.siteId) {
-      // logger.info('[Push] No siteId found for unassigned WO - cannot send reminder');
       return 0;
     }
 
@@ -278,24 +290,56 @@ export async function sendWorkOrderReminder(
       );
 
     if (techniciansInSite.length === 0) {
-      const _deptInfo = workOrder.departmentId
-        ? ` in department ${workOrder.departmentId}`
-        : "";
-      // logger.info(`[Push] No technicians with push tokens in site ${workOrder.siteId}${_deptInfo}`);
       return 0;
     }
 
     const userIds = techniciansInSite.map((u: { id: string }) => u.id);
-    const _deptInfo = workOrder.departmentId ? ` (filtered by dept)` : "";
-    // logger.info(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${_deptInfo}`);
 
-    return await sendPushToUsers(userIds, title, message, {
+    const sentPush = await sendPushToUsers(userIds, title, message, {
       workOrderId: workOrder.id,
       type: "WORK_ORDER",
       screen: "WorkOrderList",
     });
+
+    await Promise.all(
+      techniciansInSite.map((t) =>
+        sendWhatsAppReminderToUser(t.id, message, t.phone),
+      ),
+    );
+
+    return sentPush;
   } catch (error) {
     logger.error("[Notification] Error sending reminder:", error);
     return 0;
+  }
+}
+
+async function sendWhatsAppReminderToUser(
+  userId: string,
+  message: string,
+  phone?: string | null,
+): Promise<void> {
+  try {
+    const targetPhone =
+      phone ?? (await getUserLookupService().findById(userId))?.phone;
+    if (!targetPhone) return;
+
+    const result = await getWaSender().send({
+      phone: targetPhone,
+      message,
+      accountType: "INTERNAL",
+    });
+
+    if (!result.success) {
+      logger.warn(
+        `[WO Reminder] WA failed for user ${userId}: ${result.error}`,
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      `[WO Reminder] WA send error for user ${userId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
   }
 }

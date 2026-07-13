@@ -58,7 +58,7 @@ export function findManyActiveWithPushTokenAndSite(
 ) {
   return prisma.user.findMany({
     where: buildActivePushTokenWhere(departmentId, siteId, excludeUserId),
-    select: { id: true, fcmTokens: true },
+    select: { id: true, fcmTokens: true, phone: true, name: true },
   });
 }
 

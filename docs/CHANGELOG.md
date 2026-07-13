@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Work Order reminder kirim WhatsApp INTERNAL ke teknisi
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/work-order/services/WorkOrderNotifications.ts`, `modules/users/repositories/user-lookup.notification.ts`
+- **Author**: agent
+- **Deskripsi**: Reminder WO (manual + cron) sekarang juga kirim WhatsApp via akun `accountType=INTERNAL` (Baileys/Wablas) ke nomor HP teknisi, selain push notification. Hanya teknisi/karyawan yang punya field `phone` di user yang dikirimi WA. Pelanggan tetap lewat alur CUSTOMER terpisah.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Baileys: 408 backoff + ENOENT handler + proxy retry
 
 - **Tipe**: [FIXED]
