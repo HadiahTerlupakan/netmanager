@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Delay Baileys restore sampai DB ready
+
+- **Tipe**: [FIXED]
+- **Scope**: `server.ts`
+- **Author**: agent
+- **Deskripsi**: `restoreAllBaileySessions` dijalankan paralel saat boot dan gagal dengan `Connection terminated due to connection timeout` karena DB belum ready. Dipindah ke chain `waitForDatabaseReady()` (sama dengan RadiusMonitor/MikroTikMonitor) supaya restore hanya jalan setelah DB siap.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — full-radius-mode GET tidak butuh umum:read
 
 - **Tipe**: [FIXED]

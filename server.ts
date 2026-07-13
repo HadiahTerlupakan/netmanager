@@ -173,27 +173,29 @@ app.prepare().then(() => {
   });
   startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() });
 
-  void import("./modules/notification/api")
-    .then(({ restoreAllBaileySessions }) => restoreAllBaileySessions())
-    .catch((err) =>
-      logger.error("[Server] Failed to restore Baileys sessions:", err),
-    );
-
   void import("./modules/network/services/monitorBootstrap")
     .then(async ({ waitForDatabaseReady }) => {
       await waitForDatabaseReady();
-      const [{ startRadiusMonitoring }, { mikroTikMonitor }] =
-        await Promise.all([
-          import("./modules/network/services/RadiusMonitor"),
-          import("./modules/network/services/MikroTikMonitor"),
-        ]);
+      const [
+        { startRadiusMonitoring },
+        { mikroTikMonitor },
+        { restoreAllBaileySessions },
+      ] = await Promise.all([
+        import("./modules/network/services/RadiusMonitor"),
+        import("./modules/network/services/MikroTikMonitor"),
+        import("./modules/notification/api"),
+      ]);
 
       startRadiusMonitoring();
       mikroTikMonitorRef = mikroTikMonitor;
       mikroTikMonitor.start();
+      await restoreAllBaileySessions();
     })
     .catch((err) =>
-      logger.error("[Server] Failed to start monitoring services:", err),
+      logger.error(
+        "[Server] Failed to start monitoring/Baileys services:",
+        err,
+      ),
     );
 
   server.listen(port, hostname, () => {
