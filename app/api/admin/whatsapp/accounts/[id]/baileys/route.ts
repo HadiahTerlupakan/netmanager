@@ -79,14 +79,22 @@ export async function POST(
       await stopBaileysSession(id);
       info = await getBaileysSession(id);
     } else if (action === "restart") {
-      await stopBaileysSession(id);
-      info = await startBaileysSession(id);
+      // Force re-pair: wipe auth + new QR
+      info = await startBaileysSession(id, { forcePairing: true });
     } else {
       const current = await getBaileysSession(id);
-      if (current.status !== "connected") {
-        await stopBaileysSession(id);
+      if (
+        current.status === "needs_reauth" ||
+        current.status === "error" ||
+        current.status === "disconnected"
+      ) {
+        // Explicit Start after logout must clear credentials and emit QR
+        info = await startBaileysSession(id, { forcePairing: true });
+      } else if (current.status === "connected") {
+        info = current;
+      } else {
+        info = await startBaileysSession(id);
       }
-      info = await startBaileysSession(id);
     }
 
     console.info(`[API] Baileys ${action} account=${id} status=${info.status}`);

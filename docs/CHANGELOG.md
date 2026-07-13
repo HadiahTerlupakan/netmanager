@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Force re-pair Baileys: wipe auth state on 401 / needs_reauth
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`, `app/api/admin/whatsapp/accounts/[id]/baileys`
+- **Author**: agent
+- **Deskripsi**: Setelah logout WhatsApp (code 401), Start hanya return `needs_reauth` sambil tetap load credential lama → QR tidak pernah di-generate. Fix: `clearBaileysAuthState()` hapus folder `.baileys-sessions/<id>`, Start/Restart dengan `forcePairing: true` wipe auth + buka socket fresh agar QR pairing muncul.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Delay Baileys restore sampai DB ready
 
 - **Tipe**: [FIXED]

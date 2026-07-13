@@ -24,8 +24,15 @@ export async function listBaileysSessions() {
   return (await baileys()).listBaileysSessions();
 }
 
-export async function startBaileysSession(sessionId: string) {
-  return (await baileys()).startBaileysSession(sessionId);
+export async function startBaileysSession(
+  sessionId: string,
+  options?: { forcePairing?: boolean },
+) {
+  return (await baileys()).startBaileysSession(sessionId, options);
+}
+
+export async function clearBaileysAuthState(sessionId: string) {
+  return (await baileys()).clearBaileysAuthState(sessionId);
 }
 
 export async function stopBaileysSession(sessionId: string) {

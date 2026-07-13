@@ -43,6 +43,25 @@ function redisKey(sessionId: string) {
   return `baileys:session:${sessionId}`;
 }
 
+function authDirFor(sessionId: string) {
+  return path.resolve(process.cwd(), ".baileys-sessions", sessionId);
+}
+
+export async function clearBaileysAuthState(sessionId: string): Promise<void> {
+  const authDir = authDirFor(sessionId);
+  try {
+    const fs = await import("fs/promises");
+    await fs.rm(authDir, { recursive: true, force: true });
+    logger.info(`[Baileys] Cleared auth state for session ${sessionId}`);
+  } catch (err) {
+    logger.warn(
+      `[Baileys] Failed to clear auth state for ${sessionId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+}
+
 async function persist(sessionId: string, entry: SessionEntry): Promise<void> {
   const payload: BaileysSessionInfo = {
     sessionId,
@@ -126,12 +145,13 @@ export async function listBaileysSessions(): Promise<BaileysSessionInfo[]> {
 
 export async function startBaileysSession(
   sessionId: string,
+  options?: { forcePairing?: boolean },
 ): Promise<BaileysSessionInfo> {
   const existing = sessions.get(sessionId);
-  if (existing?.status === "connected") {
+  if (existing?.status === "connected" && !options?.forcePairing) {
     return getBaileysSession(sessionId);
   }
-  if (existing?.status === "qr" && existing.qr) {
+  if (existing?.status === "qr" && existing.qr && !options?.forcePairing) {
     return {
       sessionId,
       status: "qr",
@@ -141,8 +161,37 @@ export async function startBaileysSession(
   }
 
   // If already connecting on THIS pod, wait for QR instead of no-op.
-  if (existing?.status === "connecting" || existing?.status === "qr") {
+  if (
+    (existing?.status === "connecting" || existing?.status === "qr") &&
+    !options?.forcePairing
+  ) {
     return waitForQrOrTerminal(sessionId, existing);
+  }
+
+  // needs_reauth / forcePairing: kill socket + wipe credentials so Baileys emits a new QR
+  if (
+    options?.forcePairing ||
+    existing?.status === "needs_reauth" ||
+    existing?.status === "error"
+  ) {
+    if (existing?.stop) {
+      try {
+        await existing.stop();
+      } catch {
+        // ignore
+      }
+    }
+    if (existing?.refreshInterval) clearInterval(existing.refreshInterval);
+    sessions.delete(sessionId);
+    await clearBaileysAuthState(sessionId);
+  }
+
+  // Also wipe if Redis says needs_reauth (status from another pod / previous boot)
+  if (!options?.forcePairing) {
+    const remote = await readFromRedis(sessionId);
+    if (remote?.status === "needs_reauth") {
+      await clearBaileysAuthState(sessionId);
+    }
   }
 
   const entry: SessionEntry = {
@@ -162,7 +211,7 @@ export async function startBaileysSession(
       Browsers,
     } = baileys;
 
-    const authDir = path.resolve(process.cwd(), ".baileys-sessions", sessionId);
+    const authDir = authDirFor(sessionId);
     const { state, saveCreds } = await loadAuthState(authDir);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -252,6 +301,8 @@ export async function startBaileysSession(
           current.status = "needs_reauth";
           current.error =
             "Session logged out oleh WhatsApp. Scan QR ulang dari UI.";
+          // Wipe bad credentials so next Start opens pairing (fresh QR)
+          void clearBaileysAuthState(sessionId);
         } else {
           current.status = "disconnected";
           current.error = undefined;
