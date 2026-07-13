@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — UI halaman Master Jasa + update RestockDetailModal + RestockTable
+
+- **Tipe**: [ADDED] [CHANGED]
+- **Scope**: `app/admin/inventory/jasa`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Tambah halaman CRUD master jasa (`page.tsx`, `JasaList.tsx`, `JasaFormModal.tsx`) dengan tabel kode/nama/satuan/supplier/harga/status, search, dan permission guard. Update `RestockDetailModal` untuk render section "Daftar Jasa" (badge JASA violet, status konfirmasi, bukti thumbnail) jika `jasaItems` ada. Update `RestockTable` dengan badge "Jasa: N" (violet) di kolom baru saat PR punya jasa items. Semua 13 test restock-table tetap pass.
+- **Files**: `app/admin/inventory/jasa/page.tsx`, `app/admin/inventory/jasa/JasaList.tsx`, `app/admin/inventory/jasa/JasaFormModal.tsx`, `app/admin/inventory/restock/RestockDetailModal.tsx`, `app/admin/inventory/restock/RestockTable.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-14] — Master Jasa + item jasa di pengajuan restock
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/inventory`, `app/admin/inventory/jasa`, `app/admin/inventory/restock`, `app/api/inventory/jasa`, `app/api/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Fitur jasa (item non-fisik) di inventory restock. Master Jasa terpisah dari Barang (kode, nama, satuan, supplier, hargaEstimasi, kategoriPph). Purchase request bisa berisi barang + jasa. Verifikasi jasa via "Konfirmasi Selesai" + upload bukti (bukan receive stok). Schema: model `Jasa` + `PurchaseRequestJasaItem`.
+- **Files**: `modules/inventory/repositories/JasaRepository.ts`, `modules/inventory/services/JasaService.ts`, `modules/inventory/services/RestockJasaConfirmService.ts`, `modules/inventory/services/RestockRequestService.ts`, `app/admin/inventory/jasa/*`, `app/admin/inventory/restock/*`, `app/api/inventory/jasa/*`, `lib/validations/jasa.ts`, `lib/validations/restock.ts`
+- **Migration**: `20260713120000_add_jasa_master_and_pr_jasa_items`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Work Order reminder kirim WhatsApp INTERNAL ke teknisi
 
 - **Tipe**: [ADDED]
