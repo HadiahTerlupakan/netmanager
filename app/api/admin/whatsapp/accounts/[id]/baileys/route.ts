@@ -84,9 +84,19 @@ export async function POST(
     }
 
     const info = await getBaileysSession(id);
+    console.info(`[API] Baileys ${action} account=${id} status=${info.status}`);
     return NextResponse.json({ success: true, data: info });
   } catch (error) {
     console.error("[API] POST baileys action error:", error);
-    return ApiErrors.internalError();
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal menjalankan aksi Baileys",
+      },
+      { status: 500 },
+    );
   }
 }

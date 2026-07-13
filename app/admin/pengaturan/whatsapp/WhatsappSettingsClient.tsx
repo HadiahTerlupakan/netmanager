@@ -691,6 +691,7 @@ function AccountModal({
 function BaileysPanel({ accountId }: { accountId: string }) {
   const [info, setInfo] = useState<BaileysStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -700,18 +701,32 @@ function BaileysPanel({ accountId }: { accountId: string }) {
       const json = (await res.json()) as {
         success: boolean;
         data?: BaileysStatus;
+        error?: string;
       };
-      if (json.success && json.data) setInfo(json.data);
-    } catch {}
+      if (json.success && json.data) {
+        setInfo(json.data);
+        setPanelError(null);
+      } else {
+        setPanelError(json.error ?? "Gagal ambil status Baileys");
+      }
+    } catch (err) {
+      clientLogger.error("BaileysPanel fetchStatus error:", err);
+      setPanelError(err instanceof Error ? err.message : "Network error");
+    }
   }, [accountId]);
 
   useEffect(() => {
+    const initial = setTimeout(() => void fetchStatus(), 0);
     const t = setInterval(() => void fetchStatus(), 4000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(t);
+    };
   }, [fetchStatus]);
 
   const doAction = async (action: "start" | "stop" | "restart") => {
     setLoading(true);
+    setPanelError(null);
     try {
       const res = await fetch(
         `/api/admin/whatsapp/accounts/${accountId}/baileys`,
@@ -724,9 +739,21 @@ function BaileysPanel({ accountId }: { accountId: string }) {
       const json = (await res.json()) as {
         success: boolean;
         data?: BaileysStatus;
+        error?: string;
       };
-      if (json.success && json.data) setInfo(json.data);
-    } catch {
+      if (json.success && json.data) {
+        setInfo(json.data);
+        if (action === "start" || action === "restart") {
+          setTimeout(() => void fetchStatus(), 1500);
+          setTimeout(() => void fetchStatus(), 4000);
+        }
+      } else {
+        setPanelError(json.error ?? `Aksi ${action} gagal`);
+        clientLogger.error("BaileysPanel doAction error:", json.error);
+      }
+    } catch (err) {
+      clientLogger.error("BaileysPanel doAction exception:", err);
+      setPanelError(err instanceof Error ? err.message : "Network error");
     } finally {
       setLoading(false);
     }
@@ -793,6 +820,11 @@ function BaileysPanel({ accountId }: { accountId: string }) {
           )}
         </div>
       </div>
+      {panelError && (
+        <div className="mb-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-2 text-xs text-red-700 dark:text-red-300">
+          {panelError}
+        </div>
+      )}
       {info?.status === "qr" && info.qr && (
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -805,6 +837,11 @@ function BaileysPanel({ accountId }: { accountId: string }) {
             className="w-48 h-48 rounded-lg border border-gray-200 dark:border-gray-700"
           />
         </div>
+      )}
+      {info?.status === "connecting" && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Menghubungkan... tunggu QR muncul (polling tiap 4 detik).
+        </p>
       )}
     </div>
   );
