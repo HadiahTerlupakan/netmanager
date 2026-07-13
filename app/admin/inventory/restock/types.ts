@@ -7,6 +7,27 @@ export interface PurchaseRequestItem {
   barang: { nama: string; kode: string; satuan: string };
 }
 
+export interface PurchaseRequestJasaItem {
+  id: string;
+  jasaId: string;
+  jumlah: number;
+  hargaPerUnit: number;
+  totalHarga: number;
+  keterangan?: string | null;
+  tanggalSelesai?: string | null;
+  buktiSelesai?: string[];
+  statusKonfirmasi: "PENDING" | "SELESAI";
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+  jasa: {
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+    hargaEstimasi?: number;
+  };
+}
+
 export interface PurchaseOrderSummary {
   poNumber?: string | null;
   status?: string | null;
@@ -35,6 +56,7 @@ export interface PurchaseRequest {
   prioritas?: string | null;
   purchaseOrder?: PurchaseOrderSummary | null;
   items: PurchaseRequestItem[];
+  jasaItems?: PurchaseRequestJasaItem[];
 }
 
 export interface BarangGudang {
@@ -67,13 +89,31 @@ export interface Barang {
   barangGudang?: BarangGudang[];
 }
 
+export interface Jasa {
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+  supplierId?: string | null;
+  hargaEstimasi: number;
+  kategoriPph?: string | null;
+  deskripsi?: string | null;
+  status: string;
+  supplier?: { id: string; name: string; code: string } | null;
+}
+
 export interface Gudang {
   id: string;
   nama: string;
 }
 
+export type RestockFormItemType = "BARANG" | "JASA";
+
 export interface RestockFormItem {
-  barangId: string;
+  tipe: RestockFormItemType;
+  barangId?: string;
+  jasaId?: string;
   quantity: number;
+  hargaPerUnit?: number;
   keterangan?: string | null;
 }

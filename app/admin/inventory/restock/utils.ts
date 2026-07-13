@@ -131,13 +131,21 @@ export function canSubmitRestockForm({
     return false;
   }
 
-  const barangIds = formItems.map((item) => item.barangId).filter(Boolean);
+  const allItemsValid = formItems.every((item) => {
+    if (item.tipe === "JASA") {
+      return !!item.jasaId && item.quantity > 0;
+    }
+    return !!item.barangId && item.quantity > 0;
+  });
+  if (!allItemsValid) return false;
+
+  const barangIds = formItems
+    .filter((item) => item.tipe === "BARANG")
+    .map((item) => item.barangId)
+    .filter(Boolean);
   const hasDuplicateBarang = new Set(barangIds).size !== barangIds.length;
 
-  return (
-    !hasDuplicateBarang &&
-    formItems.every((item) => item.barangId && item.quantity > 0)
-  );
+  return !hasDuplicateBarang;
 }
 
 export function canRemoveRestockFormItem(totalItems: number): boolean {
@@ -234,6 +242,10 @@ function requestMatchesSearch(
     ...(request.items?.flatMap((item) => [
       item.barang?.nama || "",
       item.barang?.kode || "",
+    ]) || []),
+    ...(request.jasaItems?.flatMap((item) => [
+      item.jasa?.nama || "",
+      item.jasa?.kode || "",
     ]) || []),
   ];
 
