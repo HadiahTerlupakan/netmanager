@@ -77,6 +77,7 @@ function renderForm(
       onFormItemsChange={onFormItemsChange}
       gudangs={gudangs}
       barangs={barangs}
+      jasaList={[]}
       allSettings={allSettings}
       showAllItems={false}
       onShowAllItemsChange={vi.fn()}
@@ -98,6 +99,7 @@ describe("RestockFormModal", () => {
   it("renders per-item keterangan input with the current item note", () => {
     const { markup } = renderForm([
       {
+        tipe: "BARANG",
         barangId: "barang-1",
         quantity: 2,
         keterangan: "Untuk ODP baru",
@@ -110,7 +112,10 @@ describe("RestockFormModal", () => {
   });
 
   it("marks main catatan / keterangan as required", () => {
-    const { markup } = renderForm([{ barangId: "barang-1", quantity: 2 }], "");
+    const { markup } = renderForm(
+      [{ tipe: "BARANG", barangId: "barang-1", quantity: 2 }],
+      "",
+    );
 
     expect(markup).toContain("Catatan / Keterangan wajib diisi");
     expect(markup).toContain("required");

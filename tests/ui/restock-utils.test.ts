@@ -23,7 +23,7 @@ import type {
 
 describe("restock utils", () => {
   const validFormItems: RestockFormItem[] = [
-    { barangId: "barang-1", quantity: 1 },
+    { tipe: "BARANG", barangId: "barang-1", quantity: 1 },
   ];
 
   const allBarangs: Barang[] = [
@@ -252,7 +252,7 @@ describe("restock utils", () => {
       canSubmitRestockForm({
         formGudang: "gudang-a",
         formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [{ barangId: "", quantity: 1 }],
+        formItems: [{ tipe: "BARANG", barangId: "", quantity: 1 }],
         isSubmitting: false,
       }),
     ).toBe(false);
@@ -261,7 +261,7 @@ describe("restock utils", () => {
       canSubmitRestockForm({
         formGudang: "gudang-a",
         formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [{ barangId: "barang-1", quantity: 0 }],
+        formItems: [{ tipe: "BARANG", barangId: "barang-1", quantity: 0 }],
         isSubmitting: false,
       }),
     ).toBe(false);
@@ -284,12 +284,37 @@ describe("restock utils", () => {
         formGudang: "gudang-a",
         formNotes: "Restock untuk instalasi pelanggan",
         formItems: [
-          { barangId: "barang-1", quantity: 1 },
-          { barangId: "barang-1", quantity: 2 },
+          { tipe: "BARANG", barangId: "barang-1", quantity: 1 },
+          { tipe: "BARANG", barangId: "barang-1", quantity: 2 },
         ],
         isSubmitting: false,
       }),
     ).toBe(false);
+  });
+
+  it("allows submit for jasa items with valid jasaId and quantity", () => {
+    expect(
+      canSubmitRestockForm({
+        formGudang: "gudang-a",
+        formNotes: "Restock jasa instalasi",
+        formItems: [{ tipe: "JASA", jasaId: "jasa-1", quantity: 1 }],
+        isSubmitting: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows submit when the same jasa is selected more than once", () => {
+    expect(
+      canSubmitRestockForm({
+        formGudang: "gudang-a",
+        formNotes: "Restock jasa ganda",
+        formItems: [
+          { tipe: "JASA", jasaId: "jasa-1", quantity: 1 },
+          { tipe: "JASA", jasaId: "jasa-1", quantity: 2 },
+        ],
+        isSubmitting: false,
+      }),
+    ).toBe(true);
   });
 
   it("only allows removing form items when more than one item exists", () => {

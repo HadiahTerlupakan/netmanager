@@ -111,6 +111,7 @@ describe("inventory restock request lifecycle routes", () => {
           keterangan: "Untuk ODP baru",
         },
       ],
+      jasaItems: [],
       gudangId: "gudang-1",
       keterangan: "Restock Order: Barang 1",
       requesterId: "user-1",
