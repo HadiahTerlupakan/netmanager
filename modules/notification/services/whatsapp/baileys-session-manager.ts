@@ -294,16 +294,18 @@ function waitForQrOrTerminal(
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       const current = sessions.get(sessionId) ?? entry;
+      if (current.status === "connecting") {
+        current.status = "error";
+        current.error = "QR belum muncul dalam 25 detik. Coba Start lagi.";
+        sessions.set(sessionId, current);
+        void persist(sessionId, current);
+      }
       resolve({
         sessionId,
         status: current.status,
         qr: current.qr,
         phone: current.phone,
-        error:
-          current.error ??
-          (current.status === "connecting"
-            ? "QR belum muncul dalam 25 detik. Coba Start lagi."
-            : undefined),
+        error: current.error,
       });
     }, QR_WAIT_MS);
 

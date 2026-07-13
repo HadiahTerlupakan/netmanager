@@ -82,7 +82,10 @@ export async function POST(
       await stopBaileysSession(id);
       info = await startBaileysSession(id);
     } else {
-      // start — blocks until QR ready (up to 25s) then returns QR in response
+      const current = await getBaileysSession(id);
+      if (current.status !== "connected") {
+        await stopBaileysSession(id);
+      }
       info = await startBaileysSession(id);
     }
 
