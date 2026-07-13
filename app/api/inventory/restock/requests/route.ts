@@ -16,6 +16,13 @@ interface RestockItemInput {
   keterangan?: string | null;
 }
 
+interface RestockJasaItemInput {
+  jasaId: string;
+  jumlah?: number;
+  hargaPerUnit?: number;
+  keterangan?: string | null;
+}
+
 const inventoryRouteService = getInventoryRouteService();
 
 /** Ambil daftar purchase request restock. */
@@ -71,12 +78,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { items, gudangId, keterangan } = parsed.data;
+  const { items, jasaItems, gudangId, keterangan } = parsed.data;
 
   return createRestockRequest({
-    items: items.map((item: RestockItemInput) => ({
+    items: (items || []).map((item: RestockItemInput) => ({
       barangId: item.barangId,
       quantity: item.quantity || item.jumlah || 0,
+      keterangan: item.keterangan || null,
+    })),
+    jasaItems: (jasaItems || []).map((item: RestockJasaItemInput) => ({
+      jasaId: item.jasaId,
+      jumlah: item.jumlah || 1,
+      hargaPerUnit: item.hargaPerUnit || 0,
       keterangan: item.keterangan || null,
     })),
     gudangId,
