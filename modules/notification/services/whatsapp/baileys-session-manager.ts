@@ -31,6 +31,7 @@ interface SessionEntry {
   stop?: () => Promise<void>;
   qrWaiters?: Array<(info: BaileysSessionInfo) => void>;
   refreshInterval?: ReturnType<typeof setInterval>;
+  lockHeartbeat?: ReturnType<typeof setInterval>;
 }
 
 const sessions = new Map<string, SessionEntry>();
@@ -38,27 +39,51 @@ const QR_TTL_SEC = 180;
 const CONNECTED_TTL_SEC = 86400;
 const QR_WAIT_MS = 25000;
 const REFRESH_INTERVAL_MS = 240000;
+const LOCK_TTL_SEC = 60;
+const LOCK_HEARTBEAT_MS = 20000;
+
+const POD_ID =
+  process.env.HOSTNAME ?? `pod-${Math.random().toString(36).slice(2, 8)}`;
 
 function redisKey(sessionId: string) {
   return `baileys:session:${sessionId}`;
+}
+
+function lockKey(sessionId: string) {
+  return `baileys:lock:${sessionId}`;
 }
 
 function authDirFor(sessionId: string) {
   return path.resolve(process.cwd(), ".baileys-sessions", sessionId);
 }
 
-export async function clearBaileysAuthState(sessionId: string): Promise<void> {
-  const authDir = authDirFor(sessionId);
+async function acquireLock(sessionId: string): Promise<boolean> {
   try {
-    const fs = await import("fs/promises");
-    await fs.rm(authDir, { recursive: true, force: true });
-    logger.info(`[Baileys] Cleared auth state for session ${sessionId}`);
-  } catch (err) {
-    logger.warn(
-      `[Baileys] Failed to clear auth state for ${sessionId}: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
+    const key = lockKey(sessionId);
+    const result = await redis.set(key, POD_ID, "EX", LOCK_TTL_SEC, "NX");
+    return result === "OK";
+  } catch {
+    return true;
+  }
+}
+
+async function releaseLock(sessionId: string): Promise<void> {
+  try {
+    const key = lockKey(sessionId);
+    const owner = await redis.get(key);
+    if (owner === POD_ID) await redis.del(key);
+  } catch {
+    // ignore
+  }
+}
+
+async function renewLock(sessionId: string): Promise<void> {
+  try {
+    const key = lockKey(sessionId);
+    const owner = await redis.get(key);
+    if (owner === POD_ID) await redis.expire(key, LOCK_TTL_SEC);
+  } catch {
+    // ignore
   }
 }
 
@@ -143,6 +168,21 @@ export async function listBaileysSessions(): Promise<BaileysSessionInfo[]> {
   );
 }
 
+export async function clearBaileysAuthState(sessionId: string): Promise<void> {
+  const authDir = authDirFor(sessionId);
+  try {
+    const fs = await import("fs/promises");
+    await fs.rm(authDir, { recursive: true, force: true });
+    logger.info(`[Baileys] Cleared auth state for session ${sessionId}`);
+  } catch (err) {
+    logger.warn(
+      `[Baileys] Failed to clear auth state for ${sessionId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+}
+
 export async function startBaileysSession(
   sessionId: string,
   options?: { forcePairing?: boolean },
@@ -160,7 +200,6 @@ export async function startBaileysSession(
     };
   }
 
-  // If already connecting on THIS pod, wait for QR instead of no-op.
   if (
     (existing?.status === "connecting" || existing?.status === "qr") &&
     !options?.forcePairing
@@ -168,25 +207,25 @@ export async function startBaileysSession(
     return waitForQrOrTerminal(sessionId, existing);
   }
 
-  // needs_reauth / forcePairing: kill socket + wipe credentials so Baileys emits a new QR
   if (
     options?.forcePairing ||
     existing?.status === "needs_reauth" ||
     existing?.status === "error"
   ) {
+    if (existing?.lockHeartbeat) clearInterval(existing.lockHeartbeat);
+    if (existing?.refreshInterval) clearInterval(existing.refreshInterval);
     if (existing?.stop) {
       try {
         await existing.stop();
       } catch {
-        // ignore
+        /* ignore */
       }
     }
-    if (existing?.refreshInterval) clearInterval(existing.refreshInterval);
     sessions.delete(sessionId);
+    await releaseLock(sessionId);
     await clearBaileysAuthState(sessionId);
   }
 
-  // Also wipe if Redis says needs_reauth (status from another pod / previous boot)
   if (!options?.forcePairing) {
     const remote = await readFromRedis(sessionId);
     if (remote?.status === "needs_reauth") {
@@ -194,9 +233,22 @@ export async function startBaileysSession(
     }
   }
 
+  const hasLock = await acquireLock(sessionId);
+  if (!hasLock) {
+    logger.info(
+      `[Baileys] Pod ${POD_ID} skipped session ${sessionId} — owned by another pod`,
+    );
+    const remote = await readFromRedis(sessionId);
+    return remote ?? { sessionId, status: "disconnected" };
+  }
+
   const entry: SessionEntry = {
     status: "connecting",
     qrWaiters: [],
+    lockHeartbeat: setInterval(
+      () => void renewLock(sessionId),
+      LOCK_HEARTBEAT_MS,
+    ),
   };
   sessions.set(sessionId, entry);
   await persist(sessionId, entry);
@@ -236,7 +288,7 @@ export async function startBaileysSession(
       try {
         sock.end(undefined);
       } catch {
-        // ignore
+        /* ignore */
       }
     };
     sessions.set(sessionId, entry);
@@ -279,11 +331,14 @@ export async function startBaileysSession(
         if (current.refreshInterval) clearInterval(current.refreshInterval);
         current.refreshInterval = setInterval(() => {
           void persist(sessionId, current);
+          void renewLock(sessionId);
         }, REFRESH_INTERVAL_MS);
         sessions.set(sessionId, current);
         void persist(sessionId, current);
         notifyWaiters(sessionId, current);
-        logger.info(`[Baileys] Session ${sessionId} connected (${phone})`);
+        logger.info(
+          `[Baileys] Session ${sessionId} connected (${phone}) pod=${POD_ID}`,
+        );
       }
 
       if (connection === "close") {
@@ -297,11 +352,14 @@ export async function startBaileysSession(
           clearInterval(current.refreshInterval);
           current.refreshInterval = undefined;
         }
+        if (current.lockHeartbeat) {
+          clearInterval(current.lockHeartbeat);
+          current.lockHeartbeat = undefined;
+        }
         if (loggedOut) {
           current.status = "needs_reauth";
           current.error =
             "Session logged out oleh WhatsApp. Scan QR ulang dari UI.";
-          // Wipe bad credentials so next Start opens pairing (fresh QR)
           void clearBaileysAuthState(sessionId);
         } else {
           current.status = "disconnected";
@@ -311,8 +369,11 @@ export async function startBaileysSession(
         current.sock = undefined;
         sessions.set(sessionId, current);
         void persist(sessionId, current);
+        void releaseLock(sessionId);
         notifyWaiters(sessionId, current);
-        logger.warn(`[Baileys] Session ${sessionId} closed (code ${code})`);
+        logger.warn(
+          `[Baileys] Session ${sessionId} closed (code ${code}) pod=${POD_ID}`,
+        );
         if (!loggedOut) {
           setTimeout(() => {
             void startBaileysSession(sessionId);
@@ -322,10 +383,15 @@ export async function startBaileysSession(
     });
   } catch (err) {
     logger.error(`[Baileys] Failed to start session ${sessionId}:`, err);
+    if (entry.lockHeartbeat) {
+      clearInterval(entry.lockHeartbeat);
+      entry.lockHeartbeat = undefined;
+    }
     entry.status = "error";
     entry.error = err instanceof Error ? err.message : "Gagal start Baileys";
     sessions.set(sessionId, entry);
     await persist(sessionId, entry);
+    await releaseLock(sessionId);
     notifyWaiters(sessionId, entry);
     return getBaileysSession(sessionId);
   }
@@ -340,7 +406,8 @@ function waitForQrOrTerminal(
   if (
     entry.status === "qr" ||
     entry.status === "connected" ||
-    entry.status === "error"
+    entry.status === "error" ||
+    entry.status === "needs_reauth"
   ) {
     return Promise.resolve({
       sessionId,
@@ -379,9 +446,11 @@ function waitForQrOrTerminal(
 
 export async function stopBaileysSession(sessionId: string): Promise<void> {
   const s = sessions.get(sessionId);
+  if (s?.lockHeartbeat) clearInterval(s.lockHeartbeat);
   if (s?.refreshInterval) clearInterval(s.refreshInterval);
   if (s?.stop) await s.stop();
   sessions.delete(sessionId);
+  await releaseLock(sessionId);
   try {
     await redis.del(redisKey(sessionId));
   } catch {
@@ -398,7 +467,7 @@ export async function sendBaileysMessage(
   if (!s || s.status !== "connected" || !s.sock) {
     return {
       success: false,
-      error: `Session ${sessionId} belum terkoneksi di pod ini. Pastikan sessionAffinity aktif atau gunakan 1 replica.`,
+      error: `Session ${sessionId} belum terkoneksi di pod ini`,
     };
   }
   try {
@@ -423,7 +492,7 @@ export async function sendBaileysFile(
   if (!s || s.status !== "connected" || !s.sock) {
     return {
       success: false,
-      error: `Session ${sessionId} belum terkoneksi di pod ini. Pastikan sessionAffinity aktif atau gunakan 1 replica.`,
+      error: `Session ${sessionId} belum terkoneksi di pod ini`,
     };
   }
   try {
@@ -443,7 +512,6 @@ export async function sendBaileysFile(
   }
 }
 
-// Keep sync wrappers for callers that still use the old names via re-exports.
 export function onBaileysQR(_cb: (sessionId: string, qr: string) => void) {
   // no-op: status now polled via Redis
 }
@@ -462,7 +530,9 @@ export async function restoreAllBaileySessions(): Promise<void> {
         where: { provider: "BAILEYS", isActive: true },
         select: { id: true, name: true },
       });
-      logger.info(`[Baileys] Restoring ${accounts.length} BAILEYS session(s)`);
+      logger.info(
+        `[Baileys] Restoring ${accounts.length} BAILEYS session(s) pod=${POD_ID}`,
+      );
       for (const account of accounts) {
         try {
           const info = await startBaileysSession(account.id);

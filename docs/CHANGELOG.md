@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Baileys distributed lock: stop 440 multi-pod conflict
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`
+- **Author**: agent
+- **Deskripsi**: Dengan 2 replica pod, keduanya restore session Baileys yang sama → saling kick (code 440 = multidevice conflict). Solusi: Redis distributed lock (`baileys:lock:<id>`, TTL 60s) dengan NX set. Hanya pod yang dapat lock yang menjalankan socket. Pod lain baca status dari Redis (passive). Lock diperbarui tiap 20 detik via heartbeat, dilepas saat disconnect/stop.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Force re-pair Baileys: wipe auth state on 401 / needs_reauth
 
 - **Tipe**: [FIXED]
