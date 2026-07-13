@@ -9,9 +9,6 @@ const toggleSchema = z.object({
 
 /** GET /api/admin/settings/full-radius-mode → { enabled: boolean } */
 export const GET = createHandler({ auth: true }, async () => {
-  if (!(await hasPermission("umum:read"))) {
-    return ApiErrors.forbidden("Akses ditolak");
-  }
   const enabled = await getFullRadiusMode();
   return apiSuccess({ enabled });
 });

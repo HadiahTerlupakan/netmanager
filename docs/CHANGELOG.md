@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — full-radius-mode GET tidak butuh umum:read
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/admin/settings/full-radius-mode/route.ts`
+- **Author**: agent
+- **Deskripsi**: GET endpoint dipakai Sidebar untuk hide/show menu accel-ppp di semua admin user. Guard `umum:read` membuat role tanpa permission itu dapat 403 spam di log. GET sekarang cukup auth (authenticated), POST tetap butuh `umum:update`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Fix restoreAllBaileySessions tanpa tenant context + handle 401 NEEDS_REAUTH
 
 - **Tipe**: [FIXED] [SECURITY]
