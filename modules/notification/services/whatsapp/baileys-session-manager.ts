@@ -34,6 +34,7 @@ interface SessionEntry {
   refreshInterval?: ReturnType<typeof setInterval>;
   lockHeartbeat?: ReturnType<typeof setInterval>;
   cmdLoopAbort?: AbortController;
+  reconnectAttempts?: number;
 }
 
 type RemoteCmd = {
@@ -62,6 +63,19 @@ const REMOTE_CMD_TIMEOUT_SEC = 15;
 
 const POD_ID =
   process.env.HOSTNAME ?? `pod-${Math.random().toString(36).slice(2, 8)}`;
+
+const baileysGlobal = globalThis as typeof globalThis & {
+  __baileysUnhandledHandlerInstalled?: boolean;
+};
+if (!baileysGlobal.__baileysUnhandledHandlerInstalled) {
+  baileysGlobal.__baileysUnhandledHandlerInstalled = true;
+  process.on("unhandledRejection", (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    if (msg.includes("baileys-sessions") && msg.includes("ENOENT")) {
+      logger.warn("[Baileys] Suppressed ENOENT from creds read:", msg);
+    }
+  });
+}
 
 function redisKey(sessionId: string) {
   return `baileys:session:${sessionId}`;
@@ -222,30 +236,57 @@ export async function clearBaileysAuthState(sessionId: string): Promise<void> {
   }
 }
 
+const REMOTE_CMD_RETRIES = 3;
+
 async function dispatchRemoteCmd(
   sessionId: string,
   cmd: Omit<RemoteCmd, "id">,
 ): Promise<RemoteCmdResult> {
-  const id = randomUUID();
-  const payload: RemoteCmd = { id, ...cmd };
-  try {
-    await redis.lpush(cmdQueueKey(sessionId), JSON.stringify(payload));
-    await redis.expire(cmdQueueKey(sessionId), 60);
-    const result = await redis.brpop(cmdResultKey(id), REMOTE_CMD_TIMEOUT_SEC);
-    if (!result) {
+  for (let attempt = 1; attempt <= REMOTE_CMD_RETRIES; attempt++) {
+    const id = randomUUID();
+    const payload: RemoteCmd = { id, ...cmd };
+    try {
+      await redis.lpush(cmdQueueKey(sessionId), JSON.stringify(payload));
+      await redis.expire(cmdQueueKey(sessionId), 60);
+      const result = await redis.brpop(
+        cmdResultKey(id),
+        REMOTE_CMD_TIMEOUT_SEC,
+      );
+      if (!result) {
+        if (attempt < REMOTE_CMD_RETRIES) {
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+          continue;
+        }
+        return {
+          success: false,
+          error: "Timeout menunggu pod owner memproses pesan Baileys",
+        };
+      }
+      const reply = JSON.parse(result[1]) as RemoteCmdResult;
+      if (
+        !reply.success &&
+        reply.error?.includes("Owner pod lost socket") &&
+        attempt < REMOTE_CMD_RETRIES
+      ) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        continue;
+      }
+      return reply;
+    } catch (err) {
+      if (attempt < REMOTE_CMD_RETRIES) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        continue;
+      }
       return {
         success: false,
-        error: "Timeout menunggu pod owner memproses pesan Baileys",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Gagal forward pesan ke pod owner",
       };
     }
-    return JSON.parse(result[1]) as RemoteCmdResult;
-  } catch (err) {
-    return {
-      success: false,
-      error:
-        err instanceof Error ? err.message : "Gagal forward pesan ke pod owner",
-    };
   }
+  return { success: false, error: "Gagal forward pesan ke pod owner" };
 }
 
 function startCmdLoop(sessionId: string, entry: SessionEntry) {
@@ -408,6 +449,18 @@ export async function startBaileysSession(
     const { state, saveCreds } = await loadAuthState(authDir);
     const { version } = await fetchLatestBaileysVersion();
 
+    const safeSaveCreds = async () => {
+      try {
+        await saveCreds();
+      } catch (err) {
+        logger.warn(
+          `[Baileys] saveCreds failed session=${sessionId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    };
+
     let pinoLogger: unknown = undefined;
     try {
       const pino = (await import("pino")).default;
@@ -421,6 +474,9 @@ export async function startBaileysSession(
       auth: state,
       printQRInTerminal: false,
       browser: Browsers.ubuntu("Chrome"),
+      keepAliveIntervalMs: 15000,
+      connectTimeoutMs: 20000,
+      defaultQueryTimeoutMs: 30000,
       ...(pinoLogger ? { logger: pinoLogger as never } : {}),
     });
 
@@ -434,7 +490,7 @@ export async function startBaileysSession(
     };
     sessions.set(sessionId, entry);
 
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", safeSaveCreds);
 
     sock.ev.on("connection.update", (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -469,6 +525,7 @@ export async function startBaileysSession(
         current.phone = phone;
         current.qr = undefined;
         current.error = undefined;
+        current.reconnectAttempts = 0;
         if (current.refreshInterval) clearInterval(current.refreshInterval);
         current.refreshInterval = setInterval(() => {
           void persist(sessionId, current);
@@ -490,7 +547,6 @@ export async function startBaileysSession(
             | undefined
         )?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
-        // 440 = stream conflict (another connection took over)
         const conflict = code === 440;
         if (current.refreshInterval) {
           clearInterval(current.refreshInterval);
@@ -521,11 +577,13 @@ export async function startBaileysSession(
         logger.warn(
           `[Baileys] Session ${sessionId} closed (code ${code}) pod=${POD_ID}`,
         );
-        // Only auto-retry if not logout and not multi-device conflict
         if (!loggedOut && !conflict) {
+          const attempts = (current.reconnectAttempts ?? 0) + 1;
+          current.reconnectAttempts = attempts;
+          const delay = Math.min(5000 * Math.pow(1.5, attempts - 1), 60000);
           setTimeout(() => {
             void startBaileysSession(sessionId);
-          }, 5000);
+          }, delay);
         }
       }
     });

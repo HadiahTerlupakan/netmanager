@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — Baileys: 408 backoff + ENOENT handler + proxy retry
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp/baileys-session-manager.ts`
+- **Author**: agent
+- **Deskripsi**: Tiga bug laten dari analisis 80 menit log: (1) Code 408 loop ~2.5-3 menit — keepAliveIntervalMs turun ke 15s + exponential backoff reconnect (5s → 60s max). (2) ENOENT creds.json unhandledRejection — wrap saveCreds dengan safeSaveCreds + global handler suppress ENOENT dari baileys-sessions. (3) Proxy send dari non-owner timeout saat owner reconnect — dispatchRemoteCmd retry 3x dengan backoff.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-13] — Baileys: fail-closed lock + Redis command queue ke pod owner
 
 - **Tipe**: [FIXED]
