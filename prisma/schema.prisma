@@ -2835,6 +2835,7 @@ model PurchaseRequest {
   approver        User?                 @relation("ApproverPR", fields: [approvedBy], references: [id])
   tenantId        String?
   items           PurchaseRequestItem[]
+  jasaItems       PurchaseRequestJasaItem[]
   gudang          Gudang                @relation(fields: [gudangId], references: [id])
   purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
   requester       User                  @relation("Requester", fields: [requesterId], references: [id])
@@ -2862,6 +2863,62 @@ model PurchaseRequestItem {
   @@map("purchase_request_items")
 }
 
+/// Master jasa (item non-fisik) untuk pengajuan restock. Tidak memiliki stok
+/// gudang. Bisa dikaitkan ke supplier default dan kategori PPh untuk
+/// integrasi tax module. Dipakai oleh PurchaseRequestJasaItem.
+model Jasa {
+  id             String        @id @default(uuid())
+  kode            String
+  nama            String
+  satuan          String        @default("job")
+  supplierId      String?
+  hargaEstimasi  Float         @default(0)
+  kategoriPph     String?
+  deskripsi      String?
+  status         String        @default("ACTIVE")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  tenantId       String?
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseRequestJasaItems PurchaseRequestJasaItem[]
+
+  @@unique([tenantId, kode], name: "tenantId_kode_jasa")
+  @@index([tenantId])
+  @@index([status])
+  @@index([supplierId])
+  @@map("jasa")
+}
+
+/// Item jasa pada purchase request. Tidak terkait stok/gudang. Penyelesaian
+/// dikonfirmasi manual dengan upload bukti (foto/dokumen) dan tanggal selesai.
+model PurchaseRequestJasaItem {
+  id                String              @id @default(uuid())
+  purchaseRequestId String
+  jasaId            String
+  jumlah            Int                 @default(1)
+  hargaPerUnit      Float               @default(0)
+  totalHarga        Float               @default(0)
+  keterangan        String?
+  tanggalSelesai    DateTime?
+  buktiSelesai      String[]
+  statusKonfirmasi String              @default("PENDING")
+  confirmedAt       DateTime?
+  confirmedBy       String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  tenantId          String?
+  jasa              Jasa                @relation(fields: [jasaId], references: [id])
+  purchaseRequest   PurchaseRequest     @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([purchaseRequestId])
+  @@index([jasaId])
+  @@index([statusKonfirmasi])
+  @@map("purchase_request_jasa_items")
+}
+
 model Supplier {
   id                  String          @id @default(uuid())
   code                String          @unique
@@ -2886,6 +2943,7 @@ model Supplier {
   updatedAt           DateTime        @updatedAt
   tenantId            String?
   items               Barang[]
+  jasaItems           Jasa[]
   pos                 PurchaseOrder[]
   goodsReturns        GoodsReturn[]
   tenant              Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -3767,7 +3825,9 @@ model Tenant {
   goodsReturnItems          GoodsReturnItem[]
   approvalThresholds        ApprovalThreshold[]
   purchaseRequestItem       PurchaseRequestItem[]
+  purchaseRequestJasaItem   PurchaseRequestJasaItem[]
   purchaseRequest           PurchaseRequest[]
+  jasa                      Jasa[]
   rabActualAchievement      RabActualAchievement[]
   rabApproval               RabApproval[]
   rabDisbursement           RabDisbursement[]
