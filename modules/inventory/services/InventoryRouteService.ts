@@ -183,6 +183,12 @@ export class InventoryRouteService {
       quantity: number;
       keterangan?: string | null;
     }>;
+    jasaItems?: Array<{
+      jasaId: string;
+      jumlah: number;
+      hargaPerUnit?: number;
+      keterangan?: string | null;
+    }>;
   }) {
     return this.repository.updatePurchaseRequest(input);
   }

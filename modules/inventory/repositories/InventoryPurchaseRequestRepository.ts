@@ -20,6 +20,7 @@ export class InventoryPurchaseRequestRepository {
       },
       include: {
         items: { include: { barang: true } },
+        jasaItems: { include: { jasa: true } },
         requester: { select: { name: true } },
         approver: { select: { name: true } },
         gudang: { select: { nama: true, id: true } },
@@ -57,9 +58,18 @@ export class InventoryPurchaseRequestRepository {
       quantity: number;
       keterangan?: string | null;
     }>;
+    jasaItems?: Array<{
+      jasaId: string;
+      jumlah: number;
+      hargaPerUnit?: number;
+      keterangan?: string | null;
+    }>;
   }) {
     return this.db.$transaction(async (tx) => {
       await tx.purchaseRequestItem.deleteMany({
+        where: { purchaseRequestId: input.id },
+      });
+      await tx.purchaseRequestJasaItem.deleteMany({
         where: { purchaseRequestId: input.id },
       });
       const updated = await tx.purchaseRequest.update({
@@ -70,22 +80,43 @@ export class InventoryPurchaseRequestRepository {
         },
       });
 
-      await tx.purchaseRequestItem.createMany({
-        data: input.items.map((item) => ({
-          id: randomUUID(),
-          purchaseRequestId: input.id,
-          barangId: item.barangId,
-          jumlah: item.quantity,
-          keterangan: item.keterangan || null,
-          hargaPerUnit: 0,
-          totalHarga: 0,
-          tenantId: input.tenantId,
-        })),
-      });
+      if (input.items.length > 0) {
+        await tx.purchaseRequestItem.createMany({
+          data: input.items.map((item) => ({
+            id: randomUUID(),
+            purchaseRequestId: input.id,
+            barangId: item.barangId,
+            jumlah: item.quantity,
+            keterangan: item.keterangan || null,
+            hargaPerUnit: 0,
+            totalHarga: 0,
+            tenantId: input.tenantId,
+          })),
+        });
+      }
+
+      if (input.jasaItems && input.jasaItems.length > 0) {
+        await tx.purchaseRequestJasaItem.createMany({
+          data: input.jasaItems.map((item) => {
+            const hargaPerUnit = Number(item.hargaPerUnit) || 0;
+            return {
+              id: randomUUID(),
+              purchaseRequestId: input.id,
+              jasaId: item.jasaId,
+              jumlah: item.jumlah,
+              hargaPerUnit,
+              totalHarga: hargaPerUnit * item.jumlah,
+              keterangan: item.keterangan || null,
+              statusKonfirmasi: "PENDING",
+              tenantId: input.tenantId,
+            };
+          }),
+        });
+      }
 
       return tx.purchaseRequest.findUnique({
         where: { id: updated.id },
-        include: { items: true },
+        include: { items: true, jasaItems: { include: { jasa: true } } },
       });
     });
   }

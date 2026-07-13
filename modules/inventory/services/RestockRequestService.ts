@@ -17,8 +17,16 @@ interface RestockRequestItemInput {
   keterangan?: string | null;
 }
 
+interface RestockRequestJasaItemInput {
+  jasaId: string;
+  jumlah: number;
+  hargaPerUnit?: number;
+  keterangan?: string | null;
+}
+
 interface CreateRestockRequestInput {
   items: RestockRequestItemInput[];
+  jasaItems?: RestockRequestJasaItemInput[];
   gudangId: string;
   keterangan?: string;
   requesterId: string;
@@ -129,6 +137,19 @@ function fetchPurchaseRequestWithRelations(id: string, tenantId: string) {
           barang: { select: { nama: true, kode: true, satuan: true } },
         },
       },
+      jasaItems: {
+        include: {
+          jasa: {
+            select: {
+              id: true,
+              kode: true,
+              nama: true,
+              satuan: true,
+              hargaEstimasi: true,
+            },
+          },
+        },
+      },
       purchaseOrder: { select: { id: true, poNumber: true, status: true } },
     },
   });
@@ -149,13 +170,18 @@ export async function patchRestockRequestStatus(
 }
 
 function validateRestockRequestInput(input: CreateRestockRequestInput) {
-  if (!Array.isArray(input.items) || input.items.length === 0) {
+  const hasBarang = Array.isArray(input.items) && input.items.length > 0;
+  const hasJasa = Array.isArray(input.jasaItems) && input.jasaItems.length > 0;
+
+  if (!hasBarang && !hasJasa) {
     return NextResponse.json(
-      { error: "Daftar item wajib diisi (minimal 1 item)" },
+      { error: "Daftar item wajib diisi (minimal 1 barang atau jasa)" },
       { status: 400 },
     );
   }
 
+  // Gudang tetap wajib: PR schema butuh gudangId. Untuk pure-jasa,
+  // UI mengisi gudang default/site gudang.
   if (!input.gudangId) {
     return NextResponse.json(
       { error: "Gudang tujuan wajib dipilih" },
@@ -217,18 +243,39 @@ async function createPurchaseRequestRecord(
       },
     });
 
-    await transaction.purchaseRequestItem.createMany({
-      data: input.items.map((item) => ({
-        id: crypto.randomUUID(),
-        purchaseRequestId: purchaseRequest.id,
-        barangId: item.barangId,
-        jumlah: item.quantity,
-        keterangan: item.keterangan || null,
-        hargaPerUnit: 0,
-        totalHarga: 0,
-        tenantId: input.tenantId,
-      })),
-    });
+    if (input.items.length > 0) {
+      await transaction.purchaseRequestItem.createMany({
+        data: input.items.map((item) => ({
+          id: crypto.randomUUID(),
+          purchaseRequestId: purchaseRequest.id,
+          barangId: item.barangId,
+          jumlah: item.quantity,
+          keterangan: item.keterangan || null,
+          hargaPerUnit: 0,
+          totalHarga: 0,
+          tenantId: input.tenantId,
+        })),
+      });
+    }
+
+    if (input.jasaItems && input.jasaItems.length > 0) {
+      await transaction.purchaseRequestJasaItem.createMany({
+        data: input.jasaItems.map((item) => {
+          const hargaPerUnit = Number(item.hargaPerUnit) || 0;
+          return {
+            id: crypto.randomUUID(),
+            purchaseRequestId: purchaseRequest.id,
+            jasaId: item.jasaId,
+            jumlah: item.jumlah,
+            hargaPerUnit,
+            totalHarga: hargaPerUnit * item.jumlah,
+            keterangan: item.keterangan || null,
+            statusKonfirmasi: "PENDING",
+            tenantId: input.tenantId,
+          };
+        }),
+      });
+    }
 
     return transaction.purchaseRequest.findUnique({
       where: { id: purchaseRequest.id },
@@ -236,6 +283,11 @@ async function createPurchaseRequestRecord(
         items: {
           include: {
             barang: true,
+          },
+        },
+        jasaItems: {
+          include: {
+            jasa: true,
           },
         },
       },
