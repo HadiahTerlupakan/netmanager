@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-13] — PVC Baileys sessions + sticky session Service
+
+- **Tipe**: [INFRA]
+- **Scope**: `k8s/production`, `k8s/staging`
+- **Author**: agent
+- **Deskripsi**: Tambah PVC `netmanager-baileys-sessions` (1Gi RWO) dan volume mount `/app/.baileys-sessions` di app deployment staging/production agar auth state Baileys persist antar restart. Service app juga di-set `sessionAffinity: ClientIP` (3 jam) supaya request sticky ke pod yang memegang socket Baileys.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-12] — Provider Baileys (self-hosted WhatsApp)
 
 - **Tipe**: [ADDED]

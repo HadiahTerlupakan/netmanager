@@ -169,6 +169,8 @@ spec:
           volumeMounts:
             - name: uploads-volume
               mountPath: /app/public/uploads
+            - name: baileys-sessions-volume
+              mountPath: /app/.baileys-sessions
           resources:
             requests:
               cpu: "188m"
@@ -202,6 +204,9 @@ spec:
         - name: uploads-volume
           persistentVolumeClaim:
             claimName: netmanager-uploads
+        - name: baileys-sessions-volume
+          persistentVolumeClaim:
+            claimName: netmanager-baileys-sessions
 ---
 apiVersion: v1
 kind: Service
@@ -209,6 +214,10 @@ metadata:
   name: netmanager-app
   namespace: netmanager-staging
 spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   ports:
     - port: 80
       targetPort: 3000
