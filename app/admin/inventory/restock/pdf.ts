@@ -32,6 +32,27 @@ function formatPurchaseOrderDate(value: string): string {
   });
 }
 
+interface PurchaseOrderJasaTableItem {
+  kode: string;
+  nama: string;
+  requestedQuantity: string;
+  statusKonfirmasi: string;
+  keterangan: string;
+}
+
+function getPurchaseOrderJasaTableItem(
+  item: NonNullable<PurchaseRequest["jasaItems"]>[number],
+): PurchaseOrderJasaTableItem {
+  return {
+    kode: item.jasa?.kode || "-",
+    nama: item.jasa?.nama || "Jasa tidak tersedia",
+    requestedQuantity: `${item.jumlah} ${item.jasa?.satuan || "job"}`,
+    statusKonfirmasi:
+      item.statusKonfirmasi === "SELESAI" ? "Selesai" : "Menunggu Konfirmasi",
+    keterangan: item.keterangan || "-",
+  };
+}
+
 function getPurchaseOrderTableItem(
   item: PurchaseRequest["items"][number],
 ): PurchaseOrderTableItem {
@@ -164,6 +185,42 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
     styles: { fontSize: 9, cellPadding: 4 },
     columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
   });
+
+  const jasaItems = request.jasaItems ?? [];
+  if (jasaItems.length > 0) {
+    const barangTableFinalY =
+      (doc as AutoTableDoc).lastAutoTable?.finalY ?? DEFAULT_TABLE_FINAL_Y;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(109, 40, 217);
+    doc.text("ITEM JASA", 20, barangTableFinalY + 12);
+
+    autoTable(doc, {
+      startY: barangTableFinalY + 17,
+      head: [["KODE", "NAMA JASA", "JUMLAH", "STATUS", "KETERANGAN"]],
+      body: jasaItems.map((item) => {
+        const tableItem = getPurchaseOrderJasaTableItem(item);
+        return [
+          tableItem.kode,
+          tableItem.nama,
+          tableItem.requestedQuantity,
+          tableItem.statusKonfirmasi,
+          tableItem.keterangan,
+        ];
+      }),
+      theme: "grid",
+      headStyles: {
+        fillColor: [109, 40, 217],
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: "bold",
+        halign: "center",
+      },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
+    });
+  }
 
   const tableFinalY =
     (doc as AutoTableDoc).lastAutoTable?.finalY ?? DEFAULT_TABLE_FINAL_Y;
