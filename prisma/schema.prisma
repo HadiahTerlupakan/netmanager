@@ -2882,6 +2882,7 @@ model Jasa {
   supplier       Supplier?     @relation(fields: [supplierId], references: [id])
   tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseRequestJasaItems PurchaseRequestJasaItem[]
+  purchaseOrderJasaItems   PurchaseOrderJasaItem[]
 
   @@unique([tenantId, kode], name: "tenantId_kode_jasa")
   @@index([tenantId])
@@ -2978,6 +2979,7 @@ model PurchaseOrder {
   vendorNpwp        String?
   tenantId          String?
   items             PurchaseOrderItem[]
+  jasaItems         PurchaseOrderJasaItem[]
   goodsReceipts     GoodsReceipt[]
   creator           User                @relation("POCreator", fields: [createdBy], references: [id])
   paidFromAccount   FinancialAccount?   @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
@@ -3008,6 +3010,28 @@ model PurchaseOrderItem {
 
   @@index([tenantId])
   @@map("purchase_order_items")
+}
+
+/// Item jasa pada Purchase Order. Harga diisi admin di PO (bukan di PR).
+/// Tidak terkait stok/gudang; penyelesaian tetap via konfirmasi di restock.
+model PurchaseOrderJasaItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  jasaId          String
+  quantity        Int
+  unitPrice       Float         @default(0)
+  totalPrice      Float         @default(0)
+  tenantId        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  jasa            Jasa          @relation(fields: [jasaId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenant          Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([purchaseOrderId])
+  @@index([jasaId])
+  @@map("purchase_order_jasa_items")
 }
 
 /// Dokumen penerimaan barang per batch (GRN). Satu PO bisa punya banyak GRN
@@ -3818,6 +3842,7 @@ model Tenant {
   pointClaim                PointClaim[]
   positions                 Positions[]
   purchaseOrderItem         PurchaseOrderItem[]
+  purchaseOrderJasaItem     PurchaseOrderJasaItem[]
   purchaseOrder             PurchaseOrder[]
   goodsReceipts             GoodsReceipt[]
   goodsReceiptItems         GoodsReceiptItem[]
