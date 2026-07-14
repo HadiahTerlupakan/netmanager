@@ -174,8 +174,13 @@ export function ClientComponent() {
     try {
       setLoading(true);
       const res = await fetch("/api/finance/expenses");
-      const data = await res.json();
-      setExpenses(Array.isArray(data) ? data : []);
+      const json = await res.json();
+      const list = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.data)
+          ? json.data
+          : [];
+      setExpenses(list);
     } catch (error) {
       clientLogger.error("Error loading expenses:", error);
       toast.error("Gagal memuat data pengeluaran");
