@@ -41,6 +41,13 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
             barang: { select: { id: true, nama: true } },
           },
         },
+        jasaItems: {
+          include: {
+            jasa: {
+              select: { id: true, kode: true, nama: true, satuan: true },
+            },
+          },
+        },
       },
     });
   }
@@ -88,15 +95,99 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
     id: string,
     data: PurchaseOrderMetadataUpdate,
   ): Promise<PurchaseOrder> {
-    return this.client.purchaseOrder.update({ where: { id }, data });
+    return this.client.$transaction(async (tx) => {
+      if (data.items && data.items.length > 0) {
+        for (const item of data.items) {
+          const existing = await tx.purchaseOrderItem.findFirst({
+            where: { id: item.id, purchaseOrderId: id },
+          });
+          if (!existing) {
+            throw new Error(`Item PO ${item.id} tidak ditemukan`);
+          }
+          await tx.purchaseOrderItem.update({
+            where: { id: item.id },
+            data: {
+              unitPrice: item.unitPrice,
+              totalPrice: existing.quantity * item.unitPrice,
+            },
+          });
+        }
+      }
+
+      if (data.jasaItems && data.jasaItems.length > 0) {
+        for (const item of data.jasaItems) {
+          const existing = await tx.purchaseOrderJasaItem.findFirst({
+            where: { id: item.id, purchaseOrderId: id },
+          });
+          if (!existing) {
+            throw new Error(`Item jasa PO ${item.id} tidak ditemukan`);
+          }
+          await tx.purchaseOrderJasaItem.update({
+            where: { id: item.id },
+            data: {
+              unitPrice: item.unitPrice,
+              totalPrice: existing.quantity * item.unitPrice,
+            },
+          });
+        }
+      }
+
+      const [barangItems, jasaItems, current] = await Promise.all([
+        tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: id } }),
+        tx.purchaseOrderJasaItem.findMany({ where: { purchaseOrderId: id } }),
+        tx.purchaseOrder.findUniqueOrThrow({ where: { id } }),
+      ]);
+
+      const subtotal =
+        barangItems.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0,
+        ) +
+        jasaItems.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0,
+        );
+      const ppnAmount = Math.round((subtotal * (current.ppnRate ?? 0)) / 100);
+      const grandTotal = subtotal + ppnAmount;
+
+      return tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          ...(data.supplierId !== undefined
+            ? { supplierId: data.supplierId }
+            : {}),
+          ...(data.expectedDate !== undefined
+            ? { expectedDate: data.expectedDate }
+            : {}),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+          ...(data.fakturPajakNo !== undefined
+            ? { fakturPajakNo: data.fakturPajakNo }
+            : {}),
+          ...(data.fakturPajakDate !== undefined
+            ? { fakturPajakDate: data.fakturPajakDate }
+            : {}),
+          ...(data.vendorNpwp !== undefined
+            ? { vendorNpwp: data.vendorNpwp }
+            : {}),
+          totalAmount: subtotal,
+          ppnAmount,
+          grandTotal,
+        },
+      });
+    });
   }
 
   async create(input: PurchaseOrderCreateInput): Promise<PurchaseOrder> {
     const ppnRate = input.ppnRate ?? 0;
-    const subtotal = input.items.reduce(
+    const barangSubtotal = input.items.reduce(
       (acc, item) => acc + item.quantity * item.unitPrice,
       0,
     );
+    const jasaSubtotal = (input.jasaItems ?? []).reduce(
+      (acc, item) => acc + item.quantity * item.unitPrice,
+      0,
+    );
+    const subtotal = barangSubtotal + jasaSubtotal;
     const ppnAmount = Math.round((subtotal * ppnRate) / 100);
     const grandTotal = subtotal + ppnAmount;
 
@@ -123,6 +214,15 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
             tenantId: input.tenantId,
           })),
         },
+        jasaItems: {
+          create: (input.jasaItems ?? []).map((item) => ({
+            jasaId: item.jasaId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.quantity * item.unitPrice,
+            tenantId: input.tenantId,
+          })),
+        },
       },
     });
   }
@@ -130,6 +230,9 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
   async delete(id: string): Promise<void> {
     await this.client.$transaction(async (tx) => {
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
+      await tx.purchaseOrderJasaItem.deleteMany({
+        where: { purchaseOrderId: id },
+      });
       await tx.purchaseRequest.updateMany({
         where: { purchaseOrderId: id },
         data: { status: "APPROVED", purchaseOrderId: null },

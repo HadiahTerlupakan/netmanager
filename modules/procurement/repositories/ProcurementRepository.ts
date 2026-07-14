@@ -44,6 +44,19 @@ export class ProcurementRepository implements IProcurementRepository {
             barang: { select: { id: true, nama: true, supplierId: true } },
           },
         },
+        jasaItems: {
+          include: {
+            jasa: {
+              select: {
+                id: true,
+                kode: true,
+                nama: true,
+                satuan: true,
+                supplierId: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -70,6 +83,7 @@ export class ProcurementRepository implements IProcurementRepository {
     const createdOrder = await prisma.$transaction(async (transaction) => {
       const purchaseOrder = await transaction.purchaseOrder.create({
         data: buildPurchaseOrderCreateData(input),
+        include: { items: true, jasaItems: true },
       });
 
       await transaction.purchaseRequest.updateMany({
@@ -176,6 +190,9 @@ function buildPurchaseOrderCreateData(input: CreatePurchaseOrderInput) {
     tenantId: input.tenantId,
     totalAmount: input.totalAmount,
     items: { create: input.items },
+    jasaItems: {
+      create: input.jasaItems ?? [],
+    },
     purchaseRequests: {
       connect: input.prIds.map((id) => ({ id })),
     },

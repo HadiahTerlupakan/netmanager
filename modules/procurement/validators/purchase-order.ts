@@ -27,6 +27,7 @@ export const createPurchaseOrderSchema = z.object({
 });
 
 export const updatePurchaseOrderSchema = z.object({
+  supplierId: z.string().nullable().optional(),
   expectedDate: z.coerce.date().nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   fakturPajakNo: z.string().trim().max(50).nullable().optional(),
@@ -36,6 +37,22 @@ export const updatePurchaseOrderSchema = z.object({
     .trim()
     .regex(/^[0-9]{15,16}$/, "NPWP harus 15 atau 16 digit angka")
     .nullable()
+    .optional(),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1, "ID item wajib diisi"),
+        unitPrice: z.coerce.number().min(0, "Harga tidak boleh negatif"),
+      }),
+    )
+    .optional(),
+  jasaItems: z
+    .array(
+      z.object({
+        id: z.string().min(1, "ID item jasa wajib diisi"),
+        unitPrice: z.coerce.number().min(0, "Harga tidak boleh negatif"),
+      }),
+    )
     .optional(),
 });
 
