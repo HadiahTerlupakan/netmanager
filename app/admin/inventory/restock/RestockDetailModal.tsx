@@ -21,7 +21,7 @@ export function RestockDetailModal({
     <Modal
       isOpen={!!request}
       onClose={onClose}
-      title="Detail Pengajuan Restock"
+      title="Detail Pre Request"
       size="2xl"
     >
       <div className="p-6 space-y-6">

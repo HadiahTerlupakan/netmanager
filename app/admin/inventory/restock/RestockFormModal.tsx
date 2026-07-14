@@ -159,7 +159,7 @@ export function RestockFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Edit Pengajuan" : "Buat Pengajuan Restock"}
+      title={isEditing ? "Edit Pre Request" : "Buat Pre Request"}
       size="3xl"
     >
       <div className="p-0 flex flex-col h-[85vh] md:h-auto overflow-hidden">

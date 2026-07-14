@@ -309,7 +309,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
       },
       {
         code: "INVENTORY.RESTOCK",
-        name: "Restock",
+        name: "Pre Request",
         path: "/admin/inventory/restock",
         icon: "HiOutlineArrowTrendingUp",
       },

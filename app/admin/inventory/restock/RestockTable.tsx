@@ -429,17 +429,17 @@ export function RestockTable({
       <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <h1 className="text-[2rem] font-black tracking-[-0.04em] text-gray-900 dark:text-white">
-            Pengajuan Restock
+            Pre Request
           </h1>
           <p className="max-w-[42rem] text-sm font-medium text-gray-600 dark:text-gray-400">
-            Manajemen pengajuan stok barang, approval, dan verifikasi penerimaan
+            Manajemen pre-request barang &amp; jasa, approval, dan verifikasi
           </p>
         </div>
         <button
           onClick={onOpenCreate}
           className="inline-flex h-12 items-center justify-center gap-2 self-start rounded-[1.75rem] bg-indigo-600 px-5 text-sm font-black tracking-[-0.03em] text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 active:scale-[0.98] md:self-auto"
         >
-          <FiPlus className="text-base" /> Buat Pengajuan Baru
+          <FiPlus className="text-base" /> Buat Pre Request
         </button>
       </div>
 
