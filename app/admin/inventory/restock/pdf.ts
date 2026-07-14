@@ -161,43 +161,47 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
     writeNoteBlock(doc, "Catatan Approval:", request.catatanApproval, 91);
   }
 
-  autoTable(doc, {
-    startY: DEFAULT_TABLE_FINAL_Y,
-    head: [["KODE", "NAMA BARANG", "DIMINTA", "DITERIMA", "KETERANGAN"]],
-    body: request.items.map((item) => {
-      const tableItem = getPurchaseOrderTableItem(item);
-      return [
-        tableItem.kode,
-        tableItem.nama,
-        tableItem.requestedQuantity,
-        tableItem.receivedQuantity,
-        tableItem.keterangan,
-      ];
-    }),
-    theme: "grid",
-    headStyles: {
-      fillColor: [79, 70, 229],
-      textColor: [255, 255, 255],
-      fontSize: 10,
-      fontStyle: "bold",
-      halign: "center",
-    },
-    styles: { fontSize: 9, cellPadding: 4 },
-    columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
-  });
-
+  const barangItems = request.items ?? [];
   const jasaItems = request.jasaItems ?? [];
-  if (jasaItems.length > 0) {
-    const barangTableFinalY =
-      (doc as AutoTableDoc).lastAutoTable?.finalY ?? DEFAULT_TABLE_FINAL_Y;
 
+  let nextTableY = DEFAULT_TABLE_FINAL_Y;
+
+  if (barangItems.length > 0) {
+    autoTable(doc, {
+      startY: nextTableY,
+      head: [["KODE", "NAMA BARANG", "DIMINTA", "DITERIMA", "KETERANGAN"]],
+      body: barangItems.map((item) => {
+        const tableItem = getPurchaseOrderTableItem(item);
+        return [
+          tableItem.kode,
+          tableItem.nama,
+          tableItem.requestedQuantity,
+          tableItem.receivedQuantity,
+          tableItem.keterangan,
+        ];
+      }),
+      theme: "grid",
+      headStyles: {
+        fillColor: [79, 70, 229],
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: "bold",
+        halign: "center",
+      },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
+    });
+    nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
+  }
+
+  if (jasaItems.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(109, 40, 217);
-    doc.text("ITEM JASA", 20, barangTableFinalY + 12);
+    doc.text("ITEM JASA", 20, nextTableY + 12);
 
     autoTable(doc, {
-      startY: barangTableFinalY + 17,
+      startY: nextTableY + 17,
       head: [["KODE", "NAMA JASA", "JUMLAH", "STATUS", "KETERANGAN"]],
       body: jasaItems.map((item) => {
         const tableItem = getPurchaseOrderJasaTableItem(item);
@@ -220,11 +224,10 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
       styles: { fontSize: 9, cellPadding: 4 },
       columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
     });
+    nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
   }
 
-  const tableFinalY =
-    (doc as AutoTableDoc).lastAutoTable?.finalY ?? DEFAULT_TABLE_FINAL_Y;
-  const finalY = tableFinalY + 30;
+  const finalY = nextTableY + 30;
   if (finalY > 250) doc.addPage();
   const signatureY = finalY > 250 ? 40 : finalY;
 
