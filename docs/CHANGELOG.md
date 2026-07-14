@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Tombol Proses Order di PO + GRN dropdown include DRAFT
+
+- **Tipe**: [ADDED] [CHANGED]
+- **Scope**: `modules/procurement`, `app/api/admin/procurement/purchase-orders`, `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: (1) Endpoint `POST /api/admin/procurement/purchase-orders/[id]/process` mengubah PO DRAFT → ORDERED agar muncul di finance/unpaid (untuk alur bayar dulu, barang belakangan). (2) Tombol "Proses Order" + link "Bayar di Tagihan" di detail PO. (3) Dropdown GRN create menampilkan PO DRAFT/ORDERED/PARTIAL (bukan hanya ORDERED) supaya PO hasil auto-generate dari PR bisa dipilih.
+- **Files**: `modules/procurement/services/PurchaseOrderService.ts`, `modules/procurement/repositories/PurchaseOrderRepository.ts`, `app/api/admin/procurement/purchase-orders/[id]/process/route.ts`, `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`, `app/admin/procurement/goods-receipts/create/GoodsReceiptCreateClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Verifikasi Barang Sampai di restock otomatis buat GRN
 
 - **Tipe**: [CHANGED]
