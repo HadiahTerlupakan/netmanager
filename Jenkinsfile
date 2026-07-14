@@ -54,19 +54,28 @@ spec:
         CRON_IMAGE = "netmanager-cron"
         RADIUS_IMAGE = "netmanager-radius"
         DOCKER_BUILDKIT = "1"
-        // Branch routing — main → production, semua branch lain → staging.
-        // BRANCH_NAME aktif di multibranch pipeline; GIT_BRANCH (dengan/tanpa
-        // prefix origin/) dipakai di SCM trigger. Cek ketiganya untuk konsisten
-        // di semua tipe build (push, polling, manual).
-        IS_PRODUCTION = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'true' : 'false'}"
-        DOCKER_TAG = "${env.IS_PRODUCTION == 'true' ? 'production' : 'staging'}"
+        // Pipeline ini hanya untuk production. Non-main branch akan di-reject
+        // di stage 'Branch Guard' sebelum menyentuh apapun.
+        DOCKER_TAG = "production"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
         IMAGE_REVISION = "${env.GIT_COMMIT ?: "unknown"}"
-        NAMESPACE = "${env.IS_PRODUCTION == 'true' ? 'netmanager-production' : 'netmanager-staging'}"
-        K8S_DIR = "${env.IS_PRODUCTION == 'true' ? 'k8s/production' : 'k8s/staging'}"
+        NAMESPACE = "netmanager-production"
+        K8S_DIR = "k8s/production"
     }
 
     stages {
+        stage('Branch Guard') {
+            steps {
+                script {
+                    def isMain = (env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main')
+                    if (!isMain) {
+                        error("Pipeline production-only. Branch '${env.BRANCH_NAME ?: env.GIT_BRANCH}' ditolak. Deploy hanya dari branch main.")
+                    }
+                    echo "Branch guard OK: main → production (${NAMESPACE})"
+                }
+            }
+        }
+
         stage('Validate Registry Configuration') {
             steps {
                 script {
@@ -93,8 +102,8 @@ spec:
                     }
 
                     def envScopedName = { String baseName ->
-                        def scope = env.DOCKER_TAG == 'production' ? 'PRODUCTION' : 'STAGING'
-                        return "${baseName}_${scope}"
+                        // Hanya production — staging sudah dipensiunkan.
+                        return "${baseName}_PRODUCTION"
                     }
 
                     def getEnvScopedRuntimeConfig = { String baseName ->
@@ -170,6 +179,9 @@ spec:
                     if (env.DEPLOY_MODE == 'recovery' && env.BRANCH_NAME != 'main') {
                         error('Recovery mode hanya boleh dijalankan untuk branch main.')
                     }
+                    // Catatan: branch guard di stage awal sudah memastikan
+                    // hanya main yang sampai ke sini, cek di atas redundant
+                    // tapi aman dibiarkan sebagai defense-in-depth.
 
                     env.APP_DEPLOY_REF = resolveDeployImageRef('netmanager-app', env.APP_IMAGE_REF, params.RECOVERY_APP_IMAGE)
                     env.CRON_DEPLOY_REF = resolveDeployImageRef('netmanager-cron', env.CRON_IMAGE_REF, params.RECOVERY_CRON_IMAGE)
@@ -390,7 +402,9 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        def isProduction = (DOCKER_TAG == 'production')
+                        // Production-only pipeline; DOCKER_TAG selalu 'production'.
+                        // Variabel dipertahankan untuk readability flow di bawah.
+                        def isProduction = true
 
                         sh """
                         set -euo pipefail
@@ -829,7 +843,7 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Removing pipeline-managed images from the shared Docker daemon..."
+                        echo "Removing pipeline-managed images and pruning Docker cache on shared daemon..."
                         sh """
                             set -euo pipefail
 
@@ -847,6 +861,15 @@ spec:
                             remove_local_image "${env.RADIUS_IMAGE_REF}"
                             remove_local_image "${env.RADIUS_IMAGE_ENV_REF}"
                             remove_local_image "${env.RADIUS_IMAGE_PREV_REF}"
+
+                            # BuildKit layer cache — keep 5GB headroom, jangan empty total
+                            # (build berikutnya masih bisa reuse layer yang sering dipakai).
+                            echo "Pruning BuildKit cache (keep-storage 5GB)..."
+                            docker builder prune --keep-storage 5GB -f || true
+
+                            # Hapus dangling images saja (aman: tidak sentuh image tagged yang masih dipakai).
+                            echo "Pruning dangling images..."
+                            docker image prune -f || true
                         """
                     }
                 }
