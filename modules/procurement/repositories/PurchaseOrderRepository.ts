@@ -304,6 +304,9 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
           date: input.date,
           description: input.notes || `Pembayaran PO #${input.po.poNumber}`,
           invoiceNumber: input.po.poNumber,
+          userId: input.userId ?? null,
+          tenantId: input.tenantId ?? input.po.tenantId ?? null,
+          accountId: input.paidFromAccountId ?? null,
         },
       });
 

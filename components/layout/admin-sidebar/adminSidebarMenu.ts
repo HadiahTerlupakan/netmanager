@@ -239,6 +239,7 @@ function getPermissionResource(code: string): string {
     // karena dianggap konfigurasi internal procurement.
     "PROCUREMENT.APPROVAL_THRESHOLDS": "procurement",
     "FINANCE.UNPAID": "finance",
+    "FINANCE.PENGELUARAN": "finance",
     "FINANCE.ACCOUNTS": "finance",
     "FINANCE.MANUAL_PAYMENTS": "finance",
     "FINANCE.AR_AGING": "finance",

@@ -13,6 +13,8 @@ export interface PurchaseOrderPaymentInput {
   date: Date;
   notes?: string;
   paidFromAccountId?: string;
+  userId?: string;
+  tenantId?: string | null;
 }
 
 export interface PurchaseOrderPaymentResult {

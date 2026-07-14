@@ -43,6 +43,8 @@ export class PurchaseOrderPaymentService {
       date: new Date(input.date),
       notes: input.notes,
       paidFromAccountId: input.paidFromAccountId,
+      userId: input.createdById,
+      tenantId: po.tenantId,
     });
 
     logActivitySafe({

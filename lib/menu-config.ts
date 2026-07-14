@@ -600,6 +600,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineBanknotes",
       },
       {
+        code: "FINANCE.PENGELUARAN",
+        name: "Pengeluaran",
+        path: "/admin/finance/pengeluaran",
+        icon: "HiOutlineCreditCard",
+      },
+      {
         code: "FINANCE.MANUAL_PAYMENTS",
         name: "Verifikasi Manual",
         path: "/admin/finance/manual-payments",

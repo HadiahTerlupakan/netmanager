@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Menu Pengeluaran di sidebar + tenantId pada expense bayar PO
+
+- **Tipe**: [ADDED] [FIXED]
+- **Scope**: `lib/menu-config.ts`, `components/layout/admin-sidebar`, `modules/procurement`
+- **Author**: agent
+- **Deskripsi**: (1) Tambah menu sidebar `FINANCE.PENGELUARAN` → `/admin/finance/pengeluaran` dengan mapping permission `finance:read`. (2) `processPaymentTransaction` sekarang menyimpan `userId`, `tenantId`, dan `accountId` saat membuat Expense dari bayar PO, agar record muncul di halaman Pengeluaran dan lolos tenant isolation.
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `modules/procurement/repositories/PurchaseOrderRepository.ts`, `modules/procurement/services/PurchaseOrderPaymentService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Tombol Proses Order di PO + GRN dropdown include DRAFT
 
 - **Tipe**: [ADDED] [CHANGED]
