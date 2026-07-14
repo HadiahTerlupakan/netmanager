@@ -147,6 +147,8 @@ export interface IPurchaseOrderRepository {
 
   create(input: PurchaseOrderCreateInput): Promise<PurchaseOrderEntity>;
 
+  processToOrdered(id: string, actorId: string): Promise<PurchaseOrderEntity>;
+
   delete(id: string): Promise<void>;
 
   generatePoNumber(tenantId: string | null): Promise<string>;

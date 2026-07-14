@@ -145,6 +145,17 @@ export class PurchaseOrderService {
     await this.poRepo.delete(id);
   }
 
+  async process(id: string, actorId: string): Promise<PurchaseOrderEntity> {
+    const existing = await this.poRepo.findById(id);
+    if (!existing) throw new PurchaseOrderNotFoundError(id);
+    if (existing.status !== "DRAFT") {
+      throw new PurchaseOrderNotEditableError(
+        "Hanya PO Draft yang bisa diproses menjadi Ordered",
+      );
+    }
+    return this.poRepo.processToOrdered(id, actorId);
+  }
+
   /**
    * Cari NPWP vendor untuk disnapshot ke PO.
    * Sekaligus validasi supplier wajib ACTIVE saat PO dibuat — INACTIVE/BLACKLISTED

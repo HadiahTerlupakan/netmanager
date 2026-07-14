@@ -227,6 +227,17 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
     });
   }
 
+  async processToOrdered(id: string, actorId: string): Promise<PurchaseOrder> {
+    return this.client.purchaseOrder.update({
+      where: { id },
+      data: {
+        status: "ORDERED",
+        processedById: actorId,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await this.client.$transaction(async (tx) => {
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
