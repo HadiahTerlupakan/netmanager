@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { JournalPostingService } from "../journal/JournalPostingService";
@@ -16,6 +17,34 @@ const SOURCE = "GoodsReceiptCreatedAccountingHandler";
 interface ItemPayload {
   quantity: number;
   unitPrice: string;
+}
+
+async function resolveItemUnitPrices(
+  goodsReceiptId: string,
+  payloadItems: ItemPayload[],
+): Promise<ItemPayload[]> {
+  const payloadSubtotal = payloadItems.reduce(
+    (sum, it) => sum + Number(it.unitPrice) * Number(it.quantity),
+    0,
+  );
+  if (payloadSubtotal > 0) return payloadItems;
+
+  const grn = await prisma.goodsReceipt.findUnique({
+    where: { id: goodsReceiptId },
+    include: {
+      items: {
+        include: {
+          purchaseOrderItem: { select: { unitPrice: true } },
+        },
+      },
+    },
+  });
+  if (!grn) return payloadItems;
+
+  return grn.items.map((it) => ({
+    quantity: it.quantity,
+    unitPrice: String(it.purchaseOrderItem?.unitPrice ?? 0),
+  }));
 }
 
 /**
@@ -40,14 +69,17 @@ export async function handleGoodsReceiptCreatedAccounting(
     "receivedAt",
     SOURCE,
   );
-  const items = (payload.items as ItemPayload[]) ?? [];
+  const rawItems = (payload.items as ItemPayload[]) ?? [];
+  const items = await resolveItemUnitPrices(goodsReceiptId, rawItems);
 
   const subtotal = items
     .reduce((sum, it) => sum + Number(it.unitPrice) * Number(it.quantity), 0)
     .toString();
 
   if (Number(subtotal) <= 0) {
-    logger.warn(`[${SOURCE}] GRN ${goodsReceiptId} subtotal <= 0, skip jurnal`);
+    logger.warn(
+      `[${SOURCE}] GRN ${goodsReceiptId} subtotal <= 0 setelah lookup PO, skip jurnal`,
+    );
     return;
   }
 

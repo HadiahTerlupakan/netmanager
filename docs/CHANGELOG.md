@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Fallback harga PO di handler jurnal GRN
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/accounting/services/event-handlers`
+- **Author**: agent
+- **Deskripsi**: `handleGoodsReceiptCreatedAccounting` sekarang fallback lookup `unitPrice` dari `purchaseOrderItem` di DB bila payload event punya unitPrice 0 (PO auto-generate dari PR tanpa harga). Mencegah jurnal di-skip padahal harga sudah diisi belakangan di PO.
+- **Files**: `modules/accounting/services/event-handlers/goods-receipt-created-accounting.handler.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Menu Pengeluaran di sidebar + tenantId pada expense bayar PO
 
 - **Tipe**: [ADDED] [FIXED]
