@@ -391,22 +391,6 @@ export function RestockTable({
       ),
     },
     {
-      key: "jasa",
-      header: "Jasa",
-      priority: "secondary",
-      align: "center",
-      className: "w-[7rem]",
-      render: (request) => {
-        const count = request.jasaItems?.length ?? 0;
-        if (count === 0) return null;
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-            Jasa: {count}
-          </span>
-        );
-      },
-    },
-    {
       key: "keterangan",
       header: "Catatan / Keterangan",
       priority: "secondary",
@@ -421,33 +405,6 @@ export function RestockTable({
             —
           </span>
         ),
-    },
-    {
-      key: "items",
-      header: "Item",
-      priority: "secondary",
-      minWidth: "10rem",
-      render: (request) => {
-        const barangCount = request.items?.length ?? 0;
-        const jasaCount = request.jasaItems?.length ?? 0;
-        return (
-          <div className="flex flex-wrap gap-1.5">
-            {barangCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
-                Barang: {barangCount}
-              </span>
-            )}
-            {jasaCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
-                Jasa: {jasaCount}
-              </span>
-            )}
-            {barangCount === 0 && jasaCount === 0 && (
-              <span className="text-xs text-gray-300">—</span>
-            )}
-          </div>
-        );
-      },
     },
     {
       key: "status",
