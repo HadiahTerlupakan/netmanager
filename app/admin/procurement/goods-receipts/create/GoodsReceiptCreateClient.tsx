@@ -82,17 +82,16 @@ export function GoodsReceiptCreateClient({
     (async () => {
       try {
         const [poRes, gudangRes] = await Promise.all([
-          fetch(
-            "/api/admin/procurement/purchase-orders?status=ORDERED&limit=100",
-          ),
+          fetch("/api/admin/procurement/purchase-orders?limit=100"),
           fetch("/api/inventory/gudang?limit=100"),
         ]);
         const poJson = poRes.ok ? await poRes.json() : { data: { items: [] } };
         const gudangJson = gudangRes.ok ? await gudangRes.json() : { data: [] };
         if (cancelled) return;
-        const list: PurchaseOrderListItem[] =
+        const rawList: PurchaseOrderListItem[] =
           poJson?.data?.items ?? poJson?.items ?? poJson?.data ?? [];
-        setPoList(list);
+        const eligibleStatuses = new Set(["DRAFT", "ORDERED", "PARTIAL"]);
+        setPoList(rawList.filter((po) => eligibleStatuses.has(po.status)));
         const gudangList: GudangOption[] = (gudangJson?.data ?? []).map(
           (g: { id: string; nama: string }) => ({
             id: g.id,
