@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Prune Docker cache agent + GHCR retention + pensiunkan staging
+
+- **Tipe**: [INFRA] [REMOVED]
+- **Scope**: `Jenkinsfile`, `.github/workflows/registry-cleanup.yml`, `k8s/staging/`, `deploy-prod.sh`
+- **Author**: agent
+- **Deskripsi**: (1) Stage `Cleanup` Jenkins: `docker builder prune --keep-storage 5GB` + `docker image prune -f` agar cache agent tidak bengkak. (2) Workflow `registry-cleanup.yml` (cron Mingguan) keep 10 versi GHCR terbaru, preserve tag `production`/`production-prev`. (3) Staging dipensiunkan: pipeline production-only (Branch Guard reject non-main, env fixed ke `netmanager-production` / `k8s/production`), folder `k8s/staging/` dihapus, script `deploy-prod.sh` (promosi staging→main) dihapus. Deploy = push ke `main` saja.
+- **Files**: `Jenkinsfile`, `.github/workflows/registry-cleanup.yml`, `k8s/staging/` (removed), `deploy-prod.sh` (removed)
+- **Breaking**: ✅ Ya — branch non-main tidak lagi deploy ke staging; namespace `netmanager-staging` di cluster perlu dihapus manual jika masih ada.
+
 ### [2026-07-13] — UI halaman Master Jasa + update RestockDetailModal + RestockTable
 
 - **Tipe**: [ADDED] [CHANGED]
