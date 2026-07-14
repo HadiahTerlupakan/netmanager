@@ -122,7 +122,16 @@ export class PurchaseOrderService {
         "Purchase Order sudah lunas dan tidak dapat diubah",
       );
     }
-    return this.poRepo.updateMetadata(id, data);
+
+    let vendorNpwp = data.vendorNpwp;
+    if (data.supplierId !== undefined) {
+      vendorNpwp = await this.resolveVendorNpwp(
+        data.supplierId,
+        data.vendorNpwp ?? null,
+      );
+    }
+
+    return this.poRepo.updateMetadata(id, { ...data, vendorNpwp });
   }
 
   async delete(id: string): Promise<void> {

@@ -24,6 +24,12 @@ interface AggregatedPurchaseOrderItem {
   unitPrice: number;
 }
 
+interface AggregatedPurchaseOrderJasaItem {
+  jasaId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export class ProcurementService {
   private readonly procurementRepository: IProcurementRepository;
   private readonly supplierRepository: ISupplierRepository;
@@ -93,6 +99,16 @@ export class ProcurementService {
       await this.procurementRepository.generatePONumber(tenantId);
     const supplierId = normalizeSupplierId(input.supplierKey);
     const aggregatedItems = aggregatePurchaseOrderItems(input.purchaseRequests);
+    const aggregatedJasaItems = aggregatePurchaseOrderJasaItems(
+      input.purchaseRequests,
+    );
+    const totalAmount =
+      calculateTotalAmount(aggregatedItems) +
+      calculateJasaTotalAmount(aggregatedJasaItems);
+
+    if (aggregatedItems.length === 0 && aggregatedJasaItems.length === 0) {
+      throw new Error("Purchase Request tidak memiliki item barang atau jasa");
+    }
 
     return await this.procurementRepository.createPOWithItems({
       id: randomUUID(),
@@ -100,8 +116,9 @@ export class ProcurementService {
       supplierId,
       createdBy: input.userId,
       tenantId,
-      totalAmount: calculateTotalAmount(aggregatedItems),
+      totalAmount,
       items: buildPurchaseOrderItems(aggregatedItems, tenantId),
+      jasaItems: buildPurchaseOrderJasaItems(aggregatedJasaItems, tenantId),
       prIds: input.purchaseRequests.map(
         (purchaseRequest) => purchaseRequest.id,
       ),
@@ -178,13 +195,13 @@ function resolveSupplierGroupKey(
 function getUniqueSupplierIds(
   purchaseRequest: PurchaseRequestEntity,
 ): string[] {
-  return Array.from(
-    new Set(
-      purchaseRequest.items
-        .map((item) => item.barang.supplierId)
-        .filter((supplierId): supplierId is string => Boolean(supplierId)),
-    ),
-  );
+  const barangSupplierIds = purchaseRequest.items
+    .map((item) => item.barang.supplierId)
+    .filter((supplierId): supplierId is string => Boolean(supplierId));
+  const jasaSupplierIds = (purchaseRequest.jasaItems ?? [])
+    .map((item) => item.jasa.supplierId)
+    .filter((supplierId): supplierId is string => Boolean(supplierId));
+  return Array.from(new Set([...barangSupplierIds, ...jasaSupplierIds]));
 }
 
 function normalizeSupplierId(supplierKey: string): string | null {
@@ -240,6 +257,40 @@ function calculateTotalAmount(items: AggregatedPurchaseOrderItem[]): number {
   );
 }
 
+function calculateJasaTotalAmount(
+  items: AggregatedPurchaseOrderJasaItem[],
+): number {
+  return items.reduce(
+    (currentTotal, item) => currentTotal + item.quantity * item.unitPrice,
+    EMPTY_RESULT_TOTAL,
+  );
+}
+
+function aggregatePurchaseOrderJasaItems(
+  purchaseRequests: PurchaseRequestEntity[],
+): AggregatedPurchaseOrderJasaItem[] {
+  const itemMap = new Map<string, AggregatedPurchaseOrderJasaItem>();
+  for (const purchaseRequest of purchaseRequests) {
+    for (const item of purchaseRequest.jasaItems ?? []) {
+      const current = itemMap.get(item.jasaId);
+      if (!current) {
+        itemMap.set(item.jasaId, {
+          jasaId: item.jasaId,
+          quantity: item.jumlah,
+          unitPrice: item.hargaPerUnit,
+        });
+      } else {
+        itemMap.set(item.jasaId, {
+          jasaId: item.jasaId,
+          quantity: current.quantity + item.jumlah,
+          unitPrice: item.hargaPerUnit,
+        });
+      }
+    }
+  }
+  return Array.from(itemMap.values());
+}
+
 function buildPurchaseOrderItems(
   items: AggregatedPurchaseOrderItem[],
   tenantId: string | null,
@@ -247,6 +298,20 @@ function buildPurchaseOrderItems(
   return items.map((item) => ({
     id: randomUUID(),
     barangId: item.barangId,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.quantity * item.unitPrice,
+    tenantId,
+  }));
+}
+
+function buildPurchaseOrderJasaItems(
+  items: AggregatedPurchaseOrderJasaItem[],
+  tenantId: string | null,
+) {
+  return items.map((item) => ({
+    id: randomUUID(),
+    jasaId: item.jasaId,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.quantity * item.unitPrice,
