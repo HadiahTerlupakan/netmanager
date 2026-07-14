@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Perbaikan alur procurement: edit harga/supplier PO + jasa ke PO + menu unpaid
+
+- **Tipe**: [ADDED] [CHANGED] [MIGRATION]
+- **Scope**: `modules/procurement`, `app/admin/procurement/purchase-orders`, `lib/menu-config.ts`, `components/layout/admin-sidebar`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Implementasi PRD perbaikan procurement. (1) Menu sidebar `FINANCE.UNPAID` + mapping permission ke `finance`. (2) Halaman detail PO bisa edit supplier + unitPrice barang/jasa, total recalculate. (3) Model `PurchaseOrderJasaItem` + generate PO dari PR include jasaItems. (4) Restock jasa tetap tanpa harga.
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `modules/procurement/**`, `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`, `prisma/schema.prisma`
+- **Migration**: `20260714084647_add_purchase_order_jasa_items`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Hapus test staging + update test CI/contract
 
 - **Tipe**: [CHANGED] [REMOVED]
