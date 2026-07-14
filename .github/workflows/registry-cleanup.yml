@@ -1,0 +1,34 @@
+# Prune old GHCR container package versions so immutable tags
+# (<commit>-<build>) do not grow forever. Keeps last 10 versions
+# per package; never deletes production / production-prev tags.
+name: Registry Cleanup
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - netmanager-app
+          - netmanager-cron
+          - netmanager-radius
+
+    steps:
+      - name: Delete old package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 10
+          ignore-versions: '^(production|production-prev)$'
+          token: ${{ secrets.GITHUB_TOKEN }}
