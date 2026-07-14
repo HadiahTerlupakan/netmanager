@@ -238,6 +238,13 @@ function getPermissionResource(code: string): string {
     // resource sendiri; gating-nya pakai permission group `procurement`
     // karena dianggap konfigurasi internal procurement.
     "PROCUREMENT.APPROVAL_THRESHOLDS": "procurement",
+    "FINANCE.UNPAID": "finance",
+    "FINANCE.ACCOUNTS": "finance",
+    "FINANCE.MANUAL_PAYMENTS": "finance",
+    "FINANCE.AR_AGING": "finance",
+    "FINANCE.EXECUTIVE": "finance",
+    "FINANCE.COHORT": "finance",
+    "FINANCE.INCIDENTS": "finance",
   };
 
   if (specialMappings[code]) {

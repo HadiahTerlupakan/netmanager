@@ -594,6 +594,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineBuildingLibrary",
       },
       {
+        code: "FINANCE.UNPAID",
+        name: "Tagihan Belum Bayar",
+        path: "/admin/finance/unpaid",
+        icon: "HiOutlineBanknotes",
+      },
+      {
         code: "FINANCE.MANUAL_PAYMENTS",
         name: "Verifikasi Manual",
         path: "/admin/finance/manual-payments",
