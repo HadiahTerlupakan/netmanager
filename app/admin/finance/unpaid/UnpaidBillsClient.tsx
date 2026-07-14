@@ -317,7 +317,7 @@ export default function UnpaidBillsClient({
                         variant="link"
                         size="sm"
                         onClick={() => openPaymentModal(po)}
-                        disabled={remaining <= 100}
+                        disabled={remaining <= 0}
                       >
                         Bayar
                       </Button>
