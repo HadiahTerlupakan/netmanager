@@ -93,9 +93,11 @@ export default function UnpaidBillsClient({
   // Filter Logic
   const filteredPos = initialData.filter((po) => {
     const searchLower = searchTerm.toLowerCase();
+    const target = po.grandTotal > 0 ? po.grandTotal : po.totalAmount;
     return (
-      po.poNumber.toLowerCase().includes(searchLower) ||
-      po.supplier?.name.toLowerCase().includes(searchLower)
+      target > 0 &&
+      (po.poNumber.toLowerCase().includes(searchLower) ||
+        po.supplier?.name.toLowerCase().includes(searchLower))
     );
   });
 
