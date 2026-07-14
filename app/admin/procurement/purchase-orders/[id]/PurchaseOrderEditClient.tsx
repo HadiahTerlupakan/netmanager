@@ -198,6 +198,33 @@ export function PurchaseOrderEditClient({ poId }: Props) {
     }
   };
 
+  const [processing, setProcessing] = useState(false);
+
+  const handleProcess = async () => {
+    if (!data) return;
+    if (
+      !confirm(
+        `Proses PO "${data.poNumber}" menjadi Ordered? Setelah ini PO bisa dibayar via Tagihan Belum Bayar.`,
+      )
+    )
+      return;
+    setProcessing(true);
+    try {
+      const res = await fetch(
+        `/api/admin/procurement/purchase-orders/${poId}/process`,
+        { method: "POST" },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memproses PO");
+      toast.success("PO berhasil diproses menjadi Ordered");
+      await mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memproses PO");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!data) return;
     if (!confirm(`Hapus Purchase Order "${data.poNumber}"?`)) return;
@@ -217,7 +244,6 @@ export function PurchaseOrderEditClient({ poId }: Props) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus");
     }
   };
-
   if (isLoading) {
     return (
       <ProcurementPageShell
@@ -240,8 +266,9 @@ export function PurchaseOrderEditClient({ poId }: Props) {
   }
 
   const showGrnButton =
-    data.paymentStatus === "UNPAID" ||
-    (data.paymentStatus !== "UNPAID" && data.status !== "RECEIVED");
+    data.status !== "CANCELLED" && data.status !== "RECEIVED";
+  const showProcessButton = data.status === "DRAFT";
+  const showPayHint = data.status === "ORDERED" || data.status === "PARTIAL";
 
   return (
     <ProcurementPageShell
@@ -252,6 +279,23 @@ export function PurchaseOrderEditClient({ poId }: Props) {
       backHref="/admin/procurement/purchase-orders"
       actions={
         <div className="flex flex-wrap gap-2">
+          {showProcessButton && (
+            <Button
+              onClick={handleProcess}
+              disabled={processing}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {processing ? "Memproses..." : "Proses Order"}
+            </Button>
+          )}
+          {showPayHint && data.paymentStatus !== "PAID" && (
+            <Link
+              href="/admin/finance/unpaid"
+              className="px-4 py-2 bg-amber-600 text-white rounded-md text-sm font-medium hover:bg-amber-700"
+            >
+              Bayar di Tagihan
+            </Link>
+          )}
           {showGrnButton && (
             <Link
               href={`/admin/procurement/goods-receipts/create?poId=${data.id}`}
@@ -260,7 +304,7 @@ export function PurchaseOrderEditClient({ poId }: Props) {
               Buat GRN
             </Link>
           )}
-          {data.paymentStatus === "UNPAID" && (
+          {data.paymentStatus === "UNPAID" && data.status === "DRAFT" && (
             <Button variant="outline" onClick={handleDelete}>
               Hapus PO
             </Button>
