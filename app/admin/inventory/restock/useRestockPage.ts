@@ -233,7 +233,6 @@ export function useRestockPage() {
         barangId: "",
         jasaId: item.jasaId,
         quantity: item.jumlah,
-        hargaPerUnit: item.hargaPerUnit,
         keterangan: item.keterangan || "",
       }),
     );
@@ -275,7 +274,6 @@ export function useRestockPage() {
           .map((item) => ({
             jasaId: item.jasaId,
             jumlah: item.quantity,
-            hargaPerUnit: item.hargaPerUnit || 0,
             keterangan: item.keterangan || null,
           })),
       };

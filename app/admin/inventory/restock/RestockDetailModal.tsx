@@ -175,14 +175,6 @@ export function RestockDetailModal({
                       <div className="font-black text-violet-600">
                         {item.jumlah} {item.jasa.satuan}
                       </div>
-                      <div className="text-[10px] text-gray-400 font-bold">
-                        @ Rp{" "}
-                        {Number(item.hargaPerUnit || 0).toLocaleString("id-ID")}
-                      </div>
-                      <div className="text-xs font-black text-gray-700 dark:text-gray-200 mt-1">
-                        Rp{" "}
-                        {Number(item.totalHarga || 0).toLocaleString("id-ID")}
-                      </div>
                     </div>
                   </div>
                 );

@@ -80,7 +80,7 @@ function createJasaOption(jasa: Jasa) {
   return {
     value: jasa.id,
     label: `${jasa.kode} - ${jasa.nama}`,
-    subLabel: `Est. Rp ${Number(jasa.hargaEstimasi || 0).toLocaleString("id-ID")} / ${jasa.satuan}`,
+    subLabel: jasa.satuan,
     badge: (
       <span className="px-2 py-0.5 bg-violet-500 text-white text-[8px] font-black rounded-full uppercase">
         Jasa
@@ -365,18 +365,12 @@ export function RestockFormModal({
                             options={jasaOptions}
                             value={item.jasaId || ""}
                             onChange={(value) => {
-                              const found = jasaList.find(
-                                (j) => j.id === value,
-                              );
                               updateItem(index, {
                                 ...item,
                                 tipe: "JASA",
                                 jasaId: value,
                                 barangId: "",
-                                hargaPerUnit:
-                                  found?.hargaEstimasi ??
-                                  item.hargaPerUnit ??
-                                  0,
+                                hargaPerUnit: 0,
                               });
                             }}
                             placeholder="Cari nama atau kode jasa..."
@@ -470,28 +464,6 @@ export function RestockFormModal({
                             <FiTrash2 className="text-lg" />
                           </button>
                         </div>
-
-                        {isJasa && (
-                          <div className="flex flex-col space-y-1.5">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                              Harga / Unit
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.hargaPerUnit || 0}
-                              onChange={(event) =>
-                                updateItem(index, {
-                                  ...item,
-                                  hargaPerUnit:
-                                    parseFloat(event.target.value) || 0,
-                                })
-                              }
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-violet-500 transition-all"
-                              placeholder="0"
-                            />
-                          </div>
-                        )}
 
                         <div className="flex flex-col space-y-1.5">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
