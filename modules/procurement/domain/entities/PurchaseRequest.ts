@@ -14,12 +14,29 @@ export interface PurchaseRequestItemBarangEntity {
   supplierId: string | null;
 }
 
+export interface PurchaseRequestJasaItemEntity {
+  id: string;
+  jasaId: string;
+  jumlah: number;
+  hargaPerUnit: number;
+  totalHarga: number;
+  tenantId: string | null;
+  jasa: {
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+    supplierId: string | null;
+  };
+}
+
 export interface PurchaseRequestEntity {
   id: string;
   tenantId: string | null;
   status: string;
   purchaseOrderId: string | null;
   items: PurchaseRequestItemEntity[];
+  jasaItems: PurchaseRequestJasaItemEntity[];
 }
 
 export interface PurchaseRequestSummaryEntity {

@@ -1,6 +1,7 @@
 import type {
   PurchaseOrderEntity,
   PurchaseOrderItemEntity,
+  PurchaseOrderJasaItemEntity,
 } from "../entities/PurchaseOrder";
 
 export type ProcurementPaymentStatus = "UNPAID" | "PARTIAL" | "PAID";
@@ -39,8 +40,19 @@ export interface PurchaseOrderItemBarangSummary {
   nama: string;
 }
 
+export interface PurchaseOrderJasaItemJasaSummary {
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+}
+
 export interface PurchaseOrderItemWithBarang extends PurchaseOrderItemEntity {
   barang: PurchaseOrderItemBarangSummary | null;
+}
+
+export interface PurchaseOrderJasaItemWithJasa extends PurchaseOrderJasaItemEntity {
+  jasa: PurchaseOrderJasaItemJasaSummary;
 }
 
 export interface PurchaseOrderWithSupplier extends PurchaseOrderEntity {
@@ -49,6 +61,7 @@ export interface PurchaseOrderWithSupplier extends PurchaseOrderEntity {
 
 export interface PurchaseOrderWithRelations extends PurchaseOrderWithSupplier {
   items: PurchaseOrderItemWithBarang[];
+  jasaItems: PurchaseOrderJasaItemWithJasa[];
 }
 
 export interface PurchaseOrderListResult {
@@ -72,14 +85,27 @@ export interface PurchaseOrderCreateInput {
     quantity: number;
     unitPrice: number;
   }>;
+  jasaItems?: Array<{
+    jasaId: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+}
+
+export interface PurchaseOrderItemPriceUpdate {
+  id: string;
+  unitPrice: number;
 }
 
 export interface PurchaseOrderMetadataUpdate {
+  supplierId?: string | null;
   expectedDate?: Date | null;
   notes?: string | null;
   fakturPajakNo?: string | null;
   fakturPajakDate?: Date | null;
   vendorNpwp?: string | null;
+  items?: PurchaseOrderItemPriceUpdate[];
+  jasaItems?: PurchaseOrderItemPriceUpdate[];
 }
 
 export interface PurchaseOrderTaxFilter {

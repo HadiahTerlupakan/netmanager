@@ -8,6 +8,15 @@ export interface PurchaseOrderItemEntity {
   tenantId: string | null;
 }
 
+export interface PurchaseOrderJasaItemEntity {
+  id: string;
+  jasaId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  tenantId: string | null;
+}
+
 export interface PurchaseOrderEntity {
   id: string;
   poNumber: string;
@@ -33,4 +42,5 @@ export interface PurchaseOrderEntity {
   vendorNpwp: string | null;
   tenantId: string | null;
   items?: PurchaseOrderItemEntity[];
+  jasaItems?: PurchaseOrderJasaItemEntity[];
 }

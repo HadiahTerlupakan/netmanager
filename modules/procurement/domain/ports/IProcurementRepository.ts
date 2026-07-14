@@ -13,6 +13,15 @@ export interface CreatePurchaseOrderItemInput {
   tenantId: string | null;
 }
 
+export interface CreatePurchaseOrderJasaItemInput {
+  id: string;
+  jasaId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  tenantId: string | null;
+}
+
 export interface CreatePurchaseOrderInput {
   id: string;
   poNumber: string;
@@ -21,6 +30,7 @@ export interface CreatePurchaseOrderInput {
   tenantId: string | null;
   totalAmount: number;
   items: CreatePurchaseOrderItemInput[];
+  jasaItems?: CreatePurchaseOrderJasaItemInput[];
   prIds: string[];
 }
 

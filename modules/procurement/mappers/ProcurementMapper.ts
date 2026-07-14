@@ -1,8 +1,10 @@
 import type {
   PurchaseOrder,
   PurchaseOrderItem,
+  PurchaseOrderJasaItem,
   PurchaseRequest,
   PurchaseRequestItem,
+  PurchaseRequestJasaItem,
 } from "@prisma/client";
 
 import type {
@@ -12,19 +14,29 @@ import type {
 import type {
   PurchaseOrderEntity,
   PurchaseOrderItemEntity,
+  PurchaseOrderJasaItemEntity,
 } from "../domain/entities/PurchaseOrder";
 import type {
   PurchaseRequestEntity,
   PurchaseRequestItemEntity,
+  PurchaseRequestJasaItemEntity,
 } from "../domain/entities/PurchaseRequest";
 
 type PurchaseRequestRecord = PurchaseRequest & {
   items: (PurchaseRequestItem & {
     barang: { id: string; nama: string; supplierId: string | null };
   })[];
+  jasaItems: (PurchaseRequestJasaItem & {
+    jasa: {
+      id: string;
+      kode: string;
+      nama: string;
+      satuan: string;
+      supplierId: string | null;
+    };
+  })[];
 };
 
-/** Memetakan record purchase request Prisma ke domain entity. */
 export function toPurchaseRequestDomain(
   record: PurchaseRequestRecord,
 ): PurchaseRequestEntity {
@@ -34,12 +46,15 @@ export function toPurchaseRequestDomain(
     status: record.status,
     purchaseOrderId: record.purchaseOrderId,
     items: record.items.map(toPurchaseRequestItemDomain),
+    jasaItems: record.jasaItems.map(toPurchaseRequestJasaItemDomain),
   };
 }
 
-/** Memetakan record purchase order Prisma ke domain entity. */
 export function toPurchaseOrderDomain(
-  record: PurchaseOrder & { items?: PurchaseOrderItem[] },
+  record: PurchaseOrder & {
+    items?: PurchaseOrderItem[];
+    jasaItems?: PurchaseOrderJasaItem[];
+  },
 ): PurchaseOrderEntity {
   return {
     id: record.id,
@@ -66,10 +81,10 @@ export function toPurchaseOrderDomain(
     vendorNpwp: record.vendorNpwp,
     tenantId: record.tenantId,
     items: record.items?.map(toPurchaseOrderItemDomain),
+    jasaItems: record.jasaItems?.map(toPurchaseOrderJasaItemDomain),
   };
 }
 
-/** Memetakan purchase order domain entity ke DTO publik module. */
 export function toPurchaseOrderDTO(
   entity: PurchaseOrderEntity,
 ): PurchaseOrderDTO {
@@ -97,6 +112,34 @@ function toPurchaseRequestItemDomain(
   };
 }
 
+function toPurchaseRequestJasaItemDomain(
+  item: PurchaseRequestJasaItem & {
+    jasa: {
+      id: string;
+      kode: string;
+      nama: string;
+      satuan: string;
+      supplierId: string | null;
+    };
+  },
+): PurchaseRequestJasaItemEntity {
+  return {
+    id: item.id,
+    jasaId: item.jasaId,
+    jumlah: item.jumlah,
+    hargaPerUnit: item.hargaPerUnit,
+    totalHarga: item.totalHarga,
+    tenantId: item.tenantId,
+    jasa: {
+      id: item.jasa.id,
+      kode: item.jasa.kode,
+      nama: item.jasa.nama,
+      satuan: item.jasa.satuan,
+      supplierId: item.jasa.supplierId,
+    },
+  };
+}
+
 function toPurchaseOrderItemDomain(
   item: PurchaseOrderItem,
 ): PurchaseOrderItemEntity {
@@ -105,6 +148,19 @@ function toPurchaseOrderItemDomain(
     barangId: item.barangId,
     quantity: item.quantity,
     receivedQuantity: item.receivedQuantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.totalPrice,
+    tenantId: item.tenantId,
+  };
+}
+
+function toPurchaseOrderJasaItemDomain(
+  item: PurchaseOrderJasaItem,
+): PurchaseOrderJasaItemEntity {
+  return {
+    id: item.id,
+    jasaId: item.jasaId,
+    quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
     tenantId: item.tenantId,
