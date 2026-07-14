@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Hapus test staging + update test CI/contract
+
+- **Tipe**: [CHANGED] [REMOVED]
+- **Scope**: `tests/ci/`, `tests/k8s/`, `tests/contracts/`
+- **Author**: agent
+- **Deskripsi**: Hapus `deploy-prod-safety.test.ts` dan `deploy-prod-script-safety.test.ts` (script dihapus). Update `jenkinsfile-build-safety.test.ts` — hapus refs staging manifest + sesuaikan expectation echo Cleanup (prune). Hapus staging cases di `app-deployment-cron-config`, `firebase-admin-env-contract`, `postgres-probe-database-safety`, `redis-deployment-safety`, `uploads-pvc-safety`, dan `fcm-build-config-contract`. 28 test pass.
+- **Files**: `tests/ci/deploy-prod-safety.test.ts` (removed), `tests/ci/deploy-prod-script-safety.test.ts` (removed), `tests/ci/jenkinsfile-build-safety.test.ts`, `tests/contracts/fcm-build-config-contract.test.ts`, `tests/k8s/*.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Prune Docker cache agent + GHCR retention + pensiunkan staging
 
 - **Tipe**: [INFRA] [REMOVED]
