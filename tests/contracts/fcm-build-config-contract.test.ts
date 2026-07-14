@@ -45,7 +45,6 @@ describe("fcm build config contract", () => {
   it("keeps env templates and deploy helper aligned to FCM-only browser setup", () => {
     const envExample = readProjectFile(".env.production.example");
     const deployScript = readProjectFile("deploy.sh");
-    const stagingSecrets = readProjectFile("k8s/staging/secrets.yaml");
     const productionSecrets = readProjectFile("k8s/production/secrets.yaml");
 
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_API_KEY=");
@@ -74,8 +73,6 @@ describe("fcm build config contract", () => {
     expect(deployScript).not.toContain("VAPID_PRIVATE_KEY");
     expect(deployScript).not.toContain("VAPID_SUBJECT");
 
-    expect(stagingSecrets).not.toContain("VAPID_PRIVATE_KEY");
-    expect(stagingSecrets).not.toContain("VAPID_SUBJECT");
     expect(productionSecrets).not.toContain("VAPID_PRIVATE_KEY");
     expect(productionSecrets).not.toContain("VAPID_SUBJECT");
   });

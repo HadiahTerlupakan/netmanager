@@ -8,13 +8,6 @@ function readManifest(relativePath: string): string {
 }
 
 describe("redis deployment safety", () => {
-  it("staging redis uses noeviction for BullMQ workloads", () => {
-    const yaml = readManifest("k8s/staging/redis-deployment.yaml");
-
-    expect(yaml).toContain('"--maxmemory-policy", "noeviction"');
-    expect(yaml).not.toContain('"--maxmemory-policy", "allkeys-lru"');
-  });
-
   it("production redis uses noeviction for BullMQ workloads", () => {
     const yaml = readManifest("k8s/production/redis-deployment.yaml");
 

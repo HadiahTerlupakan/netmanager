@@ -21,18 +21,4 @@ describe("app deployment cron configuration", () => {
     expect(yaml).toContain('command: ["pgrep", "-f", "crond"]');
     expect(yaml).not.toContain('command: ["pgrep", "-f", "node"]');
   });
-
-  it("staging app deployment disables internal cron", () => {
-    const yaml = readManifest("k8s/staging/app-deployment.yaml");
-
-    expect(yaml).toContain("- name: ENABLE_INTERNAL_CRON");
-    expect(yaml).toContain('value: "false"');
-  });
-
-  it("staging cron deployment checks the crond process", () => {
-    const yaml = readManifest("k8s/staging/cron-deployment.yaml");
-
-    expect(yaml).toContain('command: ["pgrep", "-f", "crond"]');
-    expect(yaml).not.toContain('command: ["pgrep", "-f", "node"]');
-  });
 });

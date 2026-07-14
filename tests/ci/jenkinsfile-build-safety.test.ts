@@ -422,9 +422,6 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
 
   it("renders deployment manifests with quoted image placeholders for pipeline substitution", () => {
     const manifests = [
-      "k8s/staging/app-deployment.yaml",
-      "k8s/staging/cron-deployment.yaml",
-      "k8s/staging/radius-deployment.yaml",
       "k8s/production/app-deployment.yaml",
       "k8s/production/cron-deployment.yaml",
       "k8s/production/radius-deployment.yaml",
@@ -500,15 +497,9 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
   });
 
   it("declares registry pull auth secrets and wires them into all private-image workloads", () => {
-    const registrySecretManifests = [
-      "k8s/staging/registry-secret.yaml",
-      "k8s/production/registry-secret.yaml",
-    ];
+    const registrySecretManifests = ["k8s/production/registry-secret.yaml"];
 
     const workloadManifests = [
-      "k8s/staging/app-deployment.yaml",
-      "k8s/staging/cron-deployment.yaml",
-      "k8s/staging/radius-deployment.yaml",
       "k8s/production/app-deployment.yaml",
       "k8s/production/cron-deployment.yaml",
       "k8s/production/radius-deployment.yaml",
@@ -522,9 +513,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       );
 
       expect(manifest).toContain("type: kubernetes.io/dockerconfigjson");
-      expect(manifest).toMatch(
-        /name:\s+netmanager-(staging|production)-registry/,
-      );
+      expect(manifest).toMatch(/name:\s+netmanager-production-registry/);
       expect(manifest).toContain(".dockerconfigjson");
       expect(dockerConfigJson).toEqual({
         auths: {
@@ -548,9 +537,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
         expect(imagePullSecrets).toEqual([{ name: "{{REGISTRY_SECRET}}" }]);
       } else {
         expect(imagePullSecrets).toHaveLength(1);
-        expect(imagePullSecrets[0].name).toMatch(
-          /^netmanager-(staging|production)-registry$/,
-        );
+        expect(imagePullSecrets[0].name).toBe("netmanager-production-registry");
       }
     }
   });
@@ -595,8 +582,10 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      "Removing pipeline-managed images from the shared Docker daemon...",
+      "Removing pipeline-managed images and pruning Docker cache on shared daemon...",
     );
+    expect(jenkinsfile).toContain("docker builder prune --keep-storage 5GB -f");
+    expect(jenkinsfile).toContain("docker image prune -f");
     expect(jenkinsfile).toContain("remove_local_image() {");
     expect(jenkinsfile).toContain('remove_local_image "${env.APP_IMAGE_REF}"');
     expect(jenkinsfile).toContain(

@@ -8,24 +8,6 @@ function readManifest(relativePath: string): string {
 }
 
 describe("postgres probe database safety", () => {
-  it("staging postgres probes target the declared database for each statefulset", () => {
-    const yaml = readManifest("k8s/staging/db-statefulset.yaml");
-
-    expect(yaml).toContain(
-      'command: ["pg_isready", "-U", "netmgr", "-d", "netmanager"]',
-    );
-    expect(yaml).toContain(
-      'command: ["pg_isready", "-U", "netmgr", "-d", "billing"]',
-    );
-    expect(yaml).toContain(
-      'command: ["pg_isready", "-U", "netmgr", "-d", "mitra"]',
-    );
-    expect(yaml).toContain(
-      'command: ["pg_isready", "-U", "netmgr", "-d", "radius"]',
-    );
-    expect(yaml).not.toContain('command: ["pg_isready", "-U", "netmgr"]');
-  });
-
   it("production postgres probes target the declared database for each statefulset", () => {
     const yaml = readManifest("k8s/production/db-statefulset.yaml");
 
