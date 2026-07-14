@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Verifikasi Barang Sampai di restock otomatis buat GRN
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/inventory/restock/requests/[id]/receive`
+- **Author**: agent
+- **Deskripsi**: Endpoint receive restock sekarang memanggil `GoodsReceiptService.create()` sehingga dokumen GRN tercatat di procurement, stok di-update via GRN flow, dan event `GOODS_RECEIPT_CREATED` memicu jurnal `AUTO_GRN_CREATED`. UI "Verifikasi Barang Sampai" di Pre Request tidak lagi update stok lewat path terpisah tanpa GRN.
+- **Files**: `app/api/inventory/restock/requests/[id]/receive/route.ts`, `tests/api/inventory-restock-request-lifecycle-routes.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Perbaikan alur procurement: edit harga/supplier PO + jasa ke PO + menu unpaid
 
 - **Tipe**: [ADDED] [CHANGED] [MIGRATION]
