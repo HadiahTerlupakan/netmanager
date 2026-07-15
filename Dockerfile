@@ -74,7 +74,7 @@ RUN npm run prisma:generate
 
 # Use BuildKit secrets to securely pass sensitive data during build
 # and cache mount for Next.js build cache to speed up subsequent builds.
-RUN --mount=type=cache,target=/app/.next/cache \
+RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
     --mount=type=secret,id=NEXTAUTH_SECRET \
     --mount=type=secret,id=AUTH_SECRET \
     --mount=type=secret,id=OAUTH_ENCRYPTION_KEY \
