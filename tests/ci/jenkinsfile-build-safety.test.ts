@@ -145,11 +145,18 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       "NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.",
     );
     expect(jenkinsfile).toContain("Backup Previous Env Image");
-    expect(jenkinsfile).toContain("Push Images to Registry");
+    expect(jenkinsfile).not.toContain("Push Images to Registry");
     expect(jenkinsfile).toContain("docker login");
-    expect(jenkinsfile).toContain('push_and_verify "${env.APP_IMAGE_REF}"');
-    expect(jenkinsfile).toContain('push_and_verify "${env.CRON_IMAGE_REF}"');
-    expect(jenkinsfile).toContain('push_and_verify "${env.RADIUS_IMAGE_REF}"');
+    expect(jenkinsfile).toContain("docker buildx build --push");
+    expect(jenkinsfile).toContain(
+      'docker manifest inspect "${env.APP_IMAGE_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'docker manifest inspect "${env.CRON_IMAGE_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'docker manifest inspect "${env.RADIUS_IMAGE_REF}"',
+    );
     expect(jenkinsfile).not.toContain(
       "chroot /host /usr/local/bin/k3s ctr images import -",
     );
@@ -190,15 +197,19 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'backup_image "${env.APP_IMAGE_ENV_REF}" "${env.APP_IMAGE_PREV_REF}"',
       'backup_image "${env.CRON_IMAGE_ENV_REF}" "${env.CRON_IMAGE_PREV_REF}"',
       'backup_image "${env.RADIUS_IMAGE_ENV_REF}" "${env.RADIUS_IMAGE_PREV_REF}"',
-      "docker buildx build --load --progress=plain \\\n                                -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF}",
-      "docker buildx build --load --progress=plain \\\n                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron",
-      "docker buildx build --load --progress=plain \\\n                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .",
-      'push_and_verify "${env.APP_IMAGE_REF}"',
-      'push_and_verify "${env.APP_IMAGE_ENV_REF}"',
-      'push_and_verify "${env.CRON_IMAGE_REF}"',
-      'push_and_verify "${env.CRON_IMAGE_ENV_REF}"',
-      'push_and_verify "${env.RADIUS_IMAGE_REF}"',
-      'push_and_verify "${env.RADIUS_IMAGE_ENV_REF}"',
+      "docker buildx build --push --progress=plain \\\n                                -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF}",
+      "docker buildx build --push --progress=plain \\\n                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF}",
+      "docker buildx build --push --progress=plain \\\n                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF}",
+      '--cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP}"',
+      '--cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max"',
+      '--cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON}"',
+      '--cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS}"',
+      'docker manifest inspect "${env.APP_IMAGE_REF}"',
+      'docker manifest inspect "${env.APP_IMAGE_ENV_REF}"',
+      'docker manifest inspect "${env.CRON_IMAGE_REF}"',
+      'docker manifest inspect "${env.CRON_IMAGE_ENV_REF}"',
+      'docker manifest inspect "${env.RADIUS_IMAGE_REF}"',
+      'docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}"',
       "-e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g'",
       "-e 's|{{APP_IMAGE}}|${env.APP_DEPLOY_REF}|g'",
       "-e 's|{{CRON_IMAGE}}|${env.CRON_DEPLOY_REF}|g'",
@@ -582,7 +593,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      "Removing pipeline-managed images and pruning Docker cache on shared daemon...",
+      "Pruning Docker cache on shared daemon (images pushed directly to registry, no local load)...",
     );
     expect(jenkinsfile).toContain("docker builder prune --keep-storage 5GB -f");
     expect(jenkinsfile).toContain("docker image prune -f");
