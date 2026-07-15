@@ -2137,6 +2137,7 @@ model Sites {
   userSites        UserSite[]
   work_orders      WorkOrders[]
   gudang           Gudang[]         @relation("GudangToSite")
+  mappingNodes     MappingNode[]
 
   @@index([isActive])
   @@index([tenantId])
@@ -3382,11 +3383,15 @@ model MappingNode {
   photo          String?
   metadata       Json?         @map("metadata")
   tenantId       String?
+  siteId         String?
   outgoingEdges  MappingEdge[] @relation("SourceNode")
   incomingEdges  MappingEdge[] @relation("TargetNode")
   tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site           Sites?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
+  @@index([siteId])
+  @@index([tenantId, siteId])
   @@map("mapping_nodes")
 }
 

@@ -26,6 +26,12 @@ type ToolbarTool =
   | "joinbox"
   | "fiber";
 
+interface MapSiteOption {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 interface MapToolbarProps {
   activeTab: ActiveTab;
   showSearchDropdown: boolean;
@@ -41,6 +47,9 @@ interface MapToolbarProps {
   isAnyModeActive: boolean;
   activeModeMessage: string;
   hasPendingTempPosition: boolean;
+  sites: MapSiteOption[];
+  siteIdFilter: string;
+  onSiteFilterChange: (siteId: string) => void;
   onTabChange: (tab: ActiveTab) => void;
   onToggleSearchDropdown: () => void;
   onSearchQueryChange: (value: string) => void;
@@ -66,6 +75,9 @@ export function MapToolbar({
   isAnyModeActive,
   activeModeMessage,
   hasPendingTempPosition,
+  sites,
+  siteIdFilter,
+  onSiteFilterChange,
   onTabChange,
   onToggleSearchDropdown,
   onSearchQueryChange,
@@ -124,6 +136,19 @@ export function MapToolbar({
           </div>
 
           <div className="flex items-center gap-2">
+            <select
+              value={siteIdFilter}
+              onChange={(e) => onSiteFilterChange(e.target.value)}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white max-w-[160px]"
+              title="Filter site"
+            >
+              <option value="">Semua Site</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name}
+                </option>
+              ))}
+            </select>
             <div className="relative z-20">
               <Button
                 variant={showSearchDropdown ? "default" : "outline"}

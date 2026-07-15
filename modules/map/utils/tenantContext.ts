@@ -5,6 +5,10 @@ export interface TenantContext {
   isSuperAdmin: boolean;
 }
 
+export interface MapListFilters {
+  siteId?: string;
+}
+
 export function buildTenantWhere(
   ctx: TenantContext,
 ): { tenantId?: string } | undefined {
@@ -18,6 +22,20 @@ export function buildTenantWhere(
     );
   }
   return { tenantId: ctx.tenantId };
+}
+
+export function buildMapWhere(
+  ctx: TenantContext,
+  filters?: MapListFilters,
+): { tenantId?: string; siteId?: string } | undefined {
+  const tenantWhere = buildTenantWhere(ctx);
+  if (!filters?.siteId) {
+    return tenantWhere;
+  }
+  return {
+    ...(tenantWhere ?? {}),
+    siteId: filters.siteId,
+  };
 }
 
 interface SessionUser {

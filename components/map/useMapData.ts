@@ -50,17 +50,20 @@ export function useMapData({ showToast }: UseMapDataParams) {
   const [edges, setEdges] = useState<MappingEdge[]>([]);
   const [settings, setSettings] = useState<MapSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [siteIdFilter, setSiteIdFilterState] = useState<string>("");
+  const siteIdFilterRef = useRef<string>("");
   const [statistics, setStatistics] =
     useState<MapStatistics>(DEFAULT_STATISTICS);
 
   const fetchData = useCallback(async () => {
     try {
+      const siteId = siteIdFilterRef.current || null;
       const [nodesData, edgesData, settingsData, statsData] = await Promise.all(
         [
-          mapNodesApi.list(),
-          mapEdgesApi.list(),
+          mapNodesApi.list(siteId),
+          mapEdgesApi.list(siteId),
           mapSettingsApi.get(),
-          mapStatisticsApi.get(),
+          mapStatisticsApi.get(siteId),
         ],
       );
 
@@ -75,6 +78,16 @@ export function useMapData({ showToast }: UseMapDataParams) {
       setLoading(false);
     }
   }, [showToast]);
+
+  const setSiteIdFilter = useCallback(
+    (siteId: string) => {
+      siteIdFilterRef.current = siteId;
+      setSiteIdFilterState(siteId);
+      setLoading(true);
+      void fetchData();
+    },
+    [fetchData],
+  );
 
   const hasFetchedRef = useRef(false);
   useEffect(() => {
@@ -306,6 +319,8 @@ export function useMapData({ showToast }: UseMapDataParams) {
     settings,
     loading,
     statistics,
+    siteIdFilter,
+    setSiteIdFilter,
     updateNodePosition,
     saveNode,
     saveFiberLine,

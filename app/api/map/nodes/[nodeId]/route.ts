@@ -19,6 +19,7 @@ const updateNodeSchema = z.object({
   attenuationOut: z.number().nullish(),
   inputCoreColor: z.string().nullish(),
   photo: z.string().nullish(),
+  siteId: z.string().nullish(),
 });
 
 export const GET = createHandler(

@@ -9,9 +9,15 @@ import type { MappingEdge, MapSettings } from "@prisma/client";
 /**
  * Map Nodes API
  */
+function withSiteQuery(url: string, siteId?: string | null): string {
+  if (!siteId) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}siteId=${encodeURIComponent(siteId)}`;
+}
+
 export const mapNodesApi = {
-  list: async (): Promise<MappingNode[]> => {
-    const res = await fetch(MAP_API.NODES);
+  list: async (siteId?: string | null): Promise<MappingNode[]> => {
+    const res = await fetch(withSiteQuery(MAP_API.NODES, siteId));
     if (!res.ok) throw new Error("Failed to fetch nodes");
     const json = await res.json();
     return json.data || [];
@@ -58,8 +64,8 @@ export const mapNodesApi = {
  * Map Edges API
  */
 export const mapEdgesApi = {
-  list: async (): Promise<MappingEdge[]> => {
-    const res = await fetch(MAP_API.EDGES);
+  list: async (siteId?: string | null): Promise<MappingEdge[]> => {
+    const res = await fetch(withSiteQuery(MAP_API.EDGES, siteId));
     if (!res.ok) throw new Error("Failed to fetch edges");
     const json = await res.json();
     return json.data || [];
@@ -127,12 +133,14 @@ export const mapSettingsApi = {
  * Map Statistics API
  */
 export const mapStatisticsApi = {
-  get: async (): Promise<{
+  get: async (
+    siteId?: string | null,
+  ): Promise<{
     totalNodes: number;
     totalEdges: number;
     nodesByType: Record<string, number>;
   }> => {
-    const res = await fetch(MAP_API.STATISTICS);
+    const res = await fetch(withSiteQuery(MAP_API.STATISTICS, siteId));
     if (!res.ok) throw new Error("Failed to fetch statistics");
     const json = await res.json();
     return json.data || { totalNodes: 0, totalEdges: 0, nodesByType: {} };

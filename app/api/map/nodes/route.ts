@@ -23,13 +23,18 @@ const createNodeSchema = z.object({
   inputCoreColor: z.string().nullish(),
   photo: z.string().nullish(),
   metadata: z.record(z.string(), z.unknown()).nullish(),
+  siteId: z.string().nullish(),
 });
 
 export const GET = createHandler(
   { auth: true, permissions: ["map:read"] },
-  async (_req, ctx) => {
+  async (req, ctx) => {
     const tenantCtx = buildTenantContext(ctx.session?.user);
-    const nodes = await service.getNodes(tenantCtx);
+    const siteId = req.nextUrl.searchParams.get("siteId") || undefined;
+    const nodes = await service.getNodes(
+      tenantCtx,
+      siteId ? { siteId } : undefined,
+    );
     return apiSuccess(nodes);
   },
 );

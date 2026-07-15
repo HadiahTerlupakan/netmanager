@@ -17,4 +17,5 @@ export interface MapNode {
   photo: string | null;
   metadata: Record<string, unknown> | null;
   tenantId: string | null;
+  siteId: string | null;
 }

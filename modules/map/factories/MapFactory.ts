@@ -13,6 +13,7 @@ export interface CreateMapNodeInput {
   longitude?: number | null;
   capacity?: number;
   metadata?: Record<string, unknown> | null;
+  siteId?: string | null;
 }
 
 export class MapFactory {
@@ -32,6 +33,7 @@ export class MapFactory {
       longitude: dto.longitude,
       capacity: dto.capacity ?? defaults.capacity,
       metadata: this.buildMetadata(dto.metadata, defaults.usedPorts),
+      siteId: dto.siteId ?? null,
     };
   }
 

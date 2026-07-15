@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-15] — Site ID support di admin map (filter + assign)
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/map`, `app/api/map`, `components/map`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: `MappingNode` punya `siteId` opsional (FK Sites, onDelete SetNull). API nodes/edges/statistics terima query `?siteId=`. Create/update node terima body `siteId` dengan validasi ownership tenant. UI toolbar filter site + field site di NodeFormModal. Multi-tenant existing tetap utuh. Edge filter OR (source/target node di site).
+- **Files**: `prisma/schema.prisma`, `prisma/migrations/20260715120000_add_site_id_to_mapping_nodes/`, `modules/map/**`, `app/api/map/nodes/**`, `app/api/map/edges/route.ts`, `app/api/map/statistics/route.ts`, `components/map/**`, `tests/unit/map-site-filter.test.ts`
+- **Migration**: `20260715120000_add_site_id_to_mapping_nodes`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-15] — PRD siteId support untuk admin map
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/specifications`
+- **Author**: agent
+- **Deskripsi**: PRD penambahan `siteId` opsional pada `MappingNode` (filter & assign per site di `/admin/map`), dengan multi-tenant yang sudah ada tetap utuh. Mencakup schema/migration, API query/body, UI filter, acceptance criteria, dan keputusan D1–D7 (nullable, edge filter OR, settings per-site di fase 2). Status: Implemented.
+- **Files**: `docs/specifications/PRD-MAP-SITE-ID-2026-07-15.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-15] — Import CSV map nodes (mode merge)
 
 - **Tipe**: [ADDED]

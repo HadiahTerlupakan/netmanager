@@ -33,6 +33,7 @@ interface PrismaMappingNodeRecord {
   photo: string | null;
   metadata: unknown;
   tenantId: string | null;
+  siteId: string | null;
 }
 
 interface PrismaMappingEdgeRecord {
@@ -113,6 +114,7 @@ export class MapMapper {
       inputCoreColor: entity.inputCoreColor,
       photo: entity.photo,
       metadata: entity.metadata,
+      siteId: entity.siteId,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
     };

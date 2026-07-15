@@ -11,21 +11,8 @@ import {
   getNodeSplitterOptions,
   getNodeTypeLabel,
 } from "@/components/map/node-form-utils";
-
-const FIBER_CORE_COLORS = [
-  { value: "Biru", label: "Biru / Blue", color: "#2563eb" },
-  { value: "Orange", label: "Orange", color: "#f97316" },
-  { value: "Hijau", label: "Hijau / Green", color: "#22c55e" },
-  { value: "Coklat", label: "Coklat / Brown", color: "#92400e" },
-  { value: "Abu-abu", label: "Abu-abu / Slate", color: "#6b7280" },
-  { value: "Putih", label: "Putih / White", color: "#ffffff", border: true },
-  { value: "Merah", label: "Merah / Red", color: "#ef4444" },
-  { value: "Hitam", label: "Hitam / Black", color: "#000000" },
-  { value: "Kuning", label: "Kuning / Yellow", color: "#eab308" },
-  { value: "Ungu", label: "Ungu / Violet", color: "#a855f7" },
-  { value: "Pink", label: "Pink / Rose", color: "#ec4899" },
-  { value: "Tosca", label: "Tosca / Aqua", color: "#14b8a6" },
-];
+import { MapSiteSelect } from "@/components/map/MapSiteSelect";
+import { FIBER_CORE_COLORS } from "@/components/map/fiber-core-colors";
 
 interface NodeFormModalProps {
   isOpen: boolean;
@@ -95,6 +82,12 @@ export function NodeFormModal({
       size="lg"
     >
       <div className="space-y-4">
+        <MapSiteSelect
+          value={data.siteId}
+          onChange={(siteId) => onChange({ ...data, siteId })}
+          className={inputClass}
+          labelClassName={labelClass}
+        />
         {isServerOrOlt && (
           <>
             <div>

@@ -32,8 +32,12 @@ export {
 } from "./domain/nodeType";
 export type { CanonicalNodeType, SyncNodeType } from "./domain/nodeType";
 
-export { buildTenantContext, buildTenantWhere } from "./utils/tenantContext";
-export type { TenantContext } from "./utils/tenantContext";
+export {
+  buildTenantContext,
+  buildTenantWhere,
+  buildMapWhere,
+} from "./utils/tenantContext";
+export type { TenantContext, MapListFilters } from "./utils/tenantContext";
 
 export type {
   MapNodeListItemDTO,

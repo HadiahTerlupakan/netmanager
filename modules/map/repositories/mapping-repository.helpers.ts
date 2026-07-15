@@ -36,6 +36,7 @@ export function toNodeCreateData(
     photo: data.photo ?? null,
     metadata: toPrismaMetadata(data.metadata),
     tenantId: data.tenantId ?? null,
+    siteId: data.siteId ?? null,
   };
 }
 
@@ -58,6 +59,7 @@ export function toNodeUpdateData(
     photo: data.photo,
     metadata: toPrismaMetadata(data.metadata),
     tenantId: data.tenantId ?? undefined,
+    ...(data.siteId !== undefined ? { siteId: data.siteId } : {}),
   };
 }
 

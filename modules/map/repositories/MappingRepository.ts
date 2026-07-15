@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NotFoundError as MapNotFoundError } from "@/lib/errors";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
 import type { TenantContext } from "../utils/tenantContext";
-import { buildTenantWhere } from "../utils/tenantContext";
+import { buildMapWhere, buildTenantWhere } from "../utils/tenantContext";
 import { MapMapper } from "../mappers/MapMapper";
 import type {
   CreateMapEdgeInput,
   CreateMapNodeInput,
+  MapListFilters,
   SyncMapDataInput,
   UpdateMapEdgeInput,
   UpdateMapNodeInput,
@@ -28,16 +29,24 @@ const EDGE_INCLUDE = {
 } as const;
 
 export class MappingRepository implements IMappingRepository {
-  async findAllNodes(ctx: TenantContext) {
+  async findAllNodes(ctx: TenantContext, filters?: MapListFilters) {
     const records = await prisma.mappingNode.findMany({
-      where: buildTenantWhere(ctx),
+      where: buildMapWhere(ctx, filters),
     });
     return records.map((record) => MapMapper.toDomainNode(record));
   }
 
-  async findAllEdges(ctx: TenantContext) {
+  async findAllEdges(ctx: TenantContext, filters?: MapListFilters) {
+    const tenantWhere = buildTenantWhere(ctx);
+    const siteId = filters?.siteId;
+
     const records = await prisma.mappingEdge.findMany({
-      where: buildTenantWhere(ctx),
+      where: siteId
+        ? {
+            ...tenantWhere,
+            OR: [{ sourceNode: { siteId } }, { targetNode: { siteId } }],
+          }
+        : tenantWhere,
       include: EDGE_INCLUDE,
     });
     return records.map((record) => MapMapper.toDomainEdge(record));

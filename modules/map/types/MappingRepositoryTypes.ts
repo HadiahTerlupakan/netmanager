@@ -1,3 +1,7 @@
+export interface MapListFilters {
+  siteId?: string;
+}
+
 export interface CreateMapNodeInput {
   nodeId: string;
   type: string;
@@ -15,6 +19,7 @@ export interface CreateMapNodeInput {
   photo?: string | null;
   metadata?: Record<string, unknown> | null;
   tenantId?: string | null;
+  siteId?: string | null;
 }
 
 export interface UpdateMapNodeInput {
@@ -33,6 +38,7 @@ export interface UpdateMapNodeInput {
   photo?: string | null;
   metadata?: Record<string, unknown> | null;
   tenantId?: string | null;
+  siteId?: string | null;
 }
 
 export interface CreateMapEdgeInput {

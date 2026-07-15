@@ -18,9 +18,13 @@ const createEdgeSchema = z.object({
 
 export const GET = createHandler(
   { auth: true, permissions: ["map:read"] },
-  async (_req, ctx) => {
+  async (req, ctx) => {
     const tenantCtx = buildTenantContext(ctx.session?.user);
-    const edges = await service.getEdges(tenantCtx);
+    const siteId = req.nextUrl.searchParams.get("siteId") || undefined;
+    const edges = await service.getEdges(
+      tenantCtx,
+      siteId ? { siteId } : undefined,
+    );
     return apiSuccess(edges);
   },
 );

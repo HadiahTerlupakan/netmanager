@@ -87,6 +87,8 @@ export default function NetworkMapInteractive() {
     settings,
     loading,
     statistics,
+    siteIdFilter,
+    setSiteIdFilter,
     updateNodePosition,
     saveNode: persistNode,
     saveFiberLine,
@@ -102,6 +104,41 @@ export default function NetworkMapInteractive() {
   const [mapStyle, setMapStyle] = useState<"satellite" | "plain">("satellite");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [sites, setSites] = useState<
+    Array<{ id: string; name: string; code?: string }>
+  >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/sites?activeOnly=true");
+        if (!res.ok) return;
+        const json = await res.json();
+        const list = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data?.sites)
+            ? json.data.sites
+            : Array.isArray(json)
+              ? json
+              : [];
+        if (!cancelled) {
+          setSites(
+            list.map((s: { id: string; name: string; code?: string }) => ({
+              id: s.id,
+              name: s.name,
+              code: s.code,
+            })),
+          );
+        }
+      } catch {
+        setSites([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mapRef = useRef<L.Map | null>(null);
 
@@ -280,6 +317,9 @@ export default function NetworkMapInteractive() {
         isAnyModeActive={isAnyModeActive}
         activeModeMessage={activeModeMessage}
         hasPendingTempPosition={hasPendingTempPosition}
+        sites={sites}
+        siteIdFilter={siteIdFilter}
+        onSiteFilterChange={setSiteIdFilter}
         onTabChange={setActiveTab}
         onToggleSearchDropdown={() =>
           setShowSearchDropdown(!showSearchDropdown)

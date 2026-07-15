@@ -5,6 +5,7 @@ import type { TenantContext } from "../../utils/tenantContext";
 import type {
   CreateMapEdgeInput,
   CreateMapNodeInput,
+  MapListFilters,
   SyncMapDataInput,
   UpdateMapEdgeInput,
   UpdateMapNodeInput,
@@ -12,8 +13,14 @@ import type {
 } from "../../types/MappingRepositoryTypes";
 
 export interface IMappingRepository {
-  findAllNodes(ctx: TenantContext): Promise<MapNode[]>;
-  findAllEdges(ctx: TenantContext): Promise<MapEdge[]>;
+  findAllNodes(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapNode[]>;
+  findAllEdges(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapEdge[]>;
   getSettings(ctx: TenantContext): Promise<MapSettings | null>;
   updateSettings(
     ctx: TenantContext,

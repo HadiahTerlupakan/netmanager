@@ -21,6 +21,7 @@ export interface MapNodeListItemDTO {
   inputCoreColor: string | null;
   photo: string | null;
   metadata: Record<string, unknown> | null;
+  siteId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -95,6 +96,7 @@ export interface CreateMapNodeDTO {
   inputCoreColor?: string | null;
   photo?: string | null;
   metadata?: Record<string, unknown> | null;
+  siteId?: string | null;
 }
 
 /** DTO for updating map node. */
@@ -113,6 +115,7 @@ export interface UpdateMapNodeDTO {
   inputCoreColor?: string | null;
   photo?: string | null;
   metadata?: Record<string, unknown> | null;
+  siteId?: string | null;
 }
 
 /** DTO for creating map edge. */

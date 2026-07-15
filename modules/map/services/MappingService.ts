@@ -16,21 +16,29 @@ import { MapFactory } from "../factories/MapFactory";
 import { MapMapper } from "../mappers/MapMapper";
 import { canAddOutgoingEdge } from "../validators/mapCapacityValidator";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import type { MapListFilters } from "../types/MappingRepositoryTypes";
+import { prisma } from "@/lib/prisma";
 
 export class MappingService {
   constructor(private readonly repository: IMappingRepository) {}
 
-  async getMappingData(ctx: TenantContext): Promise<MapDataDTO> {
+  async getMappingData(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapDataDTO> {
     const [nodes, edges, settings] = await Promise.all([
-      this.repository.findAllNodes(ctx),
-      this.repository.findAllEdges(ctx),
+      this.repository.findAllNodes(ctx, filters),
+      this.repository.findAllEdges(ctx, filters),
       this.repository.getSettings(ctx),
     ]);
     return MapMapper.toMapDataDTO({ nodes, edges, settings });
   }
 
-  async getNodes(ctx: TenantContext): Promise<MapNodeListItemDTO[]> {
-    const nodes = await this.repository.findAllNodes(ctx);
+  async getNodes(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapNodeListItemDTO[]> {
+    const nodes = await this.repository.findAllNodes(ctx, filters);
     return MapMapper.toNodeDTOList(nodes);
   }
 
@@ -41,8 +49,11 @@ export class MappingService {
     return MapMapper.toNodeDetailDTO(node, connectedEdges);
   }
 
-  async getEdges(ctx: TenantContext): Promise<MapEdgeDTO[]> {
-    const edges = await this.repository.findAllEdges(ctx);
+  async getEdges(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapEdgeDTO[]> {
+    const edges = await this.repository.findAllEdges(ctx, filters);
     return MapMapper.toEdgeDTOList(edges);
   }
 
@@ -59,10 +70,13 @@ export class MappingService {
     return MapMapper.toSettingsDTO(settings);
   }
 
-  async getStatistics(ctx: TenantContext): Promise<MapStatisticsDTO> {
+  async getStatistics(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<MapStatisticsDTO> {
     const [nodes, edges] = await Promise.all([
-      this.repository.findAllNodes(ctx),
-      this.repository.findAllEdges(ctx),
+      this.repository.findAllNodes(ctx, filters),
+      this.repository.findAllEdges(ctx, filters),
     ]);
     return MapMapper.toStatisticsDTO(nodes, edges);
   }
@@ -71,6 +85,7 @@ export class MappingService {
     ctx: TenantContext,
     data: CreateMapNodeDTO,
   ): Promise<MapNodeListItemDTO> {
+    await this.assertSiteAssignable(ctx, data.siteId);
     const nodePayload = MapFactory.createFromDTO(data);
     const node = await this.repository.createNode(ctx, nodePayload);
     return MapMapper.toNodeDTO(node);
@@ -78,6 +93,9 @@ export class MappingService {
 
   async updateNode(ctx: TenantContext, nodeId: string, data: UpdateMapNodeDTO) {
     await this.ensureNodeExists(ctx, nodeId);
+    if (data.siteId !== undefined) {
+      await this.assertSiteAssignable(ctx, data.siteId);
+    }
     const node = await this.repository.updateNode(ctx, nodeId, data);
     return MapMapper.toNodeDTO(node);
   }
@@ -117,6 +135,33 @@ export class MappingService {
   async deleteEdge(ctx: TenantContext, edgeId: string): Promise<MapEdgeDTO> {
     const edge = await this.repository.deleteEdge(ctx, edgeId);
     return MapMapper.toEdgeDTO(edge);
+  }
+
+  private async assertSiteAssignable(
+    ctx: TenantContext,
+    siteId: string | null | undefined,
+  ): Promise<void> {
+    if (siteId === null || siteId === undefined) {
+      return;
+    }
+
+    const site = await prisma.sites.findFirst({
+      where: { id: siteId },
+      select: { id: true, tenantId: true },
+    });
+
+    if (!site) {
+      throw new ValidationError("Site tidak ditemukan", { siteId });
+    }
+
+    if (
+      !ctx.isSuperAdmin &&
+      ctx.tenantId &&
+      site.tenantId &&
+      site.tenantId !== ctx.tenantId
+    ) {
+      throw new ValidationError("Site tidak termasuk tenant Anda", { siteId });
+    }
   }
 
   private async ensureNodeExists(
