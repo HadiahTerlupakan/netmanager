@@ -24,7 +24,20 @@ export class InventoryPurchaseRequestRepository {
         requester: { select: { name: true } },
         approver: { select: { name: true } },
         gudang: { select: { nama: true, id: true } },
-        purchaseOrder: { include: { items: true } },
+        purchaseOrder: {
+          include: {
+            items: true,
+            goodsReceipts: {
+              select: {
+                id: true,
+                grnNumber: true,
+                fotoBukti: true,
+                receivedAt: true,
+              },
+              orderBy: { receivedAt: "desc" },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });

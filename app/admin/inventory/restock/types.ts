@@ -28,9 +28,18 @@ export interface PurchaseRequestJasaItem {
   };
 }
 
+export interface GoodsReceiptSummary {
+  id: string;
+  grnNumber: string;
+  fotoBukti: string[];
+  receivedAt?: string | null;
+}
+
 export interface PurchaseOrderSummary {
+  id?: string | null;
   poNumber?: string | null;
   status?: string | null;
+  goodsReceipts?: GoodsReceiptSummary[];
 }
 
 export interface PurchaseRequest {

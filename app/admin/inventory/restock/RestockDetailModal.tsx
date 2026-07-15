@@ -183,6 +183,64 @@ export function RestockDetailModal({
           </div>
         )}
 
+        {(() => {
+          const goodsReceipts = request?.purchaseOrder?.goodsReceipts ?? [];
+          const allFoto = goodsReceipts.flatMap((gr) => gr.fotoBukti ?? []);
+          if (allFoto.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              <div className="text-xs font-bold text-emerald-400 uppercase px-1">
+                Bukti Penerimaan Barang
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-100 dark:border-emerald-900/40 p-4">
+                {goodsReceipts.map((gr) => {
+                  const fotos = gr.fotoBukti ?? [];
+                  if (fotos.length === 0) return null;
+                  return (
+                    <div key={gr.id} className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                          {gr.grnNumber}
+                        </span>
+                        {gr.receivedAt && (
+                          <span className="text-[10px] text-gray-400 font-bold">
+                            {new Date(gr.receivedAt).toLocaleDateString(
+                              "id-ID",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {fotos.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block w-16 h-16 rounded-xl overflow-hidden border border-emerald-100 dark:border-emerald-800"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`Bukti ${gr.grnNumber}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         <button
           onClick={onClose}
           className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg"

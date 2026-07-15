@@ -150,7 +150,22 @@ function fetchPurchaseRequestWithRelations(id: string, tenantId: string) {
           },
         },
       },
-      purchaseOrder: { select: { id: true, poNumber: true, status: true } },
+      purchaseOrder: {
+        select: {
+          id: true,
+          poNumber: true,
+          status: true,
+          goodsReceipts: {
+            select: {
+              id: true,
+              grnNumber: true,
+              fotoBukti: true,
+              receivedAt: true,
+            },
+            orderBy: { receivedAt: "desc" },
+          },
+        },
+      },
     },
   });
 }
