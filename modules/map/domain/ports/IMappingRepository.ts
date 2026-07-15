@@ -42,4 +42,13 @@ export interface IMappingRepository {
   ): Promise<number>;
   syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput): Promise<void>;
   resetAllMappingData(ctx: TenantContext): Promise<void>;
+  /** Upsert nodes by nodeId (merge). Returns per-row actions. */
+  upsertNodes(
+    ctx: TenantContext,
+    nodes: CreateMapNodeInput[],
+  ): Promise<{
+    created: number;
+    updated: number;
+    actions: Array<"created" | "updated">;
+  }>;
 }

@@ -197,4 +197,51 @@ export class MappingRepository implements IMappingRepository {
       });
     });
   }
+
+  async upsertNodes(
+    ctx: TenantContext,
+    nodes: CreateMapNodeInput[],
+  ): Promise<{
+    created: number;
+    updated: number;
+    actions: Array<"created" | "updated">;
+  }> {
+    if (nodes.length === 0) {
+      return { created: 0, updated: 0, actions: [] };
+    }
+
+    const tenantWhere = buildTenantWhere(ctx);
+    const nodeIds = nodes.map((node) => node.nodeId);
+    const existing = await prisma.mappingNode.findMany({
+      where: { ...tenantWhere, nodeId: { in: nodeIds } },
+      select: { nodeId: true },
+    });
+    const existingIds = new Set(existing.map((node) => node.nodeId));
+
+    const actions: Array<"created" | "updated"> = [];
+    let created = 0;
+    let updated = 0;
+
+    await prisma.$transaction(async (transaction) => {
+      for (const node of nodes) {
+        const isUpdate = existingIds.has(node.nodeId);
+        if (isUpdate) {
+          await transaction.mappingNode.update({
+            where: { nodeId: node.nodeId },
+            data: toNodeUpdateData(node),
+          });
+          actions.push("updated");
+          updated++;
+        } else {
+          await transaction.mappingNode.create({
+            data: { ...toNodeCreateData(node), tenantId: ctx.tenantId ?? null },
+          });
+          actions.push("created");
+          created++;
+        }
+      }
+    });
+
+    return { created, updated, actions };
+  }
 }
