@@ -12,7 +12,9 @@ import {
   mapSettingsApi,
   mapStatisticsApi,
   mapResetApi,
+  mapImportApi,
 } from "./map-api-client";
+import type { MapCsvImportSummary } from "./map-api-client";
 
 type ToastType = "success" | "error" | "info" | "warning";
 type DeleteConfirmation = { type: "node" | "edge"; id: string } | null;
@@ -277,6 +279,27 @@ export function useMapData({ showToast }: UseMapDataParams) {
     [fetchData, showToast],
   );
 
+  const importCsv = useCallback(
+    async (file: File): Promise<MapCsvImportSummary | null> => {
+      try {
+        const summary = await mapImportApi.importCsv(file);
+        showToast(
+          "success",
+          `Import CSV: ${summary.created} baru, ${summary.updated} diupdate, ${summary.skipped} dilewati`,
+        );
+        await fetchData();
+        return summary;
+      } catch (error) {
+        clientLogger.error("Failed to import CSV:", error);
+        const message =
+          error instanceof Error ? error.message : "Gagal mengimpor CSV";
+        showToast("error", message);
+        return null;
+      }
+    },
+    [fetchData, showToast],
+  );
+
   return {
     nodes,
     edges,
@@ -290,5 +313,6 @@ export function useMapData({ showToast }: UseMapDataParams) {
     saveSettings,
     exportMap,
     resetMap,
+    importCsv,
   };
 }

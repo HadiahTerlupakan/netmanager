@@ -94,6 +94,7 @@ export default function NetworkMapInteractive() {
     saveSettings,
     exportMap,
     resetMap,
+    importCsv,
   } = useMapData({ showToast });
 
   // UI state
@@ -495,6 +496,7 @@ export default function NetworkMapInteractive() {
             onSave={saveSettings}
             onExport={exportMap}
             onReset={resetMap}
+            onImportCsv={importCsv}
           />
         )}
       </div>

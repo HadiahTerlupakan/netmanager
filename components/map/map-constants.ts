@@ -73,6 +73,7 @@ export const MAP_API = {
   SETTINGS: "/api/map/settings",
   STATISTICS: "/api/map/statistics",
   RESET: "/api/map/reset",
+  IMPORT_CSV: "/api/map/import/csv",
 } as const;
 
 /**

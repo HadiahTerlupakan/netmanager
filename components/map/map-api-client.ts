@@ -155,3 +155,41 @@ export const mapResetApi = {
     }
   },
 };
+
+export interface MapCsvImportSummary {
+  totalRows: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ rowIndex: number; raw: string; error: string }>;
+  results: Array<{
+    rowIndex: number;
+    nodeId: string;
+    name: string;
+    type: string;
+    action: "created" | "updated";
+    warnings: string[];
+  }>;
+}
+
+/**
+ * Map CSV Import API (merge mode)
+ */
+export const mapImportApi = {
+  importCsv: async (file: File): Promise<MapCsvImportSummary> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(MAP_API.IMPORT_CSV, {
+      method: "POST",
+      body: formData,
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || json.message || "Gagal mengimpor CSV");
+    }
+
+    return (json.data?.summary || json.summary) as MapCsvImportSummary;
+  },
+};
