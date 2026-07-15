@@ -12,6 +12,7 @@ metadata:
   labels:
     some-label: jenkins-pipeline
 spec:
+  serviceAccountName: jenkins-admin
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:3355.v388858a_47b_33-17-rhel-ubi9-jdk21
