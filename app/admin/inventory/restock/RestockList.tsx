@@ -14,6 +14,7 @@ export default function RestockCRUDPage() {
   const canApprove = hasPermission("restock:approve");
   const canUpdate = hasPermission("restock:update");
   const canVerify = hasPermission("restock:verify");
+  const canDelete = hasPermission("restock:delete");
 
   const {
     requests,
@@ -95,6 +96,7 @@ export default function RestockCRUDPage() {
         canApprove={canApprove}
         canUpdate={canUpdate}
         canVerify={canVerify}
+        canDelete={canDelete}
         onOpenCreate={openCreate}
         onOpenEdit={openEdit}
         onOpenDetail={setViewingPR}

@@ -46,6 +46,7 @@ interface RestockTableProps {
   canApprove: boolean;
   canUpdate: boolean;
   canVerify: boolean;
+  canDelete: boolean;
   onOpenCreate: () => void;
   onOpenEdit: (request: PurchaseRequest) => void;
   onOpenDetail: (request: PurchaseRequest) => void;
@@ -68,6 +69,7 @@ interface RestockActionPermissions {
   canApprove: boolean;
   canUpdate: boolean;
   canVerify: boolean;
+  canDelete: boolean;
 }
 
 interface RenderRestockActionsInput
@@ -248,7 +250,7 @@ function renderDeleteAction(
   request: PurchaseRequest,
   input: RestockActionHandlers & RestockActionPermissions,
 ) {
-  if (!canDeletePurchaseRequest(request.status, input.canUpdate)) return null;
+  if (!canDeletePurchaseRequest(request.status, input.canDelete)) return null;
 
   return (
     <IconActionButton
@@ -298,6 +300,7 @@ export function RestockTable({
   canApprove,
   canUpdate,
   canVerify,
+  canDelete,
   onOpenCreate,
   onOpenEdit,
   onOpenDetail,
@@ -315,6 +318,7 @@ export function RestockTable({
       canApprove,
       canUpdate,
       canVerify,
+      canDelete,
       onOpenEdit,
       onOpenDetail,
       onApprove,
