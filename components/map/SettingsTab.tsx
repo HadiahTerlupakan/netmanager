@@ -53,10 +53,19 @@ export function SettingsTab({
     setImporting(true);
     setImportError(null);
     setImportSummary(null);
-    const summary = await onImportCsv(file);
-    setImporting(false);
-    if (summary) setImportSummary(summary);
-    else setImportError("Import gagal. Periksa format CSV dan coba lagi.");
+    try {
+      const summary = await onImportCsv(file);
+      if (summary) setImportSummary(summary);
+      else setImportError("Import gagal. Periksa format CSV dan coba lagi.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Import gagal. Periksa format CSV dan coba lagi.";
+      setImportError(message);
+    } finally {
+      setImporting(false);
+    }
   };
 
   const inputClass =

@@ -195,7 +195,14 @@ export const mapImportApi = {
 
     const json = await res.json();
     if (!res.ok) {
-      throw new Error(json.error || json.message || "Gagal mengimpor CSV");
+      const rawError = json.error ?? json.message;
+      const message =
+        typeof rawError === "string"
+          ? rawError
+          : typeof rawError?.message === "string"
+            ? rawError.message
+            : "Gagal mengimpor CSV";
+      throw new Error(message);
     }
 
     return (json.data?.summary || json.summary) as MapCsvImportSummary;

@@ -307,7 +307,8 @@ export function useMapData({ showToast }: UseMapDataParams) {
         const message =
           error instanceof Error ? error.message : "Gagal mengimpor CSV";
         showToast("error", message);
-        return null;
+        // Re-throw agar SettingsTab menampilkan pesan error asli (bukan generic).
+        throw error instanceof Error ? error : new Error(message);
       }
     },
     [fetchData, showToast],
