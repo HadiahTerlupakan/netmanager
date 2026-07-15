@@ -268,20 +268,25 @@ export class MapCsvImportService {
       });
     });
 
-    if (nodesToUpsert.length === 0) {
+    const { nodes: uniqueNodes, results: uniqueResults } = dedupeNodesByNodeId(
+      nodesToUpsert,
+      results,
+    );
+
+    if (uniqueNodes.length === 0) {
       return {
         totalRows: rows.length,
         created: 0,
         updated: 0,
         skipped: errors.length,
-        results,
+        results: uniqueResults,
         errors,
       };
     }
 
-    const upsertSummary = await this.repository.upsertNodes(ctx, nodesToUpsert);
+    const upsertSummary = await this.repository.upsertNodes(ctx, uniqueNodes);
 
-    results.forEach((result, idx) => {
+    uniqueResults.forEach((result, idx) => {
       result.action = upsertSummary.actions[idx] ?? "created";
     });
 
@@ -290,10 +295,62 @@ export class MapCsvImportService {
       created: upsertSummary.created,
       updated: upsertSummary.updated,
       skipped: errors.length,
-      results,
+      results: uniqueResults,
       errors,
     };
   }
+}
+
+function dedupeNodesByNodeId(
+  nodes: CreateMapNodeInput[],
+  results: CsvImportRowResult[],
+): {
+  nodes: CreateMapNodeInput[];
+  results: CsvImportRowResult[];
+} {
+  const usedNodeIds = new Set<string>();
+  const uniqueNodes: CreateMapNodeInput[] = [];
+  const uniqueResults: CsvImportRowResult[] = [];
+
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const result = results[i];
+    const resolved = resolveUniqueNodeId(node.nodeId, usedNodeIds);
+
+    if (resolved.suffix > 1) {
+      const baseName = node.name ?? result.name;
+      const uniqueName = `${baseName}-${resolved.suffix}`;
+      node.nodeId = resolved.nodeId;
+      node.name = uniqueName;
+      result.nodeId = resolved.nodeId;
+      result.name = uniqueName;
+      result.warnings = [
+        ...result.warnings,
+        `Nama/nodeId duplikat, diganti jadi "${uniqueName}"`,
+      ];
+    }
+
+    usedNodeIds.add(resolved.nodeId);
+    uniqueNodes.push(node);
+    uniqueResults.push(result);
+  }
+
+  return { nodes: uniqueNodes, results: uniqueResults };
+}
+
+function resolveUniqueNodeId(
+  baseNodeId: string,
+  used: Set<string>,
+): { nodeId: string; suffix: number } {
+  if (!used.has(baseNodeId)) {
+    return { nodeId: baseNodeId, suffix: 1 };
+  }
+
+  let suffix = 2;
+  while (used.has(`${baseNodeId}-${suffix}`)) {
+    suffix++;
+  }
+  return { nodeId: `${baseNodeId}-${suffix}`, suffix };
 }
 
 /** Helper generate nodeId unik untuk fallback. */

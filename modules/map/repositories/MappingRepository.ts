@@ -245,6 +245,7 @@ export class MappingRepository implements IMappingRepository {
           await transaction.mappingNode.create({
             data: { ...toNodeCreateData(node), tenantId: ctx.tenantId ?? null },
           });
+          existingIds.add(node.nodeId);
           actions.push("created");
           created++;
         }
