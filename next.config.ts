@@ -222,10 +222,14 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // parallelism=1 hanya saat production build (untuk hemat memory di CI/Docker).
-    // Di dev, paksa multi-thread biar compile cepat.
+    // parallelism adaptif berdasarkan RAM host — hemat memory di container kecil,
+    // manfaatkan multi-core di Jenkins builder yang punya 8-16GB RAM.
+    // package.json build pakai --max-old-space-size=8192 (8GB heap).
     if (!dev) {
-      config.parallelism = 1;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const os = require("os") as typeof import("os");
+      const memMB = Math.floor(os.totalmem() / 1024 / 1024);
+      config.parallelism = memMB >= 12288 ? 4 : memMB >= 6144 ? 2 : 1;
     }
 
     return config;
