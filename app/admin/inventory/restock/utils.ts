@@ -90,9 +90,9 @@ export function buildInitialReceivedItems(
 
 export function canDeletePurchaseRequest(
   status: PurchaseRequest["status"],
-  canUpdate: boolean,
+  canDelete: boolean,
 ): boolean {
-  return canUpdate && status === "DRAFT";
+  return canDelete && status === "DRAFT";
 }
 
 export function canEditPurchaseRequest(
