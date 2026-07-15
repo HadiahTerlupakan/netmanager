@@ -319,7 +319,7 @@ spec:
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 50, unit: 'MINUTES')
             }
             steps {
                 container('docker') {
