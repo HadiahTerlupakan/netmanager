@@ -2,9 +2,22 @@
 
 export { MappingService } from "./services/MappingService";
 export { MappingAdminService } from "./services/MappingAdminService";
+export { MapCsvImportService } from "./services/MapCsvImportService";
+export type {
+  CsvImportRowResult,
+  CsvImportSummary,
+  CsvRawRow,
+} from "./services/MapCsvImportService";
+export {
+  detectNodeTypeFromName,
+  normalizeCoordinates,
+  parseCsv,
+} from "./services/MapCsvImportService";
+
 export {
   createMappingService,
   createMappingAdminService,
+  createMapCsvImportService,
 } from "./services/createMappingService";
 export {
   getMappingService,
