@@ -89,7 +89,7 @@ Alur umumnya:
 
 > **Catatan**: Jalur ini adalah source of truth untuk update rutin staging/production. Jangan gunakan update manual sebagai default.
 
-> **Registry private**: jika workload memakai registry privat, secret pull auth cluster (`imagePullSecrets` / registry secret) **harus sudah dibootstrap di namespace target sebelum rollout rutin dianggap siap**. Template/placeholder untuk secret registry ada di `k8s/staging/registry-secret.yaml` dan `k8s/production/registry-secret.yaml`; isi nilainya lewat mekanisme aman, jangan commit secret live ke repo.
+> **Registry private**: jika workload memakai registry privat, secret pull auth cluster (`imagePullSecrets` / registry secret) **harus sudah dibootstrap di namespace target sebelum rollout rutin dianggap siap**. Template/placeholder untuk secret registry ada di `k8s/production/registry-secret.yaml`; isi nilainya lewat mekanisme aman, jangan commit secret live ke repo.
 >
 > **Penting**: pipeline Jenkins **sengaja tidak** meng-apply `registry-secret.yaml` placeholder. Jika secret belum ada, pipeline akan fail-fast sebelum migration atau rollout.
 >
@@ -232,8 +232,9 @@ Untuk deployment rutin **staging** dan **production**, environment dibagi menjad
 
 | Target | Namespace | ConfigMap | Secret | Catatan |
 |--------|-----------|-----------|--------|---------|
-| Staging | `netmanager-staging` | `k8s/staging/configmap.yaml` | `k8s/staging/secrets.yaml` | Domain default: `staging.radpro.id` |
-| Production | `netmanager-production` | `k8s/production/configmap.yaml` | `k8s/production/secrets.yaml` | Gunakan nilai production yang terpisah penuh dari staging |
+| Production | `netmanager-production` | `k8s/production/configmap.yaml` | `k8s/production/secrets.yaml` | Satu-satunya target deploy aktif |
+
+> **Catatan**: Namespace `netmanager-staging` sudah dipensiunkan. Deploy hanya via branch `main` ke production.
 
 #### Aturan praktis
 
@@ -271,9 +272,8 @@ Untuk deployment rutin **staging** dan **production**, environment dibagi menjad
 #### Checklist singkat per environment
 
 **Staging**
-- Set `NEXT_PUBLIC_FIREBASE_*_STAGING`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY_STAGING`, dan `FIREBASE_*_STAGING` di Jenkins untuk branch staging
-- Pastikan `netmanager-secrets` di namespace `netmanager-staging` berisi secret aplikasi umum selain Firebase Admin
-- Pastikan `netmanager-config` di namespace `netmanager-staging` memakai domain staging
+- Pastikan `netmanager-secrets` di namespace `netmanager-production` berisi secret aplikasi umum selain Firebase Admin
+- Pastikan `netmanager-config` di namespace `netmanager-production` memakai domain production
 
 **Production**
 - Set `NEXT_PUBLIC_FIREBASE_*_PRODUCTION`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY_PRODUCTION`, dan `FIREBASE_*_PRODUCTION` di Jenkins untuk branch `main`

@@ -41,6 +41,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Cleanup referensi staging dari docs aktif
+
+- **Tipe**: [DOCS]
+- **Scope**: `README.md`, `DEPLOYMENT.md`, `docs/standards/GIT_JENKINS_SECRET_HYGIENE.md`, `k8s/migration-job.yaml`
+- **Author**: agent
+- **Deskripsi**: Hapus referensi path mati staging dari dokumen aktif: hapus baris `netmanager-staging` di table environment DEPLOYMENT.md, hapus bagian `deploy-prod.sh` di README (script sudah dihapus), hapus secret staging di hygiene doc, rapikan comment template secret di migration-job.yaml. Staging sudah dipensiunkan; deploy hanya via `main` → production.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Fallback harga PO di handler jurnal GRN
 
 - **Tipe**: [FIXED]

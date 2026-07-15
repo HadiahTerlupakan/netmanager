@@ -55,7 +55,7 @@
 
 ### Wajib
 
-- `k8s/staging/secrets.yaml` dan `k8s/production/secrets.yaml` dianggap **template**, bukan source of truth untuk live secret.
+- `k8s/production/secrets.yaml` dianggap **template**, bukan source of truth untuk live secret.
 - Untuk deployment nyata, gunakan salah satu:
   - SOPS
   - SealedSecrets
