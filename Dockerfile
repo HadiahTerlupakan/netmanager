@@ -7,15 +7,17 @@ WORKDIR /app
 
 # Copy package files and Prisma inputs required by postinstall generation
 COPY package.json package-lock.json ./
-COPY scripts/run-husky-prepare.js ./scripts/run-husky-prepare.js
-COPY prisma ./prisma
-COPY prisma.config.ts prisma.radius.config.ts prisma.billing.config.ts prisma.mitra.config.ts ./
 
-# Install dependencies (Optimized for CI/Build stability)
-RUN npm config set fetch-retries 5 \
+# Install dependencies with npm cache mount (speeds up reinstall when package-lock changes)
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm ci --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts
+
+COPY scripts/run-husky-prepare.js ./scripts/run-husky-prepare.js
+COPY prisma ./prisma
+COPY prisma.config.ts prisma.radius.config.ts prisma.billing.config.ts prisma.mitra.config.ts ./
 
 # ==============================================================================
 # Stage 2: Builder

@@ -160,6 +160,10 @@ spec:
                     env.CRON_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}-prev"
                     env.RADIUS_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}-prev"
 
+                    env.BUILDKIT_CACHE_REF_APP = "${env.REGISTRY_PATH}/netmanager-buildcache:${env.DOCKER_TAG}"
+                    env.BUILDKIT_CACHE_REF_CRON = "${env.REGISTRY_PATH}/netmanager-buildcache-cron:${env.DOCKER_TAG}"
+                    env.BUILDKIT_CACHE_REF_RADIUS = "${env.REGISTRY_PATH}/netmanager-buildcache-radius:${env.DOCKER_TAG}"
+
                     def resolveDeployImageRef = { String workload, String defaultRef, String recoveryOverride ->
                         def trimmedOverride = (recoveryOverride ?: '').trim()
 
@@ -320,8 +324,9 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Building Docker images for registry refs..."
-                        sh """
+                        echo "Building and pushing Docker images (buildx --push + registry cache)..."
+                        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
+                            sh """
                             set -euo pipefail
                             mkdir -p .secrets
                             trap 'rm -rf .secrets' EXIT
@@ -330,9 +335,12 @@ spec:
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
                             export BUILDX_GIT_INFO=0
+                            echo "\$REGISTRY_PASSWORD" | docker login "${REGISTRY_URL}" -u "\$REGISTRY_USER" --password-stdin
 
-                            timeout 1500 docker buildx build --load --progress=plain \
+                            timeout 1500 docker buildx build --push --progress=plain \
                                 -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max" \
                                 --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
                                 --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
                                 --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
@@ -348,43 +356,25 @@ spec:
                                 --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
                                 .
 
-                            timeout 600 docker buildx build --load --progress=plain \
-                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron
+                            timeout 600 docker buildx build --push --progress=plain \
+                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON},mode=max" \
+                                ./cron
 
-                            timeout 900 docker buildx build --load --progress=plain \
-                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .
-                        """
-                    }
-                }
-            }
-        }
+                            timeout 900 docker buildx build --push --progress=plain \
+                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS},mode=max" \
+                                -f radius/Dockerfile .
 
-        stage('Push Images to Registry') {
-            when {
-                expression { env.DEPLOY_MODE != 'recovery' }
-            }
-            steps {
-                container('docker') {
-                    script {
-                        echo "Pushing immutable and environment tags to the registry..."
-                        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
-                            sh """
-                                set -euo pipefail
-                                echo "\$REGISTRY_PASSWORD" | docker login "${REGISTRY_URL}" -u "\$REGISTRY_USER" --password-stdin
-
-                                push_and_verify() {
-                                  local image_ref="\$1"
-                                  docker push "\$image_ref"
-                                  docker manifest inspect "\$image_ref" >/dev/null
-                                  echo "Verified pushed ref: \$image_ref"
-                                }
-
-                                push_and_verify "${env.APP_IMAGE_REF}"
-                                push_and_verify "${env.APP_IMAGE_ENV_REF}"
-                                push_and_verify "${env.CRON_IMAGE_REF}"
-                                push_and_verify "${env.CRON_IMAGE_ENV_REF}"
-                                push_and_verify "${env.RADIUS_IMAGE_REF}"
-                                push_and_verify "${env.RADIUS_IMAGE_ENV_REF}"
+                            docker manifest inspect "${env.APP_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.APP_IMAGE_ENV_REF}" >/dev/null
+                            docker manifest inspect "${env.CRON_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.CRON_IMAGE_ENV_REF}" >/dev/null
+                            docker manifest inspect "${env.RADIUS_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}" >/dev/null
+                            echo "Verified pushed refs for app/cron/radius"
                             """
                         }
                     }
@@ -843,10 +833,13 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Removing pipeline-managed images and pruning Docker cache on shared daemon..."
+                        echo "Pruning Docker cache on shared daemon (images pushed directly to registry, no local load)..."
                         sh """
                             set -euo pipefail
 
+                            # Image refs tidak di-load ke daemon karena buildx --push.
+                            # remove_local_image tetap dipertahankan sebagai no-op safety untuk
+                            # kasus edge (mis. recovery mode yang menarik image lokal).
                             remove_local_image() {
                               local image_ref="\$1"
                               docker image rm -f "\$image_ref" >/dev/null 2>&1 || true
@@ -864,6 +857,7 @@ spec:
 
                             # BuildKit layer cache — keep 5GB headroom, jangan empty total
                             # (build berikutnya masih bisa reuse layer yang sering dipakai).
+                            # Registry cache (--cache-to) tetap ada walau ini di-prune.
                             echo "Pruning BuildKit cache (keep-storage 5GB)..."
                             docker builder prune --keep-storage 5GB -f || true
 

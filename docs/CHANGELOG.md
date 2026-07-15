@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-14] — Optimasi Docker build: registry cache + --push + npm cache
+
+- **Tipe**: [INFRA]
+- **Scope**: `Jenkinsfile`, `Dockerfile`
+- **Author**: agent
+- **Deskripsi**: (1) Buildx build diganti `--load` → `--push` langsung ke registry, stage "Push Images to Registry" dihapus. (2) Tambah `--cache-from/--cache-to type=registry` (mode=max) per image (app/cron/radius) ke `netmanager-buildcache*` di GHCR supaya cache survive prune/reboot. (3) Dockerfile deps: npm cache mount `/root/.npm` + urutan COPY package-lock dulu sebelum prisma. Parallel cron+radius di-skip dulu (risiko resource contention di single node).
+- **Files**: `Jenkinsfile`, `Dockerfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Cleanup referensi staging dari docs aktif
 
 - **Tipe**: [DOCS]
