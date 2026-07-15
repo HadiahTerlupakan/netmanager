@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-15] — Fitur hapus restock fix permission + foto verifikasi barang di detail
+
+- **Tipe**: [FIXED] + [ADDED]
+- **Scope**: `app/admin/inventory/restock`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**:
+  1. Fix bug inkonsistensi permission hapus restock: tombol hapus sebelumnya pakai guard `restock:update`, sedangkan API butuh `restock:delete` yang tidak terdaftar di role manapun — semua request hapus selalu 403. Diperbaiki dengan mendaftarkan `restock:delete`, `restock:approve`, `restock:verify` ke role `inventory-staff` di `lib/role-templates.ts`, memisahkan `canDelete` dari `canUpdate` di `RestockTable`/`RestockList`, dan memperbaiki `canDeletePurchaseRequest()` di `utils.ts`.
+  2. Tambah tampilan foto bukti penerimaan barang di detail view. Sebelumnya `fotoBukti` dari `GoodsReceipt` tidak di-include di query list maupun detail. Diperbaiki dengan extend include `purchaseOrder.goodsReceipts` di repository dan service, update type `PurchaseOrderSummary`, dan tambah section "Bukti Penerimaan Barang" di `RestockDetailModal`.
+- **Files**: `lib/role-templates.ts`, `app/admin/inventory/restock/utils.ts`, `app/admin/inventory/restock/RestockTable.tsx`, `app/admin/inventory/restock/RestockList.tsx`, `app/admin/inventory/restock/types.ts`, `app/admin/inventory/restock/RestockDetailModal.tsx`, `modules/inventory/services/RestockRequestService.ts`, `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-14] — Optimasi Docker build: registry cache + --push + npm cache
 
 - **Tipe**: [INFRA]

@@ -87,6 +87,7 @@ function renderTable(
       canApprove={props?.canApprove ?? true}
       canUpdate={props?.canUpdate ?? true}
       canVerify={props?.canVerify ?? true}
+      canDelete={props?.canDelete ?? true}
       onOpenCreate={vi.fn()}
       onOpenEdit={vi.fn()}
       onOpenDetail={vi.fn()}
@@ -111,6 +112,7 @@ function renderActions(
     canApprove: boolean;
     canUpdate: boolean;
     canVerify: boolean;
+    canDelete: boolean;
   }>,
 ) {
   const props = renderTable({
@@ -118,6 +120,7 @@ function renderActions(
     canApprove: permissions?.canApprove,
     canUpdate: permissions?.canUpdate,
     canVerify: permissions?.canVerify,
+    canDelete: permissions?.canDelete,
   });
   const actionColumn = props.columns.find((column) => column.key === "actions");
 
@@ -147,6 +150,7 @@ describe("RestockTable action visibility", () => {
     const markup = renderActions(baseRequest, {
       canApprove: false,
       canUpdate: false,
+      canDelete: false,
     });
 
     expect(markup).not.toContain('title="Edit"');
@@ -225,6 +229,7 @@ describe("RestockTable action visibility", () => {
         canApprove={true}
         canUpdate={true}
         canVerify={true}
+        canDelete={true}
         onOpenCreate={vi.fn()}
         onOpenEdit={vi.fn()}
         onOpenDetail={vi.fn()}
@@ -293,6 +298,7 @@ describe("RestockTable action visibility", () => {
         canApprove={true}
         canUpdate={true}
         canVerify={true}
+        canDelete={true}
         onOpenCreate={vi.fn()}
         onOpenEdit={vi.fn()}
         onOpenDetail={vi.fn()}
