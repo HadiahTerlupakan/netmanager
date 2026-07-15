@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-15] — Import CSV map nodes (mode merge)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/map`, `app/api/map/import/csv`, `components/map`
+- **Author**: agent
+- **Deskripsi**: Fitur import node map dari file CSV. Mode merge (upsert by nodeId) — data existing tidak dihapus. Tipe node auto-detect dari prefix nama (ODP/ODC/OLT/ONT), default ODP. Kolom area/owner digabung ke notes. Auto-koreksi lat/lon tertukar. UI di Settings tab map: tombol "Import CSV".
+- **Files**: `modules/map/services/MapCsvImportService.ts`, `modules/map/repositories/MappingRepository.ts`, `modules/map/domain/ports/IMappingRepository.ts`, `app/api/map/import/csv/route.ts`, `components/map/SettingsTab.tsx`, `components/map/useMapData.ts`, `components/map/map-api-client.ts`, `tests/unit/map-csv-import.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-15] — Fitur hapus restock fix permission + foto verifikasi barang di detail
 
 - **Tipe**: [FIXED] + [ADDED]
