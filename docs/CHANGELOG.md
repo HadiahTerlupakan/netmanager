@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-15] — Fix import CSV map gagal karena nodeId duplikat
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`, `components/map`
+- **Author**: agent
+- **Deskripsi**: Import CSV crash dengan CONFLICT 409 ketika ada dua baris nama berbeda yang menghasilkan nodeId identik (misal `ODP-010-A01-SLW` vs `ODP 010-A01-SLW`). Fix: baris duplikat diganti otomatis dengan suffix angka (`-2`, `-3`, …) di `name` dan `nodeId`, dicatat sebagai warning. Safety `existingIds.add` di repository. Error asli dari API sekarang ditampilkan di UI.
+- **Files**: `modules/map/services/MapCsvImportService.ts`, `modules/map/repositories/MappingRepository.ts`, `components/map/useMapData.ts`, `components/map/SettingsTab.tsx`, `components/map/map-api-client.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-15] — Site ID support di admin map (filter + assign)
 
 - **Tipe**: [ADDED] [MIGRATION]
