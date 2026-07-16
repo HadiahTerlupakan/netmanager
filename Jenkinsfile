@@ -237,6 +237,7 @@ spec:
         }
 
         stage('Test and Build') {
+            failFast true
             parallel {
                 stage('Run Unit Tests') {
                     steps {

@@ -222,14 +222,16 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // parallelism adaptif berdasarkan RAM host — hemat memory di container kecil,
-    // manfaatkan multi-core di Jenkins builder yang punya 8-16GB RAM.
-    // package.json build pakai --max-old-space-size=8192 (8GB heap).
+    // parallelism adaptif berdasarkan CPU — lebih andal daripada RAM karena
+    // os.totalmem() membaca RAM host (bukan cgroup limit container),
+    // berisiko OOM jika host > 32GB tapi container di-cap 8GB.
+    // availableParallelism() cgroup-aware di Node >=18.14; cap di 4 untuk aman.
     if (!dev) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const os = require("os") as typeof import("os");
-      const memMB = Math.floor(os.totalmem() / 1024 / 1024);
-      config.parallelism = memMB >= 12288 ? 4 : memMB >= 6144 ? 2 : 1;
+      const cpus = os.availableParallelism?.() ?? os.cpus().length;
+      const safe = Math.min(cpus, 4);
+      config.parallelism = safe >= 4 ? 4 : safe >= 2 ? 2 : 1;
     }
 
     return config;
