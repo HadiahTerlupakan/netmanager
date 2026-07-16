@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-16] — Tambah tab Rilis APK di halaman Update Aplikasi
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/pengaturan/app-update`
+- **Author**: agent
+- **Deskripsi**: Refactor `AppUpdateClient` menjadi 2 tab: OTA (JS Bundle) dan Rilis APK (Play Store). Tab baru `AppReleasesTab` menampilkan daftar rilis APK, form tambah release, dan soft-delete — reuse API `/api/admin/app-releases`. Admin tidak perlu navigasi ke `/admin/app-releases` terpisah.
+- **Files**: `app/admin/pengaturan/app-update/AppUpdateClient.tsx`, `AppReleasesTab.tsx`, `OtaUpdatesTab.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-16] — Hapus Serial Number di Node List + fix dark mode popup map
 
 - **Tipe**: [FIXED] [CHANGED]
