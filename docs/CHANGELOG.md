@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-16] — Izinkan hapus PR/PO dari menu untuk semua status non-RECEIVED
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`, `app/admin/procurement/purchase-orders`, `modules/procurement`, `app/api/inventory/restock/requests`
+- **Author**: agent
+- **Deskripsi**: Tombol hapus PR hanya muncul untuk status DRAFT — tidak bisa hapus PR berstatus ORDERED/APPROVED dari menu. Fix: `canDeletePurchaseRequest` dilonggarkan ke semua status kecuali RECEIVED. API DELETE PR kini cascade-hapus PO terkait (beserta expense pembayaran + rollback saldo akun keuangan) sebelum hapus PR. `PurchaseOrderService.delete` ganti guard dari `paymentStatus !== UNPAID` ke `status === RECEIVED` (cek GoodsReceipt di repository). Tombol hapus PO di list juga diperbaiki dari kondisi `UNPAID` ke `status !== RECEIVED`.
+- **Files**: `app/admin/inventory/restock/utils.ts`, `app/admin/procurement/purchase-orders/PurchaseOrderListClient.tsx`, `modules/procurement/services/PurchaseOrderService.ts`, `modules/procurement/repositories/PurchaseOrderRepository.ts`, `app/api/inventory/restock/requests/[id]/route.ts`, `tests/ui/restock-utils.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-16] — Optimasi pipeline build deploy production
 
 - **Tipe**: [CHANGED]

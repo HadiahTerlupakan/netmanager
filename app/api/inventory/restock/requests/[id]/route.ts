@@ -5,6 +5,11 @@ import {
   getRestockRequestDetail,
   patchRestockRequestLifecycle,
 } from "@/modules/inventory";
+import {
+  getPurchaseOrderService,
+  PurchaseOrderNotFoundError,
+  PurchaseOrderNotEditableError,
+} from "@/modules/procurement";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { restockLifecycleSchema } from "@/lib/validations/restock";
@@ -117,6 +122,26 @@ export async function DELETE(
       { error: "Pengajuan tidak ditemukan" },
       { status: 404 },
     );
+  }
+
+  if (existing.status === "RECEIVED") {
+    return NextResponse.json(
+      { error: "Pengajuan sudah diterima (RECEIVED) tidak dapat dihapus" },
+      { status: 409 },
+    );
+  }
+
+  if (existing.purchaseOrderId) {
+    try {
+      await getPurchaseOrderService().delete(existing.purchaseOrderId);
+    } catch (err) {
+      if (err instanceof PurchaseOrderNotEditableError) {
+        return NextResponse.json({ error: err.message }, { status: 409 });
+      }
+      if (!(err instanceof PurchaseOrderNotFoundError)) {
+        throw err;
+      }
+    }
   }
 
   await inventoryRouteService.deletePurchaseRequest(id);
