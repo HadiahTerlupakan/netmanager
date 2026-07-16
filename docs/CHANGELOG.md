@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-16] — Fix statistik map ODC/ODP selalu 0 di admin/map
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/map`
+- **Author**: agent
+- **Deskripsi**: Statistik bar di `/admin/map` menampilkan 0 untuk ODC/ODP padahal data ada (457 nodes: 426 odp, 31 odc). Root cause: API mengembalikan `nodesByType` sebagai `Array<{type,count}>` tapi UI mengakses sebagai `Record<string,number>` (`nodesByType['odp']` → always undefined). Fix: transform array → Record di `mapStatisticsApi.get`.
+- **Files**: `components/map/map-api-client.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-16] — Izinkan hapus PR/PO dari menu untuk semua status non-RECEIVED
 
 - **Tipe**: [FIXED]

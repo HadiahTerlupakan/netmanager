@@ -143,7 +143,30 @@ export const mapStatisticsApi = {
     const res = await fetch(withSiteQuery(MAP_API.STATISTICS, siteId));
     if (!res.ok) throw new Error("Failed to fetch statistics");
     const json = await res.json();
-    return json.data || { totalNodes: 0, totalEdges: 0, nodesByType: {} };
+    const data = (json.data ?? {
+      totalNodes: 0,
+      totalEdges: 0,
+      nodesByType: [] as Array<{ type: string; count: number }>,
+    }) as {
+      totalNodes: number;
+      totalEdges: number;
+      nodesByType:
+        | Array<{ type: string; count: number }>
+        | Record<string, number>;
+    };
+    let nodesByType: Record<string, number> = {};
+    if (Array.isArray(data.nodesByType)) {
+      for (const item of data.nodesByType) {
+        nodesByType[item.type] = item.count;
+      }
+    } else if (data.nodesByType && typeof data.nodesByType === "object") {
+      nodesByType = data.nodesByType;
+    }
+    return {
+      totalNodes: data.totalNodes,
+      totalEdges: data.totalEdges,
+      nodesByType,
+    };
   },
 };
 
