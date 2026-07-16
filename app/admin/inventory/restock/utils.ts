@@ -92,7 +92,7 @@ export function canDeletePurchaseRequest(
   status: PurchaseRequest["status"],
   canDelete: boolean,
 ): boolean {
-  return canDelete && status === "DRAFT";
+  return canDelete && status !== "RECEIVED";
 }
 
 export function canEditPurchaseRequest(

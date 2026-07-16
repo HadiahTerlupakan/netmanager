@@ -180,9 +180,12 @@ describe("restock utils", () => {
     });
   });
 
-  it("only allows deletion for draft requests", () => {
+  it("allows deletion for all statuses except RECEIVED", () => {
     expect(canDeletePurchaseRequest("DRAFT", true)).toBe(true);
-    expect(canDeletePurchaseRequest("APPROVED", true)).toBe(false);
+    expect(canDeletePurchaseRequest("APPROVED", true)).toBe(true);
+    expect(canDeletePurchaseRequest("ORDERED", true)).toBe(true);
+    expect(canDeletePurchaseRequest("REJECTED", true)).toBe(true);
+    expect(canDeletePurchaseRequest("RECEIVED", true)).toBe(false);
     expect(canDeletePurchaseRequest("DRAFT", false)).toBe(false);
   });
 

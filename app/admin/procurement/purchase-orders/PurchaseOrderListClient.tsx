@@ -219,7 +219,7 @@ export function PurchaseOrderListClient() {
                       >
                         <HiPencil className="w-4 h-4" />
                       </Link>
-                      {po.paymentStatus === "UNPAID" && (
+                      {po.status !== "RECEIVED" && (
                         <button
                           onClick={() => handleDelete(po.id, po.poNumber)}
                           className="p-2 text-gray-600 hover:text-red-600"
