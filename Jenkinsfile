@@ -861,13 +861,9 @@ spec:
                             remove_local_image "${env.RADIUS_IMAGE_ENV_REF}"
                             remove_local_image "${env.RADIUS_IMAGE_PREV_REF}"
 
-                            # BuildKit layer cache — keep 5GB headroom, jangan empty total
-                            # (build berikutnya masih bisa reuse layer yang sering dipakai).
-                            # Registry cache (--cache-to) tetap ada walau ini di-prune.
-                            echo "Pruning BuildKit cache (keep-storage 5GB)..."
-                            docker builder prune --keep-storage 5GB -f || true
-
                             # Hapus dangling images saja (aman: tidak sentuh image tagged yang masih dipakai).
+                            # builder prune TIDAK dijalankan agar .next/cache mount di host daemon tetap ada
+                            # untuk dipakai kembali oleh next build di run berikutnya.
                             echo "Pruning dangling images..."
                             docker image prune -f || true
                         """

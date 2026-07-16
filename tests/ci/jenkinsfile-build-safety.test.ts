@@ -595,7 +595,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).toContain(
       "Pruning Docker cache on shared daemon (images pushed directly to registry, no local load)...",
     );
-    expect(jenkinsfile).toContain("docker builder prune --keep-storage 5GB -f");
+    expect(jenkinsfile).not.toContain("docker builder prune");
     expect(jenkinsfile).toContain("docker image prune -f");
     expect(jenkinsfile).toContain("remove_local_image() {");
     expect(jenkinsfile).toContain('remove_local_image "${env.APP_IMAGE_REF}"');
