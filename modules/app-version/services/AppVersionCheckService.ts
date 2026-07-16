@@ -59,7 +59,9 @@ export class AppVersionCheckService {
     }
 
     const updateAvailable =
-      compareSemver(input.currentVersion, latest.version) < 0;
+      input.currentVersionCode < latest.versionCode ||
+      (input.currentVersionCode === latest.versionCode &&
+        compareSemver(input.currentVersion, latest.version) < 0);
     if (!updateAvailable) {
       return this.buildResult(input.currentVersion, null, false, tenantContact);
     }
