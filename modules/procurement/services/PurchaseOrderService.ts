@@ -137,9 +137,9 @@ export class PurchaseOrderService {
   async delete(id: string): Promise<void> {
     const existing = await this.poRepo.findById(id);
     if (!existing) throw new PurchaseOrderNotFoundError(id);
-    if (existing.paymentStatus !== "UNPAID") {
+    if (existing.status === "RECEIVED") {
       throw new PurchaseOrderNotEditableError(
-        "Purchase Order yang sudah dibayar (sebagian/penuh) tidak dapat dihapus",
+        "Purchase Order yang sudah diterima (RECEIVED) tidak dapat dihapus",
       );
     }
     await this.poRepo.delete(id);

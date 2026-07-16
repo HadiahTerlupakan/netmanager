@@ -240,6 +240,39 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
 
   async delete(id: string): Promise<void> {
     await this.client.$transaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({
+        where: { id },
+        select: { poNumber: true, paidFromAccountId: true },
+      });
+      if (!po) return;
+
+      const goodsReceiptCount = await tx.goodsReceipt.count({
+        where: { purchaseOrderId: id },
+      });
+      if (goodsReceiptCount > 0) {
+        throw new Error(
+          "Purchase Order sudah punya Goods Receipt dan tidak dapat dihapus",
+        );
+      }
+
+      const paymentExpenses = await tx.expense.findMany({
+        where: { invoiceNumber: po.poNumber },
+        select: { id: true, amount: true, accountId: true },
+      });
+      for (const expense of paymentExpenses) {
+        if (expense.accountId) {
+          await tx.financialAccount.update({
+            where: { id: expense.accountId },
+            data: { balance: { increment: Number(expense.amount) } },
+          });
+        }
+      }
+      if (paymentExpenses.length > 0) {
+        await tx.expense.deleteMany({
+          where: { id: { in: paymentExpenses.map((e) => e.id) } },
+        });
+      }
+
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
       await tx.purchaseOrderJasaItem.deleteMany({
         where: { purchaseOrderId: id },
