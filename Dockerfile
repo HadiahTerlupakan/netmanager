@@ -45,6 +45,10 @@ ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
 ARG NEXT_PUBLIC_FIREBASE_APP_ID=""
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
 
+# Skip TypeScript check during build (typecheck already runs in Jenkins QC stage).
+# Saves ~2.5 min. Set via Jenkinsfile --build-arg SKIP_TS_CHECK=true.
+ARG SKIP_TS_CHECK="false"
+
 # DATABASE and other non-sensitive build configs
 ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ARG DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
@@ -69,6 +73,7 @@ ENV DATABASE_URL_BILLING=$DATABASE_URL_BILLING
 ENV DATABASE_URL_MITRA=$DATABASE_URL_MITRA
 ENV RADIUS_DATABASE_URL=$RADIUS_DATABASE_URL
 ENV REDIS_URL=$REDIS_URL
+ENV SKIP_TS_CHECK=$SKIP_TS_CHECK
 
 RUN npm run prisma:generate
 

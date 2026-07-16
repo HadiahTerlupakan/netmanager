@@ -303,6 +303,7 @@ spec:
                                         --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" \
                                         --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${env.NEXT_PUBLIC_FIREBASE_APP_ID}" \
                                         --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
+                                        --build-arg SKIP_TS_CHECK=true \
                                         .
 
                                     timeout 600 docker buildx build --push --progress=plain \
