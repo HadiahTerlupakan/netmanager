@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-16] — Optimasi pipeline build deploy production
+
+- **Tipe**: [CHANGED]
+- **Scope**: `Dockerfile`, `Jenkinsfile`, `next.config.ts`
+- **Author**: agent
+- **Deskripsi**: Percepat build deploy production dari ~25 mnt menjadi <10 mnt (cache hit).
+  (1) Tambah `sharing=locked` di BuildKit cache mount `.next/cache` agar cache persist antar Jenkins run.
+  (2) Webpack `parallelism` adaptif berdasarkan RAM host (1/2/4 thread) menggantikan hardcoded 1.
+  (3) Stage `Run Unit Tests` dan `Build Image` di Jenkinsfile dijalankan paralel dalam `parallel {}` block.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-15] — Fix import CSV map gagal karena nodeId duplikat
 
 - **Tipe**: [FIXED]
