@@ -97,9 +97,6 @@ export function NodeListTab({
                 Capacity
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Serial Number
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Actions
               </th>
             </tr>
@@ -123,9 +120,6 @@ export function NodeListTab({
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                   {node.capacity} ports
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                  {node.serialNumber || "-"}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <div className="flex gap-2">

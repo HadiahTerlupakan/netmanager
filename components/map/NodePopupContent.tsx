@@ -70,7 +70,7 @@ export function NodePopupContent({
   return (
     <div className="min-w-[240px] max-w-[280px]">
       {node.photo && (
-        <div className="mb-3 relative w-full h-40 rounded-lg overflow-hidden bg-gray-100">
+        <div className="mb-3 relative w-full h-40 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
           <Image
             src={node.photo}
             alt={node.name}
@@ -89,9 +89,11 @@ export function NodePopupContent({
         </span>
       </div>
 
-      <h3 className="font-bold text-lg text-gray-900 mb-1">{node.name}</h3>
+      <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-1">
+        {node.name}
+      </h3>
 
-      <div className="flex items-center gap-1 text-sm text-blue-600 mb-2">
+      <div className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 mb-2">
         <svg
           className="w-4 h-4"
           fill="none"
@@ -139,24 +141,24 @@ export function NodePopupContent({
       </Button>
 
       {showSlotUsage && (
-        <div className="border-t border-gray-200 pt-3 mb-3">
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mb-3">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Slot Usage
             </span>
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {usedSlots}/{capacity}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-2">
             <div
               className={`h-2 rounded-full ${usagePercent > 80 ? "bg-red-500" : usagePercent > 50 ? "bg-yellow-500" : "bg-green-500"}`}
               style={{ width: `${usagePercent}%` }}
             />
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Available:</span>
-            <span className="font-medium text-green-600">
+            <span className="text-gray-500 dark:text-gray-400">Available:</span>
+            <span className="font-medium text-green-600 dark:text-green-400">
               {availableSlots} ports
             </span>
           </div>
@@ -164,20 +166,26 @@ export function NodePopupContent({
       )}
 
       {showOpticalInfo && (
-        <div className="border-t border-gray-200 pt-3 mb-3">
-          <p className="text-sm font-medium text-gray-700 mb-1">Optical Info</p>
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mb-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Optical Info
+          </p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-gray-500 block">Input Redaman:</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-gray-500 dark:text-gray-400 block">
+                Input Redaman:
+              </span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
                 {node.attenuationIn !== null && node.attenuationIn !== undefined
                   ? `${node.attenuationIn} dBm`
                   : "-"}
               </span>
             </div>
             <div>
-              <span className="text-gray-500 block">Output Redaman:</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-gray-500 dark:text-gray-400 block">
+                Output Redaman:
+              </span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
                 {node.attenuationOut !== null &&
                 node.attenuationOut !== undefined
                   ? `${node.attenuationOut} dBm`
@@ -185,8 +193,10 @@ export function NodePopupContent({
               </span>
             </div>
             <div className="col-span-2">
-              <span className="text-gray-500 block">Warna Core Input:</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-gray-500 dark:text-gray-400 block">
+                Warna Core Input:
+              </span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
                 {node.inputCoreColor || "-"}
               </span>
             </div>
@@ -195,8 +205,8 @@ export function NodePopupContent({
       )}
 
       {connectedFromNodes.length > 0 && (
-        <div className="border-t border-gray-200 pt-3 mb-3">
-          <p className="text-sm font-medium text-gray-700 mb-1">
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mb-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Connected from:
           </p>
           <div className="space-y-1">
@@ -212,7 +222,9 @@ export function NodePopupContent({
                       NODE_COLORS[connectedNode.type] || "#6b7280",
                   }}
                 />
-                <span className="text-gray-600">{connectedNode.name}</span>
+                <span className="text-gray-600 dark:text-gray-300">
+                  {connectedNode.name}
+                </span>
               </div>
             ))}
           </div>
@@ -220,8 +232,8 @@ export function NodePopupContent({
       )}
 
       {showConnectedTo && (
-        <div className="border-t border-gray-200 pt-3 mb-3">
-          <p className="text-sm font-medium text-gray-700 mb-1">
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mb-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {isServerOrOlt(node.type)
               ? "Connected to ODCs:"
               : "Connected to ODPs:"}
@@ -239,14 +251,16 @@ export function NodePopupContent({
                       NODE_COLORS[connectedNode.type] || "#6b7280",
                   }}
                 />
-                <span className="text-gray-600">{connectedNode.name}</span>
+                <span className="text-gray-600 dark:text-gray-300">
+                  {connectedNode.name}
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="border-t border-gray-200 pt-3 space-y-2">
+      <div className="border-t border-gray-200 dark:border-gray-600 pt-3 space-y-2">
         <Button onClick={() => onEditNode(node)} className="w-full">
           <svg
             className="w-4 h-4"

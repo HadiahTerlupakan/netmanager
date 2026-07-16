@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-16] — Hapus Serial Number di Node List + fix dark mode popup map
+
+- **Tipe**: [FIXED] [CHANGED]
+- **Scope**: `components/map`, `app/styles`
+- **Author**: agent
+- **Deskripsi**: (1) Kolom Serial Number dihapus dari tabel Node List di `/admin/map` karena tidak diperlukan. (2) Popup detail node di map gelap: teks tidak terbaca di dark mode — tambah `dark:` variants di `NodePopupContent` + CSS override Leaflet popup (background/tip/close button) karena DOM popup di luar React tree.
+- **Files**: `components/map/NodeListTab.tsx`, `components/map/NodePopupContent.tsx`, `app/styles/components.css`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-16] — Fix statistik map ODC/ODP selalu 0 di admin/map
 
 - **Tipe**: [FIXED]
