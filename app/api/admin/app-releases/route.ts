@@ -10,7 +10,8 @@ import {
 } from "@/modules/app-version";
 import type { AppRelease, AppReleasePlatform } from "@/modules/app-version";
 
-const PERMISSION = "app-release:manage";
+const PERMISSION_READ = "app-release:read";
+const PERMISSION_CREATE = "app-release:create";
 
 /** Konversi BigInt apkSizeBytes ke Number agar JSON-serializable */
 function serializeRelease(r: AppRelease) {
@@ -25,7 +26,7 @@ function serializeRelease(r: AppRelease) {
  * List semua app release dengan pagination dan filter platform
  */
 export async function GET(request: NextRequest) {
-  if (!(await hasPermission(PERMISSION))) {
+  if (!(await hasPermission(PERMISSION_READ))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     return ApiErrors.unauthorized();
   }
 
-  if (!(await hasPermission(PERMISSION, session.user))) {
+  if (!(await hasPermission(PERMISSION_CREATE, session.user))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 

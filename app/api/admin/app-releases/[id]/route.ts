@@ -9,7 +9,9 @@ import {
 } from "@/modules/app-version";
 import type { AppRelease } from "@/modules/app-version";
 
-const PERMISSION = "app-release:manage";
+const PERMISSION_READ = "app-release:read";
+const PERMISSION_UPDATE = "app-release:update";
+const PERMISSION_DELETE = "app-release:delete";
 
 /** Konversi BigInt apkSizeBytes ke Number agar JSON-serializable */
 function serializeRelease(r: AppRelease) {
@@ -28,7 +30,7 @@ interface RouteContext {
  * Ambil detail satu app release berdasarkan ID
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
-  if (!(await hasPermission(PERMISSION))) {
+  if (!(await hasPermission(PERMISSION_READ))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -50,7 +52,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
  * Update data app release
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  if (!(await hasPermission(PERMISSION))) {
+  if (!(await hasPermission(PERMISSION_UPDATE))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
@@ -87,7 +89,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * Nonaktifkan app release (soft delete via deactivate)
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
-  if (!(await hasPermission(PERMISSION))) {
+  if (!(await hasPermission(PERMISSION_DELETE))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 

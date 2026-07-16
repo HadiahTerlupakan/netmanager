@@ -68,7 +68,8 @@ function Field({
 
 export function AppReleasesTab() {
   const { hasPermission } = usePermission();
-  const canManage = hasPermission("app-release:manage");
+  const canManage = hasPermission("app-release:create");
+  const canDelete = hasPermission("app-release:delete");
   const { showToast } = useToast();
 
   const [releases, setReleases] = useState<AppRelease[]>([]);
@@ -240,7 +241,7 @@ export function AppReleasesTab() {
 
   const renderActions = (r: AppRelease) => (
     <div className="flex gap-1">
-      {canManage && (
+      {canDelete && (
         <Button
           type="button"
           variant="ghost"
