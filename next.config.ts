@@ -188,6 +188,7 @@ const nextConfig: NextConfig = {
     // BuildKit cache mount di Dockerfile menarget /app/.next/cache — cache ini tertangkap.
     // Warm build (run kedua+) skip recompile modul yang tidak berubah.
     // Trigger: force Jenkins rebuild after #200 was cancelled mid-run.
+    // Dummy bump for warm-cache re-verify.
     turbopackFileSystemCacheForBuild: true,
     // Catatan: turbopackTreeShaking + turbopackRemoveUnusedImports/Exports
     // memicu Rust panic "index out of bounds" di Next 16.2.2 (bug upstream).
