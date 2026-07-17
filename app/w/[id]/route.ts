@@ -17,7 +17,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  const deepLink = `netmanager://work-order-detail/${id}`;
+  const deepLink = `netmanager:///work-order-detail/${id}`;
   const fallbackUrl = await resolveAdminFallbackUrl(id);
 
   const html = buildBridgeHtml(deepLink, fallbackUrl);
