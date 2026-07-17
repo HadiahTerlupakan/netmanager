@@ -5,6 +5,7 @@ import {
   findAdminsForNotification,
   findAllActiveInTenant,
   findByIdWithPushToken,
+  findManyActiveWithPhoneAndSite,
   findManyActiveWithPushTokenAndSite,
   findManyByDepartmentWithPushToken,
   findManyWithPushToken,
@@ -121,6 +122,14 @@ export class UserLookupRepository {
       siteId,
       excludeUserId,
     );
+  }
+
+  findManyActiveWithPhoneAndSite(
+    departmentId?: string,
+    siteId?: string,
+    excludeUserId?: string,
+  ) {
+    return findManyActiveWithPhoneAndSite(departmentId, siteId, excludeUserId);
   }
 
   findByIdWithPushToken(userId: string) {

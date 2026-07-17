@@ -56,27 +56,114 @@ interface WorkOrderData {
 
 /**
  * Trigger notification when a new Work Order is created
- * - Notifies all employees in the department (filtered by Site)
+ * - In-app + push ke karyawan eligible di site/dept
+ * - WA INTERNAL ke teknisi di site+dept (jika punya nomor HP)
  */
 export async function onWorkOrderCreated(
   workOrder: WorkOrderData,
   triggeredByUserId?: string,
 ) {
   try {
-    await notifyNewWorkOrder({
-      workOrderId: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      type: workOrder.type,
-      priority: workOrder.priority,
-      departmentId: workOrder.departmentId || undefined,
-      siteId: workOrder.siteId || undefined,
-      triggeredByUserId,
-    });
-    // logger.info(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
+    await Promise.all([
+      notifyNewWorkOrder({
+        workOrderId: workOrder.id,
+        workOrderNumber: workOrder.workOrderNumber,
+        title: workOrder.title,
+        type: workOrder.type,
+        priority: workOrder.priority,
+        departmentId: workOrder.departmentId || undefined,
+        siteId: workOrder.siteId || undefined,
+        triggeredByUserId,
+      }),
+      sendNewWorkOrderWhatsApp(workOrder, triggeredByUserId),
+    ]);
   } catch (error) {
     logger.error("[Notification] Error sending new WO notification:", error);
   }
+}
+
+/**
+ * Kirim WA notifikasi WO baru ke teknisi di site+dept.
+ * Link HTTPS (https://radpro.id/w/<id>) → redirect ke deep link mobile app.
+ */
+async function sendNewWorkOrderWhatsApp(
+  workOrder: WorkOrderData,
+  excludeUserId?: string,
+): Promise<void> {
+  try {
+    if (!workOrder.siteId) {
+      logger.warn(
+        `[WO New WA] Skip: WO ${workOrder.workOrderNumber} tanpa siteId`,
+      );
+      return;
+    }
+
+    const technicians =
+      await getUserLookupService().findManyActiveWithPhoneAndSite(
+        workOrder.departmentId || undefined,
+        workOrder.siteId,
+        excludeUserId,
+      );
+
+    const withPhone = technicians.filter(
+      (t): t is typeof t & { phone: string } => Boolean(t.phone?.trim()),
+    );
+
+    if (withPhone.length === 0) {
+      logger.info(
+        `[WO New WA] Tidak ada teknisi ber-HP di site=${workOrder.siteId} dept=${workOrder.departmentId ?? "-"}`,
+      );
+      return;
+    }
+
+    const message = buildNewWorkOrderWhatsAppMessage(workOrder);
+    await Promise.all(
+      withPhone.map((t) => sendWhatsAppReminderToUser(t.id, message, t.phone)),
+    );
+
+    logger.info(
+      `[WO New WA] Sent to ${withPhone.length} teknisi for ${workOrder.workOrderNumber}`,
+    );
+  } catch (error) {
+    logger.error(`[WO New WA] Error for ${workOrder.workOrderNumber}:`, error);
+  }
+}
+
+function buildNewWorkOrderWhatsAppMessage(workOrder: WorkOrderData): string {
+  const deepLink = buildWorkOrderDeepLink(workOrder.id);
+  const priorityLabel = formatPriorityLabel(workOrder.priority);
+  const typeLabel = workOrder.type || "-";
+
+  return (
+    `*Work Order Baru* 📋\n\n` +
+    `Nomor: *${workOrder.workOrderNumber}*\n` +
+    `Judul: ${workOrder.title}\n` +
+    `Tipe: ${typeLabel}\n` +
+    `Prioritas: ${priorityLabel}\n\n` +
+    `Ambil tiket di aplikasi NetManager:\n` +
+    `${deepLink}`
+  );
+}
+
+/** HTTPS redirect URL yang clickable di WhatsApp → buka deep link mobile. */
+function buildWorkOrderDeepLink(workOrderId: string): string {
+  const base =
+    process.env.APP_URL?.replace(/\/$/, "") ||
+    process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
+    "https://radpro.id";
+  return `${base}/w/${workOrderId}`;
+}
+
+function formatPriorityLabel(priority: string): string {
+  const map: Record<string, string> = {
+    LOW: "Rendah",
+    NORMAL: "Normal",
+    MEDIUM: "Sedang",
+    HIGH: "Tinggi",
+    URGENT: "Mendesak ⚠️",
+    CRITICAL: "Kritis 🚨",
+  };
+  return map[priority?.toUpperCase()] || priority || "Normal";
 }
 
 /**

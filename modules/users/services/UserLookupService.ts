@@ -159,6 +159,19 @@ export class UserLookupService {
     );
   }
 
+  /** Find active users with phone by site (untuk WA). */
+  findManyActiveWithPhoneAndSite(
+    departmentId?: string,
+    siteId?: string,
+    excludeUserId?: string,
+  ) {
+    return this.lookupRepository.findManyActiveWithPhoneAndSite(
+      departmentId,
+      siteId,
+      excludeUserId,
+    );
+  }
+
   /** Find all active users in tenant for broadcast notifications. */
   findAllActiveInTenant(tenantId: string) {
     return this.lookupRepository.findAllActiveInTenant(tenantId);

@@ -62,6 +62,18 @@ export function findManyActiveWithPushTokenAndSite(
   });
 }
 
+/** Ambil user aktif dengan nomor HP berdasarkan site dan departemen (untuk WA). */
+export function findManyActiveWithPhoneAndSite(
+  departmentId?: string,
+  siteId?: string,
+  excludeUserId?: string,
+) {
+  return prisma.user.findMany({
+    where: buildActivePhoneWhere(departmentId, siteId, excludeUserId),
+    select: { id: true, phone: true, name: true },
+  });
+}
+
 /** Hapus token push yang invalid. */
 export function clearPushTokens(tokens: string[]) {
   return prisma.user.updateMany({
@@ -93,6 +105,20 @@ function buildActivePushTokenWhere(
   return {
     isActive: true,
     OR: [{ pushToken: { not: null } }, { fcmTokens: { isEmpty: false } }],
+    ...(departmentId ? { departmentId } : {}),
+    ...(siteId ? { siteId } : {}),
+    ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+  };
+}
+
+function buildActivePhoneWhere(
+  departmentId?: string,
+  siteId?: string,
+  excludeUserId?: string,
+): Prisma.UserWhereInput {
+  return {
+    isActive: true,
+    NOT: { phone: null },
     ...(departmentId ? { departmentId } : {}),
     ...(siteId ? { siteId } : {}),
     ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
