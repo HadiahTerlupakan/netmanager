@@ -44,19 +44,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 ### [2026-07-17] — Notifikasi WA Work Order baru ke teknisi + deep link ke mobile app
 
 - **Tipe**: [ADDED]
-- **Scope**: `modules/work-order`, `modules/users`, `app/w/[id]`
+- **Scope**: `modules/work-order`, `modules/users`, `app/w/[id]`, `mobile/src/hooks/useDeepLink.ts`
 - **Author**: agent
-- **Deskripsi**: Saat WO baru dibuat, sistem kirim WhatsApp (account INTERNAL) ke teknisi aktif di site+department WO yang punya nomor HP. Pesan berisi nomor, judul, tipe, prioritas, dan link HTTPS `https://radpro.id/w/<id>` yang clickable di WA. Link itu redirect ke deep link `netmanager://work-order-detail/<id>` untuk membuka aplikasi mobile langsung ke detail WO (teknisi tinggal tap "Ambil Tugas"). Deep link handler di mobile (`useDeepLink`) adalah JS-only — OTA, tanpa rebuild. Scheme `netmanager://` sudah ada di build sejak initial commit. Tambah `findManyActiveWithPhoneAndSite` di UserLookup untuk query teknisi ber-HP tanpa syarat push token.
-- **Files**: `modules/work-order/services/WorkOrderNotifications.ts`, `modules/users/repositories/user-lookup.notification.ts`, `modules/users/repositories/UserLookupRepository.ts`, `modules/users/services/UserLookupService.ts`, `app/w/[id]/page.tsx`
-- **Breaking**: ❌ Tidak
-
-### [2026-07-17] — Notifikasi WA Work Order baru ke teknisi + deep link ke mobile app (mobile)
-
-- **Tipe**: [ADDED]
-- **Scope**: `src/hooks/useDeepLink.ts`, `app/_layout.tsx`
-- **Author**: agent
-- **Deskripsi**: Hook `useDeepLink` menangani URL scheme `netmanager://` dari killed state (`Linking.getInitialURL`) dan foreground (`addEventListener('url')`). Parse `netmanager://work-order-detail/<id>` → `/(app)/work-order-detail/<id>`. Menunggu router ready (segments populated) sebelum navigate. Di-wire di root `_layout.tsx` setelah `useNotificationSetup`, sebelum `useAuthRedirect`.
-- **Files**: `src/hooks/useDeepLink.ts`, `app/_layout.tsx`
+- **Deskripsi**: Saat WO baru dibuat, sistem kirim WhatsApp (account INTERNAL) ke teknisi aktif di site+department WO yang punya nomor HP. Pesan berisi nomor, judul, tipe, prioritas, dan link HTTPS `https://radpro.id/w/<id>` yang clickable di WA. Link itu redirect ke deep link `netmanager:///work-order-detail/<id>` (path-style, 3 slash — expo-router Android butuh format ini) untuk membuka aplikasi mobile langsung ke detail WO. Teknisi tinggal tap "Ambil Tugas" (fitur claim sudah ada di mobile). Deep link handler di mobile (`useDeepLink`) adalah JS-only — OTA, tanpa rebuild. Scheme `netmanager` sudah ada di build sejak initial commit. Tambah `findManyActiveWithPhoneAndSite` di UserLookup untuk query teknisi ber-HP tanpa syarat push token.
+- **Files**: `modules/work-order/services/WorkOrderNotifications.ts`, `modules/users/repositories/user-lookup.notification.ts`, `modules/users/repositories/UserLookupRepository.ts`, `modules/users/services/UserLookupService.ts`, `app/w/[id]/route.ts`, `mobile-netmanager/src/hooks/useDeepLink.ts`, `mobile-netmanager/app/_layout.tsx`
 - **Breaking**: ❌ Tidak
 
 ### [2026-07-16] — Tambah tab Rilis APK di halaman Update Aplikasi
