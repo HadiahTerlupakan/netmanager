@@ -872,6 +872,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineChatBubbleLeftRight",
       },
       {
+        code: "PENGATURAN.WHATSAPP_LOGS",
+        name: "Log WhatsApp",
+        path: "/admin/pengaturan/whatsapp/logs",
+        icon: "HiOutlineDocumentText",
+      },
+      {
         code: "PENGATURAN.PAYMENT_GATEWAY",
         name: "Payment",
         path: "/admin/pengaturan/payment-gateway",

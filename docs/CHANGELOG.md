@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-18] — Halaman Log WhatsApp + statistik + detail pesan
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/pengaturan/whatsapp/logs`, `app/api/admin/whatsapp/messages`, `app/api/admin/whatsapp/stats`, `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Halaman baru `/admin/pengaturan/whatsapp/logs` untuk monitoring pengiriman WA. Kartu statistik (total/terkirim/pending/gagal), filter status+tanggal+akun+nomor tujuan, tabel paginated, klik row → modal detail (isi pesan, error, response provider, waktu kirim). API `GET /api/admin/whatsapp/messages` diperluas: filter status/date/account/phone + pagination; tambah `GET /api/admin/whatsapp/messages/[id]` untuk detail. API `GET /api/admin/whatsapp/stats` kini support mode global (tanpa `accountId`) lintas akun tenant. Repo + service dapat `findFiltered`, `findDetail`, `getGlobalStats`. Link "Log Pesan" ditambah di header pengaturan WA + entry menu sidebar. Status yang ditampilkan: pending/sent/failed (data yang sudah ada di DB). Status delivered/read menyusul via webhook provider di iterasi berikutnya.
+- **Files**: `app/admin/pengaturan/whatsapp/logs/page.tsx`, `app/admin/pengaturan/whatsapp/logs/WhatsappLogsClient.tsx`, `app/admin/pengaturan/whatsapp/WhatsappSettingsClient.tsx`, `app/api/admin/whatsapp/messages/route.ts`, `app/api/admin/whatsapp/messages/[id]/route.ts`, `app/api/admin/whatsapp/stats/route.ts`, `modules/notification/repositories/whatsapp-message.repository.ts`, `modules/notification/services/whatsapp-sender.service.ts`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-17] — Notifikasi WA Work Order baru ke teknisi + deep link ke mobile app
 
 - **Tipe**: [ADDED]

@@ -2,6 +2,7 @@
 
 import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -13,6 +14,7 @@ import {
   HiOutlineArrowPath,
   HiOutlineQrCode,
   HiOutlineStopCircle,
+  HiOutlineDocumentText,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
@@ -165,17 +167,26 @@ export function ClientComponent() {
               Kelola multiple akun WhatsApp untuk pengiriman pesan
             </p>
           </div>
-          <Button
-            type="button"
-            onClick={() => {
-              setEditingAccount(null);
-              setShowModal(true);
-            }}
-            variant="default"
-          >
-            <HiOutlinePlus className="w-5 h-5" />
-            Tambah Akun
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/pengaturan/whatsapp/logs"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <HiOutlineDocumentText className="w-5 h-5" />
+              Log Pesan
+            </Link>
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingAccount(null);
+                setShowModal(true);
+              }}
+              variant="default"
+            >
+              <HiOutlinePlus className="w-5 h-5" />
+              Tambah Akun
+            </Button>
+          </div>
         </div>
       </div>
 

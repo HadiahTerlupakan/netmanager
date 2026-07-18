@@ -247,6 +247,23 @@ export class WhatsAppSenderService {
     return this.messageRepo.findRecent(tenantId, limit);
   }
 
+  async getMessagesFiltered(filter: {
+    tenantId?: string;
+    status?: "pending" | "sent" | "failed";
+    accountId?: string;
+    phone?: string;
+    startDate?: Date;
+    endDate?: Date;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.messageRepo.findFiltered(filter);
+  }
+
+  async getMessageDetail(id: string, tenantId?: string) {
+    return this.messageRepo.findDetail(id, tenantId);
+  }
+
   /**
    * Get stats for an account
    */
@@ -261,5 +278,14 @@ export class WhatsAppSenderService {
     pending: number;
   }> {
     return this.messageRepo.getStats(accountId, startDate, endDate);
+  }
+
+  async getGlobalStats(filter: {
+    tenantId?: string;
+    accountId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }) {
+    return this.messageRepo.getGlobalStats(filter);
   }
 }

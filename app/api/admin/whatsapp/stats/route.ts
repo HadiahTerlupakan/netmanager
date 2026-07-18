@@ -12,7 +12,9 @@ const accountService = new WhatsAppAccountService();
 
 /**
  * GET /api/admin/whatsapp/stats
- * Get WhatsApp usage statistics
+ * Statistik pengiriman WA.
+ * - Tanpa accountId → stats global per tenant
+ * - Dengan accountId → stats per akun (validasi ownership)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -26,37 +28,33 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const accountId = searchParams.get("accountId");
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const accountId = searchParams.get("accountId") || undefined;
+    const startDateRaw = searchParams.get("startDate");
+    const endDateRaw = searchParams.get("endDate");
+    const startDate = startDateRaw ? new Date(startDateRaw) : undefined;
+    const endDate = endDateRaw ? new Date(endDateRaw) : undefined;
 
-    if (!accountId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "accountId wajib diisi",
-        },
-        { status: 400 },
+    if (accountId) {
+      const account = await accountService.findById(
+        accountId,
+        session.tenantId,
       );
+      if (!account) {
+        return NextResponse.json(
+          { success: false, error: "Akun tidak ditemukan" },
+          { status: 404 },
+        );
+      }
     }
 
-    // Validasi kepemilikan accountId — cegah baca statistik lintas tenant
-    const account = await accountService.findById(accountId, session.tenantId);
-    if (!account) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Akun tidak ditemukan",
-        },
-        { status: 404 },
-      );
-    }
-
-    const stats = await service.getAccountStats(
+    const stats = await service.getGlobalStats({
+      tenantId: session.tenantId,
       accountId,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
-    );
+      startDate:
+        startDate && !Number.isNaN(startDate.getTime()) ? startDate : undefined,
+      endDate:
+        endDate && !Number.isNaN(endDate.getTime()) ? endDate : undefined,
+    });
 
     return NextResponse.json({
       success: true,

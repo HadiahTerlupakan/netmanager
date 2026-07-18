@@ -7,6 +7,34 @@ import type {
   WhatsAppMessageStatus,
 } from "../domain/whatsapp-message.entity";
 
+export interface MessageListFilter {
+  tenantId?: string;
+  status?: WhatsAppMessageStatus;
+  accountId?: string;
+  phone?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedMessages {
+  items: WhatsAppMessage[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface GlobalStats {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
+}
+
 export class WhatsAppMessageRepository {
   async create(data: WhatsAppMessageCreateInput): Promise<WhatsAppMessage> {
     const result = await prisma.whatsAppMessage.create({
@@ -73,6 +101,97 @@ export class WhatsAppMessageRepository {
       take: limit,
     });
     return results as WhatsAppMessage[];
+  }
+
+  async findFiltered(filter: MessageListFilter): Promise<PaginatedMessages> {
+    const page = Math.max(1, filter.page ?? 1);
+    const limit = Math.min(200, Math.max(1, filter.limit ?? 50));
+
+    const where = this.buildFilterWhere(filter);
+    const [total, items] = await Promise.all([
+      prisma.whatsAppMessage.count({ where }),
+      prisma.whatsAppMessage.findMany({
+        where,
+        include: {
+          account: {
+            select: { id: true, name: true, phone: true, provider: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items: items as WhatsAppMessage[],
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  async findDetail(
+    id: string,
+    tenantId?: string,
+  ): Promise<WhatsAppMessage | null> {
+    const result = await prisma.whatsAppMessage.findUnique({
+      where: { id },
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            provider: true,
+            accountType: true,
+          },
+        },
+      },
+    });
+    if (!result) return null;
+    if (tenantId && result.tenantId !== tenantId) return null;
+    return result as WhatsAppMessage;
+  }
+
+  async getGlobalStats(filter: {
+    tenantId?: string;
+    accountId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<GlobalStats> {
+    const where = this.buildFilterWhere(filter);
+    const [total, sent, failed, pending] = await Promise.all([
+      prisma.whatsAppMessage.count({ where }),
+      prisma.whatsAppMessage.count({ where: { ...where, status: "sent" } }),
+      prisma.whatsAppMessage.count({ where: { ...where, status: "failed" } }),
+      prisma.whatsAppMessage.count({ where: { ...where, status: "pending" } }),
+    ]);
+    return { total, sent, failed, pending };
+  }
+
+  private buildFilterWhere(filter: {
+    tenantId?: string;
+    status?: WhatsAppMessageStatus;
+    accountId?: string;
+    phone?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Prisma.WhatsAppMessageWhereInput {
+    return {
+      ...(filter.tenantId ? { tenantId: filter.tenantId } : {}),
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.accountId ? { accountId: filter.accountId } : {}),
+      ...(filter.phone
+        ? { phone: { contains: filter.phone, mode: "insensitive" } }
+        : {}),
+      ...(filter.startDate && filter.endDate
+        ? { createdAt: { gte: filter.startDate, lte: filter.endDate } }
+        : {}),
+    };
   }
 
   async update(
