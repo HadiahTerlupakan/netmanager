@@ -33,6 +33,8 @@ export interface GlobalStats {
   sent: number;
   failed: number;
   pending: number;
+  delivered: number;
+  read: number;
 }
 
 export class WhatsAppMessageRepository {
@@ -164,13 +166,17 @@ export class WhatsAppMessageRepository {
     endDate?: Date;
   }): Promise<GlobalStats> {
     const where = this.buildFilterWhere(filter);
-    const [total, sent, failed, pending] = await Promise.all([
+    const [total, sent, failed, pending, delivered, read] = await Promise.all([
       prisma.whatsAppMessage.count({ where }),
       prisma.whatsAppMessage.count({ where: { ...where, status: "sent" } }),
       prisma.whatsAppMessage.count({ where: { ...where, status: "failed" } }),
       prisma.whatsAppMessage.count({ where: { ...where, status: "pending" } }),
+      prisma.whatsAppMessage.count({
+        where: { ...where, status: "delivered" },
+      }),
+      prisma.whatsAppMessage.count({ where: { ...where, status: "read" } }),
     ]);
-    return { total, sent, failed, pending };
+    return { total, sent, failed, pending, delivered, read };
   }
 
   private buildFilterWhere(filter: {
@@ -206,6 +212,8 @@ export class WhatsAppMessageRepository {
         messageId: data.messageId,
         response: data.response as Prisma.InputJsonValue,
         sentAt: data.sentAt,
+        deliveredAt: data.deliveredAt,
+        readAt: data.readAt,
       },
     });
     return result as WhatsAppMessage;
@@ -229,6 +237,39 @@ export class WhatsAppMessageRepository {
       },
     });
     return result as WhatsAppMessage;
+  }
+
+  /**
+   * Update status delivery/read by messageId (Baileys key.id).
+   * Status monoton naik: sent < delivered < read. Update hanya kalau status baru
+   * lebih tinggi dari existing — cegah downgrade saat event terlambat datang.
+   */
+  async updateDeliveryStatus(
+    messageId: string,
+    update: {
+      status: "delivered" | "read";
+      timestamp?: Date;
+    },
+  ): Promise<void> {
+    const ts = update.timestamp ?? new Date();
+    const existing = await prisma.whatsAppMessage.findFirst({
+      where: { messageId },
+      select: { id: true, status: true, deliveredAt: true },
+    });
+    if (!existing) return;
+    if (!isStatusProgression(existing.status, update.status)) return;
+
+    await prisma.whatsAppMessage.update({
+      where: { id: existing.id },
+      data: {
+        status: update.status,
+        deliveredAt:
+          update.status === "delivered" || !existing.deliveredAt
+            ? ts
+            : undefined,
+        readAt: update.status === "read" ? ts : undefined,
+      },
+    });
   }
 
   async getStats(
@@ -273,11 +314,26 @@ export class WhatsAppMessageRepository {
           lt: cutoffDate,
         },
         status: {
-          in: ["sent", "failed"],
+          in: ["sent", "failed", "delivered", "read"],
         },
       },
     });
 
     return result.count;
   }
+}
+
+const STATUS_RANK: Record<string, number> = {
+  pending: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+  failed: -1,
+};
+
+function isStatusProgression(
+  current: string,
+  next: "delivered" | "read",
+): boolean {
+  return (STATUS_RANK[next] ?? -1) > (STATUS_RANK[current] ?? -1);
 }

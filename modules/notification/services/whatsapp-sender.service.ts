@@ -249,7 +249,7 @@ export class WhatsAppSenderService {
 
   async getMessagesFiltered(filter: {
     tenantId?: string;
-    status?: "pending" | "sent" | "failed";
+    status?: "pending" | "sent" | "failed" | "delivered" | "read";
     accountId?: string;
     phone?: string;
     startDate?: Date;

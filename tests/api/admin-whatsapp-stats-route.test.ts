@@ -70,9 +70,11 @@ describe("GET /api/admin/whatsapp/stats", () => {
     mockAccountFindById.mockResolvedValue({ id: "wa-1", tenantId: "tenant-1" });
     mockGetGlobalStats.mockResolvedValue({
       total: 10,
-      sent: 8,
+      sent: 5,
       failed: 1,
       pending: 1,
+      delivered: 2,
+      read: 1,
     });
 
     const req = new NextRequest(
@@ -83,7 +85,14 @@ describe("GET /api/admin/whatsapp/stats", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toEqual({ total: 10, sent: 8, failed: 1, pending: 1 });
+    expect(body.data).toEqual({
+      total: 10,
+      sent: 5,
+      failed: 1,
+      pending: 1,
+      delivered: 2,
+      read: 1,
+    });
     expect(mockAccountFindById).toHaveBeenCalledWith("wa-1", "tenant-1");
     expect(mockGetGlobalStats).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,9 +105,11 @@ describe("GET /api/admin/whatsapp/stats", () => {
   it("Given accountId tidak diberikan When stats Then return 200 global stats", async () => {
     mockGetGlobalStats.mockResolvedValue({
       total: 25,
-      sent: 20,
+      sent: 10,
       failed: 3,
       pending: 2,
+      delivered: 5,
+      read: 5,
     });
 
     const req = new NextRequest("http://localhost/api/admin/whatsapp/stats");
@@ -107,7 +118,14 @@ describe("GET /api/admin/whatsapp/stats", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toEqual({ total: 25, sent: 20, failed: 3, pending: 2 });
+    expect(body.data).toEqual({
+      total: 25,
+      sent: 10,
+      failed: 3,
+      pending: 2,
+      delivered: 5,
+      read: 5,
+    });
     expect(mockAccountFindById).not.toHaveBeenCalled();
     expect(mockGetGlobalStats).toHaveBeenCalledWith(
       expect.objectContaining({

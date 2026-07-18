@@ -11,10 +11,17 @@ export interface WhatsAppMessage {
   response?: Record<string, unknown> | null;
   createdAt: Date;
   sentAt?: Date | null;
+  deliveredAt?: Date | null;
+  readAt?: Date | null;
   tenantId?: string | null;
 }
 
-export type WhatsAppMessageStatus = "pending" | "sent" | "failed";
+export type WhatsAppMessageStatus =
+  | "pending"
+  | "sent"
+  | "failed"
+  | "delivered"
+  | "read";
 
 export interface WhatsAppMessageCreateInput {
   accountId: string;
@@ -31,4 +38,6 @@ export interface WhatsAppMessageUpdateInput {
   messageId?: string;
   response?: Record<string, unknown>;
   sentAt?: Date;
+  deliveredAt?: Date;
+  readAt?: Date;
 }

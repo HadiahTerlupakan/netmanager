@@ -18,7 +18,7 @@ import {
   TableLoadingRow,
 } from "@/app/admin/notifications/_components/TableStateRows";
 
-type WhatsAppStatus = "pending" | "sent" | "failed";
+type WhatsAppStatus = "pending" | "sent" | "failed" | "delivered" | "read";
 
 interface WhatsAppAccount {
   id: string;
@@ -35,6 +35,8 @@ interface WhatsAppMessageItem {
   messageId: string | null;
   createdAt: string;
   sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
   account: { id: string; name: string; phone: string; provider: string } | null;
 }
 
@@ -55,18 +57,24 @@ interface Stats {
   sent: number;
   failed: number;
   pending: number;
+  delivered: number;
+  read: number;
 }
 
 const STATUS_BADGE: Record<WhatsAppStatus, string> = {
   pending:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  sent: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  delivered: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  read: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 };
 
 const STATUS_LABEL: Record<WhatsAppStatus, string> = {
   pending: "Pending",
   sent: "Terkirim",
+  delivered: "Diterima",
+  read: "Dibaca",
   failed: "Gagal",
 };
 
@@ -84,6 +92,8 @@ export default function WhatsappLogsClient() {
     sent: 0,
     failed: 0,
     pending: 0,
+    delivered: 0,
+    read: 0,
   });
   const [accounts, setAccounts] = useState<WhatsAppAccount[]>([]);
   const [selected, setSelected] = useState<WhatsAppMessageDetail | null>(null);
@@ -213,7 +223,7 @@ export default function WhatsappLogsClient() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatCard
           label="Total Pesan"
           value={stats.total}
@@ -225,6 +235,22 @@ export default function WhatsappLogsClient() {
         <StatCard
           label="Terkirim"
           value={stats.sent}
+          icon={
+            <HiOutlineCheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          }
+          tint="blue"
+        />
+        <StatCard
+          label="Diterima"
+          value={stats.delivered}
+          icon={
+            <HiOutlineCheckCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+          }
+          tint="cyan"
+        />
+        <StatCard
+          label="Dibaca"
+          value={stats.read}
           icon={
             <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
           }
@@ -260,6 +286,8 @@ export default function WhatsappLogsClient() {
           >
             <option value="">Semua</option>
             <option value="sent">Terkirim</option>
+            <option value="delivered">Diterima</option>
+            <option value="read">Dibaca</option>
             <option value="pending">Pending</option>
             <option value="failed">Gagal</option>
           </select>
@@ -472,6 +500,8 @@ function FilterField({
 const TINT_CLASSES: Record<string, string> = {
   indigo:
     "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30",
+  blue: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30",
+  cyan: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-900/30",
   green:
     "bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/30",
   yellow:
@@ -583,6 +613,22 @@ function DetailModal({
               value={
                 detail.sentAt
                   ? new Date(detail.sentAt).toLocaleString("id-ID")
+                  : "-"
+              }
+            />
+            <DetailRow
+              label="Diterima"
+              value={
+                detail.deliveredAt
+                  ? new Date(detail.deliveredAt).toLocaleString("id-ID")
+                  : "-"
+              }
+            />
+            <DetailRow
+              label="Dibaca"
+              value={
+                detail.readAt
+                  ? new Date(detail.readAt).toLocaleString("id-ID")
                   : "-"
               }
             />

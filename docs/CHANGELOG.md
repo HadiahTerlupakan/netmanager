@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Status Diterima/Dibaca untuk WA Baileys
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/notification`, `app/admin/pengaturan/whatsapp/logs`, `prisma`
+- **Author**: agent
+- **Deskripsi**: Deteksi status delivery & read receipt untuk akun WhatsApp Baileys. Listener `messages.update` di session manager memetakan `DELIVERY_ACK` → `delivered` dan `READ`/`PLAYED` → `read`, lalu update baris log by `messageId` (Baileys key.id). Status mononton (tidak bisa downgrade). UI log WA menampilkan badge Diterima/Dibaca + kartu stats + filter baru. Catatan: status "Dibaca" hanya muncul jika privacy read receipt penerima mengizinkan; Fonnte/Wablas belum support (butuh webhook terpisah).
+- **Files**: `prisma/schema.prisma`, `prisma/migrations/*_whatsapp_message_delivery_status/migration.sql`, `modules/notification/domain/whatsapp-message.entity.ts`, `modules/notification/repositories/whatsapp-message.repository.ts`, `modules/notification/services/whatsapp/baileys-session-manager.ts`, `app/admin/pengaturan/whatsapp/logs/WhatsappLogsClient.tsx`, `app/api/admin/whatsapp/messages/route.ts`
+- **Migration**: `*_whatsapp_message_delivery_status` (kolom `deliveredAt`, `readAt` + index `messageId`)
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-18] — Halaman Log WhatsApp + statistik + detail pesan
 
 - **Tipe**: [ADDED]

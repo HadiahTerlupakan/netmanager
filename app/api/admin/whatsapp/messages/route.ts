@@ -5,7 +5,13 @@ import { ApiErrors } from "@/lib/api";
 import { WhatsAppSenderService } from "@/modules/notification";
 
 const service = new WhatsAppSenderService();
-const VALID_STATUSES = new Set(["pending", "sent", "failed"]);
+const VALID_STATUSES = new Set([
+  "pending",
+  "sent",
+  "failed",
+  "delivered",
+  "read",
+]);
 
 /**
  * GET /api/admin/whatsapp/messages
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest) {
     const statusRaw = searchParams.get("status") || undefined;
     const status =
       statusRaw && VALID_STATUSES.has(statusRaw)
-        ? (statusRaw as "pending" | "sent" | "failed")
+        ? (statusRaw as "pending" | "sent" | "failed" | "delivered" | "read")
         : undefined;
 
     const page = Math.max(

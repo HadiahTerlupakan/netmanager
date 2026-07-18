@@ -4520,24 +4520,27 @@ model WhatsAppAccount {
 }
 
 model WhatsAppMessage {
-  id        String           @id @default(cuid())
-  accountId String?
-  account   WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  phone     String
-  message   String?
-  fileUrl   String?
-  status    String          @default("pending")
-  error     String?
-  messageId String?
-  response  Json?
-  createdAt DateTime        @default(now())
-  sentAt    DateTime?
-  tenantId  String?
-  tenant    Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id           String           @id @default(cuid())
+  accountId    String?
+  account      WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  phone        String
+  message      String?
+  fileUrl      String?
+  status       String           @default("pending")
+  error        String?
+  messageId    String?
+  response     Json?
+  createdAt    DateTime         @default(now())
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  tenantId     String?
+  tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([accountId])
   @@index([status])
   @@index([tenantId])
+  @@index([messageId])
 }
 
 model TenantSettings {
