@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockVerifyAuth = vi.fn();
 const mockHasPermission = vi.fn();
 const mockAccountFindById = vi.fn();
-const mockGetAccountStats = vi.fn();
+const mockGetGlobalStats = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   verifyAuth: (...args: unknown[]) => mockVerifyAuth(...args),
@@ -29,7 +29,7 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/modules/notification", () => ({
   WhatsAppSenderService: class {
-    getAccountStats = (...args: unknown[]) => mockGetAccountStats(...args);
+    getGlobalStats = (...args: unknown[]) => mockGetGlobalStats(...args);
   },
   WhatsAppAccountService: class {
     findById = (...args: unknown[]) => mockAccountFindById(...args);
@@ -38,7 +38,7 @@ vi.mock("@/modules/notification", () => ({
 
 import { GET } from "@/app/api/admin/whatsapp/stats/route";
 
-describe("GET /api/admin/whatsapp/stats IDOR guard", () => {
+describe("GET /api/admin/whatsapp/stats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyAuth.mockResolvedValue({
@@ -63,12 +63,12 @@ describe("GET /api/admin/whatsapp/stats IDOR guard", () => {
       "wa-cross-tenant",
       "tenant-1",
     );
-    expect(mockGetAccountStats).not.toHaveBeenCalled();
+    expect(mockGetGlobalStats).not.toHaveBeenCalled();
   });
 
   it("Given accountId milik tenant sendiri When stats Then return 200 dan data stats", async () => {
     mockAccountFindById.mockResolvedValue({ id: "wa-1", tenantId: "tenant-1" });
-    mockGetAccountStats.mockResolvedValue({
+    mockGetGlobalStats.mockResolvedValue({
       total: 10,
       sent: 8,
       failed: 1,
@@ -85,15 +85,35 @@ describe("GET /api/admin/whatsapp/stats IDOR guard", () => {
     expect(body.success).toBe(true);
     expect(body.data).toEqual({ total: 10, sent: 8, failed: 1, pending: 1 });
     expect(mockAccountFindById).toHaveBeenCalledWith("wa-1", "tenant-1");
-    expect(mockGetAccountStats).toHaveBeenCalled();
+    expect(mockGetGlobalStats).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        accountId: "wa-1",
+      }),
+    );
   });
 
-  it("Given accountId tidak diberikan When stats Then return 400", async () => {
+  it("Given accountId tidak diberikan When stats Then return 200 global stats", async () => {
+    mockGetGlobalStats.mockResolvedValue({
+      total: 25,
+      sent: 20,
+      failed: 3,
+      pending: 2,
+    });
+
     const req = new NextRequest("http://localhost/api/admin/whatsapp/stats");
     const res = await GET(req);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual({ total: 25, sent: 20, failed: 3, pending: 2 });
     expect(mockAccountFindById).not.toHaveBeenCalled();
-    expect(mockGetAccountStats).not.toHaveBeenCalled();
+    expect(mockGetGlobalStats).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        accountId: undefined,
+      }),
+    );
   });
 });
