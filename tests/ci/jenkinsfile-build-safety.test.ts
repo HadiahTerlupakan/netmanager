@@ -381,8 +381,9 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const installIndex = jenkinsfile.indexOf(
       "npm ci --no-audit --prefer-offline --ignore-scripts",
     );
+    // Sequential generate (bukan -parallel) — peak RAM lebih rendah di QC stage.
     const explicitGenerateIndex = jenkinsfile.indexOf(
-      "npm run prisma:generate-parallel",
+      "npm run prisma:generate\n",
     );
 
     expect(dockerignore).toContain("tmp/");
@@ -390,12 +391,13 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(dockerignore).toContain(".claude/");
     expect(packageJson.scripts.postinstall).toBe("npm run prisma:generate");
     expect(jenkinsfile).toContain("--ignore-scripts");
-    expect(jenkinsfile).toContain("npm run prisma:generate-parallel");
+    expect(jenkinsfile).toContain("npm run prisma:generate");
+    expect(jenkinsfile).not.toContain("npm run prisma:generate-parallel");
     expect(installIndex).toBeGreaterThan(-1);
     expect(explicitGenerateIndex).toBeGreaterThan(-1);
     expect(installIndex).toBeLessThan(explicitGenerateIndex);
     expect(jenkinsfile).not.toContain(
-      "npm ci --no-audit --prefer-offline && npm run prisma:generate-parallel",
+      "npm ci --no-audit --prefer-offline && npm run prisma:generate",
     );
     expect(builderStage).toContain("FROM node:24-alpine AS builder");
     expect(builderStage).toContain(
