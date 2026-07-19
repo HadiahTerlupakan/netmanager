@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Fix Jenkins OOMKilled di container node (deploy ABORTED)
+
+- **Tipe**: [INFRA]
+- **Scope**: `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: Build #219–#224 sering ABORTED karena container `node` di agent pod Jenkins di-OOMKill saat vitest (`maxWorkers=50%`) + lint/typecheck parallel. Patch: (1) set resource requests/limits eksplisit untuk container jnlp/node/docker/kubectl (node: 4Gi request / 8Gi limit); (2) lint & typecheck sequential; (3) vitest CI pakai `--maxWorkers=2` + `NODE_OPTIONS=--max-old-space-size=4096`.
+- **Files**: `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Status Diterima/Dibaca untuk WA Baileys
 
 - **Tipe**: [ADDED] [MIGRATION]

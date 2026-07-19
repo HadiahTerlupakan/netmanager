@@ -17,16 +17,39 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:3355.v388858a_47b_33-17-rhel-ubi9-jdk21
     imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
   - name: node
     image: node:24.15.0-alpine3.23
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
+    # Vitest + lint/typecheck butuh heap besar; tanpa limit, pod mudah OOMKilled
+    # (build #219-#224 ABORTED: Container [node] terminated [OOMKilled]).
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+      limits:
+        memory: "8Gi"
+        cpu: "2"
   - name: docker
     image: docker:29.4.0-cli-alpine3.23
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
@@ -35,6 +58,13 @@ spec:
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
   volumes:
   - name: docker-sock
     hostPath:
@@ -225,10 +255,11 @@ spec:
                                 npm config set fetch-retry-maxtimeout 120000
                                 npm ci --no-audit --prefer-offline --ignore-scripts
                                 npm run prisma:generate-parallel
-                                echo "Running Lint and Typecheck in parallel..."
-                                npm run lint & LINT_PID=\$!
-                                npm run typecheck & TYPE_PID=\$!
-                                wait \$LINT_PID \$TYPE_PID
+                                # Sequential (bukan parallel) — peak memory lebih rendah, hindari OOM
+                                echo "Running Lint..."
+                                npm run lint
+                                echo "Running Typecheck..."
+                                npm run typecheck
                             """
                         }
                     }
@@ -254,9 +285,11 @@ spec:
                                     'ENABLE_INTERNAL_CRON=false',
                                     'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                                     'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
-                                    'NEXTAUTH_URL=http://localhost:3000'
+                                    'NEXTAUTH_URL=http://localhost:3000',
+                                    // Cap heap + workers — maxWorkers=50% di CI sering OOMKilled
+                                    'NODE_OPTIONS=--max-old-space-size=4096'
                                 ]) {
-                                    sh "set -euo pipefail; npm run test:run"
+                                    sh "set -euo pipefail; npx vitest run --maxWorkers=2"
                                 }
                             }
                         }
