@@ -32,7 +32,9 @@ COPY . .
 # Generate Prisma and Build
 # Use ARG instead of ENV for build-time only configuration
 ARG NEXT_TELEMETRY_DISABLED=1
-ARG NODE_OPTIONS="--max-old-space-size=4096"
+# 4GB cukup untuk next build di CI; jangan 8GB — host OOM (build #228).
+# package.json "build" tidak hardcode heap supaya ENV ini dihormati.
+ARG NODE_OPTIONS="--no-deprecation --max-old-space-size=4096"
 ARG NEXTAUTH_URL="http://localhost:3000"
 ARG APP_URL="http://localhost:3000"
 ARG IMAGE_REVISION="unknown"

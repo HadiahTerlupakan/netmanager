@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Fix host OOM di stage Build Image (next build heap 8GB)
+
+- **Tipe**: [FIXED] [INFRA]
+- **Scope**: `package.json`, `Dockerfile`, `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: Build #228 ABORTED — tests lulus, lalu `docker buildx` OOMKilled SEMUA container agent. Root cause: `package.json` script `build` hardcode `NODE_OPTIONS=--max-old-space-size=8192` yang meng-override Dockerfile ARG (4GB). Buildx pakai host docker.sock → Node minta heap 8GB di host → host OOM. Fix: (1) hapus hardcode heap dari script build; (2) Dockerfile set 4GB via ENV; (3) turunkan request/limit container node (2Gi/4Gi) dan docker CLI (256Mi/1Gi) agar host punya headroom untuk dockerd/`next build`.
+- **Files**: `package.json`, `Dockerfile`, `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Sync indentasi expected buildx di jenkinsfile-build-safety test
 
 - **Tipe**: [FIXED]

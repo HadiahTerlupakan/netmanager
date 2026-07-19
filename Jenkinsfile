@@ -29,28 +29,32 @@ spec:
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
-    # Vitest + typecheck butuh heap besar. Request 3Gi (single-node cluster
-    # ~32Gi total); limit 6Gi. Build #226: host OOM karena vitest+docker buildx
-    # parallel — stages sudah di-serial (Test dulu, baru Build Image).
+    # Vitest + typecheck butuh heap besar. Request 2Gi (single-node cluster
+    # ~32Gi total); limit 4Gi. Build #226: host OOM vitest+buildx parallel
+    # → stages serial. Build #228: host OOM di next build (package.json heap
+    # 8GB override Dockerfile) — heap build diturunkan ke 4GB + request node
+    # diperkecil agar host punya headroom untuk dockerd/next build.
     resources:
       requests:
-        memory: "3Gi"
+        memory: "2Gi"
         cpu: "1"
       limits:
-        memory: "6Gi"
+        memory: "4Gi"
         cpu: "2"
   - name: docker
     image: docker:29.4.0-cli-alpine3.23
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
+    # CLI saja (buildx lewat host docker.sock). Limit kecil cukup;
+    # peak RAM ada di host dockerd saat next build, bukan di container ini.
     resources:
       requests:
-        memory: "1Gi"
-        cpu: "500m"
+        memory: "256Mi"
+        cpu: "100m"
       limits:
-        memory: "4Gi"
-        cpu: "2"
+        memory: "1Gi"
+        cpu: "1"
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
