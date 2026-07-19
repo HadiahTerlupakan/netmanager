@@ -29,17 +29,16 @@ spec:
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
-    # Vitest + typecheck butuh heap besar. Request 2Gi (single-node cluster
-    # ~32Gi total); limit 4Gi. Build #226: host OOM vitest+buildx parallel
-    # → stages serial. Build #228: host OOM di next build (package.json heap
-    # 8GB override Dockerfile) — heap build diturunkan ke 4GB + request node
-    # diperkecil agar host punya headroom untuk dockerd/next build.
+    # Typecheck (tsc) butuh ~5GB heap. Limit 6Gi biar ada margin.
+    # Request 3Gi saja (scheduling); peak hanya saat QC/test, idle saat Build Image.
+    # Stages SERIAL: Test → Build Image (jangan parallel — host OOM di #226).
+    # next build di host (docker.sock) pakai heap 4GB via Dockerfile, bukan 8GB.
     resources:
       requests:
-        memory: "2Gi"
+        memory: "3Gi"
         cpu: "1"
       limits:
-        memory: "4Gi"
+        memory: "6Gi"
         cpu: "2"
   - name: docker
     image: docker:29.4.0-cli-alpine3.23
@@ -252,8 +251,9 @@ spec:
                             'NEXTAUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'AUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000',
-                            // next typegen + tsc butuh heap > default (~2GB); build #225 heap OOM di typecheck
-                            'NODE_OPTIONS=--max-old-space-size=6144'
+                            // Heap 5GB < limit container 6Gi (margin ~1Gi untuk native/OS).
+                            // Jangan 6GB+ — build #229 OOMKilled saat typecheck (limit sempat 4Gi).
+                            'NODE_OPTIONS=--max-old-space-size=5120'
                         ]) {
                             sh """
                                 set -euo pipefail
@@ -261,8 +261,8 @@ spec:
                                 npm config set fetch-retry-mintimeout 20000
                                 npm config set fetch-retry-maxtimeout 120000
                                 npm ci --no-audit --prefer-offline --ignore-scripts
-                                npm run prisma:generate-parallel
-                                # Sequential (bukan parallel) — peak memory lebih rendah, hindari OOM
+                                # Sequential prisma generate — peak RAM lebih rendah dari -parallel
+                                npm run prisma:generate
                                 echo "Running Lint..."
                                 npm run lint
                                 echo "Running Typecheck..."
@@ -292,7 +292,7 @@ spec:
                             'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                             'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000',
-                            'NODE_OPTIONS=--max-old-space-size=4096'
+                            'NODE_OPTIONS=--max-old-space-size=3072'
                         ]) {
                             sh "set -euo pipefail; npx vitest run --maxWorkers=2"
                         }

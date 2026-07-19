@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Samakan heap typecheck dengan limit container node
+
+- **Tipe**: [FIXED] [INFRA]
+- **Scope**: `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: Build #229 ABORTED di stage QC: container node OOMKilled saat `npm run typecheck`. Penyebab: limit container diturunkan ke 4Gi di #228, tapi `NODE_OPTIONS` typecheck masih 6GB. Fix: limit node kembali 6Gi (request 3Gi), heap typecheck 5GB (margin), vitest heap 3GB, prisma generate sequential (bukan parallel).
+- **Files**: `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Fix host OOM di stage Build Image (next build heap 8GB)
 
 - **Tipe**: [FIXED] [INFRA]
