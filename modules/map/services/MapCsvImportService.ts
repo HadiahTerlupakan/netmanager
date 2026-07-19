@@ -163,7 +163,7 @@ function buildNotes(row: Record<string, string>): string | null {
 /** Validasi & map raw row → CreateMapNodeInput. Return null jika skip. */
 function mapRowToNodeInput(
   row: Record<string, string>,
-  rowIndex: number,
+  _rowIndex: number,
 ): { input: CreateMapNodeInput; warnings: string[] } | { error: string } {
   const name = row.name?.trim() || "";
   if (!name) return { error: "Kolom name wajib diisi" };
