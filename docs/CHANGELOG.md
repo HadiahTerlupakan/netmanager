@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Sync indentasi expected buildx di jenkinsfile-build-safety test
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/ci/jenkinsfile-build-safety.test.ts`
+- **Author**: agent
+- **Deskripsi**: Test `binds runtime image refs through env` gagal di CI karena expected string indentasi `docker buildx build` memakai 40 spasi, sementara Jenkinsfile memakai 32 spasi. Sesuaikan expected agar cocok dengan indentasi aktual.
+- **Files**: `tests/ci/jenkinsfile-build-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Fix Jenkins OOMKilled di container node (deploy ABORTED)
 
 - **Tipe**: [INFRA]
