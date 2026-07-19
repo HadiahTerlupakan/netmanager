@@ -246,7 +246,9 @@ spec:
                             'ENABLE_INTERNAL_CRON=false',
                             'NEXTAUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'AUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
-                            'NEXTAUTH_URL=http://localhost:3000'
+                            'NEXTAUTH_URL=http://localhost:3000',
+                            // next typegen + tsc butuh heap > default (~2GB); build #225 heap OOM di typecheck
+                            'NODE_OPTIONS=--max-old-space-size=6144'
                         ]) {
                             sh """
                                 set -euo pipefail

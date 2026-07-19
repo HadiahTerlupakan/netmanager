@@ -46,7 +46,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Tipe**: [INFRA]
 - **Scope**: `Jenkinsfile`
 - **Author**: agent
-- **Deskripsi**: Build #219–#224 sering ABORTED karena container `node` di agent pod Jenkins di-OOMKill saat vitest (`maxWorkers=50%`) + lint/typecheck parallel. Patch: (1) set resource requests/limits eksplisit untuk container jnlp/node/docker/kubectl (node: 4Gi request / 8Gi limit); (2) lint & typecheck sequential; (3) vitest CI pakai `--maxWorkers=2` + `NODE_OPTIONS=--max-old-space-size=4096`.
+- **Deskripsi**: Build #219–#224 sering ABORTED karena container `node` di agent pod Jenkins di-OOMKill saat vitest (`maxWorkers=50%`) + lint/typecheck parallel. Build #225 FAIL: JS heap OOM di stage typecheck (default ~2GB). Patch: (1) resource requests/limits eksplisit (node: 4Gi/8Gi); (2) lint & typecheck sequential; (3) typecheck `NODE_OPTIONS=--max-old-space-size=6144`; (4) vitest CI `--maxWorkers=2` + heap 4GB.
 - **Files**: `Jenkinsfile`
 - **Breaking**: ❌ Tidak
 
