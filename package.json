@@ -7,7 +7,7 @@
     "dev": "NODE_OPTIONS='--no-deprecation --max-old-space-size=8192' tsx server.ts",
     "prepare": "node scripts/run-husky-prepare.js",
     "postinstall": "npm run prisma:generate",
-    "build": "NODE_ENV=production next build",
+    "build": "NODE_ENV=production next build --webpack",
     "start": "NODE_ENV=production tsx server.ts",
     "worker": "tsx worker.ts",
     "lint": "eslint .",

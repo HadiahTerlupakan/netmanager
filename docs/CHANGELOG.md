@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Pakai webpack untuk next build (Turbopack OOM 26GB di host)
+
+- **Tipe**: [FIXED] [INFRA]
+- **Scope**: `package.json`
+- **Author**: agent
+- **Deskripsi**: Investigasi SSH ke host radpro (single-node k3s 31Gi). dmesg build #230: kernel OOM kill `MainThread` (Turbopack) dengan **anon-rss ~26GB** saat `next build`. Host juga menjalankan production netmanager + Jenkins + Rancher + Lumeris. Next 16 default Turbopack untuk production build terlalu lapar RAM untuk monorepo ini. Fix: `next build --webpack` (flag resmi opt-out). Heap Node tetap 4GB via Dockerfile ENV.
+- **Files**: `package.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Samakan heap typecheck dengan limit container node
 
 - **Tipe**: [FIXED] [INFRA]
