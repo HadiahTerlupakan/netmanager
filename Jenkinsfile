@@ -29,14 +29,15 @@ spec:
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
-    # Vitest + lint/typecheck butuh heap besar; tanpa limit, pod mudah OOMKilled
-    # (build #219-#224 ABORTED: Container [node] terminated [OOMKilled]).
+    # Vitest + typecheck butuh heap besar. Request 3Gi (single-node cluster
+    # ~32Gi total); limit 6Gi. Build #226: host OOM karena vitest+docker buildx
+    # parallel — stages sudah di-serial (Test dulu, baru Build Image).
     resources:
       requests:
-        memory: "4Gi"
+        memory: "3Gi"
         cpu: "1"
       limits:
-        memory: "8Gi"
+        memory: "6Gi"
         cpu: "2"
   - name: docker
     image: docker:29.4.0-cli-alpine3.23
@@ -269,100 +270,96 @@ spec:
             }
         }
 
-        stage('Test and Build') {
-            failFast true
-            parallel {
-                stage('Run Unit Tests') {
-                    steps {
-                        container('node') {
-                            script {
-                                echo "Running Unit Tests inside Node container..."
-                                withEnv([
-                                    'DATABASE_URL=postgresql://user:pass@localhost:5432/db',
-                                    'RADIUS_DATABASE_URL=postgresql://user:pass@localhost:5432/radius',
-                                    'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
-                                    'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
-                                    'REDIS_URL=redis://localhost:6379',
-                                    'NODE_ENV=test',
-                                    'ENABLE_INTERNAL_CRON=false',
-                                    'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
-                                    'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
-                                    'NEXTAUTH_URL=http://localhost:3000',
-                                    // Cap heap + workers — maxWorkers=50% di CI sering OOMKilled
-                                    'NODE_OPTIONS=--max-old-space-size=4096'
-                                ]) {
-                                    sh "set -euo pipefail; npx vitest run --maxWorkers=2"
-                                }
-                            }
+        // SERIAL (bukan parallel): vitest di container node + docker buildx via host
+        // docker.sock peak memory bersamaan → host OOM (build #226: SEMUA container OOMKilled).
+        stage('Run Unit Tests') {
+            steps {
+                container('node') {
+                    script {
+                        echo "Running Unit Tests inside Node container..."
+                        withEnv([
+                            'DATABASE_URL=postgresql://user:pass@localhost:5432/db',
+                            'RADIUS_DATABASE_URL=postgresql://user:pass@localhost:5432/radius',
+                            'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
+                            'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
+                            'REDIS_URL=redis://localhost:6379',
+                            'NODE_ENV=test',
+                            'ENABLE_INTERNAL_CRON=false',
+                            'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
+                            'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
+                            'NEXTAUTH_URL=http://localhost:3000',
+                            'NODE_OPTIONS=--max-old-space-size=4096'
+                        ]) {
+                            sh "set -euo pipefail; npx vitest run --maxWorkers=2"
                         }
                     }
                 }
+            }
+        }
 
-                stage('Build Image') {
-                    when {
-                        expression { env.DEPLOY_MODE != 'recovery' }
-                    }
-                    options {
-                        timeout(time: 50, unit: 'MINUTES')
-                    }
-                    steps {
-                        container('docker') {
-                            script {
-                                echo "Building and pushing Docker images (buildx --push + registry cache)..."
-                                withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
-                                    sh """
-                                    set -euo pipefail
-                                    mkdir -p .secrets
-                                    trap 'rm -rf .secrets' EXIT
-                                    echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
-                                    echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
-                                    echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
+        stage('Build Image') {
+            when {
+                expression { env.DEPLOY_MODE != 'recovery' }
+            }
+            options {
+                timeout(time: 50, unit: 'MINUTES')
+            }
+            steps {
+                container('docker') {
+                    script {
+                        echo "Building and pushing Docker images (buildx --push + registry cache)..."
+                        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
+                            sh """
+                            set -euo pipefail
+                            mkdir -p .secrets
+                            trap 'rm -rf .secrets' EXIT
+                            echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
+                            echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
+                            echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
-                                    export BUILDX_GIT_INFO=0
-                                    echo "\$REGISTRY_PASSWORD" | docker login "${REGISTRY_URL}" -u "\$REGISTRY_USER" --password-stdin
+                            export BUILDX_GIT_INFO=0
+                            echo "\$REGISTRY_PASSWORD" | docker login "${REGISTRY_URL}" -u "\$REGISTRY_USER" --password-stdin
 
-                                    timeout 1500 docker buildx build --push --progress=plain \
-                                        -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
-                                        --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP}" \
-                                        --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max" \
-                                        --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
-                                        --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
-                                        --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
-                                        --build-arg IMAGE_REVISION="${env.IMAGE_REVISION}" \
-                                        --label org.opencontainers.image.revision=${env.IMAGE_REVISION} \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${env.NEXT_PUBLIC_FIREBASE_API_KEY}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL="${env.NEXT_PUBLIC_FIREBASE_DATABASE_URL}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" \
-                                        --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${env.NEXT_PUBLIC_FIREBASE_APP_ID}" \
-                                        --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
-                                        --build-arg SKIP_TS_CHECK=true \
-                                        .
+                            timeout 1500 docker buildx build --push --progress=plain \
+                                -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max" \
+                                --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
+                                --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
+                                --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
+                                --build-arg IMAGE_REVISION="${env.IMAGE_REVISION}" \
+                                --label org.opencontainers.image.revision=${env.IMAGE_REVISION} \
+                                --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${env.NEXT_PUBLIC_FIREBASE_API_KEY}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL="${env.NEXT_PUBLIC_FIREBASE_DATABASE_URL}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${env.NEXT_PUBLIC_FIREBASE_APP_ID}" \
+                                --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
+                                --build-arg SKIP_TS_CHECK=true \
+                                .
 
-                                    timeout 600 docker buildx build --push --progress=plain \
-                                        -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} \
-                                        --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON}" \
-                                        --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON},mode=max" \
-                                        ./cron
+                            timeout 600 docker buildx build --push --progress=plain \
+                                -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON},mode=max" \
+                                ./cron
 
-                                    timeout 900 docker buildx build --push --progress=plain \
-                                        -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} \
-                                        --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS}" \
-                                        --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS},mode=max" \
-                                        -f radius/Dockerfile .
+                            timeout 900 docker buildx build --push --progress=plain \
+                                -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} \
+                                --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS}" \
+                                --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS},mode=max" \
+                                -f radius/Dockerfile .
 
-                                    docker manifest inspect "${env.APP_IMAGE_REF}" >/dev/null
-                                    docker manifest inspect "${env.APP_IMAGE_ENV_REF}" >/dev/null
-                                    docker manifest inspect "${env.CRON_IMAGE_REF}" >/dev/null
-                                    docker manifest inspect "${env.CRON_IMAGE_ENV_REF}" >/dev/null
-                                    docker manifest inspect "${env.RADIUS_IMAGE_REF}" >/dev/null
-                                    docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}" >/dev/null
-                                    echo "Verified pushed refs for app/cron/radius"
-                                    """
-                                }
-                            }
+                            docker manifest inspect "${env.APP_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.APP_IMAGE_ENV_REF}" >/dev/null
+                            docker manifest inspect "${env.CRON_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.CRON_IMAGE_ENV_REF}" >/dev/null
+                            docker manifest inspect "${env.RADIUS_IMAGE_REF}" >/dev/null
+                            docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}" >/dev/null
+                            echo "Verified pushed refs for app/cron/radius"
+                            """
                         }
                     }
                 }
