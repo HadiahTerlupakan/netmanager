@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Naikkan timeout buildx app (build #231 exit 130)
+
+- **Tipe**: [FIXED] [INFRA]
+- **Scope**: `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: Build #231 tests lulus, `next build` sukses (~17m), image app sudah di-push ke GHCR, lalu gagal `Canceled: context canceled` / exit 130 karena `timeout 1500` (25m) shell memotong saat cache export. Naikkan shell timeout app ke 2700s (45m) dan stage timeout ke 70m.
+- **Files**: `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Pakai webpack untuk next build (Turbopack OOM 26GB di host)
 
 - **Tipe**: [FIXED] [INFRA]

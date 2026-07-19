@@ -306,7 +306,9 @@ spec:
                 expression { env.DEPLOY_MODE != 'recovery' }
             }
             options {
-                timeout(time: 50, unit: 'MINUTES')
+                // Build #231: next build ~17m + export/push ~3m + cache export bisa >25m total.
+                // timeout shell 1500s (25m) membunuh buildx SEBELAH image sudah di-push (exit 130).
+                timeout(time: 70, unit: 'MINUTES')
             }
             steps {
                 container('docker') {
@@ -324,7 +326,7 @@ spec:
                             export BUILDX_GIT_INFO=0
                             echo "\$REGISTRY_PASSWORD" | docker login "${REGISTRY_URL}" -u "\$REGISTRY_USER" --password-stdin
 
-                            timeout 1500 docker buildx build --push --progress=plain \
+                            timeout 2700 docker buildx build --push --progress=plain \
                                 -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
                                 --cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP}" \
                                 --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max" \
