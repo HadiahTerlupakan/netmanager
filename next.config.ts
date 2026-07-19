@@ -181,6 +181,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "1gb",
     },
     proxyClientMaxBodySize: "1gb",
+    // Batasi worker collect/static gen di host CI 31Gi (default ~15 worker → peak RAM tinggi).
+    cpus: 2,
     // Filesystem cache untuk dev — compile result di-persist antar restart, bukan in-memory only.
     // Ini paling impactful untuk project besar dengan banyak route.
     turbopackFileSystemCacheForDev: true,

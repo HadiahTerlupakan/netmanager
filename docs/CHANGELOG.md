@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-19] — Kembalikan Turbopack build + batasi worker (webpack break Baileys)
+
+- **Tipe**: [FIXED] [INFRA]
+- **Scope**: `package.json`, `next.config.ts`
+- **Author**: agent
+- **Deskripsi**: Build #232 `next build --webpack` compile OK tapi gagal collect page data `/api/admin/whatsapp/accounts` (`TypeError: f.Pc is not a constructor` — Baileys di-bundle webpack salah). Build #231 (Turbopack) justru full success sampai push image, gagal hanya di timeout cache export. Revert ke Turbopack default + `experimental.cpus: 2` agar peak RAM collect page data lebih rendah di host 31Gi.
+- **Files**: `package.json`, `next.config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Naikkan timeout buildx app (build #231 exit 130)
 
 - **Tipe**: [FIXED] [INFRA]
