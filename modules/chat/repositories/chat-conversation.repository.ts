@@ -1,15 +1,37 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import type { ChatActor } from "../domain/entities/ChatEntity";
 import { GLOBAL_CHAT_NAME } from "./chat.constants";
+
+type ParticipantNestedCreate =
+  Prisma.ConversationParticipantCreateWithoutConversationInput;
+
+/** Build participant create data — set userId hanya untuk aktor User. */
+function participantNestedCreate(
+  actor: ChatActor,
+  tenantId: string,
+): ParticipantNestedCreate {
+  return {
+    userId: actor.type === "user" ? actor.id : null,
+    actorType: actor.type,
+    actorId: actor.id,
+    tenantId,
+  } as ParticipantNestedCreate;
+}
 
 /** Query conversation chat utama. */
 export class ChatConversationRepository {
-  /** Ambil semua conversation milik user dalam tenant. */
-  async findConversationsForUser(userId: string, tenantId: string) {
+  /** Ambil semua conversation milik actor dalam tenant. */
+  async findConversationsForUser(actor: ChatActor, tenantId: string) {
     return prisma.conversation.findMany({
       where: {
         tenantId,
         participants: {
-          some: { userId, tenantId },
+          some: {
+            actorType: actor.type,
+            actorId: actor.id,
+            tenantId,
+          },
         },
       },
       include: {
@@ -75,7 +97,7 @@ export class ChatConversationRepository {
 
   /** Buat conversation baru beserta participant awal. */
   async createConversation(input: {
-    participantIds: string[];
+    participants: ChatActor[];
     tenantId: string;
     name?: string;
     isGlobal?: boolean;
@@ -86,18 +108,17 @@ export class ChatConversationRepository {
         isGlobal: input.isGlobal || false,
         tenantId: input.tenantId,
         participants: {
-          create: input.participantIds.map((userId) => ({
-            userId,
-            tenantId: input.tenantId,
-          })),
+          create: input.participants.map((actor) =>
+            participantNestedCreate(actor, input.tenantId),
+          ),
         },
       },
     });
   }
 
-  /** Cari conversation direct yang sudah ada. */
-  async findExisting1on1(userIds: string[], tenantId: string) {
-    if (userIds.length !== 2) {
+  /** Cari direct conversation yang sudah ada antara dua actor. */
+  async findExisting1on1(actors: [ChatActor, ChatActor], tenantId: string) {
+    if (actors.length !== 2) {
       return null;
     }
 
@@ -106,11 +127,23 @@ export class ChatConversationRepository {
         isGlobal: false,
         tenantId,
         participants: {
-          every: { userId: { in: userIds } },
+          every: {
+            OR: actors.map((actor) => ({
+              actorType: actor.type,
+              actorId: actor.id,
+            })),
+          },
         },
         AND: {
           participants: {
-            none: { userId: { notIn: userIds } },
+            none: {
+              NOT: {
+                OR: actors.map((actor) => ({
+                  actorType: actor.type,
+                  actorId: actor.id,
+                })),
+              },
+            },
           },
         },
       },

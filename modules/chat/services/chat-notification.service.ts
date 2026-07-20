@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import type { ChatActor } from "../domain/entities/ChatEntity";
 import type { IChatRepository } from "../domain/ports/IChatRepository";
 import type {
   ChatMessageSocketPayload,
@@ -32,12 +33,12 @@ export class ChatNotificationService {
     },
   ): Promise<void> {
     try {
-      const otherUserIds = await this.getOtherUserIds(
+      const otherParticipants = await this.getOtherParticipants(
         input.conversationId,
-        input.senderId,
+        input.sender,
         input.tenantId,
       );
-      if (otherUserIds.length === 0) {
+      if (otherParticipants.length === 0) {
         return;
       }
 
@@ -45,8 +46,8 @@ export class ChatNotificationService {
         input.conversationId,
         input.tenantId,
       );
-      await this.sendPushToUsers(
-        otherUserIds,
+      await this.sendPushToActors(
+        otherParticipants,
         buildChatNotificationTitle(conversation, input.senderName),
         `${input.senderName}: ${buildChatNotificationBody(message)}`,
         {
@@ -55,12 +56,13 @@ export class ChatNotificationService {
           messageId: message.id,
         },
       );
-      await this.emitMessageToUsers(otherUserIds, {
+      await this.emitMessageToActors(otherParticipants, {
         id: message.id,
         content: message.content,
         imageUrl: message.imageUrl,
         conversationId: input.conversationId,
-        senderId: input.senderId,
+        senderActorType: input.sender.type,
+        senderActorId: input.sender.id,
         senderName: input.senderName,
         createdAt: message.createdAt.toISOString(),
         isOwn: false,
@@ -72,16 +74,16 @@ export class ChatNotificationService {
 
   /** Kirim push dan socket event untuk pesan broadcast. */
   async notifyBroadcastSent(input: {
-    userIds: string[];
+    recipients: ChatActor[];
     conversationId: string;
     messageId: string;
     content: string;
-    senderId: string;
+    sender: ChatActor;
     senderName: string;
     createdAt: Date;
     title?: string;
   }): Promise<void> {
-    if (input.userIds.length === 0) {
+    if (input.recipients.length === 0) {
       return;
     }
 
@@ -89,29 +91,34 @@ export class ChatNotificationService {
     await this.emitBroadcastMessage(input);
   }
 
-  private async getOtherUserIds(
+  private async getOtherParticipants(
     conversationId: string,
-    senderId: string,
+    sender: ChatActor,
     tenantId: string,
-  ): Promise<string[]> {
-    const otherParticipants = await this.repository.getOtherParticipants(
+  ): Promise<ChatActor[]> {
+    const participants = await this.repository.getOtherParticipants(
       conversationId,
-      senderId,
+      sender,
       tenantId,
     );
-    return otherParticipants.map((participant) => participant.userId);
+    return participants
+      .filter((p) => p.actorId && p.actorType)
+      .map((p) => ({
+        type: p.actorType as ChatActor["type"],
+        id: p.actorId as string,
+      }));
   }
 
   private async sendBroadcastPush(input: {
-    userIds: string[];
+    recipients: ChatActor[];
     conversationId: string;
     messageId: string;
     content: string;
     title?: string;
   }): Promise<void> {
     try {
-      await this.sendPushToUsers(
-        input.userIds,
+      await this.sendPushToActors(
+        input.recipients,
         buildBroadcastTitle(input.title),
         input.content,
         {
@@ -126,20 +133,21 @@ export class ChatNotificationService {
   }
 
   private async emitBroadcastMessage(input: {
-    userIds: string[];
+    recipients: ChatActor[];
     conversationId: string;
     messageId: string;
     content: string;
-    senderId: string;
+    sender: ChatActor;
     senderName: string;
     createdAt: Date;
   }): Promise<void> {
     try {
-      await this.emitMessageToUsers(input.userIds, {
+      await this.emitMessageToActors(input.recipients, {
         id: input.messageId,
         content: input.content,
         conversationId: input.conversationId,
-        senderId: input.senderId,
+        senderActorType: input.sender.type,
+        senderActorId: input.sender.id,
         senderName: input.senderName,
         createdAt: input.createdAt.toISOString(),
         isOwn: false,
@@ -166,30 +174,39 @@ export class ChatNotificationService {
     return this.socketEmitterModulePromise;
   }
 
-  private async sendPushToUsers(
-    userIds: string[],
+  private async sendPushToActors(
+    actors: ChatActor[],
     title: string,
     body: string,
     data?: Record<string, unknown>,
   ): Promise<void> {
     const { sendPushToUsers } = await this.getPushServiceModule();
-    await sendPushToUsers(userIds, title, body, data);
+    // sendPushToUsers sudah actor-aware: fallback ke mitra repo jika id tidak
+    // ditemukan di User. Mitra/pelanggan/user id bisa langsung dilewat.
+    await sendPushToUsers(
+      actors.map((actor) => actor.id),
+      title,
+      body,
+      data,
+    );
   }
 
-  private async emitMessageToUsers(
-    userIds: string[],
+  private async emitMessageToActors(
+    actors: ChatActor[],
     payload: ChatMessageSocketPayload,
   ): Promise<void> {
     await Promise.all(
-      userIds.map((userId) => this.emitChatMessage(userId, payload)),
+      actors.map((actor) => this.emitChatMessage(actor, payload)),
     );
   }
 
   private async emitChatMessage(
-    userId: string,
+    actor: ChatActor,
     payload: ChatMessageSocketPayload,
   ): Promise<void> {
     const { socketEmitter } = await this.getSocketEmitterModule();
-    socketEmitter.chatMessage(userId, payload);
+    // Firebase realtime path `users/{id}/events` dipakai untuk semua actor
+    // (mitra subscribe pakai mitra id → path sama). Payload tidak berubah.
+    socketEmitter.chatMessage(actor.id, payload as never);
   }
 }

@@ -1,4 +1,5 @@
 import type {
+  ChatActor,
   ChatConversationEntity,
   ChatMessageEntity,
   ChatParticipantEntity,
@@ -14,7 +15,7 @@ type ChatUserResult = ChatUserSummaryEntity & Record<string, unknown>;
 
 export interface IChatRepository {
   findConversationsForUser(
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ): Promise<ChatRepositoryResult[]>;
   findConversationById(
@@ -32,31 +33,31 @@ export interface IChatRepository {
   findOrCreateGlobalChat(tenantId: string): Promise<ChatRepositoryResult>;
   isParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ): Promise<boolean>;
   addParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ): Promise<ChatParticipantResult>;
   updateLastRead(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ): Promise<{ count: number }>;
   createConversation(
     input: CreateConversationInput & { tenantId: string },
   ): Promise<ChatRepositoryResult>;
   findExisting1on1(
-    userIds: string[],
+    actors: [ChatActor, ChatActor],
     tenantId: string,
   ): Promise<ChatRepositoryResult | null>;
   getOtherParticipants(
     conversationId: string,
-    excludeUserId: string,
+    excludeActor: ChatActor,
     tenantId: string,
-  ): Promise<Array<{ userId: string }>>;
+  ): Promise<ChatParticipantEntity[]>;
   getParticipantCount(
     conversationId: string,
     tenantId: string,

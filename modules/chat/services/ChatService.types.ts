@@ -1,6 +1,8 @@
+import type { ChatActor } from "../domain/entities/ChatEntity";
+
 export interface SendMessageInput {
   conversationId: string;
-  senderId: string;
+  sender: ChatActor;
   senderName: string;
   tenantId: string;
   content?: string | null;
@@ -8,14 +10,14 @@ export interface SendMessageInput {
 }
 
 export interface CreateChatInput {
-  creatorId: string;
-  participantIds: string[];
+  creator: ChatActor;
+  participants: ChatActor[];
   tenantId: string;
   name?: string;
 }
 
 export interface BroadcastMessageInput {
-  senderId: string;
+  sender: ChatActor;
   senderName: string;
   tenantId: string;
   content: string;
@@ -24,7 +26,7 @@ export interface BroadcastMessageInput {
 
 export interface ChatMessagesQuery {
   conversationId: string;
-  userId: string;
+  actor: ChatActor;
   tenantId: string;
   cursor?: string;
   limit?: number;
@@ -35,7 +37,8 @@ export interface ChatMessageSocketPayload {
   content: string | null;
   imageUrl?: string | null;
   conversationId: string;
-  senderId: string;
+  senderActorType: string;
+  senderActorId: string;
   senderName: string;
   createdAt: string;
   isOwn: boolean;

@@ -1,3 +1,10 @@
+export type ChatActorType = "user" | "mitra" | "customer";
+
+export interface ChatActor {
+  type: ChatActorType;
+  id: string;
+}
+
 export interface ChatUserSummaryEntity {
   id: string;
   name: string | null;
@@ -9,19 +16,23 @@ export interface ChatUserSummaryEntity {
 
 export interface ChatParticipantEntity {
   id?: string;
-  userId: string;
+  userId: string | null;
+  actorType: string;
+  actorId: string | null;
   lastReadAt?: Date | null;
-  user?: ChatUserSummaryEntity;
+  user?: ChatUserSummaryEntity | null;
 }
 
 export interface ChatMessageEntity {
   id: string;
   conversationId: string;
-  senderId: string;
+  senderId: string | null;
+  actorType: string;
+  actorId: string | null;
   content: string | null;
   imageUrl: string | null;
   createdAt: Date;
-  sender: ChatUserSummaryEntity;
+  sender: ChatUserSummaryEntity | null;
 }
 
 export interface ChatConversationEntity {
@@ -36,13 +47,13 @@ export interface ChatConversationEntity {
 
 export interface CreateMessageInput {
   conversationId: string;
-  senderId: string;
+  sender: ChatActor;
   content?: string | null;
   imageUrl?: string | null;
 }
 
 export interface CreateConversationInput {
-  participantIds: string[];
+  participants: ChatActor[];
   name?: string;
   isGlobal?: boolean;
 }

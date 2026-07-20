@@ -1,4 +1,6 @@
 import type {
+  ChatActor,
+  ChatParticipantEntity,
   CreateConversationInput,
   CreateMessageInput,
 } from "../domain/entities/ChatEntity";
@@ -13,10 +15,10 @@ export class ChatRepository implements IChatRepository {
   private readonly messageRepository = new ChatMessageRepository();
   private readonly userRepository = new ChatUserRepository();
 
-  /** Ambil semua conversation milik user dalam tenant. */
-  async findConversationsForUser(userId: string, tenantId: string) {
+  /** Ambil semua conversation milik actor dalam tenant. */
+  async findConversationsForUser(actor: ChatActor, tenantId: string) {
     return this.conversationRepository.findConversationsForUser(
-      userId,
+      actor,
       tenantId,
     );
   }
@@ -52,28 +54,28 @@ export class ChatRepository implements IChatRepository {
     return this.conversationRepository.findOrCreateGlobalChat(tenantId);
   }
 
-  /** Cek apakah user adalah participant conversation. */
+  /** Cek apakah actor adalah participant conversation. */
   async isParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     return this.messageRepository.isParticipant(
       conversationId,
-      userId,
+      actor,
       tenantId,
     );
   }
 
-  /** Tambahkan user sebagai participant conversation. */
+  /** Tambahkan actor sebagai participant conversation. */
   async addParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     return this.messageRepository.addParticipant(
       conversationId,
-      userId,
+      actor,
       tenantId,
     );
   }
@@ -81,12 +83,12 @@ export class ChatRepository implements IChatRepository {
   /** Update waktu baca terakhir participant. */
   async updateLastRead(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     return this.messageRepository.updateLastRead(
       conversationId,
-      userId,
+      actor,
       tenantId,
     );
   }
@@ -98,20 +100,20 @@ export class ChatRepository implements IChatRepository {
     return this.conversationRepository.createConversation(input);
   }
 
-  /** Cari direct chat yang sudah ada antara dua user. */
-  async findExisting1on1(userIds: string[], tenantId: string) {
-    return this.conversationRepository.findExisting1on1(userIds, tenantId);
+  /** Cari direct chat yang sudah ada antara dua actor. */
+  async findExisting1on1(actors: [ChatActor, ChatActor], tenantId: string) {
+    return this.conversationRepository.findExisting1on1(actors, tenantId);
   }
 
-  /** Ambil participant lain selain user tertentu. */
+  /** Ambil participant lain selain actor tertentu. */
   async getOtherParticipants(
     conversationId: string,
-    excludeUserId: string,
+    excludeActor: ChatActor,
     tenantId: string,
-  ) {
+  ): Promise<ChatParticipantEntity[]> {
     return this.messageRepository.getOtherParticipants(
       conversationId,
-      excludeUserId,
+      excludeActor,
       tenantId,
     );
   }

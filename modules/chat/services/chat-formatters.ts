@@ -5,6 +5,8 @@ import {
   IMAGE_NOTIFICATION_TEXT,
   NEW_MESSAGE_FALLBACK,
 } from "./chat.constants";
+import type { ChatActor } from "../domain/entities/ChatEntity";
+import { participantSummary, resolveActorSummary } from "./actor-resolver";
 
 type ChatUserSummary = {
   id: string;
@@ -13,17 +15,21 @@ type ChatUserSummary = {
 };
 
 type ChatParticipant = {
-  userId: string;
+  userId: string | null;
+  actorType: string;
+  actorId: string | null;
   lastReadAt?: Date | null;
-  user?: ChatUserSummary;
+  user?: ChatUserSummary | null;
 };
 
 type ChatMessage = {
   id: string;
   content: string | null;
   imageUrl?: string | null;
-  senderId: string;
-  sender: ChatUserSummary;
+  senderId: string | null;
+  actorType: string;
+  actorId: string | null;
+  sender: ChatUserSummary | null;
   createdAt: Date;
 };
 
@@ -42,21 +48,28 @@ type UserSearchRecord = ChatUserSummary & {
   sites?: { name: string | null } | null;
 };
 
+function isActorMatch(
+  participant: { actorType: string; actorId: string | null },
+  actor: ChatActor,
+): boolean {
+  return (
+    participant.actorType === actor.type && participant.actorId === actor.id
+  );
+}
+
 /** Format ringkasan conversation untuk daftar chat. */
-export function formatConversationListItem(
+export async function formatConversationListItem(
   conversation: ChatConversation,
-  userId: string,
+  actor: ChatActor,
 ) {
   const lastMessage = conversation.messages?.[0];
-  const otherParticipants = (conversation.participants ?? [])
-    .filter((participant) => participant.userId !== userId)
-    .map((participant) => ({
-      id: participant.user?.id ?? participant.userId,
-      name: participant.user?.name ?? null,
-      image: participant.user?.image ?? null,
-    }));
-  const myParticipant = conversation.participants?.find(
-    (participant) => participant.userId === userId,
+  const otherParticipants = await resolveParticipants(
+    (conversation.participants ?? []).filter(
+      (participant) => !isActorMatch(participant, actor),
+    ),
+  );
+  const myParticipant = conversation.participants?.find((participant) =>
+    isActorMatch(participant, actor),
   );
 
   return {
@@ -67,7 +80,7 @@ export function formatConversationListItem(
     lastMessage: lastMessage
       ? {
           content: lastMessage.content,
-          senderName: lastMessage.sender.name,
+          senderName: await resolveSenderName(lastMessage),
           createdAt: lastMessage.createdAt.toISOString(),
         }
       : null,
@@ -77,19 +90,21 @@ export function formatConversationListItem(
 }
 
 /** Format response detail pesan conversation. */
-export function formatConversationMessagesResponse(
+export async function formatConversationMessagesResponse(
   conversation: Omit<ChatConversation, "messages" | "updatedAt">,
   messages: ChatMessage[],
-  userId: string,
+  actor: ChatActor,
   limit: number,
 ) {
   const hasMore = messages.length > limit;
   const displayMessages = hasMore ? messages.slice(0, -1) : messages;
 
   return {
-    conversation: formatConversationSummary(conversation),
-    messages: displayMessages.map((message) =>
-      formatConversationMessageItem(message, userId),
+    conversation: await formatConversationSummary(conversation),
+    messages: await Promise.all(
+      displayMessages.map((message) =>
+        formatConversationMessageItem(message, actor),
+      ),
     ),
     hasMore,
     nextCursor: hasMore
@@ -99,19 +114,21 @@ export function formatConversationMessagesResponse(
 }
 
 /** Format response pesan baru yang baru terkirim. */
-export function formatSentMessageResponse(
+export async function formatSentMessageResponse(
   message: ChatMessage,
-  senderId: string,
+  sender: ChatActor,
 ) {
+  const senderName = await resolveSenderName(message);
   return {
     id: message.id,
     content: message.content,
     imageUrl: message.imageUrl,
-    senderId: message.senderId,
-    senderName: message.sender.name,
-    senderImage: message.sender.image,
+    senderActorType: message.actorType,
+    senderActorId: message.actorId,
+    senderName,
+    senderImage: message.sender?.image ?? null,
     createdAt: message.createdAt.toISOString(),
-    isOwn: message.senderId === senderId,
+    isOwn: isActorMatch(message, sender),
   };
 }
 
@@ -187,32 +204,68 @@ function resolveConversationName(
   );
 }
 
-function formatConversationSummary(
+async function formatConversationSummary(
   conversation: Omit<ChatConversation, "messages" | "updatedAt">,
 ) {
   return {
     id: conversation.id,
     name: conversation.isGlobal ? GLOBAL_CHAT_NAME : conversation.name,
     isGlobal: conversation.isGlobal,
-    participants: (conversation.participants ?? []).map((participant) => ({
-      id: participant.user?.id ?? participant.userId,
-      name: participant.user?.name ?? null,
-      image: participant.user?.image ?? null,
-    })),
+    participants: await resolveParticipants(conversation.participants ?? []),
   };
 }
 
-function formatConversationMessageItem(message: ChatMessage, userId: string) {
+async function formatConversationMessageItem(
+  message: ChatMessage,
+  actor: ChatActor,
+) {
   return {
     id: message.id,
     content: message.content,
     imageUrl: message.imageUrl,
-    senderId: message.senderId,
-    senderName: message.sender.name,
-    senderImage: message.sender.image,
+    senderActorType: message.actorType,
+    senderActorId: message.actorId,
+    senderName: await resolveSenderName(message),
+    senderImage: message.sender?.image ?? null,
     createdAt: message.createdAt.toISOString(),
-    isOwn: message.senderId === userId,
+    isOwn: isActorMatch(message, actor),
   };
+}
+
+async function resolveParticipants(
+  participants: ChatParticipant[],
+): Promise<ChatUserSummary[]> {
+  return Promise.all(
+    participants.map(async (participant) => {
+      const summary = participantSummary(participant);
+      if (summary && summary.name) return summary;
+      if (participant.actorId && participant.actorType !== "user") {
+        const resolved = await resolveActorSummary({
+          type: participant.actorType as ChatActor["type"],
+          id: participant.actorId,
+        });
+        if (resolved) return resolved;
+      }
+      return (
+        summary ?? {
+          id: participant.actorId ?? participant.userId ?? "",
+          name: null,
+        }
+      );
+    }),
+  );
+}
+
+async function resolveSenderName(message: ChatMessage): Promise<string> {
+  if (message.sender?.name) return message.sender.name;
+  if (message.actorId && message.actorType !== "user") {
+    const resolved = await resolveActorSummary({
+      type: message.actorType as ChatActor["type"],
+      id: message.actorId,
+    });
+    if (resolved?.name) return resolved.name;
+  }
+  return message.sender?.name ?? "Unknown";
 }
 
 function hasUnreadMessage(

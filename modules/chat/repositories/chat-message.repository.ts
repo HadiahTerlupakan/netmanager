@@ -1,5 +1,25 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import type {
+  ChatActor,
+  ChatParticipantEntity,
+} from "../domain/entities/ChatEntity";
 import { DEFAULT_MESSAGE_LIMIT } from "./chat.constants";
+
+/** Build participant create data — set userId hanya untuk aktor User. */
+function participantUncheckedCreate(
+  conversationId: string,
+  actor: ChatActor,
+  tenantId: string,
+): Prisma.ConversationParticipantUncheckedCreateInput {
+  return {
+    conversationId,
+    userId: actor.type === "user" ? actor.id : null,
+    actorType: actor.type,
+    actorId: actor.id,
+    tenantId,
+  };
+}
 
 /** Query message chat dan status baca. */
 export class ChatMessageRepository {
@@ -27,7 +47,7 @@ export class ChatMessageRepository {
   /** Buat message baru dan sinkronkan updatedAt conversation. */
   async createMessage(input: {
     conversationId: string;
-    senderId: string;
+    sender: ChatActor;
     tenantId: string;
     content?: string | null;
     imageUrl?: string | null;
@@ -35,7 +55,9 @@ export class ChatMessageRepository {
     const message = await prisma.message.create({
       data: {
         conversationId: input.conversationId,
-        senderId: input.senderId,
+        senderId: input.sender.type === "user" ? input.sender.id : null,
+        actorType: input.sender.type,
+        actorId: input.sender.id,
         content: input.content?.trim() || null,
         imageUrl: input.imageUrl || null,
         tenantId: input.tenantId,
@@ -58,40 +80,60 @@ export class ChatMessageRepository {
   /** Ambil participant lain selain pengirim. */
   async getOtherParticipants(
     conversationId: string,
-    excludeUserId: string,
+    excludeActor: ChatActor,
     tenantId: string,
-  ) {
-    return prisma.conversationParticipant.findMany({
+  ): Promise<ChatParticipantEntity[]> {
+    const participants = await prisma.conversationParticipant.findMany({
       where: {
         conversationId,
         tenantId,
-        userId: { not: excludeUserId },
+        NOT: {
+          actorType: excludeActor.type,
+          actorId: excludeActor.id,
+        },
       },
-      select: { userId: true },
+      select: {
+        userId: true,
+        actorType: true,
+        actorId: true,
+        user: { select: { id: true, name: true, image: true } },
+      },
     });
+    return participants as ChatParticipantEntity[];
   }
 
-  /** Cek apakah user adalah participant conversation. */
+  /** Cek apakah actor adalah participant conversation. */
   async isParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     const participant = await prisma.conversationParticipant.findFirst({
-      where: { conversationId, userId, tenantId },
+      where: {
+        conversationId,
+        tenantId,
+        actorType: actor.type,
+        actorId: actor.id,
+      },
     });
     return Boolean(participant);
   }
 
-  /** Tambahkan participant ke conversation bila belum ada. */
+  /** Tambahkan actor sebagai participant conversation bila belum ada. */
   async addParticipant(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     return prisma.conversationParticipant.upsert({
-      where: { conversationId_userId: { conversationId, userId } },
-      create: { conversationId, userId, tenantId },
+      where: {
+        conversationId_actorType_actorId: {
+          conversationId,
+          actorType: actor.type,
+          actorId: actor.id,
+        },
+      },
+      create: participantUncheckedCreate(conversationId, actor, tenantId),
       update: { tenantId },
     });
   }
@@ -99,11 +141,16 @@ export class ChatMessageRepository {
   /** Update waktu baca terakhir participant. */
   async updateLastRead(
     conversationId: string,
-    userId: string,
+    actor: ChatActor,
     tenantId: string,
   ) {
     return prisma.conversationParticipant.updateMany({
-      where: { conversationId, userId, tenantId },
+      where: {
+        conversationId,
+        tenantId,
+        actorType: actor.type,
+        actorId: actor.id,
+      },
       data: { lastReadAt: new Date() },
     });
   }
