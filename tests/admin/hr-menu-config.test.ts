@@ -68,7 +68,8 @@ describe("HR menu config (PRD-HR-MENU-SPLIT v2)", () => {
     const source = readSource(
       "components/layout/admin-sidebar/adminSidebarMenu.ts",
     );
-    expect(source).toMatch(/"HR"\s*:\s*"users"/);
+    // prettier unquotes valid identifier keys, jadi terima "HR" atau HR
+    expect(source).toMatch(/"?HR"?\s*:\s*"users"/);
     expect(source).toMatch(/"HR\.EMPLOYEES"\s*:\s*"users"/);
   });
 });
