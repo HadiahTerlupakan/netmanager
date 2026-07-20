@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — List HR pegawai ikut template UI list Pengguna
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/hr/employees`
+- **Author**: agent
+- **Deskripsi**: Halaman list pegawai HR di-refresh mengikuti template list Pengguna: header dengan CTA, kartu statistik (UserStats), filter (UserFilters), ResponsiveTable, dan pagination. Reuse `useUserFetch`, `UserStats`, `UserFilters`, `ResponsiveTable`, dan `buttonVariants` dari modul users — tidak ada duplikasi fetch layer. Kolom disesuaikan untuk konteks HR (Pegawai, Departemen, Site, Wajib Absen, Status) dengan aksi "Kelola Kepegawaian" + "Akun".
+- **Files**: `app/admin/hr/employees/HrEmployeesListClient.tsx`, `tests/admin/hr-employees-surface.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — Menu HR Data Pegawai
 
 - **Tipe**: [ADDED]

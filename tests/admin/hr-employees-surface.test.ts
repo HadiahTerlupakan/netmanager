@@ -64,7 +64,7 @@ describe("HR employees list page", () => {
     const client = readSource(
       "app/admin/hr/employees/HrEmployeesListClient.tsx",
     );
-    expect(client).toContain("/api/admin/users");
+    expect(client).toMatch(/useUserFetch/);
     expect(client).toContain("/admin/hr/employees/");
     expect(client).toContain("/admin/users");
   });
