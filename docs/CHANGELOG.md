@@ -41,6 +41,47 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Aktifkan chat untuk mitra & pelanggan via actor polymorphism
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/chat`, `app/api/admin/chat`, `app/api/mobile/chat`
+- **Author**: agent
+- **Deskripsi**: Chat sebelumnya hard-couple ke `User.id` (FK di
+  `ConversationParticipant.userId` & `Message.senderId`), sehingga mitra &
+  pelanggan (di DB terpisah `prismaMitra`/`prismaAuth.pelanggan`) tidak bisa
+  berpartisipasi — `ensureEmployeeUser` throw 500 dan insert participant
+  akan FK violation. Refactor ke pola actor polymorphic (sama seperti
+  `SystemLog`/`Notification`): tambah `actorType` + `actorId` di
+  `ConversationParticipant` & `Message`, nullable `userId`/`senderId`.
+  `ChatService` pakai `resolveChatActor(session)` — mitra → `actorType:"mitra"`,
+  pelanggan → `"customer"`, user → `"user"`. Formatters resolve name/image
+  cross-DB via `resolveActorSummary`. `sendPushToUsers` sudah actor-aware
+  (fallback mitra repo), socket emit `chatMessage(actorId)` ke Firebase path
+  `users/{id}/events` yang dipakai mobile mitra. Broadcast & create
+  conversation tetap employee-only; mitra bisa join global chat + reply +
+  1-on-1 dengan employee.
+- **Files**: `prisma/schema.prisma`,
+  `modules/chat/domain/entities/ChatEntity.ts`,
+  `modules/chat/domain/ports/IChatRepository.ts`,
+  `modules/chat/repositories/chat-conversation.repository.ts`,
+  `modules/chat/repositories/chat-message.repository.ts`,
+  `modules/chat/repositories/ChatRepository.ts`,
+  `modules/chat/services/ChatService.ts`,
+  `modules/chat/services/ChatBroadcastService.ts`,
+  `modules/chat/services/ChatService.types.ts`,
+  `modules/chat/services/chat-formatters.ts`,
+  `modules/chat/services/chat-notification.service.ts`,
+  `modules/chat/services/actor-resolver.ts`,
+  `modules/chat/services/resolveChatActor.ts`,
+  `modules/chat/index.ts`,
+  `app/api/admin/chat/**`, `app/api/mobile/chat/**`,
+  `tests/modules/chat/ChatService.test.ts`
+- **Migration**: `20260720030000_add_chat_actor_columns` (additive —
+  FK ke User tetap aktif sebagai safety net, drop FK akan di migration
+  terpisah setelah verifikasi production clean)
+- **Breaking**: ❌ Tidak (API DTO tambah field `senderActorType`/
+  `senderActorId` tanpa hapus `senderId` yang sudah nullable)
+
 ### [2026-07-20] — Aktifkan chat mobile untuk mitra (semua tipe)
 
 - **Tipe**: [FIXED]
