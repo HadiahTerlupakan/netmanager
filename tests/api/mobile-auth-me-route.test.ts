@@ -91,6 +91,7 @@ describe("mobile auth me route", () => {
       "m_dashboard",
       "m_mitra_wallet",
       "m_mitra_withdraw",
+      "m_chat",
       "m_work_order",
       "m_barang",
       "m_barang_masuk",
