@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Reminder absensi via WhatsApp + flexible no-checkin
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/attendance`, `modules/users`
+- **Author**: agent
+- **Deskripsi**: Reminder absensi karyawan (cron `attendance-alert`) sekarang
+  dual-channel: push notifikasi + WhatsApp via akun INTERNAL. Copy check-in
+  menekankan keterlambatan. Offset tetap 30 menit setelah jam masuk/pulang.
+  Flexible: (1) 1x/hari jika belum check-in sama sekali (mulai jam 12 lokal),
+  (2) tetap reminder checkout setelah melewati target jam kerja. User cukup
+  punya pushToken ATAU phone untuk masuk antrean reminder.
+- **Files**: `modules/attendance/services/AttendanceReminderDeliveryService.ts`,
+  `modules/attendance/services/AttendanceReminderQueryService.ts`,
+  `modules/attendance/services/AttendanceAlertService.ts`,
+  `modules/attendance/repositories/AttendanceReminderRepository.ts`,
+  `modules/users/repositories/user-lookup.attendance.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — Nullable userId/senderId chat untuk actor mitra
 
 - **Tipe**: [MIGRATION]
