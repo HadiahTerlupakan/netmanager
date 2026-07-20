@@ -246,6 +246,9 @@ function getPermissionResource(code: string): string {
     "FINANCE.EXECUTIVE": "finance",
     "FINANCE.COHORT": "finance",
     "FINANCE.INCIDENTS": "finance",
+    // HR menu: surface kepegawaian reuse permission users (fase 1 PRD)
+    HR: "users",
+    "HR.EMPLOYEES": "users",
   };
 
   if (specialMappings[code]) {

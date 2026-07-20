@@ -385,11 +385,27 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
   // ═══════════════════════════════════════════
   {
     code: "USERS",
-    name: "Karyawan",
+    name: "Pengguna",
     path: "/admin/users",
     icon: "HiOutlineUsers",
     section: "SDM",
     featureModule: "users",
+  },
+  {
+    code: "HR",
+    name: "HR",
+    path: "/admin/hr",
+    icon: "HiOutlineBriefcase",
+    section: "SDM",
+    children: [
+      {
+        code: "HR.EMPLOYEES",
+        name: "Data Pegawai",
+        path: "/admin/hr/employees",
+        icon: "HiOutlineIdentification",
+        featureModule: "users",
+      },
+    ],
   },
   {
     code: "MITRA",
