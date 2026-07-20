@@ -162,6 +162,8 @@ export function getMitraMobileCapabilities(mitraType?: string | null): {
   if (mitraType === "MITRA_TEKNISI") {
     permissions.push(
       "m_work_order:read",
+      "m_work_order:update",
+      "m_work_order:create",
       "m_barang:read",
       "m_barang_masuk:read",
       "m_barang_masuk:create",
@@ -349,7 +351,7 @@ async function verifyMitraToken(
     sub: mitra.id,
     userId: mitra.id,
     role: "MITRA",
-    permissions: getMitraMobileFeatures(mitra.mitraType),
+    permissions: getMitraMobileCapabilities(mitra.mitraType).permissions,
     isSales: mitra.mitraType === "MITRA_SALES",
     siteId: mitra.siteId,
     tenantId: mitra.tenantId,

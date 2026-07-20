@@ -57,7 +57,6 @@ vi.mock("@/lib/prisma-mitra", () => ({
 
 import {
   getMitraMobileCapabilities,
-  getMitraMobileFeatures,
   getMobileTokenDetails,
   hasAnyMobilePermission,
   hasMobilePermission,
@@ -141,8 +140,12 @@ describe("mobile-auth version overrides", () => {
       expect.arrayContaining([
         "m_dashboard:read",
         "m_work_order:read",
+        "m_work_order:update",
+        "m_work_order:create",
         "m_barang:read",
+        "m_barang_masuk:read",
         "m_barang_masuk:create",
+        "m_barang_keluar:read",
         "m_barang_keluar:create",
       ]),
     );
@@ -165,9 +168,11 @@ describe("mobile-auth version overrides", () => {
 
     expect(payload?.role).toBe("MITRA");
     expect(payload?.permissions).toEqual(
-      getMitraMobileFeatures("MITRA_TEKNISI"),
+      getMitraMobileCapabilities("MITRA_TEKNISI").permissions,
     );
-    expect(payload?.permissions).toContain("m_barang_masuk");
+    expect(payload?.permissions).toContain("m_work_order:read");
+    expect(payload?.permissions).toContain("m_work_order:update");
+    expect(payload?.permissions).toContain("m_barang_masuk:create");
   });
 
   it("returns wildcard permission for super admin mobile tokens", async () => {
