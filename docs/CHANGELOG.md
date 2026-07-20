@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Aktifkan chat mobile untuk mitra (semua tipe)
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/mobile-auth`
+- **Author**: agent
+- **Deskripsi**: Mitra tidak bisa akses chat mobile karena
+  `getMitraMobileFeatures` tidak mendaftar `m_chat` dan
+  `getMitraMobileCapabilities` tidak beri `m_chat:read`/`m_chat:create`.
+  Semua endpoint `/api/mobile/chat/*` butuh permission itu, jadi mitra selalu
+  403 dan menu chat tidak muncul di mobile. Fix: tambah `m_chat` ke features
+  base (semua tipe mitra) dan `m_chat:read` + `m_chat:create` ke permissions
+  base di `getMitraMobileCapabilities`.
+- **Files**: `lib/mobile-auth.ts`, `tests/lib/mobile-auth.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — Fix 403 mitra di endpoint mobile work-order
 
 - **Tipe**: [FIXED]
