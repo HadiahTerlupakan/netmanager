@@ -141,6 +141,7 @@ export function getMitraMobileFeatures(mitraType?: string | null): string[] {
     "m_dashboard",
     "m_mitra_wallet",
     "m_mitra_withdraw",
+    "m_chat",
     ...(mitraType === "MITRA_SALES" ? ["m_canvasing"] : []),
     ...(mitraType === "MITRA_TEKNISI"
       ? ["m_work_order", "m_barang", "m_barang_masuk", "m_barang_keluar"]
@@ -153,7 +154,7 @@ export function getMitraMobileCapabilities(mitraType?: string | null): {
   permissions: string[];
 } {
   const features = getMitraMobileFeatures(mitraType);
-  const permissions = ["m_dashboard:read"];
+  const permissions = ["m_dashboard:read", "m_chat:read", "m_chat:create"];
 
   if (mitraType === "MITRA_SALES") {
     permissions.push("m_canvasing:read", "m_canvasing:create");

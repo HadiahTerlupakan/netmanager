@@ -131,6 +131,7 @@ describe("mobile-auth version overrides", () => {
       "m_dashboard",
       "m_mitra_wallet",
       "m_mitra_withdraw",
+      "m_chat",
       "m_work_order",
       "m_barang",
       "m_barang_masuk",
@@ -139,6 +140,8 @@ describe("mobile-auth version overrides", () => {
     expect(capabilities.permissions).toEqual(
       expect.arrayContaining([
         "m_dashboard:read",
+        "m_chat:read",
+        "m_chat:create",
         "m_work_order:read",
         "m_work_order:update",
         "m_work_order:create",
@@ -172,6 +175,8 @@ describe("mobile-auth version overrides", () => {
     );
     expect(payload?.permissions).toContain("m_work_order:read");
     expect(payload?.permissions).toContain("m_work_order:update");
+    expect(payload?.permissions).toContain("m_chat:read");
+    expect(payload?.permissions).toContain("m_chat:create");
     expect(payload?.permissions).toContain("m_barang_masuk:create");
   });
 
