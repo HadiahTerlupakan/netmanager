@@ -12,12 +12,14 @@ export {
 import {
   processCheckInReminders,
   processCheckOutReminders,
+  processFlexibleNoCheckInReminders,
   processFlexibleReminders,
   processLateCheckOutReminders,
 } from "./AttendanceReminderDeliveryService";
 export {
   processCheckInReminders,
   processCheckOutReminders,
+  processFlexibleNoCheckInReminders,
   processFlexibleReminders,
   processLateCheckOutReminders,
 } from "./AttendanceReminderDeliveryService";
@@ -34,6 +36,7 @@ export async function runScheduledAttendanceCheck(
   lateCheckOut: { usersNotified: number; details: string[] };
   fixedAlpha: { usersMarkedAlpha: number; details: string[] };
   flexible: { usersNotified: number; details: string[] };
+  flexibleNoCheckIn: { usersNotified: number; details: string[] };
 }> {
   const [
     checkInResult,
@@ -41,12 +44,14 @@ export async function runScheduledAttendanceCheck(
     lateCheckOutResult,
     fixedAlphaResult,
     flexibleReminderResult,
+    flexibleNoCheckInResult,
   ] = await Promise.all([
     processCheckInReminders(reminderMinutes),
     processCheckOutReminders(reminderMinutes),
     processLateCheckOutReminders(),
     processFixedHourAutoAlpha(),
     processFlexibleReminders(),
+    processFlexibleNoCheckInReminders(),
   ]);
 
   logger.info("[AttendanceAlert] Scheduled check completed:", {
@@ -55,6 +60,7 @@ export async function runScheduledAttendanceCheck(
     lateCheckOut: lateCheckOutResult.usersNotified,
     fixedAlpha: fixedAlphaResult.usersMarkedAlpha,
     flexible: flexibleReminderResult.usersNotified,
+    flexibleNoCheckIn: flexibleNoCheckInResult.usersNotified,
   });
 
   return {
@@ -63,6 +69,7 @@ export async function runScheduledAttendanceCheck(
     lateCheckOut: lateCheckOutResult,
     fixedAlpha: fixedAlphaResult,
     flexible: flexibleReminderResult,
+    flexibleNoCheckIn: flexibleNoCheckInResult,
   };
 }
 
