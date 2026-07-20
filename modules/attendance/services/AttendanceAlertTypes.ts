@@ -5,6 +5,7 @@ export interface UserSchedule {
   endWorkTime: string;
   workDays: string | null;
   pushToken: string | null;
+  phone: string | null;
 }
 
 export interface ReminderResult {

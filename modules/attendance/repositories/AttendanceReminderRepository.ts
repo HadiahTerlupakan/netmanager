@@ -51,8 +51,8 @@ export class AttendanceReminderRepository {
       user: {
         isActive: true,
         tenantId: { not: null },
-        pushToken: { not: null },
         workingHourMode: "FLEXIBLE",
+        OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
       },
     };
   }
@@ -63,6 +63,7 @@ export class AttendanceReminderRepository {
       name: true,
       flexibleTargetHour: true,
       pushToken: true,
+      phone: true,
     } as const;
   }
 
@@ -74,7 +75,7 @@ export class AttendanceReminderRepository {
       startWorkTime: true,
       endWorkTime: true,
       workDays: true,
-      ...(includePushRecipient ? { pushToken: true } : {}),
+      ...(includePushRecipient ? { pushToken: true, phone: true } : {}),
     } as const;
   }
 
@@ -89,8 +90,8 @@ export class AttendanceReminderRepository {
       ...(includePushRecipient
         ? {
             isActive: true,
-            pushToken: { not: null },
             endWorkTime: { not: null },
+            OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
           }
         : {}),
     };

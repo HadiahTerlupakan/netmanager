@@ -1,9 +1,13 @@
 import { logger } from "@/lib/logger";
-import { sendPushNotification } from "@/modules/notification";
+import {
+  sendPushNotification,
+  WhatsAppSenderService,
+} from "@/modules/notification";
 import { getDateKey, getFlexibleHourBucket } from "./AttendanceAlertClock";
 import { getAttendanceRepository } from "./AttendanceAlertDependencies";
 import { acquireReminderLock } from "./AttendanceAlertLockService";
 import {
+  getFlexibleUsersNeedingNoCheckInReminder,
   getUsersNeedingCheckInReminder,
   getUsersNeedingCheckOutReminder,
 } from "./AttendanceReminderQueryService";
@@ -13,6 +17,29 @@ const CHECK_IN_LOCK_TTL_SECONDS = 60 * 60;
 const CHECK_OUT_LOCK_TTL_SECONDS = 60 * 60;
 const LATE_CHECK_OUT_LOCK_TTL_SECONDS = 2 * 60 * 60;
 const FLEXIBLE_LOCK_TTL_SECONDS = 60 * 60;
+const FLEXIBLE_NO_CHECKIN_LOCK_TTL_SECONDS = 12 * 60 * 60;
+
+type ReminderPayload = {
+  lockKey: string;
+  ttlSeconds: number;
+  title: string;
+  message: string;
+  detail: string;
+  payload: { type: string; action: string };
+};
+
+type ContactTarget = {
+  userId: string;
+  pushToken: string | null;
+  phone: string | null;
+};
+
+let waSender: WhatsAppSenderService | null = null;
+
+function getWaSender(): WhatsAppSenderService {
+  waSender ??= new WhatsAppSenderService();
+  return waSender;
+}
 
 /** Kirim reminder check-in ke user yang belum absen masuk. */
 export async function processCheckInReminders(
@@ -101,6 +128,35 @@ export async function processFlexibleReminders(): Promise<ReminderResult> {
   }
 }
 
+/**
+ * Reminder 1x/hari untuk flexible yang belum check-in sama sekali di hari kerja
+ * (window mulai jam 12 lokal tenant).
+ */
+export async function processFlexibleNoCheckInReminders(): Promise<ReminderResult> {
+  try {
+    const users = await getFlexibleUsersNeedingNoCheckInReminder();
+    if (users.length === 0) {
+      return { usersNotified: 0, details: [] };
+    }
+    const result = await sendScheduledReminders(
+      users,
+      buildFlexibleNoCheckInReminder,
+    );
+    if (result.usersNotified > 0) {
+      logger.info(
+        `[AttendanceAlert] Sent FLEXIBLE no-checkin reminder to ${result.usersNotified} users`,
+      );
+    }
+    return result;
+  } catch (error) {
+    logger.error(
+      "[AttendanceAlert] Error sending flexible no-checkin reminders:",
+      error,
+    );
+    return { usersNotified: 0, details: [] };
+  }
+}
+
 async function sendFlexibleReminders(now: Date): Promise<ReminderResult> {
   const activeSessions =
     await getAttendanceRepository().findActiveFlexibleSessionsWithUser();
@@ -111,17 +167,22 @@ async function sendFlexibleReminders(now: Date): Promise<ReminderResult> {
 }
 
 async function notifyFlexibleReminders(
-  sessions: Array<{ user: { id: string } }>,
+  sessions: Array<{
+    user: { id: string; pushToken?: string | null; phone?: string | null };
+  }>,
   reminders: Array<Awaited<ReturnType<typeof buildFlexibleReminder>>>,
 ) {
   const details: string[] = [];
   for (const [index, reminder] of reminders.entries()) {
     if (!reminder) continue;
-    await sendPushNotification(
-      sessions[index].user.id,
-      reminder.title,
-      reminder.message,
-      reminder.payload,
+    const session = sessions[index];
+    await deliverReminder(
+      {
+        userId: session.user.id,
+        pushToken: session.user.pushToken ?? null,
+        phone: session.user.phone ?? null,
+      },
+      reminder,
     );
     details.push(reminder.detail);
   }
@@ -135,31 +196,26 @@ function logFlexibleReminderResult(notified: number) {
 
 async function sendScheduledReminders(
   users: UserSchedule[],
-  buildReminder: (user: UserSchedule) => {
-    lockKey: string;
-    ttlSeconds: number;
-    title: string;
-    message: string;
-    detail: string;
-    payload: { type: string; action: string };
-  },
+  buildReminder: (user: UserSchedule) => ReminderPayload,
 ): Promise<ReminderResult> {
   const details: string[] = [];
   let notified = 0;
 
   for (const user of users) {
-    if (!user.pushToken) continue;
+    if (!user.pushToken && !user.phone) continue;
     const reminder = buildReminder(user);
     const shouldSend = await acquireReminderLock(
       reminder.lockKey,
       reminder.ttlSeconds,
     );
     if (!shouldSend) continue;
-    await sendPushNotification(
-      user.userId,
-      reminder.title,
-      reminder.message,
-      reminder.payload,
+    await deliverReminder(
+      {
+        userId: user.userId,
+        pushToken: user.pushToken,
+        phone: user.phone,
+      },
+      reminder,
     );
     notified++;
     details.push(reminder.detail);
@@ -168,29 +224,77 @@ async function sendScheduledReminders(
   return { usersNotified: notified, details };
 }
 
-function buildCheckInReminder(user: UserSchedule) {
+async function deliverReminder(
+  target: ContactTarget,
+  reminder: Pick<ReminderPayload, "title" | "message" | "payload">,
+): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
+
+  if (target.pushToken) {
+    tasks.push(
+      sendPushNotification(
+        target.userId,
+        reminder.title,
+        reminder.message,
+        reminder.payload,
+      ),
+    );
+  }
+
+  if (target.phone) {
+    tasks.push(sendWhatsAppReminder(target.phone, reminder));
+  }
+
+  await Promise.all(tasks);
+}
+
+async function sendWhatsAppReminder(
+  phone: string,
+  reminder: Pick<ReminderPayload, "title" | "message">,
+): Promise<void> {
+  try {
+    const result = await getWaSender().send({
+      phone,
+      message: `*${reminder.title}*\n\n${reminder.message}`,
+      accountType: "INTERNAL",
+    });
+    if (!result.success) {
+      logger.warn(
+        `[AttendanceAlert] WA failed for ${phone}: ${result.error ?? "unknown"}`,
+      );
+    }
+  } catch (error) {
+    logger.warn(
+      `[AttendanceAlert] WA send error for ${phone}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function buildCheckInReminder(user: UserSchedule): ReminderPayload {
   return {
     lockKey: `attendance:reminder:checkin:${user.userId}:${getDateKey()}`,
     ttlSeconds: CHECK_IN_LOCK_TTL_SECONDS,
-    title: "⏰ Reminder Absensi",
-    message: `Anda belum check-in hari ini. Jam kerja Anda: ${user.startWorkTime}`,
+    title: "⏰ Reminder Absensi — Telat Check-In",
+    message: `Anda sudah melewati jam masuk (${user.startWorkTime}) dan belum check-in. Segera absen masuk agar tidak tercatat telat.`,
     detail: `${user.userName} (${user.startWorkTime})`,
     payload: { type: "attendance_reminder", action: "check_in" },
   };
 }
 
-function buildCheckOutReminder(user: UserSchedule) {
+function buildCheckOutReminder(user: UserSchedule): ReminderPayload {
   return {
     lockKey: `attendance:reminder:checkout:${user.userId}:${getDateKey()}`,
     ttlSeconds: CHECK_OUT_LOCK_TTL_SECONDS,
     title: "🏠 Reminder Check-Out",
-    message: `Anda belum check-out hari ini. Jam pulang Anda: ${user.endWorkTime}`,
+    message: `Sudah lewat jam pulang (${user.endWorkTime}) dan Anda belum check-out. Segera absen pulang agar jam kerja tercatat lengkap.`,
     detail: `${user.userName} (${user.endWorkTime})`,
     payload: { type: "attendance_reminder", action: "check_out" },
   };
 }
 
-function buildLateCheckOutReminder(user: UserSchedule) {
+function buildLateCheckOutReminder(user: UserSchedule): ReminderPayload {
   return {
     lockKey: `attendance:reminder:late_checkout:${user.userId}:${getDateKey()}`,
     ttlSeconds: LATE_CHECK_OUT_LOCK_TTL_SECONDS,
@@ -198,6 +302,18 @@ function buildLateCheckOutReminder(user: UserSchedule) {
     message: `Sudah 3 jam lewat dari jam pulang (${user.endWorkTime}). Jangan lupa Check-Out agar tidak kena penalti!`,
     detail: `${user.userName} (${user.endWorkTime})`,
     payload: { type: "attendance_reminder", action: "check_out" },
+  };
+}
+
+function buildFlexibleNoCheckInReminder(user: UserSchedule): ReminderPayload {
+  return {
+    lockKey: `attendance:reminder:flexible_nocheckin:${user.userId}:${getDateKey()}`,
+    ttlSeconds: FLEXIBLE_NO_CHECKIN_LOCK_TTL_SECONDS,
+    title: "⏰ Reminder Absensi (Fleksibel)",
+    message:
+      "Anda belum melakukan check-in sama sekali hari ini. Segera absen masuk agar kehadiran tercatat.",
+    detail: `${user.userName} (flexible no-checkin)`,
+    payload: { type: "attendance_reminder", action: "check_in" },
   };
 }
 
