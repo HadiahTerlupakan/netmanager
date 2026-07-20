@@ -10,6 +10,7 @@ const mockChatRepository = {
   addParticipant: vi.fn(),
   createMessage: vi.fn(),
   getAllActiveUsers: vi.fn(),
+  isEmployeeUser: vi.fn(),
 };
 
 const mockSendPushToUsers = vi.fn().mockResolvedValue(undefined);
@@ -25,6 +26,7 @@ vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
     addParticipant = mockChatRepository.addParticipant;
     createMessage = mockChatRepository.createMessage;
     getAllActiveUsers = mockChatRepository.getAllActiveUsers;
+    isEmployeeUser = mockChatRepository.isEmployeeUser;
   },
 }));
 
@@ -42,9 +44,10 @@ describe("ChatService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new ChatService();
+    mockChatRepository.isEmployeeUser.mockResolvedValue(true);
   });
 
-  it("publishes broadcast chat messages through socketEmitter instead of the legacy helper", async () => {
+  it("publishes broadcast chat messages through socketEmitter for each recipient", async () => {
     const createdAt = new Date("2026-04-09T00:00:00.000Z");
 
     mockChatRepository.findOrCreateGlobalChat.mockResolvedValueOnce({
@@ -62,7 +65,7 @@ describe("ChatService", () => {
     ]);
 
     await service.broadcastMessage({
-      senderId: "user-1",
+      sender: { type: "user", id: "user-1" },
       senderName: "Admin",
       tenantId: "tenant-1",
       title: "Ops",
@@ -75,11 +78,23 @@ describe("ChatService", () => {
       id: "msg-1",
       content: "Server restart",
       conversationId: "conv-1",
-      senderId: "user-1",
+      senderActorType: "user",
+      senderActorId: "user-1",
       senderName: "Admin",
       createdAt: "2026-04-09T00:00:00.000Z",
       isOwn: false,
       isBroadcast: true,
     });
+  });
+
+  it("rejects broadcast from non-user actor (mitra/pelanggan)", async () => {
+    await expect(
+      service.broadcastMessage({
+        sender: { type: "mitra", id: "mitra-1" },
+        senderName: "Mitra",
+        tenantId: "tenant-1",
+        content: "should fail",
+      }),
+    ).rejects.toThrow();
   });
 });
