@@ -32,10 +32,55 @@ type MobileErrorReportPayload = {
 
 type MobileAuthContext = {
   userId?: string;
-  tenant?: string;
+  tenantId?: string | null;
   role?: string;
   email?: string;
 };
+
+type MobileErrorReportActor = {
+  userId: string | null;
+  actorType: string | null;
+  actorId: string | null;
+  tenantId: string | null;
+};
+
+const ACTOR_TYPE_BY_ROLE: Record<string, string> = {
+  MITRA: "mitra",
+  CUSTOMER: "customer",
+};
+
+/**
+ * Map auth payload menjadi actor SystemLog.
+ *
+ * Mitra & pelanggan tidak ada di tabel `User` (DB utama), jadi `userId`
+ * diset null dan aktor direpresentasikan via `actorType` + `actorId`
+ * untuk menghindari FK violation `SystemLog_userId_fkey`. User biasa
+ * tetap ditulis via `userId` dengan `actorType: "user"`.
+ */
+function resolveReportActor(
+  authPayload: MobileAuthContext | null,
+): MobileErrorReportActor {
+  if (!authPayload?.userId) {
+    return { userId: null, actorType: null, actorId: null, tenantId: null };
+  }
+
+  const actorType = ACTOR_TYPE_BY_ROLE[authPayload.role ?? ""] ?? "user";
+  if (actorType === "user") {
+    return {
+      userId: authPayload.userId,
+      actorType,
+      actorId: authPayload.userId,
+      tenantId: authPayload.tenantId ?? null,
+    };
+  }
+
+  return {
+    userId: null,
+    actorType,
+    actorId: authPayload.userId,
+    tenantId: authPayload.tenantId ?? null,
+  };
+}
 
 /** Memvalidasi dan menyimpan laporan error mobile ke system log. */
 export async function submitMobileErrorReport(
@@ -48,11 +93,15 @@ export async function submitMobileErrorReport(
   const reportDetails = buildReportDetails(report, authPayload);
 
   logger.error("Mobile error report received", undefined, reportDetails);
+  const actor = resolveReportActor(authPayload);
   await repository.createSystemLog({
     action: "MOBILE_ERROR_REPORT",
     subject: report.kind,
     details: safeStringify(reportDetails),
-    userId: authPayload?.userId ?? null,
+    userId: actor.userId,
+    actorType: actor.actorType,
+    actorId: actor.actorId,
+    tenantId: actor.tenantId,
     ipAddress: getClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
@@ -125,7 +174,7 @@ function buildReportDetails(
     ...report,
     authContext: authPayload
       ? {
-          tenant: authPayload.tenant ?? null,
+          tenant: authPayload.tenantId ?? null,
           role: authPayload.role ?? null,
           email: authPayload.email ?? null,
         }
