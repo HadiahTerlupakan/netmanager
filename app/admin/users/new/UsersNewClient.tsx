@@ -18,10 +18,7 @@ import {
   HiOutlineCheckCircle,
   HiOutlineIdentification,
   HiOutlineGlobeAlt,
-  HiOutlineCurrencyDollar,
 } from "react-icons/hi2";
-import WorkingHoursSettings from "../[id]/WorkingHoursSettings";
-import LeaveBalanceSettings from "../[id]/LeaveBalanceSettings";
 import {
   OrganizationSection,
   StatusAndSalesSection,
@@ -50,10 +47,8 @@ export function ClientComponent() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSuccess, setShowSuccess] = useState(false);
-  const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({});
 
   const [formData, setFormData] = useState({
-    // Account Information
     email: "",
     emailChecked: false,
     emailExists: false,
@@ -62,31 +57,15 @@ export function ClientComponent() {
     name: "",
     password: "",
     phone: "",
-    // Organization
     departmentId: "",
-    // Role
     roleId: "",
-    // Status & Features
     isActive: true,
     isSales: false,
     tenantId: "",
-    // Sales Target
     canvasingTarget: 0,
     targetSchema: "REVENUE",
   });
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
-
-  // Working Hours Data
-  const [workingHoursData, setWorkingHoursData] = useState({
-    workingHourMode: "FIXED",
-    attendanceGeofencePolicy: "WARN",
-    isAttendanceRequired: true,
-    startWorkTime: "09:00",
-    endWorkTime: "17:00",
-    workDays: "Mon,Tue,Wed,Thu,Fri",
-    flexibleTargetHour: 8,
-    shiftId: null as string | null,
-  });
 
   const [prevTenantParamKey, setPrevTenantParamKey] = useState<string>(
     `${canReadTenants}|${tenantIdParam ?? ""}`,
@@ -268,14 +247,9 @@ export function ClientComponent() {
 
       const submitData = {
         ...tenantScopedFormData,
-        ...workingHoursData,
-        // Convert empty strings to undefined/null for optional fields
         departmentId: formData.departmentId || null,
         phone: formData.phone || null,
-        // Ensure shiftId is handled correctly (already handled in WorkingHoursSettings but good to be safe)
-        shiftId: workingHoursData.shiftId || null,
         userSites: selectedSites,
-        leaveQuotas: leaveQuotas,
       };
 
       const res = await fetch("/api/admin/users", {
@@ -633,7 +607,6 @@ export function ClientComponent() {
           </div>
         </div>
 
-        {/* Organization Section */}
         <OrganizationSection
           departments={departments}
           sites={sites}
@@ -643,61 +616,10 @@ export function ClientComponent() {
           handleChange={handleChange}
         />
 
-        {/* Working Hours Settings */}
-        <WorkingHoursSettings
-          initialData={{
-            workingHourMode: workingHoursData.workingHourMode,
-            attendanceGeofencePolicy: workingHoursData.attendanceGeofencePolicy,
-            isAttendanceRequired: workingHoursData.isAttendanceRequired,
-            startWorkTime: workingHoursData.startWorkTime,
-            endWorkTime: workingHoursData.endWorkTime,
-            workDays: workingHoursData.workDays,
-            flexibleTargetHour: workingHoursData.flexibleTargetHour,
-            shiftId: workingHoursData.shiftId,
-          }}
-          onChange={(data) =>
-            setWorkingHoursData((prev) => ({ ...prev, ...data }))
-          }
-        />
-
-        {/* Status & Sales Section */}
         <StatusAndSalesSection
           formData={formData}
           handleChange={handleChange}
         />
-
-        {/* Leave Balance Configuration */}
-        {hasPermission("attendance:read") && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <HiOutlineCurrencyDollar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Kuota Cuti Awal
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Inisialisasi saldo cuti dan izin tahunan
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <LeaveBalanceSettings
-                userId="NEW_USER"
-                workingHourMode={workingHoursData.workingHourMode}
-                onChange={(quotas) => setLeaveQuotas(quotas)}
-                saveButtonLabel="Simpan Pengguna"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                ℹ️ Kuota ini akan diterapkan segera setelah akun pengguna
-                dibuat. Mode **FLEXIBLE** biasanya tidak memerlukan kuota cuti.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Error Message */}
         {errors.submit && (

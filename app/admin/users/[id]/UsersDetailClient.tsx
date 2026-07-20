@@ -20,35 +20,15 @@ import {
   HiOutlineIdentification,
   HiOutlineGlobeAlt,
 } from "react-icons/hi2";
-import WorkingHoursSettings from "./WorkingHoursSettings";
-import LeaveBalanceSettings from "./LeaveBalanceSettings";
 import { UsersDetailView } from "./UsersDetailView";
 import { usePermission } from "@/hooks/use-permission";
-import {
-  OrganizationSection,
-  StatusAndSalesSection,
-} from "../components/UserFormSections";
-import {
-  getSelectedSitesFromUser,
-  getSitesFromUser,
-  mergeSites,
-  normalizeSelectedSites,
-} from "./user-detail-helpers";
+import { StatusAndSalesSection } from "../components/UserFormSections";
 import { generateStrongPassword } from "../lib/password-generator";
-import {
-  fetchAdminUserDetail,
-  saveLeaveQuotas,
-  updateAdminUser,
-} from "../lib/userDetailApi";
+import { fetchAdminUserDetail, updateAdminUser } from "../lib/userDetailApi";
 import { useUserReferenceData } from "../lib/useUserDetailData";
 import type { UserDetailDTO } from "@/modules/users";
 
-interface SelectedSite {
-  siteId: string;
-  isPrimary: boolean;
-}
-
-const numericFieldNames = new Set(["canvasingTarget", "flexibleTargetHour"]);
+const numericFieldNames = new Set(["canvasingTarget"]);
 
 const normalizeNumericField = (value: unknown): number | null => {
   if (value === "" || value === null || value === undefined) {
@@ -81,22 +61,17 @@ export function ClientComponent({
   const canReadTenants = hasPermission("tenants:read");
   const canViewLeaveQuotas =
     hasPermission("users:read") || hasPermission("attendance:read");
-  const canManageLeaveQuotas =
-    hasPermission("users:update") || hasPermission("attendance:update");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({}); // For leave balance integration
-  const { departments, roles, sites, tenants, setSites } = useUserReferenceData(
-    { canReadTenants },
-  );
+  const { departments, roles, tenants } = useUserReferenceData({
+    canReadTenants,
+  });
   const [user, setUser] = useState<UserDetailDTO | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
   const [initialFormSnapshot, setInitialFormSnapshot] = useState("");
-  const [hasLoadedLeaveQuotas, setHasLoadedLeaveQuotas] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -106,26 +81,18 @@ export function ClientComponent({
     siteId: "",
     roleId: "",
     isActive: true,
-    // Working Hours
     workingHourMode: "FIXED",
-    attendanceGeofencePolicy: "WARN",
-    isAttendanceRequired: true,
     startWorkTime: "",
     endWorkTime: "",
     workDays: "",
     flexibleTargetHour: 8,
-    shiftId: "",
     isSales: false,
     canvasingTarget: 0,
     targetSchema: "REVENUE",
     tenantId: "",
   });
 
-  const currentFormSnapshot = JSON.stringify({
-    formData,
-    selectedSites,
-    leaveQuotas,
-  });
+  const currentFormSnapshot = JSON.stringify({ formData });
   const hasFormChanges =
     initialFormSnapshot !== "" && currentFormSnapshot !== initialFormSnapshot;
 
@@ -143,33 +110,18 @@ export function ClientComponent({
           siteId: usr.siteId ?? usr.site?.id ?? "",
           roleId: usr.roleId ?? usr.role?.id ?? "",
           isActive: usr.isActive,
-          // Working Hours
           workingHourMode: usr.workingHourMode ?? "FIXED",
-          attendanceGeofencePolicy: usr.attendanceGeofencePolicy ?? "WARN",
-          isAttendanceRequired: usr.isAttendanceRequired ?? true,
           startWorkTime: usr.startWorkTime ?? "",
           endWorkTime: usr.endWorkTime ?? "",
           workDays: usr.workDays ?? "",
           flexibleTargetHour: usr.flexibleTargetHour ?? 8,
-          shiftId: usr.shiftId ?? "",
           isSales: usr.isSales ?? false,
           canvasingTarget: usr.canvasingTarget ?? 0,
           targetSchema: usr.targetSchema ?? "REVENUE",
           tenantId: usr.tenantId ?? usr.tenant?.id ?? "",
         };
-        const loadedSelectedSites = getSelectedSitesFromUser(usr);
-        const loadedSites = getSitesFromUser(usr);
-
         setFormData(loadedFormData);
-        setSelectedSites(loadedSelectedSites);
-        setSites((currentSites) => mergeSites(currentSites, loadedSites));
-        setInitialFormSnapshot(
-          JSON.stringify({
-            formData: loadedFormData,
-            selectedSites: loadedSelectedSites,
-            leaveQuotas: {},
-          }),
-        );
+        setInitialFormSnapshot(JSON.stringify({ formData: loadedFormData }));
       }
     } catch (error: unknown) {
       clientLogger.error("Error fetching user:", error);
@@ -180,7 +132,7 @@ export function ClientComponent({
     } finally {
       setLoading(false);
     }
-  }, [id, setSites]);
+  }, [id]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -266,28 +218,15 @@ export function ClientComponent({
     setSubmitting(true);
 
     try {
-      const normalizedSelectedSites = normalizeSelectedSites(selectedSites);
       const updateBody: Record<string, unknown> = {
         name: formData.name,
         phone: formData.phone || null,
-        departmentId: formData.departmentId || null,
         roleId: formData.roleId,
         isActive: formData.isActive,
-        // Working Hours
-        workingHourMode: formData.workingHourMode,
-        attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
-        isAttendanceRequired: formData.isAttendanceRequired,
-        startWorkTime: formData.startWorkTime || null,
-        endWorkTime: formData.endWorkTime || null,
-        workDays: formData.workDays || null,
-        flexibleTargetHour: normalizeNumericField(formData.flexibleTargetHour),
-        shiftId: formData.shiftId || null,
         isSales: formData.isSales,
         canvasingTarget: normalizeNumericField(formData.canvasingTarget),
         targetSchema: formData.targetSchema,
         tenantId: formData.tenantId || null,
-        // Multi-site support
-        userSites: normalizedSelectedSites,
       };
 
       if (formData.password) {
@@ -295,27 +234,6 @@ export function ClientComponent({
       }
 
       await updateAdminUser(id, updateBody);
-
-      let leaveQuotaError: string | null = null;
-
-      if (
-        formData.workingHourMode !== "FLEXIBLE" &&
-        Object.keys(leaveQuotas).length > 0
-      ) {
-        try {
-          await saveLeaveQuotas(id, leaveQuotas);
-        } catch (error) {
-          clientLogger.error("Failed to save leave quotas:", error);
-          leaveQuotaError =
-            "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui";
-        }
-      }
-
-      if (leaveQuotaError) {
-        setErrors({ submit: leaveQuotaError });
-        setSubmitting(false);
-        return;
-      }
 
       setShowSuccess(true);
       setTimeout(() => {
@@ -657,62 +575,29 @@ export function ClientComponent({
           </div>{" "}
         </div>
 
-        {/* Organization Section */}
-        <OrganizationSection
-          departments={departments}
-          sites={sites}
-          selectedSites={selectedSites}
-          setSelectedSites={setSelectedSites}
-          formData={{ departmentId: formData.departmentId }}
-          handleChange={handleChange}
-        />
+        {canUpdate && (
+          <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-900/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                Data kepegawaian
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Departemen, site, jam kerja, dan kuota cuti dikelola di menu HR.
+              </p>
+            </div>
+            <Link
+              href={`/admin/hr/employees/${id}`}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+            >
+              Buka di HR
+            </Link>
+          </div>
+        )}
 
-        {/* Working Hours Section - MOVED FROM BOTTOM */}
-        <WorkingHoursSettings
-          initialData={{
-            workingHourMode: formData.workingHourMode,
-            attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
-            isAttendanceRequired: formData.isAttendanceRequired,
-            startWorkTime: formData.startWorkTime,
-            endWorkTime: formData.endWorkTime,
-            workDays: formData.workDays,
-            flexibleTargetHour: formData.flexibleTargetHour,
-            shiftId: formData.shiftId,
-          }}
-          onChange={(data) => setFormData((prev) => ({ ...prev, ...data }))}
-        />
-
-        {/* Status & Sales Section */}
         <StatusAndSalesSection
           formData={formData}
           handleChange={handleChange}
         />
-
-        {/* Leave Balance Settings */}
-        {canManageLeaveQuotas && (
-          <LeaveBalanceSettings
-            userId={id}
-            workingHourMode={formData.workingHourMode}
-            onChange={(quotas) => {
-              setLeaveQuotas(quotas);
-              if (!hasLoadedLeaveQuotas && Object.keys(quotas).length === 0) {
-                return;
-              }
-              if (!hasLoadedLeaveQuotas) {
-                setHasLoadedLeaveQuotas(true);
-                setInitialFormSnapshot((snapshot) => {
-                  if (!snapshot) return snapshot;
-                  const initialState = JSON.parse(snapshot);
-                  return JSON.stringify({
-                    ...initialState,
-                    leaveQuotas: quotas,
-                  });
-                });
-              }
-            }}
-            saveButtonLabel="Simpan Perubahan"
-          />
-        )}
 
         {/* Error Message */}
         {errors.submit && (
