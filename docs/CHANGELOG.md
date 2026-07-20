@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Fix FK violation SystemLog saat mitra/pelanggan kirim error report
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: `MobileErrorReportRepository.createSystemLog` sebelumnya menulis
+  `userId` dari token mobile langsung ke `SystemLog`, padahal `SystemLog.userId`
+  punya FK ke `User.id` di DB utama. Mitra & pelanggan berada di DB terpisah
+  (`prismaMitra`/`prismaAuth`) sehingga id mereka tidak ada di tabel `User` —
+  insert gagal dengan `Foreign key constraint violated: SystemLog_userId_fkey`,
+  route `/api/mobile/error-report` return 500, dan mobile retry looping.
+  Fix: ikuti pola `resolveActor` di `lib/logger.ts` — aktor non-user
+  (role `MITRA`/`CUSTOMER`) direpresentasikan via `actorType` + `actorId`
+  (kolom tanpa FK), `userId` di-set null. User biasa tetap via `userId`.
+  Repository juga pre-check existence `userId` di `User` sebagai safety net
+  untuk user legacy yang dihapus (konsisten dengan logger utama). Sekalian
+  perbaiki bug pre-existing: field `tenant` di `MobileAuthContext` salah nama
+  (payload asli `tenantId`), sehingga `tenantId` tidak pernah terisi di log.
+- **Files**: `modules/notification/domain/ports/IMobileErrorReportRepository.ts`,
+  `modules/notification/repositories/MobileErrorReportRepository.ts`,
+  `modules/notification/services/MobileErrorReportService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — List HR pegawai ikut template UI list Pengguna
 
 - **Tipe**: [CHANGED]
