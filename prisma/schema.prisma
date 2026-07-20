@@ -2615,35 +2615,47 @@ model Conversation {
 model ConversationParticipant {
   id             String       @id @default(cuid())
   conversationId String
-  userId         String
+  userId         String?
   joinedAt       DateTime     @default(now())
   lastReadAt     DateTime?
   tenantId       String?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([conversationId, userId])
+  // Actor polymorphism: mitra & pelanggan tidak ada di tabel User (DB terpisah).
+  // actorType/actorId merepresentasikan aktor non-User tanpa FK;
+  // untuk aktor User, actorId diset = userId.
+  actorType       String
+  actorId         String?
+
+  @@unique([conversationId, actorType, actorId])
   @@index([userId])
   @@index([conversationId])
   @@index([tenantId])
+  @@index([actorType, actorId])
 }
 
 model Message {
   id             String       @id @default(cuid())
   conversationId String
-  senderId       String
+  senderId       String?
   content        String?
   imageUrl       String?
   createdAt      DateTime     @default(now())
   tenantId       String?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  sender         User?        @relation(fields: [senderId], references: [id], onDelete: Cascade)
   tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // Actor polymorphism untuk pengirim non-User (mitra/pelanggan).
+  actorType       String
+  actorId         String?
 
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@index([tenantId])
+  @@index([actorType, actorId])
 }
 
 model AppVersion {
