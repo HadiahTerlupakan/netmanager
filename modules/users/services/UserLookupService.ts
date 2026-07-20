@@ -41,6 +41,11 @@ export class UserLookupService {
     return this.lookupRepository.findActiveWithPushTokenAndSchedule();
   }
 
+  /** Find active flexible users with push token or phone. */
+  findActiveFlexibleWithContact() {
+    return this.lookupRepository.findActiveFlexibleWithContact();
+  }
+
   /** Find fixed-hour users for automatic absence marking. */
   findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
     return this.lookupRepository.findFixedHourUsersForAutoAlpha(referenceDate);

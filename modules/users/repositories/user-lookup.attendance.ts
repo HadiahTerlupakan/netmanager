@@ -93,14 +93,14 @@ function buildActiveAttendanceFilter(
   };
 }
 
-/** Ambil user aktif yang punya push token dan jadwal kerja. */
+/** Ambil user aktif yang punya push token/phone dan jadwal kerja (reminder absensi). */
 export function findActiveWithPushTokenAndSchedule() {
   return prisma.user.findMany({
     where: {
       isActive: true,
       tenantId: { not: null },
-      pushToken: { not: null },
       startWorkTime: { not: null },
+      OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
     },
     select: {
       id: true,
@@ -110,6 +110,29 @@ export function findActiveWithPushTokenAndSchedule() {
       endWorkTime: true,
       workDays: true,
       pushToken: true,
+      phone: true,
+      workingHourMode: true,
+    },
+  });
+}
+
+/** Ambil user flexible aktif yang punya push token/phone (belum absen harian). */
+export function findActiveFlexibleWithContact() {
+  return prisma.user.findMany({
+    where: {
+      isActive: true,
+      tenantId: { not: null },
+      workingHourMode: WorkingHourMode.FLEXIBLE,
+      OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
+    },
+    select: {
+      id: true,
+      name: true,
+      tenantId: true,
+      workDays: true,
+      pushToken: true,
+      phone: true,
+      flexibleTargetHour: true,
     },
   });
 }

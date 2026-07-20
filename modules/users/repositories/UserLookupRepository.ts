@@ -13,6 +13,7 @@ import {
 } from "./user-lookup.notification";
 import {
   findActiveForAttendance,
+  findActiveFlexibleWithContact,
   findActiveWithPushTokenAndSchedule,
   findAttendanceSettingsById,
   findFixedHourUsersForAutoAlpha,
@@ -70,6 +71,10 @@ export class UserLookupRepository {
 
   findActiveWithPushTokenAndSchedule() {
     return findActiveWithPushTokenAndSchedule();
+  }
+
+  findActiveFlexibleWithContact() {
+    return findActiveFlexibleWithContact();
   }
 
   findFixedHourUsersForAutoAlpha(referenceDate?: Date) {

@@ -11,6 +11,7 @@ const mockUserLookupRepository = {
   getGeofencePolicy: vi.fn(),
   findActiveForAttendance: vi.fn(),
   findActiveWithPushTokenAndSchedule: vi.fn(),
+  findActiveFlexibleWithContact: vi.fn(),
   findFixedHourUsersForAutoAlpha: vi.fn(),
   findWorkScheduleByIdWithTenant: vi.fn(),
   findWorkScheduleById: vi.fn(),
@@ -45,6 +46,8 @@ vi.mock("@/modules/users/repositories/UserLookupRepository", () => ({
     findActiveForAttendance = mockUserLookupRepository.findActiveForAttendance;
     findActiveWithPushTokenAndSchedule =
       mockUserLookupRepository.findActiveWithPushTokenAndSchedule;
+    findActiveFlexibleWithContact =
+      mockUserLookupRepository.findActiveFlexibleWithContact;
     findFixedHourUsersForAutoAlpha =
       mockUserLookupRepository.findFixedHourUsersForAutoAlpha;
     findWorkScheduleByIdWithTenant =
