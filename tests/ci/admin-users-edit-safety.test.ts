@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+/**
+ * Contract tests: safety edit Pengguna (IAM) + surface HR kepegawaian.
+ * Setelah PRD-HR-MENU-SPLIT v2, jam kerja / site / kuota cuti pindah ke
+ * /admin/hr/employees/[id] — assertion HR mengunci path baru, bukan UsersDetailClient.
+ */
+
 function readSourceFile(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
@@ -24,7 +30,8 @@ function readLeaveBalanceRoute(): string {
 }
 
 function readMultiSiteSelect(): string {
-  return readSourceFile("app/admin/users/components/MultiSiteSelect.tsx");
+  // Canonical setelah extract HR; path users adalah thin re-export
+  return readSourceFile("app/admin/hr/_components/MultiSiteSelect.tsx");
 }
 
 function readUserColumns(): string {
@@ -36,7 +43,7 @@ function readAdminLayout(): string {
 }
 
 function readLeaveBalanceSettings(): string {
-  return readSourceFile("app/admin/users/[id]/LeaveBalanceSettings.tsx");
+  return readSourceFile("app/admin/hr/_components/LeaveBalanceSettings.tsx");
 }
 
 function readUserDetailApi(): string {
@@ -51,35 +58,58 @@ function readUserFormSections(): string {
   return readSourceFile("app/admin/users/components/UserFormSections.tsx");
 }
 
+function readHrDetailClient(): string {
+  return readSourceFile(
+    "app/admin/hr/employees/[id]/HrEmployeeDetailClient.tsx",
+  );
+}
+
+function readHrDetailForm(): string {
+  return readSourceFile("app/admin/hr/employees/[id]/hrDetailForm.ts");
+}
+
 describe("admin users edit safety", () => {
-  it("sends attendance requirement changes in the user update payload", () => {
-    const clientFile = readUsersDetailClient();
-    const payloadStart = clientFile.indexOf(
+  it("sends attendance requirement changes from HR employee update payload", () => {
+    const hrForm = readHrDetailForm();
+    const hrClient = readHrDetailClient();
+    const usersClient = readUsersDetailClient();
+
+    expect(hrForm).toContain(
+      "isAttendanceRequired: formData.isAttendanceRequired",
+    );
+    expect(hrClient).toContain("buildHrUpdateBody");
+    expect(hrClient).toContain("updateAdminUser");
+
+    // Pengguna edit tidak lagi mengirim field attendance
+    const payloadStart = usersClient.indexOf(
       "const updateBody: Record<string, unknown> = {",
     );
-    const requestIndex = clientFile.indexOf("await updateAdminUser(id,");
-
+    const requestIndex = usersClient.indexOf("await updateAdminUser(id,");
     expect(payloadStart).toBeGreaterThan(-1);
     expect(requestIndex).toBeGreaterThan(payloadStart);
-
-    const payloadBlock = clientFile.slice(payloadStart, requestIndex);
-
-    expect(payloadBlock).toContain(
-      "isAttendanceRequired: formData.isAttendanceRequired,",
-    );
+    const payloadBlock = usersClient.slice(payloadStart, requestIndex);
+    expect(payloadBlock).not.toContain("isAttendanceRequired");
   });
 
-  it("allows leave quotas to be managed from the user management flow", () => {
-    const clientFile = readUsersDetailClient();
+  it("allows leave quotas to be managed from the HR employee flow", () => {
+    const hrClient = readHrDetailClient();
+    const usersClient = readUsersDetailClient();
     const routeFile = readLeaveBalanceRoute();
 
-    expect(clientFile).toContain("const canViewLeaveQuotas");
-    expect(clientFile).toContain("const canManageLeaveQuotas");
-    expect(clientFile).toMatch(/hasPermission\((["'])users:read\1\)/);
-    expect(clientFile).toMatch(/hasPermission\((["'])attendance:read\1\)/);
-    expect(clientFile).toMatch(/hasPermission\((["'])attendance:update\1\)/);
-    expect(clientFile).toContain("canViewLeaveQuotas={canViewLeaveQuotas}");
-    expect(clientFile).toContain("{canManageLeaveQuotas && (");
+    expect(hrClient).toContain("const canManageLeaveQuotas");
+    expect(hrClient).toMatch(/hasPermission\((["'])users:update\1\)/);
+    expect(hrClient).toMatch(/hasPermission\((["'])attendance:update\1\)/);
+    expect(hrClient).toContain("{canManageLeaveQuotas && (");
+    expect(hrClient).toContain("LeaveBalanceSettings");
+
+    // View mode Pengguna masih boleh menampilkan ringkasan cuti (read)
+    expect(usersClient).toContain("const canViewLeaveQuotas");
+    expect(usersClient).toMatch(/hasPermission\((["'])users:read\1\)/);
+    expect(usersClient).toMatch(/hasPermission\((["'])attendance:read\1\)/);
+    expect(usersClient).toContain("canViewLeaveQuotas={canViewLeaveQuotas}");
+
+    // Edit Pengguna tidak mount LeaveBalanceSettings
+    expect(usersClient).not.toContain("<LeaveBalanceSettings");
 
     expect(routeFile).toMatch(
       /permissions:\s*\[\s*["']attendance:read["'],\s*["']attendance:update["'],\s*["']users:read["']\s*\]/,
@@ -128,15 +158,13 @@ describe("admin users edit safety", () => {
     expect(newClientFile).toContain('htmlFor="email"');
   });
 
-  it("keeps admin users copy and new-user save hints consistent", () => {
+  it("keeps admin users copy and HR leave-save hints consistent", () => {
     const newClientFile = readUsersNewClient();
     const detailClientFile = readUsersDetailClient();
     const leaveBalanceFile = readLeaveBalanceSettings();
     const formSectionsFile = readUserFormSections();
+    const hrClient = readHrDetailClient();
 
-    // Copy "Akses & Privilege" dan "Fitur Sales & Canvassing" kini tinggal di
-    // shared component `UserFormSections.tsx`. Guard ini memastikan kedua page
-    // memakai component yang sama sehingga copy tetap sinkron (tidak drift).
     for (const clientFile of [newClientFile, detailClientFile]) {
       expect(clientFile).toContain("StatusAndSalesSection");
       expect(clientFile).not.toContain("Akses & Privilese");
@@ -148,9 +176,12 @@ describe("admin users edit safety", () => {
     expect(formSectionsFile).not.toContain("Akses & Privilese");
     expect(formSectionsFile).not.toContain("Canvasing");
 
+    // LeaveBalanceSettings canonical di HR; label simpan di surface HR
     expect(leaveBalanceFile).toContain("saveButtonLabel");
-    expect(newClientFile).toContain('saveButtonLabel="Simpan Pengguna"');
-    expect(detailClientFile).toContain('saveButtonLabel="Simpan Perubahan"');
+    expect(hrClient).toContain('saveButtonLabel="Simpan Perubahan"');
+    // Create user tidak lagi mount LeaveBalanceSettings
+    expect(newClientFile).not.toContain("<LeaveBalanceSettings");
+    expect(detailClientFile).not.toContain("<LeaveBalanceSettings");
   });
 
   it("makes list actions and multisite selector accessible", () => {
@@ -176,8 +207,8 @@ describe("admin users edit safety", () => {
     );
   });
 
-  it("normalizes edit-user site relations before filling Site Area Kerja", () => {
-    const detailClientFile = readUsersDetailClient();
+  it("normalizes HR employee site relations before filling Site Area Kerja", () => {
+    const hrClient = readHrDetailClient();
     const helpersFile = readUserDetailHelpers();
 
     expect(helpersFile).toContain("function getSelectedSitesFromUser");
@@ -187,25 +218,18 @@ describe("admin users edit safety", () => {
     expect(helpersFile).toContain(
       ".filter((site): site is SelectedSite => Boolean(site.siteId))",
     );
-    expect(detailClientFile).toContain(
-      "const loadedSelectedSites = getSelectedSitesFromUser(usr)",
-    );
+    expect(hrClient).toContain("getSelectedSitesFromUser(usr)");
   });
 
   it("keeps assigned user sites visible when custom roles cannot list every site", () => {
-    const detailClientFile = readUsersDetailClient();
+    const hrClient = readHrDetailClient();
     const helpersFile = readUserDetailHelpers();
     const hookFile = readUseUserDetailData();
 
     expect(helpersFile).toContain("function getSitesFromUser");
-    expect(detailClientFile).toContain(
-      "const loadedSites = getSitesFromUser(usr)",
-    );
-    expect(detailClientFile).toContain(
-      "setSites((currentSites) => mergeSites(currentSites, loadedSites))",
-    );
-    // Reference-data hook dipakai untuk merge sites yang berasal dari
-    // endpoint list agar tetap terlihat bersama site yang di-assign user.
+    expect(hrClient).toContain("getSitesFromUser(usr)");
+    expect(hrClient).toContain("mergeSites");
+    // Reference-data hook masih dipakai create/list users untuk merge sites
     expect(hookFile).toContain(
       "setSites((current) => mergeSites(current, value))",
     );
@@ -230,34 +254,27 @@ describe("admin users edit safety", () => {
     );
     expect(hookFile).toContain("if (canReadTenants)");
     expect(hookFile).toContain("}, [canReadTenants])");
-    // Pastikan tidak ada regresi ke module-level promise cache lama.
     expect(newClientFile).not.toContain("let referenceDataPromise");
     expect(newClientFile).not.toContain("let tenantsPromise");
   });
 
-  it("prevents no-op edit submits while allowing leave quota-only changes", () => {
+  it("prevents no-op IAM edit submits; HR tracks leave quota changes", () => {
     const detailClientFile = readUsersDetailClient();
+    const hrClient = readHrDetailClient();
 
-    const snapshotStart = detailClientFile.indexOf(
-      "const currentFormSnapshot = JSON.stringify({",
-    );
-    const changeFlagIndex = detailClientFile.indexOf(
-      "const hasFormChanges",
-      snapshotStart,
-    );
-
-    expect(detailClientFile).toContain("initialFormSnapshot");
-    expect(snapshotStart).toBeGreaterThan(-1);
-    expect(changeFlagIndex).toBeGreaterThan(snapshotStart);
-    expect(detailClientFile.slice(snapshotStart, changeFlagIndex)).toContain(
-      "leaveQuotas,",
-    );
-    expect(detailClientFile).toContain("Object.keys(quotas).length === 0");
+    // Pengguna: dirty tracking tanpa leaveQuotas
     expect(detailClientFile).toContain("hasFormChanges");
     expect(detailClientFile).toContain("Belum ada perubahan untuk disimpan");
     expect(detailClientFile).toContain(
       "disabled={submitting || !hasFormChanges}",
     );
+    expect(detailClientFile).not.toContain("leaveQuotas");
+
+    // HR: dirty tracking termasuk leaveQuotas
+    expect(hrClient).toContain("leaveQuotas");
+    expect(hrClient).toContain("hasFormChanges");
+    expect(hrClient).toContain("Object.keys(quotas).length === 0");
+    expect(hrClient).toContain("disabled={submitting || !hasFormChanges}");
   });
 
   it("keeps edit-user password validation aligned with the server minimum", () => {
@@ -279,31 +296,32 @@ describe("admin users edit safety", () => {
     );
   });
 
-  it("does not report full success when leave quota saving fails", () => {
-    const detailClientFile = readUsersDetailClient();
+  it("does not report full success when leave quota saving fails on HR surface", () => {
+    const hrClient = readHrDetailClient();
     const apiFile = readUserDetailApi();
+    const usersClient = readUsersDetailClient();
 
-    expect(detailClientFile).toContain(
-      "await saveLeaveQuotas(id, leaveQuotas)",
-    );
+    expect(hrClient).toContain("await saveLeaveQuotas(id, leaveQuotas)");
     expect(apiFile).toContain('fetch("/api/admin/leave-balance"');
     expect(apiFile).toContain('method: "POST"');
-    expect(detailClientFile).toContain(
-      "Data pengguna tersimpan, tetapi kuota cuti gagal diperbarui",
-    );
-    expect(detailClientFile).not.toContain(
-      "// Don't fail the whole save just because quotas failed",
-    );
+    expect(hrClient).toMatch(/kuota cuti gagal/i);
+    expect(usersClient).not.toContain("await saveLeaveQuotas");
   });
 
   it("keeps new-user reference data hook resilient to unmount and tenant permission changes", () => {
     const hookFile = readUseUserDetailData();
 
-    // Hook harus punya guard `active` flag ala useEffect cleanup agar setState
-    // tidak dipanggil setelah komponen unmount.
     expect(hookFile).toContain("let active = true");
     expect(hookFile).toContain("if (active) setLoading(false)");
     expect(hookFile).toContain("return () => {");
     expect(hookFile).toContain("active = false");
+  });
+
+  it("edit Pengguna links to HR for kepegawaian fields", () => {
+    const detailClientFile = readUsersDetailClient();
+    expect(detailClientFile).toContain("/admin/hr/employees/");
+    expect(detailClientFile).toContain("Buka di HR");
+    expect(detailClientFile).not.toContain("<OrganizationSection");
+    expect(detailClientFile).not.toContain("<WorkingHoursSettings");
   });
 });

@@ -41,6 +41,51 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Menu HR Data Pegawai
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/hr`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Menu sidebar HR + landing `/admin/hr` + halaman Data Pegawai (list/detail) untuk kelola departemen, multi-site, jam kerja, dan kuota cuti. Permission di-map ke `users:*`. Reuse API `modules/users` / leave-balance. Tanpa migration.
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `app/admin/hr/**`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-20] — Form Pengguna tanpa section kepegawaian
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/users`
+- **Author**: agent
+- **Deskripsi**: Edit/view Pengguna fokusus IAM (kredensial, role, status, sales). Section kepegawaian dipindah ke `/admin/hr/employees/[id]`. Create user tetap boleh set dept/site; jam kerja & kuota cuti hanya di HR.
+- **Files**: `app/admin/users/[id]/UsersDetailClient.tsx`, `UsersDetailView.tsx`, `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak (path `/admin/users` tetap; field HR di-edit lewat path baru)
+
+### [2026-07-20] — Halaman detail pegawai HR (kepegawaian only)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/hr/employees/[id]`
+- **Author**: agent
+- **Deskripsi**: Detail pegawai di menu HR: penempatan (dept/site), jam kerja, kuota cuti. PATCH hanya field HR (tanpa password/role/name/email). Header read-only + link ke `/admin/users/[id]`. Reuse komponen shared HR.
+- **Files**: `app/admin/hr/employees/[id]/page.tsx`, `app/admin/hr/employees/[id]/HrEmployeeDetailClient.tsx`, `tests/admin/hr-employees-surface.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-20] — Tambah menu HR + specialMappings permission users
+
+- **Tipe**: [ADDED] [CHANGED]
+- **Scope**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `components/layout/admin-sidebar/adminSidebarIcons.tsx`
+- **Author**: agent
+- **Deskripsi**: Fase 1 PRD-HR-MENU-SPLIT v2. Tambah parent menu HR (section SDM, no featureModule) dengan child HR.EMPLOYEES (path /admin/hr/employees, featureModule users). Rename USERS display name "Karyawan" → "Pengguna". Tambah specialMappings HR + HR.EMPLOYEES → users di adminSidebarMenu.ts. Register icon HiOutlineIdentification. Dilengkapi 6 unit tests TDD (RED→GREEN).
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `components/layout/admin-sidebar/adminSidebarIcons.tsx`, `tests/admin/hr-menu-config.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-20] — PRD menu HR: pisah kepegawaian dari Karyawan
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/specifications`
+- **Author**: agent
+- **Deskripsi**: PRD `PRD-HR-MENU-SPLIT-2026-07-20` v2 — SOT keputusan: tambah menu HR dengan memisahkan fungsi kepegawaian (dept, site, jam kerja, kuota cuti) dari menu Karyawan/Pengguna. v1 (flatten Kehadiran+Gaji) dibatalkan karena tidak sesuai intent. Belum ada perubahan kode aplikasi; belum commit/push.
+- **Files**: `docs/specifications/PRD-HR-MENU-SPLIT-2026-07-20.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-19] — Kembalikan Turbopack build + batasi worker (webpack break Baileys)
 
 - **Tipe**: [FIXED] [INFRA]
