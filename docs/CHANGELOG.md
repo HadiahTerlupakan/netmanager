@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Nullable userId/senderId chat untuk actor mitra
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/migrations`, `modules/chat`
+- **Author**: agent
+- **Deskripsi**: Migration `add_chat_actor_columns` menambah actorType/actorId
+  tapi belum drop NOT NULL pada `ConversationParticipant.userId` dan
+  `Message.senderId`. Insert participant mitra (userId=null) gagal di production
+  dengan `null value in column "userId" violates not-null constraint` (P2011)
+  di `/api/mobile/chat/global`. Fix: drop NOT NULL + drop unique constraint lama
+  `ConversationParticipant_conversationId_userId_key` (nama constraint di DB
+  berbeda dari yang di migration #1). FK ke User tetap aktif.
+- **Migration**: `20260720123000_make_chat_user_columns_nullable`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — Aktifkan chat untuk mitra & pelanggan via actor polymorphism
 
 - **Tipe**: [CHANGED]
