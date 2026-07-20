@@ -4,6 +4,7 @@ import { prismaMock } from "../../setup";
 const mockFns = vi.hoisted(() => ({
   sendPushNotification: vi.fn().mockResolvedValue(true),
   createNotification: vi.fn().mockResolvedValue({ id: "notif-1" }),
+  whatsAppSend: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 const redisStore = new Map<string, { value: string; expiresAt: number }>();
@@ -15,6 +16,24 @@ vi.mock("@/modules/notification/services/ExpoPushService", () => ({
 vi.mock("@/modules/notification/services/NotificationService", () => ({
   createNotification: mockFns.createNotification,
 }));
+
+vi.mock("@/modules/notification/services/whatsapp-sender.service", () => ({
+  WhatsAppSenderService: class {
+    send = mockFns.whatsAppSend;
+  },
+}));
+
+vi.mock("@/modules/notification", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/notification")>();
+  return {
+    ...actual,
+    sendPushNotification: mockFns.sendPushNotification,
+    WhatsAppSenderService: class {
+      send = mockFns.whatsAppSend;
+    },
+  };
+});
 
 vi.mock("@/lib/redis", () => {
   const get = vi.fn(async (key: string) => {
@@ -89,12 +108,74 @@ describe("AttendanceAlertService", () => {
         endWorkTime: "17:00",
         workDays: "MON,TUE,WED,THU,FRI",
         pushToken: "token-1",
+        phone: "08123456789",
+        workingHourMode: "FIXED",
       },
     ]);
     prismaMock.attendance.findMany.mockResolvedValue([]);
 
     const first = await processCheckInReminders(30);
     const second = await processCheckInReminders(30);
+
+    expect(first.usersNotified).toBe(1);
+    expect(second.usersNotified).toBe(0);
+    expect(mockFns.sendPushNotification).toHaveBeenCalledTimes(1);
+    expect(mockFns.whatsAppSend).toHaveBeenCalledTimes(1);
+    expect(mockFns.sendPushNotification).toHaveBeenCalledWith(
+      "user-1",
+      expect.stringContaining("Telat Check-In"),
+      expect.stringContaining("08:00"),
+      expect.objectContaining({ action: "check_in" }),
+    );
+  });
+
+  it("sends check-in reminder via WhatsApp only when user has phone without push token", async () => {
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: "user-wa",
+        name: "Wati",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        workDays: "MON,TUE,WED,THU,FRI",
+        pushToken: null,
+        phone: "08111111111",
+        workingHourMode: "FIXED",
+      },
+    ]);
+    prismaMock.attendance.findMany.mockResolvedValue([]);
+
+    const result = await processCheckInReminders(30);
+
+    expect(result.usersNotified).toBe(1);
+    expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
+    expect(mockFns.whatsAppSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phone: "08111111111",
+        accountType: "INTERNAL",
+      }),
+    );
+  });
+
+  it("sends flexible no-checkin reminder once per day after local noon", async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 12, 15, 0, 0));
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: "user-flex-none",
+        name: "Flexi",
+        tenantId: "tenant-1",
+        workDays: "MON,TUE,WED,THU,FRI",
+        pushToken: "token-flex-none",
+        phone: null,
+        flexibleTargetHour: 8,
+      },
+    ]);
+    prismaMock.attendance.findMany.mockResolvedValue([]);
+
+    const { processFlexibleNoCheckInReminders } =
+      await import("@/modules/attendance");
+    const first = await processFlexibleNoCheckInReminders();
+    const second = await processFlexibleNoCheckInReminders();
 
     expect(first.usersNotified).toBe(1);
     expect(second.usersNotified).toBe(0);
@@ -110,6 +191,7 @@ describe("AttendanceAlertService", () => {
           name: "Sari",
           flexibleTargetHour: 8,
           pushToken: "token-flex",
+          phone: null,
         },
       },
     ]);
@@ -152,6 +234,8 @@ describe("AttendanceAlertService", () => {
         endWorkTime: "17:00",
         workDays: "MON,TUE,WED,THU,FRI",
         pushToken: "token-1",
+        phone: null,
+        workingHourMode: "FIXED",
       },
     ]);
     prismaMock.attendance.findMany.mockResolvedValue([]);
