@@ -1,29 +1,26 @@
 import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
-import { ChatService } from "@/modules/chat";
+import { ChatService, resolveChatActor } from "@/modules/chat";
 
 const chatService = new ChatService();
 
-/**
- * Get conversation list for mobile chat.
- */
+/** Get conversation list for mobile chat. */
 export const GET = createHandler(
   { auth: true, permissions: ["m_chat:read"] },
-  async (req, ctx) => {
-    const userId = ctx.session!.user.id;
+  async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId!;
 
-    const conversations = await chatService.getConversations(userId, tenantId);
+    const conversations = await chatService.getConversations(
+      resolveChatActor(ctx.session!.user),
+      tenantId,
+    );
     return apiSuccess(conversations);
   },
 );
 
-/**
- * Create a new mobile chat conversation.
- */
+/** Create a new mobile chat conversation. */
 export const POST = createHandler(
   { auth: true, permissions: ["m_chat:create"] },
   async (req, ctx) => {
-    const userId = ctx.session!.user.id;
     const tenantId = ctx.session!.user.tenantId!;
 
     const body = await req.json();
@@ -39,8 +36,8 @@ export const POST = createHandler(
     }
 
     const conversation = await chatService.createConversation({
-      creatorId: userId,
-      participantIds,
+      creator: resolveChatActor(ctx.session!.user),
+      participants: participantIds.map((id: string) => ({ type: "user", id })),
       tenantId,
       name: body.name,
     });

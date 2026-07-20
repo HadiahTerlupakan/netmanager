@@ -1,5 +1,5 @@
 import { hasPermission } from "@/lib/rbac";
-import { ChatService } from "@/modules/chat";
+import { ChatService, resolveChatActor } from "@/modules/chat";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
 
@@ -14,7 +14,7 @@ export const GET = createHandler(
   async (_req, ctx) => {
     const chatService = new ChatService();
     const conversations = await chatService.getConversations(
-      ctx.session!.user.id,
+      resolveChatActor(ctx.session!.user),
       ctx.session!.user.tenantId as string,
     );
 
@@ -38,11 +38,12 @@ export const POST = createHandler(
     }
 
     const { participantIds, name } = ctx.validated;
+    const creator = resolveChatActor(ctx.session!.user);
 
     const chatService = new ChatService();
     const result = await chatService.createConversation({
-      creatorId: ctx.session!.user.id,
-      participantIds,
+      creator,
+      participants: participantIds.map((id) => ({ type: "user", id })),
       tenantId: ctx.session!.user.tenantId as string,
       ...(name ? { name } : {}),
     });

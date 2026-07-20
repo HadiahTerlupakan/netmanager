@@ -1,5 +1,5 @@
 import { hasPermission } from "@/lib/rbac";
-import { ChatService } from "@/modules/chat";
+import { ChatService, resolveChatActor } from "@/modules/chat";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
 
@@ -36,7 +36,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   try {
     const result = await chatService.getMessages({
       conversationId,
-      userId: ctx.session!.user.id,
+      actor: resolveChatActor(ctx.session!.user),
       tenantId: ctx.session!.user.tenantId as string,
       cursor,
       limit,
@@ -74,7 +74,7 @@ export const POST = createHandler(
     try {
       const result = await chatService.sendMessage({
         conversationId,
-        senderId: user.id,
+        sender: resolveChatActor(user),
         senderName: user.name || "Admin",
         tenantId: user.tenantId as string,
         ...(content !== undefined ? { content } : {}),

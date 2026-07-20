@@ -1,5 +1,5 @@
 import { hasPermission } from "@/lib/rbac";
-import { ChatService } from "@/modules/chat";
+import { ChatService, resolveChatActor } from "@/modules/chat";
 import {
   apiSuccess,
   ApiErrors,
@@ -62,7 +62,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const chatService = new ChatService();
   const result = await chatService.broadcastMessage({
-    senderId: user.id,
+    sender: resolveChatActor(user),
     senderName: user.name || "Admin",
     tenantId: user.tenantId as string,
     content: payload.content,
