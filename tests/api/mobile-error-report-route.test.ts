@@ -43,6 +43,7 @@ describe("POST /api/mobile/error-report", () => {
       userAgent: null,
       createdAt: new Date(),
     } as never);
+    prismaMock.user.findUnique.mockResolvedValue({ id: "user-123" } as never);
   });
 
   it("returns 400 when required fields are missing", async () => {
@@ -114,7 +115,7 @@ describe("POST /api/mobile/error-report", () => {
         userId: "user-123",
         role: "ADMIN",
         email: "user@example.com",
-        tenant: "tenant-a",
+        tenantId: "tenant-a",
       },
     });
 
@@ -143,9 +144,87 @@ describe("POST /api/mobile/error-report", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           userId: "user-123",
+          actorType: "user",
+          actorId: "user-123",
+          tenantId: "tenant-a",
           details: expect.stringContaining("tenant-a"),
         }),
       }),
     );
+  });
+
+  it("logs mitra error report via actorType/actorId without userId FK", async () => {
+    mockAuthenticateMobileRequest.mockResolvedValue({
+      payload: {
+        userId: "mitra-1",
+        role: "MITRA",
+        email: "test@mitra.com",
+        tenantId: "tenant-a",
+      },
+    });
+
+    const request = new NextRequest(
+      "http://localhost/api/mobile/error-report",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          message: "Request failed with status code 403",
+          kind: "exception",
+          source: "query",
+          severity: "error",
+        }),
+      },
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.systemLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: null,
+          actorType: "mitra",
+          actorId: "mitra-1",
+          tenantId: "tenant-a",
+        }),
+      }),
+    );
+  });
+
+  it("skips DB log when userId does not exist in User (safety net)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    mockAuthenticateMobileRequest.mockResolvedValue({
+      payload: {
+        userId: "ghost-user",
+        role: "ADMIN",
+        email: "ghost@example.com",
+        tenantId: "tenant-a",
+      },
+    });
+
+    const request = new NextRequest(
+      "http://localhost/api/mobile/error-report",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          message: "fail",
+          kind: "network",
+          source: "query",
+        }),
+      },
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.systemLog.create).not.toHaveBeenCalled();
   });
 });
