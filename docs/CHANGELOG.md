@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-20] — Fix 403 mitra di endpoint mobile work-order
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/mobile-auth`
+- **Author**: agent
+- **Deskripsi**: `verifyMitraToken` mengisi `permissions` pakai
+  `getMitraMobileFeatures(mitraType)` yang return feature-level (mis.
+  `m_work_order`, `m_barang`) tanpa action. Semua endpoint mobile pakai
+  action-level (`m_work_order:read`, `m_work_order:update`, `m_work_order:create`)
+  di `createHandler({ permissions: [...] })`, dan `expandPermissionsWithAliases`
+  tidak punya alias feature→action. Akibatnya mitra teknisi selalu dapat 403
+  saat akses `/api/mobile/work-orders/available` & endpoint work-order lain,
+  lalu mobile mengirim error report (loop 403 + error report).
+  Fix: ganti ke `getMitraMobileCapabilities(mitraType).permissions` yang sudah
+  return action-level, plus tambah `m_work_order:update` dan `m_work_order:create`
+  untuk `MITRA_TEKNISI` agar bisa claim, update progress, dan request work-order.
+- **Files**: `lib/mobile-auth.ts`, `tests/lib/mobile-auth.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-20] — Fix FK violation SystemLog saat mitra/pelanggan kirim error report
 
 - **Tipe**: [FIXED]
