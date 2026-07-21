@@ -37,6 +37,7 @@ export interface UserEntity {
   lastVersionCode?: number | null;
   lastVersionName?: string | null;
   lastVersionUpdate?: Date | null;
+  lastOtaUpdateId?: string | null;
   lastLoginAt?: Date | null;
   bankName?: string | null;
   bankAccountNo?: string | null;

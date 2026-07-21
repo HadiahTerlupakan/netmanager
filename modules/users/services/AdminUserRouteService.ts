@@ -43,26 +43,60 @@ export class AdminUserRouteService {
       { ...session, user: { ...session.user, permissions } },
       "users",
     );
-    const result = await new UserService(this.userRepository).getAllUsers({
-      siteId: isRestricted ? primarySiteId || undefined : undefined,
-      tenantId: this.resolveListTenantId(session, query.tenantId || undefined),
-      roleName: query.roleName || undefined,
-      page: query.page ? parseInt(query.page) : undefined,
-      limit: query.limit ? parseInt(query.limit) : undefined,
-      search: query.search || undefined,
-      isActive: this.resolveStatusFilter(query.status || undefined),
-    });
+    const tenantId = this.resolveListTenantId(
+      session,
+      query.tenantId || undefined,
+    );
+    const [result, latestAppVersionCode] = await Promise.all([
+      new UserService(this.userRepository).getAllUsers({
+        siteId: isRestricted ? primarySiteId || undefined : undefined,
+        tenantId,
+        roleName: query.roleName || undefined,
+        page: query.page ? parseInt(query.page) : undefined,
+        limit: query.limit ? parseInt(query.limit) : undefined,
+        search: query.search || undefined,
+        isActive: this.resolveStatusFilter(query.status || undefined),
+      }),
+      this.resolveLatestAndroidVersionCode(tenantId),
+    ]);
+
+    const users = result.data.map((user) => ({
+      ...user,
+      latestAppVersionCode,
+    }));
 
     return {
-      users: result.data,
+      users,
       meta: {
         total: result.total,
         active: result.active,
         inactive: result.inactive,
         page: query.page ? parseInt(query.page) : 1,
         limit: query.limit ? parseInt(query.limit) : result.data.length,
+        latestAppVersionCode,
       },
     };
+  }
+
+  private async resolveLatestAndroidVersionCode(
+    tenantId?: string,
+  ): Promise<number | null> {
+    try {
+      const { AppReleaseRepository } =
+        await import("@/modules/app-version/repositories/AppReleaseRepository");
+      const repo = new AppReleaseRepository();
+      const latest =
+        (await repo.findLatestActive({
+          platform: "android",
+          tenantId,
+        })) ||
+        (tenantId
+          ? await repo.findLatestActive({ platform: "android" })
+          : null);
+      return latest?.versionCode ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Get user detail for admin route with self-profile and site access enforcement. */

@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Track mobile OTA id + outdated badge di admin users
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/users`, `app/admin/users`, `mobile-netmanager`, `prisma`
+- **Author**: agent
+- **Deskripsi**: Kolom App Version di admin/users menampilkan native
+  versionCode/name + OTA updateId (expo-updates). Mobile kirim otaUpdateId
+  saat login & refresh. Persist ke User.lastOtaUpdateId + lastLoginAt.
+  List users membandingkan lastVersionCode vs latest AppRelease android
+  (badge Outdated). Migration: `20260721180000_add_user_last_ota_update_id`.
+- **Migration**: `20260721180000_add_user_last_ota_update_id`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Harden force-logout scope + block self-delete
 
 - **Tipe**: [FIXED]

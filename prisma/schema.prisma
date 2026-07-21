@@ -1422,6 +1422,7 @@ model User {
   lastVersionCode                            Int?
   lastVersionName                            String?
   lastVersionUpdate                          DateTime?
+  lastOtaUpdateId                            String?
   canvasingTarget                            Int                         @default(50)
   isSales                                    Boolean                     @default(false)
   absentDeductionRate                        Float?

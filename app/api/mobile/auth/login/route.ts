@@ -12,6 +12,8 @@ export async function POST(req: Request) {
       password: body.password,
       versionCode: parseVersionCode(body.versionCode),
       versionName: body.versionName || null,
+      otaUpdateId:
+        typeof body.otaUpdateId === "string" ? body.otaUpdateId : null,
       loginType: body.loginType || "EMPLOYEE",
     });
   } catch (error) {

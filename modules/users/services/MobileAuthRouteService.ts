@@ -22,6 +22,7 @@ export interface MobileLoginPayload {
   password: string;
   versionCode: number;
   versionName?: string | null;
+  otaUpdateId?: string | null;
 }
 
 export interface MobileLoginRouteInput extends MobileLoginPayload {
@@ -117,6 +118,11 @@ export async function tryRefreshCustomerToken(refreshToken: string) {
 export async function tryRefreshMobileToken(
   refreshToken: string,
   versionCodeOverride?: number,
+  versionReport?: {
+    versionCode?: number;
+    versionName?: string | null;
+    otaUpdateId?: string | null;
+  },
 ) {
   const details = await mobileAuthVersionService.resolveRefreshDetails(
     refreshToken,
@@ -131,7 +137,52 @@ export async function tryRefreshMobileToken(
     versionCodeOverride,
   );
   if (!payload) return { kind: "invalid" as const };
-  return mobileAuthVersionService.buildMobileRefreshResult(payload, details);
+
+  const result = await mobileAuthVersionService.buildMobileRefreshResult(
+    payload,
+    details,
+  );
+  const userId =
+    payload.userId ||
+    (typeof payload.sub === "string" ? payload.sub : undefined) ||
+    (typeof payload.id === "string" ? payload.id : undefined);
+  if (
+    result.kind === "success" &&
+    userId &&
+    payload.role !== "CUSTOMER" &&
+    payload.role !== "MITRA"
+  ) {
+    await persistMobileVersionReport(userId, {
+      versionCode:
+        versionReport?.versionCode ||
+        versionCodeOverride ||
+        payload.appVersionCode ||
+        0,
+      versionName: versionReport?.versionName ?? payload.appVersionName ?? null,
+      otaUpdateId: versionReport?.otaUpdateId,
+    });
+  }
+  return result;
+}
+
+async function persistMobileVersionReport(
+  userId: string,
+  input: {
+    versionCode: number;
+    versionName?: string | null;
+    otaUpdateId?: string | null;
+  },
+) {
+  if (!input.versionCode || input.versionCode <= 0) return;
+  try {
+    const { buildVersionUpdate } = await import("./MobileAuthVersionService");
+    await prismaAuth.user.update({
+      where: { id: userId },
+      data: buildVersionUpdate(input),
+    });
+  } catch {
+    void 0;
+  }
 }
 
 /** Menentukan urutan fallback login berdasarkan tipe login yang diminta. */

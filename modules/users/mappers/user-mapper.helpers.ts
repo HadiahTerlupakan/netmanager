@@ -147,11 +147,12 @@ export function toListDTO(entity: UserEntity): UserListItemDTO {
     isActive: entity.isActive,
     isSales: entity.isSales,
     isAttendanceRequired: entity.isAttendanceRequired,
-    lastVersionCode: entity.lastVersionCode,
-    lastVersionName: entity.lastVersionName,
+    lastVersionCode: entity.lastVersionCode ?? null,
+    lastVersionName: entity.lastVersionName ?? null,
     lastVersionUpdate: entity.lastVersionUpdate
       ? entity.lastVersionUpdate.toISOString()
       : null,
+    lastOtaUpdateId: entity.lastOtaUpdateId ?? null,
     lastLoginAt: entity.lastLoginAt ? entity.lastLoginAt.toISOString() : null,
     departments: entity.department
       ? { id: entity.department.id, name: entity.department.name }

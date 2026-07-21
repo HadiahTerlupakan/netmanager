@@ -23,7 +23,10 @@ export interface UserListItemDTO {
   lastVersionCode: number | null;
   lastVersionName: string | null;
   lastVersionUpdate: string | null;
+  lastOtaUpdateId: string | null;
   lastLoginAt: string | null;
+  /** Latest active android AppRelease.versionCode for this tenant (if any). */
+  latestAppVersionCode?: number | null;
   // Relations
   departments: { id: string; name: string } | null;
   sites: { id: string; code: string; name: string } | null;

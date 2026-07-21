@@ -33,6 +33,23 @@ export function getMobileRequestVersionCode(
   return versionCode;
 }
 
+export function getMobileRequestVersionReport(
+  request: Pick<Request, "headers">,
+): {
+  versionCode?: number;
+  versionName?: string | null;
+  otaUpdateId?: string | null;
+} {
+  const versionCode = getMobileRequestVersionCode(request);
+  const versionName = request.headers.get("x-app-version-name");
+  const otaUpdateId = request.headers.get("x-app-ota-update-id");
+  return {
+    versionCode,
+    versionName: versionName?.trim() || null,
+    otaUpdateId: otaUpdateId?.trim() || null,
+  };
+}
+
 export async function authenticateMobileRequest(
   request: Request,
 ): Promise<MobileAuthResult> {

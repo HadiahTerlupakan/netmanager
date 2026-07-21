@@ -43,6 +43,7 @@ export const USER_DETAIL_SELECT = {
   lastVersionCode: true,
   lastVersionName: true,
   lastVersionUpdate: true,
+  lastOtaUpdateId: true,
   lastLoginAt: true,
   bankName: true,
   bankAccountNo: true,
@@ -88,7 +89,13 @@ export function buildUserFindAllQuery(
 ): Prisma.UserFindManyArgs {
   const query: Prisma.UserFindManyArgs = {
     orderBy: { createdAt: "desc" },
-    include: {
+    select: {
+      ...USER_BASE_SELECT,
+      lastVersionCode: true,
+      lastVersionName: true,
+      lastVersionUpdate: true,
+      lastOtaUpdateId: true,
+      lastLoginAt: true,
       departments: { select: { id: true, name: true } },
       sites: { select: { id: true, code: true, name: true } },
       role: { select: { id: true, name: true } },

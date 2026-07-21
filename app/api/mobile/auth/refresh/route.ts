@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
-import { getMobileRequestVersionCode } from "@/lib/mobile-api-auth";
+import { getMobileRequestVersionReport } from "@/lib/mobile-api-auth";
 import {
   tryRefreshCustomerToken,
   tryRefreshMobileToken,
@@ -22,6 +22,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const versionReport = getMobileRequestVersionReport(request);
+    if (typeof body?.otaUpdateId === "string" && body.otaUpdateId.trim()) {
+      versionReport.otaUpdateId = body.otaUpdateId.trim();
+    }
+    if (typeof body?.versionName === "string" && body.versionName.trim()) {
+      versionReport.versionName = body.versionName.trim();
+    }
+
     const customerTokens = await tryRefreshCustomerToken(refreshToken);
     if (customerTokens?.kind === "unsupported") {
       return customerTokens.response;
@@ -37,7 +45,8 @@ export async function POST(request: NextRequest) {
 
     const mobileTokens = await tryRefreshMobileToken(
       refreshToken,
-      getMobileRequestVersionCode(request),
+      versionReport.versionCode,
+      versionReport,
     );
     if (mobileTokens.kind === "unsupported") {
       return apiError(

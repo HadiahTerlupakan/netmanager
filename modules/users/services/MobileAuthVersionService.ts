@@ -101,13 +101,28 @@ export function buildVersionMetadata(input: MobileLoginPayload) {
   };
 }
 
-/** Bangun data update versi terakhir untuk user/customer. */
-export function buildVersionUpdate(input: MobileLoginPayload) {
+export function buildVersionUpdate(input: {
+  versionCode: number;
+  versionName?: string | null;
+  otaUpdateId?: string | null;
+}) {
   return {
     lastVersionCode: input.versionCode,
     lastVersionName: input.versionName || null,
+    lastOtaUpdateId: normalizeOtaUpdateId(input.otaUpdateId),
     lastVersionUpdate: new Date(),
+    lastLoginAt: new Date(),
   };
+}
+
+export function normalizeOtaUpdateId(
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (trimmed === "embedded") return "embedded";
+  return trimmed.slice(0, 64);
 }
 
 function resolveTrustedMobileRefreshVersion(

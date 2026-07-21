@@ -166,28 +166,55 @@ export function getUserColumns(options: UserColumnsOptions): Column<User>[] {
       key: "lastVersionCode",
       header: "App Version",
       priority: "secondary",
-      render: (user) => (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-sm text-gray-900 dark:text-gray-100">
-            <HiOutlineDevicePhoneMobile className="w-4 h-4 text-gray-400" />
-            <span>
-              {user.lastVersionName
-                ? `v${user.lastVersionName} (Build ${user.lastVersionCode})`
-                : user.lastVersionCode
-                  ? `Build ${user.lastVersionCode}`
-                  : "-"}
-            </span>
+      render: (user) => {
+        const hasVersion = Boolean(user.lastVersionCode);
+        const latest = user.latestAppVersionCode ?? null;
+        const isOutdated =
+          hasVersion &&
+          latest != null &&
+          Number(user.lastVersionCode) < Number(latest);
+        const otaLabel = user.lastOtaUpdateId
+          ? user.lastOtaUpdateId === "embedded"
+            ? "OTA embedded"
+            : `OTA ${user.lastOtaUpdateId.replace(/-/g, "").slice(0, 8)}`
+          : null;
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 text-sm text-gray-900 dark:text-gray-100">
+              <HiOutlineDevicePhoneMobile
+                className={`w-4 h-4 ${isOutdated ? "text-amber-500" : "text-gray-400"}`}
+              />
+              <span>
+                {user.lastVersionName
+                  ? `v${user.lastVersionName} (Build ${user.lastVersionCode})`
+                  : user.lastVersionCode
+                    ? `Build ${user.lastVersionCode}`
+                    : "-"}
+              </span>
+              {isOutdated && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                  Outdated
+                </span>
+              )}
+            </div>
+            {otaLabel && (
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-mono">
+                {otaLabel}
+              </span>
+            )}
+            {user.lastVersionUpdate && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {new Date(user.lastVersionUpdate).toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "short",
+                })}
+                {latest != null ? ` · latest ${latest}` : ""}
+              </span>
+            )}
           </div>
-          {user.lastVersionUpdate && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {new Date(user.lastVersionUpdate).toLocaleDateString("id-ID", {
-                day: "numeric",
-                month: "short",
-              })}
-            </span>
-          )}
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "lastLoginAt",
