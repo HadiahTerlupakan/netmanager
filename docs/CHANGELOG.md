@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Backfill tenantId null di canvasing & point_claims
+
+- **Tipe**: [FIXED]
+- **Scope**: production DB (`canvasing`, `point_claims`)
+- **Author**: agent
+- **Deskripsi**: 48 canvasing + 43 point_claims punya `tenantId` null
+  sehingga ter-exclude isolasi tenant Prisma (filter exact `tenantId`).
+  Akibatnya TOTAL POIN mobile Dede 1506 alih-alih 1794. Backfill
+  `tenantId` dari `User.salesId` tenant. Create path sudah inject
+  tenant via prisma extension; data lama yang null diperbaiki di prod.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Fix audience notifikasi work order (stop spam cross-dept)
 
 - **Tipe**: [FIXED]
