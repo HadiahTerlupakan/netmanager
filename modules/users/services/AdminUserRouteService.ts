@@ -162,6 +162,9 @@ export class AdminUserRouteService {
 
   /** Delete user from admin route with scoped access enforcement. */
   async deleteAdminUser(session: AdminSession, userId: string) {
+    if (session.user.id === userId) {
+      return fail(400, "Tidak dapat menghapus akun sendiri");
+    }
     const targetUser = await this.userRepository.findById(userId);
     if (!targetUser) return fail(404, USER_NOT_FOUND);
     const { isRestricted } = checkSiteRestriction(session, "users");

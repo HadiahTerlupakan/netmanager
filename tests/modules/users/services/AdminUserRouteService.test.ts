@@ -216,6 +216,20 @@ describe("AdminUserRouteService", () => {
   });
 
   describe("deleteAdminUser", () => {
+    it("menolak self-delete", async () => {
+      const result = await service.deleteAdminUser(
+        createSession({ id: "admin-1" }),
+        "admin-1",
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result).toMatchObject({
+        error: { code: 400, message: "Tidak dapat menghapus akun sendiri" },
+      });
+      expect(repository.findById).not.toHaveBeenCalled();
+      expect(repository.delete).not.toHaveBeenCalled();
+    });
+
     it("mengembalikan 404 saat user target tidak ada", async () => {
       vi.mocked(repository.findById).mockResolvedValueOnce(null);
 
