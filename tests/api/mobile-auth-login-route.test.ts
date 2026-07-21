@@ -99,6 +99,8 @@ describe("POST /api/mobile/auth/login", () => {
       data: {
         lastVersionCode: 55,
         lastVersionName: "1.2.3",
+        lastOtaUpdateId: null,
+        lastLoginAt: expect.any(Date),
         lastVersionUpdate: expect.any(Date),
       },
     });

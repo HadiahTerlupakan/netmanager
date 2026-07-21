@@ -82,17 +82,12 @@ export class AdminUserRouteService {
     tenantId?: string,
   ): Promise<number | null> {
     try {
-      const { AppReleaseRepository } =
-        await import("@/modules/app-version/repositories/AppReleaseRepository");
-      const repo = new AppReleaseRepository();
-      const latest =
-        (await repo.findLatestActive({
-          platform: "android",
-          tenantId,
-        })) ||
-        (tenantId
-          ? await repo.findLatestActive({ platform: "android" })
-          : null);
+      const { getAppReleaseServices } = await import("@/modules/app-version");
+      const { queryService } = await getAppReleaseServices();
+      const latest = await queryService.getLatestActive({
+        platform: "android",
+        tenantId,
+      });
       return latest?.versionCode ?? null;
     } catch {
       return null;

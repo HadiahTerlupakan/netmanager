@@ -1,4 +1,7 @@
-import type { AppRelease } from "../domain/entities/AppReleaseEntity";
+import type {
+  AppRelease,
+  AppReleasePlatform,
+} from "../domain/entities/AppReleaseEntity";
 import type {
   AppReleaseQueryFilters,
   IAppReleaseRepository,
@@ -22,5 +25,19 @@ export class AppReleaseQueryService {
       throw new AppReleaseNotFoundError(id);
     }
     return release;
+  }
+
+  async getLatestActive(input: {
+    platform: AppReleasePlatform;
+    tenantId?: string;
+  }): Promise<AppRelease | null> {
+    const tenantScoped = await this.repository.findLatestActive({
+      platform: input.platform,
+      tenantId: input.tenantId,
+    });
+    if (tenantScoped || !input.tenantId) {
+      return tenantScoped;
+    }
+    return this.repository.findLatestActive({ platform: input.platform });
   }
 }
