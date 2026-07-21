@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Harden live-map history scope + empty map state
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`, `app/admin/kehadiran/live-map`
+- **Author**: agent
+- **Deskripsi**: History lokasi admin kini enforce site_only/department_only
+  secara ketat (sebelumnya lolos bila flag tidak ada) + cek cross-tenant.
+  LiveMapClient: empty/loading state di mode map, hapus log PII koordinat.
+- **Files**: `AdminLocationRouteService.ts`, `LiveMapClient.tsx`,
+  `tests/modules/attendance/AdminLocationRouteService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Backfill tenantId null di canvasing & point_claims
 
 - **Tipe**: [FIXED]

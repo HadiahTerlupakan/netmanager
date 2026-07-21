@@ -1,6 +1,4 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
-
 import { useCallback, useEffect, useState } from "react";
 import {
   HiOutlineMapPin,
@@ -85,7 +83,6 @@ export default function LiveMapClient() {
 
   useEffect(() => {
     if (data) {
-      clientLogger.info("[LiveMapClient] API Response:", data);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLastUpdated(new Date());
     }
@@ -236,7 +233,33 @@ export default function LiveMapClient() {
       {/* Map View */}
       {viewMode === "map" && (
         <div className="mb-6">
-          <EmployeeLocationMap locations={filteredLocations} height={500} />
+          {loading && filteredLocations.length === 0 ? (
+            <div className="h-[500px] bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center border border-gray-100 dark:border-gray-700">
+              <span className="text-gray-400 dark:text-gray-500">
+                Memuat lokasi karyawan...
+              </span>
+            </div>
+          ) : filteredLocations.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 text-center border border-gray-100 dark:border-gray-700">
+              <HiOutlineUsers className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                {searchQuery
+                  ? "Tidak Ada Hasil"
+                  : error
+                    ? "Gagal Memuat Data"
+                    : "Tidak Ada Karyawan Aktif"}
+              </h3>
+              <p className="text-gray-400 dark:text-gray-500">
+                {searchQuery
+                  ? "Coba ubah kata kunci pencarian"
+                  : error
+                    ? error
+                    : "Belum ada karyawan yang check-in hari ini, atau GPS belum terkirim"}
+              </p>
+            </div>
+          ) : (
+            <EmployeeLocationMap locations={filteredLocations} height={500} />
+          )}
         </div>
       )}
 

@@ -102,7 +102,6 @@ export class AdminLocationRouteService {
     if (scope.isSuperAdmin) return {};
 
     if (!scope.siteId && !scope.departmentId) {
-      // Non-super-admin with no scope restrictions — verify user exists
       const currentUser = await this.userRepository.findById(session.user.id);
       if (!currentUser) {
         throw new AdminLocationRouteError("Unauthorized", 401);
@@ -133,6 +132,13 @@ export class AdminLocationRouteService {
     throw new AdminLocationRouteError("Parameter tanggal tidak valid", 400);
   }
 
+  /**
+   * History harus sama ketat dengan live list:
+   * - superadmin: lolos
+   * - live_tracking:site_only → target.siteId harus = admin.siteId
+   * - live_tracking:department_only → target.departmentId harus = admin.departmentId
+   * - tanpa restriction flag → tenant-wide (prisma isolation)
+   */
   private async assertCanAccessTargetUser(
     session: AdminLocationSession,
     permissions: string[],
@@ -151,38 +157,32 @@ export class AdminLocationRouteService {
       throw new AdminLocationRouteError("Unauthorized", 401);
     }
 
-    this.assertScopeMatch(permissions, adminUser.siteId, targetUser.siteId);
-    this.assertScopeMatch(
-      permissions,
-      adminUser.departmentId,
-      targetUser.departmentId,
-      true,
-    );
-  }
-
-  private assertScopeMatch(
-    permissions: string[],
-    adminScopeId: string | null,
-    targetScopeId: string | null,
-    isDepartment = false,
-  ): void {
-    const permissionName = isDepartment
-      ? "live_tracking:department_only"
-      : "live_tracking:site_only";
     if (
-      !permissions.includes(permissionName) ||
-      !adminScopeId ||
-      adminScopeId === targetScopeId
+      adminUser.tenantId &&
+      targetUser.tenantId &&
+      adminUser.tenantId !== targetUser.tenantId
     ) {
-      return;
+      throw new AdminLocationRouteError(LOCATION_READ_FORBIDDEN_MESSAGE, 403);
     }
 
-    throw new AdminLocationRouteError(
-      isDepartment
-        ? LOCATION_READ_FORBIDDEN_MESSAGE
-        : LOCATION_LIVE_FORBIDDEN_MESSAGE,
-      403,
+    const siteRestricted = permissions.includes("live_tracking:site_only");
+    if (siteRestricted) {
+      if (!adminUser.siteId || adminUser.siteId !== targetUser.siteId) {
+        throw new AdminLocationRouteError(LOCATION_LIVE_FORBIDDEN_MESSAGE, 403);
+      }
+    }
+
+    const departmentRestricted = permissions.includes(
+      "live_tracking:department_only",
     );
+    if (departmentRestricted) {
+      if (
+        !adminUser.departmentId ||
+        adminUser.departmentId !== targetUser.departmentId
+      ) {
+        throw new AdminLocationRouteError(LOCATION_READ_FORBIDDEN_MESSAGE, 403);
+      }
+    }
   }
 }
 
