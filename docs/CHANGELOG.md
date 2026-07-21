@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Fix scope summary canvasing mobile "Canvasing Saya"
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/marketing/canvasing/summary`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Endpoint summary selalu personal (salesId = user login).
+  Sebelumnya permission `canvasing:read` membuat `canReadAll=true` sehingga
+  card "Canvasing Saya" menampilkan approved se-tenant (221) alih-alih milik
+  sales (181). Subtitle card mobile diganti dari `woStartedToday` ke
+  `completedToday` agar match label "kunjungan selesai hari ini".
+- **Files**: `app/api/marketing/canvasing/summary/route.ts`,
+  `mobile-netmanager/app/(app)/dashboard.tsx`,
+  `tests/api/marketing-canvasing-summary-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Reminder absensi via WhatsApp + flexible no-checkin
 
 - **Tipe**: [ADDED]
