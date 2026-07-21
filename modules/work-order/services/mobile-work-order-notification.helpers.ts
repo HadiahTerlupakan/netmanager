@@ -82,6 +82,9 @@ function buildNotificationScope(workOrder: WorkOrderDetail) {
   return {
     ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
     ...(workOrder.siteId && { siteId: workOrder.siteId }),
+    ...(workOrder.assignedToId && { assignedToId: workOrder.assignedToId }),
+    ...(workOrder.createdById && { createdById: workOrder.createdById }),
+    ...(workOrder.requestedById && { requestedById: workOrder.requestedById }),
   };
 }
 

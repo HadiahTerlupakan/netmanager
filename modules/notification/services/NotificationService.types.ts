@@ -32,6 +32,8 @@ export interface WorkOrderNotificationData {
   departmentId?: string | undefined;
   siteId?: string | undefined;
   assignedToId?: string | undefined;
+  createdById?: string | undefined;
+  requestedById?: string | undefined;
   tenantId?: string | undefined;
 }
 

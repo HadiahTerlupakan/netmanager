@@ -1,5 +1,8 @@
 import { UserLookupService } from "@/modules/users";
-import { findEligibleRecipients } from "./NotificationService.recipients";
+import {
+  findEligibleRecipients,
+  findWorkOrderStakeholders,
+} from "./NotificationService.recipients";
 import type {
   CreateNotificationData,
   WorkOrderNotificationData,
@@ -17,12 +20,17 @@ type WorkOrderNotificationDependencies = {
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
 };
 
-type WorkOrderObserverInput = {
+type StakeholderScopeInput = {
+  workOrderId: string;
   departmentId?: string;
   siteId?: string;
+  assignedToId?: string | null;
+  createdById?: string | null;
+  requestedById?: string | null;
   excludeUserId?: string;
 };
 
+/** WO Baru → POOL (dept+site ketat). */
 export async function notifyNewWorkOrderEvent(input: {
   userLookupService: UserLookupService;
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
@@ -42,6 +50,7 @@ export async function notifyNewWorkOrderEvent(input: {
   });
 }
 
+/** Assign → assignee + STAKEHOLDERS observers (bukan full POOL). */
 export async function notifyWorkOrderAssignedEvent(input: {
   userLookupService: UserLookupService;
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
@@ -50,10 +59,17 @@ export async function notifyWorkOrderAssignedEvent(input: {
     triggeredByUserId?: string;
   };
 }) {
-  const observers = await findWorkOrderObservers(
-    input,
-    buildAssignedObserverInput(input.data),
-  );
+  const observers = await findWorkOrderStakeholders({
+    userLookupService: input.userLookupService,
+    workOrderId: input.data.workOrderId,
+    siteId: input.data.siteId,
+    departmentId: input.data.departmentId,
+    assignedToId: input.data.assignedToId,
+    createdById: input.data.createdById,
+    requestedById: input.data.requestedById,
+    // Assignee gets dedicated "Di-assign ke Anda"; exclude from observers.
+    excludeUserId: input.data.assignedToId || input.data.triggeredByUserId,
+  });
   await notifyAssignedWorkOrderRecipients({
     data: input.data,
     observers,
@@ -61,6 +77,7 @@ export async function notifyWorkOrderAssignedEvent(input: {
   });
 }
 
+/** Status change → STAKEHOLDERS only. */
 export async function notifyWorkOrderStatusChangeEvent(input: {
   userLookupService: UserLookupService;
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
@@ -70,10 +87,15 @@ export async function notifyWorkOrderStatusChangeEvent(input: {
     triggeredByUserId?: string;
   };
 }) {
-  const recipients = await findWorkOrderObservers(
-    input,
-    buildTriggeredObserverInput(input.data),
-  );
+  const recipients = await resolveStakeholders(input, {
+    workOrderId: input.data.workOrderId,
+    departmentId: input.data.departmentId,
+    siteId: input.data.siteId,
+    assignedToId: input.data.assignedToId,
+    createdById: input.data.createdById,
+    requestedById: input.data.requestedById,
+    excludeUserId: input.data.triggeredByUserId,
+  });
   await notifyStatusChangedWorkOrderRecipients({
     data: input.data,
     recipients,
@@ -81,6 +103,7 @@ export async function notifyWorkOrderStatusChangeEvent(input: {
   });
 }
 
+/** Update event → STAKEHOLDERS only. */
 export async function notifyWorkOrderUpdateEvent(input: {
   userLookupService: UserLookupService;
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
@@ -91,10 +114,15 @@ export async function notifyWorkOrderUpdateEvent(input: {
     excludeUserIds?: string[];
   };
 }) {
-  const recipients = await findWorkOrderObservers(
-    input,
-    buildTriggeredObserverInput(input.data),
-  );
+  const recipients = await resolveStakeholders(input, {
+    workOrderId: input.data.workOrderId,
+    departmentId: input.data.departmentId,
+    siteId: input.data.siteId,
+    assignedToId: input.data.assignedToId,
+    createdById: input.data.createdById,
+    requestedById: input.data.requestedById,
+    excludeUserId: input.data.triggeredByUserId,
+  });
   await notifyUpdatedWorkOrderRecipients({
     data: input.data,
     recipients,
@@ -102,6 +130,10 @@ export async function notifyWorkOrderUpdateEvent(input: {
   });
 }
 
+/**
+ * Mobile action (claim/inventory/complete/note) → STAKEHOLDERS.
+ * Nama export tetap notifyAdmins* untuk kompatibilitas; audience bukan pool.
+ */
 export async function notifyAdminsAboutMobileActionEvent(input: {
   userLookupService: UserLookupService;
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
@@ -115,6 +147,9 @@ export async function notifyAdminsAboutMobileActionEvent(input: {
     triggeredByName?: string;
     departmentId?: string;
     siteId?: string;
+    assignedToId?: string | null;
+    createdById?: string | null;
+    requestedById?: string | null;
   };
 }) {
   return notifyMobileActionRecipients(
@@ -134,58 +169,39 @@ async function buildMobileActionEventNotification(
       triggeredByName?: string;
       departmentId?: string;
       siteId?: string;
+      assignedToId?: string | null;
+      createdById?: string | null;
+      requestedById?: string | null;
     };
   },
 ) {
   return {
     data: input.data,
-    recipients: await findTriggeredWorkOrderObservers(input),
+    recipients: await resolveStakeholders(input, {
+      workOrderId: input.data.workOrderId,
+      departmentId: input.data.departmentId,
+      siteId: input.data.siteId,
+      assignedToId: input.data.assignedToId,
+      createdById: input.data.createdById,
+      requestedById: input.data.requestedById,
+      excludeUserId: input.data.triggeredByUserId,
+    }),
     createNotification: input.createNotification,
   };
 }
 
-async function findTriggeredWorkOrderObservers(
-  input: WorkOrderNotificationDependencies & {
-    data: {
-      departmentId?: string;
-      siteId?: string;
-      triggeredByUserId?: string;
-    };
-  },
-) {
-  return findWorkOrderObservers(input, buildTriggeredObserverInput(input.data));
-}
-
-async function findWorkOrderObservers(
+async function resolveStakeholders(
   input: WorkOrderNotificationDependencies,
-  observerInput: WorkOrderObserverInput,
+  scope: StakeholderScopeInput,
 ) {
-  return findEligibleRecipients({
+  return findWorkOrderStakeholders({
     userLookupService: input.userLookupService,
-    departmentId: observerInput.departmentId,
-    siteId: observerInput.siteId,
-    excludeUserId: observerInput.excludeUserId,
+    workOrderId: scope.workOrderId,
+    siteId: scope.siteId,
+    departmentId: scope.departmentId,
+    assignedToId: scope.assignedToId,
+    createdById: scope.createdById,
+    requestedById: scope.requestedById,
+    excludeUserId: scope.excludeUserId,
   });
-}
-
-function buildAssignedObserverInput(
-  data: WorkOrderNotificationData & { assignedToId?: string | null },
-): WorkOrderObserverInput {
-  return {
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.assignedToId || undefined,
-  };
-}
-
-function buildTriggeredObserverInput(data: {
-  departmentId?: string;
-  siteId?: string;
-  triggeredByUserId?: string;
-}): WorkOrderObserverInput {
-  return {
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.triggeredByUserId,
-  };
 }

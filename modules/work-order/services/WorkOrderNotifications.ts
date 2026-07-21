@@ -52,6 +52,8 @@ interface WorkOrderData {
   departmentId?: string | null;
   siteId?: string | null;
   assignedToId?: string | null;
+  createdById?: string | null;
+  requestedById?: string | null;
 }
 
 /**
@@ -183,6 +185,8 @@ export async function onWorkOrderAssigned(
       type: workOrder.type,
       priority: workOrder.priority,
       assignedToId: workOrder.assignedToId || undefined,
+      createdById: workOrder.createdById || undefined,
+      requestedById: workOrder.requestedById || undefined,
       departmentId: workOrder.departmentId || undefined,
       siteId: workOrder.siteId || undefined,
       assigneeName,
@@ -216,6 +220,8 @@ export async function onWorkOrderStatusChanged(
       type: workOrder.type,
       priority: workOrder.priority,
       assignedToId: workOrder.assignedToId || undefined,
+      createdById: workOrder.createdById || undefined,
+      requestedById: workOrder.requestedById || undefined,
       departmentId: workOrder.departmentId || undefined,
       siteId: workOrder.siteId || undefined,
       oldStatus,

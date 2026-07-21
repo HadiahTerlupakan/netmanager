@@ -121,6 +121,9 @@ export async function notifyAdminsAboutMobileAction(data: {
   triggeredByName?: string;
   departmentId?: string;
   siteId?: string;
+  assignedToId?: string | null;
+  createdById?: string | null;
+  requestedById?: string | null;
 }) {
   return notifyAdminsAboutMobileActionEvent({
     data,

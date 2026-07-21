@@ -260,9 +260,9 @@ export function registerDefaultHandlers(): void {
 
     try {
       const { socketEmitter } = await import("@/lib/websocket/emitter");
-      const { notifyNewWorkOrder } = await import("@/modules/notification");
 
-      // Emit real-time update via Socket.IO
+      // Realtime only. In-app + WA dikirim lewat path sync
+      // notifyWorkOrderCreatedSafely / onWorkOrderCreated agar tidak double-fire.
       socketEmitter.newWorkOrder(
         {
           id: payload.workOrderId,
@@ -277,20 +277,6 @@ export function registerDefaultHandlers(): void {
         payload.departmentId,
         payload.siteId,
       );
-
-      // Send notifications to eligible users
-      await notifyNewWorkOrder({
-        workOrderId: payload.workOrderId,
-        workOrderNumber: payload.workOrderNumber,
-        title: payload.title,
-        type: payload.type,
-        priority: payload.priority,
-        departmentId: payload.departmentId,
-        siteId: payload.siteId,
-        assignedToId: payload.assignedToId,
-        tenantId: payload.tenantId,
-        triggeredByUserId: payload.triggeredBy,
-      });
     } catch (error) {
       logger.error("[Worker] Work order created handler error:", error);
       throw error;

@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Fix audience notifikasi work order (stop spam cross-dept)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `lib/event-bus`, `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Penerima notifikasi WO dipisah POOL (WO baru, dept+site ketat
+  dengan `department_only` di workorders/m_work_order) vs STAKEHOLDERS (status,
+  aksi mobile, assign observer: assignee/creator/assignments + verify/approve).
+  Event bus WORK_ORDER_CREATED hanya realtime socket agar tidak double-fire
+  "Work Order Baru". Branch Manager cross-dept tidak lagi dapat noise teknisi.
+- **Files**: `NotificationService.recipients.ts`,
+  `NotificationService.work-order-events.ts`, `event-handlers.ts`,
+  `user-lookup.workorder.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Fix scope summary canvasing mobile "Canvasing Saya"
 
 - **Tipe**: [FIXED]

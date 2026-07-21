@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import type { UserLookupService } from "@/modules/users";
 import type {
   EligibleUser,
@@ -10,8 +11,13 @@ const WORK_ORDER_RESOURCE = "workorders";
 const WORK_ORDER_MOBILE_RESOURCE = "m_work_order";
 const WORK_ORDER_READ_ACTION = "read";
 const WORK_ORDER_DEPARTMENT_ONLY_ACTION = "department_only";
+const VERIFY_ACTIONS = ["verify", "approve_request"] as const;
 
-/** Find work-order recipients allowed by current site and department rules. */
+/**
+ * POOL: user yang boleh dapat "Work Order Baru".
+ * Site match + read permission; dept dibatasi lewat department_only
+ * di workorders ATAU m_work_order (post-filter).
+ */
 export async function findEligibleRecipients(input: {
   userLookupService: UserLookupService;
   departmentId?: string;
@@ -29,7 +35,94 @@ export async function findEligibleRecipients(input: {
     await input.userLookupService.findManyWithDetailedRelations(whereClause);
   return users
     .filter((user: EligibleUser) => isEligibleRecipient(user, input))
+    .filter((user: EligibleUser) =>
+      isPoolDepartmentAllowed(user, input.departmentId),
+    )
     .map(mapRecipientUser);
+}
+
+/**
+ * STAKEHOLDERS: assignee/creator/assignments + verify/approve di site.
+ * Dipakai status change, mobile action, update, assign observers.
+ */
+export async function findWorkOrderStakeholders(input: {
+  userLookupService: UserLookupService;
+  workOrderId: string;
+  siteId?: string;
+  departmentId?: string;
+  assignedToId?: string | null;
+  createdById?: string | null;
+  requestedById?: string | null;
+  excludeUserId?: string;
+}): Promise<RecipientUser[]> {
+  const explicitIds = new Set<string>();
+  for (const id of [
+    input.assignedToId,
+    input.createdById,
+    input.requestedById,
+  ]) {
+    if (id) explicitIds.add(id);
+  }
+
+  try {
+    const assignments = await prisma.workOrderAssignments.findMany({
+      where: { workOrderId: input.workOrderId },
+      select: { userId: true },
+    });
+    for (const row of assignments) {
+      if (row.userId) explicitIds.add(row.userId);
+    }
+  } catch (error) {
+    logger.error(
+      "[Notification] Failed to load work order assignments for stakeholders:",
+      error,
+    );
+  }
+
+  try {
+    const verifiers = await input.userLookupService.findManyWithCustomWhere({
+      isActive: true,
+      role: {
+        permission: {
+          some: {
+            OR: [
+              {
+                resource: WORK_ORDER_RESOURCE,
+                action: { in: [...VERIFY_ACTIONS] },
+              },
+              {
+                resource: WORK_ORDER_MOBILE_RESOURCE,
+                action: "verify",
+              },
+            ],
+          },
+        },
+      },
+      ...(input.siteId
+        ? {
+            OR: [
+              { siteId: input.siteId },
+              { siteId: null },
+              { userSites: { some: { siteId: input.siteId } } },
+            ],
+          }
+        : {}),
+    });
+    for (const verifier of verifiers) {
+      explicitIds.add(verifier.id);
+    }
+  } catch (error) {
+    logger.error(
+      "[Notification] Failed to load WO verifiers for stakeholders:",
+      error,
+    );
+  }
+
+  if (input.excludeUserId) {
+    explicitIds.delete(input.excludeUserId);
+  }
+
+  return [...explicitIds].map((id) => ({ id }));
 }
 
 /** Find canvasing verifiers for one site scope. */
@@ -60,13 +153,11 @@ function buildEligibleRecipientWhere(input: {
   const siteConditions = input.siteId
     ? buildSiteConditions(input.siteId)
     : undefined;
-  if (!input.departmentId) {
-    return buildSiteScopedRecipientWhere(input.excludeUserId, siteConditions);
-  }
-
+  // Dept matching is post-filtered (isPoolDepartmentAllowed) so multi-resource
+  // department_only is accurate; Prisma where only scopes site + read.
   return {
     ...buildEligibleRecipientBaseWhere(input.excludeUserId),
-    OR: buildDepartmentScopedConditions(input.departmentId, siteConditions),
+    ...(siteConditions ? { OR: siteConditions } : {}),
   };
 }
 
@@ -99,47 +190,45 @@ function buildEligibleRecipientBaseWhere(
   };
 }
 
-function buildSiteScopedRecipientWhere(
-  excludeUserId: string | undefined,
-  siteConditions?: Prisma.UserWhereInput[],
-): Prisma.UserWhereInput {
-  return {
-    ...buildEligibleRecipientBaseWhere(excludeUserId),
-    ...(siteConditions ? { OR: siteConditions } : {}),
-  };
-}
-
 function buildSiteConditions(siteId: string): Prisma.UserWhereInput[] {
   return [{ siteId }, { siteId: null }, { userSites: { some: { siteId } } }];
 }
 
-function buildDepartmentScopedConditions(
-  departmentId: string,
-  siteConditions?: Prisma.UserWhereInput[],
-): Prisma.UserWhereInput[] {
-  const departmentConditions: Prisma.UserWhereInput[] = [
-    { departmentId },
-    { departmentId: null },
-    {
-      role: {
-        permission: {
-          none: {
-            resource: WORK_ORDER_RESOURCE,
-            action: WORK_ORDER_DEPARTMENT_ONLY_ACTION,
-          },
-        },
-      },
-    },
-  ];
+function hasDepartmentOnly(user: EligibleUser): boolean {
+  return (
+    user.role?.permission?.some(
+      (permission) =>
+        permission.action === WORK_ORDER_DEPARTMENT_ONLY_ACTION &&
+        (permission.resource === WORK_ORDER_RESOURCE ||
+          permission.resource === WORK_ORDER_MOBILE_RESOURCE),
+    ) ?? false
+  );
+}
 
-  if (!siteConditions) {
-    return departmentConditions;
-  }
+function hasVerifyOrApprove(user: EligibleUser): boolean {
+  return (
+    user.role?.permission?.some(
+      (permission) =>
+        (permission.resource === WORK_ORDER_RESOURCE ||
+          permission.resource === WORK_ORDER_MOBILE_RESOURCE) &&
+        (permission.action === "verify" ||
+          permission.action === "approve_request"),
+    ) ?? false
+  );
+}
 
-  return siteConditions.map((siteCondition) => ({
-    ...siteCondition,
-    OR: departmentConditions,
-  }));
+/** Dept gate for POOL: department_only on either resource must match WO dept. */
+function isPoolDepartmentAllowed(
+  user: EligibleUser,
+  departmentId?: string,
+): boolean {
+  if (!departmentId) return true;
+  if (user.departmentId === departmentId) return true;
+  if (user.departmentId === null) return true;
+  if (hasVerifyOrApprove(user)) return true;
+  if (hasDepartmentOnly(user)) return false;
+  // No department_only → broad-read at site (admin-style)
+  return true;
 }
 
 function isEligibleRecipient(

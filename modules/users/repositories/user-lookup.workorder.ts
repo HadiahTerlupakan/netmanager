@@ -4,12 +4,12 @@ import { prisma } from "@/lib/prisma";
 
 const WORKORDER_RESOURCE = "workorders";
 const WORKORDER_ACTION_READ = "read";
-const WORKORDER_ACTION_SITE_ONLY = "site_only";
+const WORKORDER_RESOURCES = ["workorders", "m_work_order"] as const;
 
 /**
  * Ambil user dan relasi detail untuk target notifikasi work-order.
- * Note: 24 baris - sudah optimal dengan Prisma query builder untuk nested relations.
- * Memecah lebih lanjut akan memisahkan select fields yang saling terkait.
+ * Permission WO (workorders + m_work_order) dimuat penuh agar filter
+ * department_only / verify bisa dihitung di layer notification.
  */
 export function findManyWithDetailedRelations(where: Prisma.UserWhereInput) {
   return prisma.user.findMany({
@@ -25,10 +25,9 @@ export function findManyWithDetailedRelations(where: Prisma.UserWhereInput) {
           name: true,
           permission: {
             where: {
-              resource: WORKORDER_RESOURCE,
-              action: WORKORDER_ACTION_SITE_ONLY,
+              resource: { in: [...WORKORDER_RESOURCES] },
             },
-            select: { id: true },
+            select: { id: true, resource: true, action: true },
           },
         },
       },

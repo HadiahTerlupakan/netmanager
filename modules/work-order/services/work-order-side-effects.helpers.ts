@@ -15,6 +15,8 @@ export function buildNotificationPayload<
     departmentId?: string | null;
     siteId?: string | null;
     assignedToId?: string | null;
+    createdById?: string | null;
+    requestedById?: string | null;
   },
 >(workOrder: T) {
   return {
@@ -26,6 +28,8 @@ export function buildNotificationPayload<
     departmentId: workOrder.departmentId,
     siteId: workOrder.siteId,
     assignedToId: workOrder.assignedToId,
+    createdById: workOrder.createdById,
+    requestedById: workOrder.requestedById,
   };
 }
 

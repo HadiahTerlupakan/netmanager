@@ -30,7 +30,7 @@ export type EligibleUser = {
   userSites: Array<{ siteId: string }>;
   role: {
     name: string;
-    permission: Array<{ id: string }>;
+    permission: Array<{ id: string; resource: string; action: string }>;
   } | null;
 };
 

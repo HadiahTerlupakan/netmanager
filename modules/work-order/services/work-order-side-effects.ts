@@ -49,6 +49,8 @@ type WorkOrderNotificationPayload = {
   departmentId?: string | null;
   siteId?: string | null;
   assignedToId?: string | null;
+  createdById?: string | null;
+  requestedById?: string | null;
 };
 
 type WorkOrderCreatedPayload = WorkOrderNotificationPayload & {
