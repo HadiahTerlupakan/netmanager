@@ -3,18 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
   verifyAuth: vi.fn(),
-  getUserPermissions: vi.fn(),
-  isSuperAdminRole: vi.fn(),
   getCompletionSummary: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
   verifyAuth: mockFns.verifyAuth,
-  getUserPermissions: mockFns.getUserPermissions,
-}));
-
-vi.mock("@/lib/auth-helpers", () => ({
-  isSuperAdminRole: mockFns.isSuperAdminRole,
 }));
 
 vi.mock("@/modules/marketing", async () => {
@@ -38,9 +31,8 @@ describe("GET /api/marketing/canvasing/summary", () => {
     mockFns.verifyAuth.mockResolvedValue({
       id: "user-1",
       role: "ADMIN",
+      permissions: ["canvasing:read"],
     });
-    mockFns.getUserPermissions.mockResolvedValue([]);
-    mockFns.isSuperAdminRole.mockReturnValue(false);
     mockFns.getCompletionSummary.mockResolvedValue({
       total: 1,
       woStartedToday: 0,
@@ -53,37 +45,26 @@ describe("GET /api/marketing/canvasing/summary", () => {
     });
   });
 
-  it("menggunakan permissions dari session tanpa query ulang", async () => {
-    mockFns.verifyAuth.mockResolvedValue({
-      id: "user-1",
-      role: "ADMIN",
-      permissions: ["canvasing:read"],
-    });
-
+  it("selalu scope personal (canReadAll=false) meski user punya canvasing:read", async () => {
     const response = await GET(
       new NextRequest("http://localhost/api/marketing/canvasing/summary"),
     );
 
     expect(response.status).toBe(200);
-    expect(mockFns.getUserPermissions).not.toHaveBeenCalled();
     expect(mockFns.getCompletionSummary).toHaveBeenCalledWith({
-      canReadAll: true,
+      canReadAll: false,
       userId: "user-1",
     });
   });
 
-  it("fallback ke getUserPermissions ketika session tidak membawa permissions", async () => {
-    mockFns.getUserPermissions.mockResolvedValue(["canvasing:read"]);
+  it("mengembalikan 401 jika tidak terautentikasi", async () => {
+    mockFns.verifyAuth.mockResolvedValue(null);
 
     const response = await GET(
       new NextRequest("http://localhost/api/marketing/canvasing/summary"),
     );
 
-    expect(response.status).toBe(200);
-    expect(mockFns.getUserPermissions).toHaveBeenCalledWith("user-1");
-    expect(mockFns.getCompletionSummary).toHaveBeenCalledWith({
-      canReadAll: true,
-      userId: "user-1",
-    });
+    expect(response.status).toBe(401);
+    expect(mockFns.getCompletionSummary).not.toHaveBeenCalled();
   });
 });
