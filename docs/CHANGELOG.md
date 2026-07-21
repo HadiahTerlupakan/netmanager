@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Live-map Refresh force-fetch snapshot check-in + GPS
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/hooks/useApi`, `app/admin/kehadiran/live-map`
+- **Author**: agent
+- **Deskripsi**: Tombol Refresh live-map memanggil `refetch()` (network force)
+  dengan `staleTime: 0` agar selalu ambil ulang daftar karyawan check-in
+  hari ini + lokasi GPS terakhir. `useApi.mutate()` tanpa updater juga
+  force `refetchQueries` (bukan cuma invalidate). Spinner saat `isFetching`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Harden live-map history scope + empty map state
 
 - **Tipe**: [FIXED]

@@ -99,8 +99,10 @@ describe("LiveMapClient battery display", () => {
         tenantId: null,
       },
       isLoading: false,
+      isFetching: false,
       error: null,
       mutate: vi.fn(),
+      refetch: vi.fn(),
     });
 
     // useState mocks untuk state lokal sisa: searchQuery, lastUpdated,

@@ -48,12 +48,8 @@ interface UseApiResult<T> {
   data: T | undefined;
   error: FetchError | null;
   isLoading: boolean;
-  /**
-   * Re-fetch atau update cache untuk key ini.
-   * - `mutate()` → invalidate & re-fetch
-   * - `mutate(value, { revalidate: false })` → set cache tanpa fetch
-   * - `mutate(updater, { revalidate: false })` → set via updater fn
-   */
+  isFetching: boolean;
+  refetch: () => Promise<T | undefined>;
   mutate: (
     updater?: MutateUpdater<T>,
     options?: MutateOptions,
@@ -116,6 +112,12 @@ export function useApi<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data]);
 
+  const refetch: UseApiResult<T>["refetch"] = async () => {
+    if (!key) return undefined;
+    const result = await query.refetch({ cancelRefetch: false });
+    return result.data;
+  };
+
   const mutate: UseApiResult<T>["mutate"] = async (updater, opts) => {
     if (!key) return undefined;
     const queryKey = [key] as const;
@@ -132,8 +134,7 @@ export function useApi<T>(
       }
     }
 
-    // Default: invalidate untuk re-fetch
-    await queryClient.invalidateQueries({ queryKey });
+    await queryClient.refetchQueries({ queryKey, type: "active" });
     return queryClient.getQueryData<T>(queryKey);
   };
 
@@ -141,6 +142,8 @@ export function useApi<T>(
     data: query.data,
     error: query.error ?? null,
     isLoading: query.isPending && isQueryEnabled,
+    isFetching: query.isFetching && isQueryEnabled,
+    refetch,
     mutate,
   };
 }

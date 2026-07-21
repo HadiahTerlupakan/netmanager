@@ -65,14 +65,18 @@ export default function LiveMapClient() {
   const {
     data,
     isLoading: loading,
+    isFetching,
     error: fetchError,
     mutate,
+    refetch,
   } = useApi<{ locations?: EmployeeLocation[]; tenantId?: string | null }>(
     "/api/admin/location/live",
     {
-      // Polling fallback hanya saat WebSocket terputus.
-      // TanStack auto-pause saat tab tidak active.
+      staleTime: 0,
       refreshInterval: isConnected ? undefined : 15_000,
+      queryOptions: {
+        refetchOnWindowFocus: true,
+      },
     },
   );
   const locations = data?.locations ?? [];
@@ -80,6 +84,7 @@ export default function LiveMapClient() {
   const error = fetchError
     ? fetchError.message || "Gagal mengambil lokasi"
     : null;
+  const isRefreshing = isFetching;
 
   useEffect(() => {
     if (data) {
@@ -88,7 +93,9 @@ export default function LiveMapClient() {
     }
   }, [data]);
 
-  const fetchLocations = () => mutate();
+  const fetchLocations = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   useRealtimeScope(
     tenantId ? { kind: "admin", id: `location:${tenantId}` } : null,
@@ -192,12 +199,11 @@ export default function LiveMapClient() {
               </span>
             </div>
 
-            {/* Manual Refresh */}
-            <Button onClick={fetchLocations} disabled={loading}>
+            <Button onClick={fetchLocations} disabled={isRefreshing}>
               <HiOutlineArrowPath
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
               />
-              Refresh
+              {isRefreshing ? "Memuat..." : "Refresh"}
             </Button>
           </div>
         </div>
