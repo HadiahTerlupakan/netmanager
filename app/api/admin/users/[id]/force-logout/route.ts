@@ -3,6 +3,7 @@ import { socketEmitter } from "@/lib/websocket/emitter";
 import { AdminUserRouteService } from "@/modules/users";
 import { forceLogoutSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
+import type { Session } from "next-auth";
 
 /**
  * @swagger
@@ -18,27 +19,48 @@ export const POST = createHandler(
     permissions: ["users:force_logout"],
     schema: forceLogoutSchema,
   },
-  async (req, ctx) => {
+  async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, params } = ctx;
-    const { id: targetUserId } = params;
+    const { session, params, permissions } = ctx;
+    const rawId = params.id;
+    const targetUserId = typeof rawId === "string" ? rawId : rawId?.[0];
 
     if (!targetUserId) return ApiErrors.badRequest("ID User tidak valid");
-
     if (!session) return ApiErrors.unauthorized();
 
-    // Prevent self force-logout
-    if (session.user.id === targetUserId) {
-      return ApiErrors.badRequest("Tidak dapat force logout diri sendiri");
-    }
+    const scopedSession = {
+      ...session,
+      user: {
+        ...session.user,
+        permissions: Array.isArray(permissions) ? permissions : [],
+      },
+    } as Session & {
+      user: Session["user"] & {
+        id: string;
+        tenantId?: string | null;
+        permissions?: string[];
+      };
+    };
 
     const adminUserRouteService = new AdminUserRouteService();
-    const updatedUser =
-      await adminUserRouteService.forceLogoutUser(targetUserId);
-    if (!updatedUser) return ApiErrors.notFound("User");
-    const targetUser = updatedUser;
+    const result = await adminUserRouteService.forceLogoutUser(
+      scopedSession,
+      targetUserId,
+    );
 
-    // Emit WebSocket event to force logout the user in real-time
+    if (result.ok === false) {
+      if (result.error.code === 400) {
+        return ApiErrors.badRequest(result.error.message);
+      }
+      if (result.error.code === 403) {
+        return ApiErrors.forbidden(result.error.message);
+      }
+      if (result.error.code === 404) {
+        return ApiErrors.notFound("User");
+      }
+      return ApiErrors.badRequest(result.error.message);
+    }
+
     socketEmitter.forceLogout(targetUserId);
 
     logger.apiRequest(
@@ -49,7 +71,7 @@ export const POST = createHandler(
       {
         userId: session.user.id,
         targetUserId,
-        newTokenVersion: updatedUser.tokenVersion,
+        newTokenVersion: result.data.tokenVersion,
       },
     );
 
@@ -57,14 +79,12 @@ export const POST = createHandler(
       action: "FORCE_LOGOUT",
       subject: "User",
       userId: session.user.id,
-      details: { id: targetUserId, name: targetUser.name },
+      details: { id: targetUserId, name: result.data.name },
     });
 
     return apiSuccess(
-      {
-        tokenVersion: updatedUser.tokenVersion,
-      },
-      { message: `User ${targetUser.name} berhasil di-logout paksa` },
+      { tokenVersion: result.data.tokenVersion },
+      { message: `User ${result.data.name} berhasil di-logout paksa` },
     );
   },
 );

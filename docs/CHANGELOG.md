@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-21] — Harden force-logout scope + block self-delete
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users`, `app/api/admin/users`
+- **Author**: agent
+- **Deskripsi**: Force logout admin enforce site restriction + tenant match
+  (sama pola delete). Self-delete user diblok 400. Policy di service layer.
+- **Files**: `AdminUserRouteService.ts`,
+  `app/api/admin/users/[id]/force-logout/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Live-map Refresh force-fetch snapshot check-in + GPS
 
 - **Tipe**: [FIXED]

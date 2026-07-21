@@ -64,6 +64,7 @@ describe("AdminUserRouteService", () => {
       delete: vi.fn(),
       syncUserSites: vi.fn(),
       updateWorkingHours: vi.fn(),
+      incrementTokenVersion: vi.fn(),
     } as unknown as IUserRepository;
 
     service = new AdminUserRouteService(repository);
@@ -287,6 +288,90 @@ describe("AdminUserRouteService", () => {
         data: { deletedUserName: "Local User" },
       });
       expect(repository.delete).toHaveBeenCalledWith("user-local");
+    });
+  });
+
+  describe("forceLogoutUser", () => {
+    it("menolak force logout diri sendiri", async () => {
+      const result = await service.forceLogoutUser(
+        createSession({ id: "admin-1" }),
+        "admin-1",
+      );
+      expect(result.ok).toBe(false);
+      expect(result).toMatchObject({ error: { code: 400 } });
+      expect(repository.incrementTokenVersion).not.toHaveBeenCalled();
+    });
+
+    it("menolak force logout user di luar site saat restricted", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        id: "user-remote",
+        siteId: "site-other",
+        tenantId: "tenant-admin",
+      } as never);
+      mockFns.checkSiteRestriction.mockReturnValueOnce({
+        isRestricted: true,
+        primarySiteId: "site-mine",
+        siteIds: ["site-mine"],
+      });
+      mockFns.canAccessSite.mockReturnValueOnce(false);
+
+      const result = await service.forceLogoutUser(
+        createSession({ tenantId: "tenant-admin" }),
+        "user-remote",
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result).toMatchObject({ error: { code: 403 } });
+      expect(repository.incrementTokenVersion).not.toHaveBeenCalled();
+    });
+
+    it("menolak force logout user tenant berbeda", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        id: "user-x",
+        siteId: "site-mine",
+        tenantId: "tenant-other",
+      } as never);
+
+      const result = await service.forceLogoutUser(
+        createSession({ tenantId: "tenant-admin" }),
+        "user-x",
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result).toMatchObject({ error: { code: 403 } });
+      expect(repository.incrementTokenVersion).not.toHaveBeenCalled();
+    });
+
+    it("force logout sukses saat site accessible", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        id: "user-local",
+        siteId: "site-mine",
+        tenantId: "tenant-admin",
+      } as never);
+      vi.mocked(repository.incrementTokenVersion).mockResolvedValueOnce({
+        id: "user-local",
+        name: "Local",
+        tokenVersion: 3,
+      });
+      mockFns.checkSiteRestriction.mockReturnValueOnce({
+        isRestricted: true,
+        primarySiteId: "site-mine",
+        siteIds: ["site-mine"],
+      });
+      mockFns.canAccessSite.mockReturnValueOnce(true);
+
+      const result = await service.forceLogoutUser(
+        createSession({ tenantId: "tenant-admin" }),
+        "user-local",
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result).toMatchObject({
+        data: { id: "user-local", tokenVersion: 3 },
+      });
+      expect(repository.incrementTokenVersion).toHaveBeenCalledWith(
+        "user-local",
+      );
     });
   });
 

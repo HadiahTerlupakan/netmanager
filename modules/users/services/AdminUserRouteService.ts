@@ -155,9 +155,35 @@ export class AdminUserRouteService {
     return this.createService.createUser(session, payload);
   }
 
-  /** Force logout user dengan increment tokenVersion. */
-  async forceLogoutUser(targetUserId: string) {
-    return this.userRepository.incrementTokenVersion(targetUserId);
+  async forceLogoutUser(session: AdminSession, targetUserId: string) {
+    if (session.user.id === targetUserId) {
+      return fail(400, "Tidak dapat force logout diri sendiri");
+    }
+
+    const targetUser = await this.userRepository.findById(targetUserId);
+    if (!targetUser) return fail(404, USER_NOT_FOUND);
+
+    if (
+      session.user.tenantId &&
+      targetUser.tenantId &&
+      session.user.tenantId !== targetUser.tenantId
+    ) {
+      return fail(403, "Anda tidak memiliki akses ke user tenant lain");
+    }
+
+    const { isRestricted } = checkSiteRestriction(session, "users");
+    if (isRestricted && !canAccessSite(session, "users", targetUser.siteId)) {
+      return fail(403, "Anda hanya dapat force logout user di site Anda");
+    }
+
+    const updated =
+      await this.userRepository.incrementTokenVersion(targetUserId);
+    if (!updated) return fail(404, USER_NOT_FOUND);
+
+    return {
+      ok: true as const,
+      data: updated,
+    };
   }
 
   /** Delete user from admin route with scoped access enforcement. */
