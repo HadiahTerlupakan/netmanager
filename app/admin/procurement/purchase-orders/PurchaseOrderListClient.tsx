@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HiOutlinePlus, HiPencil, HiTrash } from "react-icons/hi2";
+import {
+  HiOutlineArrowDownTray,
+  HiOutlinePlus,
+  HiPencil,
+  HiTrash,
+} from "react-icons/hi2";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
@@ -11,6 +16,7 @@ import {
   ProcurementPageShell,
   PROCUREMENT_INPUT_CLASS,
 } from "../_components/ProcurementPageShell";
+import { downloadPurchaseOrderPdfById } from "./po-pdf";
 
 interface PurchaseOrderListItem {
   id: string;
@@ -68,6 +74,7 @@ export function PurchaseOrderListClient() {
   const [search, setSearch] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [page, setPage] = useState(1);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const queryString = new URLSearchParams({
     ...(search ? { search } : {}),
@@ -99,6 +106,19 @@ export function PurchaseOrderListClient() {
       await mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus PO");
+    }
+  };
+
+  const handleDownloadPdf = async (id: string) => {
+    setDownloadingId(id);
+    try {
+      await downloadPurchaseOrderPdfById(id);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengunduh PDF PO",
+      );
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -212,6 +232,14 @@ export function PurchaseOrderListClient() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex gap-2">
+                      <button
+                        onClick={() => handleDownloadPdf(po.id)}
+                        disabled={downloadingId === po.id}
+                        className="p-2 text-gray-600 hover:text-indigo-600 disabled:opacity-50"
+                        title="Download PDF"
+                      >
+                        <HiOutlineArrowDownTray className="w-4 h-4" />
+                      </button>
                       <Link
                         href={`/admin/procurement/purchase-orders/${po.id}`}
                         className="p-2 text-gray-600 hover:text-blue-600"

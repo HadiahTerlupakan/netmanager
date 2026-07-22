@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
+import { downloadPurchaseOrderPdf } from "../po-pdf";
 
 interface PurchaseOrderItem {
   id: string;
@@ -279,6 +280,12 @@ export function PurchaseOrderEditClient({ poId }: Props) {
       backHref="/admin/procurement/purchase-orders"
       actions={
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => downloadPurchaseOrderPdf(data)}
+          >
+            Download PDF
+          </Button>
           {showProcessButton && (
             <Button
               onClick={handleProcess}
