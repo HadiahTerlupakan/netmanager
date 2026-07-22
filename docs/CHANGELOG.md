@@ -41,6 +41,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-22] — Perbaiki label PDF restock: Purchase Request (bukan PO)
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: PDF di halaman restock/inventory salah dilabeli Purchase Order.
+  Diganti ke Purchase Request: judul dokumen, nama file (`PR-…`), toast, tombol
+  UI, dan nama fungsi `generatePurchaseRequestPdf`. Nomor PO terkait tetap
+  ditampilkan sebagai meta referensi.
+- **Files**: `pdf.ts`, `RestockTable.tsx`, `tests/ui/restock-pdf.test.ts`,
+  `tests/ui/restock-table.test.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-22] — Download PDF Purchase Order di admin procurement
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/procurement/purchase-orders`
+- **Author**: agent
+- **Deskripsi**: Aksi download PDF di list dan detail Purchase Order. PDF
+  client-side (jspdf + autotable) berisi header PO, supplier, item barang/jasa,
+  ringkasan PPN & grand total.
+- **Files**: `po-pdf.ts`, `PurchaseOrderListClient.tsx`,
+  `PurchaseOrderEditClient.tsx`, `tests/ui/procurement-po-pdf.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-21] — Track mobile OTA id + outdated badge di admin users
 
 - **Tipe**: [ADDED] [MIGRATION]
