@@ -43,7 +43,7 @@ vi.mock("react-hot-toast", () => ({
   },
 }));
 
-import { generatePurchaseOrderPdf } from "@/app/admin/inventory/restock/pdf";
+import { generatePurchaseRequestPdf } from "@/app/admin/inventory/restock/pdf";
 
 const baseRequest: PurchaseRequest = {
   id: "purchase-request-1",
@@ -81,7 +81,7 @@ function getGeneratedTableOptions() {
   return tableCall[1] as { head: string[][]; body: string[][]; startY: number };
 }
 
-describe("generatePurchaseOrderPdf", () => {
+describe("generatePurchaseRequestPdf", () => {
   beforeEach(() => {
     pdfMocks.save.mockClear();
     pdfMocks.text.mockClear();
@@ -95,20 +95,20 @@ describe("generatePurchaseOrderPdf", () => {
     );
   });
 
-  it("saves purchase order PDF with a safe filename", () => {
-    generatePurchaseOrderPdf(baseRequest);
+  it("saves purchase request PDF with a safe filename", () => {
+    generatePurchaseRequestPdf(baseRequest);
 
-    expect(pdfMocks.save).toHaveBeenCalledWith("PO-PR-001-Depok.pdf");
+    expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
     expect(pdfMocks.toastSuccess).toHaveBeenCalledWith(
-      "PDF Purchase Order berhasil diunduh",
+      "PDF Purchase Request berhasil diunduh",
     );
   });
 
   it("keeps downloading when auto table does not expose finalY", () => {
     pdfMocks.autoTable.mockImplementation(() => undefined);
 
-    expect(() => generatePurchaseOrderPdf(baseRequest)).not.toThrow();
-    expect(pdfMocks.save).toHaveBeenCalledWith("PO-PR-001-Depok.pdf");
+    expect(() => generatePurchaseRequestPdf(baseRequest)).not.toThrow();
+    expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
   });
 
   it("uses placeholder item data instead of crashing on incomplete item relation", () => {
@@ -122,7 +122,7 @@ describe("generatePurchaseOrderPdf", () => {
       ],
     } as unknown as PurchaseRequest;
 
-    expect(() => generatePurchaseOrderPdf(request)).not.toThrow();
+    expect(() => generatePurchaseRequestPdf(request)).not.toThrow();
     expect(pdfMocks.autoTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -131,9 +131,20 @@ describe("generatePurchaseOrderPdf", () => {
     );
   });
 
-  it("includes purchase order metadata, notes, and approval context", () => {
-    generatePurchaseOrderPdf(baseRequest);
+  it("includes purchase request metadata, notes, and approval context", () => {
+    generatePurchaseRequestPdf(baseRequest);
 
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "PURCHASE REQUEST",
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({ align: "center" }),
+    );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Nomor PR:",
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(pdfMocks.text).toHaveBeenCalledWith(
       "Nomor PO:",
       expect.any(Number),
@@ -167,7 +178,7 @@ describe("generatePurchaseOrderPdf", () => {
   });
 
   it("includes requested quantity, received quantity, unit, and item notes", () => {
-    generatePurchaseOrderPdf(baseRequest);
+    generatePurchaseRequestPdf(baseRequest);
 
     expect(getGeneratedTableOptions()).toEqual(
       expect.objectContaining({

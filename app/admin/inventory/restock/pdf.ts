@@ -10,7 +10,7 @@ interface AutoTableDoc extends jsPDF {
   };
 }
 
-interface PurchaseOrderTableItem {
+interface PurchaseRequestTableItem {
   kode: string;
   nama: string;
   requestedQuantity: string;
@@ -24,7 +24,7 @@ function sanitizePdfFilename(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-function formatPurchaseOrderDate(value: string): string {
+function formatPurchaseRequestDate(value: string): string {
   return new Date(value).toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "long",
@@ -32,7 +32,7 @@ function formatPurchaseOrderDate(value: string): string {
   });
 }
 
-interface PurchaseOrderJasaTableItem {
+interface PurchaseRequestJasaTableItem {
   kode: string;
   nama: string;
   requestedQuantity: string;
@@ -40,9 +40,9 @@ interface PurchaseOrderJasaTableItem {
   keterangan: string;
 }
 
-function getPurchaseOrderJasaTableItem(
+function getPurchaseRequestJasaTableItem(
   item: NonNullable<PurchaseRequest["jasaItems"]>[number],
-): PurchaseOrderJasaTableItem {
+): PurchaseRequestJasaTableItem {
   return {
     kode: item.jasa?.kode || "-",
     nama: item.jasa?.nama || "Jasa tidak tersedia",
@@ -53,9 +53,9 @@ function getPurchaseOrderJasaTableItem(
   };
 }
 
-function getPurchaseOrderTableItem(
+function getPurchaseRequestTableItem(
   item: PurchaseRequest["items"][number],
-): PurchaseOrderTableItem {
+): PurchaseRequestTableItem {
   const satuan = item.barang?.satuan || "-";
 
   return {
@@ -91,14 +91,18 @@ function writeNoteBlock(doc: jsPDF, label: string, value: string, y: number) {
   doc.text(doc.splitTextToSize(value, 170), 20, y + 6);
 }
 
-export function generatePurchaseOrderPdf(request: PurchaseRequest) {
+/**
+ * Generate & download PDF dokumen Purchase Request (bukan Purchase Order).
+ * PO yang terkait (jika ada) ditampilkan sebagai referensi meta saja.
+ */
+export function generatePurchaseRequestPdf(request: PurchaseRequest) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(30, 41, 59);
-  doc.text("PURCHASE ORDER", pageWidth / 2, 25, { align: "center" });
+  doc.text("PURCHASE REQUEST", pageWidth / 2, 25, { align: "center" });
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.5);
@@ -111,11 +115,11 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
   const leftCol = 20;
   const rightCol = 130;
 
-  writeMetadataRow(doc, "Nomor Dokumen:", request.nomorRequest, leftCol, 45);
+  writeMetadataRow(doc, "Nomor PR:", request.nomorRequest, leftCol, 45);
   writeMetadataRow(
     doc,
     "Tanggal Pengajuan:",
-    formatPurchaseOrderDate(request.tanggal || request.createdAt),
+    formatPurchaseRequestDate(request.tanggal || request.createdAt),
     leftCol,
     52,
   );
@@ -147,7 +151,7 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
     writeMetadataRow(
       doc,
       "Tanggal Approval:",
-      formatPurchaseOrderDate(request.approvedAt),
+      formatPurchaseRequestDate(request.approvedAt),
       rightCol,
       66,
     );
@@ -171,7 +175,7 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
       startY: nextTableY,
       head: [["KODE", "NAMA BARANG", "DIMINTA", "DITERIMA", "KETERANGAN"]],
       body: barangItems.map((item) => {
-        const tableItem = getPurchaseOrderTableItem(item);
+        const tableItem = getPurchaseRequestTableItem(item);
         return [
           tableItem.kode,
           tableItem.nama,
@@ -204,7 +208,7 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
       startY: nextTableY + 17,
       head: [["KODE", "NAMA JASA", "JUMLAH", "STATUS", "KETERANGAN"]],
       body: jasaItems.map((item) => {
-        const tableItem = getPurchaseOrderJasaTableItem(item);
+        const tableItem = getPurchaseRequestJasaTableItem(item);
         return [
           tableItem.kode,
           tableItem.nama,
@@ -268,7 +272,7 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
     });
   }
 
-  const filename = sanitizePdfFilename(`PO-${request.nomorRequest}`);
+  const filename = sanitizePdfFilename(`PR-${request.nomorRequest}`);
   doc.save(`${filename}.pdf`);
-  toast.success("PDF Purchase Order berhasil diunduh");
+  toast.success("PDF Purchase Request berhasil diunduh");
 }

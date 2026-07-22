@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PurchaseRequest } from "@/app/admin/inventory/restock/types";
 
 const mockResponsiveTable = vi.fn((_props?: unknown) => null);
-const mockGeneratePurchaseOrderPdf = vi.fn();
+const mockGeneratePurchaseRequestPdf = vi.fn();
 
 vi.mock("@/components/ui/ResponsiveTable", () => ({
   ResponsiveTable: (props: unknown): null => {
@@ -15,8 +15,8 @@ vi.mock("@/components/ui/ResponsiveTable", () => ({
 }));
 
 vi.mock("@/app/admin/inventory/restock/pdf", () => ({
-  generatePurchaseOrderPdf: (request: PurchaseRequest) =>
-    mockGeneratePurchaseOrderPdf(request),
+  generatePurchaseRequestPdf: (request: PurchaseRequest) =>
+    mockGeneratePurchaseRequestPdf(request),
 }));
 
 vi.mock("@/app/admin/inventory/restock/RestockStatusBadge", () => ({
@@ -134,7 +134,7 @@ function renderActions(
 describe("RestockTable action visibility", () => {
   beforeEach(() => {
     mockResponsiveTable.mockClear();
-    mockGeneratePurchaseOrderPdf.mockClear();
+    mockGeneratePurchaseRequestPdf.mockClear();
   });
 
   it("shows edit approve and delete actions for draft requests with full permissions", () => {
@@ -331,7 +331,7 @@ describe("RestockTable action visibility", () => {
     const markup = renderActions(baseRequest);
 
     expect(markup).toContain('aria-label="Lihat detail PR-001"');
-    expect(markup).toContain('aria-label="Download PO PR-001"');
+    expect(markup).toContain('aria-label="Download PR PR-001"');
     expect(markup).toContain('aria-label="Edit PR-001"');
     expect(markup).toContain('aria-label="Hapus PR-001"');
   });

@@ -12,7 +12,7 @@ import {
 
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 
-import { generatePurchaseOrderPdf } from "./pdf";
+import { generatePurchaseRequestPdf } from "./pdf";
 import { RestockStatusBadge } from "./RestockStatusBadge";
 import {
   canApprovePurchaseRequest,
@@ -144,9 +144,9 @@ function renderBaseActions(
         <FiEye className="text-[0.95rem]" />
       </IconActionButton>
       <IconActionButton
-        title="Download PO"
-        label={`Download PO ${request.nomorRequest}`}
-        onClick={() => generatePurchaseOrderPdf(request)}
+        title="Download PR"
+        label={`Download PR ${request.nomorRequest}`}
+        onClick={() => generatePurchaseRequestPdf(request)}
         className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
         <FiDownload className="text-[0.95rem]" />
