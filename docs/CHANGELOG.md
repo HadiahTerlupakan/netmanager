@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-23] — Redesign SaaS landing + logo mobile + light/dark
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/landing`, `public/brand`, `docs/DESIGN.md`
+- **Author**: agent
+- **Deskripsi**: Redesign landing RADPRO.ID (soft structural). Logo resmi dari mobile app (`assets/images/icon.png`) di nav/footer; aksen brand blue `#0a46aa`; dual-theme; hapus section testimoni & klaim social proof palsu (4.9/5, 200+ ISP).
+- **Files**: `components/landing/SaasLandingPage.tsx`, `public/brand/radpro-icon.png`, `docs/DESIGN.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-23] — SEO foundation untuk SaaS landing
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/page.tsx`, `app/layout.tsx`, `app/sitemap.ts`, `app/robots.ts`
+- **Author**: agent
+- **Deskripsi**: Metadata lengkap (title/description/keywords/canonical/OG/Twitter), JSON-LD Organization+WebSite+SoftwareApplication, `sitemap.xml`, dan `robots.txt` yang block area admin/api/app.
+- **Files**: `app/page.tsx`, `app/layout.tsx`, `app/sitemap.ts`, `app/robots.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-23] — Rewrite kebijakan privasi RADPRO SaaS
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/kebijakan-privasi`
+- **Author**: agent
+- **Deskripsi**: Ganti konten SBL NET / ISP palsu dengan kebijakan privasi jujur untuk SaaS RADPRO.ID (ruang lingkup, data, penggunaan, pembagian, retensi, hak, kontak sales@radpro.id). Hapus klaim alamat/PT/telepon yang bukan milik RADPRO.
+- **Files**: `app/kebijakan-privasi/page.tsx`, `app/kebijakan-privasi/PrivacyPolicyPageClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-22] — Perbaiki label PDF restock: Purchase Request (bukan PO)
 
 - **Tipe**: [FIXED]
