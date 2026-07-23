@@ -9,11 +9,138 @@ import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
 import { prisma } from "@/modules/database";
 import { LandingContentService } from "@/modules/website";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+  process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
+  "https://radpro.id";
+
+const SITE_NAME = "RADPRO.ID";
+const SITE_TITLE =
+  "RADPRO.ID — Platform Manajemen ISP All-in-One | Billing, MikroTik, Portal Pelanggan";
+const SITE_DESCRIPTION =
+  "Platform manajemen ISP all-in-one: billing & invoicing otomatis, integrasi MikroTik & OLT, portal pelanggan, monitoring real-time, dan manajemen karyawan. Mulai gratis.";
+
 export const metadata: Metadata = {
-  title: "RADPRO.ID - Platform Manajemen ISP All-in-One",
-  description:
-    "Billing, network monitoring, customer portal untuk ISP dalam satu platform.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    absolute: SITE_TITLE,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "software ISP",
+    "billing ISP",
+    "manajemen ISP",
+    "MikroTik billing",
+    "portal pelanggan ISP",
+    "PPPoE management",
+    "OLT management",
+    "RADPRO",
+    "RADPRO.ID",
+    "software FTTH",
+    "tagihan internet otomatis",
+  ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: "technology",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: "/brand/radpro-icon.png",
+        width: 512,
+        height: 512,
+        alt: "Logo RADPRO.ID",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/brand/radpro-icon.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/brand/radpro-icon.png", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
+  },
 };
+
+/** JSON-LD for SoftwareApplication + Organization (SaaS landing only). */
+function LandingJsonLd() {
+  const graph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        url: SITE_URL,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/brand/radpro-icon.png`,
+        },
+        email: "sales@radpro.id",
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        description: SITE_DESCRIPTION,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+        inLanguage: "id-ID",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${SITE_URL}/#app`,
+        name: SITE_NAME,
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "IDR",
+          description: "Paket Starter gratis hingga 50 pelanggan",
+        },
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+    ],
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      // JSON-LD must be raw JSON in script tag for crawlers
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(graph) }}
+    />
+  );
+}
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -37,7 +164,6 @@ export default async function HomePage() {
     normalizedHost !== "localhost"
   ) {
     if (normalizedHost.endsWith(`.${baseDomain}`)) {
-      // Slug-based subdomain: e.g. myisp.radpro.id
       const slug = normalizedHost.replace(`.${baseDomain}`, "");
       const td = await prisma.tenantDomain.findUnique({
         where: { slug },
@@ -48,7 +174,6 @@ export default async function HomePage() {
         tenantSlug = td.slug;
       }
     } else {
-      // Custom domain: e.g. portal.myisp.com
       const td = await prisma.tenantDomain.findFirst({
         where: { domain: normalizedHost, status: "active" },
         select: { tenantId: true, slug: true },
@@ -60,7 +185,6 @@ export default async function HomePage() {
     }
   }
 
-  // Main tenant or no tenant resolved → SaaS marketing page
   if (!tenantId || tenantId === MAIN_TENANT_ID) {
     let landingContent = null;
     try {
@@ -69,10 +193,14 @@ export default async function HomePage() {
     } catch {
       // fallback to null — component will use hardcoded defaults
     }
-    return <SaasLandingPage content={landingContent} />;
+    return (
+      <>
+        <LandingJsonLd />
+        <SaasLandingPage content={landingContent} />
+      </>
+    );
   }
 
-  // Tenant resolved → tenant-branded landing page
   let brandingName = DEFAULT_PUBLIC_APP_NAME;
   let brandingLogoUrl: string | undefined;
 
