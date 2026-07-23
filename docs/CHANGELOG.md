@@ -71,10 +71,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 ### [2026-07-23] — Harden GHCR manifest inspect di Jenkins
 
 - **Tipe**: [INFRA]
-- **Scope**: `Jenkinsfile`
+- **Scope**: `Jenkinsfile`, `tests/ci/jenkinsfile-build-safety.test.ts`
 - **Author**: agent
-- **Deskripsi**: `docker manifest inspect` setelah push kadang gagal karena `connection reset by peer` ke GHCR. Ditambah retry 5x dengan backoff supaya flaky network tidak gagalkan deploy padahal image sudah ter-push.
-- **Files**: `Jenkinsfile`
+- **Deskripsi**: `docker manifest inspect` setelah push kadang gagal karena `connection reset by peer` ke GHCR. Ditambah retry 5x dengan backoff; safety test diupdate agar assert wrapper `verify_manifest` (bukan literal inspect langsung).
+- **Files**: `Jenkinsfile`, `tests/ci/jenkinsfile-build-safety.test.ts`
 - **Breaking**: ❌ Tidak
 
 ### [2026-07-22] — Perbaiki label PDF restock: Purchase Request (bukan PO)

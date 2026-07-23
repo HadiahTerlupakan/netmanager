@@ -148,15 +148,11 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).not.toContain("Push Images to Registry");
     expect(jenkinsfile).toContain("docker login");
     expect(jenkinsfile).toContain("docker buildx build --push");
-    expect(jenkinsfile).toContain(
-      'docker manifest inspect "${env.APP_IMAGE_REF}"',
-    );
-    expect(jenkinsfile).toContain(
-      'docker manifest inspect "${env.CRON_IMAGE_REF}"',
-    );
-    expect(jenkinsfile).toContain(
-      'docker manifest inspect "${env.RADIUS_IMAGE_REF}"',
-    );
+    expect(jenkinsfile).toContain("verify_manifest()");
+    expect(jenkinsfile).toContain('docker manifest inspect "\\$ref"');
+    expect(jenkinsfile).toContain('verify_manifest "${env.APP_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('verify_manifest "${env.CRON_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('verify_manifest "${env.RADIUS_IMAGE_REF}"');
     expect(jenkinsfile).not.toContain(
       "chroot /host /usr/local/bin/k3s ctr images import -",
     );
@@ -204,12 +200,12 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       '--cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_APP},mode=max"',
       '--cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_CRON}"',
       '--cache-from "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS}"',
-      'docker manifest inspect "${env.APP_IMAGE_REF}"',
-      'docker manifest inspect "${env.APP_IMAGE_ENV_REF}"',
-      'docker manifest inspect "${env.CRON_IMAGE_REF}"',
-      'docker manifest inspect "${env.CRON_IMAGE_ENV_REF}"',
-      'docker manifest inspect "${env.RADIUS_IMAGE_REF}"',
-      'docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}"',
+      'verify_manifest "${env.APP_IMAGE_REF}"',
+      'verify_manifest "${env.APP_IMAGE_ENV_REF}"',
+      'verify_manifest "${env.CRON_IMAGE_REF}"',
+      'verify_manifest "${env.CRON_IMAGE_ENV_REF}"',
+      'verify_manifest "${env.RADIUS_IMAGE_REF}"',
+      'verify_manifest "${env.RADIUS_IMAGE_ENV_REF}"',
       "-e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g'",
       "-e 's|{{APP_IMAGE}}|${env.APP_DEPLOY_REF}|g'",
       "-e 's|{{CRON_IMAGE}}|${env.CRON_DEPLOY_REF}|g'",
