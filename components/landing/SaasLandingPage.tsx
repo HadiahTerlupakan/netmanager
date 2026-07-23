@@ -1,30 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
-import { useTheme } from "next-themes";
+import { useState } from "react";
 import {
-  ArrowRight,
   Building2,
   Check,
   ChevronDown,
   Clock3,
   Menu,
   MonitorDot,
-  Moon,
   Receipt,
   Router,
-  Sun,
   Users,
   X,
 } from "lucide-react";
-import type {
-  LandingContentAll,
-  LandingFeature,
-  LandingPricing,
-  LandingFaq,
-  LandingFooter,
-} from "@/modules/website";
+import type { LandingContentAll } from "@/modules/website";
+import {
+  cx,
+  EASE,
+  NAV_LINKS,
+  DEFAULT_FAQ,
+  DEFAULT_FEATURES,
+  DEFAULT_FOOTER,
+  DEFAULT_HERO,
+  DEFAULT_PRICING,
+  type LandingFaqLike,
+  type LandingFeatureLike,
+  type LandingFooterLike,
+  type LandingPricingLike,
+} from "./landing-content";
+import { BrandMark, PrimaryCta, SecondaryCta } from "./landing-buttons";
+import { ThemeSwitch } from "./landing-theme-switch";
+import { ProductMock } from "./landing-product-mock";
+import { SectionEyebrow, SectionTitle } from "./landing-section";
 
 const ICON_MAP: Record<
   string,
@@ -44,498 +52,6 @@ const ICON_MAP: Record<
   Building2,
 };
 
-interface DefaultFeature {
-  icon: string;
-  title: string;
-  description: string;
-}
-
-interface DefaultPricing {
-  name: string;
-  price: string;
-  period: string;
-  features: string[];
-  isPopular: boolean;
-  ctaText: string;
-  ctaLink: string;
-}
-
-interface DefaultFaqItem {
-  question: string;
-  answer: string;
-}
-
-interface DefaultFooter {
-  companyName: string;
-  description: string;
-  email: string;
-  links: Record<string, Array<{ label: string; href: string }>>;
-  logoUrl: string | null;
-}
-
-const DEFAULT_HERO = {
-  badge: "Platform ISP All-in-One",
-  title: "Kelola ISP Anda",
-  highlight: "lebih cerdas",
-  subtitle:
-    "Billing otomatis, manajemen jaringan MikroTik & OLT, portal pelanggan, dan manajemen karyawan — terintegrasi untuk ISP modern.",
-  ctaPrimary: "Mulai gratis 14 hari",
-  ctaSecondary: "Lihat fitur",
-  ctaLink: "/admin/login",
-  logoUrl: null as string | null,
-};
-
-const DEFAULT_FEATURES: DefaultFeature[] = [
-  {
-    icon: "MdReceiptLong",
-    title: "Billing & invoicing otomatis",
-    description:
-      "Generate tagihan bulanan, kirim notifikasi jatuh tempo, terima pembayaran multi-metode tanpa spreadsheet.",
-  },
-  {
-    icon: "MdRouter",
-    title: "Manajemen jaringan",
-    description:
-      "Integrasi MikroTik RouterOS dan OLT. Kelola PPPoE, bandwidth, dan konfigurasi perangkat dari satu dashboard.",
-  },
-  {
-    icon: "MdPeople",
-    title: "Portal pelanggan",
-    description:
-      "Pelanggan cek tagihan, bayar, buat tiket gangguan, dan pantau status layanan mandiri.",
-  },
-  {
-    icon: "MdAccessTime",
-    title: "Manajemen karyawan",
-    description:
-      "Absensi, shift, lembur, dan penggajian. Kelola tim teknisi lapangan dengan rapi.",
-  },
-  {
-    icon: "MdMonitor",
-    title: "Monitoring real-time",
-    description:
-      "Pantau status perangkat, trafik, dan uptime dengan alert otomatis saat ada gangguan.",
-  },
-  {
-    icon: "MdBusiness",
-    title: "Keamanan & privasi data",
-    description:
-      "Data bisnis Anda terenkripsi dan terisolasi per akun. Backup harian, akses berbasis peran, siap dipakai produksi.",
-  },
-];
-
-const DEFAULT_PRICING: DefaultPricing[] = [
-  {
-    name: "Starter",
-    price: "Gratis",
-    period: "Hingga 50 pelanggan",
-    features: [
-      "Billing otomatis",
-      "Portal pelanggan",
-      "1 admin user",
-      "Support email",
-    ],
-    isPopular: false,
-    ctaText: "Mulai gratis",
-    ctaLink: "/admin/login",
-  },
-  {
-    name: "Pro",
-    price: "Rp 499K",
-    period: "per bulan · hingga 500 pelanggan",
-    features: [
-      "Semua fitur Starter",
-      "Integrasi MikroTik & OLT",
-      "Manajemen karyawan",
-      "Monitoring real-time",
-      "5 admin user",
-      "Support prioritas",
-    ],
-    isPopular: true,
-    ctaText: "Coba 14 hari gratis",
-    ctaLink: "/admin/login",
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "Pelanggan tidak terbatas",
-    features: [
-      "Semua fitur Pro",
-      "White-label & branding kustom",
-      "Custom domain",
-      "SLA 99.9% uptime",
-      "Dedicated support",
-      "On-premise option",
-    ],
-    isPopular: false,
-    ctaText: "Hubungi sales",
-    ctaLink: "mailto:sales@radpro.id",
-  },
-];
-
-const DEFAULT_FAQ: DefaultFaqItem[] = [
-  {
-    question: "Apakah RADPRO.ID cocok untuk ISP kecil?",
-    answer:
-      "Ya. Paket Starter gratis hingga 50 pelanggan, cocok untuk ISP yang baru mulai. Upgrade kapan saja seiring pertumbuhan.",
-  },
-  {
-    question: "Bagaimana cara integrasi dengan MikroTik?",
-    answer:
-      "Masukkan IP, username, dan password RouterOS di dashboard. RADPRO.ID terhubung via API RouterOS dan sinkronisasi PPPoE otomatis.",
-  },
-  {
-    question: "Apakah data pelanggan aman?",
-    answer:
-      "Data di server terenkripsi dengan backup harian. Setiap tenant punya isolasi data penuh — tidak tercampur antar ISP.",
-  },
-  {
-    question: "Bisakah saya menggunakan domain sendiri?",
-    answer:
-      "Ya. Custom domain tersedia di paket Enterprise. Pelanggan mengakses portal dengan domain ISP Anda.",
-  },
-  {
-    question: "Apakah ada kontrak jangka panjang?",
-    answer:
-      "Tidak. Semua paket berbasis bulanan dan bisa dibatalkan kapan saja tanpa penalti.",
-  },
-];
-
-const DEFAULT_FOOTER: DefaultFooter = {
-  companyName: "RADPRO.ID",
-  description:
-    "Platform manajemen ISP all-in-one untuk bisnis internet modern di Indonesia.",
-  email: "sales@radpro.id",
-  links: {
-    Produk: [
-      { label: "Fitur", href: "#features" },
-      { label: "Harga", href: "#pricing" },
-      { label: "FAQ", href: "#faq" },
-    ],
-    Perusahaan: [
-      { label: "Kontak", href: "mailto:sales@radpro.id" },
-      { label: "Kebijakan Privasi", href: "/kebijakan-privasi" },
-    ],
-    Akun: [
-      { label: "Login Admin", href: "/admin/login" },
-      { label: "Portal Pelanggan", href: "/login" },
-    ],
-  },
-  logoUrl: null,
-};
-
-const NAV_LINKS = [
-  { href: "#features", label: "Fitur" },
-  { href: "#pricing", label: "Harga" },
-  { href: "#faq", label: "FAQ" },
-] as const;
-
-const EASE = "duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]";
-
-/** Shared surface tokens — paired light/dark, no orphan hex. */
-const cx = {
-  page: "bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50",
-  surface: "bg-white dark:bg-zinc-900",
-  surfaceGlass: "bg-white/80 dark:bg-zinc-900/80",
-  surfaceSheet: "bg-white/95 dark:bg-zinc-900/95",
-  surfaceMuted: "bg-zinc-50 dark:bg-zinc-900/60",
-  surfaceAlt: "bg-white dark:bg-zinc-950",
-  ink: "text-zinc-900 dark:text-zinc-50",
-  muted: "text-zinc-500 dark:text-zinc-400",
-  faint: "text-zinc-400 dark:text-zinc-500",
-  line: "border-zinc-200/80 dark:border-white/10",
-  ring: "ring-zinc-200/80 dark:ring-white/10",
-  accent: "text-[#0a46aa] dark:text-[#5b8def]",
-  accentBg:
-    "bg-[#0a46aa] hover:bg-[#083a8f] dark:bg-[#1a5bc4] dark:hover:bg-[#2a6bd4]",
-  accentSoft:
-    "bg-[#0a46aa]/[0.08] text-[#0a46aa] ring-[#0a46aa]/15 dark:bg-[#5b8def]/10 dark:text-[#5b8def] dark:ring-[#5b8def]/20",
-  deep: "bg-zinc-950 text-white dark:bg-zinc-900 dark:ring-1 dark:ring-white/10",
-};
-
-/** Official RADPRO mark from mobile app (assets/images/icon.png). */
-const RADPRO_MARK = "/brand/radpro-icon.png";
-
-function BrandMark({
-  companyName,
-  logoUrl,
-  showWordmark = true,
-}: {
-  companyName: string;
-  logoUrl?: string | null;
-  showWordmark?: boolean;
-}) {
-  const src = logoUrl || RADPRO_MARK;
-  const isCustom = Boolean(logoUrl);
-  const isRadpro =
-    !companyName ||
-    companyName === "RADPRO.ID" ||
-    companyName.toUpperCase().includes("RADPRO");
-
-  return (
-    <span
-      className={`inline-flex items-center gap-2.5 font-semibold tracking-tight ${cx.ink}`}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={companyName || "RADPRO"}
-        className={`h-8 w-8 object-contain ${isCustom ? "" : "rounded-[9px] shadow-sm ring-1 ring-black/5 dark:ring-white/10"}`}
-        width={32}
-        height={32}
-      />
-      {showWordmark &&
-        (isRadpro ? (
-          <span className="text-[15px] leading-none">
-            RADPRO
-            <span className="text-[#0a46aa] dark:text-[#5b8def]">.ID</span>
-          </span>
-        ) : (
-          <span className="text-[15px] leading-none">{companyName}</span>
-        ))}
-    </span>
-  );
-}
-
-function PrimaryCta({
-  href,
-  children,
-  className = "",
-  onClick,
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}) {
-  const classes = `group inline-flex items-center gap-2 rounded-full ${cx.accentBg} pl-5 pr-1.5 py-1.5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(24,24,27,0.08),0_8px_24px_-8px_rgba(10,70,170,0.45)] transition-all ${EASE} active:scale-[0.98] ${className}`;
-  const content = (
-    <>
-      <span>{children}</span>
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5">
-        <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-      </span>
-    </>
-  );
-
-  if (href.startsWith("mailto:") || href.startsWith("http")) {
-    return (
-      <a href={href} className={classes} onClick={onClick}>
-        {content}
-      </a>
-    );
-  }
-  return (
-    <Link href={href} className={classes} onClick={onClick}>
-      {content}
-    </Link>
-  );
-}
-
-function SecondaryCta({
-  href,
-  children,
-  className = "",
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const classes = `inline-flex items-center justify-center rounded-full ${cx.surface} px-5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 ring-1 ${cx.ring} shadow-[0_1px_2px_rgba(24,24,27,0.04)] transition-all ${EASE} hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.98] ${className}`;
-
-  if (
-    href.startsWith("#") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("http")
-  ) {
-    return (
-      <a href={href} className={classes}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <Link href={href} className={classes}>
-      {children}
-    </Link>
-  );
-}
-
-/** Client-only mount flag without setState-in-effect (SSR-safe). */
-function useIsClient() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-}
-
-function ThemeSwitch() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const isClient = useIsClient();
-
-  if (!isClient) {
-    return (
-      <span
-        className="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-zinc-200/80 dark:ring-white/10"
-        aria-hidden
-      />
-    );
-  }
-
-  const isDark = resolvedTheme === "dark";
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      className={`flex h-9 w-9 items-center justify-center rounded-full text-zinc-600 dark:text-zinc-300 ring-1 ${cx.ring} transition-colors ${EASE} hover:bg-zinc-100 dark:hover:bg-zinc-800`}
-      aria-label={isDark ? "Mode terang" : "Mode gelap"}
-    >
-      {isDark ? (
-        <Sun className="h-4 w-4" strokeWidth={1.75} />
-      ) : (
-        <Moon className="h-4 w-4" strokeWidth={1.75} />
-      )}
-    </button>
-  );
-}
-
-function ProductMock() {
-  return (
-    <div className="relative mx-auto w-full max-w-3xl" aria-hidden>
-      <div className="pointer-events-none absolute -inset-8 -z-10 rounded-[2.5rem] bg-[radial-gradient(ellipse_at_center,rgba(10,70,170,0.14),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(91,141,239,0.16),transparent_70%)]" />
-
-      <div
-        className={`rounded-[1.75rem] bg-zinc-900/[0.03] dark:bg-white/[0.04] p-1.5 ring-1 ring-zinc-900/[0.06] dark:ring-white/10 shadow-[0_40px_80px_-24px_rgba(24,24,27,0.28),0_12px_24px_-12px_rgba(24,24,27,0.1)] dark:shadow-[0_40px_80px_-24px_rgba(0,0,0,0.65)]`}
-      >
-        <div
-          className={`overflow-hidden rounded-[1.35rem] ${cx.surface} ring-1 ${cx.ring}`}
-        >
-          <div
-            className={`flex items-center gap-2 border-b ${cx.line} bg-zinc-50/80 dark:bg-zinc-950/50 px-4 py-3`}
-          >
-            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-            <div className="ml-3 flex-1">
-              <div
-                className={`mx-auto h-6 max-w-[220px] rounded-md ${cx.surface} ring-1 ${cx.ring}`}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12">
-            <div
-              className={`col-span-3 hidden border-r ${cx.line} bg-zinc-50/50 dark:bg-zinc-950/40 p-4 sm:block`}
-            >
-              <div className="mb-5 h-3 w-16 rounded bg-zinc-200 dark:bg-zinc-700" />
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className={`flex h-8 items-center rounded-lg px-2 ${
-                      i === 1
-                        ? "bg-[#0a46aa]/[0.08] ring-1 ring-[#0a46aa]/15 dark:bg-[#5b8def]/10 dark:ring-[#5b8def]/20"
-                        : ""
-                    }`}
-                  >
-                    <div
-                      className={`h-2 rounded ${
-                        i === 1
-                          ? "w-14 bg-[#0a46aa]/60 dark:bg-[#5b8def]/60"
-                          : "w-16 bg-zinc-200 dark:bg-zinc-700"
-                      }`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="col-span-12 space-y-4 p-4 sm:col-span-9 sm:p-5">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <div className="mb-2 h-2.5 w-20 rounded bg-zinc-200 dark:bg-zinc-700" />
-                  <div className="h-4 w-36 rounded bg-zinc-300/80 dark:bg-zinc-600" />
-                </div>
-                <div className="h-8 w-24 rounded-full bg-[#0a46aa] dark:bg-[#1a5bc4]" />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                {[
-                  "bg-emerald-50 dark:bg-emerald-500/10",
-                  "bg-sky-50 dark:bg-sky-500/10",
-                  "bg-violet-50 dark:bg-violet-500/10",
-                ].map((tint) => (
-                  <div
-                    key={tint}
-                    className={`rounded-xl ${tint} p-3 ring-1 ring-zinc-900/[0.04] dark:ring-white/5`}
-                  >
-                    <div className="mb-2 h-1.5 w-10 rounded bg-zinc-300/70 dark:bg-zinc-600" />
-                    <div className="h-3.5 w-14 rounded bg-zinc-400/60 dark:bg-zinc-500" />
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-5 gap-2.5">
-                <div
-                  className={`col-span-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 p-3 ring-1 ring-zinc-900/[0.04] dark:ring-white/5`}
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="h-2 w-16 rounded bg-zinc-200 dark:bg-zinc-700" />
-                    <div className="h-2 w-10 rounded bg-zinc-200 dark:bg-zinc-700" />
-                  </div>
-                  <div className="flex h-24 items-end gap-1.5 px-1">
-                    {[40, 55, 35, 70, 50, 85, 60, 75, 45, 90, 65, 80].map(
-                      (h, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 rounded-t-sm bg-gradient-to-t from-[#0a46aa]/70 to-[#0a46aa]/25 dark:from-[#5b8def]/70 dark:to-[#5b8def]/20"
-                          style={{ height: `${h}%` }}
-                        />
-                      ),
-                    )}
-                  </div>
-                </div>
-                <div
-                  className={`col-span-2 space-y-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 p-3 ring-1 ring-zinc-900/[0.04] dark:ring-white/5`}
-                >
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="h-6 w-6 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="h-1.5 w-full rounded bg-zinc-200 dark:bg-zinc-700" />
-                        <div className="h-1.5 w-2/3 rounded bg-zinc-100 dark:bg-zinc-800" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SectionEyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-      {children}
-    </p>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2
-      className={`mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl ${cx.ink}`}
-    >
-      {children}
-    </h2>
-  );
-}
-
 interface SaasLandingPageProps {
   content: LandingContentAll | null;
 }
@@ -546,18 +62,17 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const hero = content?.hero ?? DEFAULT_HERO;
-  const features: Array<DefaultFeature | LandingFeature> =
+  const features: LandingFeatureLike[] =
     content?.features && content.features.length > 0
       ? content.features
       : DEFAULT_FEATURES;
-  const pricing: Array<DefaultPricing | LandingPricing> =
+  const pricing: LandingPricingLike[] =
     content?.pricing && content.pricing.length > 0
       ? content.pricing
       : DEFAULT_PRICING;
-  const faq: Array<DefaultFaqItem | LandingFaq> =
+  const faq: LandingFaqLike[] =
     content?.faq && content.faq.length > 0 ? content.faq : DEFAULT_FAQ;
-  const footer: DefaultFooter | LandingFooter =
-    content?.footer ?? DEFAULT_FOOTER;
+  const footer: LandingFooterLike = content?.footer ?? DEFAULT_FOOTER;
 
   const featureList = features.slice(0, 6);
   const pricingCount = pricing.length;
@@ -831,7 +346,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                               className="flex items-start gap-2.5 text-sm text-zinc-300"
                             >
                               <Check
-                                className="mt-0.5 h-4 w-4 shrink-0 text-[#8eb4f5]"
+                                className="mt-0.5 h-4 w-4 shrink-0 text-[#5b8def]"
                                 strokeWidth={2.25}
                               />
                               {item}
