@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Background Gradient for Premium Look -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    
+    <!-- Shadow Filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Blue Squircle Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGradient)"/>
+  
+  <g filter="url(#shadow)">
+    <!-- Main Connecting Path -->
+    <!-- Pola zigzag "N" yang meliuk ke kanan secara dinamis -->
+    <path d="M 150 360 L 206 150 L 306 360 L 362 150" 
+          stroke="#FFFFFF" 
+          stroke-width="56" 
+          stroke-linejoin="round" 
+          stroke-linecap="round" 
+          fill="none"/>
+          
+    <!-- 4 Network Nodes (Titik Hubung) -->
+    <circle cx="150" cy="360" r="42" fill="#FFFFFF"/>
+    <circle cx="206" cy="150" r="42" fill="#FFFFFF"/>
+    <circle cx="306" cy="360" r="42" fill="#FFFFFF"/>
+    <circle cx="362" cy="150" r="42" fill="#FFFFFF"/>
+  </g>
+</svg>

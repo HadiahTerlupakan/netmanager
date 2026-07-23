@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Main Connecting Path -->
+  <!-- Hanya menyedikan outline transparant agar cocok untuk Android Adaptive Icon -->
+  <path d="M 150 360 L 206 150 L 306 360 L 362 150" 
+        stroke="#2D71E7" 
+        stroke-width="56" 
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        fill="none"/>
+        
+  <!-- 4 Network Nodes (Titik Hubung) -->
+  <circle cx="150" cy="360" r="42" fill="#2D71E7"/>
+  <circle cx="206" cy="150" r="42" fill="#2D71E7"/>
+  <circle cx="306" cy="360" r="42" fill="#2D71E7"/>
+  <circle cx="362" cy="150" r="42" fill="#2D71E7"/>
+</svg>

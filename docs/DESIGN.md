@@ -121,3 +121,75 @@ Mixed, matching current admin UI: subtle borders plus small shadows on cards/pan
 - Use existing `rounded-xl shadow-sm border` admin panel pattern.
 - Do not introduce heavy shadows or decorative gradients for operational pages.
 - Dark mode must use paired `dark:` classes when using legacy gray classes.
+
+---
+
+## 8. Marketing Landing (SaaS — RADPRO.ID)
+
+> Applies only to `components/landing/SaasLandingPage.tsx` and related marketing surfaces.
+> Admin/ops UI still follows sections 1–7.
+
+### Direction
+Soft Structuralism + Linear precision. Light zinc canvas, single indigo-violet accent, engineered type, floating island nav, asymmetric bento features, dimensional product mock as hero focal. No multi-hue gradients, no rocket icons, no 3 equal feature cards.
+
+### Research Log
+- Layer A: `soft-skill.md` (premium soft structural) + redesign discipline
+- Layer B: `linear.app.md` (indigo accent, tight display tracking, hairline borders, 510-weight emphasis)
+- Shortlist rejected: dark OLED glass (too heavy for ISP SMB audience), Stripe mesh (too chromatic)
+
+### Atmosphere
+- Soft structural dual-theme: light zinc canvas / dark zinc-950. Same structure both modes.
+- Surfaces: white / zinc-900 cards with hairline borders (`zinc-200` light, `white/10` dark)
+- Accent: indigo-600 light / indigo-400–500 dark — CTAs and focus only
+- Signature: floating glass nav + product mock + theme toggle
+- **Rule**: every color class MUST have a paired `dark:` variant. No orphan hex (`#fafafa`, `#0c0c0e`) that breaks under `ThemeProvider`.
+
+### Marketing Color Tokens (Tailwind pairs)
+
+| Role | Light | Dark |
+|------|-------|------|
+| Canvas | `bg-zinc-50` | `dark:bg-zinc-950` |
+| Surface | `bg-white` | `dark:bg-zinc-900` |
+| Ink | `text-zinc-900` | `dark:text-zinc-50` |
+| Muted | `text-zinc-500` | `dark:text-zinc-400` |
+| Faint | `text-zinc-400` | `dark:text-zinc-500` |
+| Line / ring | `border/ring-zinc-200` | `dark:border/ring-white/10` |
+| Accent text | `text-[#0a46aa]` | `dark:text-[#5b8def]` |
+| Accent CTA | `bg-[#0a46aa] hover:bg-[#083a8f]` | `dark:bg-[#1a5bc4] dark:hover:bg-[#2a6bd4]` |
+| Brand mark | `/brand/radpro-icon.png` (from mobile `assets/images/icon.png`) | same |
+| Deep band | `bg-zinc-950` | `dark:bg-zinc-900` + ring |
+
+### Marketing Typography
+- Display: `text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.04em] leading-[1.05]`
+- Section H2: `text-3xl sm:text-4xl font-semibold tracking-[-0.03em]`
+- Body: `text-base sm:text-lg text-zinc-500 leading-relaxed`
+- Eyebrow: `text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500`
+- Font: existing Inter via `--font-inter` (no new font dep)
+
+### Marketing Spacing
+- Section: `py-24 sm:py-32`
+- Content max: `max-w-6xl` (features/footer), `max-w-3xl` (hero copy), `max-w-5xl` (pricing)
+- Card radius: outer `rounded-[1.75rem]`, inner `rounded-[1.35rem]` (double-bezel)
+- CTA: `rounded-full` pills
+
+### Primitives
+1. **Island Nav** — floating centered glass pill, `sticky top-4`, `backdrop-blur-xl bg-white/70 ring-1 ring-zinc-200/80`
+2. **Primary CTA** — filled accent pill + nested circular arrow chip
+3. **Secondary CTA** — white surface, hairline ring, no fill gradient
+4. **Bento Feature** — asymmetric grid (2×2 + wide), icon in soft accent well, no rainbow icon colors
+5. **Pricing Card** — equal start baselines; popular uses deep surface not rainbow
+6. **FAQ Row** — border-bottom list, no card-per-item accordion chrome
+7. **Product Mock** — CSS dashboard frame as hero focal (window chrome + metric tiles)
+
+### Motion
+- Easing: `cubic-bezier(0.32,0.72,0,1)`
+- Duration: 200–400ms interactive; GPU only (`transform`/`opacity`)
+- Hover: CTA `active:scale-[0.98]`; nested arrow `translate-x-0.5`
+- No decorative infinite animations
+
+### Anti-patterns (banned on marketing)
+- Multi-stop indigo→blue button gradients
+- Rocket / generic Material filled icons for brand mark
+- Three equal feature columns with rainbow pastel icon wells
+- Uppercase bold tracking-widest section labels in brand color
+- Pure black footer with indigo gradient CTA band above
