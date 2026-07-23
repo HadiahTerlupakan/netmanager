@@ -358,12 +358,30 @@ spec:
                                 --cache-to   "type=registry,ref=${env.BUILDKIT_CACHE_REF_RADIUS},mode=max" \
                                 -f radius/Dockerfile .
 
-                            docker manifest inspect "${env.APP_IMAGE_REF}" >/dev/null
-                            docker manifest inspect "${env.APP_IMAGE_ENV_REF}" >/dev/null
-                            docker manifest inspect "${env.CRON_IMAGE_REF}" >/dev/null
-                            docker manifest inspect "${env.CRON_IMAGE_ENV_REF}" >/dev/null
-                            docker manifest inspect "${env.RADIUS_IMAGE_REF}" >/dev/null
-                            docker manifest inspect "${env.RADIUS_IMAGE_ENV_REF}" >/dev/null
+                            # GHCR blob fetch can flaky-reset mid-inspect; retry before failing the build.
+                            verify_manifest() {
+                              local ref="\$1"
+                              local attempt=1
+                              local max_attempts=5
+                              while [ "\$attempt" -le "\$max_attempts" ]; do
+                                if docker manifest inspect "\$ref" >/dev/null; then
+                                  echo "Verified: \$ref"
+                                  return 0
+                                fi
+                                echo "WARN: manifest inspect failed for \$ref (attempt \$attempt/\$max_attempts)"
+                                sleep \$((attempt * 3))
+                                attempt=\$((attempt + 1))
+                              done
+                              echo "ERROR: could not verify manifest for \$ref after \$max_attempts attempts"
+                              return 1
+                            }
+
+                            verify_manifest "${env.APP_IMAGE_REF}"
+                            verify_manifest "${env.APP_IMAGE_ENV_REF}"
+                            verify_manifest "${env.CRON_IMAGE_REF}"
+                            verify_manifest "${env.CRON_IMAGE_ENV_REF}"
+                            verify_manifest "${env.RADIUS_IMAGE_REF}"
+                            verify_manifest "${env.RADIUS_IMAGE_ENV_REF}"
                             echo "Verified pushed refs for app/cron/radius"
                             """
                         }

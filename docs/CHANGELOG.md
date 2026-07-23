@@ -68,6 +68,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/kebijakan-privasi/page.tsx`, `app/kebijakan-privasi/PrivacyPolicyPageClient.tsx`
 - **Breaking**: ❌ Tidak
 
+### [2026-07-23] — Harden GHCR manifest inspect di Jenkins
+
+- **Tipe**: [INFRA]
+- **Scope**: `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: `docker manifest inspect` setelah push kadang gagal karena `connection reset by peer` ke GHCR. Ditambah retry 5x dengan backoff supaya flaky network tidak gagalkan deploy padahal image sudah ter-push.
+- **Files**: `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-22] — Perbaiki label PDF restock: Purchase Request (bukan PO)
 
 - **Tipe**: [FIXED]
