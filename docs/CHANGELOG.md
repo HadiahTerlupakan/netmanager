@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-24] — Fix general settings save/load tenant scope
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings/services/generalSettings.ts`
+- **Author**: agent
+- **Deskripsi**: GET/POST pengaturan umum sebelumnya mismatch tenant: write lewat Prisma extension mengisi `tenantId` user, read memakai `tenantId = null`, sehingga form selalu menampilkan default kosong setelah simpan. Sekarang read/write memakai tenant aktif dari context (pola sama logo settings).
+- **Files**: `modules/settings/services/generalSettings.ts`, `tests/modules/settings/generalSettings.tenant-scope.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-24] — Split baileys-session-manager di bawah 800 LOC
 
 - **Tipe**: [FIXED]
