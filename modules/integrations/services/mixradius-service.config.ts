@@ -8,7 +8,10 @@ import type {
   MixRadiusTopologyData,
 } from "./mixradius-types";
 
-const DEFAULT_TIMEOUT_IN_MS = 60_000;
+const DEFAULT_TIMEOUT_IN_MS =
+  Number(process.env.MIXRADIUS_TIMEOUT_MS) || 30_000;
+const LOGIN_TIMEOUT_IN_MS =
+  Number(process.env.MIXRADIUS_LOGIN_TIMEOUT_MS) || 25_000;
 const SESSION_RESET_TIMEOUT_IN_MS = 30_000;
 const CUSTOMERS_CACHE_TTL_IN_MS = 15 * 60 * 1000;
 const DISABLED_CACHE_TTL_IN_MS = 0;
@@ -97,3 +100,5 @@ export function createTopologyCacheState(): MixRadiusTopologyCacheState {
 
 export const MIXRADIUS_CUSTOMERS_CACHE_TTL = CUSTOMERS_CACHE_TTL_IN_MS;
 export const MIXRADIUS_TOPOLOGY_CACHE_TTL = DISABLED_CACHE_TTL_IN_MS;
+export const MIXRADIUS_LOGIN_TIMEOUT_MS = LOGIN_TIMEOUT_IN_MS;
+export const MIXRADIUS_DEFAULT_TIMEOUT_MS = DEFAULT_TIMEOUT_IN_MS;
