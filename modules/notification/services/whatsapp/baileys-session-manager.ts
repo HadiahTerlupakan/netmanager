@@ -2,8 +2,13 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
-import { runAsSystemContext } from "@/lib/tenant-context";
 import { handleBaileysMessageStatusUpdates } from "./baileys-receipt-handler";
+import {
+  bindBaileysSessionSendAccess,
+  restoreAllBaileySessions as restoreAllBaileySessionsImpl,
+  sendBaileysFile as sendBaileysFileImpl,
+  sendBaileysMessage as sendBaileysMessageImpl,
+} from "./baileys-session-send";
 
 export type BaileysSessionStatus =
   | "disconnected"
@@ -677,37 +682,7 @@ export async function sendBaileysMessage(
   phone: string,
   message: string,
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const s = sessions.get(sessionId);
-  if (s && s.status === "connected" && s.sock) {
-    try {
-      const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
-      const result = await s.sock.sendMessage(jid, { text: message });
-      return { success: true, messageId: result?.key?.id };
-    } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Gagal kirim pesan",
-      };
-    }
-  }
-
-  // Not on this pod — forward to owner via Redis if session is connected elsewhere
-  const remote = await readFromRedis(sessionId);
-  if (remote?.status === "connected") {
-    return dispatchRemoteCmd(sessionId, {
-      type: "send",
-      phone,
-      message,
-    });
-  }
-
-  return {
-    success: false,
-    error: buildDisconnectedSessionError(
-      sessionId,
-      remote?.status ?? s?.status,
-    ),
-  };
+  return sendBaileysMessageImpl(sessionId, phone, message);
 }
 
 export async function sendBaileysFile(
@@ -716,100 +691,16 @@ export async function sendBaileysFile(
   fileUrl: string,
   caption: string,
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const s = sessions.get(sessionId);
-  if (s && s.status === "connected" && s.sock) {
-    try {
-      const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
-      const result = await s.sock.sendMessage(jid, {
-        document: { url: fileUrl },
-        mimetype: "application/octet-stream",
-        fileName: "document",
-        caption,
-      });
-      return { success: true, messageId: result?.key?.id };
-    } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Gagal kirim file",
-      };
-    }
-  }
-
-  const remote = await readFromRedis(sessionId);
-  if (remote?.status === "connected") {
-    return dispatchRemoteCmd(sessionId, {
-      type: "send-file",
-      phone,
-      fileUrl,
-      caption,
-    });
-  }
-
-  return {
-    success: false,
-    error: buildDisconnectedSessionError(
-      sessionId,
-      remote?.status ?? s?.status,
-    ),
-  };
-}
-
-function buildDisconnectedSessionError(
-  sessionId: string,
-  status?: BaileysSessionStatus | string,
-): string {
-  if (status === "needs_reauth" || status === "qr") {
-    return `Session ${sessionId} perlu scan QR ulang (status: ${status})`;
-  }
-  if (status && status !== "disconnected") {
-    return `Session ${sessionId} belum siap (status: ${status})`;
-  }
-  return `Session ${sessionId} belum terkoneksi`;
-}
-
-export function onBaileysQR(_cb: (sessionId: string, qr: string) => void) {
-  // no-op
-}
-
-export function onBaileysStatus(
-  _cb: (sessionId: string, status: BaileysSessionStatus) => void,
-) {
-  // no-op
+  return sendBaileysFileImpl(sessionId, phone, fileUrl, caption);
 }
 
 export async function restoreAllBaileySessions(): Promise<void> {
-  try {
-    // Ensure Redis is ready before acquiring locks (prevents fail-open race)
-    try {
-      if (redis.status !== "ready") await redis.connect();
-    } catch {
-      // already connecting / ready
-    }
-
-    await runAsSystemContext("Baileys: restoreAllBaileySessions", async () => {
-      const { prisma } = await import("@/lib/prisma");
-      const accounts = await prisma.whatsAppAccount.findMany({
-        where: { provider: "BAILEYS", isActive: true },
-        select: { id: true, name: true },
-      });
-      logger.info(
-        `[Baileys] Restoring ${accounts.length} BAILEYS session(s) pod=${POD_ID}`,
-      );
-      for (const account of accounts) {
-        try {
-          const info = await startBaileysSession(account.id);
-          logger.info(
-            `[Baileys] Restore ${account.id} (${account.name}): status=${info.status}`,
-          );
-        } catch (err) {
-          logger.error(
-            `[Baileys] Restore failed for ${account.id} (${account.name}):`,
-            err,
-          );
-        }
-      }
-    });
-  } catch (err) {
-    logger.error("[Baileys] restoreAllBaileySessions failed:", err);
-  }
+  return restoreAllBaileySessionsImpl();
 }
+
+bindBaileysSessionSendAccess({
+  getLocalSession: (sessionId) => sessions.get(sessionId),
+  readFromRedis,
+  dispatchRemoteCmd,
+  startBaileysSession,
+});

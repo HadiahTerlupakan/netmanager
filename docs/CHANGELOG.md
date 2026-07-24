@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-24] — Split baileys-session-manager di bawah 800 LOC
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp`
+- **Author**: agent
+- **Deskripsi**: Extract send/restore helpers ke `baileys-session-send.ts` agar file manager ≤800 baris. Memperbaiki gagal deploy Jenkins (`module-public-api` architecture test).
+- **Files**: `baileys-session-manager.ts`, `baileys-session-send.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-24] — Fix overtime schedule tenant isolation inject
 
 - **Tipe**: [FIXED]
