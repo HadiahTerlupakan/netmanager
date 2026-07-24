@@ -41,6 +41,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-24] — Fix overtime schedule tenant isolation inject
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/prisma.ts`
+- **Author**: agent
+- **Deskripsi**: `OvertimeAutoCheckoutSchedule` tidak punya kolom `tenantId` tapi kena inject dari `withTenantIsolation` saat `findUnique`/`upsert`, menyebabkan `PrismaClientValidationError` dan gagal schedule/cancel auto-checkout lembur. Ditambahkan ke `ignoreModels` (pola sama `JournalLine`).
+- **Files**: `lib/prisma.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-24] — Skip WA Baileys account yang belum connected
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Routing WhatsApp sekarang skip akun Baileys yang session-nya tidak `connected` (failover ke akun lain). Pesan error session putus dibedakan `needs_reauth`/`qr` vs disconnected.
+- **Files**: `whatsapp-account-routing.service.ts`, `baileys-session-manager.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-24] — MixRadius login timeout + retry + circuit
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/integrations`
+- **Author**: agent
+- **Deskripsi**: Timeout default MixRadius 30s (env `MIXRADIUS_TIMEOUT_MS`), login 25s (`MIXRADIUS_LOGIN_TIMEOUT_MS`), 1 retry pada error transient, circuit-breaker 2 menit setelah timeout berulang.
+- **Files**: `mixradius-service.config.ts`, `mixradius-auth-client.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-07-24] — Mobile upload abort log sebagai warn 499
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile/upload`
+- **Author**: agent
+- **Deskripsi**: Client abort / ECONNRESET pada upload tidak lagi di-log sebagai ERROR 500; return 499 + warn. `maxDuration = 60` pada route.
+- **Files**: `route.ts`, `route-handlers-impl.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-23] — Redesign SaaS landing + logo mobile + light/dark
 
 - **Tipe**: [CHANGED]
