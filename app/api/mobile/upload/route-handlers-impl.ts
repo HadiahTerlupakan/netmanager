@@ -200,6 +200,14 @@ export async function POST(request: NextRequest) {
       data: { url: absoluteUrl, fileName: `${fileName}.webp` },
     });
   } catch (error: unknown) {
+    if (isClientAbortError(error) || request.signal.aborted) {
+      logger.warn("Mobile upload aborted by client", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return apiError("Upload dibatalkan", ErrorCodes.VALIDATION_ERROR, {
+        status: 499,
+      });
+    }
     logger.error("Mobile upload error:", error);
     return apiError(
       error instanceof Error ? error.message : "Failed to upload file",
@@ -207,4 +215,19 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+function isClientAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code =
+    "code" in error && typeof (error as { code?: unknown }).code === "string"
+      ? (error as { code: string }).code
+      : "";
+  return (
+    error.name === "AbortError" ||
+    error.message === "aborted" ||
+    code === "ECONNRESET" ||
+    code === "ECONNABORTED" ||
+    /aborted|ECONNRESET/i.test(error.message)
+  );
 }
