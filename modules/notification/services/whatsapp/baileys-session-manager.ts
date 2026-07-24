@@ -703,7 +703,10 @@ export async function sendBaileysMessage(
 
   return {
     success: false,
-    error: `Session ${sessionId} belum terkoneksi`,
+    error: buildDisconnectedSessionError(
+      sessionId,
+      remote?.status ?? s?.status,
+    ),
   };
 }
 
@@ -744,8 +747,24 @@ export async function sendBaileysFile(
 
   return {
     success: false,
-    error: `Session ${sessionId} belum terkoneksi`,
+    error: buildDisconnectedSessionError(
+      sessionId,
+      remote?.status ?? s?.status,
+    ),
   };
+}
+
+function buildDisconnectedSessionError(
+  sessionId: string,
+  status?: BaileysSessionStatus | string,
+): string {
+  if (status === "needs_reauth" || status === "qr") {
+    return `Session ${sessionId} perlu scan QR ulang (status: ${status})`;
+  }
+  if (status && status !== "disconnected") {
+    return `Session ${sessionId} belum siap (status: ${status})`;
+  }
+  return `Session ${sessionId} belum terkoneksi`;
 }
 
 export function onBaileysQR(_cb: (sessionId: string, qr: string) => void) {

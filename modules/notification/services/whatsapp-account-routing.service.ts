@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import type { WhatsAppAccount } from "../domain/whatsapp-account.entity";
 import type { WhatsAppAccountRepository } from "../repositories/whatsapp-account.repository";
+import { getBaileysSession } from "./whatsapp/baileys-session-manager";
 
 const DAILY_RESET_HOURS = 24;
 const HOUR_MS = 1000 * 60 * 60;
@@ -64,6 +65,16 @@ export class WhatsAppAccountRoutingService {
     return account.dailyCount < account.dailyLimit;
   }
 
+  async isSessionReady(account: WhatsAppAccount): Promise<boolean> {
+    if (account.provider !== "BAILEYS") {
+      return true;
+    }
+
+    const sessionId = account.apiKey || account.id;
+    const session = await getBaileysSession(sessionId);
+    return session.status === "connected";
+  }
+
   async resetDailyCountIfNeeded(account: WhatsAppAccount): Promise<void> {
     const now = new Date();
     const hoursSinceReset =
@@ -88,7 +99,16 @@ export class WhatsAppAccountRoutingService {
     }
 
     await this.resetDailyCountIfNeeded(account);
-    return this.isAccountAvailable(account) ? account : null;
+    if (!this.isAccountAvailable(account)) {
+      return null;
+    }
+    if (!(await this.isSessionReady(account))) {
+      logger.warn(
+        `[WhatsAppSender] Skip default account ${account.name}: session not connected`,
+      );
+      return null;
+    }
+    return account;
   }
 
   private async selectHighestPriorityAvailableAccount(
@@ -99,16 +119,22 @@ export class WhatsAppAccountRoutingService {
       await this.resetDailyCountIfNeeded(account);
     }
 
-    const availableAccounts = accounts.filter(
-      (account) =>
-        !excludeIds.includes(account.id) && this.isAccountAvailable(account),
-    );
+    const candidates = accounts
+      .filter(
+        (account) =>
+          !excludeIds.includes(account.id) && this.isAccountAvailable(account),
+      )
+      .sort((a, b) => b.priority - a.priority);
 
-    if (availableAccounts.length === 0) {
-      return null;
+    for (const account of candidates) {
+      if (await this.isSessionReady(account)) {
+        return account;
+      }
+      logger.warn(
+        `[WhatsAppSender] Skip account ${account.name}: session not connected`,
+      );
     }
 
-    availableAccounts.sort((a, b) => b.priority - a.priority);
-    return availableAccounts[0];
+    return null;
   }
 }
