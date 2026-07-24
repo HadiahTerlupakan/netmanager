@@ -16,6 +16,7 @@ const ignoreModels = [
   "SystemLog",
   "JournalLine",
   "BankReconciliationLine",
+  "OvertimeAutoCheckoutSchedule",
   "LandingHero",
   "LandingFeature",
   "LandingPricing",
