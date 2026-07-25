@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-25] — Naikkan memory headroom Redis cegah OOMKilled
+
+- **Tipe**: [INFRA]
+- **Scope**: `k8s/production/redis-deployment.yaml`
+- **Author**: agent
+- **Deskripsi**: Pod `netmanager-redis` OOMKilled 7x di produksi. Penyebab: `--maxmemory 192mb` dengan `limits.memory: 256Mi` hanya menyisakan ~64Mi headroom, padahal `appendonly yes` memicu fork saat `BGREWRITEAOF` yang melonjakkan RSS via copy-on-write hingga menembus limit → kernel membunuh pod. Eviction policy tetap `noeviction` karena Redis menyimpan job BullMQ, session, dan lock (bukan cache murni). Fix: `requests.memory` 192Mi→256Mi, `limits.memory` 256Mi→512Mi (>= 2x maxmemory).
+- **Files**: `k8s/production/redis-deployment.yaml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-24] — Fix general settings save/load tenant scope
 
 - **Tipe**: [FIXED]
