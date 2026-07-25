@@ -44,28 +44,125 @@ export type PublicGeneralSettingsPayload = {
   deskripsiInvoice: string;
 };
 
-export const GENERAL_SETTINGS_KEYS: string[] = [
-  "GENERAL_PERUSAHAAN",
-  "GENERAL_NAMA_APLIKASI",
-  "GENERAL_ALAMAT",
-  "GENERAL_NOMOR_HP",
-  "GENERAL_EMAIL",
-  "GENERAL_DESKRIPSI_INVOICE",
-  "GENERAL_REKENING_BANK",
-  "GENERAL_INVOICE_OTOMATIS",
-  "GENERAL_DISABLE_PERPANJANGAN_PAKET",
-  "GENERAL_TIMEZONE",
-  "GENERAL_ATTENDANCE_TOLERANCE",
-  "PPP_CONNECTION_MODE",
-  "GENERAL_AUTO_ISOLASI_ENABLED",
-  "GENERAL_AUTO_ISOLASI_HARI_TOLERANSI",
-  "GENERAL_REMINDER_OTOMATIS",
-  "GENERAL_REMINDER_FREQUENCY",
-  "GENERAL_REMINDER_TIME",
-  "GENERAL_NOTIF_APP",
-  "GENERAL_NOTIF_WA",
-  "GENERAL_NOTIF_EMAIL",
-] as const;
+/**
+ * Single source of truth untuk mapping setiap field payload ke record Settings.
+ * Read (GENERAL_SETTINGS_KEYS) dan write (buildGeneralSettingsUpserts) sama-sama
+ * diturunkan dari tabel ini agar tidak pernah drift — mismatch key read/write
+ * adalah akar bug tenant-scope yang pernah terjadi sebelumnya.
+ */
+type GeneralSettingDefinition = {
+  key: string;
+  description: string;
+  resolveValue: (payload: GeneralSettingsPayload) => string | null;
+};
+
+const GENERAL_SETTINGS_DEFINITIONS: GeneralSettingDefinition[] = [
+  {
+    key: "GENERAL_PERUSAHAAN",
+    description: "Nama perusahaan",
+    resolveValue: (p) => p.perusahaan?.trim() || null,
+  },
+  {
+    key: "GENERAL_NAMA_APLIKASI",
+    description: "Nama Aplikasi",
+    resolveValue: (p) => p.namaAplikasi?.trim() || "NetManager",
+  },
+  {
+    key: "GENERAL_ALAMAT",
+    description: "Alamat perusahaan",
+    resolveValue: (p) => p.alamat?.trim() || null,
+  },
+  {
+    key: "GENERAL_NOMOR_HP",
+    description: "Nomor HP perusahaan",
+    resolveValue: (p) => p.nomorHp?.trim() || null,
+  },
+  {
+    key: "GENERAL_EMAIL",
+    description: "Email perusahaan",
+    resolveValue: (p) => p.email?.trim() || null,
+  },
+  {
+    key: "GENERAL_DESKRIPSI_INVOICE",
+    description: "Deskripsi invoice",
+    resolveValue: (p) => p.deskripsiInvoice?.trim() || null,
+  },
+  {
+    key: "GENERAL_REKENING_BANK",
+    description: "Daftar rekening bank",
+    resolveValue: (p) => JSON.stringify(p.rekeningBank || []),
+  },
+  {
+    key: "GENERAL_INVOICE_OTOMATIS",
+    description: "Jumlah hari sebelum jatuh tempo untuk invoice otomatis",
+    resolveValue: (p) => p.invoiceOtomatis?.trim() || "5",
+  },
+  {
+    key: "GENERAL_DISABLE_PERPANJANGAN_PAKET",
+    description:
+      "Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket",
+    resolveValue: (p) => p.disablePerpanjanganPaket?.trim() || "5",
+  },
+  {
+    key: "GENERAL_TIMEZONE",
+    description: "Zona waktu aplikasi (IANA timezone)",
+    resolveValue: (p) => p.timezone?.trim() || "Asia/Jakarta",
+  },
+  {
+    key: "GENERAL_ATTENDANCE_TOLERANCE",
+    description: "Toleransi keterlambatan (menit)",
+    resolveValue: (p) => p.attendanceTolerance?.trim() || "0",
+  },
+  {
+    key: "PPP_CONNECTION_MODE",
+    description: "Mode koneksi PPP: RADIUS atau MIKROTIK_API",
+    resolveValue: (p) => p.pppConnectionMode || "RADIUS",
+  },
+  {
+    key: "GENERAL_AUTO_ISOLASI_ENABLED",
+    description: "Aktifkan isolir otomatis",
+    resolveValue: (p) => (p.autoIsolirEnabled === false ? "false" : "true"),
+  },
+  {
+    key: "GENERAL_AUTO_ISOLASI_HARI_TOLERANSI",
+    description: "Hari toleransi sebelum isolir otomatis",
+    resolveValue: (p) => p.autoIsolirHariToleransi?.trim() || "1",
+  },
+  {
+    key: "GENERAL_REMINDER_OTOMATIS",
+    description: "Jumlah hari sebelum jatuh tempo untuk mulai kirim reminder",
+    resolveValue: (p) => p.reminderOtomatis?.trim() || "3",
+  },
+  {
+    key: "GENERAL_REMINDER_FREQUENCY",
+    description: "Frekuensi pengiriman reminder (ONCE atau DAILY)",
+    resolveValue: (p) => p.reminderFrequency || "DAILY",
+  },
+  {
+    key: "GENERAL_REMINDER_TIME",
+    description: "Jam pengiriman reminder",
+    resolveValue: (p) => p.reminderTime?.trim() || "08:00",
+  },
+  {
+    key: "GENERAL_NOTIF_APP",
+    description: "Toggle push notification app",
+    resolveValue: (p) => (p.notifApp === false ? "false" : "true"),
+  },
+  {
+    key: "GENERAL_NOTIF_WA",
+    description: "Toggle notification WhatsApp",
+    resolveValue: (p) => (p.notifWa === true ? "true" : "false"),
+  },
+  {
+    key: "GENERAL_NOTIF_EMAIL",
+    description: "Toggle notification Email",
+    resolveValue: (p) => (p.notifEmail === true ? "true" : "false"),
+  },
+];
+
+export const GENERAL_SETTINGS_KEYS: string[] = GENERAL_SETTINGS_DEFINITIONS.map(
+  (definition) => definition.key,
+);
 
 const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
 
@@ -205,127 +302,10 @@ export function buildGeneralSettingsUpserts(
   tenantId?: string | null,
 ): SettingsUpsertEntity[] {
   const scopedTenantId = tenantId ?? null;
-  return [
-    {
-      key: "GENERAL_PERUSAHAAN",
-      value: payload.perusahaan?.trim() || null,
-      description: "Nama perusahaan",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_NAMA_APLIKASI",
-      value: payload.namaAplikasi?.trim() || "NetManager",
-      description: "Nama Aplikasi",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_ALAMAT",
-      value: payload.alamat?.trim() || null,
-      description: "Alamat perusahaan",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_NOMOR_HP",
-      value: payload.nomorHp?.trim() || null,
-      description: "Nomor HP perusahaan",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_EMAIL",
-      value: payload.email?.trim() || null,
-      description: "Email perusahaan",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_DESKRIPSI_INVOICE",
-      value: payload.deskripsiInvoice?.trim() || null,
-      description: "Deskripsi invoice",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_REKENING_BANK",
-      value: JSON.stringify(payload.rekeningBank || []),
-      description: "Daftar rekening bank",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_INVOICE_OTOMATIS",
-      value: payload.invoiceOtomatis?.trim() || "5",
-      description: "Jumlah hari sebelum jatuh tempo untuk invoice otomatis",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_DISABLE_PERPANJANGAN_PAKET",
-      value: payload.disablePerpanjanganPaket?.trim() || "5",
-      description:
-        "Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_TIMEZONE",
-      value: payload.timezone?.trim() || "Asia/Jakarta",
-      description: "Zona waktu aplikasi (IANA timezone)",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_ATTENDANCE_TOLERANCE",
-      value: payload.attendanceTolerance?.trim() || "0",
-      description: "Toleransi keterlambatan (menit)",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "PPP_CONNECTION_MODE",
-      value: payload.pppConnectionMode || "RADIUS",
-      description: "Mode koneksi PPP: RADIUS atau MIKROTIK_API",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_AUTO_ISOLASI_ENABLED",
-      value: payload.autoIsolirEnabled === false ? "false" : "true",
-      description: "Aktifkan isolir otomatis",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_AUTO_ISOLASI_HARI_TOLERANSI",
-      value: payload.autoIsolirHariToleransi?.trim() || "1",
-      description: "Hari toleransi sebelum isolir otomatis",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_REMINDER_OTOMATIS",
-      value: payload.reminderOtomatis?.trim() || "3",
-      description: "Jumlah hari sebelum jatuh tempo untuk mulai kirim reminder",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_REMINDER_FREQUENCY",
-      value: payload.reminderFrequency || "DAILY",
-      description: "Frekuensi pengiriman reminder (ONCE atau DAILY)",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_REMINDER_TIME",
-      value: payload.reminderTime?.trim() || "08:00",
-      description: "Jam pengiriman reminder",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_NOTIF_APP",
-      value: payload.notifApp === false ? "false" : "true",
-      description: "Toggle push notification app",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_NOTIF_WA",
-      value: payload.notifWa === true ? "true" : "false",
-      description: "Toggle notification WhatsApp",
-      tenantId: scopedTenantId,
-    },
-    {
-      key: "GENERAL_NOTIF_EMAIL",
-      value: payload.notifEmail === true ? "true" : "false",
-      description: "Toggle notification Email",
-      tenantId: scopedTenantId,
-    },
-  ];
+  return GENERAL_SETTINGS_DEFINITIONS.map((definition) => ({
+    key: definition.key,
+    value: definition.resolveValue(payload),
+    description: definition.description,
+    tenantId: scopedTenantId,
+  }));
 }

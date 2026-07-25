@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-25] — Konsolidasi definisi general settings ke satu tabel
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/settings/services/generalSettings.ts`, `app/admin/pengaturan/umum`
+- **Author**: agent
+- **Deskripsi**: Daftar key general settings sebelumnya diduplikasi di dua tempat — `GENERAL_SETTINGS_KEYS` (jalur read) dan 20 literal `buildGeneralSettingsUpserts` (jalur write) — sehingga rawan drift read/write (akar bug tenant-scope sebelumnya). Dikonsolidasi ke satu tabel `GENERAL_SETTINGS_DEFINITIONS` sebagai single source of truth; key read diturunkan via `.map()`, dan `buildGeneralSettingsUpserts` menurunkan upsert dari tabel yang sama sehingga `tenantId` dijamin ter-stamp pada setiap entry (dari 130 baris repetitif → ~10 baris). Sekaligus samakan default `namaAplikasi` di client ("" → "NetManager") agar konsisten dengan server, dan ganti tipe `FormEvent` yang deprecated (@types/react 19) → `SubmitEvent` pada `handleSubmit`.
+- **Files**: `modules/settings/services/generalSettings.ts`, `app/admin/pengaturan/umum/useGeneralSettings.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-25] — Naikkan memory headroom Redis cegah OOMKilled
 
 - **Tipe**: [INFRA]

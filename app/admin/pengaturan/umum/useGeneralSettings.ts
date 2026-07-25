@@ -3,7 +3,7 @@
 import { clientLogger } from "@/lib/client-logger";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { useEffect, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, SubmitEvent } from "react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import { useApi } from "@/lib/hooks/useApi";
@@ -46,7 +46,7 @@ type BackfillResult = {
 
 const defaultSettings: GeneralSettings = {
   perusahaan: "",
-  namaAplikasi: "",
+  namaAplikasi: "NetManager",
   alamat: "",
   nomorHp: "",
   email: "",
@@ -80,7 +80,7 @@ function mapGeneralSettingsResponse(
 ): GeneralSettings {
   return {
     perusahaan: data.perusahaan || "",
-    namaAplikasi: data.namaAplikasi || "",
+    namaAplikasi: data.namaAplikasi || "NetManager",
     alamat: data.alamat || "",
     nomorHp: data.nomorHp || "",
     email: data.email || "",
@@ -139,7 +139,7 @@ export type UseGeneralSettingsResult = {
   ) => void;
   addBankAccount: () => void;
   removeBankAccount: (index: number) => void;
-  handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  handleSubmit: (event: SubmitEvent<HTMLFormElement>) => Promise<void>;
   handleBackfill: () => Promise<void>;
 };
 
@@ -251,7 +251,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
     setSettings((prev) => ({ ...prev, rekeningBank: newBankAccounts }));
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setSuccess(false);
