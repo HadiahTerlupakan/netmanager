@@ -110,7 +110,7 @@ export function GoodsReturnCreateClient({ grnId }: { grnId: string | null }) {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!selectedGrnId) {
       toast.error("GRN wajib dipilih");

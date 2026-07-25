@@ -21,7 +21,7 @@ type MikrotikRouterFormProps = {
     field: keyof MikrotikRouterFormData,
     value: string | number,
   ) => void;
-  onSubmit: (event: React.FormEvent) => void;
+  onSubmit: (event: React.SubmitEvent) => void;
   onTestClick: () => void;
   isSubmitting: boolean;
   submitLabel: string;

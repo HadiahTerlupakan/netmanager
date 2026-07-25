@@ -64,7 +64,7 @@ export function useApiSettings() {
   }, [loadSettings]);
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.SubmitEvent<HTMLFormElement>) => {
       e.preventDefault();
       setError(null);
       setSuccess(false);

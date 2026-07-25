@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
+import type { SubmitEvent, ReactNode } from "react";
 import { useState } from "react";
 import { HiOutlineCheck } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
@@ -55,7 +55,7 @@ export default function CanvasingForm({
     });
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const validationResult = validateCanvasingForm(formValues);

@@ -61,7 +61,7 @@ export default function DepartmentModal({
     }
   }
 
-  const handleSaveDepartment = async (e: React.FormEvent) => {
+  const handleSaveDepartment = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setLoading(true);
 

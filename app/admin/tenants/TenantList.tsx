@@ -82,7 +82,7 @@ export default function TenantList({
     setIsFormOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {

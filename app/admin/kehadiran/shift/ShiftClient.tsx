@@ -87,7 +87,7 @@ export default function ShiftClient() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");

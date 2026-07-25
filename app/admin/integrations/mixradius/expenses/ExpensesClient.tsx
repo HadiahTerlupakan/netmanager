@@ -5,7 +5,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  type FormEvent,
+  type SubmitEvent,
 } from "react";
 import {
   HiOutlinePlus,
@@ -584,7 +584,7 @@ export default function ExpensesClient() {
 
   const prevStep = () => setStep(step - 1);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 

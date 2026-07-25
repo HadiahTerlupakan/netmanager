@@ -148,7 +148,7 @@ export default function AmbilBarangForm() {
     setSuccess("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     if (

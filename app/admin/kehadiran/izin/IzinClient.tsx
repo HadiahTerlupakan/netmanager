@@ -182,7 +182,7 @@ export function IzinClient() {
     setIsManualModalOpen(true);
   };
 
-  const handleManualSubmit = async (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (
       !manualForm.userId ||

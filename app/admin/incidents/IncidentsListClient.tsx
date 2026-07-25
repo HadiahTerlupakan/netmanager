@@ -208,7 +208,7 @@ function CreateIncidentForm({ onCreated }: { onCreated: () => void }) {
   const [isPublic, setIsPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSubmitting(true);
 

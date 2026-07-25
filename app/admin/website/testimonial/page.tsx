@@ -101,7 +101,7 @@ export default function TestimonialPage() {
     setFormError(null);
   }
 
-  async function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.SubmitEvent) {
     e.preventDefault();
     setSaving(true);
     setFormError(null);

@@ -155,7 +155,7 @@ export function VendorConfigTab() {
   };
 
   // --- VENDOR ACTIONS ---
-  const handleSaveVendor = async (e: React.FormEvent) => {
+  const handleSaveVendor = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!canUpdate) {
       showToast("error", "Anda tidak memiliki hak akses");
@@ -203,7 +203,7 @@ export function VendorConfigTab() {
   };
 
   // --- WIFI SECURITY ACTIONS ---
-  const handleSaveWifi = async (e: React.FormEvent) => {
+  const handleSaveWifi = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!canUpdate) {
       showToast("error", "Anda tidak memiliki hak akses");

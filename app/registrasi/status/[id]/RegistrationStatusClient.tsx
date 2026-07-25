@@ -88,7 +88,7 @@ export function RegistrationStatusClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLookup = async (e?: React.FormEvent) => {
+  const handleLookup = async (e?: React.SubmitEvent) => {
     e?.preventDefault();
     if (!phone.trim()) {
       setError("Masukkan nomor telepon yang dipakai saat mendaftar");

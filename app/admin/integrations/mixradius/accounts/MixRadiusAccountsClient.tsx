@@ -81,7 +81,7 @@ export default function MixRadiusAccountsClient() {
     isActive: false,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     if (

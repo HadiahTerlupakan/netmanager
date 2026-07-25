@@ -95,7 +95,7 @@ export default function FooterPage() {
     }
   }, [fetchFooter]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);

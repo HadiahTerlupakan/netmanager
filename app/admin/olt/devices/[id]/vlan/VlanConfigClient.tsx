@@ -41,7 +41,7 @@ export default function VlanConfigClient({ oltId }: { oltId: string }) {
     };
   }, [oltId, refreshKey]);
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!vlanId) return;
     setSubmitting(true);

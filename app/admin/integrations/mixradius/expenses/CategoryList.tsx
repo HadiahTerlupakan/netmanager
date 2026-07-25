@@ -148,7 +148,7 @@ export default function CategoryList() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     try {
       const url = editingItem

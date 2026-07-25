@@ -69,7 +69,7 @@ export default function AccelPppServerForm({
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);

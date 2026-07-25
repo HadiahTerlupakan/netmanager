@@ -72,7 +72,7 @@ export function AcsConfigTab() {
     },
   );
 
-  const handleSave = async (e: React.FormEvent | React.MouseEvent) => {
+  const handleSave = async (e: React.SubmitEvent | React.MouseEvent) => {
     if (e && "preventDefault" in e) {
       e.preventDefault();
     }

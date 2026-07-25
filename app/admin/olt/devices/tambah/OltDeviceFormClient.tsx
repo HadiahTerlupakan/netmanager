@@ -25,7 +25,7 @@ export default function OltDeviceFormClient() {
   const [error, setError] = useState("");
   const [vendor, setVendor] = useState<OltVendor>("ZTE");
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");

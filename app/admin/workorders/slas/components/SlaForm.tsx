@@ -46,7 +46,7 @@ interface SlaFormProps {
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (e: React.SubmitEvent<HTMLFormElement>) => void;
   loading: boolean;
   submitLabel: string;
 }

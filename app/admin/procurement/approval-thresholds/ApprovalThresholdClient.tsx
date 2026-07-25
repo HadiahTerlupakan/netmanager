@@ -96,7 +96,7 @@ export function ApprovalThresholdClient() {
 
   const items = data ?? [];
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!form.roleId) {
       toast.error("Role wajib dipilih");

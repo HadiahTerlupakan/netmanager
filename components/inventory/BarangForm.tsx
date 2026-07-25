@@ -92,7 +92,7 @@ export function BarangForm({
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     // Clear previous errors

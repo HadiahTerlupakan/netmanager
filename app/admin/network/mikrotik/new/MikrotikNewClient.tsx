@@ -37,7 +37,7 @@ export function ClientComponent() {
       formData,
     });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     if (!testPassed) {

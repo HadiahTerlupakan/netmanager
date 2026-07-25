@@ -79,7 +79,7 @@ export default function SiteInvestorClient() {
     isActive: true,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {

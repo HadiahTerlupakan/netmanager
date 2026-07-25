@@ -150,7 +150,7 @@ export interface ExpensesDailySectionProps {
   onCloseModal: () => void;
   onDelete: (id: string) => void;
   onExport: () => void;
-  onHandleSubmit: (event: React.FormEvent) => void;
+  onHandleSubmit: (event: React.SubmitEvent) => void;
   onInvoiceUpload: (file: File) => void;
   onItemsPerPageChange: (value: number | "all") => void;
   onNextStep: () => void;

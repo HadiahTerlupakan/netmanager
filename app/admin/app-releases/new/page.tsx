@@ -44,7 +44,7 @@ export default function NewAppReleasePage() {
     value: NewReleaseForm[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSubmitting(true);
 

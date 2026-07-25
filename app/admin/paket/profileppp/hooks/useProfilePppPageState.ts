@@ -102,7 +102,7 @@ export function useProfilePppPageState() {
     ]);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault();
     try {
       const url = editingProfile

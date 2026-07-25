@@ -448,7 +448,7 @@ export function ClientComponent() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     // Validation based on WO type

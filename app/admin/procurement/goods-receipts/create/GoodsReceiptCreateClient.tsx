@@ -170,7 +170,7 @@ export function GoodsReceiptCreateClient({
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!selectedPoId) {
       toast.error("Pilih Purchase Order terlebih dahulu");

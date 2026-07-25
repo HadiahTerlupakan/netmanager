@@ -113,7 +113,7 @@ export function AppReleasesTab() {
     value: ReleaseForm[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {

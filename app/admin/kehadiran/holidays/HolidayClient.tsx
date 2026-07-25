@@ -150,7 +150,7 @@ export function HolidayClient() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     try {
       const res = await postWithAuth("/api/admin/holidays", {

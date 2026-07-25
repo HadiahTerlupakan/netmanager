@@ -51,7 +51,7 @@ export default function PreRegisterClient() {
     };
   }, [refreshKey]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!serialNumber.trim()) return;
     setSubmitting(true);

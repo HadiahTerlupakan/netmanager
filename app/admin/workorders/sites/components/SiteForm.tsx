@@ -24,7 +24,7 @@ interface SiteFormProps {
   ) => void;
   onMapChange: (lat: string, lng: string) => void;
   onGudangChange: (ids: string[]) => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (e: React.SubmitEvent<HTMLFormElement>) => void;
   loading: boolean;
   submitLabel: string;
   /** Show isActive checkbox (only for edit mode). */

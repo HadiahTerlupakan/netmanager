@@ -16,7 +16,7 @@ interface DepartmentFormProps {
   onChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (e: React.SubmitEvent<HTMLFormElement>) => void;
   loading: boolean;
   submitLabel: string;
 }

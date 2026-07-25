@@ -46,7 +46,7 @@ export function ClientComponent() {
     },
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);

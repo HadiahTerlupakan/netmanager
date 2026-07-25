@@ -243,7 +243,7 @@ function AddUpdateForm({
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSubmitting(true);
 

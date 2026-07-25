@@ -69,7 +69,7 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
     setFormData({ ...formData, items: newItems });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!formData.name) return toast.error("Nama template wajib diisi");
     if (formData.items.length === 0)

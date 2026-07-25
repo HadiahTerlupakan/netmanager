@@ -46,7 +46,7 @@ export default function BandwidthProfileClient() {
     };
   }, [refreshKey]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!name || !uploadRate || !downloadRate || !oltId) return;
     setSubmitting(true);

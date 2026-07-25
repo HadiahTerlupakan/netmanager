@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-25] — Ganti tipe FormEvent deprecated ke SubmitEvent (repo-wide)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/`, `components/`
+- **Author**: agent
+- **Deskripsi**: `@types/react` 19 menandai `FormEvent` sebagai deprecated ("FormEvent doesn't actually exist"). Sweep 76 file yang memakai `FormEvent`/`React.FormEvent` pada handler submit form (`handleSubmit`, `handleSave`, `handleCreate`, prop `onSubmit`) ke `SubmitEvent` — tipe presisi yang diharapkan `onSubmit` React 19 (`SubmitEventHandler`). Perubahan type-only, tidak mengubah runtime. Verifikasi: `tsc --noEmit` 0 error.
+- **Files**: 76 file di `app/**` dan `components/**` (form client & modal)
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-25] — Konsolidasi definisi general settings ke satu tabel
 
 - **Tipe**: [CHANGED]

@@ -72,7 +72,7 @@ export default function HeroPage() {
     }
   }, [fetchHero]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);

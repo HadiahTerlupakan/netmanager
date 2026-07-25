@@ -86,7 +86,7 @@ export function RestockSettingsForm({
   const avgDailyUsage =
     usageData?.avgDailyUsage ?? initialData?.avgDailyUsage ?? 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     // Validation

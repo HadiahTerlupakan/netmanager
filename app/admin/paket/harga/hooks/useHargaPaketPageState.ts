@@ -103,7 +103,7 @@ export function useHargaPaketPageState() {
     ]);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault();
     if (formData.durasi < 1) {
       alert("Durasi minimal 1");

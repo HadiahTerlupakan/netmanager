@@ -367,7 +367,7 @@ export function PppClientEditForm() {
     return newPkg.harga < oldPkg.harga;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
 
