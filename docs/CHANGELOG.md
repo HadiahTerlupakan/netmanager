@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-07-25] — Percepat stage Run Unit Tests CI (paralelisme)
+
+- **Tipe**: [INFRA]
+- **Scope**: `Jenkinsfile`
+- **Author**: agent
+- **Deskripsi**: Stage "Run Unit Tests" makan ~19min. Analisis Vitest: `import` mendominasi (1773s cumulative vs 252s tests), dijalankan hanya `--maxWorkers=2` (container node dibatasi cpu 2). Naikkan container node `cpu` limit 2→6 (request 1→3), `memory` limit 6Gi→8Gi (margin 6 fork + peak tsc), dan `--maxWorkers` 2→6 agar 607 file test diparalelkan. Estimasi ~19min → ~6-7min. Opsi `isolate: false` (yang bisa ~3min) sengaja TIDAK dipakai: divalidasi lokal membuat 158 file test gagal karena tidak independen (state module-level bocor antar file) — butuh cleanup test-hygiene terpisah. Validasi: `npx vitest run --maxWorkers=6` → 607 file / 3506 test lolos.
+- **Files**: `Jenkinsfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-25] — Ganti tipe FormEvent deprecated ke SubmitEvent (repo-wide)
 
 - **Tipe**: [CHANGED]
