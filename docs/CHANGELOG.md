@@ -46,7 +46,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Tipe**: [INFRA]
 - **Scope**: `Jenkinsfile`
 - **Author**: agent
-- **Deskripsi**: Stage "Run Unit Tests" makan ~19min. Analisis Vitest: `import` mendominasi (1773s cumulative vs 252s tests), dijalankan hanya `--maxWorkers=2` (container node dibatasi cpu 2). Naikkan container node `cpu` limit 2→6 (request 1→3), `memory` limit 6Gi→8Gi (margin 6 fork + peak tsc), dan `--maxWorkers` 2→6 agar 607 file test diparalelkan. Estimasi ~19min → ~6-7min. Opsi `isolate: false` (yang bisa ~3min) sengaja TIDAK dipakai: divalidasi lokal membuat 158 file test gagal karena tidak independen (state module-level bocor antar file) — butuh cleanup test-hygiene terpisah. Validasi: `npx vitest run --maxWorkers=6` → 607 file / 3506 test lolos.
+- **Deskripsi**: Stage "Run Unit Tests" makan ~19min. Analisis Vitest: `import` mendominasi (1773s cumulative vs 252s tests), dijalankan hanya `--maxWorkers=2` (container node dibatasi cpu 2). Naikkan container node `cpu` limit 2→8 (request 1→3), `memory` limit 6Gi→10Gi (margin 8 fork + peak tsc), dan `--maxWorkers` 2→8 agar 607 file test diparalelkan. Terverifikasi di CI: build #262 (2 worker) 1156s vs #263 (6 worker) 410s; naik ke 8 worker menargetkan ~5min. Opsi `isolate: false` (yang bisa ~3min) sengaja TIDAK dipakai: divalidasi lokal + 3 eksperimen config sentral (clearMocks/restoreMocks) tetap menyisakan ~155 file gagal karena test tidak independen (state module-level/spy bocor antar file) — butuh refactor test-hygiene per-file terpisah. Validasi: `npx vitest run --maxWorkers=8` → 607 file / 3506 test lolos.
 - **Files**: `Jenkinsfile`
 - **Breaking**: ❌ Tidak
 

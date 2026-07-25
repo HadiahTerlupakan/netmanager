@@ -38,10 +38,10 @@ spec:
         memory: "3Gi"
         cpu: "3"
       limits:
-        # 8Gi memberi margin untuk 6 fork test paralel + peak tsc (~5GB).
-        memory: "8Gi"
-        # cpu 6 agar vitest --maxWorkers=6 benar-benar paralel (node 16 core, idle ~17%).
-        cpu: "6"
+        # 10Gi memberi margin untuk 8 fork test paralel + peak tsc (~5GB).
+        memory: "10Gi"
+        # cpu 8 agar vitest --maxWorkers=8 benar-benar paralel (node 16 core, idle ~17%).
+        cpu: "8"
   - name: docker
     image: docker:29.4.0-cli-alpine3.23
     imagePullPolicy: IfNotPresent
@@ -296,7 +296,7 @@ spec:
                             'NEXTAUTH_URL=http://localhost:3000',
                             'NODE_OPTIONS=--max-old-space-size=3072'
                         ]) {
-                            sh "set -euo pipefail; npx vitest run --maxWorkers=6"
+                            sh "set -euo pipefail; npx vitest run --maxWorkers=8"
                         }
                     }
                 }
