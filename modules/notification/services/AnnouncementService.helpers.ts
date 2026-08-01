@@ -238,6 +238,7 @@ export async function ensureAnnouncementExistsForTenant(
 export function logAnnouncementCreation(
   announcement: AnnouncementRecord,
   createdBy: string,
+  metadata?: { ipAddress?: string; userAgent?: string },
 ) {
   return logger.logActivity({
     action: "CREATE",
@@ -248,6 +249,8 @@ export function logAnnouncementCreation(
       target: announcement.target,
     },
     userId: createdBy,
+    ipAddress: metadata?.ipAddress,
+    userAgent: metadata?.userAgent,
   });
 }
 

@@ -77,7 +77,11 @@ export class AnnouncementService {
   }
 
   /** Create an announcement and trigger downstream side effects. */
-  async createAnnouncement(input: AnnouncementCreateInput, createdBy: string) {
+  async createAnnouncement(
+    input: AnnouncementCreateInput,
+    createdBy: string,
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
     const isAnnouncementActive = input.isActive ?? true;
     const announcement = await getAnnouncementRepositoryMethod(
       this.announcementRepository,
@@ -88,6 +92,7 @@ export class AnnouncementService {
     await logAnnouncementCreation(
       announcement as AnnouncementRecord,
       createdBy,
+      metadata,
     );
     if (isAnnouncementActive) {
       publishRealtimeSafely(announcement as AnnouncementRecord);

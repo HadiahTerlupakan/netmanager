@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/rbac";
 import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
+import { getClientIp, getUserAgent } from "@/lib/request-helpers";
 import {
   announcementService,
   createAnnouncementSchema,
@@ -100,6 +101,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const announcement = await announcementService.createAnnouncement(
       parsed.data,
       session.user.id,
+      {
+        ipAddress: getClientIp(request),
+        userAgent: getUserAgent(request),
+      },
     );
     return NextResponse.json(announcement, { status: 201 });
   } catch (error) {

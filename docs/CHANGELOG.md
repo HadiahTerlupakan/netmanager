@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-02] — Tambah IP logging untuk announcement creation
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/notification`, `app/api/announcements`, `lib/`
+- **Author**: agent
+- **Deskripsi**: Implementasi IP logging untuk mencatat alamat IP client sebenarnya (dari header X-Forwarded-For) dan User-Agent saat announcement dibuat. Sebelumnya, activity log hanya mencatat IP internal Kubernetes (10.42.0.1). Helper function `getClientIp()` dan `getUserAgent()` ditambahkan di `lib/request-helpers.ts`. Service layer `AnnouncementService` diupdate untuk menerima metadata (ipAddress, userAgent) dan meneruskan ke logger. Berguna untuk audit trail dan investigasi security incident.
+- **Files**: `lib/request-helpers.ts` (new), `app/api/announcements/route.ts`, `modules/notification/services/AnnouncementService.ts`, `modules/notification/services/AnnouncementService.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-07-25] — Percepat stage Run Unit Tests CI (paralelisme)
 
 - **Tipe**: [INFRA]
