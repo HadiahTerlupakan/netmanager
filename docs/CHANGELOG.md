@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-06] — Fix test timeout di Jenkins CI pipeline
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/api/admin-attendance-bulk-delete-route.test.ts`
+- **Author**: agent
+- **Deskripsi**: Perbaiki test "returns 400 for malformed JSON before touching persistence" yang timeout di Jenkins build #99. Root cause: syntax timeout berubah dari Vitest 3 ke Vitest 4. Format lama `it(name, fn, { timeout })` deprecated dan menyebabkan timeout tidak terapply. Diupdate ke format baru `it(name, { timeout }, fn)` sesuai Vitest 4 signature. Test sekarang lulus dengan timeout 30s yang cukup untuk environment Jenkins yang lebih lambat dari lokal.
+- **Files**: `tests/api/admin-attendance-bulk-delete-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-02] — Tambah IP logging untuk announcement creation
 
 - **Tipe**: [ADDED]
