@@ -165,7 +165,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.r2.dev" },
       { protocol: "https", hostname: "cdn.radpro.id" },
       { protocol: "https", hostname: "ui-avatars.com" },
-      { protocol: "https", hostname: "**" },
+      // Specific trusted image CDNs only - wildcard removed for security
+      { protocol: "https", hostname: "*.cloudflare.com" },
+      { protocol: "https", hostname: "*.cloudinary.com" },
+      { protocol: "https", hostname: "*.googleapis.com" },
     ],
     // Disable image optimization in staging/production to avoid 400 errors from external domains
     // and reduce server CPU usage.
