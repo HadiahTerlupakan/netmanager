@@ -100,32 +100,36 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
   });
 
-  it("returns 400 for malformed JSON before touching persistence", async () => {
-    const { DELETE } = await import("@/app/api/admin/attendance/route");
+  it(
+    "returns 400 for malformed JSON before touching persistence",
+    { timeout: 30000 },
+    async () => {
+      const { DELETE } = await import("@/app/api/admin/attendance/route");
 
-    const req = new NextRequest("http://localhost/api/admin/attendance", {
-      method: "DELETE",
-    });
-    vi.spyOn(req, "json").mockRejectedValue(
-      new SyntaxError("Unexpected end of JSON input"),
-    );
+      const req = new NextRequest("http://localhost/api/admin/attendance", {
+        method: "DELETE",
+      });
+      vi.spyOn(req, "json").mockRejectedValue(
+        new SyntaxError("Unexpected end of JSON input"),
+      );
 
-    const response = await DELETE(req, {
-      session: {
-        user: {
-          id: "admin-1",
-          tenantId: "tenant-1",
+      const response = await DELETE(req, {
+        session: {
+          user: {
+            id: "admin-1",
+            tenantId: "tenant-1",
+          },
         },
-      },
-    } as never);
+      } as never);
 
-    const body = await response.json();
+      const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.error).toBe("Data tidak valid");
-    expect(prismaMock.attendance.findMany).not.toHaveBeenCalled();
-    expect(prismaMock.attendance.deleteMany).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(400);
+      expect(body.error).toBe("Data tidak valid");
+      expect(prismaMock.attendance.findMany).not.toHaveBeenCalled();
+      expect(prismaMock.attendance.deleteMany).not.toHaveBeenCalled();
+    },
+  );
 
   it("returns 400 for an empty ids payload before touching persistence", async () => {
     const { DELETE } = await import("@/app/api/admin/attendance/route");
