@@ -50,6 +50,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `tests/api/admin-attendance-bulk-delete-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-08-06] — Implementasi rate limiting dan security logging untuk authentication
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`, `app/api/*/auth/login`
+- **Author**: agent
+- **Deskripsi**: Implementasi rate limiting dan security logging untuk semua authentication endpoints sebagai respons terhadap analisis security threats. Rate limiting menggunakan LRU cache in-memory (60s TTL) dengan limit 5 percobaan login per menit per IP. Security logging menggunakan structured JSON ke console (Kubernetes-native) dan Redis untuk tracking temporary state (failed login counter 15 menit TTL, IP blocking 1 jam TTL). Auto-block IP setelah 5 kali failed login. Zero impact untuk user normal — ini pure additive, tidak mengubah behavior existing login flow.
+- **Files**: `lib/rate-limit.ts` (NEW), `lib/security-logger.ts` (NEW), `app/api/customer/auth/login/route.ts`, `app/api/mobile/auth/login/route.ts`, `app/api/investor/auth/login/route.ts`, `lib/api-response.ts`
+- **Breaking**: ❌ Tidak
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-02] — Tambah IP logging untuk announcement creation
 
 - **Tipe**: [ADDED]

@@ -100,6 +100,7 @@
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
+    "lru-cache": "^11.5.2",
     "lucide-react": "^1.0.1",
     "midtrans-client": "^1.4.3",
     "net-snmp": "^3.26.1",

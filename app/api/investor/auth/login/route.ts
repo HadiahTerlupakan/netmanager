@@ -6,9 +6,43 @@ import {
   LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE,
 } from "@/lib/security/login-rate-limit";
 import { getInvestorPortalAuthService } from "@/modules/investor";
+import { getClientIP } from "@/lib/rate-limit";
+import {
+  logSecurityEvent,
+  trackFailedLogin,
+  blockIp,
+  isIpBlocked,
+  getBlockTimeRemaining,
+  resetFailedLoginCounter,
+} from "@/lib/security-logger";
 
 export async function POST(request: Request) {
+  const ip = getClientIP(request);
+  const userAgent = request.headers.get("user-agent") || "unknown";
+
   try {
+    // Check if IP is blocked
+    if (await isIpBlocked(ip)) {
+      const remainingTime = await getBlockTimeRemaining(ip);
+
+      logSecurityEvent({
+        type: "rate_limit_exceeded",
+        ipAddress: ip,
+        userAgent,
+        severity: "high",
+        details: {
+          endpoint: "/api/investor/auth/login",
+          remainingBlockTime: remainingTime,
+        },
+      });
+
+      return apiError(
+        `IP diblokir sementara. Coba lagi dalam ${Math.ceil(remainingTime / 60)} menit.`,
+        ErrorCodes.RATE_LIMIT_EXCEEDED,
+        { status: 429 },
+      );
+    }
+
     const body = await request.json();
     const { username, password } = body;
     const normalizedUsername = String(username ?? "")
@@ -53,6 +87,28 @@ export async function POST(request: Request) {
     });
 
     if (loginResult.success === false) {
+      // Track failed login attempt
+      const failedCount = await trackFailedLogin(ip);
+
+      // Log failed login
+      logSecurityEvent({
+        type: "failed_login",
+        ipAddress: ip,
+        userAgent,
+        severity: failedCount >= 5 ? "high" : "medium",
+        details: {
+          endpoint: "/api/investor/auth/login",
+          username: normalizedUsername,
+          reason: loginResult.message,
+          attemptCount: failedCount,
+        },
+      });
+
+      // Auto-block IP after 5 failed attempts
+      if (failedCount >= 5) {
+        await blockIp(ip, 3600); // Block for 1 hour
+      }
+
       const errorCode =
         loginResult.status === 403
           ? ErrorCodes.FORBIDDEN
@@ -61,6 +117,9 @@ export async function POST(request: Request) {
         status: loginResult.status,
       });
     }
+
+    // Reset failed login counter on successful login
+    await resetFailedLoginCounter(ip);
 
     const isSecure = process.env.NODE_ENV === "production";
     const cookieParts = [
