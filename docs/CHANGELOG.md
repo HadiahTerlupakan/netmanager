@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-06] — Refactor LoginForm untuk improve code quality
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/auth/`
+- **Author**: agent
+- **Deskripsi**: Refactor LoginForm.tsx untuk menghilangkan code smell: (1) Extract magic strings ke constants file (PORTAL_PATHS, AUTH_ERROR_CODES, ERROR_MESSAGES, VALIDATION), (2) Extract complex logic ke utility functions (error checking, redirect logic), (3) Simplify onSubmit function dari 107 baris ke 25 baris dengan extract handleLoginError dan handleSuccessfulLogin, (4) Improve readability dan maintainability tanpa mengubah behavior. Semua logic tetap sama, hanya direorganisasi mengikuti clean code principles.
+- **Files**: `components/auth/LoginForm.tsx` (refactored), `components/auth/LoginForm.constants.ts` (new), `components/auth/LoginForm.utils.ts` (new)
+- **Breaking**: ❌ Tidak
+
+### [2026-08-06] — Implement rate limiting dan security logging untuk auth endpoints
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/rate-limit.ts`, `lib/security-logger.ts`, `app/api/*/auth/login/`
+- **Author**: agent
+- **Deskripsi**: Tambahkan rate limiting menggunakan LRU Cache (in-memory, 60s TTL) untuk semua login endpoints (customer, mobile, investor). Limit: 5 percobaan per menit per IP. Tambahkan security logging dengan structured JSON ke Kubernetes console untuk monitoring. Track failed login attempts di Redis (TTL 15 menit) dengan auto-block IP setelah 5 kegagalan (block 1 jam). Reset counter saat login berhasil. Security events include: failed_login, rate_limit_exceeded, ip_blocked dengan severity level (low/medium/high/critical).
+- **Files**: `lib/rate-limit.ts` (new), `lib/security-logger.ts` (new), `app/api/customer/auth/login/route.ts`, `app/api/mobile/auth/login/route.ts`, `app/api/investor/auth/login/route.ts`, `lib/api-response.ts` (added RATE_LIMIT_EXCEEDED error code)
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-06] — Fix test timeout di Jenkins CI pipeline
 
 - **Tipe**: [FIXED]

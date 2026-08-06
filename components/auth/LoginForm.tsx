@@ -11,43 +11,49 @@ import {
 } from "@/lib/utils/subdomain-client";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import {
+  PORTAL_PATHS,
+  ERROR_MESSAGES,
+  VALIDATION,
+} from "./LoginForm.constants";
+import {
+  getErrorMessage,
+  isRateLimitError,
+  isDatabaseError,
+  isCredentialsError,
+  isLocalhostEnvironment,
+  getTargetPath,
+} from "./LoginForm.utils";
 
 const schema = z.object({
   email: z
     .string()
-    .min(1, "Email wajib diisi")
-    .pipe(z.email({ error: "Email tidak valid" })),
-  password: z.string().min(6, "Minimal 6 karakter"),
+    .min(VALIDATION.EMAIL_MIN_LENGTH, "Email wajib diisi")
+    .pipe(z.email({ message: "Email tidak valid" })),
+  password: z
+    .string()
+    .min(VALIDATION.PASSWORD_MIN_LENGTH, "Minimal 6 karakter"),
 });
 
 type FormValues = z.infer<typeof schema>;
+
+function isEmployeePortal(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith(PORTAL_PATHS.EMPLOYEE)
+  );
+}
 
 export default function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const errorParam = search.get("error");
-
-  // Map error codes to human-readable messages
-  const getErrorMessage = (code: string | null) => {
-    if (!code) return null;
-    switch (code) {
-      case "AccessDenied":
-        return "Akses ditolak. Anda tidak memiliki izin untuk mengakses portal ini.";
-      case "CredentialsSignin":
-        return "Email atau password salah.";
-      case "SessionRequired":
-        return "Silakan masuk untuk melanjutkan.";
-      default:
-        return "Terjadi kesalahan saat login. Silakan coba lagi.";
-    }
-  };
-
   const errorMessage = getErrorMessage(errorParam);
-  // Check if we're on employee portal - if so, default callback to /karyawan
-  const isEmployeePortal =
-    typeof window !== "undefined" &&
-    window.location.pathname.startsWith("/karyawan");
-  const defaultCallback = isEmployeePortal ? "/karyawan" : "/admin";
+
+  const isEmployee = isEmployeePortal();
+  const defaultCallback = isEmployee
+    ? PORTAL_PATHS.EMPLOYEE
+    : PORTAL_PATHS.ADMIN;
   const callbackUrlParam = search.get("callbackUrl") || defaultCallback;
 
   const {
@@ -57,112 +63,70 @@ export default function LoginForm() {
     setError,
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  const handleLoginError = (error: string) => {
+    if (isRateLimitError(error)) {
+      clientLogger.warn("[LoginForm] Rate limit exceeded");
+      router.push(`${PORTAL_PATHS.ERROR}?error=${encodeURIComponent(error)}`);
+      return;
+    }
+
+    if (isDatabaseError(error)) {
+      clientLogger.error("[LoginForm] Database connection error");
+      setError("password", { message: ERROR_MESSAGES.DATABASE_ERROR });
+      return;
+    }
+
+    if (isCredentialsError(error)) {
+      setError("password", { message: ERROR_MESSAGES.INVALID_CREDENTIALS });
+      return;
+    }
+
+    clientLogger.error("[LoginForm] Login error:", error);
+    setError("password", { message: error || ERROR_MESSAGES.UNKNOWN });
+  };
+
+  const handleSuccessfulLogin = (responseUrl: string | null | undefined) => {
+    const subdomain = getSubdomainFromWindow();
+    const targetPath = getTargetPath(responseUrl, callbackUrlParam, isEmployee);
+
+    if (isLocalhostEnvironment()) {
+      window.location.assign(targetPath);
+      return;
+    }
+
+    if (subdomain === "admin") {
+      router.push(targetPath);
+      return;
+    }
+
+    const adminUrl = getAdminUrl(targetPath);
+    window.location.assign(adminUrl);
+  };
+
   const onSubmit = async (values: FormValues) => {
     try {
       const res = await signIn("credentials", {
         redirect: false,
         identifier: values.email,
         password: values.password,
-        portal: isEmployeePortal ? "employee" : "admin",
-        callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
+        portal: isEmployee ? "employee" : "admin",
+        callbackUrl: callbackUrlParam,
       });
 
       if (!res) {
-        setError("password", {
-          message: "Terjadi kesalahan saat login. Silakan coba lagi.",
-        });
+        setError("password", { message: ERROR_MESSAGES.UNEXPECTED });
         return;
       }
 
       if (res.error) {
-        // Jika error terkait rate limiting, redirect ke halaman error
-        if (
-          res.error.includes("Terlalu banyak percobaan") ||
-          res.error.includes("rate limit")
-        ) {
-          clientLogger.warn("[LoginForm] Rate limit exceeded");
-          const errorUrl = `/error?error=${encodeURIComponent(res.error)}`;
-          router.push(errorUrl);
-          return;
-        }
-
-        // Error database connection
-        if (res.error.includes("Database connection error")) {
-          clientLogger.error("[LoginForm] Database connection error");
-          setError("password", {
-            message:
-              "Tidak dapat terhubung ke database. Silakan coba lagi beberapa saat.",
-          });
-          return;
-        }
-
-        // Error credentials (wrong email/password) - don't log to console
-        if (
-          res.error.includes("CredentialsSignin") ||
-          res.error.includes("credentials") ||
-          res.error.includes("password")
-        ) {
-          setError("password", { message: "Email atau password salah" });
-        } else {
-          // Unknown error - log it
-          clientLogger.error("[LoginForm] Login error:", res.error);
-          setError("password", {
-            message:
-              res.error || "Login gagal. Silakan periksa kredensial Anda.",
-          });
-        }
+        handleLoginError(res.error);
         return;
       }
 
-      // Cek apakah kita sudah di admin subdomain
-      const subdomain = getSubdomainFromWindow();
-      // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
-      const targetPathBase = res.url
-        ? res.url.startsWith("http")
-          ? new URL(res.url).pathname
-          : res.url
-        : callbackUrlParam;
-      let targetPath = targetPathBase;
-
-      // Use the appropriate callback based on portal type
-      if (isEmployeePortal) {
-        // For employee portal, ensure we stay on employee routes
-        if (!targetPath.startsWith("/karyawan")) {
-          targetPath = "/karyawan";
-        }
-      } else {
-        // For admin portal, ensure we stay on admin routes
-        if (!targetPath.startsWith("/admin")) {
-          targetPath = "/admin";
-        }
-      }
-
-      // Di development atau localhost
-      const isLocalhost =
-        typeof window !== "undefined" &&
-        (window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname.endsWith(".localhost"));
-
-      if (isLocalhost) {
-        window.location.assign(targetPath);
-        return;
-      }
-
-      // Default behavior
-      if (subdomain === "admin") {
-        router.push(targetPath);
-        return;
-      }
-
-      // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
-      const adminUrl = getAdminUrl(targetPath);
-      window.location.assign(adminUrl);
+      handleSuccessfulLogin(res.url);
     } catch (error) {
       clientLogger.error("[LoginForm] Unexpected error:", error);
-      setError("password", {
-        message: "Terjadi kesalahan tak terduga. Silakan coba lagi.",
-      });
+      setError("password", { message: ERROR_MESSAGES.UNEXPECTED });
     }
   };
 
