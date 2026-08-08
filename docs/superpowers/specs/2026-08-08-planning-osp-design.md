@@ -144,11 +144,15 @@ model Planning {
   // Status & Workflow
   status                 PlanningStatus @default(BACKLOG)
   
-  // Approval
+  // Approval (Multi-Level Support)
+  approvalLevel          Int           @default(1)      // 1 = single, 2 = multi-level
+  currentApprovalStep    Int           @default(0)      // 0 = not submitted, 1-2 = current step
   submittedAt            DateTime?
   submittedById          String?
   approvedAt             DateTime?
   approvedById           String?
+  approvedLevel1At       DateTime?                      // For multi-level tracking
+  approvedLevel1ById     String?
   rejectedAt             DateTime?
   rejectedById           String?
   approvalNotes          String?       @db.Text
@@ -170,6 +174,7 @@ model Planning {
   createdBy              User?         @relation("planning_createdByIdToUser", fields: [createdById], references: [id])
   submittedBy            User?         @relation("planning_submittedByIdToUser", fields: [submittedById], references: [id])
   approvedBy             User?         @relation("planning_approvedByIdToUser", fields: [approvedById], references: [id])
+  approvedLevel1By       User?         @relation("planning_approvedLevel1ByIdToUser", fields: [approvedLevel1ById], references: [id])
   rejectedBy             User?         @relation("planning_rejectedByIdToUser", fields: [rejectedById], references: [id])
   
   items                  PlanningItem[]
@@ -191,7 +196,8 @@ enum PlanningType {
 enum PlanningStatus {
   BACKLOG
   PENDING_APPROVAL
-  APPROVED
+  APPROVED_LEVEL1        // For multi-level: waiting level 2
+  APPROVED               // Final approved
   IN_PROGRESS
   COMPLETED
   REJECTED
@@ -422,10 +428,12 @@ const PLANNING_PERMISSIONS = {
   "planning:documents:upload",   // Upload documents
   "planning:documents:delete",   // Delete documents
   
-  // Approval workflow
-  "planning:submit",         // Submit for approval
-  "planning:approve",        // Approve planning (Manager)
-  "planning:reject",         // Reject planning (Manager)
+  // Approval workflow (Multi-Level)
+  "planning:submit",             // Submit for approval
+  "planning:approve:level1",     // Approve level 1 (Supervisor/Manager)
+  "planning:approve:level2",     // Approve level 2 (Director/C-Level)
+  "planning:approve:any",        // Approve any level (Super Admin bypass)
+  "planning:reject",             // Reject planning
   
   // Admin
   "planning:admin:read",     // View all planning
@@ -439,6 +447,12 @@ const PLANNING_PERMISSIONS = {
   
   // Export
   "planning:export",         // Export PDF
+  
+  // Template (Material Preset)
+  "planning:template:read",   // View templates
+  "planning:template:create", // Create template (Admin)
+  "planning:template:update", // Update template (Admin)
+  "planning:template:delete", // Delete template (Admin)
 }
 ```
 
@@ -818,11 +832,106 @@ test('Approval workflow', async ({ page }) => {
 
 ---
 
-## Open Questions for User
+## Approval Workflow Design (FINAL)
 
-1. **Approval Multi-Level:** Apakah perlu approval 2-tier (Supervisor → Manager) atau cukup 1-tier (Staff → Manager)?
-2. **Budget Threshold:** Apakah planning > X rupiah butuh approval khusus Director?
-3. **Material Template:** Apakah ada preset material list yang sering dipakai (misal: "Paket 100 Unit Standard")?
+### Multi-Level Approval Support
+
+**Decision:** Flexible approval levels based on role hierarchy & budget threshold
+
+**Flow Logic:**
+```
+Planning Created (Staff/Planner)
+    ↓
+[Check Budget Threshold]
+    ↓
+IF budget < threshold:
+    → Submit to immediate superior (1-level approval)
+    → APPROVED → Ready to execute
+    
+IF budget >= threshold:
+    → Submit to immediate superior (level 1)
+    → APPROVED (level 1) → Auto-forward to Director (level 2)
+    → APPROVED (level 2) → Ready to execute
+```
+
+**Implementation:**
+- `planning.approvalLevel` field: 1 (single) or 2 (multi-level)
+- `planning.currentApprovalStep` field: 1 or 2 (untuk tracking)
+- Budget threshold configurable via settings (default: Rp 500.000.000)
+- Role hierarchy dari existing RBAC system
+
+**Permissions Extended:**
+```typescript
+"planning:approve:level1"  // Supervisor/Manager
+"planning:approve:level2"  // Director/C-Level
+"planning:approve:any"     // Super Admin (bypass levels)
+```
+
+**Status Flow Multi-Level:**
+```
+PENDING_APPROVAL (step 1) 
+  → APPROVED_LEVEL1 (if multi-level)
+  → PENDING_APPROVAL (step 2)
+  → APPROVED (final)
+```
+
+### Material Template System
+
+**Decision:** Support preset material templates untuk efficiency
+
+**Features:**
+- Admin bisa create template: "Paket 100 Unit Fiber", "Paket 50 Unit Copper"
+- Template contains: pre-filled items (nama, unit, qty default, estimasi harga)
+- Staff pilih template saat create planning → items auto-populate
+- Items editable after template applied
+
+**Database:**
+```prisma
+model PlanningTemplate {
+  id          String   @id
+  tenantId    String
+  name        String   // "Paket 100 Unit Fiber Standard"
+  description String?
+  isActive    Boolean  @default(true)
+  items       PlanningTemplateItem[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tenantId, isActive])
+}
+
+model PlanningTemplateItem {
+  id         String   @id
+  templateId String
+  itemName   String
+  quantity   Float
+  unit       String
+  unitPrice  Float    // Estimasi default
+  sortOrder  Int
+  
+  template   PlanningTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+```
+
+**UI Flow:**
+```
+Create Planning Form
+  ↓
+[Optional: Pilih Template]
+  ↓
+IF template selected:
+  → Items table pre-filled dari template
+  → Staff bisa edit/hapus/tambah items
+  
+IF no template:
+  → Empty items table
+  → Staff manual input
+```
+
+**Fase:**
+- MVP: Template CRUD admin UI + pilih template saat create
+- Fase 2: Template versioning, template usage analytics
 
 ---
 
