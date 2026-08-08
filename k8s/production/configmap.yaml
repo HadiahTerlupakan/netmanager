@@ -7,6 +7,7 @@ data:
   DOMAIN: "radpro.id"
   AUTH_URL: "https://radpro.id"
   NEXTAUTH_URL: "https://radpro.id"
+  NEXT_PUBLIC_APP_URL: "https://radpro.id"
   TZ: "Asia/Jakarta"
   NODE_ENV: "production"
   ALLOWED_ORIGINS: "https://radpro.id,https://admin.radpro.id,https://karyawan.radpro.id,https://pelanggan.radpro.id,https://investor.radpro.id"
