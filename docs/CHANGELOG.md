@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-08] — Fix payment gateway environment configuration
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`, `lib/utils/env`, `k8s/production`
+- **Author**: agent
+- **Deskripsi**: Fixed critical production bug dimana `NEXT_PUBLIC_APP_URL` tidak terset di Kubernetes ConfigMap, menyebabkan payment gateway callback URLs menjadi `undefined/api/webhooks/*`. Added centralized environment validation helper untuk prevent future issues. All payment providers (Moota, Tripay, Xendit, Duitku, Midtrans, QRIS) now use validated env helper. Server startup validation ensures critical env vars present sebelum accept requests.
+- **Files**:
+  - `k8s/production/configmap.yaml` - Added NEXT_PUBLIC_APP_URL
+  - `lib/utils/env.ts` - New environment validation helper
+  - `modules/payment-gateway/services/providers/*` - Migrated to validated env helper
+  - `server.ts` - Added startup environment validation
+- **Breaking**: ❌ Tidak
+- **Deployment**: Requires kubectl apply ConfigMap + rolling restart pods (zero downtime)
+
 ### [2026-08-08] — Hapus program trial dari landing page marketing
 
 - **Tipe**: [CHANGED]
