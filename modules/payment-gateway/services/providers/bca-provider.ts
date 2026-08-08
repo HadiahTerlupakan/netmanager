@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { logger } from "@/lib/logger";
+import { getAppUrl } from "@/lib/utils/env";
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
@@ -69,7 +70,7 @@ export class BCAProvider implements PaymentProvider {
               signature,
               correlationId: crypto.randomUUID(),
             }),
-            Origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+            Origin: getAppUrl(),
           },
           body: bodyString,
         },

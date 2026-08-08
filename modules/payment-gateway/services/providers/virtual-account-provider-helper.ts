@@ -1,3 +1,4 @@
+import { getAppUrl } from "@/lib/utils/env";
 import type {
   PaymentResult,
   TransactionStatus,
@@ -52,7 +53,7 @@ export function createVirtualAccountExpiryDate(expiryHours?: number): Date {
 export function buildVirtualAccountPaymentResult(
   input: BuildPaymentResultInput,
 ): PaymentResult {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
 
   return {
     success: true,

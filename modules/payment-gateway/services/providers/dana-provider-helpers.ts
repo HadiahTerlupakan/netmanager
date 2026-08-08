@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { getAppUrl } from "@/lib/utils/env";
 import type {
   CreatePaymentParams,
   PaymentResult,
@@ -109,9 +110,9 @@ export function buildDanaCreatePayload(
       },
       orderDescription: params.description,
       expiryTime,
-      callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook/dana`,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/failed`,
+      callbackUrl: `${getAppUrl()}/api/payment/webhook/dana`,
+      returnUrl: `${getAppUrl()}/payment/success`,
+      cancelUrl: `${getAppUrl()}/payment/failed`,
     },
     expiryTime,
   };

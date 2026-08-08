@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getAppUrl } from "@/lib/utils/env";
 import * as crypto from "crypto";
 import midtransClient from "midtrans-client";
 import type {
@@ -57,9 +58,9 @@ export class MidtransProvider implements PaymentProvider {
           },
         ],
         callbacks: {
-          finish: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-          error: `${process.env.NEXT_PUBLIC_APP_URL}/payment/failed`,
-          pending: `${process.env.NEXT_PUBLIC_APP_URL}/payment/pending`,
+          finish: `${getAppUrl()}/payment/success`,
+          error: `${getAppUrl()}/payment/failed`,
+          pending: `${getAppUrl()}/payment/pending`,
         },
       });
 

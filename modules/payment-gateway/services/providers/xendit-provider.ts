@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getAppUrl } from "@/lib/utils/env";
 import type {
   CreatePaymentParams,
   PaymentProvider,
@@ -55,8 +56,8 @@ export class XenditProvider implements PaymentProvider {
           email: params.customerEmail,
           mobileNumber: params.customerPhone,
         },
-        successRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-        failureRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/failed`,
+        successRedirectUrl: `${getAppUrl()}/payment/success`,
+        failureRedirectUrl: `${getAppUrl()}/payment/failed`,
       });
 
       return {
