@@ -88,6 +88,7 @@ class PlanningServiceFactory {
       const templateRepo = new PlanningTemplateRepository();
       const templateItemRepo = new PlanningTemplateItemRepository();
       const planningRepo = new PlanningRepository();
+      const auditService = this.getAuditService();
 
       this.instances.set(
         "template",
@@ -95,6 +96,7 @@ class PlanningServiceFactory {
           templateRepo,
           templateItemRepo,
           planningRepo,
+          auditService,
         ),
       );
     }

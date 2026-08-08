@@ -22,6 +22,7 @@ import type { PlanningType } from "../domain/entities/PlanningEntity";
 import { PlanningTemplateMapper } from "../mappers/PlanningTemplateMapper";
 import { PlanningTemplateItemMapper } from "../mappers/PlanningTemplateItemMapper";
 import { PlanningMapper } from "../mappers/PlanningMapper";
+import { PlanningAuditService } from "./PlanningAuditService";
 import { logger } from "@/lib/logger";
 
 type PrismaTransaction = Prisma.TransactionClient;
@@ -31,10 +32,13 @@ type PrismaTransaction = Prisma.TransactionClient;
  * Service untuk mengelola template planning dan apply template ke planning baru.
  */
 export class PlanningTemplateService {
+  private readonly BUDGET_THRESHOLD = 500_000_000; // Rp 500M
+
   constructor(
     private readonly templateRepo: IPlanningTemplateRepository,
     private readonly templateItemRepo: IPlanningTemplateItemRepository,
     private readonly planningRepo: IPlanningRepository,
+    private readonly auditService: PlanningAuditService,
   ) {}
 
   /**
@@ -271,7 +275,7 @@ export class PlanningTemplateService {
     }
 
     // Determine approval level based on total budget
-    const approvalLevel = totalEstimatedBudget >= 500_000_000 ? 2 : 1; // 500M threshold
+    const approvalLevel = totalEstimatedBudget >= this.BUDGET_THRESHOLD ? 2 : 1;
 
     // Create planning
     const planningEntity = await this.planningRepo.create({
@@ -292,6 +296,21 @@ export class PlanningTemplateService {
         : null,
       createdById: userId,
     });
+
+    // Audit log
+    await this.auditService.logChange(
+      planningEntity.id,
+      "CREATED",
+      userId,
+      {
+        initial: planningData,
+        approvalLevel,
+        createdFromTemplate: templateId,
+        templateName: template.name,
+        estimatedBudget: totalEstimatedBudget,
+      },
+      `Planning created from template "${template.name}"`,
+    );
 
     // Activity log
     logger.logActivity({

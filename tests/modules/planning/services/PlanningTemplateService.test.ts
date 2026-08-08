@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PlanningTemplateService } from "@/modules/planning/services/PlanningTemplateService";
-import type { IPlanningTemplateRepository } from "@/modules/planning/services/../domain/ports/IPlanningTemplateRepository";
-import type { IPlanningTemplateItemRepository } from "@/modules/planning/services/../domain/ports/IPlanningTemplateItemRepository";
-import type { IPlanningRepository } from "@/modules/planning/services/../domain/ports/IPlanningRepository";
-import { PlanningTemplateEntity } from "@/modules/planning/services/../domain/entities/PlanningTemplateEntity";
-import { PlanningTemplateItemEntity } from "@/modules/planning/services/../domain/entities/PlanningTemplateItemEntity";
-import { PlanningEntity } from "@/modules/planning/services/../domain/entities/PlanningEntity";
+import type { IPlanningTemplateRepository } from "@/modules/planning/domain/ports/IPlanningTemplateRepository";
+import type { IPlanningTemplateItemRepository } from "@/modules/planning/domain/ports/IPlanningTemplateItemRepository";
+import type { IPlanningRepository } from "@/modules/planning/domain/ports/IPlanningRepository";
+import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
+import { PlanningTemplateEntity } from "@/modules/planning/domain/entities/PlanningTemplateEntity";
+import { PlanningTemplateItemEntity } from "@/modules/planning/domain/entities/PlanningTemplateItemEntity";
+import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
 
 describe("PlanningTemplateService", () => {
   let service: PlanningTemplateService;
   let mockTemplateRepo: jest.Mocked<IPlanningTemplateRepository>;
   let mockTemplateItemRepo: jest.Mocked<IPlanningTemplateItemRepository>;
   let mockPlanningRepo: jest.Mocked<IPlanningRepository>;
+  let mockAuditService: jest.Mocked<PlanningAuditService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,10 +38,15 @@ describe("PlanningTemplateService", () => {
       create: vi.fn(),
     } as unknown as jest.Mocked<IPlanningRepository>;
 
+    mockAuditService = {
+      logChange: vi.fn(),
+    } as unknown as jest.Mocked<PlanningAuditService>;
+
     service = new PlanningTemplateService(
       mockTemplateRepo,
       mockTemplateItemRepo,
       mockPlanningRepo,
+      mockAuditService,
     );
   });
 
@@ -308,6 +315,19 @@ describe("PlanningTemplateService", () => {
           approvalLevel: 1,
         }),
       );
+      expect(mockAuditService.logChange).toHaveBeenCalledWith(
+        "plan-1",
+        "CREATED",
+        "user-1",
+        expect.objectContaining({
+          approvalLevel: 1,
+          createdFromTemplate: "template-1",
+          templateName: "OSP Standard",
+        }),
+        expect.stringContaining(
+          'Planning created from template "OSP Standard"',
+        ),
+      );
       expect(result.id).toBe("plan-1");
     });
 
@@ -393,6 +413,17 @@ describe("PlanningTemplateService", () => {
           estimatedBudget: 600_000_000,
           approvalLevel: 2,
         }),
+      );
+      expect(mockAuditService.logChange).toHaveBeenCalledWith(
+        "plan-2",
+        "CREATED",
+        "user-1",
+        expect.objectContaining({
+          approvalLevel: 2,
+          createdFromTemplate: "template-1",
+          templateName: "Large OSP",
+        }),
+        expect.stringContaining('Planning created from template "Large OSP"'),
       );
       expect(result.approvalLevel).toBe(2);
     });

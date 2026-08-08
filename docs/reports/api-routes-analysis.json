@@ -1,0 +1,8403 @@
+{
+  "generatedAt": "2026-08-08T21:04:06.202Z",
+  "statistics": {
+    "total": 599,
+    "byCategory": {
+      "other": 238,
+      "admin": 241,
+      "cron": 26,
+      "customer": 19,
+      "investor": 7,
+      "mobile": 63,
+      "public": 4,
+      "webhooks": 1
+    },
+    "byAuth": {
+      "authenticated": 83,
+      "public": 516
+    },
+    "critical": 98,
+    "withExternalServices": 66
+  },
+  "routes": [
+    {
+      "path": "/:[...route]",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/acs/devices",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/acs/devices/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/acs/devices/:id/tasks",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/acs/devices/:id/wan",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accel-ppp-servers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accel-ppp-servers/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accel-ppp-servers/:id/sessions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accel-ppp-servers/:id/sessions/:username/kick",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accel-ppp-servers/:id/test-connection",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/accounting/coa",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/coa/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/coa/seed",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/journal",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/journal/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/journal/:id/reverse",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/journal/opening-balance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/period",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/period/:id/close",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/period/:id/reopen",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reconciliation",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reconciliation/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reconciliation/:id/complete",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reconciliation/:id/match",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/recurring",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/recurring/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/balance-sheet",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/cash-book",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/cash-flow",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/general-ledger",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/profit-loss",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/accounting/reports/trial-balance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/app-releases",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/app-releases/:id",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/app-update",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/app-update/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/app-update/contact-settings",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/app-update/publish",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance/:id/correct-missed-checkin",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance/backdate",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance/recompute",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/attendance/settings",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/chat/broadcast",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/chat/conversations",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/chat/conversations/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/chat/global",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/chat/users",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/company-bank-accounts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/company-bank-accounts/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/coupons/analytics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/departments",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/departments/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/event-bus/health",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/finance/ar-aging",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/finance/customer-cohort",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/finance/revenue-snapshot",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/holidays",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/holidays/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/incidents",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/incidents/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/incidents/analytics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/integrations/mixradius/sync",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/balance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/config",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/deposits",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/detail",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/payouts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/:id/profit-shares",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/deposits",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/deposits/:depositId/complete",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/deposits/:depositId/reject",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/deposits/:depositId/verify",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/profit-shares",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/profit-shares/:shareId/approve",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/profit-shares/:shareId/pay",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/investors/profit-shares/calculate",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/invoices/:id/void",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/leave-balance",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/leaves",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/leaves/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/lembur",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/lembur/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/location/history/:userId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/location/live",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/marketing/sales",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/marketing/sales-dashboard",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/:id/face-verifications",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/:id/wallet",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/sync-commissions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/withdrawals",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/mitra/withdrawals/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/notifications/dead-letter",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/notifications/dead-letter/:id/resolve",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/notifications/dead-letter/:id/retry",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/notifications/email-logs",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/notifications/monitoring",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/options",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/payment-gateway/configs",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/payment-gateway/configs/:provider",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/payment-gateway/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/payments/:id/cancel",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/payments/pending-manual",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/payments/verify-manual",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/pelanggan/:id/invoices",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/pelanggan/:id/notification-history",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/pelanggan/:id/prorate-log",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/procurement/approval-thresholds",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/approval-thresholds/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/goods-receipts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/goods-receipts/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/goods-returns",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/goods-returns/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/purchase-orders",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/purchase-orders/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/purchase-orders/:id/process",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/purchase-orders/from-pr",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/purchase-requests",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/suppliers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/procurement/suppliers/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/profile",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/profile/photo",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/accounting/:username",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/radius/dashboard/recent-sessions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/dashboard/stats",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/debug/live-usage",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/ippool",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/ippool/:ipAddress",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/nas",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/nas/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/orphans",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/sessions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/sessions/:username/history",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/sessions/reset",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/sync",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/sync/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/radius/users/:username",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/registrations",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/registrations/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": true
+    },
+    {
+      "path": "/admin/reports/presence",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id/commissions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id/outlets",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id/outlets/:outletId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id/package-prices",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/resellers/:id/settlements",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/advances",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/advances/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/components",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/components/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/config",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/profiles",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/profiles/:userId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/profiles/:userId/components",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/runs",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/runs/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/salary/runs/:id/calculate",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/settings/email",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/settings/email/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/settings/full-radius-mode",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/shifts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/shifts/:id",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/sites",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/sites/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/support-tickets",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/support-tickets/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/support-tickets/:id/reply",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/support-tickets/unread-count",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/system-logs",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/config",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/export/bhp-uso",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/export/pph21",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/export/ppn",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/period",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/period/:year/:month",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/period/:year/:month/lock",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/period/:year/:month/mark-paid",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/rate-configs",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/rate-configs/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tax/transactions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenant-domains",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenant-domains/:id/disable",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenant-domains/:id/verify",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants/:id",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants/:id/domains",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants/:id/domains/:domainId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants/:id/domains/:domainId/verify",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/tenants/:id/feature-flags",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users/:id/force-logout",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users/:id/performance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users/:id/sales-performance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/users/check-identifier",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/faq",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/faq/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/features",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/features/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/footer",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/hero",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/pricing",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/pricing/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/testimonials",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/testimonials/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/website/upload-logo",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/accounts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/accounts/:id",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/accounts/:id/baileys",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/accounts/:id/set-default",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/accounts/:id/test",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/messages",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/messages/:id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/whatsapp/stats",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/approve",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/assign",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/attachments",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/attachments/:attachmentId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/comments",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/material-detail",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/materials",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/reminder",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/:id/tasks",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/analytics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/dashboard",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/department-workload",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/escalations",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/escalations/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/recent",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/requests",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/response-stats",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/slas",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/slas/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/stats",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/templates",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/templates/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/top-performers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/admin/workorders/trends",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "admin",
+      "isCritical": false
+    },
+    {
+      "path": "/announcements",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/announcements/:id",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/announcements/:id/read",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/analytics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/check-in",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/check-out",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/config",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/history",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/attendance/status",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/auth/:...nextauth",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/auth/firebase-token",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "Firebase"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/bandwidths",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/bandwidths/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/billing/analytics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/coupons",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/coupons/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/coupons/verify",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/accounting/health-check",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": true
+    },
+    {
+      "path": "/cron/accounting/recurring",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": true
+    },
+    {
+      "path": "/cron/apply-pending-packages",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/ar-aging-snapshot",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/attendance-alert",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/attendance-orchestrator",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/auto-approve-leave",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/auto-checkout",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/auto-reject-expired-leaves",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/cleanup-notification-logs",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/cleanup-stale-fcm-tokens",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/customer-cohort",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/depreciation",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/olt-discovery",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/olt-monitoring",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/process-absence",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/process-overdue",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/rab-status-eval",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/reconcile-billing-schedules",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/revenue-snapshot",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/send-leave-reminders",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/tax/bhp-uso",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/tax/reminder",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/tenant-domain-verify",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/workorder-reminder",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/cron/workorder-sla-monitor",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "cron",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/announcements/:id/read",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/auth/login",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/auth/logout",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/auth/me",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/dashboard/summary",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/invoices",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/notifications",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/notifications/unread-count",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/package",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/payment-methods",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/payments",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/payments/sse",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/payments/upload-receipt",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": true
+    },
+    {
+      "path": "/customer/profile",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/tickets",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/tickets/:id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/tickets/:id/close",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/tickets/:id/reply",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/customer/usage",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "customerAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "customer",
+      "isCritical": false
+    },
+    {
+      "path": "/docs",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/finance/accounts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/expense-categories",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/expense-categories/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/expenses",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/expenses/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/expenses/batch",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/pay-po",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/actuals",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/copy",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/revision-profit-loss",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/revisions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/revisions/:revisionId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/:id/revisions/:revisionId/submit",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/rab-projects/dashboard",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/stats",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/transfer",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/finance/unmatched-mutations",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/hargapakets",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/hargapakets/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/health/memory",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/health/time",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/market-price",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/accounts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/accounts/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/customers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/customers/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/dismantle",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/expenses/rab/:id/approve",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/expenses/rab/:id/reminder",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/expenses/rab/:id/revisions/:revisionId/approve",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/expenses/rab/:id/revisions/:revisionId/reject",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/fees",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/groups",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/groups/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/investor-sites",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/investor-sites/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/invoice-counts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/integrations/mixradius/npl",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/odps",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/odps/:id/customers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/owners",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/print/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/profit-loss",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/reports/delete/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/reports/period",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/sessions",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/sync",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/integrations/mixradius/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/internal/whatsapp/send",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/analytics/usage",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/assets",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/assets/:id",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/assets/:id/depreciate",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/barang",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/barang/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/barang/stock",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/barang/stock/by-kondisi",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/gudang",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/gudang/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [
+        "Gudang"
+      ],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/jasa",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/jasa/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/keluar",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/keluar/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/masuk",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/masuk/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/batch",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/calculate",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/history-stats",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/list",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/report",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/opname/summary",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/alerts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/prediction",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests/:id/approve",
+      "methods": [
+        "PATCH"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests/:id/process",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests/:id/receive",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/requests/:id/receive-jasa",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/restock/settings",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/stats",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/transfer",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/transfer/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/inventory/upload-photo",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/investor/auth/login",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": true
+    },
+    {
+      "path": "/investor/auth/logout",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": true
+    },
+    {
+      "path": "/investor/auth/session",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": true
+    },
+    {
+      "path": "/investor/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": false
+    },
+    {
+      "path": "/investor/payouts",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": false
+    },
+    {
+      "path": "/investor/projects",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": false
+    },
+    {
+      "path": "/investor/projects/:id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "investor",
+      "isCritical": false
+    },
+    {
+      "path": "/invoices",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/invoices/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/invoices/:id/send",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/ip-info",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/ktp-ocr",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/edges",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/edges/:edgeId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/import/csv",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/nodes",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/nodes/:nodeId",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/reset",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/settings",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/statistics",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/sync",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/map/upload",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing/:id/approve",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing/:id/claim",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing/:id/reject",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/canvasing/summary",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/claims/cashout",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/point-claims",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/point-claims/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/point-claims/summary",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/marketing/test-canvasing",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers/:id/generate-api-user",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers/check-status",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers/reconfigure",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mikrotik-routers/test-connection",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "MikroTik RouterOS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/announcements",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/announcements/:id/read",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/app-update/asset",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/app-update/manifest",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/app-version/check",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/attendance/check-in",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/attendance/check-out",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/attendance/geofence",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/attendance/history",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/attendance/status",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/auth/firebase-token",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "Firebase"
+      ],
+      "category": "mobile",
+      "isCritical": true
+    },
+    {
+      "path": "/mobile/auth/login",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": true
+    },
+    {
+      "path": "/mobile/auth/logout",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": true
+    },
+    {
+      "path": "/mobile/auth/me",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": true
+    },
+    {
+      "path": "/mobile/auth/refresh",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": true
+    },
+    {
+      "path": "/mobile/chat/conversations",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/chat/conversations/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/chat/global",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/chat/upload",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/chat/users",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/dashboard",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/departments",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/error-report",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/fcm-token",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/geofence",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/holidays",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/inventory/barang",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/inventory/gudang",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/inventory/keluar",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/inventory/masuk",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/inventory/riwayat",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/leaves",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/location",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mitra/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mitra/fcm-token",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mitra/verify-face",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mitra/wallet",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mitra/withdraw",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mixradius/customers",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/mixradius/groups",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/notifications",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/overtime",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/partners",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/ping",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/profile",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/profile/password",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/profile/photo",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/push-token",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/salary",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/salary/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/salary/advances",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/topology",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/upload",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/materials",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/partner-response",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/partners",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/return",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/tasks",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/:id/update",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/available",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/mobile/work-orders/request",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "mobile",
+      "isCritical": false
+    },
+    {
+      "path": "/network/alerts",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/alerts/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/backups",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/backups/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/backups/:id/restore",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/performance",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/performance/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/network/performance/:id/history",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/notifications",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/notifications/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/notifications/:id/read",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/notifications/unread-count",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/odcs/locations",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/odps",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/alerts",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/bandwidth-profiles",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/bandwidth-profiles/:id",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/command-logs",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/cards",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/cards/:cardId",
+      "methods": [
+        "PATCH"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/cards/sync",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/scan",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/snmp-walk",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/sync-onu",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/test-connection",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/devices/:id/vlan-config",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id",
+      "methods": [
+        "GET",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/assign",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/disable",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/enable",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/firmware",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/optical",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/power-history",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/reboot",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/register",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/reset",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/:id/traffic",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/bulk/disable",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/bulk/enable",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/bulk/register",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/pre-register",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/search",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/olt/onu/unregistered",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/payments",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/payments/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/activate",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/cancel-pending-package",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/status",
+      "methods": [
+        "PATCH"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/suspend",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/suspension-history",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/usage",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/:id/usage/history",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/check-id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/pelanggan-ppp/generate-id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/profileppps",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/profileppps/:id",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hasAuth": true,
+      "authMethod": "requireAuth",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/public/captcha-settings",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "public",
+      "isCritical": false
+    },
+    {
+      "path": "/public/landing-content",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "public",
+      "isCritical": false
+    },
+    {
+      "path": "/public/registration-status/:id",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "public",
+      "isCritical": true
+    },
+    {
+      "path": "/public/status",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "public",
+      "isCritical": false
+    },
+    {
+      "path": "/registrations",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/roles",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/roles/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/scheduler/restock-check",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs/vendors",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs/vendors/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs/wifi-security",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/acs/wifi-security/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/api",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/api/r2/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/api/test",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/backup/backfill",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/backup/export",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/backup/import",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/backup/reset",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/captcha",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/general",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/general/public",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/logo",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/logo/public",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/public",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/radius-defaults",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [
+        "FreeRADIUS"
+      ],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/settings/ringtone",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/sites",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/tagihan/pelanggan/:id",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": true
+    },
+    {
+      "path": "/tenant/feature-flags",
+      "methods": [],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/upload",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/uploads",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/user/fcm-token",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/user/permissions",
+      "methods": [
+        "GET"
+      ],
+      "hasAuth": true,
+      "authMethod": "getServerSession",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "other",
+      "isCritical": false
+    },
+    {
+      "path": "/webhooks/:provider",
+      "methods": [
+        "POST"
+      ],
+      "hasAuth": false,
+      "authMethod": "",
+      "permissions": [],
+      "services": [],
+      "repositories": [],
+      "dtos": [],
+      "externalServices": [],
+      "category": "webhooks",
+      "isCritical": false
+    }
+  ]
+}
