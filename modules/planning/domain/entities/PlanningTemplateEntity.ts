@@ -1,5 +1,7 @@
 import type { PlanningType } from "./PlanningEntity";
 
+export type { PlanningType };
+
 export interface PlanningTemplateEntityProps {
   id: string;
   tenantId: string;

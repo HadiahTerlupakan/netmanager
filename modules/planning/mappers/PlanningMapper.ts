@@ -29,7 +29,7 @@ export class PlanningMapper {
       title: prisma.title,
       description: prisma.description,
       area: prisma.area,
-      coordinates: prisma.coordinates as Coordinates | null,
+      coordinates: prisma.coordinates as unknown as Coordinates | null,
       estimatedUnits: prisma.estimatedUnits,
       estimatedBudget: prisma.estimatedBudget,
       actualBudget: prisma.actualBudget,
@@ -125,13 +125,16 @@ export class PlanningMapper {
     tenantId: string,
     userId: string,
   ): Prisma.PlanningCreateInput {
-    return {
-      tenantId,
+    const prismaData: Prisma.PlanningCreateInput = {
+      tenant: {
+        connect: { id: tenantId },
+      },
       type: dto.type,
       title: dto.title,
       description: dto.description ?? null,
       area: dto.area,
-      coordinates: dto.coordinates ?? null,
+      coordinates: (dto.coordinates ??
+        null) as unknown as Prisma.InputJsonValue,
       estimatedUnits: dto.estimatedUnits,
       estimatedBudget: dto.estimatedBudget ?? null,
       actualBudget: null,
@@ -139,13 +142,9 @@ export class PlanningMapper {
       approvalLevel: dto.approvalLevel ?? 1,
       currentApprovalStep: 0,
       submittedAt: null,
-      submittedById: null,
       approvedAt: null,
-      approvedById: null,
       approvedLevel1At: null,
-      approvedLevel1ById: null,
       rejectedAt: null,
-      rejectedById: null,
       approvalNotes: null,
       progressPercentage: 0,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
@@ -153,9 +152,16 @@ export class PlanningMapper {
         ? new Date(dto.targetCompletionDate)
         : null,
       actualCompletionDate: null,
-      createdById: userId,
       deletedAt: null,
     };
+
+    if (userId) {
+      prismaData.createdBy = {
+        connect: { id: userId },
+      };
+    }
+
+    return prismaData;
   }
 
   /**
@@ -174,7 +180,8 @@ export class PlanningMapper {
       updateData.area = dto.area;
     }
     if (dto.coordinates !== undefined) {
-      updateData.coordinates = dto.coordinates;
+      updateData.coordinates =
+        dto.coordinates as unknown as Prisma.InputJsonValue;
     }
     if (dto.estimatedUnits !== undefined) {
       updateData.estimatedUnits = dto.estimatedUnits;

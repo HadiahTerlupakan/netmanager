@@ -73,15 +73,21 @@ export class PlanningTemplateMapper {
     userId: string,
   ): Prisma.PlanningTemplateCreateInput {
     return {
-      tenantId,
+      tenant: {
+        connect: { id: tenantId },
+      },
       name: dto.name,
       description: dto.description ?? null,
       type: dto.type,
       isActive: dto.isActive ?? true,
-      createdById: userId,
+      createdBy: {
+        connect: { id: userId },
+      },
       items: {
         create: dto.items.map((item) => ({
-          tenantId,
+          tenant: {
+            connect: { id: tenantId },
+          },
           name: item.name,
           description: item.description ?? null,
           quantity: item.quantity,
