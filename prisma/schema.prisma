@@ -6043,7 +6043,7 @@ enum AuditAction {
 }
 
 model Planning {
-  id                     String   @id
+  id                     String   @id @default(uuid())
   tenantId               String
 
   type                   PlanningType  @default(OSP)
@@ -6101,7 +6101,7 @@ model Planning {
 }
 
 model PlanningItem {
-  id              String   @id
+  id              String   @id @default(uuid())
   planningId      String
   tenantId        String
 
@@ -6124,7 +6124,7 @@ model PlanningItem {
 }
 
 model PlanningMilestone {
-  id                String          @id
+  id                String          @id @default(uuid())
   planningId        String
   tenantId          String
 
@@ -6147,7 +6147,7 @@ model PlanningMilestone {
 }
 
 model PlanningDocument {
-  id              String           @id
+  id              String           @id @default(uuid())
   planningId      String
   tenantId        String
 
@@ -6171,7 +6171,7 @@ model PlanningDocument {
 }
 
 model PlanningAuditLog {
-  id              String       @id
+  id              String       @id @default(uuid())
   planningId      String
   tenantId        String
 
@@ -6192,7 +6192,7 @@ model PlanningAuditLog {
 }
 
 model PlanningTemplate {
-  id              String                  @id
+  id              String                  @id @default(uuid())
   tenantId        String
 
   name            String
@@ -6214,7 +6214,7 @@ model PlanningTemplate {
 }
 
 model PlanningTemplateItem {
-  id              String            @id
+  id              String            @id @default(uuid())
   templateId      String
   tenantId        String
 

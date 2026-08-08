@@ -15,7 +15,7 @@ CREATE TYPE "AuditAction" AS ENUM ('CREATED', 'UPDATED', 'SUBMITTED', 'APPROVED'
 
 -- CreateTable
 CREATE TABLE "Planning" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "tenantId" TEXT NOT NULL,
     "type" "PlanningType" NOT NULL DEFAULT 'OSP',
     "title" TEXT NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE "Planning" (
 
 -- CreateTable
 CREATE TABLE "PlanningItem" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "planningId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE "PlanningItem" (
 
 -- CreateTable
 CREATE TABLE "PlanningMilestone" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "planningId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -86,7 +86,7 @@ CREATE TABLE "PlanningMilestone" (
 
 -- CreateTable
 CREATE TABLE "PlanningDocument" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "planningId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "filename" TEXT NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE "PlanningDocument" (
 
 -- CreateTable
 CREATE TABLE "PlanningAuditLog" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "planningId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "action" "AuditAction" NOT NULL,
@@ -117,7 +117,7 @@ CREATE TABLE "PlanningAuditLog" (
 
 -- CreateTable
 CREATE TABLE "PlanningTemplate" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -132,7 +132,7 @@ CREATE TABLE "PlanningTemplate" (
 
 -- CreateTable
 CREATE TABLE "PlanningTemplateItem" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "templateId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
