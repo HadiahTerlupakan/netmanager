@@ -30,6 +30,17 @@ import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { isPublicUploadPath } from "./lib/upload/upload-policy";
 import { logger } from "./lib/logger";
 import { redis } from "./lib/redis";
+import { validateCriticalEnvVars } from "./lib/utils/env";
+
+// Validate critical environment variables sebelum server start
+try {
+  validateCriticalEnvVars();
+  console.log("✅ All critical environment variables validated");
+} catch (error) {
+  console.error("❌ Environment validation failed:");
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "127.0.0.1";
