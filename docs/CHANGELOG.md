@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-08] — Hapus program trial dari landing page marketing
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/landing/`, `app/page.tsx`
+- **Author**: agent
+- **Deskripsi**: Menghapus semua mention program "trial 14 hari" dan "coba gratis" dari landing page karena tidak ada program trial yang aktif. Perubahan CTA button dari "Coba gratis", "Mulai gratis 14 hari", "Coba 14 hari gratis" menjadi "Mulai sekarang" dan "Pilih paket Pro". Update hero section title dari "Mulai gratis, scale kapan saja" ke "Pilih paket yang sesuai". Update deskripsi meta dari "Mulai gratis." menjadi netral tanpa mention gratis/trial. Pricing tier "Gratis" untuk Starter package tetap dipertahankan karena itu pricing actual, bukan program trial.
+- **Files**: `components/landing/landing-content.ts`, `components/landing/SaasLandingPage.tsx`, `app/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-06] — Refactor LoginForm untuk improve code quality
 
 - **Tipe**: [CHANGED]

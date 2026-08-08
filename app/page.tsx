@@ -18,7 +18,7 @@ const SITE_NAME = "RADPRO.ID";
 const SITE_TITLE =
   "RADPRO.ID — Platform Manajemen ISP All-in-One | Billing, MikroTik, Portal Pelanggan";
 const SITE_DESCRIPTION =
-  "Platform manajemen ISP all-in-one: billing & invoicing otomatis, integrasi MikroTik & OLT, portal pelanggan, monitoring real-time, dan manajemen karyawan. Mulai gratis.";
+  "Platform manajemen ISP all-in-one: billing & invoicing otomatis, integrasi MikroTik & OLT, portal pelanggan, monitoring real-time, dan manajemen karyawan.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

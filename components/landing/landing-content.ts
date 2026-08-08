@@ -40,7 +40,7 @@ export const DEFAULT_HERO = {
   highlight: "lebih cerdas",
   subtitle:
     "Billing otomatis, manajemen jaringan MikroTik & OLT, portal pelanggan, dan manajemen karyawan — terintegrasi untuk ISP modern.",
-  ctaPrimary: "Mulai gratis 14 hari",
+  ctaPrimary: "Mulai sekarang",
   ctaSecondary: "Lihat fitur",
   ctaLink: "/admin/login",
   logoUrl: null as string | null,
@@ -97,7 +97,7 @@ export const DEFAULT_PRICING: DefaultPricing[] = [
       "Support email",
     ],
     isPopular: false,
-    ctaText: "Mulai gratis",
+    ctaText: "Mulai sekarang",
     ctaLink: "/admin/login",
   },
   {
@@ -113,7 +113,7 @@ export const DEFAULT_PRICING: DefaultPricing[] = [
       "Support prioritas",
     ],
     isPopular: true,
-    ctaText: "Coba 14 hari gratis",
+    ctaText: "Pilih paket Pro",
     ctaLink: "/admin/login",
   },
   {

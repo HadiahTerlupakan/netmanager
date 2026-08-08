@@ -115,7 +115,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
               Masuk
             </Link>
             <span className="hidden md:inline-flex">
-              <PrimaryCta href="/admin/login">Coba gratis</PrimaryCta>
+              <PrimaryCta href="/admin/login">Mulai sekarang</PrimaryCta>
             </span>
             <button
               type="button"
@@ -164,7 +164,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                 className="w-full justify-between"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Coba gratis sekarang
+                Mulai sekarang
               </PrimaryCta>
             </div>
           </div>
@@ -306,7 +306,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
           <div className="mx-auto max-w-5xl">
             <div className="mx-auto max-w-2xl text-center">
               <SectionEyebrow>Harga</SectionEyebrow>
-              <SectionTitle>Mulai gratis, scale kapan saja</SectionTitle>
+              <SectionTitle>Pilih paket yang sesuai</SectionTitle>
               <p className={`mt-4 text-base sm:text-lg ${cx.muted}`}>
                 Transparan. Tanpa biaya tersembunyi. Batalkan kapan saja.
               </p>
@@ -495,12 +495,10 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                 </h2>
                 <p className="mx-auto mt-4 max-w-md text-base text-zinc-400">
                   Mulai kelola billing, jaringan, dan pelanggan dari satu
-                  tempat. Gratis 14 hari, tanpa kartu kredit.
+                  tempat. Daftar sekarang dan pilih paket yang sesuai.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <PrimaryCta href="/admin/login">
-                    Mulai gratis 14 hari
-                  </PrimaryCta>
+                  <PrimaryCta href="/admin/login">Mulai sekarang</PrimaryCta>
                   <a
                     href="mailto:sales@radpro.id"
                     className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium text-zinc-300 ring-1 ring-white/15 transition-all ${EASE} hover:bg-white/5 hover:text-white active:scale-[0.98]`}
