@@ -1520,6 +1520,14 @@ model User {
   payrollAuditLogs                           PayrollAuditLog[]           @relation("PayrollAuditPerformer")
   incidents                                  Incident[]
   incidentUpdates                            IncidentUpdate[]
+  planningCreated                            Planning[]                  @relation("planning_createdByIdToUser")
+  planningSubmitted                          Planning[]                  @relation("planning_submittedByIdToUser")
+  planningApproved                           Planning[]                  @relation("planning_approvedByIdToUser")
+  planningApprovedLevel1                     Planning[]                  @relation("planning_approvedLevel1ByIdToUser")
+  planningRejected                           Planning[]                  @relation("planning_rejectedByIdToUser")
+  planningDocumentsUploaded                  PlanningDocument[]          @relation("planning_document_uploadedByIdToUser")
+  planningAuditLogsPerformed                 PlanningAuditLog[]          @relation("planning_audit_performedByIdToUser")
+  planningTemplatesCreated                   PlanningTemplate[]          @relation("planning_template_createdByIdToUser")
 
   @@index([departmentId])
   @@index([isActive])
@@ -3935,6 +3943,13 @@ model Tenant {
   resellerCommissionRules   ResellerCommissionRule[]
   resellerCommissions       ResellerCommission[]
   resellerSettlements       ResellerSettlement[]
+  planning                  Planning[]
+  planningItems             PlanningItem[]
+  planningMilestones        PlanningMilestone[]
+  planningDocuments         PlanningDocument[]
+  planningAuditLogs         PlanningAuditLog[]
+  planningTemplates         PlanningTemplate[]
+  planningTemplateItems     PlanningTemplateItem[]
 }
 
 model TenantDomain {
@@ -5978,4 +5993,244 @@ enum IncidentStatus {
   IDENTIFIED
   MONITORING
   RESOLVED
+}
+
+enum PlanningType {
+  OSP
+}
+
+enum PlanningStatus {
+  BACKLOG
+  PENDING_APPROVAL
+  APPROVED_LEVEL1
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum DocumentCategory {
+  SURVEY_PHOTO
+  NETWORK_DIAGRAM
+  TECHNICAL_DRAWING
+  APPROVAL_DOCUMENT
+  COMPLETION_PHOTO
+  OTHER
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  STATUS_CHANGED
+  ITEM_ADDED
+  ITEM_REMOVED
+  ITEM_UPDATED
+  MILESTONE_UPDATED
+  DOCUMENT_UPLOADED
+  DOCUMENT_DELETED
+}
+
+model Planning {
+  id                     String   @id
+  tenantId               String
+
+  type                   PlanningType  @default(OSP)
+  title                  String
+  description            String?       @db.Text
+
+  area                   String
+  coordinates            Json?
+  estimatedUnits         Int
+
+  estimatedBudget        Float?
+  actualBudget           Float?
+
+  status                 PlanningStatus @default(BACKLOG)
+
+  approvalLevel          Int           @default(1)
+  currentApprovalStep    Int           @default(0)
+  submittedAt            DateTime?
+  submittedById          String?
+  approvedAt             DateTime?
+  approvedById           String?
+  approvedLevel1At       DateTime?
+  approvedLevel1ById     String?
+  rejectedAt             DateTime?
+  rejectedById           String?
+  approvalNotes          String?       @db.Text
+
+  progressPercentage     Int           @default(0)
+  startDate              DateTime?
+  targetCompletionDate   DateTime?
+  actualCompletionDate   DateTime?
+
+  createdById            String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  deletedAt              DateTime?
+
+  tenant                 Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy              User?         @relation("planning_createdByIdToUser", fields: [createdById], references: [id])
+  submittedBy            User?         @relation("planning_submittedByIdToUser", fields: [submittedById], references: [id])
+  approvedBy             User?         @relation("planning_approvedByIdToUser", fields: [approvedById], references: [id])
+  approvedLevel1By       User?         @relation("planning_approvedLevel1ByIdToUser", fields: [approvedLevel1ById], references: [id])
+  rejectedBy             User?         @relation("planning_rejectedByIdToUser", fields: [rejectedById], references: [id])
+
+  items                  PlanningItem[]
+  milestones             PlanningMilestone[]
+  documents              PlanningDocument[]
+  auditLogs              PlanningAuditLog[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([tenantId, status])
+}
+
+model PlanningItem {
+  id              String   @id
+  planningId      String
+  tenantId        String
+
+  name            String
+  description     String?  @db.Text
+  quantity        Float
+  unit            String
+  estimatedPrice  Float?
+  actualPrice     Float?
+  notes           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  planning        Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([planningId])
+  @@index([tenantId])
+}
+
+model PlanningMilestone {
+  id                String          @id
+  planningId        String
+  tenantId          String
+
+  name              String
+  description       String?         @db.Text
+  targetDate        DateTime
+  actualDate        DateTime?
+  status            MilestoneStatus @default(PENDING)
+  notes             String?         @db.Text
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  planning          Planning        @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([planningId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model PlanningDocument {
+  id              String           @id
+  planningId      String
+  tenantId        String
+
+  filename        String
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  category        DocumentCategory @default(OTHER)
+  description     String?          @db.Text
+
+  uploadedById    String?
+  uploadedAt      DateTime         @default(now())
+
+  planning        Planning         @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  uploadedBy      User?            @relation("planning_document_uploadedByIdToUser", fields: [uploadedById], references: [id])
+
+  @@index([planningId])
+  @@index([tenantId])
+  @@index([category])
+}
+
+model PlanningAuditLog {
+  id              String       @id
+  planningId      String
+  tenantId        String
+
+  action          AuditAction
+  performedById   String?
+  performedAt     DateTime     @default(now())
+  changes         Json?
+  notes           String?      @db.Text
+
+  planning        Planning     @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  performedBy     User?        @relation("planning_audit_performedByIdToUser", fields: [performedById], references: [id])
+
+  @@index([planningId])
+  @@index([tenantId])
+  @@index([action])
+  @@index([performedAt])
+}
+
+model PlanningTemplate {
+  id              String                  @id
+  tenantId        String
+
+  name            String
+  description     String?                 @db.Text
+  type            PlanningType            @default(OSP)
+  isActive        Boolean                 @default(true)
+
+  createdById     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy       User?                   @relation("planning_template_createdByIdToUser", fields: [createdById], references: [id])
+  items           PlanningTemplateItem[]
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model PlanningTemplateItem {
+  id              String            @id
+  templateId      String
+  tenantId        String
+
+  name            String
+  description     String?           @db.Text
+  quantity        Float
+  unit            String
+  estimatedPrice  Float?
+  notes           String?           @db.Text
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  template        PlanningTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([templateId])
+  @@index([tenantId])
 }
