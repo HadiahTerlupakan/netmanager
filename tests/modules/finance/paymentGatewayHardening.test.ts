@@ -107,7 +107,7 @@ describe("payment gateway hardening", () => {
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const body = JSON.parse(String(request.body));
 
-    expect(body.callbackUrl).toBe("undefined/api/webhooks/duitku");
+    expect(body.callbackUrl).toMatch(/^https?:\/\/.+\/api\/webhooks\/duitku$/);
   });
 
   it("verifies Tripay webhook with raw body instead of re-serialized payload", () => {
