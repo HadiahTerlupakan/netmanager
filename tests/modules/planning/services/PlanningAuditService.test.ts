@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
 import { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import type { IPlanningAuditLogRepository } from "@/modules/planning/services/../domain/ports/IPlanningAuditLogRepository";
 import { PlanningAuditLogEntity } from "@/modules/planning/services/../domain/entities/PlanningAuditLogEntity";
 
 describe("PlanningAuditService", () => {
   let service: PlanningAuditService;
-  let mockAuditLogRepo: jest.Mocked<IPlanningAuditLogRepository>;
+  let mockAuditLogRepo: Mocked<IPlanningAuditLogRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -15,7 +15,7 @@ describe("PlanningAuditService", () => {
       findByPlanningId: vi.fn(),
       findByAction: vi.fn(),
       create: vi.fn(),
-    } as unknown as jest.Mocked<IPlanningAuditLogRepository>;
+    } as unknown as Mocked<IPlanningAuditLogRepository>;
 
     service = new PlanningAuditService(mockAuditLogRepo);
   });

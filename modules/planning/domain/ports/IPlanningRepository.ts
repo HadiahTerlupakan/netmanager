@@ -40,6 +40,7 @@ export interface UpdatePlanningInput {
 export interface UpdateStatusInput {
   status: PlanningStatus;
   currentApprovalStep?: number;
+  approvalLevel?: number;
   submittedAt?: Date | null;
   submittedById?: string | null;
   approvedAt?: Date | null;
@@ -55,6 +56,7 @@ export interface FindAllPlanningFilters {
   tenantId?: string | null;
   type?: PlanningType;
   status?: PlanningStatus;
+  search?: string;
   createdById?: string | null;
   area?: string;
   page?: number;

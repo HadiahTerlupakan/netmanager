@@ -5,6 +5,7 @@ import {
   bulkUpdateMilestonesSchema,
   PlanningMilestoneMapper,
 } from "@/modules/planning";
+import type { UpdatePlanningMilestoneInput } from "@/modules/planning";
 import { logger } from "@/lib/logger";
 
 const milestoneRepo = new PlanningMilestoneRepository();
@@ -74,11 +75,7 @@ export const PUT = createHandler(
           );
         }
 
-        const updateData: {
-          status?: typeof milestoneUpdate.status;
-          actualDate?: Date | null;
-          notes?: string | null;
-        } = {};
+        const updateData: UpdatePlanningMilestoneInput = {};
 
         if (milestoneUpdate.status !== undefined) {
           updateData.status = milestoneUpdate.status;

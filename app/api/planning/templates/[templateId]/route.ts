@@ -45,7 +45,7 @@ export const PUT = createHandler(
     try {
       const result = await planningTemplateService.update(
         templateId,
-        ctx.validated,
+        ctx.validated as Parameters<typeof planningTemplateService.update>[1],
         userId,
       );
 

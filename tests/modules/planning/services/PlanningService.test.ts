@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
 import { PlanningService } from "@/modules/planning/services/PlanningService";
 import type { IPlanningRepository } from "@/modules/planning/services/../domain/ports/IPlanningRepository";
 import type { IPlanningItemRepository } from "@/modules/planning/services/../domain/ports/IPlanningItemRepository";
@@ -9,11 +9,11 @@ import { PlanningEntity } from "@/modules/planning/services/../domain/entities/P
 
 describe("PlanningService", () => {
   let service: PlanningService;
-  let mockPlanningRepo: jest.Mocked<IPlanningRepository>;
-  let mockItemRepo: jest.Mocked<IPlanningItemRepository>;
-  let mockMilestoneRepo: jest.Mocked<IPlanningMilestoneRepository>;
-  let mockDocumentRepo: jest.Mocked<IPlanningDocumentRepository>;
-  let mockAuditService: jest.Mocked<PlanningAuditService>;
+  let mockPlanningRepo: Mocked<IPlanningRepository>;
+  let mockItemRepo: Mocked<IPlanningItemRepository>;
+  let mockMilestoneRepo: Mocked<IPlanningMilestoneRepository>;
+  let mockDocumentRepo: Mocked<IPlanningDocumentRepository>;
+  let mockAuditService: Mocked<PlanningAuditService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,23 +28,23 @@ describe("PlanningService", () => {
       update: vi.fn(),
       updateStatus: vi.fn(),
       delete: vi.fn(),
-    } as unknown as jest.Mocked<IPlanningRepository>;
+    } as unknown as Mocked<IPlanningRepository>;
 
     mockItemRepo = {
       findByPlanningId: vi.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<IPlanningItemRepository>;
+    } as unknown as Mocked<IPlanningItemRepository>;
 
     mockMilestoneRepo = {
       findByPlanningId: vi.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<IPlanningMilestoneRepository>;
+    } as unknown as Mocked<IPlanningMilestoneRepository>;
 
     mockDocumentRepo = {
       findByPlanningId: vi.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<IPlanningDocumentRepository>;
+    } as unknown as Mocked<IPlanningDocumentRepository>;
 
     mockAuditService = {
       logChange: vi.fn(),
-    } as unknown as jest.Mocked<PlanningAuditService>;
+    } as unknown as Mocked<PlanningAuditService>;
 
     service = new PlanningService(
       mockPlanningRepo,

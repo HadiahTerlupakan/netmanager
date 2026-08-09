@@ -35,6 +35,7 @@ export class PlanningRepository implements IPlanningRepository {
       tenantId,
       type,
       status,
+      search,
       createdById,
       area,
       page = 1,
@@ -56,6 +57,13 @@ export class PlanningRepository implements IPlanningRepository {
     }
     if (createdById) {
       where.createdById = createdById;
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { area: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
     }
     if (area) {
       where.area = {

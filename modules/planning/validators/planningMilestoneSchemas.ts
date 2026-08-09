@@ -6,7 +6,7 @@ import { z } from "zod";
 
 // Update single milestone schema
 export const updateMilestoneSchema = z.object({
-  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"]).optional(),
+  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "BLOCKED"]).optional(),
   actualDate: z.string().datetime().optional().nullable(),
   notes: z.string().max(500, "Notes too long").optional().nullable(),
 });
@@ -20,7 +20,7 @@ export const bulkUpdateMilestonesSchema = z.object({
       z.object({
         id: z.string().uuid("Invalid milestone ID"),
         status: z
-          .enum(["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"])
+          .enum(["PENDING", "IN_PROGRESS", "COMPLETED", "BLOCKED"])
           .optional(),
         actualDate: z.string().datetime().optional().nullable(),
         notes: z.string().max(500, "Notes too long").optional().nullable(),

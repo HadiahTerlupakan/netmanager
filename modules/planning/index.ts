@@ -57,5 +57,8 @@ export type {
 } from "./domain/entities/PlanningEntity";
 export type { MilestoneStatus } from "./domain/entities/PlanningMilestoneEntity";
 
+// Port types (for API route input typing)
+export type { UpdatePlanningMilestoneInput } from "./domain/ports/IPlanningMilestoneRepository";
+
 // Validators
 export * from "./validators";

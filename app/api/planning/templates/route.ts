@@ -63,7 +63,7 @@ export const POST = createHandler(
 
     // Create template
     const result = await planningTemplateService.create(
-      ctx.validated,
+      ctx.validated as Parameters<typeof planningTemplateService.create>[0],
       tenantId,
       userId,
     );

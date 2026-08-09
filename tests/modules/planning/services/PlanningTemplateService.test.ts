@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
 import { PlanningTemplateService } from "@/modules/planning/services/PlanningTemplateService";
 import type { IPlanningTemplateRepository } from "@/modules/planning/domain/ports/IPlanningTemplateRepository";
 import type { IPlanningTemplateItemRepository } from "@/modules/planning/domain/ports/IPlanningTemplateItemRepository";
@@ -10,10 +10,10 @@ import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntit
 
 describe("PlanningTemplateService", () => {
   let service: PlanningTemplateService;
-  let mockTemplateRepo: jest.Mocked<IPlanningTemplateRepository>;
-  let mockTemplateItemRepo: jest.Mocked<IPlanningTemplateItemRepository>;
-  let mockPlanningRepo: jest.Mocked<IPlanningRepository>;
-  let mockAuditService: jest.Mocked<PlanningAuditService>;
+  let mockTemplateRepo: Mocked<IPlanningTemplateRepository>;
+  let mockTemplateItemRepo: Mocked<IPlanningTemplateItemRepository>;
+  let mockPlanningRepo: Mocked<IPlanningRepository>;
+  let mockAuditService: Mocked<PlanningAuditService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,21 +26,21 @@ describe("PlanningTemplateService", () => {
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
-    } as unknown as jest.Mocked<IPlanningTemplateRepository>;
+    } as unknown as Mocked<IPlanningTemplateRepository>;
 
     mockTemplateItemRepo = {
       findByTemplateId: vi.fn(),
       create: vi.fn(),
       deleteByTemplateId: vi.fn(),
-    } as unknown as jest.Mocked<IPlanningTemplateItemRepository>;
+    } as unknown as Mocked<IPlanningTemplateItemRepository>;
 
     mockPlanningRepo = {
       create: vi.fn(),
-    } as unknown as jest.Mocked<IPlanningRepository>;
+    } as unknown as Mocked<IPlanningRepository>;
 
     mockAuditService = {
       logChange: vi.fn(),
-    } as unknown as jest.Mocked<PlanningAuditService>;
+    } as unknown as Mocked<PlanningAuditService>;
 
     service = new PlanningTemplateService(
       mockTemplateRepo,

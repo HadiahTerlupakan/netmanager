@@ -64,7 +64,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - 51 unit tests passing (services, repositories, domain logic)
   - E2E test structure created (`tests/e2e/planning.spec.ts`) dengan 10 test scenarios
   - Integration test foundation ready
-- **Migration**: `20260809000000_add_planning_osp_tables`
+- **Migration**: `20260809033447_add_planning_osp_tables`
 - **Breaking**: ❌ Tidak
 
 ### [2026-08-09] — Dokumentasi critical business flows end-to-end

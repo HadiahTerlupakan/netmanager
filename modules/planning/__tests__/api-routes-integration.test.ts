@@ -47,11 +47,13 @@ describe("Planning API Routes Integration Tests", () => {
       url: url.toString(),
       method: "GET",
       headers: new Map(),
-    } as unknown as Request;
+    } as unknown as Request & {
+      nextUrl: URL;
+    };
   };
 
   // Mock context helper
-  const createMockContext = (
+  const createMockContext = <T = Record<string, unknown>>(
     params: Record<string, string> = {},
     session: ReturnType<typeof createMockSession>,
   ) => ({
@@ -59,7 +61,7 @@ describe("Planning API Routes Integration Tests", () => {
     session,
     permissions: session?.user ? session.permissions || [] : [],
     query: {},
-    validated: {},
+    validated: {} as T,
   });
 
   beforeAll(async () => {
@@ -67,9 +69,6 @@ describe("Planning API Routes Integration Tests", () => {
     const tenant = await prisma.tenant.create({
       data: {
         name: "Test Tenant Planning",
-        slug: "test-planning",
-        email: "planning@test.com",
-        subdomain: "planning-test",
       },
     });
     testTenantId = tenant.id;
@@ -77,10 +76,12 @@ describe("Planning API Routes Integration Tests", () => {
     // Setup test user
     const user = await prisma.user.create({
       data: {
+        id: crypto.randomUUID(),
         email: "planning-user@test.com",
         name: "Planning Test User",
-        password: "hashed",
-        tenantId: testTenantId,
+        passwordHash: "hashed",
+        updatedAt: new Date(),
+        tenant: { connect: { id: testTenantId } },
       },
     });
     testUserId = user.id;
@@ -107,7 +108,10 @@ describe("Planning API Routes Integration Tests", () => {
       };
 
       const _req = createMockRequest(body);
-      const ctx = createMockContext({}, session);
+      const ctx = createMockContext<{ title: string; type: string }>(
+        {},
+        session,
+      );
       ctx.validated = body;
 
       // Note: Actual test would need proper handler invocation
@@ -188,7 +192,10 @@ describe("Planning API Routes Integration Tests", () => {
       };
 
       const _req = createMockRequest(body);
-      const ctx = createMockContext({ id: "test-id" }, session);
+      const ctx = createMockContext<{ title: string }>(
+        { id: "test-id" },
+        session,
+      );
       ctx.validated = body;
 
       expect(ctx.validated.title).toBe("Updated Title");
@@ -224,7 +231,10 @@ describe("Planning API Routes Integration Tests", () => {
       const session = createMockSession(["planning.approve"]);
       const body = { approvalNotes: "Approved by manager" };
       const _req = createMockRequest(body);
-      const ctx = createMockContext({ id: "test-id" }, session);
+      const ctx = createMockContext<{ approvalNotes: string }>(
+        { id: "test-id" },
+        session,
+      );
       ctx.validated = body;
 
       expect(ctx.validated.approvalNotes).toBe("Approved by manager");
@@ -243,7 +253,10 @@ describe("Planning API Routes Integration Tests", () => {
       const session = createMockSession(["planning.reject"]);
       const body = { approvalNotes: "Tidak memenuhi kriteria" };
       const _req = createMockRequest(body);
-      const ctx = createMockContext({ id: "test-id" }, session);
+      const ctx = createMockContext<{ approvalNotes: string }>(
+        { id: "test-id" },
+        session,
+      );
       ctx.validated = body;
 
       expect(ctx.validated.approvalNotes).toBe("Tidak memenuhi kriteria");
