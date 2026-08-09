@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["planning.read"],
+    permissions: ["planning:read"],
   },
   async (req, ctx) => {
     const { id } = ctx.params;
@@ -31,7 +31,7 @@ export const GET = createHandler(
 export const PUT = createHandler(
   {
     auth: true,
-    permissions: ["planning.update"],
+    permissions: ["planning:update"],
     schema: updatePlanningSchema,
   },
   async (req, ctx) => {
@@ -75,7 +75,7 @@ export const PUT = createHandler(
 export const DELETE = createHandler(
   {
     auth: true,
-    permissions: ["planning.delete"],
+    permissions: ["planning:delete"],
   },
   async (req, ctx) => {
     const { id } = ctx.params;

@@ -7,7 +7,7 @@ import { createHandler, ApiErrors } from "@/lib/api";
 export const DELETE = createHandler(
   {
     auth: true,
-    permissions: ["planning.update"],
+    permissions: ["planning:update"],
   },
   async (_req, _ctx) => {
     throw ApiErrors.notImplemented(

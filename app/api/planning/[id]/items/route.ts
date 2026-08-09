@@ -17,7 +17,7 @@ const planningRepo = new PlanningRepository();
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["planning.read"],
+    permissions: ["planning:read"],
   },
   async (req, ctx) => {
     const { id } = ctx.params;
@@ -45,7 +45,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["planning.update"],
+    permissions: ["planning:update"],
     schema: createPlanningItemSchema,
   },
   async (req, ctx) => {

@@ -13,7 +13,7 @@ import { logger } from "@/lib/logger";
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["planning.read"],
+    permissions: ["planning:read"],
   },
   async (req, ctx) => {
     const { searchParams } = req.nextUrl;
@@ -50,7 +50,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["planning.create"],
+    permissions: ["planning:create"],
     schema: createPlanningTemplateSchema,
   },
   async (req, ctx) => {

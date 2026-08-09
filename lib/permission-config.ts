@@ -114,6 +114,7 @@ export const PERMISSION_GROUPS = {
   OLT: ["olt", "olt_devices", "olt_onu", "olt_logs", "olt_vlan", "olt_cards"],
   TAX: ["tax"],
   INCIDENT: ["incidents"],
+  PLANNING: ["planning"],
 } as const;
 
 /**

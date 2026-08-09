@@ -7,7 +7,7 @@ import { createHandler, ApiErrors } from "@/lib/api";
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["planning.read"],
+    permissions: ["planning:read"],
   },
   async (_req, _ctx) => {
     throw ApiErrors.notImplemented(
@@ -23,7 +23,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["planning.update"],
+    permissions: ["planning:update"],
   },
   async (_req, _ctx) => {
     throw ApiErrors.notImplemented(

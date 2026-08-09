@@ -160,4 +160,12 @@ export const PERMISSIONS = {
       SITE_ONLY: "canvasing:site_only",
     },
   },
+  PLANNING: {
+    READ: "planning:read",
+    CREATE: "planning:create",
+    UPDATE: "planning:update",
+    DELETE: "planning:delete",
+    APPROVE: "planning:approve",
+    SUBMIT: "planning:approve_request",
+  },
 } as const;

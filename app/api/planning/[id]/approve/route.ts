@@ -12,7 +12,7 @@ import { logger } from "@/lib/logger";
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["planning.approve"],
+    permissions: ["planning:approve"],
     schema: approvePlanningSchema,
   },
   async (req, ctx) => {

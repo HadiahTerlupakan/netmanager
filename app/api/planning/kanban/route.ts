@@ -8,7 +8,7 @@ import { planningKanbanService } from "@/modules/planning";
 export const GET = createHandler(
   {
     auth: true,
-    permissions: ["planning.read"],
+    permissions: ["planning:read"],
   },
   async (req, ctx) => {
     const { searchParams } = new URL(req.url);
