@@ -325,7 +325,7 @@ describe("PlanningMapper", () => {
         "user-1",
       );
 
-      expect(prismaInput.tenant).toEqual({ connect: { id: "tenant-1" } });
+      expect(prismaInput.tenantId).toBe("tenant-1");
       expect(prismaInput.type).toBe("OSP");
       expect(prismaInput.title).toBe("New Planning");
       expect(prismaInput.description).toBe("New description");
@@ -340,7 +340,7 @@ describe("PlanningMapper", () => {
       expect(prismaInput.approvalLevel).toBe(2);
       expect(prismaInput.currentApprovalStep).toBe(0);
       expect(prismaInput.progressPercentage).toBe(0);
-      expect(prismaInput.createdBy).toEqual({ connect: { id: "user-1" } });
+      expect(prismaInput.createdById).toBe("user-1");
       expect(prismaInput.startDate).toBeInstanceOf(Date);
       expect(prismaInput.targetCompletionDate).toBeInstanceOf(Date);
     });

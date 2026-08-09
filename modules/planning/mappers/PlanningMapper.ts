@@ -124,11 +124,9 @@ export class PlanningMapper {
     dto: CreatePlanningDTO,
     tenantId: string,
     userId: string,
-  ): Prisma.PlanningCreateInput {
-    const prismaData: Prisma.PlanningCreateInput = {
-      tenant: {
-        connect: { id: tenantId },
-      },
+  ): Prisma.PlanningUncheckedCreateInput {
+    const prismaData: Prisma.PlanningUncheckedCreateInput = {
+      tenantId,
       type: dto.type,
       title: dto.title,
       description: dto.description ?? null,
@@ -153,13 +151,8 @@ export class PlanningMapper {
         : null,
       actualCompletionDate: null,
       deletedAt: null,
+      createdById: userId || null,
     };
-
-    if (userId) {
-      prismaData.createdBy = {
-        connect: { id: userId },
-      };
-    }
 
     return prismaData;
   }

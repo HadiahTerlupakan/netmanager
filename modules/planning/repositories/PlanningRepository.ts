@@ -170,10 +170,8 @@ export class PlanningRepository implements IPlanningRepository {
   ): Promise<PlanningEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningCreateInput = {
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningUncheckedCreateInput = {
+      tenantId: data.tenantId,
       type: data.type,
       title: data.title,
       description: data.description ?? null,
@@ -196,13 +194,8 @@ export class PlanningRepository implements IPlanningRepository {
       approvalNotes: null,
       actualCompletionDate: null,
       deletedAt: null,
+      createdById: data.createdById ?? null,
     };
-
-    if (data.createdById) {
-      prismaData.createdBy = {
-        connect: { id: data.createdById },
-      };
-    }
 
     const created = await client.planning.create({
       data: prismaData,
