@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import PlanningFormClient from "../../PlanningFormClient";
-import type { PlanningDetailDTO } from "@/modules/planning";
+import type { PlanningDetailDTO } from "@/modules/planning/client";
 
 /**
  * Fetch planning detail, then render PlanningFormClient in edit mode

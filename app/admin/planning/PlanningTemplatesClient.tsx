@@ -16,8 +16,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
-import { formatDateShort } from "@/modules/planning";
-import type { PlanningTemplateListItemDTO } from "@/modules/planning";
+import { formatDateShort } from "@/modules/planning/client";
+import type { PlanningTemplateListItemDTO } from "@/modules/planning/client";
 
 type TemplateListResponse = {
   data: PlanningTemplateListItemDTO[];

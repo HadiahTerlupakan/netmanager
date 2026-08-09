@@ -1,10 +1,13 @@
 import { logger } from "@/lib/logger";
 import { isSuperAdminRole } from "@/lib/auth/helpers";
-import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
 import { prisma } from "@/modules/database";
+// ESM import of Node built-in `module` — safe, does not pull async_hooks
+// into the bundler graph. Used to lazily require async_hooks at runtime
+// only on the server, keeping the client bundle clean.
+import { createRequire as nodeCreateRequire } from "module";
 
 async function resolveTenantContextFromHost(
   requestHeaders: Headers | null,
@@ -99,8 +102,36 @@ export interface TenantContextResult {
   isSuperAdmin: boolean;
 }
 
-const requestTenantContextStorage =
-  new AsyncLocalStorage<TenantContextResult>();
+// Lazy-init AsyncLocalStorage — avoid static `node:async_hooks` import at
+// top-level so this module is safe to include in client bundles (Next.js
+// build fails when a node built-in leaks into the client chunk).
+// ponytail: if async context is needed on the edge runtime, replace with
+// `AsyncLocalStorage` from `next/dist/server/` or equivalent.
+let requestTenantContextStorage: {
+  run: <T>(
+    store: TenantContextResult,
+    callback: () => Promise<T>,
+  ) => Promise<T>;
+  getStore: () => TenantContextResult | undefined;
+} | null = null;
+
+function getRequestTenantContextStorage() {
+  if (!requestTenantContextStorage) {
+    // Lazily require async_hooks at runtime via createRequire — keeps
+    // `node:async_hooks` out of the bundler's static analysis graph so
+    // it never leaks into the client chunk.
+    const nodeRequire = nodeCreateRequire(import.meta.url ?? __filename);
+    const { AsyncLocalStorage } = nodeRequire("node:async_hooks") as {
+      AsyncLocalStorage: new <T>() => {
+        run: <R>(store: T, callback: () => Promise<R>) => Promise<R>;
+        getStore: () => T | undefined;
+      };
+    };
+    requestTenantContextStorage = new AsyncLocalStorage<TenantContextResult>();
+  }
+  return requestTenantContextStorage;
+}
+
 const requestHeadersTenantContextCache = new WeakMap<
   object,
   TenantContextResult
@@ -110,7 +141,7 @@ export function runWithRequestTenantContext<T>(
   tenantContext: TenantContextResult,
   callback: () => Promise<T>,
 ): Promise<T> {
-  return requestTenantContextStorage.run(tenantContext, callback);
+  return getRequestTenantContextStorage().run(tenantContext, callback);
 }
 
 /**
@@ -134,7 +165,7 @@ export function runAsSystemContext<T>(
   if (!options?.silent) {
     logger.info(`[TENANT_CONTEXT] System context elevated: ${reason}`);
   }
-  return requestTenantContextStorage.run(
+  return getRequestTenantContextStorage().run(
     { tenantId: null, isSuperAdmin: true },
     callback,
   );
@@ -222,7 +253,7 @@ function getAuthSecret(): Uint8Array {
  * Gracefully fails when called outside of a request context (e.g. cron, startup).
  */
 export async function getTenantIdFromContext(): Promise<TenantContextResult> {
-  const cachedTenantContext = requestTenantContextStorage.getStore();
+  const cachedTenantContext = getRequestTenantContextStorage().getStore();
   if (cachedTenantContext) {
     return cachedTenantContext;
   }

@@ -1,9 +1,12 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-hot-toast";
-import { PLANNING_STATUS_CONFIG, formatDateShort } from "@/modules/planning";
-import type { PlanningDetailDTO } from "@/modules/planning";
-import type { PlanningStatus } from "@/modules/planning";
+import {
+  PLANNING_STATUS_CONFIG,
+  formatDateShort,
+} from "@/modules/planning/client";
+import type { PlanningDetailDTO } from "@/modules/planning/client";
+import type { PlanningStatus } from "@/modules/planning/client";
 
 interface AutoTableDoc extends jsPDF {
   lastAutoTable?: { finalY: number };

@@ -29,8 +29,8 @@ import {
   PLANNING_STATUS_CONFIG,
   formatBudget,
   formatDateShort,
-} from "@/modules/planning";
-import type { PlanningDashboardDTO } from "@/modules/planning";
+} from "@/modules/planning/client";
+import type { PlanningDashboardDTO } from "@/modules/planning/client";
 
 ChartJS.register(
   ArcElement,

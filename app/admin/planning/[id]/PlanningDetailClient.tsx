@@ -28,9 +28,9 @@ import {
   MILESTONE_STATUS_CONFIG,
   formatBudget,
   formatDateShort,
-} from "@/modules/planning";
-import type { PlanningDetailDTO } from "@/modules/planning";
-import type { PlanningStatus } from "@/modules/planning";
+} from "@/modules/planning/client";
+import type { PlanningDetailDTO } from "@/modules/planning/client";
+import type { PlanningStatus } from "@/modules/planning/client";
 
 type Tab = "overview" | "items" | "milestones" | "documents";
 

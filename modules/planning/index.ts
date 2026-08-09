@@ -1,14 +1,15 @@
 /**
- * Planning Module Public API
- * Export public services, DTOs, validators, mappers, and repository factories.
+ * Planning Module Public API (Server-Safe)
+ *
+ * Export public services, DTOs, validators, mappers, dan repositories.
+ * File ini aman di-import dari server-side (API routes, server components).
+ *
+ * Client components WAJIB import dari "@/modules/planning/client" —
+ * bukan dari barrel ini — untuk menghindari Prisma/pg/tls masuk ke
+ * client bundle (Next.js build akan fail).
  */
 
-import { PlanningRepository } from "./repositories/PlanningRepository";
-import { PlanningItemRepository } from "./repositories/PlanningItemRepository";
-import { PlanningMilestoneRepository } from "./repositories/PlanningMilestoneRepository";
-import { PlanningDocumentRepository } from "./repositories/PlanningDocumentRepository";
-
-// Services
+// Services (server-only — import repositories yang pakai Prisma)
 export {
   planningService,
   planningApprovalService,
@@ -18,7 +19,12 @@ export {
   planningDashboardService,
 } from "./services/PlanningServiceFactory";
 
-// Repository factories (for direct use in API routes)
+// Repository factories (server-only — Prisma dependency)
+import { PlanningRepository } from "./repositories/PlanningRepository";
+import { PlanningItemRepository } from "./repositories/PlanningItemRepository";
+import { PlanningMilestoneRepository } from "./repositories/PlanningMilestoneRepository";
+import { PlanningDocumentRepository } from "./repositories/PlanningDocumentRepository";
+
 export function getPlanningRepository(): PlanningRepository {
   return new PlanningRepository();
 }
@@ -35,7 +41,7 @@ export function getPlanningDocumentRepository(): PlanningDocumentRepository {
   return new PlanningDocumentRepository();
 }
 
-// Mappers (for DTO conversion in API routes)
+// Mappers (pure functions — safe for client bundle)
 export { PlanningMapper } from "./mappers/PlanningMapper";
 export { PlanningItemMapper } from "./mappers/PlanningItemMapper";
 export { PlanningMilestoneMapper } from "./mappers/PlanningMilestoneMapper";
