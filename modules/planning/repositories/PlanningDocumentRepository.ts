@@ -17,7 +17,7 @@ export class PlanningDocumentRepository implements IPlanningDocumentRepository {
    * Find planning document by ID
    */
   async findById(id: string): Promise<PlanningDocumentEntity | null> {
-    const document = await prisma.planningDocument.findUnique({
+    const document = await prisma.planningDocument.findFirst({
       where: { id },
     });
 

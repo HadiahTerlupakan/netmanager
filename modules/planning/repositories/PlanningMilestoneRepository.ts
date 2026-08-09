@@ -17,7 +17,7 @@ export class PlanningMilestoneRepository implements IPlanningMilestoneRepository
    * Find planning milestone by ID
    */
   async findById(id: string): Promise<PlanningMilestoneEntity | null> {
-    const milestone = await prisma.planningMilestone.findUnique({
+    const milestone = await prisma.planningMilestone.findFirst({
       where: { id },
     });
 

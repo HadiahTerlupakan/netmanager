@@ -16,7 +16,7 @@ export class PlanningAuditLogRepository implements IPlanningAuditLogRepository {
    * Find audit log entry by ID
    */
   async findById(id: string): Promise<PlanningAuditLogEntity | null> {
-    const log = await prisma.planningAuditLog.findUnique({
+    const log = await prisma.planningAuditLog.findFirst({
       where: { id },
     });
 

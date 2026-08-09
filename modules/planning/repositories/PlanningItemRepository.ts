@@ -14,7 +14,7 @@ export class PlanningItemRepository implements IPlanningItemRepository {
    * Find planning item by ID
    */
   async findById(id: string): Promise<PlanningItemEntity | null> {
-    const item = await prisma.planningItem.findUnique({
+    const item = await prisma.planningItem.findFirst({
       where: { id },
     });
 

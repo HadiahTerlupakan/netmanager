@@ -17,7 +17,7 @@ export class PlanningTemplateRepository implements IPlanningTemplateRepository {
    * Find planning template by ID
    */
   async findById(id: string): Promise<PlanningTemplateEntity | null> {
-    const template = await prisma.planningTemplate.findUnique({
+    const template = await prisma.planningTemplate.findFirst({
       where: { id },
     });
 
