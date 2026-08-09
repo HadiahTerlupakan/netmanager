@@ -944,6 +944,41 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     ],
   },
   {
+    code: "PLANNING",
+    name: "Planning OSP",
+    path: "/admin/planning",
+    icon: "HiOutlineMapPin",
+    section: "Sistem",
+    featureModule: "planning",
+    children: [
+      {
+        code: "PLANNING.DASHBOARD",
+        name: "Dashboard",
+        path: "/admin/planning",
+        icon: "HiOutlineChartBar",
+        exact: true,
+      },
+      {
+        code: "PLANNING.LIST",
+        name: "Daftar Planning",
+        path: "/admin/planning/daftar",
+        icon: "HiOutlineClipboardDocumentList",
+      },
+      {
+        code: "PLANNING.KANBAN",
+        name: "Kanban Board",
+        path: "/admin/planning/kanban",
+        icon: "HiOutlineSquares2x2",
+      },
+      {
+        code: "PLANNING.TEMPLATES",
+        name: "Template",
+        path: "/admin/planning/templates",
+        icon: "HiOutlineDocumentDuplicate",
+      },
+    ],
+  },
+  {
     code: "SYSTEM_LOG",
     name: "Log Sistem",
     path: "/admin/log",

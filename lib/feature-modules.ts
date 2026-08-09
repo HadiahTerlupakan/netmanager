@@ -199,6 +199,13 @@ export const FEATURE_MODULES = [
     description: "Version pinning untuk mobile build.",
     group: "lainnya",
   },
+  {
+    code: "planning",
+    label: "Planning OSP",
+    description:
+      "Perencanaan ekspansi jaringan ISP (Outside Plant) dengan approval workflow.",
+    group: "lainnya",
+  },
 ] as const satisfies readonly FeatureModule[];
 
 export type FeatureModuleCode = (typeof FEATURE_MODULES)[number]["code"];
