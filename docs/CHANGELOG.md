@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-09] — Planning OSP UI implementation + permission alignment
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/planning`, `modules/planning/utils`, `lib/menu-config`, `lib/feature-modules`, `lib/permissions`
+- **Author**: agent
+- **Deskripsi**: Implementasi lengkap UI Planning OSP menggantikan 6 halaman stub. Semua halaman menggunakan pattern existing project: server component wrapper (`ensurePermission` + `force-dynamic`) → client component dengan `useApi` (TanStack Query), `react-hot-toast`, dan component library existing (`Button`, `Card`, `ResponsiveTable`, `StatCard`, `MapPicker`, `EmptyState`, `LoadingSkeleton`). Dashboard menampilkan stat cards, doughnut chart (status distribution via chart.js), bar chart (budget comparison), timeline stats, dan recent planning list. List page menggunakan `ResponsiveTable` dengan debounced search, status filter, dan pagination. Form create/edit terintegrasi dengan `MapPicker` (OpenLayers) dan budget threshold hint (≥500jt → approval 2 level). Detail page memiliki 4 tabs (Overview, Items, Milestones, Documents) dengan approve/reject dialog dan delete action. Kanban board menggunakan native HTML5 Drag & Drop (no @dnd-kit dependency). Template management dengan create modal (dynamic material items) dan apply template flow. Shared utils (`statusConfig.ts`) menyediakan status color maps, `formatBudget`, `formatDateShort` untuk konsistensi visual. Permission strings di-fix dari dot format (`planning.read`) ke colon format (`planning:read`) untuk match dengan RBAC seed pattern. `planning` ditambahkan ke `PERMISSION_GROUPS`, `FEATURE_MODULES`, dan `MENU_CONFIG` sidebar.
+- **Files**:
+  - `app/admin/planning/page.tsx` + `PlanningDashboardClient.tsx` — Dashboard
+  - `app/admin/planning/daftar/page.tsx` + `PlanningListClient.tsx` — List
+  - `app/admin/planning/baru/page.tsx` + `PlanningFormClient.tsx` — Create form
+  - `app/admin/planning/[id]/page.tsx` + `PlanningDetailClient.tsx` — Detail with tabs
+  - `app/admin/planning/[id]/edit/` — Edit form
+  - `app/admin/planning/kanban/page.tsx` + `PlanningKanbanClient.tsx` — Kanban
+  - `app/admin/planning/templates/page.tsx` + `PlanningTemplatesClient.tsx` — Templates
+  - `modules/planning/utils/statusConfig.ts` — Shared status/budget/date utils
+  - `lib/permissions.ts`, `lib/permission-config.ts`, `lib/feature-modules.ts`, `lib/menu-config.ts` — RBAC + menu registration
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-09] — Planning OSP module implementation complete
 
 - **Tipe**: [ADDED]
