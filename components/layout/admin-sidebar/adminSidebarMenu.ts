@@ -249,6 +249,12 @@ function getPermissionResource(code: string): string {
     // HR menu: surface kepegawaian reuse permission users (fase 1 PRD)
     HR: "users",
     "HR.EMPLOYEES": "users",
+    // Planning OSP: semua child reuse permission resource `planning`
+    PLANNING: "planning",
+    "PLANNING.DASHBOARD": "planning",
+    "PLANNING.LIST": "planning",
+    "PLANNING.KANBAN": "planning",
+    "PLANNING.TEMPLATES": "planning",
   };
 
   if (specialMappings[code]) {
