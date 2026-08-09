@@ -319,4 +319,7 @@ export const ApiErrors = {
 
   badGateway: (message = "Layanan eksternal tidak tersedia") =>
     apiError(message, ErrorCodes.EXTERNAL_SERVICE_ERROR, { status: 502 }),
+
+  notImplemented: (message = "Fitur belum diimplementasi") =>
+    apiError(message, "NOT_IMPLEMENTED", { status: 501 }),
 };

@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-09] — Dokumentasi critical business flows end-to-end
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/project-memory`
+- **Author**: agent
+- **Deskripsi**: Trace dan dokumentasi lengkap 7 critical business flows dari source code: (1) Customer Registration & Activation, (2) Payment Processing (Webhook), (3) Auto-Isolir (Overdue Billing), (4) Work Order Lifecycle, (5) Invoice Generation (Recurring), (6) Network Provisioning, (7) Attendance Check-in. Setiap flow mencakup entry point, authentication, validation, step-by-step execution (15-20 steps), database operations, external API calls, events emitted, side effects, failure scenarios, performance characteristics, dan testing guidelines. Total 2,512 lines dokumentasi dengan cross-flow dependencies dan common patterns identification.
+- **Files**: `docs/project-memory/12-critical-flows.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-08] — Fix payment gateway environment configuration
 
 - **Tipe**: [FIXED]

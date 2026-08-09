@@ -22,16 +22,25 @@
 - **API Report:** `docs/reports/api-routes-report.md` (detailed documentation)
 - **API Summary:** `docs/reports/api-routes-executive-summary.md` (business-critical endpoints)
 
-### In Progress / To Be Completed
-- **[04-modules.md]** — Module-by-module deep dive (pending)
-- **[05-dependency-map.md]** — Module dependency graph (pending)
+### Completed Documentation
+8. **[04-modules.md](04-modules.md)** — Module overview with Clean Architecture status
+9. **[08-business-rules.md](08-business-rules.md)** — Business logic extraction (54+ rules documented)
+10. **[09-integrations.md](09-integrations.md)** — External service integrations (23+ services)
+11. **[12-critical-flows.md](12-critical-flows.md)** — 7 critical business flows traced end-to-end (2,512 lines)
+12. **[14-performance-risks.md](14-performance-risks.md)** — Performance analysis (10 issues, 3 critical)
+13. **[15-consistency-check.md](15-consistency-check.md)** — Documentation verification (92% accurate)
+
+### External Reports (Subagent Analysis)
+- **API Routes:** `docs/reports/api-routes-analysis.json` (599 endpoints)
+- **API Report:** `docs/reports/api-routes-report.md` (detailed documentation)
+- **Security Scan:** 11 issues (3 CRITICAL, 3 HIGH, 2 MEDIUM, 3 LOW)
+- **Code Smells:** 28 issues (3 CRITICAL, 8 HIGH, 12 MEDIUM, 5 LOW)
+
+### Optional / On-Demand
+- **[05-dependency-map.md]** — Module dependency graph (can be generated when needed)
 - **[07-api.md]** — API documentation summary (see reports/ for now)
-- **[08-business-rules.md]** — Business logic extraction (subagent working)
-- **[09-integrations.md]** — External service integrations (subagent working)
-- **[12-critical-flows.md]** — End-to-end flow tracing (pending)
-- **[13-risk-map.md]** — Technical debt, code smells, risks (pending)
-- **[14-conventions.md]** — Code conventions, patterns, standards (pending)
-- **[15-known-issues.md]** — Known bugs, limitations, workarounds (pending)
+- **[13-risk-map.md]** — Comprehensive risk aggregation (see individual reports)
+- **[14-conventions.md]** — Code conventions, patterns, standards (extract from CLAUDE.md)
 
 ---
 
