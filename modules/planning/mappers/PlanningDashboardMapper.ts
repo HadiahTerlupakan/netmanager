@@ -4,7 +4,15 @@ import type {
   PlanningBudgetSummary,
   PlanningTimelineStats,
 } from "../dto/PlanningDashboardDTO";
-import type { PlanningStatus } from "../domain/entities/PlanningEntity";
+import type {
+  PlanningKanbanBoardDTO,
+  PlanningKanbanColumnDTO,
+  PlanningKanbanCardDTO,
+} from "../dto/PlanningKanbanDTO";
+import type {
+  PlanningStatus,
+  PlanningEntity,
+} from "../domain/entities/PlanningEntity";
 
 interface StatusCount {
   status: PlanningStatus;
@@ -159,6 +167,88 @@ export class PlanningDashboardMapper {
         status: item.status,
         updatedAt: item.updatedAt.toISOString(),
       })),
+    };
+  }
+
+  /**
+   * Convert planning entity to kanban card DTO
+   */
+  static toKanbanCard(
+    entity: PlanningEntity,
+    itemsCount: number = 0,
+    milestonesCount: number = 0,
+    completedMilestonesCount: number = 0,
+  ): PlanningKanbanCardDTO {
+    return {
+      id: entity.id,
+      title: entity.title,
+      area: entity.area,
+      estimatedBudget: entity.estimatedBudget,
+      progressPercentage: entity.progressPercentage,
+      targetCompletionDate: entity.targetCompletionDate?.toISOString() ?? null,
+      itemsCount,
+      milestonesCount,
+      completedMilestonesCount,
+    };
+  }
+
+  /**
+   * Convert grouped plannings to kanban board DTO
+   */
+  static toKanbanBoard(
+    columns: Map<PlanningStatus, PlanningEntity[]>,
+    countsMap?: Map<
+      string,
+      { items: number; milestones: number; completedMilestones: number }
+    >,
+  ): PlanningKanbanBoardDTO {
+    const statusLabels: Record<PlanningStatus, string> = {
+      BACKLOG: "Backlog",
+      PENDING_APPROVAL: "Menunggu Persetujuan",
+      APPROVED_LEVEL1: "Disetujui Level 1",
+      APPROVED: "Disetujui",
+      IN_PROGRESS: "Dalam Proses",
+      COMPLETED: "Selesai",
+      REJECTED: "Ditolak",
+      CANCELLED: "Dibatalkan",
+    };
+
+    const columnOrder: PlanningStatus[] = [
+      "BACKLOG",
+      "PENDING_APPROVAL",
+      "APPROVED",
+      "IN_PROGRESS",
+      "COMPLETED",
+    ];
+
+    const columnDTOs: PlanningKanbanColumnDTO[] = columnOrder.map((status) => {
+      const entities = columns.get(status) || [];
+
+      return {
+        status,
+        label: statusLabels[status],
+        count: entities.length,
+        cards: entities.map((entity) => {
+          const counts = countsMap?.get(entity.id) || {
+            items: 0,
+            milestones: 0,
+            completedMilestones: 0,
+          };
+          return this.toKanbanCard(
+            entity,
+            counts.items,
+            counts.milestones,
+            counts.completedMilestones,
+          );
+        }),
+      };
+    });
+
+    const totalCards = columnDTOs.reduce((sum, col) => sum + col.count, 0);
+
+    return {
+      columns: columnDTOs,
+      totalCards,
     };
   }
 }

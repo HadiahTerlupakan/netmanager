@@ -10,6 +10,8 @@ import { PlanningAuditService } from "./PlanningAuditService";
 import { PlanningService } from "./PlanningService";
 import { PlanningApprovalService } from "./PlanningApprovalService";
 import { PlanningTemplateService } from "./PlanningTemplateService";
+import { PlanningKanbanService } from "./PlanningKanbanService";
+import { PlanningDashboardService } from "./PlanningDashboardService";
 
 /**
  * PlanningServiceFactory
@@ -104,6 +106,31 @@ class PlanningServiceFactory {
   }
 
   /**
+   * Get PlanningKanbanService singleton
+   */
+  static getKanbanService(): PlanningKanbanService {
+    if (!this.instances.has("kanban")) {
+      const planningRepo = new PlanningRepository();
+      this.instances.set("kanban", new PlanningKanbanService(planningRepo));
+    }
+    return this.instances.get("kanban") as PlanningKanbanService;
+  }
+
+  /**
+   * Get PlanningDashboardService singleton
+   */
+  static getDashboardService(): PlanningDashboardService {
+    if (!this.instances.has("dashboard")) {
+      const planningRepo = new PlanningRepository();
+      this.instances.set(
+        "dashboard",
+        new PlanningDashboardService(planningRepo),
+      );
+    }
+    return this.instances.get("dashboard") as PlanningDashboardService;
+  }
+
+  /**
    * Clear all singleton instances (useful for testing)
    */
   static clearInstances(): void {
@@ -118,6 +145,9 @@ export const planningApprovalService =
   PlanningServiceFactory.getApprovalService();
 export const planningTemplateService =
   PlanningServiceFactory.getTemplateService();
+export const planningKanbanService = PlanningServiceFactory.getKanbanService();
+export const planningDashboardService =
+  PlanningServiceFactory.getDashboardService();
 
 // Export factory untuk testing
 export { PlanningServiceFactory };

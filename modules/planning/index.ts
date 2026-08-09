@@ -9,6 +9,8 @@ export {
   planningApprovalService,
   planningTemplateService,
   planningAuditService,
+  planningKanbanService,
+  planningDashboardService,
 } from "./services/PlanningServiceFactory";
 
 // Repositories (for direct use in API routes)
