@@ -1,4 +1,4 @@
-import { createHandler, apiSuccess, apiPaginated, ApiErrors } from "@/lib/api";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
   planningService,
   createPlanningSchema,
@@ -35,10 +35,14 @@ export const GET = createHandler(
       tenantId: ctx.session?.user?.tenantId || undefined,
     });
 
-    return apiPaginated(result.items, {
-      page: filters.page,
-      limit: filters.limit,
-      total: result.total,
+    return apiSuccess({
+      data: result.items,
+      meta: {
+        page: filters.page,
+        limit: filters.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / filters.limit),
+      },
     });
   },
 );

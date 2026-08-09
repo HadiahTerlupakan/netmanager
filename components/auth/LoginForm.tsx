@@ -185,6 +185,7 @@ export default function LoginForm() {
           type="submit"
           disabled={isSubmitting}
           loading={isSubmitting}
+          variant="primary"
           size="lg"
           className="w-full"
         >

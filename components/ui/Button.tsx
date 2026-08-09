@@ -14,6 +14,11 @@ const buttonVariants = cva(
           "bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 hover:-translate-y-px active:translate-y-0 active:bg-indigo-200 " +
           "dark:bg-transparent dark:text-white dark:border-indigo-500/25 dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/40",
 
+        primary:
+          // Solid, prominent untuk CTA utama
+          "bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 hover:border-indigo-700 hover:-translate-y-px active:translate-y-0 active:bg-indigo-800 shadow-sm " +
+          "dark:bg-indigo-600 dark:text-white dark:border-indigo-600 dark:hover:bg-indigo-500 dark:hover:border-indigo-500 dark:active:bg-indigo-700",
+
         destructive:
           "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300 hover:-translate-y-px active:translate-y-0 active:bg-red-200 " +
           "dark:bg-transparent dark:text-white dark:border-red-500/25 dark:hover:bg-red-500/10 dark:hover:border-red-400/40",
