@@ -77,13 +77,9 @@ export class PlanningTemplateItemRepository implements IPlanningTemplateItemRepo
   ): Promise<PlanningTemplateItemEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningTemplateItemCreateInput = {
-      template: {
-        connect: { id: data.templateId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningTemplateItemUncheckedCreateInput = {
+      templateId: data.templateId,
+      tenantId: data.tenantId,
       name: data.name,
       description: data.description ?? null,
       quantity: data.quantity,

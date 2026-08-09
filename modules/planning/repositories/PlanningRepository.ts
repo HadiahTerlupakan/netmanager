@@ -269,7 +269,7 @@ export class PlanningRepository implements IPlanningRepository {
   ): Promise<PlanningEntity> {
     const client = tx ?? prisma;
 
-    const updateData: Prisma.PlanningUpdateInput = {
+    const updateData: Prisma.PlanningUncheckedUpdateInput = {
       status: updates.status,
     };
 
@@ -280,33 +280,28 @@ export class PlanningRepository implements IPlanningRepository {
       updateData.submittedAt = updates.submittedAt;
     }
     if (updates.submittedById !== undefined) {
-      updateData.submittedBy = updates.submittedById
-        ? { connect: { id: updates.submittedById } }
-        : { disconnect: true };
+      updateData.submittedById = updates.submittedById ?? null;
+    }
+    if (updates.approvalLevel !== undefined) {
+      updateData.approvalLevel = updates.approvalLevel;
     }
     if (updates.approvedAt !== undefined) {
       updateData.approvedAt = updates.approvedAt;
     }
     if (updates.approvedById !== undefined) {
-      updateData.approvedBy = updates.approvedById
-        ? { connect: { id: updates.approvedById } }
-        : { disconnect: true };
+      updateData.approvedById = updates.approvedById ?? null;
     }
     if (updates.approvedLevel1At !== undefined) {
       updateData.approvedLevel1At = updates.approvedLevel1At;
     }
     if (updates.approvedLevel1ById !== undefined) {
-      updateData.approvedLevel1By = updates.approvedLevel1ById
-        ? { connect: { id: updates.approvedLevel1ById } }
-        : { disconnect: true };
+      updateData.approvedLevel1ById = updates.approvedLevel1ById ?? null;
     }
     if (updates.rejectedAt !== undefined) {
       updateData.rejectedAt = updates.rejectedAt;
     }
     if (updates.rejectedById !== undefined) {
-      updateData.rejectedBy = updates.rejectedById
-        ? { connect: { id: updates.rejectedById } }
-        : { disconnect: true };
+      updateData.rejectedById = updates.rejectedById ?? null;
     }
     if (updates.approvalNotes !== undefined) {
       updateData.approvalNotes = updates.approvalNotes;

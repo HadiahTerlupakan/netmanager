@@ -49,24 +49,15 @@ export class PlanningAuditLogMapper {
     performedById?: string | null;
     changes?: Record<string, unknown> | null;
     notes?: string | null;
-  }): Prisma.PlanningAuditLogCreateInput {
-    const prismaData: Prisma.PlanningAuditLogCreateInput = {
-      planning: {
-        connect: { id: data.planningId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+  }): Prisma.PlanningAuditLogUncheckedCreateInput {
+    const prismaData: Prisma.PlanningAuditLogUncheckedCreateInput = {
+      planningId: data.planningId,
+      tenantId: data.tenantId,
       action: data.action,
       changes: (data.changes ?? null) as unknown as Prisma.InputJsonValue,
       notes: data.notes ?? null,
+      performedById: data.performedById ?? null,
     };
-
-    if (data.performedById) {
-      prismaData.performedBy = {
-        connect: { id: data.performedById },
-      };
-    }
 
     return prismaData;
   }

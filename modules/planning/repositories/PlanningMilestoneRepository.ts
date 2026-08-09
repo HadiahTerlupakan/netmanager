@@ -101,13 +101,9 @@ export class PlanningMilestoneRepository implements IPlanningMilestoneRepository
   ): Promise<PlanningMilestoneEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningMilestoneCreateInput = {
-      planning: {
-        connect: { id: data.planningId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningMilestoneUncheckedCreateInput = {
+      planningId: data.planningId,
+      tenantId: data.tenantId,
       name: data.name,
       description: data.description ?? null,
       targetDate: data.targetDate,

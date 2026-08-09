@@ -112,13 +112,9 @@ export class PlanningItemRepository implements IPlanningItemRepository {
   ): Promise<PlanningItemEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningItemCreateInput = {
-      planning: {
-        connect: { id: data.planningId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningItemUncheckedCreateInput = {
+      planningId: data.planningId,
+      tenantId: data.tenantId,
       name: data.name,
       description: data.description ?? null,
       quantity: data.quantity,

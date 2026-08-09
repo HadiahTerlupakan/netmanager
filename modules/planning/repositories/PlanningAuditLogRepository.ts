@@ -107,23 +107,14 @@ export class PlanningAuditLogRepository implements IPlanningAuditLogRepository {
   ): Promise<PlanningAuditLogEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningAuditLogCreateInput = {
-      planning: {
-        connect: { id: data.planningId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningAuditLogUncheckedCreateInput = {
+      planningId: data.planningId,
+      tenantId: data.tenantId,
       action: data.action,
       changes: (data.changes ?? null) as Prisma.InputJsonValue,
       notes: data.notes ?? null,
+      performedById: data.performedById ?? null,
     };
-
-    if (data.performedById) {
-      prismaData.performedBy = {
-        connect: { id: data.performedById },
-      };
-    }
 
     const created = await client.planningAuditLog.create({
       data: prismaData,

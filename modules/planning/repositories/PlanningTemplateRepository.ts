@@ -114,21 +114,14 @@ export class PlanningTemplateRepository implements IPlanningTemplateRepository {
   ): Promise<PlanningTemplateEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningTemplateCreateInput = {
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningTemplateUncheckedCreateInput = {
+      tenantId: data.tenantId,
       name: data.name,
       description: data.description ?? null,
       type: data.type,
       isActive: data.isActive ?? true,
+      createdById: data.createdById ?? null,
     };
-
-    if (data.createdById) {
-      prismaData.createdBy = {
-        connect: { id: data.createdById },
-      };
-    }
 
     const created = await client.planningTemplate.create({
       data: prismaData,

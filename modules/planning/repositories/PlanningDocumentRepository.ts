@@ -101,26 +101,17 @@ export class PlanningDocumentRepository implements IPlanningDocumentRepository {
   ): Promise<PlanningDocumentEntity> {
     const client = tx ?? prisma;
 
-    const prismaData: Prisma.PlanningDocumentCreateInput = {
-      planning: {
-        connect: { id: data.planningId },
-      },
-      tenant: {
-        connect: { id: data.tenantId },
-      },
+    const prismaData: Prisma.PlanningDocumentUncheckedCreateInput = {
+      planningId: data.planningId,
+      tenantId: data.tenantId,
       filename: data.filename,
       fileUrl: data.fileUrl,
       fileSize: data.fileSize ?? null,
       mimeType: data.mimeType ?? null,
       category: data.category,
       description: data.description ?? null,
+      uploadedById: data.uploadedById ?? null,
     };
-
-    if (data.uploadedById) {
-      prismaData.uploadedBy = {
-        connect: { id: data.uploadedById },
-      };
-    }
 
     const created = await client.planningDocument.create({
       data: prismaData,

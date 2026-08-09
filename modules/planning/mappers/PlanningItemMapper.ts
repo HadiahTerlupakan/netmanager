@@ -55,14 +55,10 @@ export class PlanningItemMapper {
     dto: CreatePlanningItemDTO,
     planningId: string,
     tenantId: string,
-  ): Prisma.PlanningItemCreateInput {
+  ): Prisma.PlanningItemUncheckedCreateInput {
     return {
-      planning: {
-        connect: { id: planningId },
-      },
-      tenant: {
-        connect: { id: tenantId },
-      },
+      planningId,
+      tenantId,
       name: dto.name,
       description: dto.description ?? null,
       quantity: dto.quantity,
