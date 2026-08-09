@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import type {
   PlanningEntity,
   PlanningStatus,
@@ -6,7 +5,7 @@ import type {
   Coordinates,
 } from "../entities/PlanningEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+export type TransactionClient = unknown;
 
 export interface CreatePlanningInput {
   tenantId: string;
@@ -102,7 +101,7 @@ export interface IPlanningRepository {
    */
   create(
     data: CreatePlanningInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningEntity>;
 
   /**
@@ -111,7 +110,7 @@ export interface IPlanningRepository {
   update(
     id: string,
     data: UpdatePlanningInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningEntity>;
 
   /**
@@ -120,11 +119,11 @@ export interface IPlanningRepository {
   updateStatus(
     id: string,
     updates: UpdateStatusInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningEntity>;
 
   /**
    * Soft delete planning (set deletedAt)
    */
-  delete(id: string, tx?: PrismaTransaction): Promise<void>;
+  delete(id: string, tx?: TransactionClient): Promise<void>;
 }

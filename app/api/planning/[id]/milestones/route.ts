@@ -1,15 +1,15 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
-  PlanningMilestoneRepository,
-  PlanningRepository,
+  getPlanningMilestoneRepository,
+  getPlanningRepository,
   bulkUpdateMilestonesSchema,
   PlanningMilestoneMapper,
 } from "@/modules/planning";
 import type { UpdatePlanningMilestoneInput } from "@/modules/planning";
 import { logger } from "@/lib/logger";
 
-const milestoneRepo = new PlanningMilestoneRepository();
-const planningRepo = new PlanningRepository();
+const milestoneRepo = getPlanningMilestoneRepository();
+const planningRepo = getPlanningRepository();
 
 /**
  * GET /api/planning/[id]/milestones

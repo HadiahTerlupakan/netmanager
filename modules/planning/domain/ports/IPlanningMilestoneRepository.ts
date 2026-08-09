@@ -1,10 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import type {
   PlanningMilestoneEntity,
   MilestoneStatus,
 } from "../entities/PlanningMilestoneEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+import type { TransactionClient } from "./IPlanningRepository";
 
 export interface CreatePlanningMilestoneInput {
   planningId: string;
@@ -64,7 +63,7 @@ export interface IPlanningMilestoneRepository {
    */
   create(
     data: CreatePlanningMilestoneInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningMilestoneEntity>;
 
   /**
@@ -73,7 +72,7 @@ export interface IPlanningMilestoneRepository {
   update(
     id: string,
     data: UpdatePlanningMilestoneInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningMilestoneEntity>;
 
   /**
@@ -83,11 +82,11 @@ export interface IPlanningMilestoneRepository {
     id: string,
     status: MilestoneStatus,
     actualDate?: Date,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningMilestoneEntity>;
 
   /**
    * Delete planning milestone
    */
-  delete(id: string, tx?: PrismaTransaction): Promise<void>;
+  delete(id: string, tx?: TransactionClient): Promise<void>;
 }

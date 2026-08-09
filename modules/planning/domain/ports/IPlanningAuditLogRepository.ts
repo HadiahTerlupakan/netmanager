@@ -1,10 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import type {
   PlanningAuditLogEntity,
   AuditAction,
 } from "../entities/PlanningAuditLogEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+import type { TransactionClient } from "./IPlanningRepository";
 
 export interface CreatePlanningAuditLogInput {
   planningId: string;
@@ -53,6 +52,6 @@ export interface IPlanningAuditLogRepository {
    */
   create(
     data: CreatePlanningAuditLogInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningAuditLogEntity>;
 }

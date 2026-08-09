@@ -1,7 +1,12 @@
 /**
  * Planning Module Public API
- * Export public services, DTOs, validators, repositories, and mappers
+ * Export public services, DTOs, validators, mappers, and repository factories.
  */
+
+import { PlanningRepository } from "./repositories/PlanningRepository";
+import { PlanningItemRepository } from "./repositories/PlanningItemRepository";
+import { PlanningMilestoneRepository } from "./repositories/PlanningMilestoneRepository";
+import { PlanningDocumentRepository } from "./repositories/PlanningDocumentRepository";
 
 // Services
 export {
@@ -13,11 +18,22 @@ export {
   planningDashboardService,
 } from "./services/PlanningServiceFactory";
 
-// Repositories (for direct use in API routes)
-export { PlanningRepository } from "./repositories/PlanningRepository";
-export { PlanningItemRepository } from "./repositories/PlanningItemRepository";
-export { PlanningMilestoneRepository } from "./repositories/PlanningMilestoneRepository";
-export { PlanningDocumentRepository } from "./repositories/PlanningDocumentRepository";
+// Repository factories (for direct use in API routes)
+export function getPlanningRepository(): PlanningRepository {
+  return new PlanningRepository();
+}
+
+export function getPlanningItemRepository(): PlanningItemRepository {
+  return new PlanningItemRepository();
+}
+
+export function getPlanningMilestoneRepository(): PlanningMilestoneRepository {
+  return new PlanningMilestoneRepository();
+}
+
+export function getPlanningDocumentRepository(): PlanningDocumentRepository {
+  return new PlanningDocumentRepository();
+}
 
 // Mappers (for DTO conversion in API routes)
 export { PlanningMapper } from "./mappers/PlanningMapper";

@@ -1,10 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import type {
   PlanningTemplateEntity,
   PlanningType,
 } from "../entities/PlanningTemplateEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+import type { TransactionClient } from "./IPlanningRepository";
 
 export interface CreatePlanningTemplateInput {
   tenantId: string;
@@ -61,7 +60,7 @@ export interface IPlanningTemplateRepository {
    */
   create(
     data: CreatePlanningTemplateInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningTemplateEntity>;
 
   /**
@@ -70,11 +69,11 @@ export interface IPlanningTemplateRepository {
   update(
     id: string,
     data: UpdatePlanningTemplateInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningTemplateEntity>;
 
   /**
    * Delete planning template
    */
-  delete(id: string, tx?: PrismaTransaction): Promise<void>;
+  delete(id: string, tx?: TransactionClient): Promise<void>;
 }

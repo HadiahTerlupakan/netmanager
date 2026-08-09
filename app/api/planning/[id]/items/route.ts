@@ -1,14 +1,14 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
-  PlanningItemRepository,
-  PlanningRepository,
+  getPlanningItemRepository,
+  getPlanningRepository,
   createPlanningItemSchema,
   PlanningItemMapper,
 } from "@/modules/planning";
 import { logger } from "@/lib/logger";
 
-const itemRepo = new PlanningItemRepository();
-const planningRepo = new PlanningRepository();
+const itemRepo = getPlanningItemRepository();
+const planningRepo = getPlanningRepository();
 
 /**
  * GET /api/planning/[id]/items

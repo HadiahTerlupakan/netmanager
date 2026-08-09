@@ -1,7 +1,6 @@
-import type { Prisma } from "@prisma/client";
 import type { PlanningTemplateItemEntity } from "../entities/PlanningTemplateItemEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+import type { TransactionClient } from "./IPlanningRepository";
 
 export interface CreatePlanningTemplateItemInput {
   templateId: string;
@@ -53,7 +52,7 @@ export interface IPlanningTemplateItemRepository {
    */
   create(
     data: CreatePlanningTemplateItemInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningTemplateItemEntity>;
 
   /**
@@ -62,16 +61,16 @@ export interface IPlanningTemplateItemRepository {
   update(
     id: string,
     data: UpdatePlanningTemplateItemInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningTemplateItemEntity>;
 
   /**
    * Delete planning template item
    */
-  delete(id: string, tx?: PrismaTransaction): Promise<void>;
+  delete(id: string, tx?: TransactionClient): Promise<void>;
 
   /**
    * Delete all items for a specific template (cascade delete)
    */
-  deleteByTemplateId(templateId: string, tx?: PrismaTransaction): Promise<void>;
+  deleteByTemplateId(templateId: string, tx?: TransactionClient): Promise<void>;
 }

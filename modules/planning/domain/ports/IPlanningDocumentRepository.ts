@@ -1,10 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import type {
   PlanningDocumentEntity,
   DocumentCategory,
 } from "../entities/PlanningDocumentEntity";
 
-type PrismaTransaction = Prisma.TransactionClient;
+import type { TransactionClient } from "./IPlanningRepository";
 
 export interface CreatePlanningDocumentInput {
   planningId: string;
@@ -66,7 +65,7 @@ export interface IPlanningDocumentRepository {
    */
   create(
     data: CreatePlanningDocumentInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningDocumentEntity>;
 
   /**
@@ -75,11 +74,11 @@ export interface IPlanningDocumentRepository {
   update(
     id: string,
     data: UpdatePlanningDocumentInput,
-    tx?: PrismaTransaction,
+    tx?: TransactionClient,
   ): Promise<PlanningDocumentEntity>;
 
   /**
    * Delete planning document
    */
-  delete(id: string, tx?: PrismaTransaction): Promise<void>;
+  delete(id: string, tx?: TransactionClient): Promise<void>;
 }
