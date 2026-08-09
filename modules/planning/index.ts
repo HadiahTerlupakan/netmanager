@@ -31,6 +31,8 @@ export type {
   CreatePlanningDTO,
   UpdatePlanningDTO,
 } from "./dto/PlanningDTO";
+export type { PlanningDashboardDTO } from "./dto/PlanningDashboardDTO";
+export type { PlanningKanbanBoardDTO } from "./dto/PlanningKanbanDTO";
 
 export type {
   PlanningItemDTO,
@@ -62,3 +64,12 @@ export type { UpdatePlanningMilestoneInput } from "./domain/ports/IPlanningMiles
 
 // Validators
 export * from "./validators";
+
+// Utils (UI helpers — status config, formatting)
+export {
+  PLANNING_STATUS_CONFIG,
+  MILESTONE_STATUS_CONFIG,
+  KANBAN_COLUMN_LABELS,
+  formatBudget,
+  formatDateShort,
+} from "./utils/statusConfig";
