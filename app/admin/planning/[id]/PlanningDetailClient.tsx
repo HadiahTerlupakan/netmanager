@@ -14,6 +14,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineClipboardDocumentCheck,
   HiOutlineCube,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { useApi, useRevalidate } from "@/lib/hooks/useApi";
 import { usePermission } from "@/hooks/use-permission";
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import MapPicker from "@/components/common/MapPicker";
+import { downloadPlanningPdfById } from "../planning-pdf";
 import {
   PLANNING_STATUS_CONFIG,
   MILESTONE_STATUS_CONFIG,
@@ -217,6 +219,20 @@ export default function PlanningDetailClient({
               </Button>
             </Link>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await downloadPlanningPdfById(planningId);
+              } catch {
+                toast.error("Gagal generate PDF");
+              }
+            }}
+          >
+            <HiOutlineArrowDownTray className="w-4 h-4" />
+            Export PDF
+          </Button>
           {canSubmitForApproval && (
             <Button
               size="sm"
