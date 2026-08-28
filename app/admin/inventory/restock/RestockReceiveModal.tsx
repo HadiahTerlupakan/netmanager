@@ -10,12 +10,16 @@ import {
   type UploadedPhoto,
 } from "@/components/inventory/PhotoUpload";
 
-import type { PurchaseRequest } from "./types";
+import { RestockReceiveItemRow } from "./RestockReceiveItemRow";
+import type { Barang, PurchaseRequest, RestockSubstitutionMap } from "./types";
 
 interface RestockReceiveModalProps {
   request: PurchaseRequest | null;
   receivedItems: Record<string, number>;
   onReceivedItemsChange: (items: Record<string, number>) => void;
+  barangs: Barang[];
+  substitutions: RestockSubstitutionMap;
+  onSubstitutionsChange: (substitutions: RestockSubstitutionMap) => void;
   receivedPhotos: UploadedPhoto[];
   onReceivedPhotosChange: (photos: UploadedPhoto[]) => void;
   isFinishingPO: boolean;
@@ -30,6 +34,9 @@ export function RestockReceiveModal({
   request,
   receivedItems,
   onReceivedItemsChange,
+  barangs,
+  substitutions,
+  onSubstitutionsChange,
   receivedPhotos,
   onReceivedPhotosChange,
   isFinishingPO,
@@ -42,6 +49,21 @@ export function RestockReceiveModal({
   const hasReceivedItem = Object.values(receivedItems).some(
     (quantity) => quantity > 0,
   );
+  const orderedBarangIds = (request?.items ?? []).map((item) => item.barangId);
+  const substitutedCount = Object.keys(substitutions).length;
+
+  const handleSubstituteChange = (
+    originalBarangId: string,
+    replacementBarangId: string | null,
+  ) => {
+    const next = { ...substitutions };
+    if (replacementBarangId) {
+      next[originalBarangId] = replacementBarangId;
+    } else {
+      delete next[originalBarangId];
+    }
+    onSubstitutionsChange(next);
+  };
   const isSubmitDisabled =
     submitting || receivedPhotos.length === 0 || !hasReceivedItem;
   const disabledReason =
@@ -71,69 +93,28 @@ export function RestockReceiveModal({
 
         <div className="space-y-4">
           <div className="font-bold flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 px-1">
-            <FiEdit2 /> Revisi Jumlah Realita
+            <FiEdit2 /> Revisi Barang &amp; Jumlah Realita
           </div>
-          <div className="max-h-[250px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-            {request?.items.map((item) => {
-              const isExcluded = (receivedItems[item.barangId] || 0) <= 0;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isExcluded ? "bg-gray-50/50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60" : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:border-indigo-200"}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="checkbox"
-                      checked={!isExcluded}
-                      aria-label={`Sertakan ${item.barang.nama}`}
-                      onChange={(event) => {
-                        const remaining = item.jumlah - item.receivedQuantity;
-                        const nextValue = event.target.checked
-                          ? remaining > 0
-                            ? remaining
-                            : 1
-                          : 0;
-                        onReceivedItemsChange({
-                          ...receivedItems,
-                          [item.barangId]: nextValue,
-                        });
-                      }}
-                      className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <div
-                        className={`font-bold text-sm ${isExcluded ? "text-gray-400 line-through" : "text-gray-900 dark:text-white"}`}
-                      >
-                        {item.barang.nama}
-                      </div>
-                      <div className="text-xs text-gray-500 italic">
-                        Pesanan: {item.jumlah} {item.barang.satuan}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">
-                      Diterima:
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      disabled={isExcluded}
-                      aria-label={`Jumlah ${item.barang.nama} diterima`}
-                      value={receivedItems[item.barangId] || 0}
-                      onChange={(event) =>
-                        onReceivedItemsChange({
-                          ...receivedItems,
-                          [item.barangId]: parseInt(event.target.value) || 0,
-                        })
-                      }
-                      className={`w-20 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-right font-black focus:ring-2 focus:ring-indigo-500 ${isExcluded ? "text-gray-300" : "text-indigo-600"}`}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="max-h-[320px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+            {request?.items.map((item) => (
+              <RestockReceiveItemRow
+                key={item.id}
+                item={item}
+                receivedQuantity={receivedItems[item.barangId] || 0}
+                onReceivedQuantityChange={(quantity) =>
+                  onReceivedItemsChange({
+                    ...receivedItems,
+                    [item.barangId]: quantity,
+                  })
+                }
+                barangs={barangs}
+                excludedBarangIds={orderedBarangIds}
+                substituteBarangId={substitutions[item.barangId] ?? null}
+                onSubstituteChange={(barangId) =>
+                  handleSubstituteChange(item.barangId, barangId)
+                }
+              />
+            ))}
           </div>
         </div>
 
@@ -150,6 +131,13 @@ export function RestockReceiveModal({
             />
           </div>
         </div>
+
+        {substitutedCount > 0 && (
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+            {substitutedCount} barang diganti. Pesanan dan PO ikut diperbarui
+            mengikuti barang yang benar-benar datang.
+          </div>
+        )}
 
         {!hasReceivedItem && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">

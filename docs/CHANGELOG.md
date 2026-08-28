@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-28] — Substitusi barang saat verifikasi kedatangan restock
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/inventory`, `app/api/inventory/restock/requests/[id]/receive`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Verifikator sekarang bisa mengganti barang saat modal "Verifikasi Barang Sampai",
+  karena barang yang datang bisa berbeda dari yang dipesan (supplier mengirim merek/tipe lain).
+  Substitusi memperbarui `PurchaseOrderItem` dan `PurchaseRequestItem` terkait sebelum GRN dibuat,
+  sehingga stok, dokumen GRN, dan jurnal `AUTO_GRN_CREATED` mencatat barang yang benar-benar diterima.
+  Aturan: item yang sudah pernah diterima sebagian tidak bisa diganti, barang pengganti wajib milik
+  tenant yang sama dan belum dipakai item lain di PO tersebut; harga per unit tetap mengikuti PO
+  (koreksi harga tetap lewat edit Purchase Order). Setiap substitusi dicatat ke activity log.
+  Sekalian memindahkan business logic + query Prisma dari route `receive` ke service/repository
+  sesuai Clean Architecture (route jadi thin controller).
+- **Files**:
+  - `modules/inventory/domain/ports/IRestockGoodsReceiptRepository.ts` (baru) — port akses data
+  - `modules/inventory/repositories/RestockGoodsReceiptRepository.ts` (baru) — implementasi port
+  - `modules/inventory/factories/RestockGoodsReceiptFactory.ts` (baru) — perakitan dependency
+  - `modules/inventory/services/RestockItemSubstitutionService.ts` (baru) — aturan substitusi barang
+  - `modules/inventory/services/RestockGoodsReceiptService.ts` (baru) — orkestrasi penerimaan + GRN
+  - `app/api/inventory/restock/requests/[id]/receive/route.ts` — thin controller + payload `substitutions`
+  - `app/admin/inventory/restock/RestockReceiveItemRow.tsx` (baru), `RestockReceiveModal.tsx`,
+    `useRestockPage.ts`, `RestockList.tsx`, `utils.ts`, `types.ts`
+  - `tests/services/RestockItemSubstitutionService.test.ts` (baru),
+    `tests/api/inventory-restock-request-lifecycle-routes.test.ts`, `tests/ui/restock-receive-modal.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-09] — Planning OSP UI implementation + permission alignment
 
 - **Tipe**: [ADDED]

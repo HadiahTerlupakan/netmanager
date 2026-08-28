@@ -28,6 +28,9 @@ export interface PurchaseRequestJasaItem {
   };
 }
 
+/** Map barangId asli (di pengajuan) → barangId pengganti yang benar-benar datang. */
+export type RestockSubstitutionMap = Record<string, string>;
+
 export interface GoodsReceiptSummary {
   id: string;
   grnNumber: string;

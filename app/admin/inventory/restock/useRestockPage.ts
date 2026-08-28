@@ -23,6 +23,7 @@ import type {
 
 import {
   buildInitialReceivedItems,
+  buildSubstitutionPayload,
   canSubmitRestockForm,
   getFilteredBarangs,
   getPaginatedRestockRequests,
@@ -36,6 +37,7 @@ import type {
   PurchaseRequest,
   RestockFormItem,
   RestockSetting,
+  RestockSubstitutionMap,
 } from "./types";
 import type { JasaConfirmState } from "./RestockConfirmJasaModal";
 
@@ -75,6 +77,8 @@ export function useRestockPage() {
   const [receivedItems, setReceivedItems] = useState<Record<string, number>>(
     {},
   );
+  const [receivedSubstitutions, setReceivedSubstitutions] =
+    useState<RestockSubstitutionMap>({});
   const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
   const [isFinishingPO, setIsFinishingPO] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -345,6 +349,7 @@ export function useRestockPage() {
   const openReceive = useCallback((request: PurchaseRequest) => {
     setReceivingPR(request);
     setReceivedItems(buildInitialReceivedItems(request));
+    setReceivedSubstitutions({});
     setReceivedPhotos([]);
     setIsFinishingPO(true);
   }, []);
@@ -487,6 +492,7 @@ export function useRestockPage() {
         `/api/inventory/restock/requests/${receivingPR.id}/receive`,
         {
           items: receivedItems,
+          substitutions: buildSubstitutionPayload(receivedSubstitutions),
           fotoBukti: photoUrls,
           closePO: isFinishingPO,
         },
@@ -510,12 +516,14 @@ export function useRestockPage() {
     isFinishingPO,
     receivedItems,
     receivedPhotos.length,
+    receivedSubstitutions,
     receivingPR,
   ]);
 
   return {
     requests: paginatedRequests.data,
     barangs,
+    allBarangs: allBarangsSource,
     allJasaSource,
     allSettingsSource,
     gudangs,
@@ -548,6 +556,8 @@ export function useRestockPage() {
     receivingPR,
     receivedItems,
     setReceivedItems,
+    receivedSubstitutions,
+    setReceivedSubstitutions,
     receivedPhotos,
     setReceivedPhotos,
     isFinishingPO,

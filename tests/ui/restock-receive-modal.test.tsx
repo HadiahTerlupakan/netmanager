@@ -2,7 +2,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { PurchaseRequest } from "@/app/admin/inventory/restock/types";
+import type {
+  Barang,
+  PurchaseRequest,
+} from "@/app/admin/inventory/restock/types";
 
 vi.mock("@/components/ui/Modal", () => ({
   Modal: ({
@@ -20,6 +23,11 @@ vi.mock("@/components/inventory/PhotoUpload", () => ({
 
 import { RestockReceiveModal } from "@/app/admin/inventory/restock/RestockReceiveModal";
 
+const barangs: Barang[] = [
+  { id: "barang-1", kode: "BRG-001", nama: "Kabel Fiber", satuan: "roll" },
+  { id: "barang-2", kode: "BRG-002", nama: "Kabel Dropcore", satuan: "roll" },
+];
+
 const request: PurchaseRequest = {
   id: "pr-1",
   nomorRequest: "PR-001",
@@ -33,7 +41,7 @@ const request: PurchaseRequest = {
       id: "item-1",
       barangId: "barang-1",
       jumlah: 10,
-      receivedQuantity: 2,
+      receivedQuantity: 0,
       barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
     },
   ],
@@ -47,6 +55,9 @@ function renderReceiveModal(
       request={props?.request ?? request}
       receivedItems={props?.receivedItems ?? { "barang-1": 8 }}
       onReceivedItemsChange={props?.onReceivedItemsChange ?? vi.fn()}
+      barangs={props?.barangs ?? barangs}
+      substitutions={props?.substitutions ?? {}}
+      onSubstitutionsChange={props?.onSubstitutionsChange ?? vi.fn()}
       receivedPhotos={props?.receivedPhotos ?? []}
       onReceivedPhotosChange={props?.onReceivedPhotosChange ?? vi.fn()}
       isFinishingPO={props?.isFinishingPO ?? true}
@@ -78,5 +89,33 @@ describe("RestockReceiveModal", () => {
     const markup = renderReceiveModal({ receivedItems: { "barang-1": 0 } });
 
     expect(markup).toContain("Minimal satu barang harus diterima");
+  });
+
+  it("offers replacing an item whose goods arrived different", () => {
+    const markup = renderReceiveModal();
+
+    expect(markup).toContain("Barang yang sampai beda? Ganti Kabel Fiber");
+  });
+
+  it("shows the replacement item and a substitution summary", () => {
+    const markup = renderReceiveModal({
+      substitutions: { "barang-1": "barang-2" },
+    });
+
+    expect(markup).toContain("Kabel Dropcore");
+    expect(markup).toContain("Barang diganti");
+    expect(markup).toContain("Pesanan: Kabel Fiber");
+    expect(markup).toContain("1 barang diganti");
+  });
+
+  it("blocks substitution for items already partially received", () => {
+    const partiallyReceived: PurchaseRequest = {
+      ...request,
+      items: [{ ...request.items[0], receivedQuantity: 2 }],
+    };
+    const markup = renderReceiveModal({ request: partiallyReceived });
+
+    expect(markup).toContain("barang tidak bisa diganti");
+    expect(markup).not.toContain("Barang yang sampai beda?");
   });
 });

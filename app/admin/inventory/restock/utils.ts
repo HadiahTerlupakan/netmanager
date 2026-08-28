@@ -2,8 +2,10 @@ import type {
   Barang,
   BarangGudang,
   PurchaseRequest,
+  PurchaseRequestItem,
   RestockFormItem,
   RestockSetting,
+  RestockSubstitutionMap,
 } from "./types";
 
 interface VisibleRestockRequestsInput {
@@ -86,6 +88,29 @@ export function buildInitialReceivedItems(
     acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
     return acc;
   }, {});
+}
+
+/** Item yang sudah pernah diterima sebagian tidak boleh diganti barangnya. */
+export function canSubstituteRestockItem(item: PurchaseRequestItem): boolean {
+  return item.receivedQuantity <= 0;
+}
+
+/**
+ * Buang substitusi yang tidak berdampak (kosong / sama dengan barang asli)
+ * supaya payload penerimaan tetap bersih.
+ */
+export function buildSubstitutionPayload(
+  substitutions: RestockSubstitutionMap,
+): RestockSubstitutionMap {
+  return Object.entries(substitutions).reduce<RestockSubstitutionMap>(
+    (acc, [originalBarangId, replacementBarangId]) => {
+      if (replacementBarangId && replacementBarangId !== originalBarangId) {
+        acc[originalBarangId] = replacementBarangId;
+      }
+      return acc;
+    },
+    {},
+  );
 }
 
 export function canDeletePurchaseRequest(

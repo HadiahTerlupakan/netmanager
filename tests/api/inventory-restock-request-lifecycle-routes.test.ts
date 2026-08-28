@@ -232,6 +232,128 @@ describe("inventory restock request lifecycle routes", () => {
     expect(response.status).toBe(200);
   });
 
+  it("substitutes the ordered barang when a different item arrives", async () => {
+    prismaMock.$transaction.mockImplementation(async (callback: unknown) => {
+      if (typeof callback === "function") {
+        return callback(prismaMock);
+      }
+      return callback;
+    });
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+      id: "pr-1",
+      purchaseOrderId: "po-1",
+      gudangId: "gudang-1",
+      status: "ORDERED",
+      nomorRequest: "PR-20260714-0001",
+    });
+
+    prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+      id: "po-1",
+      poNumber: "PO-001",
+      status: "ORDERED",
+      items: [
+        {
+          id: "po-item-1",
+          barangId: "barang-1",
+          quantity: 2,
+          receivedQuantity: 0,
+          barang: { id: "barang-1", nama: "Kabel Fiber" },
+        },
+      ],
+    });
+    prismaMock.barang.findMany.mockResolvedValue([
+      { id: "barang-9", nama: "Kabel Fiber Merek Lain" },
+    ]);
+
+    mockGrnCreate.mockResolvedValue({ id: "grn-1", grnNumber: "GRN-001" });
+    prismaMock.purchaseOrder.update.mockResolvedValue({ status: "RECEIVED" });
+    prismaMock.purchaseRequest.update.mockResolvedValue({});
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest(
+        "http://localhost/api/inventory/restock/requests/pr-1/receive",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            items: { "barang-1": 2 },
+            substitutions: { "barang-1": "barang-9" },
+            closePO: true,
+            fotoBukti: ["https://img.jpg"],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: "pr-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+      where: { id: "po-item-1" },
+      data: { barangId: "barang-9" },
+    });
+    expect(prismaMock.purchaseRequestItem.updateMany).toHaveBeenCalledWith({
+      where: {
+        barangId: "barang-1",
+        purchaseRequest: { purchaseOrderId: "po-1", tenantId: "tenant-1" },
+      },
+      data: { barangId: "barang-9" },
+    });
+    expect(mockGrnCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          {
+            purchaseOrderItemId: "po-item-1",
+            barangId: "barang-9",
+            quantity: 2,
+          },
+        ],
+      }),
+    );
+  });
+
+  it("rejects substitution for an item already partially received", async () => {
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+      id: "pr-1",
+      purchaseOrderId: "po-1",
+      gudangId: "gudang-1",
+      status: "ORDERED",
+      nomorRequest: "PR-20260714-0001",
+    });
+
+    prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+      id: "po-1",
+      poNumber: "PO-001",
+      status: "ORDERED",
+      items: [
+        {
+          id: "po-item-1",
+          barangId: "barang-1",
+          quantity: 5,
+          receivedQuantity: 2,
+          barang: { id: "barang-1", nama: "Kabel Fiber" },
+        },
+      ],
+    });
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest(
+        "http://localhost/api/inventory/restock/requests/pr-1/receive",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            items: { "barang-1": 3 },
+            substitutions: { "barang-1": "barang-9" },
+            closePO: false,
+            fotoBukti: ["https://img.jpg"],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: "pr-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockGrnCreate).not.toHaveBeenCalled();
+  });
+
   it("maps request process to linked purchase order start-shopping helper", async () => {
     prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",

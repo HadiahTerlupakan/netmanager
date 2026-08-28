@@ -19,6 +19,7 @@ export default function RestockCRUDPage() {
   const {
     requests,
     barangs,
+    allBarangs,
     allJasaSource,
     allSettingsSource,
     gudangs,
@@ -51,6 +52,8 @@ export default function RestockCRUDPage() {
     receivingPR,
     receivedItems,
     setReceivedItems,
+    receivedSubstitutions,
+    setReceivedSubstitutions,
     receivedPhotos,
     setReceivedPhotos,
     isFinishingPO,
@@ -136,6 +139,9 @@ export default function RestockCRUDPage() {
         request={receivingPR}
         receivedItems={receivedItems}
         onReceivedItemsChange={setReceivedItems}
+        barangs={allBarangs}
+        substitutions={receivedSubstitutions}
+        onSubstitutionsChange={setReceivedSubstitutions}
         receivedPhotos={receivedPhotos}
         onReceivedPhotosChange={setReceivedPhotos}
         isFinishingPO={isFinishingPO}
