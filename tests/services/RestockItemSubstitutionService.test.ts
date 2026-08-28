@@ -24,6 +24,7 @@ const purchaseOrderItems: RestockPurchaseOrderItem[] = [
     barangId: "barang-1",
     quantity: 5,
     receivedQuantity: 0,
+    cancelledQuantity: 0,
     barang: { id: "barang-1", nama: "Kabel Fiber" },
   },
   {
@@ -31,6 +32,7 @@ const purchaseOrderItems: RestockPurchaseOrderItem[] = [
     barangId: "barang-2",
     quantity: 3,
     receivedQuantity: 1,
+    cancelledQuantity: 0,
     barang: { id: "barang-2", nama: "Kabel Dropcore" },
   },
 ];

@@ -3022,6 +3022,9 @@ model PurchaseOrderItem {
   barangId          String
   quantity          Int
   receivedQuantity  Int                @default(0)
+  cancelledQuantity Int                @default(0)
+  cancelReason      String?
+  cancelledAt       DateTime?
   unitPrice         Float
   totalPrice        Float
   tenantId          String?

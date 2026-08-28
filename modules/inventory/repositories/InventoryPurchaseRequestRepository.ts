@@ -43,13 +43,17 @@ export class InventoryPurchaseRequestRepository {
     });
     return requests.map((request) => ({
       ...request,
-      items: request.items.map((item) => ({
-        ...item,
-        receivedQuantity:
-          request.purchaseOrder?.items.find(
-            (purchaseOrderItem) => purchaseOrderItem.barangId === item.barangId,
-          )?.receivedQuantity || 0,
-      })),
+      items: request.items.map((item) => {
+        const purchaseOrderItem = request.purchaseOrder?.items.find(
+          (candidate) => candidate.barangId === item.barangId,
+        );
+        return {
+          ...item,
+          receivedQuantity: purchaseOrderItem?.receivedQuantity || 0,
+          cancelledQuantity: purchaseOrderItem?.cancelledQuantity || 0,
+          cancelReason: purchaseOrderItem?.cancelReason || null,
+        };
+      }),
     }));
   }
 

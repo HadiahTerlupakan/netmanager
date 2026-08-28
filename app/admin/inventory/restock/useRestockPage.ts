@@ -22,6 +22,7 @@ import type {
 } from "@/components/inventory/PhotoUpload";
 
 import {
+  buildCancellationPayload,
   buildInitialReceivedItems,
   buildSubstitutionPayload,
   canSubmitRestockForm,
@@ -35,6 +36,7 @@ import type {
   Gudang,
   Jasa,
   PurchaseRequest,
+  RestockCancellationMap,
   RestockFormItem,
   RestockSetting,
   RestockSubstitutionMap,
@@ -79,6 +81,8 @@ export function useRestockPage() {
   );
   const [receivedSubstitutions, setReceivedSubstitutions] =
     useState<RestockSubstitutionMap>({});
+  const [receivedCancellations, setReceivedCancellations] =
+    useState<RestockCancellationMap>({});
   const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
   const [isFinishingPO, setIsFinishingPO] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -350,6 +354,7 @@ export function useRestockPage() {
     setReceivingPR(request);
     setReceivedItems(buildInitialReceivedItems(request));
     setReceivedSubstitutions({});
+    setReceivedCancellations({});
     setReceivedPhotos([]);
     setIsFinishingPO(true);
   }, []);
@@ -493,6 +498,7 @@ export function useRestockPage() {
         {
           items: receivedItems,
           substitutions: buildSubstitutionPayload(receivedSubstitutions),
+          cancellations: buildCancellationPayload(receivedCancellations),
           fotoBukti: photoUrls,
           closePO: isFinishingPO,
         },
@@ -514,6 +520,7 @@ export function useRestockPage() {
   }, [
     fetchData,
     isFinishingPO,
+    receivedCancellations,
     receivedItems,
     receivedPhotos.length,
     receivedSubstitutions,
@@ -558,6 +565,8 @@ export function useRestockPage() {
     setReceivedItems,
     receivedSubstitutions,
     setReceivedSubstitutions,
+    receivedCancellations,
+    setReceivedCancellations,
     receivedPhotos,
     setReceivedPhotos,
     isFinishingPO,

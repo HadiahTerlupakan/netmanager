@@ -3,6 +3,7 @@ import type {
   BarangGudang,
   PurchaseRequest,
   PurchaseRequestItem,
+  RestockCancellationMap,
   RestockFormItem,
   RestockSetting,
   RestockSubstitutionMap,
@@ -88,6 +89,38 @@ export function buildInitialReceivedItems(
     acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
     return acc;
   }, {});
+}
+
+/** Sisa pesanan yang belum diterima dan belum dianulir. */
+export function getRestockItemRemaining(item: PurchaseRequestItem): number {
+  return item.jumlah - item.receivedQuantity - (item.cancelledQuantity ?? 0);
+}
+
+/**
+ * Buang alasan anulir yang masih kosong supaya payload hanya berisi anulir
+ * yang benar-benar dikonfirmasi operator.
+ */
+export function buildCancellationPayload(
+  cancellations: RestockCancellationMap,
+): RestockCancellationMap {
+  return Object.entries(cancellations).reduce<RestockCancellationMap>(
+    (acc, [barangId, reason]) => {
+      if (reason.trim().length > 0) {
+        acc[barangId] = reason.trim();
+      }
+      return acc;
+    },
+    {},
+  );
+}
+
+/** Anulir yang sudah ditandai tapi alasannya belum diisi memblokir submit. */
+export function hasIncompleteCancellationReason(
+  cancellations: RestockCancellationMap,
+): boolean {
+  return Object.values(cancellations).some(
+    (reason) => reason.trim().length === 0,
+  );
 }
 
 /** Item yang sudah pernah diterima sebagian tidak boleh diganti barangnya. */

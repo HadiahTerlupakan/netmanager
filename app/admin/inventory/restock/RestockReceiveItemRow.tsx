@@ -5,8 +5,9 @@ import { FiRefreshCw, FiRotateCcw } from "react-icons/fi";
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
+import { RestockCancelReasonField } from "./RestockCancelReasonField";
 import type { Barang, PurchaseRequestItem } from "./types";
-import { canSubstituteRestockItem } from "./utils";
+import { canSubstituteRestockItem, getRestockItemRemaining } from "./utils";
 
 interface RestockReceiveItemRowProps {
   item: PurchaseRequestItem;
@@ -16,6 +17,9 @@ interface RestockReceiveItemRowProps {
   excludedBarangIds: string[];
   substituteBarangId: string | null;
   onSubstituteChange: (barangId: string | null) => void;
+  /** null = tidak dianulir, "" = ditandai anulir tapi alasan belum diisi. */
+  cancelReason: string | null;
+  onCancelReasonChange: (reason: string | null) => void;
 }
 
 /**
@@ -30,6 +34,8 @@ export function RestockReceiveItemRow({
   excludedBarangIds,
   substituteBarangId,
   onSubstituteChange,
+  cancelReason,
+  onCancelReasonChange,
 }: RestockReceiveItemRowProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const isExcluded = receivedQuantity <= 0;
@@ -53,6 +59,11 @@ export function RestockReceiveItemRow({
 
   const displayedName = substituteBarang?.nama ?? item.barang.nama;
   const displayedSatuan = substituteBarang?.satuan ?? item.barang.satuan;
+  const outstandingQuantity = Math.max(
+    getRestockItemRemaining(item) - receivedQuantity,
+    0,
+  );
+  const cancelledQuantity = item.cancelledQuantity ?? 0;
 
   return (
     <div
@@ -149,6 +160,25 @@ export function RestockReceiveItemRow({
           <div className="text-[11px] font-semibold text-gray-400">
             Sudah diterima sebagian ({item.receivedQuantity}{" "}
             {item.barang.satuan}), barang tidak bisa diganti.
+          </div>
+        )}
+
+        {cancelledQuantity > 0 && (
+          <div className="mt-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+            Sudah dianulir {cancelledQuantity} {item.barang.satuan}
+            {item.cancelReason ? ` — ${item.cancelReason}` : ""}
+          </div>
+        )}
+
+        {(outstandingQuantity > 0 || cancelReason !== null) && (
+          <div className="mt-2">
+            <RestockCancelReasonField
+              itemName={item.barang.nama}
+              satuan={item.barang.satuan}
+              remainingQuantity={outstandingQuantity}
+              reason={cancelReason}
+              onReasonChange={onCancelReasonChange}
+            />
           </div>
         )}
       </div>

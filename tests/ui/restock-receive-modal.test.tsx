@@ -58,6 +58,8 @@ function renderReceiveModal(
       barangs={props?.barangs ?? barangs}
       substitutions={props?.substitutions ?? {}}
       onSubstitutionsChange={props?.onSubstitutionsChange ?? vi.fn()}
+      cancellations={props?.cancellations ?? {}}
+      onCancellationsChange={props?.onCancellationsChange ?? vi.fn()}
       receivedPhotos={props?.receivedPhotos ?? []}
       onReceivedPhotosChange={props?.onReceivedPhotosChange ?? vi.fn()}
       isFinishingPO={props?.isFinishingPO ?? true}
@@ -106,6 +108,45 @@ describe("RestockReceiveModal", () => {
     expect(markup).toContain("Barang diganti");
     expect(markup).toContain("Pesanan: Kabel Fiber");
     expect(markup).toContain("1 barang diganti");
+  });
+
+  it("offers cancelling the outstanding quantity of an item", () => {
+    const markup = renderReceiveModal({ receivedItems: { "barang-1": 6 } });
+
+    expect(markup).toContain("Anulir sisa 4 roll — tidak dibelikan");
+  });
+
+  it("requires a reason once an item is marked for cancellation", () => {
+    const markup = renderReceiveModal({ cancellations: { "barang-1": "" } });
+
+    expect(markup).toContain("Alasan anulir wajib diisi");
+    expect(markup).toContain("Lengkapi alasan anulir terlebih dahulu");
+    expect(markup).toContain('aria-disabled="true"');
+  });
+
+  it("summarises confirmed cancellations", () => {
+    const markup = renderReceiveModal({
+      cancellations: { "barang-1": "Stok supplier kosong" },
+    });
+
+    expect(markup).toContain("1 barang dianulir");
+    expect(markup).not.toContain("Alasan anulir wajib diisi");
+  });
+
+  it("shows cancellations recorded on earlier receipts", () => {
+    const partiallyCancelled: PurchaseRequest = {
+      ...request,
+      items: [
+        {
+          ...request.items[0],
+          cancelledQuantity: 3,
+          cancelReason: "Tidak dibelikan",
+        },
+      ],
+    };
+    const markup = renderReceiveModal({ request: partiallyCancelled });
+
+    expect(markup).toContain("Sudah dianulir 3 roll — Tidak dibelikan");
   });
 
   it("blocks substitution for items already partially received", () => {

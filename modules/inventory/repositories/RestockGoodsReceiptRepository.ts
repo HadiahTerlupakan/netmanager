@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/modules/database";
 
 import type {
+  ApplyItemCancellationInput,
   ApplyItemSubstitutionInput,
   BarangSubstitutionCandidate,
   IRestockGoodsReceiptRepository,
@@ -51,6 +52,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
             barangId: true,
             quantity: true,
             receivedQuantity: true,
+            cancelledQuantity: true,
             barang: { select: { id: true, nama: true } },
           },
         },
@@ -108,6 +110,45 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         });
       }
     });
+  }
+
+  /**
+   * Anulir sisa pesanan per item PO (short close) beserta alasannya.
+   * Quantity asli tidak diubah supaya riwayat pesanan tetap utuh.
+   */
+  async applyItemCancellations(
+    input: ApplyItemCancellationInput,
+  ): Promise<void> {
+    if (input.cancellations.length === 0) return;
+
+    await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const cancellation of input.cancellations) {
+        await tx.purchaseOrderItem.update({
+          where: { id: cancellation.purchaseOrderItemId },
+          data: {
+            cancelledQuantity: { increment: cancellation.cancelledQuantity },
+            cancelReason: cancellation.reason,
+            cancelledAt: input.cancelledAt,
+          },
+        });
+      }
+    });
+  }
+
+  /** Cek apakah masih ada item PO yang belum diterima maupun dianulir. */
+  async hasOutstandingItems(purchaseOrderId: string): Promise<boolean> {
+    const items = await this.db.purchaseOrderItem.findMany({
+      where: { purchaseOrderId },
+      select: {
+        quantity: true,
+        receivedQuantity: true,
+        cancelledQuantity: true,
+      },
+    });
+    return items.some(
+      (item) =>
+        item.quantity - item.receivedQuantity - item.cancelledQuantity > 0,
+    );
   }
 
   /** Tandai purchase order sebagai diterima penuh. */

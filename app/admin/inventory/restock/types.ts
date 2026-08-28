@@ -3,6 +3,8 @@ export interface PurchaseRequestItem {
   barangId: string;
   jumlah: number;
   receivedQuantity: number;
+  cancelledQuantity?: number;
+  cancelReason?: string | null;
   keterangan?: string | null;
   barang: { nama: string; kode: string; satuan: string };
 }
@@ -30,6 +32,9 @@ export interface PurchaseRequestJasaItem {
 
 /** Map barangId asli (di pengajuan) → barangId pengganti yang benar-benar datang. */
 export type RestockSubstitutionMap = Record<string, string>;
+
+/** Map barangId → alasan barang tidak jadi dibelikan (sisa pesanan dianulir). */
+export type RestockCancellationMap = Record<string, string>;
 
 export interface GoodsReceiptSummary {
   id: string;

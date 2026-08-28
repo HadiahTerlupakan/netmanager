@@ -189,7 +189,8 @@ export class GoodsReceiptRepository implements IGoodsReceiptRepository {
   }
 
   /**
-   * Re-evaluate PO status berdasar receivedQuantity vs quantity total.
+   * Re-evaluate PO status berdasar receivedQuantity vs quantity yang masih
+   * berlaku (quantity dikurangi yang sudah dianulir/short close).
    * - Semua item fully received → RECEIVED
    * - Sebagian → PARTIAL
    * - Belum ada → tidak diubah (biarkan ORDERED/DRAFT existing)
@@ -199,12 +200,21 @@ export class GoodsReceiptRepository implements IGoodsReceiptRepository {
       where: { id: poId },
       select: {
         status: true,
-        items: { select: { quantity: true, receivedQuantity: true } },
+        items: {
+          select: {
+            quantity: true,
+            receivedQuantity: true,
+            cancelledQuantity: true,
+          },
+        },
       },
     });
     if (!po) return;
 
-    const totalOrdered = po.items.reduce((s, it) => s + it.quantity, 0);
+    const totalOrdered = po.items.reduce(
+      (s, it) => s + (it.quantity - it.cancelledQuantity),
+      0,
+    );
     const totalReceived = po.items.reduce(
       (s, it) => s + it.receivedQuantity,
       0,

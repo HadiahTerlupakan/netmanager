@@ -511,6 +511,9 @@ export async function startBaileysSession(
         void import("qrcode")
           .then(({ toDataURL }) => toDataURL(qr))
           .then((dataUrl) => {
+            // Encode QR berjalan async: koneksi bisa keburu terbuka duluan.
+            // Jangan mundurkan status sesi yang sudah connected.
+            if (current.status === "connected") return;
             current.qr = dataUrl;
             current.status = "qr";
             current.error = undefined;
@@ -521,6 +524,7 @@ export async function startBaileysSession(
           })
           .catch((err) => {
             logger.error(`[Baileys] QR encode failed ${sessionId}:`, err);
+            if (current.status === "connected") return;
             current.status = "error";
             current.error =
               err instanceof Error ? err.message : "Gagal encode QR";

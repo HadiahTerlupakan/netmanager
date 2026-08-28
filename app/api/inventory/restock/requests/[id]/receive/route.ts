@@ -29,6 +29,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
       purchaseRequestId: ctx.params.id,
       receivedItems: (body.items ?? {}) as Record<string, number>,
       substitutions: (body.substitutions ?? {}) as Record<string, string>,
+      cancellations: (body.cancellations ?? {}) as Record<string, string>,
       fotoBukti: (body.fotoBukti ?? []) as string[],
       closePO: Boolean(body.closePO),
       actorId: user.id as string,

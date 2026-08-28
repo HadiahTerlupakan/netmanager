@@ -13,6 +13,7 @@ export interface RestockPurchaseOrderItem {
   barangId: string;
   quantity: number;
   receivedQuantity: number;
+  cancelledQuantity: number;
   barang?: { id: string; nama: string } | null;
 }
 
@@ -37,6 +38,16 @@ export interface ApplyItemSubstitutionInput {
   }>;
 }
 
+export interface ApplyItemCancellationInput {
+  purchaseOrderId: string;
+  cancelledAt: Date;
+  cancellations: Array<{
+    purchaseOrderItemId: string;
+    cancelledQuantity: number;
+    reason: string;
+  }>;
+}
+
 export interface IRestockGoodsReceiptRepository {
   findPurchaseRequestForReceipt(
     id: string,
@@ -55,6 +66,10 @@ export interface IRestockGoodsReceiptRepository {
   ): Promise<BarangSubstitutionCandidate[]>;
 
   applyItemSubstitutions(input: ApplyItemSubstitutionInput): Promise<void>;
+
+  applyItemCancellations(input: ApplyItemCancellationInput): Promise<void>;
+
+  hasOutstandingItems(purchaseOrderId: string): Promise<boolean>;
 
   markPurchaseOrderReceived(
     purchaseOrderId: string,

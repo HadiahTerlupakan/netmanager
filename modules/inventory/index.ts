@@ -20,6 +20,7 @@ export * from "./services/RestockRequestService";
 export * from "./services/RestockJasaConfirmService";
 export * from "./services/RestockGoodsReceiptService";
 export * from "./services/RestockItemSubstitutionService";
+export * from "./services/RestockItemCancellationService";
 export { createRestockGoodsReceiptService } from "./factories/RestockGoodsReceiptFactory";
 export * from "./services/JasaService";
 export * from "./services/MobileInventoryService";

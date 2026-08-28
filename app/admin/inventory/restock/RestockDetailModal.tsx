@@ -54,6 +54,7 @@ export function RestockDetailModal({
                 const isNotSent =
                   request?.status === "RECEIVED" &&
                   (item.receivedQuantity || 0) === 0;
+                const cancelledQuantity = item.cancelledQuantity ?? 0;
 
                 return (
                   <div
@@ -69,10 +70,22 @@ export function RestockDetailModal({
                       <div className="text-xs text-gray-500">
                         {item.barang.kode}
                       </div>
-                      {isNotSent && (
+                      {isNotSent && !cancelledQuantity && (
                         <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-black uppercase rounded-lg">
                           Tidak Dikirim
                         </span>
+                      )}
+                      {cancelledQuantity > 0 && (
+                        <div className="mt-1">
+                          <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-600 text-[10px] font-black uppercase rounded-lg dark:bg-rose-900/40 dark:text-rose-300">
+                            Dianulir {cancelledQuantity} {item.barang.satuan}
+                          </span>
+                          {item.cancelReason && (
+                            <div className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                              Alasan: {item.cancelReason}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div className="text-right">

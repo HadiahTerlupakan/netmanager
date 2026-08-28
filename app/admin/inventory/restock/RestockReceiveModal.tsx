@@ -11,7 +11,13 @@ import {
 } from "@/components/inventory/PhotoUpload";
 
 import { RestockReceiveItemRow } from "./RestockReceiveItemRow";
-import type { Barang, PurchaseRequest, RestockSubstitutionMap } from "./types";
+import type {
+  Barang,
+  PurchaseRequest,
+  RestockCancellationMap,
+  RestockSubstitutionMap,
+} from "./types";
+import { hasIncompleteCancellationReason } from "./utils";
 
 interface RestockReceiveModalProps {
   request: PurchaseRequest | null;
@@ -20,6 +26,8 @@ interface RestockReceiveModalProps {
   barangs: Barang[];
   substitutions: RestockSubstitutionMap;
   onSubstitutionsChange: (substitutions: RestockSubstitutionMap) => void;
+  cancellations: RestockCancellationMap;
+  onCancellationsChange: (cancellations: RestockCancellationMap) => void;
   receivedPhotos: UploadedPhoto[];
   onReceivedPhotosChange: (photos: UploadedPhoto[]) => void;
   isFinishingPO: boolean;
@@ -37,6 +45,8 @@ export function RestockReceiveModal({
   barangs,
   substitutions,
   onSubstitutionsChange,
+  cancellations,
+  onCancellationsChange,
   receivedPhotos,
   onReceivedPhotosChange,
   isFinishingPO,
@@ -51,6 +61,21 @@ export function RestockReceiveModal({
   );
   const orderedBarangIds = (request?.items ?? []).map((item) => item.barangId);
   const substitutedCount = Object.keys(substitutions).length;
+  const cancelledCount = Object.keys(cancellations).length;
+  const hasIncompleteReason = hasIncompleteCancellationReason(cancellations);
+
+  const handleCancelReasonChange = (
+    barangId: string,
+    reason: string | null,
+  ) => {
+    const next = { ...cancellations };
+    if (reason === null) {
+      delete next[barangId];
+    } else {
+      next[barangId] = reason;
+    }
+    onCancellationsChange(next);
+  };
 
   const handleSubstituteChange = (
     originalBarangId: string,
@@ -65,9 +90,13 @@ export function RestockReceiveModal({
     onSubstitutionsChange(next);
   };
   const isSubmitDisabled =
-    submitting || receivedPhotos.length === 0 || !hasReceivedItem;
-  const disabledReason =
-    receivedPhotos.length === 0
+    submitting ||
+    receivedPhotos.length === 0 ||
+    !hasReceivedItem ||
+    hasIncompleteReason;
+  const disabledReason = hasIncompleteReason
+    ? "Lengkapi alasan anulir terlebih dahulu"
+    : receivedPhotos.length === 0
       ? "Unggah foto bukti terlebih dahulu"
       : "Minimal satu barang harus diterima";
 
@@ -113,6 +142,10 @@ export function RestockReceiveModal({
                 onSubstituteChange={(barangId) =>
                   handleSubstituteChange(item.barangId, barangId)
                 }
+                cancelReason={cancellations[item.barangId] ?? null}
+                onCancelReasonChange={(reason) =>
+                  handleCancelReasonChange(item.barangId, reason)
+                }
               />
             ))}
           </div>
@@ -131,6 +164,13 @@ export function RestockReceiveModal({
             />
           </div>
         </div>
+
+        {cancelledCount > 0 && (
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
+            {cancelledCount} barang dianulir. Sisa pesanannya ditutup beserta
+            alasannya, jumlah yang semula dipesan tetap tercatat di PO.
+          </div>
+        )}
 
         {substitutedCount > 0 && (
           <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">

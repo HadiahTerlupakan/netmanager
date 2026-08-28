@@ -205,9 +205,11 @@ describe("inventory restock request lifecycle routes", () => {
           barangId: "barang-1",
           quantity: 2,
           receivedQuantity: 0,
+          cancelledQuantity: 0,
         },
       ],
     });
+    prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
 
     mockGrnCreate.mockResolvedValue({ id: "grn-1", grnNumber: "GRN-001" });
     prismaMock.purchaseOrder.update.mockResolvedValue({ status: "RECEIVED" });
@@ -257,10 +259,12 @@ describe("inventory restock request lifecycle routes", () => {
           barangId: "barang-1",
           quantity: 2,
           receivedQuantity: 0,
+          cancelledQuantity: 0,
           barang: { id: "barang-1", nama: "Kabel Fiber" },
         },
       ],
     });
+    prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
     prismaMock.barang.findMany.mockResolvedValue([
       { id: "barang-9", nama: "Kabel Fiber Merek Lain" },
     ]);
@@ -329,6 +333,7 @@ describe("inventory restock request lifecycle routes", () => {
           barangId: "barang-1",
           quantity: 5,
           receivedQuantity: 2,
+          cancelledQuantity: 0,
           barang: { id: "barang-1", nama: "Kabel Fiber" },
         },
       ],
@@ -352,6 +357,164 @@ describe("inventory restock request lifecycle routes", () => {
 
     expect(response.status).toBe(400);
     expect(mockGrnCreate).not.toHaveBeenCalled();
+  });
+
+  it("cancels the outstanding quantity of an item that was not purchased", async () => {
+    prismaMock.$transaction.mockImplementation(async (callback: unknown) => {
+      if (typeof callback === "function") {
+        return callback(prismaMock);
+      }
+      return callback;
+    });
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+      id: "pr-1",
+      purchaseOrderId: "po-1",
+      gudangId: "gudang-1",
+      status: "ORDERED",
+      nomorRequest: "PR-20260714-0001",
+    });
+
+    prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+      id: "po-1",
+      poNumber: "PO-001",
+      status: "ORDERED",
+      items: [
+        {
+          id: "po-item-1",
+          barangId: "barang-1",
+          quantity: 10,
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          barang: { id: "barang-1", nama: "Kabel Fiber" },
+        },
+        {
+          id: "po-item-2",
+          barangId: "barang-2",
+          quantity: 5,
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          barang: { id: "barang-2", nama: "Kabel Dropcore" },
+        },
+      ],
+    });
+    prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
+
+    mockGrnCreate.mockResolvedValue({ id: "grn-1", grnNumber: "GRN-001" });
+    prismaMock.purchaseOrder.update.mockResolvedValue({ status: "RECEIVED" });
+    prismaMock.purchaseRequest.update.mockResolvedValue({});
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest(
+        "http://localhost/api/inventory/restock/requests/pr-1/receive",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            items: { "barang-1": 6, "barang-2": 0 },
+            cancellations: {
+              "barang-1": "Stok supplier kosong",
+              "barang-2": "Tidak dibelikan",
+            },
+            closePO: false,
+            fotoBukti: ["https://img.jpg"],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: "pr-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    // Sisa item yang dianulir tidak boleh ikut menambah stok lewat GRN.
+    expect(mockGrnCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          {
+            purchaseOrderItemId: "po-item-1",
+            barangId: "barang-1",
+            quantity: 6,
+          },
+        ],
+      }),
+    );
+    expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+      where: { id: "po-item-1" },
+      data: expect.objectContaining({
+        cancelledQuantity: { increment: 4 },
+        cancelReason: "Stok supplier kosong",
+      }),
+    });
+    expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+      where: { id: "po-item-2" },
+      data: expect.objectContaining({
+        cancelledQuantity: { increment: 5 },
+        cancelReason: "Tidak dibelikan",
+      }),
+    });
+  });
+
+  it("does not top up a cancelled item when the order is closed", async () => {
+    prismaMock.$transaction.mockImplementation(async (callback: unknown) => {
+      if (typeof callback === "function") {
+        return callback(prismaMock);
+      }
+      return callback;
+    });
+    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+      id: "pr-1",
+      purchaseOrderId: "po-1",
+      gudangId: "gudang-1",
+      status: "ORDERED",
+      nomorRequest: "PR-20260714-0001",
+    });
+
+    prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+      id: "po-1",
+      poNumber: "PO-001",
+      status: "ORDERED",
+      items: [
+        {
+          id: "po-item-1",
+          barangId: "barang-1",
+          quantity: 10,
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          barang: { id: "barang-1", nama: "Kabel Fiber" },
+        },
+      ],
+    });
+    prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
+
+    mockGrnCreate.mockResolvedValue({ id: "grn-1", grnNumber: "GRN-001" });
+    prismaMock.purchaseOrder.update.mockResolvedValue({ status: "RECEIVED" });
+    prismaMock.purchaseRequest.update.mockResolvedValue({});
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest(
+        "http://localhost/api/inventory/restock/requests/pr-1/receive",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            items: { "barang-1": 6 },
+            cancellations: { "barang-1": "Tidak dibelikan" },
+            closePO: true,
+            fotoBukti: ["https://img.jpg"],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: "pr-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGrnCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          {
+            purchaseOrderItemId: "po-item-1",
+            barangId: "barang-1",
+            quantity: 6,
+          },
+        ],
+      }),
+    );
   });
 
   it("maps request process to linked purchase order start-shopping helper", async () => {

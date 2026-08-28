@@ -41,6 +41,58 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-28] — Perbaiki race status sesi Baileys & test flaky di CI
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification/services/whatsapp`, `tests/modules/notification`
+- **Author**: agent
+- **Deskripsi**: Build Jenkins gagal di `baileys-session-manager.test.ts` (2 test) meski hijau di lokal.
+  Akar masalah: test menunggu inisialisasi sesi async dengan `setTimeout` tetap 50 ms — di agent CI
+  yang terbebani, handler `connection.update` belum terdaftar sehingga handler sesi lama bocor ke
+  test berikutnya. Diperparah mock `@/lib/redis` yang tidak menyediakan `brpop`/`lpush`/`expire`,
+  membuat cmd loop error-spam tiap detik dan tidak pernah berhenti antar test.
+  Perbaikan test: tunggu handler dengan `vi.waitFor` (bukan durasi tetap), lengkapi mock redis
+  sesuai kontrak cmd loop, dan hentikan sesi di `afterEach` supaya loop tidak bocor.
+  Perbaikan produksi: encode QR berjalan async dan bisa selesai setelah koneksi terbuka —
+  hasilnya status sesi mundur dari `connected` ke `qr`/`error`. Sekarang callback QR tidak
+  menimpa sesi yang sudah `connected`.
+- **Files**: `modules/notification/services/whatsapp/baileys-session-manager.ts`,
+  `tests/modules/notification/baileys-session-manager.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-08-28] — Anulir barang yang tidak jadi dibelikan saat verifikasi restock
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/inventory`, `modules/procurement`, `app/api/inventory/restock/requests/[id]/receive`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Saat verifikasi kedatangan, sisa pesanan barang yang tidak jadi dibelikan
+  sekarang bisa dianulir (short close) beserta alasannya — preset ("Tidak dibelikan",
+  "Stok supplier kosong", "Harga tidak sesuai", "Dibatalkan pemesan") atau alasan bebas.
+  Alasan disimpan di item PO (`cancelReason`, `cancelledAt`) dan sisa yang ditutup dicatat
+  di `cancelledQuantity`; quantity asli PO tidak diubah supaya riwayat pesanan tetap utuh.
+  Anulir dijalankan setelah GRN dibuat, dan barang yang dianulir tidak ikut digenapkan
+  saat "Tutup Pesanan" dicentang sehingga stok tidak menggelembung. `recomputePoStatus`
+  di GRN repository kini menghitung pesanan efektif (`quantity - cancelledQuantity`),
+  dan alur restock menutup PO/PR otomatis ketika tidak ada lagi sisa yang menggantung.
+  Alasan anulir tampil di modal verifikasi dan modal detail pengajuan. Setiap anulir
+  dicatat ke activity log (`CANCEL RestockItem`).
+- **Files**:
+  - `prisma/schema.prisma` — `PurchaseOrderItem.cancelledQuantity`, `cancelReason`, `cancelledAt`
+  - `modules/inventory/services/RestockItemCancellationService.ts` (baru) — aturan anulir
+  - `modules/inventory/services/RestockGoodsReceiptService.ts` — integrasi anulir + status settle
+  - `modules/inventory/domain/ports/IRestockGoodsReceiptRepository.ts`,
+    `modules/inventory/repositories/RestockGoodsReceiptRepository.ts`,
+    `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`
+  - `modules/procurement/repositories/GoodsReceiptRepository.ts` — status PO memperhitungkan anulir
+  - `app/admin/inventory/restock/RestockCancelReasonField.tsx` (baru),
+    `RestockReceiveItemRow.tsx`, `RestockReceiveModal.tsx`, `RestockDetailModal.tsx`,
+    `useRestockPage.ts`, `RestockList.tsx`, `utils.ts`, `types.ts`
+  - `tests/services/RestockItemCancellationService.test.ts` (baru),
+    `tests/api/inventory-restock-request-lifecycle-routes.test.ts`,
+    `tests/ui/restock-receive-modal.test.tsx`
+- **Migration**: `20260828080751_add_cancelled_quantity_to_purchase_order_items`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-28] — Substitusi barang saat verifikasi kedatangan restock
 
 - **Tipe**: [ADDED]

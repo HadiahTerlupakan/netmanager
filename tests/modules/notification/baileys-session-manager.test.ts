@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSendMessage = vi.fn();
 const mockEnd = vi.fn();
@@ -7,12 +7,20 @@ const mockSaveCreds = vi.fn();
 const mockRedisGet = vi.fn().mockResolvedValue(null);
 const mockRedisSet = vi.fn().mockResolvedValue("OK");
 const mockRedisDel = vi.fn().mockResolvedValue(1);
+// cmd loop memakai brpop/lpush/expire — tanpa ini loop error-spam tiap detik
+// dan sesi ikut kotor antar test.
+const mockRedisBrpop = vi.fn().mockResolvedValue(null);
+const mockRedisLpush = vi.fn().mockResolvedValue(1);
+const mockRedisExpire = vi.fn().mockResolvedValue(1);
 
 vi.mock("@/lib/redis", () => ({
   redis: {
     get: mockRedisGet,
     set: mockRedisSet,
     del: mockRedisDel,
+    brpop: mockRedisBrpop,
+    lpush: mockRedisLpush,
+    expire: mockRedisExpire,
   },
 }));
 
@@ -40,6 +48,48 @@ vi.mock("qrcode", () => ({
   toDataURL: vi.fn(async () => "data:image/png;base64,qr"),
 }));
 
+type SessionManager =
+  typeof import("@/modules/notification/services/whatsapp/baileys-session-manager");
+type ConnectionHandler = (update: { connection?: string; qr?: string }) => void;
+
+let startedSessions: Array<{ manager: SessionManager; sessionId: string }> = [];
+
+/**
+ * Menunggu handler connection.update benar-benar terdaftar. Inisialisasi sesi
+ * async (import baileys + load auth state), jadi menunggu durasi tetap bikin
+ * test flaky di mesin CI yang lambat.
+ */
+async function waitForConnectionHandler(): Promise<ConnectionHandler> {
+  return vi.waitFor(() => {
+    const handler = mockOn.mock.calls.find(
+      (call) => call[0] === "connection.update",
+    )?.[1] as ConnectionHandler | undefined;
+    if (typeof handler !== "function") {
+      throw new Error("connection.update handler belum terdaftar");
+    }
+    return handler;
+  });
+}
+
+/** Jalankan sesi sampai berstatus connected, tanpa bergantung pada timing. */
+async function startConnectedSession(
+  manager: SessionManager,
+  sessionId: string,
+): Promise<void> {
+  startedSessions.push({ manager, sessionId });
+  const startPromise = manager.startBaileysSession(sessionId);
+  const connectionHandler = await waitForConnectionHandler();
+
+  connectionHandler({ qr: "fake-qr" });
+  await startPromise;
+  connectionHandler({ connection: "open" });
+
+  await vi.waitFor(async () => {
+    const info = await manager.getBaileysSession(sessionId);
+    expect(info.status).toBe("connected");
+  });
+}
+
 describe("baileys-session-manager", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -50,6 +100,17 @@ describe("baileys-session-manager", () => {
     mockRedisGet.mockReset().mockResolvedValue(null);
     mockRedisSet.mockReset().mockResolvedValue("OK");
     mockRedisDel.mockReset().mockResolvedValue(1);
+    mockRedisBrpop.mockReset().mockResolvedValue(null);
+    mockRedisLpush.mockReset().mockResolvedValue(1);
+    mockRedisExpire.mockReset().mockResolvedValue(1);
+    startedSessions = [];
+  });
+
+  afterEach(async () => {
+    // Hentikan cmd loop & interval sesi supaya tidak bocor ke test berikutnya.
+    for (const { manager, sessionId } of startedSessions) {
+      await manager.stopBaileysSession(sessionId);
+    }
   });
 
   it("starts disconnected and reports status after start", async () => {
@@ -59,15 +120,11 @@ describe("baileys-session-manager", () => {
     const initialInfo = await manager.getBaileysSession("acc-1");
     expect(initialInfo.status).toBe("disconnected");
 
+    startedSessions.push({ manager, sessionId: "acc-1" });
     const startPromise = manager.startBaileysSession("acc-1");
-    await new Promise((r) => setTimeout(r, 50));
+    const connectionHandler = await waitForConnectionHandler();
 
-    const connectionHandler = mockOn.mock.calls.find(
-      (call) => call[0] === "connection.update",
-    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
-    expect(connectionHandler).toBeTypeOf("function");
-
-    connectionHandler?.({ qr: "fake-qr-string" });
+    connectionHandler({ qr: "fake-qr-string" });
     const info = await startPromise;
     expect(["qr", "connecting"]).toContain(info.status);
   });
@@ -89,16 +146,7 @@ describe("baileys-session-manager", () => {
     const manager =
       await import("@/modules/notification/services/whatsapp/baileys-session-manager");
 
-    const startPromise = manager.startBaileysSession("acc-2");
-    await new Promise((r) => setTimeout(r, 50));
-
-    const connectionHandler = mockOn.mock.calls.find(
-      (call) => call[0] === "connection.update",
-    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
-
-    connectionHandler?.({ qr: "fake-qr" });
-    await startPromise;
-    connectionHandler?.({ connection: "open" });
+    await startConnectedSession(manager, "acc-2");
 
     mockSendMessage.mockResolvedValue({ key: { id: "msg-1" } });
     const result = await manager.sendBaileysMessage(
@@ -122,16 +170,7 @@ describe("baileys-session-manager", () => {
     const manager =
       await import("@/modules/notification/services/whatsapp/baileys-session-manager");
 
-    const startPromise = manager.startBaileysSession("acct-xyz");
-    await new Promise((r) => setTimeout(r, 50));
-
-    const connectionHandler = mockOn.mock.calls.find(
-      (call) => call[0] === "connection.update",
-    )?.[1] as ((u: { connection?: string; qr?: string }) => void) | undefined;
-
-    connectionHandler?.({ qr: "fake-qr" });
-    await startPromise;
-    connectionHandler?.({ connection: "open" });
+    await startConnectedSession(manager, "acct-xyz");
 
     mockSendMessage.mockResolvedValue({ key: { id: "msg-2" } });
 
