@@ -50,4 +50,7 @@ export interface IAttendanceRepository {
 
   /** Create attendance record. */
   create(params: Prisma.AttendanceUncheckedCreateInput): Promise<unknown>;
+  createReplacingSystemGenerated(
+    params: Prisma.AttendanceUncheckedCreateInput,
+  ): Promise<unknown>;
 }

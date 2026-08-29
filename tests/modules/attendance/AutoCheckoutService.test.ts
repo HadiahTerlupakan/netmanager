@@ -28,6 +28,9 @@ describe("AutoCheckoutService semantics", () => {
     vi.mocked(getTimezone).mockResolvedValue("Asia/Jakarta");
     vi.mocked(addAttendanceAutoCheckoutJob).mockResolvedValue(undefined);
     vi.mocked(removeFailedAttendanceAutoCheckoutJob).mockResolvedValue(false);
+    prismaMock.attendanceEvaluation.upsert.mockResolvedValue({
+      id: "eval-1",
+    } as never);
     prismaMock.attendance.findMany.mockResolvedValue([
       {
         id: "att-1",

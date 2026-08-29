@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { prismaMock } from "../../setup";
 import { AttendanceService } from "@/modules/attendance";
 import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
 
@@ -13,6 +14,9 @@ vi.mock("@/modules/events", () => ({
 describe("AttendanceService flexible checkout warning", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    prismaMock.attendanceEvaluation.upsert.mockResolvedValue({
+      id: "eval-1",
+    } as never);
   });
 
   it("calculates warning from offlineTime when provided", async () => {

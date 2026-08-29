@@ -135,6 +135,7 @@ async function createAutoAlphaAttendance(
     userId: user.id,
     tenantId: user.tenantId!,
     checkIn: new Date(startOfDay),
+    checkInDate: new Date(startOfDay),
     status: "ABSENT",
     notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
     location: "System",

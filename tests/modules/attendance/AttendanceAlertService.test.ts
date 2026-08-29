@@ -313,6 +313,7 @@ describe("AttendanceAlertService", () => {
         notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
         location: "System",
         checkIn: new Date(2026, 2, 9, 0, 0, 0, 0),
+        checkInDate: new Date(2026, 2, 9, 0, 0, 0, 0),
         updatedAt: expect.any(Date),
         id: expect.any(String),
       }),

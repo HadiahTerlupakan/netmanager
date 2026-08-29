@@ -178,11 +178,13 @@ export class AbsenceService {
     tenantId: string;
   }) {
     try {
+      const dayOffTime = new Date(toStartOfDay(input.startOfDay));
       await this.attendanceRepo.create({
         id: randomUUID(),
         userId: input.user.id,
         tenantId: input.tenantId,
-        checkIn: new Date(toStartOfDay(input.startOfDay)),
+        checkIn: dayOffTime,
+        checkInDate: dayOffTime,
         status: "DAY_OFF",
         notes: input.isHoliday ? DAY_OFF_HOLIDAY_NOTE : DAY_OFF_REGULAR_NOTE,
         location: SYSTEM_LOCATION,
@@ -211,6 +213,7 @@ export class AbsenceService {
         userId: input.user.id,
         tenantId: input.tenantId,
         checkIn: alphaTime,
+        checkInDate: alphaTime,
         status: "ABSENT",
         notes: ABSENT_NOTE,
         location: SYSTEM_LOCATION,

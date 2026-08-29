@@ -193,6 +193,7 @@ export class AdminAttendanceBackdateRouteService {
       userId: input.user.id,
       tenantId: input.tenantId,
       checkIn: new Date(input.dayStart),
+      checkInDate: new Date(input.dayStart),
       status: ABSENT_STATUS,
       notes: ABSENT_NOTE,
       location: SYSTEM_LOCATION,

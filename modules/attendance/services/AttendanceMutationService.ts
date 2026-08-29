@@ -173,7 +173,9 @@ export class AttendanceMutationService {
       status,
     );
     try {
-      return await this.attendanceRepo.create(createData);
+      return await this.attendanceRepo.createReplacingSystemGenerated(
+        createData,
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -1,6 +1,37 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, type AttendanceStatus } from "@prisma/client";
 
+/**
+ * Input pembuatan attendance sistem (absent, day off, leave sync, backdate).
+ *
+ * `checkInDate` wajib: unique index (userId, checkInDate, tenantId) adalah
+ * satu-satunya proteksi duplikat per hari, dan Postgres memperlakukan NULL
+ * sebagai nilai distinct sehingga baris ber-checkInDate NULL selalu lolos.
+ */
+export type CreateAttendanceWithIdInput = {
+  id: string;
+  userId: string;
+  tenantId: string;
+  checkIn: Date;
+  checkInDate: Date;
+  status: AttendanceStatus;
+  notes: string;
+  location: string;
+  updatedAt: Date;
+};
+
+/**
+ * Status placeholder harian yang dibuat sistem, bukan hasil kehadiran nyata.
+ * PERMIT/SICK sengaja dikecualikan: itu keputusan persetujuan cuti, bukan tebakan.
+ */
+const LATE_ATTENDANCE_REPLACEMENT_SOURCE = "LATE_ATTENDANCE_REPLACEMENT";
+
+const SYSTEM_GENERATED_PLACEHOLDER_STATUSES = [
+  "ABSENT",
+  "ALPHA",
+  "DAY_OFF",
+] as const;
+
 export class AttendanceCrudRepository {
   /** Cari attendance tunggal dengan argumen Prisma. */
   async findUnique<T extends Prisma.AttendanceFindUniqueArgs>(
@@ -65,6 +96,36 @@ export class AttendanceCrudRepository {
     return prisma.attendance.create({ data });
   }
 
+  /**
+   * Buat baris check-in sambil melepas placeholder harian buatan sistem.
+   *
+   * Dipakai saat kehadiran nyata tiba setelah cron membuat ABSENT/DAY_OFF —
+   * lazim pada sinkronisasi offline yang telat. Placeholder ditandai corrected
+   * dan dilepas dari slot hariannya (checkInDate = null) agar unique index
+   * (userId, checkInDate, tenantId) menerima baris kehadiran yang baru.
+   */
+  async createReplacingSystemGenerated(
+    data: Prisma.AttendanceUncheckedCreateInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      await tx.attendance.updateMany({
+        where: {
+          userId: data.userId,
+          tenantId: data.tenantId,
+          checkInDate: data.checkInDate,
+          correctedAt: null,
+          status: { in: [...SYSTEM_GENERATED_PLACEHOLDER_STATUSES] },
+        },
+        data: {
+          correctedAt: new Date(),
+          checkInDate: null,
+          correctionSource: LATE_ATTENDANCE_REPLACEMENT_SOURCE,
+        },
+      });
+      return tx.attendance.create({ data });
+    });
+  }
+
   /** Cari attendance user pada rentang tanggal. */
   async findFirstByUserAndDateRange(input: {
     userId: string;
@@ -82,22 +143,14 @@ export class AttendanceCrudRepository {
   }
 
   /** Buat attendance dengan id eksplisit. */
-  async createWithId(data: {
-    id: string;
-    userId: string;
-    tenantId: string;
-    checkIn: Date;
-    status: AttendanceStatus;
-    notes: string;
-    location: string;
-    updatedAt: Date;
-  }) {
+  async createWithId(data: CreateAttendanceWithIdInput) {
     return prisma.attendance.create({
       data: {
         id: data.id,
         userId: data.userId,
         tenantId: data.tenantId,
         checkIn: data.checkIn,
+        checkInDate: data.checkInDate,
         status: data.status,
         notes: data.notes,
         location: data.location,

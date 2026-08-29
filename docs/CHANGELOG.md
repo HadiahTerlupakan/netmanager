@@ -41,6 +41,48 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-29] — Perbaiki attendance duplikat pada hari yang sama
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`, `prisma/migrations`
+- **Author**: agent
+- **Deskripsi**: Baris Attendance bisa terduplikasi pada hari yang sama (12 kejadian di
+  produksi). Akar masalah: seluruh jalur pembuatan attendance buatan sistem (auto ABSENT,
+  DAY_OFF, sinkronisasi cuti, backdate admin) tidak mengisi `checkInDate`, sehingga unique
+  index `idx_attendance_user_checkin_date_tenant` tidak pernah aktif untuk baris tersebut —
+  Postgres memperlakukan NULL sebagai nilai yang selalu distinct. Pemicunya check-in offline
+  yang tersinkron beberapa jam setelah cron auto-ABSENT berjalan.
+  Perbaikan: (1) `createWithId` di repository kini mewajibkan `checkInDate` sehingga
+  compiler menahan jalur yang lupa mengisinya, dan keenam titik pembuatan diperbaiki;
+  (2) check-in memakai `createReplacingSystemGenerated` yang secara atomik melepas
+  placeholder harian buatan sistem (ABSENT/ALPHA/DAY_OFF — cuti PERMIT/SICK tidak disentuh)
+  sebelum menulis baris kehadiran, sehingga kehadiran nyata menggantikan tebakan sistem
+  tanpa menghapus jejak audit; (3) migration mengisi 1.222 baris `checkInDate` NULL dan
+  melepas 12 baris duplikat yang sudah terlanjur ada.
+- **Files**: `modules/attendance/repositories/AttendanceCrudRepository.ts`,
+  `modules/attendance/services/AttendanceMutationService.ts`,
+  `modules/attendance/services/AbsenceService.ts`,
+  `modules/attendance/services/AttendanceFixedAutoAlphaService.ts`,
+  `modules/attendance/services/AbsenceDayOffSyncService.ts`,
+  `modules/attendance/services/LeaveAttendanceSyncService.ts`,
+  `modules/attendance/services/AdminAttendanceBackdateRouteService.ts`
+- **Migration**: `20260829000000_backfill_attendance_checkin_date_and_supersede_duplicates`
+- **Breaking**: ❌ Tidak
+
+### [2026-08-29] — Pulihkan implementasi mock $transaction di test setup
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/`
+- **Author**: agent
+- **Deskripsi**: `mockReset` global menghapus implementasi `$transaction` pada prismaMock,
+  sehingga setiap kode yang berjalan di dalam transaksi tidak pernah dieksekusi dan
+  mengembalikan `undefined` secara diam-diam. Test yang melewati jalur transaksional
+  karenanya lulus tanpa benar-benar menguji isinya. Implementasi kini dipasang ulang di
+  `beforeEach`, dan mock yang kurang pada jalur evaluasi attendance dilengkapi.
+- **Files**: `tests/setup.ts`, `tests/modules/attendance/AutoCheckoutService.test.ts`,
+  `tests/modules/attendance/AttendanceService.checkout-warning.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-28] — Perbaiki race status sesi Baileys & test flaky di CI
 
 - **Tipe**: [FIXED]

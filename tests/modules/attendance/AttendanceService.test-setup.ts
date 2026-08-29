@@ -37,6 +37,9 @@ vi.mock("@/modules/attendance/repositories/AttendanceRepository", () => ({
   AttendanceRepository: class MockAttendanceRepository {
     findMany = vi.fn((params) => prismaMock.attendance.findMany(params));
     create = vi.fn((data) => prismaMock.attendance.create({ data }));
+    createReplacingSystemGenerated = vi.fn((data) =>
+      prismaMock.attendance.create({ data }),
+    );
     update = vi.fn((id, data) =>
       prismaMock.attendance.update({ where: { id }, data }),
     );

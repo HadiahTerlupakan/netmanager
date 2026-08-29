@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { AttendanceStatus } from "@prisma/client";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
+import type { CreateAttendanceWithIdInput } from "./AttendanceCrudRepository";
 import { AttendanceCorrectionRepository } from "./AttendanceCorrectionRepository";
 import { AttendanceReminderRepository } from "./AttendanceReminderRepository";
 import { AttendanceSessionRepository } from "./AttendanceSessionRepository";
@@ -98,6 +99,13 @@ export class AttendanceRepositoryFacade
     return this.crudRepository.create(data);
   }
 
+  /** Buat check-in sambil melepas placeholder harian buatan sistem. */
+  async createReplacingSystemGenerated(
+    data: Prisma.AttendanceUncheckedCreateInput,
+  ) {
+    return this.crudRepository.createReplacingSystemGenerated(data);
+  }
+
   async findFirstByUserAndDateRange(
     userId: string,
     tenantId: string,
@@ -134,16 +142,7 @@ export class AttendanceRepositoryFacade
     return this.reminderRepository.findActiveFlexibleSessionsWithUser();
   }
 
-  async createWithId(data: {
-    id: string;
-    userId: string;
-    tenantId: string;
-    checkIn: Date;
-    status: AttendanceStatus;
-    notes: string;
-    location: string;
-    updatedAt: Date;
-  }) {
+  async createWithId(data: CreateAttendanceWithIdInput) {
     return this.crudRepository.createWithId(data);
   }
 

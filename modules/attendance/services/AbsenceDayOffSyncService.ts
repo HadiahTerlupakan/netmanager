@@ -121,6 +121,7 @@ export class AbsenceDayOffSyncService {
       userId,
       tenantId,
       checkIn,
+      checkInDate: checkIn,
       status: "DAY_OFF",
       notes: this.getDayOffNote(isHoliday),
       location: "System",

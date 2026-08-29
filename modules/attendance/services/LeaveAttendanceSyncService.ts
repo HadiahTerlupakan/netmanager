@@ -144,11 +144,13 @@ export class LeaveAttendanceSyncService {
     date: Date,
     status: AttendanceStatus,
   ) {
+    const startOfDay = this.getStartDate(date);
     await this.attendanceRepository.createWithId({
       id: crypto.randomUUID(),
       userId: leave.userId,
       tenantId: leave.tenantId,
-      checkIn: this.getStartDate(date),
+      checkIn: startOfDay,
+      checkInDate: startOfDay,
       status,
       notes: `Auto-generated from Leave Request (${leave.type})`,
       location: "System (Auto-Sync)",

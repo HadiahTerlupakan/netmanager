@@ -213,6 +213,15 @@ beforeEach(() => {
   const pMock = prismaMock as MockPrismaClient;
   mockReset(pMock as unknown as { [key: string]: unknown });
 
+  // mockReset menghapus implementasi $transaction; pasang ulang supaya callback
+  // transaksi tetap dijalankan terhadap prismaMock yang sama.
+  (pMock as unknown as { $transaction: Mock }).$transaction.mockImplementation(
+    (callback: unknown) =>
+      typeof callback === "function"
+        ? (callback as (tx: unknown) => unknown)(pMock)
+        : Promise.resolve(callback),
+  );
+
   // Reset all cached model mocks
   if (pMock._cache) {
     pMock._cache.forEach((model: MockModel) => {
