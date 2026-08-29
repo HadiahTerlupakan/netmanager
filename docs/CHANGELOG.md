@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-08-29] — Sinkronisasi antrean offline mobile & status duplikat check-in
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`, `app/api/attendance/check-in`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Dua celah yang menyebabkan absensi offline terlambat masuk — pemicu asli
+  duplikat attendance.
+  (1) Di mobile, `SyncService.processQueue()` hanya dipicu transisi state jaringan; tidak
+  ada drain saat app start maupun saat app kembali foreground. Bila jaringan sudah stabil
+  ketika app dibuka, atau pulih saat app di background, antrean absensi diam sampai
+  kebetulan ada perubahan jaringan berikutnya — jeda 30 menit sampai 5 jam pada data
+  produksi. Ditambahkan drain saat `startMonitoring` dan listener `AppState` 'active',
+  keduanya lewat debounce bersama.
+  (2) Backend memetakan `DUPLICATE_ENTRY` ke HTTP 400, sedangkan antrean mobile hanya
+  merekonsiliasi 409/422 dan membuang item ber-status 400 sebagai permanent failure —
+  absensi hilang diam-diam dengan notifikasi "Gagal Sync Absensi". Status diubah ke 409,
+  selaras dengan `ALREADY_CHECKED_IN` di `lib/api-response.ts` yang sudah memakai 409.
+- **Files**: `modules/attendance/services/MobileAttendanceCheckInRouteService.ts`,
+  `app/api/attendance/check-in/route.ts`, `mobile-netmanager/src/services/SyncService.ts`
+- **Breaking**: ❌ Tidak — client memperlakukan 4xx sebagai gagal; 409 justru mengaktifkan
+  jalur rekonsiliasi yang sudah ada di mobile.
+
 ### [2026-08-29] — Perbaiki attendance duplikat pada hari yang sama
 
 - **Tipe**: [FIXED]

@@ -197,10 +197,12 @@ export class MobileAttendanceCheckInRouteService {
       );
     }
     if (error.message === "DUPLICATE_ENTRY") {
+      // 409 (bukan 400): antrean offline mobile merekonsiliasi 409/422 dan
+      // membuang item ber-status 400 sebagai permanent failure.
       return this.fail(
         "Anda sudah melakukan check-in hari ini",
         ErrorCodes.ALREADY_CHECKED_IN,
-        400,
+        409,
       );
     }
     if (error.message.startsWith("CHECKIN_REJECTED:")) {

@@ -128,6 +128,39 @@ describe("MobileAttendanceCheckInRouteService", () => {
     expect(attendance.checkIn).not.toHaveBeenCalled();
   });
 
+  it("mengembalikan 409 ketika check-in duplikat, bukan 400", async () => {
+    // 409 adalah status yang direkonsiliasi antrean offline mobile; 400
+    // diklasifikasikan sebagai permanent failure sehingga absensi dibuang.
+    const { attendance, service } = createService();
+    attendance.checkIn.mockRejectedValue(new Error("DUPLICATE_ENTRY"));
+    const request = new Request(
+      "http://localhost/api/mobile/attendance/check-in",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          host: "localhost:3000",
+        },
+        body: JSON.stringify({
+          location: "Kantor",
+          latitude: -6.2,
+          longitude: 106.8,
+        }),
+      },
+    );
+
+    const result = await service.checkIn({
+      request,
+      user: { id: "user-1", tenantId: "tenant-1" },
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      status: 409,
+      code: "ALREADY_CHECKED_IN",
+    });
+  });
+
   it("mengembalikan replay ketika idempotency sudah completed", async () => {
     const { attendance, idempotency, service } = createService();
     idempotency.begin.mockResolvedValue("completed");

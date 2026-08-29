@@ -106,12 +106,14 @@ export async function POST(request: NextRequest) {
 
     // Handle Custom Service Errors
     if (errorMessage === "DUPLICATE_ENTRY") {
+      // 409 selaras dengan ALREADY_CHECKED_IN di lib/api-response.ts, dan
+      // merupakan status yang direkonsiliasi antrean offline mobile.
       return NextResponse.json(
         {
           error: "Anda sudah melakukan check-in hari ini",
           code: "DUPLICATE_ENTRY",
         },
-        { status: 400 },
+        { status: 409 },
       );
     }
     if (errorMessage === "INVALID_COORDINATES") {
