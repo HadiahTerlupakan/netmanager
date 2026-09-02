@@ -7,10 +7,12 @@ import {
   createHandler,
 } from "@/lib/api";
 import { sendInvoiceForRoute } from "@/modules/finance";
+import { INVOICE_WRITE_PERMISSIONS } from "@/lib/api/financial-permissions";
 
 export const POST = createHandler(
   {
     auth: true,
+    permissions: INVOICE_WRITE_PERMISSIONS,
     schema: sendInvoiceSchema,
   },
   async (_req, ctx) => {

@@ -41,6 +41,65 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Tutup celah RBAC pada endpoint finansial
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/finance`, `app/api/invoices`, `app/api/payments`, `lib/api`
+- **Author**: agent
+- **Deskripsi**: Audit lanjutan menemukan perbaikan RBAC sebelumnya hanya menutup
+  satu endpoint baca, sementara endpoint finansial yang MEMUTASI uang masih polos.
+  `createHandler` tidak pernah memeriksa role maupun `accessAdminPanel`, dan repo ini
+  tidak punya `middleware.ts` — sehingga `auth: true` saja hanya membuktikan
+  "principal terautentikasi". Token mobile karyawan berprivilese rendah (mis. Teknisi,
+  yang hanya punya permission `m_*`) lolos ke setiap route ber-`auth: true`.
+  Sepuluh route diberi gerbang kapabilitas: `finance/transfer`, `finance/pay-po`,
+  `finance/accounts` (GET+POST), `finance/unmatched-mutations` (GET+POST),
+  `finance/rab-projects/[id]/revisions/[revisionId]` (GET+PATCH), `invoices` (GET+POST),
+  `invoices/[id]` (GET+PUT+DELETE), `invoices/[id]/send`, `payments/[id]`, dan
+  `admin/pelanggan/[id]/invoices`. Tanpa ini, teknisi dapat menandai invoice `PAID`
+  tanpa payment, menghapus invoice, memindahkan saldo antar akun, dan menerapkan
+  mutasi bank ke tagihan siapa pun.
+  Permission dipilih dari gerbang halaman yang sudah memakai endpoint tersebut
+  (`/admin/finance/**` → `finance:read`, `/admin/pengaturan/payment-gateway` →
+  `payment_gateway:read`, `/admin/pelanggan/**` → `pelanggan:read`/`ppp:read`),
+  sehingga tidak ada pengguna yang selama ini sah jadi terkunci.
+- **Files**: `lib/api/financial-permissions.ts`, sepuluh route di atas
+- **Breaking**: ❌ Tidak — nol pemanggil dari app mobile; seluruh konsumen adalah
+  frontend web admin berbasis sesi yang sudah memegang permission tersebut
+
+### [2026-09-02] — Tes arsitektur: setiap route finansial wajib berpagar
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/architecture`
+- **Author**: agent
+- **Deskripsi**: Menambah `financial-route-authorization.test.ts` yang memindai 84
+  route finansial di `app/api/**` dan menggagalkan build bila ada yang hanya
+  ber-`auth: true`. Tes mengenali tiga bentuk gerbang yang dipakai repo ini
+  (`permissions:` option berupa array maupun konstanta, `hasPermission(...)`, dan
+  `ctx.permissions.includes(...)`), dan sengaja TIDAK menghitung `site_only` /
+  `department_only` sebagai gerbang karena keduanya membatasi cakupan data, bukan
+  kapabilitas — persis kekeliruan yang membuat route invoice tampak terlindungi.
+  Diverifikasi merah lebih dulu (10 route), dan diuji ulang dengan menghapus satu
+  guard untuk memastikan benar-benar menangkap regresi.
+- **Files**: `tests/architecture/financial-route-authorization.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Koreksi: threat model RBAC analytics salah disebut pelanggan
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Entry `[SECURITY]` sebelumnya menyatakan token mobile PELANGGAN bisa
+  membaca omzet tenant lewat `/api/billing/analytics`. Itu keliru — token pelanggan
+  diblokir dua lapis: `generatePelangganAccessToken` memakai `audience:
+  "pelanggan-portal"` yang divalidasi di `getMobileTokenDetails`, dan
+  `verifyCustomerToken` menolaknya karena `Pelanggan.tokenVersion` default `1`
+  sedangkan token itu tidak memuat klaim `tokenVersion` sama sekali (`?? 0`).
+  Penyerang yang sebenarnya adalah karyawan berprivilese rendah dengan token mobile
+  yang sah. Perbaikan `finance:read` tetap benar dan perlu; hanya threat model-nya
+  yang dikoreksi.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — VOID_AND_CREATE_NEW benar-benar membatalkan tagihan lama
 
 - **Tipe**: [FIXED]

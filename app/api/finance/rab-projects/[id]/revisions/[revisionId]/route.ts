@@ -51,62 +51,71 @@ const updateRevisionSchema = z.object({
 
 const rabRevisionRouteService = new RabRevisionRouteService();
 
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const user = ctx.session!.user;
+export const GET = createHandler(
+  { auth: true, permissions: ["expense:read", "mixradius_expenses:read"] },
+  async (_req, ctx) => {
+    const user = ctx.session!.user;
 
-  try {
-    await rabRevisionRouteService.assertRevisionAccess(user);
+    try {
+      await rabRevisionRouteService.assertRevisionAccess(user);
 
-    const revision = await rabRevisionRouteService.getRevision(
-      ctx.params.id,
-      ctx.params.revisionId,
-    );
+      const revision = await rabRevisionRouteService.getRevision(
+        ctx.params.id,
+        ctx.params.revisionId,
+      );
 
-    return apiSuccess(revision);
-  } catch (error) {
-    if (isRouteServiceError(error) && error.status === 403) {
-      return ApiErrors.forbidden(error.message);
+      return apiSuccess(revision);
+    } catch (error) {
+      if (isRouteServiceError(error) && error.status === 403) {
+        return ApiErrors.forbidden(error.message);
+      }
+
+      if (isRouteServiceError(error) && error.status === 404) {
+        return ApiErrors.notFound(error.message);
+      }
+
+      throw error;
     }
+  },
+);
 
-    if (isRouteServiceError(error) && error.status === 404) {
-      return ApiErrors.notFound(error.message);
+export const PATCH = createHandler(
+  {
+    auth: true,
+    permissions: ["expense:update", "mixradius_expenses:update"],
+  },
+  async (req, ctx) => {
+    const user = ctx.session!.user;
+    const payload = updateRevisionSchema.parse(await req.json());
+
+    try {
+      await rabRevisionRouteService.assertRevisionAccess(user);
+      const revision = await rabRevisionRouteService.updateRevision({
+        projectId: ctx.params.id,
+        revisionId: ctx.params.revisionId,
+        notes: payload.notes,
+        projectedOpex: payload.projectedOpex,
+        items: payload.items?.map((item) => ({
+          ...item,
+          unitPrice: item.unitPrice,
+        })),
+      });
+
+      return apiSuccess(revision);
+    } catch (error) {
+      if (isRouteServiceError(error) && error.status === 403) {
+        return ApiErrors.forbidden(error.message);
+      }
+
+      if (isRouteServiceError(error) && error.status === 404) {
+        return ApiErrors.notFound(error.message);
+      }
+
+      if (isRouteServiceError(error) && error.status === 400) {
+        return ApiErrors.badRequest(error.message);
+      }
+
+      throw error;
     }
-
-    throw error;
-  }
-});
-
-export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user;
-  const payload = updateRevisionSchema.parse(await req.json());
-
-  try {
-    await rabRevisionRouteService.assertRevisionAccess(user);
-    const revision = await rabRevisionRouteService.updateRevision({
-      projectId: ctx.params.id,
-      revisionId: ctx.params.revisionId,
-      notes: payload.notes,
-      projectedOpex: payload.projectedOpex,
-      items: payload.items?.map((item) => ({
-        ...item,
-        unitPrice: item.unitPrice,
-      })),
-    });
-
-    return apiSuccess(revision);
-  } catch (error) {
-    if (isRouteServiceError(error) && error.status === 403) {
-      return ApiErrors.forbidden(error.message);
-    }
-
-    if (isRouteServiceError(error) && error.status === 404) {
-      return ApiErrors.notFound(error.message);
-    }
-
-    if (isRouteServiceError(error) && error.status === 400) {
-      return ApiErrors.badRequest(error.message);
-    }
-
-    throw error;
-  }
-});
+  },
+);

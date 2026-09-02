@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import {
+  INVOICE_READ_PERMISSIONS,
+  INVOICE_WRITE_PERMISSIONS,
+} from "@/lib/api/financial-permissions";
 import { isSuperAdmin } from "@/lib/auth";
 import {
   deleteInvoiceForRoute,
@@ -51,7 +55,7 @@ const updateSchema = z.object({
 });
 
 export const GET = createHandler(
-  { auth: true },
+  { auth: true, permissions: INVOICE_READ_PERMISSIONS },
   async (_req: NextRequest, ctx) => {
     const invoice = await getInvoiceForRoute({
       invoiceId: ctx.params.id,
@@ -68,7 +72,7 @@ export const GET = createHandler(
 );
 
 export const PUT = createHandler(
-  { auth: true },
+  { auth: true, permissions: INVOICE_WRITE_PERMISSIONS },
   async (req: NextRequest, ctx) => {
     const body = await req.json();
     const validatedData = updateSchema.parse(body);
@@ -92,7 +96,7 @@ export const PUT = createHandler(
 );
 
 export const DELETE = createHandler(
-  { auth: true },
+  { auth: true, permissions: INVOICE_WRITE_PERMISSIONS },
   async (_req: NextRequest, ctx) => {
     const deleted = await deleteInvoiceForRoute({
       invoiceId: ctx.params.id,

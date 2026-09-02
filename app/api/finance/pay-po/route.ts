@@ -16,6 +16,7 @@ const payPoSchema = z.object({
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["finance:read"],
     schema: payPoSchema,
   },
   async (req, ctx) => {

@@ -14,6 +14,7 @@ const transferSchema = z.object({
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["treasury:update", "finance:read"],
     schema: transferSchema,
   },
   async (req, ctx) => {

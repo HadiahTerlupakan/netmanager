@@ -1,6 +1,10 @@
 import { logger } from "@/lib/logger";
 import { invoiceSchema } from "@/lib/validations/invoice";
 import { hasPermission } from "@/lib/rbac";
+import {
+  INVOICE_READ_PERMISSIONS,
+  INVOICE_WRITE_PERMISSIONS,
+} from "@/lib/api/financial-permissions";
 import { isSuperAdmin } from "@/lib/auth";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
@@ -9,27 +13,31 @@ import {
   mapInvoiceRouteError,
 } from "@/modules/finance";
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const { searchParams } = req.nextUrl;
-  const user = ctx.session!.user;
-  const result = await listInvoicesForRoute({
-    filters: {
-      status: searchParams.get("status"),
-      pelangganId: searchParams.get("pelangganId"),
-      page: parseInt(searchParams.get("page") || "1"),
-      limit: parseInt(searchParams.get("limit") || "20"),
-      search: searchParams.get("search"),
-    },
-    user,
-    isRestricted: await canOnlyAccessOwnSite(user),
-  });
+export const GET = createHandler(
+  { auth: true, permissions: INVOICE_READ_PERMISSIONS },
+  async (req, ctx) => {
+    const { searchParams } = req.nextUrl;
+    const user = ctx.session!.user;
+    const result = await listInvoicesForRoute({
+      filters: {
+        status: searchParams.get("status"),
+        pelangganId: searchParams.get("pelangganId"),
+        page: parseInt(searchParams.get("page") || "1"),
+        limit: parseInt(searchParams.get("limit") || "20"),
+        search: searchParams.get("search"),
+      },
+      user,
+      isRestricted: await canOnlyAccessOwnSite(user),
+    });
 
-  return apiSuccess(result);
-});
+    return apiSuccess(result);
+  },
+);
 
 export const POST = createHandler(
   {
     auth: true,
+    permissions: INVOICE_WRITE_PERMISSIONS,
     schema: invoiceSchema,
   },
   async (_req, ctx) => {
