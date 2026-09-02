@@ -41,6 +41,46 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — hasPermission() kini mengenali pemanggil Bearer
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `hasPermission()` hanya mencoba `getServerSession`. Untuk pemanggil
+  Bearer (token mobile karyawan) sesi itu null sehingga fungsi **selalu**
+  mengembalikan `false`. Scan menemukan **271 pemakaian** di dalam route
+  `createHandler`, dengan dua akibat berlawanan arah:
+  **(a) 13 pembatas cakupan MATI** — `mikrotik:site_only` (7), `expense:site_only`
+  (5), `sales:site_only` (1). `false` berarti pembatas tidak berlaku, jadi pemanggil
+  Bearer melihat data **lebih luas** dari yang seharusnya. Ini kebocoran data, dan
+  defect yang persis sama dengan `canOnlyAccessOwnSite` pada invoice yang sudah
+  diperbaiki lebih dulu — waktu itu hanya modul invoice yang disapu.
+  **(b) 258 gerbang kapabilitas selalu menolak** — fail-closed, bukan lubang
+  keamanan, tapi membuat endpoint tersebut mustahil dipakai dari mobile.
+  Diperbaiki di sumbernya, bukan di 271 tempat: `resolveRbacPrincipal()`
+  menyelesaikan principal dengan urutan eksplisit → sesi → token Bearer, dan
+  dipakai oleh `hasPermission()` serta `hasAnyPermission()`. Seluruh logika lain
+  di `hasPermission` memang sudah benar (bypass super admin, wildcard, alias);
+  hanya resolusi principal yang cacat.
+- **Catatan**: kegagalan resolusi Bearer sengaja tidak dilempar — `hasPermission`
+  dipakai di ratusan tempat dan harus tetap fail-closed, bukan meledak.
+- **Files**: `lib/rbac-principal.ts`, `lib/rbac.ts`
+- **Breaking**: ⚠️ Sebagian — pemanggil Bearer yang selama ini lolos dari pembatas
+  `*:site_only` kini benar-benar terbatas pada site-nya. Itu memang maksud
+  permission tersebut.
+
+### [2026-09-02] — Tes regresi resolusi principal RBAC
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/lib`
+- **Author**: agent
+- **Deskripsi**: 6 tes untuk `resolveRbacPrincipal`: prioritas argumen eksplisit,
+  sesi, fallback Bearer, kedua sumber kosong, kegagalan resolusi Bearer yang tidak
+  boleh melempar, dan jaminan Bearer tidak disentuh saat sesi sudah menjawab.
+  Diverifikasi merah lebih dulu dengan mengembalikan perilaku "berhenti di sesi".
+- **Files**: `tests/lib/rbac-principal.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Perbaiki pengecekan permission yang menolak super admin
 
 - **Tipe**: [FIXED]

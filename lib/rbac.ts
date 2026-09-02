@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { resolveRbacPrincipal } from "@/lib/rbac-principal";
 import {
   authConfig,
   getUserPermissions,
@@ -17,16 +18,60 @@ interface ExtendedUser extends User {
   isSuperAdmin?: boolean;
 }
 
+/** Ambil user sesi NextAuth, null bila tidak ada. */
+async function getSessionUser(): Promise<ExtendedUser | null> {
+  const session = await getServerSession(authConfig);
+  return (session?.user as ExtendedUser | null) ?? null;
+}
+
+/**
+ * Ambil principal dari token Bearer mobile lewat header request.
+ * Dipakai sebagai cadangan supaya pemanggil Bearer tidak selalu dianggap
+ * tidak punya izin — lihat catatan di `lib/rbac-principal.ts`.
+ */
+async function getBearerUser(): Promise<ExtendedUser | null> {
+  const { headers } = await import("next/headers");
+  const authHeader = (await headers()).get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.slice("Bearer ".length);
+  if (!token || token === "null") {
+    return null;
+  }
+
+  const { verifyMobileToken } = await import("@/lib/mobile-auth");
+  const payload = await verifyMobileToken(token);
+  if (!payload) {
+    return null;
+  }
+
+  const claims = payload as Record<string, unknown>;
+  return {
+    id: (claims.userId as string) || (claims.sub as string) || "",
+    role: claims.role as string | undefined,
+    isSuperAdmin: Boolean(claims.isSuperAdmin),
+  } as ExtendedUser;
+}
+
+/** Principal untuk pengecekan permission: eksplisit > sesi > token Bearer. */
+async function resolveCurrentUser(
+  user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null,
+): Promise<ExtendedUser | null> {
+  return (await resolveRbacPrincipal({
+    explicitUser: user ?? null,
+    getSessionUser,
+    getBearerUser,
+  })) as ExtendedUser | null;
+}
+
 export async function hasPermission(
   requiredPermission: string,
   user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null,
   options: { silent?: boolean } = {},
 ): Promise<boolean> {
-  let currentUser = user;
-  if (!currentUser) {
-    const session = await getServerSession(authConfig);
-    currentUser = session?.user as ExtendedUser | null;
-  }
+  const currentUser = await resolveCurrentUser(user);
 
   if (!currentUser) {
     if (!options.silent) logger.info("[RBAC] No user found in session");
@@ -71,11 +116,7 @@ export async function hasAnyPermission(
   user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null,
 ): Promise<boolean> {
   // ... same as before ...
-  let currentUser = user;
-  if (!currentUser) {
-    const session = await getServerSession(authConfig);
-    currentUser = session?.user as ExtendedUser | null;
-  }
+  const currentUser = await resolveCurrentUser(user);
 
   if (!currentUser) return false;
 
