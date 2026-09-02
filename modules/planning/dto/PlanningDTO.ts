@@ -54,6 +54,25 @@ export interface PlanningDetailDTO extends PlanningListItemDTO {
   createdById: string | null;
   deletedAt: string | null;
 
+  /**
+   * Total biaya estimasi hasil penjumlahan seluruh item (BOQ).
+   * Diturunkan, bukan disimpan — supaya tidak bisa berbeda dari item-nya.
+   */
+  itemsTotalEstimatedCost: number;
+
+  /**
+   * Menandai `estimatedBudget` di header berbeda dari total BOQ. Nilai header
+   * tidak ditimpa: ia bisa memuat komponen di luar BOQ, jadi yang dibutuhkan
+   * adalah selisihnya terlihat, bukan disembunyikan.
+   */
+  hasBudgetMismatch: boolean;
+
+  /**
+   * Progres yang dihitung dari milestone berstatus COMPLETED, atau null bila
+   * belum ada milestone. Berbeda dari `progressPercentage` yang diketik manual.
+   */
+  milestoneProgressPercentage: number | null;
+
   // Relations
   items: PlanningItemDTO[];
   milestones: PlanningMilestoneDTO[];

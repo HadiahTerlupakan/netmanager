@@ -37,7 +37,9 @@ export const updatePlanningSchema = z.object({
   coordinates: coordinatesSchema.optional().nullable(),
   estimatedUnits: z.number().int().positive().optional(),
   estimatedBudget: z.number().positive().optional().nullable(),
-  actualBudget: z.number().positive().optional().nullable(),
+  // nonnegative, bukan positive: realisasi anggaran nol adalah nilai sah
+  // (pekerjaan selesai tanpa biaya, atau realisasi belum keluar sama sekali).
+  actualBudget: z.number().nonnegative().optional().nullable(),
   progressPercentage: z.number().min(0).max(100).optional(),
   startDate: z.string().datetime().optional().nullable(),
   targetCompletionDate: z.string().datetime().optional().nullable(),

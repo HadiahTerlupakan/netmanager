@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { assertApproverIsDistinct } from "../domain/planning-business-rules";
 import type { IPlanningRepository } from "../domain/ports/IPlanningRepository";
 import type { IPlanningItemRepository } from "../domain/ports/IPlanningItemRepository";
 import type { IPlanningMilestoneRepository } from "../domain/ports/IPlanningMilestoneRepository";
@@ -123,6 +124,13 @@ export class PlanningApprovalService {
         `Planning cannot be approved in status ${planning.status}. Only PENDING_APPROVAL or APPROVED_LEVEL1 status can be approved.`,
       );
     }
+
+    // Persetujuan tingkat kedua wajib oleh orang yang berbeda; tanpa ini alur
+    // berlapis tidak memberi kendali apa pun.
+    assertApproverIsDistinct({
+      approverId: userId,
+      approvedLevel1ById: planning.approvedLevel1ById,
+    });
 
     let updatedEntity;
 

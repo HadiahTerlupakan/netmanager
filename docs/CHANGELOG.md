@@ -41,6 +41,63 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Perbaikan logika bisnis planning OSP
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Empat cacat logika bisnis pada modul perencanaan OSP.
+  **(1) Persetujuan bertingkat tanpa pemisahan wewenang.** Alur `approvalLevel: 2`
+  memisahkan `approvedLevel1ById` dan `approvedById` — maksudnya jelas dua orang
+  berbeda — tetapi tidak ada satu pun pembandingan. Satu orang dapat membuat,
+  mengajukan, lalu menyetujui kedua tingkat sendirian, sehingga persetujuan
+  berlapis hanya menambah klik tanpa memberi kendali. Ditambah
+  `assertApproverIsDistinct()` yang menolak penyetuju tingkat kedua yang sama
+  dengan tingkat pertama.
+  **(2) BOQ tidak menggulung ke anggaran.** `PlanningItemEntity.getTotalEstimated()`
+  ada tetapi tidak pernah dipanggil di mana pun, sehingga total item dapat berbeda
+  jauh dari `estimatedBudget` di header tanpa ada yang memprotes. DTO detail kini
+  membawa `itemsTotalEstimatedCost` dan `hasBudgetMismatch`. Nilai header sengaja
+  TIDAK ditimpa — ia bisa memuat komponen di luar BOQ, jadi yang dibutuhkan adalah
+  selisihnya terlihat, bukan disembunyikan.
+  **(3) Progres diketik manual.** `progressPercentage` diisi langsung dari input dan
+  tidak terkait milestone, sehingga sebuah rencana dapat menyatakan 90% selesai
+  padahal seluruh milestone masih `PENDING`. DTO detail kini membawa
+  `milestoneProgressPercentage` yang dihitung dari milestone berstatus `COMPLETED`,
+  atau null bila belum ada milestone sebagai dasar.
+  **(4) Realisasi anggaran nol ditolak.** Validator memakai `z.number().positive()`
+  sehingga `actualBudget: 0` — pekerjaan selesai tanpa biaya, atau realisasi belum
+  keluar — tidak dapat disimpan. Diganti `nonnegative()`.
+- **Files**: `modules/planning/domain/planning-business-rules.ts`,
+  `modules/planning/services/PlanningApprovalService.ts`,
+  `modules/planning/mappers/PlanningMapper.ts`,
+  `modules/planning/dto/PlanningDTO.ts`,
+  `modules/planning/validators/planningSchemas.ts`
+- **Migration**: tidak ada perubahan `schema.prisma` — seluruh perbaikan memakai
+  kolom yang sudah tersedia dan nilai turunan yang dihitung saat baca
+- **Breaking**: ⚠️ Sebagian — penyetuju tingkat kedua yang sama dengan tingkat
+  pertama kini ditolak. Itu memang tujuannya.
+
+### [2026-09-02] — Tes regresi aturan bisnis planning OSP
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/planning`
+- **Author**: agent
+- **Deskripsi**: 22 tes, seluruhnya diverifikasi merah lebih dulu terhadap perilaku
+  lama: pemisahan wewenang (aturan murni maupun penegakannya di service), rollup
+  BOQ termasuk item tanpa harga, deteksi ketidakcocokan anggaran, dan perhitungan
+  progres dari milestone termasuk pembulatan serta kondisi tanpa milestone.
+  Tes penegakan di service ditambahkan setelah disadari tes aturan murni saja
+  tidak menangkap hilangnya pemanggilan dari service.
+- **Catatan**: `modules/planning/__tests__/api-routes-integration.test.ts` yang
+  sudah ada TIDAK pernah dijalankan — `vitest.config.ts` hanya memindai
+  `tests/**`, sehingga berkas tes di dalam `modules/**` memberi rasa aman palsu.
+  Tes baru karena itu ditempatkan di `tests/modules/planning/`.
+- **Files**: `tests/modules/planning/planning-business-rules.test.ts`,
+  `tests/modules/planning/PlanningMapper.derived.test.ts`,
+  `tests/modules/planning/PlanningApprovalService.segregation.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Aktifkan isolasi tenant pada database RADIUS
 
 - **Tipe**: [SECURITY]
