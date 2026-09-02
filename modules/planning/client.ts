@@ -12,6 +12,10 @@
 
 // Mappers (pure functions — safe for client bundle)
 export {
+  resolveKanbanTransition,
+  type KanbanTransition,
+} from "./domain/planning-kanban-transitions";
+export {
   resolvePlanningActions,
   type PlanningActions,
   type PlanningPermissions,

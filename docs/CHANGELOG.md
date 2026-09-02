@@ -41,6 +41,50 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Kanban OSP: seret kartu kini benar-benar memindahkan tahap
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/planning`, `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Papan kanban memasang `draggable` dan `onDragStart` pada setiap
+  kartu, tetapi **tidak ada satu pun handler `onDrop` atau `onDragOver` di kolom
+  mana pun**. Kartu bisa diangkat, berubah transparan, lalu dijatuhkan tanpa efek
+  apa pun — antarmuka menjanjikan sesuatu yang tidak ditepatinya. Komentar di
+  berkas itu menyebut alasannya: "status change via PATCH/PUT tidak tersedia di
+  API". Premis itu sudah tidak berlaku setelah transisi `start`/`complete`
+  ditambahkan, sehingga seret kini dijadikan aksi yang sungguh berfungsi.
+  Kolom tujuan menyala saat kartu diseret, dan hanya kolom yang benar-benar sah
+  yang menerima jatuhan.
+- **Keputusan desain**: hanya transisi yang tidak memerlukan masukan tambahan
+  yang bisa dilakukan lewat seret — ajukan, ajukan ulang, mulai, selesai.
+  **Persetujuan dan penolakan sengaja dikecualikan**: persetujuan adalah
+  keputusan kendali atas belanja infrastruktur sehingga satu selip tetikus tidak
+  boleh cukup untuk menyetujuinya, dan penolakan wajib disertai alasan yang tidak
+  mungkin diisi lewat gestur. Keduanya tetap lewat tombol dan dialog di halaman
+  detail.
+- **Perbaikan teks**: subtitle sebelumnya berbunyi "drag card untuk lihat detail",
+  padahal yang menampilkan detail adalah klik, bukan seret. Diganti sesuai
+  perilaku sebenarnya dan menyesuaikan izin pengguna. Judul "Kanban Board" →
+  "Papan perencanaan"; kolom kosong tidak lagi berbunyi "Kosong" melainkan
+  memberi arahan, dan berubah menjadi "Lepas di sini untuk memindahkan" saat
+  menjadi tujuan yang sah.
+- **Files**: `modules/planning/domain/planning-kanban-transitions.ts`,
+  `modules/planning/client.ts`, `app/admin/planning/PlanningKanbanClient.tsx`
+- **Breaking**: ❌ Tidak — gestur yang sebelumnya tidak melakukan apa-apa kini
+  melakukan apa yang tampak dijanjikannya
+
+### [2026-09-02] — Tes regresi transisi kanban
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/planning`
+- **Author**: agent
+- **Deskripsi**: 11 tes untuk `resolveKanbanTransition`, diverifikasi merah lebih
+  dulu: transisi sah lewat seret, penolakan persetujuan dan penolakan lewat
+  seret, penolakan gerak mundur, penolakan lompatan yang melewati tahap, dan
+  penolakan jatuhan ke kolom asalnya sendiri.
+- **Files**: `tests/modules/planning/planning-kanban-transitions.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Rencana yang ditolak kini bisa diajukan ulang
 
 - **Tipe**: [FIXED]
