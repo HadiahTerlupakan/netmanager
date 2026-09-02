@@ -26,6 +26,17 @@ type PrismaTransaction = Prisma.TransactionClient;
  * Service utama untuk CRUD operations planning records.
  * Menggunakan PlanningAuditService untuk audit trail.
  */
+/** Field ruang lingkup rencana — terkunci begitu rencana disetujui. */
+const PLANNING_SCOPE_FIELDS = [
+  "title",
+  "description",
+  "area",
+  "coordinates",
+  "estimatedUnits",
+  "estimatedBudget",
+  "targetCompletionDate",
+] as const;
+
 export class PlanningService {
   private readonly BUDGET_THRESHOLD = 500_000_000; // Rp 500M
 
@@ -194,10 +205,28 @@ export class PlanningService {
       throw new Error(`Planning with ID ${id} not found`);
     }
 
-    // Validasi: planning harus bisa diedit
-    if (!existing.canBeEdited()) {
+    // Dua jendela perubahan yang berbeda, sengaja dipisah:
+    // - Field PERENCANAAN terkunci setelah disetujui; mengubah ruang lingkup
+    //   atau estimasi rencana yang sudah disetujui membatalkan makna
+    //   persetujuan itu.
+    // - Field REALISASI justru baru ada setelah pekerjaan berjalan. Sebelumnya
+    //   keduanya memakai gerbang `canBeEdited()` yang sama, sehingga realisasi
+    //   hanya bisa diisi saat BACKLOG — ketika realisasi belum ada — lalu
+    //   terkunci selamanya begitu disetujui.
+    const isRecordingExecution = existing.canRecordExecutionProgress();
+    const hasPlanningFieldChange = PLANNING_SCOPE_FIELDS.some(
+      (field) => dto[field] !== undefined,
+    );
+
+    if (!existing.canBeEdited() && !isRecordingExecution) {
       throw new Error(
         `Planning cannot be edited in status ${existing.status}. Only BACKLOG or REJECTED status can be edited.`,
+      );
+    }
+
+    if (isRecordingExecution && hasPlanningFieldChange) {
+      throw new Error(
+        `Planning scope cannot be changed in status ${existing.status}. Only execution progress can be recorded.`,
       );
     }
 

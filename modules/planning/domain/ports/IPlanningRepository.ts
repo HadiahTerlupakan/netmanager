@@ -49,6 +49,10 @@ export interface UpdateStatusInput {
   rejectedAt?: Date | null;
   rejectedById?: string | null;
   approvalNotes?: string | null;
+  // Field fase pelaksanaan: diisi saat transisi mulai dan selesai.
+  startDate?: Date | null;
+  actualCompletionDate?: Date | null;
+  progressPercentage?: number;
 }
 
 export interface FindAllPlanningFilters {

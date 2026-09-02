@@ -332,6 +332,98 @@ export class PlanningApprovalService {
    * Cancel planning
    * Status: any (except COMPLETED, CANCELLED, REJECTED) → CANCELLED
    */
+  /** Merakit DTO detail beserta relasinya. */
+  private async buildDetailDTO(
+    id: string,
+    entity: Parameters<typeof PlanningMapper.toDetailDTO>[0],
+  ): Promise<PlanningDetailDTO> {
+    const [items, milestones, documents] = await Promise.all([
+      this.itemRepo.findByPlanningId(id),
+      this.milestoneRepo.findByPlanningId(id),
+      this.documentRepo.findByPlanningId(id),
+    ]);
+
+    return PlanningMapper.toDetailDTO(entity, { items, milestones, documents });
+  }
+
+  /**
+   * Memulai pelaksanaan: APPROVED → IN_PROGRESS.
+   *
+   * Sebelumnya tidak ada apa pun yang memindahkan rencana keluar dari APPROVED,
+   * sehingga kolom Kanban "In Progress" dan "Completed" mustahil terisi padahal
+   * ditampilkan. `canStartProgress()` sudah tersedia di entity sejak awal namun
+   * tidak pernah dipanggil.
+   */
+  async startProgress(id: string, userId: string): Promise<PlanningDetailDTO> {
+    const planning = await this.planningRepo.findById(id);
+    if (!planning) {
+      throw new Error(`Planning with ID ${id} not found`);
+    }
+
+    if (!planning.canStartProgress()) {
+      throw new Error(
+        `Planning cannot be started in status ${planning.status}. Only APPROVED status can be started.`,
+      );
+    }
+
+    const updatedEntity = await this.planningRepo.updateStatus(id, {
+      status: "IN_PROGRESS",
+      startDate: planning.startDate ?? new Date(),
+    });
+
+    await this.auditService.logChange(id, "STATUS_CHANGED", userId, {
+      status: { from: planning.status, to: "IN_PROGRESS" },
+    });
+
+    logger.logActivity({
+      action: "planning.started",
+      subject: "Planning",
+      details: { planningId: id, title: planning.title },
+      userId,
+      tenantId: planning.tenantId,
+    });
+
+    return this.buildDetailDTO(id, updatedEntity);
+  }
+
+  /**
+   * Menutup pelaksanaan: IN_PROGRESS → COMPLETED.
+   * Progres dikunci ke 100 dan tanggal penyelesaian dicatat, supaya rencana
+   * yang selesai tidak lagi menampilkan progres separuh jalan.
+   */
+  async complete(id: string, userId: string): Promise<PlanningDetailDTO> {
+    const planning = await this.planningRepo.findById(id);
+    if (!planning) {
+      throw new Error(`Planning with ID ${id} not found`);
+    }
+
+    if (!planning.isInProgress()) {
+      throw new Error(
+        `Planning cannot be completed in status ${planning.status}. Only IN_PROGRESS status can be completed.`,
+      );
+    }
+
+    const updatedEntity = await this.planningRepo.updateStatus(id, {
+      status: "COMPLETED",
+      actualCompletionDate: new Date(),
+      progressPercentage: 100,
+    });
+
+    await this.auditService.logChange(id, "STATUS_CHANGED", userId, {
+      status: { from: planning.status, to: "COMPLETED" },
+    });
+
+    logger.logActivity({
+      action: "planning.completed",
+      subject: "Planning",
+      details: { planningId: id, title: planning.title },
+      userId,
+      tenantId: planning.tenantId,
+    });
+
+    return this.buildDetailDTO(id, updatedEntity);
+  }
+
   async cancel(
     id: string,
     userId: string,

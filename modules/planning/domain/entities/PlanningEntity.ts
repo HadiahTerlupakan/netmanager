@@ -160,6 +160,20 @@ export class PlanningEntity {
     return this.status === "BACKLOG" || this.status === "REJECTED";
   }
 
+  /**
+   * Apakah realisasi pelaksanaan boleh dicatat (actualBudget, progressPercentage).
+   *
+   * Dipisahkan dari `canBeEdited()` dengan sengaja. Field perencanaan — ruang
+   * lingkup, estimasi, anggaran rencana — tetap terkunci setelah disetujui,
+   * karena mengubahnya akan membatalkan makna persetujuan. Tetapi realisasi
+   * justru baru ada SETELAH pekerjaan berjalan; sebelumnya keduanya memakai
+   * gerbang yang sama sehingga realisasi hanya bisa diisi saat BACKLOG —
+   * ketika realisasi itu belum ada — lalu terkunci selamanya.
+   */
+  canRecordExecutionProgress(): boolean {
+    return this.status === "IN_PROGRESS";
+  }
+
   canBeSubmitted(): boolean {
     return this.status === "BACKLOG" || this.status === "REJECTED";
   }

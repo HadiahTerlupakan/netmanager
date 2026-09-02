@@ -273,6 +273,15 @@ export class PlanningRepository implements IPlanningRepository {
       status: updates.status,
     };
 
+    if (updates.startDate !== undefined) {
+      updateData.startDate = updates.startDate;
+    }
+    if (updates.actualCompletionDate !== undefined) {
+      updateData.actualCompletionDate = updates.actualCompletionDate;
+    }
+    if (updates.progressPercentage !== undefined) {
+      updateData.progressPercentage = updates.progressPercentage;
+    }
     if (updates.currentApprovalStep !== undefined) {
       updateData.currentApprovalStep = updates.currentApprovalStep;
     }

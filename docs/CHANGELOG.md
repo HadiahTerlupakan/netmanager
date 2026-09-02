@@ -41,6 +41,55 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Tutup alur pelaksanaan OSP yang buntu setelah disetujui
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`, `app/api/planning`
+- **Author**: agent
+- **Deskripsi**: Alur OSP berhenti di `APPROVED`. Tidak ada endpoint, method
+  service, maupun jalur lain yang memindahkan rencana ke `IN_PROGRESS` atau
+  `COMPLETED` — `canStartProgress()` bahkan sudah tersedia di entity sejak awal
+  tetapi tidak pernah dipanggil. Akibatnya dua kolom Kanban ("In Progress" dan
+  "Completed") serta metrik dashboard menampilkan status yang mustahil tercapai.
+  Diperparah kontradiksi kedua: `updatePlanningSchema` menerima `actualBudget`,
+  `progressPercentage`, dan `startDate`, tetapi `update()` menolak bila status
+  bukan `BACKLOG`/`REJECTED` — sehingga realisasi hanya bisa diisi SEBELUM
+  disetujui, ketika realisasi itu belum ada, lalu terkunci selamanya.
+  Ditambahkan `startProgress()` (APPROVED → IN_PROGRESS, mencatat `startDate`)
+  dan `complete()` (IN_PROGRESS → COMPLETED, mencatat `actualCompletionDate` dan
+  mengunci progres ke 100), masing-masing dengan endpoint `POST /api/planning/
+  [id]/start` dan `/complete`. Jendela perubahan dipisah: `canBeEdited()` tetap
+  mengunci field perencanaan setelah disetujui, sementara
+  `canRecordExecutionProgress()` yang baru membuka pencatatan realisasi khusus
+  saat `IN_PROGRESS`. Perubahan ruang lingkup saat pelaksanaan ditolak eksplisit.
+- **[Asumsi]**: tombol Mulai/Selesai memakai permission `planning:update`, sama
+  dengan hak mengedit rencana. Bila organisasi memerlukan peran lapangan
+  terpisah, permission di kedua route itulah yang perlu diganti.
+- **Migration**: tidak ada. `AuditAction` adalah enum Prisma, sehingga transisi
+  baru sengaja memakai nilai `STATUS_CHANGED` yang sudah ada alih-alih menambah
+  `STARTED`/`COMPLETED` yang akan menuntut migration.
+- **Files**: `modules/planning/services/PlanningApprovalService.ts`,
+  `modules/planning/services/PlanningService.ts`,
+  `modules/planning/domain/entities/PlanningEntity.ts`,
+  `modules/planning/domain/ports/IPlanningRepository.ts`,
+  `modules/planning/repositories/PlanningRepository.ts`,
+  `app/api/planning/[id]/start/route.ts`,
+  `app/api/planning/[id]/complete/route.ts`
+- **Breaking**: ❌ Tidak — hanya membuka transisi yang sebelumnya mustahil
+
+### [2026-09-02] — Tes regresi alur pelaksanaan OSP
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/planning`
+- **Author**: agent
+- **Deskripsi**: 20 tes untuk transisi mulai/selesai beserta penolakan dari
+  status yang tidak sah, dan untuk pemisahan jendela edit rencana versus
+  pencatatan realisasi. Seluruhnya diverifikasi merah lebih dulu; melumpuhkan
+  ketiga penegakan sekaligus membuat 12 tes gagal.
+- **Files**: `tests/modules/planning/PlanningApprovalService.execution.test.ts`,
+  `tests/modules/planning/PlanningEntity.editability.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Perbaikan logika bisnis planning OSP
 
 - **Tipe**: [FIXED]
