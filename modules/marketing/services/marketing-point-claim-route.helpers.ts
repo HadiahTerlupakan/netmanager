@@ -1,4 +1,5 @@
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
+import { hasCapability } from "@/lib/permission-aliases";
 import {
   isMarketingError,
   type MarketingErrorKind,
@@ -96,23 +97,24 @@ export type PointClaimDeleteResult = PointClaimRouteResult<null>;
 export function canReadAllPointClaims(input: PointClaimRoutePolicyInput) {
   return (
     input.isSuperAdmin ||
-    input.permissions.includes("canvasing:read") ||
-    input.permissions.includes("point_claims:read")
+    hasCapability(input.permissions, "canvasing:read") ||
+    hasCapability(input.permissions, "point_claims:read")
   );
 }
 
 export function canManagePointClaim(input: PointClaimRoutePolicyInput) {
   return (
     input.isSuperAdmin ||
-    input.permissions.includes("point_claims:update") ||
-    input.permissions.includes("canvasing:update") ||
-    input.permissions.includes("marketing:update")
+    hasCapability(input.permissions, "point_claims:update") ||
+    hasCapability(input.permissions, "canvasing:update") ||
+    hasCapability(input.permissions, "marketing:update")
   );
 }
 
 export function canDeletePointClaim(input: PointClaimRoutePolicyInput) {
   return (
-    input.isSuperAdmin || input.permissions.includes("point_claims:delete")
+    input.isSuperAdmin ||
+    hasCapability(input.permissions, "point_claims:delete")
   );
 }
 

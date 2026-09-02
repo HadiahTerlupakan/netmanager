@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { hasCapability } from "@/lib/permission-aliases";
 import { NextResponse } from "next/server";
 import { getUserPermissions, isSuperAdminUser } from "@/lib/auth";
 import { ensureAdminAccess } from "@/lib/server-auth";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
     const user = (await ensureAdminAccess()) as AdminSessionUser;
     const permissions = await getUserPermissions(user.id);
     const isSuperAdmin = isSuperAdminUser(user);
-    if (!isSuperAdmin && !permissions.includes("manual_payments:read")) {
+    if (!isSuperAdmin && !hasCapability(permissions, "manual_payments:read")) {
       return NextResponse.json(
         {
           success: false,

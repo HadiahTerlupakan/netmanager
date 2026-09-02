@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { hasCapability } from "@/lib/permission-aliases";
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import {
@@ -118,9 +119,9 @@ export class MarketingCanvasingListRouteService {
       const status = parseCanvasingStatusParam(input.status ?? null);
       const canReadAll =
         input.isSuperAdmin ||
-        input.permissions.includes("canvasing:read") ||
-        input.permissions.includes("canvasing:verify");
-      const canVerify = input.permissions.includes("canvasing:verify");
+        hasCapability(input.permissions, "canvasing:read") ||
+        hasCapability(input.permissions, "canvasing:verify");
+      const canVerify = hasCapability(input.permissions, "canvasing:verify");
       const canViewOthers = input.isSuperAdmin || canVerify || canReadAll;
       const isSiteRestricted =
         !input.isSuperAdmin &&
@@ -219,7 +220,7 @@ export class MarketingCanvasingListRouteService {
 
 function canCreateCanvasing(input: CanvasingCreateRouteInput): boolean {
   if (input.isSuperAdmin) return true;
-  if (input.permissions.includes("canvasing:create")) return true;
+  if (hasCapability(input.permissions, "canvasing:create")) return true;
   return hasMobilePermission(input.permissions, "m_canvasing:create");
 }
 

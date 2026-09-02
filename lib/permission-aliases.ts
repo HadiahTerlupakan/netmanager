@@ -206,3 +206,30 @@ export function expandPermissionsWithAliases(permissions: string[]): string[] {
   }
   return Array.from(expanded);
 }
+
+/**
+ * Pengecekan kapabilitas yang benar: wildcard super admin + alias.
+ *
+ * Banyak service menulis `permissions.includes("users:read")` langsung.
+ * Super admin memegang `["*"]`, sehingga `includes()` bernilai false dan super
+ * admin justru DITOLAK — penyebab 403 pada `GET /api/admin/users/[id]`.
+ * `createHandler` sudah melakukannya dengan benar (`includes(perm) ||
+ * includes("*")`); helper ini menyediakan perilaku yang sama untuk lapisan
+ * service, lengkap dengan resolusi alias.
+ *
+ * PENTING — jangan pakai untuk pembatas cakupan (`*:site_only`,
+ * `*:department_only`). Di sana `includes()` biasa justru yang benar: super
+ * admin tidak boleh cocok, karena kalau cocok ia malah ikut terkurung ke satu
+ * site atau departemen.
+ */
+export function hasCapability(
+  userPermissions: string[] | undefined | null,
+  requiredPermission: string,
+): boolean {
+  const permissions = userPermissions ?? [];
+  if (permissions.includes("*")) {
+    return true;
+  }
+
+  return hasPermissionWithAlias(permissions, requiredPermission);
+}

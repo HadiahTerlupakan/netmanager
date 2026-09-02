@@ -41,6 +41,54 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Perbaiki pengecekan permission yang menolak super admin
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`, `modules/users`, `modules/marketing`, `modules/network`,
+  `app/api/admin/payments`, `app/api/marketing`
+- **Author**: agent
+- **Deskripsi**: `GET /api/admin/users/[id]` membalas **403 untuk Super Admin** di
+  produksi (terverifikasi dari log pod: `/performance` dan `/sales-performance`
+  membalas 200, hanya endpoint ini yang 403). Penyebabnya
+  `permissions.includes("users:read")` — pengecekan mentah tanpa cabang wildcard.
+  Super admin memegang `["*"]`, sehingga `includes()` bernilai `false` dan super
+  admin justru DITOLAK. `createHandler` sudah melakukannya dengan benar
+  (`includes(perm) || includes("*")`), tapi lapisan service menulis ulang
+  pengecekannya dan menghilangkan cabang wildcard.
+  Ditambah helper kanonik `hasCapability()` di `lib/permission-aliases.ts` yang
+  menangani wildcard DAN alias, lalu dipakai di 22 pengecekan kapabilitas pada 8
+  berkas. Catatan: `hasPermissionWithAlias()` yang sudah ada juga tidak menangani
+  wildcard, sehingga tidak ada satu pun helper yang benar untuk dipakai ulang —
+  itulah sebabnya pola salah ini menyebar.
+- **Sengaja TIDAK diubah**: seluruh pengecekan `*:site_only` dan
+  `*:department_only`. Keduanya pembatas CAKUPAN, bukan pemberian kapabilitas —
+  di sana `includes()` mentah justru yang benar, karena super admin yang ikut
+  cocok malah akan terkurung ke satu site atau departemen.
+- **Bukan regresi dari pekerjaan RBAC sebelumnya**: image produksi yang berjalan
+  saat gejala muncul adalah `ab6e65f45` (commit tes saja), dan riwayat git pada
+  `AdminUserRouteService.ts` tidak memuat satu pun commit dari rangkaian ini.
+- **Files**: `lib/permission-aliases.ts`,
+  `modules/users/services/AdminUserRouteService.ts`,
+  `modules/network/services/ProfilePPPService.ts`,
+  `modules/marketing/services/*.ts`,
+  `app/api/admin/payments/pending-manual/route.ts`,
+  `app/api/marketing/canvasing/[id]/{approve,reject}/route.ts`
+- **Breaking**: ❌ Tidak — hanya memulihkan akses yang selama ini keliru ditolak
+
+### [2026-09-02] — Tes regresi untuk wildcard super admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/`
+- **Author**: agent
+- **Deskripsi**: 10 tes baru, diverifikasi merah lebih dulu: perilaku
+  `hasCapability()` (wildcard, cocok persis, alias, daftar kosong/undefined) dan
+  regresi produksi `getAdminUserById` untuk pemegang `["*"]`. Tes terakhir diuji
+  ulang dengan mengembalikan `includes()` mentah untuk memastikan benar-benar
+  menangkap bug aslinya.
+- **Files**: `tests/lib/has-capability.test.ts`,
+  `tests/modules/users/AdminUserRouteService.superadmin.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Tutup dua jalur eskalasi ke super admin
 
 - **Tipe**: [SECURITY]

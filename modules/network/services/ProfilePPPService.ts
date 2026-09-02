@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { hasCapability } from "@/lib/permission-aliases";
 import type { ProfilePPPSchema } from "@/lib/validations/profileppp";
 import { isSuperAdmin } from "@/lib/auth";
 import { canAccessSite } from "@/modules/roles";
@@ -284,7 +285,7 @@ export class ProfilePPPService {
     const permissions = input.session.user.permissions || [];
     if (
       !isSuperAdmin(input.session.user) &&
-      !permissions.includes("profileppp:delete")
+      !hasCapability(permissions, "profileppp:delete")
     ) {
       return {
         success: false,

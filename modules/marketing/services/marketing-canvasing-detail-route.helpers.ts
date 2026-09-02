@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { hasCapability } from "@/lib/permission-aliases";
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
 import { canAccessCanvasingSite } from "./CanvasingSiteAccessService";
 import {
@@ -67,8 +68,8 @@ export function canReadCanvasingDetail(
   return (
     input.isSuperAdmin ||
     isCanvasingOwner(input, request) ||
-    input.permissions.includes("canvasing:read") ||
-    input.permissions.includes("canvasing:verify")
+    hasCapability(input.permissions, "canvasing:read") ||
+    hasCapability(input.permissions, "canvasing:verify")
   );
 }
 
@@ -79,16 +80,20 @@ export function canUpdateCanvasingDetail(
   return (
     input.isSuperAdmin ||
     isCanvasingOwner(input, request) ||
-    input.permissions.includes("canvasing:update")
+    hasCapability(input.permissions, "canvasing:update")
   );
 }
 
 export function canManageCanvasingApproval(input: CanvasingRoutePolicyInput) {
-  return input.isSuperAdmin || input.permissions.includes("canvasing:update");
+  return (
+    input.isSuperAdmin || hasCapability(input.permissions, "canvasing:update")
+  );
 }
 
 export function canDeleteCanvasingDetail(input: CanvasingRoutePolicyInput) {
-  return input.isSuperAdmin || input.permissions.includes("canvasing:delete");
+  return (
+    input.isSuperAdmin || hasCapability(input.permissions, "canvasing:delete")
+  );
 }
 
 export function canAccessCanvasingDetailSite(

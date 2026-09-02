@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { hasCapability } from "@/lib/permission-aliases";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import {
@@ -25,8 +26,8 @@ export async function POST(
     const isSuperAdmin = isSuperAdminRole(session.role);
     const permissions = await getUserPermissions(session.id);
     const canReviewCanvasing =
-      permissions.includes("canvasing:update") ||
-      permissions.includes("canvasing:verify");
+      hasCapability(permissions, "canvasing:update") ||
+      hasCapability(permissions, "canvasing:verify");
 
     if (!isSuperAdmin && !canReviewCanvasing) {
       return ApiErrors.forbidden(

@@ -1,4 +1,5 @@
 import { Prisma } from "../repositories/prisma-boundary";
+import { hasCapability } from "@/lib/permission-aliases";
 import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { createUserRepository } from "../factories/RepositoryFactory";
@@ -104,7 +105,7 @@ export class AdminUserRouteService {
     if (!user) return fail(404, USER_NOT_FOUND);
 
     const isOwnProfile = session.user.id === userId;
-    const canReadUsers = permissions.includes("users:read");
+    const canReadUsers = hasCapability(permissions, "users:read");
 
     if (!isOwnProfile && !canReadUsers) {
       return fail(403, "Anda tidak memiliki izin untuk melihat detail user");
