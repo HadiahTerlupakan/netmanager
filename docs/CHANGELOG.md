@@ -41,6 +41,49 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Aktifkan isolasi tenant pada database RADIUS
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `lib/prisma-radius.ts` meneruskan SELURUH 9 tabel radius ke
+  parameter `ignoreModels` milik `withTenantIsolation()` — lewat variabel bernama
+  `tenantScopedModels`, nama yang menyatakan kebalikan dari maksud parameternya.
+  Efeknya `prismaRadius` tidak punya isolasi tenant otomatis sama sekali, padahal
+  schema-nya jelas dirancang multi-tenant: 22 penyebutan `tenantId` lengkap dengan
+  index dan unique constraint seperti `@@unique([username, attribute, tenantId])`.
+  Isolasi kini aktif untuk 8 tabel. `radpostauth` sengaja tetap dikecualikan.
+  Konstantanya dipindah ke `lib/prisma-radius-isolation.ts` dengan nama yang jujur
+  (`RADIUS_ISOLATION_EXEMPT_MODELS`) agar arah maknanya tidak lagi tertukar.
+- **Dasar keputusan (diverifikasi di database produksi, bukan asumsi)**:
+  `radpostauth` berisi 54.749 baris dan SEMUANYA ber-`tenantId` NULL — FreeRADIUS
+  menulisnya langsung dan tabel itu tidak punya trigger pengisi tenant.
+  Mengisolasinya akan menyembunyikan seluruh log autentikasi dari aplikasi.
+  Sebaliknya `radacct` punya trigger `trg_radacct_set_tenantid` (BEFORE
+  INSERT/UPDATE) sehingga 12 barisnya terisi penuh dan aman diisolasi; enam tabel
+  lain masih kosong dan ditulis aplikasi.
+- **Catatan**: sebelum perubahan ini tidak ada kebocoran aktif — seluruh call site
+  radius memfilter `tenantId` manual (306 penyebutan; tiga kandidat "tanpa filter"
+  diverifikasi sebagai false positive). Yang hilang adalah pertahanan berlapis:
+  satu `where` yang terlupa akan bocor senyap tanpa penahan, berbeda dari billing
+  dan DB utama yang punya jaring pengaman.
+- **Files**: `lib/prisma-radius.ts`, `lib/prisma-radius-isolation.ts`
+- **Breaking**: ⚠️ Perlu pemantauan — query radius dari konteks tanpa tenant dan
+  di luar `runAsSystemContext` kini akan ditolak fail-closed. Cron dan monitor
+  sudah memakai elevasi eksplisit, route API sudah punya konteks tenant.
+
+### [2026-09-02] — Tes regresi isolasi tenant RADIUS
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/lib`
+- **Author**: agent
+- **Deskripsi**: 10 tes yang memaku keputusan pengecualian beserta alasannya:
+  `radpostauth` wajib dikecualikan, `radacct` dan tujuh tabel lain wajib TIDAK
+  dikecualikan, dan hanya satu model yang boleh ada di daftar. Diverifikasi merah
+  lebih dulu dengan mengembalikan daftar sembilan tabel yang lama.
+- **Files**: `tests/lib/prisma-radius-isolation.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — hasPermission() kini mengenali pemanggil Bearer
 
 - **Tipe**: [SECURITY]

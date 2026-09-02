@@ -3,23 +3,13 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createLazyPrismaClient } from "./prisma-lazy-client";
 import { withTenantIsolation } from "./prisma-extension";
+import { RADIUS_ISOLATION_EXEMPT_MODELS } from "./prisma-radius-isolation";
 import "dotenv/config";
 
 const globalForPrismaRadius = globalThis as unknown as {
   prismaRadius: PrismaClientRadius | undefined;
   prismaRadiusAuth: PrismaClientRadius | undefined;
 };
-const tenantScopedModels = [
-  "radcheck",
-  "radreply",
-  "radusergroup",
-  "radgroupcheck",
-  "radgroupreply",
-  "radpostauth",
-  "radacct",
-  "radippool",
-  "nas",
-];
 
 const getRequiredConnectionString = () => {
   const connectionString = process.env.RADIUS_DATABASE_URL;
@@ -56,7 +46,7 @@ const getPrismaRadiusAuthClient = () => {
 const getPrismaRadiusClient = () => {
   if (!globalForPrismaRadius.prismaRadius) {
     globalForPrismaRadius.prismaRadius = getPrismaRadiusAuthClient().$extends(
-      withTenantIsolation(tenantScopedModels),
+      withTenantIsolation(RADIUS_ISOLATION_EXEMPT_MODELS),
     ) as unknown as PrismaClientRadius;
   }
   return globalForPrismaRadius.prismaRadius;
