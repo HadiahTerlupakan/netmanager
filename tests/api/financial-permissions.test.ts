@@ -63,4 +63,21 @@ describe("pemisahan permission baca dan tulis invoice", () => {
   it("set baca tetap menerima permission baca", () => {
     expect(INVOICE_READ_PERMISSIONS).toContain("pelanggan:read");
   });
+
+  // Data role produksi menunjukkan role `admin` memegang set invoices:* lengkap
+  // (read/update/delete/create/mark_paid). Memakai permission yang memang ada
+  // untuk resource-nya lebih tepat daripada menumpang permission pelanggan.
+  it("set baca memakai invoices:read yang dipegang role admin", () => {
+    expect(INVOICE_READ_PERMISSIONS).toContain("invoices:read");
+  });
+
+  it("set tulis memakai invoices:update yang dipegang role admin", () => {
+    expect(INVOICE_WRITE_PERMISSIONS).toContain("invoices:update");
+  });
+
+  // Helpdesk hanya memegang pelanggan:read/update/site_only dan memakai halaman
+  // perpanjangan, jadi permission itu harus tetap ada supaya alurnya hidup.
+  it("set tulis tetap memuat pelanggan:update untuk Helpdesk", () => {
+    expect(INVOICE_WRITE_PERMISSIONS).toContain("pelanggan:update");
+  });
 });

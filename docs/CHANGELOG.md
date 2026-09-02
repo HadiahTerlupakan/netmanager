@@ -41,6 +41,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Guard invoice memakai permission invoices:* hasil verifikasi produksi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/api`
+- **Author**: agent
+- **Deskripsi**: Peta role→permission diverifikasi langsung ke database produksi
+  (`netmanager-production/db-netmanager-0`), bukan disimpulkan dari
+  `lib/role-templates.ts`. Hasilnya mengoreksi asumsi sebelumnya: role `admin` di
+  produksi memegang set `invoices:*` lengkap (`read`, `update`, `delete`, `create`,
+  `mark_paid`, `cancel`, `verify`), padahal template tidak memuatnya sama sekali.
+  `INVOICE_READ_PERMISSIONS` dan `INVOICE_WRITE_PERMISSIONS` karena itu kini memakai
+  `invoices:read` / `invoices:update` — permission yang memang ada untuk resource ini —
+  alih-alih hanya menumpang permission `pelanggan`/`finance`.
+  `pelanggan:update` tetap dipertahankan di set tulis karena role Helpdesk hanya
+  memegang `pelanggan:read/update/site_only` dan memakai halaman perpanjangan;
+  konsekuensinya Helpdesk juga dapat menulis invoice, dicatat eksplisit di kode
+  sebagai keputusan yang perlu ditinjau pemilik produk.
+- **Verifikasi**: `pelanggan:update` dipegang Helpdesk, admin, Super Admin — tidak ada
+  role sah yang terkunci oleh pengetatan di entry sebelumnya.
+- **Files**: `lib/api/financial-permissions.ts`,
+  `tests/api/financial-permissions.test.ts`
+- **Breaking**: ❌ Tidak — daftar permission bersifat OR, jadi penambahan hanya
+  memperluas siapa yang lolos
+
+### [2026-09-02] — Koreksi: pembatas site invoice tidak berdampak ke pengguna mana pun
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Entry pembatas site sebelumnya memperingatkan bahwa pemakai token
+  mobile dengan `invoices:site_only` akan mendadak melihat lebih sedikit data setelah
+  perbaikan. Query ke database produksi menunjukkan **tidak ada satu pun role** yang
+  memegang `invoices:site_only` (0 baris), sehingga perbaikan itu nol dampak
+  operasional hari ini. Nilainya tetap sebagai pertahanan berlapis: begitu permission
+  tersebut diberikan ke sebuah role, pembatasnya langsung berlaku untuk kedua jalur
+  autentikasi, bukan hanya jalur sesi web.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Pembatas site invoice kini berlaku untuk pemanggil Bearer
 
 - **Tipe**: [SECURITY]

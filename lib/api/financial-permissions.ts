@@ -10,8 +10,13 @@ import { hasPermissionWithAlias } from "@/lib/permission-aliases";
  * (`pelanggan:read` / `ppp:read`) — agar principal tanpa kapabilitas finansial
  * sama sekali (mis. token mobile Teknisi yang hanya punya permission `m_*`)
  * tertutup tanpa mengunci pengguna yang selama ini sah.
+ *
+ * `invoices:read` didahulukan karena itu permission yang memang ada untuk
+ * resource ini dan dipegang role `admin` di produksi; sisanya menjaga role lain
+ * (Helpdesk hanya punya `pelanggan:*`) tetap bisa mengakses seperti sebelumnya.
  */
 export const INVOICE_READ_PERMISSIONS: string[] = [
+  "invoices:read",
   "finance:read",
   "pelanggan:read",
   "ppp:read",
@@ -26,8 +31,15 @@ export const INVOICE_READ_PERMISSIONS: string[] = [
  * (`app/admin/pelanggan/ppp/[id]/renew`), yang sudah digerbangi
  * `ensurePermission('pelanggan:update')` — jadi menuntut permission ubah di sini
  * tidak mengunci alur mana pun yang hari ini berjalan.
+ *
+ * Diverifikasi terhadap data role produksi: `pelanggan:update` dipegang
+ * Helpdesk, admin, dan Super Admin, sementara set `invoices:*` dipegang `admin`.
+ * `pelanggan:update` sengaja dipertahankan supaya alur perpanjangan Helpdesk
+ * tidak putus — konsekuensinya Helpdesk juga bisa menulis invoice. Bila itu
+ * tidak dikehendaki, hapus entri tersebut dan tinjau gerbang halaman renew.
  */
 export const INVOICE_WRITE_PERMISSIONS: string[] = [
+  "invoices:update",
   "finance:update",
   "pelanggan:update",
   "ppp:update",
