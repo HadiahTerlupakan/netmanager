@@ -15,6 +15,39 @@ import { join } from "path";
 
 const API_ROOT = join(process.cwd(), "app/api");
 
+/**
+ * Route yang menyentuh data uang tanpa memuat kata finansial di path-nya.
+ * Deteksi berbasis nama saja pernah melewatkan 15 route seperti ini —
+ * `company-bank-accounts`, `prorate-log`, `webhooks/[provider]` — sehingga
+ * keberadaan gerbangnya tidak pernah diperiksa sama sekali.
+ */
+const FINANCIAL_BEHAVIOUR =
+  /@\/modules\/finance|prisma-billing|prismaBilling|client-billing|InvoiceRepository|PaymentRepository|BillingRepository/;
+
+/**
+ * Route yang otorisasinya ditegakkan di service, bukan di berkas route.
+ *
+ * Pemeriksaan ini hanya membaca berkas route, jadi penegakan yang lebih dalam
+ * tidak terlihat. Menelusuri impor sempat dicoba lalu ditolak: `@/lib/tenant-context`
+ * menyebut `CRON_SECRET`, sehingga setiap route yang mengimpornya tampak berpagar
+ * padahal belum tentu — false positive ke arah "aman" justru menyembunyikan celah.
+ *
+ * Tiap entri menyebut simbol penegaknya supaya bisa diverifikasi ulang.
+ * Menambah entri di sini keputusan sadar, bukan jalan pintas.
+ */
+const SERVICE_ENFORCED_AUTHORIZATION: Record<string, string> = {
+  "app/api/webhooks/[provider]/route.ts":
+    "WebhookProcessingService.verifySignature — webhook diautentikasi tanda tangan provider, bukan sesi",
+  "app/api/integrations/mixradius/expenses/rab/[id]/approve/route.ts":
+    "rabApprovalService.canUserApproveRab — flag Role.canApproveRab",
+  "app/api/integrations/mixradius/expenses/rab/[id]/reminder/route.ts":
+    "RabApprovalReminderRouteService — cek canApproveRab/isSuperAdmin lalu balas 403",
+  "app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/approve/route.ts":
+    "approveRabRevision -> assertUserCanApproveRab",
+  "app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/reject/route.ts":
+    "rejectRabRevision -> assertUserCanApproveRab",
+};
+
 const FINANCIAL_PATH =
   /(finance|invoice|payment|billing|tagihan|accounting|withdrawal|treasury|tax)/i;
 
@@ -61,11 +94,11 @@ function hasCapabilityGate(source: string): boolean {
 
 const financialRoutes = collectRouteFiles(API_ROOT)
   .map(toRepoPath)
-  .filter((path) => FINANCIAL_PATH.test(path))
   .filter((path) => {
     const source = readFileSync(join(process.cwd(), path), "utf8");
     ROUTE_HANDLER.lastIndex = 0;
-    return ROUTE_HANDLER.test(source);
+    if (!ROUTE_HANDLER.test(source)) return false;
+    return FINANCIAL_PATH.test(path) || FINANCIAL_BEHAVIOUR.test(source);
   });
 
 describe("otorisasi route finansial", () => {
@@ -73,13 +106,42 @@ describe("otorisasi route finansial", () => {
     expect(financialRoutes.length).toBeGreaterThan(50);
   });
 
+  // Regresi: deteksi versi pertama hanya melihat NAMA path, sehingga route yang
+  // menyentuh uang tapi tidak memuat kata finansial di path-nya tidak pernah
+  // dipindai sama sekali.
+  it.each([
+    "app/api/admin/company-bank-accounts/route.ts",
+    "app/api/admin/pelanggan/[id]/prorate-log/route.ts",
+    "app/api/integrations/mixradius/dismantle/route.ts",
+    "app/api/webhooks/[provider]/route.ts",
+  ])("memindai %s meski nama path-nya tidak finansial", (routePath) => {
+    expect(financialRoutes).toContain(routePath);
+  });
+
   it("setiap route finansial punya gerbang kapabilitas, bukan sekadar auth", () => {
     const unguarded = financialRoutes.filter(
       (path) =>
+        !SERVICE_ENFORCED_AUTHORIZATION[path] &&
         !hasCapabilityGate(readFileSync(join(process.cwd(), path), "utf8")),
     );
 
     expect(unguarded).toEqual([]);
+  });
+
+  it("setiap pengecualian menyebut simbol penegak otorisasinya", () => {
+    const tanpaAlasan = Object.entries(SERVICE_ENFORCED_AUTHORIZATION)
+      .filter(([, reason]) => reason.trim().length < 20)
+      .map(([path]) => path);
+
+    expect(tanpaAlasan).toEqual([]);
+  });
+
+  it("pengecualian hanya untuk route yang benar-benar ada", () => {
+    const hilang = Object.keys(SERVICE_ENFORCED_AUTHORIZATION).filter(
+      (path) => !financialRoutes.includes(path),
+    );
+
+    expect(hilang).toEqual([]);
   });
 
   it("menerima permissions option berupa konstanta bersama", () => {

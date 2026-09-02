@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Tes otorisasi route finansial: deteksi berbasis perilaku
+
+- **Tipe**: [CHANGED]
+- **Scope**: `tests/architecture`
+- **Author**: agent
+- **Deskripsi**: Versi pertama tes ini mendeteksi route finansial dari **nama path**
+  (`finance|invoice|payment|...`), sehingga route yang menyentuh uang tapi namanya
+  tidak finansial tidak pernah dipindai — 15 route luput, termasuk
+  `admin/company-bank-accounts`, `admin/pelanggan/[id]/prorate-log`,
+  `integrations/mixradius/dismantle`, dan `webhooks/[provider]`.
+  Deteksi kini ditambah berbasis perilaku: route yang mengimpor `@/modules/finance`,
+  memakai `prismaBilling`/`client-billing`, atau menyentuh
+  `InvoiceRepository`/`PaymentRepository`/`BillingRepository` ikut dipindai apa pun
+  nama path-nya. Cakupan naik dari 84 ke 99 route.
+  Ditambah `SERVICE_ENFORCED_AUTHORIZATION`: daftar eksplisit route yang otorisasinya
+  ditegakkan di service, masing-masing menyebut simbol penegaknya (webhook lewat
+  verifikasi tanda tangan; empat route RAB lewat flag `Role.canApproveRab`). Dua tes
+  tambahan menjaga daftar itu tetap jujur — setiap entri wajib punya alasan dan wajib
+  menunjuk route yang benar-benar ada.
+- **Catatan**: penelusuran impor sempat dicoba sebagai alternatif dan **ditolak** —
+  `@/lib/tenant-context` menyebut `CRON_SECRET`, sehingga setiap route yang
+  mengimpornya tampak berpagar padahal belum tentu. False positive ke arah "aman"
+  lebih berbahaya daripada daftar pengecualian yang bisa direview.
+- **Hasil audit**: dari 15 route yang sebelumnya luput, **tidak ada satu pun yang
+  benar-benar tanpa otorisasi**. Empat route RAB approve/reject/reminder sempat
+  terlihat telanjang, tapi verifikasi menunjukkan semuanya menegakkan
+  `assertUserCanApproveRab` / `canUserApproveRab` di lapisan service.
+- **Files**: `tests/architecture/financial-route-authorization.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Guard invoice memakai permission invoices:* hasil verifikasi produksi
 
 - **Tipe**: [SECURITY]
