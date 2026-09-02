@@ -29,7 +29,7 @@ export class BillingScheduleRepository implements IBillingScheduleRepository {
     return record ? BillingScheduleMapper.toDomain(record) : null;
   }
 
-  async findForRehydration(_now: Date) {
+  async findForRehydration() {
     const records = await prismaBilling.billingSchedule.findMany({
       where: {
         status: { in: ["PENDING", "QUEUED"] },
@@ -60,13 +60,13 @@ export class BillingScheduleRepository implements IBillingScheduleRepository {
     return records.map((record) => BillingScheduleMapper.toDomain(record));
   }
 
+  /**
+   * Upsert schedule dan naikkan versi secara atomik.
+   * Version dipakai untuk membuang job queue yang sudah basi, jadi kenaikannya
+   * harus lewat `increment` — read-modify-write akan menghasilkan versi kembar
+   * bila dua reschedule terjadi bersamaan.
+   */
   async upsert(input: UpsertBillingScheduleInput) {
-    const current = await prismaBilling.billingSchedule.findUnique({
-      where: { dedupeKey: input.dedupeKey },
-      select: { version: true },
-    });
-    const nextVersion = (current?.version ?? 0) + 1;
-
     const record = await prismaBilling.billingSchedule.upsert({
       where: { dedupeKey: input.dedupeKey },
       create: {
@@ -78,7 +78,6 @@ export class BillingScheduleRepository implements IBillingScheduleRepository {
         payload: toPrismaJson(input.payload),
         queueJobId: null,
         status: "PENDING",
-        version: nextVersion,
         tenantId: input.tenantId ?? null,
       },
       update: {
@@ -89,7 +88,7 @@ export class BillingScheduleRepository implements IBillingScheduleRepository {
         payload: toPrismaJson(input.payload),
         queueJobId: null,
         status: "PENDING",
-        version: nextVersion,
+        version: { increment: 1 },
         queuedAt: null,
         processingAt: null,
         completedAt: null,
@@ -104,25 +103,26 @@ export class BillingScheduleRepository implements IBillingScheduleRepository {
     return BillingScheduleMapper.toDomain(record);
   }
 
-  async attachQueueJobId(scheduleId: string, queueJobId: string) {
-    const record = await prismaBilling.billingSchedule.update({
-      where: { id: scheduleId },
-      data: { queueJobId },
-    });
-
-    return BillingScheduleMapper.toDomain(record);
-  }
-
-  async markQueued(scheduleId: string, queuedAt: Date) {
-    const record = await prismaBilling.billingSchedule.update({
-      where: { id: scheduleId },
+  /**
+   * Compare-and-set ke QUEUED. Baris yang sudah COMPLETED atau CANCELLED
+   * sengaja tidak ikut ter-update: reconciliation membaca baris pada T lalu
+   * menulis pada T+delta, dan tanpa syarat status ini worker yang menyelesaikan
+   * job di sela itu akan tertimpa kembali ke QUEUED lalu dieksekusi dua kali.
+   */
+  async markQueued(scheduleId: string, queuedAt: Date, queueJobId: string) {
+    const result = await prismaBilling.billingSchedule.updateMany({
+      where: {
+        id: scheduleId,
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
       data: {
         status: "QUEUED",
         queuedAt,
+        queueJobId,
       },
     });
 
-    return BillingScheduleMapper.toDomain(record);
+    return result.count > 0;
   }
 
   async markProcessing(scheduleId: string, processingAt: Date) {

@@ -1,7 +1,16 @@
+import { logger } from "@/lib/logger";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 
 const DEFAULT_BILLING_WINDOW_DAYS = 5;
+const MIN_BILLING_WINDOW_DAYS = 0;
+const MAX_BILLING_WINDOW_DAYS = 31;
 const BILLING_BATCH_SIZE = 100;
+/**
+ * Berapa hari ke belakang jatuh tempo masih ikut dipindai.
+ * Menutup kasus cron gagal beberapa hari tanpa membuat pemindaian melebar ke
+ * seluruh pelanggan menunggak sepanjang sejarah.
+ */
+const BILLING_CATCH_UP_DAYS = 7;
 
 export interface BillingCustomerPayload {
   id: string;
@@ -21,7 +30,8 @@ export interface BillingCustomerPayload {
   };
 }
 
-interface EligibleBillingRow {
+/** Bentuk baris hasil query pelanggan yang eligible untuk billing harian. */
+export interface EligibleBillingRow {
   id: string;
   nama: string;
   jatuhTempo: Date;
@@ -37,9 +47,26 @@ interface EligibleBillingRow {
   paketPpnPercentage: number | null;
 }
 
-/** Mengambil jumlah hari default sebelum jatuh tempo dari setting string. */
+/**
+ * Mengambil jumlah hari sebelum jatuh tempo dari setting string.
+ * Nilai yang tidak valid atau di luar rentang wajar jatuh ke default —
+ * tanpa guard ini, setting rusak menghasilkan NaN dan membuat seluruh
+ * generate invoice harian menghasilkan Invalid Date tanpa error.
+ */
 export function parseBillingWindowDays(value?: string | null) {
-  return Number.parseInt(value || String(DEFAULT_BILLING_WINDOW_DAYS), 10);
+  const parsed = Number.parseInt(value ?? "", 10);
+  const isWithinRange =
+    Number.isFinite(parsed) &&
+    parsed >= MIN_BILLING_WINDOW_DAYS &&
+    parsed <= MAX_BILLING_WINDOW_DAYS;
+
+  if (!isWithinRange && value != null && value !== "") {
+    logger.warn(
+      `[Billing] GENERAL_INVOICE_OTOMATIS tidak valid: "${value}" — pakai default ${DEFAULT_BILLING_WINDOW_DAYS} hari`,
+    );
+  }
+
+  return isWithinRange ? parsed : DEFAULT_BILLING_WINDOW_DAYS;
 }
 
 /** Membuat tanggal target invoice dari hari ini dan offset setting. */
@@ -49,26 +76,65 @@ export function createTargetBillingDate(today: Date, daysBeforeDue: number) {
   return targetDate;
 }
 
-/** Membuat rentang satu hari penuh untuk due date tertentu. */
+/**
+ * Membuat rentang satu hari penuh untuk due date tertentu.
+ * `end` memakai 23:59:59.999 supaya invoice dengan timestamp di sub-detik
+ * terakhir tetap ikut terdeteksi oleh pengecekan duplikat.
+ */
 export function createDueDateRange(dueDate: Date) {
+  const year = dueDate.getFullYear();
+  const month = dueDate.getMonth();
+  const day = dueDate.getDate();
+
   return {
-    start: new Date(
-      dueDate.getFullYear(),
-      dueDate.getMonth(),
-      dueDate.getDate(),
-      0,
-      0,
-      0,
-    ),
-    end: new Date(
-      dueDate.getFullYear(),
-      dueDate.getMonth(),
-      dueDate.getDate(),
-      23,
-      59,
-      59,
-    ),
+    start: new Date(year, month, day, 0, 0, 0, 0),
+    end: new Date(year, month, day, 23, 59, 59, 999),
   };
+}
+
+/**
+ * Rentang jatuh tempo yang layak ditagih hari ini.
+ *
+ * Batas atas = tanggal target (hari ini + window setting): pelanggan dengan
+ * jatuh tempo lebih jauh tidak boleh ditagih lebih awal.
+ * Batas bawah = beberapa hari ke belakang: jatuh tempo yang terlewat karena
+ * cron mati tetap terkejar, sesuatu yang tidak mungkin dilakukan pencocokan
+ * tanggal persis.
+ */
+export function createBillingCatchUpRange(
+  today: Date,
+  daysBeforeDue: number,
+): { start: Date; end: Date } {
+  const targetDate = createTargetBillingDate(today, daysBeforeDue);
+  const rangeStart = new Date(targetDate);
+  rangeStart.setDate(targetDate.getDate() - BILLING_CATCH_UP_DAYS);
+
+  return {
+    start: toStartOfDay(rangeStart),
+    end: toEndOfDay(targetDate),
+  };
+}
+
+/**
+ * Tanggal jatuh tempo yang dipakai invoice: milik pelanggan itu sendiri,
+ * dinormalkan ke awal hari supaya dedupe antar siklus konsisten.
+ */
+export function resolveInvoiceDueDate(jatuhTempo: Date): Date {
+  return new Date(
+    jatuhTempo.getFullYear(),
+    jatuhTempo.getMonth(),
+    jatuhTempo.getDate(),
+  );
+}
+
+/** Kunci dedupe per pelanggan per siklus jatuh tempo. */
+export function createExistingInvoiceKey(
+  pelangganId: string,
+  dueDate: Date,
+): string {
+  const month = String(dueDate.getMonth() + 1).padStart(2, "0");
+  const day = String(dueDate.getDate()).padStart(2, "0");
+  return `${pelangganId}|${dueDate.getFullYear()}-${month}-${day}`;
 }
 
 /** Mengambil ukuran batch billing harian. */

@@ -8,7 +8,16 @@ export function findEligibleForBilling(input: EligibleBillingInput) {
   );
 }
 
-function buildEligibleBillingQuery(input: EligibleBillingInput) {
+/**
+ * Query pelanggan yang jatuh temponya masuk rentang penagihan.
+ *
+ * Memakai rentang tanggal, bukan pencocokan tanggal-dalam-bulan
+ * (`EXTRACT(DAY FROM ...) = n`). Pencocokan lama tidak punya batas bulan/tahun,
+ * jadi pelanggan dengan jatuh tempo di bulan lain bertanggal sama ikut terjaring
+ * dan ditagih untuk periode yang salah; dan karena cocoknya harus persis, kohort
+ * satu hari hilang permanen bila cron tidak jalan hari itu.
+ */
+export function buildEligibleBillingQuery(input: EligibleBillingInput) {
   const tenantFilter = input.tenantId
     ? Prisma.sql`AND p."tenantId" = ${input.tenantId}`
     : Prisma.empty;
@@ -23,7 +32,8 @@ function buildEligibleBillingQuery(input: EligibleBillingInput) {
     INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
     WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
       AND p."hargaPaketId" != ''
-      AND EXTRACT(DAY FROM p."jatuhTempo") = ${input.targetDay}
+      AND p."jatuhTempo" >= ${input.dueDateStart}
+      AND p."jatuhTempo" <= ${input.dueDateEnd}
       ${tenantFilter}
     ORDER BY p.id ASC
     LIMIT ${input.batchSize} OFFSET ${input.offset}
@@ -31,7 +41,8 @@ function buildEligibleBillingQuery(input: EligibleBillingInput) {
 }
 
 type EligibleBillingInput = {
-  targetDay: number;
+  dueDateStart: Date;
+  dueDateEnd: Date;
   batchSize: number;
   offset: number;
   tenantId?: string;

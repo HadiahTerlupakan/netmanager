@@ -42,27 +42,48 @@ export class BillingScheduleService {
     return { ...schedule, queueJobId: jobId };
   }
 
+  /**
+   * Klaim schedule ke status QUEUED lebih dulu, baru enqueue ke BullMQ.
+   *
+   * Dua alasan urutan ini, keduanya soal at-most-once:
+   * (1) Untuk schedule yang runAt-nya sudah lewat (delay 0) worker bisa
+   *     mengeksekusi job sebelum tulisan status selesai; menulis QUEUED setelah
+   *     enqueue berpotensi menimpa status COMPLETED.
+   * (2) `markQueued` bersifat compare-and-set, jadi bila job sudah selesai atau
+   *     dibatalkan di sela pembacaan reconciliation, klaim gagal dan kita tidak
+   *     menjadwalkan ulang pekerjaan yang sudah jalan — penting karena
+   *     CUSTOMER_AUTO_ISOLIR yang dobel memutus pelanggan yang sudah bayar.
+   *
+   * Bila enqueue gagal setelah klaim berhasil, baris tetap QUEUED dan akan
+   * diambil lagi oleh reconciliation begitu runAt terlewat.
+   */
   async enqueuePersistedSchedule(
     schedule: BillingScheduleEntity,
     now: Date = new Date(),
-  ): Promise<{ jobId: string; delay: number }> {
+  ): Promise<{ jobId: string; delay: number; claimed: boolean }> {
     await this.removeExistingJob(schedule);
 
     const jobId = this.createJobId(schedule.id, schedule.version);
     const delay = Math.max(schedule.runAt.getTime() - now.getTime(), 0);
 
+    const claimed = await this.repository.markQueued(schedule.id, now, jobId);
+    if (!claimed) {
+      logger.info(
+        `[BillingSchedule] Skip enqueue ${schedule.id}: schedule sudah COMPLETED/CANCELLED`,
+      );
+      return { jobId, delay, claimed: false };
+    }
+
     await addBillingScheduleJob(
       { scheduleId: schedule.id, version: schedule.version },
       { jobId, delay },
     );
-    await this.repository.attachQueueJobId(schedule.id, jobId);
-    await this.repository.markQueued(schedule.id, now);
 
     logger.info(
       `[BillingSchedule] Enqueued ${schedule.jobType} for ${schedule.runAt.toISOString()} (${schedule.id})`,
     );
 
-    return { jobId, delay };
+    return { jobId, delay, claimed: true };
   }
 
   async cancel(dedupeKey: string) {
@@ -81,7 +102,10 @@ export class BillingScheduleService {
       return;
     }
 
-    if (options?.version && options.version !== schedule.version) {
+    if (
+      options?.version !== undefined &&
+      options.version !== schedule.version
+    ) {
       logger.info(
         `[BillingSchedule] Skip stale job ${scheduleId} version ${options.version}; active version ${schedule.version}`,
       );
@@ -184,7 +208,7 @@ export class BillingScheduleService {
 export async function rehydrateBillingScheduleJobs(): Promise<void> {
   const repository = createBillingScheduleRepository();
   const service = new BillingScheduleService(repository);
-  const schedules = await repository.findForRehydration(new Date());
+  const schedules = await repository.findForRehydration();
 
   for (const schedule of schedules) {
     await service.enqueuePersistedSchedule(schedule);

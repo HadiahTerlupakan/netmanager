@@ -41,6 +41,263 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — VOID_AND_CREATE_NEW benar-benar membatalkan tagihan lama
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`, `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Opsi edit pelanggan berlabel "Batalkan & Buat Tagihan Baru"
+  (`VOID_AND_CREATE_NEW`) tidak pernah membatalkan apa pun — `handleInvoiceAction`
+  hanya memanggil `generateImmediateInvoice`, sehingga tagihan lama tetap hidup dan
+  pelanggan berakhir dengan dua tagihan sekaligus. Ditambahkan
+  `cancelOutstandingInvoices` + `replaceOutstandingInvoiceForCustomer`: tagihan
+  berstatus DRAFT/SENT/OVERDUE dibatalkan lebih dulu beserta durable schedule-nya,
+  baru tagihan pengganti diterbitkan. Invoice yang sudah menyerap pembayaran
+  (`paidAmount > 0`, termasuk PARTIAL_PAID) sengaja dilewati supaya payment tidak
+  jadi yatim. Pembatalan tidak ditelan: bila gagal, tagihan pengganti tidak dibuat.
+  `VoidInvoiceService` sengaja tidak dipakai ulang karena semantiknya berbeda —
+  service itu untuk void invoice yang SUDAH dibayar dan ikut memundurkan jatuh tempo
+  serta mengisolir pelanggan.
+- **Files**: `modules/finance/services/outstanding-invoice.helpers.ts`,
+  `modules/finance/services/AutomaticBillingService.ts`,
+  `modules/pelanggan/services/PelangganAdminMutationService.ts`
+- **Breaking**: ❌ Tidak — melengkapi perilaku yang selama ini setengah jalan
+
+### [2026-09-02] — Window penagihan harian pakai rentang tanggal, bukan tanggal-dalam-bulan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`, `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Query kelayakan billing memakai `EXTRACT(DAY FROM p."jatuhTempo") =
+  targetDay` tanpa batas bulan/tahun. Dua akibatnya:
+  (1) pelanggan dengan jatuh tempo di bulan atau tahun lain bertanggal sama ikut
+  terjaring dan ditagih untuk periode yang salah — selama ini hanya tertahan oleh
+  pengecekan duplikat, bukan oleh query-nya;
+  (2) karena cocoknya harus persis, kohort satu hari hilang permanen bila cron tidak
+  jalan hari itu — tidak ada catch-up sama sekali.
+  Query diganti rentang `jatuhTempo BETWEEN start AND end`, dengan batas atas =
+  tanggal target dan batas bawah 7 hari ke belakang (`BILLING_CATCH_UP_DAYS`) supaya
+  hari yang terlewat terkejar tanpa memindai seluruh penunggak sepanjang sejarah.
+  Selain itu `dueDate` invoice kini mengikuti jatuh tempo pelanggan sendiri, bukan
+  tanggal target global — menyamakan jalur harian dengan jalur realtime yang memang
+  sudah benar. Dedupe ikut berubah jadi per (pelanggan, siklus jatuh tempo) supaya
+  pelanggan menunggak tidak ditagih ulang setiap hari oleh rentang yang lebih lebar.
+  Duplikat mati `PelangganFinanceRepository.findEligibleForBilling` — query yang sama
+  dengan bug yang sama, nol pemanggil — dihapus, bukan diperbaiki dua kali.
+- **Files**: `modules/pelanggan/repositories/pelanggan-repository-automation.helpers.ts`,
+  `modules/pelanggan/repositories/PelangganRepository.ts`,
+  `modules/pelanggan/repositories/PelangganFinanceRepository.ts`,
+  `modules/pelanggan/services/PelangganBillingBridgeService.ts`,
+  `modules/finance/services/AutomaticBillingService.ts`,
+  `modules/finance/services/automatic-billing.helpers.ts`,
+  `modules/finance/repositories/InvoiceRepository.ts`
+- **Breaking**: ❌ Tidak — pada kasus normal `targetDate` dan `jatuhTempo` memang
+  jatuh di tanggal yang sama, jadi `dueDate` invoice tidak berubah; yang berubah
+  hanya kasus yang selama ini memang salah
+
+### [2026-09-02] — Id pembayaran resolusi mutasi tidak lagi dari timestamp
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `UnmatchedMutationService.resolve` membentuk primary key pembayaran
+  dari `PAY-${Date.now()}`. Dua resolusi dalam milidetik yang sama menghasilkan id
+  identik dan menabrak primary key. Diganti `randomUUID()`.
+- **Files**: `modules/finance/services/UnmatchedMutationService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Tes regresi untuk empat perbaikan billing lanjutan
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/finance`, `tests/modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: 28 tes baru, dikerjakan test-first — setiap tes diverifikasi merah
+  lebih dulu terhadap perilaku lama. Mencakup: keunikan id pembayaran saat jam sistem
+  dibekukan, batas atas/bawah window penagihan (masa depan ditolak, hari terlewat
+  terkejar), `dueDate` mengikuti jatuh tempo pelanggan, kunci dedupe per siklus,
+  bentuk query kelayakan (tidak lagi `EXTRACT(DAY`), pembatalan tagihan hidup,
+  perlindungan invoice yang sudah menyerap pembayaran, dan urutan cancel-sebelum-create.
+- **Files**: `tests/modules/finance/services/UnmatchedMutationService.test.ts`,
+  `tests/modules/finance/services/billing-eligibility-window.test.ts`,
+  `tests/modules/finance/services/replace-outstanding-invoice.test.ts`,
+  `tests/modules/finance/services/replace-invoice-flow.test.ts`,
+  `tests/modules/pelanggan/eligible-billing-query.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Review modul billing: RBAC analytics, satuan nominal, dan ketahanan schedule
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/billing/analytics`
+- **Author**: agent
+- **Deskripsi**: `GET /api/billing/analytics` hanya memakai `auth: true` tanpa RBAC,
+  sehingga setiap principal terautentikasi — termasuk token mobile pelanggan yang
+  hanya bermodal `customer:read` — bisa membaca omzet tenant, komposisi status
+  invoice, tren 12 bulan, dan 10 pelanggan teratas beserta nama dan nominal
+  bayarnya. Ditambahkan `permissions: ['finance:read']`, selaras dengan endpoint
+  analitik finance lain. Tidak ada konsumen frontend/mobile untuk endpoint ini,
+  jadi tidak ada pemakaian sah yang terdampak.
+- **Files**: `app/api/billing/analytics/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Perbaikan satuan nominal analitik billing
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `BillingAnalyticsService` membagi setiap nominal dengan 100, sisa
+  asumsi lama bahwa uang disimpan dalam sen. `HargaPaket.harga` bertipe `Int` rupiah
+  penuh dan `BillingInvoiceCreationService` menulis nilai itu apa adanya, sementara
+  `ARAgingService`, `RevenueSnapshotService`, dan `InvoicePaymentStateService`
+  membacanya tanpa pembagian. Akibatnya seluruh angka analitik (omzet, terbayar,
+  outstanding, rata-rata invoice, tren bulanan, top customer) tampil 100× lebih kecil
+  dari nilai sebenarnya. Pembagian dihapus dan konvensi satuan didokumentasikan di
+  header service. Log aktivitas create-invoice di `InvoiceCollectionRouteService`
+  punya bug yang sama dan ikut diperbaiki.
+- **Files**: `modules/finance/services/BillingAnalyticsService.ts`,
+  `modules/finance/services/InvoiceCollectionRouteService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Hardening durable billing schedule
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Tiga masalah konkurensi pada durable billing schedule.
+  (1) `BillingScheduleRepository.upsert` menaikkan `version` lewat read-modify-write,
+  sehingga dua reschedule bersamaan menghasilkan versi kembar dan job basi lolos dari
+  filter versi; diganti `version: { increment: 1 }` yang atomik.
+  (2) `enqueuePersistedSchedule` menulis `queueJobId` dan status `QUEUED` setelah job
+  masuk BullMQ. Untuk schedule dengan `runAt` lampau (delay 0 — jalur reconciliation),
+  worker bisa menyelesaikan job lebih dulu lalu tulisan `QUEUED` menimpa status
+  `COMPLETED`, membuat reconciliation menjadwalkan ulang job yang sudah jalan
+  (mis. auto-isolir dobel). Urutan dibalik: status dan job id ditulis lebih dulu dalam
+  satu update, baru enqueue.
+  (3) Guard versi `if (options?.version && ...)` melewatkan versi 0; diganti pengecekan
+  `!== undefined`.
+- **Files**: `modules/finance/repositories/BillingScheduleRepository.ts`,
+  `modules/finance/services/BillingScheduleService.ts`,
+  `modules/finance/domain/ports/IBillingScheduleRepository.ts`
+- **Breaking**: ❌ Tidak — `IBillingScheduleRepository` berubah (`attachQueueJobId`
+  dihapus, `markQueued` bertambah parameter `queueJobId`, `findForRehydration` tidak
+  lagi menerima argumen), tapi port ini internal modul finance dan hanya punya satu
+  implementasi di repo
+
+### [2026-09-02] — Guard setting billing/reminder dan batas rentang tanggal
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `parseBillingWindowDays` dan parsing `GENERAL_REMINDER_OTOMATIS`
+  memakai `parseInt` tanpa guard. Setting yang rusak menghasilkan `NaN`, lalu
+  `setDate(NaN)` menghasilkan Invalid Date — generate invoice harian dan reminder
+  berhenti total tanpa satu pun error di log. Keduanya kini divalidasi dan jatuh ke
+  default bila di luar rentang wajar, dan fallback-nya kini menulis `logger.warn` supaya
+  setting yang salah tidak ikut senyap seperti bug aslinya. Batas akhir rentang satu hari juga dinaikkan
+  dari `23:59:59.000` ke `23:59:59.999` supaya invoice pada sub-detik terakhir tidak
+  lolos dari pengecekan duplikat. Ditambahkan pula validasi rentang tanggal kustom di
+  analitik agar tanggal tidak valid tidak dikirim ke database.
+- **Files**: `modules/finance/services/automatic-billing.helpers.ts`,
+  `modules/finance/services/BillingReminderService.ts`,
+  `modules/finance/services/BillingAnalyticsService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Tren bulanan analitik billing jadi satu query
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `getMonthlyTrend` menjalankan 12 query berurutan (satu per bulan) dan
+  setiap query menarik baris invoice utuh padahal hanya `totalAmount` yang dipakai.
+  Diganti satu query rentang 12 bulan dengan `select` sempit, lalu di-bucket per bulan
+  di memori. Perhitungan tren juga dipindah ke `Promise.all` bersama query lain.
+  Perbaikan ini sekaligus menutup off-by-one: rentang lama memakai `lt` pada tanggal
+  terakhir bulan, sehingga invoice pada HARI TERAKHIR setiap bulan tidak pernah masuk
+  hitungan tren. Angka tren bulanan karena itu ikut berubah, bukan hanya jadi lebih cepat.
+  `TopCustomerPayment.invoiceCount` juga di-rename jadi `paymentCount` karena nilainya
+  memang jumlah transaksi pembayaran, bukan jumlah invoice.
+  Repository analitik kini bergantung pada port `IBillingAnalyticsRepository` sesuai
+  aturan dependency inversion modul baru.
+- **Files**: `modules/finance/services/BillingAnalyticsService.ts`,
+  `modules/finance/repositories/BillingAnalyticsRepository.ts`,
+  `modules/finance/domain/ports/IBillingAnalyticsRepository.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Kegagalan invoice instan tidak lagi ditelan diam-diam
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `AutomaticBillingService.generateImmediateInvoice` menangkap semua
+  error lalu hanya nge-log, sehingga pelanggan bisa berakhir tanpa tagihan tanpa satu
+  pun sinyal ke operator. Service kini melempar ulang setelah nge-log — keputusan
+  kebijakan diserahkan ke pemanggil, bukan diputus di service.
+  Kedua pemanggil ditangani eksplisit: `triggerCustomerBilling` (registrasi) sudah
+  punya try/catch sendiri sehingga tetap non-fatal; `handleInvoiceAction` (update admin)
+  kini menangkap, nge-log, dan melaporkan lewat flag `invoiceActionFailed` di response.
+  Alasannya: update pelanggan sudah commit dan event sync sudah dipublish sebelum aksi
+  invoice dijalankan, jadi melemparkan error keluar akan memetakannya ke HTTP 400
+  `VALIDATION_ERROR` lewat `mapMutationError` — admin membaca gangguan billing sementara
+  sebagai "input tidak valid", lalu submit ulang dan memicu update serta event sync kedua.
+- **Files**: `modules/finance/services/AutomaticBillingService.ts`,
+  `modules/pelanggan/services/PelangganAdminMutationService.ts`
+- **Breaking**: ❌ Tidak — response sukses tetap sukses, hanya bertambah flag opsional
+  `invoiceActionFailed`
+
+### [2026-09-02] — Compare-and-set pada transisi status billing schedule
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `markQueued` sebelumnya `update` tanpa syarat, sehingga menulis QUEUED
+  ke baris apa pun. Reconciliation membaca baris pada T lalu menulis pada T+delta; bila
+  worker menyelesaikan job di sela itu, status `COMPLETED` tertimpa kembali jadi `QUEUED`
+  dan guard di `executeScheduledJob` tidak lagi menahannya — `CUSTOMER_AUTO_ISOLIR`
+  bisa jalan dua kali dan memutus pelanggan yang sudah membayar. `markQueued` diubah
+  jadi compare-and-set (`updateMany` dengan `status notIn [COMPLETED, CANCELLED]`) yang
+  mengembalikan boolean; `enqueuePersistedSchedule` melewati enqueue saat klaim gagal.
+  Ini melengkapi perbaikan urutan enqueue di entry sebelumnya — urutan saja hanya
+  mempersempit balapan, tidak menutupnya.
+- **Files**: `modules/finance/repositories/BillingScheduleRepository.ts`,
+  `modules/finance/services/BillingScheduleService.ts`,
+  `modules/finance/domain/ports/IBillingScheduleRepository.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Tes regresi untuk perbaikan billing
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/finance`
+- **Author**: agent
+- **Deskripsi**: Perbaikan billing sebelumnya tidak punya satu pun tes yang memaku
+  perilaku barunya. Ditambahkan 28 tes yang masing-masing sudah diverifikasi gagal
+  terhadap kode lama: satuan rupiah pada analitik, bucket tren bulanan termasuk hari
+  pertama dan terakhir bulan, validasi rentang tanggal kustom, guard NaN pada parser
+  setting, batas milidetik rentang harian, urutan klaim QUEUED sebelum enqueue,
+  penolakan enqueue untuk schedule COMPLETED/CANCELLED, dan guard versi 0.
+- **Files**: `tests/modules/finance/services/BillingAnalyticsService.test.ts`,
+  `tests/modules/finance/services/BillingScheduleService.test.ts`,
+  `tests/modules/finance/services/billing-settings-parsers.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Bersihkan dead code dan type erasure modul billing
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `BillingRepository` punya 18 method tapi hanya 2 yang dipakai
+  (`findInvoiceById`, `createPayment` oleh `UnmatchedMutationService`); 16 sisanya
+  duplikat `InvoiceRepository`/`PaymentRepository` dan tidak pernah dipanggil,
+  termasuk `createInvoiceWithItems` yang identik dengan `createInvoice` dan
+  `transaction()` ber-`as any`. Repository dipersempit ke scope unmatched mutation.
+  Selain itu `AutomaticBillingService` membuang tipe hasil query lewat
+  `as unknown as Array<Record<string, unknown>>` lalu `as never`, padahal bridge
+  pelanggan sudah mengembalikan tipe konkret; cast dihapus dan diganti
+  `EligibleBillingRow`. Loop batch harian juga berhenti saat batch tidak penuh,
+  bukan menunggu satu query kosong.
+- **Files**: `modules/finance/repositories/BillingRepository.ts`,
+  `modules/finance/services/AutomaticBillingService.ts`,
+  `modules/finance/services/automatic-billing.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-08-29] — Sinkronisasi antrean offline mobile & status duplikat check-in
 
 - **Tipe**: [FIXED]

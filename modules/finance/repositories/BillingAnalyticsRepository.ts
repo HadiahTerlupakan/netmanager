@@ -1,18 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { prismaBilling } from "@/lib/prisma-billing";
 import type { Invoice, Payment, Prisma } from "@prisma/client-billing";
+import type {
+  IBillingAnalyticsRepository,
+  InvoiceAmountRow,
+} from "../domain/ports/IBillingAnalyticsRepository";
 import { getFinanceTenantWhere } from "./shared/financeMutationRepository";
 
 export type InvoiceWithPayments = Invoice & { payment: Payment[] };
+export type { InvoiceAmountRow } from "../domain/ports/IBillingAnalyticsRepository";
 
 const DEFAULT_TOP_CUSTOMER_LIMIT = 10;
-const PAYMENT_AMOUNT_DIVISOR = 100;
 const UNKNOWN_CUSTOMER_NAME = "Unknown";
 
 /** Repository untuk akses data analitik billing. */
-export class BillingAnalyticsRepository {
+export class BillingAnalyticsRepository implements IBillingAnalyticsRepository {
   /** Mengambil filter tenant untuk invoice analytics. */
-  private async getTenantWhere(): Promise<Prisma.InvoiceWhereInput> {
+  private async getInvoiceTenantWhere(): Promise<Prisma.InvoiceWhereInput> {
+    return getFinanceTenantWhere();
+  }
+
+  /** Mengambil filter tenant untuk payment analytics. */
+  private async getPaymentTenantWhere(): Promise<Prisma.PaymentWhereInput> {
     return getFinanceTenantWhere();
   }
 
@@ -25,7 +34,7 @@ export class BillingAnalyticsRepository {
     return prismaBilling.payment.groupBy({
       by: ["pelangganId"],
       where: {
-        ...((await this.getTenantWhere()) as Prisma.PaymentWhereInput),
+        ...(await this.getPaymentTenantWhere()),
         paymentDate: { gte: dateStart, lte: dateEnd },
       },
       _sum: { amount: true },
@@ -37,6 +46,10 @@ export class BillingAnalyticsRepository {
 
   /** Mengambil map nama pelanggan berdasarkan daftar id. */
   private async getCustomerNameMap(customerIds: string[]) {
+    if (customerIds.length === 0) {
+      return new Map<string, string>();
+    }
+
     const customers = await prisma.pelanggan.findMany({
       where: { id: { in: customerIds } },
       select: { id: true, nama: true },
@@ -52,7 +65,7 @@ export class BillingAnalyticsRepository {
   ): Promise<InvoiceWithPayments[]> {
     return prismaBilling.invoice.findMany({
       where: {
-        ...(await this.getTenantWhere()),
+        ...(await this.getInvoiceTenantWhere()),
         createdAt: { gte: dateStart, lte: dateEnd },
       },
       include: { payment: true },
@@ -63,19 +76,27 @@ export class BillingAnalyticsRepository {
   async getPayments(dateStart: Date, dateEnd: Date) {
     return prismaBilling.payment.findMany({
       where: {
-        ...((await this.getTenantWhere()) as Prisma.PaymentWhereInput),
+        ...(await this.getPaymentTenantWhere()),
         paymentDate: { gte: dateStart, lte: dateEnd },
       },
     });
   }
 
-  /** Mengambil invoice yang dibuat pada bulan tertentu. */
-  async getInvoicesForMonth(monthStart: Date, monthEnd: Date) {
+  /**
+   * Mengambil nominal invoice untuk satu rentang tanggal.
+   * Dipakai tren bulanan agar cukup satu query untuk seluruh periode,
+   * bukan satu query per bulan.
+   */
+  async getInvoiceAmountsForRange(
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): Promise<InvoiceAmountRow[]> {
     return prismaBilling.invoice.findMany({
       where: {
-        ...(await this.getTenantWhere()),
-        createdAt: { gte: monthStart, lt: monthEnd },
+        ...(await this.getInvoiceTenantWhere()),
+        createdAt: { gte: rangeStart, lt: rangeEnd },
       },
+      select: { createdAt: true, totalAmount: true },
     });
   }
 
@@ -97,8 +118,8 @@ export class BillingAnalyticsRepository {
     return customerPayments.map((payment) => ({
       id: payment.pelangganId,
       name: customerNameMap.get(payment.pelangganId) || UNKNOWN_CUSTOMER_NAME,
-      totalPaid: Number(payment._sum.amount) / PAYMENT_AMOUNT_DIVISOR,
-      invoiceCount: payment._count.id,
+      totalPaid: Number(payment._sum.amount ?? 0n),
+      paymentCount: payment._count.id,
     }));
   }
 }

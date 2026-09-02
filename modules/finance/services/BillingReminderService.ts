@@ -5,6 +5,8 @@ import { AttendanceSettingsService } from "@/modules/attendance";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
 const REMINDER_BATCH_SIZE = 50;
+const DEFAULT_REMINDER_DAYS = 3;
+const MAX_REMINDER_DAYS = 31;
 const REMINDER_TIME_WINDOW_MINUTES = 5;
 const REMINDER_DAY_LOCK_TTL_SECONDS = 24 * 60 * 60;
 
@@ -88,8 +90,8 @@ export class BillingReminderService {
     settingsMap: Map<string, string>,
     now: Date,
   ) {
-    const reminderDays = parseInt(
-      settingsMap.get("GENERAL_REMINDER_OTOMATIS") || "3",
+    const reminderDays = parseReminderDays(
+      settingsMap.get("GENERAL_REMINDER_OTOMATIS"),
     );
     const reminderFrequency =
       settingsMap.get("GENERAL_REMINDER_FREQUENCY") || "DAILY";
@@ -129,6 +131,7 @@ export class BillingReminderService {
         0,
         0,
         0,
+        0,
       ),
       lte: new Date(
         targetDate.getFullYear(),
@@ -137,6 +140,7 @@ export class BillingReminderService {
         23,
         59,
         59,
+        999,
       ),
     };
   }
@@ -202,6 +206,24 @@ export class BillingReminderService {
       );
     }
   }
+}
+
+/**
+ * Parse setting H-X reminder; nilai tidak valid jatuh ke default supaya
+ * rentang due date tidak berubah jadi Invalid Date dan mematikan reminder.
+ */
+function parseReminderDays(value?: string | null): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  const isWithinRange =
+    Number.isFinite(parsed) && parsed >= 0 && parsed <= MAX_REMINDER_DAYS;
+
+  if (!isWithinRange && value != null && value !== "") {
+    logger.warn(
+      `[Billing] GENERAL_REMINDER_OTOMATIS tidak valid: "${value}" — pakai default ${DEFAULT_REMINDER_DAYS} hari`,
+    );
+  }
+
+  return isWithinRange ? parsed : DEFAULT_REMINDER_DAYS;
 }
 
 /** Parse "HH:MM" jadi total menit dari midnight; return null jika invalid. */

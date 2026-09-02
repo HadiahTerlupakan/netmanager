@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import type { PrismaClient, Pelanggan, Settings, Status } from "@prisma/client";
 
 export class PelangganFinanceRepository {
@@ -34,33 +33,6 @@ export class PelangganFinanceRepository {
       where: { id },
       include: { hargaPaket: true },
     });
-  }
-
-  async findEligibleForBilling(
-    targetDay: number,
-    batchSize: number,
-    offset: number,
-    tenantId?: string,
-  ) {
-    const tenantFilter = tenantId
-      ? Prisma.sql`AND p."tenantId" = ${tenantId}`
-      : Prisma.empty;
-
-    return this.client.$queryRaw`
-            SELECT
-                p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId",
-                p.tipe, p.status, p."tenantId",
-                h.name AS "paketName", h.harga AS "paketHarga",
-                h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
-            FROM "Pelanggan" p
-            INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
-            WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
-              AND p."hargaPaketId" != ''
-              AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
-              ${tenantFilter}
-            ORDER BY p.id ASC
-            LIMIT ${batchSize} OFFSET ${offset}
-        `;
   }
 }
 

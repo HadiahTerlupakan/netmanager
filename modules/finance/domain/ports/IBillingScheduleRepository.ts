@@ -38,20 +38,23 @@ export interface BatchOperationResult {
 export interface IBillingScheduleRepository {
   findById(id: string): Promise<BillingScheduleEntity | null>;
   findByDedupeKey(dedupeKey: string): Promise<BillingScheduleEntity | null>;
-  findForRehydration(now: Date): Promise<BillingScheduleEntity[]>;
+  findForRehydration(): Promise<BillingScheduleEntity[]>;
   findForReconciliation(
     now: Date,
     staleProcessingBefore: Date,
   ): Promise<BillingScheduleEntity[]>;
   upsert(input: UpsertBillingScheduleInput): Promise<BillingScheduleEntity>;
-  attachQueueJobId(
-    scheduleId: string,
-    queueJobId: string,
-  ): Promise<BillingScheduleEntity>;
+  /**
+   * Tandai QUEUED sekaligus simpan job id dalam satu tulisan.
+   * Transisi bersifat compare-and-set: schedule yang sudah COMPLETED atau
+   * CANCELLED tidak boleh dihidupkan kembali.
+   * @returns true bila transisi benar-benar terjadi.
+   */
   markQueued(
     scheduleId: string,
     queuedAt: Date,
-  ): Promise<BillingScheduleEntity>;
+    queueJobId: string,
+  ): Promise<boolean>;
   markProcessing(
     scheduleId: string,
     processingAt: Date,

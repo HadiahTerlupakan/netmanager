@@ -245,7 +245,9 @@ export class InvoiceRepository implements IInvoiceRepository {
         pelangganId: { in: pelangganIds },
         dueDate: { gte: dueDateStart, lte: dueDateEnd },
       },
-      select: { pelangganId: true },
+      // dueDate ikut diambil: dedupe billing harian per (pelanggan, siklus
+      // jatuh tempo), bukan sekadar "pelanggan ini punya invoice di rentang".
+      select: { pelangganId: true, dueDate: true },
     });
   }
 

@@ -18,7 +18,8 @@ export interface PelangganMinimal {
  */
 export interface IPelangganBillingBridge {
   findEligibleForBilling(
-    targetDay: number,
+    dueDateStart: Date,
+    dueDateEnd: Date,
     limit: number,
     offset: number,
   ): Promise<unknown[]>;

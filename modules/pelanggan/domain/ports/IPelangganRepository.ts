@@ -226,9 +226,10 @@ export interface IPelangganRepository {
     limit?: number,
   ): Promise<UpgradePackageOption[]>;
 
-  /** Get customers eligible for billing. */
+  /** Get customers whose due date falls inside the billing window. */
   findEligibleForBilling(
-    targetDay: number,
+    dueDateStart: Date,
+    dueDateEnd: Date,
     batchSize: number,
     offset: number,
   ): Promise<EligibleBillingCustomerEntity[]>;

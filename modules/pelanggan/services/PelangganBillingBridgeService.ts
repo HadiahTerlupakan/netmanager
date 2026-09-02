@@ -6,8 +6,18 @@ export class PelangganBillingBridgeService {
   private pelangganRepo = new PelangganRepository();
   private pelangganFinanceRepo = new PelangganFinanceRepository();
 
-  findEligibleForBilling(targetDay: number, limit: number, offset: number) {
-    return this.pelangganRepo.findEligibleForBilling(targetDay, limit, offset);
+  findEligibleForBilling(
+    dueDateStart: Date,
+    dueDateEnd: Date,
+    limit: number,
+    offset: number,
+  ) {
+    return this.pelangganRepo.findEligibleForBilling(
+      dueDateStart,
+      dueDateEnd,
+      limit,
+      offset,
+    );
   }
 
   findByIdWithHargaPaket(id: string) {

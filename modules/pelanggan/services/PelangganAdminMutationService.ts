@@ -134,11 +134,14 @@ export class PelangganAdminMutationService {
       }
 
       await this.syncUpdatedCustomer(input, existingPelanggan, pelanggan);
-      await this.handleInvoiceAction(
+      const invoiceActionFailed = await this.handleInvoiceAction(
         normalizedData.invoiceAction,
         pelanggan.id,
       );
-      return sanitizePelangganResponse(pelanggan);
+      return {
+        ...sanitizePelangganResponse(pelanggan),
+        ...(invoiceActionFailed ? { invoiceActionFailed: true } : {}),
+      };
     } catch (error) {
       throw this.mapMutationError(error);
     }
@@ -360,17 +363,40 @@ export class PelangganAdminMutationService {
     };
   }
 
-  /** Run optional invoice action after customer update. */
+  /**
+   * Jalankan aksi invoice opsional setelah update pelanggan.
+   *
+   * Update pelanggan sudah commit dan event sync sudah dipublish sebelum titik
+   * ini, jadi kegagalan pembuatan invoice tidak boleh menggagalkan seluruh
+   * mutasi: retry oleh admin akan mengulang update dan mem-publish ulang event
+   * sync, berpotensi menghasilkan invoice ganda. Kegagalan di-log dan
+   * dilaporkan lewat flag `invoiceActionFailed` di response supaya tetap
+   * terlihat, bukan ditelan diam-diam.
+   *
+   * Aksi VOID_AND_CREATE_NEW membatalkan tagihan hidup pelanggan lebih dulu,
+   * sesuai label UI "Batalkan & Buat Tagihan Baru".
+   *
+   * @returns true bila aksi invoice diminta tapi gagal dijalankan.
+   */
   private async handleInvoiceAction(
     invoiceAction: string | null,
     pelangganId: string,
-  ) {
+  ): Promise<boolean> {
     if (invoiceAction !== "VOID_AND_CREATE_NEW") {
-      return;
+      return false;
     }
 
-    const { AutomaticBillingService } = await import("@/modules/finance");
-    await AutomaticBillingService.generateImmediateInvoice(pelangganId, false);
+    try {
+      const { AutomaticBillingService } = await import("@/modules/finance");
+      await AutomaticBillingService.replaceOutstandingInvoice(pelangganId);
+      return false;
+    } catch (invoiceError) {
+      logger.error(
+        `[PelangganAdminMutationService] Gagal membuat invoice untuk pelanggan ${pelangganId} setelah update ter-commit:`,
+        invoiceError instanceof Error ? invoiceError : undefined,
+      );
+      return true;
+    }
   }
 
   /** Map generic helper errors into route-safe mutation errors. */

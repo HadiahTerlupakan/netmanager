@@ -58,7 +58,6 @@ describe("BillingScheduleReconciliationService", () => {
       findForRehydration: vi.fn(),
       findForReconciliation,
       upsert: vi.fn(),
-      attachQueueJobId: vi.fn(),
       markQueued: vi.fn(),
       markProcessing: vi.fn(),
       markCompleted: vi.fn(),

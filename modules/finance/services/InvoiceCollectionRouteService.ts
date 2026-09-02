@@ -212,7 +212,7 @@ async function createInvoiceRecord(
   } as PrismaBilling.InvoiceCreateInput);
 }
 
-/** Logs the create-invoice route activity using legacy amount formatting. */
+/** Logs the create-invoice route activity. */
 function logCreatedInvoiceActivity(
   invoice: { id: string; invoiceNumber?: string | null; totalAmount: bigint },
   userId: string,
@@ -224,7 +224,7 @@ function logCreatedInvoiceActivity(
     details: {
       id: invoice.id,
       number: invoice.invoiceNumber ?? invoice.id,
-      total: Number(invoice.totalAmount) / 100,
+      total: Number(invoice.totalAmount),
     },
   });
 }

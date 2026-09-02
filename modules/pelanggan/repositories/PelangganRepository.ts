@@ -271,13 +271,19 @@ export class PelangganRepository implements IPelangganRepository {
     return findCustomerUpgradePackageOptions(currentPrice, limit);
   }
 
-  /** Get customers eligible for automatic billing. */
+  /** Get customers whose due date falls inside the billing window. */
   async findEligibleForBilling(
-    targetDay: number,
+    dueDateStart: Date,
+    dueDateEnd: Date,
     batchSize: number,
     offset: number,
   ) {
-    return findEligibleBillingCustomers({ targetDay, batchSize, offset });
+    return findEligibleBillingCustomers({
+      dueDateStart,
+      dueDateEnd,
+      batchSize,
+      offset,
+    });
   }
 
   /** Get customer push token by id. */

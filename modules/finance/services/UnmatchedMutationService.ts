@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type { Prisma } from "../lib/billing-prisma-boundary";
 import type { Payment, UnmatchedMutation } from "../types/invoice.enums";
 import { BillingRepository } from "../repositories/BillingRepository";
@@ -83,7 +84,9 @@ export class UnmatchedMutationService {
     }
 
     const payment = await this.billingRepo.createPayment({
-      id: `PAY-${Date.now()}`,
+      // Timestamp bukan id yang aman: dua resolusi dalam milidetik yang sama
+      // menabrak primary key.
+      id: randomUUID(),
       amount: BigInt(mutation.amount.toString()),
       paymentDate: mutation.date,
       paymentMethod: "BANK_TRANSFER",

@@ -8,13 +8,19 @@ import { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
 import { BillingReminderService } from "./BillingReminderService";
 import {
   canGenerateRealtimeInvoice,
+  createBillingCatchUpRange,
   createDueDateRange,
-  createTargetBillingDate,
+  createExistingInvoiceKey,
   getBillingBatchSize,
   mapEligibleBillingRowToCustomer,
   mapRealtimeCustomerToBillingPayload,
   parseBillingWindowDays,
   isDueDateWithinBillingWindow,
+  resolveInvoiceDueDate,
+} from "./automatic-billing.helpers";
+import type {
+  BillingCustomerPayload,
+  EligibleBillingRow,
 } from "./automatic-billing.helpers";
 import {
   createImmediateInvoice,
@@ -63,33 +69,38 @@ export class AutomaticBillingService {
     return this.reminderService;
   }
 
-  /** Generate invoices for customers who are due for billing. */
+  /**
+   * Generate invoice untuk pelanggan yang jatuh temponya masuk window billing.
+   *
+   * Window punya batas bawah beberapa hari ke belakang, jadi jatuh tempo yang
+   * terlewat karena cron mati tetap terkejar pada run berikutnya. Dedupe
+   * dilakukan per (pelanggan, jatuh tempo miliknya) sehingga pelanggan
+   * menunggak tidak ditagih ulang tiap hari.
+   */
   static async generateDailyInvoices() {
     try {
       const daysBeforeDue = await this.getDaysBeforeDue();
-      const targetDate = createTargetBillingDate(new Date(), daysBeforeDue);
-      const dueDateRange = createDueDateRange(targetDate);
-      const invoiceDueDate = new Date(targetDate);
+      const billingRange = createBillingCatchUpRange(new Date(), daysBeforeDue);
       const batchSize = getBillingBatchSize();
       let offset = 0;
 
-      while (true) {
+      let hasMoreBatches = true;
+      while (hasMoreBatches) {
         const customers =
-          (await this.getPelangganBridge().findEligibleForBilling(
-            targetDate.getDate(),
+          await this.getPelangganBridge().findEligibleForBilling(
+            billingRange.start,
+            billingRange.end,
             batchSize,
             offset,
-          )) as unknown as Array<Record<string, unknown>>;
+          );
 
         if (customers.length === 0) {
           break;
         }
 
-        await this.processDailyInvoiceBatch(
-          customers,
-          dueDateRange,
-          invoiceDueDate,
-        );
+        await this.processDailyInvoiceBatch(customers, billingRange);
+        // Batch tidak penuh berarti sudah halaman terakhir — hemat satu query.
+        hasMoreBatches = customers.length === batchSize;
         offset += batchSize;
         this.triggerGarbageCollection();
       }
@@ -109,52 +120,58 @@ export class AutomaticBillingService {
 
   /** Memproses satu batch pelanggan eligible untuk invoice harian. */
   private static async processDailyInvoiceBatch(
-    customers: Array<Record<string, unknown>>,
-    dueDateRange: { start: Date; end: Date },
-    invoiceDueDate: Date,
+    customers: EligibleBillingRow[],
+    billingRange: { start: Date; end: Date },
   ) {
-    const existingInvoiceSet = await this.getExistingInvoiceCustomerSet(
-      customers.map((customer) => customer.id as string),
-      dueDateRange,
+    const existingInvoiceKeys = await this.getExistingInvoiceKeys(
+      customers.map((customer) => customer.id),
+      billingRange,
     );
 
     for (const row of customers) {
-      await this.processDailyInvoiceCustomer(
-        row,
-        existingInvoiceSet,
-        invoiceDueDate,
-      );
+      await this.processDailyInvoiceCustomer(row, existingInvoiceKeys);
     }
   }
 
-  /** Mengambil kumpulan pelanggan yang sudah punya invoice pada due date target. */
-  private static async getExistingInvoiceCustomerSet(
+  /**
+   * Kunci (pelanggan, tanggal jatuh tempo) yang sudah punya invoice.
+   * Dedupe harus per siklus pelanggan, bukan per tanggal target global.
+   */
+  private static async getExistingInvoiceKeys(
     pelangganIds: string[],
-    dueDateRange: { start: Date; end: Date },
+    billingRange: { start: Date; end: Date },
   ) {
     const existingInvoices =
       await this.invoiceRepo.findManyForDateRangeWithPelangganIds(
-        dueDateRange.start,
-        dueDateRange.end,
+        billingRange.start,
+        billingRange.end,
         pelangganIds,
       );
 
-    return new Set(existingInvoices.map((invoice) => invoice.pelangganId));
+    return new Set(
+      existingInvoices.map((invoice) =>
+        createExistingInvoiceKey(invoice.pelangganId, invoice.dueDate),
+      ),
+    );
   }
 
   /** Memproses generate invoice untuk satu pelanggan dalam batch harian. */
   private static async processDailyInvoiceCustomer(
-    row: Record<string, unknown>,
-    existingInvoiceSet: Set<string | null>,
-    invoiceDueDate: Date,
+    row: EligibleBillingRow,
+    existingInvoiceKeys: Set<string>,
   ) {
     try {
-      if (existingInvoiceSet.has(row.id as string)) {
+      const invoiceDueDate = resolveInvoiceDueDate(new Date(row.jatuhTempo));
+      if (
+        existingInvoiceKeys.has(
+          createExistingInvoiceKey(row.id, invoiceDueDate),
+        )
+      ) {
         return;
       }
 
       await this.createInvoiceForCustomer(
-        mapEligibleBillingRowToCustomer(row as never),
+        mapEligibleBillingRowToCustomer(row),
         invoiceDueDate,
       );
     } catch (error) {
@@ -224,7 +241,7 @@ export class AutomaticBillingService {
     isPaid: boolean = false,
   ) {
     try {
-      await createImmediateInvoice({
+      return await createImmediateInvoice({
         pelangganId,
         pelangganBridge: this.getPelangganBridge(),
         invoiceCreationService: this.getInvoiceCreationService(),
@@ -233,29 +250,49 @@ export class AutomaticBillingService {
         shouldMarkPaid: isPaid,
       });
     } catch (error) {
+      // Error di-log lalu dilempar ulang supaya pemanggil yang menentukan
+      // kebijakan, bukan service ini. Menelan error di sini membuat pelanggan
+      // berakhir tanpa tagihan tanpa satu pun sinyal ke operator. Kedua
+      // pemanggil sudah menangani secara eksplisit: registrasi non-fatal, dan
+      // update admin melaporkannya lewat flag di response.
       logger.error(
         `[Billing] Error in generateImmediateInvoice for ${pelangganId}:`,
         error,
       );
+      throw error;
     }
   }
 
+  /**
+   * Membatalkan tagihan hidup pelanggan lalu menerbitkan penggantinya.
+   *
+   * Mendukung aksi admin "Batalkan & Buat Tagihan Baru": sebelumnya alur itu
+   * hanya membuat tagihan baru sehingga tagihan lama tetap hidup dan pelanggan
+   * berakhir dengan dua tagihan. Pembatalan dijalankan lebih dulu dan tidak
+   * ditelan — kalau gagal, tagihan pengganti tidak dibuat supaya tidak
+   * menambah tagihan ganda.
+   */
+  static async replaceOutstandingInvoice(pelangganId: string) {
+    const { replaceOutstandingInvoiceForCustomer } =
+      await import("./outstanding-invoice.helpers");
+
+    return replaceOutstandingInvoiceForCustomer({
+      pelangganId,
+      invoiceRepo: this.invoiceRepo,
+      createInvoice: () =>
+        createImmediateInvoice({
+          pelangganId,
+          pelangganBridge: this.getPelangganBridge(),
+          invoiceCreationService: this.getInvoiceCreationService(),
+          invoiceRepo: this.invoiceRepo,
+          paymentRepo: this.paymentRepo,
+          shouldMarkPaid: false,
+        }),
+    });
+  }
+
   private static async createInvoiceForCustomer(
-    customer: {
-      id: string;
-      nama: string;
-      jatuhTempo: Date;
-      userId: string | null;
-      usePPN: boolean;
-      tenantId: string | null;
-      hargaPaket: {
-        id: string;
-        name: string;
-        harga: number;
-        usePPN: boolean;
-        ppnPercentage: number | null;
-      };
-    },
+    customer: BillingCustomerPayload,
     dueDate: Date,
   ) {
     return this.getInvoiceCreationService().createInvoiceForCustomer(

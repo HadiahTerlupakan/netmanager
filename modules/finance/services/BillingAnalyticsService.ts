@@ -1,8 +1,21 @@
+import type {
+  AnalyticsInvoiceWithPayments,
+  AnalyticsPayment,
+  IBillingAnalyticsRepository,
+  InvoiceAmountRow,
+} from "../domain/ports/IBillingAnalyticsRepository";
 import { BillingAnalyticsRepository } from "../repositories/BillingAnalyticsRepository";
-import type { InvoiceWithPayments } from "../repositories/BillingAnalyticsRepository";
-import type { Payment } from "../types/invoice.enums";
+
+function createBillingAnalyticsRepository(): IBillingAnalyticsRepository {
+  return new BillingAnalyticsRepository();
+}
 
 type PeriodType = "TODAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
+
+const MONTHLY_TREND_MONTHS = 12;
+const DAYS_IN_WEEK = 7;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const MONTHS_PER_QUARTER = 3;
 
 interface DateRange {
   start: Date;
@@ -10,132 +23,143 @@ interface DateRange {
   type: PeriodType;
 }
 
+interface AnalyticsPeriodOptions {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 /**
- * Service for billing analytics business logic
+ * Service untuk analitik billing.
+ *
+ * Catatan satuan: seluruh nominal (`totalAmount`, `Payment.amount`) disimpan
+ * sebagai BigInt dalam rupiah penuh — bukan sen. Jangan bagi 100 di sini.
  */
 export class BillingAnalyticsService {
-  private repository: BillingAnalyticsRepository;
+  constructor(
+    private readonly repository: IBillingAnalyticsRepository = createBillingAnalyticsRepository(),
+  ) {}
 
-  constructor() {
-    this.repository = new BillingAnalyticsRepository();
-  }
-
-  /**
-   * Get complete billing analytics
-   */
-  async getAnalytics(options: {
-    period?: string;
-    startDate?: string;
-    endDate?: string;
-  }) {
+  /** Mengambil analitik billing lengkap untuk satu periode. */
+  async getAnalytics(options: AnalyticsPeriodOptions) {
     const dateRange = this.calculateDateRange(options);
 
-    // Parallel fetching for better performance
-    const [invoices, allPayments, topCustomers] = await Promise.all([
-      this.repository.getInvoicesWithPayments(dateRange.start, dateRange.end),
-      this.repository.getPayments(dateRange.start, dateRange.end),
-      this.repository.getTopCustomersByPayment(dateRange.start, dateRange.end),
-    ]);
-
-    // Calculate all metrics
-    const summary = this.calculateSummary(invoices, dateRange);
-    const paymentMethods = this.calculatePaymentMethods(allPayments);
-    const invoiceStatuses = this.calculateInvoiceStatuses(invoices);
-    const monthlyTrend = await this.getMonthlyTrend();
+    const [invoices, allPayments, topCustomers, monthlyTrend] =
+      await Promise.all([
+        this.repository.getInvoicesWithPayments(dateRange.start, dateRange.end),
+        this.repository.getPayments(dateRange.start, dateRange.end),
+        this.repository.getTopCustomersByPayment(
+          dateRange.start,
+          dateRange.end,
+        ),
+        this.getMonthlyTrend(),
+      ]);
 
     return {
-      summary,
-      paymentMethods,
-      invoiceStatuses,
+      summary: this.calculateSummary(invoices, dateRange),
+      paymentMethods: this.calculatePaymentMethods(allPayments),
+      invoiceStatuses: this.calculateInvoiceStatuses(invoices),
       monthlyTrend,
       topCustomers,
     };
   }
 
-  /**
-   * Calculate date range based on period
-   */
-  private calculateDateRange(options: {
-    period?: string;
-    startDate?: string;
-    endDate?: string;
-  }): DateRange {
+  /** Menentukan rentang tanggal dari periode preset atau rentang kustom. */
+  private calculateDateRange(options: AnalyticsPeriodOptions): DateRange {
     const now = new Date();
-    let dateStart: Date;
-    const dateEnd: Date = now;
-
-    if (options.startDate && options.endDate) {
-      return {
-        start: new Date(options.startDate),
-        end: new Date(options.endDate),
-        type: "CUSTOM",
-      };
+    const customRange = this.parseCustomRange(options);
+    if (customRange) {
+      return customRange;
     }
 
     const period = options.period || "MONTH";
 
-    switch (period) {
-      case "TODAY":
-        dateStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case "WEEK":
-        dateStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "MONTH":
-        dateStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "QUARTER":
-        const quarter = Math.floor(now.getMonth() / 3);
-        dateStart = new Date(now.getFullYear(), quarter * 3, 1);
-        break;
-      case "YEAR":
-        dateStart = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        dateStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
+    // CUSTOM tanpa rentang tanggal valid sudah jatuh ke preset di atas, jadi
+    // labelnya tidak boleh ikut CUSTOM — response akan menyesatkan konsumen.
+    const isPresetPeriod = this.isKnownPeriod(period) && period !== "CUSTOM";
 
     return {
-      start: dateStart,
-      end: dateEnd,
-      type: period as PeriodType,
+      start: this.resolvePeriodStart(period, now),
+      end: now,
+      type: isPresetPeriod ? period : "MONTH",
     };
   }
 
   /**
-   * Calculate summary statistics
+   * Memvalidasi rentang kustom. Tanggal tidak valid atau terbalik diabaikan
+   * agar fallback ke periode preset, bukan mengirim Invalid Date ke database.
    */
+  private parseCustomRange(options: AnalyticsPeriodOptions): DateRange | null {
+    if (!options.startDate || !options.endDate) {
+      return null;
+    }
+
+    const start = new Date(options.startDate);
+    const end = new Date(options.endDate);
+    const isValidRange =
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      start <= end;
+
+    return isValidRange ? { start, end, type: "CUSTOM" } : null;
+  }
+
+  private resolvePeriodStart(period: string, now: Date): Date {
+    switch (period) {
+      case "TODAY":
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case "WEEK":
+        return new Date(now.getTime() - DAYS_IN_WEEK * MILLISECONDS_PER_DAY);
+      case "QUARTER": {
+        const quarter = Math.floor(now.getMonth() / MONTHS_PER_QUARTER);
+        return new Date(now.getFullYear(), quarter * MONTHS_PER_QUARTER, 1);
+      }
+      case "YEAR":
+        return new Date(now.getFullYear(), 0, 1);
+      case "MONTH":
+      default:
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+  }
+
+  private isKnownPeriod(period: string): period is PeriodType {
+    return ["TODAY", "WEEK", "MONTH", "QUARTER", "YEAR", "CUSTOM"].includes(
+      period,
+    );
+  }
+
+  /** Menghitung ringkasan invoice dan pembayaran untuk periode terpilih. */
   private calculateSummary(
-    invoices: InvoiceWithPayments[],
+    invoices: AnalyticsInvoiceWithPayments[],
     dateRange: DateRange,
   ) {
     const totalInvoices = invoices.length;
     const totalRevenue = invoices.reduce(
-      (sum, inv) => sum + Number(inv.totalAmount) / 100,
+      (sum, invoice) => sum + Number(invoice.totalAmount),
       0,
     );
     const totalPayments = invoices.reduce(
-      (sum, inv) => sum + inv.payment.length,
+      (sum, invoice) => sum + invoice.payment.length,
       0,
     );
-    const totalPaid = invoices.reduce((sum, inv) => {
-      const paid = inv.payment.reduce(
-        (pSum: number, p: Payment) => pSum + Number(p.amount) / 100,
-        0,
-      );
-      return sum + paid;
-    }, 0);
-    const outstandingAmount = totalRevenue - totalPaid;
-    const averageInvoiceValue =
-      totalInvoices > 0 ? totalRevenue / totalInvoices : 0;
+    const totalPaid = invoices.reduce(
+      (sum, invoice) =>
+        sum +
+        invoice.payment.reduce(
+          (paidSum: number, payment: AnalyticsPayment) =>
+            paidSum + Number(payment.amount),
+          0,
+        ),
+      0,
+    );
 
     return {
       totalInvoices,
       totalRevenue,
       totalPayments,
       totalPaid,
-      outstandingAmount,
-      averageInvoiceValue,
+      outstandingAmount: totalRevenue - totalPaid,
+      averageInvoiceValue: totalInvoices > 0 ? totalRevenue / totalInvoices : 0,
       period: {
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
@@ -144,10 +168,8 @@ export class BillingAnalyticsService {
     };
   }
 
-  /**
-   * Calculate payment method statistics
-   */
-  private calculatePaymentMethods(payments: Payment[]) {
+  /** Menghitung statistik pembayaran per metode. */
+  private calculatePaymentMethods(payments: AnalyticsPayment[]) {
     const methodStats = payments.reduce(
       (acc, payment) => {
         const method = payment.paymentMethod;
@@ -155,7 +177,7 @@ export class BillingAnalyticsService {
           acc[method] = { method, count: 0, total: 0 };
         }
         acc[method].count += 1;
-        acc[method].total += Number(payment.amount) / 100;
+        acc[method].total += Number(payment.amount);
         return acc;
       },
       {} as Record<string, { method: string; count: number; total: number }>,
@@ -164,10 +186,8 @@ export class BillingAnalyticsService {
     return Object.values(methodStats);
   }
 
-  /**
-   * Calculate invoice status statistics
-   */
-  private calculateInvoiceStatuses(invoices: InvoiceWithPayments[]) {
+  /** Menghitung statistik invoice per status. */
+  private calculateInvoiceStatuses(invoices: AnalyticsInvoiceWithPayments[]) {
     const statusStats = invoices.reduce(
       (acc, invoice) => {
         const status = invoice.status;
@@ -175,7 +195,7 @@ export class BillingAnalyticsService {
           acc[status] = { status, count: 0, total: 0 };
         }
         acc[status].count += 1;
-        acc[status].total += Number(invoice.totalAmount) / 100;
+        acc[status].total += Number(invoice.totalAmount);
         return acc;
       },
       {} as Record<string, { status: string; count: number; total: number }>,
@@ -184,37 +204,55 @@ export class BillingAnalyticsService {
     return Object.values(statusStats);
   }
 
-  /**
-   * Get monthly trend (last 12 months)
-   */
-  private async getMonthlyTrend() {
-    const now = new Date();
-    const monthlyTrend = [];
+  /** Menghitung tren 12 bulan terakhir lewat satu query rentang penuh. */
+  private async getMonthlyTrend(now: Date = new Date()) {
+    const rangeStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - (MONTHLY_TREND_MONTHS - 1),
+      1,
+    );
+    const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const invoices = await this.repository.getInvoiceAmountsForRange(
+      rangeStart,
+      rangeEnd,
+    );
+    const buckets = this.groupInvoiceAmountsByMonth(invoices);
 
-    for (let i = 11; i >= 0; i--) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-
-      const monthInvoices = await this.repository.getInvoicesForMonth(
-        monthDate,
-        monthEnd,
+    return Array.from({ length: MONTHLY_TREND_MONTHS }, (_, index) => {
+      const monthDate = new Date(
+        now.getFullYear(),
+        now.getMonth() - (MONTHLY_TREND_MONTHS - 1) + index,
+        1,
       );
-      const monthRevenue = monthInvoices.reduce(
-        (sum, inv) => sum + Number(inv.totalAmount) / 100,
-        0,
-      );
-      const monthName = monthDate.toLocaleDateString("id-ID", {
-        month: "long",
-        year: "numeric",
-      });
+      const bucket = buckets.get(toMonthKey(monthDate));
 
-      monthlyTrend.push({
-        month: monthName,
-        invoices: monthInvoices.length,
-        revenue: monthRevenue,
-      });
+      return {
+        month: monthDate.toLocaleDateString("id-ID", {
+          month: "long",
+          year: "numeric",
+        }),
+        invoices: bucket?.invoices ?? 0,
+        revenue: bucket?.revenue ?? 0,
+      };
+    });
+  }
+
+  private groupInvoiceAmountsByMonth(invoices: InvoiceAmountRow[]) {
+    const buckets = new Map<string, { invoices: number; revenue: number }>();
+
+    for (const invoice of invoices) {
+      const key = toMonthKey(invoice.createdAt);
+      const bucket = buckets.get(key) ?? { invoices: 0, revenue: 0 };
+      bucket.invoices += 1;
+      bucket.revenue += Number(invoice.totalAmount);
+      buckets.set(key, bucket);
     }
 
-    return monthlyTrend;
+    return buckets;
   }
+}
+
+/** Kunci bucket bulanan `YYYY-MM` di timezone server. */
+function toMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
