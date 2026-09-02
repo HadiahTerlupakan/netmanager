@@ -11,11 +11,14 @@ import type {
 } from "../domain/ports/IPlanningTemplateItemRepository";
 import type { IPlanningRepository } from "../domain/ports/IPlanningRepository";
 import type {
+  IPlanningItemRepository,
+  CreatePlanningItemInput,
+} from "../domain/ports/IPlanningItemRepository";
+import type {
   PlanningTemplateListItemDTO,
   PlanningTemplateDetailDTO,
   CreatePlanningTemplateDTO,
   UpdatePlanningTemplateDTO,
-  PlanningTemplateItemDTO,
 } from "../dto/PlanningTemplateDTO";
 import type { CreatePlanningDTO, PlanningDetailDTO } from "../dto/PlanningDTO";
 import type { PlanningType } from "../domain/entities/PlanningEntity";
@@ -38,6 +41,7 @@ export class PlanningTemplateService {
     private readonly templateRepo: IPlanningTemplateRepository,
     private readonly templateItemRepo: IPlanningTemplateItemRepository,
     private readonly planningRepo: IPlanningRepository,
+    private readonly itemRepo: IPlanningItemRepository,
     private readonly auditService: PlanningAuditService,
   ) {}
 
@@ -329,17 +333,30 @@ export class PlanningTemplateService {
       tenantId,
     });
 
-    // Return planning DTO dengan items dari template
-    const itemDTOs: PlanningTemplateItemDTO[] = templateItems.map((item) => ({
-      name: item.name,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit,
-      estimatedPrice: item.estimatedPrice,
-    }));
+    // Salin item template menjadi PlanningItem milik planning baru.
+    // Inilah alasan fitur template ada: BOQ baku ikut terbawa, bukan cuma
+    // angka anggarannya. Tanpa langkah ini planning lahir dengan
+    // estimatedBudget terisi tapi nol item -- persis kondisi yang ditandai
+    // hasBudgetMismatch() sebagai selisih BOQ.
+    const createdItems = [];
+    for (const templateItem of templateItems) {
+      const itemInput: CreatePlanningItemInput = {
+        planningId: planningEntity.id,
+        tenantId,
+        name: templateItem.name,
+        description: templateItem.description,
+        quantity: templateItem.quantity,
+        unit: templateItem.unit,
+        estimatedPrice: templateItem.estimatedPrice,
+        actualPrice: null,
+        notes: templateItem.notes,
+      };
+
+      createdItems.push(await this.itemRepo.create(itemInput));
+    }
 
     return PlanningMapper.toDetailDTO(planningEntity, {
-      items: [], // Items belum di-create di PlanningItem table
+      items: createdItems,
       milestones: [],
       documents: [],
     });

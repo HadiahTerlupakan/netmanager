@@ -3,16 +3,19 @@ import { PlanningTemplateService } from "@/modules/planning/services/PlanningTem
 import type { IPlanningTemplateRepository } from "@/modules/planning/domain/ports/IPlanningTemplateRepository";
 import type { IPlanningTemplateItemRepository } from "@/modules/planning/domain/ports/IPlanningTemplateItemRepository";
 import type { IPlanningRepository } from "@/modules/planning/domain/ports/IPlanningRepository";
+import type { IPlanningItemRepository } from "@/modules/planning/domain/ports/IPlanningItemRepository";
 import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import { PlanningTemplateEntity } from "@/modules/planning/domain/entities/PlanningTemplateEntity";
 import { PlanningTemplateItemEntity } from "@/modules/planning/domain/entities/PlanningTemplateItemEntity";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
+import { PlanningItemEntity } from "@/modules/planning/domain/entities/PlanningItemEntity";
 
 describe("PlanningTemplateService", () => {
   let service: PlanningTemplateService;
   let mockTemplateRepo: Mocked<IPlanningTemplateRepository>;
   let mockTemplateItemRepo: Mocked<IPlanningTemplateItemRepository>;
   let mockPlanningRepo: Mocked<IPlanningRepository>;
+  let mockItemRepo: Mocked<IPlanningItemRepository>;
   let mockAuditService: Mocked<PlanningAuditService>;
 
   beforeEach(() => {
@@ -38,6 +41,28 @@ describe("PlanningTemplateService", () => {
       create: vi.fn(),
     } as unknown as Mocked<IPlanningRepository>;
 
+    mockItemRepo = {
+      // applyTemplate menyalin item template ke PlanningItem, jadi mock ini
+      // harus mengembalikan entity yang bisa dipetakan ke DTO.
+      create: vi.fn(
+        async (data) =>
+          new PlanningItemEntity({
+            id: `pi-${data.name}`,
+            planningId: data.planningId,
+            tenantId: data.tenantId,
+            name: data.name,
+            description: data.description ?? null,
+            quantity: data.quantity,
+            unit: data.unit,
+            estimatedPrice: data.estimatedPrice ?? null,
+            actualPrice: data.actualPrice ?? null,
+            notes: data.notes ?? null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+      ),
+    } as unknown as Mocked<IPlanningItemRepository>;
+
     mockAuditService = {
       logChange: vi.fn(),
     } as unknown as Mocked<PlanningAuditService>;
@@ -46,6 +71,7 @@ describe("PlanningTemplateService", () => {
       mockTemplateRepo,
       mockTemplateItemRepo,
       mockPlanningRepo,
+      mockItemRepo,
       mockAuditService,
     );
   });

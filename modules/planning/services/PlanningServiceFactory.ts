@@ -90,6 +90,7 @@ class PlanningServiceFactory {
       const templateRepo = new PlanningTemplateRepository();
       const templateItemRepo = new PlanningTemplateItemRepository();
       const planningRepo = new PlanningRepository();
+      const itemRepo = new PlanningItemRepository();
       const auditService = this.getAuditService();
 
       this.instances.set(
@@ -98,6 +99,7 @@ class PlanningServiceFactory {
           templateRepo,
           templateItemRepo,
           planningRepo,
+          itemRepo,
           auditService,
         ),
       );

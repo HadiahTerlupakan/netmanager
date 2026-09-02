@@ -72,6 +72,10 @@ export const applyTemplateSchema = z.object({
   title: z.string().min(1, "Title required").max(200, "Title too long"),
   description: z.string().optional().nullable(),
   area: z.string().min(1, "Area required").max(200, "Area too long"),
+  // Form "Terapkan Template" menandai Estimasi Unit sebagai wajib. Sebelumnya
+  // field ini tidak ada di schema sehingga isian pengguna dibuang saat validasi
+  // dan planning selalu lahir dengan estimatedUnits 0.
+  estimatedUnits: z.number().int().positive("Estimated units must be positive"),
   coordinates: z
     .object({
       latitude: z.number().min(-90).max(90),

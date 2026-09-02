@@ -815,9 +815,17 @@ function DocumentsTab({
         Dokumen
       </h3>
       {planning.documents.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">
-          Belum ada dokumen
-        </p>
+        <div className="py-10 text-center">
+          <HiOutlineDocumentText className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
+          <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-300">
+            Belum ada dokumen
+          </p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            {canUpdate
+              ? "Unggah dokumen belum tersedia di aplikasi. Sertakan gambar kerja, izin, dan berita acara lewat kanal yang berlaku sampai fitur ini dibuka."
+              : "Dokumen pendukung akan tampil di sini setelah dilampirkan."}
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {planning.documents.map((doc) => (
@@ -840,11 +848,6 @@ function DocumentsTab({
             </a>
           ))}
         </div>
-      )}
-      {canUpdate && planning.documents.length === 0 && (
-        <p className="text-xs text-gray-400 mt-4 text-center">
-          Upload dokumen via API: POST /api/planning/{planning.id}/documents
-        </p>
       )}
     </div>
   );

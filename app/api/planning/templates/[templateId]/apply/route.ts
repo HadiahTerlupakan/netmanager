@@ -33,7 +33,7 @@ export const POST = createHandler(
           description: ctx.validated.description,
           area: ctx.validated.area,
           coordinates: ctx.validated.coordinates,
-          estimatedUnits: 0, // Will be calculated from items
+          estimatedUnits: ctx.validated.estimatedUnits,
           startDate: ctx.validated.startDate,
           targetCompletionDate: ctx.validated.targetCompletionDate,
         },

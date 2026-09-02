@@ -41,6 +41,87 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-03] — Terapkan Template OSP tidak menyalin satu pun item
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `PlanningTemplateService.applyTemplate` menghitung
+  `estimatedBudget` dari item template, menyusun `itemDTOs`, lalu
+  **membuangnya** dan mengembalikan `items: []` dengan komentar "Items belum
+  di-create di PlanningItem table". Tidak satu baris pun ditulis ke
+  `PlanningItem`. Padahal menyalin BOQ baku adalah satu-satunya alasan fitur
+  template ada.
+  Akibat berantai: planning hasil template lahir dengan `estimatedBudget`
+  terisi tapi nol item — persis kondisi yang ditandai `hasBudgetMismatch()`
+  sebagai selisih BOQ. Jadi setiap planning dari template langsung memunculkan
+  peringatan selisih anggaran. Log aktivitas juga selalu melaporkan
+  `itemCount: 0`.
+  `IPlanningItemRepository` kini diinjeksikan ke service dan item template
+  disalin menjadi `PlanningItem` milik planning baru.
+- **Catatan konsistensi**: penyalinan mengikuti idiom `create()` yang sudah ada
+  di service ini (berurutan, tanpa transaksi). Parameter `tx?` pada port
+  planning adalah perancah yang belum dipakai service mana pun, jadi tidak
+  diaktifkan sepihak di sini. Celah atomisitas ini disampaikan ke pemilik
+  produk, bukan ditutup diam-diam.
+- **Files**: `modules/planning/services/PlanningTemplateService.ts`,
+  `modules/planning/services/PlanningServiceFactory.ts`
+- **Tests**: `tests/modules/planning/services/PlanningTemplateService.apply-items.test.ts`
+  (diverifikasi merah lebih dulu, lalu merah lagi saat penyalinan dinonaktifkan)
+- **Breaking**: ⚠️ Konstruktor `PlanningTemplateService` bertambah satu
+  parameter (`itemRepo`) sebelum `auditService`. Composition root dan tes
+  disesuaikan; tidak ada pemanggil lain.
+
+### [2026-09-03] — Isian wajib "Estimasi Unit" pada Terapkan Template dibuang diam-diam
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/planning/templates`
+- **Author**: agent
+- **Deskripsi**: Form "Terapkan Template" menandai **Estimasi Unit** sebagai
+  wajib dan klien menolak kirim bila kosong, tetapi `applyTemplateSchema` tidak
+  memuat field itu sehingga validasi membuangnya, dan route mengirim
+  `estimatedUnits: 0` ke service dengan komentar "Will be calculated from
+  items" — padahal tidak ada satu baris pun yang menghitungnya. Angka yang
+  diketik pengguna hilang tanpa jejak dan setiap planning dari template
+  tersimpan dengan estimasi unit nol.
+  Schema kini mewajibkan `estimatedUnits` bilangan bulat positif (sejajar
+  dengan `createPlanningSchema`) dan route meneruskannya apa adanya.
+- **Files**: `modules/planning/validators/planningTemplateSchemas.ts`,
+  `app/api/planning/templates/[templateId]/apply/route.ts`
+- **Tests**: `tests/api/planning-template-apply-route.test.ts`
+- **Breaking**: ⚠️ Permintaan tanpa `estimatedUnits` kini ditolak 400. Klien
+  di aplikasi sudah selalu mengirimkannya.
+
+### [2026-09-03] — Tab Dokumen menyuruh pengguna memanggil API mentah
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/planning`
+- **Author**: agent
+- **Deskripsi**: Tab Dokumen pada detail Planning menampilkan teks
+  "Upload dokumen via API: POST /api/planning/{id}/documents" kepada manajer
+  proyek. Selain bahasa developer di antarmuka bisnis, endpoint yang disebut
+  melempar `notImplemented` — jadi petunjuk itu menuntun ke jalan buntu.
+  Diganti keadaan-kosong yang jujur: menyebut fitur unggah belum tersedia dan
+  apa yang harus dilakukan sementara ini, dengan teks berbeda untuk yang
+  berhak mengubah dan yang hanya membaca.
+- **Catatan**: sub-modul dokumen (list, upload, delete) dan `/export`
+  seluruhnya masih stub `notImplemented`. Perubahan ini membuat antarmuka
+  jujur soal itu, **bukan** mengimplementasikan fiturnya.
+- **Files**: `app/admin/planning/[id]/PlanningDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-03] — Tes arsitektur: UI admin tidak menyuruh panggil API mentah
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/architecture`
+- **Author**: agent
+- **Deskripsi**: Memindai seluruh `app/admin/**/*.tsx` untuk teks yang memuat
+  metode HTTP diikuti path `/api/`. Pemanggilan `fetch`/`router.push` dan baris
+  komentar dikecualikan karena yang dilarang adalah teks yang **dirender**.
+  Diverifikasi merah lebih dulu dan menemukan tepat satu pelanggar.
+- **Files**: `tests/architecture/no-api-instructions-in-ui.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-03] — Halaman detail & edit OSP tidak menerima ID sama sekali
 
 - **Tipe**: [FIXED]
