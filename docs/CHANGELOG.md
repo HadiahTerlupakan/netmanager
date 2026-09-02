@@ -41,6 +41,61 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Rencana yang ditolak kini bisa diajukan ulang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`, `app/admin/planning`
+- **Author**: agent
+- **Deskripsi**: `canBeSubmitted()` di domain mengizinkan status `BACKLOG` maupun
+  `REJECTED`, tetapi halaman detail hanya menampilkan tombol Ajukan saat
+  `BACKLOG`. Akibatnya rencana yang ditolak dapat diperbaiki tetapi **tidak
+  pernah bisa diajukan ulang** — jalan buntu yang hanya terlihat dari UI, bukan
+  dari kode service. Logika gerbang aksi yang sebelumnya inline dan tidak teruji
+  dipindah ke `resolvePlanningActions()` di domain, sehingga aturannya tunggal,
+  bisa diuji tanpa merender komponen, dan tidak bisa menyimpang lagi dari aturan
+  domain. Tombol menyesuaikan konteks: "Ajukan ulang" untuk rencana yang ditolak.
+- **Files**: `modules/planning/domain/planning-actions.ts`,
+  `modules/planning/client.ts`, `app/admin/planning/[id]/PlanningDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Halaman OSP menampilkan aksi dan angka yang selama ini tersembunyi
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/planning`, `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Transisi `start`/`complete` sudah punya endpoint tetapi belum
+  punya tombol, sehingga alur pelaksanaan tetap tidak terjangkau dari antarmuka.
+  Ditambahkan aksi **Mulai pengerjaan** dan **Tandai selesai** pada halaman
+  detail. Data turunan yang ditambahkan sebelumnya juga belum pernah tampil:
+  kini halaman detail menampilkan **Total item (BOQ)** di samping anggaran
+  rencana, peringatan bila keduanya berselisih, serta **Progres milestone**
+  berdampingan dengan progres yang dicatat manual — supaya perbedaan keduanya
+  terlihat, bukan tersembunyi.
+  Label diseragamkan ke Bahasa Indonesia dan istilah yang dikenali petugas
+  lapangan: "Approved L1" → "Disetujui tahap 1", "Menunggu Approval" → "Menunggu
+  persetujuan", "Backlog" → "Draf", "Pending" (milestone) → "Belum dikerjakan".
+  Nama field mengikuti apa yang dikendalikan pengguna: "Estimasi Budget" →
+  "Anggaran rencana", "Actual Budget" → "Realisasi".
+- **Catatan**: pemolesan dibatasi pada hal yang dapat diverifikasi dari kode —
+  struktur aksi, kejelasan label, dan data yang tidak tertampil. Penilaian
+  estetika tidak dilakukan karena tidak dapat diverifikasi tanpa melihat render,
+  dan modul ini mengikuti sistem desain admin yang sudah ada.
+- **Files**: `app/admin/planning/[id]/PlanningDetailClient.tsx`,
+  `modules/planning/utils/statusConfig.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Tes regresi gerbang aksi planning
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/modules/planning`
+- **Author**: agent
+- **Deskripsi**: 14 tes untuk `resolvePlanningActions`, diverifikasi merah lebih
+  dulu: pengajuan ulang setelah ditolak, aksi mulai hanya saat disetujui, aksi
+  selesai hanya saat berjalan, pencatatan realisasi hanya saat berjalan, dan
+  penghormatan terhadap izin pengguna.
+- **Files**: `tests/modules/planning/planning-actions.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Tutup alur pelaksanaan OSP yang buntu setelah disetujui
 
 - **Tipe**: [FIXED]

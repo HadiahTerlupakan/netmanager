@@ -11,6 +11,11 @@
  */
 
 // Mappers (pure functions — safe for client bundle)
+export {
+  resolvePlanningActions,
+  type PlanningActions,
+  type PlanningPermissions,
+} from "./domain/planning-actions";
 export { PlanningMapper } from "./mappers/PlanningMapper";
 export { PlanningItemMapper } from "./mappers/PlanningItemMapper";
 export { PlanningMilestoneMapper } from "./mappers/PlanningMilestoneMapper";

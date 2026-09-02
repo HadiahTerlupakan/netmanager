@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import {
   HiOutlineArrowLeft,
   HiOutlineCheckCircle,
+  HiOutlinePlay,
   HiOutlineXCircle,
   HiOutlinePencilSquare,
   HiOutlineTrash,
@@ -31,6 +32,7 @@ import {
 } from "@/modules/planning/client";
 import type { PlanningDetailDTO } from "@/modules/planning/client";
 import type { PlanningStatus } from "@/modules/planning/client";
+import { resolvePlanningActions } from "@/modules/planning/client";
 
 type Tab = "overview" | "items" | "milestones" | "documents";
 
@@ -110,18 +112,18 @@ export default function PlanningDetailClient({
 
   const statusConfig =
     PLANNING_STATUS_CONFIG[planning.status as PlanningStatus];
-  const canEdit =
-    canUpdate &&
-    (planning.status === "BACKLOG" || planning.status === "REJECTED");
-  const canSubmitForApproval = canSubmit && planning.status === "BACKLOG";
-  const canApproveAction =
-    canApprove &&
-    (planning.status === "PENDING_APPROVAL" ||
-      planning.status === "APPROVED_LEVEL1");
-  const canDeleteAction = canDelete && planning.status === "BACKLOG";
+  // Aturan aksi dipusatkan di domain supaya halaman tidak menyimpang darinya —
+  // versi inline sebelumnya menyembunyikan tombol Ajukan pada rencana yang
+  // ditolak, sehingga rencana itu bisa diperbaiki tetapi tidak bisa diajukan lagi.
+  const actions = resolvePlanningActions(planning.status as PlanningStatus, {
+    canUpdate,
+    canSubmit,
+    canApprove,
+    canDelete,
+  });
 
   const handleStatusAction = async (
-    action: "submit" | "approve" | "reject",
+    action: "submit" | "approve" | "reject" | "start" | "complete",
   ) => {
     if (action === "reject" && !approvalNotes.trim()) {
       toast.error("Alasan penolakan wajib diisi");
@@ -130,7 +132,7 @@ export default function PlanningDetailClient({
     setSubmitting(true);
     try {
       const body =
-        action === "submit"
+        action === "submit" || action === "start" || action === "complete"
           ? {}
           : { approvalNotes: approvalNotes.trim() || null };
 
@@ -211,7 +213,7 @@ export default function PlanningDetailClient({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {canEdit && (
+          {actions.canEdit && (
             <Link href={`/admin/planning/${planningId}/edit`}>
               <Button variant="outline" size="sm">
                 <HiOutlinePencilSquare className="w-4 h-4" />
@@ -233,17 +235,38 @@ export default function PlanningDetailClient({
             <HiOutlineArrowDownTray className="w-4 h-4" />
             Export PDF
           </Button>
-          {canSubmitForApproval && (
+          {actions.canSubmit && (
             <Button
               size="sm"
               loading={submitting}
               onClick={() => handleStatusAction("submit")}
             >
               <HiOutlinePaperAirplane className="w-4 h-4" />
-              Ajukan
+              {planning.status === "REJECTED" ? "Ajukan ulang" : "Ajukan"}
             </Button>
           )}
-          {canApproveAction && (
+          {actions.canStart && (
+            <Button
+              size="sm"
+              loading={submitting}
+              onClick={() => handleStatusAction("start")}
+            >
+              <HiOutlinePlay className="w-4 h-4" />
+              Mulai pengerjaan
+            </Button>
+          )}
+          {actions.canComplete && (
+            <Button
+              variant="success"
+              size="sm"
+              loading={submitting}
+              onClick={() => handleStatusAction("complete")}
+            >
+              <HiOutlineCheckCircle className="w-4 h-4" />
+              Tandai selesai
+            </Button>
+          )}
+          {actions.canApprove && (
             <>
               <Button
                 variant="success"
@@ -263,7 +286,7 @@ export default function PlanningDetailClient({
               </Button>
             </>
           )}
-          {canDeleteAction && (
+          {actions.canDelete && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -399,6 +422,12 @@ function OverviewTab({ planning }: { planning: PlanningDetailDTO }) {
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
             Detail
           </h3>
+          {planning.hasBudgetMismatch && (
+            <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              Total item BOQ berbeda dari anggaran rencana. Periksa daftar item
+              atau perbarui anggarannya.
+            </p>
+          )}
           <dl className="space-y-2.5 text-sm">
             <DetailRow label="Tipe" value={planning.type} />
             <DetailRow
@@ -406,15 +435,25 @@ function OverviewTab({ planning }: { planning: PlanningDetailDTO }) {
               value={planning.approvalLevel === 2 ? "2 Level" : "1 Level"}
             />
             <DetailRow
-              label="Progress"
+              label="Progres tercatat"
               value={`${planning.progressPercentage}%`}
             />
+            {planning.milestoneProgressPercentage !== null && (
+              <DetailRow
+                label="Progres milestone"
+                value={`${planning.milestoneProgressPercentage}% selesai`}
+              />
+            )}
             <DetailRow
-              label="Estimasi Budget"
+              label="Anggaran rencana"
               value={formatBudget(planning.estimatedBudget)}
             />
             <DetailRow
-              label="Actual Budget"
+              label="Total item (BOQ)"
+              value={formatBudget(planning.itemsTotalEstimatedCost)}
+            />
+            <DetailRow
+              label="Realisasi"
               value={formatBudget(planning.actualBudget)}
             />
             <DetailRow

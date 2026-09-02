@@ -6,19 +6,19 @@ export const PLANNING_STATUS_CONFIG: Record<
   { label: string; className: string; dot: string }
 > = {
   BACKLOG: {
-    label: "Backlog",
+    label: "Draf",
     className:
       "bg-gray-100 dark:bg-gray-700/40 text-gray-700 dark:text-gray-300",
     dot: "bg-gray-500",
   },
   PENDING_APPROVAL: {
-    label: "Menunggu Approval",
+    label: "Menunggu persetujuan",
     className:
       "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
     dot: "bg-amber-500",
   },
   APPROVED_LEVEL1: {
-    label: "Approved L1",
+    label: "Disetujui tahap 1",
     className:
       "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
     dot: "bg-blue-500",
@@ -60,7 +60,7 @@ export const MILESTONE_STATUS_CONFIG: Record<
   { label: string; className: string; dot: string }
 > = {
   PENDING: {
-    label: "Pending",
+    label: "Belum dikerjakan",
     className:
       "bg-gray-100 dark:bg-gray-700/40 text-gray-700 dark:text-gray-300",
     dot: "bg-gray-400",
