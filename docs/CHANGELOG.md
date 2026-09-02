@@ -41,6 +41,88 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Tutup dua jalur eskalasi ke super admin
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/roles`, `modules/users`, `app/api/roles`
+- **Author**: agent
+- **Deskripsi**: Audit menemukan dua jalur independen bagi pengguna berprivilese
+  rendah untuk menjadi super admin, keduanya lewat satu permission rutin.
+  **(1) Rename role.** `isSuperAdminRole()` menentukan super admin dari STRING nama
+  role (`"SUPER_ADMIN"` / `"Super Admin"`), sementara guard rename hanya mencegah
+  role SUPER_ADMIN di-rename KELUAR. Rename role biasa MASUK ke nama itu tidak
+  dijaga sama sekali, dan `ensureSuperAdminAllowed` hanya menempel di flag
+  `isSuperAdmin` — sehingga jalur nama juga melewati kebijakan tenant. Pemegang
+  `roles:update` dari tenant mana pun bisa mengangkat dirinya jadi super admin
+  lintas-tenant. Kini `grantsSuperAdmin()` memperhitungkan flag DAN nama, dan
+  pemberian status super admin menuntut aktornya sendiri super admin, bukan sekadar
+  berada di tenant utama.
+  **(2) Assign role.** `users:assign_super_admin` didefinisikan di
+  `permission-config.ts` dan ikut di-seed, tapi grep seluruh repo hanya menemukan
+  definisi dan komentar seed — nol penegakan; `roleId` mengalir dari body request
+  langsung ke `data.roleId`. Ditambah `assertCanAssignRole()` /
+  `assertCanAssignRoleId()` yang memeriksa role tujuan dari kedua arah (flag dan
+  nama) pada jalur create maupun update user.
+- **Files**: `modules/roles/services/RoleService.ts`,
+  `modules/roles/services/role-service.types.ts`,
+  `modules/users/services/role-assignment-guard.ts`,
+  `modules/users/services/admin-user-route.create.ts`,
+  `modules/users/services/admin-user-route.update.ts`,
+  `app/api/roles/route.ts`, `app/api/roles/[id]/route-handlers-impl.ts`
+- **Breaking**: ⚠️ Sebagian — pemegang `roles:update` yang bukan super admin tidak
+  lagi bisa membuat/mengubah role super admin, dan pemberian role super admin kini
+  menuntut `users:assign_super_admin`. Ini memang tujuannya.
+
+### [2026-09-02] — Pencabutan sesi kini berlaku di jalur withAuth
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/auth`
+- **Author**: agent
+- **Deskripsi**: `verifyAuth` — penjaga seluruh route `withAuth`/`withPermission` —
+  tidak pernah memeriksa `tokenVersion` (0 kemunculan di `lib/auth/helpers.ts`,
+  berbanding 8 di `callbacks.ts` dan 29 di `mobile-auth.ts`). Akibatnya status yang
+  dicabut, termasuk super admin, tetap berlaku sampai cookie kedaluwarsa: menaikkan
+  `tokenVersion` lewat force-logout pun tidak menolong karena jalur ini tidak
+  membacanya. Praktisnya, akses super admin tidak bisa dicabut. Ditambah
+  `isTokenRevoked()` yang memeriksa `tokenVersion` dan `isActive`, dipakai di
+  `verifyAuth`. Bila lookup gagal, fungsi sengaja memilih TIDAK mencabut —
+  gangguan infrastruktur tidak boleh mengunci semua orang.
+- **Dampak operasional**: minimal. `tokenVersion` hanya dinaikkan saat force-logout
+  dan logout mobile, jadi token pengguna normal selalu sepadan; yang ditolak hanya
+  token yang memang sudah seharusnya mati.
+- **Files**: `lib/auth/token-freshness.ts`, `lib/auth/helpers.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Elevasi CRON_SECRET menuntut secret benar-benar diset
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `lib/tenant-context.ts` membandingkan header dengan
+  `` `Bearer ${process.env.CRON_SECRET}` `` tanpa memeriksa keberadaan variabelnya,
+  padahal `CRON_SECRET` bertanda `optional()` di `lib/env.ts`. Bila tidak diset,
+  string yang dibandingkan menjadi literal `"Bearer undefined"` dan siapa pun yang
+  mengirim header itu memperoleh `{ tenantId: null, isSuperAdmin: true }` di lapisan
+  Prisma — bypass isolasi tenant tanpa sesi sama sekali. Seluruh route cron sudah
+  memakai pola `!cronSecret ||`; hanya tempat ini yang tertinggal.
+- **Files**: `lib/tenant-context.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-02] — Tes regresi untuk pengerasan super admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/`
+- **Author**: agent
+- **Deskripsi**: 21 tes baru, semuanya diverifikasi merah lebih dulu terhadap
+  perilaku lama: penolakan rename ke kedua ejaan nama ajaib, penolakan set flag oleh
+  aktor non-super-admin, jalur positif super admin di tenant utama tetap lolos,
+  rename biasa tidak terganggu, penegakan `users:assign_super_admin` dari kedua arah
+  (flag dan nama), dan predikat pencabutan token termasuk perilaku fail-open saat
+  data pembanding tidak tersedia.
+- **Files**: `tests/modules/roles/RoleService.superadmin-escalation.test.ts`,
+  `tests/api/superadmin-hardening.test.ts`, `tests/api/token-revocation.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Tes otorisasi route finansial: deteksi berbasis perilaku
 
 - **Tipe**: [CHANGED]

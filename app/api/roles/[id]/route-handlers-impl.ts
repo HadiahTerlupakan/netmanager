@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getRoleService, RolePolicyError } from "@/modules/roles";
@@ -148,6 +149,7 @@ const handlePut: AuthenticatedHandler = async (
       validated,
       {
         tenantId: user.tenantId ?? null,
+        actorIsSuperAdmin: isSuperAdmin(user),
       },
     );
 

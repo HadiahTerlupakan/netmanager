@@ -311,7 +311,14 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
     }
 
     // 1a. Cron internal bearer secret should bypass mobile JWT verification.
-    if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    //
+    // `CRON_SECRET` opsional di `lib/env.ts`. Tanpa guard keberadaannya,
+    // `Bearer ${undefined}` menjadi literal "Bearer undefined" sehingga siapa
+    // pun yang mengirim header itu memperoleh konteks super admin lintas-tenant
+    // di lapisan Prisma. Route cron sudah memakai pola `!cronSecret ||`; hanya
+    // tempat ini yang tertinggal.
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
       return cacheTenantContextForRequest(requestHeaders, {
         tenantId: null,
         isSuperAdmin: true,

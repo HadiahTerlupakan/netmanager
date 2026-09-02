@@ -148,6 +148,12 @@ describe("auth session permissions", () => {
       canApproveRab: false,
       canReceiveWhatsappApproval: false,
     });
+    // verifyAuth kini memeriksa pencabutan sesi lebih dulu (tokenVersion +
+    // isActive), baru menghidrasi permissions — dua lookup, bukan satu.
+    mockFns.userFindUnique.mockResolvedValueOnce({
+      tokenVersion: 0,
+      isActive: true,
+    });
     mockFns.userFindUnique.mockResolvedValueOnce({
       role: {
         isSuperAdmin: false,

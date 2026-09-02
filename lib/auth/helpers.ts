@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { isTokenRevoked } from "./token-freshness";
 import { getToken } from "next-auth/jwt";
 import { verifyMobileToken } from "@/lib/mobile-auth";
 import { logger } from "@/lib/logger";
 import { getUserPermissions } from "./permissions";
+import { prismaAuth } from "@/lib/prisma";
 
 export {
   isSuperAdmin,
@@ -88,6 +90,14 @@ export async function verifyAuth(
 
     const userId = (token.id as string) || "";
 
+    // Hormati pencabutan sesi. Tanpa ini, status yang dicabut (termasuk super
+    // admin) tetap berlaku sampai cookie kedaluwarsa — `sessionCallback` dan
+    // `verifyMobileToken` sudah memeriksanya, hanya jalur ini yang tertinggal.
+    if (userId && (await isRevokedSession(userId, token))) {
+      logger.info(`[AUTH_VERIFY] Session revoked for user ${userId}`);
+      return null;
+    }
+
     // Ambil permissions dari token jika sudah ada, baru fetch jika belum
     // Ini menghindari N+1 query karena session callback sudah populate permissions
     const permissions =
@@ -113,5 +123,32 @@ export async function verifyAuth(
   } catch (error) {
     logger.error("[AUTH_VERIFY] Error verifying auth:", error);
     return null;
+  }
+}
+
+/** Memeriksa pencabutan lewat cache sesi 30 detik yang sudah ada. */
+async function isRevokedSession(
+  userId: string,
+  token: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const stored = await prismaAuth.user.findUnique({
+      where: { id: userId },
+      select: { tokenVersion: true, isActive: true },
+    });
+
+    if (!stored) {
+      return false;
+    }
+
+    return isTokenRevoked({
+      tokenVersion: token.tokenVersion as number | undefined,
+      storedTokenVersion: stored.tokenVersion,
+      isActive: stored.isActive,
+    });
+  } catch (error) {
+    // Gangguan infrastruktur tidak boleh mengunci pengguna yang sah.
+    logger.error("[AUTH_VERIFY] Gagal memeriksa pencabutan sesi:", error);
+    return false;
   }
 }

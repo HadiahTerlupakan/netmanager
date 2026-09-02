@@ -17,6 +17,8 @@ import type {
   UserRouteResult,
 } from "./AdminUserRouteService.types";
 
+import { assertCanAssignRoleId } from "./role-assignment-guard";
+
 const userRepository = new UserRepository();
 
 /** Menangani validasi, persist, dan side effect update user admin. */
@@ -49,6 +51,12 @@ export class AdminUserRouteUpdateService {
     currentUser: Parameters<typeof validateSelfUpdate>[1],
     payload: UpdateUserPayload,
   ): Promise<UserRouteResult<Prisma.UserUncheckedUpdateInput>> {
+    await assertCanAssignRoleId({
+      roleId: payload.roleId,
+      actorPermissions: session.user.permissions ?? [],
+      actorIsSuperAdmin: session.user.isSuperAdmin,
+    });
+
     const data = buildBaseUpdateData(payload);
     const tenantChange = await applyTenantChange({
       session,

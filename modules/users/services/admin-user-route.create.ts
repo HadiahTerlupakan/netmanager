@@ -1,4 +1,5 @@
 import { getTenantAdminRoleId } from "@/modules/mitra";
+import { assertCanAssignRoleId } from "./role-assignment-guard";
 import { prismaAuth } from "@/modules/database";
 import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
@@ -120,6 +121,12 @@ export class AdminUserRouteCreateService {
       payload.roleId,
       targetTenantId,
     );
+
+    await assertCanAssignRoleId({
+      roleId: effectiveRoleId,
+      actorPermissions: session.user.permissions ?? [],
+      actorIsSuperAdmin: session.user.isSuperAdmin,
+    });
 
     return {
       targetTenantId,

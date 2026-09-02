@@ -1,4 +1,5 @@
 import { invalidateRolePermissionCache } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth/super-admin";
 import { expandMobilePermissionDependencies } from "@/lib/mobile-permission-dependencies";
 import { sanitizePermissionsByPanelAccess } from "@/lib/permission-sanitizer";
 import { isMainTenant } from "@/modules/mitra";
@@ -37,6 +38,8 @@ const SUPER_ADMIN_CREATE_MESSAGE =
 const SUPER_ADMIN_UPDATE_MESSAGE =
   "Hanya tenant utama yang dapat mengelola role Super Admin";
 const SUPER_ADMIN_ROLE_NAME = "SUPER_ADMIN";
+const SUPER_ADMIN_ACTOR_MESSAGE =
+  "Hanya super admin yang dapat memberikan status super admin pada role";
 
 export class RolePolicyError extends Error {
   public readonly status: number;
@@ -108,9 +111,10 @@ export class RoleService {
   ): Promise<RoleDetailDTO> {
     const permissions = await this.sanitizePermissions(input);
     this.ensureSuperAdminAllowed(
-      Boolean(input.isSuperAdmin),
+      this.grantsSuperAdmin(input),
       SUPER_ADMIN_CREATE_MESSAGE,
       context?.tenantId,
+      context?.actorIsSuperAdmin,
     );
     this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
     return this.createRole(buildRolePayload(input, permissions));
@@ -124,9 +128,10 @@ export class RoleService {
   ): Promise<RoleDetailDTO> {
     const permissions = await this.sanitizePermissions(input);
     this.ensureSuperAdminAllowed(
-      Boolean(input.isSuperAdmin),
+      this.grantsSuperAdmin(input),
       SUPER_ADMIN_UPDATE_MESSAGE,
       context?.tenantId,
+      context?.actorIsSuperAdmin,
     );
     this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
     return this.updateRole(id, buildRolePayload(input, permissions));
@@ -211,18 +216,40 @@ export class RoleService {
     return expandMobilePermissionDependencies(sanitized);
   }
 
+  /**
+   * Menjaga pembuatan/pengubahan role yang berujung superadmin.
+   *
+   * Status superadmin bisa datang dari DUA arah: flag `isSuperAdmin`, dan nama
+   * role yang cocok dengan `isSuperAdminRole()` (`"SUPER_ADMIN"` /
+   * `"Super Admin"`). Sebelumnya hanya flag yang dijaga, sehingga pemegang
+   * `roles:update` cukup me-rename role-nya sendiri untuk menjadi superadmin —
+   * sekaligus melewati kebijakan tenant yang hanya menempel di flag.
+   *
+   * Selain tenant utama, kini pemanggilnya sendiri wajib superadmin: memberi
+   * superadmin adalah wewenang superadmin, bukan wewenang pengelola role.
+   */
   private ensureSuperAdminAllowed(
-    isSuperAdmin: boolean,
+    grantsSuperAdmin: boolean,
     message: string,
     tenantId?: string | null,
+    actorIsSuperAdmin?: boolean,
   ) {
-    if (!isSuperAdmin) {
+    if (!grantsSuperAdmin) {
       return;
     }
 
     if (!isMainTenant(tenantId ?? null)) {
       throw new RolePolicyError(message);
     }
+
+    if (!actorIsSuperAdmin) {
+      throw new RolePolicyError(SUPER_ADMIN_ACTOR_MESSAGE);
+    }
+  }
+
+  /** Role dianggap memberi superadmin bila flag-nya menyala ATAU namanya ajaib. */
+  private grantsSuperAdmin(input: RoleMutationInput): boolean {
+    return Boolean(input.isSuperAdmin) || isSuperAdminRole(input.name);
   }
 
   private ensureSensitivePermissionsAllowed(

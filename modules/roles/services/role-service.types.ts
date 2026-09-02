@@ -13,4 +13,9 @@ export type RoleMutationInput = {
 
 export type RoleMutationContext = {
   tenantId?: string | null;
+  /**
+   * Apakah pemanggil sendiri sudah superadmin. Wajib untuk mencegah eskalasi:
+   * tanpa ini, pemegang `roles:update` bisa mengangkat dirinya sendiri.
+   */
+  actorIsSuperAdmin?: boolean;
 };

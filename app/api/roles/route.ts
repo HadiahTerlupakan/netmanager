@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getRoleService, RolePolicyError } from "@/modules/roles";
 import * as z from "zod";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { logActivitySafe } from "@/lib/logger";
 import { apiSuccess } from "@/lib/api";
 import {
@@ -55,6 +56,7 @@ const handlePost: AuthenticatedHandler = async ({ request, user }) => {
     const roleService = getRoleService();
     const newRole = await roleService.createRoleWithPolicy(validated, {
       tenantId: user.tenantId ?? null,
+      actorIsSuperAdmin: isSuperAdmin(user),
     });
 
     if (user.id) {
