@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function PlanningDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await ensurePermission(PERMISSIONS.PLANNING.READ);
-  return <PlanningDetailClient planningId={params.id} />;
+  const { id } = await params;
+  return <PlanningDetailClient planningId={id} />;
 }

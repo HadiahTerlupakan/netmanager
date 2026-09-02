@@ -41,6 +41,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-03] — Halaman detail & edit OSP tidak menerima ID sama sekali
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/planning`
+- **Author**: agent
+- **Deskripsi**: `app/admin/planning/[id]/page.tsx` dan `[id]/edit/page.tsx` masih
+  memakai tanda tangan sinkron `params: { id: string }`. Next.js **16** menjadikan
+  `params` sebuah Promise dan menegakkannya, sehingga `params.id` terbaca
+  `undefined` dan halaman meminta `/api/planning/undefined`. Terkonfirmasi di log
+  produksi: `← GET /api/planning/undefined 404`.
+  Cacat ini tidak terlihat oleh typecheck maupun tes unit — hanya muncul sebagai
+  request aneh di runtime. Kedua halaman kini `await params`.
+- **Cakupan**: hanya dua berkas ini yang menyimpang; seluruh halaman `[id]` lain
+  di admin sudah memakai `Promise<{ id: string }>`.
+- **Files**: `app/admin/planning/[id]/page.tsx`,
+  `app/admin/planning/[id]/edit/page.tsx`
+- **Breaking**: ❌ Tidak — memulihkan halaman yang sebelumnya tidak berfungsi
+
+### [2026-09-03] — Tes arsitektur: tanda tangan params Next.js
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/architecture`
+- **Author**: agent
+- **Deskripsi**: Memindai seluruh `page.tsx`, `layout.tsx`, dan `route.ts` di
+  `app/**` untuk tanda tangan `params` sinkron yang pada Next 16 menghasilkan
+  `undefined`. Detektor dibatasi pada posisi parameter fungsi yang di-destructure
+  agar tidak menuduh variabel lokal bernama `params` — kesalahan yang sempat
+  terjadi pada `app/api/mobile/mixradius/customers/route.ts` di iterasi pertama,
+  dan dikunci oleh tes tersendiri. Diverifikasi merah lebih dulu terhadap kedua
+  halaman OSP.
+- **Files**: `tests/architecture/next-async-params.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Kanban OSP: seret kartu kini benar-benar memindahkan tahap
 
 - **Tipe**: [FIXED]
