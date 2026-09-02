@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
-  hasPermission: vi.fn(),
   notFound: vi.fn((resource: string) =>
     NextResponse.json(
       { success: false, error: `${resource} tidak ditemukan` },
@@ -22,17 +21,12 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-vi.mock("@/lib/rbac", () => ({
-  hasPermission: mockFns.hasPermission,
-}));
-
 import { DELETE, GET, PUT } from "@/app/api/invoices/[id]/route";
 import { prismaMock } from "../setup";
 
 describe("invoice detail route site scope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.hasPermission.mockResolvedValue(true);
     prismaMock.user.findFirst.mockResolvedValue({
       siteId: "site-1",
     });
@@ -45,6 +39,9 @@ describe("invoice detail route site scope", () => {
       new NextRequest("http://localhost/api/invoices/inv-1"),
       {
         params: { id: "inv-1" },
+        // createHandler selalu mengisi ctx.permissions untuk kedua jalur auth
+        // (sesi NextAuth maupun Bearer token mobile).
+        permissions: ["invoices:site_only"],
         session: {
           user: {
             id: "user-1",
@@ -75,6 +72,9 @@ describe("invoice detail route site scope", () => {
       }),
       {
         params: { id: "inv-1" },
+        // createHandler selalu mengisi ctx.permissions untuk kedua jalur auth
+        // (sesi NextAuth maupun Bearer token mobile).
+        permissions: ["invoices:site_only"],
         session: {
           user: {
             id: "user-1",
@@ -135,6 +135,9 @@ describe("invoice detail route site scope", () => {
       }),
       {
         params: { id: "inv-1" },
+        // createHandler selalu mengisi ctx.permissions untuk kedua jalur auth
+        // (sesi NextAuth maupun Bearer token mobile).
+        permissions: ["invoices:site_only"],
         session: {
           user: {
             id: "user-1",
@@ -162,6 +165,9 @@ describe("invoice detail route site scope", () => {
       }),
       {
         params: { id: "inv-1" },
+        // createHandler selalu mengisi ctx.permissions untuk kedua jalur auth
+        // (sesi NextAuth maupun Bearer token mobile).
+        permissions: ["invoices:site_only"],
         session: {
           user: {
             id: "user-1",

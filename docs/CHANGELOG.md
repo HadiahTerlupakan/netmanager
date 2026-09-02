@@ -41,6 +41,59 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-02] — Pembatas site invoice kini berlaku untuk pemanggil Bearer
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/invoices`, `lib/api`
+- **Author**: agent
+- **Deskripsi**: `canOnlyAccessOwnSite` memanggil `hasPermission("invoices:site_only")`
+  tanpa argumen user, sehingga jatuh ke `getServerSession`. Untuk pemanggil Bearer
+  (token mobile) sesi itu null, fungsi selalu mengembalikan `false`, dan
+  `isRestricted` ikut `false` — pembatas cakupan site justru mati bagi pemanggil
+  yang paling tidak dipercaya, sementara pengguna web tetap terbatas. Diganti
+  `isInvoiceSiteRestricted()` yang membaca `ctx.permissions`, yang diisi
+  `createHandler` untuk kedua jalur autentikasi, dan tetap melewatkan super admin.
+  Pengecekan alias dipertahankan lewat `hasPermissionWithAlias`.
+- **Files**: `lib/api/financial-permissions.ts`, `app/api/invoices/route.ts`,
+  `app/api/invoices/[id]/route.ts`
+- **Breaking**: ❌ Tidak — hanya mempersempit data yang terlihat sesuai maksud
+  permission `invoices:site_only` yang selama ini diabaikan
+
+### [2026-09-02] — Operasi tulis invoice menuntut permission tingkat ubah
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/api`
+- **Author**: agent
+- **Deskripsi**: `INVOICE_WRITE_PERMISSIONS` sebelumnya disamakan dengan set baca
+  sebagai langkah sementara agar tidak mengunci siapa pun, sehingga siapa pun yang
+  boleh MEMBACA pelanggan juga boleh menulis ulang atau menghapus invoice. Ditelusuri
+  bahwa satu-satunya konsumen yang benar-benar menulis invoice adalah halaman
+  perpanjangan `app/admin/pelanggan/ppp/[id]/renew`, yang sudah digerbangi
+  `ensurePermission('pelanggan:update')`. Set tulis karena itu dipersempit ke
+  `finance:update`, `pelanggan:update`, `ppp:update`, `transactions:update` — tetap
+  meloloskan alur perpanjangan yang sah, tapi menutup principal yang hanya punya
+  akses baca.
+- **Files**: `lib/api/financial-permissions.ts`
+- **Breaking**: ❌ Tidak — gerbang halaman penulis invoice sudah menuntut
+  `pelanggan:update` sejak awal
+
+### [2026-09-02] — Tes untuk pembatas site dan pemisahan permission invoice
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/api`
+- **Author**: agent
+- **Deskripsi**: `tests/api/financial-permissions.test.ts` memaku dua perilaku:
+  pembatas site dihitung dari permission context (bukan sesi NextAuth) dengan
+  pengecualian super admin, dan set permission tulis tidak boleh memuat satu pun
+  permission `:read` sekaligus wajib memuat `pelanggan:update` agar alur perpanjangan
+  tidak terkunci. Keduanya diverifikasi merah lebih dulu terhadap perilaku lama.
+  `tests/api/invoices-id-route-site-scope.test.ts` disesuaikan ke kontrak
+  `createHandler` yang sebenarnya — ctx membawa `permissions`, bukan mock
+  `hasPermission` — dengan intent pengujian yang sama.
+- **Files**: `tests/api/financial-permissions.test.ts`,
+  `tests/api/invoices-id-route-site-scope.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-02] — Tutup celah RBAC pada endpoint finansial
 
 - **Tipe**: [SECURITY]

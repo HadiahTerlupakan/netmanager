@@ -1,11 +1,10 @@
 import { logger } from "@/lib/logger";
 import { invoiceSchema } from "@/lib/validations/invoice";
-import { hasPermission } from "@/lib/rbac";
 import {
   INVOICE_READ_PERMISSIONS,
   INVOICE_WRITE_PERMISSIONS,
+  isInvoiceSiteRestricted,
 } from "@/lib/api/financial-permissions";
-import { isSuperAdmin } from "@/lib/auth";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
   createInvoiceForRoute,
@@ -27,7 +26,10 @@ export const GET = createHandler(
         search: searchParams.get("search"),
       },
       user,
-      isRestricted: await canOnlyAccessOwnSite(user),
+      isRestricted: isInvoiceSiteRestricted({
+        permissions: ctx.permissions,
+        user,
+      }),
     });
 
     return apiSuccess(result);
@@ -47,7 +49,10 @@ export const POST = createHandler(
       const result = await createInvoiceForRoute({
         input: ctx.validated,
         user,
-        isRestricted: await canOnlyAccessOwnSite(user),
+        isRestricted: isInvoiceSiteRestricted({
+          permissions: ctx.permissions,
+          user,
+        }),
       });
 
       if (result.status === "not-found") {
@@ -81,10 +86,3 @@ export const POST = createHandler(
     }
   },
 );
-
-async function canOnlyAccessOwnSite(user: {
-  role?: string | null;
-  isSuperAdmin?: boolean;
-}) {
-  return (await hasPermission("invoices:site_only")) && !isSuperAdmin(user);
-}

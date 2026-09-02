@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
-import { hasPermission } from "@/lib/rbac";
 import {
   INVOICE_READ_PERMISSIONS,
   INVOICE_WRITE_PERMISSIONS,
+  isInvoiceSiteRestricted,
 } from "@/lib/api/financial-permissions";
-import { isSuperAdmin } from "@/lib/auth";
 import {
   deleteInvoiceForRoute,
   getInvoiceForRoute,
@@ -60,7 +59,10 @@ export const GET = createHandler(
     const invoice = await getInvoiceForRoute({
       invoiceId: ctx.params.id,
       user: ctx.session!.user,
-      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+      isRestricted: isInvoiceSiteRestricted({
+        permissions: ctx.permissions,
+        user: ctx.session!.user,
+      }),
     });
 
     if (!invoice) {
@@ -79,7 +81,10 @@ export const PUT = createHandler(
     const result = await updateInvoiceForRoute({
       invoiceId: ctx.params.id,
       user: ctx.session!.user,
-      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+      isRestricted: isInvoiceSiteRestricted({
+        permissions: ctx.permissions,
+        user: ctx.session!.user,
+      }),
       input: validatedData,
     });
 
@@ -101,7 +106,10 @@ export const DELETE = createHandler(
     const deleted = await deleteInvoiceForRoute({
       invoiceId: ctx.params.id,
       user: ctx.session!.user,
-      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+      isRestricted: isInvoiceSiteRestricted({
+        permissions: ctx.permissions,
+        user: ctx.session!.user,
+      }),
     });
 
     if (!deleted) {
@@ -111,10 +119,3 @@ export const DELETE = createHandler(
     return NextResponse.json({ message: "Invoice deleted successfully" });
   },
 );
-
-async function canOnlyAccessOwnSite(user: {
-  role?: string | null;
-  isSuperAdmin?: boolean;
-}) {
-  return (await hasPermission("invoices:site_only")) && !isSuperAdmin(user);
-}
