@@ -237,4 +237,42 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
       expect.objectContaining({ estimatedUnits: 250 }),
     );
   });
+
+  /**
+   * Daftar template SELALU dibatasi tenantId sesi (app/api/planning/templates
+   * /route.ts), termasuk untuk superadmin. Jadi menerapkan template milik tenant
+   * lain bukan alur sah mana pun — hanya bisa dicapai dengan merakit request
+   * berisi templateId tenant lain.
+   *
+   * Untuk pengguna tenant biasa, ekstensi isolasi Prisma sudah menyuntik
+   * tenantId ke findFirst sehingga repo mengembalikan null. Yang tidak
+   * terlindungi adalah superadmin: ekstensi sengaja tidak memfilter untuknya,
+   * sehingga BOQ tenant lain — nama material, kuantitas, harga satuan — bisa
+   * tersalin masuk ke tenant penerima.
+   */
+  it("menolak menerapkan template milik tenant lain", async () => {
+    mockTemplateRepo.findById.mockResolvedValue(
+      new PlanningTemplateEntity({
+        id: "template-1",
+        tenantId: "tenant-lain",
+        name: "OSP Standar 100 Unit",
+        description: null,
+        type: "OSP",
+        isActive: true,
+        createdById: "user-9",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+    mockTemplateItemRepo.findByTemplateId.mockResolvedValue([
+      templateItem({ id: "ti-1", tenantId: "tenant-lain" }),
+    ]);
+
+    await expect(
+      service.applyTemplate("template-1", applyInput, "tenant-1", "user-1"),
+    ).rejects.toThrow(/not found/i);
+
+    expect(mockPlanningRepo.create).not.toHaveBeenCalled();
+    expect(mockItemRepo.create).not.toHaveBeenCalled();
+  });
 });

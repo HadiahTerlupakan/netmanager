@@ -260,6 +260,17 @@ export class PlanningTemplateService {
       throw new Error(`Planning template with ID ${templateId} not found`);
     }
 
+    // Daftar template selalu dibatasi tenantId sesi, jadi menerapkan template
+    // milik tenant lain bukan alur sah mana pun. Untuk pengguna tenant biasa
+    // ekstensi isolasi Prisma sudah memblokirnya di lapis query; superadmin
+    // sengaja tidak difilter di sana, sehingga BOQ tenant lain -- nama
+    // material, kuantitas, harga satuan -- bisa tersalin masuk ke tenant
+    // penerima. Pesan disamakan dengan kasus tidak ditemukan agar keberadaan
+    // template tenant lain tidak terkonfirmasi lewat perbedaan respons.
+    if (template.tenantId !== tenantId) {
+      throw new Error(`Planning template with ID ${templateId} not found`);
+    }
+
     if (!template.canBeUsed()) {
       throw new Error(
         `Planning template ${templateId} is inactive and cannot be used`,

@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-03] — Superadmin bisa menyalin BOQ tenant lain lewat Terapkan Template
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `applyTemplate` memuat template lalu langsung memakainya tanpa
+  memastikan template itu milik tenant pemohon. Daftar template selalu dibatasi
+  `tenantId` sesi (`app/api/planning/templates/route.ts`), jadi menerapkan
+  template tenant lain bukan alur sah mana pun — hanya bisa dicapai dengan
+  merakit request berisi `templateId` tenant lain.
+  Untuk pengguna tenant biasa ekstensi isolasi Prisma sudah menyuntik `tenantId`
+  ke `findFirst` sehingga repo mengembalikan null. Yang tidak terlindungi adalah
+  **superadmin**: ekstensi sengaja tidak memfilter untuknya.
+  Dampak diperbesar oleh perbaikan penyalinan item pada commit sebelumnya —
+  sebelumnya yang menyeberang hanya satu angka anggaran agregat, sesudahnya
+  seluruh BOQ (nama material, kuantitas, harga satuan) tersalin ke tenant
+  penerima. Ditemukan oleh peninjauan keamanan otomatis atas commit tersebut.
+  Pesan galat disamakan dengan kasus "tidak ditemukan" agar keberadaan template
+  tenant lain tidak terkonfirmasi lewat perbedaan respons; route memetakannya
+  ke 404.
+- **Files**: `modules/planning/services/PlanningTemplateService.ts`
+- **Tests**: `tests/modules/planning/services/PlanningTemplateService.apply-items.test.ts`
+  (diverifikasi merah lebih dulu, lalu merah lagi saat penjaga dinonaktifkan)
+- **Breaking**: ❌ Tidak — tidak ada alur sah yang menerapkan template lintas
+  tenant
+
 ### [2026-09-03] — Terapkan Template OSP tidak menyalin satu pun item
 
 - **Tipe**: [FIXED]
