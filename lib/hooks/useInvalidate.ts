@@ -109,3 +109,30 @@ export function useInvalidateInventoryRelated() {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/workorders"] });
   };
 }
+
+/**
+ * Invalidate seluruh cache modul planning setelah mutasi apa pun.
+ *
+ * Memakai `predicate`, bukan `queryKey`, dengan alasan konkret: query key di
+ * `useApi` adalah URL lengkap berikut query string-nya (`["/api/planning?page=1
+ * &limit=20"]`). Filter `queryKey: ["/api/planning"]` mencocokkan elemen array
+ * secara persis, sehingga tidak pernah cocok dengan key berparameter — daftar,
+ * dashboard, dan kanban tetap menampilkan data lama sampai `staleTime` 30 detik
+ * lewat. Gejalanya: menghapus rencana dari halaman detail melempar pengguna ke
+ * daftar yang masih memuat rencana yang baru saja dihapus, dan mengkliknya
+ * memunculkan "Planning tidak ditemukan".
+ *
+ * Pencocokan awalan menutup seluruh permukaan modul sekaligus: daftar, detail,
+ * item, milestone, kanban, dashboard, dan template.
+ */
+export function useInvalidatePlanningRelated() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const [key] = query.queryKey;
+        return typeof key === "string" && key.startsWith("/api/planning");
+      },
+    });
+  };
+}

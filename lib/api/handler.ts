@@ -37,7 +37,8 @@ import { logger } from "@/lib/logger";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { ZodType, ZodError } from "zod";
+import { ZodError } from "zod";
+import type { ZodType } from "zod";
 import { authOptions, getUserPermissions } from "@/lib/auth";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import type { ErrorResponse } from "@/lib/api-response";
@@ -355,6 +356,14 @@ function handleError(
   // generik. Detail spesifik sudah masuk ke logger.error di atas.
   if (error instanceof TenantContextError) {
     return ApiErrors.internalError("Terjadi kesalahan pada server");
+  }
+
+  // ZodError yang dilempar dari dalam body handler — mis. route list yang
+  // memvalidasi query param dengan `schema.parse()` — sebelumnya tidak dikenali
+  // dan jatuh ke 500. `GET /api/planning?limit=200` membalas "Terjadi kesalahan
+  // pada server" alih-alih memberi tahu batas yang dilanggar.
+  if (error instanceof ZodError) {
+    return formatValidationError(error);
   }
 
   if (error instanceof AppError) {
