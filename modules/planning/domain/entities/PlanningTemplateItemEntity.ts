@@ -59,26 +59,4 @@ export class PlanningTemplateItemEntity {
   hasEstimatedPrice(): boolean {
     return this.estimatedPrice !== null;
   }
-
-  /**
-   * Create a planning item props object from this template item
-   * (useful for when template is instantiated into actual planning)
-   */
-  toPlanningItemProps(planningId: string): {
-    name: string;
-    description: string | null;
-    quantity: number;
-    unit: string;
-    estimatedPrice: number | null;
-    notes: string | null;
-  } {
-    return {
-      name: this.name,
-      description: this.description,
-      quantity: this.quantity,
-      unit: this.unit,
-      estimatedPrice: this.estimatedPrice,
-      notes: this.notes,
-    };
-  }
 }

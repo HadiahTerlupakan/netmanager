@@ -1,10 +1,9 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
 import {
   planningTemplateService,
   createPlanningTemplateSchema,
   listPlanningTemplateSchema,
 } from "@/modules/planning";
-import { logger } from "@/lib/logger";
 
 /**
  * GET /api/planning/templates
@@ -32,7 +31,7 @@ export const GET = createHandler(
       limit: filters.limit,
       type: filters.type,
       isActive: filters.isActive,
-      tenantId: ctx.session?.user?.tenantId || undefined,
+      tenantId: requireSessionTenantId(ctx),
     });
 
     return apiSuccess({
@@ -58,32 +57,16 @@ export const POST = createHandler(
     schema: createPlanningTemplateSchema,
   },
   async (req, ctx) => {
-    const tenantId = ctx.session?.user?.tenantId;
+    const tenantId = requireSessionTenantId(ctx);
     const userId = ctx.session!.user.id;
 
-    if (!tenantId) {
-      return ApiErrors.badRequest("Tenant ID required");
-    }
-
-    // Create template
+    // Activity log ditulis di service, tidak diulang di sini — sebelumnya
+    // keduanya menulis dan setiap pembuatan template menghasilkan dua entri.
     const result = await planningTemplateService.create(
       ctx.validated as Parameters<typeof planningTemplateService.create>[0],
       tenantId,
       userId,
     );
-
-    // Activity log
-    logger.logActivity({
-      action: "planning_template.created",
-      subject: "PlanningTemplate",
-      details: {
-        templateId: result.id,
-        name: result.name,
-        itemCount: result.items.length,
-      },
-      userId,
-      tenantId,
-    });
 
     return apiSuccess(result, {
       status: 201,

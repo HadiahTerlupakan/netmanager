@@ -12,11 +12,13 @@ export const templateItemSchema = z.object({
     .max(500, "Description too long")
     .optional()
     .nullable(),
-  quantity: z.number().int().positive("Quantity must be positive"),
+  // Sejalan dengan `planningItemSchemas`: kuantitas BOQ boleh pecahan (kolom
+  // Prisma `Float`, satuan bebas teks) dan harga nol adalah nilai sah.
+  quantity: z.number().positive("Quantity must be positive"),
   unit: z.string().min(1, "Unit required").max(50, "Unit too long"),
   estimatedPrice: z
     .number()
-    .positive("Price must be positive")
+    .nonnegative("Price cannot be negative")
     .optional()
     .nullable(),
 });
@@ -60,7 +62,14 @@ export const listPlanningTemplateSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
   type: z.enum(["OSP"]).optional(),
-  isActive: z.coerce.boolean().optional(),
+  // Bukan `z.coerce.boolean()`: nilainya datang sebagai string query param dan
+  // `Boolean("false") === true`, sehingga `?isActive=false` justru mengembalikan
+  // template yang aktif — filter dengan satu keluaran, dan template nonaktif
+  // tidak pernah bisa dilihat.
+  isActive: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
 });
 
 export type ListPlanningTemplateInput = z.infer<

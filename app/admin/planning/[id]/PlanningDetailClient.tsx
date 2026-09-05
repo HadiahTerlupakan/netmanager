@@ -17,13 +17,15 @@ import {
   HiOutlineCube,
   HiOutlineArrowDownTray,
 } from "react-icons/hi2";
-import { useApi, useRevalidate } from "@/lib/hooks/useApi";
+import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidatePlanningRelated } from "@/lib/hooks/useInvalidate";
+import { formatApiError } from "@/lib/utils/api-response-parser";
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import MapPicker from "@/components/common/MapPicker";
-import { downloadPlanningPdfById } from "../planning-pdf";
+import { downloadPlanningPdf } from "../planning-pdf";
 import {
   PLANNING_STATUS_CONFIG,
   MILESTONE_STATUS_CONFIG,
@@ -65,7 +67,9 @@ export default function PlanningDetailClient({
   planningId: string;
 }) {
   const router = useRouter();
-  const revalidate = useRevalidate();
+  // Meng-invalidate seluruh cache modul, bukan hanya key detail: daftar,
+  // kanban, dan dashboard ikut berubah oleh setiap aksi di halaman ini.
+  const invalidatePlanning = useInvalidatePlanningRelated();
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission("planning:update");
   const canDelete = hasPermission("planning:delete");
@@ -154,9 +158,9 @@ export default function PlanningDetailClient({
         setShowApprove(false);
         setShowReject(false);
         setApprovalNotes("");
-        revalidate(`/api/planning/${planningId}`);
+        invalidatePlanning();
       } else {
-        toast.error(data.message || data.error || `Gagal ${action}`);
+        toast.error(formatApiError(data, `Gagal ${action}`));
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -173,10 +177,13 @@ export default function PlanningDetailClient({
       });
       if (res.ok) {
         toast.success("Planning dihapus");
+        // Invalidate sebelum berpindah: tanpa ini halaman daftar yang dituju
+        // masih merender rencana yang baru saja dihapus dari cache lama.
+        invalidatePlanning();
         router.push("/admin/planning/daftar");
       } else {
         const data = await res.json();
-        toast.error(data.message || data.error || "Gagal menghapus");
+        toast.error(formatApiError(data, "Gagal menghapus"));
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -221,12 +228,16 @@ export default function PlanningDetailClient({
               </Button>
             </Link>
           )}
+          {/* Memakai `planning` yang sudah ada di memori, bukan mengambil
+              ulang detail yang sama dari server. Halaman ini baru saja
+              memuatnya; request kedua hanya menambah jeda tanpa indikasi apa
+              pun di tombol. */}
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
+            onClick={() => {
               try {
-                await downloadPlanningPdfById(planningId);
+                downloadPlanningPdf(planning);
               } catch {
                 toast.error("Gagal generate PDF");
               }
@@ -336,7 +347,7 @@ export default function PlanningDetailClient({
       {/* Tab content */}
       {activeTab === "overview" && <OverviewTab planning={planning} />}
       {activeTab === "items" && (
-        <ItemsTab planning={planning} canUpdate={canUpdate} />
+        <ItemsTab planning={planning} canEditItems={actions.canEdit} />
       )}
       {activeTab === "milestones" && (
         <MilestonesTab planning={planning} canUpdate={canUpdate} />
@@ -496,14 +507,26 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 // ─── Items Tab ────────────────────────────────────────────────────────────
+/**
+ * Tab material (BOQ).
+ *
+ * `canEditItems` sengaja BUKAN sekadar permission `planning:update`, melainkan
+ * `actions.canEdit` — permission DAN status yang masih boleh diubah. BOQ ikut
+ * terkunci begitu rencana diajukan. Sebelumnya tombol "+ Tambah Item" dan ikon
+ * hapus muncul di rencana berstatus APPROVED: pengguna mengisi empat kolom,
+ * menekan Simpan, lalu mendapat pesan penolakan dari server — antarmuka
+ * menawarkan aksi yang tidak pernah mungkin berhasil.
+ */
 function ItemsTab({
   planning,
-  canUpdate,
+  canEditItems,
 }: {
   planning: PlanningDetailDTO;
-  canUpdate: boolean;
+  canEditItems: boolean;
 }) {
-  const revalidate = useRevalidate();
+  // Meng-invalidate seluruh cache modul, bukan hanya key detail: daftar,
+  // kanban, dan dashboard ikut berubah oleh setiap aksi di halaman ini.
+  const invalidatePlanning = useInvalidatePlanningRelated();
   const [adding, setAdding] = useState(false);
   const [newItem, setNewItem] = useState({
     name: "",
@@ -541,10 +564,10 @@ function ItemsTab({
           estimatedPrice: "",
         });
         setAdding(false);
-        revalidate(`/api/planning/${planning.id}`);
+        invalidatePlanning();
       } else {
         const data = await res.json();
-        toast.error(data.message || data.error || "Gagal menambah item");
+        toast.error(formatApiError(data, "Gagal menambah item"));
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -560,9 +583,9 @@ function ItemsTab({
       });
       if (res.ok) {
         toast.success("Item dihapus");
-        revalidate(`/api/planning/${planning.id}`);
+        invalidatePlanning();
       } else {
-        toast.error("Gagal menghapus item");
+        toast.error(formatApiError(await res.json(), "Gagal menghapus item"));
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -571,7 +594,7 @@ function ItemsTab({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      {canUpdate && (
+      {canEditItems && (
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
             Material Items
@@ -655,7 +678,7 @@ function ItemsTab({
                 <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">
                   Total
                 </th>
-                {canUpdate && <th className="px-4 py-3"></th>}
+                {canEditItems && <th className="px-4 py-3"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -676,7 +699,7 @@ function ItemsTab({
                   <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">
                     {formatBudget(item.totalEstimated)}
                   </td>
-                  {canUpdate && (
+                  {canEditItems && (
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleDeleteItem(item.id)}
@@ -704,7 +727,9 @@ function MilestonesTab({
   planning: PlanningDetailDTO;
   canUpdate: boolean;
 }) {
-  const revalidate = useRevalidate();
+  // Meng-invalidate seluruh cache modul, bukan hanya key detail: daftar,
+  // kanban, dan dashboard ikut berubah oleh setiap aksi di halaman ini.
+  const invalidatePlanning = useInvalidatePlanningRelated();
 
   const handleMilestoneStatus = async (milestoneId: string, status: string) => {
     try {
@@ -724,9 +749,11 @@ function MilestonesTab({
       });
       if (res.ok) {
         toast.success("Status milestone diperbarui");
-        revalidate(`/api/planning/${planning.id}`);
+        invalidatePlanning();
       } else {
-        toast.error("Gagal memperbarui milestone");
+        toast.error(
+          formatApiError(await res.json(), "Gagal memperbarui milestone"),
+        );
       }
     } catch {
       toast.error("Terjadi kesalahan");

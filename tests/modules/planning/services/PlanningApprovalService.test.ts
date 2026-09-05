@@ -6,6 +6,50 @@ import type { IPlanningMilestoneRepository } from "@/modules/planning/services/.
 import type { IPlanningDocumentRepository } from "@/modules/planning/services/../domain/ports/IPlanningDocumentRepository";
 import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import { PlanningEntity } from "@/modules/planning/services/../domain/entities/PlanningEntity";
+import type { PlanningEntityProps } from "@/modules/planning/domain/entities/PlanningEntity";
+import { PlanningItemEntity } from "@/modules/planning/domain/entities/PlanningItemEntity";
+import {
+  PlanningInvalidStateError,
+  PlanningNotFoundError,
+  PlanningValidationError,
+} from "@/modules/planning/errors/planning-errors";
+import { createFakeUnitOfWork } from "../helpers/fakeUnitOfWork";
+
+/** Properti rencana BACKLOG standar; dipakai untuk merakit entity tiruan. */
+function backlogPlanningProps(id: string): PlanningEntityProps {
+  return {
+    id,
+    tenantId: "tenant-1",
+    type: "OSP",
+    title: "Test",
+    description: null,
+    area: "Jakarta",
+    coordinates: null,
+    estimatedUnits: 100,
+    estimatedBudget: 300_000_000,
+    actualBudget: null,
+    status: "BACKLOG",
+    approvalLevel: 1,
+    currentApprovalStep: 0,
+    submittedAt: null,
+    submittedById: null,
+    approvedAt: null,
+    approvedById: null,
+    approvedLevel1At: null,
+    approvedLevel1ById: null,
+    rejectedAt: null,
+    rejectedById: null,
+    approvalNotes: null,
+    progressPercentage: 0,
+    startDate: null,
+    targetCompletionDate: null,
+    actualCompletionDate: null,
+    createdById: "user-1",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+}
 
 describe("PlanningApprovalService", () => {
   let service: PlanningApprovalService;
@@ -45,6 +89,7 @@ describe("PlanningApprovalService", () => {
       mockMilestoneRepo,
       mockDocumentRepo,
       mockAuditService,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -93,7 +138,7 @@ describe("PlanningApprovalService", () => {
       mockPlanningRepo.findById.mockResolvedValue(backlogEntity);
       mockPlanningRepo.updateStatus.mockResolvedValue(submittedEntity);
 
-      const result = await service.submit("plan-1", "user-1");
+      const result = await service.submit("plan-1", "user-1", "tenant-1");
 
       expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
         "plan-1",
@@ -101,14 +146,22 @@ describe("PlanningApprovalService", () => {
           status: "PENDING_APPROVAL",
           approvalLevel: 1,
           currentApprovalStep: 0,
+          // Status yang dibaca ikut masuk klausa WHERE supaya dua pengajuan
+          // bersamaan tidak saling menimpa.
+          expectedStatus: "BACKLOG",
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "SUBMITTED",
-        "user-1",
-        expect.objectContaining({ approvalLevel: 1 }),
-        expect.any(String),
+        expect.objectContaining({
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "SUBMITTED",
+          performedById: "user-1",
+          changes: expect.objectContaining({ approvalLevel: 1 }),
+          notes: expect.any(String),
+        }),
+        undefined,
       );
       expect(result.status).toBe("PENDING_APPROVAL");
     });
@@ -158,15 +211,90 @@ describe("PlanningApprovalService", () => {
       mockPlanningRepo.findById.mockResolvedValue(backlogEntity);
       mockPlanningRepo.updateStatus.mockResolvedValue(submittedEntity);
 
-      const result = await service.submit("plan-2", "user-1");
+      const result = await service.submit("plan-2", "user-1", "tenant-1");
 
       expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
         "plan-2",
         expect.objectContaining({
           approvalLevel: 2,
         }),
+        undefined,
       );
       expect(result.approvalLevel).toBe(2);
+    });
+
+    // Anggaran header dikunci saat rencana dibuat, sementara BOQ masih boleh
+    // ditambah selama BACKLOG. Bila hanya header yang dibaca, rencana dengan
+    // header Rp 100 juta dan BOQ Rp 900 juta diajukan sebagai satu tingkat —
+    // satu orang menyetujui belanja yang menurut aturan butuh dua.
+    it("should derive approval level from BOQ total when it exceeds the header budget", async () => {
+      const backlogEntity = new PlanningEntity({
+        ...backlogPlanningProps("plan-3"),
+        estimatedBudget: 100_000_000,
+      });
+
+      mockPlanningRepo.findById.mockResolvedValue(backlogEntity);
+      mockPlanningRepo.updateStatus.mockResolvedValue(backlogEntity);
+      mockItemRepo.findByPlanningId.mockResolvedValue([
+        new PlanningItemEntity({
+          id: "item-1",
+          planningId: "plan-3",
+          tenantId: "tenant-1",
+          name: "Perangkat Mahal",
+          description: null,
+          quantity: 10,
+          unit: "unit",
+          estimatedPrice: 90_000_000, // total 900 juta
+          actualPrice: null,
+          notes: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      ]);
+
+      await service.submit("plan-3", "user-1", "tenant-1");
+
+      expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
+        "plan-3",
+        expect.objectContaining({ approvalLevel: 2 }),
+        undefined,
+      );
+    });
+
+    // Rencana yang ditolak boleh diajukan ulang, tetapi jejak siklus lama ikut
+    // terbawa: penyetuju level 1 lama tersangkut di approvedLevel1ById lalu
+    // ditolak sebagai "orang yang sama" di siklus baru.
+    it("should reset the previous approval cycle fields on resubmission", async () => {
+      const rejectedEntity = new PlanningEntity({
+        ...backlogPlanningProps("plan-4"),
+        status: "REJECTED",
+        approvedLevel1At: new Date(),
+        approvedLevel1ById: "user-2",
+        rejectedAt: new Date(),
+        rejectedById: "user-3",
+        approvalNotes: "Kurang detail",
+        currentApprovalStep: 1,
+      });
+
+      mockPlanningRepo.findById.mockResolvedValue(rejectedEntity);
+      mockPlanningRepo.updateStatus.mockResolvedValue(rejectedEntity);
+
+      await service.submit("plan-4", "user-1", "tenant-1");
+
+      expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
+        "plan-4",
+        expect.objectContaining({
+          approvedAt: null,
+          approvedById: null,
+          approvedLevel1At: null,
+          approvedLevel1ById: null,
+          rejectedAt: null,
+          rejectedById: null,
+          approvalNotes: null,
+          expectedStatus: "REJECTED",
+        }),
+        undefined,
+      );
     });
 
     it("should throw error when planning cannot be submitted", async () => {
@@ -205,9 +333,24 @@ describe("PlanningApprovalService", () => {
 
       mockPlanningRepo.findById.mockResolvedValue(approvedEntity);
 
-      await expect(service.submit("plan-1", "user-1")).rejects.toThrow(
-        "Planning cannot be submitted in status APPROVED",
+      await expect(
+        service.submit("plan-1", "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningInvalidStateError);
+    });
+
+    it("should reject submit on a planning owned by another tenant", async () => {
+      mockPlanningRepo.findById.mockResolvedValue(
+        new PlanningEntity({
+          ...backlogPlanningProps("plan-1"),
+          tenantId: "tenant-lain",
+        }),
       );
+
+      await expect(
+        service.submit("plan-1", "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningNotFoundError);
+
+      expect(mockPlanningRepo.updateStatus).not.toHaveBeenCalled();
     });
   });
 
@@ -257,24 +400,35 @@ describe("PlanningApprovalService", () => {
       mockPlanningRepo.findById.mockResolvedValue(pendingEntity);
       mockPlanningRepo.updateStatus.mockResolvedValue(approvedEntity);
 
-      const result = await service.approve("plan-1", "user-2", "Approved");
+      const result = await service.approve(
+        "plan-1",
+        "user-2",
+        "tenant-1",
+        "Approved",
+      );
 
       expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
         "plan-1",
         expect.objectContaining({
           status: "APPROVED",
           currentApprovalStep: 1,
+          expectedStatus: "PENDING_APPROVAL",
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "APPROVED",
-        "user-2",
         expect.objectContaining({
-          status: { from: "PENDING_APPROVAL", to: "APPROVED" },
-          level: 1,
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "APPROVED",
+          performedById: "user-2",
+          changes: expect.objectContaining({
+            status: { from: "PENDING_APPROVAL", to: "APPROVED" },
+            level: 1,
+          }),
+          notes: "Approved",
         }),
-        "Approved",
+        undefined,
       );
       expect(result.status).toBe("APPROVED");
     });
@@ -326,21 +480,30 @@ describe("PlanningApprovalService", () => {
       mockPlanningRepo.findById.mockResolvedValue(pendingEntity);
       mockPlanningRepo.updateStatus.mockResolvedValue(approvedLevel1Entity);
 
-      const result = await service.approve("plan-1", "user-2", "Level 1 OK");
+      const result = await service.approve(
+        "plan-1",
+        "user-2",
+        "tenant-1",
+        "Level 1 OK",
+      );
 
       expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
         "plan-1",
         expect.objectContaining({
           status: "APPROVED_LEVEL1",
           currentApprovalStep: 1,
+          expectedStatus: "PENDING_APPROVAL",
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "APPROVED",
-        "user-2",
-        expect.objectContaining({ level: 1 }),
-        "Level 1 OK",
+        expect.objectContaining({
+          action: "APPROVED",
+          performedById: "user-2",
+          changes: expect.objectContaining({ level: 1 }),
+          notes: "Level 1 OK",
+        }),
+        undefined,
       );
       expect(result.status).toBe("APPROVED_LEVEL1");
     });
@@ -393,6 +556,7 @@ describe("PlanningApprovalService", () => {
       const result = await service.approve(
         "plan-1",
         "user-3",
+        "tenant-1",
         "Final approval",
       );
 
@@ -401,17 +565,21 @@ describe("PlanningApprovalService", () => {
         expect.objectContaining({
           status: "APPROVED",
           currentApprovalStep: 2,
+          expectedStatus: "APPROVED_LEVEL1",
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "APPROVED",
-        "user-3",
         expect.objectContaining({
-          status: { from: "APPROVED_LEVEL1", to: "APPROVED" },
-          level: 2,
+          action: "APPROVED",
+          performedById: "user-3",
+          changes: expect.objectContaining({
+            status: { from: "APPROVED_LEVEL1", to: "APPROVED" },
+            level: 2,
+          }),
+          notes: "Final approval",
         }),
-        "Final approval",
+        undefined,
       );
       expect(result.status).toBe("APPROVED");
     });
@@ -463,21 +631,31 @@ describe("PlanningApprovalService", () => {
       mockPlanningRepo.findById.mockResolvedValue(pendingEntity);
       mockPlanningRepo.updateStatus.mockResolvedValue(rejectedEntity);
 
-      const result = await service.reject("plan-1", "user-2", "Not feasible");
+      const result = await service.reject(
+        "plan-1",
+        "user-2",
+        "tenant-1",
+        "Not feasible",
+      );
 
       expect(mockPlanningRepo.updateStatus).toHaveBeenCalledWith(
         "plan-1",
         expect.objectContaining({
           status: "REJECTED",
           approvalNotes: "Not feasible",
+          expectedStatus: "PENDING_APPROVAL",
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "REJECTED",
-        "user-2",
-        expect.any(Object),
-        "Not feasible",
+        expect.objectContaining({
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "REJECTED",
+          performedById: "user-2",
+          notes: "Not feasible",
+        }),
+        undefined,
       );
       expect(result.status).toBe("REJECTED");
     });
@@ -518,9 +696,9 @@ describe("PlanningApprovalService", () => {
 
       mockPlanningRepo.findById.mockResolvedValue(pendingEntity);
 
-      await expect(service.reject("plan-1", "user-2", "")).rejects.toThrow(
-        "Rejection notes are required",
-      );
+      await expect(
+        service.reject("plan-1", "user-2", "tenant-1", ""),
+      ).rejects.toThrow(PlanningValidationError);
     });
   });
 
@@ -571,6 +749,7 @@ describe("PlanningApprovalService", () => {
       const result = await service.cancel(
         "plan-1",
         "user-3",
+        "tenant-1",
         "Project cancelled",
       );
 
@@ -579,7 +758,9 @@ describe("PlanningApprovalService", () => {
         expect.objectContaining({
           status: "CANCELLED",
           approvalNotes: "Project cancelled",
+          expectedStatus: "IN_PROGRESS",
         }),
+        undefined,
       );
       expect(result.status).toBe("CANCELLED");
     });
@@ -620,9 +801,9 @@ describe("PlanningApprovalService", () => {
 
       mockPlanningRepo.findById.mockResolvedValue(inProgressEntity);
 
-      await expect(service.cancel("plan-1", "user-3", "")).rejects.toThrow(
-        "Cancellation notes are required",
-      );
+      await expect(
+        service.cancel("plan-1", "user-3", "tenant-1", ""),
+      ).rejects.toThrow(PlanningValidationError);
     });
   });
 });

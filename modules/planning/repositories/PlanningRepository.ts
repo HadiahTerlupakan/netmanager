@@ -12,14 +12,22 @@ import type {
   PlanningStatus,
 } from "../domain/entities/PlanningEntity";
 import { PlanningMapper } from "../mappers/PlanningMapper";
+import { PlanningConcurrentUpdateError } from "../errors/planning-errors";
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 
 export class PlanningRepository implements IPlanningRepository {
   /**
-   * Find planning by ID
+   * Find planning by ID.
+   *
+   * Record yang sudah di-soft-delete sengaja tidak dikembalikan: seluruh jalur
+   * mutasi (update, delete, submit, approve, reject, start, complete) memakai
+   * method ini sebagai satu-satunya gerbang. Tanpa filter `deletedAt`, rencana
+   * yang sudah dihapus tetap bisa diajukan dan disetujui sampai COMPLETED
+   * padahal tidak muncul di daftar, kanban, maupun dashboard mana pun.
    */
   async findById(id: string): Promise<PlanningEntity | null> {
     const planning = await prisma.planning.findFirst({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     return planning ? PlanningMapper.toEntity(planning) : null;
@@ -316,12 +324,30 @@ export class PlanningRepository implements IPlanningRepository {
       updateData.approvalNotes = updates.approvalNotes;
     }
 
-    const updated = await client.planning.update({
-      where: { id },
-      data: updateData,
-    });
+    // `expectedStatus` masuk ke klausa WHERE, bukan diperiksa lebih dulu di
+    // memori: hanya dengan begitu pemeriksaan dan penulisan menjadi satu
+    // operasi atomik terhadap database.
+    const where: Prisma.PlanningWhereUniqueInput =
+      updates.expectedStatus !== undefined
+        ? { id, status: updates.expectedStatus }
+        : { id };
 
-    return PlanningMapper.toEntity(updated);
+    try {
+      const updated = await client.planning.update({
+        where,
+        data: updateData,
+      });
+
+      return PlanningMapper.toEntity(updated);
+    } catch (error) {
+      if (
+        updates.expectedStatus !== undefined &&
+        isPrismaRecordNotFoundError(error)
+      ) {
+        throw new PlanningConcurrentUpdateError();
+      }
+      throw error;
+    }
   }
 
   /**

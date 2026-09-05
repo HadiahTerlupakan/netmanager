@@ -1,4 +1,4 @@
-import { createHandler, apiSuccess } from "@/lib/api";
+import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
 import { planningKanbanService } from "@/modules/planning";
 
 /**
@@ -14,8 +14,9 @@ export const GET = createHandler(
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || undefined;
 
+    // Lihat catatan tenant di route dashboard.
     const board = await planningKanbanService.getKanbanBoard(
-      ctx.session.user.tenantId,
+      requireSessionTenantId(ctx),
       { search },
     );
 

@@ -11,6 +11,16 @@ export interface KanbanFilters {
 }
 
 /**
+ * Batas kartu yang dimuat papan kanban dalam satu kali muat.
+ *
+ * Papan ini memang dirancang menampilkan semua rencana sekaligus, tetapi
+ * tanpa batas satu tenant besar akan menarik seluruh tabel ke memori. Batas
+ * ini disengaja dan diberi nama supaya terlihat; bila sebuah tenant benar-benar
+ * melewatinya, jawabannya adalah paginasi per kolom, bukan menaikkan angka.
+ */
+const KANBAN_MAX_CARDS = 1000;
+
+/**
  * PlanningKanbanService
  * Service untuk kanban board view - grouping plannings by status
  * Read-only service tanpa mutations
@@ -25,26 +35,19 @@ export class PlanningKanbanService {
     tenantId: string | null,
     filters?: KanbanFilters,
   ): Promise<PlanningKanbanBoardDTO> {
-    // Fetch all plannings dengan search filter
+    // Pencarian didorong ke SQL, bukan disaring setelah fetch. Sebelumnya
+    // `search` diterapkan pada 1.000 baris terbaru yang sudah terambil,
+    // sehingga rencana di luar jendela itu tidak akan pernah ditemukan
+    // meskipun judulnya cocok persis.
     const { items } = await this.planningRepository.findAll({
       tenantId,
+      search: filters?.search,
       page: 1,
-      limit: 1000, // Kanban shows all items
+      limit: KANBAN_MAX_CARDS,
     });
 
-    // Filter by search jika ada
-    let filteredItems = items;
-    if (filters?.search) {
-      const searchLower = filters.search.toLowerCase();
-      filteredItems = items.filter(
-        (item) =>
-          item.title.toLowerCase().includes(searchLower) ||
-          item.area.toLowerCase().includes(searchLower),
-      );
-    }
-
     // Group by status
-    const groupedByStatus = this.groupByStatus(filteredItems);
+    const groupedByStatus = this.groupByStatus(items);
 
     // Map to DTO
     return PlanningDashboardMapper.toKanbanBoard(groupedByStatus);

@@ -9,7 +9,9 @@ import {
   HiOutlineTrash,
   HiOutlineXMark,
 } from "react-icons/hi2";
-import { useApi, useRevalidate } from "@/lib/hooks/useApi";
+import { useApi } from "@/lib/hooks/useApi";
+import { useInvalidatePlanningRelated } from "@/lib/hooks/useInvalidate";
+import { formatApiError } from "@/lib/utils/api-response-parser";
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,7 +47,7 @@ const EMPTY_ITEM: NewItemRow = {
 
 export default function PlanningTemplatesClient() {
   const router = useRouter();
-  const revalidate = useRevalidate();
+  const invalidatePlanning = useInvalidatePlanningRelated();
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("planning:create");
   const canDelete = hasPermission("planning:delete");
@@ -138,10 +140,10 @@ export default function PlanningTemplatesClient() {
         setShowCreate(false);
         setForm({ name: "", description: "", type: "OSP", isActive: true });
         setItems([EMPTY_ITEM]);
-        revalidate("/api/planning/templates?page=1&limit=50");
+        invalidatePlanning();
       } else {
         const data = await res.json();
-        toast.error(data.message || data.error || "Gagal membuat template");
+        toast.error(formatApiError(data, "Gagal membuat template"));
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -160,7 +162,7 @@ export default function PlanningTemplatesClient() {
       if (res.ok) {
         toast.success("Template dihapus");
         setDeleteId(null);
-        revalidate("/api/planning/templates?page=1&limit=50");
+        invalidatePlanning();
       } else {
         toast.error("Gagal menghapus template");
       }
@@ -197,9 +199,10 @@ export default function PlanningTemplatesClient() {
         toast.success("Planning dibuat dari template");
         setApplyId(null);
         setApplyForm({ title: "", area: "", estimatedUnits: "" });
+        invalidatePlanning();
         router.push(`/admin/planning/${data.data.id}`);
       } else {
-        toast.error(data.message || data.error || "Gagal apply template");
+        toast.error(formatApiError(data, "Gagal apply template"));
       }
     } catch {
       toast.error("Terjadi kesalahan");

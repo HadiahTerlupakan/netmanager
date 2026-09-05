@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { PlanningApprovalService } from "@/modules/planning/services/PlanningApprovalService";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
 import type { PlanningStatus } from "@/modules/planning/domain/entities/PlanningEntity";
+import { createFakeUnitOfWork } from "./helpers/fakeUnitOfWork";
+import { PlanningNotFoundError } from "@/modules/planning/errors/planning-errors";
 
 vi.mock("@/lib/logger", () => ({
   logger: {
@@ -62,6 +64,7 @@ function createService(entity: PlanningEntity) {
       emptyRepo as never,
       emptyRepo as never,
       { logChange: vi.fn().mockResolvedValue(undefined) } as never,
+      createFakeUnitOfWork(),
     ),
     planningRepo,
   };
@@ -74,22 +77,27 @@ describe("PlanningApprovalService.startProgress", () => {
   it("memindahkan rencana yang disetujui ke IN_PROGRESS", async () => {
     const { service, planningRepo } = createService(planning("APPROVED"));
 
-    await service.startProgress("p1", "user-3");
+    await service.startProgress("p1", "user-3", "t1");
 
     expect(planningRepo.updateStatus).toHaveBeenCalledWith(
       "p1",
-      expect.objectContaining({ status: "IN_PROGRESS" }),
+      expect.objectContaining({
+        status: "IN_PROGRESS",
+        expectedStatus: "APPROVED",
+      }),
+      undefined,
     );
   });
 
   it("mencatat tanggal mulai saat dijalankan", async () => {
     const { service, planningRepo } = createService(planning("APPROVED"));
 
-    await service.startProgress("p1", "user-3");
+    await service.startProgress("p1", "user-3", "t1");
 
     expect(planningRepo.updateStatus).toHaveBeenCalledWith(
       "p1",
       expect.objectContaining({ startDate: expect.any(Date) }),
+      undefined,
     );
   });
 
@@ -98,10 +106,26 @@ describe("PlanningApprovalService.startProgress", () => {
     async (status) => {
       const { service, planningRepo } = createService(planning(status));
 
-      await expect(service.startProgress("p1", "user-3")).rejects.toThrow();
+      await expect(
+        service.startProgress("p1", "user-3", "t1"),
+      ).rejects.toThrow();
       expect(planningRepo.updateStatus).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("PlanningApprovalService — guard lintas tenant", () => {
+  // Ekstensi isolasi Prisma sengaja melewatkan super admin, jadi guard di
+  // service adalah satu-satunya yang menghalangi sesi tenant A memindahkan
+  // rencana tenant B.
+  it("memperlakukan rencana tenant lain seperti tidak ditemukan", async () => {
+    const { service, planningRepo } = createService(planning("APPROVED"));
+
+    await expect(
+      service.startProgress("p1", "user-3", "tenant-lain"),
+    ).rejects.toThrow(PlanningNotFoundError);
+    expect(planningRepo.updateStatus).not.toHaveBeenCalled();
+  });
 });
 
 describe("PlanningApprovalService.complete", () => {
@@ -110,18 +134,22 @@ describe("PlanningApprovalService.complete", () => {
   it("menutup rencana yang sedang berjalan", async () => {
     const { service, planningRepo } = createService(planning("IN_PROGRESS"));
 
-    await service.complete("p1", "user-3");
+    await service.complete("p1", "user-3", "t1");
 
     expect(planningRepo.updateStatus).toHaveBeenCalledWith(
       "p1",
-      expect.objectContaining({ status: "COMPLETED" }),
+      expect.objectContaining({
+        status: "COMPLETED",
+        expectedStatus: "IN_PROGRESS",
+      }),
+      undefined,
     );
   });
 
   it("mencatat tanggal penyelesaian dan progres penuh", async () => {
     const { service, planningRepo } = createService(planning("IN_PROGRESS"));
 
-    await service.complete("p1", "user-3");
+    await service.complete("p1", "user-3", "t1");
 
     expect(planningRepo.updateStatus).toHaveBeenCalledWith(
       "p1",
@@ -129,6 +157,7 @@ describe("PlanningApprovalService.complete", () => {
         actualCompletionDate: expect.any(Date),
         progressPercentage: 100,
       }),
+      undefined,
     );
   });
 
@@ -137,7 +166,7 @@ describe("PlanningApprovalService.complete", () => {
     async (status) => {
       const { service, planningRepo } = createService(planning(status));
 
-      await expect(service.complete("p1", "user-3")).rejects.toThrow();
+      await expect(service.complete("p1", "user-3", "t1")).rejects.toThrow();
       expect(planningRepo.updateStatus).not.toHaveBeenCalled();
     },
   );

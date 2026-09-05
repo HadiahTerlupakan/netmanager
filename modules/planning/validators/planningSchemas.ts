@@ -18,9 +18,11 @@ export const createPlanningSchema = z.object({
   area: z.string().min(1, "Area required").max(200, "Area too long"),
   coordinates: coordinatesSchema.optional().nullable(),
   estimatedUnits: z.number().int().positive("Estimated units must be positive"),
+  // nonnegative, sejalan dengan `actualBudget`: rencana yang seluruh
+  // materialnya ditanggung pihak ketiga beranggaran nol, dan itu sah.
   estimatedBudget: z
     .number()
-    .positive("Budget must be positive")
+    .nonnegative("Budget cannot be negative")
     .optional()
     .nullable(),
   startDate: z.string().datetime().optional().nullable(),
@@ -36,7 +38,7 @@ export const updatePlanningSchema = z.object({
   area: z.string().min(1).max(200).optional(),
   coordinates: coordinatesSchema.optional().nullable(),
   estimatedUnits: z.number().int().positive().optional(),
-  estimatedBudget: z.number().positive().optional().nullable(),
+  estimatedBudget: z.number().nonnegative().optional().nullable(),
   // nonnegative, bukan positive: realisasi anggaran nol adalah nilai sah
   // (pekerjaan selesai tanpa biaya, atau realisasi belum keluar sama sekali).
   actualBudget: z.number().nonnegative().optional().nullable(),

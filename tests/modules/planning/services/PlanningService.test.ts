@@ -6,6 +6,48 @@ import type { IPlanningMilestoneRepository } from "@/modules/planning/services/.
 import type { IPlanningDocumentRepository } from "@/modules/planning/services/../domain/ports/IPlanningDocumentRepository";
 import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import { PlanningEntity } from "@/modules/planning/services/../domain/entities/PlanningEntity";
+import type { PlanningEntityProps } from "@/modules/planning/domain/entities/PlanningEntity";
+import {
+  PlanningInvalidStateError,
+  PlanningNotFoundError,
+} from "@/modules/planning/errors/planning-errors";
+import { createFakeUnitOfWork } from "../helpers/fakeUnitOfWork";
+
+/** Properti rencana BACKLOG standar; dipakai untuk merakit entity tiruan. */
+function backlogPlanningProps(id: string): PlanningEntityProps {
+  return {
+    id,
+    tenantId: "tenant-1",
+    type: "OSP",
+    title: "Test Planning",
+    description: null,
+    area: "Jakarta",
+    coordinates: null,
+    estimatedUnits: 100,
+    estimatedBudget: 300_000_000,
+    actualBudget: null,
+    status: "BACKLOG",
+    approvalLevel: 1,
+    currentApprovalStep: 0,
+    submittedAt: null,
+    submittedById: null,
+    approvedAt: null,
+    approvedById: null,
+    approvedLevel1At: null,
+    approvedLevel1ById: null,
+    rejectedAt: null,
+    rejectedById: null,
+    approvalNotes: null,
+    progressPercentage: 0,
+    startDate: null,
+    targetCompletionDate: null,
+    actualCompletionDate: null,
+    createdById: "user-1",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+}
 
 describe("PlanningService", () => {
   let service: PlanningService;
@@ -52,6 +94,7 @@ describe("PlanningService", () => {
       mockMilestoneRepo,
       mockDocumentRepo,
       mockAuditService,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -108,13 +151,20 @@ describe("PlanningService", () => {
         expect.objectContaining({
           approvalLevel: 1,
         }),
+        undefined,
       );
+      // Audit kini menerima satu object bernama, dan tenantId-nya diambil dari
+      // rencana yang bersangkutan — bukan lagi string kosong yang melanggar
+      // foreign key ke tabel Tenant.
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "CREATED",
-        "user-1",
-        expect.objectContaining({ approvalLevel: 1 }),
-        null,
+        expect.objectContaining({
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "CREATED",
+          performedById: "user-1",
+          changes: expect.objectContaining({ approvalLevel: 1 }),
+        }),
+        undefined,
       );
       expect(result.id).toBe("plan-1");
       expect(result.approvalLevel).toBe(1);
@@ -172,6 +222,7 @@ describe("PlanningService", () => {
         expect.objectContaining({
           approvalLevel: 2,
         }),
+        undefined,
       );
       expect(result.approvalLevel).toBe(2);
     });
@@ -274,17 +325,21 @@ describe("PlanningService", () => {
         "plan-1",
         { title: "New Title" },
         "user-1",
+        "tenant-1",
       );
 
       expect(mockPlanningRepo.update).toHaveBeenCalled();
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "UPDATED",
-        "user-1",
         expect.objectContaining({
-          title: { from: "Old Title", to: "New Title" },
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "UPDATED",
+          performedById: "user-1",
+          changes: expect.objectContaining({
+            title: { from: "Old Title", to: "New Title" },
+          }),
         }),
-        null,
+        undefined,
       );
       expect(result.title).toBe("New Title");
     });
@@ -293,8 +348,13 @@ describe("PlanningService", () => {
       mockPlanningRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.update("plan-999", { title: "New Title" }, "user-1"),
-      ).rejects.toThrow("Planning with ID plan-999 not found");
+        service.update(
+          "plan-999",
+          { title: "New Title" },
+          "user-1",
+          "tenant-1",
+        ),
+      ).rejects.toThrow(PlanningNotFoundError);
     });
 
     it("should throw error when planning cannot be edited", async () => {
@@ -334,10 +394,26 @@ describe("PlanningService", () => {
       mockPlanningRepo.findById.mockResolvedValue(approvedEntity);
 
       await expect(
-        service.update("plan-1", { title: "New Title" }, "user-1"),
-      ).rejects.toThrow(
-        "Planning cannot be edited in status APPROVED. Only BACKLOG or REJECTED status can be edited.",
-      );
+        service.update("plan-1", { title: "New Title" }, "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningInvalidStateError);
+    });
+
+    // Isolasi tenant modul ini bersandar pada ekstensi Prisma yang sengaja
+    // melewatkan super admin, jadi guard eksplisit di service adalah satu-satunya
+    // yang menghalangi sesi tenant A mengubah rencana tenant B.
+    it("should reject update on a planning owned by another tenant", async () => {
+      const foreignEntity = new PlanningEntity({
+        ...backlogPlanningProps("plan-1"),
+        tenantId: "tenant-lain",
+      });
+
+      mockPlanningRepo.findById.mockResolvedValue(foreignEntity);
+
+      await expect(
+        service.update("plan-1", { title: "New Title" }, "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningNotFoundError);
+
+      expect(mockPlanningRepo.update).not.toHaveBeenCalled();
     });
   });
 
@@ -379,10 +455,33 @@ describe("PlanningService", () => {
       mockPlanningRepo.findById.mockResolvedValue(existingEntity);
       mockPlanningRepo.delete.mockResolvedValue(undefined);
 
-      await service.delete("plan-1", "user-1");
+      await service.delete("plan-1", "user-1", "tenant-1");
 
-      expect(mockPlanningRepo.delete).toHaveBeenCalledWith("plan-1");
-      expect(mockAuditService.logChange).toHaveBeenCalled();
+      expect(mockPlanningRepo.delete).toHaveBeenCalledWith("plan-1", undefined);
+      expect(mockAuditService.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "STATUS_CHANGED",
+          performedById: "user-1",
+        }),
+        undefined,
+      );
+    });
+
+    it("should reject delete on a planning owned by another tenant", async () => {
+      const foreignEntity = new PlanningEntity({
+        ...backlogPlanningProps("plan-1"),
+        tenantId: "tenant-lain",
+      });
+
+      mockPlanningRepo.findById.mockResolvedValue(foreignEntity);
+
+      await expect(
+        service.delete("plan-1", "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningNotFoundError);
+
+      expect(mockPlanningRepo.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -423,7 +522,7 @@ describe("PlanningService", () => {
 
       mockPlanningRepo.findById.mockResolvedValue(mockEntity);
 
-      const result = await service.getById("plan-1");
+      const result = await service.getById("plan-1", "tenant-1");
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe("plan-1");
@@ -435,7 +534,20 @@ describe("PlanningService", () => {
     it("should return null when planning not found", async () => {
       mockPlanningRepo.findById.mockResolvedValue(null);
 
-      const result = await service.getById("plan-999");
+      const result = await service.getById("plan-999", "tenant-1");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when planning belongs to another tenant", async () => {
+      const foreignEntity = new PlanningEntity({
+        ...backlogPlanningProps("plan-1"),
+        tenantId: "tenant-lain",
+      });
+
+      mockPlanningRepo.findById.mockResolvedValue(foreignEntity);
+
+      const result = await service.getById("plan-1", "tenant-1");
 
       expect(result).toBeNull();
     });

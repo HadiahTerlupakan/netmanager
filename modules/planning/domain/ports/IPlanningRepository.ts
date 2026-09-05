@@ -38,6 +38,18 @@ export interface UpdatePlanningInput {
 
 export interface UpdateStatusInput {
   status: PlanningStatus;
+  /**
+   * Status yang diharapkan masih berlaku saat penulisan terjadi.
+   *
+   * Seluruh transisi di modul ini berpola check-then-act: baca rencana, cek
+   * `canBeX()`, lalu tulis dengan `where: { id }` saja. Dua penyetuju yang
+   * menekan Setujui bersamaan sama-sama membaca `currentApprovalStep: 0`,
+   * sama-sama lolos pemeriksaan, dan sama-sama menulis — satu persetujuan
+   * tertimpa tanpa jejak. Dengan field ini status ikut masuk klausa WHERE,
+   * sehingga penulisan kedua tidak menemukan baris dan ditolak sebagai
+   * konflik alih-alih diam-diam menang.
+   */
+  expectedStatus?: PlanningStatus;
   currentApprovalStep?: number;
   approvalLevel?: number;
   submittedAt?: Date | null;

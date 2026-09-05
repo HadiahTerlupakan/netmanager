@@ -50,11 +50,6 @@ export interface IPlanningItemRepository {
   findByPlanningId(planningId: string): Promise<PlanningItemEntity[]>;
 
   /**
-   * Get total estimated budget for a planning (sum of all items' estimatedPrice * quantity)
-   */
-  getTotalEstimatedBudget(planningId: string): Promise<number>;
-
-  /**
    * Create new planning item
    */
   create(

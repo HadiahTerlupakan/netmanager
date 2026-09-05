@@ -1,6 +1,7 @@
 import type { Planning, Prisma } from "@prisma/client";
 import {
   calculateProgressFromMilestones,
+  resolveBoqPricingState,
   hasBudgetMismatch,
   sumItemsEstimatedCost,
 } from "../domain/planning-business-rules";
@@ -97,7 +98,6 @@ export class PlanningMapper {
 
     return {
       ...this.toDTO(entity),
-      tenantId: entity.tenantId,
       description: entity.description,
       coordinates: entity.coordinates,
       approvalLevel: entity.approvalLevel,
@@ -113,11 +113,11 @@ export class PlanningMapper {
       approvalNotes: entity.approvalNotes,
       actualCompletionDate: entity.actualCompletionDate?.toISOString() ?? null,
       createdById: entity.createdById,
-      deletedAt: entity.deletedAt?.toISOString() ?? null,
       itemsTotalEstimatedCost,
       hasBudgetMismatch: hasBudgetMismatch(
         itemsTotalEstimatedCost,
         entity.estimatedBudget,
+        resolveBoqPricingState(relations.items),
       ),
       milestoneProgressPercentage: calculateProgressFromMilestones(
         relations.milestones,

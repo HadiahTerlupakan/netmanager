@@ -1,10 +1,10 @@
-import type { Prisma } from "@prisma/client";
 import type {
   IPlanningRepository,
   FindAllPlanningFilters,
   CreatePlanningInput,
   UpdatePlanningInput,
 } from "../domain/ports/IPlanningRepository";
+import type { IPlanningUnitOfWork } from "../domain/ports/IPlanningUnitOfWork";
 import type { IPlanningItemRepository } from "../domain/ports/IPlanningItemRepository";
 import type { IPlanningMilestoneRepository } from "../domain/ports/IPlanningMilestoneRepository";
 import type { IPlanningDocumentRepository } from "../domain/ports/IPlanningDocumentRepository";
@@ -14,12 +14,18 @@ import type {
   CreatePlanningDTO,
   UpdatePlanningDTO,
 } from "../dto/PlanningDTO";
-import type { PlanningStatus } from "../domain/entities/PlanningEntity";
+import type {
+  PlanningEntity,
+  PlanningStatus,
+} from "../domain/entities/PlanningEntity";
 import { PlanningMapper } from "../mappers/PlanningMapper";
 import { PlanningAuditService } from "./PlanningAuditService";
+import { resolveApprovalLevel } from "../domain/planning-business-rules";
+import {
+  PlanningInvalidStateError,
+  PlanningNotFoundError,
+} from "../errors/planning-errors";
 import { logger } from "@/lib/logger";
-
-type PrismaTransaction = Prisma.TransactionClient;
 
 /**
  * PlanningService
@@ -38,22 +44,50 @@ const PLANNING_SCOPE_FIELDS = [
 ] as const;
 
 export class PlanningService {
-  private readonly BUDGET_THRESHOLD = 500_000_000; // Rp 500M
-
   constructor(
     private readonly planningRepo: IPlanningRepository,
     private readonly itemRepo: IPlanningItemRepository,
     private readonly milestoneRepo: IPlanningMilestoneRepository,
     private readonly documentRepo: IPlanningDocumentRepository,
     private readonly auditService: PlanningAuditService,
+    private readonly unitOfWork: IPlanningUnitOfWork,
   ) {}
 
   /**
-   * Determine approval level berdasarkan budget threshold
+   * Mengambil rencana milik tenant pemanggil, atau melempar bila tidak ada.
+   *
+   * Isolasi tenant modul ini sepenuhnya bersandar pada ekstensi Prisma, yang
+   * **sengaja tidak memfilter super admin**. Guard eksplisit seperti ini sudah
+   * ada di `PlanningTemplateService.applyTemplate` tetapi tidak dirambatkan ke
+   * jalur lain, sehingga sesi super admin di panel tenant A masih bisa
+   * menyetujui atau menghapus rencana tenant B hanya dengan menebak ID-nya.
+   *
+   * Pesan "tidak ditemukan" dipakai juga untuk kasus beda tenant supaya
+   * keberadaan rencana milik tenant lain tidak terkonfirmasi lewat perbedaan
+   * respons.
    */
-  private determineApprovalLevel(estimatedBudget: number | null): number {
-    if (!estimatedBudget) return 1;
-    return estimatedBudget >= this.BUDGET_THRESHOLD ? 2 : 1;
+  private async findOwnedPlanning(
+    id: string,
+    tenantId: string,
+  ): Promise<PlanningEntity> {
+    const entity = await this.planningRepo.findById(id);
+
+    if (!entity || entity.tenantId !== tenantId) {
+      throw new PlanningNotFoundError();
+    }
+
+    return entity;
+  }
+
+  /** Memuat seluruh relasi rencana secara paralel. */
+  private async loadRelations(planningId: string) {
+    const [items, milestones, documents] = await Promise.all([
+      this.itemRepo.findByPlanningId(planningId),
+      this.milestoneRepo.findByPlanningId(planningId),
+      this.documentRepo.findByPlanningId(planningId),
+    ]);
+
+    return { items, milestones, documents };
   }
 
   /**
@@ -71,24 +105,19 @@ export class PlanningService {
   }
 
   /**
-   * Get planning by ID dengan relasi lengkap
+   * Get planning by ID dengan relasi lengkap.
+   * Mengembalikan null bila rencana tidak ada atau bukan milik tenant ini.
    */
-  async getById(id: string): Promise<PlanningDetailDTO | null> {
+  async getById(
+    id: string,
+    tenantId: string,
+  ): Promise<PlanningDetailDTO | null> {
     const entity = await this.planningRepo.findById(id);
-    if (!entity) {
+    if (!entity || entity.tenantId !== tenantId) {
       return null;
     }
 
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(entity, {
-      items,
-      milestones,
-      documents,
-    });
+    return PlanningMapper.toDetailDTO(entity, await this.loadRelations(id));
   }
 
   /**
@@ -132,9 +161,7 @@ export class PlanningService {
     userId: string,
   ): Promise<PlanningDetailDTO> {
     // Determine approval level based on budget
-    const approvalLevel = this.determineApprovalLevel(
-      dto.estimatedBudget ?? null,
-    );
+    const approvalLevel = resolveApprovalLevel(dto.estimatedBudget ?? null);
 
     // Create planning entity
     const createInput: CreatePlanningInput = {
@@ -154,19 +181,26 @@ export class PlanningService {
       createdById: userId,
     };
 
-    const entity = await this.planningRepo.create(createInput);
+    // Rencana dan jejak auditnya ditulis atomik. Tanpa transaksi, kegagalan
+    // pada audit meninggalkan rencana yang tercipta tetapi tidak tercatat,
+    // sementara API tetap membalas error — pengguna mengulang dan menumpuk
+    // rencana duplikat.
+    const entity = await this.unitOfWork.runInTransaction(async (tx) => {
+      const created = await this.planningRepo.create(createInput, tx);
 
-    // Audit log
-    await this.auditService.logChange(
-      entity.id,
-      "CREATED",
-      userId,
-      {
-        initial: dto,
-        approvalLevel,
-      },
-      null,
-    );
+      await this.auditService.logChange(
+        {
+          planningId: created.id,
+          tenantId: created.tenantId,
+          action: "CREATED",
+          performedById: userId,
+          changes: { initial: dto, approvalLevel },
+        },
+        tx,
+      );
+
+      return created;
+    });
 
     // Activity log
     logger.logActivity({
@@ -198,12 +232,9 @@ export class PlanningService {
     id: string,
     dto: UpdatePlanningDTO,
     userId: string,
+    tenantId: string,
   ): Promise<PlanningDetailDTO> {
-    // Validasi: planning harus ada
-    const existing = await this.planningRepo.findById(id);
-    if (!existing) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
+    const existing = await this.findOwnedPlanning(id, tenantId);
 
     // Dua jendela perubahan yang berbeda, sengaja dipisah:
     // - Field PERENCANAAN terkunci setelah disetujui; mengubah ruang lingkup
@@ -219,19 +250,58 @@ export class PlanningService {
     );
 
     if (!existing.canBeEdited() && !isRecordingExecution) {
-      throw new Error(
-        `Planning cannot be edited in status ${existing.status}. Only BACKLOG or REJECTED status can be edited.`,
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${existing.status} tidak bisa diubah. Hanya rencana berstatus BACKLOG atau REJECTED yang bisa diubah.`,
       );
     }
 
     if (isRecordingExecution && hasPlanningFieldChange) {
-      throw new Error(
-        `Planning scope cannot be changed in status ${existing.status}. Only execution progress can be recorded.`,
+      throw new PlanningInvalidStateError(
+        `Ruang lingkup rencana tidak bisa diubah saat berstatus ${existing.status}. Yang bisa dicatat hanya realisasi pelaksanaan.`,
       );
     }
 
-    // Prepare update input
+    const updateInput = this.buildUpdateInput(dto);
+    const changes = this.buildAuditChanges(existing, dto);
+
+    const updatedEntity = await this.unitOfWork.runInTransaction(async (tx) => {
+      const updated = await this.planningRepo.update(id, updateInput, tx);
+
+      await this.auditService.logChange(
+        {
+          planningId: id,
+          tenantId: existing.tenantId,
+          action: "UPDATED",
+          performedById: userId,
+          changes,
+        },
+        tx,
+      );
+
+      return updated;
+    });
+
+    logger.logActivity({
+      action: "planning.updated",
+      subject: "Planning",
+      details: {
+        planningId: id,
+        changes: Object.keys(changes),
+      },
+      userId,
+      tenantId: existing.tenantId,
+    });
+
+    return PlanningMapper.toDetailDTO(
+      updatedEntity,
+      await this.loadRelations(id),
+    );
+  }
+
+  /** Menerjemahkan DTO update menjadi input repository. */
+  private buildUpdateInput(dto: UpdatePlanningDTO): UpdatePlanningInput {
     const updateInput: UpdatePlanningInput = {};
+
     if (dto.title !== undefined) updateInput.title = dto.title;
     if (dto.description !== undefined)
       updateInput.description = dto.description;
@@ -253,81 +323,83 @@ export class PlanningService {
         ? new Date(dto.targetCompletionDate)
         : null;
 
-    // Update entity
-    const updatedEntity = await this.planningRepo.update(id, updateInput);
+    return updateInput;
+  }
 
-    // Build changes object for audit
+  /**
+   * Menyusun catatan perubahan untuk audit.
+   *
+   * Merekam SETIAP field yang berubah. Sebelumnya hanya `title`,
+   * `estimatedBudget`, dan `area` yang dicatat, sehingga perubahan pada
+   * `estimatedUnits`, `coordinates`, `targetCompletionDate`, `actualBudget`,
+   * dan `progressPercentage` menghasilkan entri audit `UPDATED` dengan
+   * `changes: {}` — nol informasi tentang apa yang sebenarnya berubah.
+   */
+  private buildAuditChanges(
+    existing: PlanningEntity,
+    dto: UpdatePlanningDTO,
+  ): Record<string, unknown> {
     const changes: Record<string, unknown> = {};
-    if (dto.title !== undefined)
-      changes.title = { from: existing.title, to: dto.title };
-    if (dto.estimatedBudget !== undefined)
-      changes.estimatedBudget = {
-        from: existing.estimatedBudget,
-        to: dto.estimatedBudget,
-      };
-    if (dto.area !== undefined)
-      changes.area = { from: existing.area, to: dto.area };
 
-    // Audit log
-    await this.auditService.logChange(id, "UPDATED", userId, changes, null);
+    const record = <K extends keyof UpdatePlanningDTO>(
+      field: K,
+      from: unknown,
+    ) => {
+      if (dto[field] === undefined) {
+        return;
+      }
+      changes[field as string] = { from, to: dto[field] };
+    };
 
-    // Activity log
-    logger.logActivity({
-      action: "planning.updated",
-      subject: "Planning",
-      details: {
-        planningId: id,
-        changes: Object.keys(changes),
-      },
-      userId,
-      tenantId: existing.tenantId,
-    });
+    record("title", existing.title);
+    record("description", existing.description);
+    record("area", existing.area);
+    record("coordinates", existing.coordinates);
+    record("estimatedUnits", existing.estimatedUnits);
+    record("estimatedBudget", existing.estimatedBudget);
+    record("actualBudget", existing.actualBudget);
+    record("progressPercentage", existing.progressPercentage);
+    record("startDate", existing.startDate?.toISOString() ?? null);
+    record(
+      "targetCompletionDate",
+      existing.targetCompletionDate?.toISOString() ?? null,
+    );
 
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(updatedEntity, {
-      items,
-      milestones,
-      documents,
-    });
+    return changes;
   }
 
   /**
    * Soft delete planning
    */
-  async delete(id: string, userId: string): Promise<void> {
-    // Validasi: planning harus ada
-    const existing = await this.planningRepo.findById(id);
-    if (!existing) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
+  async delete(id: string, userId: string, tenantId: string): Promise<void> {
+    const existing = await this.findOwnedPlanning(id, tenantId);
 
     // Validasi: planning harus bisa dihapus (hanya BACKLOG atau REJECTED)
     if (!existing.canBeEdited()) {
-      throw new Error(
-        `Planning cannot be deleted in status ${existing.status}. Only BACKLOG or REJECTED status can be deleted.`,
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${existing.status} tidak bisa dihapus. Hanya rencana berstatus BACKLOG atau REJECTED yang bisa dihapus.`,
       );
     }
 
-    // Soft delete
-    await this.planningRepo.delete(id);
+    await this.unitOfWork.runInTransaction(async (tx) => {
+      await this.planningRepo.delete(id, tx);
 
-    // Audit log
-    await this.auditService.logChange(
-      id,
-      "STATUS_CHANGED",
-      userId,
-      {
-        action: "deleted",
-        deletedAt: new Date().toISOString(),
-      },
-      "Planning soft deleted",
-    );
+      await this.auditService.logChange(
+        {
+          planningId: id,
+          tenantId: existing.tenantId,
+          action: "STATUS_CHANGED",
+          performedById: userId,
+          changes: {
+            action: "deleted",
+            deletedAt: new Date().toISOString(),
+          },
+          notes: "Planning soft deleted",
+        },
+        tx,
+      );
+    });
 
-    // Activity log
     logger.logActivity({
       action: "planning.deleted",
       subject: "Planning",

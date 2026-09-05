@@ -1,11 +1,25 @@
-import type { Prisma } from "@prisma/client";
 import type { IPlanningAuditLogRepository } from "../domain/ports/IPlanningAuditLogRepository";
+import type { TransactionClient } from "../domain/ports/IPlanningRepository";
 import type { AuditAction } from "../domain/entities/PlanningAuditLogEntity";
 import type { PlanningAuditLogDTO } from "../dto/PlanningAuditLogDTO";
 import { PlanningAuditLogMapper } from "../mappers/PlanningAuditLogMapper";
 import { logger } from "@/lib/logger";
 
-type PrismaTransaction = Prisma.TransactionClient;
+/**
+ * Masukan satu entri audit.
+ *
+ * Berbentuk object, bukan enam parameter posisional: urutan `performedById`,
+ * `changes`, dan `notes` yang semuanya nullable mudah tertukar tanpa ketahuan
+ * compiler, dan `tenantId` yang baru ditambahkan menjadikannya tujuh.
+ */
+export interface LogPlanningChangeInput {
+  planningId: string;
+  tenantId: string;
+  action: AuditAction;
+  performedById: string | null;
+  changes?: Record<string, unknown> | null;
+  notes?: string | null;
+}
 
 /**
  * PlanningAuditService
@@ -16,27 +30,30 @@ export class PlanningAuditService {
   constructor(private readonly auditLogRepo: IPlanningAuditLogRepository) {}
 
   /**
-   * Log perubahan pada planning record
-   * @param planningId - ID planning yang berubah
-   * @param action - Tipe aksi yang dilakukan
-   * @param performedById - ID user yang melakukan aksi
-   * @param changes - Object berisi detail perubahan
-   * @param notes - Catatan tambahan (opsional)
-   * @param tx - Prisma transaction (opsional)
+   * Log perubahan pada planning record.
+   *
+   * `tenantId` wajib dan diambil dari rencana yang bersangkutan, bukan dari
+   * sesi. Sebelumnya nilai ini dikirim sebagai string kosong dengan komentar
+   * "will be set by repository from planning" — repository tidak pernah
+   * melakukannya. Untuk pengguna tenant biasa hal itu tertutup kebetulan oleh
+   * ekstensi isolasi Prisma yang menghapus lalu menimpa `tenantId`; untuk
+   * super admin ekstensi hanya menyuntik bila nilainya `undefined`, sehingga
+   * string kosong lolos ke database dan melanggar foreign key `Restrict` ke
+   * tabel Tenant. Akibatnya rencana tersimpan, audit gagal, dan API membalas
+   * 500 — pengguna mengira gagal lalu mengulang, menumpuk rencana duplikat.
    */
   async logChange(
-    planningId: string,
-    action: AuditAction,
-    performedById: string | null,
-    changes: Record<string, unknown> | null,
-    notes?: string | null,
-    tx?: PrismaTransaction,
+    input: LogPlanningChangeInput,
+    tx?: TransactionClient,
   ): Promise<PlanningAuditLogDTO> {
+    const { planningId, tenantId, action, performedById, changes, notes } =
+      input;
+
     try {
       const entity = await this.auditLogRepo.create(
         {
           planningId,
-          tenantId: "", // Will be set by repository from planning
+          tenantId,
           action,
           performedById: performedById ?? null,
           changes: changes ?? null,

@@ -124,6 +124,32 @@ describe("PlanningDashboardService", () => {
       expect(result.timelineStats.averageCompletionDays).toBeGreaterThan(0);
     });
 
+    // `targetCompletionDate` nullable, dan cabang else sebelumnya menghitung
+    // setiap rencana tanpa tenggat sebagai terlambat — dashboard melaporkan
+    // keterlambatan pada proyek yang tidak pernah punya tenggat untuk dilanggar.
+    it("should count a completed planning without target date as neither on time nor late", async () => {
+      const mockPlannings = [
+        createMockPlanningWithTimeline(
+          "1",
+          "COMPLETED",
+          new Date("2026-01-01"),
+          null,
+          new Date("2026-06-25"),
+        ),
+      ];
+
+      mockPlanningRepo.findAll = vi
+        .fn()
+        .mockResolvedValue({ items: mockPlannings, total: 1 });
+
+      const result = await service.getDashboard("tenant-1");
+
+      expect(result.timelineStats.completedOnTime).toBe(0);
+      expect(result.timelineStats.completedLate).toBe(0);
+      // Tetap ikut rata-rata durasi penyelesaian: rencananya memang selesai.
+      expect(result.timelineStats.averageCompletionDays).toBeGreaterThan(0);
+    });
+
     it("should return recent plannings sorted by updated date", async () => {
       const mockPlannings = [
         createMockPlanningWithDate("1", new Date("2026-08-01")),

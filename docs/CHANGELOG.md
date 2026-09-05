@@ -41,6 +41,265 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Selaraskan suite tes planning dengan kontrak service baru
+
+- **Tipe**: [CHANGED]
+- **Scope**: `tests/modules/planning`, `tests/unit/planning`
+- **Author**: agent
+- **Deskripsi**: Memperbarui seluruh tes modul planning mengikuti kontrak baru
+  hasil refactor: parameter `IPlanningUnitOfWork` pada konstruktor service,
+  `PlanningAuditService.logChange` berbentuk object, parameter `tenantId` untuk
+  guard lintas tenant, kelas error domain menggantikan `new Error(...)`,
+  `hasBudgetMismatch` dengan parameter `hasPricedItems`, `updateStatus` dengan
+  `expectedStatus`, serta `PlanningDetailDTO` tanpa `tenantId`/`deletedAt`.
+  Ditambahkan fake unit of work bersama di `tests/modules/planning/helpers/`,
+  tes unit baru untuk `PlanningItemService` dan `PlanningMilestoneService`, dan
+  tes validator planning. Tidak ada kode produksi yang diubah.
+- **Files**: `tests/modules/planning/helpers/fakeUnitOfWork.ts`,
+  `tests/modules/planning/services/PlanningItemService.test.ts`,
+  `tests/modules/planning/services/PlanningMilestoneService.test.ts`,
+  `tests/modules/planning/planning-validators.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Rencana terhapus masih bisa diajukan dan disetujui
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `PlanningRepository.findById` tidak memfilter `deletedAt`,
+  padahal `findAll` memfilternya. Karena seluruh jalur mutasi (update, delete,
+  submit, approve, reject, start, complete) memakai method itu sebagai satu-
+  satunya gerbang, rencana yang sudah dihapus tetap bisa diajukan lalu disetujui
+  sampai COMPLETED — rencana belanja infrastruktur yang disetujui penuh tanpa
+  pernah muncul di daftar, kanban, maupun dashboard mana pun. `delete()` juga
+  bisa dipanggil berulang dan menulis audit palsu tiap kali.
+- **Files**: `modules/planning/repositories/PlanningRepository.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Audit log ditulis dengan tenantId kosong
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `PlanningAuditService.logChange` mengirim `tenantId: ""`
+  dengan komentar "will be set by repository from planning" — repository tidak
+  pernah melakukannya. Untuk pengguna tenant biasa hal ini tertutup kebetulan
+  oleh ekstensi isolasi Prisma yang menghapus lalu menimpa `tenantId`; untuk
+  super admin ekstensi hanya menyuntik bila nilainya `undefined`, sehingga
+  string kosong lolos dan melanggar FK `Restrict` ke tabel Tenant (P2003).
+  Akibatnya rencana tersimpan, audit gagal, API membalas 500, dan pengguna
+  mengulang sehingga menumpuk rencana duplikat. `logChange` kini menerima satu
+  object dengan `tenantId` wajib yang diambil dari tenant rencana.
+- **Files**: `modules/planning/services/PlanningAuditService.ts`
+- **Breaking**: ⚠️ Tanda tangan `logChange` berubah dari 6 parameter posisional
+  menjadi satu object. Hanya dipakai internal modul planning.
+
+### [2026-09-06] — Seluruh tulis multi-tabel modul planning kini atomik
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Nol pemakaian `$transaction` di seluruh modul, padahal setiap
+  method repository sudah menyediakan parameter `tx`. Titik terparah:
+  `PlanningTemplateService.update` menghapus SELURUH item template lebih dulu
+  lalu membuat ulang satu per satu, sehingga kegagalan pada item ke-12 dari 40
+  menghilangkan 29 item BOQ secara permanen tanpa rollback dan tanpa jejak.
+  `applyTemplate` juga bisa melahirkan rencana dengan anggaran total template
+  tapi item separuh. Ditambahkan port `IPlanningUnitOfWork` +
+  `PrismaPlanningUnitOfWork` supaya service tetap bergantung pada abstraksi,
+  lalu dipakai di create/update/delete planning, seluruh transisi status,
+  create/update/delete template, applyTemplate, mutasi item, dan bulk update
+  milestone.
+- **Files**: `modules/planning/domain/ports/IPlanningUnitOfWork.ts`,
+  `modules/planning/repositories/PrismaPlanningUnitOfWork.ts`,
+  `modules/planning/services/*.ts`
+- **Breaking**: ⚠️ Konstruktor `PlanningService`, `PlanningApprovalService`,
+  dan `PlanningTemplateService` bertambah satu parameter.
+
+### [2026-09-06] — Guard tenant dirambatkan ke seluruh modul planning
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/planning`, `app/api/planning`
+- **Author**: agent
+- **Deskripsi**: Guard lintas tenant yang ditambahkan pada 2026-09-03 hanya ada
+  di `applyTemplate`. Sepuluh entry point lain — `getById`/`update`/`delete`
+  rencana, submit/approve/reject/start/complete/cancel, serta
+  `getById`/`update`/`delete` template — sama sekali tidak menerima `tenantId`.
+  Karena `withTenantIsolation` sengaja melewatkan super admin, sesi super admin
+  di panel tenant A bisa menyetujui rencana belanja tenant B atau menghapus
+  seluruh BOQ baku tenant lain hanya dengan menebak ID. Seluruh method kini
+  menerima `tenantId` sesi dan memperlakukan objek milik tenant lain sebagai
+  tidak ditemukan. Route dashboard dan kanban juga kini mewajibkan tenant —
+  sebelumnya sesi tanpa tenant mengagregasi seluruh tenant jadi satu papan.
+- **Files**: `modules/planning/services/*.ts`, `app/api/planning/**`,
+  `lib/api/session-tenant.ts`
+- **Breaking**: ⚠️ Tanda tangan method service bertambah `tenantId`.
+
+### [2026-09-06] — Ambang persetujuan Rp 500 juta bisa dilewati lewat BOQ
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `approvalLevel` dihitung dari `estimatedBudget` header saat
+  rencana dibuat, sementara item BOQ masih boleh ditambah selama status
+  BACKLOG. Rencana dengan header Rp 100 juta yang kemudian diisi BOQ Rp 900
+  juta tetap diajukan sebagai satu tingkat, dan satu orang bisa menyetujui
+  belanja yang menurut aturan butuh dua. `submit()` kini menghitung ulang dari
+  `max(header, total BOQ)`. Aturan ambangnya sendiri dipindah ke
+  `planning-business-rules.ts` — sebelumnya konstanta dan rumusnya disalin di
+  tiga service berbeda.
+- **Files**: `modules/planning/domain/planning-business-rules.ts`,
+  `modules/planning/services/PlanningApprovalService.ts`,
+  `modules/planning/services/PlanningService.ts`,
+  `modules/planning/services/PlanningTemplateService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Penyetuju sah terkunci permanen setelah rencana diajukan ulang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: `submit()` tidak mereset field siklus persetujuan sebelumnya.
+  Rencana level-2 yang disetujui tingkat 1 oleh Budi lalu ditolak Citra, ketika
+  diajukan ulang tetap membawa `approvedLevel1ById = Budi`. Saat Budi menyetujui
+  di siklus baru, `assertApproverIsDistinct` menolaknya sebagai orang yang sama
+  — ia terkunci selamanya dari rencana itu. Halaman detail juga menampilkan
+  "Disetujui oleh X" pada rencana yang masih menunggu persetujuan. Seluruh field
+  siklus lama kini dibersihkan saat pengajuan ulang.
+- **Files**: `modules/planning/services/PlanningApprovalService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Transisi status bersamaan saling menimpa tanpa jejak
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Semua transisi berpola check-then-act: baca rencana, cek
+  `canBeX()`, tulis dengan `where: { id }` saja. Dua penyetuju yang menekan
+  Setujui bersamaan sama-sama membaca `currentApprovalStep: 0` dan sama-sama
+  menulis `APPROVED_LEVEL1` — satu persetujuan hilang tanpa konflik. Ditambahkan
+  `expectedStatus` pada `updateStatus` yang masuk ke klausa WHERE, sehingga
+  penulisan kedua tidak menemukan baris dan ditolak sebagai
+  `PlanningConcurrentUpdateError` (409).
+- **Files**: `modules/planning/repositories/PlanningRepository.ts`,
+  `modules/planning/domain/ports/IPlanningRepository.ts`,
+  `modules/planning/services/PlanningApprovalService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Error bisnis planning dilaporkan sebagai 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`, `app/api/planning`, `lib/api`
+- **Author**: agent
+- **Deskripsi**: Service melempar `new Error(pesan Inggris)` dan delapan route
+  menebak maksudnya dengan `err.message.includes(...)`. Yang tidak cocok jatuh
+  ke 500: pelanggaran segregation of duties (kontrol paling penting di modul
+  ini) dilaporkan ke penyetuju sebagai "Terjadi kesalahan pada server", begitu
+  pula guard ruang lingkup dan validasi catatan penolakan. Yang cocok pun
+  membalikkan pesan internal berbahasa Inggris apa adanya ke pengguna.
+  Ditambahkan kelas error domain turunan `AppError` di `planning-errors.ts`
+  yang membawa status code sendiri, dan seluruh blok catch penerjemah dihapus.
+  `handleError` juga kini mengenali `ZodError` sehingga query param invalid
+  (mis. `?limit=200`) membalas 400 berikut detail field, bukan 500.
+- **Files**: `modules/planning/errors/planning-errors.ts`,
+  `app/api/planning/**`, `lib/api/handler.ts`
+- **Catatan arsitektur**: kelas error diletakkan di `modules/planning/errors/`,
+  bukan di `domain/`. Karena membawa status HTTP, isinya pengetahuan transport
+  dan `tests/architecture/domain-purity.test.ts` melarangnya di layer domain.
+  Sejalan dengan itu `assertApproverIsDistinct` diganti predikat murni
+  `isApproverDistinct` — domain memutuskan apakah aturan dilanggar, service
+  yang memutuskan itu jadi respons apa.
+- **Breaking**: ⚠️ Kode dan pesan error API planning berubah (kini Bahasa
+  Indonesia dengan status code yang tepat).
+
+### [2026-09-06] — Item & milestone planning turun dari controller ke service
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/planning`, `app/api/planning`
+- **Author**: agent
+- **Deskripsi**: Route `[id]/items` dan `[id]/milestones` memanggil repository
+  langsung dari controller dan menaruh aturan bisnis di sana. Akibat nyatanya
+  bukan cuma tata letak: mutasi item tidak pernah menulis audit sama sekali —
+  action `ITEM_ADDED`, `ITEM_UPDATED`, `ITEM_REMOVED`, dan `MILESTONE_UPDATED`
+  terdefinisi di domain dan enum Prisma tapi tidak pernah dipakai, sehingga
+  menghapus material senilai ratusan juta tidak meninggalkan jejak siapa pun.
+  Ditambahkan `PlanningItemService` dan `PlanningMilestoneService` yang
+  menangani guard tenant, kepemilikan, transaksi, dan audit. Bulk update
+  milestone juga tidak lagi memakai `Promise.all` tanpa transaksi (sebagian
+  tersimpan sementara route membalas error), dan milestone BLOCKED tidak lagi
+  bisa langsung ditandai COMPLETED — aturan yang selama ini ada di
+  `PlanningMilestoneEntity.canBeCompleted()` tapi tidak pernah dipanggil.
+- **Files**: `modules/planning/services/PlanningItemService.ts`,
+  `modules/planning/services/PlanningMilestoneService.ts`,
+  `app/api/planning/[id]/items/**`, `app/api/planning/[id]/milestones/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Perbaikan validator, mapper, dan endpoint stub planning
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`, `app/api/planning`
+- **Author**: agent
+- **Deskripsi**: Sekumpulan cacat yang masing-masing membuat sesuatu tidak
+  berfungsi: (1) `z.coerce.boolean()` membuat `?isActive=false` justru
+  menampilkan template aktif — `Boolean("false") === true` — sehingga template
+  nonaktif tidak pernah bisa dilihat; (2) `quantity: z.number().int()`
+  bertentangan dengan kolom Prisma `Float`, menolak BOQ pecahan seperti 12,5
+  meter kabel; (3) `estimatedPrice`/`actualPrice`/`estimatedBudget` memakai
+  `.positive()` sehingga nilai nol yang sah (material hibah) ditolak;
+  (4) `hasBudgetMismatch` membandingkan float dengan `!==` sehingga memunculkan
+  peringatan selisih anggaran palsu, sementara rencana yang seluruh itemnya
+  tanpa harga justru tidak ditandai; (5) tiga endpoint stub memakai `throw
+  ApiErrors.notImplemented(...)` yang menghasilkan 500, bukan 501; (6) dashboard
+  menghitung rencana tanpa `targetCompletionDate` sebagai terlambat;
+  (7) `tenantId` dan `deletedAt` bocor ke DTO yang dikirim ke browser;
+  (8) pencarian kanban disaring di memori setelah fetch 1.000 baris, sehingga
+  rencana di luar jendela itu tidak pernah ditemukan meski judulnya cocok;
+  (9) `resolvePlanningActions().canDelete` hanya mengizinkan BACKLOG padahal
+  API menerima REJECTED, sehingga rencana ditolak tidak punya tombol Hapus.
+- **Breaking**: ⚠️ `PlanningDetailDTO` tidak lagi memuat `tenantId`/`deletedAt`.
+
+### [2026-09-06] — Perbaikan UI planning: perubahan hilang, cache basi, pencarian rusak
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/planning`, `lib/hooks`, `lib/utils`
+- **Author**: agent
+- **Deskripsi**: (1) Form edit hanya mengirim field yang terisi, sehingga
+  pengguna yang mengosongkan anggaran atau tanggal target mendapat notifikasi
+  "berhasil diperbarui" lalu menemukan nilai lamanya masih ada — perubahan
+  hilang tanpa jejak; kini dikirim `null` secara eksplisit. (2) Pencarian kanban
+  tanpa debounce membuat query key berubah tiap ketikan, dan karena skeleton
+  di-return untuk seluruh halaman, input ikut ter-unmount sehingga fokus hilang
+  dan huruf berikutnya tidak masuk; kini di-debounce dan skeleton hanya
+  menggantikan papan. (3) `useRevalidate` memakai key berupa URL lengkap
+  sehingga `"/api/planning"` tidak pernah cocok dengan
+  `"/api/planning?page=1&limit=20"` — menghapus rencana melempar pengguna ke
+  daftar yang masih menampilkan rencana tersebut; ditambahkan
+  `useInvalidatePlanningRelated` berbasis pencocokan awalan. (4) Detail validasi
+  per-field dari server dibuang oleh klien sehingga pengguna hanya melihat
+  "Validasi gagal"; ditambahkan `formatApiError`. (5) Tombol tambah/hapus
+  material muncul pada rencana yang statusnya tidak bisa diedit. (6)
+  `PlanningEditClient` masih memakai `useEffect + fetch` tanpa cek `res.ok`,
+  sehingga 403/500 tampil sebagai "Planning tidak ditemukan"; dimigrasikan ke
+  `useApi`. (7) Export PDF mengambil ulang detail yang sudah ada di memori.
+- **Files**: `app/admin/planning/**`, `lib/hooks/useInvalidate.ts`,
+  `lib/utils/api-response-parser.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Hapus kode mati modul planning
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/planning`, `app/admin/planning`
+- **Author**: agent
+- **Deskripsi**: `PlanningExportService` (tidak terdaftar di factory, tidak
+  diekspor, route export adalah stub terpisah), `PlanningItemRepository.
+  getTotalEstimatedBudget` (nol pemanggil, dan menjalankan `aggregate` yang
+  hasilnya tidak pernah dipakai lalu `findMany` lagi untuk menghitung manual),
+  `PlanningTemplateItemEntity.toPlanningItemProps` (nol pemanggil, parameternya
+  pun tidak dipakai di badan fungsi), dan `downloadPlanningPdfById` (tidak lagi
+  punya pemanggil setelah export memakai data di memori).
+- **Breaking**: ❌ Tidak
+
+
 ### [2026-09-03] — Superadmin bisa menyalin BOQ tenant lain lewat Terapkan Template
 
 - **Tipe**: [SECURITY]

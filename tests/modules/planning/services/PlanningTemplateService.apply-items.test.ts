@@ -10,6 +10,8 @@ import { PlanningTemplateItemEntity } from "@/modules/planning/domain/entities/P
 import { PlanningItemEntity } from "@/modules/planning/domain/entities/PlanningItemEntity";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
 import type { CreatePlanningDTO } from "@/modules/planning/dto/PlanningDTO";
+import { PlanningTemplateNotFoundError } from "@/modules/planning/errors/planning-errors";
+import { createFakeUnitOfWork } from "../helpers/fakeUnitOfWork";
 
 /**
  * Menerapkan template adalah SATU-SATUNYA alasan fitur template ada: menyalin
@@ -75,6 +77,7 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
       mockPlanningRepo,
       mockItemRepo,
       mockAuditService,
+      createFakeUnitOfWork(),
     );
 
     mockTemplateRepo.findById.mockResolvedValue(
@@ -179,6 +182,7 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
         unit: "meter",
         estimatedPrice: 50_000,
       }),
+      undefined,
     );
     expect(mockItemRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,6 +190,7 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
         quantity: 4,
         estimatedPrice: 750_000,
       }),
+      undefined,
     );
   });
 
@@ -235,6 +240,7 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
 
     expect(mockPlanningRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ estimatedUnits: 250 }),
+      undefined,
     );
   });
 
@@ -270,7 +276,7 @@ describe("PlanningTemplateService.applyTemplate — penyalinan item", () => {
 
     await expect(
       service.applyTemplate("template-1", applyInput, "tenant-1", "user-1"),
-    ).rejects.toThrow(/not found/i);
+    ).rejects.toThrow(PlanningTemplateNotFoundError);
 
     expect(mockPlanningRepo.create).not.toHaveBeenCalled();
     expect(mockItemRepo.create).not.toHaveBeenCalled();

@@ -79,8 +79,22 @@ describe("resolvePlanningActions", () => {
     expect(actions.canDelete).toBe(false);
   });
 
-  it("membatasi hapus pada rencana yang belum diajukan", () => {
-    expect(actionsFor("BACKLOG").canDelete).toBe(true);
-    expect(actionsFor("APPROVED").canDelete).toBe(false);
+  // Sejajar dengan PlanningEntity.canBeEdited() yang dipakai PlanningService
+  // .delete. Sebelumnya hanya BACKLOG, sehingga rencana yang ditolak dan tidak
+  // jadi dilanjutkan tidak punya tombol Hapus padahal API menerimanya.
+  it.each(["BACKLOG", "REJECTED"] as PlanningStatus[])(
+    "mengizinkan hapus rencana saat %s",
+    (status) => {
+      expect(actionsFor(status).canDelete).toBe(true);
+    },
+  );
+
+  it.each([
+    "PENDING_APPROVAL",
+    "APPROVED",
+    "IN_PROGRESS",
+    "COMPLETED",
+  ] as PlanningStatus[])("menyembunyikan hapus saat %s", (status) => {
+    expect(actionsFor(status).canDelete).toBe(false);
   });
 });

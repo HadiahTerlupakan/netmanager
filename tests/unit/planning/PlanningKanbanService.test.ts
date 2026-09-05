@@ -102,21 +102,25 @@ describe("PlanningKanbanService", () => {
       expect(backlogColumn?.count).toBe(1);
     });
 
-    it("should filter by search term (title and area)", async () => {
+    // Pencarian didorong ke SQL, bukan disaring setelah fetch. Sebelumnya
+    // `search` diterapkan pada 1.000 baris terbaru yang sudah terambil, sehingga
+    // rencana di luar jendela itu tidak pernah ditemukan meski judulnya cocok.
+    it("should push the search term down to the repository query", async () => {
       const mockPlannings = [
         createMockPlanning("1", "BACKLOG", "OSP Area Jakarta", "Jakarta"),
-        createMockPlanning("2", "BACKLOG", "OSP Area Bandung", "Bandung"),
-        createMockPlanning("3", "APPROVED", "OSP Area Surabaya", "Surabaya"),
       ];
 
       mockPlanningRepo.findAll = vi
         .fn()
-        .mockResolvedValue({ items: mockPlannings, total: 3 });
+        .mockResolvedValue({ items: mockPlannings, total: 1 });
 
       const result = await service.getKanbanBoard("tenant-1", {
         search: "jakarta",
       });
 
+      expect(mockPlanningRepo.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: "tenant-1", search: "jakarta" }),
+      );
       expect(result.totalCards).toBe(1);
       const backlogColumn = result.columns.find((c) => c.status === "BACKLOG");
       expect(backlogColumn?.cards[0].title).toBe("OSP Area Jakarta");

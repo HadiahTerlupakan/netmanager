@@ -1,9 +1,13 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+  createHandler,
+  apiSuccess,
+  ApiErrors,
+  requireSessionTenantId,
+} from "@/lib/api";
 import {
   planningTemplateService,
   updatePlanningTemplateSchema,
 } from "@/modules/planning";
-import { logger } from "@/lib/logger";
 
 /**
  * GET /api/planning/templates/[templateId]
@@ -15,9 +19,10 @@ export const GET = createHandler(
     permissions: ["planning:read"],
   },
   async (req, ctx) => {
-    const { templateId } = ctx.params;
-
-    const result = await planningTemplateService.getById(templateId);
+    const result = await planningTemplateService.getById(
+      ctx.params.templateId,
+      requireSessionTenantId(ctx),
+    );
 
     if (!result) {
       return ApiErrors.notFound("Template tidak ditemukan");
@@ -29,7 +34,11 @@ export const GET = createHandler(
 
 /**
  * PUT /api/planning/templates/[templateId]
- * Update template
+ * Update template.
+ *
+ * `tenantId` diteruskan supaya service bisa menolak template milik tenant lain
+ * — guard yang sebelumnya hanya ada di "Terapkan Template", sehingga super
+ * admin bisa mengubah BOQ baku tenant lain lewat endpoint ini.
  */
 export const PUT = createHandler(
   {
@@ -38,37 +47,14 @@ export const PUT = createHandler(
     schema: updatePlanningTemplateSchema,
   },
   async (req, ctx) => {
-    const { templateId } = ctx.params;
-    const userId = ctx.session!.user.id;
-    const tenantId = ctx.session?.user?.tenantId;
+    const result = await planningTemplateService.update(
+      ctx.params.templateId,
+      ctx.validated as Parameters<typeof planningTemplateService.update>[1],
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
+    );
 
-    try {
-      const result = await planningTemplateService.update(
-        templateId,
-        ctx.validated as Parameters<typeof planningTemplateService.update>[1],
-        userId,
-      );
-
-      // Activity log
-      logger.logActivity({
-        action: "planning_template.updated",
-        subject: "PlanningTemplate",
-        details: {
-          templateId,
-          changes: Object.keys(ctx.validated),
-        },
-        userId,
-        tenantId,
-      });
-
-      return apiSuccess(result, { message: "Template berhasil diperbarui" });
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes("not found")) {
-        return ApiErrors.notFound("Template tidak ditemukan");
-      }
-      throw error;
-    }
+    return apiSuccess(result, { message: "Template berhasil diperbarui" });
   },
 );
 
@@ -83,31 +69,16 @@ export const DELETE = createHandler(
   },
   async (req, ctx) => {
     const { templateId } = ctx.params;
-    const userId = ctx.session!.user.id;
-    const tenantId = ctx.session?.user?.tenantId;
 
-    try {
-      await planningTemplateService.delete(templateId, userId);
+    await planningTemplateService.delete(
+      templateId,
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
+    );
 
-      // Activity log
-      logger.logActivity({
-        action: "planning_template.deleted",
-        subject: "PlanningTemplate",
-        details: { templateId },
-        userId,
-        tenantId,
-      });
-
-      return apiSuccess(
-        { id: templateId },
-        { message: "Template berhasil dihapus" },
-      );
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes("not found")) {
-        return ApiErrors.notFound("Template tidak ditemukan");
-      }
-      throw error;
-    }
+    return apiSuccess(
+      { id: templateId },
+      { message: "Template berhasil dihapus" },
+    );
   },
 );

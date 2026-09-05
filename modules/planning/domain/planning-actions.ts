@@ -45,6 +45,10 @@ export function resolvePlanningActions(
     canStart: permissions.canUpdate && status === "APPROVED",
     canComplete: permissions.canUpdate && status === "IN_PROGRESS",
     canRecordProgress: permissions.canUpdate && status === "IN_PROGRESS",
-    canDelete: permissions.canDelete && status === "BACKLOG",
+    // Sejajar dengan `PlanningEntity.canBeEdited()` yang dipakai
+    // `PlanningService.delete`. Sebelumnya hanya BACKLOG, sehingga rencana yang
+    // ditolak dan tidak jadi dilanjutkan tidak punya tombol Hapus mana pun
+    // padahal API menerimanya — satu-satunya jalan keluar adalah lewat curl.
+    canDelete: permissions.canDelete && isDraft,
   };
 }

@@ -36,7 +36,6 @@ export interface PlanningListItemDTO {
  * Used for detail pages and edit forms
  */
 export interface PlanningDetailDTO extends PlanningListItemDTO {
-  tenantId: string;
   description: string | null;
   coordinates: Coordinates | null;
   approvalLevel: number;
@@ -52,7 +51,6 @@ export interface PlanningDetailDTO extends PlanningListItemDTO {
   approvalNotes: string | null;
   actualCompletionDate: string | null;
   createdById: string | null;
-  deletedAt: string | null;
 
   /**
    * Total biaya estimasi hasil penjumlahan seluruh item (BOQ).

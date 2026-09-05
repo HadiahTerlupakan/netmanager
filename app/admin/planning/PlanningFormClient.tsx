@@ -7,6 +7,8 @@ import { toast } from "react-hot-toast";
 import { HiOutlineArrowLeft, HiOutlineMapPin } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import MapPicker from "@/components/common/MapPicker";
+import { formatApiError } from "@/lib/utils/api-response-parser";
+import { useInvalidatePlanningRelated } from "@/lib/hooks/useInvalidate";
 
 type PlanningFormMode = "create" | "edit";
 
@@ -69,6 +71,7 @@ export default function PlanningFormClient({
         }
       : EMPTY_FORM,
   );
+  const invalidatePlanning = useInvalidatePlanningRelated();
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
@@ -113,23 +116,31 @@ export default function PlanningFormClient({
         estimatedUnits: Number(form.estimatedUnits),
       };
 
-      if (form.estimatedBudget)
-        payload.estimatedBudget = Number(form.estimatedBudget);
+      // Field opsional dikirim sebagai null saat dikosongkan, bukan dibuang.
+      //
+      // Pola lama (`if (form.x) payload.x = ...`) membuat field yang sengaja
+      // dikosongkan pengguna sama sekali tidak masuk payload, sedangkan server
+      // hanya mengubah field yang dikirim. Akibatnya di mode edit: pengguna
+      // menghapus isi anggaran dan tanggal target, menekan Simpan, mendapat
+      // notifikasi "berhasil diperbarui" — lalu kembali ke halaman detail dan
+      // menemukan nilai lamanya masih di sana. Perubahan hilang tanpa jejak.
+      // Skema update memang menerima null untuk ketiganya.
+      payload.estimatedBudget = form.estimatedBudget
+        ? Number(form.estimatedBudget)
+        : null;
 
-      const hasCoords = form.lat && form.lon;
-      if (hasCoords) {
-        payload.coordinates = {
-          latitude: Number(form.lat),
-          longitude: Number(form.lon),
-        };
-      }
+      payload.coordinates =
+        form.lat && form.lon
+          ? { latitude: Number(form.lat), longitude: Number(form.lon) }
+          : null;
 
-      if (form.startDate)
-        payload.startDate = new Date(form.startDate).toISOString();
-      if (form.targetCompletionDate)
-        payload.targetCompletionDate = new Date(
-          form.targetCompletionDate,
-        ).toISOString();
+      payload.startDate = form.startDate
+        ? new Date(form.startDate).toISOString()
+        : null;
+
+      payload.targetCompletionDate = form.targetCompletionDate
+        ? new Date(form.targetCompletionDate).toISOString()
+        : null;
 
       const url =
         mode === "edit" && planningId
@@ -151,9 +162,12 @@ export default function PlanningFormClient({
             ? "Planning berhasil diperbarui"
             : "Planning berhasil dibuat",
         );
+        // Tanpa invalidate, halaman detail tujuan merender salinan cache lama
+        // — judul yang baru saja diedit tetap tampil versi sebelumnya.
+        invalidatePlanning();
         router.push(`/admin/planning/${data.data.id}`);
       } else {
-        toast.error(data.message || data.error || "Gagal menyimpan planning");
+        toast.error(formatApiError(data, "Gagal menyimpan planning"));
       }
     } catch {
       toast.error("Terjadi kesalahan");

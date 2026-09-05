@@ -67,43 +67,6 @@ export class PlanningItemRepository implements IPlanningItemRepository {
   }
 
   /**
-   * Get total estimated budget for a planning (sum of all items' estimatedPrice * quantity)
-   */
-  async getTotalEstimatedBudget(planningId: string): Promise<number> {
-    const result = await prisma.planningItem.aggregate({
-      where: {
-        planningId,
-        estimatedPrice: { not: null },
-      },
-      _sum: {
-        estimatedPrice: true,
-      },
-    });
-
-    // Note: This is a simplified calculation. For accurate total, we need quantity * price per item
-    // Let's fetch items and calculate manually
-    const items = await prisma.planningItem.findMany({
-      where: {
-        planningId,
-        estimatedPrice: { not: null },
-      },
-      select: {
-        quantity: true,
-        estimatedPrice: true,
-      },
-    });
-
-    const total = items.reduce((sum, item) => {
-      if (item.estimatedPrice !== null) {
-        return sum + item.quantity * item.estimatedPrice;
-      }
-      return sum;
-    }, 0);
-
-    return total;
-  }
-
-  /**
    * Create new planning item
    */
   async create(

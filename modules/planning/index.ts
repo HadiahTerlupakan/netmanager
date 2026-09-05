@@ -12,6 +12,8 @@
 // Services (server-only — import repositories yang pakai Prisma)
 export {
   planningService,
+  planningItemService,
+  planningMilestoneService,
   planningApprovalService,
   planningTemplateService,
   planningAuditService,

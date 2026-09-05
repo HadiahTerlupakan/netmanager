@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { PlanningApprovalService } from "@/modules/planning/services/PlanningApprovalService";
-import { PlanningSegregationOfDutiesError } from "@/modules/planning/domain/planning-business-rules";
+import { PlanningSegregationOfDutiesError } from "@/modules/planning/errors/planning-errors";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
+import { createFakeUnitOfWork } from "./helpers/fakeUnitOfWork";
 
 vi.mock("@/lib/logger", () => ({
   logger: {
@@ -64,6 +65,7 @@ function createService(planning: PlanningEntity) {
       emptyRepo as never,
       emptyRepo as never,
       auditService as never,
+      createFakeUnitOfWork(),
     ),
     planningRepo,
   };
@@ -76,7 +78,7 @@ describe("PlanningApprovalService.approve — pemisahan wewenang", () => {
   it("menolak penyetuju tingkat kedua yang sama dengan tingkat pertama", async () => {
     const { service, planningRepo } = createService(awaitingLevel2("user-2"));
 
-    await expect(service.approve("p1", "user-2")).rejects.toThrow(
+    await expect(service.approve("p1", "user-2", "t1")).rejects.toThrow(
       PlanningSegregationOfDutiesError,
     );
     expect(planningRepo.updateStatus).not.toHaveBeenCalled();
@@ -85,7 +87,7 @@ describe("PlanningApprovalService.approve — pemisahan wewenang", () => {
   it("mengizinkan penyetuju tingkat kedua yang berbeda", async () => {
     const { service, planningRepo } = createService(awaitingLevel2("user-2"));
 
-    await service.approve("p1", "user-3");
+    await service.approve("p1", "user-3", "t1");
 
     expect(planningRepo.updateStatus).toHaveBeenCalled();
   });

@@ -292,7 +292,6 @@ describe("PlanningMapper", () => {
 
       expect(dto.id).toBe("plan-1");
       expect(dto.title).toBe("Test Planning");
-      expect(dto.tenantId).toBe("tenant-1");
       expect(dto.description).toBe("Description");
       expect(dto.coordinates).toEqual({ latitude: -6.2, longitude: 106.8 });
       expect(dto.items).toHaveLength(1);
@@ -301,6 +300,54 @@ describe("PlanningMapper", () => {
       expect(dto.milestones[0].name).toBe("Survey Selesai");
       expect(dto.documents).toHaveLength(1);
       expect(dto.documents[0].filename).toBe("survey.jpg");
+    });
+
+    // `tenantId` dan `deletedAt` adalah field internal: yang pertama membocorkan
+    // struktur multi-tenant ke klien, yang kedua adalah detail soft delete yang
+    // tidak punya arti apa pun di UI.
+    it("should not expose internal tenantId and deletedAt fields", () => {
+      const now = new Date("2026-08-09T10:00:00Z");
+      const entity = new PlanningEntity({
+        id: "plan-1",
+        tenantId: "tenant-1",
+        type: "OSP",
+        title: "Test Planning",
+        description: null,
+        area: "Jakarta",
+        coordinates: null,
+        estimatedUnits: 100,
+        estimatedBudget: 50000000,
+        actualBudget: null,
+        status: "BACKLOG",
+        approvalLevel: 1,
+        currentApprovalStep: 0,
+        submittedAt: null,
+        submittedById: null,
+        approvedAt: null,
+        approvedById: null,
+        approvedLevel1At: null,
+        approvedLevel1ById: null,
+        rejectedAt: null,
+        rejectedById: null,
+        approvalNotes: null,
+        progressPercentage: 0,
+        startDate: null,
+        targetCompletionDate: null,
+        actualCompletionDate: null,
+        createdById: "user-1",
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+
+      const dto = PlanningMapper.toDetailDTO(entity, {
+        items: [],
+        milestones: [],
+        documents: [],
+      });
+
+      expect(dto).not.toHaveProperty("tenantId");
+      expect(dto).not.toHaveProperty("deletedAt");
     });
   });
 

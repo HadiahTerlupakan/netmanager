@@ -5,9 +5,12 @@ import { PlanningDocumentRepository } from "../repositories/PlanningDocumentRepo
 import { PlanningAuditLogRepository } from "../repositories/PlanningAuditLogRepository";
 import { PlanningTemplateRepository } from "../repositories/PlanningTemplateRepository";
 import { PlanningTemplateItemRepository } from "../repositories/PlanningTemplateItemRepository";
+import { PrismaPlanningUnitOfWork } from "../repositories/PrismaPlanningUnitOfWork";
 
 import { PlanningAuditService } from "./PlanningAuditService";
 import { PlanningService } from "./PlanningService";
+import { PlanningItemService } from "./PlanningItemService";
+import { PlanningMilestoneService } from "./PlanningMilestoneService";
 import { PlanningApprovalService } from "./PlanningApprovalService";
 import { PlanningTemplateService } from "./PlanningTemplateService";
 import { PlanningKanbanService } from "./PlanningKanbanService";
@@ -20,6 +23,14 @@ import { PlanningDashboardService } from "./PlanningDashboardService";
  */
 class PlanningServiceFactory {
   private static instances = new Map<string, unknown>();
+
+  /** Unit of work bersama — stateless, aman dipakai ulang semua service. */
+  private static getUnitOfWork(): PrismaPlanningUnitOfWork {
+    if (!this.instances.has("unitOfWork")) {
+      this.instances.set("unitOfWork", new PrismaPlanningUnitOfWork());
+    }
+    return this.instances.get("unitOfWork") as PrismaPlanningUnitOfWork;
+  }
 
   /**
    * Get PlanningAuditService singleton
@@ -51,10 +62,47 @@ class PlanningServiceFactory {
           milestoneRepo,
           documentRepo,
           auditService,
+          this.getUnitOfWork(),
         ),
       );
     }
     return this.instances.get("planning") as PlanningService;
+  }
+
+  /**
+   * Get PlanningItemService singleton
+   */
+  static getItemService(): PlanningItemService {
+    if (!this.instances.has("item")) {
+      this.instances.set(
+        "item",
+        new PlanningItemService(
+          new PlanningRepository(),
+          new PlanningItemRepository(),
+          this.getAuditService(),
+          this.getUnitOfWork(),
+        ),
+      );
+    }
+    return this.instances.get("item") as PlanningItemService;
+  }
+
+  /**
+   * Get PlanningMilestoneService singleton
+   */
+  static getMilestoneService(): PlanningMilestoneService {
+    if (!this.instances.has("milestone")) {
+      this.instances.set(
+        "milestone",
+        new PlanningMilestoneService(
+          new PlanningRepository(),
+          new PlanningMilestoneRepository(),
+          this.getAuditService(),
+          this.getUnitOfWork(),
+        ),
+      );
+    }
+    return this.instances.get("milestone") as PlanningMilestoneService;
   }
 
   /**
@@ -76,6 +124,7 @@ class PlanningServiceFactory {
           milestoneRepo,
           documentRepo,
           auditService,
+          this.getUnitOfWork(),
         ),
       );
     }
@@ -101,6 +150,7 @@ class PlanningServiceFactory {
           planningRepo,
           itemRepo,
           auditService,
+          this.getUnitOfWork(),
         ),
       );
     }
@@ -143,6 +193,9 @@ class PlanningServiceFactory {
 // Export singleton instances untuk direct import
 export const planningAuditService = PlanningServiceFactory.getAuditService();
 export const planningService = PlanningServiceFactory.getPlanningService();
+export const planningItemService = PlanningServiceFactory.getItemService();
+export const planningMilestoneService =
+  PlanningServiceFactory.getMilestoneService();
 export const planningApprovalService =
   PlanningServiceFactory.getApprovalService();
 export const planningTemplateService =

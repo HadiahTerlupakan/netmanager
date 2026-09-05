@@ -224,18 +224,3 @@ export function downloadPlanningPdf(planning: PlanningDetailDTO): void {
   doc.save(`${filename}.pdf`);
   toast.success("PDF Planning berhasil diunduh");
 }
-
-/**
- * Fetch detail planning lalu generate PDF. Dipakai dari detail/list page.
- */
-export async function downloadPlanningPdfById(
-  planningId: string,
-): Promise<void> {
-  const res = await fetch(`/api/planning/${planningId}`);
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(json.error || "Gagal memuat data planning");
-  }
-  const planning = (json.data ?? json) as PlanningDetailDTO;
-  downloadPlanningPdf(planning);
-}

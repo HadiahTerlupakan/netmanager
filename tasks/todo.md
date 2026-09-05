@@ -1,5 +1,123 @@
 # TODO
 
+## Review & Perbaikan Modul Planning OSP — 2026-09-06
+
+Sumber: review 4 layer (domain, service, repository+API, UI). Temuan diverifikasi
+ulang terhadap kode sebelum dikerjakan.
+
+## Dikerjakan sekarang (korektnes & integritas data)
+
+- [x] `PlanningRepository.findById` tidak memfilter `deletedAt` → rencana terhapus
+      masih bisa disubmit/disetujui/diselesaikan (ghost plan)
+- [x] Audit log ditulis dengan `tenantId: ""` → FK violation untuk superadmin;
+      planning tersimpan tapi API balas 500 dan audit hilang
+- [x] Guard tenant hanya ada di `applyTemplate`; `getById/update/delete` planning
+      & template tidak punya → superadmin lintas tenant
+- [x] Tidak ada `$transaction` sama sekali; `PlanningTemplateService.update`
+      menghapus seluruh BOQ lalu re-create satu per satu → data loss permanen
+- [x] `submit()` tidak mereset field approval siklus lama → approver sah terkunci
+      permanen oleh segregation-of-duties, DTO menampilkan data siklus lama
+- [x] Ambang approval Rp 500jt bisa dilewati: level dihitung dari header, item
+      BOQ ditambahkan setelahnya dan tidak pernah menghitung ulang
+- [x] Aturan ambang approval diduplikasi di 3 service → pindah ke domain
+- [x] `hasBudgetMismatch` pakai `!==` pada float → peringatan selisih palsu;
+      item ber-harga null semua justru tidak ditandai
+- [x] `throw ApiErrors.notImplemented(...)` (3 route) → balas 500, bukan 501
+- [x] `listPlanningSchema.parse()` di body handler → query invalid balas 500
+- [x] `z.coerce.boolean()` → `?isActive=false` justru menampilkan yang aktif
+- [x] `quantity: z.number().int()` vs Prisma `Float` → BOQ pecahan ditolak
+- [x] Service melempar `new Error(string)`, route mencocokkan pesan pakai
+      `String.includes` → error bisnis nyata jatuh ke 500 (segregation of duties,
+      scope terkunci, catatan penolakan wajib)
+- [x] Activity log ganda (ditulis di service dan di route)
+- [x] `canDelete` domain (`BACKLOG`) ≠ guard service (`BACKLOG||REJECTED`)
+- [x] Dashboard: rencana tanpa `targetCompletionDate` dihitung terlambat
+- [x] UI: form edit tidak bisa mengosongkan budget/tanggal (perubahan hilang diam)
+- [x] UI: pencarian kanban tanpa debounce → input ter-unmount tiap ketikan
+- [x] UI: `PlanningEditClient` masih `useEffect + fetch` (langgar standar)
+- [x] UI: cache daftar/dashboard/kanban tidak di-invalidate setelah mutasi
+- [x] Mutasi item & milestone tidak menulis audit sama sekali → turun ke service
+- [x] Pencarian kanban disaring di memori setelah fetch, bukan di SQL
+- [x] Milestone BLOCKED bisa langsung di-COMPLETED → progres palsu 100%
+- [x] Kode mati: `PlanningExportService`, `getTotalEstimatedBudget`,
+      `toPlanningItemProps`, `downloadPlanningPdfById`
+
+## Review
+
+Semua item di atas selesai. Verifikasi akhir: `npx tsc --noEmit` bersih,
+`npx eslint` bersih, `npm run build` sukses, dan **seluruh test suite hijau —
+651 file, 3931 tes lolos, 0 gagal** (modul planning sendiri naik dari 181 ke 237
+tes).
+
+### Perubahan arsitektur
+
+- Port `IPlanningUnitOfWork` + `PrismaPlanningUnitOfWork` — service tetap
+  bergantung pada abstraksi, bukan client Prisma.
+- `modules/planning/domain/planning-errors.ts` — enam kelas error domain
+  turunan `AppError`, menggantikan `new Error(string)` + pencocokan pesan di
+  route.
+- `PlanningItemService` dan `PlanningMilestoneService` — memindahkan aturan
+  bisnis dan query yang sebelumnya berada di controller.
+- `lib/api/session-tenant.ts` (`requireSessionTenantId`) dan
+  `lib/hooks/useInvalidate.ts` (`useInvalidatePlanningRelated`) — helper baru
+  yang menghapus pola yang sebelumnya disalin di belasan tempat.
+
+### Pelanggaran aturan arsitektur yang tertangkap tes dan sudah diperbaiki
+
+`tests/architecture/domain-purity.test.ts` melarang import non-relatif di
+`modules/*/domain/`. Versi pertama `planning-errors.ts` saya taruh di sana dan
+mengimpor `AppError` dari `@/lib/errors`. Aturannya benar: kelas-kelas itu
+membawa status HTTP, jadi isinya pengetahuan transport, bukan domain. File
+dipindah ke `modules/planning/errors/`, dan supaya arah dependensi tidak
+terbalik `assertApproverIsDistinct` diganti predikat murni `isApproverDistinct`
+— domain memutuskan apakah aturan dilanggar, service yang memutuskan itu jadi
+respons apa.
+
+### Regresi yang sempat saya buat dan sudah diperbaiki
+
+Versi pertama `hasBudgetMismatch` menyamakan "BOQ belum diisi" dengan "ada item
+tapi tanpa harga", sehingga setiap rencana yang baru dibuat ditandai selisih
+anggaran. Diganti dengan `BoqPricingState` bertiga keadaan
+(`no-items`/`items-without-price`/`priced`) dan dikunci dua tes regresi.
+
+## Backlog — dilaporkan, belum dikerjakan
+
+Semuanya nyata tapi butuh keputusan produk atau pekerjaan UI tersendiri:
+
+- **Milestone tidak punya endpoint create.** `milestoneRepo.create` nol
+  pemanggil, tidak ada `POST /milestones`, dan `applyTemplate` mengembalikan
+  `milestones: []`. Tab milestone karena itu permanen kosong dan
+  `calculateProgressFromMilestones` selalu null. Butuh endpoint + form UI.
+- **`cancel()` tidak punya route maupun aksi UI.** Service-nya lengkap dan kini
+  teruji, tetapi status CANCELLED tetap tidak terjangkau dari aplikasi —
+  rencana APPROVED/IN_PROGRESS yang batal terjebak selamanya.
+- **Kartu kanban: `itemsCount`, `milestonesCount`, `completedMilestonesCount`
+  selalu 0** karena `toKanbanBoard` tidak pernah dikirimi `countsMap`. Butuh
+  method `count` agregat di repository item & milestone.
+- **Rencana REJECTED tidak muncul di papan kanban** sama sekali, sehingga
+  transisi `REJECTED→PENDING_APPROVAL` di `planning-kanban-transitions.ts` tidak
+  bisa dipicu. `PlanningKanbanCardDTO` juga tidak punya field `status`, sehingga
+  kartu APPROVED_LEVEL1 melaporkan `from` kolomnya (PENDING_APPROVAL).
+- **Modul tidak menerbitkan domain event apa pun.** Tidak ada notifikasi ke
+  approver saat rencana masuk antrean, dan komitmen anggaran pada `approve`
+  tidak mengalir ke accounting — padahal procurement sudah punya alur itu.
+- **Dashboard mengagregasi di memori** dengan cap 10.000 baris dan filter
+  tanggal pasca-fetch. Perlu `groupBy`/`aggregate` di repository.
+- **`PlanningDetailClient.tsx` 908 baris**, enam concern dalam satu file.
+  Modal, badge, progress bar, debounce, dan formatter dibuat ulang padahal
+  `components/ui/Modal`, `components/ui/badge`, dan `hooks/useDebounce` sudah
+  ada. Label status juga tidak konsisten ("Draf" vs "Backlog" untuk status yang
+  sama).
+- **Method `toPrisma*` di enam mapper (~180 baris) adalah kode mati** — nol
+  pemanggil, dan sudah menyimpang dari repository (`toPrismaCreate` membaca
+  `dto.approvalLevel` yang tidak pernah dipakai service). Sengaja tidak dihapus
+  di batch ini karena tidak menimbulkan bug runtime dan sudah punya tes sendiri.
+- **Migrasi penuh ke `Result<T,E>` dan `useMutation`**, serta index DB komposit
+  `(tenantId, createdAt)` dan `(planningId, performedAt)` untuk query yang
+  sering dipakai.
+
+---
+
 ## Fix Admin Announcement Security & Validation Plan
 
 - [ ] Audit ulang contract validator announcement di `modules/notification/validators/announcementValidator.ts` dan test existing terkait announcement.

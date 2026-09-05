@@ -1,341 +1,85 @@
-import type { Prisma } from "@prisma/client";
-import { assertApproverIsDistinct } from "../domain/planning-business-rules";
-import type { IPlanningRepository } from "../domain/ports/IPlanningRepository";
+import {
+  isApproverDistinct,
+  resolveApprovalBaseBudget,
+  resolveApprovalLevel,
+  sumItemsEstimatedCost,
+} from "../domain/planning-business-rules";
+import type {
+  IPlanningRepository,
+  UpdateStatusInput,
+} from "../domain/ports/IPlanningRepository";
 import type { IPlanningItemRepository } from "../domain/ports/IPlanningItemRepository";
 import type { IPlanningMilestoneRepository } from "../domain/ports/IPlanningMilestoneRepository";
 import type { IPlanningDocumentRepository } from "../domain/ports/IPlanningDocumentRepository";
+import type { IPlanningUnitOfWork } from "../domain/ports/IPlanningUnitOfWork";
 import type { PlanningDetailDTO } from "../dto/PlanningDTO";
+import type { PlanningEntity } from "../domain/entities/PlanningEntity";
+import type { AuditAction } from "../domain/entities/PlanningAuditLogEntity";
 import { PlanningMapper } from "../mappers/PlanningMapper";
 import { PlanningAuditService } from "./PlanningAuditService";
+import {
+  PlanningInvalidStateError,
+  PlanningNotFoundError,
+  PlanningSegregationOfDutiesError,
+  PlanningValidationError,
+} from "../errors/planning-errors";
 import { logger } from "@/lib/logger";
 
-type PrismaTransaction = Prisma.TransactionClient;
+/**
+ * Satu transisi status beserta jejak yang menyertainya.
+ * Dipakai `applyTransition` supaya tiga cabang persetujuan tidak lagi
+ * mengulang blok update + audit + activity log yang hampir identik.
+ */
+interface PlanningTransition {
+  planning: PlanningEntity;
+  updates: UpdateStatusInput;
+  auditAction: AuditAction;
+  auditChanges: Record<string, unknown>;
+  auditNotes?: string | null;
+  activityAction: string;
+  activityDetails?: Record<string, unknown>;
+  userId: string;
+}
 
 /**
  * PlanningApprovalService
  * Service untuk mengelola workflow approval multi-level planning.
- * Logika budget threshold dan transisi status approval.
  */
 export class PlanningApprovalService {
-  private readonly BUDGET_THRESHOLD = 500_000_000; // Rp 500M
-
   constructor(
     private readonly planningRepo: IPlanningRepository,
     private readonly itemRepo: IPlanningItemRepository,
     private readonly milestoneRepo: IPlanningMilestoneRepository,
     private readonly documentRepo: IPlanningDocumentRepository,
     private readonly auditService: PlanningAuditService,
+    private readonly unitOfWork: IPlanningUnitOfWork,
   ) {}
 
   /**
-   * Determine approval level berdasarkan budget threshold
+   * Mengambil rencana milik tenant pemanggil, atau melempar bila tidak ada.
+   *
+   * Ekstensi isolasi Prisma sengaja melewatkan super admin, sehingga tanpa
+   * guard eksplisit sesi super admin di panel tenant A bisa menyetujui rencana
+   * belanja tenant B hanya dengan menebak ID-nya. Pesan disamakan dengan kasus
+   * tidak ditemukan supaya keberadaan rencana tenant lain tidak terkonfirmasi.
    */
-  private determineApprovalLevel(estimatedBudget: number | null): number {
-    if (!estimatedBudget) return 1;
-    return estimatedBudget >= this.BUDGET_THRESHOLD ? 2 : 1;
-  }
-
-  /**
-   * Submit planning untuk approval
-   * Status: BACKLOG/REJECTED → PENDING_APPROVAL
-   */
-  async submit(id: string, userId: string): Promise<PlanningDetailDTO> {
-    const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
-
-    // Validasi: planning harus bisa disubmit
-    if (!planning.canBeSubmitted()) {
-      throw new Error(
-        `Planning cannot be submitted in status ${planning.status}. Only BACKLOG or REJECTED status can be submitted.`,
-      );
-    }
-
-    // Determine approval level based on budget
-    const approvalLevel = this.determineApprovalLevel(planning.estimatedBudget);
-
-    // Update status ke PENDING_APPROVAL
-    const updatedEntity = await this.planningRepo.updateStatus(id, {
-      status: "PENDING_APPROVAL",
-      submittedAt: new Date(),
-      submittedById: userId,
-      currentApprovalStep: 0,
-      approvalLevel,
-    });
-
-    // Audit log
-    await this.auditService.logChange(
-      id,
-      "SUBMITTED",
-      userId,
-      {
-        status: { from: planning.status, to: "PENDING_APPROVAL" },
-        approvalLevel,
-      },
-      `Planning submitted for approval (level ${approvalLevel})`,
-    );
-
-    // Activity log
-    logger.logActivity({
-      action: "planning.submitted",
-      subject: "Planning",
-      details: {
-        planningId: id,
-        title: planning.title,
-        estimatedBudget: planning.estimatedBudget,
-        approvalLevel,
-      },
-      userId,
-      tenantId: planning.tenantId,
-    });
-
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(updatedEntity, {
-      items,
-      milestones,
-      documents,
-    });
-  }
-
-  /**
-   * Approve planning (single-level atau multi-level)
-   * - Level 1 approval: PENDING_APPROVAL → APPROVED (jika approvalLevel = 1)
-   * - Level 1 approval: PENDING_APPROVAL → APPROVED_LEVEL1 (jika approvalLevel = 2)
-   * - Level 2 approval: APPROVED_LEVEL1 → APPROVED (jika approvalLevel = 2)
-   */
-  async approve(
+  private async findOwnedPlanning(
     id: string,
-    userId: string,
-    notes?: string | null,
-  ): Promise<PlanningDetailDTO> {
+    tenantId: string,
+  ): Promise<PlanningEntity> {
     const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
+
+    if (!planning || planning.tenantId !== tenantId) {
+      throw new PlanningNotFoundError();
     }
 
-    // Validasi: planning harus bisa diapprove
-    if (!planning.canBeApproved()) {
-      throw new Error(
-        `Planning cannot be approved in status ${planning.status}. Only PENDING_APPROVAL or APPROVED_LEVEL1 status can be approved.`,
-      );
-    }
-
-    // Persetujuan tingkat kedua wajib oleh orang yang berbeda; tanpa ini alur
-    // berlapis tidak memberi kendali apa pun.
-    assertApproverIsDistinct({
-      approverId: userId,
-      approvedLevel1ById: planning.approvedLevel1ById,
-    });
-
-    let updatedEntity;
-
-    if (planning.approvalLevel === 1) {
-      // Single-level approval: PENDING_APPROVAL → APPROVED
-      updatedEntity = await this.planningRepo.updateStatus(id, {
-        status: "APPROVED",
-        approvedAt: new Date(),
-        approvedById: userId,
-        currentApprovalStep: 1,
-        approvalNotes: notes ?? null,
-      });
-
-      await this.auditService.logChange(
-        id,
-        "APPROVED",
-        userId,
-        {
-          status: { from: planning.status, to: "APPROVED" },
-          level: 1,
-        },
-        notes ?? "Planning approved",
-      );
-
-      logger.logActivity({
-        action: "planning.approved",
-        subject: "Planning",
-        details: {
-          planningId: id,
-          title: planning.title,
-          approvalLevel: 1,
-          notes,
-        },
-        userId,
-        tenantId: planning.tenantId,
-      });
-    } else if (planning.approvalLevel === 2) {
-      if (planning.currentApprovalStep === 0) {
-        // First approval (level 1): PENDING_APPROVAL → APPROVED_LEVEL1
-        updatedEntity = await this.planningRepo.updateStatus(id, {
-          status: "APPROVED_LEVEL1",
-          approvedLevel1At: new Date(),
-          approvedLevel1ById: userId,
-          currentApprovalStep: 1,
-        });
-
-        await this.auditService.logChange(
-          id,
-          "APPROVED",
-          userId,
-          {
-            status: { from: planning.status, to: "APPROVED_LEVEL1" },
-            level: 1,
-          },
-          notes ?? "Planning approved at level 1, waiting for level 2 approval",
-        );
-
-        logger.logActivity({
-          action: "planning.approved_level1",
-          subject: "Planning",
-          details: {
-            planningId: id,
-            title: planning.title,
-            approvalLevel: 2,
-            currentStep: 1,
-            notes,
-          },
-          userId,
-          tenantId: planning.tenantId,
-        });
-      } else {
-        // Final approval (level 2): APPROVED_LEVEL1 → APPROVED
-        updatedEntity = await this.planningRepo.updateStatus(id, {
-          status: "APPROVED",
-          approvedAt: new Date(),
-          approvedById: userId,
-          currentApprovalStep: 2,
-          approvalNotes: notes ?? null,
-        });
-
-        await this.auditService.logChange(
-          id,
-          "APPROVED",
-          userId,
-          {
-            status: { from: planning.status, to: "APPROVED" },
-            level: 2,
-          },
-          notes ?? "Planning fully approved at level 2",
-        );
-
-        logger.logActivity({
-          action: "planning.approved_final",
-          subject: "Planning",
-          details: {
-            planningId: id,
-            title: planning.title,
-            approvalLevel: 2,
-            currentStep: 2,
-            notes,
-          },
-          userId,
-          tenantId: planning.tenantId,
-        });
-      }
-    } else {
-      throw new Error(
-        `Invalid approval level ${planning.approvalLevel} for planning ${id}`,
-      );
-    }
-
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(updatedEntity, {
-      items,
-      milestones,
-      documents,
-    });
+    return planning;
   }
 
-  /**
-   * Reject planning
-   * Status: PENDING_APPROVAL/APPROVED_LEVEL1 → REJECTED
-   */
-  async reject(
-    id: string,
-    userId: string,
-    notes: string,
-  ): Promise<PlanningDetailDTO> {
-    const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
-
-    // Validasi: planning harus bisa direject
-    if (!planning.canBeRejected()) {
-      throw new Error(
-        `Planning cannot be rejected in status ${planning.status}. Only PENDING_APPROVAL or APPROVED_LEVEL1 status can be rejected.`,
-      );
-    }
-
-    // Validasi: notes wajib untuk reject
-    if (!notes || notes.trim() === "") {
-      throw new Error("Rejection notes are required");
-    }
-
-    // Update status ke REJECTED
-    const updatedEntity = await this.planningRepo.updateStatus(id, {
-      status: "REJECTED",
-      rejectedAt: new Date(),
-      rejectedById: userId,
-      approvalNotes: notes,
-    });
-
-    // Audit log
-    await this.auditService.logChange(
-      id,
-      "REJECTED",
-      userId,
-      {
-        status: { from: planning.status, to: "REJECTED" },
-        rejectionLevel:
-          planning.currentApprovalStep === 0 ? 1 : planning.currentApprovalStep,
-      },
-      notes,
-    );
-
-    // Activity log
-    logger.logActivity({
-      action: "planning.rejected",
-      subject: "Planning",
-      details: {
-        planningId: id,
-        title: planning.title,
-        notes,
-        rejectionLevel:
-          planning.currentApprovalStep === 0 ? 1 : planning.currentApprovalStep,
-      },
-      userId,
-      tenantId: planning.tenantId,
-    });
-
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(updatedEntity, {
-      items,
-      milestones,
-      documents,
-    });
-  }
-
-  /**
-   * Cancel planning
-   * Status: any (except COMPLETED, CANCELLED, REJECTED) → CANCELLED
-   */
   /** Merakit DTO detail beserta relasinya. */
   private async buildDetailDTO(
     id: string,
-    entity: Parameters<typeof PlanningMapper.toDetailDTO>[0],
+    entity: PlanningEntity,
   ): Promise<PlanningDetailDTO> {
     const [items, milestones, documents] = await Promise.all([
       this.itemRepo.findByPlanningId(id),
@@ -347,40 +91,332 @@ export class PlanningApprovalService {
   }
 
   /**
+   * Menerapkan satu transisi status: tulis status, tulis audit, catat aktivitas.
+   *
+   * Status dan auditnya ditulis dalam satu transaksi supaya tidak mungkin ada
+   * rencana yang statusnya berubah tanpa jejak siapa yang mengubahnya —
+   * kondisi yang sebelumnya terjadi setiap kali penulisan audit gagal.
+   * `expectedStatus` diisi dari status yang dibaca, sehingga transisi bersamaan
+   * ditolak sebagai konflik alih-alih saling menimpa.
+   */
+  private async applyTransition(
+    transition: PlanningTransition,
+  ): Promise<PlanningEntity> {
+    const { planning, updates, userId } = transition;
+
+    const updatedEntity = await this.unitOfWork.runInTransaction(async (tx) => {
+      const updated = await this.planningRepo.updateStatus(
+        planning.id,
+        { ...updates, expectedStatus: planning.status },
+        tx,
+      );
+
+      await this.auditService.logChange(
+        {
+          planningId: planning.id,
+          tenantId: planning.tenantId,
+          action: transition.auditAction,
+          performedById: userId,
+          changes: transition.auditChanges,
+          notes: transition.auditNotes ?? null,
+        },
+        tx,
+      );
+
+      return updated;
+    });
+
+    logger.logActivity({
+      action: transition.activityAction,
+      subject: "Planning",
+      details: {
+        planningId: planning.id,
+        title: planning.title,
+        ...transition.activityDetails,
+      },
+      userId,
+      tenantId: planning.tenantId,
+    });
+
+    return updatedEntity;
+  }
+
+  /**
+   * Menghitung tingkat persetujuan yang dibutuhkan saat rencana diajukan.
+   *
+   * Dihitung ulang dari BOQ, bukan hanya dari anggaran header. `estimatedBudget`
+   * ditetapkan saat rencana dibuat, sedangkan item BOQ masih boleh ditambah
+   * selama status BACKLOG — rencana dengan header Rp 100 juta yang kemudian
+   * diisi BOQ Rp 900 juta sebelumnya tetap diajukan sebagai satu tingkat, dan
+   * satu orang bisa menyetujui belanja yang menurut aturan butuh dua.
+   */
+  private async resolveApprovalLevelForSubmission(
+    planning: PlanningEntity,
+  ): Promise<{ approvalLevel: number; baseBudget: number | null }> {
+    const items = await this.itemRepo.findByPlanningId(planning.id);
+    const baseBudget = resolveApprovalBaseBudget({
+      estimatedBudget: planning.estimatedBudget,
+      itemsTotalCost: sumItemsEstimatedCost(items),
+    });
+
+    return { approvalLevel: resolveApprovalLevel(baseBudget), baseBudget };
+  }
+
+  /**
+   * Submit planning untuk approval.
+   * Status: BACKLOG/REJECTED → PENDING_APPROVAL
+   */
+  async submit(
+    id: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<PlanningDetailDTO> {
+    const planning = await this.findOwnedPlanning(id, tenantId);
+
+    if (!planning.canBeSubmitted()) {
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa diajukan. Hanya rencana berstatus BACKLOG atau REJECTED yang bisa diajukan.`,
+      );
+    }
+
+    const { approvalLevel, baseBudget } =
+      await this.resolveApprovalLevelForSubmission(planning);
+
+    const updatedEntity = await this.applyTransition({
+      planning,
+      userId,
+      updates: {
+        status: "PENDING_APPROVAL",
+        submittedAt: new Date(),
+        submittedById: userId,
+        currentApprovalStep: 0,
+        approvalLevel,
+        // Jejak siklus persetujuan sebelumnya dibersihkan.
+        //
+        // Rencana yang ditolak boleh diajukan ulang, tetapi field lama ikut
+        // terbawa. Akibatnya konkret: penyetuju tingkat 1 di siklus lama
+        // tersangkut di `approvedLevel1ById`, sehingga saat ia menyetujui di
+        // siklus baru pemeriksaan penyetuju menolaknya sebagai orang yang
+        // sama — ia terkunci permanen dari rencana itu. Halaman detail juga
+        // menampilkan "Disetujui oleh X" pada rencana yang statusnya masih
+        // menunggu persetujuan.
+        approvedAt: null,
+        approvedById: null,
+        approvedLevel1At: null,
+        approvedLevel1ById: null,
+        rejectedAt: null,
+        rejectedById: null,
+        approvalNotes: null,
+      },
+      auditAction: "SUBMITTED",
+      auditChanges: {
+        status: { from: planning.status, to: "PENDING_APPROVAL" },
+        approvalLevel,
+        approvalBaseBudget: baseBudget,
+      },
+      auditNotes: `Planning submitted for approval (level ${approvalLevel})`,
+      activityAction: "planning.submitted",
+      activityDetails: {
+        estimatedBudget: planning.estimatedBudget,
+        approvalBaseBudget: baseBudget,
+        approvalLevel,
+      },
+    });
+
+    return this.buildDetailDTO(id, updatedEntity);
+  }
+
+  /**
+   * Approve planning (single-level atau multi-level)
+   * - approvalLevel 1: PENDING_APPROVAL → APPROVED
+   * - approvalLevel 2, langkah 1: PENDING_APPROVAL → APPROVED_LEVEL1
+   * - approvalLevel 2, langkah 2: APPROVED_LEVEL1 → APPROVED
+   */
+  async approve(
+    id: string,
+    userId: string,
+    tenantId: string,
+    notes?: string | null,
+  ): Promise<PlanningDetailDTO> {
+    const planning = await this.findOwnedPlanning(id, tenantId);
+
+    if (!planning.canBeApproved()) {
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa disetujui. Hanya rencana berstatus PENDING_APPROVAL atau APPROVED_LEVEL1 yang bisa disetujui.`,
+      );
+    }
+
+    // Persetujuan tingkat kedua wajib oleh orang yang berbeda; tanpa ini alur
+    // berlapis tidak memberi kendali apa pun.
+    if (
+      !isApproverDistinct({
+        approverId: userId,
+        approvedLevel1ById: planning.approvedLevel1ById,
+      })
+    ) {
+      throw new PlanningSegregationOfDutiesError();
+    }
+
+    const transition = this.resolveApprovalTransition(planning, userId, notes);
+    const updatedEntity = await this.applyTransition(transition);
+
+    return this.buildDetailDTO(id, updatedEntity);
+  }
+
+  /**
+   * Menentukan bentuk transisi untuk satu penekanan tombol Setujui.
+   *
+   * Dipisahkan dari `approve()` supaya percabangan tingkat persetujuan berdiri
+   * sendiri dari penulisan status, audit, dan activity log.
+   */
+  private resolveApprovalTransition(
+    planning: PlanningEntity,
+    userId: string,
+    notes?: string | null,
+  ): PlanningTransition {
+    const isFinalApproval =
+      planning.approvalLevel === 1 || planning.currentApprovalStep > 0;
+
+    if (planning.approvalLevel !== 1 && planning.approvalLevel !== 2) {
+      throw new PlanningInvalidStateError(
+        `Tingkat persetujuan ${planning.approvalLevel} tidak dikenali untuk rencana ${planning.id}.`,
+      );
+    }
+
+    if (!isFinalApproval) {
+      // Persetujuan pertama dari dua: PENDING_APPROVAL → APPROVED_LEVEL1
+      return {
+        planning,
+        userId,
+        updates: {
+          status: "APPROVED_LEVEL1",
+          approvedLevel1At: new Date(),
+          approvedLevel1ById: userId,
+          currentApprovalStep: 1,
+        },
+        auditAction: "APPROVED",
+        auditChanges: {
+          status: { from: planning.status, to: "APPROVED_LEVEL1" },
+          level: 1,
+        },
+        auditNotes:
+          notes ?? "Planning approved at level 1, waiting for level 2 approval",
+        activityAction: "planning.approved_level1",
+        activityDetails: { approvalLevel: 2, currentStep: 1, notes },
+      };
+    }
+
+    const approvalStep = planning.approvalLevel === 1 ? 1 : 2;
+
+    return {
+      planning,
+      userId,
+      updates: {
+        status: "APPROVED",
+        approvedAt: new Date(),
+        approvedById: userId,
+        currentApprovalStep: approvalStep,
+        approvalNotes: notes ?? null,
+      },
+      auditAction: "APPROVED",
+      auditChanges: {
+        status: { from: planning.status, to: "APPROVED" },
+        level: approvalStep,
+      },
+      auditNotes:
+        notes ??
+        (planning.approvalLevel === 1
+          ? "Planning approved"
+          : "Planning fully approved at level 2"),
+      activityAction:
+        planning.approvalLevel === 1
+          ? "planning.approved"
+          : "planning.approved_final",
+      activityDetails: {
+        approvalLevel: planning.approvalLevel,
+        currentStep: approvalStep,
+        notes,
+      },
+    };
+  }
+
+  /**
+   * Reject planning
+   * Status: PENDING_APPROVAL/APPROVED_LEVEL1 → REJECTED
+   */
+  async reject(
+    id: string,
+    userId: string,
+    tenantId: string,
+    notes: string,
+  ): Promise<PlanningDetailDTO> {
+    const planning = await this.findOwnedPlanning(id, tenantId);
+
+    if (!planning.canBeRejected()) {
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa ditolak. Hanya rencana berstatus PENDING_APPROVAL atau APPROVED_LEVEL1 yang bisa ditolak.`,
+      );
+    }
+
+    if (!notes || notes.trim() === "") {
+      throw new PlanningValidationError("Alasan penolakan wajib diisi.");
+    }
+
+    const rejectionLevel =
+      planning.currentApprovalStep === 0 ? 1 : planning.currentApprovalStep;
+
+    const updatedEntity = await this.applyTransition({
+      planning,
+      userId,
+      updates: {
+        status: "REJECTED",
+        rejectedAt: new Date(),
+        rejectedById: userId,
+        approvalNotes: notes,
+      },
+      auditAction: "REJECTED",
+      auditChanges: {
+        status: { from: planning.status, to: "REJECTED" },
+        rejectionLevel,
+      },
+      auditNotes: notes,
+      activityAction: "planning.rejected",
+      activityDetails: { notes, rejectionLevel },
+    });
+
+    return this.buildDetailDTO(id, updatedEntity);
+  }
+
+  /**
    * Memulai pelaksanaan: APPROVED → IN_PROGRESS.
    *
    * Sebelumnya tidak ada apa pun yang memindahkan rencana keluar dari APPROVED,
    * sehingga kolom Kanban "In Progress" dan "Completed" mustahil terisi padahal
-   * ditampilkan. `canStartProgress()` sudah tersedia di entity sejak awal namun
-   * tidak pernah dipanggil.
+   * ditampilkan.
    */
-  async startProgress(id: string, userId: string): Promise<PlanningDetailDTO> {
-    const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
+  async startProgress(
+    id: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<PlanningDetailDTO> {
+    const planning = await this.findOwnedPlanning(id, tenantId);
 
     if (!planning.canStartProgress()) {
-      throw new Error(
-        `Planning cannot be started in status ${planning.status}. Only APPROVED status can be started.`,
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa dimulai. Hanya rencana berstatus APPROVED yang bisa dimulai.`,
       );
     }
 
-    const updatedEntity = await this.planningRepo.updateStatus(id, {
-      status: "IN_PROGRESS",
-      startDate: planning.startDate ?? new Date(),
-    });
-
-    await this.auditService.logChange(id, "STATUS_CHANGED", userId, {
-      status: { from: planning.status, to: "IN_PROGRESS" },
-    });
-
-    logger.logActivity({
-      action: "planning.started",
-      subject: "Planning",
-      details: { planningId: id, title: planning.title },
+    const updatedEntity = await this.applyTransition({
+      planning,
       userId,
-      tenantId: planning.tenantId,
+      updates: {
+        status: "IN_PROGRESS",
+        startDate: planning.startDate ?? new Date(),
+      },
+      auditAction: "STATUS_CHANGED",
+      auditChanges: { status: { from: planning.status, to: "IN_PROGRESS" } },
+      activityAction: "planning.started",
     });
 
     return this.buildDetailDTO(id, updatedEntity);
@@ -391,100 +427,71 @@ export class PlanningApprovalService {
    * Progres dikunci ke 100 dan tanggal penyelesaian dicatat, supaya rencana
    * yang selesai tidak lagi menampilkan progres separuh jalan.
    */
-  async complete(id: string, userId: string): Promise<PlanningDetailDTO> {
-    const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
+  async complete(
+    id: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<PlanningDetailDTO> {
+    const planning = await this.findOwnedPlanning(id, tenantId);
 
     if (!planning.isInProgress()) {
-      throw new Error(
-        `Planning cannot be completed in status ${planning.status}. Only IN_PROGRESS status can be completed.`,
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa diselesaikan. Hanya rencana berstatus IN_PROGRESS yang bisa diselesaikan.`,
       );
     }
 
-    const updatedEntity = await this.planningRepo.updateStatus(id, {
-      status: "COMPLETED",
-      actualCompletionDate: new Date(),
-      progressPercentage: 100,
-    });
-
-    await this.auditService.logChange(id, "STATUS_CHANGED", userId, {
-      status: { from: planning.status, to: "COMPLETED" },
-    });
-
-    logger.logActivity({
-      action: "planning.completed",
-      subject: "Planning",
-      details: { planningId: id, title: planning.title },
+    const updatedEntity = await this.applyTransition({
+      planning,
       userId,
-      tenantId: planning.tenantId,
+      updates: {
+        status: "COMPLETED",
+        actualCompletionDate: new Date(),
+        progressPercentage: 100,
+      },
+      auditAction: "STATUS_CHANGED",
+      auditChanges: { status: { from: planning.status, to: "COMPLETED" } },
+      activityAction: "planning.completed",
     });
 
     return this.buildDetailDTO(id, updatedEntity);
   }
 
+  /**
+   * Cancel planning
+   * Status: apa pun kecuali COMPLETED, CANCELLED, REJECTED → CANCELLED
+   */
   async cancel(
     id: string,
     userId: string,
+    tenantId: string,
     notes: string,
   ): Promise<PlanningDetailDTO> {
-    const planning = await this.planningRepo.findById(id);
-    if (!planning) {
-      throw new Error(`Planning with ID ${id} not found`);
-    }
+    const planning = await this.findOwnedPlanning(id, tenantId);
 
-    // Validasi: planning harus bisa dicancel
     if (!planning.canBeCancelled()) {
-      throw new Error(
-        `Planning cannot be cancelled in status ${planning.status}. COMPLETED, CANCELLED, or REJECTED status cannot be cancelled.`,
+      throw new PlanningInvalidStateError(
+        `Rencana berstatus ${planning.status} tidak bisa dibatalkan. Rencana berstatus COMPLETED, CANCELLED, atau REJECTED tidak bisa dibatalkan.`,
       );
     }
 
-    // Validasi: notes wajib untuk cancel
     if (!notes || notes.trim() === "") {
-      throw new Error("Cancellation notes are required");
+      throw new PlanningValidationError("Alasan pembatalan wajib diisi.");
     }
 
-    // Update status ke CANCELLED
-    const updatedEntity = await this.planningRepo.updateStatus(id, {
-      status: "CANCELLED",
-      approvalNotes: notes,
-    });
-
-    // Audit log
-    await this.auditService.logChange(
-      id,
-      "CANCELLED",
+    const updatedEntity = await this.applyTransition({
+      planning,
       userId,
-      {
-        status: { from: planning.status, to: "CANCELLED" },
+      updates: {
+        status: "CANCELLED",
+        approvalNotes: notes,
       },
-      notes,
-    );
-
-    // Activity log
-    logger.logActivity({
-      action: "planning.cancelled",
-      subject: "Planning",
-      details: {
-        planningId: id,
-        title: planning.title,
-        notes,
-      },
-      userId,
-      tenantId: planning.tenantId,
+      auditAction: "CANCELLED",
+      auditChanges: { status: { from: planning.status, to: "CANCELLED" } },
+      auditNotes: notes,
+      activityAction: "planning.cancelled",
+      activityDetails: { notes },
     });
 
-    // Load relations
-    const items = await this.itemRepo.findByPlanningId(id);
-    const milestones = await this.milestoneRepo.findByPlanningId(id);
-    const documents = await this.documentRepo.findByPlanningId(id);
-
-    return PlanningMapper.toDetailDTO(updatedEntity, {
-      items,
-      milestones,
-      documents,
-    });
+    return this.buildDetailDTO(id, updatedEntity);
   }
 }

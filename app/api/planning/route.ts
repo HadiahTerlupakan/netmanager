@@ -1,10 +1,9 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
 import {
   planningService,
   createPlanningSchema,
   listPlanningSchema,
 } from "@/modules/planning";
-import { logger } from "@/lib/logger";
 
 /**
  * GET /api/planning
@@ -32,7 +31,7 @@ export const GET = createHandler(
       limit: filters.limit,
       status: filters.status,
       search: filters.search,
-      tenantId: ctx.session?.user?.tenantId || undefined,
+      tenantId: requireSessionTenantId(ctx),
     });
 
     return apiSuccess({
@@ -58,32 +57,17 @@ export const POST = createHandler(
     schema: createPlanningSchema,
   },
   async (req, ctx) => {
-    const tenantId = ctx.session?.user?.tenantId;
+    const tenantId = requireSessionTenantId(ctx);
     const userId = ctx.session!.user.id;
 
-    if (!tenantId) {
-      return ApiErrors.badRequest("Tenant ID required");
-    }
-
-    // Create planning
+    // Activity log ditulis di service, tidak diulang di sini — sebelumnya
+    // keduanya menulis dan setiap pembuatan rencana menghasilkan dua entri
+    // aktivitas yang identik.
     const result = await planningService.create(
       ctx.validated,
       tenantId,
       userId,
     );
-
-    // Activity log
-    logger.logActivity({
-      action: "planning.created",
-      subject: "Planning",
-      details: {
-        planningId: result.id,
-        title: result.title,
-        type: result.type,
-      },
-      userId,
-      tenantId,
-    });
 
     return apiSuccess(result, {
       status: 201,

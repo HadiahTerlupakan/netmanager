@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { useApi } from "@/lib/hooks/useApi";
+import { useDebounce } from "@/hooks/useDebounce";
 import { usePermission } from "@/hooks/use-permission";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import {
@@ -41,11 +42,20 @@ export default function PlanningKanbanClient() {
   const [draggingFrom, setDraggingFrom] = useState<PlanningStatus | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
 
+  // Kata kunci di-debounce sebelum dijadikan query key.
+  //
+  // Tanpa ini setiap ketikan membentuk URL baru, dan `useApi` tanpa
+  // `placeholderData` melaporkan `isLoading` pada setiap key baru. Karena
+  // skeleton dulunya di-return lebih awal untuk SELURUH halaman, input
+  // pencarian ikut ter-unmount tiap huruf: fokus hilang dan huruf berikutnya
+  // tidak pernah masuk. Papannya pun menembak satu request per huruf.
+  const debouncedSearch = useDebounce(search, 400);
+
   const url = useMemo(() => {
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     return `/api/planning/kanban?${params.toString()}`;
-  }, [search]);
+  }, [debouncedSearch]);
 
   const {
     data: board,
@@ -54,19 +64,6 @@ export default function PlanningKanbanClient() {
   } = useApi<PlanningKanbanBoardDTO>(url, {
     onError: () => toast.error("Gagal memuat kanban board"),
   });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-96" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   const columns = board?.columns ?? [];
 
@@ -143,117 +140,126 @@ export default function PlanningKanbanClient() {
         </div>
       </div>
 
-      {/* Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {columns.map((column) => {
-          const statusConfig =
-            PLANNING_STATUS_CONFIG[column.status as PlanningStatus];
-          // Kolom hanya menyala bila kartu yang sedang diseret memang boleh
-          // pindah ke sini — supaya tujuan yang sah terlihat sebelum dilepas.
-          const isDropTarget = Boolean(
-            draggingFrom &&
-            resolveKanbanTransition(
-              draggingFrom,
-              column.status as PlanningStatus,
-            ),
-          );
-          return (
-            <div
-              key={column.status}
-              onDragOver={(e) => {
-                if (!isDropTarget) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-              }}
-              onDrop={(e) => handleDrop(e, column.status as PlanningStatus)}
-              className={`flex-shrink-0 w-72 rounded-xl border flex flex-col max-h-[calc(100vh-200px)] transition-colors ${
-                isDropTarget
-                  ? "border-indigo-400 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/30"
-                  : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-              }`}
-            >
-              {/* Column header */}
-              <div className="px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${statusConfig.dot}`}
-                  />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    {KANBAN_COLUMN_LABELS[column.status as PlanningStatus] ??
-                      column.label}
+      {/* Board — skeleton hanya menggantikan papan, bukan seluruh halaman,
+          supaya kotak pencarian tetap terpasang dan tidak kehilangan fokus. */}
+      {isLoading ? (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-96 flex-shrink-0 w-72" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map((column) => {
+            const statusConfig =
+              PLANNING_STATUS_CONFIG[column.status as PlanningStatus];
+            // Kolom hanya menyala bila kartu yang sedang diseret memang boleh
+            // pindah ke sini — supaya tujuan yang sah terlihat sebelum dilepas.
+            const isDropTarget = Boolean(
+              draggingFrom &&
+              resolveKanbanTransition(
+                draggingFrom,
+                column.status as PlanningStatus,
+              ),
+            );
+            return (
+              <div
+                key={column.status}
+                onDragOver={(e) => {
+                  if (!isDropTarget) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(e) => handleDrop(e, column.status as PlanningStatus)}
+                className={`flex-shrink-0 w-72 rounded-xl border flex flex-col max-h-[calc(100vh-200px)] transition-colors ${
+                  isDropTarget
+                    ? "border-indigo-400 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/30"
+                    : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                }`}
+              >
+                {/* Column header */}
+                <div className="px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full ${statusConfig.dot}`}
+                    />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      {KANBAN_COLUMN_LABELS[column.status as PlanningStatus] ??
+                        column.label}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                    {column.count}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                  {column.count}
-                </span>
-              </div>
 
-              {/* Cards */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-32">
-                {column.cards.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-8 px-3">
-                    {isDropTarget
-                      ? "Lepas di sini untuk memindahkan"
-                      : "Belum ada rencana di tahap ini"}
-                  </p>
-                ) : (
-                  column.cards.map((card) => (
-                    <Link
-                      key={card.id}
-                      href={`/admin/planning/${card.id}`}
-                      draggable={canUpdate}
-                      onDragStart={(e) =>
-                        handleDragStart(
-                          e,
-                          card.id,
-                          column.status as PlanningStatus,
-                        )
-                      }
-                      onDragEnd={handleDragEnd}
-                      className={`block p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition-all cursor-pointer ${
-                        draggingId === card.id || movingId === card.id
-                          ? "opacity-40 pointer-events-none"
-                          : ""
-                      }`}
-                    >
-                      <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
-                        {card.title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {card.area}
-                      </p>
-                      <div className="flex items-center justify-between mt-2.5 text-xs">
-                        <span className="text-gray-600 dark:text-gray-300">
-                          {formatBudget(card.estimatedBudget)}
-                        </span>
-                        <span className="text-gray-400">
-                          {card.milestonesCount > 0 &&
-                            `${card.completedMilestonesCount}/${card.milestonesCount}`}
-                        </span>
-                      </div>
-                      {card.progressPercentage > 0 && (
-                        <div className="mt-2 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-indigo-500 rounded-full"
-                            style={{
-                              width: `${card.progressPercentage}%`,
-                            }}
-                          />
-                        </div>
-                      )}
-                      {card.targetCompletionDate && (
-                        <p className="text-xs text-gray-400 mt-1.5">
-                          Target: {formatDateShort(card.targetCompletionDate)}
+                {/* Cards */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-32">
+                  {column.cards.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-8 px-3">
+                      {isDropTarget
+                        ? "Lepas di sini untuk memindahkan"
+                        : "Belum ada rencana di tahap ini"}
+                    </p>
+                  ) : (
+                    column.cards.map((card) => (
+                      <Link
+                        key={card.id}
+                        href={`/admin/planning/${card.id}`}
+                        draggable={canUpdate}
+                        onDragStart={(e) =>
+                          handleDragStart(
+                            e,
+                            card.id,
+                            column.status as PlanningStatus,
+                          )
+                        }
+                        onDragEnd={handleDragEnd}
+                        className={`block p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition-all cursor-pointer ${
+                          draggingId === card.id || movingId === card.id
+                            ? "opacity-40 pointer-events-none"
+                            : ""
+                        }`}
+                      >
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                          {card.title}
                         </p>
-                      )}
-                    </Link>
-                  ))
-                )}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {card.area}
+                        </p>
+                        <div className="flex items-center justify-between mt-2.5 text-xs">
+                          <span className="text-gray-600 dark:text-gray-300">
+                            {formatBudget(card.estimatedBudget)}
+                          </span>
+                          <span className="text-gray-400">
+                            {card.milestonesCount > 0 &&
+                              `${card.completedMilestonesCount}/${card.milestonesCount}`}
+                          </span>
+                        </div>
+                        {card.progressPercentage > 0 && (
+                          <div className="mt-2 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-indigo-500 rounded-full"
+                              style={{
+                                width: `${card.progressPercentage}%`,
+                              }}
+                            />
+                          </div>
+                        )}
+                        {card.targetCompletionDate && (
+                          <p className="text-xs text-gray-400 mt-1.5">
+                            Target: {formatDateShort(card.targetCompletionDate)}
+                          </p>
+                        )}
+                      </Link>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

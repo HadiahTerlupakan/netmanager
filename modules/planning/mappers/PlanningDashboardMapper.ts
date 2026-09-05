@@ -120,13 +120,17 @@ export class PlanningDashboardMapper {
           totalCompletionDays += completionDays;
         }
 
-        if (
-          item.targetCompletionDate &&
-          item.actualCompletionDate <= item.targetCompletionDate
-        ) {
-          completedOnTime++;
-        } else {
-          completedLate++;
+        // Rencana tanpa target penyelesaian tidak masuk hitungan tepat waktu
+        // maupun terlambat. `targetCompletionDate` nullable, dan cabang `else`
+        // sebelumnya menghitung setiap rencana tanpa tenggat sebagai terlambat
+        // — dashboard melaporkan keterlambatan pada proyek yang tidak pernah
+        // punya tenggat untuk dilanggar.
+        if (item.targetCompletionDate) {
+          if (item.actualCompletionDate <= item.targetCompletionDate) {
+            completedOnTime++;
+          } else {
+            completedLate++;
+          }
         }
       } else if (item.status === "IN_PROGRESS") {
         if (item.targetCompletionDate && now > item.targetCompletionDate) {

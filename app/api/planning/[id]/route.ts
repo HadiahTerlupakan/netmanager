@@ -1,6 +1,10 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+  createHandler,
+  apiSuccess,
+  ApiErrors,
+  requireSessionTenantId,
+} from "@/lib/api";
 import { planningService, updatePlanningSchema } from "@/modules/planning";
-import { logger } from "@/lib/logger";
 
 /**
  * GET /api/planning/[id]
@@ -12,9 +16,10 @@ export const GET = createHandler(
     permissions: ["planning:read"],
   },
   async (req, ctx) => {
-    const { id } = ctx.params;
-
-    const result = await planningService.getById(id);
+    const result = await planningService.getById(
+      ctx.params.id,
+      requireSessionTenantId(ctx),
+    );
 
     if (!result) {
       return ApiErrors.notFound("Planning tidak ditemukan");
@@ -26,7 +31,15 @@ export const GET = createHandler(
 
 /**
  * PUT /api/planning/[id]
- * Update planning data
+ * Update planning data.
+ *
+ * Tanpa blok catch penerjemah: service melempar `AppError` domain yang sudah
+ * membawa status code. Pola lama memeriksa `err.message.includes("cannot be
+ * edited")`, sehingga guard ruang lingkup yang melempar "Planning scope cannot
+ * be changed ..." tidak cocok dan jatuh ke 500.
+ *
+ * Activity log ditulis di service, bukan di sini — sebelumnya keduanya menulis
+ * dan setiap perubahan menghasilkan dua entri aktivitas.
  */
 export const PUT = createHandler(
   {
@@ -35,36 +48,14 @@ export const PUT = createHandler(
     schema: updatePlanningSchema,
   },
   async (req, ctx) => {
-    const { id } = ctx.params;
-    const userId = ctx.session!.user.id;
-    const tenantId = ctx.session?.user?.tenantId;
+    const result = await planningService.update(
+      ctx.params.id,
+      ctx.validated,
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
+    );
 
-    try {
-      const result = await planningService.update(id, ctx.validated, userId);
-
-      // Activity log
-      logger.logActivity({
-        action: "planning.updated",
-        subject: "Planning",
-        details: {
-          planningId: id,
-          changes: Object.keys(ctx.validated),
-        },
-        userId,
-        tenantId,
-      });
-
-      return apiSuccess(result, { message: "Planning berhasil diperbarui" });
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes("not found")) {
-        return ApiErrors.notFound("Planning tidak ditemukan");
-      }
-      if (err.message.includes("cannot be edited")) {
-        return ApiErrors.badRequest(err.message);
-      }
-      throw error;
-    }
+    return apiSuccess(result, { message: "Planning berhasil diperbarui" });
   },
 );
 
@@ -79,31 +70,13 @@ export const DELETE = createHandler(
   },
   async (req, ctx) => {
     const { id } = ctx.params;
-    const userId = ctx.session!.user.id;
-    const tenantId = ctx.session?.user?.tenantId;
 
-    try {
-      await planningService.delete(id, userId);
+    await planningService.delete(
+      id,
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
+    );
 
-      // Activity log
-      logger.logActivity({
-        action: "planning.deleted",
-        subject: "Planning",
-        details: { planningId: id },
-        userId,
-        tenantId,
-      });
-
-      return apiSuccess({ id }, { message: "Planning berhasil dihapus" });
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes("not found")) {
-        return ApiErrors.notFound("Planning tidak ditemukan");
-      }
-      if (err.message.includes("cannot be deleted")) {
-        return ApiErrors.badRequest(err.message);
-      }
-      throw error;
-    }
+    return apiSuccess({ id }, { message: "Planning berhasil dihapus" });
   },
 );

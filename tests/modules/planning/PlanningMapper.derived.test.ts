@@ -107,6 +107,27 @@ describe("PlanningMapper.toDetailDTO — angka turunan", () => {
     expect(dto.hasBudgetMismatch).toBe(false);
   });
 
+  // Setiap rencana yang baru dibuat punya anggaran header tetapi belum punya
+  // satu pun item — `PlanningService.create` bahkan selalu memetakan dengan
+  // `items: []`. Menandainya sebagai selisih anggaran akan memunculkan
+  // peringatan pada setiap rencana baru, persis kebalikan dari gunanya.
+  it("tidak menandai rencana baru yang BOQ-nya belum diisi", () => {
+    const dto = PlanningMapper.toDetailDTO(planning(2000), relations([], []));
+
+    expect(dto.hasBudgetMismatch).toBe(false);
+  });
+
+  // Berbeda dengan kasus di atas: di sini BOQ sudah diisi, tetapi tidak satu
+  // pun item punya harga. Anggaran header berdiri tanpa angka yang mendukung.
+  it("menandai saat ada item tapi tidak satu pun berharga", () => {
+    const dto = PlanningMapper.toDetailDTO(
+      planning(2000),
+      relations([item(2, null), item(3, null)], []),
+    );
+
+    expect(dto.hasBudgetMismatch).toBe(true);
+  });
+
   // progressPercentage entity bernilai 90 padahal separuh milestone pending —
   // persis kondisi yang selama ini tidak terdeteksi.
   it("menghitung progres dari milestone, bukan dari nilai yang diketik", () => {

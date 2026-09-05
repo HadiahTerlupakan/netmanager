@@ -9,6 +9,11 @@ import { PlanningTemplateEntity } from "@/modules/planning/domain/entities/Plann
 import { PlanningTemplateItemEntity } from "@/modules/planning/domain/entities/PlanningTemplateItemEntity";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
 import { PlanningItemEntity } from "@/modules/planning/domain/entities/PlanningItemEntity";
+import {
+  PlanningInvalidStateError,
+  PlanningTemplateNotFoundError,
+} from "@/modules/planning/errors/planning-errors";
+import { createFakeUnitOfWork } from "../helpers/fakeUnitOfWork";
 
 describe("PlanningTemplateService", () => {
   let service: PlanningTemplateService;
@@ -73,6 +78,7 @@ describe("PlanningTemplateService", () => {
       mockPlanningRepo,
       mockItemRepo,
       mockAuditService,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -132,6 +138,7 @@ describe("PlanningTemplateService", () => {
           name: "OSP Standard",
           type: "OSP",
         }),
+        undefined,
       );
       expect(mockTemplateItemRepo.create).toHaveBeenCalledTimes(1);
       expect(result.id).toBe("template-1");
@@ -166,6 +173,7 @@ describe("PlanningTemplateService", () => {
         "template-1",
         { name: "New Name" },
         "user-1",
+        "tenant-1",
       );
 
       expect(mockTemplateRepo.update).toHaveBeenCalled();
@@ -219,13 +227,44 @@ describe("PlanningTemplateService", () => {
           ],
         },
         "user-1",
+        "tenant-1",
       );
 
       expect(mockTemplateItemRepo.deleteByTemplateId).toHaveBeenCalledWith(
         "template-1",
+        undefined,
       );
       expect(mockTemplateItemRepo.create).toHaveBeenCalledTimes(1);
       expect(result.items).toHaveLength(1);
+    });
+
+    // Guard ini sebelumnya hanya ada di applyTemplate: super admin masih bisa
+    // menimpa BOQ baku tenant lain lewat update template yang sama.
+    it("should reject update on a template owned by another tenant", async () => {
+      mockTemplateRepo.findById.mockResolvedValue(
+        new PlanningTemplateEntity({
+          id: "template-1",
+          tenantId: "tenant-lain",
+          name: "Milik Tenant Lain",
+          description: null,
+          type: "OSP",
+          isActive: true,
+          createdById: "user-9",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      await expect(
+        service.update(
+          "template-1",
+          { name: "New Name" },
+          "user-1",
+          "tenant-1",
+        ),
+      ).rejects.toThrow(PlanningTemplateNotFoundError);
+
+      expect(mockTemplateRepo.update).not.toHaveBeenCalled();
     });
   });
 
@@ -247,12 +286,38 @@ describe("PlanningTemplateService", () => {
       mockTemplateItemRepo.deleteByTemplateId.mockResolvedValue(undefined);
       mockTemplateRepo.delete.mockResolvedValue(undefined);
 
-      await service.delete("template-1", "user-1");
+      await service.delete("template-1", "user-1", "tenant-1");
 
       expect(mockTemplateItemRepo.deleteByTemplateId).toHaveBeenCalledWith(
         "template-1",
+        undefined,
       );
-      expect(mockTemplateRepo.delete).toHaveBeenCalledWith("template-1");
+      expect(mockTemplateRepo.delete).toHaveBeenCalledWith(
+        "template-1",
+        undefined,
+      );
+    });
+
+    it("should reject delete on a template owned by another tenant", async () => {
+      mockTemplateRepo.findById.mockResolvedValue(
+        new PlanningTemplateEntity({
+          id: "template-1",
+          tenantId: "tenant-lain",
+          name: "Milik Tenant Lain",
+          description: null,
+          type: "OSP",
+          isActive: true,
+          createdById: "user-9",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      await expect(
+        service.delete("template-1", "user-1", "tenant-1"),
+      ).rejects.toThrow(PlanningTemplateNotFoundError);
+
+      expect(mockTemplateRepo.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -340,19 +405,24 @@ describe("PlanningTemplateService", () => {
           estimatedBudget: 5_000_000,
           approvalLevel: 1,
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-1",
-        "CREATED",
-        "user-1",
         expect.objectContaining({
-          approvalLevel: 1,
-          createdFromTemplate: "template-1",
-          templateName: "OSP Standard",
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "CREATED",
+          performedById: "user-1",
+          changes: expect.objectContaining({
+            approvalLevel: 1,
+            createdFromTemplate: "template-1",
+            templateName: "OSP Standard",
+          }),
+          notes: expect.stringContaining(
+            'Planning created from template "OSP Standard"',
+          ),
         }),
-        expect.stringContaining(
-          'Planning created from template "OSP Standard"',
-        ),
+        undefined,
       );
       expect(result.id).toBe("plan-1");
     });
@@ -439,17 +509,24 @@ describe("PlanningTemplateService", () => {
           estimatedBudget: 600_000_000,
           approvalLevel: 2,
         }),
+        undefined,
       );
       expect(mockAuditService.logChange).toHaveBeenCalledWith(
-        "plan-2",
-        "CREATED",
-        "user-1",
         expect.objectContaining({
-          approvalLevel: 2,
-          createdFromTemplate: "template-1",
-          templateName: "Large OSP",
+          planningId: "plan-2",
+          tenantId: "tenant-1",
+          action: "CREATED",
+          performedById: "user-1",
+          changes: expect.objectContaining({
+            approvalLevel: 2,
+            createdFromTemplate: "template-1",
+            templateName: "Large OSP",
+          }),
+          notes: expect.stringContaining(
+            'Planning created from template "Large OSP"',
+          ),
         }),
-        expect.stringContaining('Planning created from template "Large OSP"'),
+        undefined,
       );
       expect(result.approvalLevel).toBe(2);
     });
@@ -480,9 +557,7 @@ describe("PlanningTemplateService", () => {
           "tenant-1",
           "user-1",
         ),
-      ).rejects.toThrow(
-        "Planning template template-1 is inactive and cannot be used",
-      );
+      ).rejects.toThrow(PlanningInvalidStateError);
     });
   });
 

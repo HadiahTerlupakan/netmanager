@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import type {
   IPlanningTemplateRepository,
   FindAllPlanningTemplateFilters,
@@ -23,27 +22,91 @@ import type {
 import type { CreatePlanningDTO, PlanningDetailDTO } from "../dto/PlanningDTO";
 import type { PlanningType } from "../domain/entities/PlanningEntity";
 import { PlanningTemplateMapper } from "../mappers/PlanningTemplateMapper";
-import { PlanningTemplateItemMapper } from "../mappers/PlanningTemplateItemMapper";
 import { PlanningMapper } from "../mappers/PlanningMapper";
 import { PlanningAuditService } from "./PlanningAuditService";
+import type { IPlanningUnitOfWork } from "../domain/ports/IPlanningUnitOfWork";
+import type { TransactionClient } from "../domain/ports/IPlanningRepository";
+import type { PlanningTemplateEntity } from "../domain/entities/PlanningTemplateEntity";
+import type { PlanningTemplateItemEntity } from "../domain/entities/PlanningTemplateItemEntity";
+import { resolveApprovalLevel } from "../domain/planning-business-rules";
+import {
+  PlanningInvalidStateError,
+  PlanningTemplateNotFoundError,
+} from "../errors/planning-errors";
 import { logger } from "@/lib/logger";
-
-type PrismaTransaction = Prisma.TransactionClient;
 
 /**
  * PlanningTemplateService
  * Service untuk mengelola template planning dan apply template ke planning baru.
  */
 export class PlanningTemplateService {
-  private readonly BUDGET_THRESHOLD = 500_000_000; // Rp 500M
-
   constructor(
     private readonly templateRepo: IPlanningTemplateRepository,
     private readonly templateItemRepo: IPlanningTemplateItemRepository,
     private readonly planningRepo: IPlanningRepository,
     private readonly itemRepo: IPlanningItemRepository,
     private readonly auditService: PlanningAuditService,
+    private readonly unitOfWork: IPlanningUnitOfWork,
   ) {}
+
+  /**
+   * Mengambil template milik tenant pemanggil, atau melempar bila tidak ada.
+   *
+   * Guard ini sudah ada di `applyTemplate` sejak celah lintas tenant ditambal,
+   * tetapi `getById`, `update`, dan `delete` di service yang sama tidak
+   * memilikinya — super admin masih bisa membaca, mengubah, bahkan menghapus
+   * seluruh BOQ baku tenant lain, sementara "Terapkan Template" pada template
+   * yang sama ditolak. Dua kebijakan berbeda untuk satu objek yang sama.
+   */
+  private async findOwnedTemplate(
+    id: string,
+    tenantId: string,
+  ): Promise<PlanningTemplateEntity> {
+    const template = await this.templateRepo.findById(id);
+
+    if (!template || template.tenantId !== tenantId) {
+      throw new PlanningTemplateNotFoundError();
+    }
+
+    return template;
+  }
+
+  /**
+   * Menulis ulang seluruh item template di dalam transaksi yang diberikan.
+   * Dipakai bersama oleh create dan update supaya penyalinan BOQ hanya punya
+   * satu implementasi.
+   */
+  private async replaceTemplateItems(options: {
+    templateId: string;
+    tenantId: string;
+    items: CreatePlanningTemplateDTO["items"];
+    tx: TransactionClient;
+    deleteExisting: boolean;
+  }): Promise<PlanningTemplateItemEntity[]> {
+    const { templateId, tenantId, items, tx, deleteExisting } = options;
+
+    if (deleteExisting) {
+      await this.templateItemRepo.deleteByTemplateId(templateId, tx);
+    }
+
+    const created: PlanningTemplateItemEntity[] = [];
+    for (const itemDto of items) {
+      const itemInput: CreatePlanningTemplateItemInput = {
+        templateId,
+        tenantId,
+        name: itemDto.name,
+        description: itemDto.description ?? null,
+        quantity: itemDto.quantity,
+        unit: itemDto.unit,
+        estimatedPrice: itemDto.estimatedPrice ?? null,
+        notes: null,
+      };
+
+      created.push(await this.templateItemRepo.create(itemInput, tx));
+    }
+
+    return created;
+  }
 
   /**
    * Get all templates dengan filters dan pagination
@@ -62,9 +125,12 @@ export class PlanningTemplateService {
   /**
    * Get template by ID dengan items
    */
-  async getById(id: string): Promise<PlanningTemplateDetailDTO | null> {
+  async getById(
+    id: string,
+    tenantId: string,
+  ): Promise<PlanningTemplateDetailDTO | null> {
     const entity = await this.templateRepo.findById(id);
-    if (!entity) {
+    if (!entity || entity.tenantId !== tenantId) {
       return null;
     }
 
@@ -113,25 +179,23 @@ export class PlanningTemplateService {
       createdById: userId,
     };
 
-    const templateEntity = await this.templateRepo.create(createInput);
+    // Template dan seluruh item BOQ-nya ditulis atomik. Tanpa transaksi,
+    // kegagalan di tengah perulangan melahirkan template dengan BOQ separuh
+    // yang tampak sah di daftar.
+    const { templateEntity, itemEntities } =
+      await this.unitOfWork.runInTransaction(async (tx) => {
+        const created = await this.templateRepo.create(createInput, tx);
 
-    // Create template items
-    const itemEntities = [];
-    for (const itemDto of dto.items) {
-      const itemInput: CreatePlanningTemplateItemInput = {
-        templateId: templateEntity.id,
-        tenantId,
-        name: itemDto.name,
-        description: itemDto.description ?? null,
-        quantity: itemDto.quantity,
-        unit: itemDto.unit,
-        estimatedPrice: itemDto.estimatedPrice ?? null,
-        notes: null,
-      };
+        const items = await this.replaceTemplateItems({
+          templateId: created.id,
+          tenantId,
+          items: dto.items,
+          tx,
+          deleteExisting: false,
+        });
 
-      const itemEntity = await this.templateItemRepo.create(itemInput);
-      itemEntities.push(itemEntity);
-    }
+        return { templateEntity: created, itemEntities: items };
+      });
 
     // Activity log
     logger.logActivity({
@@ -157,12 +221,9 @@ export class PlanningTemplateService {
     id: string,
     dto: UpdatePlanningTemplateDTO,
     userId: string,
+    tenantId: string,
   ): Promise<PlanningTemplateDetailDTO> {
-    // Validasi: template harus ada
-    const existing = await this.templateRepo.findById(id);
-    if (!existing) {
-      throw new Error(`Planning template with ID ${id} not found`);
-    }
+    const existing = await this.findOwnedTemplate(id, tenantId);
 
     // Update template
     const updateInput: UpdatePlanningTemplateInput = {};
@@ -171,32 +232,31 @@ export class PlanningTemplateService {
       updateInput.description = dto.description;
     if (dto.isActive !== undefined) updateInput.isActive = dto.isActive;
 
-    const updatedEntity = await this.templateRepo.update(id, updateInput);
+    const existingItems = await this.templateItemRepo.findByTemplateId(id);
 
-    // Update items jika disediakan
-    let itemEntities = await this.templateItemRepo.findByTemplateId(id);
-    if (dto.items !== undefined) {
-      // Delete existing items
-      await this.templateItemRepo.deleteByTemplateId(id);
+    // Penggantian BOQ dibungkus transaksi. Ini titik paling berbahaya di
+    // seluruh modul: alurnya menghapus SELURUH item lebih dulu lalu membuat
+    // ulang satu per satu, sehingga kegagalan pada item ke-12 dari 40
+    // meninggalkan template dengan 11 item dan 29 sisanya lenyap permanen —
+    // tanpa rollback dan tanpa jejak audit apa pun.
+    const { updatedEntity, itemEntities } =
+      await this.unitOfWork.runInTransaction(async (tx) => {
+        const updated = await this.templateRepo.update(id, updateInput, tx);
 
-      // Create new items
-      itemEntities = [];
-      for (const itemDto of dto.items) {
-        const itemInput: CreatePlanningTemplateItemInput = {
+        if (dto.items === undefined) {
+          return { updatedEntity: updated, itemEntities: existingItems };
+        }
+
+        const items = await this.replaceTemplateItems({
           templateId: id,
           tenantId: existing.tenantId,
-          name: itemDto.name,
-          description: itemDto.description ?? null,
-          quantity: itemDto.quantity,
-          unit: itemDto.unit,
-          estimatedPrice: itemDto.estimatedPrice ?? null,
-          notes: null,
-        };
+          items: dto.items,
+          tx,
+          deleteExisting: true,
+        });
 
-        const itemEntity = await this.templateItemRepo.create(itemInput);
-        itemEntities.push(itemEntity);
-      }
-    }
+        return { updatedEntity: updated, itemEntities: items };
+      });
 
     // Activity log
     logger.logActivity({
@@ -218,18 +278,15 @@ export class PlanningTemplateService {
   /**
    * Delete template
    */
-  async delete(id: string, userId: string): Promise<void> {
-    // Validasi: template harus ada
-    const existing = await this.templateRepo.findById(id);
-    if (!existing) {
-      throw new Error(`Planning template with ID ${id} not found`);
-    }
+  async delete(id: string, userId: string, tenantId: string): Promise<void> {
+    const existing = await this.findOwnedTemplate(id, tenantId);
 
-    // Delete items first
-    await this.templateItemRepo.deleteByTemplateId(id);
-
-    // Delete template
-    await this.templateRepo.delete(id);
+    await this.unitOfWork.runInTransaction(async (tx) => {
+      // Item dihapus lebih dulu, lalu template — keduanya atomik supaya tidak
+      // tersisa item yatim bila penghapusan template gagal.
+      await this.templateItemRepo.deleteByTemplateId(id, tx);
+      await this.templateRepo.delete(id, tx);
+    });
 
     // Activity log
     logger.logActivity({
@@ -254,26 +311,17 @@ export class PlanningTemplateService {
     tenantId: string,
     userId: string,
   ): Promise<PlanningDetailDTO> {
-    // Validasi: template harus ada dan active
-    const template = await this.templateRepo.findById(templateId);
-    if (!template) {
-      throw new Error(`Planning template with ID ${templateId} not found`);
-    }
-
     // Daftar template selalu dibatasi tenantId sesi, jadi menerapkan template
     // milik tenant lain bukan alur sah mana pun. Untuk pengguna tenant biasa
     // ekstensi isolasi Prisma sudah memblokirnya di lapis query; superadmin
     // sengaja tidak difilter di sana, sehingga BOQ tenant lain -- nama
     // material, kuantitas, harga satuan -- bisa tersalin masuk ke tenant
-    // penerima. Pesan disamakan dengan kasus tidak ditemukan agar keberadaan
-    // template tenant lain tidak terkonfirmasi lewat perbedaan respons.
-    if (template.tenantId !== tenantId) {
-      throw new Error(`Planning template with ID ${templateId} not found`);
-    }
+    // penerima.
+    const template = await this.findOwnedTemplate(templateId, tenantId);
 
     if (!template.canBeUsed()) {
-      throw new Error(
-        `Planning template ${templateId} is inactive and cannot be used`,
+      throw new PlanningInvalidStateError(
+        `Template "${template.name}" sedang nonaktif dan tidak bisa digunakan.`,
       );
     }
 
@@ -289,43 +337,77 @@ export class PlanningTemplateService {
       }
     }
 
-    // Determine approval level based on total budget
-    const approvalLevel = totalEstimatedBudget >= this.BUDGET_THRESHOLD ? 2 : 1;
+    const approvalLevel = resolveApprovalLevel(totalEstimatedBudget);
 
-    // Create planning
-    const planningEntity = await this.planningRepo.create({
-      tenantId,
-      type: template.type,
-      title: planningData.title,
-      description: planningData.description ?? null,
-      area: planningData.area,
-      coordinates: planningData.coordinates ?? null,
-      estimatedUnits: planningData.estimatedUnits,
-      estimatedBudget: totalEstimatedBudget > 0 ? totalEstimatedBudget : null,
-      approvalLevel,
-      startDate: planningData.startDate
-        ? new Date(planningData.startDate)
-        : null,
-      targetCompletionDate: planningData.targetCompletionDate
-        ? new Date(planningData.targetCompletionDate)
-        : null,
-      createdById: userId,
-    });
+    // Rencana, jejak auditnya, dan seluruh salinan item BOQ ditulis atomik.
+    // Sebelumnya ketiganya berdiri sendiri, sehingga kegagalan saat menyalin
+    // item ke-N meninggalkan rencana dengan anggaran total template tapi item
+    // separuh — persis kondisi yang ditandai `hasBudgetMismatch()`, permanen.
+    const { planningEntity, createdItems } =
+      await this.unitOfWork.runInTransaction(async (tx) => {
+        const planning = await this.planningRepo.create(
+          {
+            tenantId,
+            type: template.type,
+            title: planningData.title,
+            description: planningData.description ?? null,
+            area: planningData.area,
+            coordinates: planningData.coordinates ?? null,
+            estimatedUnits: planningData.estimatedUnits,
+            estimatedBudget:
+              totalEstimatedBudget > 0 ? totalEstimatedBudget : null,
+            approvalLevel,
+            startDate: planningData.startDate
+              ? new Date(planningData.startDate)
+              : null,
+            targetCompletionDate: planningData.targetCompletionDate
+              ? new Date(planningData.targetCompletionDate)
+              : null,
+            createdById: userId,
+          },
+          tx,
+        );
 
-    // Audit log
-    await this.auditService.logChange(
-      planningEntity.id,
-      "CREATED",
-      userId,
-      {
-        initial: planningData,
-        approvalLevel,
-        createdFromTemplate: templateId,
-        templateName: template.name,
-        estimatedBudget: totalEstimatedBudget,
-      },
-      `Planning created from template "${template.name}"`,
-    );
+        await this.auditService.logChange(
+          {
+            planningId: planning.id,
+            tenantId: planning.tenantId,
+            action: "CREATED",
+            performedById: userId,
+            changes: {
+              initial: planningData,
+              approvalLevel,
+              createdFromTemplate: templateId,
+              templateName: template.name,
+              estimatedBudget: totalEstimatedBudget,
+            },
+            notes: `Planning created from template "${template.name}"`,
+          },
+          tx,
+        );
+
+        // Salin item template menjadi PlanningItem milik planning baru.
+        // Inilah alasan fitur template ada: BOQ baku ikut terbawa, bukan cuma
+        // angka anggarannya.
+        const items = [];
+        for (const templateItem of templateItems) {
+          const itemInput: CreatePlanningItemInput = {
+            planningId: planning.id,
+            tenantId,
+            name: templateItem.name,
+            description: templateItem.description,
+            quantity: templateItem.quantity,
+            unit: templateItem.unit,
+            estimatedPrice: templateItem.estimatedPrice,
+            actualPrice: null,
+            notes: templateItem.notes,
+          };
+
+          items.push(await this.itemRepo.create(itemInput, tx));
+        }
+
+        return { planningEntity: planning, createdItems: items };
+      });
 
     // Activity log
     logger.logActivity({
@@ -343,28 +425,6 @@ export class PlanningTemplateService {
       userId,
       tenantId,
     });
-
-    // Salin item template menjadi PlanningItem milik planning baru.
-    // Inilah alasan fitur template ada: BOQ baku ikut terbawa, bukan cuma
-    // angka anggarannya. Tanpa langkah ini planning lahir dengan
-    // estimatedBudget terisi tapi nol item -- persis kondisi yang ditandai
-    // hasBudgetMismatch() sebagai selisih BOQ.
-    const createdItems = [];
-    for (const templateItem of templateItems) {
-      const itemInput: CreatePlanningItemInput = {
-        planningId: planningEntity.id,
-        tenantId,
-        name: templateItem.name,
-        description: templateItem.description,
-        quantity: templateItem.quantity,
-        unit: templateItem.unit,
-        estimatedPrice: templateItem.estimatedPrice,
-        actualPrice: null,
-        notes: templateItem.notes,
-      };
-
-      createdItems.push(await this.itemRepo.create(itemInput));
-    }
 
     return PlanningMapper.toDetailDTO(planningEntity, {
       items: createdItems,

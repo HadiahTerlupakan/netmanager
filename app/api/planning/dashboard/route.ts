@@ -1,4 +1,4 @@
-import { createHandler, apiSuccess } from "@/lib/api";
+import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
 import { planningDashboardService } from "@/modules/planning";
 
 /**
@@ -20,8 +20,11 @@ export const GET = createHandler(
       endDate: endDate ? new Date(endDate) : undefined,
     };
 
+    // Tenant wajib ada. Sebelumnya nilai null diteruskan apa adanya, dan
+    // `findAll` hanya memfilter bila tenantId truthy — sesi tanpa tenant
+    // (super admin) mengagregasi seluruh tenant menjadi satu dashboard.
     const dashboard = await planningDashboardService.getDashboard(
-      ctx.session.user.tenantId,
+      requireSessionTenantId(ctx),
       filters,
     );
 

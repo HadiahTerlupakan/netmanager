@@ -35,18 +35,22 @@ describe("PlanningAuditService", () => {
 
       mockAuditLogRepo.create.mockResolvedValue(mockEntity);
 
-      const result = await service.logChange(
-        "plan-1",
-        "CREATED",
-        "user-1",
-        { initial: { title: "Test" } },
-        null,
-      );
+      const result = await service.logChange({
+        planningId: "plan-1",
+        tenantId: "tenant-1",
+        action: "CREATED",
+        performedById: "user-1",
+        changes: { initial: { title: "Test" } },
+        notes: null,
+      });
 
+      // tenantId diteruskan apa adanya dari rencana. Sebelumnya service
+      // mengirim string kosong dengan harapan repository mengisinya — yang tidak
+      // pernah terjadi, sehingga insert melanggar foreign key ke tabel Tenant.
       expect(mockAuditLogRepo.create).toHaveBeenCalledWith(
         {
           planningId: "plan-1",
-          tenantId: "",
+          tenantId: "tenant-1",
           action: "CREATED",
           performedById: "user-1",
           changes: { initial: { title: "Test" } },
@@ -76,13 +80,14 @@ describe("PlanningAuditService", () => {
 
       mockAuditLogRepo.create.mockResolvedValue(mockEntity);
 
-      const result = await service.logChange(
-        "plan-2",
-        "STATUS_CHANGED",
-        null,
-        { status: "APPROVED" },
-        "System action",
-      );
+      const result = await service.logChange({
+        planningId: "plan-2",
+        tenantId: "tenant-1",
+        action: "STATUS_CHANGED",
+        performedById: null,
+        changes: { status: "APPROVED" },
+        notes: "System action",
+      });
 
       expect(result.performedById).toBeNull();
     });
@@ -91,9 +96,45 @@ describe("PlanningAuditService", () => {
       mockAuditLogRepo.create.mockRejectedValue(new Error("Database error"));
 
       await expect(
-        service.logChange("plan-1", "CREATED", "user-1", {}, null),
+        service.logChange({
+          planningId: "plan-1",
+          tenantId: "tenant-1",
+          action: "CREATED",
+          performedById: "user-1",
+          changes: {},
+          notes: null,
+        }),
       ).rejects.toThrow(
         "Failed to create audit log for planning plan-1: Database error",
+      );
+    });
+
+    // `changes` dan `notes` opsional; keduanya harus tersimpan sebagai null,
+    // bukan undefined yang lolos ke kolom database.
+    it("should default optional fields to null", async () => {
+      const mockEntity = new PlanningAuditLogEntity({
+        id: "audit-3",
+        planningId: "plan-3",
+        tenantId: "tenant-1",
+        action: "ITEM_ADDED",
+        performedById: "user-1",
+        performedAt: new Date(),
+        changes: null,
+        notes: null,
+      });
+
+      mockAuditLogRepo.create.mockResolvedValue(mockEntity);
+
+      await service.logChange({
+        planningId: "plan-3",
+        tenantId: "tenant-1",
+        action: "ITEM_ADDED",
+        performedById: "user-1",
+      });
+
+      expect(mockAuditLogRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ changes: null, notes: null }),
+        undefined,
       );
     });
   });

@@ -1,43 +1,19 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
 import { planningApprovalService } from "@/modules/planning";
-import { logger } from "@/lib/logger";
 
 /**
  * POST /api/planning/[id]/complete
- * Transisi pelaksanaan dari status IN_PROGRESS.
- *
- * Gerbang `planning:update` disamakan dengan hak mengedit rencana. Bila
- * organisasi memerlukan peran lapangan terpisah untuk menandai mulai/selesai,
- * permission inilah yang perlu diganti.
+ * Menutup pelaksanaan rencana yang sedang berjalan.
  */
 export const POST = createHandler(
   { auth: true, permissions: ["planning:update"] },
   async (_req, ctx) => {
-    const { id } = ctx.params;
-    const userId = ctx.session!.user.id;
-    const tenantId = ctx.session?.user?.tenantId;
+    const result = await planningApprovalService.complete(
+      ctx.params.id,
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
+    );
 
-    try {
-      const result = await planningApprovalService.complete(id, userId);
-
-      logger.logActivity({
-        action: "planning.completed",
-        subject: "Planning",
-        details: { planningId: id, title: result.title },
-        userId,
-        tenantId,
-      });
-
-      return apiSuccess(result, { message: "Planning berhasil diselesaikan" });
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes("not found")) {
-        return ApiErrors.notFound("Planning tidak ditemukan");
-      }
-      if (err.message.includes("cannot be")) {
-        return ApiErrors.badRequest(err.message);
-      }
-      throw error;
-    }
+    return apiSuccess(result, { message: "Planning berhasil diselesaikan" });
   },
 );
