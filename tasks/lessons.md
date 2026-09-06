@@ -63,3 +63,16 @@
   - Saat user lapor "403 padahal role saya sudah centang permission ini", jangan asumsikan masalah di seed/cache — cek dulu apakah string permission yang di-check endpoint **bisa di-centang** di UI role catalog. Jika tidak, perbaiki endpoint atau perluas catalog.
   - Audit komprehensif: cari semua `hasPermission(` dan `permissions: [` di `app/api/`, `lib/`, `modules/`. Kelompokkan permission unik, cross-check tiap satu ke catalog. Pakai subagent untuk audit besar agar context tetap bersih.
   - Saat menambah feature baru yang butuh permission baru, tambahkan resource ke `PERMISSION_GROUPS` **sebelum** atau **bersamaan** dengan endpoint, jangan setelah merge.
+
+### Verifikasi perbaikan di runtime yang sebenarnya, bukan di HTML hasil render
+- Kasus nyata: tautan "Masuk" di landing sudah benar (`curl` menunjukkan `href="https://admin.radpro.id/login"`), tapi klik tetap mendarat di apex. Saya sempat menyatakan selesai dua kali sebelum user menyuruh mengetesnya sendiri.
+- **Why:** `NEXT_PUBLIC_*` disisipkan saat image dibangun, sedangkan server membacanya dari env runtime. Untuk env yang tidak didaftarkan sebagai build arg di `Dockerfile` (di repo ini hanya Firebase & VAPID), nilainya ada di server dan **undefined di browser**. HTML hasil render terlihat benar padahal komponen di klien mengambil cabang yang berbeda. Pola yang sama membuat `next/link` mencegat klik lintas subdomain dan membuang host-nya.
+- **How to apply:**
+  - Untuk bug UI, verifikasi di browser dengan sinyal perilaku, bukan sinyal bentuk: `event.defaultPrevented` setelah klik, URL akhir setelah navigasi, request `?_rsc=` di network log. `curl` hanya membuktikan SSR.
+  - Sebelum memakai `process.env.NEXT_PUBLIC_X` di komponen klien, cek dulu ARG-nya ada di `Dockerfile`. Kalau tidak ada, turunkan nilainya dari `window.location` — jangan tambah build arg yang mengikat image ke satu domain (aplikasi ini melayani domain kustom tenant).
+  - `next/link` hanya untuk tautan internal. Tautan absolut/lintas host wajib `<a>`.
+
+### Portal tanpa sesi menurunkan tenant dari host, portal bersesi tidak
+- Kasus nyata: `POST /api/customer/auth/login` membalas 500 di `pelanggan.<domain>` tapi 401 yang benar di apex — `lib/tenant-context.ts` mengembalikan "tanpa tenant" untuk semua subdomain portal dengan alasan "handled by proxy.ts".
+- **Why:** `proxy.ts` hanya menulis ulang path; ia tidak pernah menetapkan tenant. Portal staf aman karena tenant-nya ada di token NextAuth, tetapi login pelanggan diproses **sebelum** ada cookie apa pun, sehingga host adalah satu-satunya sumber tenant. Tanpa itu, query pelanggan ditolak ekstensi Prisma (fail-closed) dan berubah jadi 500.
+- **How to apply:** Saat menambah host portal baru, tanyakan apakah ada langkah pra-sesi di host itu. Jika ya, host wajib menghasilkan tenant context; jika tidak, biarkan fail-closed supaya host tidak pernah jadi sumber otoritas. Uji endpoint pra-sesi di **setiap** host yang melayaninya — identifier dummy sudah cukup, 500 vs 401 langsung membedakan bug isolasi tenant dari penolakan kredensial biasa.
