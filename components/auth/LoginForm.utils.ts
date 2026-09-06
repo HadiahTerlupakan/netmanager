@@ -95,3 +95,37 @@ export function getTargetPath(
     ? targetPathBase
     : PORTAL_PATHS.ADMIN;
 }
+
+/**
+ * Menentukan URL yang dituju setelah login berhasil.
+ *
+ * Seluruh cabang menghasilkan navigasi dokumen penuh, bukan navigasi klien.
+ * Sebelumnya cabang subdomain admin memakai `router.push`, dan itulah sebab
+ * login di `admin.<domain>` harus dilakukan dua kali:
+ *
+ * `/admin` dilindungi di server component (`ensureAdminAccess` di
+ * `app/admin/layout.tsx`) yang mengalihkan ke halaman login bila sesi kosong.
+ * `router.push` tidak memuat ulang dokumen — ia hanya mengambil RSC payload,
+ * yang bisa dilayani dari Router Cache hasil prefetch sebelum login, atau
+ * berangkat sebelum browser sempat memasang cookie sesi dari respons
+ * `signIn`. Keduanya membuat layout melihat sesi kosong dan melempar pengguna
+ * balik ke halaman login. Percobaan kedua berhasil karena cookie sudah
+ * terpasang dan cache sudah usang.
+ *
+ * Navigasi dokumen penuh selalu membawa cookie terbaru dan melewati Router
+ * Cache, sehingga tidak ada keadaan antara yang bisa salah baca.
+ */
+export function resolvePostLoginUrl(options: {
+  targetPath: string;
+  subdomain: string | null;
+  isLocalhost: boolean;
+  buildAdminUrl: (path: string) => string;
+}): string {
+  const { targetPath, subdomain, isLocalhost, buildAdminUrl } = options;
+
+  if (isLocalhost || subdomain === "admin") {
+    return targetPath;
+  }
+
+  return buildAdminUrl(targetPath);
+}

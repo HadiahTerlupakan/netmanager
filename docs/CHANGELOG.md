@@ -41,6 +41,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Login di subdomain admin harus dilakukan dua kali
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/auth`
+- **Author**: agent
+- **Deskripsi**: Setelah kredensial diterima, `LoginForm` memakai `router.push`
+  khusus untuk subdomain admin, sementara dua cabang lain (localhost dan domain
+  utama) memakai navigasi dokumen penuh. `/admin` dilindungi di server component
+  lewat `ensureAdminAccess` di `app/admin/layout.tsx`, yang mengalihkan ke
+  halaman login bila sesi kosong. `router.push` tidak memuat ulang dokumen — ia
+  hanya mengambil RSC payload, yang bisa dilayani dari Router Cache hasil
+  prefetch sebelum login, atau berangkat sebelum browser sempat memasang cookie
+  sesi dari respons `signIn`. Keduanya membuat layout melihat sesi kosong dan
+  melempar pengguna balik ke halaman login; percobaan kedua berhasil karena
+  cookie sudah terpasang dan cache sudah usang. Tidak ada `router.refresh()`
+  maupun pembaruan sesi di mana pun pada alur ini.
+  Seluruh cabang kini melakukan navigasi dokumen penuh, konsisten dengan pola
+  yang sudah dipakai dua cabang lainnya. Keputusan URL-nya diekstrak menjadi
+  `resolvePostLoginUrl` supaya bisa diuji tanpa merender komponen.
+- **Files**: `components/auth/LoginForm.tsx`,
+  `components/auth/LoginForm.utils.ts`
+- **Tests**: `tests/components/login-post-login-url.test.ts`
+- **Breaking**: ❌ Tidak
+
+
 ### [2026-09-06] — Kredensial R2 dan Gemini dikirim utuh ke browser
 
 - **Tipe**: [SECURITY]

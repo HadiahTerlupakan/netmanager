@@ -23,6 +23,7 @@ import {
   isCredentialsError,
   isLocalhostEnvironment,
   getTargetPath,
+  resolvePostLoginUrl,
 } from "./LoginForm.utils";
 
 const schema = z.object({
@@ -86,21 +87,16 @@ export default function LoginForm() {
   };
 
   const handleSuccessfulLogin = (responseUrl: string | null | undefined) => {
-    const subdomain = getSubdomainFromWindow();
-    const targetPath = getTargetPath(responseUrl, callbackUrlParam, isEmployee);
-
-    if (isLocalhostEnvironment()) {
-      window.location.assign(targetPath);
-      return;
-    }
-
-    if (subdomain === "admin") {
-      router.push(targetPath);
-      return;
-    }
-
-    const adminUrl = getAdminUrl(targetPath);
-    window.location.assign(adminUrl);
+    // Selalu navigasi dokumen penuh — lihat `resolvePostLoginUrl` untuk alasan
+    // kenapa `router.push` di sini membuat login harus dilakukan dua kali.
+    window.location.assign(
+      resolvePostLoginUrl({
+        targetPath: getTargetPath(responseUrl, callbackUrlParam, isEmployee),
+        subdomain: getSubdomainFromWindow(),
+        isLocalhost: isLocalhostEnvironment(),
+        buildAdminUrl: getAdminUrl,
+      }),
+    );
   };
 
   const onSubmit = async (values: FormValues) => {
