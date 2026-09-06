@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { signOut } from "next-auth/react";
+import { signOutToPortalLogin } from "@/lib/auth/sign-out";
 import { toast } from "react-hot-toast";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 
@@ -21,7 +21,7 @@ export default function ForceLogoutListener(): React.ReactElement | null {
     );
 
     setTimeout(() => {
-      signOut({ callbackUrl: "/admin/login" });
+      void signOutToPortalLogin();
     }, 1000);
   });
 

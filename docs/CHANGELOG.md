@@ -41,6 +41,34 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Logout tidak mengakhiri sesi; sisa cookie host-only
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/auth`, `app/api/auth`, `components/layout`
+- **Author**: agent
+- **Deskripsi**: Browser yang pernah login sebelum `COOKIE_DOMAIN=.radpro.id`
+  aktif menyimpan dua cookie bernama sama: satu host-only (lama) dan satu
+  berlingkup domain (baru). NextAuth hanya menghapus yang berlingkup domain,
+  sehingga cookie host-only tetap dikirim dan sesi tetap hidup setelah logout —
+  terverifikasi di produksi: `POST /api/auth/signout` membalas 200 dengan
+  `set-cookie: ...; Max-Age=0; Domain=.radpro.id`, tetapi `/api/auth/session`
+  sesudahnya masih mengembalikan pengguna yang sama di `admin.radpro.id`
+  maupun `radpro.id`, sehingga halaman login langsung melempar ke `/admin`.
+  `withHostOnlyCookieCleanup` kini menghapus kembaran host-only pada setiap
+  respons NextAuth yang menulis cookie auth berlingkup domain (login & logout).
+  Selain itu `signOut()` tanpa `callbackUrl` memakai origin `NEXTAUTH_URL`
+  (apex), jadi logout dari subdomain mendarat di landing page: pemanggilnya
+  diganti `signOutToPortalLogin()` yang kembali ke halaman login portal pada
+  host yang sedang dipakai, didukung callback `redirect` yang mengizinkan
+  origin dari `ALLOWED_ORIGINS` saja (bukan open redirect).
+- **Files**: `lib/auth/host-only-cookies.ts`, `lib/auth/redirect.ts`,
+  `lib/auth/sign-out.ts`, `app/api/auth/[...nextauth]/route.ts`,
+  `lib/auth/config.ts`, `components/layout/Navbar.tsx`,
+  `components/layout/EmployeeSidebar.tsx`,
+  `components/layout/admin-sidebar/AdminSidebarProfile.tsx`,
+  `components/auth/ForceLogoutListener.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — Login admin harus dilakukan dua kali: cookie sesi host-only
 
 - **Tipe**: [FIXED]

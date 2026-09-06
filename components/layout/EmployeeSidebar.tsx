@@ -83,7 +83,8 @@ import {
   usePublicBranding,
 } from "@/hooks/usePublicBranding";
 import { usePermission } from "@/hooks/use-permission";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutToPortalLogin } from "@/lib/auth/sign-out";
 import { SidebarBrandingLogo } from "@/components/layout/SidebarBrandingLogo";
 import { resolveSidebarLogoUrl } from "@/lib/settings/publicBranding";
 
@@ -499,7 +500,7 @@ export default function EmployeeSidebar() {
                 </p>
               </div>
               <Button
-                onClick={() => signOut()}
+                onClick={() => void signOutToPortalLogin()}
                 className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                 title="Sign Out"
               >

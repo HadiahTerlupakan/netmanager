@@ -12,6 +12,7 @@ import {
 import { cookies } from "./cookies";
 import { isSuperAdminRole } from "./helpers";
 import { jwtCallback, sessionCallback } from "./callbacks";
+import { redirectCallback } from "./redirect";
 
 const CredentialsProvider =
   ((_CredentialsProvider as { default?: unknown })
@@ -169,6 +170,7 @@ const baseAuthConfig: NextAuthOptions = {
     },
     jwt: jwtCallback,
     session: sessionCallback,
+    redirect: redirectCallback,
   },
 };
 

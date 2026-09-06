@@ -2,7 +2,8 @@
 import Image from "next/image";
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutToPortalLogin } from "@/lib/auth/sign-out";
 import {
   HiBars3,
   HiMagnifyingGlass,
@@ -186,7 +187,7 @@ export default function Navbar() {
 
                   <Button
                     variant="ghost"
-                    onClick={() => signOut()}
+                    onClick={() => void signOutToPortalLogin()}
                     className="w-full flex items-center justify-start gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     <HiArrowRightOnRectangle className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { signOut } from "next-auth/react";
+import { signOutToPortalLogin } from "@/lib/auth/sign-out";
 
 import { HiArrowRightOnRectangle } from "./adminSidebarIcons";
 
@@ -45,7 +45,7 @@ export function AdminSidebarProfile({ user }: AdminSidebarProfileProps) {
         </div>
         <button
           type="button"
-          onClick={() => signOut()}
+          onClick={() => void signOutToPortalLogin()}
           className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
           title="Sign Out"
           aria-label="Keluar dari akun"
