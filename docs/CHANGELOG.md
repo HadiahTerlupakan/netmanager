@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Peta pemilih koordinat kosong, dan dropdown ODP tanpa pencarian
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/common`, `app/admin/pelanggan/ppp`
+- **Author**: agent
+- **Deskripsi**: Dua cacat terpisah pada `components/common/MapPicker.tsx`
+  membuat "Pilih Titik Koordinat dari Peta" tampil rusak. (1) Komponen ini tidak
+  pernah mengimpor `ol/ol.css`, padahal tiga komponen peta lain di repo
+  melakukannya — akibatnya kontrol zoom dirender sebagai teks mentah dan
+  atribusi salah tempat. (2) OpenLayers menghitung ukuran kanvas sekali saat
+  peta dibuat; di dalam modal kontainer belum berukuran final pada saat itu,
+  sehingga peta tampil kosong sampai ada event resize. Diverifikasi di produksi:
+  memicu `window.resize` secara manual membuat peta langsung muncul. Ditambahkan
+  `ResizeObserver` yang memanggil `updateSize()`.
+  Terdampak empat tempat sekaligus: form pelanggan, form planning, detail
+  planning, dan form site.
+  Selain itu pemilihan ODP diganti dari `<select>` biasa ke `SearchableSelect`
+  baru: satu tenant bisa punya ratusan ODP (426 di produksi) sehingga daftarnya
+  memanjang tanpa cara menyaring. Komponen ini menyaring sambil diketik,
+  memotong tampilan di 50 entri, dan tetap menyimpan id — yang wajib karena
+  `odpId` adalah foreign key ke node peta. Sengaja dibuat terpisah dari
+  `SearchableDropdown`, yang nilainya adalah teks bebas dan tidak cocok untuk
+  field foreign key.
+- **Files**: `components/common/MapPicker.tsx`,
+  `components/common/SearchableSelect.tsx`,
+  `app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection.tsx`
+- **Tests**: `tests/components/SearchableSelect.test.tsx`
+- **Breaking**: ❌ Tidak
+
+
 ### [2026-09-06] — Empat query mati per permintaan topologi mobile
 
 - **Tipe**: [REMOVED]

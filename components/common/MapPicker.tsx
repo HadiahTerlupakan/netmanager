@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
+// Tanpa ini kontrol zoom dan atribusi OpenLayers dirender sebagai teks mentah
+// ("+" dan "−" polos) dan peta tampak rusak. Tiga komponen peta lain di repo
+// ini sudah mengimpornya; `MapPicker` terlewat, sehingga peta di form
+// pelanggan, form planning, dan form site sama-sama tampil tanpa gaya.
+import "ol/ol.css";
 import type Map from "ol/Map";
 import type VectorLayer from "ol/layer/Vector";
 import type VectorSource from "ol/source/Vector";
@@ -80,6 +85,18 @@ export default function MapPicker({
         ]),
       });
       mapRef.current = map;
+
+      // OpenLayers menghitung ukuran kanvas sekali saat dibuat. Di dalam modal,
+      // kontainer sering belum punya ukuran final pada saat itu -- akibatnya
+      // peta tampil kosong sampai ada event resize. Terverifikasi di produksi:
+      // memicu `window.resize` secara manual membuat peta langsung muncul.
+      //
+      // ResizeObserver menutup semua kasusnya sekaligus: modal dibuka, tab
+      // berganti, panel melebar, atau jendela diubah ukurannya.
+      const resizeObserver = new ResizeObserver(() => {
+        mapRef.current?.updateSize();
+      });
+      resizeObserver.observe(mapEl.current as HTMLDivElement);
 
       if (typeof lat === "number" && typeof lon === "number") {
         const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) });
@@ -168,6 +185,7 @@ export default function MapPicker({
             "mappicker-set",
             externalSetHandler as EventListener,
           );
+          resizeObserver.disconnect();
           if (mapRef.current) {
             mapRef.current.un("click", clickHandler as never);
             mapRef.current.setTarget(undefined);

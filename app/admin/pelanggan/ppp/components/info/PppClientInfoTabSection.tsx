@@ -1,4 +1,5 @@
 import { HiArrowPath, HiEye, HiEyeSlash, HiMapPin } from "react-icons/hi2";
+import SearchableSelect from "@/components/common/SearchableSelect";
 
 export type PppClientInfoTabFormData = {
   idPelanggan: string;
@@ -94,6 +95,8 @@ export function PppClientInfoTabSection({
   onOpenMapPicker,
   roundedClassName,
 }: PppClientInfoTabSectionProps) {
+  const odpOptions = odps.map((odp) => ({ value: odp.id, label: odp.name }));
+
   const outletOptions = resellerOutlets.filter(
     (outlet) => outlet.resellerId === formData.resellerId,
   );
@@ -330,20 +333,20 @@ export function PppClientInfoTabSection({
             >
               Pilih ODP
             </label>
-            <select
+            {/* Bukan `<select>`: satu tenant bisa punya ratusan ODP (426 di
+                produksi), yang membuat daftarnya memanjang tanpa cara
+                menyaring. Komponen ini menyaring sambil diketik dan tetap
+                menyimpan id-nya, yang wajib karena `odpId` adalah foreign key
+                ke node peta. */}
+            <SearchableSelect
               id="odpId"
-              name="odpId"
               value={formData.odpId}
-              onChange={handleChange}
-              className={`w-full ${roundedClassName} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors`}
-            >
-              <option value="">-- Pilih ODP --</option>
-              {odps.map((odp) => (
-                <option key={odp.id} value={odp.id}>
-                  {odp.name}
-                </option>
-              ))}
-            </select>
+              onChange={(odpId) => updateFormData(() => ({ odpId }))}
+              options={odpOptions}
+              placeholder="Ketik nama ODP untuk mencari..."
+              emptyLabel="Belum ada ODP. Tambahkan lewat menu Topology Map."
+              noResultLabel="Tidak ada ODP yang cocok"
+            />
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Pilih ODP yang digunakan oleh pelanggan (opsional)
             </p>
