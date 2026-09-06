@@ -9,6 +9,28 @@ import { prisma } from "@/modules/database";
 // only on the server, keeping the client bundle clean.
 import { createRequire as nodeCreateRequire } from "module";
 
+/** Subdomain portal pelanggan — satu-satunya portal tanpa sesi saat login. */
+const CUSTOMER_PORTAL_SUBDOMAIN = "pelanggan";
+
+/** Subdomain portal staf; tenant-nya selalu datang dari sesi. */
+const STAFF_PORTAL_SUBDOMAINS = ["admin", "karyawan", "investor"];
+
+/** Label portal pada sebuah host, atau null bila bukan host portal. */
+function matchPortalSubdomain(hostname: string): string | null {
+  const portalSubdomains = [
+    ...STAFF_PORTAL_SUBDOMAINS,
+    CUSTOMER_PORTAL_SUBDOMAIN,
+  ];
+
+  return (
+    portalSubdomains.find(
+      (label) =>
+        hostname.startsWith(`${label}.`) ||
+        hostname.startsWith(`${label}-staging.`),
+    ) ?? null
+  );
+}
+
 async function resolveTenantContextFromHost(
   requestHeaders: Headers | null,
 ): Promise<TenantContextResult | null> {
@@ -51,15 +73,22 @@ async function resolveTenantContextFromHost(
     return resolvePrimaryTenantContext();
   }
 
-  // Skip role subdomains — these are handled by proxy.ts
-  const roleSubdomains = ["admin", "karyawan", "investor", "pelanggan"];
-  for (const role of roleSubdomains) {
-    if (
-      normalizedHost.startsWith(`${role}.`) ||
-      normalizedHost.startsWith(`${role}-staging.`)
-    ) {
-      return null;
-    }
+  const portalSubdomain = matchPortalSubdomain(normalizedHost);
+
+  // Portal pelanggan memproses login sebelum ada sesi: belum ada cookie yang
+  // membawa tenantId, jadi tenant hanya bisa diturunkan dari host. Host ini
+  // adalah portal pelanggan milik tenant utama, sama seperti apex. Tanpa ini
+  // pencarian pelanggan berjalan tanpa tenant context dan ekstensi Prisma
+  // melemparkan TenantContextError — login membalas 500.
+  if (portalSubdomain === CUSTOMER_PORTAL_SUBDOMAIN) {
+    return resolvePrimaryTenantContext();
+  }
+
+  // Portal staf memakai sesi NextAuth; tenant-nya datang dari token, bukan
+  // dari host. Fail-closed di sini supaya host tidak pernah jadi sumber
+  // otoritas untuk mereka.
+  if (portalSubdomain) {
+    return null;
   }
 
   // Check if tenant slug subdomain: {slug}.radpro.id

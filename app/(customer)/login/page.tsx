@@ -16,8 +16,8 @@ import {
   MdVisibility,
   MdVisibilityOff,
 } from "react-icons/md";
-import Link from "next/link";
 import Image from "next/image";
+import { getPublicSiteUrl } from "@/lib/utils/portal-url";
 
 export default function CustomerLoginPage() {
   const [identifier, setIdentifier] = useState("");
@@ -70,12 +70,17 @@ export default function CustomerLoginPage() {
       <div className="relative flex h-full w-full max-w-md mx-auto flex-col bg-white dark:bg-[#101922] shadow-sm min-h-screen md:min-h-0 md:h-auto md:rounded-xl md:shadow-xl md:my-8 overflow-hidden">
         {/* Header */}
         <div className="flex items-center p-4 pb-2 justify-between sticky top-0 z-10 bg-white/90 dark:bg-[#101922]/90 backdrop-blur-sm">
-          <Link
-            href="/"
+          {/* Anchor biasa, bukan `next/link`: tujuannya lintas host, dan
+              `next/link` akan mencegat klik lalu menavigasi ke path yang sama
+              di origin ini — yang di subdomain portal berarti kembali ke
+              halaman login. */}
+          <a
+            href={getPublicSiteUrl()}
+            aria-label="Kembali ke beranda"
             className="text-[#111418] dark:text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <MdArrowBack className="text-2xl" />
-          </Link>
+          </a>
           <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">
             Masuk
           </h2>

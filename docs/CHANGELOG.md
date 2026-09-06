@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Login pelanggan gagal di subdomain portalnya
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/tenant-context.ts`, `app/(customer)/login`
+- **Author**: agent
+- **Deskripsi**: `POST /api/customer/auth/login` membalas 500 di
+  `pelanggan.<domain>` sementara apex membalas 401 yang benar. Seluruh
+  subdomain portal dikembalikan sebagai "tanpa tenant" dengan alasan ditangani
+  `proxy.ts` — benar untuk portal staf yang tenant-nya datang dari sesi
+  NextAuth, tetapi portal pelanggan memproses login sebelum ada cookie apa pun,
+  sehingga host adalah satu-satunya sumber tenant. Akibatnya pencarian
+  pelanggan berjalan tanpa tenant context dan ekstensi Prisma melemparkan
+  `TenantContextError: Attempted data access without valid tenant context:
+  Pelanggan.findFirst`. Kini `pelanggan.` dan `pelanggan-staging.` dipetakan ke
+  tenant utama seperti apex, sementara `admin`/`karyawan`/`investor` tetap
+  fail-closed. Tombol kembali di halaman login pelanggan juga diperbaiki: dulu
+  `next/link` ke `/`, yang di subdomain portal berputar balik ke halaman login.
+- **Files**: `lib/tenant-context.ts`, `app/(customer)/login/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — URL webhook payment gateway memakai domain contoh
 
 - **Tipe**: [FIXED]
