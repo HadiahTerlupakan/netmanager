@@ -124,14 +124,29 @@ export function useInvalidateInventoryRelated() {
  *
  * Pencocokan awalan menutup seluruh permukaan modul sekaligus: daftar, detail,
  * item, milestone, kanban, dashboard, dan template.
+ *
+ * @param options.except key yang tidak boleh ikut di-invalidate.
+ *
+ * `except` ada untuk satu kasus nyata: penghapusan. `invalidateQueries`
+ * me-refetch query yang masih aktif, dan `router.push` tidak melepas komponen
+ * secara sinkron — sehingga halaman detail yang baru saja menghapus rencananya
+ * langsung mengambil ulang rencana itu, menerima 404, lalu memunculkan toast
+ * "Gagal memuat detail planning" tepat setelah toast sukses. Mengecualikan key
+ * resource yang dihapus menyelesaikannya tanpa mengorbankan penyegaran daftar,
+ * dashboard, dan kanban — yang justru wajib terjadi.
  */
 export function useInvalidatePlanningRelated() {
   const queryClient = useQueryClient();
-  return () => {
+  return (options?: { except?: string[] }) => {
+    const exceptedKeys = new Set(options?.except ?? []);
+
     queryClient.invalidateQueries({
       predicate: (query) => {
         const [key] = query.queryKey;
-        return typeof key === "string" && key.startsWith("/api/planning");
+        if (typeof key !== "string" || !key.startsWith("/api/planning")) {
+          return false;
+        }
+        return !exceptedKeys.has(key);
       },
     });
   };

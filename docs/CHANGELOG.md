@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Menghapus rencana memunculkan "Gagal memuat detail planning"
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/hooks/useInvalidate.ts`, `app/admin/planning`
+- **Author**: agent
+- **Deskripsi**: Regresi dari invalidasi cache berbasis awalan yang baru
+  ditambahkan. Halaman detail berlangganan `/api/planning/<id>`; saat tombol
+  Hapus ditekan, `handleDelete` meng-invalidate seluruh key berawalan
+  `/api/planning` lalu memanggil `router.push`. Navigasi tidak melepas komponen
+  secara sinkron, sehingga query detail masih aktif — dan `invalidateQueries`
+  secara default me-refetch query aktif. Refetch itu menembak rencana yang baru
+  saja dihapus, yang kini benar-benar membalas 404 karena repository memfilter
+  `deletedAt`, sehingga `onError` menembakkan toast kegagalan tepat setelah
+  toast sukses. Pengguna melihat "Planning dihapus" disusul "Gagal memuat detail
+  planning" untuk operasi yang sebenarnya berhasil.
+  `useInvalidatePlanningRelated` kini menerima `except` untuk mengecualikan key
+  resource yang dihapus. Daftar, dashboard, dan kanban tetap di-refetch —
+  penyegaran itu justru tujuan utamanya.
+- **Files**: `lib/hooks/useInvalidate.ts`,
+  `app/admin/planning/[id]/PlanningDetailClient.tsx`
+- **Tests**: `tests/lib/use-invalidate-planning.test.tsx`
+- **Breaking**: ❌ Tidak
+
+
 ### [2026-09-06] — Pesan 404 tergandakan jadi "X tidak ditemukan tidak ditemukan"
 
 - **Tipe**: [FIXED]

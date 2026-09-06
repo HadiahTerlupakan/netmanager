@@ -179,7 +179,13 @@ export default function PlanningDetailClient({
         toast.success("Planning dihapus");
         // Invalidate sebelum berpindah: tanpa ini halaman daftar yang dituju
         // masih merender rencana yang baru saja dihapus dari cache lama.
-        invalidatePlanning();
+        //
+        // Detail rencana ini sendiri dikecualikan. `router.push` tidak melepas
+        // komponen secara sinkron, jadi query detail masih aktif dan akan
+        // ikut di-refetch — menembak rencana yang barusan dihapus, menerima
+        // 404, lalu memunculkan "Gagal memuat detail planning" tepat setelah
+        // toast sukses.
+        invalidatePlanning({ except: [`/api/planning/${planningId}`] });
         router.push("/admin/planning/daftar");
       } else {
         const data = await res.json();
