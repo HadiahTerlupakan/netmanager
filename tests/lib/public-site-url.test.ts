@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPublicSiteUrl } from "@/lib/utils/env";
+import { getPublicSiteUrl } from "@/lib/utils/portal-url";
 
 /**
  * Subdomain portal tidak punya landing page: `proxy.ts` menulis ulang setiap

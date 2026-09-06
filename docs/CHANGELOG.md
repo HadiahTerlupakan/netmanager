@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — URL webhook payment gateway memakai domain contoh
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengaturan/payment-gateway`, `lib/utils`
+- **Author**: agent
+- **Deskripsi**: Modal konfigurasi payment gateway membaca
+  `process.env.NEXT_PUBLIC_APP_URL` dari sisi klien, dan nilai itu tidak
+  tersisip ke bundel karena bukan build arg — sehingga URL webhook yang
+  disalin admin ke dashboard Midtrans/Xendit selalu berisi
+  `https://yourdomain.com/api/payment/webhook/<provider>`. Sekarang memakai
+  `getPublicSiteUrl()`. Fungsi itu dipindah dari `lib/utils/env.ts` ke
+  `lib/utils/portal-url.ts` bersama `stripPortalSubdomain()` baru, yang
+  memetakan origin host portal kembali ke domain publik: modal dirender di
+  `admin.<domain>`, sedangkan webhook harus memakai domain publik. Subdomain
+  slug milik tenant tidak ikut dipetakan karena situs publiknya memang host
+  itu sendiri.
+- **Files**: `lib/utils/portal-url.ts`, `lib/utils/env.ts`,
+  `app/admin/pengaturan/payment-gateway/components/PaymentGatewayConfigModal.tsx`,
+  `components/auth/BackToPublicSiteLink.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — NEXT_PUBLIC_APP_URL kosong di bundel klien
 
 - **Tipe**: [FIXED]

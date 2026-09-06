@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPublicSiteUrl } from "@/lib/utils/env";
+import { getPublicSiteUrl } from "@/lib/utils/portal-url";
 import { getAdminPortalUrl } from "@/lib/utils/portal-url";
 
 /**
@@ -38,6 +38,23 @@ describe("getPublicSiteUrl di browser", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://radpro.id");
 
     expect(getPublicSiteUrl()).toBe("https://radpro.id");
+  });
+});
+
+describe("getPublicSiteUrl dari host portal", () => {
+  // Modal payment gateway dirender di `admin.<domain>`; URL webhook yang
+  // disalin admin ke dashboard penyedia pembayaran harus memakai domain
+  // publik, bukan host portal.
+  it("memetakan origin host portal kembali ke situs publik", () => {
+    withoutEnvUrls();
+    const origin = "https://admin.radpro.id";
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      origin,
+    } as unknown as Location);
+
+    expect(getPublicSiteUrl()).toBe("https://radpro.id");
+
+    vi.restoreAllMocks();
   });
 });
 

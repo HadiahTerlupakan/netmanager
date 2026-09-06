@@ -8,6 +8,10 @@ import type {
   PaymentGatewayFormPayload,
   PaymentGatewayTestPayload,
 } from "../hooks/usePaymentGatewayConfigs";
+import { getPublicSiteUrl } from "@/lib/utils/portal-url";
+
+/** Dipakai hanya bila domain publik tidak bisa ditentukan sama sekali. */
+const PLACEHOLDER_SITE_URL = "https://yourdomain.com";
 
 const INPUT_CLASS =
   "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
@@ -68,8 +72,13 @@ export function PaymentGatewayConfigModal({
   const [formData, setFormData] = useState<PaymentGatewayFormPayload>(() =>
     getInitialFormData(config),
   );
-  const webhookBaseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "https://yourdomain.com";
+  // `NEXT_PUBLIC_APP_URL` tidak dilewatkan sebagai build arg, jadi di browser
+  // nilainya undefined dan URL webhook yang disalin admin ke dashboard
+  // penyedia pembayaran berisi domain contoh, bukan domain sungguhan.
+  const publicSiteUrl = getPublicSiteUrl();
+  const webhookBaseUrl = publicSiteUrl.startsWith("http")
+    ? publicSiteUrl
+    : PLACEHOLDER_SITE_URL;
   const webhookUrl = providerId
     ? `${webhookBaseUrl}/api/payment/webhook/${providerId.toLowerCase()}`
     : "";

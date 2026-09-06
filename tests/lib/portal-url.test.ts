@@ -3,6 +3,7 @@ import {
   buildAdminPortalHostname,
   getAdminPortalUrl,
   resolveAdminPortalHref,
+  stripPortalSubdomain,
 } from "@/lib/utils/portal-url";
 
 /**
@@ -104,5 +105,41 @@ describe("resolveAdminPortalHref", () => {
     withPublicSite("https://radpro.id");
 
     expect(resolveAdminPortalHref("/administrasi")).toBe("/administrasi");
+  });
+});
+
+/**
+ * Kebalikan dari `buildAdminPortalHostname`: dipakai saat origin halaman jadi
+ * satu-satunya sumber URL situs publik, yaitu di browser tempat
+ * `NEXT_PUBLIC_APP_URL` tidak ikut tersisip ke bundel.
+ */
+describe("stripPortalSubdomain", () => {
+  it("mengembalikan apex dari host portal", () => {
+    expect(stripPortalSubdomain("admin.radpro.id")).toBe("radpro.id");
+    expect(stripPortalSubdomain("karyawan.radpro.id")).toBe("radpro.id");
+    expect(stripPortalSubdomain("pelanggan.radpro.id")).toBe("radpro.id");
+    expect(stripPortalSubdomain("investor.radpro.id")).toBe("radpro.id");
+  });
+
+  it("mengembalikan apex staging dari host portal staging", () => {
+    expect(stripPortalSubdomain("admin-staging.radpro.id")).toBe(
+      "staging.radpro.id",
+    );
+  });
+
+  // Subdomain slug milik tenant bukan portal: situs publiknya host itu sendiri.
+  it("membiarkan subdomain tenant apa adanya", () => {
+    expect(stripPortalSubdomain("acme.radpro.id")).toBe("acme.radpro.id");
+  });
+
+  it("membiarkan apex dan host tanpa titik apa adanya", () => {
+    expect(stripPortalSubdomain("radpro.id")).toBe("radpro.id");
+    expect(stripPortalSubdomain("localhost")).toBe("localhost");
+  });
+
+  it("bolak-balik dengan buildAdminPortalHostname", () => {
+    for (const host of ["radpro.id", "staging.radpro.id"]) {
+      expect(stripPortalSubdomain(buildAdminPortalHostname(host))).toBe(host);
+    }
   });
 });

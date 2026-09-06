@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HiArrowLeft } from "react-icons/hi2";
-import { getPublicSiteUrl } from "@/lib/utils/env";
+import { getPublicSiteUrl } from "@/lib/utils/portal-url";
 
 /**
  * Tautan keluar dari halaman login menuju situs publik.
