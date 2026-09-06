@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Halaman login portal terkurung tanpa jalan ke beranda
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(auth)`, `components/auth`, `lib/utils`
+- **Author**: agent
+- **Deskripsi**: `proxy.ts` menulis ulang seluruh path di subdomain portal ke
+  prefix portalnya dan mengalihkan tamu ke `/login`, jadi subdomain tidak punya
+  landing page sama sekali — terverifikasi di produksi: `/`, `/harga`, dan
+  `/status` di `admin.radpro.id` sama-sama membalas `307 → /login`. Selama sesi
+  tidak pernah benar-benar berakhir hal ini tidak terasa; setelah logout
+  diperbaiki, pengguna terkurung di halaman login tanpa jalan kembali ke
+  beranda. Halaman login admin & karyawan kini menampilkan tautan absolut ke
+  situs publik lewat `getPublicSiteUrl()`, yang berbeda dari `getAppUrl()`
+  tidak melempar error saat env belum diisi.
+- **Files**: `lib/utils/env.ts`, `components/auth/BackToPublicSiteLink.tsx`,
+  `app/(auth)/admin/login/page.tsx`, `app/(auth)/karyawan/login/page.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — Logout tidak mengakhiri sesi; sisa cookie host-only
 
 - **Tipe**: [SECURITY]

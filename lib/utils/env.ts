@@ -37,6 +37,23 @@ export function getAppUrl(): string {
 }
 
 /**
+ * URL situs publik (apex), tempat landing page berada.
+ *
+ * Subdomain portal tidak punya landing page: `proxy.ts` menulis ulang setiap
+ * path di `admin.<domain>` ke `/admin/*` dan mengalihkan tamu ke `/login`,
+ * sehingga tanpa tautan absolut ke apex pengguna yang sudah logout terkurung
+ * di halaman login. Berbeda dari `getAppUrl()`, helper ini tidak melempar
+ * error karena hanya dipakai untuk menampilkan tautan.
+ */
+export function getPublicSiteUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+
+  if (!url || url === "undefined") return "/";
+
+  return url.replace(/\/$/, "");
+}
+
+/**
  * Get required environment variable dengan validation.
  */
 export function getRequiredEnv(name: string): string {
