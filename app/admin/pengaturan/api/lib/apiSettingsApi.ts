@@ -24,15 +24,21 @@ export interface R2TestPayload {
 }
 
 /**
- * Prepare settings for save - replace placeholder with keep token.
+ * Menyiapkan pengaturan untuk disimpan: placeholder ditukar menjadi token
+ * "pertahankan yang lama".
+ *
+ * Server tidak lagi mengirim rahasia apa pun ke browser, jadi field yang tidak
+ * disentuh pengguna masih berisi `SECRET_PLACEHOLDER`. Mengirimnya apa adanya
+ * akan menimpa rahasia asli dengan literal "********".
  */
+const keepIfUntouched = (value: string): string =>
+  value === SECRET_PLACEHOLDER ? KEEP_EXISTING_SECRET_TOKEN : value;
+
 function prepareSettingsForSave(settings: ApiSettings): ApiSettings {
   return {
     ...settings,
-    r2SecretAccessKey:
-      settings.r2SecretAccessKey === SECRET_PLACEHOLDER
-        ? KEEP_EXISTING_SECRET_TOKEN
-        : settings.r2SecretAccessKey,
+    googleGeminiApiKey: keepIfUntouched(settings.googleGeminiApiKey),
+    r2SecretAccessKey: keepIfUntouched(settings.r2SecretAccessKey),
   };
 }
 

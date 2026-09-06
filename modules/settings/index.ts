@@ -80,6 +80,7 @@ export {
   testCloudflareR2Connection,
   testGoogleGeminiApiKey,
   mapApiSettingsResponse,
+  maskApiSettingsSecrets,
 } from "./services/apiSettings";
 export {
   SECRET_PLACEHOLDER,

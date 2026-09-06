@@ -8,7 +8,10 @@ import {
   testCloudflareR2Connection,
   testGoogleGeminiApiKey,
 } from "./apiSettings.connection-tests";
-import { KEEP_EXISTING_SECRET_TOKEN } from "../constants/secretConstants";
+import {
+  KEEP_EXISTING_SECRET_TOKEN,
+  SECRET_PLACEHOLDER,
+} from "../constants/secretConstants";
 
 export type {
   GeminiApiKeyTestResult,
@@ -61,6 +64,35 @@ export function mapApiSettingsResponse(
   };
 }
 
+/**
+ * Menyamarkan rahasia sebelum pengaturan dikirim ke browser.
+ *
+ * Sengaja TIDAK dilakukan di `mapApiSettingsResponse`: mapper itu juga dipakai
+ * server-side oleh `GeminiOcrService` untuk memanggil Google, dan oleh klien
+ * R2 -- menyamarkan di sana membuat OCR memanggil API dengan kunci
+ * "********". Penyamaran hanya berlaku di batas respons HTTP.
+ *
+ * Browser tidak pernah membutuhkan nilai aslinya: form mengirim kembali
+ * placeholder sebagai `KEEP_EXISTING_SECRET_TOKEN`, dan `buildApiSettingsUpserts`
+ * melewati penulisan saat menerimanya. Sebelum ini rahasia dikirim utuh --
+ * form memang menampilkannya sebagai titik-titik, tetapi itu hanya kosmetik:
+ * nilainya tetap terbaca lewat devtools dan ikut terekam di log jaringan.
+ *
+ * String kosong dipertahankan apa adanya supaya UI tetap bisa membedakan
+ * "belum diisi" dari "sudah diisi".
+ */
+export function maskApiSettingsSecrets(
+  settings: ApiSettingsPayload,
+): ApiSettingsPayload {
+  const mask = (value: string) => (value ? SECRET_PLACEHOLDER : "");
+
+  return {
+    ...settings,
+    googleGeminiApiKey: mask(settings.googleGeminiApiKey),
+    r2SecretAccessKey: mask(settings.r2SecretAccessKey),
+  };
+}
+
 /** Builds repository upserts for API settings payload. */
 export function buildApiSettingsUpserts(
   payload: ApiSettingsPostPayload,
@@ -68,11 +100,22 @@ export function buildApiSettingsUpserts(
   const upserts: SettingsUpsertEntity[] = [];
 
   if (payload.googleGeminiApiKey !== undefined) {
-    upserts.push({
-      key: "GOOGLE_GEMINI_API_KEY",
-      value: payload.googleGeminiApiKey?.trim() || null,
-      description: "Google Gemini API Key untuk OCR KTP",
-    });
+    const geminiKey = payload.googleGeminiApiKey?.trim() || "";
+
+    // Sama seperti R2 secret: token ini berarti "jangan diubah". Dibutuhkan
+    // karena klien kini menerima placeholder, bukan kunci aslinya -- tanpa
+    // penanganan ini menyimpan form akan menimpa kunci dengan "********".
+    if (geminiKey !== KEEP_EXISTING_SECRET_TOKEN) {
+      upserts.push({
+        key: "GOOGLE_GEMINI_API_KEY",
+        value: geminiKey || null,
+        description: "Google Gemini API Key untuk OCR KTP",
+        // Baris lama tersimpan apa adanya dan tetap terbaca karena kolom
+        // `encrypted` disimpan per-baris; penyimpanan berikutnya
+        // mengenkripsinya.
+        encrypted: true,
+      });
+    }
   }
 
   if (payload.geminiEnabled !== undefined) {

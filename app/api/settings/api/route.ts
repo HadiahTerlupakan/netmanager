@@ -4,6 +4,7 @@ import { logActivitySafe } from "@/lib/logger";
 import { apiSettingsSchema } from "@/lib/validations/settings";
 import {
   getApiSettings,
+  maskApiSettingsSecrets,
   createApiSettings,
   updateApiSettings,
   type ApiSettingsPostPayload,
@@ -18,7 +19,10 @@ export const GET = createHandler(
   async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const settings = await getApiSettings(tenantId);
-    return apiSuccess(settings);
+
+    // Rahasia tidak pernah dikirim ke browser; form bekerja dengan placeholder
+    // dan token "pertahankan yang lama" saat menyimpan.
+    return apiSuccess(maskApiSettingsSecrets(settings));
   },
 );
 

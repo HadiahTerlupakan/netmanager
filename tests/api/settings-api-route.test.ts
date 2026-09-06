@@ -18,6 +18,10 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/modules/settings", () => ({
   getApiSettings: (...args: unknown[]) => mockGetApiSettings(...args),
+  // Route menyamarkan rahasia sebelum mengirim respons. Implementasi aslinya
+  // diuji terpisah di `tests/modules/settings/apiSettings.secret-masking`;
+  // di sini cukup diteruskan agar assertion tenant-scope tetap fokus.
+  maskApiSettingsSecrets: (settings: unknown) => settings,
   createApiSettings: (...args: unknown[]) => mockUpdateApiSettings(...args),
   updateApiSettings: (...args: unknown[]) => mockUpdateApiSettings(...args),
   testCloudflareR2Connection: (...args: unknown[]) =>

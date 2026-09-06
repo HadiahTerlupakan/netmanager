@@ -110,17 +110,22 @@ export function useApiSettings() {
         [key]: !prev[key],
       }));
 
-      // When showing R2 secret that is currently placeholder, clear it so user can input new value
+      // Placeholder dikosongkan saat pengguna membuka field, supaya ia bisa
+      // langsung mengetik nilai baru tanpa menghapus deretan bintang lebih
+      // dulu. Membiarkannya juga menyesatkan: itu bukan rahasia yang asli.
       if (key === "showR2Secret" && !visibility[key]) {
         if (settings.r2SecretAccessKey === SECRET_PLACEHOLDER) {
-          setSettings((prev) => ({
-            ...prev,
-            r2SecretAccessKey: "",
-          }));
+          setSettings((prev) => ({ ...prev, r2SecretAccessKey: "" }));
+        }
+      }
+
+      if (key === "showApiKey" && !visibility[key]) {
+        if (settings.googleGeminiApiKey === SECRET_PLACEHOLDER) {
+          setSettings((prev) => ({ ...prev, googleGeminiApiKey: "" }));
         }
       }
     },
-    [visibility, settings.r2SecretAccessKey],
+    [visibility, settings.r2SecretAccessKey, settings.googleGeminiApiKey],
   );
 
   const handleTestR2Connection = useCallback(async () => {

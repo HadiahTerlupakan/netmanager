@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Kredensial R2 dan Gemini dikirim utuh ke browser
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/settings`, `app/api/settings/api`, `app/admin/pengaturan/api`
+- **Author**: agent
+- **Deskripsi**: `GET /api/settings/api` mengirimkan R2 Secret Access Key dan
+  Google Gemini API Key apa adanya ke browser. Form menampilkannya sebagai
+  titik-titik dengan tombol mata, tetapi itu hanya kosmetik: nilainya terbaca
+  lewat devtools dan ikut terekam di log jaringan, HAR, atau proxy mana pun.
+  Terverifikasi di produksi — respons memuat secret R2 sepanjang 64 karakter.
+  Seluruh mekanisme pencegahnya sebenarnya sudah ada dan sudah dipakai klien:
+  `SECRET_PLACEHOLDER`, `KEEP_EXISTING_SECRET_TOKEN`, penyimpanan terenkripsi,
+  dan `buildApiSettingsUpserts` yang melewati penulisan saat menerima token itu.
+  Hanya jalur bacanya yang tidak pernah menyamarkan.
+  Penyamaran diletakkan di batas respons HTTP lewat `maskApiSettingsSecrets`,
+  BUKAN di `mapApiSettingsResponse`: mapper itu juga dipakai server-side oleh
+  `GeminiOcrService` untuk memanggil Google, sehingga menyamarkan di sana akan
+  membuat OCR KTP memanggil API dengan kunci "********". Percobaan pertama
+  melakukannya di mapper dan tertangkap oleh tes yang sudah ada.
+  Gemini API key kini juga mendukung token "pertahankan yang lama" dan disimpan
+  terenkripsi, setara perlakuan R2 secret. Baris lama yang tersimpan tanpa
+  enkripsi tetap terbaca karena status enkripsi disimpan per-baris.
+- **Files**: `modules/settings/services/apiSettings.ts`,
+  `app/api/settings/api/route.ts`,
+  `app/admin/pengaturan/api/lib/apiSettingsApi.ts`,
+  `app/admin/pengaturan/api/lib/useApiSettings.ts`
+- **Tests**: `tests/modules/settings/apiSettings.secret-masking.test.ts`
+- **Breaking**: ⚠️ `GET /api/settings/api` tidak lagi mengembalikan nilai
+  rahasia. Satu-satunya pemakainya adalah halaman pengaturan itu sendiri, yang
+  memang sudah dirancang untuk menerima placeholder.
+
+
 ### [2026-09-06] — Peta pemilih koordinat kosong, dan dropdown ODP tanpa pencarian
 
 - **Tipe**: [FIXED]
