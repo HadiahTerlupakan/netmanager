@@ -46,6 +46,49 @@ export function BrandMark({
   );
 }
 
+/**
+ * Tautan yang keluar dari aplikasi ini harus dirender sebagai `<a>`.
+ *
+ * `next/link` menangkap klik dan menjalankan navigasi klien ke path yang sama
+ * pada origin yang sedang dibuka, sehingga host pada tautan lintas subdomain
+ * ikut hilang: klik "Masuk" ke `https://admin.<domain>/login` berakhir di
+ * `https://<domain>/admin/login` (terlihat sebagai permintaan `?_rsc=` ke apex).
+ */
+export function isExternalHref(href: string): boolean {
+  return (
+    href.startsWith("http") ||
+    href.startsWith("mailto:") ||
+    href.startsWith("#")
+  );
+}
+
+/** Tautan landing yang memilih sendiri antara `<a>` dan `next/link`. */
+export function LandingLink({
+  href,
+  children,
+  className = "",
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
+  if (isExternalHref(href)) {
+    return (
+      <a href={href} className={className} onClick={onClick}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
+
 /** Primary CTA — accent pill with nested arrow chip. */
 export function PrimaryCta({
   href,
@@ -68,17 +111,10 @@ export function PrimaryCta({
     </>
   );
 
-  if (href.startsWith("mailto:") || href.startsWith("http")) {
-    return (
-      <a href={href} className={classes} onClick={onClick}>
-        {content}
-      </a>
-    );
-  }
   return (
-    <Link href={href} className={classes} onClick={onClick}>
+    <LandingLink href={href} className={classes} onClick={onClick}>
       {content}
-    </Link>
+    </LandingLink>
   );
 }
 
@@ -94,20 +130,9 @@ export function SecondaryCta({
 }) {
   const classes = `inline-flex items-center justify-center rounded-full ${cx.surface} px-5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 ring-1 ${cx.ring} shadow-[0_1px_2px_rgba(24,24,27,0.04)] transition-all ${EASE} hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.98] ${className}`;
 
-  if (
-    href.startsWith("#") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("http")
-  ) {
-    return (
-      <a href={href} className={classes}>
-        {children}
-      </a>
-    );
-  }
   return (
-    <Link href={href} className={classes}>
+    <LandingLink href={href} className={classes}>
       {children}
-    </Link>
+    </LandingLink>
   );
 }

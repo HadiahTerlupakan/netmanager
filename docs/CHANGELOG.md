@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — next/link menelan host pada tautan lintas subdomain
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/landing`
+- **Author**: agent
+- **Deskripsi**: Meski `href` sudah menunjuk `https://admin.radpro.id/login`,
+  klik "Masuk" berakhir di `https://radpro.id/admin/login`. `next/link`
+  menangkap klik dan menjalankan navigasi klien ke path yang sama pada origin
+  yang sedang dibuka — terlihat sebagai tiga permintaan `?_rsc=` ke apex.
+  `LandingLink` kini memilih `<a>` untuk tautan absolut, `mailto:`, dan
+  jangkar, sehingga navigasi diserahkan ke browser; aturan yang sama dipakai
+  ulang oleh `PrimaryCta` dan `SecondaryCta`. Keputusan `<a>` vs `next/link`
+  pada tombol paket harga juga dihitung dari href hasil pemetaan, bukan dari
+  nilai mentahnya.
+- **Files**: `components/landing/landing-buttons.tsx`,
+  `components/landing/SaasLandingPage.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — Tautan Masuk di landing mengarah ke host portal admin
 
 - **Tipe**: [FIXED]

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import {
   Building2,
@@ -29,7 +28,12 @@ import {
   type LandingFooterLike,
   type LandingPricingLike,
 } from "./landing-content";
-import { BrandMark, PrimaryCta, SecondaryCta } from "./landing-buttons";
+import {
+  BrandMark,
+  LandingLink,
+  PrimaryCta,
+  SecondaryCta,
+} from "./landing-buttons";
 import { ThemeSwitch } from "./landing-theme-switch";
 import { ProductMock } from "./landing-product-mock";
 import { SectionEyebrow, SectionTitle } from "./landing-section";
@@ -114,12 +118,12 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
 
           <div className="flex items-center gap-1.5">
             <ThemeSwitch />
-            <Link
+            <LandingLink
               href={ADMIN_LOGIN_URL}
               className={`hidden rounded-full px-3.5 py-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors ${EASE} hover:text-zinc-900 dark:hover:text-white md:inline`}
             >
               Masuk
-            </Link>
+            </LandingLink>
             <span className="hidden md:inline-flex">
               <PrimaryCta href={ADMIN_LOGIN_URL}>Mulai sekarang</PrimaryCta>
             </span>
@@ -158,13 +162,13 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
             <div
               className={`mt-2 flex flex-col gap-2 border-t ${cx.line} pt-3`}
             >
-              <Link
+              <LandingLink
                 href={ADMIN_LOGIN_URL}
                 className={`rounded-full px-4 py-2.5 text-center text-sm font-medium ${cx.ink} ring-1 ${cx.ring}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Masuk
-              </Link>
+              </LandingLink>
               <PrimaryCta
                 href={ADMIN_LOGIN_URL}
                 className="w-full justify-between"
@@ -322,7 +326,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
 
             <div className={`mt-12 grid items-stretch gap-4 ${pricingGrid}`}>
               {pricing.map((plan) => {
-                const isExternal = plan.ctaLink.startsWith("mailto:");
+                const planCtaHref = resolveAdminPortalHref(plan.ctaLink);
 
                 if (plan.isPopular) {
                   return (
@@ -361,12 +365,12 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                             </li>
                           ))}
                         </ul>
-                        <Link
-                          href={resolveAdminPortalHref(plan.ctaLink)}
+                        <LandingLink
+                          href={planCtaHref}
                           className={`mt-8 inline-flex w-full items-center justify-center rounded-full bg-white py-2.5 text-sm font-medium text-zinc-900 transition-all ${EASE} hover:bg-zinc-100 active:scale-[0.98]`}
                         >
                           {plan.ctaText}
-                        </Link>
+                        </LandingLink>
                       </div>
                     </div>
                   );
@@ -409,21 +413,9 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                           </li>
                         ))}
                       </ul>
-                      {isExternal ? (
-                        <a
-                          href={resolveAdminPortalHref(plan.ctaLink)}
-                          className={ctaClass}
-                        >
-                          {plan.ctaText}
-                        </a>
-                      ) : (
-                        <Link
-                          href={resolveAdminPortalHref(plan.ctaLink)}
-                          className={ctaClass}
-                        >
-                          {plan.ctaText}
-                        </Link>
-                      )}
+                      <LandingLink href={planCtaHref} className={ctaClass}>
+                        {plan.ctaText}
+                      </LandingLink>
                     </div>
                   </div>
                 );
