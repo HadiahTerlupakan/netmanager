@@ -59,7 +59,7 @@ export default function RegistrationPage() {
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: locationsData, error: locationsError } = useApi<string[]>(
-    "/api/odcs/locations",
+    "/api/public/service-areas",
   );
   const existingLocations = Array.isArray(locationsData) ? locationsData : [];
 

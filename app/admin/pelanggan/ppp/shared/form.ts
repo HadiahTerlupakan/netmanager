@@ -40,9 +40,15 @@ export function validatePppClientForm(
   if (options.idPelangganError) return options.idPelangganError;
   if (!formData.nama.trim()) return "Nama pelanggan harus diisi";
   if (!formData.username.trim()) return "Username PPPoE harus diisi";
-  if (!formData.password.trim()) return "Password PPPoE harus diisi";
-  if (!formData.passwordLogin.trim())
-    return "Password Login Portal harus diisi";
+  // Password hanya wajib saat membuat pelanggan. Di mode edit server tidak
+  // pernah mengirim balik password, jadi kedua field selalu tampil kosong;
+  // mewajibkannya membuat form yang tidak diubah passwordnya pun ditolak, dan
+  // mendorong admin mengisi asal sehingga password PPPoE asli tertimpa.
+  if (options.mode === "create") {
+    if (!formData.password.trim()) return "Password PPPoE harus diisi";
+    if (!formData.passwordLogin.trim())
+      return "Password Login Portal harus diisi";
+  }
   if (options.mode === "create" && !formData.siteId)
     return "Site harus dipilih";
   if (!formData.hargaPaketId) return "Harga Paket harus dipilih";

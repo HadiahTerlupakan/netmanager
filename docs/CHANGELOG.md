@@ -41,6 +41,75 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Saran area di registrasi publik selalu kosong
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/public`, `app/register`
+- **Author**: agent
+- **Deskripsi**: Halaman registrasi publik menawarkan saran "Area / Lokasi" dari
+  `/api/odcs/locations`, yang membaca `Odc.location`. Tabel `Odc` tidak pernah
+  ditulis oleh apa pun di aplikasi ini — kelas bug yang sama dengan ODP —
+  sehingga daftar sarannya selalu kosong sejak awal.
+  Diganti `/api/public/service-areas` yang membaca nama `Sites` aktif. Sumbernya
+  sengaja BUKAN nama node ODC di peta: field ini diisi calon pelanggan, dan
+  orang tahu area tempat tinggalnya, bukan ODC mana yang melayaninya. Nama site
+  juga aman tampil di halaman tanpa login, berbeda dengan penamaan topologi
+  internal. Field tetap bebas ketik, jadi ini memperbaiki kualitas saran, bukan
+  mewajibkan pilihan.
+- **Files**: `app/api/public/service-areas/route.ts`, `app/register/page.tsx`
+- **Tests**: `tests/api/public-service-areas-route.test.ts`
+- **Breaking**: ⚠️ `/api/odcs/locations` dihapus. Pemakainya hanya halaman
+  registrasi, yang sudah diarahkan ke endpoint baru.
+
+
+### [2026-09-06] — Edit pelanggan membuang sebagian besar perubahan tanpa jejak
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/pelanggan-ppp`, `modules/pelanggan`, `app/admin/pelanggan/ppp`, `lib/api`
+- **Author**: agent
+- **Deskripsi**: Serangkaian cacat pada form tambah/edit pelanggan PPP yang
+  ditemukan saat menelusuri bug ODP.
+  (1) PUT `/api/pelanggan-ppp/{id}` membaca FormData secara manual dan hanya
+  mengenal 17 key, tanpa validasi Zod sama sekali. Alamat, provinsi, koordinat,
+  dokumen, catatan, dan seluruh rincian biaya/diskon dikirim form edit tetapi
+  dibuang diam-diam — admin menerima "Data pelanggan berhasil diperbarui" untuk
+  perubahan yang tidak pernah tersimpan. Ditambahkan
+  `updatePelangganProfileSchema` dan field-field tersebut dialirkan sampai
+  repository.
+  (2) Form edit membaca `data.password` dan `data.passwordLogin` yang tidak
+  pernah dikirim server (`password` selalu di-strip dari response;
+  `passwordLogin` tidak punya kolom di database), sementara keduanya ditandai
+  wajib. Akibatnya form yang tampil kosong pasti ditolak 400, dan admin yang
+  mengisinya asal agar bisa menyimpan justru menimpa password PPPoE asli —
+  perubahan yang ikut tersinkron ke RADIUS/MikroTik. Password kini opsional
+  saat update: kosong berarti tidak diubah, dan resync kredensial tidak dipicu.
+  (3) POST `/api/pelanggan-ppp` membungkus pembuatan pelanggan di dalam blok
+  try penyimpanan file, sehingga setiap error — ID/username/email duplikat,
+  "Harga Paket tidak ditemukan", error Prisma — dibalas 500 "Gagal memproses
+  upload file". Logika retry duplikat di klien jadi tidak pernah aktif dan ID
+  baru tidak pernah dibuat ulang. Penyimpanan file kini dipisah, dan duplikat
+  identitas dipetakan ke 409 berikut pesannya.
+  (4) `biayaInstalasi`, `biayaSewaPerangkat`, `biayaLainnya`, dan
+  `discountDuration` adalah kolom `Int` tetapi validatornya tidak membulatkan,
+  sehingga nilai pecahan ditolak Prisma — error yang selama ini tersamar oleh
+  (3). Kolom diskon yang bertipe `Float` sengaja tetap menerima pecahan.
+  (5) Koordinat `0` (khatulistiwa/meridian utama) diubah jadi `null` karena
+  memakai `||`; kini `??`.
+  (6) Dropdown reseller terpotong diam-diam di 20 baris karena klien tidak
+  pernah mengirim `limit` maupun membaca `meta.total`.
+- **Files**: `app/api/pelanggan-ppp/route.ts`,
+  `app/api/pelanggan-ppp/[id]/route-handlers-impl.ts`,
+  `modules/pelanggan/validators/pelanggan.ts`,
+  `modules/pelanggan/services/pelanggan-admin-mutation.helpers.ts`,
+  `modules/pelanggan/services/PelangganAdminMutationService.ts`,
+  `modules/pelanggan/services/pelanggan-service.helpers.ts`,
+  `app/admin/pelanggan/ppp/**`, `lib/api/handler.ts`
+- **Tests**: `tests/modules/pelanggan/update-profile-fields.test.ts`,
+  `tests/modules/pelanggan/normalize-update-payload-odp.test.ts`
+- **Breaking**: ⚠️ Password PPPoE dan password portal tidak lagi wajib saat
+  update. Error duplikat identitas kini 409, bukan 500.
+
+
 ### [2026-09-06] — ODP tidak muncul saat site dipilih, dan tidak tersimpan saat diedit
 
 - **Tipe**: [FIXED]

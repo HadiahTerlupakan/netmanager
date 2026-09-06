@@ -233,8 +233,12 @@ export function PppClientEditForm() {
         idPelanggan: data.idPelanggan || "",
         nama: data.nama || "",
         username: data.username || "",
-        password: data.password || "",
-        passwordLogin: data.passwordLogin || "",
+        // Sengaja kosong, bukan dari `data`. Server tidak pernah mengirim
+        // balik password: `password` di-strip dari response dan
+        // `passwordLogin` tidak punya kolom di database. Kosong berarti
+        // "tidak diubah".
+        password: "",
+        passwordLogin: "",
         hargaPaketId: data.hargaPaketId || "",
         tipe: data.tipe || "REGULER",
         tanggalAktif: data.tanggalAktif
@@ -317,9 +321,13 @@ export function PppClientEditForm() {
   >("/api/hargapakets?status=AKTIF");
   const { data: odpsData } = useApi<{ odps: Odp[] }>("/api/odps");
   const { data: resellersData } = useApi<readonly ResellerOption[]>(
-    "/api/admin/resellers",
+    // Lihat catatan batas yang sama di form tambah pelanggan.
+    "/api/admin/resellers?limit=200",
   );
-  const activeResellers = [...(resellersData ?? [])];
+  // Bukan "active": endpoint mengembalikan seluruh reseller yang belum
+  // dihapus, termasuk yang berstatus INACTIVE. Namanya diluruskan agar tidak
+  // menyiratkan penyaringan yang tidak terjadi.
+  const resellerOptions = [...(resellersData ?? [])];
   const selectedResellerId = formData.resellerId || null;
   const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
     selectedResellerId
@@ -690,13 +698,14 @@ export function PppClientEditForm() {
 
               {activeTab === "info" && (
                 <PppClientInfoTabSection
+                  isEditMode
                   formData={formData}
                   handleChange={handleChange}
                   updateFormData={updateInfoTabFormData}
                   idPelangganError={idPelangganError}
                   checkingId={checkingId}
                   odps={odps}
-                  resellers={activeResellers}
+                  resellers={resellerOptions}
                   resellerOutlets={resellerOutlets}
                   showPasswordLogin={showPasswordLogin}
                   onToggleShowPasswordLogin={() =>

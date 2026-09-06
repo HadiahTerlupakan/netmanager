@@ -6,6 +6,7 @@ import type {
   AdminMutationSession,
   UpdatePppByIdInput,
 } from "./PelangganAdminMutationService";
+import type { UpdatePelangganProfileInput } from "../validators/pelanggan";
 
 export type NormalizedUpdatePayload = {
   idPelanggan: string;
@@ -23,6 +24,8 @@ export type NormalizedUpdatePayload = {
   email: string | null;
   siteId: string | null;
   odpId: string | null;
+  /** Field profil/biaya yang diubah; hanya berisi key yang benar-benar dikirim. */
+  profile: UpdatePelangganProfileInput;
   invoiceAction: string | null;
   passwordLogin: string | null;
 };
@@ -85,12 +88,21 @@ const parseEnumValue = <T extends string>(
 const toDate = (value: Date | string) =>
   value instanceof Date ? value : new Date(value);
 
+/**
+ * Password sengaja TIDAK termasuk field wajib saat update.
+ *
+ * Halaman edit tidak pernah menerima password dari server — `password` selalu
+ * di-strip dari response, dan `passwordLogin` bahkan tidak punya kolom di
+ * database. Selama password diwajibkan, form yang tampil kosong itu pasti
+ * ditolak 400, dan admin yang mengisi asal agar bisa menyimpan justru menimpa
+ * password PPPoE asli — perubahan yang ikut tersinkron ke RADIUS/MikroTik.
+ * Kosong kini berarti "tidak diubah".
+ */
 const assertRequiredPppFields = (data: UpdatePppByIdInput["data"]) => {
   if (
     !data.idPelanggan ||
     !data.nama ||
     !data.username ||
-    !data.password ||
     !data.hargaPaketId ||
     !data.tanggalAktif ||
     !data.jatuhTempo
@@ -137,6 +149,7 @@ export const normalizeUpdatePayload = (
     // String kosong berarti "tanpa ODP", bukan id kosong yang akan melanggar
     // foreign key ke `mapping_nodes`.
     odpId: data.odpId?.trim() || null,
+    profile: data.profile ?? {},
     invoiceAction: data.invoiceAction,
     passwordLogin: data.passwordLogin,
   };

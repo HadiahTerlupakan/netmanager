@@ -65,8 +65,10 @@ export async function buildCreatePelangganData(
     kecamatan: trimNullable(data.kecamatan),
     noTelp: trimNullable(data.noTelp),
     email: trimNullable(data.email),
-    latitude: data.latitude || null,
-    longitude: data.longitude || null,
+    // `??`, bukan `||`: koordinat 0 adalah lokasi yang sah (khatulistiwa dan
+    // meridian utama), sedangkan `||` mengubahnya jadi null.
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
     jenisDokumen: data.jenisDokumen || null,
     noDokumen: trimNullable(data.noDokumen),
     fileKTP: data.fileKTP || null,
@@ -219,7 +221,13 @@ async function validateGlobalIdentifier(value: string, label: string) {
 
   const globalCheck = await checkGlobalIdentifier(value);
   if (globalCheck.exists) {
-    throw new Error(`${label} sudah digunakan sebagai ${globalCheck.role}`);
+    // Prefix CONFLICT: dipetakan `handleError` ke 409 berikut pesannya. Tanpa
+    // ini duplikat identitas balas 500 generik, dan retry otomatis di form
+    // (yang mencocokkan "sudah digunakan"/409) tidak pernah aktif sehingga ID
+    // baru tidak pernah dibuat ulang.
+    throw new Error(
+      `CONFLICT: ${label} sudah digunakan sebagai ${globalCheck.role}`,
+    );
   }
 }
 

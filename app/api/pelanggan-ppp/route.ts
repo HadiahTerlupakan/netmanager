@@ -124,13 +124,26 @@ export const POST = createHandler(
       inputWithSite.idPelanggan.trim(),
     );
 
+    // Penyimpanan file dipisah dari pembuatan pelanggan.
+    //
+    // Sebelumnya keduanya berada dalam satu `try` yang catch-nya selalu
+    // membalas "Gagal memproses upload file". Error yang sebenarnya — ID,
+    // username, atau email duplikat, "Harga Paket tidak ditemukan", error
+    // Prisma — semuanya tersamar jadi pesan upload. Akibat lanjutannya, logika
+    // retry duplikat di klien (yang mencocokkan "sudah digunakan"/409) tidak
+    // pernah aktif, sehingga ID baru tidak pernah dibuat ulang.
+    let savedFiles: {
+      fileKTP: string | null;
+      fileRumahSekitar: string | null;
+      fileBAST: string | null;
+    };
+
     try {
       const fileKTP = formData.get("fileKTP") as File | null;
       const fileRumahSekitar = formData.get("fileRumahSekitar") as File | null;
       const fileBAST = formData.get("fileBAST") as File | null;
-      const pelanggan = await getPelangganService().createPelanggan({
-        ...inputWithSite,
-        tenantId: session.user.tenantId ?? null,
+
+      savedFiles = {
         fileKTP: await pelangganUploadService.saveOptionalFile(
           fileKTP,
           pelangganUploadDir,
@@ -149,23 +162,32 @@ export const POST = createHandler(
           "bast",
           "File BAST tidak valid",
         ),
-      } as Parameters<
-        ReturnType<typeof getPelangganService>["createPelanggan"]
-      >[0]);
-
-      const { revalidatePath } = await import("next/cache");
-      revalidatePath("/admin/pelanggan/ppp");
-      revalidatePath("/api/pelanggan-ppp");
-      ctx.validated = {
-        id: pelanggan.id,
-        idPelanggan: pelanggan.idPelanggan,
-        nama: pelanggan.nama,
-        username: pelanggan.username,
       };
-      return apiSuccess(sanitizePelangganResponse(pelanggan), { status: 201 });
     } catch (error) {
       logger.error("Error saving files:", error as Error);
       return ApiErrors.internalError("Gagal memproses upload file");
     }
+
+    // Error dari pembuatan pelanggan sengaja dibiarkan naik ke `handleError`,
+    // yang sudah memetakan duplikat unique constraint ke 409 dan pesan bisnis
+    // ke status yang sesuai.
+    const pelanggan = await getPelangganService().createPelanggan({
+      ...inputWithSite,
+      tenantId: session.user.tenantId ?? null,
+      ...savedFiles,
+    } as Parameters<
+      ReturnType<typeof getPelangganService>["createPelanggan"]
+    >[0]);
+
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/admin/pelanggan/ppp");
+    revalidatePath("/api/pelanggan-ppp");
+    ctx.validated = {
+      id: pelanggan.id,
+      idPelanggan: pelanggan.idPelanggan,
+      nama: pelanggan.nama,
+      username: pelanggan.username,
+    };
+    return apiSuccess(sanitizePelangganResponse(pelanggan), { status: 201 });
   },
 );

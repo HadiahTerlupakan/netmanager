@@ -5,12 +5,64 @@ import {
   PelangganAdminMutationError,
   PelangganAdminMutationService,
   PelangganAdminQueryService,
+  updatePelangganProfileSchema,
 } from "@/modules/pelanggan";
 import { canAccessSite } from "@/modules/roles";
 
 const pelangganAdminQueryService = new PelangganAdminQueryService();
 const pelangganAdminMutationService = new PelangganAdminMutationService();
 const BOOLEAN_TRUE_VALUES = new Set(["true", "1", "on", "yes"]);
+
+/**
+ * Field profil/biaya yang boleh diubah dari halaman edit.
+ *
+ * Diambil dari FormData hanya bila key-nya benar-benar dikirim, supaya field
+ * yang tidak disentuh form tidak ikut ditimpa nilai kosong.
+ */
+const PROFILE_FIELD_KEYS = [
+  "alamat",
+  "provinsi",
+  "kabupatenKota",
+  "kelurahanDesa",
+  "kecamatan",
+  "noTelp",
+  "latitude",
+  "longitude",
+  "jenisDokumen",
+  "noDokumen",
+  "catatan",
+  "usePPN",
+  "useDiscount",
+  "useProrate",
+  "discountType",
+  "discountValue",
+  "discountDuration",
+  "discountDurationUnit",
+  "biayaInstalasi",
+  "biayaInstalasiIsRecurring",
+  "biayaInstalasiDiskon",
+  "biayaSewaPerangkat",
+  "biayaSewaPerangkatIsRecurring",
+  "biayaSewaPerangkatDiskon",
+  "biayaLainnya",
+  "biayaLainnyaIsRecurring",
+  "biayaLainnyaDiskon",
+  "keteranganBiayaLainnya",
+] as const;
+
+/** Kumpulkan field profil yang dikirim form, lalu validasi dengan Zod. */
+const parseProfileFields = (formData: FormData) => {
+  const raw: Record<string, FormDataEntryValue> = {};
+
+  for (const key of PROFILE_FIELD_KEYS) {
+    const value = formData.get(key);
+    if (value !== null) {
+      raw[key] = value;
+    }
+  }
+
+  return updatePelangganProfileSchema.parse(raw);
+};
 const CUSTOMER_ROLE = "CUSTOMER";
 
 /** Parse boolean flag from form data with default fallback. */
@@ -130,6 +182,11 @@ export const PUT = createHandler(
           resellerOutletId: formData.get("resellerOutletId") as string | null,
           invoiceAction: formData.get("invoiceAction") as string | null,
           passwordLogin: formData.get("passwordLogin") as string | null,
+          // Sebelumnya seluruh field ini dibuang: route hanya membaca 17 key
+          // dari FormData, sehingga perubahan alamat, koordinat, dokumen, dan
+          // rincian biaya tidak pernah tersimpan meski respons melaporkan
+          // "Data pelanggan berhasil diperbarui".
+          profile: parseProfileFields(formData),
         },
       });
 

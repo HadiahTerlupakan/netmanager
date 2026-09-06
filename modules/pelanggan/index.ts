@@ -71,6 +71,7 @@ export {
 
 export {
   createPelangganSchema,
+  updatePelangganProfileSchema,
   type CreatePelangganSchema,
   supportTicketCreateSchema,
   supportTicketFilterSchema,

@@ -49,6 +49,11 @@ vi.mock("@/modules/roles", () => ({
 }));
 
 vi.mock("@/modules/pelanggan", () => ({
+  // Route PUT memvalidasi field profil/biaya dengan schema ini sebelum
+  // meneruskannya ke service; tanpa diekspor di mock, route gagal di-import.
+  updatePelangganProfileSchema: {
+    parse: (value: unknown) => value,
+  },
   PelangganAdminMutationError: class MockPelangganAdminMutationError extends Error {
     code: "BAD_REQUEST" | "FORBIDDEN" | "NOT_FOUND";
 

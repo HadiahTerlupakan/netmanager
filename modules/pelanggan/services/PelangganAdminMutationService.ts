@@ -1,3 +1,4 @@
+import type { UpdatePelangganProfileInput } from "../validators/pelanggan";
 import { Status, TipePelanggan } from "../types/pelanggan.enums";
 
 import { CustomerEventDispatcher } from "@/modules/events";
@@ -62,6 +63,12 @@ export type UpdatePppByIdInput = {
     email: string | null;
     siteId: string | null;
     odpId?: string | null;
+    /**
+     * Field profil, dokumen, dan biaya yang boleh diubah dari halaman edit.
+     * Sebelumnya seluruhnya dibuang di route sehingga perubahannya tidak
+     * pernah tersimpan meski respons melaporkan berhasil.
+     */
+    profile?: UpdatePelangganProfileInput;
     invoiceAction: string | null;
     passwordLogin: string | null;
   };
@@ -205,7 +212,8 @@ export class PelangganAdminMutationService {
         idPelanggan: nextIdPelanggan,
         nama: nextNama,
         username: nextUsername,
-        password: nextPassword,
+        // Password kosong berarti tidak diubah, bukan dikosongkan.
+        ...(nextPassword ? { password: nextPassword } : {}),
         hargaPaketId: normalizedData.hargaPaketId,
         resellerId: normalizedData.resellerId,
         resellerOutletId: normalizedData.resellerOutletId,
@@ -217,13 +225,18 @@ export class PelangganAdminMutationService {
         email: nextEmail,
         siteId: normalizedData.siteId,
         odpId: normalizedData.odpId,
+        ...normalizedData.profile,
         ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
       },
       packageChanged:
         existingPelanggan?.hargaPaketId !== normalizedData.hargaPaketId ||
         existingPelanggan?.tipe !== nextTipe,
       passwordChanged:
-        existingPelanggan?.password !== nextPassword || passwordLoginChanged,
+        // Tanpa password baru tidak ada yang berubah, jadi tidak perlu memicu
+        // resync kredensial ke RADIUS/MikroTik.
+        (Boolean(nextPassword) &&
+          existingPelanggan?.password !== nextPassword) ||
+        passwordLoginChanged,
     };
   }
 

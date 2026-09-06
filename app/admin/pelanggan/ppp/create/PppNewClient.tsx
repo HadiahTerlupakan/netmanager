@@ -256,9 +256,15 @@ export function PppClientCreateForm() {
     useApi<HargaPaket[]>(hargaPaketsUrl);
   const { data: odpsData } = useApi<{ odps: Odp[] }>(odpsUrl);
   const { data: resellersData } = useApi<readonly ResellerOption[]>(
-    "/api/admin/resellers",
+    // Batas eksplisit: default endpoint hanya 20 baris, dan klien tidak
+    // membaca `meta.total`, sehingga tenant dengan lebih banyak reseller tidak
+    // bisa memilih sisanya.
+    "/api/admin/resellers?limit=200",
   );
-  const activeResellers = [...(resellersData ?? [])];
+  // Bukan "active": endpoint mengembalikan seluruh reseller yang belum
+  // dihapus, termasuk yang berstatus INACTIVE. Namanya diluruskan agar tidak
+  // menyiratkan penyaringan yang tidak terjadi.
+  const resellerOptions = [...(resellersData ?? [])];
   const selectedResellerId = formData.resellerId || null;
   const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
     selectedResellerId
@@ -576,7 +582,7 @@ export function PppClientCreateForm() {
                   idPelangganError={idPelangganError}
                   checkingId={checkingId}
                   odps={odps}
-                  resellers={activeResellers}
+                  resellers={resellerOptions}
                   resellerOutlets={resellerOutlets}
                   showPasswordLogin={showPasswordLogin}
                   onToggleShowPasswordLogin={() =>

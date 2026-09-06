@@ -55,6 +55,17 @@ describe("ApiErrors.notFound", () => {
     );
   });
 
+  // `handleError` memangkas prefix bisnis beserta spasinya sebelum memanggil
+  // helper ini; tanpa pemangkasan itu pesan sampai ke pengguna berawal spasi.
+  it("tidak menyisakan spasi di awal pesan hasil pemangkasan prefix", async () => {
+    const body = await readBody(
+      ApiErrors.conflict("ID Pelanggan sudah digunakan sebagai pelanggan"),
+    );
+
+    expect(body.error).toBe("ID Pelanggan sudah digunakan sebagai pelanggan");
+    expect(body.error.startsWith(" ")).toBe(false);
+  });
+
   it("selalu membalas status 404 dengan kode NOT_FOUND", async () => {
     const response = ApiErrors.notFound("Rencana");
     const body = await readBody(response);

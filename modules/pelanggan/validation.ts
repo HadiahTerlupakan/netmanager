@@ -1,5 +1,11 @@
-export { createPelangganSchema } from "./validators/pelanggan";
-export type { CreatePelangganSchema } from "./validators/pelanggan";
+export {
+  createPelangganSchema,
+  updatePelangganProfileSchema,
+} from "./validators/pelanggan";
+export type {
+  CreatePelangganSchema,
+  UpdatePelangganProfileInput,
+} from "./validators/pelanggan";
 export {
   supportTicketCreateSchema,
   supportTicketFilterSchema,

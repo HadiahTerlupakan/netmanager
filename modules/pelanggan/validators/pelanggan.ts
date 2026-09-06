@@ -23,6 +23,20 @@ const numberString = z
     return isNaN(num) ? null : num;
   });
 
+/**
+ * Nilai rupiah untuk kolom bertipe `Int` di Prisma.
+ *
+ * `numberString` meneruskan pecahan apa adanya, sementara `biayaInstalasi`,
+ * `biayaSewaPerangkat`, `biayaLainnya`, dan `discountDuration` adalah `Int?`.
+ * Masukan seperti 150000,5 lolos validasi lalu ditolak Prisma sebagai
+ * `PrismaClientValidationError` — error yang selama ini tersamar jadi "Gagal
+ * memproses upload file". Dibulatkan di sini karena rupiah tidak punya pecahan
+ * yang bermakna pada kolom ini.
+ */
+const integerNumberString = numberString.transform((val) =>
+  val === null ? null : Math.round(val),
+);
+
 export const createPelangganSchema = z.object({
   idPelanggan: z
     .string()
@@ -77,19 +91,19 @@ export const createPelangganSchema = z.object({
   // Discounts
   discountType: z.enum(DiscountType).optional().nullable(),
   discountValue: numberString.optional().nullable(),
-  discountDuration: numberString.optional().nullable(),
+  discountDuration: integerNumberString.optional().nullable(),
   discountDurationUnit: z.enum(DurasiUnit).optional().nullable(),
 
   // One time fees
-  biayaInstalasi: numberString.optional().nullable(),
+  biayaInstalasi: integerNumberString.optional().nullable(),
   biayaInstalasiIsRecurring: booleanString.default(false),
   biayaInstalasiDiskon: numberString.optional().nullable(),
 
-  biayaSewaPerangkat: numberString.optional().nullable(),
+  biayaSewaPerangkat: integerNumberString.optional().nullable(),
   biayaSewaPerangkatIsRecurring: booleanString.default(true),
   biayaSewaPerangkatDiskon: numberString.optional().nullable(),
 
-  biayaLainnya: numberString.optional().nullable(),
+  biayaLainnya: integerNumberString.optional().nullable(),
   biayaLainnyaIsRecurring: booleanString.default(false),
   biayaLainnyaDiskon: numberString.optional().nullable(),
   keteranganBiayaLainnya: z.string().optional().nullable(),
@@ -107,3 +121,51 @@ export const createPelangganSchema = z.object({
 });
 
 export type CreatePelangganSchema = z.infer<typeof createPelangganSchema>;
+
+/**
+ * Field profil, dokumen, dan biaya yang boleh diubah lewat halaman edit.
+ *
+ * Sebelumnya PUT `/api/pelanggan-ppp/{id}` membaca FormData secara manual dan
+ * hanya mengenal 17 key. Semua field di bawah ini dikirim form edit tetapi
+ * dibuang diam-diam di server: admin mengubah alamat, koordinat, atau rincian
+ * biaya, menerima "Data pelanggan berhasil diperbarui", lalu menemukan datanya
+ * tidak berubah.
+ *
+ * Semuanya opsional: yang tidak dikirim berarti tidak diubah.
+ */
+export const updatePelangganProfileSchema = z.object({
+  alamat: z.string().optional().nullable(),
+  provinsi: z.string().optional().nullable(),
+  kabupatenKota: z.string().optional().nullable(),
+  kelurahanDesa: z.string().optional().nullable(),
+  kecamatan: z.string().optional().nullable(),
+  noTelp: z.string().optional().nullable(),
+  latitude: numberString.optional().nullable(),
+  longitude: numberString.optional().nullable(),
+  jenisDokumen: z.string().optional().nullable(),
+  noDokumen: z.string().optional().nullable(),
+  catatan: z.string().optional().nullable(),
+
+  usePPN: booleanString.optional(),
+  useDiscount: booleanString.optional(),
+  useProrate: booleanString.optional(),
+  discountType: z.enum(DiscountType).optional().nullable(),
+  discountValue: numberString.optional().nullable(),
+  discountDuration: integerNumberString.optional().nullable(),
+  discountDurationUnit: z.enum(DurasiUnit).optional().nullable(),
+
+  biayaInstalasi: integerNumberString.optional().nullable(),
+  biayaInstalasiIsRecurring: booleanString.optional(),
+  biayaInstalasiDiskon: numberString.optional().nullable(),
+  biayaSewaPerangkat: integerNumberString.optional().nullable(),
+  biayaSewaPerangkatIsRecurring: booleanString.optional(),
+  biayaSewaPerangkatDiskon: numberString.optional().nullable(),
+  biayaLainnya: integerNumberString.optional().nullable(),
+  biayaLainnyaIsRecurring: booleanString.optional(),
+  biayaLainnyaDiskon: numberString.optional().nullable(),
+  keteranganBiayaLainnya: z.string().optional().nullable(),
+});
+
+export type UpdatePelangganProfileInput = z.infer<
+  typeof updatePelangganProfileSchema
+>;

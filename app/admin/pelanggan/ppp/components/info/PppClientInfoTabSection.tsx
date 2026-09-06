@@ -64,6 +64,16 @@ type PppClientInfoTabSectionProps = {
   resellers: ResellerOption[];
   resellerOutlets: ResellerOutletOption[];
   showPasswordLogin: boolean;
+  /**
+   * Mode edit memperlakukan kedua field password sebagai opsional.
+   *
+   * Server tidak pernah mengirim balik password: `password` selalu di-strip
+   * dari response, dan `passwordLogin` tidak punya kolom di database. Jadi
+   * di halaman edit kedua field ini selalu tampil kosong. Selama keduanya
+   * ditandai wajib, form itu pasti ditolak — dan admin yang mengisinya asal
+   * agar bisa menyimpan justru menimpa password PPPoE asli.
+   */
+  isEditMode?: boolean;
   onToggleShowPasswordLogin: () => void;
   onOpenMapPicker: () => void;
   roundedClassName: string;
@@ -72,6 +82,7 @@ type PppClientInfoTabSectionProps = {
 export function PppClientInfoTabSection({
   formData,
   handleChange,
+  isEditMode = false,
   updateFormData,
   idPelangganError,
   checkingId,
@@ -509,21 +520,27 @@ export function PppClientInfoTabSection({
             htmlFor="password"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Password PPPoE <span className="text-red-500">*</span>
+            Password PPPoE{" "}
+            {!isEditMode && <span className="text-red-500">*</span>}
           </label>
           <input
             id="password"
             name="password"
             type="text"
-            required
+            required={!isEditMode}
             value={formData.password}
             onChange={handleChange}
             className={`w-full ${roundedClassName} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors`}
-            placeholder="Password untuk koneksi PPPoE"
+            placeholder={
+              isEditMode
+                ? "Biarkan kosong bila tidak ingin mengubah"
+                : "Password untuk koneksi PPPoE"
+            }
           />
           <p className="text-xs text-gray-500 dark:text-gray-500">
-            Default: 123456, bisa diubah manual jika diperlukan. Password ini
-            digunakan untuk koneksi PPPoE.
+            {isEditMode
+              ? "Biarkan kosong bila password PPPoE tidak diubah. Mengisi field ini akan menimpa password lama dan menyinkronkannya ke RADIUS/MikroTik."
+              : "Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE."}
           </p>
         </div>
 
@@ -532,18 +549,23 @@ export function PppClientInfoTabSection({
             htmlFor="passwordLogin"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Password Login Portal <span className="text-red-500">*</span>
+            Password Login Portal{" "}
+            {!isEditMode && <span className="text-red-500">*</span>}
           </label>
           <div className="relative">
             <input
               id="passwordLogin"
               name="passwordLogin"
               type={showPasswordLogin ? "text" : "password"}
-              required
+              required={!isEditMode}
               value={formData.passwordLogin}
               onChange={handleChange}
               className={`w-full ${roundedClassName} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors`}
-              placeholder="Password untuk login portal pelanggan"
+              placeholder={
+                isEditMode
+                  ? "Biarkan kosong bila tidak ingin mengubah"
+                  : "Password untuk login portal pelanggan"
+              }
             />
             <button
               type="button"

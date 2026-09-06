@@ -402,14 +402,14 @@ function handleError(
 
   if (typeof message === "string") {
     // Business logic errors (Standard prefixes)
-    if (message.startsWith("NOT_FOUND:")) {
-      return ApiErrors.notFound(message.replace("NOT_FOUND:", ""));
-    }
-    if (message.startsWith("CONFLICT:")) {
-      return ApiErrors.conflict(message.replace("CONFLICT:", ""));
-    }
-    if (message.startsWith("FORBIDDEN:")) {
-      return ApiErrors.forbidden(message.replace("FORBIDDEN:", ""));
+    // Spasi setelah prefix ikut dipangkas; tanpa itu pesan yang sampai ke
+    // pengguna berawal spasi ("​ ID Pelanggan sudah digunakan...").
+    const businessPrefix = /^(NOT_FOUND|CONFLICT|FORBIDDEN):\s*/.exec(message);
+    if (businessPrefix) {
+      const detail = message.slice(businessPrefix[0].length);
+      if (businessPrefix[1] === "NOT_FOUND") return ApiErrors.notFound(detail);
+      if (businessPrefix[1] === "CONFLICT") return ApiErrors.conflict(detail);
+      return ApiErrors.forbidden(detail);
     }
 
     // Common raw business error messages
