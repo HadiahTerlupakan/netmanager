@@ -1,6 +1,5 @@
 import { getR2Settings } from "@/lib/utils/r2-client";
 import type {
-  MobileTopologyEdgeEntity,
   MobileTopologyEntity,
   MobileTopologyNodeEntity,
 } from "../domain/entities/MobileTopologyEntity";
@@ -24,14 +23,17 @@ export class MobileTopologyService {
     const parentMap = this.buildParentMap(topology);
     const nodes = this.buildNodesWithDetails(topology, parentMap, r2Settings);
     const nodeDetails = this.buildNodeDetails(nodes, parentMap);
-    const edgeMap = this.buildEdgeMap(topology);
 
     return {
       otbs: this.enrichBasicNodes(topology.otbs, nodeDetails),
-      odcs: this.enrichOdcs(topology.odcs, nodeDetails, edgeMap),
-      odps: this.enrichOdps(topology.odps, nodeDetails, edgeMap),
-      joinboxes: this.enrichBasicNodes(topology.joinboxes, nodeDetails),
-      poles: this.enrichBasicNodes(topology.poles, nodeDetails),
+      // Selalu kosong: tabel sumbernya tidak pernah ditulis oleh apa pun di
+      // aplikasi ini. Topologi yang sebenarnya dikirim lewat `nodes` dan
+      // `edges` di bawah. Kunci dipertahankan agar bentuk respons tidak
+      // berubah bagi aplikasi mobile.
+      odcs: topology.odcs,
+      odps: topology.odps,
+      joinboxes: topology.joinboxes,
+      poles: topology.poles,
       pelanggans: topology.pelanggans,
       kmzFiles: topology.kmzFiles.map((file) =>
         this.resolveKmzUrl(file, r2Settings),
@@ -112,31 +114,6 @@ export class MobileTopologyService {
     return detailsMap;
   }
 
-  private buildEdgeMap(topology: MobileTopologyEntity) {
-    const edgeMap = new Map<string, unknown[]>();
-
-    for (const edge of topology.mappingEdges) {
-      const waypoints = this.parseWaypoints(edge.waypoints);
-      edgeMap.set(`${edge.source}_${edge.target}`, waypoints);
-      this.addNamedEdge(topology.mappingNodes, edge, waypoints, edgeMap);
-    }
-
-    return edgeMap;
-  }
-
-  private addNamedEdge(
-    nodes: MobileTopologyNodeEntity[],
-    edge: MobileTopologyEdgeEntity,
-    waypoints: unknown[],
-    edgeMap: Map<string, unknown[]>,
-  ) {
-    const sourceNode = nodes.find((node) => node.nodeId === edge.source);
-    const targetNode = nodes.find((node) => node.nodeId === edge.target);
-    if (sourceNode?.name && targetNode?.name) {
-      edgeMap.set(`${sourceNode.name}_${targetNode.name}`, waypoints);
-    }
-  }
-
   private enrichBasicNodes(
     items: Record<string, unknown>[],
     nodeDetails: Map<string | null, NodeDetail>,
@@ -145,66 +122,6 @@ export class MobileTopologyService {
       ...item,
       ...this.getNodeDetail(item, nodeDetails),
     }));
-  }
-
-  private enrichOdcs(
-    odcs: Record<string, unknown>[],
-    nodeDetails: Map<string | null, NodeDetail>,
-    edgeMap: Map<string, unknown[]>,
-  ) {
-    return odcs.map((odc) => {
-      const details = this.getNodeDetail(odc, nodeDetails);
-      const otb = this.asRecord(this.asRecord(odc.otbCore).otb);
-      const waypoints = otb.id
-        ? edgeMap.get(`${otb.id}_${odc.id}`) ||
-          edgeMap.get(`${otb.name}_${odc.name}`) ||
-          []
-        : [];
-      const parent =
-        details.parent ||
-        (otb.id ? { id: otb.id, name: otb.name, type: "otb" } : undefined);
-
-      return {
-        ...odc,
-        ...details,
-        attenuationInput: details.attenuationInput ?? odc.attenuationIn,
-        attenuationOutput: details.attenuationOutput ?? odc.attenuationOut,
-        inputCoreColor: details.inputCoreColor ?? odc.inputCoreColor,
-        parent,
-        otbCore: odc.otbCore
-          ? { ...this.asRecord(odc.otbCore), waypoints }
-          : null,
-      };
-    });
-  }
-
-  private enrichOdps(
-    odps: Record<string, unknown>[],
-    nodeDetails: Map<string | null, NodeDetail>,
-    edgeMap: Map<string, unknown[]>,
-  ) {
-    return odps.map((odp) => {
-      const details = this.getNodeDetail(odp, nodeDetails);
-      const odc = this.asRecord(this.asRecord(odp.odcOutput).odc);
-      const waypoints = odc.id ? edgeMap.get(`${odc.id}_${odp.id}`) || [] : [];
-      const parent =
-        details.parent ||
-        (odc.id ? { id: odc.id, name: odc.name, type: "odc" } : undefined);
-
-      return {
-        ...odp,
-        ...details,
-        siteName: this.asRecord(odp.site).name,
-        odpOutputCount: this.asRecord(odp._count).odpOutput,
-        attenuationInput: details.attenuationInput ?? odp.attenuationIn,
-        attenuationOutput: details.attenuationOutput ?? odp.attenuationOut,
-        inputCoreColor: details.inputCoreColor ?? odp.inputCoreColor,
-        parent,
-        odcOutput: odp.odcOutput
-          ? { ...this.asRecord(odp.odcOutput), waypoints }
-          : null,
-      };
-    });
   }
 
   private getNodeDetail(

@@ -2,46 +2,41 @@ import { prisma } from "@/modules/database";
 import type { IMobileTopologyRepository } from "../domain/ports/IMobileTopologyRepository";
 import {
   KMZ_FILE_SELECT,
-  ODC_SELECT,
-  ODP_SELECT,
   PELANGGAN_SELECT,
-  POLE_SELECT,
   TOPOLOGY_BASE_SELECT,
 } from "./mobileTopology.selects";
 
 export class MobileTopologyRepository implements IMobileTopologyRepository {
   /** Get raw topology records for mobile topology view. */
   async getTopologyData(tenantId: string) {
-    const [
-      otbs,
-      odcs,
-      odps,
-      joinboxes,
-      poles,
-      pelanggans,
-      kmzFiles,
-      mappingNodes,
-      mappingEdges,
-      edgeCounts,
-    ] = await Promise.all([
-      this.findOtbs(tenantId),
-      this.findOdcs(tenantId),
-      this.findOdps(tenantId),
-      this.findJoinboxes(tenantId),
-      this.findPoles(tenantId),
-      this.findPelanggans(tenantId),
-      this.findKmzFiles(tenantId),
-      prisma.mappingNode.findMany(),
-      prisma.mappingEdge.findMany(),
-      prisma.mappingEdge.groupBy({ by: ["source"], _count: { source: true } }),
-    ]);
+    const [otbs, pelanggans, kmzFiles, mappingNodes, mappingEdges, edgeCounts] =
+      await Promise.all([
+        this.findOtbs(tenantId),
+        this.findPelanggans(tenantId),
+        this.findKmzFiles(tenantId),
+        prisma.mappingNode.findMany(),
+        prisma.mappingEdge.findMany(),
+        prisma.mappingEdge.groupBy({
+          by: ["source"],
+          _count: { source: true },
+        }),
+      ]);
 
     return {
       otbs,
-      odcs,
-      odps,
-      joinboxes,
-      poles,
+      // Tabel `Odc`, `Odp`, `Joinbox`, dan `Pole` tidak pernah ditulis oleh apa
+      // pun di aplikasi ini — tidak ada endpoint, UI, seed, maupun migration
+      // yang mengisinya, dan repository-nya nol pemanggil. Empat query ke tabel
+      // itu selalu mengembalikan nol baris di setiap permintaan.
+      //
+      // Data topologi yang sebenarnya sudah dikirim lewat `mappingNodes` dan
+      // `mappingEdges` di bawah: di produksi 457 node (426 ODP, 31 ODC) sampai
+      // ke aplikasi mobile melalui jalur itu. Kunci-kunci ini dipertahankan
+      // agar bentuk respons tidak berubah bagi aplikasi mobile.
+      odcs: [] as Record<string, unknown>[],
+      odps: [] as Record<string, unknown>[],
+      joinboxes: [] as Record<string, unknown>[],
+      poles: [] as Record<string, unknown>[],
       pelanggans,
       kmzFiles,
       mappingNodes,
@@ -55,38 +50,6 @@ export class MobileTopologyRepository implements IMobileTopologyRepository {
     return prisma.otb.findMany({
       where: this.withCoordinates(tenantId),
       select: TOPOLOGY_BASE_SELECT,
-    });
-  }
-
-  /** Ambil data ODC yang memiliki koordinat. */
-  private findOdcs(tenantId: string) {
-    return prisma.odc.findMany({
-      where: this.withCoordinates(tenantId),
-      select: ODC_SELECT,
-    });
-  }
-
-  /** Ambil data ODP yang memiliki koordinat. */
-  private findOdps(tenantId: string) {
-    return prisma.odp.findMany({
-      where: this.withCoordinates(tenantId),
-      select: ODP_SELECT,
-    });
-  }
-
-  /** Ambil data joinbox yang memiliki koordinat. */
-  private findJoinboxes(tenantId: string) {
-    return prisma.joinbox.findMany({
-      where: this.withCoordinates(tenantId),
-      select: TOPOLOGY_BASE_SELECT,
-    });
-  }
-
-  /** Ambil data tiang yang memiliki koordinat. */
-  private findPoles(tenantId: string) {
-    return prisma.pole.findMany({
-      where: this.withCoordinates(tenantId),
-      select: POLE_SELECT,
     });
   }
 

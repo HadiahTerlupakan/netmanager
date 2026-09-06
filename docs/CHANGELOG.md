@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Empat query mati per permintaan topologi mobile
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/network`
+- **Author**: agent
+- **Deskripsi**: Endpoint `/api/mobile/topology` menjalankan query ke tabel
+  `Odc`, `Odp`, `Joinbox`, dan `Pole` di setiap permintaan. Keempat tabel itu
+  tidak pernah ditulis oleh apa pun di aplikasi ini — tidak ada endpoint, UI,
+  seed, maupun migration yang mengisinya, dan repository-nya nol pemanggil —
+  sehingga hasilnya selalu nol baris.
+  Perlu ditegaskan: fitur topologinya sendiri **tidak rusak**. Data yang
+  sebenarnya sampai ke aplikasi mobile lewat `nodes` dan `edges` yang bersumber
+  dari `mapping_nodes`; diverifikasi di produksi, endpoint ini mengirim 457 node
+  (426 ODP, 31 ODC) sementara keempat array lama berisi nol.
+  Query dan kode pengayaan yang menyertainya (`enrichOdcs`, `enrichOdps`,
+  `buildEdgeMap`, `addNamedEdge`, tiga konstanta select) dihapus. Kunci
+  `odcs`/`odps`/`joinboxes`/`poles` sengaja DIPERTAHANKAN sebagai array kosong
+  agar bentuk respons tidak berubah bagi aplikasi mobile yang sudah beredar —
+  menghapus kuncinya akan membuat pemanggil `response.odps.map(...)` gagal.
+  `otbs` tetap di-query karena masih memuat satu baris legacy yang nyata.
+- **Files**: `modules/network/repositories/MobileTopologyRepository.ts`,
+  `modules/network/repositories/mobileTopology.selects.ts`,
+  `modules/network/services/MobileTopologyService.ts`
+- **Tests**: `tests/modules/network/mobile-topology-legacy-arrays.test.ts`
+- **Breaking**: ❌ Tidak — bentuk respons tidak berubah
+
+
 ### [2026-09-06] — Saran area di registrasi publik selalu kosong
 
 - **Tipe**: [CHANGED]
