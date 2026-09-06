@@ -45,8 +45,6 @@ type HargaPaket = {
 type Odp = {
   id: string;
   name: string;
-  location: string | null;
-  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
 };
 
 type ResellerOption = {
@@ -622,6 +620,7 @@ export function PppClientCreateForm() {
                   activeTab={activeTab}
                   formData={formData}
                   hargaPaketsLength={hargaPakets.length}
+                  isLoadingHargaPakets={loadingHarga}
                   totalInfo={totalInfo}
                   formatRupiah={formatRupiah}
                   roundedClassName="rounded-xl"

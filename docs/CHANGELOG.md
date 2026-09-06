@@ -41,6 +41,81 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — ODP tidak muncul saat site dipilih, dan tidak tersimpan saat diedit
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`, `modules/pelanggan`, `app/api/pelanggan-ppp`
+- **Author**: agent
+- **Deskripsi**: Dua celah yang membuat perbaikan dropdown ODP belum utuh.
+  (1) `/api/odps?siteId=X` mencocokkan site secara ketat, padahal dua jalur
+  pembuatan node peta — sinkronisasi (`createManyMappingNodes`) dan import CSV
+  — tidak pernah mengisi `siteId`; di produksi seluruh 426 ODP ber-`siteId`
+  null. Karena form pelanggan wajib memilih site, dropdown tetap kosong.
+  Kini menyertakan node tanpa site, sama seperti `HargaPaketRepository` yang
+  memakai `OR: [{ siteId }, { siteId: null }]`.
+  (2) PUT `/api/pelanggan-ppp/{id}` tidak pernah membaca `odpId` dari FormData
+  dan kontrak update service pun tidak memuatnya, sehingga ODP yang dipilih di
+  halaman edit tidak tersimpan meski respons melaporkan berhasil.
+- **Files**: `modules/map/utils/tenantContext.ts`,
+  `modules/map/services/MappingService.ts`,
+  `app/api/pelanggan-ppp/[id]/route-handlers-impl.ts`,
+  `modules/pelanggan/services/PelangganAdminMutationService.ts`,
+  `modules/pelanggan/services/pelanggan-admin-mutation.helpers.ts`
+- **Tests**: `tests/modules/pelanggan/normalize-update-payload-odp.test.ts`,
+  `tests/modules/map/MappingService.odp-options.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — "Memuat data paket..." tidak pernah berhenti saat paket kosong
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pelanggan/ppp`
+- **Author**: agent
+- **Deskripsi**: Panel Informasi Tagihan memakai `hargaPaketsLength === 0`
+  sebagai penanda loading, padahal komponennya tidak menerima flag loading sama
+  sekali. Tenant yang memang belum punya paket internet melihat "Memuat data
+  paket..." selamanya — menunggu sesuatu yang tidak akan datang, alih-alih
+  diberi tahu harus membuat paket dulu. Kini tiga keadaan dibedakan: memuat,
+  belum ada paket (dengan arahan ke menu Paket Internet), dan sudah ada tapi
+  belum dipilih.
+- **Files**: `app/admin/pelanggan/ppp/components/sidebars/PppClientBillingSummarySidebar.tsx`,
+  `app/admin/pelanggan/ppp/create/PppNewClient.tsx`,
+  `app/admin/pelanggan/ppp/[id]/edit/PppEditClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-06] — Dropdown ODP di form pelanggan selalu kosong
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`, `modules/network`, `modules/pelanggan`, `app/api/odps`
+- **Author**: agent
+- **Deskripsi**: Ada dua penyimpanan ODP yang tidak terhubung. ODP yang benar-
+  benar dipakai dibuat lewat halaman Topology Map dan import CSV, dan keduanya
+  menulis ke `mapping_nodes` (type = "odp"). Sementara itu form pelanggan
+  membaca tabel `Odp` lewat `/api/odps` — dan tabel itu **tidak pernah ditulis
+  oleh apa pun** di aplikasi ini: tidak oleh kode (`OdpRepository.create/
+  update/delete` nol pemanggil), tidak oleh seed (seed pun membuat ODP sebagai
+  `mappingNode`), tidak oleh migration. Akibatnya pelanggan tidak pernah bisa
+  dikaitkan ke ODP mana pun. Di produksi: 426 ODP di `mapping_nodes`, 0 baris
+  di `Odp`.
+  `/api/odps` kini membaca node peta bertipe "odp" lewat
+  `MappingService.getOdpOptions`, dengan penyaringan tipe didorong ke SQL.
+  Relasi `Pelanggan.odp` dipindah ke `MappingNode` supaya ODP yang dipilih bisa
+  benar-benar tersimpan — sebelumnya foreign key ke `Odp` membuat penyimpanan
+  pasti gagal.
+  Tabel `Odp` dan `OdpOutput` sengaja **tidak** dihapus di sini; penghapusan
+  tabel adalah perubahan destruktif yang dilakukan sebagai langkah terpisah.
+- **Files**: `app/api/odps/route.ts`,
+  `modules/map/services/MappingService.ts`, `modules/map/dto/MapDTO.ts`,
+  `modules/map/utils/tenantContext.ts`,
+  `modules/network/repositories/mobileTopology.selects.ts`,
+  `modules/pelanggan/domain/entities/PelangganEntity.ts`,
+  `app/admin/pelanggan/ppp/**`
+- **Migration**: `20260906100000_move_pelanggan_odp_to_mapping_node`
+- **Tests**: `tests/modules/map/MappingService.odp-options.test.ts`
+- **Breaking**: ⚠️ `Pelanggan.odp` kini mengacu ke `mapping_nodes`. Field
+  `location` dan `status` dihapus dari opsi ODP — keduanya tidak ada di node
+  peta dan memang tidak pernah dikirim endpoint mana pun.
+
+
 ### [2026-09-06] — Menghapus rencana memunculkan "Gagal memuat detail planning"
 
 - **Tipe**: [FIXED]

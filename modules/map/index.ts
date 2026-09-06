@@ -1,6 +1,7 @@
 // Public API for Map Module
 
 export { MappingService } from "./services/MappingService";
+export type { OdpOptionDTO } from "./dto/MapDTO";
 export { MappingAdminService } from "./services/MappingAdminService";
 export { MapCsvImportService } from "./services/MapCsvImportService";
 export type {

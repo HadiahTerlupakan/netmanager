@@ -6,6 +6,7 @@ import type {
   MapNodeListItemDTO,
   MapSettingsDTO,
   MapStatisticsDTO,
+  OdpOptionDTO,
   UpdateMapEdgeDTO,
   UpdateMapNodeDTO,
   UpdateMapSettingsDTO,
@@ -18,6 +19,9 @@ import { canAddOutgoingEdge } from "../validators/mapCapacityValidator";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import type { MapListFilters } from "../types/MappingRepositoryTypes";
 import { prisma } from "@/lib/prisma";
+
+/** Tipe node peta yang merepresentasikan ODP. */
+const ODP_NODE_TYPE = "odp";
 
 export class MappingService {
   constructor(private readonly repository: IMappingRepository) {}
@@ -40,6 +44,37 @@ export class MappingService {
   ): Promise<MapNodeListItemDTO[]> {
     const nodes = await this.repository.findAllNodes(ctx, filters);
     return MapMapper.toNodeDTOList(nodes);
+  }
+
+  /**
+   * Daftar ODP untuk dropdown pemilihan ODP pada form pelanggan.
+   *
+   * ODP dibuat lewat halaman Topology Map dan import CSV, dan keduanya menulis
+   * ke `mapping_nodes`. Sebelumnya form pelanggan membaca tabel `Odp` yang
+   * tidak pernah ditulis oleh apa pun di aplikasi ini, sehingga dropdown-nya
+   * selalu kosong betapapun banyak ODP yang sudah digambar di peta.
+   */
+  async getOdpOptions(
+    ctx: TenantContext,
+    filters?: MapListFilters,
+  ): Promise<OdpOptionDTO[]> {
+    const nodes = await this.repository.findAllNodes(ctx, {
+      ...filters,
+      type: ODP_NODE_TYPE,
+      // ODP hasil sinkronisasi peta dan import CSV tidak pernah punya `siteId`,
+      // sedangkan form pelanggan wajib memilih site. Tanpa toleransi ini
+      // dropdown tetap kosong justru untuk data yang paling banyak dipakai.
+      includeUnassignedSite: true,
+    });
+
+    return nodes
+      .map((node) => ({
+        id: node.nodeId,
+        // Node peta boleh tanpa nama; `nodeId` selalu ada dan sudah memuat
+        // kode ODP, jadi dipakai sebagai cadangan agar opsi tetap terbaca.
+        name: node.name ?? node.nodeId,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async getNodeById(ctx: TenantContext, nodeId: string) {

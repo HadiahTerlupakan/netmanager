@@ -53,7 +53,10 @@ export function findAdminMutationContext(id: string, tenantId?: string | null) {
 function buildAdminPppDetailInclude() {
   return {
     hargaPaket: { include: buildHargaPaketInclude() },
-    odp: { select: { name: true, location: true } },
+    // ODP kini berasal dari `mapping_nodes`, yang tidak punya kolom `location`.
+    // `notes` di node peta berisi catatan import (mis. "Area: ... | Owner: ..."),
+    // bukan alamat, jadi sengaja tidak dipetakan sebagai lokasi.
+    odp: { select: { name: true } },
     pendingPackage: { select: { id: true, name: true } },
   };
 }

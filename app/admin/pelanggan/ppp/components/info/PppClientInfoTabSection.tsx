@@ -22,11 +22,15 @@ export type PppClientInfoTabFormData = {
   catatan: string;
 };
 
+/**
+ * ODP berasal dari node peta (`mapping_nodes` type = "odp"), yang hanya punya
+ * id dan nama. Field `location` dan `status` sebelumnya ada di tipe ini tetapi
+ * tidak pernah dikirim endpoint mana pun, sehingga label opsi merender
+ * "(undefined)" begitu daftarnya terisi.
+ */
 type OdpOption = {
   id: string;
   name: string;
-  location: string | null;
-  status: string;
 };
 
 type ResellerOption = {
@@ -325,8 +329,7 @@ export function PppClientInfoTabSection({
               <option value="">-- Pilih ODP --</option>
               {odps.map((odp) => (
                 <option key={odp.id} value={odp.id}>
-                  {odp.name} {odp.location ? `- ${odp.location}` : ""} (
-                  {odp.status})
+                  {odp.name}
                 </option>
               ))}
             </select>

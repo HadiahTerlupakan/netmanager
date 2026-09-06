@@ -46,8 +46,6 @@ type HargaPaket = {
 type Odp = {
   id: string;
   name: string;
-  location: string | null;
-  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE" | "ISOLIR" | "DISMANTLE";
 };
 
 type ResellerOption = {
@@ -314,9 +312,9 @@ export function PppClientEditForm() {
     }
   }, [id, setFormData, setJatuhTempoManuallyEdited, showToast]);
 
-  const { data: hargaPaketsData } = useApi<HargaPaket[]>(
-    "/api/hargapakets?status=AKTIF",
-  );
+  const { data: hargaPaketsData, isLoading: loadingHargaPakets } = useApi<
+    HargaPaket[]
+  >("/api/hargapakets?status=AKTIF");
   const { data: odpsData } = useApi<{ odps: Odp[] }>("/api/odps");
   const { data: resellersData } = useApi<readonly ResellerOption[]>(
     "/api/admin/resellers",
@@ -742,6 +740,7 @@ export function PppClientEditForm() {
                   activeTab={activeTab}
                   formData={formData}
                   hargaPaketsLength={hargaPakets.length}
+                  isLoadingHargaPakets={loadingHargaPakets}
                   totalInfo={totalInfo}
                   formatRupiah={formatRupiah}
                   roundedClassName="rounded-lg"

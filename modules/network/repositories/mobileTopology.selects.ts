@@ -66,8 +66,12 @@ export const PELANGGAN_SELECT = {
   alamat: true,
   status: true,
   odpId: true,
+  // Relasi ini kini mengarah ke `mapping_nodes`, yang kunci primernya `nodeId`
+  // (bukan `id`). Prisma menolak field tak dikenal pada select saat runtime,
+  // sementara TypeScript tidak memvalidasi select bersarang — jadi ketidak-
+  // cocokan di sini tidak akan tertangkap compiler.
   odp: {
-    select: { id: true, name: true, latitude: true, longitude: true },
+    select: { nodeId: true, name: true, latitude: true, longitude: true },
   },
 } as const;
 

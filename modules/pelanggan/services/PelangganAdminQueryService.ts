@@ -43,8 +43,10 @@ export class PelangganAdminQueryService {
       username: pelanggan.username,
       tenantId: pelanggan.tenantId,
       packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
-      odpName: pelanggan.odp?.name,
-      odpLocation: pelanggan.odp?.location,
+      odpName: pelanggan.odp?.name ?? undefined,
+      // Node peta tidak menyimpan lokasi terpisah; `CustomerUsageService`
+      // sudah menangani nilai kosong dengan menampilkan nama ODP saja.
+      odpLocation: undefined,
     });
 
     return { pelanggan: sanitizePelangganResponse(pelanggan), technicalInfo };

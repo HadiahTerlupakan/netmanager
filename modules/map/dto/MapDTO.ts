@@ -1,4 +1,13 @@
 /**
+ * Opsi ODP untuk dropdown pemilihan ODP pelanggan.
+ * Sengaja ringkas: hanya yang dibutuhkan untuk memilih, bukan detail node.
+ */
+export interface OdpOptionDTO {
+  id: string;
+  name: string;
+}
+
+/**
  * Map DTOs (Data Transfer Objects)
  */
 

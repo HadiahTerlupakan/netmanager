@@ -1,14 +1,26 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { OdpRouteService } from "@/modules/network";
+import { buildTenantContext, getMappingService } from "@/modules/map";
 
 export const dynamic = "force-dynamic";
 
-const odpRouteService = new OdpRouteService();
+const mappingService = getMappingService();
 
-/** Ambil daftar ODP untuk kebutuhan dropdown atau listing ringan. */
-export const GET = createHandler({ auth: true }, async (req) => {
+/**
+ * Ambil daftar ODP untuk kebutuhan dropdown pemilihan ODP pelanggan.
+ *
+ * Sumbernya `mapping_nodes` (type = "odp") — tempat ODP benar-benar dibuat,
+ * lewat halaman Topology Map dan import CSV. Sebelumnya endpoint ini membaca
+ * tabel `Odp`, yang tidak pernah ditulis oleh apa pun di aplikasi ini,
+ * sehingga dropdown ODP di form pelanggan selalu kosong.
+ */
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId") || undefined;
-  const result = await odpRouteService.getOdps(siteId);
-  return apiSuccess(result);
+
+  const odps = await mappingService.getOdpOptions(
+    buildTenantContext(ctx.session?.user),
+    { siteId },
+  );
+
+  return apiSuccess({ odps });
 });

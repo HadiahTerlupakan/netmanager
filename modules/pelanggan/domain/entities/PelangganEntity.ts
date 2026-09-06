@@ -44,9 +44,16 @@ export interface PelangganPackageEntity {
   bandwidth?: PelangganBandwidthEntity | null;
 }
 
+/**
+ * ODP yang dikaitkan ke pelanggan.
+ *
+ * Berasal dari node peta (`mapping_nodes` type = "odp"), yang boleh tidak
+ * bernama — karena itu `name` nullable. Node peta tidak menyimpan lokasi
+ * sebagai kolom tersendiri, jadi field `location` sebelumnya dihapus daripada
+ * diisi nilai yang bukan lokasi.
+ */
 export interface PelangganOdpEntity {
-  name: string;
-  location: string | null;
+  name: string | null;
 }
 
 export interface PelangganEntity {

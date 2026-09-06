@@ -24,8 +24,6 @@ type HargaPaket = {
 type Odp = {
   id: string;
   name: string;
-  location: string | null;
-  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE" | "ISOLIR" | "DISMANTLE";
 };
 
 type UsePppSupportingDataOptions = {

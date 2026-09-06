@@ -22,6 +22,7 @@ export type NormalizedUpdatePayload = {
   autoIsolir: boolean;
   email: string | null;
   siteId: string | null;
+  odpId: string | null;
   invoiceAction: string | null;
   passwordLogin: string | null;
 };
@@ -133,6 +134,9 @@ export const normalizeUpdatePayload = (
     autoIsolir: data.autoIsolir,
     email: data.email,
     siteId: data.siteId === "" ? null : data.siteId,
+    // String kosong berarti "tanpa ODP", bukan id kosong yang akan melanggar
+    // foreign key ke `mapping_nodes`.
+    odpId: data.odpId?.trim() || null,
     invoiceAction: data.invoiceAction,
     passwordLogin: data.passwordLogin,
   };

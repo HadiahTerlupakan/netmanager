@@ -1,5 +1,17 @@
 export interface MapListFilters {
   siteId?: string;
+  /** Batasi ke satu tipe node (mis. "odp") — disaring di SQL, bukan di memori. */
+  type?: string;
+  /**
+   * Sertakan juga node yang belum punya site saat memfilter `siteId`.
+   *
+   * Dibutuhkan karena dua jalur pembuatan node peta tidak pernah mengisi
+   * `siteId`: sinkronisasi peta (`createManyMappingNodes`) dan import CSV.
+   * Di produksi seluruh 426 ODP ber-`siteId` null. Tanpa opsi ini, form
+   * pelanggan yang wajib memilih site akan selalu mendapat dropdown ODP
+   * kosong. `HargaPaketRepository` sudah memakai pendekatan toleran yang sama.
+   */
+  includeUnassignedSite?: boolean;
 }
 
 export interface CreateMapNodeInput {

@@ -61,6 +61,7 @@ export type UpdatePppByIdInput = {
     autoIsolir: boolean;
     email: string | null;
     siteId: string | null;
+    odpId?: string | null;
     invoiceAction: string | null;
     passwordLogin: string | null;
   };
@@ -215,6 +216,7 @@ export class PelangganAdminMutationService {
         autoIsolir: normalizedData.autoIsolir,
         email: nextEmail,
         siteId: normalizedData.siteId,
+        odpId: normalizedData.odpId,
         ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
       },
       packageChanged:

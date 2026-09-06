@@ -783,7 +783,6 @@ model Odp {
   site                        Sites?      @relation(fields: [siteId], references: [id])
   tenant                      Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   odpOutput                   OdpOutput[]
-  pelanggan                   Pelanggan[]
 
   @@index([siteId])
   @@index([tenantId])
@@ -970,7 +969,7 @@ model Pelanggan {
   onuDevices                    OnuDevice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   pendingPackage                HargaPaket?         @relation("PelangganPendingPackage", fields: [pendingPackageId], references: [id])
-  odp                           Odp?                @relation(fields: [odpId], references: [id])
+  odp                           MappingNode?        @relation(fields: [odpId], references: [nodeId])
   site                          Sites?              @relation(fields: [siteId], references: [id])
   tenant                        Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   reseller                      Reseller?           @relation(fields: [resellerId], references: [id])
@@ -3412,6 +3411,7 @@ model MappingNode {
   incomingEdges  MappingEdge[] @relation("TargetNode")
   tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   site           Sites?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  pelanggan      Pelanggan[]
 
   @@index([tenantId])
   @@index([siteId])
