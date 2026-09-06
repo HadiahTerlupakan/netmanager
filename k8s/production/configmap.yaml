@@ -8,6 +8,17 @@ data:
   AUTH_URL: "https://radpro.id"
   NEXTAUTH_URL: "https://radpro.id"
   NEXT_PUBLIC_APP_URL: "https://radpro.id"
+  # Cakupan cookie sesi. Tanpa ini cookie bersifat host-only, sehingga sesi yang
+  # dibuat saat login di apex (radpro.id/admin/login -- halaman itu memang
+  # dilayani di sana, dan tautan "Login Admin" di landing page mengarah ke situ)
+  # tidak terbaca setelah pengguna dipindahkan ke admin.radpro.id. Akibatnya
+  # login harus dilakukan dua kali: yang pertama menaruh cookie di apex, yang
+  # kedua barulah di subdomain admin.
+  #
+  # `lib/auth/cookies.ts` sudah membaca variabel ini dan menyebut dukungan
+  # cross-subdomain; nilainya saja yang tidak pernah diisi. Cookie CSRF tetap
+  # host-locked karena memakai prefix `__Host-`, yang melarang atribut Domain.
+  COOKIE_DOMAIN: ".radpro.id"
   TZ: "Asia/Jakarta"
   NODE_ENV: "production"
   ALLOWED_ORIGINS: "https://radpro.id,https://admin.radpro.id,https://karyawan.radpro.id,https://pelanggan.radpro.id,https://investor.radpro.id"

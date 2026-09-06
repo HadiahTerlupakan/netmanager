@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Login admin harus dilakukan dua kali: cookie sesi host-only
+
+- **Tipe**: [FIXED]
+- **Scope**: `k8s/production`, `lib/auth`
+- **Author**: agent
+- **Deskripsi**: `COOKIE_DOMAIN` tidak pernah diisi di configmap produksi,
+  sehingga `lib/auth/cookies.ts` memakai `domain: undefined` dan cookie sesi
+  menjadi host-only.
+  Halaman login admin juga dilayani di apex (`radpro.id/admin/login`), dan
+  tautan "Login Admin" di landing page mengarah ke sana. Alurnya: pengguna
+  login di apex → cookie mendarat di `radpro.id` → aplikasi memindahkannya ke
+  `admin.radpro.id` lewat `getAdminUrl` → host itu tidak punya cookie →
+  `ensureAdminAccess` melempar balik ke halaman login. Login kedua terjadi di
+  subdomain admin, dan barulah cookie berada di host yang benar.
+  Diverifikasi langsung di produksi: pada saat yang sama, sesi terbaca sebagai
+  `admin@example.com` di `admin.radpro.id` tetapi `null` di `radpro.id`. Log
+  server juga menunjukkan kedua percobaan login sama-sama sukses membuat token —
+  penolakannya terjadi setelah itu, saat berpindah host.
+  `COOKIE_DOMAIN=".radpro.id"` membuat cookie sesi berlaku lintas subdomain,
+  konsisten dengan `ALLOWED_ORIGINS` yang memang mendaftarkan lima subdomain.
+  Cookie CSRF tidak ikut melebar karena memakai prefix `__Host-`, yang melarang
+  atribut Domain.
+- **Files**: `k8s/production/configmap.yaml`
+- **Tests**: `tests/lib/auth-cookie-domain.test.ts`,
+  `tests/k8s/auth-cookie-domain-contract.test.ts`
+- **Breaking**: ⚠️ Cookie sesi kini terbaca oleh seluruh subdomain `radpro.id`.
+  Sesi yang sedang aktif tetap berlaku; cookie lama yang host-only akan
+  tergantikan pada login berikutnya.
+
+
 ### [2026-09-06] — Login di subdomain admin harus dilakukan dua kali
 
 - **Tipe**: [FIXED]
