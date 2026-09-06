@@ -42,8 +42,6 @@ import {
   resolveAdminPortalHref,
 } from "@/lib/utils/portal-url";
 
-const ADMIN_LOGIN_URL = getAdminPortalUrl();
-
 const ICON_MAP: Record<
   string,
   React.ComponentType<{ className?: string; strokeWidth?: number }>
@@ -69,6 +67,8 @@ interface SaasLandingPageProps {
 /** SaaS marketing landing page for the main RADPRO.ID domain. */
 export default function SaasLandingPage({ content }: SaasLandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Dihitung saat render: di browser nilainya diturunkan dari origin halaman.
+  const adminLoginUrl = getAdminPortalUrl();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const hero = content?.hero ?? DEFAULT_HERO;
@@ -119,13 +119,13 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
           <div className="flex items-center gap-1.5">
             <ThemeSwitch />
             <LandingLink
-              href={ADMIN_LOGIN_URL}
+              href={adminLoginUrl}
               className={`hidden rounded-full px-3.5 py-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors ${EASE} hover:text-zinc-900 dark:hover:text-white md:inline`}
             >
               Masuk
             </LandingLink>
             <span className="hidden md:inline-flex">
-              <PrimaryCta href={ADMIN_LOGIN_URL}>Mulai sekarang</PrimaryCta>
+              <PrimaryCta href={adminLoginUrl}>Mulai sekarang</PrimaryCta>
             </span>
             <button
               type="button"
@@ -163,14 +163,14 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
               className={`mt-2 flex flex-col gap-2 border-t ${cx.line} pt-3`}
             >
               <LandingLink
-                href={ADMIN_LOGIN_URL}
+                href={adminLoginUrl}
                 className={`rounded-full px-4 py-2.5 text-center text-sm font-medium ${cx.ink} ring-1 ${cx.ring}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Masuk
               </LandingLink>
               <PrimaryCta
-                href={ADMIN_LOGIN_URL}
+                href={adminLoginUrl}
                 className="w-full justify-between"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -504,7 +504,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                   tempat. Daftar sekarang dan pilih paket yang sesuai.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <PrimaryCta href={ADMIN_LOGIN_URL}>Mulai sekarang</PrimaryCta>
+                  <PrimaryCta href={adminLoginUrl}>Mulai sekarang</PrimaryCta>
                   <a
                     href="mailto:sales@radpro.id"
                     className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium text-zinc-300 ring-1 ring-white/15 transition-all ${EASE} hover:bg-white/5 hover:text-white active:scale-[0.98]`}

@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — NEXT_PUBLIC_APP_URL kosong di bundel klien
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/utils`, `components/landing`
+- **Author**: agent
+- **Deskripsi**: Nilai `NEXT_PUBLIC_*` disisipkan saat image dibangun, dan
+  `Dockerfile` hanya mendaftarkan ARG untuk Firebase & VAPID — bukan
+  `NEXT_PUBLIC_APP_URL`. Server membacanya dari configmap saat runtime,
+  sehingga HTML hasil render memuat `href` absolut ke host portal, tetapi di
+  browser nilainya undefined: komponen menyimpulkan tautannya internal,
+  memakai `next/link`, lalu mencegat klik dan menavigasi ke path yang sama di
+  origin yang sedang dibuka. `getPublicSiteUrl()` kini jatuh ke
+  `window.location.origin` di browser — sumber yang sama benarnya dan
+  satu-satunya yang juga benar untuk domain kustom milik tenant, tanpa
+  mengikat image ke satu domain lewat build arg.
+- **Files**: `lib/utils/env.ts`, `components/landing/SaasLandingPage.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — next/link menelan host pada tautan lintas subdomain
 
 - **Tipe**: [FIXED]

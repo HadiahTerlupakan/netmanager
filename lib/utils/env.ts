@@ -46,11 +46,23 @@ export function getAppUrl(): string {
  * error karena hanya dipakai untuk menampilkan tautan.
  */
 export function getPublicSiteUrl(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
 
-  if (!url || url === "undefined") return "/";
+  if (configuredUrl && configuredUrl !== "undefined") {
+    return configuredUrl.replace(/\/$/, "");
+  }
 
-  return url.replace(/\/$/, "");
+  // Di browser nilai `NEXT_PUBLIC_*` disisipkan saat image dibangun, dan build
+  // ini tidak menerima `NEXT_PUBLIC_APP_URL` sebagai build arg — jadi di bundel
+  // klien nilainya undefined meski server membacanya dari configmap saat
+  // runtime. Origin halaman sama benarnya, dan satu-satunya yang juga benar
+  // untuk domain kustom milik tenant.
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return "/";
 }
 
 /**
