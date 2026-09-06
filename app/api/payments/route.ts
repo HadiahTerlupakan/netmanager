@@ -48,11 +48,11 @@ export const POST = createHandler(
       });
 
       if (result.status === "pelanggan-not-found") {
-        return ApiErrors.notFound("Pelanggan tidak ditemukan");
+        return ApiErrors.notFound("Pelanggan");
       }
 
       if (result.status === "invoice-not-found") {
-        return ApiErrors.notFound("Invoice tidak ditemukan");
+        return ApiErrors.notFound("Invoice");
       }
 
       return apiSuccess(result.data, { status: 201 });

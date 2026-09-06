@@ -112,7 +112,7 @@ export const POST = createHandler(
         error instanceof Error ? error.message : "Terjadi kesalahan server";
 
       if (message === "WORK_ORDER_NOT_FOUND") {
-        return ApiErrors.notFound("Work Order tidak ditemukan");
+        return ApiErrors.notFound("Work Order");
       }
 
       if (

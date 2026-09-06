@@ -24,7 +24,7 @@ export async function GET(
 
     const { id } = await params;
     const profile = await bwService.getById(id, session.user.tenantId);
-    if (!profile) return ApiErrors.notFound("Profile tidak ditemukan");
+    if (!profile) return ApiErrors.notFound("Profile");
 
     return apiSuccess(profile);
   } catch (error) {

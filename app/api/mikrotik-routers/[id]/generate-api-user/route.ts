@@ -46,7 +46,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   } catch (error: unknown) {
     if (error instanceof RouterNotFoundError) {
-      return ApiErrors.notFound("Router tidak ditemukan");
+      return ApiErrors.notFound("Router");
     }
 
     if (error instanceof RouterAccessDeniedError) {

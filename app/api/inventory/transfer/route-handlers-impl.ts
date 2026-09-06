@@ -73,7 +73,7 @@ async function validateTransferAccess(
 /** Map transfer create error into API response. */
 function mapCreateTransferError(error: Error) {
   if (error.message === "Barang tidak ditemukan") {
-    return ApiErrors.notFound("Barang tidak ditemukan");
+    return ApiErrors.notFound("Barang");
   }
   if (
     error.message.includes("Gudang") &&

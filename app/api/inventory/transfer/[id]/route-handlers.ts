@@ -47,7 +47,7 @@ function toTransferRouteResponse(result: InventoryTransferRouteFailure) {
 /** Map update transfer error into API response. */
 function mapUpdateTransferError(error: Error) {
   if ((error as Error & { code?: string }).code === "P2025") {
-    return ApiErrors.notFound("Record transfer tidak ditemukan");
+    return ApiErrors.notFound("Record transfer");
   }
 
   return ApiErrors.internalError("Gagal memperbarui record transfer");
@@ -56,7 +56,7 @@ function mapUpdateTransferError(error: Error) {
 /** Map delete transfer error into API response. */
 function mapDeleteTransferError(error: Error) {
   if (error.message === "Record transfer tidak ditemukan") {
-    return ApiErrors.notFound("Record transfer tidak ditemukan");
+    return ApiErrors.notFound("Record transfer");
   }
 
   if (

@@ -39,7 +39,7 @@ export const GET = createHandler(
         tenantId,
       );
     if (!hasAccess) {
-      return ApiErrors.notFound("Histori user tidak ditemukan");
+      return ApiErrors.notFound("Histori user");
     }
 
     const history = await radiusSyncService.getHistoryForRadiusDashboardUser(

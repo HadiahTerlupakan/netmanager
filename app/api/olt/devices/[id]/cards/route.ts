@@ -21,7 +21,7 @@ export async function GET(
   const result = await cardService.listByOlt(session.user.tenantId, id);
   if (result.success === false) {
     if (result.error.code === "OLT_NOT_FOUND") {
-      return ApiErrors.notFound("OLT tidak ditemukan");
+      return ApiErrors.notFound("OLT");
     }
     return ApiErrors.internalError(result.error.message);
   }

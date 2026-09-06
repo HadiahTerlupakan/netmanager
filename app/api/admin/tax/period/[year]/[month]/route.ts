@@ -30,7 +30,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const summary = await service.getSummary(tenantId, year, month);
 
   if (!summary) {
-    return ApiErrors.notFound("Data periode pajak tidak ditemukan");
+    return ApiErrors.notFound("Data periode pajak");
   }
 
   return apiSuccess(summary);

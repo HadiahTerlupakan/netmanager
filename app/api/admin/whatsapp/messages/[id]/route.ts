@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const message = await service.getMessageDetail(id, session.tenantId);
 
     if (!message) {
-      return ApiErrors.notFound("Pesan tidak ditemukan");
+      return ApiErrors.notFound("Pesan");
     }
 
     return NextResponse.json({

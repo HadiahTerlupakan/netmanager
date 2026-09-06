@@ -24,7 +24,7 @@ export const GET = createHandler(
     const investor = await getInvestorById(id);
 
     if (!investor) {
-      return ApiErrors.notFound("Investor tidak ditemukan");
+      return ApiErrors.notFound("Investor");
     }
 
     return apiSuccess(investor);
@@ -58,7 +58,7 @@ export const PUT = createHandler(
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {
-        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+        return ApiErrors.notFound(result.error || "Investor");
       }
 
       if (result.code === "BAD_REQUEST") {
@@ -93,7 +93,7 @@ export const PATCH = createHandler(
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {
-        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+        return ApiErrors.notFound(result.error || "Investor");
       }
 
       return internalError(result.error || "Gagal memperbarui status investor");
@@ -116,7 +116,7 @@ export const DELETE = createHandler(
 
     if (!result.success) {
       if (result.code === "NOT_FOUND") {
-        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+        return ApiErrors.notFound(result.error || "Investor");
       }
 
       if (result.code === "BAD_REQUEST") {

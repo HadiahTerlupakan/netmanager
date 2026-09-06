@@ -388,7 +388,7 @@ function handleError(
       "code" in error &&
       error.code === "P2025")
   ) {
-    return ApiErrors.notFound("Data tidak ditemukan");
+    return ApiErrors.notFound("Data");
   }
 
   // Handle known error types
@@ -434,7 +434,7 @@ function handleError(
       message.includes("Record to update not found") ||
       message.includes("No record was found for a delete")
     ) {
-      return ApiErrors.notFound("Data tidak ditemukan");
+      return ApiErrors.notFound("Data");
     }
   }
 

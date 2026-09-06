@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Pesan 404 tergandakan jadi "X tidak ditemukan tidak ditemukan"
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/api-response.ts`, `app/api/**`
+- **Author**: agent
+- **Deskripsi**: `ApiErrors.notFound(resource)` menambahkan " tidak ditemukan"
+  pada argumennya, tetapi puluhan pemanggil meneruskan kalimat utuh sehingga
+  pengguna menerima pesan tergandakan. Terverifikasi di produksi:
+  `GET /api/planning/<id>` membalas `"Planning tidak ditemukan tidak
+  ditemukan"`. Ikut terdampak `lib/api/handler.ts`, yang memakai pola sama untuk
+  SETIAP error Prisma P2025 di seluruh aplikasi ("Data tidak ditemukan tidak
+  ditemukan"), dan `app/api/settings/api` yang keterangannya jadi
+  "... gunakan POST untuk create tidak ditemukan".
+  Perbaikan utama di akar: `notFound` kini tidak menambahkan frasa bila teks
+  yang masuk sudah menyatakannya. Ini perlu karena ~70 pemanggil meneruskan
+  pesan dinamis (`error.message`, `result.error`, teks di balik prefix
+  `NOT_FOUND:`) yang isinya baru diketahui saat runtime dan mustahil diperbaiki
+  satu per satu. Selain itu 33 pemanggil literal dirapikan agar mengirim nama
+  resource saja, sesuai maksud parameternya.
+- **Files**: `lib/api-response.ts`, `lib/api/handler.ts`, 30 route di `app/api/`
+- **Tests**: `tests/lib/api-response-not-found.test.ts`
+- **Breaking**: ❌ Tidak — pesan yang sudah benar tidak berubah
+
+
 ### [2026-09-06] — Selaraskan suite tes planning dengan kontrak service baru
 
 - **Tipe**: [CHANGED]

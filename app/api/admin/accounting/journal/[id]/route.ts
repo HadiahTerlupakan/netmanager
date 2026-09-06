@@ -8,7 +8,7 @@ export const GET = createHandler(
   { auth: true, permissions: ["accounting:read"] },
   async (_request, ctx) => {
     const result = await getJournalRepository().findById(ctx.params.id);
-    if (!result) return ApiErrors.notFound("Journal tidak ditemukan");
+    if (!result) return ApiErrors.notFound("Journal");
     return apiSuccess(toJournalResponseDto(result));
   },
 );

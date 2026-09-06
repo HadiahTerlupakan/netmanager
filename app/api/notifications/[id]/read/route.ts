@@ -20,7 +20,7 @@ export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
   });
 
   if (!notification) {
-    return ApiErrors.notFound("Notifikasi tidak ditemukan");
+    return ApiErrors.notFound("Notifikasi");
   }
 
   await markAsRead(id);

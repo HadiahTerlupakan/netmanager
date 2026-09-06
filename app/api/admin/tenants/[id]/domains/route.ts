@@ -48,7 +48,7 @@ export const POST = createHandler(
     const { id } = ctx.params;
     const existing = await domainService.getByTenantId(id);
     if (!existing) {
-      return ApiErrors.notFound("TenantDomain not found for this tenant");
+      return ApiErrors.notFound("Domain tidak ditemukan untuk tenant ini");
     }
 
     const updated = await domainService.setCustomDomain(

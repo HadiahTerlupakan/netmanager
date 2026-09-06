@@ -9,7 +9,7 @@ export const GET = createHandler(
   { auth: true, permissions: ["recurring:manage"] },
   async (_request, ctx) => {
     const result = await getRecurringService().findById(ctx.params.id);
-    if (!result) return ApiErrors.notFound("Template tidak ditemukan");
+    if (!result) return ApiErrors.notFound("Template");
     return apiSuccess(result);
   },
 );

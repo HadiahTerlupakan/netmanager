@@ -25,7 +25,7 @@ export const PATCH = createHandler(
     });
 
     if (!notification) {
-      return ApiErrors.notFound("Notifikasi tidak ditemukan");
+      return ApiErrors.notFound("Notifikasi");
     }
 
     await markAsRead(id);

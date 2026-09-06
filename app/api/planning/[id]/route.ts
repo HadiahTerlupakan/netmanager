@@ -22,7 +22,7 @@ export const GET = createHandler(
     );
 
     if (!result) {
-      return ApiErrors.notFound("Planning tidak ditemukan");
+      return ApiErrors.notFound("Rencana");
     }
 
     return apiSuccess(result);

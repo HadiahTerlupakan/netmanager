@@ -46,7 +46,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
 
   if (!result.success) {
     if (result.code === "NOT_FOUND") {
-      return ApiErrors.notFound(result.error || "Attachment tidak ditemukan");
+      return ApiErrors.notFound(result.error || "Attachment");
     }
 
     return apiError(

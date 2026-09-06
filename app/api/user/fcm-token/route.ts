@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       }
 
       if (error.status === 404) {
-        return ApiErrors.notFound("User tidak ditemukan");
+        return ApiErrors.notFound("User");
       }
     }
 

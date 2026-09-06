@@ -37,7 +37,7 @@ export const GET = createHandler(
   async (_request, ctx) => {
     const service = getChartOfAccountService();
     const result = await service.findById(ctx.params.id);
-    if (!result) return ApiErrors.notFound("COA tidak ditemukan");
+    if (!result) return ApiErrors.notFound("COA");
     return apiSuccess(result);
   },
 );

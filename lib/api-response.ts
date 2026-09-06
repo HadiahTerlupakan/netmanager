@@ -291,6 +291,28 @@ export function apiPaginatedWithSummary<T, S = unknown>(
 }
 
 /**
+ * Menyusun pesan 404 tanpa menggandakan frasa "tidak ditemukan".
+ *
+ * `ApiErrors.notFound` menamai parameternya `resource` dan menambahkan sendiri
+ * " tidak ditemukan". Tetapi puluhan pemanggil meneruskan kalimat utuh — baik
+ * literal (`notFound("Planning tidak ditemukan")`) maupun dinamis
+ * (`notFound(error.message)`, `notFound(result.error)`, dan `handleError` yang
+ * meneruskan pesan di balik prefix `NOT_FOUND:`). Hasilnya sampai ke pengguna
+ * sebagai "Planning tidak ditemukan tidak ditemukan" — terverifikasi di
+ * produksi pada `GET /api/planning/<id>`.
+ *
+ * Pemanggil dinamis tidak bisa diperbaiki satu per satu karena isi pesannya
+ * baru diketahui saat runtime, jadi penggandaannya dicegah di sini: bila teks
+ * yang masuk sudah menyatakan "tidak ditemukan" atau "not found", teks itu
+ * dipakai apa adanya.
+ */
+function buildNotFoundMessage(resource: string): string {
+  const alreadyStatesNotFound = /tidak ditemukan|not found/i.test(resource);
+
+  return alreadyStatesNotFound ? resource : `${resource} tidak ditemukan`;
+}
+
+/**
  * Common error response shortcuts
  */
 export const ApiErrors = {
@@ -301,7 +323,7 @@ export const ApiErrors = {
     apiError(message, ErrorCodes.FORBIDDEN, { status: 403 }),
 
   notFound: (resource = "Data") =>
-    apiError(`${resource} tidak ditemukan`, ErrorCodes.NOT_FOUND, {
+    apiError(buildNotFoundMessage(resource), ErrorCodes.NOT_FOUND, {
       status: 404,
     }),
 

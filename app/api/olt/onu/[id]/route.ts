@@ -22,7 +22,7 @@ export async function GET(
 
     const { id } = await params;
     const onu = await onuService.getOnuById(id, session.user.tenantId);
-    if (!onu) return ApiErrors.notFound("ONU tidak ditemukan");
+    if (!onu) return ApiErrors.notFound("ONU");
 
     return apiSuccess(onu);
   } catch (error) {

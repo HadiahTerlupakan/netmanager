@@ -35,7 +35,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.getGudangDetail(id);
 
     if (!result.found) {
-      return ApiErrors.notFound("Gudang tidak ditemukan");
+      return ApiErrors.notFound("Gudang");
     }
 
     const gudang = result.gudang;
@@ -84,8 +84,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.updateGudang({ id, body });
 
     if (isInventoryGudangRouteFailure(result)) {
-      if (result.status === 404)
-        return ApiErrors.notFound("Gudang tidak ditemukan");
+      if (result.status === 404) return ApiErrors.notFound("Gudang");
       return ApiErrors.badRequest(result.error);
     }
 
@@ -144,8 +143,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.deleteGudang(id);
 
     if (isInventoryGudangRouteFailure(result)) {
-      if (result.status === 404)
-        return ApiErrors.notFound("Gudang tidak ditemukan");
+      if (result.status === 404) return ApiErrors.notFound("Gudang");
       return ApiErrors.badRequest(result.error);
     }
 

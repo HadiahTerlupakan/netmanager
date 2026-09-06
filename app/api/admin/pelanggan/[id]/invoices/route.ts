@@ -19,7 +19,7 @@ export const GET = createHandler(
       },
     );
     if (!invoices) {
-      return ApiErrors.notFound("Customer not found");
+      return ApiErrors.notFound("Pelanggan");
     }
     return apiSuccess(invoices);
   },

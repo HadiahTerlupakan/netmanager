@@ -33,7 +33,7 @@ export const GET = createHandler(
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan server";
       if (message.includes("tidak ditemukan")) {
-        return ApiErrors.notFound("Work Order tidak ditemukan");
+        return ApiErrors.notFound("Work Order");
       }
       if (
         message.includes("Akses ditolak") ||

@@ -124,7 +124,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       "code" in error &&
       (error as { code: string }).code === "P2025"
     ) {
-      return ApiErrors.notFound("Akun MixRadius tidak ditemukan");
+      return ApiErrors.notFound("Akun MixRadius");
     }
     throw error;
   }

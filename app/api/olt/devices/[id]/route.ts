@@ -26,7 +26,7 @@ export async function GET(
     const { id } = await params;
     const device = await oltDeviceService.getById(id, session.user.tenantId);
     if (!device) {
-      return ApiErrors.notFound("OLT tidak ditemukan");
+      return ApiErrors.notFound("OLT");
     }
 
     return apiSuccess(device);

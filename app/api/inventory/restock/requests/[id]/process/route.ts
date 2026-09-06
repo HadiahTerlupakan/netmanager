@@ -21,7 +21,7 @@ export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
     await inventoryRouteService.getPurchaseRequestProcessInfo(id, tenantId);
 
   if (!requestRecord) {
-    return ApiErrors.notFound("Purchase Request not found");
+    return ApiErrors.notFound("Purchase Request");
   }
 
   if (!requestRecord.purchaseOrderId) {

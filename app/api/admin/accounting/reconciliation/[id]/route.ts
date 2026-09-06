@@ -5,7 +5,7 @@ export const GET = createHandler(
   { auth: true, permissions: ["reconciliation:read"] },
   async (_request, ctx) => {
     const result = await getBankReconciliationService().findById(ctx.params.id);
-    if (!result) return ApiErrors.notFound("Reconciliation tidak ditemukan");
+    if (!result) return ApiErrors.notFound("Reconciliation");
     return apiSuccess(result);
   },
 );

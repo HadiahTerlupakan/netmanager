@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     if (session.role === "MITRA") {
       const mitra = await getMobileMitraMe(session.id);
       if (!mitra) {
-        return ApiErrors.notFound("Mitra tidak ditemukan");
+        return ApiErrors.notFound("Mitra");
       }
 
       return apiSuccess(mitra);
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const user = await getMobileEmployeeMe(session.id, session.role);
     if (!user) {
-      return ApiErrors.notFound("User tidak ditemukan");
+      return ApiErrors.notFound("User");
     }
 
     return apiSuccess({

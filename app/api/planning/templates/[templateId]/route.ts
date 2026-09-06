@@ -25,7 +25,7 @@ export const GET = createHandler(
     );
 
     if (!result) {
-      return ApiErrors.notFound("Template tidak ditemukan");
+      return ApiErrors.notFound("Template");
     }
 
     return apiSuccess(result);
