@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-06] — Tautan Masuk di landing mengarah ke host portal admin
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/landing`, `lib/utils`
+- **Author**: agent
+- **Deskripsi**: Tombol "Masuk" dan seluruh CTA di landing page menunjuk
+  `/admin/login`, sehingga pengguna login di apex (`radpro.id/admin/login`) —
+  bukan di host tempat portal admin berjalan. `resolveAdminPortalHref()`
+  memetakan tautan `/admin/*` ke `https://admin.<domain>/*`, termasuk tautan
+  yang tersimpan di database (konten landing bisa disunting), karena
+  `proxy.ts` sudah menambahkan prefix `/admin` di host itu. Host staging
+  memakai satu label gabungan `admin-staging.<domain>` mengikuti pengenalan di
+  `proxy.ts`; tanpa env URL tautan tetap relatif agar tidak rusak.
+- **Files**: `lib/utils/portal-url.ts`, `components/landing/SaasLandingPage.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-06] — Halaman login portal terkurung tanpa jalan ke beranda
 
 - **Tipe**: [FIXED]

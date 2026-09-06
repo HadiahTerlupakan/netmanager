@@ -33,6 +33,12 @@ import { BrandMark, PrimaryCta, SecondaryCta } from "./landing-buttons";
 import { ThemeSwitch } from "./landing-theme-switch";
 import { ProductMock } from "./landing-product-mock";
 import { SectionEyebrow, SectionTitle } from "./landing-section";
+import {
+  getAdminPortalUrl,
+  resolveAdminPortalHref,
+} from "@/lib/utils/portal-url";
+
+const ADMIN_LOGIN_URL = getAdminPortalUrl();
 
 const ICON_MAP: Record<
   string,
@@ -98,7 +104,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
-                href={link.href}
+                href={resolveAdminPortalHref(link.href)}
                 className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${cx.muted} transition-colors ${EASE} hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-50`}
               >
                 {link.label}
@@ -109,13 +115,13 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
           <div className="flex items-center gap-1.5">
             <ThemeSwitch />
             <Link
-              href="/admin/login"
+              href={ADMIN_LOGIN_URL}
               className={`hidden rounded-full px-3.5 py-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors ${EASE} hover:text-zinc-900 dark:hover:text-white md:inline`}
             >
               Masuk
             </Link>
             <span className="hidden md:inline-flex">
-              <PrimaryCta href="/admin/login">Mulai sekarang</PrimaryCta>
+              <PrimaryCta href={ADMIN_LOGIN_URL}>Mulai sekarang</PrimaryCta>
             </span>
             <button
               type="button"
@@ -141,7 +147,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
               {NAV_LINKS.map((link) => (
                 <a
                   key={link.href}
-                  href={link.href}
+                  href={resolveAdminPortalHref(link.href)}
                   className={`rounded-xl px-3 py-3 text-sm font-medium ${cx.ink} transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -153,14 +159,14 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
               className={`mt-2 flex flex-col gap-2 border-t ${cx.line} pt-3`}
             >
               <Link
-                href="/admin/login"
+                href={ADMIN_LOGIN_URL}
                 className={`rounded-full px-4 py-2.5 text-center text-sm font-medium ${cx.ink} ring-1 ${cx.ring}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Masuk
               </Link>
               <PrimaryCta
-                href="/admin/login"
+                href={ADMIN_LOGIN_URL}
                 className="w-full justify-between"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -217,7 +223,9 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <PrimaryCta href={hero.ctaLink}>{hero.ctaPrimary}</PrimaryCta>
+              <PrimaryCta href={resolveAdminPortalHref(hero.ctaLink)}>
+                {hero.ctaPrimary}
+              </PrimaryCta>
               <SecondaryCta href="#features">{hero.ctaSecondary}</SecondaryCta>
             </div>
 
@@ -354,7 +362,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                           ))}
                         </ul>
                         <Link
-                          href={plan.ctaLink}
+                          href={resolveAdminPortalHref(plan.ctaLink)}
                           className={`mt-8 inline-flex w-full items-center justify-center rounded-full bg-white py-2.5 text-sm font-medium text-zinc-900 transition-all ${EASE} hover:bg-zinc-100 active:scale-[0.98]`}
                         >
                           {plan.ctaText}
@@ -402,11 +410,17 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                         ))}
                       </ul>
                       {isExternal ? (
-                        <a href={plan.ctaLink} className={ctaClass}>
+                        <a
+                          href={resolveAdminPortalHref(plan.ctaLink)}
+                          className={ctaClass}
+                        >
                           {plan.ctaText}
                         </a>
                       ) : (
-                        <Link href={plan.ctaLink} className={ctaClass}>
+                        <Link
+                          href={resolveAdminPortalHref(plan.ctaLink)}
+                          className={ctaClass}
+                        >
                           {plan.ctaText}
                         </Link>
                       )}
@@ -498,7 +512,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                   tempat. Daftar sekarang dan pilih paket yang sesuai.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <PrimaryCta href="/admin/login">Mulai sekarang</PrimaryCta>
+                  <PrimaryCta href={ADMIN_LOGIN_URL}>Mulai sekarang</PrimaryCta>
                   <a
                     href="mailto:sales@radpro.id"
                     className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium text-zinc-300 ring-1 ring-white/15 transition-all ${EASE} hover:bg-white/5 hover:text-white active:scale-[0.98]`}
@@ -542,7 +556,7 @@ export default function SaasLandingPage({ content }: SaasLandingPageProps) {
                     {items.map((link) => (
                       <li key={`${groupLabel}-${link.href}-${link.label}`}>
                         <a
-                          href={link.href}
+                          href={resolveAdminPortalHref(link.href)}
                           className={`text-sm text-zinc-600 dark:text-zinc-300 transition-colors ${EASE} hover:text-zinc-900 dark:hover:text-white`}
                         >
                           {link.label}
