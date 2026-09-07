@@ -100,7 +100,10 @@ export class AdminTenantRouteService {
   private buildWriteInput(input: TenantPayload) {
     return {
       name: input.name,
-      domain: normalizeDomain(input.domain),
+      // `undefined` berarti field tidak dikirim: biarkan nilai lama apa adanya.
+      ...(input.domain === undefined
+        ? {}
+        : { domain: normalizeDomain(input.domain) }),
       isActive: input.isActive ?? DEFAULT_TENANT_ACTIVE,
     };
   }

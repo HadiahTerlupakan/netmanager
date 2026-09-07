@@ -16,6 +16,13 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list"]
+  # IngressRoute per domain kustom. Sertifikat yang diterbitkan cert-manager
+  # hanya tersimpan sebagai Secret; Traefik baru menyajikannya bila ada route
+  # yang merujuk Secret itu. Tanpa aturan ini, domain tenant tetap dilayani
+  # dengan sertifikat bawaan Traefik (self-signed).
+  - apiGroups: ["traefik.io"]
+    resources: ["ingressroutes"]
+    verbs: ["create", "get", "list", "delete", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

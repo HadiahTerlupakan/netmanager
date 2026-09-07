@@ -41,6 +41,51 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Sertifikat domain tenant kini benar-benar disajikan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/tenant`, `k8s/production`
+- **Author**: agent
+- **Deskripsi**: cert-manager hanya menyimpan sertifikat sebagai Secret;
+  Traefik menyajikannya hanya bila ada route yang merujuk Secret itu.
+  IngressRoute catch-all memakai `tls: {}` tanpa `secretName` dan tidak ada
+  `TLSStore`, jadi domain tenant dilayani sertifikat bawaan Traefik —
+  terverifikasi lewat `openssl s_client` dengan SNI domain asing yang membalas
+  `CN=TRAEFIK DEFAULT CERT`. `K8sIngressRouteService` baru memasang IngressRoute
+  per domain (prioritas di atas catch-all) yang merujuk `tenant-<slug>-tls`,
+  dipasang setelah sertifikat Ready dan dilepas saat domain dinonaktifkan.
+  Status tidak naik ke `active` bila route gagal dipasang, supaya domain tidak
+  diumumkan aktif padahal browser masih menerima sertifikat bawaan. RBAC pod
+  ditambah izin `traefik.io/ingressroutes`, dan bootstrap klien Kubernetes yang
+  tadinya disalin di tiap metode dipindah ke `k8s-client.ts`.
+- **Files**: `modules/tenant/services/K8sIngressRouteService.ts`,
+  `modules/tenant/services/k8s-client.ts`,
+  `modules/tenant/services/TenantDomainService.ts`,
+  `k8s/production/rbac-cert-manager.yaml`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-07] — Domain apex tenant bisa diverifikasi, field domain lama dirapikan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/tenant`, `modules/admin`, `app/admin/tenants`
+- **Author**: agent
+- **Deskripsi**: Verifikasi dulu hanya menerima CNAME ke domain utama,
+  sedangkan DNS melarang CNAME di apex zona (RFC 1034) — tenant yang ingin
+  memakai `domainklien.com` langsung tidak akan pernah lolos.
+  `verifyPointsToUs()` kini menerima CNAME **atau** A record yang sama dengan A
+  record domain utama, sehingga perpindahan IP server tidak perlu diikuti
+  perubahan kode. Selain itu form tenant tidak lagi menyunting field warisan
+  `Tenant.domain` (yang membuat host ditemukan tetapi tidak pernah memicu
+  verifikasi maupun SSL); payload tanpa field itu kini berarti "jangan ubah"
+  sehingga nilai lama tidak terhapus, dan halaman Domain menampilkan
+  peringatan agar domain lama didaftarkan ulang lewat alur yang benar.
+- **Files**: `modules/tenant/services/DnsVerificationService.ts`,
+  `modules/admin/services/AdminTenantRouteService.ts`,
+  `modules/admin/domain/ports/ITenantRepository.ts`,
+  `app/admin/tenants/TenantList.tsx`,
+  `app/admin/tenants/[id]/domain/TenantDomainClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Domain tenant: baris TenantDomain, endpoint, dan halaman admin
 
 - **Tipe**: [ADDED]

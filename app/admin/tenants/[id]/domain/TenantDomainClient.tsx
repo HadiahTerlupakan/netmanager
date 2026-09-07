@@ -24,6 +24,7 @@ interface TenantDomainResponse {
   verifiedAt: string | null;
   cnameTarget: string;
   subdomain: string;
+  legacyDomain: string | null;
   instructions: string | null;
 }
 
@@ -219,6 +220,15 @@ export default function TenantDomainClient({ tenantId }: { tenantId: string }) {
         </div>
       ) : (
         <>
+          {record.legacyDomain && record.legacyDomain !== record.domain && (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-900 dark:text-amber-200">
+              Tenant ini punya domain lama{" "}
+              <span className="font-mono">{record.legacyDomain}</span> yang
+              tercatat di form tenant. Domain itu tidak pernah diverifikasi dan
+              tidak punya sertifikat — daftarkan ulang di bawah agar dapat SSL.
+            </div>
+          )}
+
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 space-y-3">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Subdomain bawaan
@@ -262,6 +272,11 @@ export default function TenantDomainClient({ tenantId }: { tenantId: string }) {
                   </p>
                   <p className="mt-1 font-mono text-xs">
                     CNAME {record.domain} → {record.cnameTarget}
+                  </p>
+                  <p className="mt-2">
+                    Untuk domain apex (tanpa subdomain), DNS tidak mengizinkan
+                    CNAME — pakai A record ke IP yang sama dengan{" "}
+                    {record.cnameTarget}.
                   </p>
                   <p className="mt-2">
                     Sertifikat diterbitkan otomatis setelah DNS terverifikasi.

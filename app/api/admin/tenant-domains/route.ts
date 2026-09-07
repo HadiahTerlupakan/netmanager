@@ -28,7 +28,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     status: d.status,
     sslStatus: d.sslStatus,
     verifiedAt: d.verifiedAt?.toISOString() || null,
-    cnameTarget: "radpro.id",
+    cnameTarget: baseDomain,
     subdomain: `${d.slug}.${baseDomain}`,
   }));
 

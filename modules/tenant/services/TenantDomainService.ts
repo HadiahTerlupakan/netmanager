@@ -2,6 +2,7 @@ import { prisma } from "@/modules/database";
 import { TenantDomainRepository } from "../repositories/TenantDomainRepository";
 import { DnsVerificationService } from "./DnsVerificationService";
 import { K8sCertificateService } from "./K8sCertificateService";
+import { K8sIngressRouteService } from "./K8sIngressRouteService";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/errors";
 import {
@@ -39,11 +40,13 @@ export class TenantDomainService {
   private repository: TenantDomainRepository;
   private dnsService: DnsVerificationService;
   private k8sService: K8sCertificateService;
+  private routeService: K8sIngressRouteService;
 
   constructor() {
     this.repository = new TenantDomainRepository();
     this.dnsService = new DnsVerificationService();
     this.k8sService = new K8sCertificateService();
+    this.routeService = new K8sIngressRouteService();
   }
 
   /** Resolve a tenant domain record by slug. */
@@ -114,7 +117,7 @@ export class TenantDomainService {
 
     for (const record of pending) {
       if (!record.domain) continue;
-      const verified = await this.dnsService.verifyCname(record.domain);
+      const verified = await this.dnsService.verifyPointsToUs(record.domain);
       if (verified) {
         await this.repository.updateStatus(record.id, "verified", new Date());
         await this.provisionSsl(record.id, record.slug, record.domain);
@@ -157,11 +160,28 @@ export class TenantDomainService {
 
     for (const record of provisioning) {
       const ready = await this.k8sService.checkCertificateReady(record.slug);
-      if (ready) {
-        await this.repository.updateSslStatus(record.id, "active");
-        await this.repository.updateStatus(record.id, "active");
-        logger.info(`[TenantDomain] SSL active for ${record.domain}`);
+      if (!ready || !record.domain) continue;
+
+      // Sertifikat yang terbit hanya tersimpan sebagai Secret. Traefik baru
+      // menyajikannya setelah ada route yang merujuk Secret itu, jadi status
+      // tidak boleh naik ke "active" sebelum route terpasang — kalau tidak,
+      // domain diumumkan aktif padahal browser masih menerima sertifikat
+      // bawaan Traefik.
+      const routed = await this.routeService.upsertRoute({
+        slug: record.slug,
+        domain: record.domain,
+      });
+
+      if (!routed) {
+        logger.error(
+          `[TenantDomain] Sertifikat siap tetapi route gagal dipasang untuk ${record.domain}`,
+        );
+        continue;
       }
+
+      await this.repository.updateSslStatus(record.id, "active");
+      await this.repository.updateStatus(record.id, "active");
+      logger.info(`[TenantDomain] SSL active for ${record.domain}`);
     }
   }
 
@@ -175,6 +195,7 @@ export class TenantDomainService {
     // sehingga tombol nonaktifkan diam-diam tidak melakukan apa pun.
     const record = await this.repository.findById(id);
     if (record) {
+      await this.routeService.deleteRoute(record.slug);
       await this.k8sService.deleteCertificate(record.slug);
       await this.repository.updateStatus(record.id, "failed");
       await this.repository.updateSslStatus(record.id, "failed");
@@ -189,13 +210,17 @@ export class TenantDomainService {
     const record = await prisma.tenantDomain.findUnique({ where: { id } });
     if (!record?.domain) return { verified: false, reason: "No domain set" };
 
-    const verified = await this.dnsService.verifyCname(record.domain);
+    const verified = await this.dnsService.verifyPointsToUs(record.domain);
     if (verified) {
       await this.repository.updateStatus(id, "verified", new Date());
       await this.provisionSsl(id, record.slug, record.domain);
       return { verified: true };
     }
-    return { verified: false, reason: "CNAME not pointing to radpro.id" };
+    const baseDomain = process.env.DOMAIN || "radpro.id";
+    return {
+      verified: false,
+      reason: `DNS belum mengarah ke ${baseDomain}: pasang CNAME ke ${baseDomain}, atau A record ke IP yang sama dengan ${baseDomain} bila domainnya apex`,
+    };
   }
 
   /**
@@ -255,12 +280,7 @@ export class TenantDomainService {
 
   /** Trigger K8s certificate creation and update sslStatus accordingly. */
   private async provisionSsl(id: string, slug: string, domain: string) {
-    const namespace = process.env.K8S_NAMESPACE || "netmanager-production";
-    const success = await this.k8sService.createCertificate({
-      slug,
-      domain,
-      namespace,
-    });
+    const success = await this.k8sService.createCertificate({ slug, domain });
     if (success) {
       await this.repository.updateSslStatus(id, "provisioning");
     } else {

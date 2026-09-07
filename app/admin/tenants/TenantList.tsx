@@ -53,7 +53,6 @@ export default function TenantList({
   const [formData, setFormData] = useState({
     id: "",
     name: "",
-    domain: "",
     isActive: true,
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -64,7 +63,6 @@ export default function TenantList({
     setFormData({
       id: "",
       name: "",
-      domain: "",
       isActive: true,
     });
     setIsEdit(false);
@@ -75,7 +73,6 @@ export default function TenantList({
     setFormData({
       id: tenant.id,
       name: tenant.name,
-      domain: tenant.domain || "",
       isActive: tenant.isActive,
     });
     setIsEdit(true);
@@ -94,9 +91,10 @@ export default function TenantList({
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
+        // `domain` sengaja tidak dikirim: field warisan itu tidak lagi disunting
+        // di sini, dan mengirim null akan menghapus nilai lama milik tenant.
         body: JSON.stringify({
           name: formData.name,
-          domain: formData.domain || null,
           isActive: formData.isActive,
         }),
       });
@@ -329,23 +327,11 @@ export default function TenantList({
               placeholder="Contoh: Perusahaan ABC"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Domain Khusus (Opsional)
-            </label>
-            <input
-              type="text"
-              value={formData.domain}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  domain: e.target.value.toLowerCase(),
-                })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="app.perusahaan.com"
-            />
-          </div>
+          <p className="rounded-lg bg-sky-50 dark:bg-sky-900/20 px-3 py-2 text-sm text-sky-800 dark:text-sky-300">
+            Domain khusus diatur lewat tombol <strong>Domain</strong> pada baris
+            tenant. Di sana domain diverifikasi dan sertifikatnya diterbitkan —
+            hal yang tidak terjadi bila domain hanya dicatat di form ini.
+          </p>
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <input
               type="checkbox"

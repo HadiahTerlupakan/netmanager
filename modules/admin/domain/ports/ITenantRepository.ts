@@ -6,7 +6,12 @@ export interface TenantListFilters {
 
 export interface TenantWriteInput {
   name: string;
-  domain: string | null;
+  /**
+   * Dihilangkan (bukan null) berarti "jangan ubah". Field ini warisan: domain
+   * kustom sekarang dikelola lewat `modules/tenant`, jadi form yang tidak lagi
+   * mengirimkannya tidak boleh diam-diam menghapus nilai lama.
+   */
+  domain?: string | null;
   isActive: boolean;
 }
 

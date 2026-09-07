@@ -1,36 +1,30 @@
 import { logger } from "@/lib/logger";
+import {
+  buildTenantTlsSecretName,
+  getTenantNamespace,
+  loadCustomObjectsApi,
+} from "./k8s-client";
 
 interface CertificateSpec {
   slug: string;
   domain: string;
-  namespace: string;
 }
 
 export class K8sCertificateService {
-  private namespace: string;
-
-  constructor() {
-    this.namespace = process.env.K8S_NAMESPACE || "netmanager-production";
-  }
-
   /** Create a cert-manager Certificate resource for a tenant custom domain. */
   async createCertificate(spec: CertificateSpec): Promise<boolean> {
     try {
-      const { KubeConfig, CustomObjectsApi } =
-        await import("@kubernetes/client-node");
-      const kc = new KubeConfig();
-      kc.loadFromCluster();
-      const customApi = kc.makeApiClient(CustomObjectsApi);
+      const customApi = await loadCustomObjectsApi();
 
       const certResource = {
         apiVersion: "cert-manager.io/v1",
         kind: "Certificate",
         metadata: {
-          name: `tenant-${spec.slug}-tls`,
-          namespace: spec.namespace,
+          name: buildTenantTlsSecretName(spec.slug),
+          namespace: getTenantNamespace(),
         },
         spec: {
-          secretName: `tenant-${spec.slug}-tls`,
+          secretName: buildTenantTlsSecretName(spec.slug),
           issuerRef: {
             name: "letsencrypt-production",
             kind: "ClusterIssuer",
@@ -42,7 +36,7 @@ export class K8sCertificateService {
       await customApi.createNamespacedCustomObject({
         group: "cert-manager.io",
         version: "v1",
-        namespace: spec.namespace,
+        namespace: getTenantNamespace(),
         plural: "certificates",
         body: certResource,
       });
@@ -63,18 +57,14 @@ export class K8sCertificateService {
   /** Delete the cert-manager Certificate resource for a tenant. */
   async deleteCertificate(slug: string): Promise<boolean> {
     try {
-      const { KubeConfig, CustomObjectsApi } =
-        await import("@kubernetes/client-node");
-      const kc = new KubeConfig();
-      kc.loadFromCluster();
-      const customApi = kc.makeApiClient(CustomObjectsApi);
+      const customApi = await loadCustomObjectsApi();
 
       await customApi.deleteNamespacedCustomObject({
         group: "cert-manager.io",
         version: "v1",
-        namespace: this.namespace,
+        namespace: getTenantNamespace(),
         plural: "certificates",
-        name: `tenant-${slug}-tls`,
+        name: buildTenantTlsSecretName(slug),
       });
 
       logger.info(`[K8sCert] Deleted certificate for tenant: ${slug}`);
@@ -91,18 +81,14 @@ export class K8sCertificateService {
   /** Check whether the cert-manager Certificate for a tenant has reached Ready=True. */
   async checkCertificateReady(slug: string): Promise<boolean> {
     try {
-      const { KubeConfig, CustomObjectsApi } =
-        await import("@kubernetes/client-node");
-      const kc = new KubeConfig();
-      kc.loadFromCluster();
-      const customApi = kc.makeApiClient(CustomObjectsApi);
+      const customApi = await loadCustomObjectsApi();
 
       const cert = (await customApi.getNamespacedCustomObject({
         group: "cert-manager.io",
         version: "v1",
-        namespace: this.namespace,
+        namespace: getTenantNamespace(),
         plural: "certificates",
-        name: `tenant-${slug}-tls`,
+        name: buildTenantTlsSecretName(slug),
       })) as {
         status?: {
           conditions?: Array<{ type: string; status: string }>;
