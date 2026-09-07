@@ -41,17 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
-### [2026-09-07] — Naikkan plafon memori buildkit ke 8 GB
+### [2026-09-07] — Perbaiki plafon memori buildkit dan aktifkan swap
 
 - **Tipe**: [FIXED]
 - **Scope**: `.gitea/workflows/`
 - **Author**: agent
-- **Deskripsi**: `next build` di-SIGKILL setelah 195 detik dengan
-  `ResourceExhausted: cannot allocate memory`. Plafon 5 GB pada container
-  buildkit terlalu ketat: build berjalan dengan heap 4 GB, dan bersama overhead
-  node plus snapshot buildkit plafon itu tertembus. Jenkins memberi 10 GB untuk
-  build yang sama. Plafon dinaikkan ke 8 GB; host punya 11,7 GB dengan 10,6 GB
-  tersedia, dan container job hampir menganggur selama tahap build.
+- **Deskripsi**: `next build` di-SIGKILL dua kali dengan
+  `ResourceExhausted: cannot allocate memory`, pada plafon 5 GB lalu 8 GB.
+  Dua sebab: plafonnya memang terlalu kecil (Jenkins memberi 10 GB untuk build
+  yang sama, dan buildkit menambah snapshot serta page cache di atas heap 4 GB
+  milik node), dan `--memory-swap` disetel sama persis dengan `--memory`, yang
+  dalam Docker berarti swap dimatikan untuk container itu — sehingga proses
+  langsung dibunuh alih-alih meluber ke 4 GB swap host yang menganggur.
+  Sekarang `--memory=9g --memory-swap=13g`.
 - **Files**: `.gitea/workflows/deploy-production.yml`
 - **Breaking**: ❌ Tidak
 
