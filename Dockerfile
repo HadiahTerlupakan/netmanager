@@ -35,6 +35,7 @@ ARG NEXT_TELEMETRY_DISABLED=1
 # 4GB cukup untuk next build di CI; jangan 8GB — host OOM (build #228).
 # package.json "build" tidak hardcode heap supaya ENV ini dihormati.
 ARG NODE_OPTIONS="--no-deprecation --max-old-space-size=4096"
+ARG NEXT_BUILD_CPUS=""
 ARG NEXTAUTH_URL="http://localhost:3000"
 ARG APP_URL="http://localhost:3000"
 ARG IMAGE_REVISION="unknown"
@@ -60,6 +61,7 @@ ARG REDIS_URL="redis://localhost:6379"
 
 ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
 ENV NODE_OPTIONS=$NODE_OPTIONS
+ENV NEXT_BUILD_CPUS=$NEXT_BUILD_CPUS
 ENV NEXTAUTH_URL=$NEXTAUTH_URL
 ENV APP_URL=$APP_URL
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY

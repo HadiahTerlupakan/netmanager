@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Kurangi tekanan memori build Next.js di runner kecil
+
+- **Tipe**: [CHANGED]
+- **Scope**: `.gitea/workflows/`, `next.config.ts`, `Dockerfile`
+- **Author**: agent
+- **Deskripsi**: `next build` berjalan 45 menit tanpa tuntas lalu dipotong
+  `timeout` (exit 124). Dengan swap aktif prosesnya tidak lagi dibunuh, tapi
+  justru thrashing. Sebabnya `NODE_OPTIONS` diwariskan ke setiap worker, jadi
+  peak RAM kira-kira (worker + 1) x max-old-space-size — proses utama plus dua
+  worker menuntut hingga 12 GB di atas plafon 9 GB. Jumlah worker kini bisa
+  ditimpa lewat `NEXT_BUILD_CPUS`, dan pipeline Gitea memakai 1 worker dengan
+  heap 3 GB (perkiraan puncak ~6 GB). Batas waktu build dinaikkan 45 -> 90 menit
+  karena mesin runner jauh lebih lemah daripada host Jenkins: Xeon E3-1220 v3
+  4 core lawan pod 8 CPU di node 16 core / 31 GiB; `npm ci` saja 17 menit.
+- **Files**: `.gitea/workflows/deploy-production.yml`, `next.config.ts`,
+  `Dockerfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Perbaiki plafon memori buildkit dan aktifkan swap
 
 - **Tipe**: [FIXED]

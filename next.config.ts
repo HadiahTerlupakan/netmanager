@@ -184,8 +184,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "1gb",
     },
     proxyClientMaxBodySize: "1gb",
-    // Batasi worker collect/static gen di host CI 31Gi (default ~15 worker → peak RAM tinggi).
-    cpus: 2,
+    // Batasi worker collect/static gen (default ~15 worker → peak RAM tinggi).
+    // NODE_OPTIONS diwariskan ke setiap worker, jadi peak RAM kira-kira
+    // (worker + 1) x max-old-space-size. Runner Gitea jauh lebih kecil daripada
+    // host CI 31Gi ini, sehingga jumlahnya bisa ditimpa lewat env.
+    cpus: Number(process.env.NEXT_BUILD_CPUS) || 2,
     // Filesystem cache untuk dev — compile result di-persist antar restart, bukan in-memory only.
     // Ini paling impactful untuk project besar dengan banyak route.
     turbopackFileSystemCacheForDev: true,

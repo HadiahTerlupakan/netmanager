@@ -190,13 +190,15 @@ jobs:
           BUILDX_GIT_INFO: "0"
         run: |
           set -euo pipefail
-          timeout 2700 docker buildx build --push --progress=plain \
+          timeout 5400 docker buildx build --push --progress=plain \
             --builder netmanager \
             -t "${{ steps.refs.outputs.app_image }}" \
             --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
             --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
             --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
             --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
+            --build-arg NEXT_BUILD_CPUS=1 \
+            --build-arg NODE_OPTIONS="--no-deprecation --max-old-space-size=3072" \
             --label org.opencontainers.image.revision="${GITHUB_SHA}" \
             --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
             --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \
