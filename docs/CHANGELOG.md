@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Pipeline CI dipindah dari Jenkins ke Gitea Actions
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`, `tasks/todo.md`
+- **Author**: agent
+- **Deskripsi**: Build Next.js menjatuhkan seluruh host produksi lewat OOM global
+  (satu proses 21,4 GB dari 31 GB, `oom_score_adj=-500` sebagai anak dockerd host
+  sementara pod produksi ber-skor 977–993 — kernel melindungi build dan membunuh
+  produksi). Penyebabnya CI dan produksi berbagi mesin, dan `Jenkinsfile` memakai
+  `agent { kubernetes }` sehingga build mendarat sebagai pod di cluster produksi.
+  Pipeline diterjemahkan ke `.gitea/workflows/deploy-production.yml` yang berjalan
+  di VPS Gitea terpisah. Deploy lewat SSH ke host produksi, bukan dengan membuka
+  API Kubernetes: port 6443 tetap tertutup dari internet. Typecheck dipisah jadi
+  step tersendiri (build Jenkins #316 gagal persis di sana), rollout diverifikasi
+  dengan membandingkan image yang benar-benar aktif, dan render manifes ditolak
+  bila menyisakan placeholder.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Perbaiki error tipe yang menggagalkan build #316
 
 - **Tipe**: [FIXED]

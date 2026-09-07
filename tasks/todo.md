@@ -1,5 +1,52 @@
 # TODO
 
+## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)
+
+### Masalah yang diselesaikan
+Build menjatuhkan produksi. Bukti: OOM global 08:36:46, satu proses 21,4 GB dari 31 GB,
+`oom_score_adj=-500` (anak dockerd host, di luar akuntansi k8s) sementara pod produksi
+ber-`oom_score_adj` 977–993 — kernel melindungi build dan membunuh produksi.
+
+Memindahkan Jenkins saja **tidak** menyelesaikan ini: `Jenkinsfile` memakai
+`agent { kubernetes }`, jadi build tetap mendarat sebagai pod di cluster radpro.
+
+### Keputusan
+- CI pindah ke **Gitea Actions** di VPS 113.192.1.82 (sudah ada Gitea 1.27.1 + act_runner,
+  4 core / 11 GB, menganggur).
+- **Gitea jadi remote utama.** Mirror tarik tidak memicu Actions, jadi push harus ke Gitea.
+- Deploy lewat **SSH ke radpro**, bukan WireGuard/expose 6443.
+  Alasan: API k3s tetap tertutup dari internet, tidak perlu menambah SAN sertifikat,
+  tidak perlu restart k3s produksi. Beban berat (build) tetap di VPS Gitea; yang lewat SSH
+  hanya perintah kubectl yang ringan.
+- GitHub-hosted runner ditolak: repo privat (menit berbayar), runner 2 core/7 GB lebih kecil
+  dari VPS sendiri, dan menuntut 6443 dibuka ke ribuan IP GitHub yang berotasi.
+
+### Tahapan
+- [x] 1. Batas memori (lewat container job + buildkit, bukan systemd) di VPS Gitea — supaya build tidak menjatuhkan Gitea sendiri
+- [x] 2. Image runner ber-docker CLI + kubectl (`node:20-bullseye` bawaan tidak punya biner docker)
+- [x] 3. Kunci SSH khusus deploy: dibuat di VPS Gitea, publiknya dipasang di radpro
+- [x] 4. Terjemahkan `Jenkinsfile` (950 baris) ke `.gitea/workflows/` — kontrak image, backup,
+      migration job zero-downtime, verifikasi rollout, rollback
+- [ ] 5. Repo didorong ke Gitea sebagai remote utama
+- [ ] 6. Uji satu build penuh, bandingkan hasilnya dengan build Jenkins terakhir yang sukses (315)
+
+### Catatan pelaksanaan
+- `sudo` di VPS Gitea minta password, jadi `MemoryMax` pada docker.service tidak bisa dipasang.
+  Diganti dua batas yang tidak butuh root: container job `--memory=4g` lewat config runner,
+  dan container buildkit `--memory=5g` lewat `docker update` di dalam workflow.
+- Jaringan VPS Gitea sangat lambat ke CDN paket: `download.docker.com` 14 KB/s,
+  `dl.k8s.io` tidak tembus sama sekali, tarikan registry ~106 KB/s. Sedangkan kiriman dari
+  luar masuk 30 MB/s. Karena itu image CI dibangun dari `node:20-bullseye` yang sudah ada di
+  mesin, dengan biner docker/buildx/kubectl dikirim dari luar — bukan diunduh saat build.
+- Builder buildx dibuat **di dalam job**, bukan disiapkan di host: state klien buildx tersimpan
+  di HOME pemanggil sehingga builder milik user host tidak terlihat dari container job.
+- Kunci deploy dipasang dengan opsi `restrict` — tanpa port/agent/X11 forwarding.
+
+### Catatan risiko
+- Jenkins di radpro juga melayani `lumeris-deploy` dan `lumeris-web-deploy` yang berjalan
+  **lokal di mesin Jenkins**. Jenkins **tidak** dimatikan sampai pipeline Gitea terbukti jalan.
+- Token registrasi runner sempat tercetak di sesi; sarankan rotasi.
+
 ## Modul Surat Pengesahan — spesifikasi (2026-09-07)
 
 Modul generik untuk mengesahkan dokumen PDF oleh beberapa pihak lewat short

@@ -1,0 +1,277 @@
+name: Deploy Production
+
+# Menggantikan Jenkins. Perbedaan pokoknya: build berjalan di VPS Gitea, bukan
+# sebagai pod di cluster produksi. Build Next.js pernah menembus 21 GB dan
+# menjatuhkan seluruh host produksi ketika keduanya berbagi mesin.
+#
+# Deploy dilakukan lewat SSH ke host produksi, bukan dengan membuka API
+# Kubernetes ke internet: yang menyeberang hanya perintah kubectl yang ringan,
+# sedangkan port 6443 tetap tertutup dari luar.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: netmanager-production
+  K8S_DIR: k8s/production
+  APP_IMAGE_NAME: netmanager-app
+  CRON_IMAGE_NAME: netmanager-cron
+  RADIUS_IMAGE_NAME: netmanager-radius
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  quality:
+    runs-on: netmanager-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pasang dependensi
+        env:
+          # Prisma butuh URL berbentuk sah saat generate, bukan koneksi nyata.
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
+          DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
+          DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
+        run: |
+          set -euo pipefail
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci --no-audit --prefer-offline --ignore-scripts
+          npm run prisma:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        # Build Jenkins #316 gagal persis di sini karena berkas tes ditambah
+        # tanpa typecheck ulang. Tahap ini sengaja dipisah agar penyebabnya
+        # langsung terbaca dari nama step yang merah.
+        run: npm run typecheck
+
+      - name: Tes unit
+        env:
+          NODE_ENV: test
+          NODE_OPTIONS: --max-old-space-size=5120
+          NEXTAUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
+          AUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+          ENABLE_INTERNAL_CRON: "false"
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
+          DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
+          DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
+          REDIS_URL: redis://localhost:6379
+        run: npx vitest run --maxWorkers=4
+
+  build:
+    needs: quality
+    runs-on: netmanager-ci
+    outputs:
+      app_image: ${{ steps.refs.outputs.app_image }}
+      cron_image: ${{ steps.refs.outputs.cron_image }}
+      radius_image: ${{ steps.refs.outputs.radius_image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Susun referensi image
+        id: refs
+        run: |
+          set -euo pipefail
+          # Tag immutable: 12 karakter commit + nomor run, sama seperti Jenkins.
+          VERSION="$(echo "${GITHUB_SHA}" | cut -c1-12)-${GITHUB_RUN_NUMBER}"
+          BASE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}"
+          {
+            echo "app_image=${BASE}/${APP_IMAGE_NAME}:${VERSION}"
+            echo "cron_image=${BASE}/${CRON_IMAGE_NAME}:${VERSION}"
+            echo "radius_image=${BASE}/${RADIUS_IMAGE_NAME}:${VERSION}"
+            echo "cache_base=${BASE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Masuk ke registry
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.REGISTRY_PASSWORD }}" \
+            | docker login "${{ secrets.REGISTRY_URL }}" \
+                -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - name: Siapkan builder berbatas memori
+        run: |
+          set -euo pipefail
+          # Builder dibuat di dalam job, bukan disiapkan di host: state klien
+          # buildx tersimpan di HOME pemanggil, sehingga builder milik user host
+          # tidak terlihat dari dalam container job.
+          docker buildx inspect netmanager >/dev/null 2>&1 \
+            || docker buildx create --name netmanager --driver docker-container --bootstrap
+
+          # Mesin ini juga menjalankan Gitea dan databasenya. Buildkit berjalan
+          # di dockerd host yang tidak bisa dibatasi tanpa root, jadi batasnya
+          # dipasang pada container buildkit-nya sendiri.
+          docker update --memory=5g --memory-swap=5g buildx_buildkit_netmanager0 || true
+          docker inspect buildx_buildkit_netmanager0 \
+            -f 'buildkit dibatasi pada {{div .HostConfig.Memory 1073741824}} GB'
+
+      - name: Siapkan secret build
+        run: |
+          set -euo pipefail
+          # Nilai dummy: hanya dibutuhkan agar build tidak gagal memvalidasi env.
+          # Nilai sungguhan disuntik saat runtime lewat secret Kubernetes.
+          mkdir -p .secrets && chmod 700 .secrets
+          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
+          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
+          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
+
+      - name: Bangun & dorong image aplikasi
+        env:
+          BUILDX_GIT_INFO: "0"
+        run: |
+          set -euo pipefail
+          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-buildcache:production"
+          timeout 2700 docker buildx build --push --progress=plain \
+            --builder netmanager \
+            -t "${{ steps.refs.outputs.app_image }}" \
+            --cache-from "type=registry,ref=${CACHE}" \
+            --cache-to   "type=registry,ref=${CACHE},mode=max" \
+            --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
+            --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
+            --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
+            --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
+            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL="${{ secrets.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}" \
+            --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}" \
+            --build-arg SKIP_TS_CHECK=true \
+            .
+
+      - name: Bangun & dorong image cron
+        run: |
+          set -euo pipefail
+          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-cron-buildcache:production"
+          timeout 600 docker buildx build --push --progress=plain \
+            --builder netmanager \
+            -t "${{ steps.refs.outputs.cron_image }}" \
+            --cache-from "type=registry,ref=${CACHE}" \
+            --cache-to   "type=registry,ref=${CACHE},mode=max" \
+            ./cron
+
+      - name: Bangun & dorong image radius
+        run: |
+          set -euo pipefail
+          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-radius-buildcache:production"
+          timeout 900 docker buildx build --push --progress=plain \
+            --builder netmanager \
+            -t "${{ steps.refs.outputs.radius_image }}" \
+            --cache-from "type=registry,ref=${CACHE}" \
+            --cache-to   "type=registry,ref=${CACHE},mode=max" \
+            -f radius/Dockerfile .
+
+      - name: Bersihkan secret build
+        if: always()
+        run: rm -rf .secrets
+
+  deploy:
+    needs: build
+    runs-on: netmanager-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan kunci SSH deploy
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # Sidik jari host disematkan supaya deploy tidak bisa dibajak lewat
+          # host palsu; StrictHostKeyChecking=no akan menerima siapa saja.
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Render manifes dengan image baru
+        run: |
+          set -euo pipefail
+          mkdir -p rendered
+          for manifest in "${K8S_DIR}"/*.yaml k8s/migration-job.yaml; do
+            [ -f "$manifest" ] || continue
+            case "$(basename "$manifest")" in
+              secrets.yaml|registry-secret.yaml) continue ;;
+            esac
+            sed \
+              -e "s|{{APP_IMAGE}}|${{ needs.build.outputs.app_image }}|g" \
+              -e "s|{{CRON_IMAGE}}|${{ needs.build.outputs.cron_image }}|g" \
+              -e "s|{{RADIUS_IMAGE}}|${{ needs.build.outputs.radius_image }}|g" \
+              -e "s|{{NAMESPACE}}|${NAMESPACE}|g" \
+              -e "s|{{IMAGE_TAG}}|${{ needs.build.outputs.app_image }}|g" \
+              -e "s|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g" \
+              "$manifest" > "rendered/$(basename "$manifest")"
+          done
+
+          # Placeholder yang tersisa berarti render gagal; menerapkannya akan
+          # membuat Kubernetes menarik image bernama harfiah "{{APP_IMAGE}}".
+          if grep -rlF -e '{{APP_IMAGE}}' -e '{{CRON_IMAGE}}' -e '{{RADIUS_IMAGE}}' rendered/; then
+            echo "Render manifes menyisakan placeholder" >&2
+            exit 1
+          fi
+
+      - name: Jalankan migrasi database
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+
+          # Job lama dihapus lebih dulu: Job Kubernetes bersifat immutable,
+          # apply ulang ke Job yang sudah ada akan ditolak.
+          $SSH "sudo -n kubectl -n ${NAMESPACE} delete job netmanager-migration-job --ignore-not-found"
+          $SSH "sudo -n kubectl -n ${NAMESPACE} apply -f -" < rendered/migration-job.yaml
+
+          echo "Menunggu migrasi selesai..."
+          $SSH "sudo -n kubectl -n ${NAMESPACE} wait --for=condition=complete --timeout=1800s job/netmanager-migration-job" || {
+            echo "Migrasi gagal — log job:" >&2
+            $SSH "sudo -n kubectl -n ${NAMESPACE} logs job/netmanager-migration-job --tail=100" >&2
+            exit 1
+          }
+
+      - name: Terapkan manifes
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+          for manifest in rendered/*.yaml; do
+            case "$(basename "$manifest")" in
+              migration-job.yaml) continue ;;
+            esac
+            echo "apply $(basename "$manifest")"
+            $SSH "sudo -n kubectl -n ${NAMESPACE} apply -f -" < "$manifest"
+          done
+
+      - name: Tunggu rollout
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+          for deployment in netmanager-app netmanager-worker netmanager-cron netmanager-radius; do
+            echo "menunggu ${deployment}"
+            $SSH "sudo -n kubectl -n ${NAMESPACE} rollout status deploy/${deployment} --timeout=420s"
+          done
+
+      - name: Verifikasi image yang benar-benar aktif
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+          AKTIF="$($SSH "sudo -n kubectl -n ${NAMESPACE} get deploy netmanager-app -o jsonpath='{.spec.template.spec.containers[0].image}'")"
+          echo "aktif   : ${AKTIF}"
+          echo "harusnya: ${{ needs.build.outputs.app_image }}"
+          # Rollout bisa dilaporkan sukses padahal manifes lama yang terpasang;
+          # pemeriksaan ini menutup celah itu.
+          [ "${AKTIF}" = "${{ needs.build.outputs.app_image }}" ]
+
+      - name: Hapus kunci SSH
+        if: always()
+        run: rm -f ~/.ssh/deploy ~/.ssh/known_hosts
