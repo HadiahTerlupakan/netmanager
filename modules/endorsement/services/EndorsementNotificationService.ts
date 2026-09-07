@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getPublicSiteUrl } from "@/lib/utils/portal-url";
+import { escapeHtml } from "@/lib/utils/sanitize";
 import { EmailService, WhatsAppSenderService } from "@/modules/notification";
 import type { SignerLink } from "./EndorsementService";
 
@@ -44,15 +45,23 @@ function buildMessage(
   ].join("\n");
 }
 
+/**
+ * Rangkai badan email.
+ *
+ * Judul surat dan nama penanda tangan diisi admin lewat formulir, sedangkan
+ * penerimanya pihak luar — tanpa peng-escape-an, admin (atau siapa pun yang
+ * menguasai akunnya) bisa menyisipkan markup ke dalam email orang lain. Semua
+ * nilai yang disisipkan karena itu di-escape lebih dulu.
+ */
 function buildEmailHtml(
   endorsementTitle: string,
   signerName: string,
   url: string,
 ): string {
   return `
-    <p>Halo ${signerName},</p>
-    <p>Anda diminta mengesahkan dokumen: <strong>${endorsementTitle}</strong>.</p>
-    <p><a href="${url}">Buka dokumen dan tanda tangani</a></p>
+    <p>Halo ${escapeHtml(signerName)},</p>
+    <p>Anda diminta mengesahkan dokumen: <strong>${escapeHtml(endorsementTitle)}</strong>.</p>
+    <p><a href="${escapeHtml(url)}">Buka dokumen dan tanda tangani</a></p>
     <p style="color:#6b7280;font-size:12px">
       Tautan ini bersifat rahasia dan hanya untuk Anda. Mohon tidak diteruskan
       ke pihak lain.

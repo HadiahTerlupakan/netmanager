@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Escape nilai yang disisipkan ke email undangan pengesahan
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/endorsement`
+- **Author**: agent
+- **Deskripsi**: `buildEmailHtml` merangkai HTML dengan menyisipkan judul surat
+  dan nama penanda tangan apa adanya. Kedua nilai itu diisi admin lewat
+  formulir sedangkan penerimanya pihak luar, sehingga siapa pun yang menguasai
+  akun admin bisa menyisipkan markup — termasuk tautan palsu yang menyaru
+  sebagai bagian dari surat — ke dalam email orang lain. Semua nilai kini
+  di-escape memakai `escapeHtml` yang sudah ada di `lib/utils/sanitize.ts`.
+- **Files**: `modules/endorsement/services/EndorsementNotificationService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Modul surat pengesahan lengkap: tautan privat, tanda tangan, PDF gabungan
 
 - **Tipe**: [ADDED]
