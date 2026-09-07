@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Soket Docker di-mount ke container job CI
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Job `build` gagal dalam 12 detik dengan
+  `failed to initialize builder netmanager (netmanager0): Cannot connect to the
+  Docker daemon at unix:///var/run/docker.sock`. Penyebabnya konfigurasi
+  act_runner memakai `container.docker_host: "-"`, yang justru berarti soket
+  Docker sengaja TIDAK di-mount ke container job. Tahap `quality` tidak
+  terpengaruh karena tidak memakai Docker. Nilai diubah ke `""` (deteksi
+  otomatis + mount), lalu diverifikasi dari image CI: daemon 29.7.1 dan
+  buildx v0.19.3 terjangkau.
+- **Konfigurasi runner** (di VPS Gitea, `/home/ubuntu/gitea/runner/config.yaml`):
+  `network: gitea_giteanet`, `options: --memory=6g --memory-swap=6g`,
+  `docker_host: ""`. Cadangan lama tersimpan sebagai `config.yaml.bak`.
+- **Catatan keamanan**: mount soket Docker memberi hak setara root di host
+  kepada apa pun yang berjalan di job CI. Diterima karena Gitea ini privat dan
+  hanya melayani repo milik sendiri, sama seperti Jenkins sebelumnya.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Batas memori CI disesuaikan setelah run pertama gagal
 
 - **Tipe**: [INFRA]
