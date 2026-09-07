@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Perbaiki template inspect pada langkah builder CI
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Langkah "Siapkan builder berbatas memori" gagal dengan
+  `template parsing error: function "div" not defined`. Go template milik
+  Docker tidak menyediakan fungsi aritmetika, sehingga `{{div .HostConfig.Memory
+  1073741824}}` selalu gagal dan mematikan job `build` (exit 64) meski builder
+  dan batas memorinya sudah terpasang benar. Pembagian dipindahkan ke shell.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Soket Docker di-mount ke container job CI
 
 - **Tipe**: [INFRA]
