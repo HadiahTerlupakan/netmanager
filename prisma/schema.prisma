@@ -1527,6 +1527,8 @@ model User {
   planningDocumentsUploaded                  PlanningDocument[]          @relation("planning_document_uploadedByIdToUser")
   planningAuditLogsPerformed                 PlanningAuditLog[]          @relation("planning_audit_performedByIdToUser")
   planningTemplatesCreated                   PlanningTemplate[]          @relation("planning_template_createdByIdToUser")
+  endorsementsCreated                        Endorsement[]               @relation("EndorsementCreatedBy")
+  endorsementSignatures                      EndorsementSigner[]         @relation("EndorsementSigner")
 
   @@index([departmentId])
   @@index([isActive])
@@ -3958,6 +3960,9 @@ model Tenant {
   planningAuditLogs         PlanningAuditLog[]
   planningTemplates         PlanningTemplate[]
   planningTemplateItems     PlanningTemplateItem[]
+  endorsements              Endorsement[]
+  endorsementSigners        EndorsementSigner[]
+  endorsementEvents         EndorsementEvent[]
 }
 
 model TenantDomain {
@@ -4032,6 +4037,113 @@ model NotificationDeadLetter {
   @@index([pelangganId])
   @@index([tenantId])
   @@index([resolvedAt])
+}
+
+/// Surat pengesahan: satu dokumen PDF yang disahkan beberapa pihak lewat short
+/// link privat. Hasil akhirnya satu PDF gabungan berisi dokumen asal ditambah
+/// halaman tanda tangan.
+model Endorsement {
+  id             String    @id @default(uuid())
+  number         String
+  title          String
+  description    String?
+  /// DRAFT | SENT | COMPLETED | CANCELLED | EXPIRED
+  status         String    @default("DRAFT")
+  /// UPLOAD | PLANNING | PURCHASE_ORDER | WORK_ORDER
+  sourceType     String    @default("UPLOAD")
+  /// Id dokumen asal bila ditarik dari modul lain.
+  sourceId       String?
+  /// Object key R2 untuk PDF yang disahkan.
+  sourceFileKey  String
+  sourceFileName String
+  /// sha256 dokumen asal — dicetak di halaman pengesahan sebagai bukti
+  /// dokumen tidak ditukar setelah ditandatangani.
+  sourceFileHash String
+  /// Object key R2 untuk PDF gabungan; terisi setelah semua pihak menandatangani.
+  signedFileKey  String?
+  signedFileHash String?
+  expiresAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String
+  createdBy      User      @relation("EndorsementCreatedBy", fields: [createdById], references: [id])
+  tenantId       String?
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  signers EndorsementSigner[]
+  events  EndorsementEvent[]
+
+  @@unique([number, tenantId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdById])
+  @@index([tenantId, status])
+  @@index([expiresAt])
+}
+
+/// Satu pihak yang harus menandatangani. Pihak luar tidak punya akun: aksesnya
+/// lewat token short link.
+model EndorsementSigner {
+  id            String      @id @default(uuid())
+  endorsementId String
+  endorsement   Endorsement @relation(fields: [endorsementId], references: [id], onDelete: Cascade)
+  name          String
+  /// Jabatan yang dicetak di bawah tanda tangan.
+  role          String?
+  email         String?
+  phone         String?
+  /// Terisi bila penanda tangan adalah pengguna internal.
+  userId        String?
+  user          User?       @relation("EndorsementSigner", fields: [userId], references: [id])
+  /// sha256 dari token short link. Token mentah tidak pernah disimpan, sehingga
+  /// bocornya database tidak membocorkan link yang bisa dipakai menandatangani.
+  tokenHash     String      @unique
+  /// PENDING | VIEWED | SIGNED | DECLINED
+  status        String      @default("PENDING")
+  /// Object key R2 untuk gambar tanda tangan (PNG).
+  signatureKey  String?
+  viewedAt      DateTime?
+  signedAt      DateTime?
+  declinedAt    DateTime?
+  declineReason String?
+  ipAddress     String?
+  userAgent     String?
+  order         Int         @default(0)
+  tenantId      String?
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  events EndorsementEvent[]
+
+  @@index([endorsementId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([endorsementId, status])
+}
+
+/// Jejak audit surat pengesahan; hanya ditambah, tidak pernah diubah.
+model EndorsementEvent {
+  id            String             @id @default(uuid())
+  endorsementId String
+  endorsement   Endorsement        @relation(fields: [endorsementId], references: [id], onDelete: Cascade)
+  signerId      String?
+  signer        EndorsementSigner? @relation(fields: [signerId], references: [id], onDelete: SetNull)
+  /// CREATED | SENT | VIEWED | SIGNED | DECLINED | COMPLETED | CANCELLED | EXPIRED
+  type          String
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  tenantId      String?
+  tenant        Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+
+  @@index([endorsementId, createdAt])
+  @@index([signerId])
+  @@index([tenantId])
 }
 
 enum MaterialReturnStatus {

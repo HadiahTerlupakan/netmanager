@@ -1,5 +1,71 @@
 # TODO
 
+## Modul Surat Pengesahan — spesifikasi (2026-09-07)
+
+Modul generik untuk mengesahkan dokumen PDF oleh beberapa pihak lewat short
+link privat, hasil akhirnya satu PDF gabungan berisi dokumen asal + halaman
+tanda tangan.
+
+### Keputusan yang sudah dikunci user
+- Sumber PDF: unggah manual **dan** tarik dari modul yang ada (planning/RAB, PO, WO).
+- Penanda tangan: pengguna internal **dan** pihak luar tanpa akun.
+- Tanda tangan: digoreskan di layar (kanvas) + jejak audit.
+- Urutan: paralel — semua bisa menandatangani kapan saja.
+
+### Temuan fondasi yang menentukan desain
+- PDF di repo ini semuanya dibuat di **browser** (`jspdf`): `app/admin/planning/planning-pdf.ts`,
+  `app/admin/procurement/purchase-orders/po-pdf.ts`, `app/admin/inventory/restock/pdf.ts`.
+  Penggabungan harus di server → tambah `pdf-lib` (JS murni, tanpa headless Chrome).
+- Penyimpanan siap pakai: `lib/utils/r2-client.ts` (`uploadToR2`, `getPresignedUrl`, `deleteFromR2`).
+- Preseden link privat: rute `/w/[id]` + `app/robots.ts` yang sudah memblokir `/w/`, `/mitra-id/`, dst.
+- Belum ada: model dokumen/lampiran generik, dan penangkapan tanda tangan.
+  Approval yang ada bersifat per-domain (`RabApproval`, `PayrollApprovalWorkflow`).
+
+### Model data (schema utama, tenant-scoped)
+- `Endorsement` — nomor, judul, status (DRAFT/SENT/COMPLETED/CANCELLED/EXPIRED),
+  `sourceType` (UPLOAD/PLANNING/PURCHASE_ORDER/WORK_ORDER) + `sourceId`,
+  `sourceFileKey`, `sourceFileHash` (sha256), `signedFileKey`, `expiresAt`.
+- `EndorsementSigner` — nama, jabatan (dicetak di PDF), email/phone, `userId` bila internal,
+  `tokenHash` (**hash** token, bukan token mentah), status (PENDING/VIEWED/SIGNED/DECLINED),
+  `signatureImageKey`, `signedAt`, `declineReason`, `ipAddress`, `userAgent`.
+- `EndorsementEvent` — jejak audit append-only: dibuat, dikirim, dibuka, ditandatangani,
+  ditolak, digabung. Menyimpan metadata + IP + user agent.
+
+### Keamanan short link
+- Rute publik `/p/[token]`; token 32 byte base64url (entropi 256-bit).
+- Database hanya menyimpan **hash** token — bocornya DB tidak membocorkan link.
+- `noindex,nofollow` via meta **dan** header `X-Robots-Tag`, plus tambahan `/p/` di `app/robots.ts`.
+  robots.txt saja tidak cukup: link yang terlanjur dibagikan bisa terindeks lewat backlink.
+- `Referrer-Policy: no-referrer` supaya token tidak bocor ke pihak ketiga lewat header referer.
+- PDF **tidak** disajikan lewat URL publik R2 — selalu lewat rute server yang memvalidasi token
+  (presigned berumur pendek atau streaming). URL R2 publik bocor permanen.
+- Rate limit per token dan per IP (`lib/rate-limit`), plus kedaluwarsa surat.
+
+### Alur
+1. Admin membuat surat: pilih sumber PDF, isi judul, pilih penanda tangan, atur kedaluwarsa.
+2. Kirim: token dibuat per penanda tangan, link dikirim lewat `modules/notification`
+   (dispatcher + template + DLQ yang sudah ada).
+3. Penanda tangan membuka `/p/<token>`: melihat PDF asal, menggoreskan tanda tangan, menyetujui.
+4. Setelah semua menandatangani: server menggabungkan PDF asal + halaman pengesahan
+   (tanda tangan, nama, jabatan, waktu, hash dokumen) → `signedFileKey`.
+5. Link hasil akhir read-only + halaman verifikasi keaslian.
+
+### Asumsi yang saya ambil sendiri
+- [Asumsi] Nama modul `modules/endorsement` (kode Inggris, label UI Bahasa Indonesia),
+  mengikuti mayoritas modul baru: planning, procurement, work-order, payment-gateway.
+- [Asumsi] Nomor surat `PGS/<tenant>/<YYYYMM>/<urut>`.
+- [Asumsi] Batas unggah PDF 10 MB, mengikuti batas upload besar yang sudah ada di `proxy.ts`.
+- [Asumsi] Kedaluwarsa default 30 hari, bisa diubah saat membuat surat.
+
+### Tahapan kerja (bisa direview per potongan)
+- [ ] 1. Skema Prisma + migration + kerangka modul (domain/dto/repositories/services/validators) + tes unit
+- [ ] 2. Pembuatan surat: unggah PDF ke R2, tarik dokumen dari modul lain, daftar penanda tangan (UI admin)
+- [ ] 3. Short link + halaman publik + viewer PDF + kanvas tanda tangan + jejak audit
+- [ ] 4. Penggabungan PDF di server (`pdf-lib`) + halaman verifikasi keaslian
+- [ ] 5. Notifikasi kirim/pengingat + kedaluwarsa lewat cron
+- [ ] 6. RBAC: resource `pengesahan` ditambahkan ke `lib/permission-config.ts` **sebelum** endpoint dibuat
+      (pelajaran dari `tasks/lessons.md`: permission di luar katalog = 403 yang tak bisa diperbaiki lewat UI role)
+
 ## Review & Perbaikan Modul Planning OSP — 2026-09-06
 
 Sumber: review 4 layer (domain, service, repository+API, UI). Temuan diverifikasi

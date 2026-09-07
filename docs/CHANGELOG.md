@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Modul surat pengesahan: skema, aturan domain, dan token
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/endorsement`, `prisma/`, `lib/permission-config.ts`
+- **Author**: agent
+- **Deskripsi**: Tahap pertama modul surat pengesahan — dokumen PDF yang
+  disahkan beberapa pihak lewat short link privat. Tiga model baru:
+  `Endorsement` (surat + berkas asal + berkas hasil + hash sha256),
+  `EndorsementSigner` (penanda tangan internal maupun pihak luar tanpa akun,
+  menyimpan **hash** token bukan token mentah), dan `EndorsementEvent` (jejak
+  audit append-only). Aturan "kapan surat sah" ditaruh sebagai fungsi murni di
+  `domain/endorsement-rules.ts` supaya hanya punya satu definisi. Token short
+  link 256-bit base64url; database hanya menyimpan sidik jarinya sehingga
+  bocornya isi tabel tidak menghasilkan link yang bisa dipakai menandatangani.
+  Resource permission `pengesahan` didaftarkan ke katalog **sebelum** endpoint
+  dibuat, sesuai pelajaran di `tasks/lessons.md`.
+- **Files**: `modules/endorsement/domain/entities/Endorsement.ts`,
+  `modules/endorsement/domain/endorsement-rules.ts`,
+  `modules/endorsement/services/endorsement-token.ts`,
+  `modules/endorsement/services/endorsement-number.ts`,
+  `modules/endorsement/validators/endorsement.validator.ts`
+- **Migration**: `20260907063155_add_endorsement_module`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Tautan notifikasi mati, kode mati, dan index notifikasi
 
 - **Tipe**: [FIXED]

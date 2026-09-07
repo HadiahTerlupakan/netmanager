@@ -115,6 +115,7 @@ export const PERMISSION_GROUPS = {
   TAX: ["tax"],
   INCIDENT: ["incidents"],
   PLANNING: ["planning"],
+  PENGESAHAN: ["pengesahan"],
 } as const;
 
 /**
