@@ -330,6 +330,36 @@ export async function uploadToR2(
 }
 
 /**
+ * Unduh objek R2 menjadi buffer.
+ *
+ * Dipakai untuk berkas yang tidak boleh disajikan lewat URL publik — dokumen
+ * rahasia harus mengalir lewat rute server yang memeriksa hak akses, karena
+ * URL publik R2 bocor permanen dan tidak bisa dicabut.
+ */
+export async function downloadFromR2(key: string): Promise<Buffer | null> {
+  const client = await getR2Client();
+  const settings = await getR2Settings();
+
+  if (!client || !settings) {
+    logger.error("[R2] Client atau setting tidak tersedia untuk unduh objek");
+    return null;
+  }
+
+  try {
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: settings.bucketName, Key: key }),
+    );
+
+    if (!response.Body) return null;
+
+    return Buffer.from(await response.Body.transformToByteArray());
+  } catch (error) {
+    logger.error(`[R2] Gagal mengunduh objek ${key}:`, error);
+    return null;
+  }
+}
+
+/**
  * Delete file from R2 bucket
  * @param key Object key to delete
  */

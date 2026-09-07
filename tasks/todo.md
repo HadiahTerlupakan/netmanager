@@ -58,13 +58,24 @@ tanda tangan.
 - [Asumsi] Kedaluwarsa default 30 hari, bisa diubah saat membuat surat.
 
 ### Tahapan kerja (bisa direview per potongan)
-- [ ] 1. Skema Prisma + migration + kerangka modul (domain/dto/repositories/services/validators) + tes unit
-- [ ] 2. Pembuatan surat: unggah PDF ke R2, tarik dokumen dari modul lain, daftar penanda tangan (UI admin)
-- [ ] 3. Short link + halaman publik + viewer PDF + kanvas tanda tangan + jejak audit
-- [ ] 4. Penggabungan PDF di server (`pdf-lib`) + halaman verifikasi keaslian
-- [ ] 5. Notifikasi kirim/pengingat + kedaluwarsa lewat cron
-- [ ] 6. RBAC: resource `pengesahan` ditambahkan ke `lib/permission-config.ts` **sebelum** endpoint dibuat
+- [x] 1. Skema Prisma + migration + kerangka modul (domain/dto/repositories/services/validators) + tes unit
+- [x] 2. Pembuatan surat: unggah PDF ke R2, tarik dokumen dari modul lain, daftar penanda tangan (UI admin)
+- [x] 3. Short link + halaman publik + viewer PDF + kanvas tanda tangan + jejak audit
+- [x] 4. Penggabungan PDF di server (`pdf-lib`) + halaman verifikasi keaslian
+- [x] 5. Notifikasi kirim/pengingat + kedaluwarsa lewat cron
+- [x] 6. RBAC: resource `pengesahan` ditambahkan ke `lib/permission-config.ts` **sebelum** endpoint dibuat
       (pelajaran dari `tasks/lessons.md`: permission di luar katalog = 403 yang tak bisa diperbaiki lewat UI role)
+
+### Catatan pelaksanaan
+- Modul mewajibkan R2 dan sengaja tanpa cadangan disk lokal: aplikasi berjalan dua replika,
+  berkas yang ditulis ke disk satu pod tidak terlihat pod lain.
+- Berkas gabungan disusun **sebelum** status naik ke COMPLETED; kalau dibalik, surat sempat
+  terlihat sah padahal PDF finalnya belum ada.
+- Repository tidak diekspor lewat public API — `tests/architecture/module-public-api.test.ts`
+  melarangnya, dan itu memang benar: repository adalah detail internal.
+- Belum dikerjakan: menarik dokumen dari modul lain (planning/PO/WO) masih disiapkan lewat
+  kolom `sourceType`/`sourceId`, tetapi pemilih dokumennya belum ada di UI — sekarang baru
+  unggah manual.
 
 ## Review & Perbaikan Modul Planning OSP — 2026-09-06
 

@@ -50,3 +50,25 @@ export {
   signerStatusSchema,
   updateEndorsementSchema,
 } from "./validators/endorsement.validator";
+
+export { EndorsementService } from "./services/EndorsementService";
+export { EndorsementPdfService } from "./services/EndorsementPdfService";
+export { EndorsementStorageService } from "./services/EndorsementStorageService";
+
+export {
+  toEndorsementDetail,
+  toEndorsementListItem,
+  toSignerDto,
+  type EndorsementDetailDto,
+  type EndorsementListItemDto,
+  type EndorsementSignerDto,
+} from "./dto/endorsement.dto";
+
+export { parseSignatureDataUrl } from "./services/endorsement-signature-image";
+
+export {
+  buildSignerUrl,
+  EndorsementNotificationService,
+  type DeliveryOutcome,
+} from "./services/EndorsementNotificationService";
+export type { SignerLink } from "./services/EndorsementService";

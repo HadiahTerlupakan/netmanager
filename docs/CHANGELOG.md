@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Modul surat pengesahan lengkap: tautan privat, tanda tangan, PDF gabungan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/endorsement`, `app/admin/pengesahan`, `app/p`, `app/api/p`,
+  `app/api/admin/endorsements`, `app/api/cron/endorsement-expire`, `cron/`
+- **Author**: agent
+- **Deskripsi**: Tahap 2–6 modul surat pengesahan. Admin mengunggah PDF,
+  memilih penanda tangan (internal maupun pihak luar tanpa akun), lalu tautan
+  privat dikirim lewat WhatsApp/email. Penanda tangan membuka `/p/<token>`,
+  membaca dokumen, dan menggoreskan tanda tangan di kanvas; setelah semua pihak
+  menandatangani, server menyusun satu PDF gabungan berisi seluruh halaman
+  dokumen asal ditambah lembar pengesahan (tanda tangan, nama, jabatan, waktu,
+  sidik jari SHA-256 dokumen asal) memakai `pdf-lib`.
+  Keamanan tautan berlapis: token 256-bit yang hanya disimpan sebagai hash,
+  `noindex` lewat meta **dan** header `X-Robots-Tag`, `/p/` ditambahkan ke
+  `app/robots.ts`, `Referrer-Policy: no-referrer`, pembatasan laju per token dan
+  per IP, serta berkas yang selalu dialirkan lewat rute bertoken — tidak pernah
+  lewat URL publik penyimpanan yang bocornya permanen.
+  Modul mewajibkan R2 tanpa cadangan disk lokal karena aplikasi berjalan dua
+  replika. Berkas gabungan disusun sebelum status naik ke `COMPLETED`, supaya
+  surat tidak pernah terlihat sah sementara PDF finalnya belum ada. Cron harian
+  menandai surat yang lewat masa berlaku.
+- **Files**: `modules/endorsement/services/EndorsementService.ts`,
+  `modules/endorsement/services/EndorsementPdfService.ts`,
+  `modules/endorsement/services/EndorsementStorageService.ts`,
+  `modules/endorsement/services/EndorsementNotificationService.ts`,
+  `app/p/[token]/page.tsx`, `app/p/[token]/SignaturePad.tsx`,
+  `app/admin/pengesahan/EndorsementCreateModal.tsx`,
+  `app/api/cron/endorsement-expire/route.ts`, `lib/utils/r2-client.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Modul surat pengesahan: skema, aturan domain, dan token
 
 - **Tipe**: [ADDED]

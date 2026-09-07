@@ -41,6 +41,9 @@ cat > /etc/crontabs/root <<CRON_EOF
 
 # Cleanup Stale FCM Tokens - hapus token >30 hari sekali sehari jam 02:00
 0 2 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/cleanup-stale-fcm-tokens" >> /var/log/cron.log 2>&1
+
+# Surat Pengesahan - tandai surat yang lewat masa berlaku, sekali sehari jam 03:00
+0 3 * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/endorsement-expire" >> /var/log/cron.log 2>&1
 CRON_EOF
 
 echo "Cron jobs configured:"
