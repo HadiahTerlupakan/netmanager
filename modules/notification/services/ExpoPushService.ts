@@ -233,21 +233,6 @@ export async function sendPushToUsers(
   }
 }
 
-export async function sendPushForNotification(
-  userId: string,
-  title: string,
-  message: string,
-  link?: string,
-  sourceType?: string,
-  sourceId?: string,
-): Promise<void> {
-  await sendPushNotification(userId, title, message, {
-    link,
-    sourceType,
-    sourceId,
-  });
-}
-
 export async function sendPushToDepartment(
   departmentId: string,
   title: string,

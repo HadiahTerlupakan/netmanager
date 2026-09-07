@@ -20,8 +20,8 @@ const { CustomerNotificationService } =
   await import("@/modules/pelanggan/services/CustomerNotificationService");
 
 const summary = {
-  ticketsWithNewReplies: [],
-  announcements: [],
+  ticketsWithNewReplies: [] as unknown[],
+  announcements: [] as unknown[],
   unreadTicketCount: 1,
   unreadAnnouncementCount: 2,
 };

@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Tautan notifikasi mati, kode mati, dan index notifikasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `modules/attendance`, `modules/marketing`,
+  `modules/work-order`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Empat tautan notifikasi menunjuk rute yang tidak ada sehingga
+  penerimanya mendarat di 404: `/attendance` → `/karyawan/absensi`,
+  `/admin/attendance/leaves/<id>` → `/admin/kehadiran/izin`,
+  `/marketing/canvasing/<id>` → `/admin/marketing/canvasing/<id>`, dan
+  `/employee/holidays` yang kini tanpa tautan karena portal karyawan memang
+  tidak punya halaman hari libur. Tes arsitektur baru memindai seluruh literal
+  `link:` di `modules/` dan `lib/` lalu mencocokkannya dengan rute nyata di
+  `app/`, sehingga tautan mati tidak bisa masuk lagi tanpa ketahuan.
+  Kode mati dibuang: `NotificationFactory` (218 baris, nol pemakai), empat
+  metode `NotificationMapper` beserta tiga DTO yang hanya dipakai metode itu,
+  dan `sendPushForNotification`. Ditambah index gabungan
+  `(userId, isRead)` dan `(tenantId, isRead)` untuk kueri terpanas lonceng.
+- **Files**: `modules/attendance/services/AttendanceIncompleteAlertService.ts`,
+  `modules/attendance/services/LeaveReminderCronService.ts`,
+  `modules/marketing/services/point-claim.notifications.ts`,
+  `modules/work-order/services/WorkOrderNotifications.ts`,
+  `modules/notification/services/NotificationService.holiday.ts`,
+  `tests/architecture/notification-link-routes.test.ts`
+- **Migration**: `20260907022553_add_notifications_unread_composite_index`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Portal pelanggan: lonceng notifikasi dan notifikasi tersimpan
 
 - **Tipe**: [FIXED]

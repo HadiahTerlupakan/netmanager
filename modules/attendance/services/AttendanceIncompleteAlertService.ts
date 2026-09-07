@@ -32,7 +32,7 @@ export async function sendAttendanceAlertToUser(
     message: message.body,
     userId,
     sourceType: "ATTENDANCE",
-    link: "/attendance",
+    link: "/karyawan/absensi",
   });
   return true;
 }

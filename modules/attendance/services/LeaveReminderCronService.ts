@@ -110,7 +110,7 @@ export async function sendLeaveReminders(
           title: "Reminder: Persetujuan Izin Pending",
           message,
           type: "SYSTEM",
-          link: `/admin/attendance/leaves/${leave.id}`,
+          link: "/admin/kehadiran/izin",
         });
       }
 

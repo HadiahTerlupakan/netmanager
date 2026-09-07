@@ -36,6 +36,12 @@ export function buildHolidayNotificationMessage(
   return message;
 }
 
-export function buildHolidayNotificationLink(): string {
-  return "/employee/holidays";
+/**
+ * Notifikasi hari libur ditujukan ke karyawan, dan portal karyawan tidak punya
+ * halaman hari libur — `/employee/holidays` bahkan bukan rute yang ada. Isi
+ * pesannya sudah memuat tanggal dan keterangan, jadi notifikasi ini informatif
+ * tanpa tautan ketimbang menautkan ke halaman yang tidak bisa dibuka.
+ */
+export function buildHolidayNotificationLink(): undefined {
+  return undefined;
 }

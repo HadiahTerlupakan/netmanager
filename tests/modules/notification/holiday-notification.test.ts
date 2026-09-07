@@ -49,8 +49,12 @@ describe("Holiday Notification Helpers", () => {
   });
 
   describe("buildHolidayNotificationLink", () => {
-    it("should return correct link", () => {
-      expect(buildHolidayNotificationLink()).toBe("/employee/holidays");
+    // `/employee/holidays` bukan rute yang ada — portal karyawan tidak punya
+    // halaman hari libur, sehingga penerima notifikasi mendarat di 404.
+    // Pesannya sudah memuat tanggal dan keterangan, jadi notifikasi ini
+    // informatif tanpa tautan.
+    it("tidak menautkan ke halaman yang tidak ada", () => {
+      expect(buildHolidayNotificationLink()).toBeUndefined();
     });
   });
 });

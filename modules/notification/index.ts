@@ -101,7 +101,6 @@ export {
   sendCustomerPushNotification,
   sendPushNotification,
   sendPushToUsers,
-  sendPushForNotification,
   sendPushToDepartment,
 } from "./services/ExpoPushService";
 export {

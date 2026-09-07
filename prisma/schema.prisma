@@ -1955,6 +1955,11 @@ model Notifications {
   @@index([type])
   @@index([userId])
   @@index([tenantId])
+  /// Kueri terpanas notifikasi selalu menggabungkan penerima dengan status
+  /// baca (lonceng dan hitungan belum dibaca). Index tunggal `userId` dan
+  /// `isRead` memaksa Postgres menyaring sisanya baris per baris.
+  @@index([userId, isRead])
+  @@index([tenantId, isRead])
   @@map("notifications")
 }
 
@@ -2634,8 +2639,8 @@ model ConversationParticipant {
   // Actor polymorphism: mitra & pelanggan tidak ada di tabel User (DB terpisah).
   // actorType/actorId merepresentasikan aktor non-User tanpa FK;
   // untuk aktor User, actorId diset = userId.
-  actorType       String
-  actorId         String?
+  actorType String
+  actorId   String?
 
   @@unique([conversationId, actorType, actorId])
   @@index([userId])
@@ -2657,8 +2662,8 @@ model Message {
   tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   // Actor polymorphism untuk pengirim non-User (mitra/pelanggan).
-  actorType       String
-  actorId         String?
+  actorType String
+  actorId   String?
 
   @@index([conversationId, createdAt])
   @@index([senderId])
@@ -2839,28 +2844,28 @@ model PointClaim {
 }
 
 model PurchaseRequest {
-  id              String                @id
+  id              String                    @id
   nomorRequest    String
-  tanggal         DateTime              @default(now())
-  status          PurchaseRequestStatus @default(DRAFT)
-  prioritas       String                @default("NORMAL")
+  tanggal         DateTime                  @default(now())
+  status          PurchaseRequestStatus     @default(DRAFT)
+  prioritas       String                    @default("NORMAL")
   requesterId     String
   gudangId        String
   keterangan      String?
   catatanApproval String?
   purchaseOrderId String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
   approvedAt      DateTime?
   approvedBy      String?
-  approver        User?                 @relation("ApproverPR", fields: [approvedBy], references: [id])
+  approver        User?                     @relation("ApproverPR", fields: [approvedBy], references: [id])
   tenantId        String?
   items           PurchaseRequestItem[]
   jasaItems       PurchaseRequestJasaItem[]
-  gudang          Gudang                @relation(fields: [gudangId], references: [id])
-  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
-  requester       User                  @relation("Requester", fields: [requesterId], references: [id])
-  tenant          Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  gudang          Gudang                    @relation(fields: [gudangId], references: [id])
+  purchaseOrder   PurchaseOrder?            @relation(fields: [purchaseOrderId], references: [id])
+  requester       User                      @relation("Requester", fields: [requesterId], references: [id])
+  tenant          Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, nomorRequest], name: "tenantId_nomorRequest")
   @@index([tenantId])
@@ -2888,20 +2893,20 @@ model PurchaseRequestItem {
 /// gudang. Bisa dikaitkan ke supplier default dan kategori PPh untuk
 /// integrasi tax module. Dipakai oleh PurchaseRequestJasaItem.
 model Jasa {
-  id             String        @id @default(uuid())
-  kode            String
-  nama            String
-  satuan          String        @default("job")
-  supplierId      String?
-  hargaEstimasi  Float         @default(0)
-  kategoriPph     String?
-  deskripsi      String?
-  status         String        @default("ACTIVE")
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  tenantId       String?
-  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
-  tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                       String                    @id @default(uuid())
+  kode                     String
+  nama                     String
+  satuan                   String                    @default("job")
+  supplierId               String?
+  hargaEstimasi            Float                     @default(0)
+  kategoriPph              String?
+  deskripsi                String?
+  status                   String                    @default("ACTIVE")
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  tenantId                 String?
+  supplier                 Supplier?                 @relation(fields: [supplierId], references: [id])
+  tenant                   Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseRequestJasaItems PurchaseRequestJasaItem[]
   purchaseOrderJasaItems   PurchaseOrderJasaItem[]
 
@@ -2915,24 +2920,24 @@ model Jasa {
 /// Item jasa pada purchase request. Tidak terkait stok/gudang. Penyelesaian
 /// dikonfirmasi manual dengan upload bukti (foto/dokumen) dan tanggal selesai.
 model PurchaseRequestJasaItem {
-  id                String              @id @default(uuid())
+  id                String          @id @default(uuid())
   purchaseRequestId String
   jasaId            String
-  jumlah            Int                 @default(1)
-  hargaPerUnit      Float               @default(0)
-  totalHarga        Float               @default(0)
+  jumlah            Int             @default(1)
+  hargaPerUnit      Float           @default(0)
+  totalHarga        Float           @default(0)
   keterangan        String?
   tanggalSelesai    DateTime?
   buktiSelesai      String[]
-  statusKonfirmasi String              @default("PENDING")
+  statusKonfirmasi  String          @default("PENDING")
   confirmedAt       DateTime?
   confirmedBy       String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   tenantId          String?
-  jasa              Jasa                @relation(fields: [jasaId], references: [id])
-  purchaseRequest   PurchaseRequest     @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  jasa              Jasa            @relation(fields: [jasaId], references: [id])
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([purchaseRequestId])
@@ -2976,25 +2981,25 @@ model Supplier {
 }
 
 model PurchaseOrder {
-  id                String              @id @default(uuid())
+  id                String                  @id @default(uuid())
   poNumber          String
   supplierId        String?
-  status            PurchaseOrderStatus @default(DRAFT)
+  status            PurchaseOrderStatus     @default(DRAFT)
   totalAmount       Float
   issuedAt          DateTime?
   expectedDate      DateTime?
   notes             String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
   createdBy         String
   processedById     String?
   receivedById      String?
   fotoBukti         String[]
-  grandTotal        Float               @default(0)
+  grandTotal        Float                   @default(0)
   paidFromAccountId String?
-  paymentStatus     PaymentStatus       @default(UNPAID)
-  ppnAmount         Float               @default(0)
-  ppnRate           Float               @default(0)
+  paymentStatus     PaymentStatus           @default(UNPAID)
+  ppnAmount         Float                   @default(0)
+  ppnRate           Float                   @default(0)
   fakturPajakNo     String?
   fakturPajakDate   DateTime?
   vendorNpwp        String?
@@ -3002,12 +3007,12 @@ model PurchaseOrder {
   items             PurchaseOrderItem[]
   jasaItems         PurchaseOrderJasaItem[]
   goodsReceipts     GoodsReceipt[]
-  creator           User                @relation("POCreator", fields: [createdBy], references: [id])
-  paidFromAccount   FinancialAccount?   @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
-  processedBy       User?               @relation("POProcessor", fields: [processedById], references: [id])
-  receivedBy        User?               @relation("POReceiver", fields: [receivedById], references: [id])
-  supplier          Supplier?           @relation(fields: [supplierId], references: [id])
-  tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator           User                    @relation("POCreator", fields: [createdBy], references: [id])
+  paidFromAccount   FinancialAccount?       @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
+  processedBy       User?                   @relation("POProcessor", fields: [processedById], references: [id])
+  receivedBy        User?                   @relation("POReceiver", fields: [receivedById], references: [id])
+  supplier          Supplier?               @relation(fields: [supplierId], references: [id])
+  tenant            Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseRequests  PurchaseRequest[]
 
   @@unique([tenantId, poNumber], name: "tenantId_poNumber")
@@ -4551,22 +4556,22 @@ model WhatsAppAccount {
 }
 
 model WhatsAppMessage {
-  id           String           @id @default(cuid())
-  accountId    String?
-  account      WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  phone        String
-  message      String?
-  fileUrl      String?
-  status       String           @default("pending")
-  error        String?
-  messageId    String?
-  response     Json?
-  createdAt    DateTime         @default(now())
-  sentAt       DateTime?
-  deliveredAt  DateTime?
-  readAt       DateTime?
-  tenantId     String?
-  tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id          String           @id @default(cuid())
+  accountId   String?
+  account     WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  phone       String
+  message     String?
+  fileUrl     String?
+  status      String           @default("pending")
+  error       String?
+  messageId   String?
+  response    Json?
+  createdAt   DateTime         @default(now())
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  tenantId    String?
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([accountId])
   @@index([status])
@@ -6046,55 +6051,55 @@ enum AuditAction {
 }
 
 model Planning {
-  id                     String   @id @default(uuid())
-  tenantId               String
+  id       String @id @default(uuid())
+  tenantId String
 
-  type                   PlanningType  @default(OSP)
-  title                  String
-  description            String?       @db.Text
+  type        PlanningType @default(OSP)
+  title       String
+  description String?      @db.Text
 
-  area                   String
-  coordinates            Json?
-  estimatedUnits         Int
+  area           String
+  coordinates    Json?
+  estimatedUnits Int
 
-  estimatedBudget        Float?
-  actualBudget           Float?
+  estimatedBudget Float?
+  actualBudget    Float?
 
-  status                 PlanningStatus @default(BACKLOG)
+  status PlanningStatus @default(BACKLOG)
 
-  approvalLevel          Int           @default(1)
-  currentApprovalStep    Int           @default(0)
-  submittedAt            DateTime?
-  submittedById          String?
-  approvedAt             DateTime?
-  approvedById           String?
-  approvedLevel1At       DateTime?
-  approvedLevel1ById     String?
-  rejectedAt             DateTime?
-  rejectedById           String?
-  approvalNotes          String?       @db.Text
+  approvalLevel       Int       @default(1)
+  currentApprovalStep Int       @default(0)
+  submittedAt         DateTime?
+  submittedById       String?
+  approvedAt          DateTime?
+  approvedById        String?
+  approvedLevel1At    DateTime?
+  approvedLevel1ById  String?
+  rejectedAt          DateTime?
+  rejectedById        String?
+  approvalNotes       String?   @db.Text
 
-  progressPercentage     Int           @default(0)
-  startDate              DateTime?
-  targetCompletionDate   DateTime?
-  actualCompletionDate   DateTime?
+  progressPercentage   Int       @default(0)
+  startDate            DateTime?
+  targetCompletionDate DateTime?
+  actualCompletionDate DateTime?
 
-  createdById            String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-  deletedAt              DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
-  tenant                 Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  createdBy              User?         @relation("planning_createdByIdToUser", fields: [createdById], references: [id])
-  submittedBy            User?         @relation("planning_submittedByIdToUser", fields: [submittedById], references: [id])
-  approvedBy             User?         @relation("planning_approvedByIdToUser", fields: [approvedById], references: [id])
-  approvedLevel1By       User?         @relation("planning_approvedLevel1ByIdToUser", fields: [approvedLevel1ById], references: [id])
-  rejectedBy             User?         @relation("planning_rejectedByIdToUser", fields: [rejectedById], references: [id])
+  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy        User?  @relation("planning_createdByIdToUser", fields: [createdById], references: [id])
+  submittedBy      User?  @relation("planning_submittedByIdToUser", fields: [submittedById], references: [id])
+  approvedBy       User?  @relation("planning_approvedByIdToUser", fields: [approvedById], references: [id])
+  approvedLevel1By User?  @relation("planning_approvedLevel1ByIdToUser", fields: [approvedLevel1ById], references: [id])
+  rejectedBy       User?  @relation("planning_rejectedByIdToUser", fields: [rejectedById], references: [id])
 
-  items                  PlanningItem[]
-  milestones             PlanningMilestone[]
-  documents              PlanningDocument[]
-  auditLogs              PlanningAuditLog[]
+  items      PlanningItem[]
+  milestones PlanningMilestone[]
+  documents  PlanningDocument[]
+  auditLogs  PlanningAuditLog[]
 
   @@index([tenantId])
   @@index([status])
@@ -6104,45 +6109,45 @@ model Planning {
 }
 
 model PlanningItem {
-  id              String   @id @default(uuid())
-  planningId      String
-  tenantId        String
+  id         String @id @default(uuid())
+  planningId String
+  tenantId   String
 
-  name            String
-  description     String?  @db.Text
-  quantity        Float
-  unit            String
-  estimatedPrice  Float?
-  actualPrice     Float?
-  notes           String?  @db.Text
+  name           String
+  description    String? @db.Text
+  quantity       Float
+  unit           String
+  estimatedPrice Float?
+  actualPrice    Float?
+  notes          String? @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  planning        Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([planningId])
   @@index([tenantId])
 }
 
 model PlanningMilestone {
-  id                String          @id @default(uuid())
-  planningId        String
-  tenantId          String
+  id         String @id @default(uuid())
+  planningId String
+  tenantId   String
 
-  name              String
-  description       String?         @db.Text
-  targetDate        DateTime
-  actualDate        DateTime?
-  status            MilestoneStatus @default(PENDING)
-  notes             String?         @db.Text
+  name        String
+  description String?         @db.Text
+  targetDate  DateTime
+  actualDate  DateTime?
+  status      MilestoneStatus @default(PENDING)
+  notes       String?         @db.Text
 
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  planning          Planning        @relation(fields: [planningId], references: [id], onDelete: Cascade)
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([planningId])
   @@index([tenantId])
@@ -6150,23 +6155,23 @@ model PlanningMilestone {
 }
 
 model PlanningDocument {
-  id              String           @id @default(uuid())
-  planningId      String
-  tenantId        String
+  id         String @id @default(uuid())
+  planningId String
+  tenantId   String
 
-  filename        String
-  fileUrl         String
-  fileSize        Int?
-  mimeType        String?
-  category        DocumentCategory @default(OTHER)
-  description     String?          @db.Text
+  filename    String
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  category    DocumentCategory @default(OTHER)
+  description String?          @db.Text
 
-  uploadedById    String?
-  uploadedAt      DateTime         @default(now())
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
 
-  planning        Planning         @relation(fields: [planningId], references: [id], onDelete: Cascade)
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  uploadedBy      User?            @relation("planning_document_uploadedByIdToUser", fields: [uploadedById], references: [id])
+  planning   Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  uploadedBy User?    @relation("planning_document_uploadedByIdToUser", fields: [uploadedById], references: [id])
 
   @@index([planningId])
   @@index([tenantId])
@@ -6174,19 +6179,19 @@ model PlanningDocument {
 }
 
 model PlanningAuditLog {
-  id              String       @id @default(uuid())
-  planningId      String
-  tenantId        String
+  id         String @id @default(uuid())
+  planningId String
+  tenantId   String
 
-  action          AuditAction
-  performedById   String?
-  performedAt     DateTime     @default(now())
-  changes         Json?
-  notes           String?      @db.Text
+  action        AuditAction
+  performedById String?
+  performedAt   DateTime    @default(now())
+  changes       Json?
+  notes         String?     @db.Text
 
-  planning        Planning     @relation(fields: [planningId], references: [id], onDelete: Cascade)
-  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  performedBy     User?        @relation("planning_audit_performedByIdToUser", fields: [performedById], references: [id])
+  planning    Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  performedBy User?    @relation("planning_audit_performedByIdToUser", fields: [performedById], references: [id])
 
   @@index([planningId])
   @@index([tenantId])
@@ -6195,21 +6200,21 @@ model PlanningAuditLog {
 }
 
 model PlanningTemplate {
-  id              String                  @id @default(uuid())
-  tenantId        String
+  id       String @id @default(uuid())
+  tenantId String
 
-  name            String
-  description     String?                 @db.Text
-  type            PlanningType            @default(OSP)
-  isActive        Boolean                 @default(true)
+  name        String
+  description String?      @db.Text
+  type        PlanningType @default(OSP)
+  isActive    Boolean      @default(true)
 
-  createdById     String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  createdBy       User?                   @relation("planning_template_createdByIdToUser", fields: [createdById], references: [id])
-  items           PlanningTemplateItem[]
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy User?                  @relation("planning_template_createdByIdToUser", fields: [createdById], references: [id])
+  items     PlanningTemplateItem[]
 
   @@index([tenantId])
   @@index([type])
@@ -6217,22 +6222,22 @@ model PlanningTemplate {
 }
 
 model PlanningTemplateItem {
-  id              String            @id @default(uuid())
-  templateId      String
-  tenantId        String
+  id         String @id @default(uuid())
+  templateId String
+  tenantId   String
 
-  name            String
-  description     String?           @db.Text
-  quantity        Float
-  unit            String
-  estimatedPrice  Float?
-  notes           String?           @db.Text
+  name           String
+  description    String? @db.Text
+  quantity       Float
+  unit           String
+  estimatedPrice Float?
+  notes          String? @db.Text
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  template        PlanningTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  template PlanningTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([templateId])
   @@index([tenantId])
