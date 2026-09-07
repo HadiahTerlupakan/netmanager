@@ -207,4 +207,10 @@ reencryptSecrets()
   .finally(async () => {
     await prismaAuth.$disconnect();
     await prismaBillingAuth.$disconnect();
+
+    // Keluar eksplisit: `$disconnect()` tidak selalu melepas seluruh handle
+    // (pool pg dan loader tsx menahan event loop), sehingga skrip yang sudah
+    // selesai tetap menggantung — terbukti saat dijalankan di pod produksi,
+    // prosesnya masih hidup lama setelah laporan terakhir tercetak.
+    process.exit(process.exitCode ?? 0);
   });
