@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Batas memori CI disesuaikan setelah run pertama gagal
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Run pertama gagal di tahap Typecheck dengan
+  `JavaScript heap out of memory` dan `exit 134`. Container job dibatasi 4 GB
+  sementara lint/typecheck tidak diberi `NODE_OPTIONS`, sehingga Node memakai
+  default yang melampaui batas container lalu abort alih-alih memicu GC.
+  Sebagai pembanding, Jenkins memberi container node 10Gi dengan
+  `--max-old-space-size=5120`. Batas container dinaikkan ke 6 GB, lint dan
+  typecheck diberi heap 4 GB eksplisit, dan `vitest` diturunkan ke 2 worker
+  karena tiap worker memegang heap sendiri.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Pipeline CI dipindah dari Jenkins ke Gitea Actions
 
 - **Tipe**: [INFRA]

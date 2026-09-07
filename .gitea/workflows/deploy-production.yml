@@ -47,18 +47,25 @@ jobs:
           npm run prisma:generate
 
       - name: Lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run lint
 
       - name: Typecheck
         # Build Jenkins #316 gagal persis di sini karena berkas tes ditambah
         # tanpa typecheck ulang. Tahap ini sengaja dipisah agar penyebabnya
         # langsung terbaca dari nama step yang merah.
+        #
+        # Batas heap dipasang di bawah batas container: Node yang memakai
+        # default lebih besar akan abort (exit 134) alih-alih memicu GC.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run typecheck
 
       - name: Tes unit
         env:
           NODE_ENV: test
-          NODE_OPTIONS: --max-old-space-size=5120
+          NODE_OPTIONS: --max-old-space-size=4096
           NEXTAUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
           AUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
           NEXTAUTH_URL: http://localhost:3000
@@ -68,7 +75,7 @@ jobs:
           DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
           DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
           REDIS_URL: redis://localhost:6379
-        run: npx vitest run --maxWorkers=4
+        run: npx vitest run --maxWorkers=2
 
   build:
     needs: quality
