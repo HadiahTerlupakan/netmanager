@@ -24,12 +24,31 @@ env:
   CRON_IMAGE_NAME: netmanager-cron
   RADIUS_IMAGE_NAME: netmanager-radius
   DOCKER_BUILDKIT: "1"
+  # Container job berada di jaringan gitea_giteanet, sehingga instance Gitea
+  # terjangkau lewat nama servicenya. Ini juga URL yang dipakai
+  # actions/checkout sebelum diganti.
+  REPO_CLONE_URL: http://gitea:3000/${{ github.repository }}.git
 
 jobs:
   quality:
     runs-on: netmanager-ci
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
+      # github.com sering i/o timeout sementara transfer besarnya ~4 KB/s.
+      # Repositorinya sendiri ada di Gitea lokal, jadi kode diambil langsung
+      # dari sana tanpa perantara mana pun.
+      - name: Ambil kode dari Gitea
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "${REPO_CLONE_URL}"
+          # Token ditaruh di config lokal, bukan di argumen perintah, supaya
+          # tidak terbaca lewat daftar proses.
+          git config --local http.extraheader \
+            "Authorization: basic $(printf 'x-access-token:%s' '${{ github.token }}' | base64 -w0)"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+          git config --local --unset-all http.extraheader
 
       - name: Pasang dependensi
         env:
@@ -85,7 +104,22 @@ jobs:
       cron_image: ${{ steps.refs.outputs.cron_image }}
       radius_image: ${{ steps.refs.outputs.radius_image }}
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
+      # github.com sering i/o timeout sementara transfer besarnya ~4 KB/s.
+      # Repositorinya sendiri ada di Gitea lokal, jadi kode diambil langsung
+      # dari sana tanpa perantara mana pun.
+      - name: Ambil kode dari Gitea
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "${REPO_CLONE_URL}"
+          # Token ditaruh di config lokal, bukan di argumen perintah, supaya
+          # tidak terbaca lewat daftar proses.
+          git config --local http.extraheader \
+            "Authorization: basic $(printf 'x-access-token:%s' '${{ github.token }}' | base64 -w0)"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+          git config --local --unset-all http.extraheader
 
       - name: Susun referensi image
         id: refs
@@ -190,7 +224,22 @@ jobs:
     needs: build
     runs-on: netmanager-ci
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
+      # github.com sering i/o timeout sementara transfer besarnya ~4 KB/s.
+      # Repositorinya sendiri ada di Gitea lokal, jadi kode diambil langsung
+      # dari sana tanpa perantara mana pun.
+      - name: Ambil kode dari Gitea
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "${REPO_CLONE_URL}"
+          # Token ditaruh di config lokal, bukan di argumen perintah, supaya
+          # tidak terbaca lewat daftar proses.
+          git config --local http.extraheader \
+            "Authorization: basic $(printf 'x-access-token:%s' '${{ github.token }}' | base64 -w0)"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+          git config --local --unset-all http.extraheader
 
       - name: Siapkan kunci SSH deploy
         run: |

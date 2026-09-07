@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Checkout CI diambil dari Gitea, bukan github.com
+
+- **Tipe**: [CHANGED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Job `build` gagal dengan
+  `Get "https://github.com/actions/checkout/info/refs?service=git-upload-pack":
+  dial tcp 20.205.243.166:443: i/o timeout`. Setiap job mengunduh
+  `actions/checkout` dari github.com, sementara koneksi mesin runner ke GitHub
+  tidak stabil (permintaan kecil kadang timeout, transfer besar ~4 KB/s).
+  Ketiga job kini mengambil kode langsung dari instance Gitea lokal lewat
+  `git fetch --depth=1` ke SHA commit, tanpa perantara. Token ditulis ke config
+  git lokal, bukan argumen perintah, agar tidak terbaca lewat daftar proses.
+  Mirror action pihak ketiga (gitea.com) sudah diuji dan juga menggantung, jadi
+  dependensinya dihapus alih-alih dipindahkan.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Buang cache registry dari build CI
 
 - **Tipe**: [CHANGED]
