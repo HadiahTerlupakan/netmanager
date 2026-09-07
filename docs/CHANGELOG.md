@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Notifikasi WO ganda dan kegagalan kanal yang tak tercatat
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`, `modules/notification`, `lib/utils`
+- **Author**: agent
+- **Deskripsi**: `publishWorkOrderAssignmentSideEffects` memanggil
+  `onWorkOrderAssigned` **dan** mem-publish event `WORK_ORDER_ASSIGNED` yang
+  handler-nya memanggil `notifyWorkOrderAssigned` lagi — dua baris notifikasi
+  dan dua push untuk satu penugasan. Pemanggilan langsungnya dihapus, jalur
+  event dipertahankan sebagai satu-satunya sumber. Selain itu
+  `WhatsAppSenderService.send` dan `EmailService.sendEmail` mengembalikan
+  `{success:false}` alih-alih melempar, sedangkan DLQ hanya terisi dari blok
+  `catch`; dispatcher kini memeriksa nilai balik sehingga kegagalan kedua kanal
+  itu tercatat, dengan email ber-`deduped` tetap dianggap dilewati, bukan gagal.
+  Ditambah: nilai penanda `REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY` pada
+  `ENCRYPTION_KEY` kini diperlakukan sama dengan belum diset — sebelumnya ia
+  terlihat sebagai kunci sah dan justru mematikan peringatan kunci cadangan.
+- **Files**: `modules/work-order/services/work-order-side-effects.ts`,
+  `modules/notification/services/NotificationDispatcher.ts`,
+  `lib/utils/encryption.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — ENCRYPTION_KEY: rotasi kunci enkripsi kredensial
 
 - **Tipe**: [SECURITY]

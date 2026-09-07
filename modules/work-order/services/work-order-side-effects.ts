@@ -11,7 +11,6 @@ import type {
 import type { TicketRepository } from "../repositories/WorkOrderSupportRepositories";
 import { workOrderCacheService } from "./WorkOrderCacheService";
 import {
-  onWorkOrderAssigned,
   onWorkOrderCreated,
   onWorkOrderStatusChanged,
 } from "./WorkOrderNotifications";
@@ -225,12 +224,10 @@ export async function publishWorkOrderAssignmentSideEffects(params: {
   assignedById: string;
   tenantId?: string;
 }): Promise<void> {
-  await onWorkOrderAssigned(
-    buildNotificationPayload(params.workOrder),
-    undefined,
-    params.assignedById,
-  );
-
+  // Notifikasi penugasan dikirim oleh handler `WORK_ORDER_ASSIGNED`
+  // (`lib/event-bus/event-handlers.ts`). Memanggil `onWorkOrderAssigned` di
+  // sini membuat `notifyWorkOrderAssigned` berjalan dua kali untuk satu
+  // penugasan — dua baris notifikasi dan dua push ke karyawan yang sama.
   await publishWorkOrderEvent("WORK_ORDER_ASSIGNED", () =>
     WorkOrderEventDispatcher.onAssigned(
       buildAssignedWorkOrderEventPayload(params),

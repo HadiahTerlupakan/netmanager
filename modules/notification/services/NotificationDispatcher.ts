@@ -203,12 +203,19 @@ export class NotificationDispatcher {
     params: BillingTemplateParams,
   ): Promise<void> {
     if (!contact.noTelp) return;
-    await new WhatsAppSenderService().send({
+    const result = await new WhatsAppSenderService().send({
       phone: contact.noTelp,
       message: template.whatsapp(params),
       tenantId: contact.tenantId ?? undefined,
       accountType: "CUSTOMER",
     });
+
+    // Sender mengembalikan hasil, bukan melempar. Tanpa pemeriksaan ini
+    // kegagalan kirim tidak pernah sampai ke blok catch, sehingga tidak
+    // pernah tercatat di DLQ dan tidak terlihat admin.
+    if (!result.success) {
+      throw new Error(result.error ?? "Pengiriman WhatsApp gagal");
+    }
   }
 
   private async sendEmail(
@@ -224,7 +231,7 @@ export class NotificationDispatcher {
       return;
     }
     const emailContent = template.email(params);
-    await new EmailService().sendEmail({
+    const result = await new EmailService().sendEmail({
       to: contact.email,
       subject: emailContent.subject,
       html: emailContent.html,
@@ -234,5 +241,10 @@ export class NotificationDispatcher {
       // mengirim ulang reminder/invoice yang sama dalam waktu dekat.
       dedupeWindowMs: EMAIL_DEDUPE_WINDOW_MS,
     });
+
+    // `deduped` berarti sengaja dilewati guard dedupe — bukan kegagalan.
+    if (result.deduped || result.success) return;
+
+    throw new Error(result.error ?? "Pengiriman email gagal");
   }
 }

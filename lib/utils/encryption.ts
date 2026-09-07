@@ -19,12 +19,33 @@ import { logger } from "@/lib/logger";
 /** Kunci yang dipakai sebelum `ENCRYPTION_KEY` diperkenalkan. */
 const LEGACY_ENCRYPTION_KEY = "default-key-please-change-in-production";
 
+/**
+ * Nilai yang berarti "belum diisi", bukan kunci sungguhan.
+ *
+ * Template secret memakai penanda ini. Kalau ia sampai terpasang sebagai nilai
+ * env, kunci itu akan terlihat sah padahal isinya diketahui publik — dan
+ * peringatan kunci cadangan justru berhenti muncul karena nilainya berbeda
+ * dari kunci lama. Diperlakukan sama dengan tidak diset.
+ */
+const PLACEHOLDER_KEY_VALUES = new Set([
+  "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY",
+  "changeme",
+  "undefined",
+  "null",
+]);
+
 const IV_LENGTH = 16; // AES selalu 16 byte
 const KEY_LENGTH = 32; // AES-256
 const KEY_DERIVATION_SALT = "salt";
 
 function getPrimaryKeySource(): string {
-  return process.env.ENCRYPTION_KEY || LEGACY_ENCRYPTION_KEY;
+  const configured = process.env.ENCRYPTION_KEY?.trim();
+
+  if (!configured || PLACEHOLDER_KEY_VALUES.has(configured)) {
+    return LEGACY_ENCRYPTION_KEY;
+  }
+
+  return configured;
 }
 
 /** Apakah proses ini masih memakai kunci cadangan yang bocor di repo? */

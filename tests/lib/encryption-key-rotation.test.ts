@@ -120,3 +120,33 @@ describe("generateEncryptionKey", () => {
     expect(key).not.toBe(LEGACY_KEY);
   });
 });
+
+/**
+ * Template secret memakai penanda `REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY`.
+ * Bila penanda itu sampai terpasang sebagai nilai env, ia akan terlihat sebagai
+ * kunci sah padahal isinya diketahui publik — dan peringatan kunci cadangan
+ * justru berhenti muncul karena nilainya berbeda dari kunci lama.
+ */
+describe("nilai penanda bukan kunci sungguhan", () => {
+  it.each([
+    "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY",
+    "changeme",
+    "undefined",
+    "  ",
+  ])("memperlakukan %s sama dengan tidak diset", async (value) => {
+    const mod = await loadModule(value);
+
+    expect(mod.isUsingLegacyEncryptionKey()).toBe(true);
+  });
+
+  it("tetap membaca ciphertext lama saat env berisi penanda", async () => {
+    const legacy = await loadModule(undefined);
+    const ciphertext = legacy.encryptApiKey("kredensial-lama");
+
+    const placeholder = await loadModule(
+      "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY",
+    );
+
+    expect(placeholder.decryptApiKey(ciphertext)).toBe("kredensial-lama");
+  });
+});
