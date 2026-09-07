@@ -137,17 +137,19 @@ jobs:
           printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
           printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
+          # Cache registry sengaja tidak dipakai: egress ghcr.io dari mesin ini
+          # hanya ~4 KB/s, sehingga impor cache menggantung lebih lama daripada
+          # membangun ulang. Runner ini menetap, jadi container buildkit dan
+          # cache lokalnya bertahan antar-run — peran yang dulu diisi cache
+          # registry saat agent Jenkins masih sekali pakai.
       - name: Bangun & dorong image aplikasi
         env:
           BUILDX_GIT_INFO: "0"
         run: |
           set -euo pipefail
-          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-buildcache:production"
           timeout 2700 docker buildx build --push --progress=plain \
             --builder netmanager \
             -t "${{ steps.refs.outputs.app_image }}" \
-            --cache-from "type=registry,ref=${CACHE}" \
-            --cache-to   "type=registry,ref=${CACHE},mode=max" \
             --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
             --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
             --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
@@ -167,23 +169,17 @@ jobs:
       - name: Bangun & dorong image cron
         run: |
           set -euo pipefail
-          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-cron-buildcache:production"
           timeout 600 docker buildx build --push --progress=plain \
             --builder netmanager \
             -t "${{ steps.refs.outputs.cron_image }}" \
-            --cache-from "type=registry,ref=${CACHE}" \
-            --cache-to   "type=registry,ref=${CACHE},mode=max" \
             ./cron
 
       - name: Bangun & dorong image radius
         run: |
           set -euo pipefail
-          CACHE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}/netmanager-radius-buildcache:production"
           timeout 900 docker buildx build --push --progress=plain \
             --builder netmanager \
             -t "${{ steps.refs.outputs.radius_image }}" \
-            --cache-from "type=registry,ref=${CACHE}" \
-            --cache-to   "type=registry,ref=${CACHE},mode=max" \
             -f radius/Dockerfile .
 
       - name: Bersihkan secret build

@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Buang cache registry dari build CI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Job `build` menggantung di impor `--cache-from` ghcr.io: dalam
+  60 detik hanya 1 MB konten mendarat di penyimpanan buildkit, dengan CPU
+  buildkit 3%. Pengukuran menunjukkan egress konten GitHub ke mesin ini hanya
+  ~4 KB/s, sementara Cloudflare mencapai 74 MB/s unduh dan 60 MB/s unggah dan
+  registry npm 74 MB/s — jadi bukan link VPS yang lambat, melainkan rute ke
+  penyimpanan objek GitHub. Cache registry dibuang seluruhnya. Runner ini
+  menetap sehingga container buildkit dan cache lokalnya bertahan antar-run,
+  mengambil alih peran yang dulu dipegang cache registry saat agent Jenkins
+  masih sekali pakai.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Perbaiki template inspect pada langkah builder CI
 
 - **Tipe**: [FIXED]
