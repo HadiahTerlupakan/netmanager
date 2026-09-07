@@ -142,34 +142,6 @@ jobs:
             | docker login "${{ secrets.REGISTRY_URL }}" \
                 -u "${{ secrets.REGISTRY_USER }}" --password-stdin
 
-      - name: Siapkan builder berbatas memori
-        run: |
-          set -euo pipefail
-          # Builder dibuat di dalam job, bukan disiapkan di host: state klien
-          # buildx tersimpan di HOME pemanggil, sehingga builder milik user host
-          # tidak terlihat dari dalam container job.
-          docker buildx inspect netmanager >/dev/null 2>&1 \
-            || docker buildx create --name netmanager --driver docker-container --bootstrap
-
-          # Mesin ini juga menjalankan Gitea dan databasenya. Buildkit berjalan
-          # di dockerd host yang tidak bisa dibatasi tanpa root, jadi batasnya
-          # dipasang pada container buildkit-nya sendiri.
-          # `next build` berjalan dengan heap 4 GB dan buildkit menambah snapshot
-          # serta page cache di atasnya; Jenkins memberi 10 GB untuk build yang
-          # sama. Host punya 11,7 GB RAM + 4 GB swap sementara Gitea beserta
-          # databasenya hanya memakai ~250 MB, dan container job praktis
-          # menganggur selama tahap ini.
-          #
-          # memory-swap WAJIB lebih besar dari memory: menyamakan keduanya
-          # mematikan swap untuk container, sehingga proses langsung dibunuh
-          # begitu menyentuh plafon alih-alih meluber ke swap.
-          docker update --memory=9g --memory-swap=13g buildx_buildkit_netmanager0 || true
-          # Go template milik Docker tidak punya fungsi aritmetika, jadi
-          # pembagiannya dikerjakan shell.
-          LIMIT_BYTES="$(docker inspect buildx_buildkit_netmanager0 \
-            -f '{{.HostConfig.Memory}}')"
-          echo "buildkit dibatasi pada $((LIMIT_BYTES / 1073741824)) GB"
-
       - name: Siapkan secret build
         run: |
           set -euo pipefail
@@ -180,19 +152,23 @@ jobs:
           printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
           printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
-          # Cache registry sengaja tidak dipakai: egress ghcr.io dari mesin ini
-          # hanya ~4 KB/s, sehingga impor cache menggantung lebih lama daripada
-          # membangun ulang. Runner ini menetap, jadi container buildkit dan
-          # cache lokalnya bertahan antar-run — peran yang dulu diisi cache
-          # registry saat agent Jenkins masih sekali pakai.
+      # Build memakai BuildKit bawaan dockerd, bukan buildx dengan driver
+      # docker-container. Builder terpisah itu punya cgroup, content store, dan
+      # page cache sendiri, sehingga base image tersimpan dua kali dan build
+      # berdesakan dalam plafon memorinya sendiri meski host masih lapang. Ia
+      # juga meninggalkan proses `next build` hidup ketika `timeout` memotong
+      # klien — satu sisa pernah menahan 8,9 GB selama hampir dua jam.
+      #
+      # Cache registry juga tidak dipakai: egress ghcr.io dari mesin ini hanya
+      # ~4 KB/s, sehingga impor cache menggantung lebih lama daripada membangun
+      # ulang. Runner ini menetap, jadi cache build dockerd bertahan antar-run —
+      # peran yang dulu diisi cache registry saat agent Jenkins sekali pakai.
       - name: Bangun & dorong image aplikasi
-        env:
-          BUILDX_GIT_INFO: "0"
         run: |
           set -euo pipefail
-          timeout 5400 docker buildx build --push --progress=plain \
-            --builder netmanager \
-            -t "${{ steps.refs.outputs.app_image }}" \
+          IMAGE="${{ steps.refs.outputs.app_image }}"
+          timeout 5400 docker build --progress=plain \
+            -t "$IMAGE" \
             --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
             --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
             --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
@@ -210,22 +186,21 @@ jobs:
             --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}" \
             --build-arg SKIP_TS_CHECK=true \
             .
+          timeout 3600 docker push "$IMAGE"
 
       - name: Bangun & dorong image cron
         run: |
           set -euo pipefail
-          timeout 600 docker buildx build --push --progress=plain \
-            --builder netmanager \
-            -t "${{ steps.refs.outputs.cron_image }}" \
-            ./cron
+          IMAGE="${{ steps.refs.outputs.cron_image }}"
+          timeout 600 docker build --progress=plain -t "$IMAGE" ./cron
+          timeout 1800 docker push "$IMAGE"
 
       - name: Bangun & dorong image radius
         run: |
           set -euo pipefail
-          timeout 900 docker buildx build --push --progress=plain \
-            --builder netmanager \
-            -t "${{ steps.refs.outputs.radius_image }}" \
-            -f radius/Dockerfile .
+          IMAGE="${{ steps.refs.outputs.radius_image }}"
+          timeout 900 docker build --progress=plain -t "$IMAGE" -f radius/Dockerfile .
+          timeout 1800 docker push "$IMAGE"
 
       - name: Bersihkan secret build
         if: always()

@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Buang buildx, pakai BuildKit bawaan dockerd
+
+- **Tipe**: [CHANGED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Builder buildx dengan driver `docker-container` justru
+  memperberat mesin runner. Ia punya cgroup, content store, dan page cache
+  sendiri, sehingga base image tersimpan dua kali dan build berdesakan dalam
+  plafon memorinya sendiri meski host masih lapang — build menyentuh 9127 dari
+  9216 MB dan thrashing ke swap. Builder itu juga meninggalkan proses
+  `next build` hidup ketika `timeout` memotong klien buildx; satu sisa menahan
+  8,9 GB selama hampir dua jam dan membuat job berikutnya merangkak. Ketiga
+  image kini dibangun dengan `docker build` (BuildKit bawaan dockerd, sehingga
+  `--secret` dan cache mount tetap berfungsi) lalu didorong dengan
+  `docker push` terpisah. Base image yang sudah ada di image store dockerd ikut
+  dipakai ulang.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Kurangi tekanan memori build Next.js di runner kecil
 
 - **Tipe**: [CHANGED]
