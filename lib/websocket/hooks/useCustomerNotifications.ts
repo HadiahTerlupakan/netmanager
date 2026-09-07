@@ -12,9 +12,12 @@ export interface CustomerNotification {
   title: string;
   message: string;
   preview: string;
-  ticketId: string;
-  ticketNumber: string;
-  ticketSubject: string;
+  /** Hanya terisi untuk notifikasi balasan tiket. */
+  ticketId?: string;
+  ticketNumber?: string;
+  ticketSubject?: string;
+  /** Tujuan saat notifikasi ditekan; tiket memakai halaman tiketnya. */
+  link?: string;
   createdAt: string;
   isRead: boolean;
   sender: string;

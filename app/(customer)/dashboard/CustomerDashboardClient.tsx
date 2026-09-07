@@ -20,6 +20,7 @@ import {
   fetchDashboardResource,
 } from "@/lib/dashboard/fetchDashboardResource";
 import { z } from "zod";
+import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
 
 const dashboardSummarySchema = z.object({
   profile: z.object({
@@ -235,7 +236,9 @@ export function CustomerDashboardContent({
               Dashboard
             </h2>
           </div>
-          <div className="flex size-10 items-center justify-end" />
+          <div className="flex size-10 items-center justify-end">
+            <CustomerNotificationBell />
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col pb-24">

@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Portal pelanggan: lonceng notifikasi dan notifikasi tersimpan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`, `app/(customer)`, `components/customer`
+- **Author**: agent
+- **Deskripsi**: `CustomerNotificationBell` tidak pernah di-import di mana pun
+  sehingga portal pelanggan praktis tanpa lonceng, dan
+  `CustomerNotificationService` hanya membaca balasan tiket serta pengumuman —
+  notifikasi tagihan yang ditulis `NotificationDispatcher` ke tabel
+  `notifications` tidak pernah terlihat siapa pun. Lonceng kini dipasang di
+  header dashboard pelanggan, dan daftar notifikasi menggabungkan baris
+  tersimpan (diurutkan terbaru, ikut menambah hitungan belum dibaca). Modul
+  notification mengimpor modul pelanggan, jadi pembacaannya memakai import
+  dinamis untuk menghindari siklus barrel.
+- **Files**: `modules/pelanggan/services/CustomerNotificationService.ts`,
+  `app/(customer)/dashboard/CustomerDashboardClient.tsx`,
+  `components/customer/CustomerNotificationBell.tsx`,
+  `lib/websocket/hooks/useCustomerNotifications.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Toggle notifikasi dan preferensi pelanggan kini ditegakkan
 
 - **Tipe**: [FIXED]
