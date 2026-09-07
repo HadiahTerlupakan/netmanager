@@ -235,6 +235,14 @@ export default function TenantList({
         <HiOutlineSquares2X2 className="w-4 h-4" />
         Atur Modul
       </Link>
+      <Link
+        href={`/admin/tenants/${tenant.id}/domain`}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+        title="Atur Domain"
+      >
+        <HiOutlineGlobeAlt className="w-4 h-4" />
+        Domain
+      </Link>
       <button
         onClick={() => setDeleteId(tenant.id)}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"

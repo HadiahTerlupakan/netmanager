@@ -12,6 +12,11 @@ export class TenantDomainRepository {
     return prisma.tenantDomain.findUnique({ where: { domain } });
   }
 
+  /** Find a tenant domain record by its own id. */
+  async findById(id: string) {
+    return prisma.tenantDomain.findUnique({ where: { id } });
+  }
+
   /** Find a tenant domain record by tenantId. */
   async findByTenantId(tenantId: string) {
     return prisma.tenantDomain.findUnique({ where: { tenantId } });

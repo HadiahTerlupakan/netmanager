@@ -1,6 +1,10 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { prisma } from "@/modules/database";
 import { isSuperAdmin } from "@/lib/auth";
-import { TenantDomainService } from "@/modules/tenant";
+import {
+  TenantDomainService,
+  createTenantDomainSchema,
+} from "@/modules/tenant";
 
 const domainService = new TenantDomainService();
 
@@ -30,3 +34,36 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   return apiSuccess(response);
 });
+
+/**
+ * POST /api/admin/tenant-domains - Siapkan baris domain untuk sebuah tenant
+ * (super admin only).
+ *
+ * Idempoten: tenant yang sudah punya baris dikembalikan apa adanya, sehingga
+ * endpoint ini juga berlaku sebagai perbaikan untuk tenant lama yang dibuat
+ * sebelum baris domain ikut dibentuk otomatis.
+ */
+export const POST = createHandler(
+  { auth: true, schema: createTenantDomainSchema },
+  async (_req, ctx) => {
+    if (!isSuperAdmin(ctx.session?.user)) {
+      return ApiErrors.forbidden();
+    }
+
+    const { tenantId, slug, domain } = ctx.validated;
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+
+    if (!tenant) {
+      return ApiErrors.notFound("Tenant tidak ditemukan");
+    }
+
+    const record = slug
+      ? await domainService.createForTenant(tenantId, slug, domain)
+      : await domainService.ensureForTenant(tenantId, tenant.name);
+
+    return apiSuccess(record);
+  },
+);

@@ -16,7 +16,7 @@ const STAGING_PREFIX = `${STAGING_LABEL}.`;
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
 
 /** Label subdomain yang dikenali `proxy.ts` sebagai portal, bukan tenant. */
-const PORTAL_SUBDOMAINS = ["admin", "karyawan", "investor", "pelanggan"];
+export const PORTAL_SUBDOMAINS = ["admin", "karyawan", "investor", "pelanggan"];
 
 function splitFirstLabel(hostname: string): [string, string] | null {
   const separatorIndex = hostname.indexOf(".");

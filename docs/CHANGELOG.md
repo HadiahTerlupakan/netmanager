@@ -41,6 +41,46 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Domain tenant: baris TenantDomain, endpoint, dan halaman admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/tenant`, `modules/admin`, `app/api/admin/tenant-domains`, `app/admin/tenants`
+- **Author**: agent
+- **Deskripsi**: Fitur domain tenant tidak pernah bisa dipakai karena tidak ada
+  satu pun jalur yang membuat baris `TenantDomain` — `createForTenant()` tidak
+  pernah dipanggil dan `createTenantDomainSchema` tidak dipakai endpoint mana
+  pun, sehingga `POST /api/admin/tenants/<id>/domains` selalu 404 dan subdomain
+  slug `<slug>.<domain>` juga tidak berfungsi. Sekarang baris dibuat otomatis
+  saat tenant dibuat (`ensureForTenant`, idempoten, tidak menggagalkan
+  pembuatan tenant), ada `POST /api/admin/tenant-domains` untuk menyiapkan atau
+  memperbaiki baris tenant lama, skrip backfill
+  `npm run db:backfill-tenant-domains`, dan halaman admin
+  `/admin/tenants/<id>/domain` untuk melihat subdomain, mendaftarkan domain
+  kustom, memverifikasi DNS, serta menonaktifkan/melepas domain. Slug
+  diturunkan dari nama tenant dengan penolakan label portal
+  (`admin`/`karyawan`/`pelanggan`/`investor`) yang akan ditulis ulang
+  `proxy.ts`, dan domain kustom ditolak bila berada di bawah domain sendiri
+  atau sudah dipakai tenant lain.
+- **Files**: `modules/tenant/services/tenant-slug.ts`,
+  `modules/tenant/services/TenantDomainService.ts`,
+  `modules/tenant/repositories/TenantDomainRepository.ts`,
+  `modules/admin/services/AdminTenantRouteService.ts`,
+  `app/api/admin/tenant-domains/route.ts`,
+  `app/admin/tenants/[id]/domain/TenantDomainClient.tsx`,
+  `scripts/backfill-tenant-domains.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-07] — Tombol nonaktifkan domain tenant tidak berefek
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/tenant`
+- **Author**: agent
+- **Deskripsi**: `disableDomain(id)` mencari baris lewat `findByTenantId`,
+  padahal rute `/api/admin/tenant-domains/[id]/disable` mengirim id baris.
+  Pencarian selalu meleset sehingga aksi diam-diam tidak melakukan apa pun.
+- **Files**: `modules/tenant/services/TenantDomainService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Login pelanggan gagal di subdomain portalnya
 
 - **Tipe**: [FIXED]

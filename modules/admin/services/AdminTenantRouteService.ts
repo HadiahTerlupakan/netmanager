@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import { prismaAuth } from "@/modules/database";
 import { provisionTenantData } from "@/modules/mitra";
+import { TenantDomainService } from "@/modules/tenant";
 import type { ITenantRepository } from "../domain/ports/ITenantRepository";
 import { TenantRepository } from "../repositories/TenantRepository";
 
@@ -34,6 +35,7 @@ function normalizeDomain(domain?: string | null) {
 export class AdminTenantRouteService {
   constructor(
     private readonly repository: ITenantRepository = new TenantRepository(),
+    private readonly domainService: TenantDomainService = new TenantDomainService(),
   ) {}
 
   /** Ambil daftar tenant sesuai filter aktif. */
@@ -46,6 +48,7 @@ export class AdminTenantRouteService {
     const tenant = await this.repository.create(this.buildWriteInput(input));
 
     await this.provisionTenant(tenant.id, tenant.name);
+    await this.provisionTenantDomain(tenant.id, tenant.name);
     return tenant;
   }
 
@@ -110,6 +113,31 @@ export class AdminTenantRouteService {
     } catch (error) {
       logger.error(
         `[TENANT_POST] Warning: Provisioning failed for tenant ${tenantId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Siapkan baris domain tenant (subdomain slug) tanpa menggagalkan pembuatan.
+   *
+   * Tanpa baris ini tenant tidak punya subdomain maupun jalur domain kustom.
+   * Kegagalannya tidak membatalkan tenant yang sudah terbentuk karena
+   * `ensureForTenant` idempoten — halaman domain dan skrip backfill bisa
+   * memperbaikinya belakangan.
+   */
+  private async provisionTenantDomain(tenantId: string, tenantName: string) {
+    try {
+      const record = await this.domainService.ensureForTenant(
+        tenantId,
+        tenantName,
+      );
+      logger.info(
+        `[TENANT_POST] Domain slug for ${tenantName}: ${record.slug}`,
+      );
+    } catch (error) {
+      logger.error(
+        `[TENANT_POST] Failed to provision domain row for tenant ${tenantId}:`,
         error,
       );
     }

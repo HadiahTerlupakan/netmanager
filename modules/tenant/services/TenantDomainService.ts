@@ -3,6 +3,37 @@ import { TenantDomainRepository } from "../repositories/TenantDomainRepository";
 import { DnsVerificationService } from "./DnsVerificationService";
 import { K8sCertificateService } from "./K8sCertificateService";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/errors";
+import {
+  buildSlugCandidate,
+  buildSlugVariant,
+  isReservedSlug,
+} from "./tenant-slug";
+
+const MAX_SLUG_ATTEMPTS = 50;
+
+function normalizeDomain(domain: string): string {
+  return domain.trim().toLowerCase().replace(/\.$/, "");
+}
+
+/**
+ * Domain kustom harus benar-benar milik tenant, bukan host kita sendiri.
+ *
+ * Menerima `sesuatu.radpro.id` sebagai "domain kustom" akan bertabrakan dengan
+ * subdomain slug dan portal: resolusi tenant membaca host yang sama, dan
+ * sertifikatnya sudah ditangani sertifikat utama.
+ */
+function assertDomainIsExternal(domain: string) {
+  const baseDomain = (process.env.DOMAIN || "radpro.id").toLowerCase();
+
+  if (domain === baseDomain || domain.endsWith(`.${baseDomain}`)) {
+    throw new AppError(
+      `Domain kustom tidak boleh berada di bawah ${baseDomain}`,
+      422,
+      "DOMAIN_NOT_EXTERNAL",
+    );
+  }
+}
 
 export class TenantDomainService {
   private repository: TenantDomainRepository;
@@ -37,12 +68,35 @@ export class TenantDomainService {
 
   /** Create a new tenant domain record for a tenant. */
   async createForTenant(tenantId: string, slug: string, domain?: string) {
-    return this.repository.create({ tenantId, slug, domain });
+    const normalizedSlug = slug.toLowerCase();
+    await this.assertSlugUsable(normalizedSlug);
+
+    return this.repository.create({ tenantId, slug: normalizedSlug, domain });
+  }
+
+  /**
+   * Pastikan tenant punya baris domain, buat bila belum ada.
+   *
+   * Tanpa baris ini tenant tidak punya subdomain slug maupun jalur domain
+   * kustom: seluruh alur verifikasi dan SSL membaca tabel yang sama. Dibuat
+   * idempoten supaya aman dipanggil dari pembuatan tenant maupun backfill.
+   */
+  async ensureForTenant(tenantId: string, tenantName: string) {
+    const existing = await this.repository.findByTenantId(tenantId);
+    if (existing) return existing;
+
+    const slug = await this.reserveAvailableSlug(tenantName);
+
+    return this.repository.create({ tenantId, slug });
   }
 
   /** Set or update the custom domain for a tenant domain record. */
   async setCustomDomain(id: string, domain: string) {
-    return this.repository.updateDomain(id, domain);
+    const normalizedDomain = normalizeDomain(domain);
+    assertDomainIsExternal(normalizedDomain);
+    await this.assertDomainUnused(id, normalizedDomain);
+
+    return this.repository.updateDomain(id, normalizedDomain);
   }
 
   /** Remove the custom domain from a tenant domain record. */
@@ -116,7 +170,10 @@ export class TenantDomainService {
    * both domain status and SSL status as failed.
    */
   async disableDomain(id: string) {
-    const record = await this.repository.findByTenantId(id);
+    // Rute pemanggil (`/api/admin/tenant-domains/[id]/disable`) mengirim id
+    // baris, bukan tenantId. Pencarian lewat `findByTenantId` selalu meleset
+    // sehingga tombol nonaktifkan diam-diam tidak melakukan apa pun.
+    const record = await this.repository.findById(id);
     if (record) {
       await this.k8sService.deleteCertificate(record.slug);
       await this.repository.updateStatus(record.id, "failed");
@@ -139,6 +196,61 @@ export class TenantDomainService {
       return { verified: true };
     }
     return { verified: false, reason: "CNAME not pointing to radpro.id" };
+  }
+
+  /**
+   * Cari slug bebas untuk sebuah nama tenant.
+   *
+   * Tabrakan diselesaikan dengan pembeda angka; batas percobaan mencegah
+   * pencarian tak berujung saat ada anomali data.
+   */
+  private async reserveAvailableSlug(tenantName: string): Promise<string> {
+    const candidate = buildSlugCandidate(tenantName);
+
+    for (let attempt = 0; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
+      const slug =
+        attempt === 0 ? candidate : buildSlugVariant(candidate, attempt);
+
+      if (isReservedSlug(slug)) continue;
+      if (!(await this.repository.findBySlug(slug))) return slug;
+    }
+
+    throw new AppError(
+      "Tidak menemukan slug yang tersedia untuk tenant ini",
+      409,
+      "SLUG_UNAVAILABLE",
+    );
+  }
+
+  /** Tolak slug yang dipesan portal atau sudah dipakai tenant lain. */
+  private async assertSlugUsable(slug: string) {
+    if (isReservedSlug(slug)) {
+      throw new AppError(
+        `Slug "${slug}" dipesan untuk portal dan tidak bisa dipakai tenant`,
+        409,
+        "SLUG_RESERVED",
+      );
+    }
+
+    if (await this.repository.findBySlug(slug)) {
+      throw new AppError(
+        `Slug "${slug}" sudah dipakai tenant lain`,
+        409,
+        "SLUG_TAKEN",
+      );
+    }
+  }
+
+  /** Tolak domain yang sudah dipakai baris lain. */
+  private async assertDomainUnused(id: string, domain: string) {
+    const existing = await this.repository.findByDomain(domain);
+    if (existing && existing.id !== id) {
+      throw new AppError(
+        `Domain "${domain}" sudah dipakai tenant lain`,
+        409,
+        "DOMAIN_TAKEN",
+      );
+    }
   }
 
   /** Trigger K8s certificate creation and update sslStatus accordingly. */
