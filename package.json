@@ -26,6 +26,7 @@
     "db:ps": "docker-compose ps",
     "db:backfill": "tsx scripts/backfill-tenant.ts",
     "db:backfill-tenant-domains": "tsx scripts/backfill-tenant-domains.ts",
+    "secrets:reencrypt": "tsx scripts/reencrypt-secrets.ts",
     "prisma:generate": "prisma generate && prisma generate --config=prisma.radius.config.ts && prisma generate --config=prisma.billing.config.ts && prisma generate --config=prisma.mitra.config.ts",
     "prisma:generate-parallel": "prisma generate & prisma generate --config=prisma.radius.config.ts & prisma generate --config=prisma.billing.config.ts & prisma generate --config=prisma.mitra.config.ts & wait",
     "prisma:push-all": "prisma db push && prisma db push --config=prisma.radius.config.ts && prisma db push --config=prisma.billing.config.ts && prisma db push --config=prisma.mitra.config.ts",

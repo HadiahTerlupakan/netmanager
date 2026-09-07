@@ -3,6 +3,9 @@
  * Gunakan helpers ini untuk akses env vars yang critical.
  */
 
+import { logger } from "@/lib/logger";
+import { isUsingLegacyEncryptionKey } from "./encryption";
+
 export class EnvironmentError extends Error {
   constructor(message: string) {
     super(message);
@@ -55,6 +58,21 @@ export function getRequiredEnv(name: string): string {
  * Check all critical environment variables at startup.
  * Call this in server.ts or app initialization.
  */
+export function warnOnInsecureEncryptionKey(): void {
+  if (!isUsingLegacyEncryptionKey()) return;
+
+  const message =
+    "ENCRYPTION_KEY belum diset — kredensial di database dienkripsi dengan kunci cadangan yang nilainya ada di repo. " +
+    "Isi ENCRYPTION_KEY lalu jalankan scripts/reencrypt-secrets.ts.";
+
+  if (process.env.NODE_ENV === "production") {
+    logger.error(message);
+    return;
+  }
+
+  logger.warn(message);
+}
+
 export function validateCriticalEnvVars(): void {
   const criticalVars = [
     "NEXT_PUBLIC_APP_URL",
@@ -72,6 +90,8 @@ export function validateCriticalEnvVars(): void {
       missing.push(varName);
     }
   }
+
+  warnOnInsecureEncryptionKey();
 
   if (missing.length > 0) {
     throw new EnvironmentError(

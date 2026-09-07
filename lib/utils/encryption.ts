@@ -1,70 +1,133 @@
-import { logger } from "@/lib/logger";
-// Encryption utility for sensitive data (API keys)
-
 import crypto from "crypto";
-
-// IMPORTANT: Set this in your .env file (any string, will be hashed to 32 bytes)
-// For better security, use: node -e "logger.info(crypto.randomBytes(32).toString('hex'))"
-const ENCRYPTION_KEY =
-  process.env.ENCRYPTION_KEY || "default-key-please-change-in-production";
-const IV_LENGTH = 16; // For AES, this is always 16
+import { logger } from "@/lib/logger";
 
 /**
- * Get a 32-byte encryption key from the ENCRYPTION_KEY string
+ * Enkripsi data sensitif yang disimpan di database (API key, kredensial SMTP,
+ * kredensial WhatsApp, payment gateway, dan sejenisnya).
+ *
+ * Kunci diambil dari `ENCRYPTION_KEY`. Sebelum variabel itu dipasang, seluruh
+ * ciphertext produksi terbentuk memakai kunci cadangan yang nilainya ada di
+ * dalam repo ini — jadi sekadar mengisi `ENCRYPTION_KEY` akan membuat semua
+ * data lama tidak bisa dibaca lagi.
+ *
+ * Karena itu dekripsi mencoba beberapa kunci berurutan: kunci aktif dulu, lalu
+ * kunci lama. Enkripsi selalu memakai kunci aktif, sehingga data berpindah ke
+ * kunci baru dengan sendirinya setiap kali disimpan ulang, dan
+ * `scripts/reencrypt-secrets.ts` bisa memindahkan sisanya sekaligus.
  */
-function getEncryptionKey(): Buffer {
-  // Use scrypt to derive a 32-byte key from any string
-  // This ensures we always have exactly 32 bytes regardless of input
-  return crypto.scryptSync(ENCRYPTION_KEY, "salt", 32);
+
+/** Kunci yang dipakai sebelum `ENCRYPTION_KEY` diperkenalkan. */
+const LEGACY_ENCRYPTION_KEY = "default-key-please-change-in-production";
+
+const IV_LENGTH = 16; // AES selalu 16 byte
+const KEY_LENGTH = 32; // AES-256
+const KEY_DERIVATION_SALT = "salt";
+
+function getPrimaryKeySource(): string {
+  return process.env.ENCRYPTION_KEY || LEGACY_ENCRYPTION_KEY;
+}
+
+/** Apakah proses ini masih memakai kunci cadangan yang bocor di repo? */
+export function isUsingLegacyEncryptionKey(): boolean {
+  return getPrimaryKeySource() === LEGACY_ENCRYPTION_KEY;
 }
 
 /**
- * Encrypt a string (e.g., API key)
+ * Urutan kunci yang dicoba saat dekripsi: kunci aktif lebih dulu, lalu kunci
+ * lama supaya ciphertext lama tetap terbaca selama masa peralihan.
  */
+function getDecryptionKeySources(): string[] {
+  const primary = getPrimaryKeySource();
+  if (primary === LEGACY_ENCRYPTION_KEY) return [primary];
+
+  return [primary, LEGACY_ENCRYPTION_KEY];
+}
+
+function deriveKey(source: string): Buffer {
+  return crypto.scryptSync(source, KEY_DERIVATION_SALT, KEY_LENGTH);
+}
+
+function splitEncryptedText(encryptedText: string): [Buffer, string] {
+  const [ivHex, encryptedHex] = encryptedText.split(":");
+  if (!ivHex || !encryptedHex) {
+    throw new Error("Format ciphertext tidak dikenali");
+  }
+
+  return [Buffer.from(ivHex, "hex"), encryptedHex];
+}
+
+function decryptWithKey(
+  iv: Buffer,
+  encryptedHex: string,
+  keySource: string,
+): string {
+  const decipher = crypto.createDecipheriv(
+    "aes-256-cbc",
+    deriveKey(keySource),
+    iv,
+  );
+
+  return decipher.update(encryptedHex, "hex", "utf8") + decipher.final("utf8");
+}
+
+/** Enkripsi nilai sensitif memakai kunci aktif. */
 export function encryptApiKey(text: string): string {
-  const key = getEncryptionKey();
-
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const cipher = crypto.createCipheriv(
+    "aes-256-cbc",
+    deriveKey(getPrimaryKeySource()),
+    iv,
+  );
 
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
+  const encrypted = cipher.update(text, "utf8", "hex") + cipher.final("hex");
 
-  // Return iv:encrypted format
   return `${iv.toString("hex")}:${encrypted}`;
 }
 
-/**
- * Decrypt an encrypted string
- */
+/** Dekripsi nilai sensitif, mencoba kunci aktif lalu kunci lama. */
 export function decryptApiKey(encryptedText: string): string {
-  try {
-    const key = getEncryptionKey();
+  const [iv, encryptedHex] = splitEncryptedText(encryptedText);
 
-    // Split iv and encrypted data
-    const [ivHex, encryptedHex] = encryptedText.split(":");
-    if (!ivHex || !encryptedHex) {
-      throw new Error("Invalid encrypted format");
+  for (const keySource of getDecryptionKeySources()) {
+    try {
+      return decryptWithKey(iv, encryptedHex, keySource);
+    } catch {
+      // Kunci ini tidak cocok; coba kunci berikutnya.
     }
-
-    const iv = Buffer.from(ivHex, "hex");
-    const encrypted = encryptedHex;
-
-    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-
-    return decrypted;
-  } catch (error) {
-    logger.error("Decryption error:", error);
-    throw new Error("Gagal mendekripsi API key");
   }
+
+  // Isi ciphertext tidak pernah ikut dicatat — yang berguna hanyalah fakta
+  // bahwa tidak ada kunci yang cocok.
+  logger.error("Dekripsi gagal: tidak ada kunci yang cocok untuk ciphertext");
+  throw new Error("Gagal mendekripsi API key");
 }
 
 /**
- * Generate a random encryption key (for initial setup)
+ * Apakah ciphertext ini masih terikat kunci lama?
+ *
+ * Dipakai skrip enkripsi ulang untuk memilih baris yang perlu dipindahkan.
  */
+export function isEncryptedWithLegacyKey(encryptedText: string): boolean {
+  if (isUsingLegacyEncryptionKey()) return false;
+
+  const [iv, encryptedHex] = splitEncryptedText(encryptedText);
+
+  try {
+    decryptWithKey(iv, encryptedHex, getPrimaryKeySource());
+    return false;
+  } catch {
+    // Gagal dengan kunci aktif; cek apakah kunci lama yang cocok.
+  }
+
+  try {
+    decryptWithKey(iv, encryptedHex, LEGACY_ENCRYPTION_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Buat kunci acak untuk mengisi `ENCRYPTION_KEY`. */
 export function generateEncryptionKey(): string {
   return crypto.randomBytes(32).toString("hex");
 }

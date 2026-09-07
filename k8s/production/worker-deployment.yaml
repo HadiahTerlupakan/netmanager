@@ -96,6 +96,15 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: OAUTH_ENCRYPTION_KEY
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: ENCRYPTION_KEY
+                  # Opsional supaya pod tetap hidup sebelum secret diisi. Tanpa
+                  # nilai ini aplikasi jatuh ke kunci cadangan yang ada di repo;
+                  # `lib/utils/encryption.ts` mencatat peringatan saat itu terjadi.
+                  optional: true
             - name: ENABLE_INTERNAL_CRON
               value: "false"
             - name: ENABLE_EVENT_BUS_WORKERS

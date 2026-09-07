@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — ENCRYPTION_KEY: rotasi kunci enkripsi kredensial
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/utils`, `k8s/production`, `scripts/`
+- **Author**: agent
+- **Deskripsi**: `ENCRYPTION_KEY` tidak pernah dipasang di produksi
+  (terverifikasi lewat `printenv` di pod), sehingga `lib/utils/encryption.ts`
+  jatuh ke kunci cadangan yang nilainya tertulis di repo ini. Seluruh kredensial
+  tersimpan — WhatsApp, SMTP, payment gateway, R2, AccelPPP, captcha — praktis
+  terenkripsi dengan kunci publik. Mengisi env begitu saja akan membuat semua
+  data lama tidak terbaca, jadi dekripsi kini mencoba kunci aktif lalu kunci
+  lama, sementara enkripsi selalu memakai kunci aktif — data berpindah sendiri
+  setiap kali disimpan ulang. `scripts/reencrypt-secrets.ts`
+  (`npm run secrets:reencrypt`, default laporan, `--apply` untuk menulis)
+  memindahkan sisanya di dua database. Manifest app & worker menerima
+  `ENCRYPTION_KEY` dari secret sebagai `optional: true` supaya pod tetap hidup
+  sebelum secret diisi, dan startup mencatat error selama kunci cadangan masih
+  dipakai.
+- **Files**: `lib/utils/encryption.ts`, `lib/utils/env.ts`,
+  `scripts/reencrypt-secrets.ts`, `k8s/production/app-deployment.yaml`,
+  `k8s/production/worker-deployment.yaml`, `k8s/production/secrets.yaml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Sertifikat domain tenant kini benar-benar disajikan
 
 - **Tipe**: [FIXED]
