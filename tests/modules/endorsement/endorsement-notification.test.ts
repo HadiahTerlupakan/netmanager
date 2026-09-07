@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * palsu yang menyaru sebagai bagian dari surat.
  */
 
+import type { SignerLink } from "@/modules/endorsement";
+
 const sendEmail = vi.hoisted(() => vi.fn());
 const sendWhatsApp = vi.hoisted(() => vi.fn());
 
@@ -26,7 +28,7 @@ vi.mock("@/lib/utils/portal-url", () => ({
 const { EndorsementNotificationService, buildSignerUrl } =
   await import("@/modules/endorsement/services/EndorsementNotificationService");
 
-const link = (over: Record<string, unknown> = {}) => ({
+const link = (over: Partial<SignerLink> = {}): SignerLink => ({
   signerId: "signer-1",
   name: "Budi",
   email: "budi@contoh.id",

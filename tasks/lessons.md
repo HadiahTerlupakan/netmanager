@@ -76,3 +76,21 @@
 - Kasus nyata: `POST /api/customer/auth/login` membalas 500 di `pelanggan.<domain>` tapi 401 yang benar di apex — `lib/tenant-context.ts` mengembalikan "tanpa tenant" untuk semua subdomain portal dengan alasan "handled by proxy.ts".
 - **Why:** `proxy.ts` hanya menulis ulang path; ia tidak pernah menetapkan tenant. Portal staf aman karena tenant-nya ada di token NextAuth, tetapi login pelanggan diproses **sebelum** ada cookie apa pun, sehingga host adalah satu-satunya sumber tenant. Tanpa itu, query pelanggan ditolak ekstensi Prisma (fail-closed) dan berubah jadi 500.
 - **How to apply:** Saat menambah host portal baru, tanyakan apakah ada langkah pra-sesi di host itu. Jika ya, host wajib menghasilkan tenant context; jika tidak, biarkan fail-closed supaya host tidak pernah jadi sumber otoritas. Uji endpoint pra-sesi di **setiap** host yang melayaninya — identifier dummy sudah cukup, 500 vs 401 langsung membedakan bug isolasi tenant dari penolakan kredensial biasa.
+
+### Jalankan typecheck lagi setiap kali menambah berkas tes, bukan hanya `vitest`
+- Kasus nyata: build Jenkins #316 gagal di tahap Code Quality dengan satu error —
+  `tests/modules/endorsement/endorsement-notification.test.ts: error TS7018: Object literal's property 'phone' implicitly has an 'any' type`.
+  Berkas itu ditambahkan di commit terakhir; setelah membuatnya saya hanya menjalankan `vitest` dan `eslint`, tidak `tsc`.
+- **Why:** `vitest` mengeksekusi tes tanpa memeriksa tipe, dan `eslint` tidak menyalakan `noImplicitAny`.
+  Jadi berkas tes bisa hijau di lokal tetapi menggagalkan pipeline. Pola pemicunya selalu sama di repo ini:
+  helper `const x = (over: Record<string, unknown> = {}) => ({ ...,, phone: null, ...over })` —
+  properti bernilai `null` di object literal tanpa anotasi menghasilkan TS7018. Ini sudah terjadi
+  tiga kali dalam satu sesi (`tenant-domain-service`, `endorsement-pdf-service`, `endorsement-notification`).
+- **How to apply:**
+  - Setelah menambah atau mengubah berkas apa pun di `tests/`, jalankan `npx tsc --noEmit -p tsconfig.typecheck.json`
+    sebelum commit — bukan hanya `vitest`.
+  - Untuk helper pembentuk data uji, beri tipe kembalian eksplisit dari tipe domain
+    (`(over: Partial<X> = {}): X => ({...})`), jangan `Record<string, unknown>`.
+  - Sebelum push yang memicu deploy, jalankan urutan yang sama dengan pipeline:
+    typecheck → lint → test. Pipeline gagal di tahap pertama dan seluruh tahap sisanya di-skip,
+    jadi satu error tipe membuang seluruh siklus build ~6 menit.

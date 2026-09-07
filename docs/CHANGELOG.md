@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Perbaiki error tipe yang menggagalkan build #316
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/modules/endorsement`
+- **Author**: agent
+- **Deskripsi**: Build Jenkins #316 gagal di tahap Code Quality karena
+  `endorsement-notification.test.ts` memakai helper tanpa tipe kembalian, dan
+  properti `phone: null` di object literal memicu TS7018. Helper kini memakai
+  tipe `SignerLink` dari public API modul. Berkas tes itu ditambahkan di commit
+  sebelumnya tanpa menjalankan ulang typecheck — pelajarannya dicatat di
+  `tasks/lessons.md`.
+- **Files**: `tests/modules/endorsement/endorsement-notification.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Escape nilai yang disisipkan ke email undangan pengesahan
 
 - **Tipe**: [SECURITY]
