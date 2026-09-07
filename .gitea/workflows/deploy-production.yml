@@ -154,7 +154,12 @@ jobs:
           # Mesin ini juga menjalankan Gitea dan databasenya. Buildkit berjalan
           # di dockerd host yang tidak bisa dibatasi tanpa root, jadi batasnya
           # dipasang pada container buildkit-nya sendiri.
-          docker update --memory=5g --memory-swap=5g buildx_buildkit_netmanager0 || true
+          # 5 GB terbukti terlalu ketat: `next build` berjalan dengan heap 4 GB,
+          # dan bersama overhead node plus snapshot buildkit plafonnya tertembus
+          # sehingga proses di-SIGKILL. Jenkins memberi 10 GB untuk build yang
+          # sama. Batas ini plafon, bukan pesanan: container job hampir tidak
+          # memakai apa-apa selama build sehingga host 11,7 GB tetap aman.
+          docker update --memory=8g --memory-swap=8g buildx_buildkit_netmanager0 || true
           # Go template milik Docker tidak punya fungsi aritmetika, jadi
           # pembagiannya dikerjakan shell.
           LIMIT_BYTES="$(docker inspect buildx_buildkit_netmanager0 \

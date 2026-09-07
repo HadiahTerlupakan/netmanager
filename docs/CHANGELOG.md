@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Naikkan plafon memori buildkit ke 8 GB
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: `next build` di-SIGKILL setelah 195 detik dengan
+  `ResourceExhausted: cannot allocate memory`. Plafon 5 GB pada container
+  buildkit terlalu ketat: build berjalan dengan heap 4 GB, dan bersama overhead
+  node plus snapshot buildkit plafon itu tertembus. Jenkins memberi 10 GB untuk
+  build yang sama. Plafon dinaikkan ke 8 GB; host punya 11,7 GB dengan 10,6 GB
+  tersedia, dan container job hampir menganggur selama tahap build.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Checkout CI diambil dari Gitea, bukan github.com
 
 - **Tipe**: [CHANGED]
