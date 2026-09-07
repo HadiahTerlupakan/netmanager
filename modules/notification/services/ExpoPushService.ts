@@ -177,6 +177,16 @@ export async function sendCustomerPushNotification(
     const pelanggan =
       await getPelangganPushTokenService().findByIdWithPushToken(pelangganId);
     if (!pelanggan?.pushToken) return false;
+
+    // Preferensi ditegakkan di sini, bukan di tiap pemanggil: jalur push
+    // langsung (pembayaran ditolak/dibatalkan) sebelumnya melewatinya sehingga
+    // pelanggan yang sudah mematikan notifikasi tagihan tetap menerima push.
+    if (pelanggan.isBillNotifEnabled === false) {
+      logger.info(
+        `[Push] Skip — pelanggan ${pelangganId} menonaktifkan notifikasi tagihan`,
+      );
+      return false;
+    }
     const messages: ExpoPushMessage[] = [
       createExpoPushMessage({ token: pelanggan.pushToken, title, body, data }),
     ];

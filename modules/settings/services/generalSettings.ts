@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { clearNotificationChannelTogglesCache } from "./notificationChannelSettings";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type {
@@ -265,6 +266,10 @@ export async function updateGeneralSettings(
   await repository.upsertMany(
     buildGeneralSettingsUpserts(payload, activeTenantId),
   );
+
+  // Toggle kanal ditahan sebentar oleh cache; tanpa ini perubahan sakelar baru
+  // terasa setelah TTL habis.
+  clearNotificationChannelTogglesCache();
 }
 
 const PUBLIC_GENERAL_SETTING_KEYS = [

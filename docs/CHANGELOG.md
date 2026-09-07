@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-07] — Toggle notifikasi dan preferensi pelanggan kini ditegakkan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings`, `modules/notification`, `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Tiga sakelar di Pengaturan Umum (`notifApp`, `notifWa`,
+  `notifEmail`) hanya disimpan dan dibaca halaman pengaturannya sendiri — nol
+  pembacaan di jalur pengiriman, jadi mematikan WhatsApp di UI tidak
+  berpengaruh. `getNotificationChannelToggles()` baru dibaca
+  `NotificationDispatcher` untuk menyaring kanal, dengan cache 30 detik supaya
+  satu blast tidak berubah jadi ratusan kueri settings, fail-open bila
+  pengaturan gagal dibaca, dan cache dibersihkan saat pengaturan disimpan.
+  Kanal in-app sengaja tidak ikut disaring karena barisnya adalah jejak yang
+  tetap dibutuhkan admin. Selain itu `Pelanggan.isBillNotifEnabled` dulu hanya
+  dihormati dispatcher; jalur push langsung (pembayaran ditolak/dibatalkan)
+  melewatinya. Preferensi kini ditegakkan di dalam
+  `sendCustomerPushNotification` sehingga pemanggil baru ikut terjaga.
+- **Files**: `modules/settings/services/notificationChannelSettings.ts`,
+  `modules/settings/services/generalSettings.ts`,
+  `modules/notification/services/NotificationDispatcher.ts`,
+  `modules/notification/services/ExpoPushService.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository-push-token.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Notifikasi WO ganda dan kegagalan kanal yang tak tercatat
 
 - **Tipe**: [FIXED]

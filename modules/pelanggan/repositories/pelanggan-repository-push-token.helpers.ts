@@ -1,10 +1,15 @@
 import { prisma } from "@/lib/prisma";
 
-/** Get customer push token by id. */
+/**
+ * Get customer push token by id.
+ *
+ * Preferensi ikut diambil karena pengirim push wajib menghormatinya; tanpa itu
+ * pelanggan yang mematikan notifikasi tagihan tetap menerima push.
+ */
 export function findByIdWithPushToken(pelangganId: string) {
   return prisma.pelanggan.findUnique({
     where: { id: pelangganId },
-    select: { id: true, pushToken: true },
+    select: { id: true, pushToken: true, isBillNotifEnabled: true },
   });
 }
 

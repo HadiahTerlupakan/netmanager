@@ -24,7 +24,7 @@ vi.mock("@/modules/notification/services/whatsapp-sender.service", () => ({
   }),
 }));
 
-const mockRecordDlq = vi.fn();
+const mockRecordDlq = vi.hoisted(() => vi.fn());
 
 const mockSendEmail = vi.fn();
 vi.mock("@/modules/notification/services/email-service", () => ({

@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getNotificationChannelToggles } from "@/modules/settings";
 import { redis } from "@/lib/redis";
 import { resolveCustomerContact, type CustomerContact } from "./channel-router";
 import {
@@ -85,13 +86,47 @@ export class NotificationDispatcher {
       ...input.params,
       customerName: input.params.customerName || contact.customerName,
     };
-    const channels = input.channels ?? DEFAULT_CHANNELS;
+    const requestedChannels = input.channels ?? DEFAULT_CHANNELS;
+    const channels = await this.filterChannelsByTenantToggles(
+      requestedChannels,
+      contact.tenantId,
+    );
 
     await Promise.allSettled(
       channels.map((channel) =>
         this.sendChannel(channel, contact, template, enrichedParams, input),
       ),
     );
+  }
+
+  /**
+   * Buang kanal yang dimatikan tenant lewat Pengaturan Umum.
+   *
+   * Kanal in-app tidak ikut disaring: baris notifikasi adalah jejak yang tetap
+   * dibutuhkan admin walau kanal keluar dimatikan.
+   */
+  private async filterChannelsByTenantToggles(
+    channels: NotificationChannel[],
+    tenantId: string | null | undefined,
+  ): Promise<NotificationChannel[]> {
+    const toggles = await getNotificationChannelToggles(tenantId);
+    const enabledByChannel: Record<NotificationChannel, boolean> = {
+      inApp: true,
+      push: toggles.push,
+      whatsapp: toggles.whatsapp,
+      email: toggles.email,
+    };
+
+    const enabled = channels.filter((channel) => enabledByChannel[channel]);
+    const disabled = channels.filter((channel) => !enabledByChannel[channel]);
+
+    if (disabled.length > 0) {
+      logger.info(
+        `[NotificationDispatcher] Kanal dimatikan tenant: ${disabled.join(", ")}`,
+      );
+    }
+
+    return enabled;
   }
 
   /**

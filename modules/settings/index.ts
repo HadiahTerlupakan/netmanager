@@ -100,3 +100,9 @@ export {
   getAppUpdateContact,
   updateAppUpdateContact,
 } from "./services/tenantSettings";
+
+export {
+  getNotificationChannelToggles,
+  clearNotificationChannelTogglesCache,
+  type NotificationChannelToggles,
+} from "./services/notificationChannelSettings";
