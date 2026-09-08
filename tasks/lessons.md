@@ -94,3 +94,24 @@
   - Sebelum push yang memicu deploy, jalankan urutan yang sama dengan pipeline:
     typecheck → lint → test. Pipeline gagal di tahap pertama dan seluruh tahap sisanya di-skip,
     jadi satu error tipe membuang seluruh siklus build ~6 menit.
+
+## Mengubah Dockerfile: validasi bentuk tidak cukup, jalankan stage-nya
+
+- **Konteks:** Menghapus `npm prune` dan menambah stage `prod-deps` di `Dockerfile`.
+  Dua percobaan push gagal berturut-turut, masing-masing membuang satu siklus CI ~12 menit.
+- **Kegagalan 1 — tidak mengulang suite.** `tests/ci/jenkinsfile-build-safety.test.ts`
+  menjaga jumlah `RUN npm run prisma:generate` di Dockerfile. Stage baru membuatnya jadi dua
+  dan test itu merah. Saya hanya menjalankan `docker build --check`, lalu push.
+- **Kegagalan 2 — tidak pernah menjalankan stage-nya.** `docker build --check` hanya memeriksa
+  sintaks, tidak mengeksekusi apa pun. Stage baru gagal di `npm run prisma:generate` karena
+  config Prisma berformat TypeScript membaca `DATABASE_URL` saat dimuat, dan variabel itu
+  hanya ada di stage builder.
+- **Why:** `Dockerfile` bukan berkas yang bebas dari test — ada penjaga yang membacanya. Dan
+  perintah di dalamnya baru terbukti benar ketika benar-benar dijalankan, bukan ketika lolos lint.
+- **How to apply:**
+  - Setelah mengubah `Dockerfile`, jalankan `npx vitest run tests/ci/` — ada penjaga di sana.
+  - Bangun stage yang diubah secara lokal: `docker build --target <stage> --platform linux/amd64 .`
+    Stage kecil seperti `prod-deps` selesai dalam hitungan menit, jauh lebih murah daripada siklus CI.
+  - Kalau stage itu memasok `node_modules` ke image runtime, bandingkan isinya dengan pod produksi
+    yang berjalan (`kubectl exec ... ls node_modules/.prisma/client`) sebelum push — itu satu-satunya
+    cara membuktikan tidak ada yang hilang.
