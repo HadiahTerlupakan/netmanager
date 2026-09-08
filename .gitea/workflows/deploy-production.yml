@@ -11,6 +11,14 @@ name: Deploy Production
 on:
   push:
     branches: [main]
+    # Commit yang hanya menyentuh dokumentasi tidak mengubah apa pun yang
+    # dibangun atau dijalankan, jadi tidak perlu membakar satu siklus deploy
+    # ~40 menit. Run tetap jalan begitu ada satu berkas lain yang berubah,
+    # termasuk ketika changelog ikut dalam commit yang mengubah kode.
+    paths-ignore:
+      - "docs/**"
+      - "tasks/**"
+      - "**/*.md"
   workflow_dispatch:
 
 concurrency:

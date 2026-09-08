@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-09] — Cache npm persisten dan lewati deploy untuk commit dokumentasi
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`, `infra/`
+- **Author**: agent
+- **Deskripsi**: Pengukuran menunjukkan `npm ci` di job `quality` memakan
+  7 menit dan terjadi setiap run, karena container job dibuat baru sehingga
+  cache npm-nya selalu kosong — `--prefer-offline` tidak menolong tanpa cache.
+  Ini sumber utama variasi durasi antar-run (quality 11m21s pada satu run,
+  20m54s pada run lain). Volume Docker `act-npm-cache` kini dipasang ke
+  `/root/.npm` pada semua container job lewat `container.options` di config
+  runner; cadangan tersimpan sebagai `config.yaml.bak3`. Selain itu, push yang
+  hanya menyentuh `docs/**`, `tasks/**`, atau berkas `.md` tidak lagi memicu
+  deploy, karena tidak mengubah apa pun yang dibangun.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Batasi runner Gitea ke satu job serentak
 
 - **Tipe**: [INFRA]
