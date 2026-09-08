@@ -247,6 +247,14 @@ const nextConfig: NextConfig = {
     // os.totalmem() membaca RAM host (bukan cgroup limit container),
     // berisiko OOM jika host > 32GB tapi container di-cap 8GB.
     // availableParallelism() cgroup-aware di Node >=18.14; cap di 4 untuk aman.
+    // Minifikasi mengaburkan nama sehingga galat runtime saat build hanya
+    // menyebut simbol seperti `f.Pc`. Set NEXT_DISABLE_MINIFY=1 untuk membaca
+    // nama aslinya di jejak tumpukan. Hanya untuk diagnosis, jangan dipakai
+    // untuk image produksi.
+    if (!dev && process.env.NEXT_DISABLE_MINIFY === "1") {
+      config.optimization = { ...config.optimization, minimize: false };
+    }
+
     if (!dev) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const os = require("os") as typeof import("os");
