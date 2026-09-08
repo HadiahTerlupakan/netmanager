@@ -251,7 +251,10 @@ const nextConfig: NextConfig = {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const os = require("os") as typeof import("os");
       const cpus = os.availableParallelism?.() ?? os.cpus().length;
-      const safe = Math.min(cpus, 4);
+      // NEXT_BUILD_CPUS juga membatasi paralelisme webpack, bukan hanya worker
+      // collect/static gen: tiap worker webpack menambah memori sendiri.
+      const requested = Number(process.env.NEXT_BUILD_CPUS) || cpus;
+      const safe = Math.min(cpus, requested, 4);
       config.parallelism = safe >= 4 ? 4 : safe >= 2 ? 2 : 1;
     }
 

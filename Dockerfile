@@ -36,6 +36,8 @@ ARG NEXT_TELEMETRY_DISABLED=1
 # package.json "build" tidak hardcode heap supaya ENV ini dihormati.
 ARG NODE_OPTIONS="--no-deprecation --max-old-space-size=4096"
 ARG NEXT_BUILD_CPUS=""
+# Flag tambahan untuk `next build`, mis. --webpack. Kosong = default Next.
+ARG NEXT_BUILD_FLAGS=""
 ARG NEXTAUTH_URL="http://localhost:3000"
 ARG APP_URL="http://localhost:3000"
 ARG IMAGE_REVISION="unknown"
@@ -90,7 +92,7 @@ RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
     export NEXTAUTH_SECRET=$(cat /run/secrets/NEXTAUTH_SECRET) && \
     export AUTH_SECRET=$(cat /run/secrets/AUTH_SECRET) && \
     export OAUTH_ENCRYPTION_KEY=$(cat /run/secrets/OAUTH_ENCRYPTION_KEY) && \
-    npm run build
+    npm run build ${NEXT_BUILD_FLAGS:+-- ${NEXT_BUILD_FLAGS}}
 
 # Prune devDependencies AFTER build so only production deps remain.
 # The builder already generated Prisma clients before build, so pruning is enough here.

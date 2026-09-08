@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Pipeline Gitea membangun dengan webpack, bukan Turbopack
+
+- **Tipe**: [CHANGED]
+- **Scope**: `.gitea/workflows/`, `next.config.ts`, `Dockerfile`
+- **Author**: agent
+- **Deskripsi**: Build di runner Gitea menghabiskan seluruh RAM 11,7 GB beserta
+  4 GB swap sampai host tidak responsif dan perlu reboot. Log membuktikan
+  bundlernya Turbopack (`Next.js 16.2.6 (Turbopack)`), yang mengalokasikan di
+  sisi Rust sehingga `--max-old-space-size` tidak mengekangnya sama sekali —
+  kompilasi tuntas dalam 32 menit lalu mesin mati pada fase
+  `Collecting page data`. Flag `next build` kini bisa ditimpa lewat build arg
+  `NEXT_BUILD_FLAGS`, dan pipeline Gitea memakai `--webpack` agar memori
+  didominasi heap JavaScript yang memang terkekang batas 3 GB. `NEXT_BUILD_CPUS`
+  kini juga membatasi `config.parallelism` webpack, bukan hanya worker
+  collect/static gen. Jenkins dan build lokal tidak berubah karena default
+  build arg kosong.
+- **Files**: `.gitea/workflows/deploy-production.yml`, `next.config.ts`,
+  `Dockerfile`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-08] — Lindungi Gitea dari OOM akibat build CI
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Build CI yang kehabisan memori membuat seluruh host tidak
+  responsif selama lebih dari dua jam, termasuk Gitea dan databasenya, sampai
+  perlu reboot manual. Container `gitea` dan `gitea-db` di
+  `/home/ubuntu/gitea/docker-compose.yml` kini memakai `oom_score_adj: -800`
+  beserta `mem_reservation` (512m dan 256m), sehingga kernel mengorbankan
+  proses build lebih dulu alih-alih server git. Cadangan lama tersimpan sebagai
+  `docker-compose.yml.bak`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-07] — Buang buildx, pakai BuildKit bawaan dockerd
 
 - **Tipe**: [CHANGED]
