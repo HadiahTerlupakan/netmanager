@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Nonaktifkan job Jenkins netmanager-prod
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Setelah pipeline Gitea Actions terbukti berjalan ujung ke ujung
+  dan hasilnya terverifikasi di produksi, job Jenkins `netmanager-prod`
+  dinonaktifkan. Job itu memakai `GitHubPushTrigger` terhadap
+  `github.com/HadiahTerlupakan/netmanager`, sementara repo lokal masih menyimpan
+  remote `github` di samping `origin` yang kini menunjuk Gitea — sehingga ada
+  dua jalur hidup menuju cluster produksi yang sama dan sebuah push ke remote
+  lama bisa menimpa hasil deploy Gitea tanpa peringatan. Perubahan dilakukan
+  lewat `config.xml` (`<disabled>true</disabled>`) diikuti restart Jenkins,
+  karena API anonim Jenkins hanya berhak baca. Cadangan tersimpan sebagai
+  `config.xml.bak-<tanggal>`; job bisa dihidupkan lagi kapan saja sebagai jalur
+  darurat. Job `lumeris-deploy`, `lumeris-web-deploy`, dan
+  `mobile-netmanager-ota` tidak disentuh.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Tunda instansiasi lintas modul di InvoiceRouteService
 
 - **Tipe**: [FIXED]
