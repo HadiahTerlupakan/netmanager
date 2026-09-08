@@ -121,6 +121,16 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY prisma ./prisma
 COPY prisma.config.ts prisma.radius.config.ts prisma.billing.config.ts prisma.mitra.config.ts ./
+
+# Config Prisma berformat TypeScript membaca URL database saat dimuat, jadi
+# nilainya harus ada meski generate tidak menyentuh database sama sekali.
+# Nilai dummy ini tidak bocor ke image akhir: runner hanya menyalin
+# node_modules dari stage ini, bukan ENV-nya.
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+ENV DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
+ENV DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra"
+ENV RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
+
 RUN npm run prisma:generate
 
 
