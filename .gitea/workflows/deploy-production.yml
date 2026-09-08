@@ -62,7 +62,20 @@ jobs:
           npm config set fetch-retries 5
           npm config set fetch-retry-mintimeout 20000
           npm config set fetch-retry-maxtimeout 120000
-          npm ci --no-audit --prefer-offline --ignore-scripts
+          # fetch-retries hanya mengulang permintaan individual; ECONNRESET di
+          # tengah aliran tetap membatalkan seluruh `npm ci`. Jaringan mesin ini
+          # sudah terbukti tidak selalu mulus, jadi perintahnya sendiri diulang.
+          for percobaan in 1 2 3; do
+            if npm ci --no-audit --prefer-offline --ignore-scripts; then
+              break
+            fi
+            if [ "$percobaan" = 3 ]; then
+              echo "npm ci gagal setelah 3 percobaan" >&2
+              exit 1
+            fi
+            echo "npm ci gagal (percobaan $percobaan), mengulang dalam 15 detik" >&2
+            sleep 15
+          done
           npm run prisma:generate
 
       - name: Lint

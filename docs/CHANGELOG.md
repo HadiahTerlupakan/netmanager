@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Ulangi `npm ci` saat jaringan CI terputus
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Job `quality` gagal dengan `npm error code ECONNRESET /
+  network aborted` di tengah pemasangan dependensi. `fetch-retries` yang sudah
+  disetel hanya mengulang permintaan individual, sedangkan koneksi yang putus
+  di tengah aliran tetap membatalkan seluruh `npm ci`. Perintahnya kini diulang
+  sampai tiga kali dengan jeda 15 detik.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Impor ioredis dibuat aman terhadap minifikasi
 
 - **Tipe**: [FIXED]
