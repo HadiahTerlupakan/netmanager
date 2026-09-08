@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Tunda instansiasi lintas modul di InvoiceRouteService
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Build webpack gagal dengan
+  `TypeError: _modules_users__WEBPACK_IMPORTED_MODULE_1__.Pc is not a constructor`
+  saat Next.js mengumpulkan data halaman untuk
+  `/api/admin/event-bus/health`. `InvoiceRouteService` memanggil
+  `new UserLookupService()` di tingkat modul, padahal `@/modules/users` berada
+  dalam siklus impor dengan modul ini — saat body modul dieksekusi, kelasnya
+  belum terinisialisasi. Turbopack kebetulan memilih urutan modul yang selamat,
+  webpack tidak. Instansiasinya kini ditunda sampai dipakai, mengikuti pola
+  registry yang sudah dipakai file yang sama untuk layanan pelanggan.
+  Nama penyebabnya didapat dengan membangun tanpa minifikasi lewat opsi
+  diagnosis `NEXT_DISABLE_MINIFY`, bukan dengan menebak.
+- **Files**: `modules/finance/services/InvoiceRouteService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Ulangi `npm ci` saat jaringan CI terputus
 
 - **Tipe**: [FIXED]

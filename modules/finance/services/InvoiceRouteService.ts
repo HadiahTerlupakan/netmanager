@@ -53,7 +53,18 @@ type InvoiceResponseShape = {
 };
 
 const invoiceRepository = new InvoiceRepository();
-const userLookupService = new UserLookupService();
+
+// Instansiasi ditunda sampai dipakai. `@/modules/users` berada dalam siklus
+// impor dengan modul ini, sehingga membangunnya saat modul dimuat membuat
+// kelasnya masih undefined ("is not a constructor") — tergantung urutan modul
+// yang dipilih bundler. Pola yang sama dipakai untuk layanan pelanggan di
+// bawah lewat registry.
+let userLookupServiceInstance: UserLookupService | null = null;
+
+function getUserLookupService(): UserLookupService {
+  userLookupServiceInstance ??= new UserLookupService();
+  return userLookupServiceInstance;
+}
 
 function getPelangganLookupService() {
   return getPelangganServiceFromRegistry();
@@ -246,7 +257,7 @@ async function findInvoiceByAccess(options: {
 }
 
 async function getRestrictedSiteId(userId: string) {
-  const user = await userLookupService.findByIdWithSite(userId);
+  const user = await getUserLookupService().findByIdWithSite(userId);
   return user?.siteId || undefined;
 }
 
