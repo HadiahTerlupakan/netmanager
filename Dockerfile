@@ -97,13 +97,35 @@ RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
     export OAUTH_ENCRYPTION_KEY=$(cat /run/secrets/OAUTH_ENCRYPTION_KEY) && \
     npm run build ${NEXT_BUILD_FLAGS:+-- ${NEXT_BUILD_FLAGS}}
 
-# Prune devDependencies AFTER build so only production deps remain.
-# The builder already generated Prisma clients before build, so pruning is enough here.
-RUN npm prune --omit=dev --legacy-peer-deps
+# ==============================================================================
+# Stage 3: Production Dependencies
+# ==============================================================================
+# Dulu tahap ini `npm prune --omit=dev` di builder, dan itu memakan 9,6 menit
+# dari 31 menit build karena prune menghitung ulang seluruh pohon dependensi.
+# Memasang ulang secara bersih jauh lebih murah, dan karena stage ini tidak
+# bergantung pada builder, BuildKit menjalankannya paralel dengan kompilasi.
+#
+# `prisma` dan `@prisma/client` ada di dependencies, jadi client-nya bisa
+# di-generate di sini. Config berformat TypeScript tetap terbaca tanpa paket
+# `typescript` karena @prisma/config memuatnya lewat c12/jiti.
+FROM node:24-alpine AS prod-deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci --omit=dev --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts
+
+COPY prisma ./prisma
+COPY prisma.config.ts prisma.radius.config.ts prisma.billing.config.ts prisma.mitra.config.ts ./
+RUN npm run prisma:generate
 
 
 # ==============================================================================
-# Stage 3: Production Runner
+# Stage 4: Production Runner
 # ==============================================================================
 FROM node:24-alpine AS runner
 WORKDIR /app
@@ -136,7 +158,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # This replaces the fragile per-module COPY approach that caused missing
 # sub-dependency errors (e.g. pure-rand, ioredis, socket.io, etc.)
 # The standalone node_modules is overwritten with the complete set.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Trim node_modules: remove files not needed at runtime to reduce image size.
 # This is safe because these files are never imported/required at runtime.

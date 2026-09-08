@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Ganti `npm prune` dengan stage dependensi produksi
+
+- **Tipe**: [CHANGED]
+- **Scope**: `Dockerfile`
+- **Author**: agent
+- **Deskripsi**: Pengukuran run yang berhasil menunjukkan
+  `RUN npm prune --omit=dev` memakan 576 detik — 9,6 menit dari total 31 menit
+  tahap build — karena prune menghitung ulang seluruh pohon dependensi.
+  Digantikan stage `prod-deps` yang memasang bersih dengan
+  `npm ci --omit=dev` memakai cache npm; karena stage itu tidak bergantung pada
+  builder, BuildKit menjalankannya paralel dengan kompilasi. Client Prisma
+  di-generate di stage yang sama (`prisma` dan `@prisma/client` ada di
+  dependencies, dan config TypeScript tetap terbaca tanpa paket `typescript`
+  karena @prisma/config memuatnya lewat c12/jiti). Runner kini menyalin
+  `node_modules` dari `prod-deps`, bukan dari builder.
+- **Rincian waktu build sebelum perubahan**: kompilasi 12 menit,
+  `npm run build` 14,7 menit total, prune 9,6 menit, ekspor layer 3,5 menit,
+  dorong tiga image 2,5 menit. Dorongan ke ghcr.io ternyata bukan hambatan.
+- **Files**: `Dockerfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Nonaktifkan job Jenkins netmanager-prod
 
 - **Tipe**: [INFRA]
