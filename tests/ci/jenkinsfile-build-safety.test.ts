@@ -362,18 +362,14 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const jenkinsfile = readJenkinsfile();
     const dockerfile = readDockerfile();
     const builderStage = getDockerfileStageBlock(dockerfile, "builder");
-    const dockerfileAfterPrune = getDockerfileBlockAfter(
-      dockerfile,
-      "RUN npm prune --omit=dev --legacy-peer-deps",
-    );
+    const prodDepsStage = getDockerfileStageBlock(dockerfile, "prod-deps");
+    const runnerStage = getDockerfileStageBlock(dockerfile, "runner");
     const prismaGenerateMatches =
       dockerfile.match(/RUN npm run prisma:generate/g) ?? [];
     const npmCiMatches =
       dockerfile.match(
         /npm ci --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts/g,
       ) ?? [];
-    const generateAfterPruneMatches =
-      dockerfileAfterPrune.match(/npm run prisma:generate/g) ?? [];
     const installIndex = jenkinsfile.indexOf(
       "npm ci --no-audit --prefer-offline --ignore-scripts",
     );
@@ -400,10 +396,26 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       "COPY --from=deps /app/node_modules ./node_modules",
     );
     expect(builderStage).toContain("COPY . .");
-    expect(prismaGenerateMatches).toHaveLength(1);
+    // Dua generate yang disengaja: builder butuh client saat mengompilasi, dan
+    // prod-deps menyiapkan client untuk node_modules yang dipakai runtime.
+    // Dulu hanya ada satu karena runner memakai node_modules bekas builder yang
+    // dipangkas `npm prune`; pemangkasan itu diganti pemasangan bersih karena
+    // memakan 9,6 menit dari 31 menit build.
+    expect(prismaGenerateMatches).toHaveLength(2);
     expect(npmCiMatches).toHaveLength(1);
-    expect(generateAfterPruneMatches).toHaveLength(0);
-    expect(dockerfileAfterPrune).not.toContain("npm run prisma:generate");
+
+    // Client Prisma harus ada di image runtime. Dulu dijamin dengan memastikan
+    // generate terjadi sebelum prune; sekarang dijamin karena prod-deps
+    // men-generate sendiri dan runner menyalin node_modules dari sana.
+    expect(dockerfile).not.toContain("RUN npm prune");
+    expect(prodDepsStage).toContain("npm ci --omit=dev");
+    expect(prodDepsStage).toContain("RUN npm run prisma:generate");
+    expect(runnerStage).toContain(
+      "COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules",
+    );
+    expect(runnerStage).not.toContain(
+      "COPY --from=builder --chown=nextjs:nodejs /app/node_modules",
+    );
   });
 
   it("keeps production deployment manifests annotated with the rendered official image ref", () => {
