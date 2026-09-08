@@ -336,8 +336,11 @@ vi.mock("ioredis", () => {
     subscribe = vi.fn().mockResolvedValue(0);
   }
 
+  // Bentuk mock mengikuti modul aslinya: ioredis mengekspor kelas Redis
+  // sebagai default sekaligus named export.
   return {
     default: RedisMock,
+    Redis: RedisMock,
   };
 });
 

@@ -1,5 +1,7 @@
 import { logger } from "@/lib/logger";
-import Redis from "ioredis";
+// Named import, bukan default: ioredis adalah modul CommonJS dan interop
+// default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
+import { Redis } from "ioredis";
 
 const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
 

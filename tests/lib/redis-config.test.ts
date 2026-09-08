@@ -28,6 +28,7 @@ class QueueMock {
 
 vi.mock("ioredis", () => ({
   default: RedisMock,
+  Redis: RedisMock,
 }));
 
 vi.mock("bullmq", () => ({

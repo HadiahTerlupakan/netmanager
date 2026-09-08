@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Impor ioredis dibuat aman terhadap minifikasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`, `lib/event-bus/`
+- **Author**: agent
+- **Deskripsi**: Build gagal dengan `TypeError: f.Pc is not a constructor` lalu
+  `Failed to collect page data for /api/admin/event-bus/health`. Next.js
+  mengeksekusi handler rute itu saat build untuk mencoba pra-render, dan
+  `new Redis()` pecah di sana: `import Redis from "ioredis"` mengandalkan
+  interop default-import terhadap modul CommonJS, yang tidak selamat melewati
+  minifikasi webpack. Keempat pemakaian diubah ke named import
+  `import { Redis } from "ioredis"` — ioredis 5.10.1 mengekspor keduanya. Mock
+  ioredis di `tests/setup.ts` dan tiga file test yang menimpanya kini juga
+  menyediakan named export agar bentuknya sama dengan modul aslinya.
+- **Files**: `lib/redis.ts`, `lib/event-bus/redis-connection.ts`,
+  `lib/event-bus/queues.ts`, `tests/setup.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Naikkan heap build webpack ke 6 GB
 
 - **Tipe**: [FIXED]

@@ -70,7 +70,7 @@ class RedisMock {
   duplicate = vi.fn(() => ({ on: vi.fn(), once: vi.fn() }));
 }
 
-vi.mock("ioredis", () => ({ default: RedisMock }));
+vi.mock("ioredis", () => ({ default: RedisMock, Redis: RedisMock }));
 
 vi.mock("@/lib/tenant-context", () => ({
   runAsSystemContext: mockFns.runAsSystemContext,

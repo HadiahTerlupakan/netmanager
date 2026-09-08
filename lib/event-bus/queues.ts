@@ -1,6 +1,8 @@
 import { logger } from "@/lib/logger";
 import { Queue, type JobsOptions, type RepeatOptions } from "bullmq";
-import Redis from "ioredis";
+// Named import, bukan default: ioredis adalah modul CommonJS dan interop
+// default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
+import { Redis } from "ioredis";
 import type { EventName, QueueName } from "./types";
 import { QUEUE_NAMES, JOB_PRIORITIES } from "./types";
 

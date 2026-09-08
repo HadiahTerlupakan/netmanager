@@ -1,5 +1,7 @@
 import { Queue } from "bullmq";
-import Redis from "ioredis";
+// Named import, bukan default: ioredis adalah modul CommonJS dan interop
+// default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
+import { Redis } from "ioredis";
 import { describe, expect, it } from "vitest";
 
 describe("BullMQ Redis contract", () => {

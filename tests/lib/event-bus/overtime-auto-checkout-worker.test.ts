@@ -52,6 +52,7 @@ class RedisMock {
 
 vi.mock("ioredis", () => ({
   default: RedisMock,
+  Redis: RedisMock,
 }));
 
 vi.mock("@/lib/tenant-context", () => ({
