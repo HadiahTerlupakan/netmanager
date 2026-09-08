@@ -175,7 +175,7 @@ jobs:
             --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
             --build-arg NEXT_BUILD_CPUS=1 \
             --build-arg NEXT_BUILD_FLAGS=--webpack \
-            --build-arg NODE_OPTIONS="--no-deprecation --max-old-space-size=3072" \
+            --build-arg NODE_OPTIONS="--no-deprecation --max-old-space-size=6144" \
             --label org.opencontainers.image.revision="${GITHUB_SHA}" \
             --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
             --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \

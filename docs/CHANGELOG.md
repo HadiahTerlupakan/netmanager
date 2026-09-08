@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Naikkan heap build webpack ke 6 GB
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Setelah beralih ke webpack, build gagal bersih dengan
+  `FATAL ERROR: Ineffective mark-compacts near heap limit` di 2890 dari 3034 MB
+  — heap 3 GB terlalu kecil. Peralihan bundler itu sendiri terbukti bekerja:
+  puncak RAM host turun dari 11.351 MB (swap habis, host mati) ke 3.878 MB
+  (swap nol), dan kegagalannya kini berupa pesan jelas dalam 4,4 menit alih-alih
+  menggantung sejam lalu menjatuhkan mesin. Heap dinaikkan ke 6 GB; host punya
+  11,7 GB dengan overhead terukur ~800 MB di atas heap.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Pipeline Gitea membangun dengan webpack, bukan Turbopack
 
 - **Tipe**: [CHANGED]
