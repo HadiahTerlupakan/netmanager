@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-09] — Skrip verifikasi pasca-migrasi server produksi
+
+- **Tipe**: [ADDED]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Server produksi akan dipindah dari Bogor ke Jakarta dengan
+  pergantian IP. Skrip `scripts/post-migration-check.sh` memeriksa dalam satu
+  jalan: kecocokan DNS dengan IP host, InternalIP node, SAN sertifikat API k3s
+  (memuat `141.11.160.150` dan k3s berjalan tanpa `--tls-san`, jadi tidak akan
+  cocok setelah IP berubah), status pod, HTTPS, masa berlaku TLS, jalur RADIUS
+  NodePort, serta keterjangkauan dan throughput ke ghcr.io dan Docker Hub.
+  Pemeriksaan RADIUS memakai endpoint pod plus aturan iptables, bukan
+  `ss -lun`, karena NodePort di k3s dilayani iptables tanpa proses yang membuka
+  socket. Skrip hanya membaca dan diuji di server produksi: 9 lolos, 0 gagal.
+  Dua hal berada di luar jangkauannya dan disebutkan di keluaran: secret
+  `DEPLOY_SSH_TARGET` dan `DEPLOY_KNOWN_HOSTS` di Gitea Actions yang terikat IP
+  lama, serta konfigurasi NAS RADIUS di router MikroTik.
+- **Files**: `scripts/post-migration-check.sh`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-09] — Cache npm persisten dan lewati deploy untuk commit dokumentasi
 
 - **Tipe**: [INFRA]
