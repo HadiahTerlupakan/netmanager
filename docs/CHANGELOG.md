@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-08] — Batasi runner Gitea ke satu job serentak
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Runner dikonfigurasi `capacity: 4`, dan ketika dua commit
+  berdekatan menghasilkan dua run, ia menjalankan `build` dan `quality`
+  bersamaan. Di mesin 11,7 GB itu berbahaya: build memuncak ~8 GB dan quality
+  ~4 GB, sehingga gabungannya melampaui kapasitas host — persis kondisi yang
+  pernah membuat mesin thrashing sampai perlu reboot. Grup `concurrency` di
+  workflow ternyata tidak menyerialkan job lintas-run. Kapasitas diturunkan ke
+  1 di `/home/ubuntu/gitea/runner/config.yaml`; cadangan tersimpan sebagai
+  `config.yaml.bak2`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-08] — Ganti `npm prune` dengan stage dependensi produksi
 
 - **Tipe**: [CHANGED]
