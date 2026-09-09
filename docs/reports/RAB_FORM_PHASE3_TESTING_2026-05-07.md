@@ -43,7 +43,7 @@ Refactor Phase 3 yang mengekstrak `RABFormGrowthTab` dan `RABFormItemsTab` dari 
 5. Klik tab "Informasi" → kembali ke Info tab
 
 **Result:** ✅ PASS  
-**Evidence:** Screenshots `rab-growth-tab.png`, `rab-items-tab.png`  
+**Evidence:** Screenshots `docs/reports/assets/rab-growth-tab.png`, `docs/reports/assets/rab-items-tab.png`  
 **Console Errors:** 0
 
 ---
@@ -228,8 +228,8 @@ npm run lint
 ## Appendix: Test Artifacts
 
 ### Screenshots:
-- `rab-growth-tab.png` - Growth tab rendering
-- `rab-items-tab.png` - Items tab rendering
+- `docs/reports/assets/rab-growth-tab.png` - Growth tab rendering
+- `docs/reports/assets/rab-items-tab.png` - Items tab rendering
 
 ### Console Logs:
 - `.playwright-mcp/console-2026-05-07T06-19-55-209Z.log`

@@ -167,12 +167,19 @@ lint_report.txt
 
 # =========================
 # Tool Generated
+# Workspace asisten/tool selain Claude Code. Isinya index, cache, draft,
+# dan state yang hanya berlaku di satu mesin, jadi tidak pernah dibagikan.
 # =========================
 .code-review-graph/
-MEMORY.md
-.kiro/settings/mcp.json.claude/worktrees/
-.omo/
+# Symlink ke ~/.omo/codegraph, bukan direktori — pola tanpa "/" supaya symlink-nya ikut kena.
+.codegraph
+.kiro/
 .mimocode/
+.omo/
+MEMORY.md
+
+# Worktree milik Claude Code — berbeda dari /.worktrees di atas.
+.claude/worktrees/
 
 # Baileys WhatsApp session state
 .baileys-sessions/

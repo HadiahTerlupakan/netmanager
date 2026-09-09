@@ -41,6 +41,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-09] — Lepas service account Firebase dari version control
+
+- **Tipe**: [SECURITY]
+- **Scope**: `firebase-adminsdk.json`, `.gitignore`
+- **Author**: agent
+- **Deskripsi**: `firebase-adminsdk.json` berisi private key service account
+  `firebase-adminsdk-fbsvc@netmanager-96742.iam.gserviceaccount.com` dan ikut
+  ter-track meski `.gitignore` sudah memuat pola `*-adminsdk*.json` — file itu
+  masuk index lebih dulu, dan gitignore tidak berlaku surut untuk file yang
+  sudah tracked. Dilepas dengan `git rm --cached`; file lokal dipertahankan.
+  Tidak ada kode yang membacanya: `lib/firebase/admin.ts` menginisialisasi
+  kredensial murni dari env (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`,
+  `FIREBASE_PRIVATE_KEY`), jadi pelepasan ini tidak mengubah perilaku runtime.
+  **Kunci tetap ada di histori commit dan wajib dirotasi** — lihat catatan di
+  bawah.
+- **Files**: `firebase-adminsdk.json`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Bersihkan artifak tool eksternal dari repo
+
+- **Tipe**: [REMOVED]
+- **Scope**: `.gitignore`, root repo, `docs/reports/`
+- **Author**: agent
+- **Deskripsi**: Root repo terisi sisa sesi pengembangan dan workspace tool
+  asisten selain Claude Code. Baris `.gitignore` `.kiro/settings/mcp.json.claude/worktrees/`
+  ternyata dua pola yang tersambung karena newline hilang, sehingga keduanya
+  tidak pernah cocok — dipecah jadi `.kiro/` dan `.claude/worktrees/`.
+  Ditambahkan `.codegraph` (symlink ke `~/.omo/codegraph`, ditulis tanpa `/`
+  supaya symlink-nya ikut kena). Screenshot bukti laporan RAB dipindah ke
+  `docs/reports/assets/` dan rujukannya di laporan disesuaikan; sisa debug dev
+  yang tidak dirujuk apa pun dihapus.
+- **Files**: `.gitignore`, `compare-bar-darkmode-fixed.png`, `login-log-fixed.png`,
+  `login-logo-network.txt`, `tsconfig.typecheck.temp.json`, `.kiro/settings/mcp.json`,
+  `docs/reports/assets/rab-growth-tab.png`, `docs/reports/assets/rab-items-tab.png`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-09] — Skrip verifikasi pasca-migrasi server produksi
 
 - **Tipe**: [ADDED]
