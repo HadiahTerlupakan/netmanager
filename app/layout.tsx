@@ -43,7 +43,15 @@ export default function RootLayout({
       className={`h-full ${inter.variable}`}
       data-scroll-behavior="smooth"
     >
-      <body className={`h-full m-0 ${inter.className}`}>
+      {/*
+        Ekstensi browser (password manager, Grammarly, dan sejenisnya) kerap
+        menyuntikkan atribut ke <body> sebelum React hydrate — misalnya
+        __processed_<uuid>__="true" — dan itu memicu hydration mismatch yang
+        tidak berasal dari kode kita. suppressHydrationWarning hanya berlaku
+        untuk elemen ini sendiri, bukan turunannya, jadi mismatch asli di
+        dalam aplikasi tetap terlaporkan.
+      */}
+      <body suppressHydrationWarning className={`h-full m-0 ${inter.className}`}>
         <ConsoleWarning />
         <Providers>{children}</Providers>
       </body>

@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-09] — Redam hydration mismatch dari atribut suntikan ekstensi browser
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/layout.tsx`
+- **Author**: agent
+- **Deskripsi**: Ekstensi browser menyuntikkan atribut ke `<body>` sebelum React
+  hydrate (contoh: `__processed_<uuid>__="true"`), memicu console error
+  "A tree hydrated but some attributes of the server rendered HTML didn't match".
+  Atribut itu tidak ada di HTML server, jadi mismatch-nya bukan berasal dari
+  kode aplikasi — halaman yang sama dibuka lewat browser tanpa ekstensi
+  menghasilkan nol console error. `<html>` sudah memakai
+  `suppressHydrationWarning`, `<body>` belum. Ditambahkan di `<body>` juga.
+  Prop ini hanya berlaku untuk elemen tempat ia dipasang, bukan turunannya,
+  jadi hydration mismatch asli di dalam aplikasi tetap terlaporkan.
+- **Files**: `app/layout.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-09] — Lepas service account Firebase dari version control
 
 - **Tipe**: [SECURITY]
