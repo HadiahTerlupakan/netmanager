@@ -1,6 +1,9 @@
 // Integrations Module
 export * from "./dto/IntegrationDTO";
 export * from "./services/MarketPriceRouteService";
+// Saklar integrasi remote — dipakai cron registry untuk melewati penjadwalan
+// sync ketika panel MixRadius tidak bisa diakses otomatis.
+export { isMixRadiusRemoteEnabled } from "./services/mixradius-auth-client";
 export * from "./services/MixRadiusAccessService";
 export * from "./services/MixRadiusConfigService";
 export * from "./services/MixRadiusDismantleService";

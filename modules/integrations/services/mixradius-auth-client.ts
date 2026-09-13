@@ -22,6 +22,40 @@ const LOGIN_FAIL_CIRCUIT_MS = 2 * 60 * 1000;
 
 const loginCircuitOpenUntil = new Map<string, number>();
 
+/**
+ * MixRadius memasang CAPTCHA di halaman loginnya, sehingga login otomatis tidak
+ * bisa lagi berhasil. Setiap percobaan berakhir "Login may have failed -
+ * unexpected response", membuat endpoint mengembalikan 500, dan tetap membebani
+ * panel dengan request yang sudah pasti gagal.
+ *
+ * Seluruh operasi remote dimatikan di satu titik: `loginMixRadius` adalah
+ * gerbang yang dilewati setiap pemanggil — operasi klien menerima `login`
+ * sebagai callback, tidak ada jalur yang melewatinya.
+ *
+ * Fitur MixRadius yang datanya dari database lokal — grup owner, investor site,
+ * RAB, konfigurasi — tidak terpengaruh karena tidak pernah menyentuh panel.
+ *
+ * Dinyalakan kembali tanpa ubah kode lewat `MIXRADIUS_REMOTE_ENABLED=true`,
+ * misalnya kalau CAPTCHA dicabut atau MixRadius menyediakan API token.
+ */
+const REMOTE_DISABLED_MESSAGE =
+  "Integrasi MixRadius dinonaktifkan: panel MixRadius memakai CAPTCHA " +
+  "sehingga login otomatis tidak dapat dilakukan.";
+
+/** Apakah pengambilan data langsung ke panel MixRadius masih diizinkan? */
+export function isMixRadiusRemoteEnabled(): boolean {
+  return process.env.MIXRADIUS_REMOTE_ENABLED === "true";
+}
+
+function ensureRemoteEnabled(): void {
+  if (isMixRadiusRemoteEnabled()) return;
+
+  // MixRadiusConfigError sengaja dipakai ulang, bukan tipe error baru: route
+  // MixRadius sudah memetakannya ke HTTP 503 beserta pesannya, jadi status dan
+  // teksnya konsisten di seluruh endpoint tanpa menyentuh satu pun route.
+  throw new MixRadiusConfigError(REMOTE_DISABLED_MESSAGE);
+}
+
 type MixRadiusLoginResponse = Awaited<ReturnType<typeof submitLoginRequest>>;
 
 export type MixRadiusSessionState = {
@@ -77,6 +111,8 @@ export async function loginMixRadius(params: {
   session: MixRadiusSessionState;
   randomDelay: (min?: number, max?: number) => Promise<void>;
 }): Promise<MixRadiusSessionState> {
+  ensureRemoteEnabled();
+
   const { client, credentials, session, randomDelay } = params;
   if (canReuseSession(session, credentials)) {
     return session;
