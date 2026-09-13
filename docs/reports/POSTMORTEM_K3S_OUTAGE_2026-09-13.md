@@ -148,7 +148,7 @@ Sumber seed nilai lama itu belum berhasil dipastikan.
 
 | Isu | Status | Catatan |
 |---|---|---|
-| **Login MixRadius gagal** | ✅ Ditangani | Panel memakai CAPTCHA, login otomatis tidak akan pernah berhasil. Integrasi remote dinonaktifkan di `loginMixRadius`; endpoint mengembalikan 503 berpesan jelas, cron sync tidak lagi dijadwalkan. Dinyalakan lagi lewat `MIXRADIUS_REMOTE_ENABLED=true` |
+| **Login MixRadius gagal** | ✅ Ditangani | Panel memakai CAPTCHA, login otomatis tidak akan pernah berhasil. Integrasi remote dinonaktifkan di `loginMixRadius`; endpoint mengembalikan 503 berpesan jelas. Cron sync di `lib/cron-registry.ts` juga dilewati, meski di produksi ia memang tidak pernah jalan: registry itu digerbangi `ENABLE_INTERNAL_CRON=false`, dan cron produksi dijalankan container `crond` terpisah yang crontab-nya tidak memuat entri MixRadius. Dinyalakan lagi lewat `MIXRADIUS_REMOTE_ENABLED=true` |
 | **GenieACS mati** | ✅ Ditangani | GenieACS memang tidak pernah di-deploy — default `http://localhost:7557/devices` yang bocor dari lingkungan pengembangan. Default jaringannya dicabut, sehingga penjaga "belum dikonfigurasi" yang sudah ada di `AcsDeviceService` kini bekerja |
 | **`GAME_API_BASE_URL` lumeris menunjuk IP lama** | ✅ Ditangani | Secret `lumeris-secrets` & `lumeris-web-env` diperbarui ke `http://31.56.30.53:34061` (terverifikasi HTTP 405 = hidup; alamat lama nihil). Deployment `web` & `worker` di-restart, env terverifikasi di pod baru. Backup: `/root/lumeris-secret-backup-20260913-100406/` |
 | **`tests/lib/encryption-key-rotation.test.ts` flaky** | ✅ Ditangani | Ternyata bukan bug tes melainkan bug produksi — lihat bagian di bawah |

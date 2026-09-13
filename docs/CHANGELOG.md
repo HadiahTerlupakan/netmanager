@@ -55,7 +55,13 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   error baru: 20+ route MixRadius sudah memetakannya ke HTTP 503 beserta
   pesannya, jadi status dan teks konsisten tanpa menyentuh satu pun route. Cron
   `mixRadiusInvoiceSync` (tiap jam) dan `mixRadiusSettlementSync` (harian) tidak
-  lagi dijadwalkan saat remote mati. Fitur MixRadius berbasis database lokal —
+  lagi dijadwalkan saat remote mati — keduanya hidup di `lib/cron-registry.ts`
+  yang digerbangi `ENABLE_INTERNAL_CRON`, dan variabel itu `false` pada
+  deployment app maupun worker produksi, jadi perubahan ini berlaku untuk
+  lingkungan lain (dev, atau deployment yang mengaktifkan cron internal) dan
+  bukan perbaikan bagi produksi. Cron produksi dijalankan container `crond`
+  terpisah yang crontab-nya memang tidak memuat entri MixRadius sama sekali.
+  Fitur MixRadius berbasis database lokal —
   grup owner, investor site, RAB, konfigurasi — tidak terpengaruh. Bisa
   dinyalakan lagi tanpa deploy ulang lewat `MIXRADIUS_REMOTE_ENABLED=true`.
 - **Files**: `modules/integrations/services/mixradius-auth-client.ts`,
