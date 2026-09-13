@@ -152,6 +152,45 @@ Sumber seed nilai lama itu belum berhasil dipastikan.
 | **GenieACS mati** | `/api/acs/devices` → 502 | `AcsDeviceService listDevices failed ECONNREFUSED localhost:7557` |
 | **`GAME_API_BASE_URL` lumeris menunjuk IP lama** | Game API lumeris kemungkinan tidak terjangkau | Env pod `lumeris-web` (`web` & `worker`): `http://141.11.160.150:34061`. Server game-nya (`lumeris-map`) jalan di box ini pada port 34061, tapi dialamatkan lewat IP lama. **Di luar scope netmanager** — perlu update deployment lumeris |
 | **`DNSConfigForming`** | `Nameserver limits were exceeded` → `1.1.1.1 8.8.8.8 1.1.1.1` | Resolver ketiga duplikat, mubazir |
+| **`tests/lib/encryption-key-rotation.test.ts` flaky** | Bisa menggagalkan job `quality` secara acak dan membuang satu siklus deploy | Tes "tetap membaca ciphertext lama setelah kunci diganti" gagal satu kali di satu run penuh, lolos di run berikutnya, dan lolos 3/3 saat terisolasi. Pola khas polusi lintas-file yang tersingkap ketika jumlah file tes berubah dan pembagian worker ikut bergeser. Belum ditelusuri |
+
+---
+
+## Jejak IP lama di deploy pipeline (13 Sep 2026)
+
+Migrasi IP server ternyata menyisakan jejak ketiga, di luar cloud-init: **secret
+deploy di Gitea**. Terungkap justru ketika mencoba men-deploy perbaikan di atas.
+
+| Run | Job gagal | Pesan | Terbuang |
+|---|---|---|---|
+| 26 | `deploy` | `ssh: connect to host 141.11.160.150 port 22: Connection timed out` | build 65 menit |
+| 27 | `deploy` | `ssh: Could not resolve hostname deploy_ssh_target` | build 23 menit |
+| 28 | — | sukses | — |
+
+Run 26 memakai `DEPLOY_SSH_TARGET` yang masih menunjuk IP lama. Saat diperbaiki,
+nama secret tersalin ke kolom nilainya, sehingga run 27 mencoba me-resolve
+`deploy_ssh_target` sebagai hostname (OpenSSH menurunkan huruf hostname, dan
+perilaku itu diverifikasi langsung sebelum disimpulkan).
+
+Nilai final yang terbukti jalan:
+
+- `DEPLOY_SSH_TARGET` = `radpro@31.56.30.53`
+- `DEPLOY_KNOWN_HOSTS` = host key `31.56.30.53` (ed25519 + rsa)
+
+Deploy key `gitea-actions-deploy@netmanager` sendiri sudah terpasang sejak awal
+di `~radpro/.ssh/authorized_keys` dengan opsi `restrict,pty` — tidak perlu diubah.
+
+**Pencegahan.** Keduanya mati di langkah SSH pertama job `deploy`, yaitu langkah
+terakhir pipeline, padahal penyebabnya terbaca dalam hitungan detik. Ditambahkan
+step `Periksa secret deploy` sebagai step pertama job `quality`
+(`.gitea/workflows/deploy-production.yml`) — lihat entri `[INFRA]` di
+`docs/CHANGELOG.md`. Pada run 28 step itu memberi jawaban dalam di bawah 30 detik.
+
+**Hasil akhir run 28** — `quality` 13 menit, `build` 24 menit, `deploy` sukses:
+seluruh deployment `netmanager-app`, `-cron`, `-radius`, `-worker` berjalan pada
+`6a29bf4e99f8-27`, job migrasi `Complete 1/1`, semua pod `1/1 Running` tanpa
+restart, nol error di log aplikasi, worker BullMQ memproses event, dan FreeRADIUS
+`Ready to process requests`.
 
 ---
 
