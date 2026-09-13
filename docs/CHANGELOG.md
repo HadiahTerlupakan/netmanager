@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-13] — Periksa secret deploy sebelum build dimulai
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Dua deploy berturut-turut mati di langkah SSH pertama job
+  `deploy` — sekali karena `DEPLOY_SSH_TARGET` masih menunjuk IP server lama
+  (`141.11.160.150`, TCP timeout), sekali karena nama secret tersalin ke kolom
+  nilainya (`ssh: Could not resolve hostname deploy_ssh_target`). Keduanya baru
+  ketahuan setelah build 23-65 menit selesai, padahal penyebabnya terbaca dalam
+  hitungan detik. Ditambahkan step `Periksa secret deploy` sebagai step pertama
+  job `quality`: validasi bentuk `user@host`, cek `DEPLOY_KNOWN_HOSTS` memuat
+  host tujuan, dan probe TCP ke port 22. `DEPLOY_SSH_KEY` sengaja tidak ikut
+  diperiksa supaya kunci privat produksi tidak hadir di environment yang
+  menjalankan lint, typecheck, dan tes. Nilai secret tidak pernah dicetak.
+  Diuji di image runner terhadap enam skenario — termasuk dua kegagalan nyata
+  di atas — dan keenamnya berperilaku benar.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/deploy-secret-preflight-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-13] — Permanenkan metadata cloud-init ke IP server baru
 
 - **Tipe**: [INFRA]

@@ -41,6 +41,55 @@ jobs:
   quality:
     runs-on: netmanager-ci
     steps:
+      # Dua deploy berturut-turut mati di langkah SSH pertama — sekali karena
+      # DEPLOY_SSH_TARGET masih menunjuk IP server lama, sekali karena nama
+      # secret tersalin ke kolom nilainya. Keduanya baru ketahuan setelah
+      # build 23-65 menit selesai, padahal penyebabnya terbaca dalam hitungan
+      # detik. Secret diperiksa di sini, sebelum apa pun dibangun.
+      #
+      # DEPLOY_SSH_KEY sengaja tidak ikut diperiksa: menariknya ke job ini
+      # berarti kunci privat produksi ikut hadir di environment yang menjalankan
+      # lint, typecheck, dan tes. Kunci itu tetap terkurung di job deploy.
+      #
+      # Nilai secret tidak pernah dicetak — yang dilaporkan hanya lolos/gagal.
+      - name: Periksa secret deploy
+        env:
+          SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          gagal() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          [ -n "${SSH_TARGET}" ] || gagal "DEPLOY_SSH_TARGET kosong"
+          [ -n "${KNOWN_HOSTS}" ] || gagal "DEPLOY_KNOWN_HOSTS kosong"
+
+          # Menangkap nama secret yang tersalin ke kolom nilai: teks polos
+          # tanpa '@' tidak akan pernah jadi tujuan SSH yang sah.
+          case "${SSH_TARGET}" in
+            *@*) ;;
+            *) gagal "DEPLOY_SSH_TARGET tidak berbentuk user@host" ;;
+          esac
+
+          host="${SSH_TARGET##*@}"
+          user="${SSH_TARGET%@*}"
+          [ -n "${host}" ] || gagal "DEPLOY_SSH_TARGET tidak punya bagian host"
+          [ -n "${user}" ] || gagal "DEPLOY_SSH_TARGET tidak punya bagian user"
+
+          # known_hosts yang tidak memuat host tujuan membuat SSH dengan
+          # BatchMode gagal di verifikasi host key, bukan di koneksi.
+          printf '%s\n' "${KNOWN_HOSTS}" | grep -qF "${host}" \
+            || gagal "DEPLOY_KNOWN_HOSTS tidak memuat entri untuk host tujuan"
+
+          # Menangkap alamat basi: host lama menggantung sampai TCP timeout.
+          timeout 10 bash -c "cat < /dev/null > /dev/tcp/${host}/22" 2>/dev/null \
+            || gagal "Host tujuan tidak menjawab di port 22"
+
+          echo "Secret deploy lolos pemeriksaan"
+
       # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
       # github.com sering i/o timeout sementara transfer besarnya ~4 KB/s.
       # Repositorinya sendiri ada di Gitea lokal, jadi kode diambil langsung
