@@ -41,10 +41,18 @@ interface CustomerPackageViewModel {
     daysUntilDue: number;
   };
   billing: PackageBillingSummary;
+  pendingUpgrade: {
+    id: string;
+    nama: string;
+    applyAt: string | null;
+  } | null;
   upgradeOptions: Array<{
     id: string;
     nama: string;
     harga: number;
+    durasi: number;
+    durasiUnit: string;
+    isFeatured: boolean;
     priceDifference: number;
     bandwidth: {
       nama: string;
@@ -147,6 +155,7 @@ export class CustomerPackageService {
       await this.pelangganRepository.findUpgradePackageOptions(
         paket.harga,
         DEFAULT_UPGRADE_LIMIT,
+        customer.siteId,
       );
 
     return {
@@ -179,10 +188,20 @@ export class CustomerPackageService {
         daysUntilDue: calculateDaysUntilDue(customer.jatuhTempo),
       },
       billing,
+      pendingUpgrade: customer.pendingPackage
+        ? {
+            id: customer.pendingPackage.id,
+            nama: customer.pendingPackage.name,
+            applyAt: customer.pendingPackageApplyAt?.toISOString() ?? null,
+          }
+        : null,
       upgradeOptions: upgradeOptions.map((upgradePackage) => ({
         id: upgradePackage.id,
         nama: upgradePackage.name,
         harga: upgradePackage.harga,
+        durasi: upgradePackage.durasi,
+        durasiUnit: upgradePackage.durasiUnit,
+        isFeatured: upgradePackage.featured,
         priceDifference: upgradePackage.harga - paket.harga,
         bandwidth: upgradePackage.bandwidth
           ? {

@@ -40,4 +40,16 @@ describe("CustomerAuthService", () => {
     });
     expect(mockFindByIdentifierForAuth).not.toHaveBeenCalled();
   });
+  it("trims surrounding whitespace from the identifier before lookup", async () => {
+    mockCheckStrictLoginRateLimit.mockResolvedValueOnce("allowed");
+    mockFindByIdentifierForAuth.mockResolvedValueOnce(null);
+
+    const { CustomerAuthService } =
+      await import("@/modules/pelanggan/services/CustomerAuthService");
+
+    const service = new CustomerAuthService();
+    await service.login("  88888888  ", "secret");
+
+    expect(mockFindByIdentifierForAuth).toHaveBeenCalledWith("88888888");
+  });
 });

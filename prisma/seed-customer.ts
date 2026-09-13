@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 import "dotenv/config";
 import { logger } from "../lib/logger";
+import { MAIN_TENANT_ID } from "../lib/tenant-constants";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -27,6 +28,7 @@ async function main() {
         id: randomUUID(),
         code: "SITE01",
         name: "Default Site",
+        tenantId: MAIN_TENANT_ID,
         updatedAt: new Date(),
       },
     });
@@ -34,12 +36,15 @@ async function main() {
   }
 
   // 2. Get or create ProfilePPP
-  let profile = await prisma.profilePPP.findFirst();
+  let profile = await prisma.profilePPP.findFirst({
+    where: { tenantId: MAIN_TENANT_ID },
+  });
   if (!profile) {
     profile = await prisma.profilePPP.create({
       data: {
         id: randomUUID(),
         name: "Default Profile",
+        tenantId: MAIN_TENANT_ID,
         localAddress: "192.168.1.1",
         remoteAddress: "pool1",
         status: "AKTIF",
@@ -50,22 +55,28 @@ async function main() {
   }
 
   // 3. Get or create HargaPaket
-  let hargaPaket = await prisma.hargaPaket.findFirst();
+  let hargaPaket = await prisma.hargaPaket.findFirst({
+    where: { tenantId: MAIN_TENANT_ID },
+  });
   if (!hargaPaket) {
     hargaPaket = await prisma.hargaPaket.create({
       data: {
         id: randomUUID(),
         name: "Package 10Mbps",
+        tenantId: MAIN_TENANT_ID,
         harga: 150000,
         durasi: 30,
         durasiUnit: "HARI",
         profilePPPId: profile.id,
+        siteId: site.id,
         status: "AKTIF",
         updatedAt: new Date(),
       },
     });
     logger.info("Created HargaPaket:", hargaPaket.name);
   }
+
+  const customerSiteId = hargaPaket.siteId ?? site.id;
 
   const idPelanggan = "88888888";
   const plainPassword = "customer123";
@@ -82,6 +93,8 @@ async function main() {
       data: {
         passwordHash: passwordHash,
         status: "AKTIF",
+        tenantId: MAIN_TENANT_ID,
+        siteId: customerSiteId,
       },
     });
   } else {
@@ -89,12 +102,13 @@ async function main() {
       data: {
         id: randomUUID(),
         idPelanggan,
+        tenantId: MAIN_TENANT_ID,
         nama: "Test Customer",
         username: "testcustomer",
         password: plainPassword, // This is often used for PPP password
         passwordHash: passwordHash,
         hargaPaketId: hargaPaket.id,
-        siteId: site.id,
+        siteId: customerSiteId,
         status: "AKTIF",
         tanggalAktif: new Date(),
         jatuhTempo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

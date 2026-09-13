@@ -32,6 +32,7 @@ export const adminMutationContextSelect = {
 
 export const pelangganWithPackageInclude = {
   site: true,
+  pendingPackage: true,
   hargaPaket: {
     include: {
       profilePPP: true,

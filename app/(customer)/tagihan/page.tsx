@@ -1,5 +1,6 @@
 "use client";
 
+import { isOutstandingInvoiceStatus } from "@/lib/constants/invoice-status";
 import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -288,14 +289,17 @@ export default function CustomerInvoicesPage() {
     return invoices.filter((inv) => {
       if (filter === "ALL") return true;
       if (filter === "PAID") return inv.status === "PAID";
-      if (filter === "UNPAID") return ["SENT", "OVERDUE"].includes(inv.status);
+      if (filter === "UNPAID") return isOutstandingInvoiceStatus(inv.status);
       if (filter === "FAILED") return inv.status === "VOID";
       return true;
     });
   }, [invoices, filter]);
 
+  // Termasuk PARTIAL_PAID: sisa tagihannya masih harus dibayar, dan ringkasan
+  // dashboard sudah menghitungnya — kalau di sini dikecualikan, dua halaman
+  // menampilkan angka tunggakan yang berbeda.
   const pendingInvoices = useMemo(() => {
-    return invoices.filter((inv) => ["SENT", "OVERDUE"].includes(inv.status));
+    return invoices.filter((inv) => isOutstandingInvoiceStatus(inv.status));
   }, [invoices]);
 
   const totalPending = useMemo(() => {
@@ -326,6 +330,13 @@ export default function CustomerInvoicesPage() {
           label: "Belum Bayar",
           colorClass:
             "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 ring-orange-600/10 dark:ring-orange-400/20",
+          icon: MdPendingActions,
+        };
+      case "PARTIAL_PAID":
+        return {
+          label: "Dibayar Sebagian",
+          colorClass:
+            "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 ring-amber-600/20 dark:ring-amber-400/20",
           icon: MdPendingActions,
         };
       default:

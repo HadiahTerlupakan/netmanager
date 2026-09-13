@@ -1,4 +1,4 @@
-import { InvoiceStatus, Prisma as PrismaBilling } from "@prisma/client-billing";
+import { InvoiceStatus } from "@prisma/client-billing";
 import { prismaBilling } from "@/lib/prisma-billing";
 
 /** Get payment history with pagination. */
@@ -21,25 +21,6 @@ export async function getPaymentHistory(
   return { payments, total };
 }
 
-/** Get invoices with pagination. */
-export async function getInvoices(
-  pelangganId: string,
-  options: { page: number; limit: number; status?: string[] },
-) {
-  const { page, limit } = options;
-  const where = buildInvoiceWhere(pelangganId, options.status);
-  const [invoices, total] = await Promise.all([
-    prismaBilling.invoice.findMany({
-      where,
-      orderBy: { dueDate: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prismaBilling.invoice.count({ where }),
-  ]);
-  return { invoices, total };
-}
-
 /** Get invoices by IDs for payment validation. */
 export function getInvoicesByIds(
   ids: string[],
@@ -55,15 +36,8 @@ export function getInvoicesByIds(
   });
 }
 
-function buildInvoiceWhere(pelangganId: string, status?: string[]) {
-  const where: PrismaBilling.InvoiceWhereInput = { pelangganId };
-  if (status && status.length > 0) {
-    where.status = { in: parseInvoiceStatuses(status) };
-  }
-  return where;
-}
-
-function parseInvoiceStatuses(statuses: string[]): InvoiceStatus[] {
+/** Validasi dan konversi status invoice dari query string ke enum Prisma. */
+export function parseInvoiceStatuses(statuses: string[]): InvoiceStatus[] {
   return statuses.map(parseInvoiceStatus);
 }
 

@@ -1,5 +1,7 @@
 import { Prisma as PrismaBilling, InvoiceStatus } from "@prisma/client-billing";
 import { prismaBilling } from "@/lib/prisma-billing";
+import { OUTSTANDING_INVOICE_STATUSES } from "@/lib/constants/invoice-status";
+import { parseInvoiceStatuses } from "./pelanggan-repository-billing.helpers";
 
 /**
  * Type for invoice with its relations used in this repository
@@ -11,11 +13,9 @@ type InvoiceWithRelations = PrismaBilling.InvoiceGetPayload<{
   };
 }>;
 
-const UNPAID_INVOICE_STATUSES: InvoiceStatus[] = [
-  InvoiceStatus.SENT,
-  InvoiceStatus.OVERDUE,
-  InvoiceStatus.PARTIAL_PAID,
-];
+const UNPAID_INVOICE_STATUSES = [
+  ...OUTSTANDING_INVOICE_STATUSES,
+] as InvoiceStatus[];
 
 export type CustomerDashboardBillingSummary = {
   outstandingCount: number;
@@ -125,15 +125,15 @@ export class CustomerInvoiceRepository {
     options: {
       page: number;
       limit: number;
-      status?: string;
+      status?: string[];
     },
   ) {
     const { page, limit, status } = options;
     const skip = (page - 1) * limit;
 
     const where: PrismaBilling.InvoiceWhereInput = { pelangganId };
-    if (status) {
-      where.status = status as InvoiceStatus;
+    if (status && status.length > 0) {
+      where.status = { in: parseInvoiceStatuses(status) };
     }
 
     const [invoices, total] = await Promise.all([

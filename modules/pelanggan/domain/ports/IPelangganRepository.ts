@@ -87,10 +87,19 @@ type PaymentHistoryRecord = {
   invoice: { invoiceNumber: string; status: string } | null;
 };
 
+type UpgradeCandidate = {
+  id: string;
+  name: string;
+  harga: number;
+};
+
 type UpgradePackageOption = {
   id: string;
   name: string;
   harga: number;
+  durasi: number;
+  durasiUnit: string;
+  featured: boolean;
   bandwidth: {
     name: string;
     maxLimitDownload: string | null;
@@ -186,12 +195,6 @@ export interface IPelangganRepository {
     options: { page: number; limit: number },
   ): Promise<{ payments: PaymentHistoryRecord[]; total: number }>;
 
-  /** Get invoice list for portal. */
-  getInvoices(
-    pelangganId: string,
-    options: { page: number; limit: number; status?: string[] },
-  ): Promise<{ invoices: unknown[]; total: number }>;
-
   /** Get invoices for payment validation. */
   getInvoicesByIds(
     ids: string[],
@@ -220,10 +223,17 @@ export interface IPelangganRepository {
     id: string,
   ): Promise<PelangganWithPackageEntity | null>;
 
+  /** Get one package that is a valid upgrade target for the customer. */
+  findUpgradeCandidate(
+    packageId: string,
+    options: { minPrice: number; siteId?: string | null },
+  ): Promise<UpgradeCandidate | null>;
+
   /** Get upgrade package options. */
   findUpgradePackageOptions(
     currentPrice: number,
     limit?: number,
+    siteId?: string | null,
   ): Promise<UpgradePackageOption[]>;
 
   /** Get customers whose due date falls inside the billing window. */

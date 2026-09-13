@@ -105,6 +105,7 @@ export async function findPelangganByIdWithPackage(id: string) {
     where: { id },
     include: {
       site: true,
+      pendingPackage: true,
       hargaPaket: {
         include: {
           bandwidth: true,

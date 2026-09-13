@@ -56,6 +56,12 @@ export {
   CustomerPackageService,
   getCustomerPackageService,
 } from "./services/CustomerPackageService";
+
+export {
+  CustomerPackageUpgradeService,
+  CustomerPackageUpgradeError,
+  getCustomerPackageUpgradeService,
+} from "./services/CustomerPackageUpgradeService";
 export { CustomerDashboardService } from "./services/dashboard/CustomerDashboardService";
 export { PelangganBillingBridgeService } from "./services/PelangganBillingBridgeService";
 export { PelangganPushTokenService } from "./services/PelangganPushTokenService";

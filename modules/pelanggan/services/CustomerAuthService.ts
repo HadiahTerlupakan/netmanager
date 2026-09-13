@@ -40,8 +40,15 @@ export class CustomerAuthService {
    * Authenticate customer with identifier and password
    */
   async login(identifier: string, password: string): Promise<LoginResult> {
+    // Identifier dinormalisasi sekali di sini supaya rate-limit key dan lookup
+    // memakai nilai yang sama. Why: spasi ikutan dari copy-paste atau
+    // autocorrect keyboard mobile membuat lookup meleset dan login ditolak
+    // dengan pesan "ID Pelanggan atau password salah" walau kredensial benar.
+    const normalizedIdentifier =
+      typeof identifier === "string" ? identifier.trim() : "";
+
     // Input validation
-    if (!identifier || !password) {
+    if (!normalizedIdentifier || !password) {
       return {
         success: false,
         error: "ID Pelanggan/Email dan password harus diisi",
@@ -49,7 +56,7 @@ export class CustomerAuthService {
     }
 
     if (isLoginRateLimitEnabled()) {
-      const identifierKey = identifier.toLowerCase().trim();
+      const identifierKey = normalizedIdentifier.toLowerCase();
       const rateLimitResult = await checkStrictLoginRateLimit(
         `customer_login:${identifierKey}`,
         10,
@@ -73,7 +80,7 @@ export class CustomerAuthService {
     }
 
     // Find customer
-    const pelanggan = await this.findCustomerByIdentifier(identifier);
+    const pelanggan = await this.findCustomerByIdentifier(normalizedIdentifier);
 
     if (!pelanggan) {
       return {

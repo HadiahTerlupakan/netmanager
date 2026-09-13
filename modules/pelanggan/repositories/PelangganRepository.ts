@@ -11,6 +11,7 @@ import type { IPelangganRepository } from "../domain/ports/IPelangganRepository"
 import { pelangganWithPackageInclude } from "./pelanggan-repository.constants";
 import {
   findByIdentifierForAuth as findCustomerByIdentifierForAuth,
+  findUpgradeCandidate as findCustomerUpgradeCandidate,
   findUpgradePackageOptions as findCustomerUpgradePackageOptions,
   getPasswordHash as getCustomerPasswordHash,
   updateProfile as updateCustomerProfile,
@@ -39,7 +40,6 @@ import {
 } from "./pelanggan-repository-admin-ppp.helpers";
 import { findEligibleForBilling as findEligibleBillingCustomers } from "./pelanggan-repository-automation.helpers";
 import {
-  getInvoices as getBillingInvoices,
   getInvoicesByIds as getBillingInvoicesByIds,
   getPaymentHistory as getBillingPaymentHistory,
 } from "./pelanggan-repository-billing.helpers";
@@ -234,14 +234,6 @@ export class PelangganRepository implements IPelangganRepository {
     return getBillingPaymentHistory(pelangganId, options);
   }
 
-  /** Get invoices with pagination. */
-  async getInvoices(
-    pelangganId: string,
-    options: { page: number; limit: number; status?: string[] },
-  ) {
-    return getBillingInvoices(pelangganId, options);
-  }
-
   /** Get invoices by IDs for payment validation. */
   async getInvoicesByIds(
     ids: string[],
@@ -266,9 +258,21 @@ export class PelangganRepository implements IPelangganRepository {
     return findPelangganByIdWithHargaPaketRecord(id);
   }
 
+  /** Get one package that is a valid upgrade target for the customer. */
+  async findUpgradeCandidate(
+    packageId: string,
+    options: { minPrice: number; siteId?: string | null },
+  ) {
+    return findCustomerUpgradeCandidate(packageId, options);
+  }
+
   /** Get upgrade package options above current package price. */
-  async findUpgradePackageOptions(currentPrice: number, limit: number = 5) {
-    return findCustomerUpgradePackageOptions(currentPrice, limit);
+  async findUpgradePackageOptions(
+    currentPrice: number,
+    limit: number = 5,
+    siteId?: string | null,
+  ) {
+    return findCustomerUpgradePackageOptions(currentPrice, limit, siteId);
   }
 
   /** Get customers whose due date falls inside the billing window. */

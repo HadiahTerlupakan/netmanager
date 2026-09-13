@@ -2,14 +2,19 @@ import { compare, hash } from "bcryptjs";
 import { PelangganMapper } from "../mappers/PelangganMapper";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+import { CustomerInvoiceRepository } from "../repositories/CustomerInvoiceRepository";
+import { OUTSTANDING_INVOICE_STATUSES } from "@/lib/constants/invoice-status";
 
 export class CustomerPortalService {
   private pelangganRepository: IPelangganRepository;
+  private invoiceRepository: CustomerInvoiceRepository;
 
   constructor(
     pelangganRepository: IPelangganRepository = new PelangganRepository(),
+    invoiceRepository: CustomerInvoiceRepository = new CustomerInvoiceRepository(),
   ) {
     this.pelangganRepository = pelangganRepository;
+    this.invoiceRepository = invoiceRepository;
   }
 
   /**
@@ -149,13 +154,13 @@ export class CustomerPortalService {
     limit: number = 10,
     status?: string[],
   ) {
-    const { invoices, total } = await this.pelangganRepository.getInvoices(
+    const { invoices, total } = await this.invoiceRepository.findAllForCustomer(
       customerId,
       { page, limit, status },
     );
 
     return {
-      invoices,
+      invoices: this.invoiceRepository.formatInvoicesForResponse(invoices),
       pagination: {
         page,
         limit,
@@ -172,7 +177,7 @@ export class CustomerPortalService {
     const validInvoices = await this.pelangganRepository.getInvoicesByIds(
       invoiceIds,
       customerId,
-      ["SENT", "OVERDUE"],
+      [...OUTSTANDING_INVOICE_STATUSES],
     );
 
     if (validInvoices.length !== invoiceIds.length) {
