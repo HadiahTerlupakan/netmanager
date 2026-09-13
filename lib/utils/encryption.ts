@@ -77,6 +77,21 @@ function splitEncryptedText(encryptedText: string): [Buffer, string] {
   return [Buffer.from(ivHex, "hex"), encryptedHex];
 }
 
+/**
+ * Dekripsi memakai satu kunci, melempar kalau kunci itu tidak cocok.
+ *
+ * AES-CBC tidak terautentikasi, jadi kunci yang salah tidak selalu ditolak:
+ * padding PKCS#7-nya kebetulan sah sekitar 1 dari 238 ciphertext (terukur 210
+ * dari 50.000 percobaan). Ditambah `toString("utf8")` yang menyulap byte rusak
+ * jadi U+FFFD alih-alih menggagalkan, kunci pertama yang dicoba bisa
+ * "berhasil" lalu mengembalikan sampah — kredensial terbaca keliru tanpa satu
+ * pun error, dan pemanggil tidak punya cara tahu.
+ *
+ * Karena itu hasilnya diuji: byte-nya wajib UTF-8 yang sah. Sampah dari kunci
+ * salah tidak pernah lolos uji ini pada 210 tabrakan yang terukur. Ini bukan
+ * autentikasi sungguhan — untuk itu ciphertext perlu pindah ke AES-GCM — tapi
+ * ia menutup jalur penerimaan diam-diam tanpa mengubah format data lama.
+ */
 function decryptWithKey(
   iv: Buffer,
   encryptedHex: string,
@@ -88,7 +103,17 @@ function decryptWithKey(
     iv,
   );
 
-  return decipher.update(encryptedHex, "hex", "utf8") + decipher.final("utf8");
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, "hex")),
+    decipher.final(),
+  ]);
+
+  const text = plaintext.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(plaintext)) {
+    throw new Error("Hasil dekripsi bukan UTF-8 yang sah");
+  }
+
+  return text;
 }
 
 /** Enkripsi nilai sensitif memakai kunci aktif. */

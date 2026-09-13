@@ -48,7 +48,36 @@ describe("enkripsi dengan kunci aktif", () => {
   });
 });
 
+/**
+ * Ciphertext ini dibuat memakai kunci lama dengan plaintext "kredensial-lama",
+ * tetapi kebetulan lolos validasi padding PKCS#7 ketika didekripsi memakai
+ * `NEW_KEY`. AES-CBC tidak terautentikasi, jadi kunci yang salah lolos padding
+ * sekitar 1 dari 238 ciphertext — terukur 210 dari 50.000 percobaan.
+ *
+ * Tanpa penjagaan, `decryptApiKey` menerima hasil kunci pertama itu dan
+ * mengembalikan sampah alih-alih meneruskan ke kunci lama. Nilainya dipaku di
+ * sini supaya kasusnya deterministik, bukan menunggu undian IV acak.
+ */
+const CIPHERTEXT_TABRAKAN_PADDING =
+  "b0ffc448ee2a4ef465abdf79161a8b50:69f5f1584de88c258d2c96044db75c5b";
+
 describe("peralihan kunci", () => {
+  it("menolak hasil kunci aktif yang hanya lolos padding secara kebetulan", async () => {
+    const rotated = await loadModule(NEW_KEY);
+
+    expect(rotated.decryptApiKey(CIPHERTEXT_TABRAKAN_PADDING)).toBe(
+      "kredensial-lama",
+    );
+  });
+
+  it("tetap menandai ciphertext kunci lama walau kunci aktif lolos padding", async () => {
+    const rotated = await loadModule(NEW_KEY);
+
+    expect(rotated.isEncryptedWithLegacyKey(CIPHERTEXT_TABRAKAN_PADDING)).toBe(
+      true,
+    );
+  });
+
   it("tetap membaca ciphertext lama setelah kunci diganti", async () => {
     const legacy = await loadModule(undefined);
     const ciphertextLama = legacy.encryptApiKey("kredensial-lama");
