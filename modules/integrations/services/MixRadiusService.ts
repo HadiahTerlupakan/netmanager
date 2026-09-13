@@ -124,7 +124,11 @@ export class MixRadiusService {
     const promise = this.executeFetchCustomersPPP(params);
     if (inflightKey) {
       this.customersInflight.set(inflightKey, promise);
-      promise.finally(() => this.customersInflight.delete(inflightKey));
+      // `.finally()` menghasilkan promise turunan; tanpa catch, rejection-nya
+      // menjadi unhandledRejection walau caller sudah menangani `promise`.
+      promise
+        .finally(() => this.customersInflight.delete(inflightKey))
+        .catch((): void => undefined);
     }
 
     return promise;
