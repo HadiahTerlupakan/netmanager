@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-14] — Partner dengan undangan PENDING bisa membaca detail work order
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Teknisi yang diundang sebagai partner menerima notifikasi
+  undangan tetapi ditolak 403 saat membuka work order-nya, karena
+  `validateAssigneeAccess` hanya melepas akses untuk lead teknisi dan partner
+  ber-status `APPROVED`. Akibatnya undangan harus diterima tanpa bisa melihat
+  pekerjaannya lebih dulu — endpoint `partner-response` memang tidak memakai
+  validator itu, jadi menerima undangan bisa, melihatnya tidak. Terpantau 102
+  kejadian dari 12 teknisi pada work order yang masih berjalan, dari total 418
+  laporan 403 di log error mobile (13 Mar – 7 Sep 2026). Ditambahkan opsi
+  `allowPendingInvitation` yang hanya diteruskan jalur baca
+  (`getMobileWorkOrderDetail`); jalur aksi — update, tasks, materials, return —
+  tetap menuntut `APPROVED`. Undangan yang sudah `REJECTED` tetap ditolak.
+- **Files**: `modules/work-order/services/work-order-access.ts`,
+  `modules/work-order/services/EmployeeWorkOrderQueryService.ts`,
+  `tests/modules/work-order/work-order-access-pending-partner.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-13] — Nonaktifkan integrasi remote MixRadius
 
 - **Tipe**: [CHANGED]
