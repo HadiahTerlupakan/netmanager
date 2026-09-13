@@ -6,6 +6,7 @@ import { getR2Settings } from "@/lib/utils/r2-client";
 import { isImageFile, saveFile } from "@/lib/utils/image-upload";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
+import { trimLogoPadding } from "./logo-trim";
 
 export type LogoType = "invoice" | "aplikasi" | "landing";
 
@@ -185,8 +186,9 @@ export async function uploadLogo(
   };
   const fileName = logoFileNameByType[type];
   const extension = resolveLogoExtension(file);
+  const trimmedFile = await trimLogoPadding(file);
   const savedPath = await saveFile(
-    file,
+    trimmedFile,
     uploadDir,
     `${fileName}${extension}`,
     "logos",

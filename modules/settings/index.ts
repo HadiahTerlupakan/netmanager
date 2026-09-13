@@ -106,3 +106,5 @@ export {
   clearNotificationChannelTogglesCache,
   type NotificationChannelToggles,
 } from "./services/notificationChannelSettings";
+export { getTrimmedLogo, type TrimmedLogo } from "./services/trimmedLogo";
+export type { LogoType } from "./services/logoSettings";
