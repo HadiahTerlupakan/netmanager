@@ -12,11 +12,16 @@ import {
   buildHolidayNotificationTitle,
   type HolidayNotificationData,
 } from "./NotificationService.holiday";
-import { findCanvasingVerifiers } from "./NotificationService.recipients";
+import {
+  findCanvasingVerifiers,
+  findPelangganManagers,
+} from "./NotificationService.recipients";
 import type {
   CanvasingNotificationData,
   CreateNotificationData,
   NotificationType,
+  PackageUpgradeCancelledNotificationData,
+  PackageUpgradeNotificationData,
   PointClaimNotificationData,
   WorkOrderNotificationData,
 } from "./NotificationService.types";
@@ -264,11 +269,86 @@ export async function notifyHolidayCreated(
   }
 }
 
+/**
+ * Beri tahu pengelola pelanggan bahwa ada pengajuan upgrade paket dari portal.
+ *
+ * Notifikasi tersimpan di tabel `Notifications` supaya tetap terlihat di bell
+ * admin walaupun tidak ada yang sedang online saat pengajuan masuk.
+ */
+export async function notifyPackageUpgradeRequested(
+  data: PackageUpgradeNotificationData,
+): Promise<void> {
+  const applyAtLabel = data.applyAt.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  await fanOutPackageUpgradeNotification({
+    customerId: data.customerId,
+    siteId: data.siteId,
+    tenantId: data.tenantId,
+    title: "Pengajuan upgrade paket",
+    message: `${data.customerName} mengajukan upgrade dari ${data.currentPackageName} ke ${data.targetPackageName}, berlaku ${applyAtLabel}.`,
+  });
+}
+
+/**
+ * Beri tahu pengelola pelanggan bahwa pengajuan upgrade dibatalkan pelanggan.
+ *
+ * Penting dikirim karena mereka sudah menerima notifikasi pengajuannya — tanpa
+ * ini mereka bertindak atas informasi yang sudah basi.
+ */
+export async function notifyPackageUpgradeCancelled(
+  data: PackageUpgradeCancelledNotificationData,
+): Promise<void> {
+  await fanOutPackageUpgradeNotification({
+    customerId: data.customerId,
+    siteId: data.siteId,
+    tenantId: data.tenantId,
+    title: "Pengajuan upgrade dibatalkan",
+    message: `${data.customerName} membatalkan pengajuan upgrade ke ${data.targetPackageName}.`,
+  });
+}
+
+/** Kirim notifikasi terkait upgrade paket ke seluruh pengelola pelanggan. */
+async function fanOutPackageUpgradeNotification(input: {
+  customerId: string;
+  siteId?: string | null;
+  tenantId?: string | null;
+  title: string;
+  message: string;
+}): Promise<void> {
+  const recipients = await findPelangganManagers({
+    userLookupService: getUserLookupService(),
+    siteId: input.siteId,
+  });
+
+  await Promise.all(
+    recipients.map((recipient: { id: string }) =>
+      createNotification({
+        type: "PACKAGE_UPGRADE",
+        priority: "NORMAL",
+        title: input.title,
+        message: input.message,
+        link: `/admin/pelanggan/ppp/${input.customerId}`,
+        userId: recipient.id,
+        siteId: input.siteId ?? undefined,
+        sourceType: "PackageUpgradeRequest",
+        sourceId: input.customerId,
+        tenantId: input.tenantId ?? undefined,
+      }),
+    ),
+  );
+}
+
 export type {
   CanvasingNotificationData,
   CreateNotificationData,
   NotificationPriority,
   NotificationType,
+  PackageUpgradeCancelledNotificationData,
+  PackageUpgradeNotificationData,
   PointClaimNotificationData,
   WorkOrderNotificationData,
 } from "./NotificationService.types";

@@ -145,6 +145,32 @@ export async function findCanvasingVerifiers(input: {
   });
 }
 
+/**
+ * Pencari penerima notifikasi pengajuan upgrade paket.
+ *
+ * Memakai permission `pelanggan:update` — permission yang sama yang dipakai
+ * route admin untuk benar-benar mengubah paket, jadi yang dinotifikasi persis
+ * orang yang bisa menindaklanjutinya.
+ */
+export async function findPelangganManagers(input: {
+  userLookupService: UserLookupService;
+  siteId?: string | null;
+}): Promise<RecipientUser[]> {
+  return input.userLookupService.findManyWithCustomWhere({
+    isActive: true,
+    role: { permission: { some: { resource: "pelanggan", action: "update" } } },
+    ...(input.siteId
+      ? {
+          OR: [
+            { siteId: input.siteId },
+            { siteId: null },
+            { userSites: { some: { siteId: input.siteId } } },
+          ],
+        }
+      : {}),
+  });
+}
+
 function buildEligibleRecipientWhere(input: {
   departmentId?: string;
   siteId?: string;

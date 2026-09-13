@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -83,7 +84,9 @@ export function useRealtimeWorkOrders(
       );
 
       if (listRes.ok) {
-        const data = await listRes.json();
+        const data = unwrapApiData<{ notifications?: WorkOrderNotification[] }>(
+          await listRes.json(),
+        );
         setNotifications(data.notifications || []);
         // Calculate unread count from the filtered list or if API provides total filtered unread
         // Since current API returns global unreadCount, we might rely on client side counting or need API update

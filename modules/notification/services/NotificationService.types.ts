@@ -4,7 +4,26 @@ export type NotificationType =
   | "TICKET"
   | "ALERT"
   | "ANNOUNCEMENT"
-  | "HOLIDAY_CREATED";
+  | "HOLIDAY_CREATED"
+  | "PACKAGE_UPGRADE";
+
+export interface PackageUpgradeNotificationData {
+  customerId: string;
+  customerName: string;
+  currentPackageName: string;
+  targetPackageName: string;
+  applyAt: Date;
+  siteId?: string | null;
+  tenantId?: string | null;
+}
+
+export interface PackageUpgradeCancelledNotificationData {
+  customerId: string;
+  customerName: string;
+  targetPackageName: string;
+  siteId?: string | null;
+  tenantId?: string | null;
+}
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 

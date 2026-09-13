@@ -10,6 +10,8 @@ export {
   notifyNewCanvasing,
   notifyNewPointClaim,
   notifyNewWorkOrder,
+  notifyPackageUpgradeCancelled,
+  notifyPackageUpgradeRequested,
   notifyWorkOrderAssigned,
   notifyWorkOrderStatusChange,
   notifyWorkOrderUpdate,
@@ -18,6 +20,8 @@ export {
   type HolidayNotificationData,
   type NotificationPriority,
   type NotificationType,
+  type PackageUpgradeCancelledNotificationData,
+  type PackageUpgradeNotificationData,
   type PointClaimNotificationData,
   type WorkOrderNotificationData,
 } from "./services/NotificationService";

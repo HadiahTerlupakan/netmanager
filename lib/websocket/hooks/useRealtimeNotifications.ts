@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -85,7 +86,10 @@ export function useRealtimeNotifications(
         throw await buildNotificationFetchError(listRes);
       }
 
-      const listData = await listRes.json();
+      const listData = unwrapApiData<{
+        notifications?: Notification[];
+        unreadCount?: number;
+      }>(await listRes.json());
       setUnreadCount(listData.unreadCount || 0);
       setNotifications(listData.notifications || []);
     } catch (error) {

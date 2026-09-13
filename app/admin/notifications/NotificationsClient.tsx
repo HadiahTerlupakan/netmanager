@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
@@ -55,10 +56,14 @@ export function ClientComponent() {
 
       const res = await fetch(url);
       if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setNotifications(data.notifications);
-          setTotal(data.total);
+        const body = await res.json();
+        if (body.success) {
+          const data = unwrapApiData<{
+            notifications?: Notification[];
+            total?: number;
+          }>(body);
+          setNotifications(data.notifications ?? []);
+          setTotal(data.total ?? 0);
         }
       }
     } catch (error) {
