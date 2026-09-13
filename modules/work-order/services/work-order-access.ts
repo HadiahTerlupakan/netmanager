@@ -15,12 +15,26 @@ export async function validateMobileAssignedWorkOrderAccess(params: {
   userContext: UserContext;
   allowedStatuses: string[];
   invalidStatusMessage: string;
+  /**
+   * Melepas akses untuk partner yang undangannya belum disetujui.
+   *
+   * Hanya untuk jalur baca. Teknisi yang diundang menerima notifikasi undangan
+   * tetapi ditolak saat membuka work order-nya, sehingga undangan harus
+   * diterima tanpa bisa melihat pekerjaannya lebih dulu. Jalur aksi tidak
+   * meneruskan izin ini — mengubah work order tetap menuntut APPROVED.
+   */
+  allowPendingInvitation?: boolean;
 }): Promise<MobileWorkOrderMaterialAccessWorkOrder> {
-  const { userContext, allowedStatuses, invalidStatusMessage } = params;
+  const {
+    userContext,
+    allowedStatuses,
+    invalidStatusMessage,
+    allowPendingInvitation,
+  } = params;
   const workOrder = await requireAccessibleWorkOrder(params);
 
   validateTenantAccess(workOrder, userContext);
-  validateAssigneeAccess(workOrder, userContext.id);
+  validateAssigneeAccess(workOrder, userContext.id, allowPendingInvitation);
   validateWorkOrderStatus(
     workOrder.status,
     allowedStatuses,
@@ -56,18 +70,25 @@ function validateTenantAccess(
 function validateAssigneeAccess(
   workOrder: MobileWorkOrderMaterialAccessWorkOrder,
   userId: string,
+  allowPendingInvitation = false,
 ): void {
   const isUnclaimedStatus =
     workOrder.status === "PENDING" || workOrder.status === "REQUESTED";
   if (isUnclaimedStatus) return;
 
   const isAssignedTechnician = workOrder.assignedToId === userId;
-  const isApprovedPartner = workOrder.assignments?.some(
+  // PENDING hanya diterima pada jalur baca. Undangan yang sudah ditolak
+  // (REJECTED) tetap tidak pernah melepas akses.
+  const statusPartnerDiterima = allowPendingInvitation
+    ? ["APPROVED", "PENDING"]
+    : ["APPROVED"];
+  const isInvitedPartner = workOrder.assignments?.some(
     (assignment) =>
-      assignment.userId === userId && assignment.status === "APPROVED",
+      assignment.userId === userId &&
+      statusPartnerDiterima.includes(assignment.status),
   );
 
-  if (isAssignedTechnician || isApprovedPartner) return;
+  if (isAssignedTechnician || isInvitedPartner) return;
   throw new Error(
     "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.",
   );

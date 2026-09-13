@@ -74,6 +74,9 @@ export class EmployeeWorkOrderQueryService {
       userContext: this.buildAccessContext(userContext),
       allowedStatuses: [...MOBILE_DETAIL_STATUSES],
       invalidStatusMessage: "Work order tidak dapat diakses pada status ini",
+      // Jalur baca: partner yang diundang perlu melihat pekerjaannya sebelum
+      // memutuskan menerima atau menolak. Jalur aksi tetap menuntut APPROVED.
+      allowPendingInvitation: true,
     });
   }
 
