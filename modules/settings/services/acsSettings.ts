@@ -77,8 +77,15 @@ export function mapAcsSettingsResponse(
   );
 
   return {
-    genieAcsUrl:
-      settingsMap.get("ACS_GENIEACS_URL") || "http://localhost:7557/devices",
+    // Tanpa nilai di Pengaturan, ACS dianggap belum dikonfigurasi.
+    //
+    // Sebelumnya di sini ada default "http://localhost:7557/devices" — alamat
+    // lingkungan pengembangan yang ikut terbawa ke produksi, tempat GenieACS
+    // memang tidak pernah dipasang. Akibatnya setiap permintaan menabrak
+    // ECONNREFUSED dan endpoint mengembalikan 502, padahal `AcsDeviceService`
+    // sudah punya penjaga "belum dikonfigurasi" yang mengembalikan pesan jelas
+    // — penjaga itu tidak pernah kebagian jalan karena nilainya selalu terisi.
+    genieAcsUrl: settingsMap.get("ACS_GENIEACS_URL") || "",
     appName: settingsMap.get("ACS_APP_NAME") || "SolusiDigitalNet",
     vpPppoeUsername:
       settingsMap.get("ACS_VP_PPPOE_USERNAME") ||
