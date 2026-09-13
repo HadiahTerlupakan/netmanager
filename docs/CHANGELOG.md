@@ -41,6 +41,345 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-13] — Permanenkan metadata cloud-init ke IP server baru
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Cache cloud-init di server `radpro` masih mendeklarasikan jaringan
+  lama (`141.11.160.150/28`, gw `141.11.160.145`, DNS `113.192.0.3`/`113.192.1.3`)
+  pada `network-config.json` dan `obj.pkl` — sisa dari migrasi IP server. Selama
+  `network: {config: disabled}` aktif, data ini pasif; tapi jika flag itu hilang,
+  netplan berisiko ter-revert ke IP lama dan menjatuhkan cluster. Kedua file
+  ditulis ulang ke kondisi nyata (`31.56.30.53/29`, gw `31.56.30.49`, DNS
+  `1.1.1.1`/`8.8.8.8`), plus dua cache di `/run/cloud-init/`. Jaringan hidup tidak
+  disentuh — tanpa `netplan apply`. Backup asli di
+  `/root/cloudinit-backup-20260913-022227/`. Diverifikasi: `grep -rl "141.11.160"`
+  pada `/etc`, `/var/lib/cloud`, `/run/cloud-init` kosong; `cloud-init query
+  merged_cfg.network` melaporkan IP baru; 14 pod produksi tetap Running.
+- **Files**: `docs/reports/POSTMORTEM_K3S_OUTAGE_2026-09-13.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-13] — Bersihkan cluster k3s produksi & CoreDNS jadi 2 replika
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Tindak lanjut gangguan k3s 13 Sep 2026 (dipicu `netplan apply`
+  pada `ens18` yang membuat k3s crash 2× lalu restart, menjatuhkan DNS cluster
+  ±4 menit). Dua perbaikan di server `radpro`: (1) Job `web-migrate-manual` di ns
+  `default` milik lumeris dihapus — `ImagePullBackOff` 40 hari karena secret
+  `ghcr-pull-secret` tidak ada, membanjiri journal kubelet tiap ~13 detik; journal
+  k3s turun ke 21 baris/5 menit. (2) CoreDNS dinaikkan dari 1 ke 2 replika untuk
+  menghilangkan SPOF pada level pod; resolusi diverifikasi dari pod aplikasi.
+  Tanpa `podAntiAffinity` karena cluster single-node. Catatan: scale ini bisa
+  ter-reset saat upgrade k3s menulis ulang `coredns.yaml`.
+- **Files**: `docs/reports/POSTMORTEM_K3S_OUTAGE_2026-09-13.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-13] — Perbaiki unhandledRejection pada dedupe MixRadius
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/integrations`
+- **Author**: agent
+- **Deskripsi**: `fetchCustomersPPP` menyimpan promise in-flight lalu memanggil
+  `promise.finally(...)` tanpa menampung hasilnya. `.finally()` menghasilkan
+  promise turunan baru; ketika request MixRadius gagal (mis. login tidak sampai
+  dashboard), caller sudah menangani `promise` yang dikembalikan, tetapi promise
+  turunan dari `.finally()` ikut reject tanpa handler sehingga Node melaporkan
+  `unhandledRejection` di log produksi. Rantai `.finally()` sekarang ditutup
+  dengan `.catch()` no-op — error tetap disalurkan ke caller lewat promise yang
+  dikembalikan.
+- **Files**: `modules/integrations/services/MixRadiusService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Pangkas otomatis bingkai kosong pada logo yang diunggah
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings`
+- **Author**: agent
+- **Deskripsi**: Logo tampil kecil di invoice bukan karena tata letaknya,
+  melainkan karena berkas logo diekspor dengan kanvas jauh lebih besar dari
+  gambarnya. Logo yang terpasang berukuran 1536x1024 tetapi tintanya hanya
+  897x194 — 11% dari luas kanvas, sisanya margin kosong (kiri 304px, atas 381px,
+  kanan 335px, bawah 449px). Karena tata letak mengepaskan seluruh kanvas,
+  bingkai kosong ikut diperhitungkan dan logo tercetak sekitar 67x14px dari
+  ruang 227x76px yang tersedia. `trimLogoPadding` kini memangkas bingkai kosong
+  memakai sharp sebelum berkas disimpan, sehingga ukuran tampil mengikuti gambar
+  sebenarnya berapa pun padding bawaan berkas. Pada logo tersebut hasilnya
+  227x49px (naik ~12x luas) dan ukuran berkas turun dari 2,08 MB ke 0,40 MB.
+  Kegagalan pemangkasan tidak membatalkan unggahan — berkas asli tetap dipakai.
+  Karena jalur unggah tidak menyentuh berkas yang sudah terlanjur tersimpan,
+  ditambahkan pula `GET /api/settings/logo/trimmed/[type]` yang memangkas saat
+  penyajian dan menyimpan hasilnya di cache proses (TTL 1 jam, plus ETag dan
+  Cache-Control). Berkas sumber di storage tidak diubah, dan bila sumbernya
+  tidak terbaca permintaan dialihkan ke berkas asli supaya logo tetap tampil.
+  Invoice cetak kini memakai endpoint ini, jadi logo lama pun langsung tampil
+  benar tanpa siapa pun perlu mengunggah ulang.
+- **Files**: `modules/settings/services/logo-trim.ts`,
+  `modules/settings/services/trimmedLogo.ts`,
+  `app/api/settings/logo/trimmed/[type]/route.ts`,
+  `modules/settings/services/logoSettings.ts`,
+  `app/admin/pelanggan/ppp/[id]/print/PppPrintClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Rombak tampilan invoice cetak pelanggan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/pelanggan/ppp/[id]/print`
+- **Author**: agent
+- **Deskripsi**: Invoice cetak (A4 dan struk thermal) dirapikan agar layak
+  diberikan ke pelanggan. Yang diperbaiki: nomor invoice tidak lagi dipotong
+  prefiksnya — `INV-DEV-0003` sempat tercetak `-DEV-0003` padahal nomor itu
+  dipakai sebagai berita transfer dan acuan pencocokan admin; nominal Rupiah
+  tidak lagi menampilkan pecahan sen; tanggal `09/09/2026` yang ambigu diganti
+  `9 Sep 2026`; seluruh teks Inggris ("Bill To", "Issued", "Payment Info",
+  "Terms & Conditions", "Thank you for your business", "Make all checks payable
+  to") diterjemahkan — cek bukan metode pembayaran yang relevan di sini. Label
+  "TOTAL" yang menempel ke nominalnya diganti tata letak baru: jumlah tagihan
+  dan jatuh tempo jadi fokus utama di kepala dokumen. Kertas dikunci ke warna
+  terang: tema gelap aplikasi meng-override utility abu-abu secara global
+  sehingga pratinjau tampil gelap padahal hasil cetaknya putih, dan varian
+  `dark:` dicabut dari markup struk. Identitas penerbit yang belum diisi tidak
+  lagi mencetak baris kosong atau kata "Perusahaan"; pratinjau menampilkan
+  pengingat non-cetak untuk melengkapinya di Pengaturan. Kotak logo tidak lagi
+  bertinggi tetap 44px selebar kolom (rasio ~7): dibatasi tinggi 20mm dan lebar
+  60mm sekaligus, sehingga `object-contain` menyesuaikan sendiri untuk logo
+  lebar, kotak, maupun potret — logo 1536x1024 sebelumnya hanya tercetak 66x44px
+  dari ruang 309px yang tersedia.
+- **Files**: `app/admin/pelanggan/ppp/[id]/print/PppPrintClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Pelanggan bisa membatalkan pengajuan upgrade sendiri
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan`, `app/api/customer/package`, `app/(customer)/upgrade-paket`
+- **Author**: agent
+- **Deskripsi**: Pembatalan sebelumnya hanya bisa dilakukan admin lewat
+  `POST /api/pelanggan-ppp/[id]/cancel-pending-package`; pelanggan harus
+  menghubungi customer service. Ditambahkan
+  `CustomerPackageUpgradeService.cancelUpgrade()` dan
+  `DELETE /api/customer/package/upgrade`, plus tombol "Batalkan Pengajuan" di
+  banner portal. Operasi penghapusannya memakai ulang
+  `PelangganRepository.cancelPendingPackage()` yang sudah dipakai jalur admin,
+  jadi tidak ada dua implementasi yang bisa menyimpang. Membatalkan saat tidak
+  ada pengajuan menghasilkan 409. Pengelola pelanggan ikut dinotifikasi
+  ("Pengajuan upgrade dibatalkan") karena mereka sudah menerima notifikasi
+  pengajuannya — tanpa itu mereka bertindak atas informasi basi. Fan-out
+  notifikasi pengajuan dan pembatalan dipakai bersama lewat satu helper.
+- **Files**: `modules/pelanggan/services/CustomerPackageUpgradeService.ts`,
+  `modules/pelanggan/services/package-upgrade.notifications.ts`,
+  `app/api/customer/package/upgrade/route.ts`,
+  `app/(customer)/upgrade-paket/page.tsx`,
+  `modules/notification/services/NotificationService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Notifikasi & penanda pengajuan upgrade paket untuk admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/notification`, `modules/pelanggan`, `app/admin/pelanggan/ppp`
+- **Author**: agent
+- **Deskripsi**: Pengajuan upgrade dari portal sebelumnya hanya terlihat lewat
+  badge di halaman detail pelanggan — admin harus tahu dulu pelanggan mana yang
+  mengajukan. Ditambahkan tipe notifikasi `PACKAGE_UPGRADE` dan
+  `notifyPackageUpgradeRequested`, dikirim ke user yang punya permission
+  `pelanggan:update` pada site pelanggan tersebut — orang yang sama yang bisa
+  menindaklanjuti. Notifikasi tersimpan di tabel `notifications` (bukan hanya
+  realtime) supaya tetap terlihat walau tidak ada yang online saat pengajuan
+  masuk, dan link-nya langsung ke halaman detail pelanggan. Pengirimannya
+  fire-and-forget: kegagalan notifikasi tidak membatalkan pengajuan yang sudah
+  tersimpan. Daftar `/admin/pelanggan/ppp` kini menampilkan badge "Upgrade ke
+  <paket> • <tanggal>" pada kolom paket, dari relasi `pendingPackage` yang
+  ditambahkan ke `pelangganWithPackageInclude`.
+- **Files**: `modules/notification/services/NotificationService.ts`,
+  `modules/notification/services/NotificationService.recipients.ts`,
+  `modules/notification/services/NotificationService.types.ts`,
+  `modules/pelanggan/services/package-upgrade.notifications.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository.constants.ts`,
+  `app/admin/pelanggan/ppp/pppListColumns.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Perbaiki UI notifikasi yang selalu tampak kosong
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/websocket/hooks`, `lib/utils`, `app/admin/notifications`
+- **Author**: agent
+- **Deskripsi**: `GET /api/notifications` membungkus payload di dalam `data`
+  (envelope `apiSuccess`), tapi tiga konsumennya membaca `body.notifications`
+  dan `body.unreadCount` di level teratas — selalu `undefined`. Akibatnya bell
+  admin, bell work order, dan halaman `/admin/notifications` selalu menampilkan
+  "Tidak ada notifikasi" dan hitungan 0, padahal API mengembalikan datanya
+  (terverifikasi: 343 notifikasi belum dibaca tidak pernah tampil). Ditambahkan
+  helper `unwrapApiData` di `lib/utils/fetch-wrapper.ts` dan dipakai ketiganya.
+- **Files**: `lib/utils/fetch-wrapper.ts`,
+  `lib/websocket/hooks/useRealtimeNotifications.ts`,
+  `lib/websocket/hooks/useRealtimeWorkOrders.ts`,
+  `app/admin/notifications/NotificationsClient.tsx`,
+  `tests/lib/unwrap-api-data.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Pengajuan upgrade paket mandiri dari portal pelanggan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan`, `app/api/customer/package`, `app/(customer)/upgrade-paket`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya tombol upgrade di portal tidak terhubung ke apa pun —
+  perubahan paket hanya bisa lewat admin (`PUT /api/pelanggan-ppp/[id]`).
+  Ditambahkan `CustomerPackageUpgradeService` dan endpoint
+  `POST /api/customer/package/upgrade` supaya pelanggan bisa mengajukan sendiri.
+  Perubahan dijadwalkan pada jatuh tempo berikutnya (`upgradeApplyTime:
+  NEXT_CYCLE`, `prorateOption: NONE`) lewat `InvoiceProrateService` dari modul
+  finance (via public API), lalu diterapkan cron `PendingPackageApplierService`
+  yang sudah ada. Why NEXT_CYCLE: pelanggan tidak boleh memicu tagihan pro-rata
+  di luar siklus tanpa persetujuan pembayaran, dan penjadwalan masih bisa
+  dibatalkan sebelum diterapkan. Guard: pelanggan harus `AKTIF`, tidak boleh ada
+  pengajuan yang masih menunggu (409), dan paket tujuan divalidasi ulang di
+  server dengan predikat yang sama seperti daftar opsi (aktif, lebih mahal,
+  dalam site pelanggan atau global, satu tenant) — daftar dan validasi tidak
+  bisa berbeda. Response `GET /api/customer/package` menambah `pendingUpgrade`,
+  dan halaman menampilkannya sebagai banner sekaligus menyembunyikan CTA.
+- **Files**: `modules/pelanggan/services/CustomerPackageUpgradeService.ts`,
+  `app/api/customer/package/upgrade/route.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository-account.helpers.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository.prisma.helpers.ts`,
+  `modules/pelanggan/services/CustomerPackageService.ts`,
+  `app/(customer)/upgrade-paket/page.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Samakan definisi tagihan tertunggak di portal pelanggan
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/constants`, `modules/pelanggan`, `app/(customer)/tagihan`
+- **Author**: agent
+- **Deskripsi**: Dashboard menghitung tunggakan dari SENT/OVERDUE/PARTIAL_PAID,
+  sedangkan halaman tagihan hanya SENT/OVERDUE — dua halaman menampilkan angka
+  berbeda untuk pelanggan yang sama (Rp 400.000 vs Rp 300.000), dan sisa tagihan
+  yang sudah dibayar sebagian tidak pernah bisa dilunasi dari portal karena
+  `validateInvoicesForPayment` menolaknya. Definisi disatukan di
+  `lib/constants/invoice-status.ts` dan dipakai bersama oleh ringkasan dashboard,
+  daftar tagihan, dan validasi pembayaran. PARTIAL_PAID dipilih ikut dihitung
+  mengikuti perlakuan yang sudah ada di `AutomaticIsolationSchedulerService`;
+  nominal yang ditagih memang sudah `totalAmount - paidAmount`.
+- **Files**: `lib/constants/invoice-status.ts`,
+  `modules/pelanggan/services/CustomerPortalService.ts`,
+  `modules/pelanggan/repositories/CustomerInvoiceRepository.ts`,
+  `app/(customer)/tagihan/page.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Halaman upgrade paket pakai data asli, discope site & tenant
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/(customer)/upgrade-paket`, `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `app/(customer)/upgrade-paket/page.tsx` sebelumnya mockup statis —
+  seluruh paket ("50 Mbps Streamer", "100 Mbps Family", dst) beserta harganya
+  hardcoded di JSX, tanpa satu pun pemanggilan API, sehingga tidak pernah cocok
+  dengan `HargaPaket` di database. Halaman kini mengambil data dari
+  `GET /api/customer/package` dan merender paket saat ini, pilihan upgrade,
+  selisih harga, serta bandwidth apa adanya dari DB. Query opsi upgrade
+  (`findUpgradePackageOptions`) kini discope ke site pelanggan mengikuti
+  konvensi `HargaPaketRepository.findAll` — paket milik site tersebut plus paket
+  global (`siteId` null); filter tenant sudah otomatis dari extension
+  `withTenantIsolation`. DTO opsi upgrade ditambah `durasi`, `durasiUnit`, dan
+  `isFeatured` supaya periode tagihan dan badge rekomendasi ikut dari data.
+  Kontrol periode "Bulanan/Tahunan" dan daftar fitur hardcoded (channel TV,
+  Disney+) dihapus karena tidak punya sumber data. Sticky CTA dinaikkan ke atas
+  `BottomNav` yang sebelumnya menutupinya. CTA mengarah ke `/dukungan`.
+- **Files**: `app/(customer)/upgrade-paket/page.tsx`,
+  `modules/pelanggan/repositories/pelanggan-repository-account.helpers.ts`,
+  `modules/pelanggan/repositories/PelangganRepository.ts`,
+  `modules/pelanggan/domain/ports/IPelangganRepository.ts`,
+  `modules/pelanggan/services/CustomerPackageService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Seed customer sejajarkan site pelanggan dengan paketnya
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed-customer.ts`
+- **Author**: agent
+- **Deskripsi**: Seed menempatkan pelanggan test di site hasil buatannya sendiri
+  sementara paket yang dipakai milik site lain. Karena opsi upgrade di portal
+  discope ke site pelanggan, kondisi itu membuat pelanggan test tidak pernah
+  melihat pilihan upgrade — data seed menyesatkan saat pengujian. Pelanggan kini
+  mengikuti `siteId` paketnya, dan `HargaPaket` yang dibuat seed ikut diberi
+  `siteId`.
+- **Files**: `prisma/seed-customer.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Portal tagihan pakai DTO invoice yang benar
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `CustomerPortalService.getInvoices()` mengembalikan baris Prisma
+  mentah, sedangkan `app/(customer)/tagihan/page.tsx` mengharapkan DTO dengan
+  `items`, `remainingAmount`, dan `lastPayment`. Akibatnya halaman tagihan crash
+  ke error boundary ("Terjadi Kesalahan") begitu pelanggan punya tagihan —
+  `invoice.items[0]` mengakses properti dari `undefined`. Jalur yang benar
+  sebenarnya sudah ada tapi jadi dead code: `CustomerInvoiceRepository`
+  `findAllForCustomer()` + `formatInvoicesForResponse()`. Service kini memakai
+  jalur tersebut, `findAllForCustomer()` mendukung filter multi-status sesuai
+  kontrak API, dan query mentah duplikatnya (`getInvoices` di billing helper,
+  `PelangganRepository`, serta port `IPelangganRepository`) dihapus supaya tidak
+  ada dua jalur yang bersaing. Status `PARTIAL_PAID` juga kini punya label
+  "Dibayar Sebagian" — sebelumnya enum mentah bocor ke UI.
+- **Files**: `modules/pelanggan/services/CustomerPortalService.ts`,
+  `modules/pelanggan/repositories/CustomerInvoiceRepository.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository-billing.helpers.ts`,
+  `modules/pelanggan/repositories/PelangganRepository.ts`,
+  `modules/pelanggan/domain/ports/IPelangganRepository.ts`,
+  `app/(customer)/tagihan/page.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Seed tagihan dev untuk pelanggan test portal
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Script `prisma/seed-customer-invoices.ts` membuat tiga tagihan
+  dev (OVERDUE, PARTIAL_PAID beserta pembayaran parsialnya, dan SENT) untuk
+  pelanggan test portal, supaya alur tagihan & pembayaran bisa diuji dalam
+  keadaan ada tunggakan. Idempotent: tagihan berprefiks `INV-DEV-` milik
+  pelanggan tersebut dihapus dulu sebelum dibuat ulang. Target pelanggan bisa
+  diganti lewat env `SEED_ID_PELANGGAN`.
+- **Files**: `prisma/seed-customer-invoices.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Trim identifier login pelanggan sebelum lookup
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `CustomerAuthService.login()` men-trim identifier hanya untuk
+  key rate limit, tapi meneruskan nilai mentah ke repository. Akibatnya spasi
+  ikutan dari copy-paste atau autocorrect keyboard mobile membuat lookup meleset
+  dan login ditolak "ID Pelanggan atau password salah" walau kredensial benar.
+  Identifier kini dinormalisasi sekali di awal `login()` sehingga rate-limit key
+  dan lookup memakai nilai yang sama; guard input juga ikut menolak identifier
+  yang hanya berisi whitespace, dan payload non-string tidak lagi melempar
+  TypeError (sebelumnya berpotensi 500).
+- **Files**: `modules/pelanggan/services/CustomerAuthService.ts`,
+  `tests/modules/pelanggan/CustomerAuthService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-09] — Seed customer isi tenantId agar login portal berhasil
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed-customer.ts`
+- **Author**: agent
+- **Deskripsi**: `prisma/seed-customer.ts` memakai `PrismaClient` mentah (tanpa
+  extension `withTenantIsolation`), sehingga `Pelanggan`, `ProfilePPP`, `HargaPaket`,
+  dan `Sites` hasil seed tersimpan dengan `tenantId = NULL`. Akibatnya query login
+  portal — yang lewat client ber-extension dan selalu memfilter `tenantId` —
+  tidak pernah menemukan akun test, dan login pelanggan selalu gagal dengan
+  "ID Pelanggan atau password salah" meski kredensial benar. Seed kini mengisi
+  `tenantId: MAIN_TENANT_ID` pada semua record yang dibuat, men-scope lookup
+  `ProfilePPP`/`HargaPaket` ke tenant utama, dan mem-backfill `tenantId` pada baris
+  `Pelanggan` lama. Lookup `Pelanggan` sengaja tidak di-scope tenant karena kolom
+  `username` unik global — men-scope-nya akan memicu duplikat yang gagal constraint.
+- **Files**: `prisma/seed-customer.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-09] — Redam hydration mismatch dari atribut suntikan ekstensi browser
 
 - **Tipe**: [FIXED]
