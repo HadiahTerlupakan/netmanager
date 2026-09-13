@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-14] — Nada notifikasi kustom menggantikan bunyi bawaan perangkat
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Payload FCM meminta `sound: "default"` untuk kedua platform,
+  sehingga notifikasi memakai bunyi bawaan perangkat yang cenderung tegas.
+  Diganti ke nada lembut yang dikirim bersama aplikasi mobile
+  (`assets/sounds/notif_soft.wav`, disintesis sendiri sehingga bebas lisensi).
+  iOS menyebut nada di payload APNs, jadi server yang harus menyebutkannya;
+  Android sejak versi 8 menentukan suara lewat channel, sehingga nilai
+  `android.notification.sound` hanya berlaku pada perangkat pra-Android 8 dan
+  notifikasi latar belakang diarahkan ke channel bernada lembut lewat penunjuk
+  di manifest aplikasi. Pemasangan lama yang belum punya berkasnya jatuh
+  kembali ke bunyi bawaan — tidak ada notifikasi yang hilang, jadi tidak ada
+  urutan rilis yang harus dijaga.
+- **Files**: `lib/firebase/messaging.ts`,
+  `tests/lib/firebase/messaging-notification-sound.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-14] — Partner dengan undangan PENDING bisa membaca detail work order
 
 - **Tipe**: [FIXED]
