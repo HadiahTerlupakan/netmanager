@@ -41,6 +41,67 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-13] — Nonaktifkan integrasi remote MixRadius
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/integrations`
+- **Author**: agent
+- **Deskripsi**: Panel MixRadius kini memakai CAPTCHA, sehingga login otomatis
+  tidak akan pernah berhasil — tiap percobaan berakhir "Login may have failed -
+  unexpected response", membuat endpoint 500, dan tetap membebani panel dengan
+  request yang pasti gagal. Gerbang dipasang di `loginMixRadius`, satu-satunya
+  jalur yang dilewati semua operasi remote (operasi klien menerima `login`
+  sebagai callback). Sengaja memakai ulang `MixRadiusConfigError` alih-alih tipe
+  error baru: 20+ route MixRadius sudah memetakannya ke HTTP 503 beserta
+  pesannya, jadi status dan teks konsisten tanpa menyentuh satu pun route. Cron
+  `mixRadiusInvoiceSync` (tiap jam) dan `mixRadiusSettlementSync` (harian) tidak
+  lagi dijadwalkan saat remote mati. Fitur MixRadius berbasis database lokal —
+  grup owner, investor site, RAB, konfigurasi — tidak terpengaruh. Bisa
+  dinyalakan lagi tanpa deploy ulang lewat `MIXRADIUS_REMOTE_ENABLED=true`.
+- **Files**: `modules/integrations/services/mixradius-auth-client.ts`,
+  `modules/integrations/index.ts`, `lib/cron-registry.ts`
+- **Breaking**: ✅ Ya — endpoint MixRadius yang menarik data panel kini 503
+
+### [2026-09-13] — Dekripsi berhenti menerima hasil kunci yang salah
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `decryptApiKey` memilih kunci dengan pola try/catch di atas
+  AES-256-CBC yang tidak terautentikasi. Padding PKCS#7 kunci yang salah
+  kebetulan sah pada 0,42% ciphertext (terukur 210 dari 50.000 percobaan), dan
+  `decipher.update(..., "utf8")` menyulap byte rusak jadi U+FFFD alih-alih
+  menggagalkan — sehingga kunci pertama yang dicoba bisa "berhasil" lalu
+  mengembalikan sampah. Dampaknya bukan sekadar tes flaky: begitu
+  `ENCRYPTION_KEY` diisi (peralihan yang justru jadi alasan modul ini ada),
+  sekitar 1 dari 238 pembacaan kredensial WhatsApp, SMTP, payment gateway, dan
+  R2 mengembalikan nilai palsu tanpa satu pun error. `isEncryptedWithLegacyKey`
+  punya cacat sama, sehingga `scripts/reencrypt-secrets.ts` bisa melewati baris
+  yang sebenarnya perlu dipindahkan. Hasil dekripsi kini wajib UTF-8 yang sah;
+  stress test 200.000 iterasi memberi 200.000 hasil benar, nol sampah diterima.
+  Tes memakai fixture ciphertext yang memicu tabrakan padding secara pasti,
+  bukan menunggu undian IV acak.
+- **Files**: `lib/utils/encryption.ts`,
+  `tests/lib/encryption-key-rotation.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-13] — ACS tanpa konfigurasi berhenti menabrak localhost
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings`
+- **Author**: agent
+- **Deskripsi**: `mapAcsSettingsResponse` mengisi `genieAcsUrl` dengan default
+  `http://localhost:7557/devices` — alamat lingkungan pengembangan yang ikut
+  terbawa ke produksi, tempat GenieACS tidak pernah dipasang (tidak ada manifes
+  k8s, tidak ada proses di port 7557). Akibatnya `/api/acs/devices` mengembalikan
+  502 `ECONNREFUSED`, padahal `AcsDeviceService` sudah punya penjaga yang
+  mengembalikan "GenieACS URL belum dikonfigurasi di Pengaturan" — penjaga itu
+  tidak pernah kebagian jalan karena nilainya selalu terisi. Default jaringannya
+  dicabut; default non-jaringan lain tidak diubah.
+- **Files**: `modules/settings/services/acsSettings.ts`,
+  `tests/modules/settings/acs-settings-unconfigured.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-13] — Periksa secret deploy sebelum build dimulai
 
 - **Tipe**: [INFRA]

@@ -144,10 +144,52 @@ Sumber seed nilai lama itu belum berhasil dipastikan.
 
 ---
 
-## Isu terbuka (belum dikerjakan)
+## Isu terbuka — status per 13 Sep 2026
 
-| Isu | Dampak | Catatan |
+| Isu | Status | Catatan |
 |---|---|---|
+| **Login MixRadius gagal** | ✅ Ditangani | Panel memakai CAPTCHA, login otomatis tidak akan pernah berhasil. Integrasi remote dinonaktifkan di `loginMixRadius`; endpoint mengembalikan 503 berpesan jelas, cron sync tidak lagi dijadwalkan. Dinyalakan lagi lewat `MIXRADIUS_REMOTE_ENABLED=true` |
+| **GenieACS mati** | ✅ Ditangani | GenieACS memang tidak pernah di-deploy — default `http://localhost:7557/devices` yang bocor dari lingkungan pengembangan. Default jaringannya dicabut, sehingga penjaga "belum dikonfigurasi" yang sudah ada di `AcsDeviceService` kini bekerja |
+| **`GAME_API_BASE_URL` lumeris menunjuk IP lama** | ✅ Ditangani | Secret `lumeris-secrets` & `lumeris-web-env` diperbarui ke `http://31.56.30.53:34061` (terverifikasi HTTP 405 = hidup; alamat lama nihil). Deployment `web` & `worker` di-restart, env terverifikasi di pod baru. Backup: `/root/lumeris-secret-backup-20260913-100406/` |
+| **`tests/lib/encryption-key-rotation.test.ts` flaky** | ✅ Ditangani | Ternyata bukan bug tes melainkan bug produksi — lihat bagian di bawah |
+| **Service account key Firebase di history git** | ⚠️ Perlu tindakan Anda | Kunci bocor `54f6269e83e3bed6854cfdbd8f0d1468ac0b370d` **berbeda** dari yang dipakai produksi, tapi service account-nya sama dan kunci itu bisa jadi masih aktif di GCP. Harus dihapus lewat konsol/gcloud — di luar jangkauan agent |
+| **`DNSConfigForming`** | ⏳ Terbuka | `Nameserver limits were exceeded` → `1.1.1.1 8.8.8.8 1.1.1.1`. Resolver ketiga duplikat, mubazir |
+| **Anotasi `last-applied-configuration` lumeris** | ⏳ Kosmetik | Masih memuat IP lama di `lumeris-secrets`. Tidak dibaca aplikasi. Yang lebih penting: manifes sumber lumeris kemungkinan masih berisi IP lama dan akan mengembalikannya saat `kubectl apply` berikutnya |
+
+---
+
+## Bug dekripsi yang tersingkap dari tes flaky
+
+Tes yang gagal acak itu gejala, bukan penyakitnya.
+
+`lib/utils/encryption.ts` memilih kunci dekripsi dengan pola try/catch di atas
+**AES-256-CBC yang tidak terautentikasi**. Kunci yang salah tidak selalu ditolak:
+padding PKCS#7-nya kebetulan sah pada **0,42% ciphertext** (terukur 210 dari
+50.000 percobaan), dan `decipher.update(..., "utf8")` menyulap byte rusak jadi
+U+FFFD alih-alih menggagalkan. Kunci pertama yang dicoba karena itu bisa
+"berhasil" lalu mengembalikan sampah.
+
+Dampak sebenarnya jauh melampaui CI. Saat ini laten karena `ENCRYPTION_KEY` tidak
+diset di produksi, sehingga hanya satu kunci yang pernah dicoba. Begitu variabel
+itu diisi — peralihan yang justru jadi alasan modul ini ada — sekitar **1 dari
+238 pembacaan** kredensial WhatsApp, SMTP, payment gateway, dan R2 akan
+mengembalikan nilai palsu tanpa satu pun error. `isEncryptedWithLegacyKey` punya
+cacat sama, sehingga `scripts/reencrypt-secrets.ts` akan melewati sebagian baris
+yang sebenarnya perlu dipindahkan.
+
+**Perbaikan.** Hasil dekripsi wajib berupa UTF-8 yang sah. Dari 210 tabrakan
+padding yang terukur, nol di antaranya menghasilkan UTF-8 sah — sehingga jalur
+penerimaan diam-diam tertutup tanpa mengubah format data lama. Stress test
+200.000 iterasi memberi 200.000 hasil benar dan nol sampah diterima.
+
+Ini bukan autentikasi sungguhan. Perbaikan tuntasnya adalah memindahkan
+ciphertext ke AES-GCM, yang butuh perubahan format dan migrasi data tersendiri.
+
+**Temuan sampingan:** `deriveKey` menjalankan `scryptSync` (~20 ms) pada setiap
+operasi enkripsi/dekripsi, dan `decryptApiKey` bisa memanggilnya dua kali per
+pembacaan. Belum diubah — di luar cakupan perbaikan ini.
+
+---|---|---|
 | **Login MixRadius gagal** | `/api/mobile/mixradius/customers` → 500. 6× sejak 00:07 | `[MixRadius] Login response did not reach dashboard`, user `rudihartono`, endpoint `sblnet.topsetting.com:973`. Kredensial/endpoint eksternal — di luar kode kita |
 | **GenieACS mati** | `/api/acs/devices` → 502 | `AcsDeviceService listDevices failed ECONNREFUSED localhost:7557` |
 | **`GAME_API_BASE_URL` lumeris menunjuk IP lama** | Game API lumeris kemungkinan tidak terjangkau | Env pod `lumeris-web` (`web` & `worker`): `http://141.11.160.150:34061`. Server game-nya (`lumeris-map`) jalan di box ini pada port 34061, tapi dialamatkan lewat IP lama. **Di luar scope netmanager** — perlu update deployment lumeris |
