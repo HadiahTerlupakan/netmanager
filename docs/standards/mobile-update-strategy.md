@@ -41,15 +41,60 @@ Project ini punya dua channel update yang jalan bersamaan:
 - Update Expo SDK
 - Tambah Android permission
 
+## Syarat Target API Google Play
+
+Sejak **31 Agustus 2026**, setiap update aplikasi wajib target **Android 16
+(API 36)**. Aplikasi yang sudah tayang cukup target >= 35 untuk tetap
+ditemukan, jadi yang terblokir hanya unggahan baru.
+
+Penolakannya terjadi saat **submit**, bukan saat build:
+
+```
+Google Api Error: Invalid request - Target SDK of artifact is too low
+```
+
+Artinya satu siklus build EAS (20-40 menit) terbuang sebelum kesalahannya
+terlihat. Nilainya dipatok di `app.json` lewat `expo-build-properties` dan
+dijaga oleh `__tests__/app/play-store-target-sdk.test.ts` — jalankan tes mobile
+sebelum build kalau versi SDK baru saja disentuh.
+
+`minSdkVersion` tidak ikut naik: menaikkannya memutus perangkat lama teknisi
+dan Google tidak memintanya.
+
 ## Cara Verifikasi Sebelum Keputusan
+
+`runtimeVersion.policy` bernilai `fingerprint`, jadi perangkat hanya menerima
+OTA yang runtime-nya sama persis dengan APK terpasang.
 
 ```bash
 cd mobile-netmanager
-npx expo-fingerprint diff <last-apk-commit> HEAD
+npx @expo/fingerprint fingerprint:generate > /tmp/fp-now.json
 ```
 
-- Diff empty → fingerprint sama → OTA cukup
-- Diff non-empty → fingerprint beda → APK rebuild wajib
+Perintah yang benar adalah `@expo/fingerprint` dengan subcommand
+`fingerprint:generate` / `fingerprint:diff`. Paket `expo-fingerprint` tidak ada
+di npm, dan `fingerprint:diff` menerima **dua berkas JSON**, bukan dua commit.
+
+**Cara paling andal** bukan membandingkan dua hash, melainkan memeriksa apakah
+berkas yang diubah termasuk bahan fingerprint:
+
+```bash
+npx @expo/fingerprint fingerprint:generate \
+  | python3 -c "import json,sys; [print(s.get('type'), s.get('filePath') or s.get('id')) for s in json.load(sys.stdin)['sources']]"
+```
+
+- Berkas yang diubah **tidak** muncul di daftar → OTA cukup
+- Muncul di daftar (mis. `app.json`/`expoConfig`, berkas di `plugins/`,
+  dependensi native) → runtime berubah → **APK rebuild wajib**
+
+> Menghitung fingerprint commit lama di direktori sementara menghasilkan diff
+> palsu: jalur relatif `node_modules` ikut di-hash, sehingga ratusan sumber
+> terlihat "berubah" padahal tidak. Bandingkan di direktori yang sama, atau
+> pakai pemeriksaan daftar sumber di atas.
+
+Aset native tidak pernah bisa lewat OTA. Berkas di `res/raw`, perubahan
+`AndroidManifest.xml`, dan config plugin selalu menuntut build baru — bundle JS
+tidak membawanya.
 
 ## Force Update Behavior
 

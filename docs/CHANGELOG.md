@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-14] — Perbaiki dokumen strategi update mobile
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Perintah verifikasi yang tertulis (`npx expo-fingerprint diff
+  <commit> HEAD`) tidak bisa dijalankan — paket `expo-fingerprint` tidak ada di
+  npm, dan subcommand yang benar (`@expo/fingerprint fingerprint:diff`)
+  menerima dua berkas JSON, bukan dua commit. Diganti dengan pemeriksaan daftar
+  sumber fingerprint, yang lebih andal karena membandingkan hash lintas commit
+  lewat direktori sementara menghasilkan diff palsu (jalur relatif
+  `node_modules` ikut di-hash). Ditambahkan bagian syarat target API Google Play
+  — sejak 31 Agustus 2026 update wajib target Android 16 (API 36), dan
+  penolakannya terjadi saat submit sehingga satu siklus build terbuang lebih
+  dulu. Semua perintah di dokumen sudah diuji jalan.
+- **Files**: `docs/standards/mobile-update-strategy.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-14] — Nada notifikasi kustom menggantikan bunyi bawaan perangkat
 
 - **Tipe**: [CHANGED]
