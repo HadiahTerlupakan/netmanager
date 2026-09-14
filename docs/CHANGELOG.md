@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-14] — Dokumentasikan jebakan sumber versionCode mobile
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Aplikasi mobile melaporkan versionCode dari `app.json` yang
+  dipatok manual, bukan dari binary terpasang, sehingga build 45 melaporkan
+  dirinya 42. Karena `/api/mobile/app-version/check` membandingkan angka itu
+  dengan tabel `app_releases`, setiap pemasangan akan mengira dirinya usang
+  selamanya begitu `app_releases` dinaikkan — dan dengan `isForceUpdate` aktif,
+  teknisi terkunci dari aplikasi. Ditambahkan bagian "Sumber versionCode" yang
+  menjelaskan sebabnya, kenapa `Constants.platform` tidak bisa dipakai di Expo
+  SDK 54, dan urutan wajib menaikkan `app_releases`: build baru terbit, tunggu
+  tersebar, baru naikkan. Perbaikan kodenya ada di repo `mobile-netmanager`.
+- **Files**: `docs/standards/mobile-update-strategy.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-14] — Perbaiki dokumen strategi update mobile
 
 - **Tipe**: [DOCS]

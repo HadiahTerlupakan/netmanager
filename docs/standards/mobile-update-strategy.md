@@ -41,6 +41,46 @@ Project ini punya dua channel update yang jalan bersamaan:
 - Update Expo SDK
 - Tambah Android permission
 
+## Sumber versionCode
+
+`eas.json` memakai `appVersionSource: "remote"` dengan `autoIncrement`, jadi
+**EAS yang memegang versionCode**, bukan `app.json`.
+
+Jangan memaku `expo.android.versionCode` di `app.json`. Nilainya diabaikan saat
+build, tetapi tetap ikut ke `Constants.expoConfig` — sehingga aplikasi
+melaporkan angka patokan itu, bukan versi yang benar-benar terpasang. Build 45
+pernah melaporkan dirinya 42 karena ini.
+
+Akibatnya berantai: `/api/mobile/app-version/check` membandingkan versi yang
+dilaporkan aplikasi dengan tabel `app_releases`. Kalau aplikasi selamanya
+melapor angka lama, setiap pemasangan akan mengira dirinya usang begitu
+`app_releases` dinaikkan — termasuk yang baru saja update. Dengan
+`isForceUpdate` aktif, teknisi terkunci dari aplikasi.
+
+Versi dibaca dari `Application.nativeBuildVersion` (`expo-application`), bukan
+dari app config. `Constants.platform` tidak bisa dipakai: ia bagian manifest
+klasik yang tidak ada lagi di build Expo SDK 54, selalu `undefined`.
+
+Dijaga oleh `__tests__/app/play-store-target-sdk.test.ts` dan
+`__tests__/constants/appVersion.test.ts`.
+
+```bash
+cd mobile-netmanager
+npx eas build:version:get --platform android   # angka yang dipegang EAS
+```
+
+### Urutan menaikkan app_releases
+
+Perbaikan pelaporan versi hanya berlaku untuk build **setelahnya** — build lama
+sudah membekukan angkanya di dalam bundle. Karena itu:
+
+1. Build baru terbit di Play Store
+2. Tunggu sampai tersebar ke perangkat
+3. **Baru** naikkan `app_releases` lewat `/admin/app-releases`
+
+Menaikkan `app_releases` lebih dulu membuat pengguna build lama melihat prompt
+update yang tidak pernah hilang.
+
 ## Syarat Target API Google Play
 
 Sejak **31 Agustus 2026**, setiap update aplikasi wajib target **Android 16
