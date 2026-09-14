@@ -326,7 +326,7 @@ Lihat dokumentasi lengkap di [`docs/CI_CD_PIPELINE.md`](docs/CI_CD_PIPELINE.md)
 
 ### 🚀 Deployment ke Production
 
-Aplikasi ini menggunakan sistem deployment via Jenkins (production-only):
+Aplikasi ini menggunakan sistem deployment via Gitea Actions (production-only):
 - Push ke branch `main` -> Otomatis deploy ke namespace `netmanager-production`.
 - Branch non-main akan di-reject oleh Branch Guard (pipeline production-only).
 

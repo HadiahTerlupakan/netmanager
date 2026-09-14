@@ -8,27 +8,21 @@ function readProjectFile(relativePath: string): string {
 
 describe("fcm build config contract", () => {
   it("injects browser Firebase env and VAPID public key during the app image build", () => {
-    const jenkinsfile = readProjectFile("Jenkinsfile");
+    const workflow = readProjectFile(".gitea/workflows/deploy-production.yml");
     const dockerfile = readProjectFile("Dockerfile");
 
-    expect(jenkinsfile).toContain("--build-arg NEXT_PUBLIC_FIREBASE_API_KEY");
-    expect(jenkinsfile).toContain(
-      "--build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    );
-    expect(jenkinsfile).toContain(
-      "--build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-    );
-    expect(jenkinsfile).toContain(
-      "--build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL",
-    );
-    expect(jenkinsfile).toContain(
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_API_KEY");
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL");
+    expect(workflow).toContain(
       "--build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
     );
-    expect(jenkinsfile).toContain(
+    expect(workflow).toContain(
       "--build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
     );
-    expect(jenkinsfile).toContain("--build-arg NEXT_PUBLIC_FIREBASE_APP_ID");
-    expect(jenkinsfile).toContain("--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_APP_ID");
+    expect(workflow).toContain("--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY");
 
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_API_KEY");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");

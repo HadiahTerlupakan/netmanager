@@ -52,8 +52,9 @@ ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
 ARG NEXT_PUBLIC_FIREBASE_APP_ID=""
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
 
-# Skip TypeScript check during build (typecheck already runs in Jenkins QC stage).
-# Saves ~2.5 min. Set via Jenkinsfile --build-arg SKIP_TS_CHECK=true.
+# Skip TypeScript check during build (typecheck already runs in the CI
+# quality job). Saves ~2.5 min. Set via --build-arg SKIP_TS_CHECK=true di
+# .gitea/workflows/deploy-production.yml.
 ARG SKIP_TS_CHECK="false"
 
 # DATABASE and other non-sensitive build configs

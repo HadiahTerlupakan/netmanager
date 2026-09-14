@@ -14,7 +14,7 @@ spec:
     spec:
       imagePullSecrets:
         - name: "{{REGISTRY_SECRET}}"
-      # Jenkins renders {{REGISTRY_SECRET}} to namespace-specific secret:
+      # Pipeline merender {{REGISTRY_SECRET}} ke secret per-namespace:
       # - name: netmanager-production-registry
       restartPolicy: Never
       securityContext:

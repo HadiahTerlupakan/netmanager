@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 // GET /api/admin/app-update — list updates
 //
 // Catatan: endpoint POST /api/admin/app-update untuk upload manual via UI
-// sengaja DIHAPUS — semua publish wajib lewat Jenkins pipeline (endpoint
+// sengaja DIHAPUS — semua publish wajib lewat pipeline CI (endpoint
 // POST /api/admin/app-update/publish dengan Bearer token). Ini menjaga
 // audit trail tetap rapi: semua bundle Expo tercatat sebagai CI build.
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {

@@ -9,7 +9,8 @@ Project ini punya dua channel update yang jalan bersamaan:
 **Cara kerja:** `runtimeVersion.policy = "fingerprint"` — Expo CLI generate hash dari native files setiap build. OTA bundle hanya ter-deliver ke APK dengan fingerprint sama.
 
 **Trigger:**
-- Edit kode JS/TS → `git push` → Jenkins jalankan `eas update --branch <env>`
+- Edit kode JS/TS → `git push` ke `main` → workflow Gitea `.gitea/workflows/ota.yml` menjalankan `scripts/publish-update.sh production`
+  (OTA proyek ini self-hosted lewat `/api/mobile/app-update/manifest`, bukan `eas update` ke `u.expo.dev`)
 - Mobile auto-detect saat AppState 'active', download silent, reload
 
 ## APK Channel (Native Release)
@@ -149,7 +150,7 @@ Saat `isForceUpdate=true`:
 
 ## Admin Workflow
 
-1. Build APK baru via Jenkins/EAS Build
+1. Build APK baru via EAS Build
 2. Upload APK ke storage (S3/Cloudinary/dll)
 3. Login admin → `/admin/app-releases` → klik "Tambah Release"
 4. Isi form:
@@ -166,8 +167,8 @@ Saat `isForceUpdate=true`:
 
 **OTA tidak nyambung setelah edit kode JS:**
 - Cek `runtimeVersion.policy` di `app.json` — harus `"fingerprint"`
-- Cek hasil `npx expo-fingerprint diff <last-apk> HEAD` — kalau non-empty, ada perubahan native tersembunyi
-- Cek `eas update` output — pastikan branch dan platform benar
+- Periksa daftar sumber fingerprint (lihat "Cara Verifikasi Sebelum Keputusan") — kalau berkas yang diubah muncul di sana, runtime berubah dan OTA memang tidak akan sampai
+- Cek run `.gitea/workflows/ota.yml` — pastikan channel `production` dan runtimeVersion yang terbit sama dengan yang dipakai APK terpasang
 
 **User tidak dapat notifikasi APK update:**
 - Pastikan `AppRelease` record di-create dengan `isActive=true`

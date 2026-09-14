@@ -495,29 +495,17 @@ jobs:
       - run: npm run test:coverage
 ```
 
-### Jenkins Pipeline
-```groovy
-stage('Quality Check') {
-  steps {
-    container('node') {
-      // Setup test database
-      sh './scripts/setup-test-db.sh'
-      
-      // Run tests with CI timeout
-      sh 'npm run test:run'
-      
-      // Generate coverage
-      sh 'npm run test:coverage'
-      
-      // Publish reports
-      publishHTML([
-        reportDir: 'coverage',
-        reportFiles: 'index.html',
-        reportName: 'Coverage Report'
-      ])
-    }
-  }
-}
+### Gitea Actions Pipeline
+```yaml
+  quality:
+    runs-on: netmanager-ci
+    steps:
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tes unit
+        run: npx vitest run --maxWorkers=2
 ```
 
 ---

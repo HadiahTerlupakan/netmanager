@@ -20,6 +20,15 @@ on:
       - "tasks/**"
       - "**/*.md"
   workflow_dispatch:
+    inputs:
+      allow_migration_without_backup:
+        description: >-
+          Lanjutkan migrasi meskipun cadangan pra-migrasi gagal. Hanya untuk
+          keadaan darurat yang disengaja; pemakaiannya tercatat pada run ini.
+          Deploy otomatis dari push tidak bisa mengisi input ini, jadi tidak
+          pernah melewati cadangan diam-diam.
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -335,6 +344,145 @@ jobs:
             exit 1
           fi
 
+      # Tiga pemeriksaan berikut dibawa dari Jenkinsfile sebelum berkas itu
+      # dihapus; tidak satu pun ikut terbawa saat pipeline pindah ke Gitea.
+      # Ketiganya menyangkut keadaan cluster yang tidak terbaca dari repositori,
+      # dan ketiganya gagal dengan cara yang mahal bila baru ketahuan di tahap
+      # apply — setelah build berjalan puluhan menit.
+      - name: Preflight produksi
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+
+          # 1/3 — Kesehatan node. Perubahan workload di atas node yang
+          # Ready=False atau kehabisan disk berisiko terpotong di tengah, dan
+          # migrasi yang terpotong jauh lebih mahal daripada deploy tertunda.
+          #
+          # Kueri ditaruh di variabel ber-kutip tunggal supaya tanda kutip di
+          # dalamnya tidak ikut diurai shell runner; yang menyeberang ke host
+          # hanyalah teks kueri apa adanya.
+          echo "Preflight 1/3 — kesehatan node"
+          KUERI_NODE='{range .items[*]}{.metadata.name}{"="}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\n"}{end}'
+          NODE="$($SSH "sudo -n kubectl get nodes -o jsonpath='${KUERI_NODE}'")"
+          printf '%s\n' "${NODE}"
+
+          if printf '%s\n' "${NODE}" | grep -Eq "Ready=False|DiskPressure=True"; then
+            echo "::error::Node produksi tidak sehat (Ready=False atau DiskPressure=True); deploy dibatalkan sebelum menyentuh cluster." >&2
+            $SSH "sudo -n kubectl describe nodes" >&2 || true
+            $SSH "sudo -n kubectl top nodes" >&2 || true
+            exit 1
+          fi
+
+          # 2/3 — Secret pull registry. Tanpa secret ini rollout tetap
+          # terjadwal lalu tertahan di ImagePullBackOff: langkah apply hijau,
+          # aplikasinya tidak pernah naik. Template placeholder di repositori
+          # sengaja tidak di-apply, jadi secret hidup harus sudah ada.
+          echo "Preflight 2/3 — secret pull registry"
+          if ! $SSH "sudo -n kubectl -n ${NAMESPACE} get secret ${NAMESPACE}-registry" >/dev/null 2>&1; then
+            echo "::error::Secret pull registry ${NAMESPACE}-registry belum ada di namespace ${NAMESPACE}. Bootstrap dulu dengan: kubectl create secret docker-registry ${NAMESPACE}-registry --namespace=${NAMESPACE} --docker-server=<registry> --docker-username=<user> --docker-password=<token>" >&2
+            exit 1
+          fi
+
+          # 3/3 — Secret runtime bukan lagi placeholder. Nilainya dibandingkan
+          # di host produksi, di dalam variabel shell yang tidak pernah
+          # dicetak, dan tidak pernah ditarik ke runner: yang menyeberang hanya
+          # status lolos/gagal.
+          #
+          # Perbandingannya ditulis eksplisit, bukan lewat `grep -qxv`:
+          # perilaku grep pada masukan kosong berbeda antar implementasi, dan
+          # nilai kosong justru kondisi yang paling perlu tertangkap di sini.
+          echo "Preflight 3/3 — secret runtime bukan placeholder"
+          if ! $SSH "sudo -n kubectl -n ${NAMESPACE} get secret netmanager-secrets" >/dev/null 2>&1; then
+            echo "::error::Secret netmanager-secrets tidak ada di namespace ${NAMESPACE}; bootstrap secret sungguhan sebelum deploy." >&2
+            exit 1
+          fi
+
+          if ! $SSH "nilai=\$(sudo -n kubectl -n ${NAMESPACE} get secret netmanager-secrets -o jsonpath='{.data.CRON_SECRET}' | base64 -d | tr -d '\r\n'); [ -n \"\$nilai\" ] && [ \"\$nilai\" != REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY ]"; then
+            echo "::error::CRON_SECRET pada netmanager-secrets masih REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY atau kosong; isi nilai sungguhan sebelum deploy." >&2
+            exit 1
+          fi
+
+          echo "Preflight lolos."
+
+      # Jenkins mencadangkan basis data sebelum migrasi dan membatalkan deploy
+      # bila cadangan gagal. Jaminan itu tidak ikut pindah ke Gitea, sehingga
+      # migrasi produksi sempat berjalan tanpa titik balik sama sekali.
+      #
+      # Jenkins hanya mencadangkan basis data utama, padahal migrasi menyentuh
+      # empat: netmanager, radius, billing, dan mitra. Tiga sisanya ikut
+      # dicadangkan di sini.
+      #
+      # Dump ditulis di host produksi, tempat basis datanya berada, bukan
+      # dialirkan ke runner: ~250 MB per deploy tidak perlu menyeberang hanya
+      # untuk disimpan.
+      - name: Cadangkan database sebelum migrasi
+        env:
+          IZIN_TANPA_CADANGAN: ${{ github.event.inputs.allow_migration_without_backup }}
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+          DIR_CADANGAN=/var/backups/netmanager
+          STEMPEL="$(date +%Y%m%d_%H%M%S)"
+          # Dump yang sehat berukuran puluhan MB; ambang ini hanya menyaring
+          # berkas yang praktis kosong karena aliran putus di awal.
+          UKURAN_MINIMUM=1024
+
+          batalkan_atau_lanjut() {
+            if [ "${IZIN_TANPA_CADANGAN:-false}" = "true" ]; then
+              echo "::warning::Cadangan $1 gagal, migrasi tetap lanjut karena allow_migration_without_backup=true"
+              return 0
+            fi
+
+            echo "::error::Cadangan pra-migrasi gagal ($1); migrasi dibatalkan sebelum menyentuh basis data. Jalankan ulang lewat workflow_dispatch dengan allow_migration_without_backup=true hanya untuk keadaan darurat yang disengaja." >&2
+            exit 1
+          }
+
+          $SSH "sudo -n mkdir -p ${DIR_CADANGAN} && sudo -n chown \$(id -u):\$(id -g) ${DIR_CADANGAN}"
+
+          for NAMA_URL in DATABASE_URL RADIUS_DATABASE_URL DATABASE_URL_BILLING DATABASE_URL_MITRA; do
+            MENTAH="${DIR_CADANGAN}/${STEMPEL}_${NAMA_URL}.sql"
+            BERKAS="${MENTAH}.gz"
+            echo "Mencadangkan ${NAMA_URL} ke ${BERKAS}"
+
+            # Tidak ada pipa di mana pun pada perintah ini, dan itu disengaja.
+            # Status keluar sebuah pipa adalah status perintah terakhirnya,
+            # sehingga `pg_dump ... | gzip` melaporkan sukses meski pg_dump
+            # mati di tengah — gzip menerima EOF dan tetap menutup arsipnya
+            # dengan rapi, jadi hasilnya gzip sah berisi dump terpotong yang
+            # lolos `gzip -t`. Dump ditulis apa adanya dulu, baru dikompresi
+            # sebagai perintah terpisah, agar tiap tahap punya status sendiri.
+            #
+            # Query string dibuang lebih dulu: URL billing dan mitra membawa
+            # `?schema=public&connection_limit=...` yang diterima Prisma tetapi
+            # ditolak libpq dengan "invalid URI query parameter". Tanda tanya
+            # pada bagian kredensial wajib ter-percent-encode menurut RFC 3986,
+            # jadi tanda tanya pertama selalu awal query string.
+            if ! $SSH "sudo -n kubectl -n ${NAMESPACE} exec deployment/netmanager-app -- sh -c 'pg_dump \"\$(printenv ${NAMA_URL} | sed \"s/?.*//\")\" --no-owner --no-privileges' > ${MENTAH}"; then
+              $SSH "rm -f ${MENTAH}" || true
+              batalkan_atau_lanjut "${NAMA_URL}: pg_dump"
+              continue
+            fi
+
+            if ! $SSH "gzip -f ${MENTAH}"; then
+              $SSH "rm -f ${MENTAH} ${BERKAS}" || true
+              batalkan_atau_lanjut "${NAMA_URL}: kompresi"
+              continue
+            fi
+
+            # Pemeriksaan terakhir: arsip terbaca utuh dan tidak praktis kosong.
+            if ! $SSH "gzip -t ${BERKAS} && [ \"\$(stat -c %s ${BERKAS})\" -ge ${UKURAN_MINIMUM} ]"; then
+              batalkan_atau_lanjut "${NAMA_URL}: arsip tidak utuh"
+              continue
+            fi
+
+            echo "Cadangan ${NAMA_URL} utuh."
+          done
+
+          $SSH "sudo -n ls -lh ${DIR_CADANGAN} | tail -n 5"
+          # Tanpa pembuangan, empat dump per deploy mengisi disk produksi
+          # diam-diam sampai node berubah DiskPressure=True.
+          $SSH "find ${DIR_CADANGAN} -name '*.sql.gz' -mtime +7 -delete 2>/dev/null || true"
+
       - name: Jalankan migrasi database
         run: |
           set -euo pipefail
@@ -346,9 +494,26 @@ jobs:
           $SSH "sudo -n kubectl -n ${NAMESPACE} apply -f -" < rendered/migration-job.yaml
 
           echo "Menunggu migrasi selesai..."
-          $SSH "sudo -n kubectl -n ${NAMESPACE} wait --for=condition=complete --timeout=1800s job/netmanager-migration-job" || {
-            echo "Migrasi gagal — log job:" >&2
-            $SSH "sudo -n kubectl -n ${NAMESPACE} logs job/netmanager-migration-job --tail=100" >&2
+          # Batas tunggu ini harus lebih panjang daripada activeDeadlineSeconds
+          # milik Job (k8s/migration-job.yaml). Bila lebih pendek, CI menyerah
+          # lebih dulu dan menyatakan deploy gagal sementara Job masih berjalan
+          # dan mungkin tetap selesai — migrasi terlanjur berjalan tanpa
+          # pipeline yang menyusulnya. Biarkan deadline Job yang memutuskan.
+          $SSH "sudo -n kubectl -n ${NAMESPACE} wait --for=condition=complete --timeout=3900s job/netmanager-migration-job" || {
+            echo "::error::Migrasi gagal atau melewati batas waktu" >&2
+
+            # Job yang podnya tidak pernah terjadwal — ImagePullBackOff, kuota
+            # habis, tekanan sumber daya — tidak punya log sama sekali.
+            # `kubectl logs` pada kasus itu diam, dan penyebabnya hanya terbaca
+            # dari describe.
+            $SSH "sudo -n kubectl -n ${NAMESPACE} describe job netmanager-migration-job" >&2 || true
+
+            POD="$($SSH "sudo -n kubectl -n ${NAMESPACE} get pods -l job-name=netmanager-migration-job -o jsonpath='{.items[0].metadata.name}'" 2>/dev/null || true)"
+            if [ -n "${POD}" ]; then
+              $SSH "sudo -n kubectl -n ${NAMESPACE} describe pod ${POD}" >&2 || true
+              $SSH "sudo -n kubectl -n ${NAMESPACE} logs ${POD} --tail=100" >&2 || true
+            fi
+
             exit 1
           }
 

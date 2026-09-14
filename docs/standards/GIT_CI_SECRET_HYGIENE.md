@@ -1,15 +1,15 @@
-# Git, Jenkins, and Secret Hygiene Standard
+# Git, CI, and Secret Hygiene Standard
 
-> **Tujuan:** mencegah kebocoran token/credential, membedakan apa yang boleh diaudit dari repo saja vs apa yang harus diverifikasi di server/Jenkins, dan menjaga praktik operasional tetap konsisten.
+> **Tujuan:** mencegah kebocoran token/credential, membedakan apa yang boleh diaudit dari repo saja vs apa yang harus diverifikasi di server/CI, dan menjaga praktik operasional tetap konsisten.
 
 ---
 
 ## 1. Prinsip Utama
 
 1. **No tokenized remotes** — remote git lokal tidak boleh menyimpan PAT langsung di URL.
-2. **Jenkins should prefer managed credentials** — Jenkins harus memakai credential store terkelola (contoh: SSH credential ID), bukan hardcoded token di job config/repo.
+2. **CI should prefer managed credentials** — pipeline harus memakai secret store terkelola (Gitea repo/org secrets), bukan token hardcoded di workflow atau repo.
 3. **Templates may exist, live secrets must not** — template secret boleh ada di repo, tapi secret nyata tidak boleh disimpan plaintext di git.
-4. **Repo audit is not server audit** — beberapa temuan bisa dibuktikan dari repo, tapi credential store/runtime Jenkins tetap butuh akses server/Jenkins.
+4. **Repo audit is not server audit** — beberapa temuan bisa dibuktikan dari repo, tapi secret store dan runtime CI tetap butuh akses server.
 
 ---
 
@@ -31,13 +31,13 @@
 
 ---
 
-## 3. Jenkins-Side Rules
+## 3. CI-Side Rules
 
 ### Wajib
 
-- Credential SCM Jenkins harus memakai credential store Jenkins, misalnya:
+- Kredensial SCM harus memakai secret store Gitea, misalnya:
   - `github-ssh`
-- Audit Jenkins harus memeriksa:
+- Audit CI harus memeriksa:
   - credential IDs yang dipakai job
   - tipe credential (SSH key / secret text / username-password)
   - apakah credential dibatasi ke job/folder yang tepat
@@ -45,7 +45,7 @@
 
 ### Dilarang
 
-- hardcoded token di Jenkins job config
+- token hardcoded di berkas workflow
 - reuse PAT yang sama untuk banyak repo tanpa alasan kuat
 - membiarkan tokenized remote di workstation developer tanpa rotasi
 
@@ -59,7 +59,7 @@
 - Untuk deployment nyata, gunakan salah satu:
   - SOPS
   - SealedSecrets
-  - external secret manager / Jenkins secret injection / Kubernetes secret management yang setara
+  - external secret manager / secret injection CI / Kubernetes secret management yang setara
 
 ### Dilarang
 
@@ -73,7 +73,7 @@
 Saat audit security hygiene:
 
 - [ ] Apakah remote git lokal mengandung PAT/token?
-- [ ] Apakah token yang bocor di lokal juga dipakai di Jenkins?
+- [ ] Apakah token yang bocor di lokal juga dipakai di CI?
 - [ ] Apakah Jenkins SCM checkout memakai SSH credential terkelola?
 - [ ] Apakah credentials.xml / job config menunjukkan credential type yang sesuai?
 - [ ] Apakah repo hanya berisi template secret, bukan secret live?
@@ -91,7 +91,7 @@ Saat audit security hygiene:
 - plaintext secret workflow di docs/scripts
 - Jenkinsfile credential references (`credentialsId`, secret env references, dll)
 
-### Butuh akses Jenkins/server
+### Butuh akses server/CI
 
 - isi credential store Jenkins
 - tipe credential yang sebenarnya dipakai oleh credential ID
@@ -101,30 +101,35 @@ Saat audit security hygiene:
 
 ---
 
-## 7. Current Audit Outcome (Current State)
+## 7. Current Audit Outcome (per 14 September 2026)
 
-Audit saat ini menemukan:
-
-- local git remotes di workstation mengandung PAT embedded untuk `netmanager` dan `mobile-netmanager`
-- Jenkins server untuk job `netmanager-staging` terbukti menggunakan credential ID `github-ssh` untuk checkout, bukan URL PAT dari workstation lokal
-- `credentials.xml` mengandung setidaknya:
-  - `BasicSSHUserPrivateKey`
-  - `StringCredentialsImpl`
-  - `UsernamePasswordCredentialsImpl`
-- template `k8s/*/secrets.yaml` masih placeholder, tetapi workflow dokumentasi masih mendorong edit plaintext secret template secara manual
+- CI/CD sepenuhnya di **Gitea Actions**. Jenkins beserta namespace, ingress,
+  sertifikat, dan secret-nya sudah dihapus dari cluster; cadangan namespace
+  tersimpan di `/root/jenkins-namespace-backup-20260914-101216/` pada host
+  produksi.
+- Rahasia deploy (`DEPLOY_SSH_KEY`, `DEPLOY_SSH_TARGET`, `DEPLOY_KNOWN_HOSTS`,
+  kredensial registry, `APP_UPDATE_PUBLISH_TOKEN`) disimpan sebagai secret repo
+  Gitea, tidak pernah dicetak ke log, dan `DEPLOY_SSH_KEY` sengaja tidak
+  dibawa ke job `quality` yang menjalankan lint/typecheck/tes.
+- Template `k8s/*/secrets.yaml` tetap placeholder dan **tidak pernah di-apply**
+  pipeline; secret hidup di-bootstrap manual di cluster.
+- Temuan yang belum selesai: service account key Firebase
+  `firebase-adminsdk-fbsvc@netmanager-96742.iam.gserviceaccount.com`
+  (key id `54f6269e…`) pernah masuk riwayat git. Berkasnya sudah dilepas dari
+  version control, tetapi **kunci itu sendiri belum dirotasi di GCP**.
 
 ### Implikasi
 
-- kebocoran PAT lokal adalah **real local hygiene issue**
-- tapi dari bukti yang ada, itu **belum terbukti** sama dengan credential Jenkins yang aktif
-- audit Jenkins secrets yang lengkap memang **butuh akses server/Jenkins**, dan itu sudah benar untuk dilakukan bila ingin memastikan runtime hygiene
+- riwayat git masih memuat kunci tersebut; menghapus berkas tidak membatalkan
+  kunci, jadi rotasi di GCP tetap satu-satunya penutup celahnya
 
 ---
 
 ## 8. Immediate Recommended Actions
 
-1. **Rotate PAT yang terekspos di remote lokal**
-2. **Ubah remote lokal ke SSH atau HTTPS tanpa embedded token**
-3. **Review credential IDs aktif di Jenkins** dan pastikan checkout tetap pakai `github-ssh`
-4. **Kurangi workflow plaintext secret** di staging/production docs, arahkan ke encrypted/managed path
-5. **Audit penggunaan `StringCredentialsImpl` dan `UsernamePasswordCredentialsImpl`** di Jenkins apakah masih diperlukan atau bisa dipersempit scope-nya
+1. **Rotasi service account key Firebase di GCP**, lalu perbarui secret
+   `netmanager-firebase-secrets` di namespace produksi
+2. **Pastikan remote git lokal tidak menyimpan PAT** — pakai SSH atau HTTPS
+   tanpa token tertanam
+3. **Tinjau ulang daftar secret repo Gitea** secara berkala dan persempit
+   cakupannya bila ada yang tidak lagi terpakai

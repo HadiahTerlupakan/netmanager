@@ -14,7 +14,7 @@ spec:
       labels:
         app: netmanager-radius
       annotations:
-        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/managed-by: "gitea"
         deploy.radpro.id/image-ref: "{{RADIUS_IMAGE}}"
     spec:
       imagePullSecrets:

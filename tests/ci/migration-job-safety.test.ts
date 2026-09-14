@@ -527,89 +527,31 @@ describe("migration job safety", () => {
     );
   });
 
-  it("aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure", () => {
-    const jenkinsfile = readFileSync(
-      resolve(process.cwd(), "Jenkinsfile"),
+  it("waits longer than the Job's own deadline so the Job decides the outcome", () => {
+    // Jaminan ini dulu dijaga terhadap Jenkinsfile. Bentuknya sengaja diubah
+    // dari mencocokkan angka menjadi memeriksa hubungan: kedua nilai pernah
+    // berjalan sendiri-sendiri sampai batas tunggu CI justru lebih pendek
+    // daripada deadline Job-nya.
+    //
+    // Bila CI menyerah lebih dulu, deploy dinyatakan gagal sementara Job masih
+    // berjalan dan mungkin tetap menuntaskan migrasinya — basis data berubah
+    // tanpa pipeline yang menyusul menerapkan manifes.
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+    const workflow = readFileSync(
+      resolve(process.cwd(), ".gitea/workflows/deploy-production.yml"),
       "utf8",
     );
 
-    expect(jenkinsfile).toContain("MAX_WAIT_SECONDS=1800");
-    expect(jenkinsfile).toContain("POLL_INTERVAL=10");
-    expect(jenkinsfile).toContain(
-      "MAX_ATTEMPTS=\\$((MAX_WAIT_SECONDS / POLL_INTERVAL))",
-    );
-    expect(jenkinsfile).not.toContain("for i in $(seq 1 60)");
-    expect(jenkinsfile).not.toContain("⚠️ Job timeout (10 menit).");
-    expect(jenkinsfile).toContain(
-      "kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true",
-    );
-    expect(jenkinsfile).toContain("-l job-name=netmanager-migration-job");
-    expect(jenkinsfile).toContain(
-      'kubectl describe pod "\\$POD_NAME" --namespace=${NAMESPACE} || true',
-    );
-    expect(jenkinsfile).toContain(
-      'kubectl logs "\\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true',
-    );
-  });
-
-  it("blocks production migration when any node reports Ready=False or DiskPressure=True", () => {
-    const jenkinsfile = readFileSync(
-      resolve(process.cwd(), "Jenkinsfile"),
-      "utf8",
-    );
-    const migrationStageIndex = jenkinsfile.indexOf(
-      "stage('Database Migration (Zero Downtime K8s Job)')",
-    );
-    const preflightIndex = jenkinsfile.indexOf(
-      "require_cluster_nodes_ready_for_production_change before-production-migration",
-      migrationStageIndex,
+    const deadline = migrationJob.match(/activeDeadlineSeconds:\s*(\d+)/);
+    const batasTunggu = workflow.match(
+      /wait --for=condition=complete --timeout=(\d+)s job\/netmanager-migration-job/,
     );
 
-    expect(migrationStageIndex).toBeGreaterThanOrEqual(0);
-    expect(preflightIndex).toBeGreaterThan(migrationStageIndex);
-    expect(jenkinsfile).toContain(
-      "require_cluster_nodes_ready_for_production_change() {",
-    );
-    expect(jenkinsfile).toContain(
-      'node_snapshot="\\$(kubectl get nodes -o jsonpath=\'{range .items[*]}{.metadata.name}{"\\\\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\\\\n"}{end}\')"',
-    );
-    expect(jenkinsfile).toContain(
-      'if printf \"%s\\n\" \"\\$node_snapshot\" | grep -Eq \"Ready=False|DiskPressure=True\"; then',
-    );
-    expect(jenkinsfile).toContain(
-      'echo "❌ Cluster production tidak sehat untuk perubahan workload: ada node Ready=False atau DiskPressure=True" >&2',
-    );
-    expect(jenkinsfile).toContain("kubectl describe nodes || true");
-    expect(jenkinsfile).toContain("kubectl top nodes || true");
-  });
-
-  it("runs the production node preflight in the same shell block where the helper is defined", () => {
-    const jenkinsfile = readFileSync(
-      resolve(process.cwd(), "Jenkinsfile"),
-      "utf8",
-    );
-    const migrationStageIndex = jenkinsfile.indexOf(
-      "stage('Database Migration (Zero Downtime K8s Job)')",
-    );
-    const helperIndex = jenkinsfile.indexOf(
-      "require_cluster_nodes_ready_for_production_change() {",
-      migrationStageIndex,
-    );
-    const helperInvocationIndex = jenkinsfile.indexOf(
-      "require_cluster_nodes_ready_for_production_change before-production-migration",
-      helperIndex,
-    );
-    const backupIndex = jenkinsfile.indexOf(
-      'echo "🔒 PRODUCTION: Creating database backup before migration..."',
-      helperIndex,
-    );
-
-    expect(migrationStageIndex).toBeGreaterThanOrEqual(0);
-    expect(helperIndex).toBeGreaterThan(migrationStageIndex);
-    expect(helperInvocationIndex).toBeGreaterThan(helperIndex);
-    expect(backupIndex).toBeGreaterThan(helperInvocationIndex);
-    expect(jenkinsfile).not.toContain(
-      'sh """\n                            set -euo pipefail\n                            require_cluster_nodes_ready_for_production_change before-production-migration\n                            """',
-    );
+    expect(deadline).not.toBeNull();
+    expect(batasTunggu).not.toBeNull();
+    expect(Number(batasTunggu![1])).toBeGreaterThan(Number(deadline![1]));
   });
 });

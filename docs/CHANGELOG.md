@@ -41,6 +41,113 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-14] — Hapus Jenkins setelah jaminan produksinya dipindah ke Gitea
+
+- **Tipe**: [REMOVED]
+- **Scope**: `infra/`, `.gitea/workflows/`, `tests/ci/`, `docs/`
+- **Author**: agent
+- **Deskripsi**: `Jenkinsfile` dan namespace `jenkins` di cluster dihapus karena
+  CI/CD sudah sepenuhnya di Gitea Actions. Penghapusan ditahan lebih dulu sampai
+  jaminan produksi yang hanya hidup di Jenkins dipindah ke workflow Gitea —
+  jaminan-jaminan itu hilang saat migrasi pipeline sebelumnya, bukan saat
+  penghapusan ini, tetapi menghapus `Jenkinsfile` tanpa memindahkannya berarti
+  menghilangkannya diam-diam. Namespace dicadangkan ke
+  `/root/jenkins-namespace-backup-20260914-101216/` di host produksi sebelum
+  dihapus; 0 pod berjalan saat itu.
+- **Files**: `Jenkinsfile` (dihapus), `tests/ci/jenkinsfile-{build,deploy,recovery}-safety.test.ts`
+  (dihapus), `.gitea/workflows/deploy-production.yml`,
+  `docs/standards/CI_K8S_PIPELINE_STANDARD.md` (dari `JENKINS_K8S_PIPELINE_STANDARD.md`),
+  `docs/standards/GIT_CI_SECRET_HYGIENE.md` (dari `GIT_JENKINS_SECRET_HYGIENE.md`),
+  `DEPLOYMENT.md`, `README.md`, `docs/project-memory/*`
+- **Breaking**: ✅ Ya — mode recovery Jenkins (`DEPLOY_MODE=recovery` dengan
+  `RECOVERY_*_IMAGE`) tidak punya padanan di Gitea. Jalur rollback resmi
+  sekarang `kubectl rollout undo`, terbatas 3 revisi (`revisionHistoryLimit`),
+  dan **tidak** membatalkan migrasi basis data. Lihat "Recovery Production
+  Resmi" di `DEPLOYMENT.md`.
+
+### [2026-09-14] — Cadangan pra-migrasi dan preflight produksi di workflow Gitea
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`, `tests/ci/`
+- **Author**: agent
+- **Deskripsi**: Workflow deploy Gitea menjalankan migrasi produksi tanpa
+  memeriksa apa pun lebih dulu dan **tanpa cadangan basis data sama sekali** —
+  migrasi berjalan tanpa titik balik. Ditambahkan dua langkah sebelum migrasi:
+  (1) preflight yang menolak deploy bila ada node `Ready=False`/`DiskPressure=True`,
+  bila secret pull registry belum ada di namespace, atau bila `CRON_SECRET` pada
+  `netmanager-secrets` masih placeholder/kosong; (2) cadangan `pg_dump` keempat
+  basis data (netmanager, radius, billing, mitra) ke `/var/backups/netmanager`
+  di host produksi, retensi 7 hari, yang **membatalkan migrasi** bila gagal.
+  Jenkins dulu hanya mencadangkan basis data utama; tiga lainnya berjalan tanpa
+  jaring.
+
+  Override hanya lewat input `allow_migration_without_backup` pada
+  `workflow_dispatch`, sehingga deploy otomatis dari push tidak pernah bisa
+  melewati cadangan dan setiap pemakaian override tercatat pada run-nya.
+
+  Dua detail yang menentukan benar/tidaknya langkah ini: tidak ada pipa di
+  perintah dump (status keluar pipa adalah status perintah terakhirnya, jadi
+  `pg_dump | gzip` melaporkan sukses meski pg_dump mati di tengah dan gzip tetap
+  menutup arsipnya dengan rapi), dan query string Prisma `?schema=...` dibuang
+  sebelum URL diserahkan ke libpq yang menolaknya.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/gitea-production-preflight-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-14] — Batas tunggu migrasi CI lebih pendek dari deadline Job-nya
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`, `tests/ci/`
+- **Author**: agent
+- **Deskripsi**: CI menunggu migrasi selesai dengan `--timeout=1800s`, sementara
+  Job-nya sendiri boleh berjalan sampai `activeDeadlineSeconds: 3600`. Migrasi
+  yang memakan lebih dari 30 menit membuat CI menyerah dan menyatakan deploy
+  gagal, sementara Job tetap berjalan dan mungkin tetap menuntaskan migrasinya —
+  basis data berubah tanpa pipeline yang menyusul menerapkan manifes. Batas
+  tunggu dinaikkan ke 3900s dan tesnya diubah dari mencocokkan angka menjadi
+  memeriksa hubungan keduanya, supaya tidak bisa berjalan sendiri-sendiri lagi.
+  Diagnostik kegagalan juga diperkaya dengan `describe job` dan `describe pod`:
+  Job yang podnya tidak pernah terjadwal tidak punya log sama sekali.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/migration-job-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-14] — Pindahkan jaminan CI yang bukan milik Jenkins ke berkas sendiri
+
+- **Tipe**: [CHANGED]
+- **Scope**: `tests/ci/`, `tests/contracts/`, `tests/lib/`
+- **Author**: agent
+- **Deskripsi**: Tes pengaman CI bercampur antara asersi tentang `Jenkinsfile`
+  dan asersi tentang manifes produksi, Dockerfile, serta `.dockerignore` yang
+  tidak pernah menjadi subjek Jenkins. Bagian yang bukan milik Jenkins dipindah
+  ke `tests/ci/production-manifest-safety.test.ts` dan
+  `tests/ci/docker-image-build-safety.test.ts` supaya tidak ikut terhapus;
+  jaminan pipeline yang masih berlaku dialihkan ke
+  `tests/ci/gitea-deploy-workflow-safety.test.ts`. Tes kontrak FCM dan konfigurasi
+  Redis juga dialihkan dari `Jenkinsfile` ke workflow Gitea.
+- **Files**: `tests/ci/production-manifest-safety.test.ts`,
+  `tests/ci/docker-image-build-safety.test.ts`,
+  `tests/ci/gitea-deploy-workflow-safety.test.ts`,
+  `tests/contracts/fcm-build-config-contract.test.ts`,
+  `tests/lib/redis-config.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-14] — Satukan penanda publisher CI pada app_updates
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/app-update`, `app/api/admin/app-update`
+- **Author**: agent
+- **Deskripsi**: Dua jalur publish OTA (route Next.js dan handler custom server)
+  masing-masing menulis literal `"ci:jenkins"` ke kolom `createdBy`. Nilainya
+  diangkat ke satu konstanta `CI_PUBLISHER_ID` dan diperbarui menjadi
+  `"ci:gitea"`. Kolom ini murni metadata tampilan dan tidak pernah dipakai
+  memfilter, jadi 71 baris lama dibiarkan bertanda `ci:jenkins` — baris itu
+  memang diterbitkan Jenkins.
+- **Files**: `modules/app-update/constants.ts`,
+  `modules/app-update/services/handleAppUpdatePublishHttp.ts`,
+  `app/api/admin/app-update/publish/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-14] — Dokumentasikan jebakan sumber versionCode mobile
 
 - **Tipe**: [DOCS]

@@ -1,4 +1,4 @@
-# Jenkins & Kubernetes Pipeline Standard
+# CI & Kubernetes Pipeline Standard
 
 > **Tujuan:** menjaga pipeline build, migration, dan deploy tetap deterministik, fail-fast, dan konsisten antar perubahan berikutnya.
 
@@ -37,7 +37,7 @@ Pipeline CI/CD untuk `netmanager` harus mengikuti prinsip berikut:
 
 ---
 
-## 3. Standard Shell Script di Jenkins
+## 3. Standard Shell Script di Pipeline
 
 ### Wajib
 
@@ -181,18 +181,39 @@ Sebelum merge perubahan Jenkins/K8s/deploy:
 
 ## 10. Catatan Implementasi Saat Ini
 
-Perubahan yang sudah diterapkan mengikuti standar ini:
+Pipeline berjalan di **Gitea Actions** (`.gitea/workflows/deploy-production.yml`).
+Jenkins dihapus pada 14 September 2026; standar di dokumen ini tidak berubah,
+hanya subjek yang menegakkannya.
 
-- test attendance consumer sudah dipindah ke path repo-relative
-- `Jenkinsfile` sudah memastikan `namespace.yaml` di-apply eksplisit
-- apply infra migration tidak lagi menelan failure dengan `|| true`
-- deploy manifest tidak lagi memakai `find | xargs kubectl apply`
-- CI install/build path sudah diarahkan ke `npm ci`
-- image verification di stage registry push tidak lagi ditoleransi dengan `|| true`
-- distribusi image sekarang berbasis registry push/pull dengan credential yang eksplisit
+Tiap aturan di atas punya tes yang menjaganya, sehingga pelanggarannya merah di
+CI dan bukan ditemukan saat deploy:
+
+| Aturan | Penjaga |
+|--------|---------|
+| `npm ci` tanpa fallback, Prisma generate eksplisit | `tests/ci/gitea-deploy-workflow-safety.test.ts` |
+| Template secret placeholder tidak pernah di-apply | `tests/ci/gitea-deploy-workflow-safety.test.ts` |
+| Manifes dirender ke berkas dan bebas placeholder | `tests/ci/gitea-deploy-workflow-safety.test.ts` |
+| Image hanya dari registry resmi, didorong sebelum deploy | `tests/ci/gitea-deploy-workflow-safety.test.ts` |
+| Preflight kesehatan node, secret registry, secret runtime | `tests/ci/gitea-production-preflight-safety.test.ts` |
+| Cadangan pra-migrasi hard-fail dengan override eksplisit | `tests/ci/gitea-production-preflight-safety.test.ts` |
+| Batas tunggu migrasi lebih panjang dari deadline Job | `tests/ci/migration-job-safety.test.ts` |
+| Secret deploy diperiksa sebelum apa pun dibangun | `tests/ci/deploy-secret-preflight-safety.test.ts` |
+| Isi manifes produksi dan wiring registry secret | `tests/ci/production-manifest-safety.test.ts` |
+| Cara image dibangun (Dockerfile, .dockerignore) | `tests/ci/docker-image-build-safety.test.ts` |
 
 ### Current explicit policies
 
-- production migration backup: **hard-fail by default**, override hanya dengan `ALLOW_MIGRATION_WITHOUT_BACKUP=true`
-- optional migration scripts: tetap non-critical by default, tetapi dilaporkan jelas dan bisa dibuat strict dengan `FAIL_ON_OPTIONAL_MIGRATION_ERRORS=true`
-- staging dan production image distribution: memakai registry refs yang dirender pipeline, bukan import lokal ke node K3s
+- production migration backup: **hard-fail by default**, override hanya lewat
+  input `allow_migration_without_backup` pada `workflow_dispatch` — push tidak
+  bisa mengisinya, jadi deploy otomatis tidak pernah melewati cadangan
+- cadangan mencakup keempat basis data (netmanager, radius, billing, mitra),
+  disimpan di host produksi `/var/backups/netmanager`, retensi 7 hari
+- optional migration scripts: tetap non-critical by default, tetapi dilaporkan
+  jelas dan bisa dibuat strict dengan `FAIL_ON_OPTIONAL_MIGRATION_ERRORS=true`
+- image distribution: memakai registry refs yang dirender pipeline, bukan
+  import lokal ke node K3s
+- build berjalan di VPS Gitea, **bukan** sebagai pod di cluster produksi: build
+  Next.js pernah menembus 21 GB dan menjatuhkan host produksi ketika keduanya
+  berbagi mesin
+- deploy memakai SSH ke host produksi, bukan membuka API Kubernetes ke
+  internet; port 6443 tetap tertutup dari luar

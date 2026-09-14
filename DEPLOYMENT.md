@@ -1,6 +1,6 @@
 # 🚀 Panduan Deployment NetManager
 
-Panduan lengkap untuk bootstrap awal, deployment rutin via Jenkins + Kubernetes, dan recovery manual NetManager di VPS Ubuntu 22.04.
+Panduan lengkap untuk bootstrap awal, deployment rutin via Gitea Actions + Kubernetes, dan recovery manual NetManager di VPS Ubuntu 22.04.
 
 ---
 
@@ -67,31 +67,44 @@ Tambahkan DNS records di domain provider (Cloudflare, dll):
 
 ## Aturan Operasional Production
 
-- Production hanya boleh berubah melalui Jenkins production.
-- `deploy-prod.sh` hanya mempromosikan `origin/staging` ke `main`.
+- Production hanya boleh berubah melalui workflow Gitea Actions.
 - Rancher/kubectl manual bukan jalur deploy atau recovery yang sah.
-- Jika Jenkins production gagal karena drift atau missing secret, selesaikan lewat guardrail resmi dan rerun Jenkins.
+- Jika deploy gagal karena drift atau missing secret, selesaikan lewat guardrail resmi lalu jalankan ulang workflow-nya.
 
-### Jalur Utama: Jenkins + Kubernetes ✅
+### Jalur Utama: Gitea Actions + Kubernetes ✅
 
-Untuk **staging** dan **production**, gunakan pipeline **Jenkins** sebagai jalur utama. Pipeline ini menangani:
-- build image immutable (`APP_IMAGE_REF`, `CRON_IMAGE_REF`, `RADIUS_IMAGE_REF`)
-- migration job di Kubernetes
+Pipeline ada di `.gitea/workflows/deploy-production.yml` dan terpicu setiap push
+ke `main` (commit yang hanya menyentuh dokumentasi dilewati). Pipeline ini
+menangani:
+- build image immutable, ditandai `<12 karakter commit>-<nomor run>`
+- migration job di Kubernetes, didahului preflight dan cadangan basis data
 - render manifest Kubernetes dengan image ref immutable
 - verifikasi rollout sebelum dianggap sukses
 
 Alur umumnya:
-1. Trigger pipeline Jenkins untuk environment yang dituju
-2. Pipeline membangun image dan menyimpan immutable image ref
-3. Migration job dijalankan di Kubernetes dengan guard pipeline
+1. Push ke `main` memicu job `quality` (lint, typecheck, tes) lebih dulu
+2. Job `build` membangun ketiga image dan mendorongnya ke registry
+3. Job `deploy` menjalankan preflight, mencadangkan basis data, lalu menjalankan migration job
 4. Deployment merender manifest lalu apply ke Kubernetes
-5. Pipeline memverifikasi rollout selesai sebelum menutup job
+5. Pipeline memverifikasi rollout dan image yang benar-benar aktif sebelum menutup run
 
-> **Catatan**: Jalur ini adalah source of truth untuk update rutin staging/production. Jangan gunakan update manual sebagai default.
+Preflight sebelum migrasi memeriksa tiga hal dan menghentikan deploy bila salah
+satunya gagal: tidak ada node `Ready=False` atau `DiskPressure=True`, secret
+pull registry sudah ada di namespace, dan `CRON_SECRET` pada
+`netmanager-secrets` bukan lagi placeholder.
+
+Cadangan pra-migrasi mencakup keempat basis data dan ditulis ke
+`/var/backups/netmanager` di host produksi dengan retensi 7 hari. Bila
+cadangan gagal, migrasi **dibatalkan**. Satu-satunya cara melanjutkan tanpa
+cadangan adalah menjalankan ulang lewat `workflow_dispatch` dengan input
+`allow_migration_without_backup` — push tidak bisa mengisinya, jadi deploy
+otomatis tidak pernah melewati cadangan diam-diam.
+
+> **Catatan**: Jalur ini adalah source of truth untuk update rutin production. Jangan gunakan update manual sebagai default.
 
 > **Registry private**: jika workload memakai registry privat, secret pull auth cluster (`imagePullSecrets` / registry secret) **harus sudah dibootstrap di namespace target sebelum rollout rutin dianggap siap**. Template/placeholder untuk secret registry ada di `k8s/production/registry-secret.yaml`; isi nilainya lewat mekanisme aman, jangan commit secret live ke repo.
 >
-> **Penting**: pipeline Jenkins **sengaja tidak** meng-apply `registry-secret.yaml` placeholder. Jika secret belum ada, pipeline akan fail-fast sebelum migration atau rollout.
+> **Penting**: pipeline **sengaja tidak** meng-apply `registry-secret.yaml` maupun `secrets.yaml` placeholder. Jika secret belum ada, preflight akan fail-fast sebelum migration atau rollout.
 >
 > **Contoh bootstrap production secret**:
 > ```bash
@@ -122,16 +135,26 @@ Alur umumnya:
 
 ## Recovery Production Resmi
 
-Gunakan Jenkins job recovery production dengan `DEPLOY_MODE=recovery`.
-Isi image immutable yang known-good untuk:
-- `RECOVERY_APP_IMAGE`
-- `RECOVERY_CRON_IMAGE`
-- `RECOVERY_RADIUS_IMAGE`
+Kembalikan workload ke revisi sebelumnya lewat `rollout undo`. Setiap deploy
+memakai image ref immutable yang berbeda, jadi revisi sebelumnya selalu
+menunjuk image known-good yang masih ada di registry.
 
-Syarat recovery:
-- branch/job mengarah ke `main`
-- image memakai registry resmi
-- secret `netmanager-production-registry` tersedia
+```bash
+kubectl -n netmanager-production rollout history deploy/netmanager-app
+kubectl -n netmanager-production rollout undo deploy/netmanager-app
+kubectl -n netmanager-production rollout status deploy/netmanager-app --timeout=420s
+```
+
+Ulangi untuk `netmanager-worker`, `netmanager-cron`, dan `netmanager-radius`
+bila perubahannya menyentuh ketiganya.
+
+Syarat dan batasan:
+- `revisionHistoryLimit` bernilai 3, jadi hanya tiga revisi terakhir bisa dituju
+- **`rollout undo` tidak membatalkan migrasi basis data.** Untuk perubahan skema
+  yang merusak, pulihkan dari cadangan pra-migrasi di `/var/backups/netmanager`
+  sebelum mengembalikan workload
+- untuk kembali ke commit yang lebih lama dari tiga revisi, jalankan
+  `workflow_dispatch` pada commit tersebut dan biarkan pipeline membangun ulang
 - jangan gunakan patch manual dari Rancher
 
 ## Runbook: Repair Attendance `NO_CHECKOUT` Historis
@@ -205,27 +228,27 @@ Jika muncul error berikut, pod masih menjalankan image lama atau script belum di
 Security Breach: Attempted data access without valid tenant context.
 ```
 
-Deploy ulang image terbaru lewat Jenkins, lalu jalankan dry-run lagi.
+Deploy ulang image terbaru lewat workflow Gitea, lalu jalankan dry-run lagi.
 
 ### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 
 Jalur manual di bawah ini hanya dipertahankan untuk:
-- bootstrap awal server saat Jenkins/Kubernetes belum siap
+- bootstrap awal server saat CI/Kubernetes belum siap
 - recovery darurat jika pipeline gagal total
 - workflow legacy yang sedang dimigrasikan
 
-Jangan gunakan langkah manual ini untuk update rutin staging/production.
+Jangan gunakan langkah manual ini untuk update rutin production.
 
 ## ⚙️ Langkah 4: Konfigurasi Environment
 
-### Environment untuk Jenkins + Kubernetes (staging & production)
+### Environment untuk Gitea Actions + Kubernetes
 
-Untuk deployment rutin **staging** dan **production**, environment dibagi menjadi 3 kelompok supaya Next.js, Firebase, dan Kubernetes konsisten.
+Untuk deployment rutin **production**, environment dibagi menjadi 3 kelompok supaya Next.js, Firebase, dan Kubernetes konsisten.
 
 | Kelompok | Variabel | Disimpan di | Cara dipakai | Catatan |
 |----------|----------|-------------|--------------|---------|
-| Build-time browser env | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Jenkins | Dipassing ke `docker build` sebagai `--build-arg` | Pipeline membaca variable scoped per environment seperti `NEXT_PUBLIC_FIREBASE_API_KEY_STAGING` / `NEXT_PUBLIC_FIREBASE_API_KEY_PRODUCTION`, lalu fallback ke nama global jika scoped belum disediakan. |
-| Runtime secret env | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_DATABASE_URL`, `DATABASE_URL`, `RADIUS_DATABASE_URL`, `DATABASE_URL_BILLING`, `DATABASE_URL_MITRA`, `REDIS_URL`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `CRON_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RADIUS_SECRET` | Kubernetes Secret `netmanager-secrets` + `netmanager-firebase-secrets` | Diinject ke pod lewat `secretKeyRef` pada deployment | Secret umum aplikasi tetap di `netmanager-secrets`, sedangkan Firebase Admin runtime disinkronkan otomatis pipeline ke `netmanager-firebase-secrets` per namespace. |
+| Build-time browser env | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Secret repo Gitea | Dipassing ke `docker build` sebagai `--build-arg` | Hanya satu environment aktif, jadi nama secret dipakai apa adanya tanpa suffix. |
+| Runtime secret env | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_DATABASE_URL`, `DATABASE_URL`, `RADIUS_DATABASE_URL`, `DATABASE_URL_BILLING`, `DATABASE_URL_MITRA`, `REDIS_URL`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `CRON_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RADIUS_SECRET` | Kubernetes Secret `netmanager-secrets` + `netmanager-firebase-secrets` | Diinject ke pod lewat `secretKeyRef` pada deployment | Secret umum aplikasi tetap di `netmanager-secrets`, sedangkan Firebase Admin runtime ada di `netmanager-firebase-secrets`. Sejak pindah ke Gitea, pipeline **tidak lagi** menyinkronkan secret Firebase — kredensialnya tidak melewati CI dan di-bootstrap manual di cluster. |
 | Runtime non-secret env | `DOMAIN`, `AUTH_URL`, `NEXTAUTH_URL`, `TZ`, `NODE_ENV`, `ALLOWED_ORIGINS` | Kubernetes ConfigMap `netmanager-config` | Diinject ke pod lewat `envFrom` / `configMapKeyRef` | Cocok untuk domain, timezone, dan konfigurasi runtime non-rahasia. |
 
 #### Mapping environment per target
@@ -238,7 +261,7 @@ Untuk deployment rutin **staging** dan **production**, environment dibagi menjad
 
 #### Aturan praktis
 
-1. **`NEXT_PUBLIC_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` hanya di Jenkins/build-time.**
+1. **`NEXT_PUBLIC_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` hanya di secret Gitea/build-time.**
    - Variabel ini dibaca saat image Next.js dibuild.
    - Mengubah nilainya tanpa rebuild image tidak akan mengubah aplikasi yang sedang jalan.
 
@@ -249,15 +272,15 @@ Untuk deployment rutin **staging** dan **production**, environment dibagi menjad
 3. **ConfigMap hanya untuk nilai non-rahasia.**
    - Domain, URL callback, timezone, dan allowed origins masuk ke `netmanager-config`.
 
-4. **Pipeline Jenkins tidak meng-apply `secrets.yaml` placeholder untuk secret umum aplikasi.**
-   - File `k8s/staging/secrets.yaml` dan `k8s/production/secrets.yaml` di repo tetap template untuk secret umum seperti DB, Redis, auth, dan cron.
-   - Khusus Firebase Admin runtime, pipeline akan membuat/memperbarui secret live `netmanager-firebase-secrets` dari variable Jenkins scoped environment saat deploy.
+4. **Pipeline tidak pernah meng-apply `secrets.yaml` placeholder.**
+   - `k8s/production/secrets.yaml` di repo tetap template untuk secret umum seperti DB, Redis, auth, dan cron.
+   - Termasuk Firebase Admin runtime: sejak pindah ke Gitea, pipeline **tidak lagi** menyinkronkan `netmanager-firebase-secrets`. Kredensial Firebase tidak melewati CI dan di-bootstrap langsung di cluster.
 
 #### Kapan perlu rebuild image vs rollout pod
 
 - Jika yang berubah adalah **`NEXT_PUBLIC_*`** atau **`NEXT_PUBLIC_VAPID_PUBLIC_KEY`**:
-  - update nilai di Jenkins
-  - jalankan pipeline
+  - update secret di repo Gitea
+  - jalankan ulang workflow deploy
   - biarkan pipeline build image baru dan rollout deployment
 
 - Jika yang berubah adalah **`FIREBASE_*` runtime**, DB URL, secret auth, atau secret aplikasi lain:
@@ -269,18 +292,14 @@ Untuk deployment rutin **staging** dan **production**, environment dibagi menjad
   - update ConfigMap di namespace target
   - rollout ulang deployment agar pod membaca nilai terbaru
 
-#### Checklist singkat per environment
+#### Checklist singkat production
 
-**Staging**
+- Set `NEXT_PUBLIC_FIREBASE_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` sebagai secret repo Gitea
 - Pastikan `netmanager-secrets` di namespace `netmanager-production` berisi secret aplikasi umum selain Firebase Admin
+- Pastikan `netmanager-firebase-secrets` sudah dibootstrap manual di namespace yang sama
 - Pastikan `netmanager-config` di namespace `netmanager-production` memakai domain production
 
-**Production**
-- Set `NEXT_PUBLIC_FIREBASE_*_PRODUCTION`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY_PRODUCTION`, dan `FIREBASE_*_PRODUCTION` di Jenkins untuk branch `main`
-- Pastikan `netmanager-secrets` di namespace `netmanager-production` berisi secret aplikasi umum selain Firebase Admin
-- Pastikan `netmanager-config` di namespace `netmanager-production` memakai domain production
-
-> Ringkasnya: **browser Firebase config = Jenkins build-time**, **Firebase Admin runtime = Jenkins → `netmanager-firebase-secrets`**, **secret aplikasi lain = `netmanager-secrets`**, **domain dan config non-rahasia = ConfigMap runtime**.
+> Ringkasnya: **browser Firebase config = secret Gitea build-time**, **Firebase Admin runtime = `netmanager-firebase-secrets` yang dibootstrap manual**, **secret aplikasi lain = `netmanager-secrets`**, **domain dan config non-rahasia = ConfigMap runtime**.
 
 ### A. Buat File .env
 
@@ -321,9 +340,9 @@ COOKIE_DOMAIN=radpro.id
 
 ## 🎯 Langkah 5: Jalankan Deployment
 
-### Rutin Staging/Production
+### Rutin Production
 
-> Untuk deployment rutin staging/production, gunakan Jenkins + Kubernetes. Langkah manual di bawah ini **bukan** jalur normal update.
+> Untuk deployment rutin production, gunakan Gitea Actions + Kubernetes. Langkah manual di bawah ini **bukan** jalur normal update.
 
 ### Bootstrap Awal / Recovery Manual
 
@@ -359,13 +378,13 @@ curl -I https://radpro.id
 
 ### Update Kode, Schema, dan Rollout
 
-Untuk staging dan production, update aplikasi, migrasi schema, dan verifikasi rollout harus dilakukan melalui **Jenkins + Kubernetes**. Jangan menjalankan rebuild container atau `docker exec` migration sebagai jalur normal, karena itu melewati backup/migration guard pipeline.
+Untuk production, update aplikasi, migrasi schema, dan verifikasi rollout harus dilakukan melalui **Gitea Actions + Kubernetes**. Jangan menjalankan rebuild container atau `docker exec` migration sebagai jalur normal, karena itu melewati backup/migration guard pipeline.
 
 Jika ada perubahan schema atau seed, pipeline akan menjalankan migration job terkontrol sebelum rollout image baru.
 
 ### Bootstrap / Legacy / Emergency Recovery Path
 
-> ⚠️ **Warning**: Jalur di bawah ini hanya untuk bootstrap awal, recovery darurat, atau legacy workflow yang belum dimigrasikan. Ini **bypass** guard pipeline Jenkins/Kubernetes, jadi jangan dipakai untuk update rutin staging/production. Untuk seed manual, gunakan hanya saat recovery data atau bootstrap awal.
+> ⚠️ **Warning**: Jalur di bawah ini hanya untuk bootstrap awal, recovery darurat, atau legacy workflow yang belum dimigrasikan. Ini **bypass** guard pipeline CI/Kubernetes, jadi jangan dipakai untuk update rutin production. Untuk seed manual, gunakan hanya saat recovery data atau bootstrap awal.
 
 ```bash
 # Hanya jika pipeline tidak bisa dipakai dan perlu recovery manual
@@ -422,13 +441,13 @@ Perintah berikut boleh mengubah data atau state, jadi pisahkan dari observabilit
 | `./deploy.sh stop` | Stop semua services — hanya saat bootstrap/recovery manual |
 | `./deploy.sh seed` | Seed database (data awal) — hanya bootstrap awal / recovery data |
 
-> ⚠️ **Catatan**: Semua perintah di atas hanya untuk bootstrap awal, recovery darurat, atau workflow legacy yang belum dimigrasikan. Jangan dipakai sebagai operasi rutin staging/production. Untuk staging/production tetap gunakan Jenkins + Kubernetes.
+> ⚠️ **Catatan**: Semua perintah di atas hanya untuk bootstrap awal, recovery darurat, atau workflow legacy yang belum dimigrasikan. Jangan dipakai sebagai operasi rutin production. Untuk production tetap gunakan Gitea Actions + Kubernetes.
 
 ---
 
 ## 🔥 Troubleshooting
 
-> ⚠️ **Catatan**: Bagian ini untuk recovery/legacy/manual handling, bukan jalur operasi rutin staging/production. Untuk update normal tetap gunakan Jenkins + Kubernetes.
+> ⚠️ **Catatan**: Bagian ini untuk recovery/legacy/manual handling, bukan jalur operasi rutin production. Untuk update normal tetap gunakan Gitea Actions + Kubernetes.
 
 ### SSL Certificate Error
 
@@ -487,7 +506,7 @@ sudo chown -R 1001:1001 uploads
 
 ## 🏗️ Arsitektur Bootstrap / Manual / Legacy / Recovery
 
-> Diagram berikut menggambarkan topologi bootstrap/recovery manual atau legacy yang masih dipertahankan. Untuk update rutin staging/production, jalur resmi tetap Jenkins + Kubernetes.
+> Diagram berikut menggambarkan topologi bootstrap/recovery manual atau legacy yang masih dipertahankan. Untuk update rutin production, jalur resmi tetap Gitea Actions + Kubernetes.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

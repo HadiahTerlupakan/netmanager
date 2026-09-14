@@ -440,7 +440,7 @@ scripts/
 | `docker-compose.yml` | Local dev services |
 | `docker-compose.production.yml` | Production services |
 | `Dockerfile` | Main app image |
-| `Jenkinsfile` | CI/CD pipeline |
+| `.gitea/workflows/` | CI/CD pipeline (Gitea Actions) |
 | `.env` | Local environment (gitignored) |
 | `.env.production.example` | Production template |
 | `CLAUDE.md` | AI agent guidelines |

@@ -20,7 +20,7 @@ NetManager adalah aplikasi manajemen lengkap untuk Internet Service Provider (IS
 ## Application Type
 
 - **Framework:** Next.js 16 App Router (React Server Components + API Routes)
-- **Deployment:** Kubernetes production environment via Jenkins CI/CD
+- **Deployment:** Kubernetes production environment via Gitea Actions CI/CD
 - **Architecture:** Modular Monolith dengan layered architecture (sedang migrasi ke Clean Architecture)
 - **Scale:** Enterprise-grade dengan multi-database strategy dan event-driven patterns
 
@@ -96,7 +96,7 @@ NetManager menggabungkan **technical network management** dengan **business oper
 ### Infrastructure
 - **Docker + Docker Compose:** Local development
 - **Kubernetes:** Production deployment
-- **Jenkins:** CI/CD pipeline (production-only)
+- **Gitea Actions:** CI/CD pipeline (production-only)
 - **Colima:** Docker runtime for macOS development
 
 ---
@@ -232,14 +232,12 @@ npm run check  # lint + typecheck + test + build
 ```
 Developer push to main branch
   ↓
-GitHub webhook triggers Jenkins
-  ↓
-Jenkins Pipeline (Jenkinsfile)
-  ├─ Branch Guard (reject non-main)
-  ├─ QC Stage (lint, typecheck, tests)
-  ├─ Build Docker Images (app, cron, radius)
-  ├─ Push to registry
-  └─ Deploy to K8s production namespace
+Gitea Actions (.gitea/workflows/deploy-production.yml)
+  ├─ quality (lint, typecheck, tests)
+  ├─ build  (app, cron, radius images -> push ke registry)
+  └─ deploy (preflight -> backup DB -> migration job -> apply manifes)
+       ↓
+     Deploy to K8s production namespace via SSH
   ↓
 Rolling update (zero downtime)
   ↓

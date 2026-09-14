@@ -3,10 +3,10 @@ import { timingSafeEqual } from "crypto";
 import { logger } from "@/lib/logger";
 
 /**
- * Bearer token authentication untuk endpoint publish OTA dari Jenkins/CI.
+ * Bearer token authentication untuk endpoint publish OTA dari CI.
  *
  * Setup ENV:
- *   APP_UPDATE_PUBLISH_TOKEN  - shared secret antara Jenkins dan server
+ *   APP_UPDATE_PUBLISH_TOKEN  - shared secret antara pipeline CI dan server
  *
  * Token dibandingkan dengan timingSafeEqual untuk cegah timing attack.
  * Endpoint yang protected: POST /api/admin/app-update (publish bundle baru).

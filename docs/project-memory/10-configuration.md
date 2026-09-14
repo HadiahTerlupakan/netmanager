@@ -362,20 +362,18 @@ NEXT_DISABLE_TURBOPACK="0"     # Set to 1 to disable Turbopack
 
 ## Multi-Environment Strategy
 
-### Jenkins Multi-Environment Variables
-For staging vs production, Jenkins provides scoped variables:
+### Gitea Actions Secrets
+
+Hanya satu environment yang aktif (production), jadi nama secret dipakai apa
+adanya tanpa suffix per-environment:
 
 ```bash
-# Staging
-NEXT_PUBLIC_FIREBASE_API_KEY_STAGING="..."
-FIREBASE_PROJECT_ID_STAGING="..."
-
-# Production
-NEXT_PUBLIC_FIREBASE_API_KEY_PRODUCTION="..."
-FIREBASE_PROJECT_ID_PRODUCTION="..."
+NEXT_PUBLIC_FIREBASE_API_KEY="..."
+REGISTRY_URL="..."
+DEPLOY_SSH_TARGET="..."
 ```
 
-**Resolution:** Jenkinsfile selects based on branch/environment
+**Resolution:** workflow membaca `${{ secrets.<NAMA> }}` langsung dari secret repo
 
 ---
 

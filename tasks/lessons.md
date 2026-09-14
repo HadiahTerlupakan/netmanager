@@ -115,3 +115,55 @@
   - Kalau stage itu memasok `node_modules` ke image runtime, bandingkan isinya dengan pod produksi
     yang berjalan (`kubectl exec ... ls node_modules/.prisma/client`) sebelum push — itu satu-satunya
     cara membuktikan tidak ada yang hilang.
+
+## Status keluar pipa menyembunyikan kegagalan perintah pertamanya
+
+- **Konteks:** Menulis langkah cadangan pra-migrasi di `.gitea/workflows/deploy-production.yml`.
+  Versi pertama memakai `kubectl exec ... -- sh -c 'pg_dump ...' | gzip > berkas.gz`.
+  Uji jalur gagal ke variabel URL yang tidak ada: `pg_dump` mati dengan exit 1, tetapi langkahnya
+  melaporkan **sukses**. Yang menangkapnya hanya ambang ukuran berkas, bukan status perintahnya.
+- **Why:** Status keluar sebuah pipa adalah status perintah **terakhir**-nya. `gzip` menerima EOF
+  saat `pg_dump` mati, lalu menutup arsipnya dengan rapi — hasilnya gzip yang sah berisi dump
+  terpotong. Artinya `gzip -t` pun lolos. Untuk dump besar yang putus di tengah, ukurannya juga
+  jauh di atas ambang mana pun, jadi tidak ada satu pun pemeriksaan hilir yang akan menangkapnya.
+  `set -o pipefail` tidak menolong di sini: pipanya ada di shell **remote** (lewat `ssh`) atau di
+  dalam pod, bukan di shell runner yang punya `pipefail`.
+- **How to apply:**
+  - Untuk perintah yang hasilnya menjadi jaring pengaman (cadangan, ekspor, dump), **jangan
+    dipipa**. Tulis keluarannya apa adanya, lalu kompresi/olah sebagai perintah terpisah supaya
+    tiap tahap punya status sendiri.
+  - Selalu uji jalur gagalnya, bukan hanya jalur suksesnya. Pesan kegagalan yang menyebut tahap
+    yang salah ("arsip tidak utuh" padahal `pg_dump` yang mati) adalah tanda status sedang tertelan.
+
+## Perilaku `grep` pada masukan kosong berbeda antar implementasi
+
+- **Konteks:** Preflight memeriksa `CRON_SECRET` live bukan placeholder dengan
+  `... | grep -qxv REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY`. Idenya: baris placeholder tersaring,
+  masukan kosong juga tidak menghasilkan baris, jadi keduanya gagal.
+- **Why:** BSD grep (macOS) mengembalikan **0** untuk masukan kosong, GNU grep (Linux) mengembalikan 1.
+  Pemeriksaannya kebetulan benar di produksi dan salah di mesin pengembang — arah yang paling
+  berbahaya, karena jalur negatifnya tidak pernah terlihat gagal saat diuji lokal.
+- **How to apply:**
+  - Jangan gantungkan pemeriksaan keamanan pada perilaku `grep` terhadap masukan kosong.
+    Tulis perbandingannya eksplisit: `[ -n "$nilai" ] && [ "$nilai" != PLACEHOLDER ]`.
+  - Nilai kosong hampir selalu kondisi yang paling perlu tertangkap, jadi beri ia pemeriksaan
+    sendiri alih-alih menumpangkannya pada efek samping perintah lain.
+
+## Sebelum menghapus sebuah tool, pindahkan dulu jaminannya — dan baca isi tesnya, bukan namanya
+
+- **Konteks:** Menghapus Jenkins. `Jenkinsfile` punya tiga jaminan produksi yang tidak pernah ikut
+  pindah saat pipeline bermigrasi ke Gitea: preflight kesehatan node, pemeriksaan secret live, dan
+  **cadangan basis data pra-migrasi**. Menghapus berkasnya saat itu juga berarti menghapus jaring
+  pengamannya diam-diam — padahal yang menghilangkannya adalah migrasi sebelumnya, bukan penghapusan ini.
+- **Why:** Berkas yang "sudah tidak dipakai" bisa tetap menjadi satu-satunya tempat sebuah jaminan
+  tertulis. Nama berkas tes juga menyesatkan: `tests/ci/jenkinsfile-build-safety.test.ts` ternyata
+  memuat empat tes yang sama sekali tidak membaca `Jenkinsfile` — isinya tentang manifes produksi,
+  `Dockerfile`, dan `.dockerignore`. Menghapusnya berdasarkan nama akan membuang keempatnya.
+- **How to apply:**
+  - Inventarisasi dulu: `grep -ril <tool>` di seluruh repo, lalu pisahkan rujukan hidup dari catatan historis.
+  - Untuk tiap tes yang akan dihapus, periksa berkas apa yang benar-benar dibacanya
+    (`readFileSync`), bukan namanya. Pindahkan bagian yang subjeknya bukan tool itu.
+  - Untuk tiap jaminan yang masih berlaku, tulis tesnya terhadap pengganti, **lihat merah dulu**,
+    baru implementasikan — lalu hapus tool-nya.
+  - Kalau ada kemampuan yang benar-benar hilang tanpa padanan (di sini: mode recovery Jenkins),
+    katakan terus terang dan dokumentasikan jalur penggantinya, jangan diam-diam.

@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   AppUpdateValidationError,
+  CI_PUBLISHER_ID,
   getAppUpdateService,
   parseStreamingAppUpdateForm,
   verifyAppUpdatePublishToken,
@@ -14,11 +15,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * Endpoint khusus Jenkins/CI: publish bundle Expo Updates pakai Bearer token.
+ * Endpoint khusus CI: publish bundle Expo Updates pakai Bearer token.
  *
  * Setup:
  *   - Server: ENV `APP_UPDATE_PUBLISH_TOKEN` di k8s secret
- *   - Jenkins: store token sebagai credential, kirim header
+ *   - Gitea Actions: simpan token sebagai secret repo, kirim header
  *     `Authorization: Bearer <token>` saat curl multipart POST
  *
  * Body sama dengan POST /api/admin/app-update (multipart form
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       ...(parsed.data.releaseNotes
         ? { releaseNotes: parsed.data.releaseNotes }
         : {}),
-      createdBy: "ci:jenkins",
+      createdBy: CI_PUBLISHER_ID,
     });
 
     logger.info("[AppUpdatePublish] uploaded by CI", {

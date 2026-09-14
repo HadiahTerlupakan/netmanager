@@ -94,7 +94,7 @@
 - [01-stack.md](01-stack.md) → Infrastructure section
 - [10-configuration.md](10-configuration.md) → Environment setup
 - [02-directory-map.md](02-directory-map.md) → `/k8s` directory
-- Jenkinsfile in project root
+- .gitea/workflows/ in project root
 
 ### QA Engineer
 - [11-testing.md](11-testing.md) — Complete testing guide
@@ -140,7 +140,7 @@
 
 ### Deployment
 - **Production:** Kubernetes (3 replicas)
-- **CI/CD:** Jenkins pipeline
+- **CI/CD:** Gitea Actions pipeline
 - **Development:** Docker Compose (local)
 
 ### Key Patterns

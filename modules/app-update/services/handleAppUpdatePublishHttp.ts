@@ -7,6 +7,7 @@ import formidable from "formidable";
 
 import { logger } from "@/lib/logger";
 
+import { CI_PUBLISHER_ID } from "../constants";
 import { AppUpdateValidationError } from "../errors";
 import { getAppUpdateService } from "./getAppUpdateService";
 import {
@@ -123,7 +124,7 @@ export async function handleAppUpdatePublish(
         typeof service.uploadUpdate
       >[0]["manifest"],
       ...(releaseNotes ? { releaseNotes } : {}),
-      createdBy: "ci:jenkins",
+      createdBy: CI_PUBLISHER_ID,
     });
 
     logger.info("[AppUpdatePublish] uploaded by CI", {

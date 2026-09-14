@@ -1,4 +1,5 @@
 // Public API for App Update (Expo Updates) Module
+export { CI_PUBLISHER_ID } from "./constants";
 export { AppUpdateService } from "./services/AppUpdateService";
 export { getAppUpdateService } from "./services/getAppUpdateService";
 export { parseStreamingAppUpdateForm } from "./services/parseStreamingAppUpdateForm";

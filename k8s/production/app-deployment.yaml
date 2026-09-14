@@ -19,7 +19,7 @@ spec:
       labels:
         app: netmanager-app
       annotations:
-        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/managed-by: "gitea"
         deploy.radpro.id/image-ref: "{{APP_IMAGE}}"
     spec:
       imagePullSecrets:

@@ -14,7 +14,7 @@ spec:
       labels:
         app: netmanager-cron
       annotations:
-        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/managed-by: "gitea"
         deploy.radpro.id/image-ref: "{{CRON_IMAGE}}"
     spec:
       imagePullSecrets:

@@ -215,13 +215,13 @@
 ### Container
 - **Docker:** 29.4.0 (CLI)
 - **docker-compose:** Defined in project root
-- **Kubernetes:** Client via kubectl in Jenkins
+- **Kubernetes:** Client via kubectl over SSH dari runner Gitea
 
 ### Kubernetes Client
 - **@kubernetes/client-node:** 1.4.0 (K8s API interactions)
 
 ### CI/CD
-- **Jenkins** — Production pipeline (Jenkinsfile)
+- **Gitea Actions** — Production pipeline (.gitea/workflows/deploy-production.yml)
 - **GitHub Actions** — Likely for PR checks (needs verification)
 
 ### Monitoring & Logging

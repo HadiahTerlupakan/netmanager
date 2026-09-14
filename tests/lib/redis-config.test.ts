@@ -88,7 +88,10 @@ describe("Redis configuration contract", () => {
       resolve(root, "docker-compose.production.yml"),
       "utf8",
     );
-    const jenkins = readFileSync(resolve(root, "Jenkinsfile"), "utf8");
+    const workflow = readFileSync(
+      resolve(root, ".gitea/workflows/deploy-production.yml"),
+      "utf8",
+    );
     const deployScript = readFileSync(resolve(root, "deploy.sh"), "utf8");
 
     expect(dockerfile).toContain('ARG REDIS_URL="redis://localhost:6379"');
@@ -96,7 +99,7 @@ describe("Redis configuration contract", () => {
     expect(composeProd).toContain(
       "REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379",
     );
-    expect(jenkins).toContain("REDIS_URL=redis://localhost:6379");
+    expect(workflow).toContain("REDIS_URL: redis://localhost:6379");
     expect(deployScript).toContain("redis://:<REDIS_PASSWORD>@redis:6379");
   });
 
