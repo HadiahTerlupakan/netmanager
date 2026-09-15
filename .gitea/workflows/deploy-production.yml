@@ -90,7 +90,9 @@ jobs:
 
           # known_hosts yang tidak memuat host tujuan membuat SSH dengan
           # BatchMode gagal di verifikasi host key, bukan di koneksi.
-          printf '%s\n' "${KNOWN_HOSTS}" | grep -qF "${host}" \
+          # here-string, bukan pipa: di bawah pipefail `grep -q` yang berhenti
+          # lebih awal membuat printf kena SIGPIPE dan pipa dianggap gagal.
+          grep -qF "${host}" <<< "${KNOWN_HOSTS}" \
             || gagal "DEPLOY_KNOWN_HOSTS tidak memuat entri untuk host tujuan"
 
           # Menangkap alamat basi: host lama menggantung sampai TCP timeout.
@@ -366,7 +368,10 @@ jobs:
           NODE="$($SSH "sudo -n kubectl get nodes -o jsonpath='${KUERI_NODE}'")"
           printf '%s\n' "${NODE}"
 
-          if printf '%s\n' "${NODE}" | grep -Eq "Ready=False|DiskPressure=True"; then
+          # here-string, bukan pipa. Di dalam `if`, SIGPIPE dari `grep -q` di
+          # bawah pipefail membuat kondisi bernilai salah — node yang tidak sehat
+          # justru diloloskan.
+          if grep -Eq "Ready=False|DiskPressure=True" <<< "${NODE}"; then
             echo "::error::Node produksi tidak sehat (Ready=False atau DiskPressure=True); deploy dibatalkan sebelum menyentuh cluster." >&2
             $SSH "sudo -n kubectl describe nodes" >&2 || true
             $SSH "sudo -n kubectl top nodes" >&2 || true

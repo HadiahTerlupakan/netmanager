@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-15] — Pipa grep -q di bawah pipefail meloloskan node tidak sehat
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`, `tests/ci/`
+- **Author**: agent
+- **Deskripsi**: Dua pemeriksaan di workflow deploy memakai
+  `printf "$teks" | grep -q …` di bawah `set -o pipefail`. `grep -q` berhenti
+  di kecocokan pertama, `printf` kena SIGPIPE (exit 141), dan pipefail
+  menganggap seluruh pipa gagal. Setelah `||` itu menolak yang seharusnya lolos
+  (pemeriksaan known_hosts); di dalam `if` itu meloloskan yang seharusnya
+  ditolak — preflight kesehatan node bisa membiarkan deploy berjalan di atas
+  node `Ready=False`/`DiskPressure=True`. Masukan kecil membuat keduanya jarang
+  terpicu, tetapi cacat yang sama baru saja menolak AAB bertanda tangan benar di
+  build Android repo mobile. Kedua baris diganti here-string, dan tes baru
+  melarang `| grep -q` serta `| head` di workflow sekaligus membuktikan
+  perbedaan perilakunya dengan 200 ribu baris masukan.
+- **Files**: `.gitea/workflows/deploy-production.yml`, `tests/ci/pipefail-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-14] — Hapus Jenkins setelah jaminan produksinya dipindah ke Gitea
 
 - **Tipe**: [REMOVED]
