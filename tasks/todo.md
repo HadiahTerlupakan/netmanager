@@ -26,7 +26,10 @@ tidak memanggil endpoint OLT; aplikasi mobile tidak memakainya.
 - [x] 5. Verifikasi lokal: typecheck bersih · lint 0 error/12 warning · test 685 file, 4.044 lulus, 0 gagal
       (−9 kasus bangkitan per-modul: domain-purity 257→249, module-public-api 45→44) · sapuan bersih.
       Build lokal tidak dijalankan; job build CI menjadi gerbang sebelum deploy.
-- [ ] 6. Commit & push → pantau deploy → verifikasi produksi
+- [x] 6. Commit & push `ba6cfe674` (09:09) → pipeline quality ✅ build ✅ deploy ✅ (10:23 WIB) → verifikasi produksi:
+      semua deployment (app ×2, worker, cron, radius) di `ba6cfe674ec0-33`, pod Running tanpa restart;
+      log semua pod sejak deploy: 0 error, 0 rujukan OLT; `https://admin.radpro.id` → `/api/olt/devices`,
+      `/api/olt/onu`, `/api/cron/olt-monitoring` = 404; market-price 401 dan redirect Pengeluaran 307 tetap normal.
 
 ## Hapus integrasi MixRadius (2026-09-17)
 
