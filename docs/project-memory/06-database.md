@@ -215,7 +215,7 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 - `ProfilePPP` - PPPoE profiles with IP pools
 - `Bandwidth` - Bandwidth profiles
 
-**OLT/ONU Provisioning** (GPON/FTTH):
+**OLT/ONU Provisioning** (GPON/FTTH) — legacy, tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop:
 - `OltDevice` - OLT devices (ZTE, HSGQ, HIOSO, CDATA)
 - `OltCard` - OLT card/slot configuration
 - `OnuDevice` - ONUs with optical power monitoring
@@ -445,7 +445,7 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
    - Time-series data per device
    - Retention policy needed
 
-10. **`OnuPowerHistory`** - ONU optical power logs
+10. **`OnuPowerHistory`** - ONU optical power logs (tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop)
     - Time-series data per ONU
     - Used for signal quality monitoring
 
@@ -525,7 +525,7 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 6. **`TaxConfigHistory`** - Tax config changes
    - Tracks: field, oldValue, newValue, changedById
 
-7. **`OltCommandLog`** - OLT provisioning commands
+7. **`OltCommandLog`** - OLT provisioning commands (tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop)
    - Tracks: command, params, result, errorMsg
 
 **Common Audit Pattern**:
@@ -620,7 +620,7 @@ Tenant (Root)
 │   ├─→ HargaPaket → Bandwidth + ProfilePPP
 │   ├─→ Invoice (Billing DB) → Payment
 │   ├─→ SupportTickets → WorkOrders
-│   ├─→ Odp (fiber), OnuDevice (GPON)
+│   ├─→ Odp (fiber)
 │   └─→ CustomerUsage
 │
 ├─→ RabProject (Budget) → RabItem, RabInvestor
@@ -637,7 +637,7 @@ Tenant (Root)
 ### A. Customer Onboarding
 ```
 Registrations → Canvasing → WorkOrder (INSTALLATION) 
-  → Pelanggan → radcheck/radreply → OnuDevice/ProfilePPP → AKTIF
+  → Pelanggan → radcheck/radreply → ProfilePPP → AKTIF
 ```
 
 ### B. Billing Cycle
@@ -729,7 +729,7 @@ deletedAt DateTime? // Soft delete
 - **244 total tables** across 4 databases
 - **Multi-tenant SaaS** architecture
 - **Full ERP features**: HR, payroll, accounting, inventory
-- **ISP-specific**: RADIUS, OLT/ONU, network provisioning
+- **ISP-specific**: RADIUS, network provisioning
 - **Partner ecosystem**: Reseller & mitra commissions
 
 **Strengths**:

@@ -112,8 +112,6 @@ These are the valid permission codes:
 - `SETTINGS` - Settings
 
 ### Network Sub-menus
-- `NETWORK.OLT` - OLT Management
-- `NETWORK.ONU` - ONU Management
 - `NETWORK.IPS` - IP Management
 - `NETWORK.VLAN` - VLAN Management
 

@@ -99,11 +99,8 @@
   - Bandwidth profile application
   - Real-time monitoring
 
-### OLT Management
-- **net-snmp:** 3.26.1 (SNMP protocol)
-- **node-ssh:** 13.2.1 (SSH for CLI commands)
-- **telnet-client:** 2.2.12 (Telnet for legacy devices)
-- **node-telnet:** 1.0.1 (Alternative telnet client)
+### SNMP Monitoring
+- **net-snmp:** 3.26.1 (SNMP untuk monitoring perangkat jaringan di modul `network`)
 
 ### Network Utilities
 - **axios:** 1.15.2 (HTTP client for REST APIs)

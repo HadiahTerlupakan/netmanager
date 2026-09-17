@@ -274,7 +274,6 @@ describe("module public api boundaries", () => {
       "modules/inventory/services/RestockRequestService.ts",
       "modules/network/repositories/RadiusRepository.ts",
       "modules/network/services/mikrotik-ppp-profile.ts",
-      "modules/olt/adapters/zte/ZteAdapter.ts",
       "modules/work-order/repositories/WorkOrderRepository.ts",
       "modules/work-order/services/AdminWorkOrderRouteService.ts",
       "modules/work-order/services/MobileWorkOrderActionService.ts",

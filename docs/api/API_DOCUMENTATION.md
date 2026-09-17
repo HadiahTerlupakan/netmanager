@@ -36,17 +36,6 @@ Sebagian besar endpoint memerlukan autentikasi sebagai **ADMIN**.
 - `PATCH /api/users/{id}` - Update user
 - `DELETE /api/users/{id}` - Delete user
 
-### OLTs (Optical Line Terminal)
-- `GET /api/olts` - Get all OLTs
-- `POST /api/olts` - Create new OLT
-- `GET /api/olts/{id}` - Get OLT by ID
-- `PATCH /api/olts/{id}` - Update OLT
-- `DELETE /api/olts/{id}` - Delete OLT
-
-### ONUs (Optical Network Unit)
-- `GET /api/olts/onus` - Get all ONUs
-- `POST /api/olts/onus/sync` - Sync ONU data from OLT
-
 ### MikroTik Routers
 - `GET /api/mikrotik-routers` - Get all MikroTik routers
 - `POST /api/mikrotik-routers` - Create new MikroTik router
@@ -107,13 +96,6 @@ Sebagian besar endpoint memerlukan autentikasi sebagai **ADMIN**.
 - `PATCH /api/speedprofiles/{id}` - Update speed profile
 - `DELETE /api/speedprofiles/{id}` - Delete speed profile
 
-### ONU Types
-- `GET /api/onutypes` - Get all ONU types
-- `POST /api/onutypes` - Create new ONU type
-- `GET /api/onutypes/{id}` - Get ONU type by ID
-- `PATCH /api/onutypes/{id}` - Update ONU type
-- `DELETE /api/onutypes/{id}` - Delete ONU type
-
 ## 📝 Response Codes
 
 - `200` - Success
@@ -162,7 +144,6 @@ export async function GET() {
 Schema definitions didefinisikan di `lib/swagger/swagger-config.ts` dalam `components.schemas`. Schema yang tersedia:
 
 - `User` - User schema
-- `OLT` - OLT schema
 - `MikroTikRouter` - MikroTik router schema
 - `Health` - Health check response schema
 - `Error` - Error response schema

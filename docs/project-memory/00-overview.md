@@ -10,7 +10,7 @@
 NetManager adalah aplikasi manajemen lengkap untuk Internet Service Provider (ISP) yang menangani FTTH (Fiber to the Home) operations. Aplikasi ini berfungsi sebagai **integrated business management platform** yang menggabungkan:
 
 1. **Customer Management** — Manajemen pelanggan, registrasi, paket layanan
-2. **Network Operations** — Provisioning MikroTik, RADIUS, OLT/ONU
+2. **Network Operations** — Provisioning MikroTik, RADIUS
 3. **Financial Management** — Billing, invoicing, payment processing, accounting
 4. **HR & Operations** — Attendance, payroll, inventory, work orders
 5. **Multi-tenant Platform** — Support untuk reseller/mitra dengan isolated data
@@ -53,7 +53,7 @@ NetManager adalah aplikasi manajemen lengkap untuk Internet Service Provider (IS
 NetManager menggabungkan **technical network management** dengan **business operations** dalam satu platform terintegrasi, mengurangi kebutuhan untuk multiple disconnected systems.
 
 **Key Differentiators:**
-- Direct integration dengan network devices (MikroTik, OLT, RADIUS)
+- Direct integration dengan network devices (MikroTik, RADIUS)
 - Real-time provisioning dan monitoring
 - Multi-tenant architecture untuk reseller support
 - Event-driven architecture untuk reliability
@@ -81,7 +81,6 @@ NetManager menggabungkan **technical network management** dengan **business oper
 ### External Services
 - **MikroTik RouterOS:** node-routeros-v2 for PPP provisioning
 - **FreeRADIUS:** PPPoE authentication & accounting
-- **OLT Management:** SNMP, Telnet, SSH for fiber equipment
 - **Firebase:** Realtime DB + Push notifications
 - **Payment Gateways:** Xendit, Midtrans, Tripay, Duitku, Moota
 - **WhatsApp:** Baileys library for customer notifications
@@ -139,7 +138,6 @@ Process queued jobs (billing, notifications, provisioning)
 2. **Finance Domain** (`finance`) — Invoicing, payment collection, AR aging
 3. **Accounting Domain** (`accounting`) — GL, COA, journal entries, reports
 4. **Network Domain** (`network`) — MikroTik provisioning, RADIUS integration
-5. **OLT Domain** (`olt`) — ONU provisioning, monitoring, bulk operations
 
 ### Supporting Modules
 - **Attendance & HR** — Check-in/out, geofencing, overtime, salary
@@ -258,9 +256,8 @@ Success or Rollback
 ### Can Degrade Gracefully:
 1. **MikroTik** — Provisioning fails, manual fallback
 2. **RADIUS** — Auth works via database fallback
-3. **OLT** — Provisioning disabled, UI shows warnings
-4. **Payment Gateways** — Manual payment entry available
-5. **WhatsApp** — Email fallback for notifications
+3. **Payment Gateways** — Manual payment entry available
+4. **WhatsApp** — Email fallback for notifications
 
 ---
 

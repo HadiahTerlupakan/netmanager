@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-17] — Hapus modul OLT Management yang tidak dipakai
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/olt`
+- **Author**: agent
+- **Deskripsi**: OLT Management tidak pernah dipakai operasional. Data produksi
+  (diperiksa read-only) hanya berisi 1 OLT ZTE C300 hasil uji coba (16-08) dan 2
+  log `TEST_CONNECTION`; ONU, alert, riwayat daya optik, VLAN, bandwidth profile,
+  dan pra-registrasi semuanya kosong, tidak ada ONU yang tertaut pelanggan,
+  crontab produksi tidak memanggil endpoint OLT, dan aplikasi mobile tidak
+  memakainya. Dihapus: `modules/olt` (adapter ZTE SNMP/telnet, provisioning,
+  discovery, monitoring), 30 halaman `app/admin/olt`, 32 route `app/api/olt`,
+  route cron `olt-discovery` dan `olt-monitoring`, cron monitoring OLT di
+  `lib/cron-registry.ts`, handler event `handlePelangganStatusForOlt` pada
+  suspend/isolir/aktivasi pelanggan (tanpa efek karena tidak ada ONU), grup menu
+  "OLT Management", grup permission `olt*`, feature module `olt`, skema dan tag
+  Swagger OLT/ONU, `lib/utils/snmp-mib-helper.ts` (MIB ZTE tanpa importer), skrip
+  audit `pre-olt-enum-migration.sql`, guide uji ZTE, serta dependensi
+  `telnet-client`, `node-telnet`, dan `node-ssh` (tidak dipakai kode lain).
+  Dipertahankan: tipe node `olt` di peta/topologi (konsep jaringan fisik) dan
+  `net-snmp` (dipakai modul `network`). Skema DB belum diubah: 9 tabel
+  `olt_*`/`onu_*` beserta enum dan relasi `Pelanggan.onuDevices` di-drop pada
+  tahap berikutnya setelah disetujui (`olt_devices` menyimpan kredensial telnet/
+  SNMP). Tes berkurang 9 kasus bangkitan per-modul (`domain-purity`,
+  `module-public-api`); tidak ada tes OLT khusus. Dokumen living diperbarui.
+- **Files**: `lib/cron-registry.ts`, `lib/event-bus/event-handlers.ts`,
+  `lib/menu-config.ts`, `lib/permission-config.ts`, `lib/feature-modules.ts`,
+  `lib/swagger/swagger-config.ts`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`, `package.json`
+- **Breaking**: ✅ Ya — halaman `/admin/olt/**` dan endpoint `/api/olt/**` dihapus
+
 ### [2026-09-17] — Hapus integrasi MixRadius dari aplikasi
 
 - **Tipe**: [REMOVED]

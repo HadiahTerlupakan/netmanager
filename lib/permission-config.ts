@@ -101,7 +101,6 @@ export const PERMISSION_GROUPS = {
   NOTIFICATIONS: ["notifications"],
   WO_CONFIG: ["wo_escalation", "wo_sla", "wo_template"],
   TENANT: ["tenants"],
-  OLT: ["olt", "olt_devices", "olt_onu", "olt_logs", "olt_vlan", "olt_cards"],
   TAX: ["tax"],
   INCIDENT: ["incidents"],
   PLANNING: ["planning"],

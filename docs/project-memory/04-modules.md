@@ -52,7 +52,6 @@ modules/pelanggan/
 **Dependencies:**
 - `finance` — Invoice generation
 - `network` — MikroTik provisioning
-- `olt` — ONU provisioning (if fiber)
 - `events` — Customer lifecycle events
 
 **Database Tables:**
@@ -188,36 +187,10 @@ modules/accounting/
 
 ---
 
-### 5. OLT (Fiber Equipment Management) ⚠️
+### 5. OLT (Fiber Equipment Management) — dihapus
 
-**Status:** Legacy  
-**Complexity:** Very High  
-**Business Criticality:** HIGH
-
-**Purpose:**
-- OLT/ONU provisioning
-- SNMP monitoring
-- Telnet/SSH CLI commands
-- Bulk operations
-- Power level monitoring
-- Firmware upgrades
-
-**Key Services:**
-- `OltDeviceService` — Device management
-- `OltOnuService` — ONU lifecycle
-- `OltProvisioningService` — Provisioning orchestration
-- `OnuDiscoveryService` — Auto-discovery
-- `BulkOperationService` — Batch operations
-
-**External Dependencies:**
-- `net-snmp` — SNMP protocol
-- `node-ssh` — SSH for CLI
-- `telnet-client` — Telnet for legacy devices
-
-**Complexity Factors:**
-- Multi-vendor support (ZTE, Huawei, Fiberhome)
-- Different OIDs per vendor
-- CLI syntax variations
+Modul `olt` dihapus pada 2026-09-17 karena tidak pernah dipakai operasional (di produksi hanya 1 OLT uji
+coba dan 0 ONU). Tabel `olt_*`/`onu_*` masih ada di skema sampai migration drop disetujui.
 
 ---
 

@@ -53,7 +53,6 @@ import {
   handleCustomerChurnedMrr,
   handlePackageChangedMrr,
 } from "@/modules/finance";
-import { handlePelangganStatusForOlt } from "@/modules/olt";
 import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
@@ -146,21 +145,6 @@ export function registerDefaultHandlers(): void {
     handleCustomerStatusEvent,
   );
   registerEventHandler(EVENT_NAMES.CUSTOMER_DELETED, handleCustomerStatusEvent);
-
-  // --- OLT SYNC: disable/enable ONU saat lifecycle pelanggan ---
-
-  registerEventHandler(
-    EVENT_NAMES.CUSTOMER_SUSPENDED,
-    handlePelangganStatusForOlt,
-  );
-  registerEventHandler(
-    EVENT_NAMES.CUSTOMER_ISOLATED,
-    handlePelangganStatusForOlt,
-  );
-  registerEventHandler(
-    EVENT_NAMES.CUSTOMER_ACTIVATED,
-    handlePelangganStatusForOlt,
-  );
 
   // --- MRR MOVEMENT TRACKING (finance analytics) ---
   // Tulis row di MRRMovement setiap lifecycle pelanggan untuk hitung

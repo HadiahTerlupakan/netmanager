@@ -36,12 +36,6 @@ export const FEATURE_MODULES = [
     group: "core",
   },
   {
-    code: "olt",
-    label: "OLT / FTTH",
-    description: "Monitoring OLT, ONU, profile, jalur fiber.",
-    group: "core",
-  },
-  {
     code: "map",
     label: "Peta Jaringan",
     description: "Visualisasi jalur dan node fiber/jaringan.",

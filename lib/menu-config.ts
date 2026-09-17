@@ -44,7 +44,7 @@ export interface MenuConfig {
  *
  * Menu codes menggunakan format:
  * - Parent: 'NETWORK', 'FTTH', 'PELANGGAN', etc.
- * - Child: 'NETWORK.MIKROTIK', 'NETWORK.OLT', etc.
+ * - Child: 'NETWORK.MIKROTIK', 'NETWORK.RADIUS', etc.
  *
  * Grouped by functional categories for better navigation
  */
@@ -102,58 +102,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         name: "ONT Devices",
         path: "/admin/network/acs/devices",
         icon: "HiOutlineWifi",
-      },
-    ],
-  },
-  {
-    code: "OLT",
-    name: "OLT Management",
-    path: "/admin/olt",
-    icon: "HiOutlineServerStack",
-    section: "Operasional",
-    featureModule: "olt",
-    children: [
-      {
-        code: "OLT.DEVICES",
-        name: "Perangkat OLT",
-        path: "/admin/olt/devices",
-        icon: "HiOutlineServer",
-      },
-      {
-        code: "OLT.ONU",
-        name: "ONU",
-        path: "/admin/olt/onu",
-        icon: "HiOutlineWifi",
-      },
-      {
-        code: "OLT.UNREGISTERED",
-        name: "ONU Unregistered",
-        path: "/admin/olt/onu/unregistered",
-        icon: "HiOutlineExclamationCircle",
-      },
-      {
-        code: "OLT.LOGS",
-        name: "Command Logs",
-        path: "/admin/olt/logs",
-        icon: "HiOutlineDocumentText",
-      },
-      {
-        code: "OLT.BANDWIDTH",
-        name: "Bandwidth Profiles",
-        path: "/admin/olt/bandwidth-profiles",
-        icon: "HiOutlineArrowsRightLeft",
-      },
-      {
-        code: "OLT.MONITORING",
-        name: "Monitoring",
-        path: "/admin/olt/monitoring",
-        icon: "HiOutlineChartBar",
-      },
-      {
-        code: "OLT.ALERTS",
-        name: "Alerts",
-        path: "/admin/olt/alerts",
-        icon: "HiOutlineBellAlert",
       },
     ],
   },

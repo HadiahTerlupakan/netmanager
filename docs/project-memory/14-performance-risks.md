@@ -15,7 +15,7 @@
 - 🟢 LOW: 1 issue (optimized components)
 
 **Top 3 Critical Risks:**
-1. **N+1 Query in ONU Monitoring** — 3,000-4,000 queries per run, 5+ min execution
+1. ~~**N+1 Query in ONU Monitoring**~~ — ✅ Tidak relevan lagi — modul OLT dihapus 2026-09-17
 2. **Missing Critical Indexes** — Full table scans on user reference fields
 3. **Sequential Tenant Processing** — 50+ minute cron execution, timeout risk
 
@@ -26,6 +26,8 @@
 ## 🔴 CRITICAL SEVERITY
 
 ### 1. N+1 Query Pattern - ONU Monitoring Loop
+
+> ✅ Tidak relevan lagi — modul OLT dihapus 2026-09-17; bagian ini dipertahankan sebagai catatan historis.
 
 **Location:** `modules/olt/services/OnuMonitoringService.ts:144-211`  
 **Severity:** CRITICAL  
@@ -397,6 +399,8 @@ for await (const customerBatch of eligibleCustomersCursor(targetDate, tenantId))
 
 ### 7. Sequential External API Calls - ONU Power Monitoring
 
+> ✅ Tidak relevan lagi — modul OLT dihapus 2026-09-17; bagian ini dipertahankan sebagai catatan historis.
+
 **Location:** `modules/olt/services/OnuMonitoringService.ts:165-170`  
 **Severity:** MEDIUM  
 **Category:** Performance - Sync External Calls  
@@ -574,7 +578,6 @@ Add composite indexes for filtering + sorting patterns:
 
 | Component | Before | After | Improvement |
 |-----------|--------|-------|-------------|
-| ONU Monitoring | 5+ min | 20 sec | 93% |
 | Tenant Cron | 50 min | 17 min | 66% |
 | Chat Conversations | 5 sec | 200ms | 96% |
 | ODC Locations | 1 sec | 50ms | 95% |
@@ -588,7 +591,7 @@ Add composite indexes for filtering + sorting patterns:
 
 **Priority Order:**
 1. **Add Missing Indexes** — 5 minutes, immediate impact
-2. **Batch ONU Updates** — 2 hours, fixes N+1
+2. ~~**Batch ONU Updates**~~ — ✅ Tidak relevan lagi — modul OLT dihapus 2026-09-17
 3. **Parallel Tenant Processing** — 30 minutes, prevents timeouts
 
 **Expected Gains:**
@@ -735,7 +738,6 @@ alerts:
 |--------|---------|--------|--------|
 | p95 API latency | 2-5 sec | <500ms | 🎯 |
 | p99 API latency | 5+ sec | <1 sec | 🎯 |
-| ONU monitoring | 5+ min | <30 sec | 🎯 |
 | Cron execution | 50 min | <20 min | 🎯 |
 | Memory usage | 500MB+ | <100MB | 🎯 |
 | Database queries/request | 50-100 | <10 | 🎯 |

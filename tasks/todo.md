@@ -1,5 +1,33 @@
 # TODO
 
+## Hapus OLT Management (2026-09-17)
+
+### Konteks
+User menilai OLT Management sudah tidak dipakai. Diverifikasi ke DB produksi (read-only): hanya 1 OLT
+ZTE C300 (dibuat 16-08) dan 2 log `TEST_CONNECTION` (16-08, 02-09); ONU, alert, riwayat daya, VLAN,
+bandwidth profile, dan pra-registrasi semuanya 0; tidak ada ONU tertaut pelanggan; crontab produksi
+tidak memanggil endpoint OLT; aplikasi mobile tidak memakainya.
+
+### Keputusan
+- Hapus modul OLT Management: `modules/olt`, `app/admin/olt`, `app/api/olt`, `app/api/cron/olt-*`,
+  handler event `handlePelangganStatusForOlt`, cron monitoring OLT, menu/permission/feature module `olt`,
+  skema & tag Swagger OLT/ONU, `lib/utils/snmp-mib-helper.ts` (MIB ZTE, 0 importer), dependensi
+  `telnet-client`, skrip audit `pre-olt-enum-migration.sql`, dan guide uji ZTE.
+- Dipertahankan: node `olt` di peta/topologi (konsep jaringan fisik, bukan modul ini) dan `net-snmp`
+  (dipakai modul network).
+- Skema DB tidak diubah: 9 tabel `olt_*`/`onu_*` + enum-nya masuk tahap 2 bersama MixRadius (butuh
+  persetujuan; `olt_devices` menyimpan kredensial telnet/SNMP).
+
+### Tahapan
+- [x] 1. Hapus direktori & berkas OLT Management (116 berkas)
+- [x] 2. Bedah `lib/` (cron, event-bus, menu, sidebar, permission, feature module, swagger) + tes arsitektur
+- [x] 3. Lepas dependensi `telnet-client`, `node-telnet`, `node-ssh` (tidak ada importer)
+- [x] 4. Docs living + `docs/CHANGELOG.md`
+- [x] 5. Verifikasi lokal: typecheck bersih · lint 0 error/12 warning · test 685 file, 4.044 lulus, 0 gagal
+      (−9 kasus bangkitan per-modul: domain-purity 257→249, module-public-api 45→44) · sapuan bersih.
+      Build lokal tidak dijalankan; job build CI menjadi gerbang sebelum deploy.
+- [ ] 6. Commit & push → pantau deploy → verifikasi produksi
+
 ## Hapus integrasi MixRadius (2026-09-17)
 
 ### Konteks

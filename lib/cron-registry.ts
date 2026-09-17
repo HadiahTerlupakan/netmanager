@@ -234,43 +234,6 @@ export class CronRegistry {
         ),
       );
 
-    // Start OLT Monitoring Service (Every 5 minutes)
-    import("../modules/olt")
-      .then(({ OnuMonitoringService }) => {
-        const monitoringService = new OnuMonitoringService();
-        const oltMonitoringTask = cron.schedule("*/5 * * * *", async () => {
-          if (!(await canRunCronJob("oltMonitoring", 280))) return;
-          logger.info("[Cron] Running OLT monitoring poll");
-          try {
-            const { prisma } = await import("../modules/database");
-            const { runWithRequestTenantContext } =
-              await import("./tenant-context");
-            const tenants = await runAsSystemContext(
-              "oltMonitoring: discover tenants",
-              () => prisma.tenant.findMany({ select: { id: true } }),
-            );
-            for (const tenant of tenants) {
-              await runWithRequestTenantContext(
-                { tenantId: tenant.id, isSuperAdmin: false },
-                () => monitoringService.pollAllOlts(tenant.id),
-              );
-            }
-          } catch (err) {
-            logger.error("[Cron] OLT monitoring failed:", err);
-          }
-        });
-        this.tasks.set("oltMonitoring", oltMonitoringTask);
-        logger.info(
-          "[CronRegistry] OLT monitoring cron scheduled (Every 5 minutes)",
-        );
-      })
-      .catch((err) =>
-        logger.error(
-          "[CronRegistry] Failed to start OnuMonitoringService:",
-          err,
-        ),
-      );
-
     // Start Accel-PPP Health Check (Every minute)
     import("../modules/network")
       .then(({ AccelPppMonitor }) => {

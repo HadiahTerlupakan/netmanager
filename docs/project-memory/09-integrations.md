@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-Aplikasi NetManager mengintegrasikan **22+ external services** yang dikategorikan dalam 6 kelompok utama:
+Aplikasi NetManager mengintegrasikan **21+ external services** yang dikategorikan dalam 6 kelompok utama:
 1. **Payment Gateways** (8 providers): Xendit, Midtrans, Tripay, Duitku, BRI, BCA, DANA, Moota
-2. **Network Devices** (3 protocols): MikroTik RouterOS, FreeRADIUS, OLT (SNMP)
+2. **Network Devices** (2 protocols): MikroTik RouterOS, FreeRADIUS
 3. **Communication Channels** (4 types): WhatsApp/Baileys, Email/SMTP, Push Notifications (Expo), Web Push
 4. **Cloud Services** (3 providers): Firebase (Realtime DB + Firestore + Admin), Cloudflare R2, Kubernetes API
 5. **Third-Party Systems**: tidak ada yang aktif — MixRadius (ISP Billing) dihapus 2026-09-17
@@ -614,105 +614,10 @@ DATABASE_RADIUS_URL=postgresql://user:pass@host:5432/radius
 
 ---
 
-### 2.3 OLT Management (SNMP)
+### 2.3 OLT Management (SNMP) — dihapus
 
-**Tujuan**: Optical Line Terminal management untuk Fiber network (ONT status, signal, provisioning)
-
-**Entry Points**:
-- `modules/olt/services/SnmpExplorerService.ts`
-- `modules/olt/services/FirmwareUpgradeService.ts`
-- `modules/olt/services/OltCardService.ts`
-- `modules/olt/adapters/zte/ZteSnmpClient.ts`
-
-**Authentication**:
-- SNMP v2c community string (per OLT device)
-- Stored in `Olt` table: `{ host, snmpCommunity, snmpPort }`
-
-**SDK**: `net-snmp` v3.26.1
-
-**Connection Pattern**:
-```typescript
-import * as snmp from "net-snmp";
-
-const session = snmp.createSession(host, community, {
-  port: snmpPort || 161,
-  retries: 1,
-  timeout: 5000,
-  version: snmp.Version2c
-});
-
-session.get([oid], (error, varbinds) => {
-  // Process response
-});
-```
-
-**Key Operations**:
-
-1. **OID Walk** (Discover ONTs):
-   ```typescript
-   walkOidTree(oltId, baseOid: "1.3.6.1.4.1.3902")
-   // Returns: [{ oid, type, value }]
-   ```
-
-2. **Get OID Value** (Signal strength):
-   ```typescript
-   getOidValue(oltId, oid: "1.3.6.1.4.1.3902.1082.500.10.2.1.1.1.5")
-   // Returns signal level in dBm
-   ```
-
-3. **ONT Status Check**:
-   ```typescript
-   // OID patterns untuk ZTE OLT
-   ontStatus: 1.3.6.1.4.1.3902.1082.500.10.2.1.1.1.{index}
-   ontRxPower: 1.3.6.1.4.1.3902.1082.500.10.2.1.1.1.5.{index}
-   ```
-
-**Supported Vendors**:
-- **ZTE**: Fully implemented (`ZteSnmpClient`)
-- **Huawei**: Planned (different OID tree)
-- **Fiberhome**: Planned
-
-**Value Formatting**:
-```typescript
-formatValue(varbind) {
-  if (Buffer.isBuffer(value)) {
-    return `HEX: ${hex} | ASCII: ${ascii}`;
-  }
-  return String(value);
-}
-```
-
-**Error Handling**:
-- SNMP timeout: 5 seconds
-- Retries: 1 attempt
-- Error codes: `SNMP_ERROR`, `NOT_FOUND`
-- All errors logged dengan OLT context
-
-**Configuration**:
-```typescript
-// Per-OLT config di database
-{
-  name: "OLT-Core-1",
-  host: "10.10.10.1",
-  snmpCommunity: "public",
-  snmpPort: 161,
-  vendor: "ZTE",
-  model: "C320",
-  tenantId: "xxx"
-}
-```
-
-**Dependencies**: `net-snmp`, `@/lib/logger`
-
-**Performance Considerations**:
-- SNMP walk dapat memakan waktu lama (1000+ OIDs)
-- Implementasi pagination untuk large OID trees
-- Cache hasil walk selama 5 menit
-
-**Security**:
-- SNMP community strings encrypted at rest
-- Read-only community untuk monitoring
-- Write community untuk provisioning (restricted)
+Modul OLT Management (SNMP/telnet ke OLT ZTE) dihapus pada 2026-09-17 karena tidak pernah dipakai
+operasional. `net-snmp` tetap dipakai modul `network` untuk monitoring perangkat.
 
 ---
 
@@ -2496,10 +2401,10 @@ NEXT_PUBLIC_FIREBASE_APP_ID=xxx
 
 ## 14. Summary
 
-NetManager mengintegrasikan **22+ external services** dengan total **15 SDK dependencies** utama. Arsitektur menggunakan:
+NetManager mengintegrasikan **21+ external services** dengan total **15 SDK dependencies** utama. Arsitektur menggunakan:
 
 1. **Payment Gateways** (8 providers) - Strategy pattern dengan unified interface
-2. **Network Devices** (MikroTik, RADIUS, OLT) - Direct API + database access
+2. **Network Devices** (MikroTik, RADIUS) - Direct API + database access
 3. **Communication** (WhatsApp, Email, Push) - Multi-channel notification system
 4. **Cloud Services** (Firebase, R2, K8s) - Realtime updates + storage + auto-SSL
 5. **Third-Party** - tidak ada yang aktif (MixRadius dihapus 2026-09-17)
