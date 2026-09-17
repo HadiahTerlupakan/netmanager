@@ -70,8 +70,6 @@ export interface RabProjectUpdateInput {
   name?: string;
   description?: string;
   siteId?: string | null;
-  mixRadiusGroupId?: string | null;
-  mixRadiusInvestorSiteId?: string | null;
   status?: RabStatus;
   projectedRevenue?: bigint;
   projectedOpex?: bigint;

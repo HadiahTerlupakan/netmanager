@@ -45,10 +45,7 @@ export const POST = createHandler(
     const data = ctx.validated!;
 
     const isSuper = isSuperAdmin(user);
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:update")) ||
-      (await hasPermission("mixradius_expenses:update"));
+    const hasAccess = isSuper || (await hasPermission("expense:update"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden("Akses ditolak");

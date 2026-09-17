@@ -38,13 +38,13 @@ const FINANCIAL_BEHAVIOUR =
 const SERVICE_ENFORCED_AUTHORIZATION: Record<string, string> = {
   "app/api/webhooks/[provider]/route.ts":
     "WebhookProcessingService.verifySignature — webhook diautentikasi tanda tangan provider, bukan sesi",
-  "app/api/integrations/mixradius/expenses/rab/[id]/approve/route.ts":
+  "app/api/finance/rab-projects/[id]/approve/route.ts":
     "rabApprovalService.canUserApproveRab — flag Role.canApproveRab",
-  "app/api/integrations/mixradius/expenses/rab/[id]/reminder/route.ts":
+  "app/api/finance/rab-projects/[id]/reminder/route.ts":
     "RabApprovalReminderRouteService — cek canApproveRab/isSuperAdmin lalu balas 403",
-  "app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/approve/route.ts":
+  "app/api/finance/rab-projects/[id]/revisions/[revisionId]/approve/route.ts":
     "approveRabRevision -> assertUserCanApproveRab",
-  "app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/reject/route.ts":
+  "app/api/finance/rab-projects/[id]/revisions/[revisionId]/reject/route.ts":
     "rejectRabRevision -> assertUserCanApproveRab",
 };
 
@@ -71,7 +71,7 @@ const INLINE_CAPABILITY_CHECK =
 
 /** `permissions:` boleh berupa array literal maupun konstanta bersama. */
 const OTHER_GUARDS =
-  /permissions:\s*(?:\[|[A-Z][A-Z0-9_]*)|ensureAdminAccess|ensureAnyPermission|ensurePermission|canAccess|requireCustomerAuth|CRON_SECRET|requireMitraAuth|getMixRadiusAccessService/;
+  /permissions:\s*(?:\[|[A-Z][A-Z0-9_]*)|ensureAdminAccess|ensureAnyPermission|ensurePermission|canAccess|requireCustomerAuth|CRON_SECRET|requireMitraAuth/;
 
 function collectRouteFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -112,7 +112,6 @@ describe("otorisasi route finansial", () => {
   it.each([
     "app/api/admin/company-bank-accounts/route.ts",
     "app/api/admin/pelanggan/[id]/prorate-log/route.ts",
-    "app/api/integrations/mixradius/dismantle/route.ts",
     "app/api/webhooks/[provider]/route.ts",
   ])("memindai %s meski nama path-nya tidak finansial", (routePath) => {
     expect(financialRoutes).toContain(routePath);

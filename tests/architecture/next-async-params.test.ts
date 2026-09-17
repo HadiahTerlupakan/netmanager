@@ -16,7 +16,7 @@ const APP_ROOT = join(process.cwd(), "app");
  * Tanda tangan route yang menerima params sebagai objek biasa.
  * Didahului `}: ` agar hanya cocok pada posisi parameter fungsi yang
  * di-destructure — bukan deklarasi variabel lokal bernama `params`, yang
- * sempat membuat `app/api/mobile/mixradius/customers/route.ts` tertuduh keliru.
+ * sempat membuat route mobile yang benar tertuduh keliru.
  */
 const SYNC_PARAMS_SIGNATURE = /\}:\s*\{[^}]*params:\s*\{\s*\w+\s*:\s*string/;
 

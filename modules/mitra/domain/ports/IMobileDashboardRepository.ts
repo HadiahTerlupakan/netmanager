@@ -2,9 +2,6 @@ export interface MitraDashboardProfile {
   siteId: string | null;
   mitraType: string;
   targetHarian: number | null;
-  enableFeePelanggan: boolean | null;
-  mitraRateFeePelanggan: number | null;
-  mixradiusOwnerNames: string[];
   currentBalance: number;
 }
 

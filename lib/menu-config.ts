@@ -616,9 +616,11 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineBanknotes",
       },
       {
-        code: "FINANCE.PENGELUARAN",
+        // Di luar /admin/finance: halaman ini cukup `expense:read`, tidak ikut
+        // gerbang `finance:read` milik layout finance.
+        code: "FINANCE.EXPENSE",
         name: "Pengeluaran",
-        path: "/admin/finance/pengeluaran",
+        path: "/admin/pengeluaran",
         icon: "HiOutlineCreditCard",
       },
       {
@@ -792,64 +794,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/tenants",
     icon: "HiOutlineBuildingOffice",
     section: "Sistem",
-  },
-  {
-    code: "INTEGRATION",
-    name: "Integrasi",
-    path: "/admin/integrations",
-    icon: "HiOutlineArrowsRightLeft",
-    section: "Sistem",
-    featureModule: "integrations",
-    children: [
-      {
-        code: "INTEGRATION.MIXRADIUS",
-        name: "MixRadius",
-        path: "/admin/integrations/mixradius",
-        icon: "HiOutlineCloud",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_ISOLIR",
-        name: "Isolir",
-        path: "/admin/integrations/mixradius/isolir",
-        icon: "HiOutlineNoSymbol",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_SITES",
-        name: "Sites",
-        path: "/admin/integrations/mixradius/groups",
-        icon: "HiOutlineBuildingOffice",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_INVESTOR_SITES",
-        name: "Site Investor",
-        path: "/admin/integrations/mixradius/investor-sites",
-        icon: "HiOutlineCurrencyDollar",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_ACCOUNTS",
-        name: "Akun",
-        path: "/admin/integrations/mixradius/accounts",
-        icon: "HiOutlineServer",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_INCOME",
-        name: "Pendapatan",
-        path: "/admin/integrations/mixradius/income-period",
-        icon: "HiOutlineCurrencyDollar",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_EXPENSES",
-        name: "Pengeluaran",
-        path: "/admin/integrations/mixradius/expenses",
-        icon: "HiOutlineCreditCard",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_PROFIT_LOSS",
-        name: "Laba Rugi",
-        path: "/admin/integrations/mixradius/profit-loss",
-        icon: "HiOutlineChartBar",
-      },
-    ],
   },
   {
     code: "PENGATURAN",

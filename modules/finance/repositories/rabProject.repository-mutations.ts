@@ -146,8 +146,9 @@ function createDuplicateProjectData(
   return {
     name: `(Copy) ${sourceProject.name}`,
     description: sourceProject.description,
-    site: { connect: { id: sourceProject.siteId } },
-    mixRadiusGroupId: sourceProject.mixRadiusGroupId,
+    ...(sourceProject.siteId && {
+      site: { connect: { id: sourceProject.siteId } },
+    }),
     projectedRevenue: sourceProject.projectedRevenue,
     projectedOpex: sourceProject.projectedOpex,
     targetSubscribers: sourceProject.targetSubscribers,

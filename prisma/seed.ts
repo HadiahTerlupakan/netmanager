@@ -1395,9 +1395,6 @@ async function main() {
   // ========================================================================
   logger.info("\n💳 STEP 13: Seeding Billing Configs...");
 
-  // NOTE: MixRadius config tidak di-seed karena harus dikonfigurasi manual
-  // melalui Admin Panel -> Integrasi -> MixRadius -> Akun MixRadius
-
   await prismaBilling.paymentGatewayConfig.upsert({
     where: {
       provider_tenantId: { provider: "MIDTRANS", tenantId: MAIN_TENANT_ID },

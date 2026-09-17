@@ -46,7 +46,6 @@ export class FinanceService {
     startDate?: Date;
     endDate?: Date;
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
@@ -66,7 +65,6 @@ export class FinanceService {
       expenseCategoryId?: string;
       description?: string;
       siteId?: string;
-      mixRadiusGroupId?: string;
       rabProjectId?: string;
       rabItemId?: string;
       invoiceNumber?: string;
@@ -99,8 +97,6 @@ export class FinanceService {
   /** Get RAB projects with nested data and serialization. */
   async getRabProjects(params: {
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
-    mixRadiusInvestorSiteId?: string | null;
     status?: string | null;
   }) {
     return this.rabService.getRabProjects(params);
@@ -112,8 +108,6 @@ export class FinanceService {
       name: string;
       description?: string;
       siteId?: string | null;
-      mixRadiusGroupId?: string | null;
-      mixRadiusInvestorSiteId?: string | null;
       projectedRevenue: bigint;
       projectedOpex: bigint;
       targetBasis: RabTargetBasis;

@@ -1,8 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import { logger, logActivitySafe } from "@/lib/logger";
-import { toStartOfDay } from "@/lib/utils/server-datetime";
+import { logActivitySafe } from "@/lib/logger";
 import type { ServiceFailure } from "./MobileMitraRouteService.types";
 
 const VERIFIED_MESSAGE = "Verifikasi wajah berhasil";
@@ -29,58 +28,9 @@ export interface FaceVerificationFile {
   type?: string;
 }
 
-interface FeePelangganStatsRepository {
-  getFeePelangganStats(input: {
-    mitraId: string;
-    ownerNames: string[];
-    feeRate: number;
-    monthStart: Date;
-    today: Date;
-  }): Promise<{
-    activeCustomers: number;
-    totalFeePelanggan: number;
-    remainingFeePelanggan: number;
-    unpaidCustomersCount: number;
-  }>;
-}
-
 /** Return the fixed mobile face verification success message. */
 export function getVerifiedFaceMessage() {
   return VERIFIED_MESSAGE;
-}
-
-/** Build fee pelanggan stats for the mobile mitra dashboard. */
-export async function getFeePelangganStatsForMitra(
-  repository: FeePelangganStatsRepository,
-  mitra: {
-    id: string;
-    mitraType: string;
-    enableFeePelanggan: boolean;
-    mitraRateFeePelanggan: number | null;
-    mixradiusOwnerNames: string[];
-  },
-) {
-  if (mitra.mitraType !== "MITRA_SALES" || !mitra.enableFeePelanggan) {
-    return buildEmptyFeeStats();
-  }
-
-  try {
-    const today = createTodayStart();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    return await repository.getFeePelangganStats({
-      mitraId: mitra.id,
-      ownerNames: mitra.mixradiusOwnerNames || [],
-      feeRate: mitra.mitraRateFeePelanggan || 0,
-      monthStart,
-      today,
-    });
-  } catch (error) {
-    logger.error(
-      "[MobileMitraRouteService] Error getting fee pelanggan stats",
-      error as Error,
-    );
-    return buildEmptyFeeStats();
-  }
 }
 
 /** Save a normalized mobile face verification image under the mitra uploads folder. */
@@ -158,19 +108,4 @@ function validateFaceVerificationFile(photo: FaceVerificationFile) {
   }
 
   throw new Error("Format foto tidak didukung");
-}
-
-function buildEmptyFeeStats() {
-  return {
-    activeCustomers: 0,
-    totalFeePelanggan: 0,
-    remainingFeePelanggan: 0,
-    unpaidCustomersCount: 0,
-  };
-}
-
-function createTodayStart() {
-  const today = new Date();
-  today.setTime(toStartOfDay(today).getTime());
-  return today;
 }

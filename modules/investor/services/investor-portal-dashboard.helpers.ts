@@ -1,17 +1,11 @@
 import {
   calculatePaymentRatio,
   collectInternalSiteIds,
-  collectMixRadiusOwners,
-  collectMixRadiusSiteIds,
-  createInvestorSiteMap,
-  fetchMixRadiusCustomers,
   summarizeInternalCustomers,
   summarizeInternalCustomersBySite,
-  summarizeMixRadiusCustomers,
   type InvestorPortalInternalCustomers,
 } from "./investor-portal-customer-metrics.helpers";
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
-import type { MixRadiusCustomer } from "@/modules/integrations";
 
 export type SubscriberMetrics = {
   total: number;
@@ -26,12 +20,8 @@ type DashboardProjects = Awaited<
 
 type DashboardProject = DashboardProjects[number];
 
-type InvestorSite = { id: string; name: string; owners: string[] | null };
-
 export type RevenueSnapshot = {
   internalCustomers: InvestorPortalInternalCustomers;
-  mixRadiusCustomers: MixRadiusCustomer[];
-  investorSiteMap: Map<string, InvestorSite>;
 };
 
 type DashboardResponse = {
@@ -52,56 +42,37 @@ const FULL_PERCENT = 100;
 const ZERO_BIGINT = 0n;
 const ZERO_NUMBER = 0;
 const GLOBAL_SITE_NAME = "Lokasi Global";
-const DASHBOARD_LOG_PREFIX = "[INVESTOR_DASHBOARD]";
 
+/** Memuat pelanggan internal dari seluruh site proyek dashboard investor. */
 export async function buildDashboardRevenueSnapshot(
   repository: InvestorPortalRepository,
   projects: DashboardProjects,
 ): Promise<RevenueSnapshot> {
   const siteIds = collectInternalSiteIds(projects);
-  const mixRadiusSiteIds = collectMixRadiusSiteIds(projects);
-  const [internalCustomers, investorSites] = await Promise.all([
-    repository.findInternalCustomers(siteIds),
-    repository.findMixRadiusInvestorSites(mixRadiusSiteIds),
-  ]);
-  const owners = collectMixRadiusOwners(investorSites);
 
   return {
-    internalCustomers,
-    mixRadiusCustomers: await fetchMixRadiusCustomers(
-      owners,
-      DASHBOARD_LOG_PREFIX,
-    ),
-    investorSiteMap: createInvestorSiteMap(investorSites),
+    internalCustomers: await repository.findInternalCustomers(siteIds),
   };
 }
 
+/** Meringkas metrik pelanggan dashboard dari pelanggan internal. */
 export function buildDashboardSubscriberMetrics(
   snapshot: RevenueSnapshot,
 ): SubscriberMetrics {
-  const now = new Date();
-  const internalMetrics = summarizeInternalCustomers(
+  const metrics = summarizeInternalCustomers(
     snapshot.internalCustomers,
-    now,
+    new Date(),
   );
-  const owners = collectMixRadiusOwners([...snapshot.investorSiteMap.values()]);
-  const mixRadiusMetrics = summarizeMixRadiusCustomers(
-    snapshot.mixRadiusCustomers,
-    owners,
-    now,
-  );
-  const total = internalMetrics.total + mixRadiusMetrics.total;
-  const active = internalMetrics.active + mixRadiusMetrics.active;
-  const paying = internalMetrics.paying + mixRadiusMetrics.active;
 
   return {
-    total,
-    active,
-    paying,
-    paymentRatio: calculatePaymentRatio(active, paying),
+    total: metrics.total,
+    active: metrics.active,
+    paying: metrics.paying,
+    paymentRatio: calculatePaymentRatio(metrics.active, metrics.paying),
   };
 }
 
+/** Menyusun response dashboard investor beserta total investasi dan revenue. */
 export function buildDashboardResponse(
   projects: DashboardProjects,
   snapshot: RevenueSnapshot,
@@ -192,29 +163,17 @@ function calculateCurrentRevenue(
   snapshot: RevenueSnapshot,
   now: Date,
 ): number {
-  if (item.rabProject.siteId && !item.rabProject.mixRadiusInvestorSiteId) {
-    return getInternalRevenueBySite(
-      item.rabProject.siteId,
-      snapshot.internalCustomers,
-      now,
-    );
+  const siteId = item.rabProject.siteId;
+
+  if (!siteId) {
+    return ZERO_NUMBER;
   }
 
-  const investorSiteId = item.rabProject.mixRadiusInvestorSiteId;
-  const owners = investorSiteId
-    ? snapshot.investorSiteMap.get(investorSiteId)?.owners || []
-    : [];
-
-  return summarizeMixRadiusCustomers(snapshot.mixRadiusCustomers, owners, now)
-    .revenue;
-}
-
-function getInternalRevenueBySite(
-  siteId: string,
-  customers: InvestorPortalInternalCustomers,
-  now: Date,
-): number {
-  return summarizeInternalCustomersBySite(customers, siteId, now).revenue;
+  return summarizeInternalCustomersBySite(
+    snapshot.internalCustomers,
+    siteId,
+    now,
+  ).revenue;
 }
 
 function calculateInvestorShare(amount: number, percent: number): bigint {

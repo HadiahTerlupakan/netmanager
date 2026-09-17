@@ -37,7 +37,7 @@ export const workOrderCreateSchema = z.object({
   scheduledDate: z.string().optional(),
   ticketId: z.string().trim().optional(),
   isInternal: z.boolean().optional(),
-  // Denormalized contact — diisi saat WO dibuat dari MixRadius/guest (tanpa pelangganId lokal)
+  // Denormalized contact — diisi saat WO dibuat dalam mode guest (tanpa pelangganId lokal)
   contactName: z.string().trim().optional(),
   contactPhone: z.string().trim().optional(),
   locationAddress: z.string().trim().optional(),

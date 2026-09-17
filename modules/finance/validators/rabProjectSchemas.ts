@@ -133,8 +133,6 @@ export const rabProjectCreateSchema = z
     name: z.string().min(1),
     description: z.string().optional(),
     siteId: z.string().optional().nullable(),
-    mixRadiusGroupId: z.string().optional().nullable(),
-    mixRadiusInvestorSiteId: z.string().optional().nullable(),
     projectedRevenue: z
       .union([z.string(), z.number()])
       .default(0)
@@ -200,8 +198,6 @@ export const rabProjectUpdateSchema = z
     name: z.string().optional(),
     description: z.string().optional(),
     siteId: z.string().nullable().optional(),
-    mixRadiusGroupId: z.string().nullable().optional(),
-    mixRadiusInvestorSiteId: z.string().nullable().optional(),
     status: z
       .enum([
         "DRAFT",

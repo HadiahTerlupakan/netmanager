@@ -2,7 +2,6 @@ import { prismaMitra } from "@/lib/prisma-mitra";
 import type {
   IMitraRepository,
   CreateMitraRecord,
-  FeePelangganStatsQuery,
   SaveFaceVerificationRecord,
   UpdateMitraRecord,
 } from "../domain/ports/IMitraRepository";
@@ -23,7 +22,6 @@ import {
 } from "./MitraRepository.helpers";
 import {
   findSiteNameById,
-  getFeePelangganStatsData,
   getMitraStatsData,
 } from "./MitraRepository.stats.helpers";
 
@@ -238,11 +236,6 @@ export class MitraRepository implements IMitraRepository {
         ...(tenantId && { mitra: { tenantId } }),
       },
     });
-  }
-
-  /** Mengambil statistik fee pelanggan bulanan mitra sales. */
-  async getFeePelangganStats(query: FeePelangganStatsQuery) {
-    return getFeePelangganStatsData(query);
   }
 
   /** Menyimpan hasil verifikasi wajah mitra. */

@@ -26,7 +26,6 @@ type BatchExpenseItemInput = {
 type BatchExpenseInput = {
   date: Date;
   siteId?: string;
-  mixRadiusGroupId?: string;
   invoiceNumber?: string;
   invoiceFile?: string;
   items: BatchExpenseItemInput[];
@@ -39,7 +38,6 @@ type ExpenseUpdateInput = {
   expenseCategoryId?: string;
   description?: string;
   siteId?: string;
-  mixRadiusGroupId?: string;
   categoryId?: string;
   accountId?: string;
   rabProjectId?: string;
@@ -79,7 +77,6 @@ export class ExpenseRouteService {
       description: item.description,
       userId,
       siteId: input.siteId,
-      mixRadiusGroupId: input.mixRadiusGroupId,
       rabProjectId: item.rabProjectId,
       rabItemId: item.rabItemId,
       invoiceNumber: input.invoiceNumber,
@@ -170,9 +167,6 @@ export class ExpenseRouteService {
         : {}),
       ...(input.description !== undefined
         ? { description: input.description }
-        : {}),
-      ...(input.mixRadiusGroupId !== undefined
-        ? { mixRadiusGroupId: input.mixRadiusGroupId || null }
         : {}),
       ...(input.categoryId !== undefined
         ? { categoryId: input.categoryId || null }

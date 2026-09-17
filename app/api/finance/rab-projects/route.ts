@@ -10,22 +10,17 @@ export const dynamic = "force-dynamic";
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:read")) ||
-    (await hasPermission("mixradius_expenses:read"));
+  const hasAccess = isSuper || (await hasPermission("expense:read"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
+      "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
 
   const { searchParams } = req.nextUrl;
   const params = {
     siteId: searchParams.get("siteId"),
-    mixRadiusGroupId: searchParams.get("mixRadiusGroupId"),
-    mixRadiusInvestorSiteId: searchParams.get("mixRadiusInvestorSiteId"),
     status: searchParams.get("status"),
   };
 
@@ -44,14 +39,11 @@ export const POST = createHandler(
   async (req, ctx) => {
     const user = ctx.session!.user;
     const isSuper = isSuperAdmin(user);
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:create")) ||
-      (await hasPermission("mixradius_expenses:create"));
+    const hasAccess = isSuper || (await hasPermission("expense:create"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
+        "Akses ditolak. Anda memerlukan permission: expense:create",
       );
     }
 

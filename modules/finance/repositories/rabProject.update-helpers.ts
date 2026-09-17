@@ -83,10 +83,6 @@ function assignProjectRelationScalars(
       ? { connect: { id: input.siteId } }
       : { disconnect: true };
   }
-  if (input.mixRadiusGroupId !== undefined)
-    data.mixRadiusGroupId = input.mixRadiusGroupId;
-  if (input.mixRadiusInvestorSiteId !== undefined)
-    data.mixRadiusInvestorSiteId = input.mixRadiusInvestorSiteId;
 }
 
 function assignInvestmentScalars(

@@ -13,7 +13,6 @@ import { getMitraWithdrawService } from "./MitraWithdrawService";
 import {
   buildFailureResult,
   type FaceVerificationFile,
-  getFeePelangganStatsForMitra,
   getVerifiedFaceMessage,
   getWithdrawAmountError,
   getWithdrawMethodError,
@@ -57,7 +56,6 @@ export class MobileMitraRouteService {
       pendingWithdrawals,
       recentTransactions,
       completedJobs,
-      feeStats,
       workOrdersAssigned,
       pendingTickets,
       woCompletedToday,
@@ -74,7 +72,6 @@ export class MobileMitraRouteService {
         DASHBOARD_RECENT_TRANSACTION_LIMIT,
       ),
       this.getCompletedJobsThisMonth(mitraData.id, mitraData.mitraType),
-      getFeePelangganStatsForMitra(this.mitraRepository, mitraData),
       this.dashboardRepository.countAssignedMitraWorkOrders({
         userId: mitraData.id,
         tenantId: tenantId || "",
@@ -109,9 +106,7 @@ export class MobileMitraRouteService {
         rateCanvasing: mitraData.mitraRateCanvasing,
         minWithdrawal: mitraData.minWithdrawal,
         balance: balance.success ? balance.data?.balance || 0 : 0,
-        totalEarnings:
-          (balance.success ? balance.data?.totalEarnings || 0 : 0) +
-          feeStats.remainingFeePelanggan,
+        totalEarnings: balance.success ? balance.data?.totalEarnings || 0 : 0,
         totalWithdrawn: balance.success ? balance.data?.totalWithdrawn || 0 : 0,
         completedJobsThisMonth: completedJobs,
         workOrdersAssigned,
@@ -119,10 +114,12 @@ export class MobileMitraRouteService {
         woCompletedToday,
         woCompletedWeek,
         woCompletedMonth,
-        activeCustomers: feeStats.unpaidCustomersCount,
-        totalActiveCustomers: feeStats.activeCustomers,
+        // Fitur fee pelanggan sudah dihapus; key tetap dikirim bernilai netral
+        // karena masih dibaca aplikasi mobile versi lama.
+        activeCustomers: 0,
+        totalActiveCustomers: 0,
         targetHarian: mitraData.targetHarian,
-        enableFeePelanggan: mitraData.enableFeePelanggan || false,
+        enableFeePelanggan: false,
         pendingWithdrawals,
         monthlyEarnings: monthly.success ? monthly.data || null : null,
         recentTransactions: recentTransactions.success

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MenuConfig } from "@/lib/menu-config";
+import { ADMIN_MENU_CONFIG, type MenuConfig } from "@/lib/menu-config";
 import {
   filterAdminMenuItems,
   getSidebarSectionContentId,
@@ -22,23 +22,6 @@ const SAMPLE_MENU: MenuConfig[] = [
         code: "NETWORK.RADIUS",
         name: "RADIUS",
         path: "/admin/network/radius",
-      },
-    ],
-  },
-  {
-    code: "INTEGRATION",
-    name: "Integrasi",
-    path: "/admin/integrations",
-    children: [
-      {
-        code: "INTEGRATION.MIXRADIUS",
-        name: "MixRadius",
-        path: "/admin/integrations/mixradius",
-      },
-      {
-        code: "INTEGRATION.MIXRADIUS_SITES",
-        name: "Sites",
-        path: "/admin/integrations/mixradius/groups",
       },
     ],
   },
@@ -88,6 +71,25 @@ describe("adminSidebarMenu", () => {
           },
         ],
       },
+    ]);
+  });
+
+  it("menampilkan menu Pengeluaran bagi pemegang expense:read tanpa finance:read", () => {
+    const financeMenu = ADMIN_MENU_CONFIG.find(
+      (item) => item.code === "FINANCE",
+    );
+
+    const filteredMenus = filterAdminMenuItems({
+      items: financeMenu ? [financeMenu] : [],
+      hasPermission: (permission) => permission === "expense:read",
+    });
+
+    expect(filteredMenus).toHaveLength(1);
+    expect(filteredMenus[0].children).toEqual([
+      expect.objectContaining({
+        code: "FINANCE.EXPENSE",
+        path: "/admin/pengeluaran",
+      }),
     ]);
   });
 

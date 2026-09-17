@@ -21,7 +21,6 @@ export interface ExpenseCreateInput {
   description?: string;
   userId: string;
   siteId?: string;
-  mixRadiusGroupId?: string;
   rabProjectId?: string;
   rabItemId?: string;
   invoiceNumber?: string;
@@ -68,9 +67,6 @@ export class ExpenseRepository {
         user: { connect: { id: data.userId } },
         updatedAt: new Date(),
         ...(data.siteId ? { site: { connect: { id: data.siteId } } } : {}),
-        ...(data.mixRadiusGroupId
-          ? { mixRadiusGroupId: data.mixRadiusGroupId }
-          : {}),
         ...(data.rabProjectId
           ? { rabProject: { connect: { id: data.rabProjectId } } }
           : {}),
@@ -141,9 +137,6 @@ export class ExpenseRepository {
             updatedAt: new Date(),
             ...(entry.siteId
               ? { site: { connect: { id: entry.siteId } } }
-              : {}),
-            ...(entry.mixRadiusGroupId
-              ? { mixRadiusGroupId: entry.mixRadiusGroupId }
               : {}),
             ...(entry.rabProjectId
               ? { rabProject: { connect: { id: entry.rabProjectId } } }
@@ -220,56 +213,6 @@ export class ExpenseRepository {
           },
         },
       },
-    });
-  }
-
-  /** Get expenses for MixRadius profit-loss report. */
-  async findProfitLossExpenses(range: {
-    startDate: Date;
-    endDate: Date;
-    siteId?: string;
-  }) {
-    const siteFilter = range.siteId
-      ? {
-          OR: [{ siteId: range.siteId }, { mixRadiusGroupId: range.siteId }],
-        }
-      : {};
-
-    return this.client.expense.findMany({
-      where: {
-        date: { gte: range.startDate, lte: range.endDate },
-        ...siteFilter,
-      },
-      select: {
-        amount: true,
-        date: true,
-        category: true,
-        description: true,
-        expenseCategory: {
-          select: { name: true },
-        },
-      },
-    });
-  }
-
-  /** Get expenses for a full year MixRadius report. */
-  async findYearlyProfitLossExpenses(range: {
-    startDate: Date;
-    endDate: Date;
-    siteId?: string;
-  }) {
-    const siteFilter = range.siteId
-      ? {
-          OR: [{ siteId: range.siteId }, { mixRadiusGroupId: range.siteId }],
-        }
-      : {};
-
-    return this.client.expense.findMany({
-      where: {
-        date: { gte: range.startDate, lte: range.endDate },
-        ...siteFilter,
-      },
-      select: { amount: true, date: true },
     });
   }
 

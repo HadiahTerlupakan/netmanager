@@ -8,12 +8,12 @@
 
 ## Executive Summary
 
-Aplikasi NetManager mengintegrasikan **23+ external services** yang dikategorikan dalam 6 kelompok utama:
+Aplikasi NetManager mengintegrasikan **22+ external services** yang dikategorikan dalam 6 kelompok utama:
 1. **Payment Gateways** (8 providers): Xendit, Midtrans, Tripay, Duitku, BRI, BCA, DANA, Moota
 2. **Network Devices** (3 protocols): MikroTik RouterOS, FreeRADIUS, OLT (SNMP)
 3. **Communication Channels** (4 types): WhatsApp/Baileys, Email/SMTP, Push Notifications (Expo), Web Push
 4. **Cloud Services** (3 providers): Firebase (Realtime DB + Firestore + Admin), Cloudflare R2, Kubernetes API
-5. **Third-Party Systems** (1 integration): MixRadius (ISP Billing)
+5. **Third-Party Systems**: tidak ada yang aktif — MixRadius (ISP Billing) dihapus 2026-09-17
 6. **Location Services** (2 libs): Leaflet (OSM), Geolib
 
 **Critical Dependencies**: Payment gateways, MikroTik provisioning, Firebase realtime, WhatsApp notifications
@@ -1638,130 +1638,13 @@ K8S_NAMESPACE=netmanager-production
 
 ## 5. Third-Party Systems
 
-### 5.1 MixRadius
+Tidak ada integrasi pihak ketiga yang aktif.
 
-**Tujuan**: Sync billing data dari external ISP billing system (MixRadius)
-
-**Entry Points**:
-- `modules/integrations/services/MixRadiusSyncService.ts`
-- `modules/integrations/services/mixradius-service.client.ts`
-- `modules/integrations/repositories/MixRadiusRepository.ts`
-
-**Authentication**:
-- MixRadius API credentials (per tenant)
-- Stored in `IntegrationSettings` table
-
-**SDK**: None (native fetch)
-
-**API Base URL**: Configurable per tenant (misal: `https://billing.isp.com/api`)
-
-**Key Operations**:
-
-1. **Fetch Customers**:
-   ```typescript
-   fetchCustomersPPP({ length: 10000 })
-   // Returns: { data: Array<MixRadiusCustomerDetail> }
-   ```
-
-2. **Fetch Income by Period**:
-   ```typescript
-   fetchIncomeByPeriod({
-     startDate: "2024-01-01",
-     endDate: "2024-01-31",
-     length: 10000
-   })
-   // Returns: { data: Array<MixRadiusIncomePeriodRecord> }
-   ```
-
-3. **Sync All Customers**:
-   ```typescript
-   syncAllCustomers()
-   // Upserts ke MixRadiusCustomer table
-   // Links to Pelanggan by username
-   ```
-
-4. **Sync Invoices**:
-   ```typescript
-   syncInvoices(startDate, endDate)
-   // Upserts ke MixRadiusInvoice table
-   ```
-
-5. **Get NPL Statistics**:
-   ```typescript
-   getNPLStatistics(groupId?)
-   // Returns: { 
-   //   totalCustomers, totalNplCustomers,
-   //   buckets: { "0-30": {count, amount}, "31-60": ..., ...}
-   // }
-   ```
-
-**Data Mapping**:
-```typescript
-// MixRadius → NetManager
-{
-  id: record.id,
-  username: record.username,
-  fullName: record.fullname,
-  ownerName: record.owner_name,
-  planName: record.plan_name,
-  authStatus: record.auth_status,
-  expiredOn: parseMixRadiusDate(record.expired_on),
-  // ... mapped fields
-}
-```
-
-**NPL (Non-Performing Loan) Analysis**:
-- Aging buckets: 0-30, 31-60, 61-90, 91-120, 121-150, 150+ days
-- Calculation: `diffDays = now - expiredDate`
-- Amount estimation: Per-plan average atau global average
-- Filtering: By owner group (investor/mitra)
-
-**Sync Strategy**:
-- Full sync: All customers (10k limit)
-- Incremental: Yesterday's settlements (daily cron)
-- On-demand: Specific date ranges
-
-**Linking Logic**:
-```typescript
-findLinkedPelanggan(mixRadiusData) {
-  // 1. Try by mixRadiusId (existing link)
-  // 2. Fallback: Match by username
-  // 3. Update link if found
-  // 4. Update syncedAt timestamp
-}
-```
-
-**Configuration**:
-```typescript
-// Per-tenant di IntegrationSettings
-{
-  type: "MIXRADIUS",
-  config: {
-    apiUrl: "https://billing.isp.com/api",
-    apiKey: "encrypted_xxx",
-    merchantCode: "ISP001"
-  },
-  isActive: true,
-  tenantId: "tenant-uuid"
-}
-```
-
-**Error Handling**:
-- `MixRadiusConfigError`: Config belum diisi atau invalid
-- Sync errors: Return `{ success: false, reason: message }`
-- Network errors: Logged + propagated
-
-**Dependencies**: Native fetch, `@/lib/logger`
-
-**Performance**:
-- Batch upsert per record (no bulk insert yet)
-- Large datasets (10k+) dapat memakan waktu
-- Consider background job untuk full sync
-
-**Use Case**: 
-- Migrasi dari MixRadius ke NetManager
-- Dual-system operation (MixRadius sebagai source of truth)
-- NPL reporting untuk finance team
+Integrasi **MixRadius** (ISP billing eksternal) dihapus pada 2026-09-17: panelnya memakai
+CAPTCHA sehingga login otomatis tidak mungkin, dan remote sudah dimatikan sejak 2026-09-13.
+Fitur lokal yang dulu menumpang di bawah menu MixRadius — RAB, pengeluaran harian, dan COA
+pengeluaran — dipindah ke `/admin/pengeluaran` (menu Keuangan). Tabel `mix_radius_*` dan kolom
+`mixRadius*` masih ada di skema sampai migration drop disetujui. Detail: `docs/CHANGELOG.md`.
 
 ---
 
@@ -1853,7 +1736,6 @@ const isInside = isPointWithinRadius(
 
 **Used By**:
 - Payment gateways (create payment, check status)
-- MixRadius sync
 - Email SMTP
 - SNMP queries
 
@@ -2123,9 +2005,6 @@ MIDTRANS_SERVER_KEY, MIDTRANS_CLIENT_KEY
 TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, TRIPAY_MERCHANT_CODE
 DUITKU_MERCHANT_CODE, DUITKU_API_KEY
 MOOTA_API_KEY, MOOTA_WEBHOOK_SECRET
-
-// MixRadius
-MIXRADIUS_API_URL, MIXRADIUS_API_KEY, MIXRADIUS_MERCHANT_CODE
 
 // WhatsApp (stored per account)
 // Session state di filesystem (.baileys-sessions/)
@@ -2499,7 +2378,6 @@ if (!isValid) {
 **Optional Integrations**:
 - WhatsApp (dapat pakai email fallback)
 - R2 Storage (dapat pakai local disk)
-- MixRadius (jika migrasi dari system lama)
 - Push Notifications (nice-to-have)
 - Kubernetes API (jika multi-tenant white-label)
 
@@ -2541,7 +2419,6 @@ NEXT_PUBLIC_FIREBASE_APP_ID=xxx
 4. WhatsApp accounts (optional)
 5. MikroTik routers (untuk provisioning)
 6. RADIUS server (jika terpisah)
-7. MixRadius integration (jika migrasi)
 
 ---
 
@@ -2558,7 +2435,6 @@ NEXT_PUBLIC_FIREBASE_APP_ID=xxx
 | Email SMTP | 🟡 Low | Missed notifications | Queue retry, multiple SMTP accounts |
 | R2 Storage | 🟡 Low | Upload failures | Local disk fallback, S3 migration path |
 | RADIUS | 🔴 High | Auth failures | High-availability setup, monitoring |
-| MixRadius | 🟢 Very Low | Sync delays | Optional integration, manual override |
 
 ### 13.2 Failure Scenarios
 
@@ -2620,13 +2496,13 @@ NEXT_PUBLIC_FIREBASE_APP_ID=xxx
 
 ## 14. Summary
 
-NetManager mengintegrasikan **23+ external services** dengan total **15 SDK dependencies** utama. Arsitektur menggunakan:
+NetManager mengintegrasikan **22+ external services** dengan total **15 SDK dependencies** utama. Arsitektur menggunakan:
 
 1. **Payment Gateways** (8 providers) - Strategy pattern dengan unified interface
 2. **Network Devices** (MikroTik, RADIUS, OLT) - Direct API + database access
 3. **Communication** (WhatsApp, Email, Push) - Multi-channel notification system
 4. **Cloud Services** (Firebase, R2, K8s) - Realtime updates + storage + auto-SSL
-5. **Third-Party** (MixRadius) - Legacy system sync
+5. **Third-Party** - tidak ada yang aktif (MixRadius dihapus 2026-09-17)
 6. **Location** (Leaflet, Geolib) - Mapping + geofencing
 
 **Critical Paths**:

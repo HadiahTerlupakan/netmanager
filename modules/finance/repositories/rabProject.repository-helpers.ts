@@ -27,8 +27,6 @@ export interface FullProjectCreateInput {
     name: string;
     description?: string;
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
-    mixRadiusInvestorSiteId?: string | null;
     projectedRevenue: bigint;
     projectedOpex: bigint;
     targetBasis?: RabProjectUpdateInput["targetBasis"];

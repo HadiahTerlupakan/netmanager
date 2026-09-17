@@ -106,7 +106,7 @@ export class RabApprovalReminderRouteService {
           priority: "HIGH",
           title: `Reminder Approval RAB: ${rab.name}`,
           message: `${statusText}. Mohon review RAB ${rab.name} segera agar proses lapangan tidak tertunda.`,
-          link: "/admin/integrations/mixradius/expenses",
+          link: "/admin/pengeluaran",
           userId: recipientId,
           sourceType: "RAB_APPROVAL_REMINDER",
           sourceId: rabId,

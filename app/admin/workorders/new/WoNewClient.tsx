@@ -16,7 +16,6 @@ import {
   HiClock,
   HiArchiveBoxArrowDown,
   HiPlusCircle,
-  HiCloud,
   HiWrenchScrewdriver,
   HiSignal,
   HiEye,
@@ -27,10 +26,6 @@ import { Button } from "@/components/ui/Button";
 import PageLoader from "@/components/ui/PageLoader";
 import { useApi } from "@/lib/hooks/useApi";
 import { buildWorkOrderPayload } from "./work-order-payload";
-import {
-  readMixRadiusSearchResponse,
-  type MixRadiusCustomer,
-} from "./mixradius-search";
 
 interface Pelanggan {
   id: string;
@@ -58,9 +53,6 @@ export function ClientComponent() {
   const [simpleMode, setSimpleMode] = useState(true);
   const [woType, setWoType] = useState<"CUSTOMER" | "INTERNAL">("CUSTOMER"); // Toggle Customer vs Internal
   const [isGuest, setIsGuest] = useState(true); // Default to Guest Mode
-  const [searchSource, setSearchSource] = useState<"LOCAL" | "MIXRADIUS">(
-    "MIXRADIUS",
-  );
 
   // Sites dan Departments via TanStack Query (hanya saat authenticated).
   // useApi sudah unwrap envelope { success, data } via fetchWithHandling,
@@ -90,7 +82,6 @@ export function ClientComponent() {
   // Search states
   const [searchingPelanggan, setSearchingPelanggan] = useState(false);
   const [pelangganList, setPelangganList] = useState<Pelanggan[]>([]);
-  const [mixRadiusList, setMixRadiusList] = useState<MixRadiusCustomer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
 
@@ -204,40 +195,14 @@ export function ClientComponent() {
     }
   }, [searchQuery]);
 
-  const searchMixRadius = useCallback(async () => {
-    setSearchingPelanggan(true);
-    try {
-      const response = await fetch(
-        `/api/integrations/mixradius/customers?search=${searchQuery}&searchType=all&start=0&length=10`,
-      );
-      const customers = await readMixRadiusSearchResponse(response);
-      setMixRadiusList(customers);
-    } catch (error: unknown) {
-      clientLogger.error("Error searching MixRadius:", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Gagal mencari data MixRadius. Silakan coba lagi.";
-      toast.error(message);
-      setMixRadiusList([]);
-    } finally {
-      setSearchingPelanggan(false);
-    }
-  }, [searchQuery]);
-
   useEffect(() => {
     let isMounted = true;
 
     const performSearch = async () => {
       if (searchQuery.length > 2 && isMounted) {
-        if (searchSource === "LOCAL") {
-          await searchPelanggan();
-        } else {
-          await searchMixRadius();
-        }
+        await searchPelanggan();
       } else if (isMounted) {
         setPelangganList([]);
-        setMixRadiusList([]);
       }
     };
 
@@ -247,49 +212,7 @@ export function ClientComponent() {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [searchQuery, searchSource, searchPelanggan, searchMixRadius]);
-
-  const selectMixRadiusCustomer = async (c: MixRadiusCustomer) => {
-    setSearchingPelanggan(true); // Reuse loading state
-    try {
-      // Call Sync API
-      const response = await fetch("/api/integrations/mixradius/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(c),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const syncedCustomer = result.customer;
-
-        // Success: Use Guest Mode with MixRadius Data
-        setFormData((prev) => ({
-          ...prev,
-          pelangganId: "", // No local ID relation
-          pelangganDisplay: `${c.fullname} (${c.username})`,
-          contactName: c.fullname,
-          contactPhone: syncedCustomer?.phoneNumber || c.phonenumber || "",
-          locationAddress: c.address || "",
-          description: prev.description
-            ? `${prev.description}\n[MixRadius: ${c.username}]`
-            : `[MixRadius: ${c.username}]`,
-        }));
-        setIsGuest(true);
-        toast.success("Data MixRadius berhasil dimuat (Mode Tamu)");
-      } else {
-        throw new Error("Sync failed");
-      }
-    } catch (error: unknown) {
-      const err = error as Error;
-      clientLogger.error("Sync Error:", error);
-      toast.error(err.message || "Gagal memuat data MixRadius");
-    } finally {
-      setSearchingPelanggan(false);
-      setSearchQuery("");
-      setMixRadiusList([]);
-    }
-  };
+  }, [searchQuery, searchPelanggan]);
 
   const handleGuestToggle = () => {
     if (isGuest) {
@@ -700,99 +623,38 @@ export function ClientComponent() {
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex items-center gap-2 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSearchSource("MIXRADIUS");
-                            setSearchQuery("");
-                            setPelangganList([]);
-                            setMixRadiusList([]);
-                          }}
-                          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${searchSource === "MIXRADIUS" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"}`}
-                        >
-                          <HiCloud className="w-3.5 h-3.5" />
-                          MixRadius API
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSearchSource("LOCAL");
-                            setSearchQuery("");
-                            setPelangganList([]);
-                            setMixRadiusList([]);
-                          }}
-                          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${searchSource === "LOCAL" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300" : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"}`}
-                        >
-                          Local Database
-                        </button>
-                      </div>
-
                       <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={
-                          searchSource === "LOCAL"
-                            ? "Search local customer by name or ID..."
-                            : "Search user in MixRadius..."
-                        }
+                        placeholder="Search local customer by name or ID..."
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                         autoFocus
                       />
                       {searchingPelanggan && (
-                        <div className="absolute right-4 top-12">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
                           <div className="animate-spin h-5 w-5 border-2 border-sky-500 border-t-transparent rounded-full"></div>
                         </div>
                       )}
 
-                      {(pelangganList.length > 0 ||
-                        mixRadiusList.length > 0) && (
+                      {pelangganList.length > 0 && (
                         <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                          {searchSource === "LOCAL"
-                            ? pelangganList.map((p) => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  onClick={() => selectPelanggan(p)}
-                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
-                                >
-                                  <div className="font-medium text-gray-900 dark:text-white">
-                                    {p.nama}
-                                  </div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
-                                    <span>{p.idPelanggan}</span>
-                                    <span>{p.alamat}</span>
-                                  </div>
-                                </button>
-                              ))
-                            : mixRadiusList.map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => selectMixRadiusCustomer(c)}
-                                  className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors group"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                      {c.fullname}
-                                    </div>
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                      {c.plan_name}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    <span className="font-mono text-xs text-gray-400 mr-2">
-                                      {c.member_id}
-                                    </span>
-                                    {c.address && (
-                                      <span className="truncate block">
-                                        {c.address.substring(0, 50)}...
-                                      </span>
-                                    )}
-                                  </div>
-                                </button>
-                              ))}
+                          {pelangganList.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => selectPelanggan(p)}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {p.nama}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
+                                <span>{p.idPelanggan}</span>
+                                <span>{p.alamat}</span>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>

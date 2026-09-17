@@ -20,7 +20,6 @@ function createRepository(): IMitraRepository {
     softDeleteMitra: vi.fn(),
     getFaceVerificationLogs: vi.fn(),
     countPendingWithdrawals: vi.fn(),
-    getFeePelangganStats: vi.fn(),
     saveFaceVerification: vi.fn(),
     findIdCardById: vi.fn().mockResolvedValue({
       id: "mitra-1",

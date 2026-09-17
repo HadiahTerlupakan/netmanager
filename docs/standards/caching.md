@@ -10,7 +10,7 @@
 
 - ✅ Reference data: roles, permissions, sites, departments (TTL: 1 hour)
 - ✅ Expensive queries: reports, aggregations, statistics (TTL: 5-15 minutes)
-- ✅ External API responses: MixRadius customers, MikroTik topology (TTL: 5 minutes)
+- ✅ External API responses: MikroTik topology (TTL: 5 minutes)
 - ✅ Computed results: salary calculations, invoice summaries (TTL: 10 minutes)
 - ❌ User-specific transactional data: cart, draft, pending approval
 - ❌ Real-time data: active sessions, live status, current location

@@ -14,14 +14,6 @@ type TypeFilter = "all" | "MITRA_TEKNISI" | "MITRA_SALES";
 
 const PAGE_LIMIT = 20;
 
-function extractOwnerName(o: unknown): string {
-  if (typeof o === "object" && o !== null && "name" in o) {
-    const name = (o as Record<string, unknown>).name;
-    return typeof name === "string" ? name : String(name);
-  }
-  return String(o);
-}
-
 interface MitraListResponse {
   success?: boolean;
   error?: string;
@@ -37,8 +29,6 @@ interface SitesResponse {
   sites?: Site[];
 }
 
-type OwnersResponse = string[] | { data?: string[] };
-
 async function fetchMitraList(
   url: string,
   ctx: { signal: AbortSignal },
@@ -51,17 +41,6 @@ async function fetchSites(ctx: { signal: AbortSignal }): Promise<Site[]> {
   const res = await fetch("/api/sites", { signal: ctx.signal });
   const data = (await res.json()) as SitesResponse;
   return data.sites ?? [];
-}
-
-async function fetchMixradiusOwners(ctx: {
-  signal: AbortSignal;
-}): Promise<string[]> {
-  const res = await fetch("/api/integrations/mixradius/owners", {
-    signal: ctx.signal,
-  });
-  const data = (await res.json()) as OwnersResponse;
-  const raw = Array.isArray(data) ? data : (data.data ?? []);
-  return raw.map(extractOwnerName);
 }
 
 export interface UseMitraListReturn {
@@ -77,9 +56,6 @@ export interface UseMitraListReturn {
   readonly setPage: React.Dispatch<React.SetStateAction<number>>;
   readonly totalPages: number;
   readonly total: number;
-  readonly mixradiusOwners: string[];
-  readonly ownerSearchTerm: string;
-  readonly setOwnerSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   readonly fetchMitras: () => Promise<void>;
   readonly handleRequestFaceVerification: (mitraId: string) => Promise<void>;
 }
@@ -88,7 +64,6 @@ export function useMitraList(): UseMitraListReturn {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [page, setPage] = useState(1);
-  const [ownerSearchTerm, setOwnerSearchTerm] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -130,12 +105,6 @@ export function useMitraList(): UseMitraListReturn {
   const { data: sites } = useQuery<Site[], Error>({
     queryKey: ["mitra-sites"],
     queryFn: fetchSites,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: mixradiusOwnersData } = useQuery<string[], Error>({
-    queryKey: ["mitra-mixradius-owners"],
-    queryFn: fetchMixradiusOwners,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -194,9 +163,6 @@ export function useMitraList(): UseMitraListReturn {
     setPage,
     totalPages,
     total,
-    mixradiusOwners: mixradiusOwnersData ?? [],
-    ownerSearchTerm,
-    setOwnerSearchTerm,
     fetchMitras,
     handleRequestFaceVerification,
   };

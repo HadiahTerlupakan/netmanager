@@ -183,50 +183,6 @@ export class CronRegistry {
         logger.error("[CronRegistry] Failed to start Asset Service:", err),
       );
 
-    // Start MixRadius Invoice Sync Service (Hourly at minute 0)
-    import("../modules/integrations")
-      .then(({ getMixRadiusSyncService, isMixRadiusRemoteEnabled }) => {
-        // Kedua sync ini menarik data langsung dari panel MixRadius. Selama
-        // panel itu memakai CAPTCHA, keduanya pasti gagal — menjadwalkannya
-        // hanya menghasilkan satu error tiap jam tanpa pekerjaan yang berguna.
-        if (!isMixRadiusRemoteEnabled()) {
-          logger.info(
-            "[CronRegistry] MixRadius sync dilewati — integrasi remote dinonaktifkan",
-          );
-          return;
-        }
-
-        const mixRadiusInvoiceTask = cron.schedule("0 * * * *", async () => {
-          if (!(await canRunCronJob("mixRadiusInvoiceSync", 3540))) return;
-          logger.info("[Cron] Running hourly MixRadius invoice sync");
-          await runCronTask("mixRadiusInvoiceSync", () =>
-            getMixRadiusSyncService().syncInvoices(),
-          );
-        });
-        this.tasks.set("mixRadiusInvoiceSync", mixRadiusInvoiceTask);
-        logger.info(
-          "[CronRegistry] MixRadius invoice sync cron scheduled (Hourly)",
-        );
-
-        const mixRadiusSettlementTask = cron.schedule("5 0 * * *", async () => {
-          if (!(await canRunCronJob("mixRadiusSettlementSync", 82800))) return;
-          logger.info("[Cron] Running daily MixRadius settlement sync (T-1)");
-          await runCronTask("mixRadiusSettlementSync", () =>
-            getMixRadiusSyncService().syncYesterdaySettlement(),
-          );
-        });
-        this.tasks.set("mixRadiusSettlementSync", mixRadiusSettlementTask);
-        logger.info(
-          "[CronRegistry] MixRadius settlement sync cron scheduled (00:05)",
-        );
-      })
-      .catch((err) =>
-        logger.error(
-          "[CronRegistry] Failed to start MixRadius Sync Service:",
-          err,
-        ),
-      );
-
     // Start RAB Status Evaluation Service (Daily at 01:00 AM)
     const rabStatusTask = cron.schedule("0 1 * * *", async () => {
       if (!(await canRunCronJob("rabStatusEvaluation", 82800))) return;

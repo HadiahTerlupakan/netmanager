@@ -10,14 +10,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
 
   const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:create")) ||
-    (await hasPermission("mixradius_expenses:create"));
+  const hasAccess = isSuper || (await hasPermission("expense:create"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
+      "Akses ditolak. Anda memerlukan permission: expense:create",
     );
   }
 

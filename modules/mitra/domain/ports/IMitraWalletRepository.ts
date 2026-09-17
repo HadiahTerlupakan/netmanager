@@ -1,5 +1,4 @@
 import type {
-  MitraTransactionEntity,
   MitraTypeEntity,
   MitraWalletEntity,
   WalletSummaryEntity,
@@ -67,11 +66,6 @@ export interface IMitraWalletRepository {
   getEarningsSummaryByUserId(
     params: WalletSummaryQuery,
   ): Promise<WalletSummaryEntity | null>;
-
-  /** Mengecek transaksi komisi duplikat berdasarkan referensi. */
-  findTransactionByReferenceId(
-    referenceId: string,
-  ): Promise<MitraTransactionEntity | null>;
 
   /** Menghitung transaksi earning bulanan berdasarkan keyword deskripsi. */
   countMonthlyEarningsByDescription(params: {

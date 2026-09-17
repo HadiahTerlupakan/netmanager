@@ -24,7 +24,6 @@ const expenseSchema = z.object({
   expenseCategoryId: z.string().optional(),
   description: z.string().optional(),
   siteId: z.string().optional(),
-  mixRadiusGroupId: z.string().optional(),
   categoryId: z.string().optional(),
   accountId: z.string().optional(),
   rabProjectId: z.string().optional(),
@@ -50,14 +49,11 @@ export const PUT = createHandler(
     // Allow SUPER_ADMIN to bypass permission check
     const isSuper = isSuperAdmin(user);
 
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:update")) ||
-      (await hasPermission("mixradius_expenses:update"));
+    const hasAccess = isSuper || (await hasPermission("expense:update"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+        "Akses ditolak. Anda memerlukan permission: expense:update",
       );
     }
 
@@ -68,7 +64,6 @@ export const PUT = createHandler(
       expenseCategoryId,
       description,
       siteId,
-      mixRadiusGroupId,
       categoryId,
       accountId,
       rabProjectId,
@@ -102,7 +97,6 @@ export const PUT = createHandler(
           expenseCategoryId,
           description,
           siteId,
-          mixRadiusGroupId,
           categoryId,
           accountId,
           rabProjectId,
@@ -138,14 +132,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   // Allow SUPER_ADMIN to bypass permission check
   const isSuper = isSuperAdmin(user);
 
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:delete")) ||
-    (await hasPermission("mixradius_expenses:delete"));
+  const hasAccess = isSuper || (await hasPermission("expense:delete"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete",
+      "Akses ditolak. Anda memerlukan permission: expense:delete",
     );
   }
 

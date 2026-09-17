@@ -18,9 +18,6 @@ export interface MitraFormFieldsProps {
   readonly watch: UseFormWatch<MitraFormState>;
   readonly errors: FieldErrors<MitraFormState>;
   readonly sites: readonly Site[];
-  readonly mixradiusOwners: readonly string[];
-  readonly ownerSearchTerm: string;
-  readonly setOwnerSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   readonly onFileUpload: (
     e: ChangeEvent<HTMLInputElement>,
     field: string,
@@ -35,9 +32,6 @@ export function MitraFormFields({
   watch,
   errors,
   sites,
-  mixradiusOwners,
-  ownerSearchTerm,
-  setOwnerSearchTerm,
   onFileUpload,
   isEdit,
 }: MitraFormFieldsProps) {
@@ -51,15 +45,7 @@ export function MitraFormFields({
         onFileUpload={onFileUpload}
         isEdit={isEdit}
       />
-      <MitraFormJobSection
-        register={register}
-        setValue={setValue}
-        watch={watch}
-        sites={sites}
-        mixradiusOwners={mixradiusOwners}
-        ownerSearchTerm={ownerSearchTerm}
-        setOwnerSearchTerm={setOwnerSearchTerm}
-      />
+      <MitraFormJobSection register={register} watch={watch} sites={sites} />
       <MitraFormBankGaransiSection
         register={register}
         watch={watch}

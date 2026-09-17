@@ -19,9 +19,6 @@ export const initialFormState: MitraFormState = {
   slaGaransiJam: "",
   penaltyPsb: "",
   penaltyMaintenance: "",
-  mitraRateFeePelanggan: "",
-  enableFeePelanggan: false,
-  mixradiusOwnerNames: [],
   nik: "",
   tempatLahir: "",
   tanggalLahir: "",
@@ -53,12 +50,6 @@ export function buildAddPayload(form: MitraFormState) {
     slaGaransiJam: optionalInt(form.slaGaransiJam),
     penaltyPsb: optionalFloat(form.penaltyPsb),
     penaltyMaintenance: optionalFloat(form.penaltyMaintenance),
-    mitraRateFeePelanggan: optionalFloat(form.mitraRateFeePelanggan),
-    enableFeePelanggan: form.enableFeePelanggan,
-    mixradiusOwnerNames:
-      form.mixradiusOwnerNames.length > 0
-        ? form.mixradiusOwnerNames
-        : undefined,
     nik: form.nik || undefined,
     tempatLahir: form.tempatLahir || undefined,
     tanggalLahir: form.tanggalLahir || undefined,
@@ -92,9 +83,6 @@ export function buildEditPayload(form: MitraFormState) {
     slaGaransiJam: optionalInt(form.slaGaransiJam),
     penaltyPsb: optionalFloat(form.penaltyPsb),
     penaltyMaintenance: optionalFloat(form.penaltyMaintenance),
-    mitraRateFeePelanggan: optionalFloat(form.mitraRateFeePelanggan),
-    enableFeePelanggan: form.enableFeePelanggan,
-    mixradiusOwnerNames: form.mixradiusOwnerNames,
     nik: form.nik || undefined,
     tempatLahir: form.tempatLahir || undefined,
     tanggalLahir: form.tanggalLahir || undefined,
@@ -128,9 +116,6 @@ export function mitraToFormState(mitra: Mitra): MitraFormState {
     slaGaransiJam: mitra.slaGaransiJam?.toString() || "",
     penaltyPsb: mitra.penaltyPsb?.toString() || "",
     penaltyMaintenance: mitra.penaltyMaintenance?.toString() || "",
-    mitraRateFeePelanggan: mitra.mitraRateFeePelanggan?.toString() || "",
-    enableFeePelanggan: mitra.enableFeePelanggan || false,
-    mixradiusOwnerNames: mitra.mixradiusOwnerNames ?? [],
     nik: mitra.nik || "",
     tempatLahir: mitra.tempatLahir || "",
     tanggalLahir: mitra.tanggalLahir

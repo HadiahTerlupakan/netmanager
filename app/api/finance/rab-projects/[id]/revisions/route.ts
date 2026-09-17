@@ -19,14 +19,11 @@ const createRevisionSchema = z.object({
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
-  const hasAccess =
-    isSuperAdmin(user) ||
-    (await hasPermission("expense:read")) ||
-    (await hasPermission("mixradius_expenses:read"));
+  const hasAccess = isSuperAdmin(user) || (await hasPermission("expense:read"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
+      "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
 
@@ -38,13 +35,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   const hasAccess =
-    isSuperAdmin(user) ||
-    (await hasPermission("expense:update")) ||
-    (await hasPermission("mixradius_expenses:update"));
+    isSuperAdmin(user) || (await hasPermission("expense:update"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+      "Akses ditolak. Anda memerlukan permission: expense:update",
     );
   }
 

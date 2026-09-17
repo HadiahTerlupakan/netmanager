@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildRABPdfTrackingTable,
   getRABPdfDocumentOptions,
-} from "@/app/admin/integrations/mixradius/expenses/rab-pdf";
-import type { RABProject } from "@/app/admin/integrations/mixradius/expenses/rabTypes";
+} from "@/app/admin/pengeluaran/rab-pdf";
+import type { RABProject } from "@/app/admin/pengeluaran/rabTypes";
 
 const project: RABProject = {
   id: "rab-pdf-revenue-split",

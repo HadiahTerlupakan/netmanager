@@ -12,7 +12,7 @@
 
 ## Mocking Strategy
 
-- Mock external API (MixRadius, MikroTik, Firebase)
+- Mock external API (MikroTik, Firebase, payment gateway)
 - Mock notification services (email, WhatsApp, push notification)
 - Real database untuk integration test (via `./scripts/setup-test-db.sh`)
 - Real Prisma client untuk repository test

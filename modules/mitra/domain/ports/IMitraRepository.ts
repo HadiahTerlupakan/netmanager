@@ -26,15 +26,6 @@ export interface UpdateMitraRecord {
   payload: UpdateMitraDTO;
 }
 
-export interface FeePelangganStatsQuery {
-  mitraId: string;
-  ownerNames: string[];
-  feeRate: number;
-  monthStart: Date;
-  today: Date;
-  tenantId?: string;
-}
-
 export interface SaveFaceVerificationRecord {
   mitraId: string;
   photoUrl: string;
@@ -99,14 +90,6 @@ export interface IMitraRepository {
 
   /** Mengambil jumlah penarikan pending milik mitra. */
   countPendingWithdrawals(mitraId: string, tenantId?: string): Promise<number>;
-
-  /** Mengambil statistik fee pelanggan bulanan mitra sales. */
-  getFeePelangganStats(query: FeePelangganStatsQuery): Promise<{
-    activeCustomers: number;
-    totalFeePelanggan: number;
-    remainingFeePelanggan: number;
-    unpaidCustomersCount: number;
-  }>;
 
   /** Menyimpan hasil verifikasi wajah mitra. */
   saveFaceVerification(record: SaveFaceVerificationRecord): Promise<void>;

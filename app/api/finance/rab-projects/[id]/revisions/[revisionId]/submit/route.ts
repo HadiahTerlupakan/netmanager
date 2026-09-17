@@ -20,13 +20,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   const hasAccess =
-    isSuperAdmin(user) ||
-    (await hasPermission("expense:update")) ||
-    (await hasPermission("mixradius_expenses:update"));
+    isSuperAdmin(user) || (await hasPermission("expense:update"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+      "Akses ditolak. Anda memerlukan permission: expense:update",
     );
   }
 

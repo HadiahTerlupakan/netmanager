@@ -167,3 +167,22 @@
     baru implementasikan — lalu hapus tool-nya.
   - Kalau ada kemampuan yang benar-benar hilang tanpa padanan (di sini: mode recovery Jenkins),
     katakan terus terang dan dokumentasikan jalur penggantinya, jangan diam-diam.
+
+## Menghapus fitur berdasarkan nama: cari lewat PATH juga, bukan hanya isi berkas
+
+- **Konteks:** Menghapus MixRadius. `git grep -il mixradius` menemukan 305 berkas, tetapi melewatkan
+  35 berkas yang hanya cocok lewat path — termasuk 4 route approval RAB di
+  `app/api/integrations/mixradius/expenses/rab/**` yang isinya murni `modules/finance` dan tidak
+  memuat kata "mixradius" sama sekali. Seluruh UI RAB/pengeluaran juga menumpang di path MixRadius.
+- **Why:** Menghapus folder berdasarkan nama path akan ikut membuang fitur lokal yang masih hidup
+  (di sini: approval, revisi, dan pengeluaran RAB). Sebaliknya grep isi saja tidak pernah melihat
+  berkas-berkas itu, sehingga keberadaannya tidak tercatat di rencana.
+- **How to apply:**
+  - Inventaris selalu dua jalur: `git grep -il <nama>` **dan** `git ls-files | grep -i <nama>`,
+    lalu bandingkan berkas yang hanya cocok lewat path.
+  - Untuk tiap berkas di path fitur, tanyakan "apakah ini bergantung pada fitur itu, atau hanya
+    menumpang?" Yang menumpang dipindah ke modul pemiliknya, bukan dihapus.
+  - Sapuan akhir pakai `git grep --untracked`: berkas hasil pindahan belum di-track, sehingga
+    `git grep` biasa melewatkannya dan menghasilkan "bersih" palsu.
+  - Sebelum mencabut fallback permission, periksa arah alias (`resolvePermissionAliases` hanya
+    satu arah) dan data role nyata; role yang hanya memegang resource lama perlu migration grant.

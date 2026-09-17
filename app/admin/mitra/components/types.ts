@@ -34,10 +34,7 @@ export interface Mitra {
   fotoSim: string | null;
   fotoKk: string | null;
   requiresFaceVerification: boolean;
-  enableFeePelanggan?: boolean;
   targetHarian?: number;
-  mitraRateFeePelanggan?: number;
-  mixradiusOwnerNames?: string[];
   sites: { name: string } | null;
   role: { name: string } | null;
   mitraWallet: {
@@ -83,9 +80,6 @@ export interface MitraFormState {
   slaGaransiJam: string;
   penaltyPsb: string;
   penaltyMaintenance: string;
-  mitraRateFeePelanggan: string;
-  enableFeePelanggan: boolean;
-  mixradiusOwnerNames: string[];
   nik: string;
   tempatLahir: string;
   tanggalLahir: string;

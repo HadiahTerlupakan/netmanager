@@ -20,7 +20,7 @@ export interface CreateWorkOrderInput {
   scheduledDate?: Date | string;
   ticketId?: string;
   isInternal?: boolean;
-  // Denormalized contact — diisi saat WO dibuat dari MixRadius/guest (tanpa pelangganId lokal)
+  // Denormalized contact — diisi saat WO dibuat dalam mode guest (tanpa pelangganId lokal)
   contactName?: string;
   contactPhone?: string;
   locationAddress?: string;

@@ -63,13 +63,7 @@ describe.skipIf(!RUN_HTTP_INTEGRATION_TESTS)(
     });
 
     describe("Protected Endpoints - 401 Unauthorized", () => {
-      const protectedEndpoints = [
-        { method: "GET", path: "/api/payments" },
-        { method: "GET", path: "/api/integrations/mixradius/customers" },
-        { method: "GET", path: "/api/integrations/mixradius/sessions" },
-        { method: "GET", path: "/api/integrations/mixradius/owners" },
-        { method: "GET", path: "/api/integrations/mixradius/groups" },
-      ];
+      const protectedEndpoints = [{ method: "GET", path: "/api/payments" }];
 
       protectedEndpoints.forEach(({ method, path }) => {
         it(`${method} ${path} should return 401 with standard error format`, async () => {

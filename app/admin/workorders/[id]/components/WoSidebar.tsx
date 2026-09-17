@@ -9,7 +9,10 @@ import {
   HiCheckCircle,
 } from "react-icons/hi2";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
-import { getWorkOrderCustomerInfo } from "@/modules/work-order/client";
+import {
+  getWorkOrderCustomerInfo,
+  type WorkOrderCustomerInfo,
+} from "@/modules/work-order/client";
 import type { WorkOrderDetail, WorkOrderAttachment } from "../types";
 
 interface WoSidebarProps {
@@ -22,18 +25,13 @@ interface WoSidebarProps {
 }
 
 const CUSTOMER_SOURCE_BADGE: Record<
-  string,
+  WorkOrderCustomerInfo["source"],
   { label: string; className: string }
 > = {
   pelanggan: {
     label: "Lokal",
     className:
       "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-  },
-  mixradius: {
-    label: "MixRadius",
-    className:
-      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300",
   },
   internal: {
     label: "Internal",
@@ -82,11 +80,7 @@ export function WoSidebar({
           </div>
           {customerInfo.identifier && (
             <div>
-              <p className="text-gray-600 dark:text-gray-400">
-                {customerInfo.source === "mixradius"
-                  ? "Username MixRadius"
-                  : "ID"}
-              </p>
+              <p className="text-gray-600 dark:text-gray-400">ID</p>
               <p className="font-medium text-gray-900 dark:text-white">
                 {customerInfo.identifier}
               </p>

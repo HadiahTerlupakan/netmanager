@@ -10,14 +10,11 @@ const rabProjectRouteService = new RabProjectRouteService();
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
-  const hasAccess =
-    isSuperAdmin(user) ||
-    (await hasPermission("expense:read")) ||
-    (await hasPermission("mixradius_expenses:read"));
+  const hasAccess = isSuperAdmin(user) || (await hasPermission("expense:read"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
+      "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
 

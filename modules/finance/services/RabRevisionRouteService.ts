@@ -30,13 +30,11 @@ export class RabRevisionRouteService {
   /** Memastikan user memiliki akses untuk melihat atau mengubah revisi RAB. */
   async assertRevisionAccess(user: RevisionAccessUser) {
     const hasAccess =
-      isSuperAdmin(user) ||
-      (await hasPermission("expense:update")) ||
-      (await hasPermission("mixradius_expenses:update"));
+      isSuperAdmin(user) || (await hasPermission("expense:update"));
 
     if (!hasAccess) {
       throw createRouteServiceError(
-        "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+        "Akses ditolak. Anda memerlukan permission: expense:update",
         403,
       );
     }

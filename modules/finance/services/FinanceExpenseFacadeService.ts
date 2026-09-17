@@ -22,7 +22,6 @@ export class FinanceExpenseFacadeService {
     startDate?: Date;
     endDate?: Date;
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
@@ -52,7 +51,6 @@ export class FinanceExpenseFacadeService {
       expenseCategoryId?: string;
       description?: string;
       siteId?: string;
-      mixRadiusGroupId?: string;
       rabProjectId?: string;
       rabItemId?: string;
       invoiceNumber?: string;
@@ -72,7 +70,6 @@ export class FinanceExpenseFacadeService {
       description: data.description,
       userId,
       siteId: data.siteId,
-      mixRadiusGroupId: data.mixRadiusGroupId,
       rabProjectId: data.rabProjectId,
       rabItemId: data.rabItemId,
       invoiceNumber: data.invoiceNumber,
@@ -132,7 +129,6 @@ export class FinanceExpenseFacadeService {
     startDate?: Date;
     endDate?: Date;
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
@@ -155,7 +151,6 @@ export class FinanceExpenseFacadeService {
     params: {
       restrictedSiteId?: string | null;
       scope?: string | null;
-      mixRadiusGroupId?: string | null;
       siteId?: string | null;
     },
   ) {
@@ -165,11 +160,8 @@ export class FinanceExpenseFacadeService {
     }
     if (params.scope === "general") {
       where.siteId = null;
-      where.mixRadiusGroupId = null;
       return;
     }
-    if (params.mixRadiusGroupId)
-      where.mixRadiusGroupId = params.mixRadiusGroupId;
-    if (!params.mixRadiusGroupId && params.siteId) where.siteId = params.siteId;
+    if (params.siteId) where.siteId = params.siteId;
   }
 }

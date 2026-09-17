@@ -65,9 +65,6 @@ export function toMitraEntity(
     | "mitraRateWoPsb"
     | "mitraRateWoMaintenance"
     | "mitraRateCanvasing"
-    | "mitraRateFeePelanggan"
-    | "enableFeePelanggan"
-    | "mixradiusOwnerNames"
     | "bankName"
     | "bankAccountNo"
     | "bankAccountName"
@@ -120,9 +117,6 @@ export function toMitraEntity(
     mitraRateWoPsb: mitra.mitraRateWoPsb,
     mitraRateWoMaintenance: mitra.mitraRateWoMaintenance,
     mitraRateCanvasing: mitra.mitraRateCanvasing,
-    mitraRateFeePelanggan: mitra.mitraRateFeePelanggan,
-    enableFeePelanggan: mitra.enableFeePelanggan ?? false,
-    mixradiusOwnerNames: mitra.mixradiusOwnerNames,
     bankName: mitra.bankName,
     bankAccountNo: mitra.bankAccountNo,
     bankAccountName: mitra.bankAccountName,

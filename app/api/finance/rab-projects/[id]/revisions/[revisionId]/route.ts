@@ -52,7 +52,7 @@ const updateRevisionSchema = z.object({
 const rabRevisionRouteService = new RabRevisionRouteService();
 
 export const GET = createHandler(
-  { auth: true, permissions: ["expense:read", "mixradius_expenses:read"] },
+  { auth: true, permissions: ["expense:read"] },
   async (_req, ctx) => {
     const user = ctx.session!.user;
 
@@ -80,10 +80,7 @@ export const GET = createHandler(
 );
 
 export const PATCH = createHandler(
-  {
-    auth: true,
-    permissions: ["expense:update", "mixradius_expenses:update"],
-  },
+  { auth: true, permissions: ["expense:update"] },
   async (req, ctx) => {
     const user = ctx.session!.user;
     const payload = updateRevisionSchema.parse(await req.json());

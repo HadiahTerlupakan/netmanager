@@ -26,9 +26,6 @@ export interface MitraEntity {
   mitraRateWoPsb: number | null;
   mitraRateWoMaintenance: number | null;
   mitraRateCanvasing: number | null;
-  mitraRateFeePelanggan: number | null;
-  enableFeePelanggan: boolean;
-  mixradiusOwnerNames: string[];
   bankName: string | null;
   bankAccountNo: string | null;
   bankAccountName: string | null;

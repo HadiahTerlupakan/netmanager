@@ -139,15 +139,11 @@ export default function InvestorProjectDetail() {
             <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold truncate uppercase tracking-tight">
               {String(project.siteName || "Lokasi Global")}
             </p>
-            {project.billingSource === "MIXRADIUS" ? (
-              <span className="text-[8px] font-black text-indigo-500 uppercase">
-                MixRadius
-              </span>
-            ) : project.billingSource === "INTERNAL" ? (
+            {project.billingSource === "INTERNAL" && (
               <span className="text-[8px] font-black text-blue-500 uppercase">
                 Internal
               </span>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

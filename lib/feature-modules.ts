@@ -182,12 +182,6 @@ export const FEATURE_MODULES = [
     group: "lainnya",
   },
   {
-    code: "integrations",
-    label: "Integrasi Eksternal",
-    description: "MixRadius, FreeRADIUS, integrasi pihak ketiga.",
-    group: "lainnya",
-  },
-  {
     code: "app-update",
     label: "App Update Mobile",
     description: "Manajemen rilis & update aplikasi mobile karyawan.",

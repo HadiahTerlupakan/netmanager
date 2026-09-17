@@ -83,8 +83,8 @@ describe("rab project actuals route", () => {
   });
 
   it("requires update permission because actuals mutate an existing RAB", async () => {
-    mockHasPermission.mockImplementation(async (permission: string) =>
-      ["expense:update", "mixradius_expenses:update"].includes(permission),
+    mockHasPermission.mockImplementation(
+      async (permission: string) => permission === "expense:update",
     );
 
     const response = await POST(
@@ -105,8 +105,8 @@ describe("rab project actuals route", () => {
   });
 
   it("rejects create-only users from mutating actuals", async () => {
-    mockHasPermission.mockImplementation(async (permission: string) =>
-      ["expense:create", "mixradius_expenses:create"].includes(permission),
+    mockHasPermission.mockImplementation(
+      async (permission: string) => permission === "expense:create",
     );
 
     const response = await POST(

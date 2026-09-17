@@ -1,4 +1,4 @@
-import { prisma, prismaBilling } from "@/modules/database";
+import { prisma } from "@/modules/database";
 import { type Prisma, type Status } from "@prisma/client";
 
 const PROJECT_SUMMARY_INCLUDE = {
@@ -84,21 +84,5 @@ export class InvestorPortalRepository {
       where: { siteId: { in: siteIds } },
       select: INTERNAL_CUSTOMER_SELECT,
     });
-  }
-
-  /** Mengambil site investor MixRadius dari billing database. */
-  async findMixRadiusInvestorSites(ids: string[]) {
-    if (ids.length === 0) {
-      return [];
-    }
-
-    return prismaBilling.mixRadiusInvestorSite.findMany({
-      where: { id: { in: ids } },
-    });
-  }
-
-  /** Mengambil satu site investor MixRadius dari billing database. */
-  async findMixRadiusInvestorSiteById(id: string) {
-    return prismaBilling.mixRadiusInvestorSite.findUnique({ where: { id } });
   }
 }

@@ -1,5 +1,82 @@
 # TODO
 
+## Hapus integrasi MixRadius (2026-09-17)
+
+### Konteks
+Panel MixRadius memakai CAPTCHA, remote sudah dimatikan sejak 2026-09-13 (`isMixRadiusRemoteEnabled`).
+User minta seluruh MixRadius dihapus dari aplikasi. Cakupan awal: 305 file / ~5.770 baris di server,
+13 file di mobile.
+
+### Keputusan
+- [Asumsi] Yang dihapus = semua yang bergantung pada MixRadius (panel remote, tabel lokal `mix_radius_*`,
+  field `mixRadius*`). Fitur lokal yang hanya menumpang path/nama MixRadius **dipertahankan dan dipindah**:
+  RAB, pengeluaran harian, dan COA pengeluaran (`app/admin/integrations/mixradius/expenses/**`), serta
+  4 route approval RAB di `app/api/integrations/mixradius/expenses/rab/**`.
+- UI RAB/Pengeluaran pindah ke `/admin/pengeluaran`, menu `FINANCE.EXPENSE` (gate `expense:read`).
+  Sengaja di luar `/admin/finance/**`: layout itu mewajibkan `finance:read`, dan data lokal membuktikan
+  ada role (Chief Financial Officer) yang memegang `mixradius_expenses:*` tanpa `finance:read`.
+  Halaman legacy `/admin/finance/pengeluaran` (duplikat lebih lemah, kolom akun selalu "-") dihapus + redirect.
+- 4 route approval RAB pindah ke `/api/finance/rab-projects/[id]/{approve,reminder}` dan
+  `/api/finance/rab-projects/[id]/revisions/[revisionId]/{approve,reject}`.
+- Alias `mixradius_expenses → expense` hanya satu arah. Diganti migration data non-destruktif yang
+  memberi `expense:<aksi>` ke setiap role pemegang `mixradius_expenses:<aksi>`; alias & fallback dihapus.
+- Skema DB **tidak diubah** di tahap ini. Drop tabel/kolom = destruktif → tahap 2, butuh persetujuan user.
+- Fee pelanggan mitra (toggle, tarif, owner) seluruh sumber datanya MixRadius → dihapus dari kode.
+  Key API mobile dipertahankan dengan nilai netral supaya build lama tidak rusak.
+- Mobile: layar Isolir dihapus; mode Customer di Request WO diganti input kontak manual
+  (server sudah menerima `contactName/contactPhone/locationAddress`).
+- Proyek RAB investor: jalur MixRadius dihapus; proyek ber-`siteId` memakai metrik pelanggan internal.
+
+### Tahapan
+- [x] 1. Migration data grant `expense:*` untuk role legacy `mixradius_expenses:*` (uji di DB lokal)
+- [x] 2. Relokasi UI RAB/Pengeluaran + 4 route approval + bedah `modules/finance` & `app/api/finance`
+- [x] 3. Bedah portal investor (`modules/investor`, `app/investor`)
+- [x] 4. Bedah mitra (owner MixRadius, fee pelanggan, sync-commissions)
+- [x] 5. Bedah work order (sumber pelanggan MixRadius) + teks form router MikroTik
+- [x] 6. Mobile: hapus Isolir, ganti pencarian pelanggan MixRadius di Request WO
+- [x] 7. Hapus modul/route/halaman/komponen/tes MixRadius; bedah lib RBAC, menu, cron, api-response;
+      lepas dependensi `tough-cookie`, `axios-cookiejar-support`; redirect URL lama
+- [x] 8. Update test arsitektur (module-public-api, financial-route-authorization)
+- [x] 9. Verifikasi: typecheck, lint, seluruh test, build; grep sisa referensi
+- [x] 10. Docs living + `docs/CHANGELOG.md`
+
+### Baseline sebelum perubahan
+- typecheck: bersih · lint: 0 error / 12 warning · test: 700 file, 4.248 lulus, 7 skip
+
+### Review (2026-09-17)
+- **Hasil verifikasi server**: `npm run typecheck` bersih · lint 0 error / 12 warning (identik baseline) ·
+  test 684 file, 4.049 lulus, 3 skip, 0 gagal (−20 file tes khusus MixRadius, +4 file tes baru) ·
+  `npm run build` exit 0, daftar route memuat `/admin/pengeluaran` + 4 route approval RAB baru, 0 route MixRadius.
+- **Smoke test runtime** (`next start` build produksi): URL lama → 307 `/admin/pengeluaran`; 4 route RAB → 401;
+  endpoint MixRadius → 404; market-price tetap hidup (401).
+- **Mobile**: `tsc` 0 error (sama baseline) · jest 414 lulus / 0 gagal · tanpa perubahan native → cukup OTA.
+- **Migration** `20260916201628_grant_expense_permissions_to_legacy_mixradius_expense_roles` diuji di DB lokal
+  (rollback: jalur tautan, jalur pembuatan row, idempoten) lalu diterapkan via `migrate deploy`.
+- **Sisa referensi yang disengaja**: model/kolom di `prisma/*.prisma` (tahap 2), redirect URL lama di
+  `next.config.ts`, catatan penghapusan di docs living.
+- **Bug lama yang diperbaiki karena bersinggungan**: salin RAB tanpa site (tes merah → hijau).
+- **Temuan di luar scope (belum dikerjakan)**: dropdown site pengeluaran butuh `site:read`/`users:create`
+  (`/api/admin/sites`); GET revisi RAB berizin `expense:read` tapi service menuntut `expense:update`;
+  duplikasi tipe lokal di `ExpensesClient.tsx`.
+- **Mobile sudah di-commit & push** (oleh sesi mobile-netmanager-44 atas permintaan user): commit terpisah
+  `65bf53c` berisi tepat 16 berkas pekerjaan ini, di-push ke `gitea/main` (`19af0c0`) → workflow OTA terpicu.
+  Diverifikasi: working tree mobile bersih.
+- **Lanjutan atas persetujuan user (agen finance)**: dropdown/filter site Pengeluaran kini dari
+  `/api/sites?resource=expense` (role finance tanpa `site:read` tidak lagi kosong; site nonaktif ikut tampil),
+  dan skrip `scripts/backfill-site-from-mixradius-groups.ts` (dry-run default, `--apply`) — lokal 0 row terisi,
+  3 Expense "Pejaten" + RAB "JAKARTA" perlu dipilih site manual.
+- **Verifikasi ulang setelah lanjutan**: typecheck bersih · lint 0 error / 12 warning · test 685 file, 4.053 lulus,
+  0 gagal. Build produksi tidak diulang (perubahan terakhir hanya URL fetch di client + skrip + tes).
+- **Server belum di-commit.**
+
+### Tahap 2 — BELUM dijalankan (destruktif, tunggu persetujuan user)
+- Drop tabel billing `mix_radius_{invoices,customers,owner_groups,investor_sites,configs}` (configs berisi kredensial panel)
+- Drop kolom `Expense.mixRadiusGroupId`, `RabProject.mixRadiusGroupId`, `RabProject.mixRadiusInvestorSiteId`,
+  `Pelanggan.mixRadiusId`, `Mitra.{mixradiusOwnerNames,enableFeePelanggan,mitraRateFeePelanggan}`
+- Hapus row `Permission` `mixradius*`/`m_mixradius`, `Settings.key='mixradius_fees'`, `TenantFeatureFlag.feature='integrations'`
+- WAJIB sebelum drop: jalankan `node node_modules/.bin/tsx scripts/backfill-site-from-mixradius-groups.ts`
+  (dry-run) lalu `--apply` di produksi; hapus skrip itu bersama kolomnya
+
 ## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)
 
 ### Masalah yang diselesaikan

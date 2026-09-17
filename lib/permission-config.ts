@@ -80,16 +80,6 @@ export const PERMISSION_GROUPS = {
     "backup_database",
   ],
   SYSTEM_LOG: ["system_log", "login", "activity"],
-  INTEGRATION: [
-    "mixradius",
-    "mixradius_isolir",
-    "mixradius_sites",
-    "mixradius_investor_sites",
-    "mixradius_accounts",
-    "mixradius_income",
-    "mixradius_expenses",
-    "mixradius_profit_loss",
-  ],
   SUPPORT: ["support"],
   ANNOUNCEMENT: ["announcement"],
   MARKETING: ["marketing", "coupon", "sales_dashboard", "sales", "canvasing"],
@@ -130,7 +120,7 @@ export const PERMISSION_GROUPS_MOBILE = {
   KEHADIRAN: ["m_absensi", "m_lembur", "m_izin", "m_holidays"],
   MARKETING: ["m_canvasing"],
   KOMUNIKASI: ["m_chat"],
-  NETWORK: ["m_topology", "m_mixradius"],
+  NETWORK: ["m_topology"],
 } as const;
 
 /**
@@ -228,9 +218,6 @@ export const GRANULAR_PERMISSIONS = {
   SALARY_APPROVE: "salary:approve", // Final approval for salary
   SALARY_MARK_PAID: "salary:mark_paid", // Mark salary as paid
   SALARY_VIEW_ALL: "salary:view_all", // View all salary records (bypass privacy)
-
-  // MixRadius sensitive operations
-  MIXRADIUS_SYNC: "mixradius:calculate", // Manual sync MixRadius data to local DB
 
   // Accel-PPP sensitive operations
   ACCEL_PPP_SESSION_KICK: "accel_ppp:session:kick", // Putuskan sesi PPPoE aktif

@@ -95,8 +95,6 @@ describe("rab project create route", () => {
           name: "RAB Homepass",
           description: "",
           status: "DRAFT",
-          mixRadiusGroupId: null,
-          mixRadiusInvestorSiteId: null,
           siteId: null,
           projectedRevenue: 30_000_000,
           projectedOpex: 5_000_000,

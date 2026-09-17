@@ -19,8 +19,6 @@ type RabProjectPayload = {
   name: string;
   description?: string;
   siteId?: string | null;
-  mixRadiusGroupId?: string | null;
-  mixRadiusInvestorSiteId?: string | null;
   projectedRevenue: bigint;
   projectedOpex: bigint;
   targetBasis: RabTargetBasis;
@@ -78,8 +76,6 @@ export class FinanceRabFacadeService {
   /** Get RAB projects with nested data and serialization. */
   async getRabProjects(params: {
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
-    mixRadiusInvestorSiteId?: string | null;
     status?: string | null;
   }) {
     const projects = await this.rabProjectRepo.findManyWithDetails(
@@ -105,17 +101,10 @@ export class FinanceRabFacadeService {
 
   private buildProjectWhere(params: {
     siteId?: string | null;
-    mixRadiusGroupId?: string | null;
-    mixRadiusInvestorSiteId?: string | null;
     status?: string | null;
   }): Prisma.RabProjectWhereInput {
     const where: Prisma.RabProjectWhereInput = {};
     if (params.siteId) where.siteId = params.siteId;
-    if (params.mixRadiusGroupId)
-      where.mixRadiusGroupId = params.mixRadiusGroupId;
-    if (params.mixRadiusInvestorSiteId) {
-      where.mixRadiusInvestorSiteId = params.mixRadiusInvestorSiteId;
-    }
     if (params.status)
       where.status = params.status as Prisma.RabProjectWhereInput["status"];
     return where;
@@ -126,8 +115,6 @@ export class FinanceRabFacadeService {
       name: data.name,
       description: data.description,
       siteId: data.siteId,
-      mixRadiusGroupId: data.mixRadiusGroupId,
-      mixRadiusInvestorSiteId: data.mixRadiusInvestorSiteId,
       projectedRevenue: data.projectedRevenue,
       projectedOpex: data.projectedOpex,
       targetBasis: data.targetBasis,

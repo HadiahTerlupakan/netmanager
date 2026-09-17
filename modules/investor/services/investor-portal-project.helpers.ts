@@ -2,22 +2,18 @@ import { InvestorPortalRepository } from "../repositories/InvestorPortalReposito
 import {
   calculatePaymentRatio,
   collectInternalSiteIds,
-  collectMixRadiusOwners,
-  collectMixRadiusSiteIds,
-  createInvestorSiteMap,
-  fetchMixRadiusCustomers,
   summarizeInternalCustomersBySite,
-  summarizeMixRadiusCustomers,
   type CustomerMetrics,
   type InvestorPortalInternalCustomers,
 } from "./investor-portal-customer-metrics.helpers";
-import type { MixRadiusCustomer } from "@/modules/integrations";
 
 const INTERNAL_BILLING_SOURCE = "INTERNAL";
-const MIXRADIUS_BILLING_SOURCE = "MIXRADIUS";
 const NONE_BILLING_SOURCE = "NONE";
 const ZERO_NUMBER = 0;
-const PROJECT_LOG_PREFIX = "[INVESTOR_PROJECTS]";
+
+type ProjectBillingSource =
+  | typeof INTERNAL_BILLING_SOURCE
+  | typeof NONE_BILLING_SOURCE;
 
 type ProjectListItems = Awaited<
   ReturnType<InvestorPortalRepository["findProjectList"]>
@@ -25,10 +21,6 @@ type ProjectListItems = Awaited<
 type ProjectListItem = ProjectListItems[number];
 type ProjectDetailItem = NonNullable<
   Awaited<ReturnType<InvestorPortalRepository["findProjectDetail"]>>
->;
-
-type InvestorSite = Awaited<
-  ReturnType<InvestorPortalRepository["findMixRadiusInvestorSiteById"]>
 >;
 
 type BillingMetrics = {
@@ -40,8 +32,6 @@ type BillingMetrics = {
 
 type ProjectSnapshot = {
   internalCustomers: InvestorPortalInternalCustomers;
-  mixRadiusCustomers: MixRadiusCustomer[];
-  investorSiteMap: Map<string, NonNullable<InvestorSite>>;
 };
 
 type ProjectListResponseItem = {
@@ -65,8 +55,8 @@ type ProjectDetailResponse = {
   name: string;
   description: string | null;
   status: string;
-  siteName: string | null | undefined;
-  billingSource: string;
+  siteName: string | undefined;
+  billingSource: ProjectBillingSource;
   investmentAmount: string;
   profitSharePercent: number;
   projectedRevenue: string;
@@ -91,28 +81,19 @@ type ProjectDetailResponse = {
   };
 };
 
+/** Memuat pelanggan internal dari seluruh site proyek investor. */
 export async function buildProjectSnapshot(
   repository: InvestorPortalRepository,
   projects: ProjectListItems,
 ): Promise<ProjectSnapshot> {
   const siteIds = collectInternalSiteIds(projects);
-  const mixRadiusSiteIds = collectMixRadiusSiteIds(projects);
-  const [internalCustomers, investorSites] = await Promise.all([
-    repository.findInternalCustomers(siteIds),
-    repository.findMixRadiusInvestorSites(mixRadiusSiteIds),
-  ]);
-  const owners = collectMixRadiusOwners(investorSites);
 
   return {
-    internalCustomers,
-    mixRadiusCustomers: await fetchMixRadiusCustomers(
-      owners,
-      PROJECT_LOG_PREFIX,
-    ),
-    investorSiteMap: createInvestorSiteMap(investorSites),
+    internalCustomers: await repository.findInternalCustomers(siteIds),
   };
 }
 
+/** Memetakan proyek investor ke item list beserta revenue berjalan. */
 export function toProjectListItem(
   item: ProjectListItem,
   snapshot: ProjectSnapshot,
@@ -137,28 +118,23 @@ export function toProjectListItem(
   };
 }
 
+/** Menghitung metrik billing proyek; proyek tanpa site mendapat metrik kosong. */
 export async function buildProjectBillingMetrics(
   repository: InvestorPortalRepository,
   project: ProjectDetailItem,
-  mixRadiusInvestorSite: InvestorSite,
 ): Promise<BillingMetrics> {
-  if (
-    project.rabProject.siteId &&
-    !project.rabProject.mixRadiusInvestorSiteId
-  ) {
-    return buildInternalBillingMetrics(repository, project.rabProject.siteId);
-  }
+  const siteId = project.rabProject.siteId;
 
-  if (!mixRadiusInvestorSite) {
+  if (!siteId) {
     return createEmptyBillingMetrics();
   }
 
-  return buildMixRadiusBillingMetrics(mixRadiusInvestorSite.owners || []);
+  return buildInternalBillingMetrics(repository, siteId);
 }
 
+/** Memetakan proyek investor ke response detail beserta metrik billing. */
 export function toProjectDetail(
   project: ProjectDetailItem,
-  mixRadiusInvestorSite: InvestorSite,
   billingMetrics: BillingMetrics,
 ): ProjectDetailResponse {
   const rabProject = project.rabProject;
@@ -168,13 +144,8 @@ export function toProjectDetail(
     name: rabProject.name,
     description: rabProject.description,
     status: rabProject.status,
-    siteName: rabProject.mixRadiusInvestorSiteId
-      ? mixRadiusInvestorSite?.name
-      : rabProject.site?.name,
-    billingSource: getBillingSource(
-      rabProject.siteId,
-      rabProject.mixRadiusInvestorSiteId,
-    ),
+    siteName: rabProject.site?.name,
+    billingSource: getBillingSource(rabProject.siteId),
     investmentAmount: project.investmentAmount.toString(),
     profitSharePercent: project.profitSharePercent,
     projectedRevenue: rabProject.projectedRevenue.toString(),
@@ -224,21 +195,17 @@ function getRunningRevenue(
   snapshot: ProjectSnapshot,
   now: Date,
 ): number {
-  if (item.rabProject.siteId && !item.rabProject.mixRadiusInvestorSiteId) {
-    return summarizeInternalCustomersBySite(
-      snapshot.internalCustomers,
-      item.rabProject.siteId,
-      now,
-    ).revenue;
+  const siteId = item.rabProject.siteId;
+
+  if (!siteId) {
+    return ZERO_NUMBER;
   }
 
-  const investorSiteId = item.rabProject.mixRadiusInvestorSiteId;
-  const owners = investorSiteId
-    ? snapshot.investorSiteMap.get(investorSiteId)?.owners || []
-    : [];
-
-  return summarizeMixRadiusCustomers(snapshot.mixRadiusCustomers, owners, now)
-    .revenue;
+  return summarizeInternalCustomersBySite(
+    snapshot.internalCustomers,
+    siteId,
+    now,
+  ).revenue;
 }
 
 async function buildInternalBillingMetrics(
@@ -248,18 +215,6 @@ async function buildInternalBillingMetrics(
   const metrics = summarizeInternalCustomersBySite(
     await repository.findInternalCustomers([siteId]),
     siteId,
-    new Date(),
-  );
-
-  return toBillingMetrics(metrics);
-}
-
-async function buildMixRadiusBillingMetrics(
-  owners: string[],
-): Promise<BillingMetrics> {
-  const metrics = summarizeMixRadiusCustomers(
-    await fetchMixRadiusCustomers(owners, PROJECT_LOG_PREFIX),
-    owners,
     new Date(),
   );
 
@@ -284,17 +239,6 @@ function createEmptyBillingMetrics(): BillingMetrics {
   };
 }
 
-function getBillingSource(
-  siteId: string | null,
-  mixRadiusInvestorSiteId: string | null,
-): string {
-  if (mixRadiusInvestorSiteId) {
-    return MIXRADIUS_BILLING_SOURCE;
-  }
-
-  if (siteId) {
-    return INTERNAL_BILLING_SOURCE;
-  }
-
-  return NONE_BILLING_SOURCE;
+function getBillingSource(siteId: string | null): ProjectBillingSource {
+  return siteId ? INTERNAL_BILLING_SOURCE : NONE_BILLING_SOURCE;
 }

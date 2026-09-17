@@ -3,7 +3,6 @@ interface DailyExpenseIndicatorInput {
   amount: string;
   category: string;
   siteId: string | null;
-  mixRadiusGroupId: string | null;
   description: string | null;
   invoiceNumber: string | null;
   invoiceFile: string | null;
@@ -27,7 +26,7 @@ function normalizeDate(dateString: string): string {
 }
 
 function buildDuplicateKey(item: DailyExpenseIndicatorInput): string {
-  const siteScope = item.mixRadiusGroupId || item.siteId || "general";
+  const siteScope = item.siteId || "general";
   const invoiceNumber = normalizeText(item.invoiceNumber);
 
   if (invoiceNumber) {

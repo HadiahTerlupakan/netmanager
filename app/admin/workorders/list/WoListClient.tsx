@@ -699,11 +699,7 @@ export function ClientComponent() {
         }
 
         const originBadge =
-          customerInfo.source === "mixradius" ? (
-            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] h-4 font-medium">
-              MixRadius
-            </Badge>
-          ) : customerInfo.source === "guest" ? (
+          customerInfo.source === "guest" ? (
             <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] h-4 font-medium">
               Guest
             </Badge>

@@ -15,10 +15,6 @@ export {
   MitraWithdrawService,
   getMitraWithdrawService,
 } from "./services/MitraWithdrawService";
-export {
-  MitraCommissionSyncService,
-  getMitraCommissionSyncService,
-} from "./services/MitraCommissionSyncService";
 export { broadcastMitraProfileRefreshSafely } from "./services/mitra-side-effects";
 export {
   MobileDashboardService,

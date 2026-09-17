@@ -44,7 +44,7 @@ NetManager menggunakan **4 database terpisah** dengan arsitektur multi-tenant:
 **Core Tables**:
 - `Pelanggan` (Customer master) - 1002 lines, central customer entity
   - PK: `id` (String, UUID)
-  - UK: `username`, `tenantId + idPelanggan`, `mixRadiusId`
+  - UK: `username`, `tenantId + idPelanggan`, `mixRadiusId` (legacy MixRadius, tidak dipakai kode sejak 2026-09-17; menunggu migration drop)
   - FK: `hargaPaketId` → HargaPaket, `odpId` → Odp, `siteId` → Sites
   - Relations: 12 tables (invoices, payments, work orders, usage, support tickets)
   - Multi-tenancy: `tenantId` + unique constraints
@@ -77,7 +77,7 @@ NetManager menggunakan **4 database terpisah** dengan arsitektur multi-tenant:
 - `BillingSchedule` - Scheduled billing jobs (overdue, isolir)
 - `UnmatchedMutation` - Bank mutation matching
 - `WebhookEvent` - Payment gateway webhooks
-- `MixRadiusInvoice` - Legacy system sync
+- `MixRadiusInvoice` - Legacy MixRadius, tidak dipakai kode sejak 2026-09-17 (menunggu migration drop)
 
 **Key Patterns**:
 - Idempotency: `dedupeKey` on BillingSchedule
@@ -281,10 +281,8 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 - WO PSB (Installation)
 - WO Maintenance
 - Canvasing installed
-- Fee per active customer (monthly recurring)
 
 **Key Features**:
-- MixRadius integration via `mixradiusOwnerNames`
 - Warranty system with penalties
 - Bank account management for payouts
 
@@ -585,7 +583,7 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 4. **`BillingSchedule`** - Scheduled jobs (overdue, auto-isolir)
 5. **`UnmatchedMutation`** - Bank mutation matching
 6. **`WebhookEvent`** - Payment gateway webhooks (idempotency)
-7. **`MixRadius*`** - Legacy system sync tables
+7. **`MixRadius*`** - Legacy MixRadius, tidak dipakai kode sejak 2026-09-17 (menunggu migration drop)
 
 ---
 

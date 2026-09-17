@@ -158,15 +158,6 @@ export class MitraWalletRepository implements IMitraWalletRepository {
     });
   }
 
-  /** Mengecek transaksi komisi duplikat berdasarkan referensi. */
-  async findTransactionByReferenceId(referenceId: string) {
-    const transaction = await prismaMitra.mitraTransaction.findFirst({
-      where: { referenceId },
-    });
-
-    return transaction ? toMitraTransactionEntity(transaction) : null;
-  }
-
   /** Menghitung transaksi earning bulanan berdasarkan keyword deskripsi. */
   async countMonthlyEarningsByDescription(params: {
     mitraId: string;

@@ -506,16 +506,6 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       // Pelanggan (read - for PPP reference)
       "pelanggan:read",
       "pelanggan:site_only",
-      // Integration
-      "mixradius:read",
-      "mixradius:create",
-      "mixradius:update",
-      "mixradius_isolir:read",
-      "mixradius_isolir:update",
-      "mixradius_sites:read",
-      "mixradius_accounts:read",
-      "mixradius_accounts:create",
-      "mixradius_accounts:update",
       // Chat
       "chat:read",
       "chat:create",

@@ -267,6 +267,23 @@ const nextConfig: NextConfig = {
     return config;
   },
 
+  // Halaman Pengeluaran/RAB pindah ke /admin/pengeluaran. URL lama masih
+  // tersimpan di notifikasi pengingat approval RAB dan bookmark pengguna.
+  async redirects() {
+    return [
+      {
+        source: "/admin/finance/pengeluaran",
+        destination: "/admin/pengeluaran",
+        permanent: false,
+      },
+      {
+        source: "/admin/integrations/mixradius/expenses",
+        destination: "/admin/pengeluaran",
+        permanent: false,
+      },
+    ];
+  },
+
   // CORS Configuration
   async headers() {
     // Employee portal URL for CORS (development or production)

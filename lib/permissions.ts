@@ -64,40 +64,6 @@ export const PERMISSIONS = {
       SITE_ONLY: "transfer:site_only",
     },
   },
-  MIXRADIUS: {
-    GENERIC: {
-      READ: "mixradius:read",
-      CREATE: "mixradius:create",
-      UPDATE: "mixradius:update",
-      DELETE: "mixradius:delete",
-    },
-    ACCOUNTS: {
-      READ: "mixradius_accounts:read",
-      CREATE: "mixradius_accounts:create",
-      UPDATE: "mixradius_accounts:update",
-      DELETE: "mixradius_accounts:delete",
-    },
-    SITES: {
-      READ: "mixradius_sites:read",
-      CREATE: "mixradius_sites:create",
-      UPDATE: "mixradius_sites:update",
-      DELETE: "mixradius_sites:delete",
-    },
-    EXPENSES: {
-      READ: "mixradius_expenses:read",
-      CREATE: "mixradius_expenses:create",
-      UPDATE: "mixradius_expenses:update",
-      DELETE: "mixradius_expenses:delete",
-    },
-    INCOME: {
-      READ: "mixradius_income:read",
-      DELETE: "mixradius_income:delete",
-    },
-    ISOLIR: {
-      READ: "mixradius_isolir:read",
-      UPDATE: "mixradius_isolir:update",
-    },
-  },
   FINANCE: {
     EXPENSE: {
       READ: "expense:read",

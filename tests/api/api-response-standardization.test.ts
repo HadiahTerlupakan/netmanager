@@ -4,7 +4,6 @@
  * Verifies that refactored API routes use apiSuccess/ApiErrors patterns correctly.
  * Tests cover:
  * 1. Payments API
- * 2. MixRadius Module (14 routes)
  */
 
 import { describe, it, expect } from "vitest";
@@ -57,22 +56,6 @@ function doesNotUseNextResponse(content: string): boolean {
  */
 const REFACTORED_ROUTES = {
   payments: ["app/api/payments/route.ts"],
-  mixradius: [
-    "app/api/integrations/mixradius/owners/route.ts",
-    "app/api/integrations/mixradius/sessions/route.ts",
-    "app/api/integrations/mixradius/invoice-counts/route.ts",
-    "app/api/integrations/mixradius/test/route.ts",
-    "app/api/integrations/mixradius/dismantle/route.ts",
-    "app/api/integrations/mixradius/odps/route.ts",
-    "app/api/integrations/mixradius/groups/route.ts",
-    "app/api/integrations/mixradius/groups/[id]/route.ts",
-    "app/api/integrations/mixradius/accounts/route.ts",
-    "app/api/integrations/mixradius/accounts/[id]/route.ts",
-    "app/api/integrations/mixradius/customers/route.ts",
-    "app/api/integrations/mixradius/customers/[id]/route.ts",
-    "app/api/integrations/mixradius/sync/route.ts",
-    "app/api/integrations/mixradius/odps/[id]/customers/route.ts",
-  ],
 };
 
 describe("API Response Standardization", () => {
@@ -107,41 +90,10 @@ describe("API Response Standardization", () => {
       });
     });
   });
-
-  describe("MixRadius Module", () => {
-    REFACTORED_ROUTES.mixradius.forEach((path) => {
-      describe(path, () => {
-        const content = readFile(path);
-
-        it("should exist", () => {
-          expect(content).not.toBeNull();
-        });
-
-        it("should import apiSuccess", () => {
-          expect(content && hasApiSuccessImport(content)).toBe(true);
-        });
-
-        it("should import ApiErrors", () => {
-          expect(content && hasApiErrorsImport(content)).toBe(true);
-        });
-
-        it("should use apiSuccess for success responses", () => {
-          expect(content && usesApiSuccess(content)).toBe(true);
-        });
-
-        it("should NOT use NextResponse.json directly", () => {
-          expect(content && doesNotUseNextResponse(content)).toBe(true);
-        });
-      });
-    });
-  });
 });
 
 describe("API Auth Pattern Checks", () => {
-  const ALL_ROUTES = [
-    ...REFACTORED_ROUTES.payments,
-    ...REFACTORED_ROUTES.mixradius,
-  ];
+  const ALL_ROUTES = [...REFACTORED_ROUTES.payments];
 
   describe("Authentication checks", () => {
     ALL_ROUTES.forEach((path) => {
@@ -182,10 +134,7 @@ describe("API Auth Pattern Checks", () => {
 });
 
 describe("Error Code Usage", () => {
-  const ALL_ROUTES = [
-    ...REFACTORED_ROUTES.payments,
-    ...REFACTORED_ROUTES.mixradius,
-  ];
+  const ALL_ROUTES = [...REFACTORED_ROUTES.payments];
 
   ALL_ROUTES.forEach((path) => {
     it(`${path} should use ErrorCodes enum for validation errors`, () => {

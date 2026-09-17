@@ -25,9 +25,6 @@ export class MobileDashboardRepository implements IMobileDashboardRepository {
         siteId: true,
         mitraType: true,
         targetHarian: true,
-        enableFeePelanggan: true,
-        mitraRateFeePelanggan: true,
-        mixradiusOwnerNames: true,
         mitraWallet: { select: { balance: true } },
       },
     });
@@ -40,9 +37,6 @@ export class MobileDashboardRepository implements IMobileDashboardRepository {
       siteId: mitra.siteId,
       mitraType: mitra.mitraType,
       targetHarian: mitra.targetHarian,
-      enableFeePelanggan: mitra.enableFeePelanggan,
-      mitraRateFeePelanggan: mitra.mitraRateFeePelanggan,
-      mixradiusOwnerNames: mitra.mixradiusOwnerNames,
       currentBalance: mitra.mitraWallet?.balance?.toNumber() || 0,
     };
   }

@@ -64,7 +64,6 @@ function getMitraBasicFields() {
     isActive: true,
     siteId: true,
     tenantId: true,
-    mixradiusOwnerNames: true,
     createdAt: true,
     mitraWallet: true,
   } as const;
@@ -75,8 +74,6 @@ function getMitraRateFields() {
     mitraRateWoPsb: true,
     mitraRateWoMaintenance: true,
     mitraRateCanvasing: true,
-    mitraRateFeePelanggan: true,
-    enableFeePelanggan: true,
     targetHarian: true,
     minWithdrawal: true,
     garansiHari: true,
@@ -134,14 +131,11 @@ export function buildCreateMitraData(
     mitraRateWoPsb: payload.mitraRateWoPsb,
     mitraRateWoMaintenance: payload.mitraRateWoMaintenance,
     mitraRateCanvasing: payload.mitraRateCanvasing,
-    mitraRateFeePelanggan: payload.mitraRateFeePelanggan,
-    enableFeePelanggan: payload.enableFeePelanggan ?? false,
     bankName: payload.bankName,
     bankAccountNo: payload.bankAccountNo,
     bankAccountName: payload.bankAccountName,
     targetHarian: payload.targetHarian,
     minWithdrawal: payload.minWithdrawal,
-    mixradiusOwnerNames: payload.mixradiusOwnerNames || [],
     garansiHari: payload.garansiHari,
     slaGaransiJam: payload.slaGaransiJam,
     penaltyPsb: payload.penaltyPsb,
@@ -187,15 +181,6 @@ export function buildUpdateMitraData(
     }),
     ...(payload.mitraRateCanvasing !== undefined && {
       mitraRateCanvasing: payload.mitraRateCanvasing,
-    }),
-    ...(payload.mitraRateFeePelanggan !== undefined && {
-      mitraRateFeePelanggan: payload.mitraRateFeePelanggan,
-    }),
-    ...(payload.enableFeePelanggan !== undefined && {
-      enableFeePelanggan: payload.enableFeePelanggan,
-    }),
-    ...(payload.mixradiusOwnerNames !== undefined && {
-      mixradiusOwnerNames: payload.mixradiusOwnerNames,
     }),
     ...(payload.bankName !== undefined && { bankName: payload.bankName }),
     ...(payload.bankAccountNo !== undefined && {

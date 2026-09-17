@@ -425,35 +425,6 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Pengeluaran",
   },
 
-  mixradius: {
-    actions: ["read", "create", "update", "delete", "calculate"],
-    description: "Integrasi MixRadius (Dashboard & Menu Utama)",
-  },
-  mixradius_isolir: {
-    actions: ["read", "update", "site_only"], // update = open isolir
-    description: "Akses menu MixRadius Isolir (Buka Isolir)",
-  },
-  mixradius_sites: {
-    actions: ["read", "create", "update", "delete"],
-    description: "Manajemen Group/Site MixRadius",
-  },
-  mixradius_investor_sites: {
-    actions: ["read", "create", "update", "delete"],
-    description: "Manajemen Group/Site MixRadius milik Investor",
-  },
-  mixradius_accounts: {
-    actions: ["read", "create", "update", "delete"],
-    description: "Manajemen Akun/Koneksi MixRadius",
-  },
-  mixradius_income: {
-    actions: ["read", "delete", "calculate", "site_only"], // delete = hapus riwayat pendapatan, calculate = manual sync
-    description: "Laporan Pendapatan MixRadius",
-  },
-  mixradius_expenses: {
-    actions: ["read", "create", "update", "delete", "site_only"],
-    description: "Pengeluaran Biaya Operasional Site",
-  },
-
   // ====== CHAT MODULE ======
   chat: {
     actions: ["read", "create"],
@@ -557,11 +528,6 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     actions: ["read"],
     displayName: "Slip Gaji",
     description: "Lihat slip gaji bulanan",
-  },
-  m_mixradius: {
-    actions: ["read"],
-    displayName: "Isolir",
-    description: "Lihat & kelola pelanggan isolir (MixRadius)",
   },
   m_partners: {
     actions: ["read"],

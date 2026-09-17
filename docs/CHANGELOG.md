@@ -41,6 +41,222 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-17] — Hapus integrasi MixRadius dari aplikasi
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/integrations`
+- **Author**: agent
+- **Deskripsi**: Panel MixRadius memakai CAPTCHA sehingga integrasi remote-nya
+  tidak mungkin dipakai lagi (sudah dimatikan sejak 2026-09-13). Seluruh kode
+  yang bergantung pada MixRadius dihapus: 71 berkas `modules/integrations`
+  (yang tersisa hanya `MarketPriceRouteService` dan `ReceiptOcrService`),
+  25 route `app/api/integrations/mixradius/**`, route admin sync, 2 route
+  `app/api/mobile/mixradius/**`, halaman `app/admin/integrations/mixradius/**`
+  (dashboard, Isolir, Sites, Site Investor, Akun, Pendapatan, Laba Rugi),
+  `components/mixradius/NPLSummary`, cron `mixRadiusInvoiceSync` dan
+  `mixRadiusSettlementSync`, grup menu "Integrasi", feature module
+  `integrations`, resource permission `mixradius*`/`m_mixradius` beserta
+  capability dan template role NOC, kode error `MIXRADIUS_CONFIG_ERROR`, serta
+  dependensi `tough-cookie`, `axios-cookiejar-support`, `@types/tough-cookie`
+  (`tough-cookie` tetap ada di lockfile sebagai dependensi transitif `jsdom`).
+  Fitur lokal yang hanya menumpang di path MixRadius tidak dihapus — lihat entri
+  relokasi Pengeluaran/RAB. Skema DB sengaja belum diubah: tabel
+  `mix_radius_*` dan kolom `mixRadius*` di-drop pada tahap berikutnya setelah
+  disetujui, karena menghapus data (termasuk invoice historis dan kredensial
+  panel). Dokumen living (`docs/project-memory/06-database.md`,
+  `09-integrations.md`, `docs/standards/caching.md`, `testing.md`) diperbarui.
+- **Files**: `modules/integrations/index.ts`, `lib/cron-registry.ts`,
+  `lib/menu-config.ts`, `lib/permission-config.ts`, `lib/permission-aliases.ts`,
+  `lib/permissions.ts`, `lib/resource-capabilities.ts`, `lib/role-templates.ts`,
+  `lib/feature-modules.ts`, `lib/api-response.ts`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`, `package.json`
+- **Breaking**: ✅ Ya — semua endpoint dan halaman MixRadius hilang (404)
+
+### [2026-09-17] — Pindahkan Pengeluaran & RAB keluar dari menu MixRadius
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: UI pengeluaran harian, RAB, dan COA pengeluaran selama ini
+  berada di `app/admin/integrations/mixradius/expenses/` padahal murni fitur
+  finance lokal. Folder dipindah utuh ke `app/admin/pengeluaran/` (menu
+  Keuangan → Pengeluaran, kode `FINANCE.EXPENSE`, gerbang `expense:read`) dan
+  menggantikan halaman legacy `/admin/finance/pengeluaran` yang lebih lemah
+  (tanpa filter, RAB, edit, maupun ekspor; kolom akun selalu "-"). Sengaja di
+  luar `/admin/finance/**` karena layout itu mewajibkan `finance:read`, sedangkan
+  ada role yang hanya memegang izin pengeluaran. Empat route approval RAB yang
+  terselip di `app/api/integrations/mixradius/expenses/rab/**` dipindah tanpa
+  perubahan isi ke `app/api/finance/rab-projects/[id]/{approve,reminder}` dan
+  `.../revisions/[revisionId]/{approve,reject}`. Field `mixRadiusGroupId` dan
+  `mixRadiusInvestorSiteId` tidak lagi dibaca, ditulis, difilter, atau dikirim;
+  site pengeluaran dan RAB kini hanya dari site internal (`siteId`). Fallback
+  izin `mixradius_expenses:*` dihapus dari semua route dan halaman (akses role
+  lama dipertahankan lewat migration di entri berikutnya). Kolom CSV
+  "Site/Group" menjadi "Site". URL lama `/admin/finance/pengeluaran` dan
+  `/admin/integrations/mixradius/expenses` (masih tersimpan di notifikasi
+  pengingat approval RAB) dialihkan ke `/admin/pengeluaran`. Kode yang hanya
+  melayani laporan MixRadius ikut dihapus: `FinanceExpenseQueryService`,
+  `ExpenseRepository.findProfitLossExpenses`/`findYearlyProfitLossExpenses`,
+  dan `constants/DuitkuDefaults`. Expense lama yang hanya punya grup MixRadius
+  tanpa `siteId` kini tampil sebagai "Umum".
+- **Files**: `app/admin/pengeluaran/**`, `app/api/finance/rab-projects/**`,
+  `app/api/finance/expenses/**`, `app/api/finance/expense-categories/**`,
+  `modules/finance/services/FinanceExpenseFacadeService.ts`,
+  `modules/finance/services/RabApprovalReminderRouteService.ts`, `next.config.ts`
+- **Breaking**: ✅ Ya — URL API approval RAB berubah; query/body
+  `mixRadiusGroupId`/`mixRadiusInvestorSiteId` diabaikan
+
+### [2026-09-17] — Beri izin expense ke role pemegang mixradius_expenses
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Alias `mixradius_expenses → expense` hanya satu arah, jadi
+  menghapus fallback-nya akan mengunci role yang hanya memegang resource lama
+  (terbukti di data lokal: role "Chief Financial Officer" tanpa `expense:*`
+  maupun `finance:read`). Migration data non-destruktif ini menautkan
+  `expense:<aksi>` (read/create/update/delete) ke setiap role pemegang
+  `mixradius_expenses:<aksi>`, membuat row `Permission` bila tenant belum
+  punya. `site_only` sengaja tidak ikut karena akan mempersempit akses. Diuji
+  di DB lokal dalam transaksi rollback: jalur tautan (CFO +4), jalur pembuatan
+  row yang hilang (+2 row, +10 tautan), dan idempoten (run kedua 0 perubahan).
+  Tidak ada row yang dihapus. Setelah deploy, cache permission Redis (TTL 5
+  menit) bisa menunda efeknya sesaat.
+- **Migration**: `20260916201628_grant_expense_permissions_to_legacy_mixradius_expense_roles`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-17] — Hapus fee pelanggan mitra berbasis MixRadius
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/mitra`
+- **Author**: agent
+- **Deskripsi**: Fee pelanggan Mitra Sales (toggle, tarif, dan pilihan owner)
+  seluruh sumber datanya MixRadius: owner diambil dari panel, fee dihitung dari
+  invoice MixRadius, dan payout hanya dibuat halaman Pendapatan MixRadius.
+  Fiturnya dihapus dari form dan detail admin, DTO, validasi, entity, mapper,
+  repository (`getFeePelangganStats`), serta endpoint
+  `POST /api/admin/mitra/sync-commissions` beserta `MitraCommissionSyncService`.
+  Kontrak mobile dipertahankan: `/api/mobile/dashboard` dan
+  `/api/mobile/mitra/dashboard` tetap mengirim `activeCustomers`,
+  `totalActiveCustomers`, dan `enableFeePelanggan` bernilai netral (0/false);
+  `saldoKomisi`/`totalEarnings` kini hanya dari wallet. Kolom DB tetap sampai
+  migration drop.
+- **Files**: `modules/mitra/services/MobileDashboardService.ts`,
+  `modules/mitra/services/MobileMitraRouteService.ts`,
+  `app/admin/mitra/components/MitraFormJobSection.tsx`,
+  `app/admin/mitra/[id]/MitraDetailClient.tsx`, `lib/validations/mitra.ts`
+- **Breaking**: ✅ Ya — endpoint sync-commissions dihapus; field fee hilang dari JSON admin mitra
+
+### [2026-09-17] — Hapus jalur MixRadius dari portal investor
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/investor`
+- **Author**: agent
+- **Deskripsi**: Metrik proyek investor tidak lagi membaca
+  `MixRadiusInvestorSite` maupun pelanggan panel MixRadius (nilainya sudah 0
+  sejak remote dimatikan). Sumber billing kini `siteId ? "INTERNAL" : "NONE"`:
+  proyek ber-site memakai pelanggan internal site tersebut — termasuk proyek
+  yang dulu juga punya site investor MixRadius — dan proyek tanpa site
+  bernilai live 0, bergantung pada aktual manual dan proyeksi. Badge
+  "MixRadius" di halaman proyek investor dihapus.
+- **Files**: `modules/investor/services/investor-portal-project.helpers.ts`,
+  `modules/investor/services/investor-portal-dashboard.helpers.ts`,
+  `modules/investor/services/investor-portal-customer-metrics.helpers.ts`,
+  `app/investor/projects/[id]/page.tsx`
+- **Breaking**: ✅ Ya — `billingSource` tidak lagi bernilai `MIXRADIUS`
+
+### [2026-09-17] — Hapus sumber pelanggan MixRadius di Work Order
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Form WO baru tidak lagi mencari/menyinkronkan pelanggan
+  MixRadius; pencarian database lokal dan mode guest yang sudah ada menjadi satu-
+  satunya jalur. Util `mixradius-customer-info.ts` diganti nama menjadi
+  `work-order-customer-info.ts`; sumber `mixradius` dan
+  `extractMixRadiusUsername` dihapus sehingga WO lama bermarker MixRadius tampil
+  sebagai guest (teks marker tetap terbaca di deskripsi). Teks panduan grup
+  Facebook MixRadius di form router MikroTik ikut dihapus.
+- **Files**: `app/admin/workorders/new/WoNewClient.tsx`,
+  `modules/work-order/utils/work-order-customer-info.ts`,
+  `modules/work-order/client.ts`, `app/admin/workorders/[id]/components/WoSidebar.tsx`
+- **Breaking**: ✅ Ya — export `extractMixRadiusUsername` dihapus dari `@/modules/work-order/client`
+
+### [2026-09-17] — Salin RAB tanpa site tidak lagi gagal
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: `createDuplicateProjectData` selalu mengirim
+  `site: { connect: { id: sourceProject.siteId } }`, sehingga menyalin RAB yang
+  tidak punya site ditolak Prisma. Site bersifat opsional, dan setelah pilihan
+  grup/site investor MixRadius dihapus kasus RAB tanpa site makin mungkin
+  terjadi. Relasi site kini hanya ditautkan bila ada; dikunci tes yang merah
+  sebelum perbaikan.
+- **Files**: `modules/finance/repositories/rabProject.repository-mutations.ts`,
+  `tests/modules/finance/rab-project-duplicate-args.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-17] — Pilihan site Pengeluaran kembali muncul untuk role finance
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengeluaran`
+- **Author**: agent
+- **Deskripsi**: Setelah grup MixRadius dihapus, dropdown dan filter site di
+  halaman Pengeluaran/RAB memakai `/api/admin/sites` yang menuntut `site:read`
+  atau `users:create`. Role pemegang `expense:*` tanpa izin itu mendapat 403
+  sehingga pilihannya kosong. Di data lokal ini menimpa "Chief Financial
+  Officer" (dulu bisa lewat izin `mixradius_sites`) dan "FINANCE". Opsi site kini
+  diambil dari `/api/sites?resource=expense`, pola yang sama dengan `SiteFilter`
+  (paket, harga, bandwidth). Endpoint ini cukup butuh login dan membatasi pilihan
+  ke site milik user bila role memegang `expense:site_only`, selaras dengan API
+  pengeluaran yang memang memaksa site user tersebut. Dipilih ketimbang
+  menambah `site:read` ke role finance karena izin itu juga membuka halaman
+  Work Order dan detail Site (`app/admin/workorders/**`).
+- **Files**: `app/admin/pengeluaran/ExpensesClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-17] — Skrip backfill site Expense/RAB dari grup MixRadius
+
+- **Tipe**: [ADDED]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Form lama menurunkan `siteId` dari tautan site grup MixRadius
+  saat disimpan, jadi row yang dibuat sebelum grupnya ditautkan tetap tanpa site
+  dan kini tampil "Umum". Tabel grup ada di DB billing, sehingga backfill tidak
+  bisa lewat migration SQL DB app. Skrip sekali jalan ini mengisi `siteId` null
+  dari tautan grup: default dry-run, tulis dengan `--apply`, idempoten, hanya
+  memakai site yang masih ada dan milik tenant yang sama, dan melaporkan row
+  yang harus dipilihkan site manual. Wajib dijalankan di produksi sebelum tabel
+  `mix_radius_*` dan kolom `mixRadius*` di-drop; skrip ikut dihapus bersama kolom
+  tersebut. Di DB lokal (snapshot data 2026-03-26) hasilnya 0 row terisi: 3
+  Expense grup "Pejaten" (grup tanpa tautan site, total Rp2.475.000) dan RAB
+  "JAKARTA" (hanya site investor) dilaporkan untuk dipilih manual. Jalur update
+  diverifikasi dalam transaksi rollback.
+- **Files**: `scripts/backfill-site-from-mixradius-groups.ts`,
+  `scripts/backfill-site-from-mixradius-groups-plan.ts`,
+  `tests/scripts/backfill-site-from-mixradius-groups-plan.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-17] — Mobile: hapus Isolir MixRadius, kontak WO diisi manual
+
+- **Tipe**: [REMOVED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Perubahan lintas-repo (repo mobile tidak punya changelog).
+  Layar Isolir, `MixRadiusService`, tile Isolir di QuickMenu, dan
+  `AppFeature.MIXRADIUS` dihapus. Mode Customer pada Request WO sebelumnya wajib
+  memilih pelanggan dari pencarian MixRadius — satu-satunya pencarian pelanggan
+  di app, dan sudah gagal 503 sejak remote dimatikan — kini diganti input
+  kontak manual (nama wajib, No. HP dan alamat opsional) tervalidasi Zod, sesuai
+  kontrak `POST /api/mobile/work-orders/request` yang memang sudah menerima
+  `contactName/contactPhone/locationAddress`. Hanya JS/TS, tanpa perubahan
+  native: cukup OTA. Bundle lama tetap menampilkan tile Isolir sampai OTA terbit.
+- **Files**: `app/(app)/request-work-order.tsx`,
+  `src/components/molecules/CustomerContactFields.tsx`, `src/utils/validation.ts`,
+  `src/components/organisms/dashboard/QuickMenu.tsx`
+- **Breaking**: ✅ Ya — layar Isolir dihapus dari app
+
 ### [2026-09-15] — Pipa grep -q di bawah pipefail meloloskan node tidak sehat
 
 - **Tipe**: [FIXED]

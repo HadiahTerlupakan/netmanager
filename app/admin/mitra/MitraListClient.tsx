@@ -78,9 +78,6 @@ export default function MitraListClient() {
         onSubmit={formActions.handleAdd}
         defaultValues={initialFormState}
         sites={list.sites}
-        mixradiusOwners={list.mixradiusOwners}
-        ownerSearchTerm={list.ownerSearchTerm}
-        setOwnerSearchTerm={list.setOwnerSearchTerm}
         onFileUpload={formActions.handleFileUpload}
         isEdit={false}
       />
@@ -98,9 +95,6 @@ export default function MitraListClient() {
             : initialFormState
         }
         sites={list.sites}
-        mixradiusOwners={list.mixradiusOwners}
-        ownerSearchTerm={list.ownerSearchTerm}
-        setOwnerSearchTerm={list.setOwnerSearchTerm}
         onFileUpload={formActions.handleFileUpload}
         isEdit={true}
       />

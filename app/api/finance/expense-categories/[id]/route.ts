@@ -32,10 +32,7 @@ export const PUT = createHandler(
     const { id } = ctx.params;
 
     const isSuper = isSuperAdmin(user);
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:update")) ||
-      (await hasPermission("mixradius_expenses:update"));
+    const hasAccess = isSuper || (await hasPermission("expense:update"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden("Akses ditolak.");
@@ -70,14 +67,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
   // Check permissions
   const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:delete")) ||
-    (await hasPermission("mixradius_expenses:delete"));
+  const hasAccess = isSuper || (await hasPermission("expense:delete"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete",
+      "Akses ditolak. Anda memerlukan permission: expense:delete",
     );
   }
 

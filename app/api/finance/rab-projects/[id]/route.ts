@@ -13,14 +13,11 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
 
   const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:read")) ||
-    (await hasPermission("mixradius_expenses:read"));
+  const hasAccess = isSuper || (await hasPermission("expense:read"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
+      "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
 
@@ -45,14 +42,11 @@ export const PATCH = createHandler(
     const { id } = ctx.params;
 
     const isSuper = isSuperAdmin(user);
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:update")) ||
-      (await hasPermission("mixradius_expenses:update"));
+    const hasAccess = isSuper || (await hasPermission("expense:update"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+        "Akses ditolak. Anda memerlukan permission: expense:update",
       );
     }
 
@@ -81,14 +75,11 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
 
   const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    (await hasPermission("expense:delete")) ||
-    (await hasPermission("mixradius_expenses:delete"));
+  const hasAccess = isSuper || (await hasPermission("expense:delete"));
 
   if (!hasAccess) {
     return ApiErrors.forbidden(
-      "Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete",
+      "Akses ditolak. Anda memerlukan permission: expense:delete",
     );
   }
 

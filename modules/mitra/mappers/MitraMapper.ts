@@ -22,7 +22,6 @@ function mapMitraProfile(entity: MitraEntity) {
     mitraType: entity.mitraType as MitraWithDetails["mitraType"],
     isActive: entity.isActive,
     siteId: entity.siteId,
-    mixradiusOwnerNames: entity.mixradiusOwnerNames,
   };
 }
 
@@ -31,8 +30,6 @@ function mapMitraRates(entity: MitraEntity) {
     mitraRateWoPsb: entity.mitraRateWoPsb,
     mitraRateWoMaintenance: entity.mitraRateWoMaintenance,
     mitraRateCanvasing: entity.mitraRateCanvasing,
-    mitraRateFeePelanggan: entity.mitraRateFeePelanggan,
-    enableFeePelanggan: entity.enableFeePelanggan,
     targetHarian: entity.targetHarian,
     minWithdrawal: entity.minWithdrawal,
     garansiHari: entity.garansiHari,

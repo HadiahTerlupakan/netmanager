@@ -24,9 +24,6 @@ const baseMitraShape = {
   mitraRateWoPsb: optionalPositiveNumber,
   mitraRateWoMaintenance: optionalPositiveNumber,
   mitraRateCanvasing: optionalPositiveNumber,
-  mitraRateFeePelanggan: optionalPositiveNumber,
-  enableFeePelanggan: z.boolean().optional(),
-  mixradiusOwnerNames: z.array(z.string()).optional(),
   bankName: optionalString,
   bankAccountNo: optionalString,
   bankAccountName: optionalString,
@@ -84,14 +81,6 @@ export const withdrawRequestSchema = z.object({
   notes: optionalString,
 });
 
-/** Schema untuk sinkronisasi komisi mitra. */
-export const syncCommissionSchema = z.object({
-  mitraId: z.string().min(1, "Mitra ID wajib diisi"),
-  amount: z.coerce.number().positive("Jumlah harus lebih dari 0"),
-  description: z.string().optional(),
-  referenceId: z.string().min(1, "Reference ID wajib diisi"),
-});
-
 /** Schema untuk reject withdrawal. */
 export const rejectWithdrawSchema = z.object({
   reason: z.string().min(1, "Alasan penolakan wajib diisi"),
@@ -108,6 +97,5 @@ export const walletAdjustmentSchema = z.object({
 export type CreateMitraInput = z.infer<typeof createMitraSchema>;
 export type UpdateMitraInput = z.infer<typeof updateMitraSchema>;
 export type WithdrawRequestInput = z.infer<typeof withdrawRequestSchema>;
-export type SyncCommissionInput = z.infer<typeof syncCommissionSchema>;
 export type RejectWithdrawInput = z.infer<typeof rejectWithdrawSchema>;
 export type WalletAdjustmentInput = z.infer<typeof walletAdjustmentSchema>;

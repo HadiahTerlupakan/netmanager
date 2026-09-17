@@ -21,9 +21,6 @@ export interface MitraFormModalProps {
   readonly onSubmit: (values: MitraFormState) => Promise<void>;
   readonly defaultValues: MitraFormState;
   readonly sites: readonly Site[];
-  readonly mixradiusOwners: readonly string[];
-  readonly ownerSearchTerm: string;
-  readonly setOwnerSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   readonly onFileUpload: (
     e: React.ChangeEvent<HTMLInputElement>,
     field: string,
@@ -42,9 +39,6 @@ export function MitraFormModal({
   onSubmit,
   defaultValues,
   sites,
-  mixradiusOwners,
-  ownerSearchTerm,
-  setOwnerSearchTerm,
   onFileUpload,
   isEdit,
 }: MitraFormModalProps) {
@@ -71,9 +65,6 @@ export function MitraFormModal({
         watch={watch}
         errors={errors}
         sites={sites}
-        mixradiusOwners={mixradiusOwners}
-        ownerSearchTerm={ownerSearchTerm}
-        setOwnerSearchTerm={setOwnerSearchTerm}
         onFileUpload={onFileUpload}
         isEdit={isEdit}
       />

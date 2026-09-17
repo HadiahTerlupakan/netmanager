@@ -79,13 +79,6 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   "roles:update": ["role:update"],
   "roles:delete": ["role:delete"],
 
-  // ====== FINANCE MODULE ======
-  // Beberapa route menggunakan keduanya
-  "mixradius_expenses:read": ["expense:read"],
-  "mixradius_expenses:create": ["expense:create"],
-  "mixradius_expenses:update": ["expense:update"],
-  "mixradius_expenses:delete": ["expense:delete"],
-
   // ====== HOLIDAY MODULE ======
   // UI uses 'holiday:*' (singular), API uses 'holidays:*' (plural)
   "holiday:read": ["holidays:read"],

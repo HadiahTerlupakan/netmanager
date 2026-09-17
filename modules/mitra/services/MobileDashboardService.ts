@@ -1,12 +1,9 @@
-import { getMixRadiusService } from "@/modules/integrations";
 import { MobileDashboardRepository } from "../repositories/MobileDashboardRepository";
 import type { IMobileDashboardRepository } from "../domain/ports/IMobileDashboardRepository";
 import {
   createDashboardPeriods,
   extractUserSiteIds,
   getEmployeeCanvasingProgress,
-  getMitraFeePelangganStats,
-  type MobileDashboardMixRadiusService,
   type MobileDashboardPeriods,
 } from "./MobileDashboardService.helpers";
 
@@ -22,7 +19,6 @@ export interface MobileDashboardUserPayload {
 export class MobileDashboardService {
   constructor(
     private readonly repository: IMobileDashboardRepository = new MobileDashboardRepository(),
-    private readonly mixRadiusService?: MobileDashboardMixRadiusService,
     private readonly createPeriods: () => MobileDashboardPeriods = createDashboardPeriods,
   ) {}
 
@@ -75,12 +71,8 @@ export class MobileDashboardService {
       userId,
       tenantId,
       monthStart: periods.monthStart,
-      today: periods.today,
       mitraType: mitra.mitraType,
       targetHarian: mitra.targetHarian,
-      enableFeePelanggan: mitra.enableFeePelanggan,
-      mitraRateFeePelanggan: mitra.mitraRateFeePelanggan,
-      mixradiusOwnerNames: mitra.mixradiusOwnerNames,
       currentBalance: mitra.currentBalance,
     });
 
@@ -95,8 +87,10 @@ export class MobileDashboardService {
       targetHarian: salesStats.targetHarian,
       suksesClosingMonth: salesStats.suksesClosingMonth,
       saldoKomisi: salesStats.saldoKomisi,
-      activeCustomers: salesStats.activeCustomers,
-      enableFeePelanggan: mitra.enableFeePelanggan || false,
+      // Fitur fee pelanggan sudah dihapus; key tetap dikirim bernilai netral
+      // karena masih dibaca aplikasi mobile versi lama.
+      activeCustomers: 0,
+      enableFeePelanggan: false,
     };
   }
 
@@ -185,12 +179,8 @@ export class MobileDashboardService {
     userId: string;
     tenantId: string;
     monthStart: Date;
-    today: Date;
     mitraType: string;
     targetHarian: number | null;
-    enableFeePelanggan: boolean | null;
-    mitraRateFeePelanggan: number | null;
-    mixradiusOwnerNames: string[];
     currentBalance: number;
   }) {
     if (input.mitraType !== "MITRA_SALES") {
@@ -198,7 +188,6 @@ export class MobileDashboardService {
         targetHarian: 0,
         suksesClosingMonth: 0,
         saldoKomisi: 0,
-        activeCustomers: 0,
       };
     }
 
@@ -208,26 +197,11 @@ export class MobileDashboardService {
       monthStart: input.monthStart,
     });
 
-    const feeStats = input.enableFeePelanggan
-      ? await getMitraFeePelangganStats(this.getMixRadiusService(), {
-          monthStart: input.monthStart,
-          today: input.today,
-          ownerNames: input.mixradiusOwnerNames,
-          feeRate: input.mitraRateFeePelanggan || 0,
-          tenantId: input.tenantId,
-        })
-      : { activeCustomers: 0, totalFeePelanggan: 0 };
-
     return {
       targetHarian: input.targetHarian || 0,
       suksesClosingMonth,
-      saldoKomisi: input.currentBalance + feeStats.totalFeePelanggan,
-      activeCustomers: feeStats.activeCustomers,
+      saldoKomisi: input.currentBalance,
     };
-  }
-
-  private getMixRadiusService(): MobileDashboardMixRadiusService {
-    return this.mixRadiusService ?? getMixRadiusService();
   }
 }
 

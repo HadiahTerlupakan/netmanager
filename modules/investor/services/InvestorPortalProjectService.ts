@@ -37,18 +37,12 @@ export class InvestorPortalProjectService {
       throw createRouteServiceError("Proyek tidak ditemukan", 404);
     }
 
-    const mixRadiusInvestorSite = project.rabProject.mixRadiusInvestorSiteId
-      ? await this.repository.findMixRadiusInvestorSiteById(
-          project.rabProject.mixRadiusInvestorSiteId,
-        )
-      : null;
     const billingMetrics = await buildProjectBillingMetrics(
       this.repository,
       project,
-      mixRadiusInvestorSite,
     );
 
-    return toProjectDetail(project, mixRadiusInvestorSite, billingMetrics);
+    return toProjectDetail(project, billingMetrics);
   }
 }
 

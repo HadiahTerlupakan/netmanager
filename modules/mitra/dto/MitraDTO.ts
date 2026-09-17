@@ -29,9 +29,6 @@ export interface MitraCommissionFields {
   mitraRateWoPsb?: number;
   mitraRateWoMaintenance?: number;
   mitraRateCanvasing?: number;
-  mitraRateFeePelanggan?: number;
-  enableFeePelanggan?: boolean;
-  mixradiusOwnerNames?: string[];
   targetHarian?: number;
   minWithdrawal?: number;
   garansiHari?: number;
@@ -105,9 +102,6 @@ export interface MitraWithDetails {
   mitraRateWoPsb: number | null;
   mitraRateWoMaintenance: number | null;
   mitraRateCanvasing?: number | null;
-  mitraRateFeePelanggan?: number | null;
-  enableFeePelanggan?: boolean;
-  mixradiusOwnerNames: string[];
   bankName: string | null;
   bankAccountNo: string | null;
   bankAccountName: string | null;

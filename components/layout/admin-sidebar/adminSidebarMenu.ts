@@ -30,7 +30,6 @@ type SidebarPathCheckParams = {
 };
 
 const MIKROTIK_API_MODE = "MIKROTIK_API";
-const INTEGRATION_MENU_CODE = "INTEGRATION";
 
 /** Tujuan: memfilter menu admin sesuai permission, mode koneksi PPP, status super admin, dan feature flag tenant. */
 export function filterAdminMenuItems({
@@ -147,10 +146,6 @@ function filterAdminMenuItem({
     )
     .filter((child): child is MenuConfig => child !== null);
 
-  if (shouldHideEmptyIntegrationMenu(item.code, filteredChildren)) {
-    return null;
-  }
-
   if (filteredChildren?.length) {
     return { ...item, children: filteredChildren };
   }
@@ -174,18 +169,7 @@ function shouldHideRadiusMenu(
 }
 
 function isRadiusMenu(code: string): boolean {
-  return (
-    code === "NETWORK.RADIUS" ||
-    code === "INTEGRATION.MIXRADIUS" ||
-    code.startsWith("INTEGRATION.MIXRADIUS_")
-  );
-}
-
-function shouldHideEmptyIntegrationMenu(
-  code: string,
-  children: MenuConfig[] | undefined,
-): boolean {
-  return code === INTEGRATION_MENU_CODE && (!children || children.length === 0);
+  return code === "NETWORK.RADIUS";
 }
 
 function hasMenuPermission(
@@ -239,7 +223,6 @@ function getPermissionResource(code: string): string {
     // karena dianggap konfigurasi internal procurement.
     "PROCUREMENT.APPROVAL_THRESHOLDS": "procurement",
     "FINANCE.UNPAID": "finance",
-    "FINANCE.PENGELUARAN": "finance",
     "FINANCE.ACCOUNTS": "finance",
     "FINANCE.MANUAL_PAYMENTS": "finance",
     "FINANCE.AR_AGING": "finance",

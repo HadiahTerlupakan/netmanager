@@ -20,7 +20,6 @@ const batchExpenseSchema = z.object({
     .or(z.date())
     .transform((val) => new Date(val)),
   siteId: z.string().optional(),
-  mixRadiusGroupId: z.string().optional(),
   invoiceNumber: z.string().optional(),
   invoiceFile: z.string().optional(),
   // Per-item fields
@@ -58,14 +57,11 @@ export const POST = createHandler(
     const userId = user.id;
 
     const isSuper = isSuperAdmin(user);
-    const hasAccess =
-      isSuper ||
-      (await hasPermission("expense:create")) ||
-      (await hasPermission("mixradius_expenses:create"));
+    const hasAccess = isSuper || (await hasPermission("expense:create"));
 
     if (!hasAccess) {
       return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
+        "Akses ditolak. Anda memerlukan permission: expense:create",
       );
     }
 
@@ -74,14 +70,7 @@ export const POST = createHandler(
       return ApiErrors.badRequest("Header x-idempotency-key wajib diisi");
     }
 
-    const {
-      date,
-      siteId,
-      mixRadiusGroupId,
-      invoiceNumber,
-      invoiceFile,
-      items,
-    } = ctx.validated;
+    const { date, siteId, invoiceNumber, invoiceFile, items } = ctx.validated;
 
     const payloadHash = buildExpensePayloadHash(ctx.validated);
     const beginResult = beginExpenseMutation({
@@ -122,7 +111,6 @@ export const POST = createHandler(
       {
         date,
         siteId: finalSiteId,
-        mixRadiusGroupId,
         invoiceNumber,
         invoiceFile,
         items: items.map((item) => ({

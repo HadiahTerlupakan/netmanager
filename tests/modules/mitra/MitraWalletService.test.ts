@@ -43,7 +43,6 @@ function createMockRepository(): IMitraWalletRepository {
     addAdjustment: vi.fn(),
     getTransactionsByUserId: vi.fn(),
     getEarningsSummaryByUserId: vi.fn(),
-    findTransactionByReferenceId: vi.fn(),
     countMonthlyEarningsByDescription: vi.fn(),
   };
 }

@@ -201,10 +201,6 @@ export function MikrotikRouterForm({
             SETELAH FORM INI DISIMPAN, WEB PROXY MIKROTIK HARUS DIENABLE SECARA
             MANUAL
           </li>
-          <li>
-            BACA PANDUAN DI GRUP FACEBOOK{" "}
-            <span className="text-blue-600 dark:text-blue-400">MIXRADIUS</span>
-          </li>
         </ul>
       </div>
 

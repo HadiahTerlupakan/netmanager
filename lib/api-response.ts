@@ -151,9 +151,6 @@ export const ErrorCodes = {
   INTERNAL_ERROR: "INTERNAL_ERROR",
   DATABASE_ERROR: "DATABASE_ERROR",
   EXTERNAL_SERVICE_ERROR: "EXTERNAL_SERVICE_ERROR",
-
-  // Integration
-  MIXRADIUS_CONFIG_ERROR: "MIXRADIUS_CONFIG_ERROR",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

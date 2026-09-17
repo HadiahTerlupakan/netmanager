@@ -42,8 +42,6 @@ function buildFullProjectBaseData(data: FullProjectCreateInput) {
     name: data.project.name,
     description: data.project.description,
     siteId: data.project.siteId,
-    mixRadiusGroupId: data.project.mixRadiusGroupId,
-    mixRadiusInvestorSiteId: data.project.mixRadiusInvestorSiteId,
     projectedRevenue: data.project.projectedRevenue,
     projectedOpex: data.project.projectedOpex,
     growthType: data.project.growthType as never,
