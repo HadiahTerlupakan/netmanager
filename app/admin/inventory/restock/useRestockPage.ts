@@ -30,6 +30,7 @@ import {
   getPaginatedRestockRequests,
   getRestockFilterOptions,
   getVisibleRestockRequests,
+  uploadProofPhotos,
 } from "./utils";
 import type {
   Barang,
@@ -438,11 +439,7 @@ export function useRestockPage() {
       const uploadedPayload = [];
       for (const item of ready) {
         const state = jasaConfirmStates[item.id];
-        const ref = jasaPhotoUploadRefs[item.id];
-        let urls: string[] = [];
-        if (ref?.current) {
-          urls = await ref.current.uploadPhotos();
-        }
+        const urls = await uploadProofPhotos(jasaPhotoUploadRefs[item.id]);
         uploadedPayload.push({
           jasaItemId: item.id,
           tanggalSelesai: state?.tanggalSelesai || null,
@@ -485,11 +482,11 @@ export function useRestockPage() {
 
     try {
       setSubmitting(true);
-      let photoUrls: string[] = [];
-
-      if (photoUploadRef.current) {
-        const loadingToastId = toast.loading("Sedang mengunggah foto...");
-        photoUrls = await photoUploadRef.current.uploadPhotos();
+      const loadingToastId = toast.loading("Sedang mengunggah foto...");
+      let photoUrls: string[];
+      try {
+        photoUrls = await uploadProofPhotos(photoUploadRef);
+      } finally {
         toast.dismiss(loadingToastId);
       }
 

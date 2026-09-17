@@ -13,7 +13,10 @@ import {
   getRestockFilterOptions,
   getVisibleRestockRequests,
   isVeryLowStock,
+  PHOTO_UPLOAD_NOT_READY_MESSAGE,
+  uploadProofPhotos,
 } from "@/app/admin/inventory/restock/utils";
+import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
 import type {
   Barang,
   PurchaseRequest,
@@ -375,5 +378,30 @@ describe("restock utils", () => {
     ]);
     expect(paginated.totalPages).toBe(1);
     expect(paginated.page).toBe(1);
+  });
+
+  describe("uploadProofPhotos", () => {
+    it("mengembalikan URL dari PhotoUpload yang terpasang", async () => {
+      const photoUpload: PhotoUploadRef = {
+        uploadPhotos: async () => ["https://cdn.radpro.id/bukti.webp"],
+        getPhotos: () => [],
+        resetPhotos: () => {},
+      };
+
+      await expect(
+        uploadProofPhotos({ current: photoUpload }),
+      ).resolves.toEqual(["https://cdn.radpro.id/bukti.webp"]);
+    });
+
+    // Regresi: ref kosong dulu dilewati diam-diam sehingga foto tidak pernah
+    // diunggah dan server membalas "foto wajib diunggah" meski foto sudah dipilih.
+    it("gagal jelas bila komponen unggah foto tidak terpasang", async () => {
+      await expect(uploadProofPhotos({ current: null })).rejects.toThrow(
+        PHOTO_UPLOAD_NOT_READY_MESSAGE,
+      );
+      await expect(uploadProofPhotos(undefined)).rejects.toThrow(
+        PHOTO_UPLOAD_NOT_READY_MESSAGE,
+      );
+    });
   });
 });

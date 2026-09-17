@@ -203,3 +203,21 @@
     beri user pilihan: tambahkan aturan izin, atau jalankan dengan prefix `!` agar output masuk ke sesi.
   - Akses produksi yang terbukti: `ssh radpro` → `sudo kubectl -n netmanager-production ...`
     (user `radpro` tanpa kubeconfig pribadi; kubectl non-sudo gagal membaca `/etc/rancher/k3s/k3s.yaml`).
+
+## Bug yang hanya muncul di produksi: baca bundel produksinya, jangan menebak dari sumber
+
+- **Konteks:** Verifikasi Barang Sampai gagal "foto wajib diunggah" padahal foto terpilih. Logika sumber
+  benar dan tes jsdom lulus. Penyebab baru terlihat setelah membaca chunk JS di pod: bundel restock memakai
+  `app/components/inventory/PhotoUpload.tsx` (salinan lama) alih-alih `components/inventory/PhotoUpload.tsx`.
+- **Why:** Image dibangun di `/app`. Alias `@/x` menjadi `/app/x`, lalu webpack `resolve.roots: [context]`
+  mencoba `/app` + `/app/x` = `/app/app/x` lebih dulu. Setiap berkas di `app/` yang kembar dengan path root
+  diam-diam membayanginya — hanya di build webpack di Docker, tidak di dev/tes/build lokal.
+- **How to apply:**
+  - Jangan taruh berkas di `app/<path>` yang sama dengan `<path>` di root (`components`, `lib`, `hooks`, dst.);
+    dijaga `tests/architecture/app-dir-path-shadowing.test.ts`.
+  - Untuk bug yang tidak bisa direproduksi lokal, ambil artefak produksi: `sudo kubectl exec deploy/netmanager-app
+    -- cat /app/.next/static/chunks/<chunk>.js` lalu cari simbol/teks yang membedakan versi.
+  - Sebelum menyimpulkan "request tidak pernah sampai" dari log, periksa dulu cara route itu mencatat log:
+    route non-`createHandler` (mis. `upload-photo`) tidak menghasilkan baris `→/←`.
+  - Pola `if (ref.current) { ...upload }` menyamarkan kegagalan menjadi pesan validasi yang menyesatkan;
+    buat gagal keras bila ref wajib ada.

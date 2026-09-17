@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-17] — Verifikasi Barang Sampai gagal meski foto sudah dipilih
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Di `/admin/inventory/restock`, tombol "Konfirmasi & Tambah Stok"
+  selalu berakhir dengan "Foto bukti penerimaan barang wajib diunggah" walau foto
+  sudah dipilih (12 kali `PATCH .../receive` → 400 pada PR-20260916-0001; GRN
+  berfoto terakhir 06-09). Akar masalahnya ada di build produksi, bukan di logika
+  halaman: image dibangun di `/app`, sehingga folder App Router berada di
+  `/app/app`. Alias `@/components/inventory/PhotoUpload` diterjemahkan plugin
+  tsconfig Next.js menjadi `/app/components/inventory/PhotoUpload`, lalu webpack
+  (dipakai CI sejak 08-09) dengan `resolve.roots: [context]` bawaannya lebih dulu
+  mencobanya sebagai path relatif-root → `/app/app/components/inventory/
+  PhotoUpload.tsx`. Berkas itu ada: salinan lama tanpa `forwardRef` yang tidak
+  dipakai siapa pun. Bundel halaman restock memakai salinan lama itu, ref modal
+  selalu `null`, dan `if (photoUploadRef.current)` melewati unggahan diam-diam
+  sehingga `fotoBukti` terkirim kosong. Halaman masuk/keluar/transfer tidak
+  terdampak karena mengimpor lewat path relatif; Konfirmasi Jasa terdampak dengan
+  pola yang sama. Terbukti dari chunk produksi (0 `useImperativeHandle`, ada teks
+  "Transaction ID diperlukan" milik salinan lama) dan simulasi `enhanced-resolve`.
+  Perbaikan: hapus `app/components/inventory/` (kode mati, tanpa importer); tes
+  arsitektur baru menolak berkas `app/<path>` yang kembar dengan `<path>` di root;
+  unggah foto bukti di verifikasi barang dan konfirmasi jasa kini lewat
+  `uploadProofPhotos`, yang gagal dengan pesan jelas bila komponen tidak terpasang
+  alih-alih mengirim bukti kosong.
+- **Files**: `app/components/inventory/*` (dihapus),
+  `app/admin/inventory/restock/utils.ts`, `app/admin/inventory/restock/useRestockPage.ts`,
+  `tests/architecture/app-dir-path-shadowing.test.ts`, `tests/ui/restock-utils.test.ts`,
+  `tests/app/admin/inventory/restock-receive-photo-upload.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-17] — Hapus modul OLT Management yang tidak dipakai
 
 - **Tipe**: [REMOVED]

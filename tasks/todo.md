@@ -1,5 +1,20 @@
 # TODO
 
+## Bug: Verifikasi Barang Sampai gagal meski foto dipilih (2026-09-17)
+
+### Bukti
+- Log produksi: 12× `PATCH /api/inventory/restock/requests/f0300d8c…/receive` → 400 (16:08–16:16 WIB), tanpa satu pun
+  unggahan `inventory/masuk`. GRN berfoto terakhir 06-09; 7 PR berstatus ORDERED menunggu.
+- Chunk produksi halaman restock: 0 `useImperativeHandle`, memuat teks "Transaction ID diperlukan" (salinan lama).
+- Simulasi `enhanced-resolve`: `roots=[root]` + berkas `<root><root>/components/...` → memilih salinan lama.
+
+### Tahapan
+- [x] 1. Reproduksi & akar masalah (webpack `resolve.roots` membayangi alias dengan `app/components/inventory`)
+- [x] 2. Tes arsitektur merah → hapus `app/components/inventory/` (kode mati) → hijau
+- [x] 3. Gagal keras bila ref PhotoUpload kosong (`uploadProofPhotos`) di verifikasi barang & konfirmasi jasa
+- [x] 4. Verifikasi lokal: typecheck bersih · lint 0 error/12 warning · test 687 file, 4.048 lulus, 0 gagal
+- [ ] 5. Commit & push → pantau deploy → pastikan chunk produksi memuat PhotoUpload yang benar
+
 ## Hapus OLT Management (2026-09-17)
 
 ### Konteks

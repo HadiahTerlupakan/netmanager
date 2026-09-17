@@ -1,3 +1,7 @@
+import type { RefObject } from "react";
+
+import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
+
 import type {
   Barang,
   BarangGudang,
@@ -8,6 +12,26 @@ import type {
   RestockSetting,
   RestockSubstitutionMap,
 } from "./types";
+
+export const PHOTO_UPLOAD_NOT_READY_MESSAGE =
+  "Komponen unggah foto belum siap. Muat ulang halaman lalu coba lagi.";
+
+/**
+ * Unggah foto bukti lewat PhotoUpload yang terpasang dan kembalikan URL-nya.
+ *
+ * Ref kosong berarti komponen yang ter-render tidak mendukung ref, sehingga
+ * foto tidak mungkin terunggah. Gagal di sini dengan pesan yang benar, bukan
+ * diam-diam mengirim bukti kosong yang ditolak server sebagai "foto wajib diunggah".
+ */
+export async function uploadProofPhotos(
+  photoUploadRef: RefObject<PhotoUploadRef | null> | undefined,
+): Promise<string[]> {
+  const photoUpload = photoUploadRef?.current;
+  if (!photoUpload) {
+    throw new Error(PHOTO_UPLOAD_NOT_READY_MESSAGE);
+  }
+  return photoUpload.uploadPhotos();
+}
 
 interface VisibleRestockRequestsInput {
   requests: PurchaseRequest[];
