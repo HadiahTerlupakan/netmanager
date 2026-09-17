@@ -213,8 +213,12 @@
   mencoba `/app` + `/app/x` = `/app/app/x` lebih dulu. Setiap berkas di `app/` yang kembar dengan path root
   diam-diam membayanginya — hanya di build webpack di Docker, tidak di dev/tes/build lokal.
 - **How to apply:**
-  - Jangan taruh berkas di `app/<path>` yang sama dengan `<path>` di root (`components`, `lib`, `hooks`, dst.);
-    dijaga `tests/architecture/app-dir-path-shadowing.test.ts`.
+  - Jangan taruh berkas di `app/` yang bisa menjawab request `@/<path>` milik root (`components`, `lib`, `hooks`,
+    dst.) — termasuk beda ekstensi (`app/lib/x.ts` vs `lib/x.tsx`) atau bentuk `index`
+    (`app/modules/x.ts` vs `modules/x/index.ts`); dijaga `tests/architecture/app-dir-path-shadowing.test.ts`.
+  - Tes penjaga harus meniru semantik mekanisme aslinya (urutan resolver: persis → ekstensi → `index`), bukan
+    hanya bentuk insidennya. Versi pertama tes ini hanya mencocokkan path persis dan meloloskan dua varian lain.
+    Buktikan merah dengan menanam varian sementara, lalu bersihkan dan cek `git status`.
   - Untuk bug yang tidak bisa direproduksi lokal, ambil artefak produksi: `sudo kubectl exec deploy/netmanager-app
     -- cat /app/.next/static/chunks/<chunk>.js` lalu cari simbol/teks yang membedakan versi.
   - Sebelum menyimpulkan "request tidak pernah sampai" dari log, periksa dulu cara route itu mencatat log:

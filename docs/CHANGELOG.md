@@ -63,7 +63,9 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   pola yang sama. Terbukti dari chunk produksi (0 `useImperativeHandle`, ada teks
   "Transaction ID diperlukan" milik salinan lama) dan simulasi `enhanced-resolve`.
   Perbaikan: hapus `app/components/inventory/` (kode mati, tanpa importer); tes
-  arsitektur baru menolak berkas `app/<path>` yang kembar dengan `<path>` di root;
+  arsitektur baru meniru resolver webpack dan menolak berkas di `app/` yang bisa
+  menjawab request `@/<path>` milik modul root — path persis, beda ekstensi
+  (`app/lib/x.ts` vs `lib/x.tsx`), maupun bentuk `index`;
   unggah foto bukti di verifikasi barang dan konfirmasi jasa kini lewat
   `uploadProofPhotos`, yang gagal dengan pesan jelas bila komponen tidak terpasang
   alih-alih mengirim bukti kosong.

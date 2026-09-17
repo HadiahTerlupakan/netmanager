@@ -13,7 +13,20 @@
 - [x] 2. Tes arsitektur merah → hapus `app/components/inventory/` (kode mati) → hijau
 - [x] 3. Gagal keras bila ref PhotoUpload kosong (`uploadProofPhotos`) di verifikasi barang & konfirmasi jasa
 - [x] 4. Verifikasi lokal: typecheck bersih · lint 0 error/12 warning · test 687 file, 4.048 lulus, 0 gagal
-- [ ] 5. Commit & push → pantau deploy → pastikan chunk produksi memuat PhotoUpload yang benar
+- [x] 5. Commit & push → pantau deploy → pastikan chunk produksi memuat PhotoUpload yang benar
+  - Sebelum (image `ba6cfe674ec0-33`, kedua pod): `restock/page-b3466d4ab706acb7.js` versi lama=1,
+    `useImperativeHandle`=0; penanda lama juga ada di `server/app/admin/inventory/restock/page.js`.
+  - Sesudah (image `0ec452dbd420-34`, pipeline selesai 21:06 WIB, migration job sukses, 2/2 pod siap, 0 restart):
+    halaman restock memuat `92044-2465e27764936ec8.js` (`useImperativeHandle`=1, versi lama=0); penanda lama tidak
+    ada di seluruh build static + server. Publik: chunk baru 200, chunk halaman lama 404; `/api/health` 200; log bersih.
+- [x] 6. Pertajam tes penjaga agar meniru resolver webpack (persis → ekstensi → `index`): hijau pada repo, merah
+  tepat 3 baris pada pembayang tanaman (PhotoUpload lama, `FotoBuktiSection.ts`, `app/modules/inventory.ts`)
+
+### Review
+- Akar masalah di build, bukan di logika halaman: salinan mati `app/components/inventory/PhotoUpload.tsx` membayangi
+  komponen asli lewat `resolve.roots` webpack di `/app`. Pemindaian resolver-akurat: tidak ada pembayang lain.
+- Dampak: Verifikasi Barang Sampai dan Konfirmasi Jasa (bukti kosong ditolak server, tidak ada data rusak).
+- Sisa: user mencoba ulang pada 7 PR berstatus ORDERED setelah memuat ulang halaman (tab lama masih memegang JS lama).
 
 ## Hapus OLT Management (2026-09-17)
 
