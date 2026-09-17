@@ -67,7 +67,17 @@ User minta seluruh MixRadius dihapus dari aplikasi. Cakupan awal: 305 file / ~5.
   3 Expense "Pejaten" + RAB "JAKARTA" perlu dipilih site manual.
 - **Verifikasi ulang setelah lanjutan**: typecheck bersih · lint 0 error / 12 warning · test 685 file, 4.053 lulus,
   0 gagal. Build produksi tidak diulang (perubahan terakhir hanya URL fetch di client + skrip + tes).
-- **Server belum di-commit.**
+- **Server di-commit & push** `622ed045a` → pipeline Gitea: quality ✅ → build ✅ → deploy ✅ (08:36 WIB).
+- **Verifikasi produksi (2026-09-17)**:
+  - Semua deployment (app ×2, worker, cron, radius) di image `622ed045a858-32`, pod Running tanpa restart;
+    log 10 menit pasca-deploy: 0 error, 0 rujukan MixRadius.
+  - Migration grant tercatat 08:35 WIB; "Chief Financial Officer" `expense` kosong → CRUD; tidak ada row ganda.
+  - Env `MIXRADIUS_*`: tidak ada di pod app/worker/cron, secret `netmanager-secrets`, maupun configmap.
+  - Uji `https://admin.radpro.id`: URL lama → 307 `/admin/pengeluaran`; route approval RAB → 401;
+    endpoint MixRadius → 404; market-price → 401.
+  - Backfill dry-run: 0 Expense & 0 RAB bisa diisi otomatis (`--apply` tidak dijalankan karena no-op).
+    Perlu dipilih manual: 3 Expense OPEX "Pejaten" Maret 2026 (Rp2.475.000; kandidat site Jakarta Selatan)
+    dan RAB DRAFT "JAKARTA" (site investor "Zawiyah", owner "tegalnew" — ambigu Jakarta Selatan/Tegal).
 
 ### Tahap 2 — BELUM dijalankan (destruktif, tunggu persetujuan user)
 - Drop tabel billing `mix_radius_{invoices,customers,owner_groups,investor_sites,configs}` (configs berisi kredensial panel)

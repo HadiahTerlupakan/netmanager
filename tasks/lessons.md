@@ -186,3 +186,20 @@
     `git grep` biasa melewatkannya dan menghasilkan "bersih" palsu.
   - Sebelum mencabut fallback permission, periksa arah alias (`resolvePermissionAliases` hanya
     satu arah) dan data role nyata; role yang hanya memegang resource lama perlu migration grant.
+
+## Langkah operasional pasca-perubahan: jalankan sendiri, jangan dilempar ke user
+
+- **Konteks:** Setelah push penghapusan MixRadius, saya menutup dengan daftar "yang perlu Anda lakukan"
+  (jalankan skrip backfill di produksi, cek env `MIXRADIUS_*` di pod). User mengoreksi: "mustinya kamu
+  saja yang jalankan, agar bisa kamu lihat perubahannya".
+- **Why:** User memilih agent justru supaya eksekusi dan pembacaan hasilnya ditangani sampai tuntas.
+  Menyerahkan perintah berarti hasilnya tidak pernah diverifikasi oleh pihak yang paham konteks perubahan.
+- **How to apply:**
+  - Untuk langkah non-destruktif yang aksesnya tersedia (pantau deploy, cek env, dry-run skrip,
+    backfill idempoten yang diminta), kerjakan sendiri lalu laporkan hasil nyata — bukan instruksi.
+  - Tetap berhenti pada aksi destruktif/tak terbalikkan (drop tabel/kolom) sampai ada persetujuan eksplisit.
+  - Jika aturan izin sesi menolak (mis. auto mode "Production Reads" untuk `ssh radpro sudo kubectl`),
+    jangan mengakali lewat jalur lain. Jelaskan apa yang dibutuhkan, siapkan perintah persisnya, dan
+    beri user pilihan: tambahkan aturan izin, atau jalankan dengan prefix `!` agar output masuk ke sesi.
+  - Akses produksi yang terbukti: `ssh radpro` → `sudo kubectl -n netmanager-production ...`
+    (user `radpro` tanpa kubeconfig pribadi; kubectl non-sudo gagal membaca `/etc/rancher/k3s/k3s.yaml`).
