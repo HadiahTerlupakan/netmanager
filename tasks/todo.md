@@ -179,7 +179,11 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
     Complete dan Failed sekaligus, diuji dengan kubectl tiruan (selesai → 0, gagal → 1, keduanya seketika).
   - Percobaan 2 `8356b47d3` ✅ (image `8356b47d3301-37`, 11:5x WIB).
   - Ekor kejadian: deploy berikutnya (`244447156`) gagal karena job memutar ulang `init_tenant_schema` billing yang
-    menyentuh tabel `mix_radius_*`. Diperbaiki dengan penjagaan `to_regclass` + tes per pernyataan.
+    menyentuh tabel `mix_radius_*`. Diperbaiki dengan penjagaan `to_regclass` + tes per pernyataan (`9b7d107b2`).
+  - Verifikasi akhir (2026-09-19, image `9b7d107b24bb-39`): migration job SUCCEEDED, guard lolos,
+    "ALL MIGRATIONS COMPLETED SUCCESSFULLY"; rollout app/worker/cron/radius sukses; 0 error di log keempatnya;
+    `/api/health` dan `/login` 200. Perbaikan tunggu-migrasi terbukti di kejadian nyata: gagal terdeteksi 1m44s.
+    Pintu deploy bersih kembali.
 
 ### Review tahap 2 (2026-09-18)
 - **Migration**: ketiganya tercatat selesai tanpa rollback di DB utama, billing, dan mitra.
