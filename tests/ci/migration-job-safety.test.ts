@@ -27,6 +27,82 @@ const LEGACY_MIGRATIONS_WITHOUT_ACK = new Set([
   "20260720123000_make_chat_user_columns_nullable",
 ]);
 
+/**
+ * Job migrasi memutar ulang berkas tenant-schema ini dengan `ON_ERROR_STOP=1`
+ * pada setiap deploy ke database yang sudah ada. Begitu sebuah tabel di-drop,
+ * pernyataan yang menyentuhnya harus dibungkus penjagaan `to_regclass`, kalau
+ * tidak replay gagal dan **semua** deploy berikutnya ikut gagal — bukan hanya
+ * deploy yang membawa perubahan skema. Kejadian nyata 2026-09-18: tabel
+ * `mix_radius_*` dihapus, deploy berikutnya mati di
+ * `relation "mix_radius_invoices" does not exist`.
+ */
+const REPLAYED_TENANT_SCHEMAS = [
+  {
+    sql: "prisma/migrations/20260314015651_init_tenant_schema/migration.sql",
+    schema: "prisma/schema.prisma",
+  },
+  {
+    sql: "prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql",
+    schema: "prisma/schema.radius.prisma",
+  },
+  {
+    sql: "prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql",
+    schema: "prisma/billing.prisma",
+  },
+  {
+    sql: "prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql",
+    schema: "prisma/mitra.prisma",
+  },
+];
+
+function readRepoFile(relativePath: string): string {
+  return readFileSync(resolve(process.cwd(), relativePath), "utf8");
+}
+
+/** Nama tabel yang masih didefinisikan schema Prisma (ikut `@@map`). */
+function tableNamesInSchema(schemaPath: string): Set<string> {
+  return new Set(
+    readRepoFile(schemaPath)
+      .split(/\nmodel /)
+      .slice(1)
+      .map((block) => {
+        const mapped = block.match(/@@map\("([^"]+)"\)/);
+        return mapped ? mapped[1] : block.split(/[\s{]/)[0];
+      }),
+  );
+}
+
+function findUnguardedDroppedTables({
+  sql,
+  schema,
+}: (typeof REPLAYED_TENANT_SCHEMAS)[number]): string[] {
+  const statements = readRepoFile(sql);
+  const definedTables = tableNamesInSchema(schema);
+  const referencedTables = new Set([
+    ...[...statements.matchAll(/ALTER TABLE "([^"]+)"/g)].map((m) => m[1]),
+    ...[...statements.matchAll(/ON "([^"]+)"\(/g)].map((m) => m[1]),
+  ]);
+
+  return [...referencedTables]
+    .filter((table) => !definedTables.has(table))
+    .filter((table) => {
+      // Buang blok DO yang sudah dijaga untuk tabel ini, lalu pastikan tidak
+      // ada lagi pernyataan telanjang yang menyentuhnya. Memeriksa keberadaan
+      // penjagaan di mana pun dalam berkas tidak cukup: satu pernyataan bisa
+      // terjaga sementara pernyataan lain untuk tabel yang sama tidak.
+      const tanpaBlokTerjaga = statements.replace(
+        /DO \$\$ BEGIN[\s\S]*?END \$\$;/g,
+        (block) =>
+          block.includes(`to_regclass('public."${table}"')`) ? "" : block,
+      );
+      return (
+        tanpaBlokTerjaga.includes(`ALTER TABLE "${table}"`) ||
+        tanpaBlokTerjaga.includes(`ON "${table}"(`)
+      );
+    })
+    .map((table) => `${sql}: ${table}`);
+}
+
 function findDestructiveMigrationsWithoutAck(directory: string): string[] {
   const directoryPath = resolve(process.cwd(), directory);
 
@@ -385,6 +461,14 @@ describe("migration job safety", () => {
     );
 
     expect(withoutAcknowledgement).toEqual([]);
+  });
+
+  it("guards replayed tenant-schema statements for tables the schema no longer defines", () => {
+    const unguarded = REPLAYED_TENANT_SCHEMAS.flatMap(
+      findUnguardedDroppedTables,
+    );
+
+    expect(unguarded).toEqual([]);
   });
 
   it("mirrors the destructive-SQL rule enforced by the migration job", () => {

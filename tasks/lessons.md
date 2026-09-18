@@ -243,3 +243,19 @@
   - Buktikan merah dulu pada pelanggar yang nyata, baru perbaiki sampai hijau.
 - **Efek samping yang perlu diingat:** mengubah isi migration yang sudah diterapkan di DB lokal membuat checksum
   tidak cocok. Perbaikannya `prisma migrate resolve --applied <nama>`, bukan mengedit balik berkasnya.
+
+## Drop tabel bukan cuma urusan schema: cek berkas SQL yang diputar ulang pipeline
+
+- **Konteks:** Setelah `mix_radius_*` di-drop, deploy berikutnya gagal di
+  `relation "mix_radius_invoices" does not exist`. Bukan dari migrasi baru, melainkan dari
+  `psql_quiet_idempotent_sql` yang memutar ulang `init_tenant_schema` di **setiap** deploy.
+- **Why:** Dampaknya lebih luas daripada kelihatannya: satu berkas replay yang menyentuh tabel hilang membuat
+  semua deploy berikutnya gagal, termasuk yang tidak menyentuh database sama sekali.
+- **How to apply:**
+  - Sebelum drop, grep nama objeknya di seluruh berkas yang dijalankan job migrasi
+    (`k8s/migration-job.yaml` → `psql_quiet_idempotent_sql`, skrip perbaikan, seeder), bukan hanya di `prisma/*.prisma`.
+  - Bungkus pernyataan pada tabel yang mungkin sudah hilang dengan `DO $$ BEGIN IF to_regclass(...) IS NOT NULL THEN ... END IF; END $$;`.
+  - Prisma `migrate deploy` tidak mempermasalahkan checksum berkas yang sudah diterapkan, jadi menambah penjagaan
+    pada berkas replay aman — dan memang sudah jadi preseden di repo ini (`push_subscriptions`).
+  - Saat menulis tes penjaganya, periksa **per pernyataan**. Versi pertama tes ini hanya memastikan ada penjagaan
+    untuk tabel itu di suatu tempat dalam berkas, sehingga pernyataan telanjang lain untuk tabel yang sama lolos.

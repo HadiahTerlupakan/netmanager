@@ -178,6 +178,8 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
     (run berikutnya memang menghapusnya juga). Pipeline sudah diperbaiki: penungguan kini memantau kondisi
     Complete dan Failed sekaligus, diuji dengan kubectl tiruan (selesai → 0, gagal → 1, keduanya seketika).
   - Percobaan 2 `8356b47d3` ✅ (image `8356b47d3301-37`, 11:5x WIB).
+  - Ekor kejadian: deploy berikutnya (`244447156`) gagal karena job memutar ulang `init_tenant_schema` billing yang
+    menyentuh tabel `mix_radius_*`. Diperbaiki dengan penjagaan `to_regclass` + tes per pernyataan.
 
 ### Review tahap 2 (2026-09-18)
 - **Migration**: ketiganya tercatat selesai tanpa rollback di DB utama, billing, dan mitra.

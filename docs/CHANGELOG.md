@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-19] — Replay tenant-schema billing tahan tabel MixRadius yang sudah dihapus
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/billing_migrations`
+- **Author**: agent
+- **Deskripsi**: Deploy pertama setelah drop `mix_radius_*` gagal dengan
+  `relation "mix_radius_invoices" does not exist`. Penyebabnya bukan migrasi baru:
+  job migrasi memutar ulang `20260314015654_init_tenant_schema` dengan
+  `ON_ERROR_STOP=1` pada **setiap** deploy ke database yang sudah ada, dan berkas itu
+  menambahkan kolom `tenantId` ke lima tabel yang kini sudah tidak ada. Akibatnya
+  seluruh deploy berikutnya ikut gagal, bukan hanya yang membawa perubahan skema.
+  Sepuluh pernyataannya dibungkus penjagaan `to_regclass` — pola yang sama dengan
+  `push_subscriptions` di berkas tenant-schema DB utama. Diuji dengan menjalankan
+  berkasnya apa adanya ke database billing lokal yang tabelnya sudah terhapus:
+  exit 0 dan tetap idempoten saat diulang. Tes baru menegakkan aturannya untuk
+  keempat berkas replay dan per pernyataan, bukan sekadar per tabel.
+- **Files**: `prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql`,
+  `tests/ci/migration-job-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-18] — Pipeline berhenti seketika saat migrasi gagal
 
 - **Tipe**: [INFRA]

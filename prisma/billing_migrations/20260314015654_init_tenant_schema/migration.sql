@@ -15,19 +15,39 @@ ALTER TABLE "PaymentGatewayConfig" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 ALTER TABLE "UnmatchedMutation" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_invoices"') IS NOT NULL THEN
 ALTER TABLE "mix_radius_invoices" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_customers"') IS NOT NULL THEN
 ALTER TABLE "mix_radius_customers" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_owner_groups"') IS NOT NULL THEN
 ALTER TABLE "mix_radius_owner_groups" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_investor_sites"') IS NOT NULL THEN
 ALTER TABLE "mix_radius_investor_sites" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_configs"') IS NOT NULL THEN
 ALTER TABLE "mix_radius_configs" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "Invoice_tenantId_idx" ON "Invoice"("tenantId");
@@ -45,17 +65,37 @@ CREATE INDEX IF NOT EXISTS "PaymentGatewayConfig_tenantId_idx" ON "PaymentGatewa
 CREATE INDEX IF NOT EXISTS "UnmatchedMutation_tenantId_idx" ON "UnmatchedMutation"("tenantId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "mix_radius_invoices_tenantId_idx" ON "mix_radius_invoices"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_invoices"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "mix_radius_invoices_tenantId_idx" ON "mix_radius_invoices"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "mix_radius_customers_tenantId_idx" ON "mix_radius_customers"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_customers"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "mix_radius_customers_tenantId_idx" ON "mix_radius_customers"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "mix_radius_owner_groups_tenantId_idx" ON "mix_radius_owner_groups"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_owner_groups"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "mix_radius_owner_groups_tenantId_idx" ON "mix_radius_owner_groups"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "mix_radius_investor_sites_tenantId_idx" ON "mix_radius_investor_sites"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_investor_sites"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "mix_radius_investor_sites_tenantId_idx" ON "mix_radius_investor_sites"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "mix_radius_configs_tenantId_idx" ON "mix_radius_configs"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."mix_radius_configs"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "mix_radius_configs_tenantId_idx" ON "mix_radius_configs"("tenantId")';
+END IF;
+END $$;
 
