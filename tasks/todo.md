@@ -166,13 +166,29 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
       app/worker/cron/radius semuanya di image baru tanpa restart, dan `schema.prisma` aktif plus
       `node_modules/.prisma/client/schema.prisma` 0 rujukan `mixRadius*`/`Olt*`/`Onu*` (sisa hanya di
       berkas `*.old.prisma` yang tidak dipakai runtime).
-- [ ] 8. Deploy 2 (contract): push 3 migration drop → cadangan pra-migrasi 4 DB → verifikasi produksi
+- [x] 8. Deploy 2 (contract): push 3 migration drop → cadangan pra-migrasi 4 DB → verifikasi produksi
   - Percobaan 1 `80b9bfee1` ditolak guard `k8s/migration-job.yaml` (09:42 WIB): SQL destruktif wajib membawa
     `-- @safe-guard-ack: <alasan>`. Job berhenti **sebelum** menyentuh DB — produksi utuh (9 tabel OLT,
     4 kolom `mixRadius`, 211 izin, `_prisma_migrations` tanpa catatan baru) dan app tetap di `43f9da932122-35`.
   - Penyebab lolos di lokal: `tests/ci/migration-job-safety.test.ts` hanya memeriksa satu migration lama yang
     di-hardcode. Tes dijadikan aturan menyeluruh (semua migration destruktif di 3 folder, allowlist untuk
     1 berkas legacy yang sudah diterapkan) + tes paritas pola dengan guard. Merah dulu pada 3 berkas, lalu hijau.
+  - Run percobaan 1 menggantung 40+ menit setelah gagal: `kubectl wait --for=condition=complete` tidak pernah
+    kembali bila Job gagal, jadi CI menunggu sampai batas 3900s. Dibuka dengan menghapus Job yang sudah gagal
+    (run berikutnya memang menghapusnya juga). Perbaikan pipeline dicatat sebagai tindak lanjut.
+  - Percobaan 2 `8356b47d3` ✅ (image `8356b47d3301-37`, 11:5x WIB).
+
+### Review tahap 2 (2026-09-18)
+- **Migration**: ketiganya tercatat selesai tanpa rollback di DB utama, billing, dan mitra.
+- **Objek hilang semua**: 0 tabel `olt_*`/`onu_*`, 0 kolom `mixRadius*`, 0 enum OLT, 0 tabel `mix_radius_*`,
+  0 kolom fee mitra, 0 izin `mixradius*`/`olt*`/`onu*`, 0 tautan izin yatim di `_PermissionToRole`.
+- **Data utuh**: `Expense` 147, `rab_projects` 7, 1.235 izin lain, 13 role.
+- **Penyelamatan data berhasil**: RAB "JAKARTA" kini berdeskripsi `Investor site lama (MixRadius): Zawiyah —
+  owner "tegalnew — Manager"`; RAB "Expansi Tegal 50M" tidak disentuh karena sudah punya site.
+- **Runtime**: app ×2, worker, cron, radius di `8356b47d3301-37`, semua siap, 0 restart, 0 error di log.
+  Publik: `/api/health` 200, `/login` 200, halaman admin 307 ke login, endpoint OLT & MixRadius 404.
+- **Sisa untuk user**: 3 pengeluaran "Pejaten" (Rp2.475.000, Maret 2026) sengaja dibiarkan tanpa site —
+  bisa dipilih kapan saja di `/admin/pengeluaran`.
 
 ## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)
 
