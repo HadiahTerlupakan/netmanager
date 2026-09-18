@@ -159,10 +159,13 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
 - [x] 4. Hapus `scripts/backfill-site-from-mixradius-groups*.ts` + tesnya (wajib dibuang bersama kolomnya)
 - [x] 5. Uji di DB lokal: ketiga migration `migrate deploy` bersih, objek sasaran hilang di ketiga DB
 - [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 12 warning · test 686 file, 4.044 lulus, 3 skip
-- [ ] 7. Deploy 1 (expand): push schema tanpa migration → semua pod memakai client yang tidak lagi
-      memilih kolom `mixRadius*`. Wajib duluan karena pipeline menjalankan migration job sebelum rollout,
-      dan Prisma client menyebut semua kolom skalar di setiap query — drop satu deploy = query
-      `Pelanggan`/`Expense`/`rab_projects`/`Mitra` gagal sampai rollout selesai.
+- [x] 7. Deploy 1 (expand): `43f9da932` → pipeline quality ✅ build ✅ deploy ✅ (08:36 WIB, image
+      `43f9da932122-35`). Wajib duluan karena pipeline menjalankan migration job sebelum rollout, dan Prisma
+      client menyebut semua kolom skalar di setiap query — drop satu deploy = query
+      `Pelanggan`/`Expense`/`rab_projects`/`Mitra` gagal sampai rollout selesai. Diverifikasi di pod:
+      app/worker/cron/radius semuanya di image baru tanpa restart, dan `schema.prisma` aktif plus
+      `node_modules/.prisma/client/schema.prisma` 0 rujukan `mixRadius*`/`Olt*`/`Onu*` (sisa hanya di
+      berkas `*.old.prisma` yang tidak dipakai runtime).
 - [ ] 8. Deploy 2 (contract): push 3 migration drop → cadangan pra-migrasi 4 DB → verifikasi produksi
 
 ## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)

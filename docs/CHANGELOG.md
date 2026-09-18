@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-18] — Hapus sisa skema MixRadius & OLT Management (tahap 2, destruktif)
+
+- **Tipe**: [REMOVED]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Deploy kedua tahap 2 atas persetujuan user, melanjutkan penghapusan
+  kode di `622ed045a` (MixRadius) dan `ba6cfe674` (OLT). DB billing: drop 5 tabel
+  `mix_radius_{invoices,customers,owner_groups,investor_sites,configs}`. DB utama:
+  drop kolom `Expense.mixRadiusGroupId`, `Pelanggan.mixRadiusId`,
+  `rab_projects.{mixRadiusGroupId,mixRadiusInvestorSiteId}`, 9 tabel `olt_*`/`onu_*`
+  beserta 9 enum-nya, 211 baris `Permission` (`mixradius*`, `m_mixradius`, `olt*`,
+  `onu`, `onutype`; tautan role ikut lewat ON DELETE CASCADE), serta pembersihan
+  `Settings.key='mixradius_fees'` dan `TenantFeatureFlag.feature='integrations'`
+  (di produksi keduanya sudah 0 baris). DB mitra: drop
+  `Mitra.{mixradiusOwnerNames,enableFeePelanggan,mitraRateFeePelanggan}` (0 mitra
+  memakainya). Sebelum drop, tautan RAB ke investor site MixRadius disimpan sebagai
+  teks di deskripsi RAB yang belum punya site, karena itu satu-satunya keterangan
+  yang tidak tersimpan di tempat lain. Padanan dry-run backfill site diverifikasi di
+  produksi: 0 baris bisa dipetakan otomatis, jadi `siteId` tidak ditebak — 3
+  pengeluaran grup "Pejaten" tetap tanpa site dan deskripsinya sendiri sudah memuat
+  "PEJATEN". Skrip backfill dihapus bersama kolomnya di commit `43f9da932`. Sebelum drop dijalankan, seluruh deployment sudah memakai image `43f9da932122-35` yang schema Prisma-nya tidak lagi menyebut kolom tersebut (diperiksa langsung di pod).
+- **Migration**: `20260918000116_drop_mixradius_columns_and_olt_tables` (utama),
+  `20260918000117_drop_mix_radius_tables` (billing),
+  `20260918000118_drop_mixradius_fee_columns` (mitra)
+- **Breaking**: ✅ Ya
+
 ### [2026-09-18] — Lepas model & kolom MixRadius/OLT dari Prisma schema (pra-drop)
 
 - **Tipe**: [CHANGED]
