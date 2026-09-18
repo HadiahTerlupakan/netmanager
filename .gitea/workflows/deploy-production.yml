@@ -504,7 +504,35 @@ jobs:
           # lebih dulu dan menyatakan deploy gagal sementara Job masih berjalan
           # dan mungkin tetap selesai — migrasi terlanjur berjalan tanpa
           # pipeline yang menyusulnya. Biarkan deadline Job yang memutuskan.
-          $SSH "sudo -n kubectl -n ${NAMESPACE} wait --for=condition=complete --timeout=3900s job/netmanager-migration-job" || {
+          #
+          # Kedua kondisi akhir dipantau sekaligus. `kubectl wait
+          # --for=condition=complete` sendirian tidak pernah kembali saat Job
+          # gagal: kondisi Complete tidak akan pernah True, jadi CI menunggu
+          # sampai batas 3900s meski penyebabnya sudah jelas sejak menit
+          # pertama (kejadian nyata 2026-09-18: guard menolak migrasi
+          # destruktif, pipeline tetap menggantung 40+ menit).
+          tunggu_migrasi_selesai() {
+            $SSH "NAMESPACE='${NAMESPACE}' bash -s" <<'TUNGGU_MIGRASI'
+          set -u
+          K="sudo -n kubectl -n ${NAMESPACE}"
+          nama_job=job/netmanager-migration-job
+          batas=$((SECONDS + 3900))
+          while [ "${SECONDS}" -lt "${batas}" ]; do
+            selesai=$(${K} get ${nama_job} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
+            gagal=$(${K} get ${nama_job} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+            if [ "${selesai}" = "True" ]; then exit 0; fi
+            if [ "${gagal}" = "True" ]; then
+              echo "Job migrasi berakhir dengan kondisi Failed" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Batas tunggu 3900s terlampaui, Job belum mencapai kondisi akhir" >&2
+          exit 1
+          TUNGGU_MIGRASI
+          }
+
+          tunggu_migrasi_selesai || {
             echo "::error::Migrasi gagal atau melewati batas waktu" >&2
 
             # Job yang podnya tidak pernah terjadwal — ImagePullBackOff, kuota

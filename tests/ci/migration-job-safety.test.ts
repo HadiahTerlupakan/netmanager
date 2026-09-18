@@ -592,9 +592,10 @@ describe("migration job safety", () => {
     );
 
     const deadline = migrationJob.match(/activeDeadlineSeconds:\s*(\d+)/);
-    const batasTunggu = workflow.match(
-      /wait --for=condition=complete --timeout=(\d+)s job\/netmanager-migration-job/,
-    );
+    // Penungguan memakai loop yang juga mengenali kondisi Failed, jadi anggaran
+    // waktunya terbaca dari batas loop, bukan lagi dari `--timeout` milik
+    // `kubectl wait`.
+    const batasTunggu = workflow.match(/batas=\$\(\(SECONDS \+ (\d+)\)\)/);
 
     expect(deadline).not.toBeNull();
     expect(batasTunggu).not.toBeNull();

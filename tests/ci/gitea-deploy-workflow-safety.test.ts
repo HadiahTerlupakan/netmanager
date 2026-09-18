@@ -19,6 +19,22 @@ function readWorkflow(): string {
 }
 
 describe("Gitea production workflow safety", () => {
+  it("stops waiting the moment the migration job fails instead of hanging until the timeout", () => {
+    // `kubectl wait --for=condition=complete` tidak pernah kembali saat Job
+    // gagal: kondisi Complete tidak akan pernah True. Pada 2026-09-18 guard
+    // menolak migrasi destruktif dalam hitungan detik, tetapi pipeline tetap
+    // menggantung 40+ menit menunggu batas 3900s — antrean deploy ikut macet.
+    const workflow = readWorkflow();
+
+    expect(workflow).toContain(
+      '{.status.conditions[?(@.type=="Complete")].status}',
+    );
+    expect(workflow).toContain(
+      '{.status.conditions[?(@.type=="Failed")].status}',
+    );
+    expect(workflow).not.toContain("wait --for=condition=complete");
+  });
+
   it("installs dependencies deterministically without an npm install fallback", () => {
     const workflow = readWorkflow();
 

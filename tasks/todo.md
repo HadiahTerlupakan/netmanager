@@ -175,7 +175,8 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
     1 berkas legacy yang sudah diterapkan) + tes paritas pola dengan guard. Merah dulu pada 3 berkas, lalu hijau.
   - Run percobaan 1 menggantung 40+ menit setelah gagal: `kubectl wait --for=condition=complete` tidak pernah
     kembali bila Job gagal, jadi CI menunggu sampai batas 3900s. Dibuka dengan menghapus Job yang sudah gagal
-    (run berikutnya memang menghapusnya juga). Perbaikan pipeline dicatat sebagai tindak lanjut.
+    (run berikutnya memang menghapusnya juga). Pipeline sudah diperbaiki: penungguan kini memantau kondisi
+    Complete dan Failed sekaligus, diuji dengan kubectl tiruan (selesai → 0, gagal → 1, keduanya seketika).
   - Percobaan 2 `8356b47d3` ✅ (image `8356b47d3301-37`, 11:5x WIB).
 
 ### Review tahap 2 (2026-09-18)

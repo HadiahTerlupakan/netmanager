@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-18] — Pipeline berhenti seketika saat migrasi gagal
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/deploy-production.yml`
+- **Author**: agent
+- **Deskripsi**: Langkah "Jalankan migrasi database" menunggu dengan
+  `kubectl wait --for=condition=complete`, yang tidak pernah kembali bila Job
+  gagal — kondisi Complete tidak akan pernah True, sehingga CI menunggu sampai
+  batas 3900s. Kejadian nyata hari ini: guard menolak migrasi destruktif dalam
+  hitungan detik, tetapi pipeline tetap menggantung 40+ menit dan memblokir
+  antrean deploy berikutnya. Penungguan diganti loop yang memantau kondisi
+  Complete dan Failed sekaligus; batas 3900s tetap ada sebagai jaring pengaman
+  dan tetap lebih panjang daripada `activeDeadlineSeconds` milik Job. Logikanya
+  diuji dengan kubectl tiruan: kondisi selesai keluar kode 0 dan kondisi gagal
+  keluar kode 1, keduanya seketika.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/gitea-deploy-workflow-safety.test.ts`,
+  `tests/ci/migration-job-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-18] — Hapus sisa skema MixRadius & OLT Management (tahap 2, destruktif)
 
 - **Tipe**: [REMOVED]
