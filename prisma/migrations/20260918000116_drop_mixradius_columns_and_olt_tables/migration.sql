@@ -1,3 +1,4 @@
+-- @safe-guard-ack: tahap 2 hapus sisa MixRadius & OLT, disetujui user 2026-09-18; isi tiap objek sudah dihitung di produksi, kode tidak lagi menyentuhnya sejak image 43f9da932122-35, dan pipeline mencadangkan 4 DB sebelum migrasi
 -- Tahap 2 pembersihan MixRadius & OLT Management.
 -- Kode berhenti memakai keduanya sejak 622ed045a (MixRadius) dan ba6cfe674 (OLT);
 -- migration ini membuang sisa skemanya. Destruktif dan sudah disetujui user.

@@ -62,6 +62,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   produksi: 0 baris bisa dipetakan otomatis, jadi `siteId` tidak ditebak — 3
   pengeluaran grup "Pejaten" tetap tanpa site dan deskripsinya sendiri sudah memuat
   "PEJATEN". Skrip backfill dihapus bersama kolomnya di commit `43f9da932`. Sebelum drop dijalankan, seluruh deployment sudah memakai image `43f9da932122-35` yang schema Prisma-nya tidak lagi menyebut kolom tersebut (diperiksa langsung di pod).
+  Ketiga migration membawa `-- @safe-guard-ack:` sesuai syarat guard di
+  `k8s/migration-job.yaml`; `tests/ci/migration-job-safety.test.ts` diperluas dari
+  memeriksa satu berkas hardcoded menjadi menegakkan aturan itu ke seluruh migration
+  destruktif di tiga folder, plus tes paritas agar polanya tidak menyimpang dari guard.
 - **Migration**: `20260918000116_drop_mixradius_columns_and_olt_tables` (utama),
   `20260918000117_drop_mix_radius_tables` (billing),
   `20260918000118_drop_mixradius_fee_columns` (mitra)

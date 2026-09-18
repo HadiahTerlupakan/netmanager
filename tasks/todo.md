@@ -167,6 +167,12 @@ ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_Pe
       `node_modules/.prisma/client/schema.prisma` 0 rujukan `mixRadius*`/`Olt*`/`Onu*` (sisa hanya di
       berkas `*.old.prisma` yang tidak dipakai runtime).
 - [ ] 8. Deploy 2 (contract): push 3 migration drop → cadangan pra-migrasi 4 DB → verifikasi produksi
+  - Percobaan 1 `80b9bfee1` ditolak guard `k8s/migration-job.yaml` (09:42 WIB): SQL destruktif wajib membawa
+    `-- @safe-guard-ack: <alasan>`. Job berhenti **sebelum** menyentuh DB — produksi utuh (9 tabel OLT,
+    4 kolom `mixRadius`, 211 izin, `_prisma_migrations` tanpa catatan baru) dan app tetap di `43f9da932122-35`.
+  - Penyebab lolos di lokal: `tests/ci/migration-job-safety.test.ts` hanya memeriksa satu migration lama yang
+    di-hardcode. Tes dijadikan aturan menyeluruh (semua migration destruktif di 3 folder, allowlist untuk
+    1 berkas legacy yang sudah diterapkan) + tes paritas pola dengan guard. Merah dulu pada 3 berkas, lalu hijau.
 
 ## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)
 

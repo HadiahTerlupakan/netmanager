@@ -225,3 +225,21 @@
     route non-`createHandler` (mis. `upload-photo`) tidak menghasilkan baris `→/←`.
   - Pola `if (ref.current) { ...upload }` menyamarkan kegagalan menjadi pesan validasi yang menyesatkan;
     buat gagal keras bila ref wajib ada.
+
+## Tes penjaga yang meng-hardcode satu berkas tidak menjaga apa pun
+
+- **Konteks:** Dua kali dalam dua hari. (1) `app-dir-path-shadowing` hanya mencocokkan path persis, meloloskan
+  varian ekstensi dan `index`. (2) `migration-job-safety` hanya membaca satu migration lama
+  (`20260420123000_drop_push_subscriptions`) untuk memeriksa tanda `-- @safe-guard-ack:`, sehingga 3 migration
+  destruktif baru lolos lokal dan baru ditolak guard setelah ~1 jam pipeline (build 48 menit + antrean).
+- **Why:** Tes yang menyalin *bentuk insiden* hanya membuktikan insiden lama tidak kambuh. Yang menjaga adalah
+  tes yang menyalin *aturannya* dan diberlakukan ke seluruh kandidat.
+- **How to apply:**
+  - Tulis penjaga sebagai: kumpulkan semua kandidat → terapkan aturan → `expect(pelanggar).toEqual([])`.
+  - Ambil aturannya dari sumber yang sama dengan yang menegakkannya. Untuk guard migrasi, polanya disalin dari
+    `k8s/migration-job.yaml` dan ada tes terpisah yang memastikan salinan itu masih sama persis.
+  - Pengecualian historis ditulis sebagai allowlist berisi alasan, bukan dengan mempersempit aturan. Berkas
+    migration yang sudah diterapkan tidak boleh diedit: Prisma menyimpan checksum-nya.
+  - Buktikan merah dulu pada pelanggar yang nyata, baru perbaiki sampai hijau.
+- **Efek samping yang perlu diingat:** mengubah isi migration yang sudah diterapkan di DB lokal membuat checksum
+  tidak cocok. Perbaikannya `prisma migrate resolve --applied <nama>`, bukan mengedit balik berkasnya.

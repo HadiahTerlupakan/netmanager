@@ -1,7 +1,52 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+/**
+ * Guard di `k8s/migration-job.yaml` menghentikan job migrasi sebelum menyentuh
+ * database bila ada migration destruktif yang belum diterapkan dan tidak
+ * membawa komentar `-- @safe-guard-ack:`. Aturannya disalin ke sini supaya
+ * ketahuan saat menulis migration, bukan setelah satu jam pipeline berjalan.
+ */
+const DESTRUCTIVE_SQL_PATTERN =
+  /DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+TABLE\s+".*"\s+ALTER\s+COLUMN/i;
+const SAFE_GUARD_ACK_PREFIX = "-- @safe-guard-ack:";
+const MIGRATION_DIRECTORIES = [
+  "prisma/migrations",
+  "prisma/billing_migrations",
+  "prisma/mitra_migrations",
+];
+/**
+ * Sudah diterapkan di produksi sebelum guard ini ada. Berkas migration yang
+ * sudah dijalankan tidak boleh diedit: Prisma menyimpan checksum-nya dan
+ * `migrate deploy` menolak berkas yang berubah. Guard sendiri hanya memeriksa
+ * migration yang belum diterapkan, jadi berkas ini tidak pernah memblokir.
+ */
+const LEGACY_MIGRATIONS_WITHOUT_ACK = new Set([
+  "20260720123000_make_chat_user_columns_nullable",
+]);
+
+function findDestructiveMigrationsWithoutAck(directory: string): string[] {
+  const directoryPath = resolve(process.cwd(), directory);
+
+  return readdirSync(directoryPath)
+    .filter((migration) => !LEGACY_MIGRATIONS_WITHOUT_ACK.has(migration))
+    .filter((migration) =>
+      existsSync(join(directoryPath, migration, "migration.sql")),
+    )
+    .filter((migration) => {
+      const sql = readFileSync(
+        join(directoryPath, migration, "migration.sql"),
+        "utf8",
+      );
+      return (
+        DESTRUCTIVE_SQL_PATTERN.test(sql) &&
+        !sql.startsWith(SAFE_GUARD_ACK_PREFIX)
+      );
+    })
+    .map((migration) => `${directory}/${migration}`);
+}
 
 describe("migration job safety", () => {
   it("classifies optional backfill steps explicitly and supports strict mode", () => {
@@ -334,21 +379,22 @@ describe("migration job safety", () => {
     );
   });
 
-  it("requires destructive main migrations to carry a safe-guard acknowledgement comment", () => {
-    const migration = readFileSync(
-      resolve(
-        process.cwd(),
-        "prisma",
-        "migrations",
-        "20260420123000_drop_push_subscriptions",
-        "migration.sql",
-      ),
+  it("requires every destructive migration to carry a safe-guard acknowledgement comment", () => {
+    const withoutAcknowledgement = MIGRATION_DIRECTORIES.flatMap(
+      findDestructiveMigrationsWithoutAck,
+    );
+
+    expect(withoutAcknowledgement).toEqual([]);
+  });
+
+  it("mirrors the destructive-SQL rule enforced by the migration job", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
       "utf8",
     );
 
-    expect(migration).toContain("-- @safe-guard-ack:");
-    expect(migration.startsWith("-- @safe-guard-ack:")).toBe(true);
-    expect(migration).toContain('DROP TABLE IF EXISTS "push_subscriptions";');
+    expect(migrationJob).toContain(DESTRUCTIVE_SQL_PATTERN.source);
+    expect(migrationJob).toContain(SAFE_GUARD_ACK_PREFIX);
   });
 
   it("always skips optional tenant backfill steps (manual-only)", () => {

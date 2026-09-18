@@ -1,3 +1,4 @@
+-- @safe-guard-ack: tahap 2 hapus cerminan data panel MixRadius, disetujui user 2026-09-18; panel mati sejak 2026-09-13 dan kode berhenti membacanya sejak 622ed045a
 -- Tahap 2 pembersihan MixRadius: buang cerminan data panel di DB billing.
 -- Panel MixRadius memakai CAPTCHA dan remote-nya dimatikan sejak 2026-09-13;
 -- kode berhenti membaca tabel-tabel ini sejak 622ed045a. Destruktif dan sudah

@@ -1,3 +1,4 @@
+-- @safe-guard-ack: tahap 2 hapus kolom fee pelanggan MixRadius, disetujui user 2026-09-18; di produksi 0 mitra memakai owner/fee/tarif ini
 -- Tahap 2 pembersihan MixRadius: fee pelanggan mitra seluruh sumber datanya
 -- berasal dari panel MixRadius, jadi kolomnya ikut dibuang. Kode berhenti
 -- memakainya sejak 622ed045a (key API mobile tetap ada dengan nilai netral
