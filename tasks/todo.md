@@ -1,5 +1,50 @@
 # TODO
 
+## Periksa halaman Kas & Bank `/admin/finance/accounts` (2026-09-19)
+
+### Temuan
+- **Hak baca setara hak tulis** (utama). `createHandler` menilai `permissions` sebagai OR, jadi satu entri
+  `:read` pada handler tulis membuka operasi tulis. Terdampak: `POST /api/finance/transfer` dan
+  `POST /api/finance/accounts` (cukup `finance:read`), `POST /api/finance/pay-po` (hanya `finance:read`,
+  padahal membayar PO dari saldo bank), `POST /api/finance/unmatched-mutations`, `POST /api/admin/accounting/reconciliation`.
+- **Gerbang UI memakai izin ketiga** (`expense:create`) yang tidak dipakai API mana pun, dengan komentar
+  "for now" — tombol bisa tampil untuk yang pasti ditolak, dan tersembunyi dari pemegang `treasury:*`.
+- **Transfer tidak memeriksa saldo** → akun bisa minus; penanganan "Saldo tidak cukup" di route tidak pernah
+  tercapai karena tidak ada yang melemparnya (dicocokkan lewat teks pesan).
+- **Tanggal & keterangan transfer dibuang**: form mewajibkan tanggal, route mengirimnya, service membuangnya.
+- **`updateBalance` kode mati** dengan cast salah (`as Prisma.InputJsonObject`).
+
+### Dugaan yang gugur setelah diperiksa
+- Kebocoran antar tenant: **tidak terbukti**. Client Prisma dibungkus `withTenantIsolation` yang menyuntik
+  filter dan gagal-tertutup bila konteks tenant tidak ada, jadi repository tidak perlu filter manual.
+- Pesan error "[object Object]": **tidak terbukti**. `apiError` mengirim `{ success, error: "<pesan>" }`,
+  sehingga `err.error` di modal memang berisi teks.
+
+### Bukti produksi (2026-09-19)
+- 1 tenant, 1 akun ("BRI SBL", saldo Rp11.394.675, tanpa `coaId`), 0 log `TRANSFER` sepanjang riwayat.
+- Role: `finance:read` → Super Admin, admin · `finance:update` → Super Admin, admin · `treasury:*` → admin ·
+  `payment_gateway:update` → Super Admin, admin · `reconciliation:*` → admin. Karena itu pengetatan ini
+  **tidak mengunci satu pun peran** yang hari ini bisa memakai fiturnya.
+
+### Tahapan
+- [x] 1. Set izin tulis bersama `lib/financial-write-permissions.ts`, dipakai route + UI supaya tidak bisa berbeda
+- [x] 2. Perketat 5 handler tulis finansial
+- [x] 3. Pendebetan aman-balapan (`UPDATE` bersyarat `balance >= amount`) + error domain + pemetaan status di route
+- [x] 4. Catat tanggal & keterangan transfer di log aktivitas; hapus `updateBalance`
+- [x] 5. Tes: 5 kasus repository, 3 kasus service, penjaga arsitektur (terbukti merah pada dua bentuk regresi)
+- [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 12 warning (sama baseline) · test 689 file, 4.058 lulus
+- [ ] 7. Commit & push → pantau deploy → verifikasi produksi
+
+### Belum dikerjakan (perlu keputusan user)
+- **Tidak ada tabel riwayat mutasi kas.** Transfer hanya menyisakan log aktivitas; tidak ada buku besar kas yang
+  bisa direkonsiliasi. Menambahkannya = tabel baru + migration.
+- **`financial_accounts.balance` bertipe `Float`** (uang dalam floating point), sementara `Expense.amount` `BigInt`.
+  Mengubahnya = migration + penyesuaian kode.
+- **Akun "BRI SBL" tidak punya `coaId`**, jadi mutasi kas tidak terhubung ke jurnal akuntansi.
+- **Role "Chief Financial Officer" tidak punya `finance:read`**, sehingga tidak bisa membuka `/admin/finance/**`
+  sama sekali (termasuk Kas & Bank). Izin tidak saya ubah sendiri.
+
+
 ## Bug: Verifikasi Barang Sampai gagal meski foto dipilih (2026-09-17)
 
 ### Bukti

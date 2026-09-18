@@ -29,7 +29,9 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["payment_gateway:update", "payment_gateway:read"],
+    // Hanya permission tingkat tulis: daftar ini dinilai OR, jadi menyertakan
+    // `payment_gateway:read` membuat hak baca setara hak tulis.
+    permissions: ["payment_gateway:update"],
   },
   async (req, ctx) => {
     const body = await req.json();

@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import * as z from "zod";
 import { FinanceService } from "@/modules/finance";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { PURCHASE_ORDER_PAYMENT_PERMISSIONS } from "@/lib/financial-write-permissions";
 
 const financeService = new FinanceService();
 
@@ -16,7 +17,7 @@ const payPoSchema = z.object({
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["finance:read"],
+    permissions: PURCHASE_ORDER_PAYMENT_PERMISSIONS,
     schema: payPoSchema,
   },
   async (req, ctx) => {

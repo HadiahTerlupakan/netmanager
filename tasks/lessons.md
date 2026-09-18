@@ -259,3 +259,22 @@
     pada berkas replay aman — dan memang sudah jadi preseden di repo ini (`push_subscriptions`).
   - Saat menulis tes penjaganya, periksa **per pernyataan**. Versi pertama tes ini hanya memastikan ada penjagaan
     untuk tabel itu di suatu tempat dalam berkas, sehingga pernyataan telanjang lain untuk tabel yang sama lolos.
+
+## Daftar permission di `createHandler` bersifat OR — satu entri `:read` membuka operasi tulis
+
+- **Konteks:** Halaman Kas & Bank. `POST /api/finance/transfer` memasang `["treasury:update", "finance:read"]`
+  yang terbaca seperti "butuh keduanya", padahal `handler.ts` memakai `expandedPerms.some(...)`. Akibatnya
+  pemegang hak baca keuangan bisa memindahkan uang antar rekening. Pola sama ditemukan di 5 route.
+- **Why:** Bentuk daftar menyesatkan: mata membacanya sebagai syarat gabungan, mesin menilainya sebagai pilihan.
+  Repo ini sudah pernah kena hal yang sama untuk invoice dan mendokumentasikannya di
+  `lib/api/financial-permissions.ts`, tetapi tidak ada tes yang menegakkannya sehingga terulang.
+- **How to apply:**
+  - Untuk handler tulis, isi daftar hanya dengan permission tingkat tulis. Gerbang modul (mis. `finance:read`)
+    sudah ditegakkan layout halaman; menambahkannya di route justru melemahkan gerbang aksi.
+  - Sebelum memperketat, cek ke data role produksi siapa yang hari ini bisa memakai fiturnya dan apakah fiturnya
+    pernah dipakai; sebutkan hasilnya di komentar konstanta agar keputusannya bisa ditelusuri.
+  - Gerbang tombol UI dan permission route wajib berasal dari satu konstanta. Bila terpisah, keduanya pasti
+    menyimpang — di sini UI memakai `expense:create` yang bahkan tidak dipakai API mana pun.
+  - Jangan ubah data izin peran atas inisiatif sendiri; laporkan siapa yang perlu dicentangkan permission baru.
+- **Dugaan yang wajib diverifikasi dulu:** "repository tidak memfilter tenant" ternyata salah — client Prisma
+  dibungkus `withTenantIsolation`. Periksa lapisan infrastruktur sebelum melaporkan kebocoran data.

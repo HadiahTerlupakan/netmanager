@@ -15,7 +15,12 @@ export const GET = createHandler(
 );
 
 export const POST = createHandler(
-  { auth: true, permissions: ["reconciliation:read"] },
+  // Membuat rekonsiliasi adalah operasi tulis; daftar permission dinilai OR,
+  // jadi `reconciliation:read` saja tidak boleh cukup.
+  {
+    auth: true,
+    permissions: ["reconciliation:create", "reconciliation:update"],
+  },
   async (request, ctx) => {
     const body = await request.json();
     const parsed = createReconciliationSchema.safeParse(body);

@@ -36,11 +36,20 @@ export class FinanceAccountFacadeService {
     });
   }
 
-  /** Transfer funds between accounts. */
+  /**
+   * Transfer funds between accounts.
+   *
+   * Tanggal dan keterangan yang diisi operator ikut dicatat. Belum ada tabel
+   * riwayat mutasi kas, jadi log aktivitas inilah satu-satunya jejak transfer —
+   * sebelumnya kedua nilai itu diminta di form lalu dibuang tanpa tersimpan
+   * di mana pun.
+   */
   async transferFunds(data: {
     sourceAccountId: string;
     destinationAccountId: string;
     amount: number;
+    date: Date | string;
+    description?: string;
     createdById: string;
   }) {
     const result = await this.financialAccountRepo.transferBetweenAccounts({
@@ -57,6 +66,8 @@ export class FinanceAccountFacadeService {
         from: data.sourceAccountId,
         to: data.destinationAccountId,
         amount: data.amount,
+        date: new Date(data.date).toISOString(),
+        ...(data.description ? { description: data.description } : {}),
       },
     });
 

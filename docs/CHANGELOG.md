@@ -41,6 +41,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-19] — Hak baca keuangan tidak lagi bisa memindahkan uang
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/finance`, `app/admin/finance/accounts`, `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Pemeriksaan halaman `/admin/finance/accounts` (Kas & Bank).
+  `createHandler` menilai daftar permission sebagai OR, sehingga entri `:read`
+  pada handler tulis membuat hak baca setara hak tulis. Lima route tulis
+  finansial terdampak: `POST /api/finance/transfer` dan `POST /api/finance/accounts`
+  (cukup `finance:read`), `POST /api/finance/pay-po` (hanya `finance:read`, padahal
+  membayar PO dari saldo bank), `POST /api/finance/unmatched-mutations`
+  (`payment_gateway:read`), dan `POST /api/admin/accounting/reconciliation`
+  (`reconciliation:read`). Semuanya kini menuntut permission tingkat tulis lewat
+  konstanta bersama `lib/financial-write-permissions.ts`, yang dipakai route dan
+  gerbang tombol UI sekaligus — sebelumnya tombol "Mutasi Saldo"/"Tambah Akun Baru"
+  digerbangi `expense:create`, permission ketiga yang tidak dipakai API mana pun.
+  Diverifikasi terhadap role produksi: tidak ada peran yang kehilangan kemampuan
+  yang benar-benar dipakai (`finance:update` dipegang `Super Admin` dan `admin`;
+  fitur mutasi saldo belum pernah dipakai, 0 log `TRANSFER`).
+  Diperbaiki sekalian: transfer tidak pernah memeriksa saldo sehingga akun bisa
+  minus dan penanganan "Saldo tidak cukup" di route adalah kode mati — pendebetan
+  kini satu `UPDATE` bersyarat `balance >= amount` (aman terhadap transfer
+  bersamaan) yang melempar `InsufficientBalanceError`/`FinancialAccountNotFoundError`;
+  tanggal dan keterangan yang diisi operator tidak lagi dibuang diam-diam,
+  melainkan ikut tercatat di log aktivitas; serta `updateBalance` yang mati dan
+  salah tipe (`as Prisma.InputJsonObject`) dihapus.
+- **Files**: `lib/financial-write-permissions.ts`, `modules/finance/domain/errors.ts`,
+  `modules/finance/repositories/FinancialAccountRepository.ts`,
+  `modules/finance/services/FinanceAccountFacadeService.ts`,
+  `app/admin/finance/accounts/TreasuryClient.tsx`, 5 route API,
+  `tests/architecture/financial-write-permissions.test.ts` (+2 tes modul)
+- **Breaking**: ❌ Tidak (tidak ada role produksi yang kehilangan akses)
+
 ### [2026-09-19] — Replay tenant-schema billing tahan tabel MixRadius yang sudah dihapus
 
 - **Tipe**: [FIXED]

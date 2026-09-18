@@ -1,6 +1,7 @@
 import { FinanceService } from "@/modules/finance";
 import * as z from "zod";
 import { createHandler, apiSuccess } from "@/lib/api";
+import { TREASURY_ACCOUNT_CREATE_PERMISSIONS } from "@/lib/financial-write-permissions";
 
 const accountSchema = z.object({
   name: z.string().min(1, "Nama akun wajib diisi"),
@@ -22,7 +23,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["treasury:create", "finance:read"],
+    permissions: TREASURY_ACCOUNT_CREATE_PERMISSIONS,
     schema: accountSchema,
   },
   async (req, ctx) => {

@@ -85,3 +85,6 @@ export type {
 export * from "@/modules/payment-gateway";
 export * from "./services/PaymentGatewayTestService";
 export { rabProjectCreateSchema, rabProjectUpdateSchema } from "./validation";
+
+// Kesalahan domain kas & bank, dipetakan route ke status HTTP yang tepat.
+export * from "./domain/errors";

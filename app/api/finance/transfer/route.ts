@@ -1,7 +1,12 @@
 import { logger } from "@/lib/logger";
-import { FinanceService } from "@/modules/finance";
+import {
+  FinanceService,
+  FinancialAccountNotFoundError,
+  InsufficientBalanceError,
+} from "@/modules/finance";
 import * as z from "zod";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { TREASURY_TRANSFER_PERMISSIONS } from "@/lib/financial-write-permissions";
 
 const transferSchema = z.object({
   sourceAccountId: z.string().min(1, "Akun asal wajib diisi"),
@@ -14,7 +19,7 @@ const transferSchema = z.object({
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["treasury:update", "finance:read"],
+    permissions: TREASURY_TRANSFER_PERMISSIONS,
     schema: transferSchema,
   },
   async (req, ctx) => {
@@ -39,17 +44,17 @@ export const POST = createHandler(
 
       return apiSuccess(null, { message: "Transfer berhasil" });
     } catch (error: unknown) {
-      logger.error("Transfer Error:", error);
-      const message =
-        error instanceof Error ? error.message : "Gagal memproses transfer";
-      if (
-        message.toLowerCase().includes("insufficient") ||
-        message.toLowerCase().includes("saldo tidak cukup")
-      ) {
-        return ApiErrors.badRequest(
-          "Saldo tidak cukup untuk melakukan transfer",
-        );
+      // Dicocokkan lewat tipe, bukan teks pesan: sebelumnya penanganan ini
+      // mencari kata "insufficient"/"saldo tidak cukup" pada pesan error,
+      // padahal repository tidak pernah memeriksa saldo sehingga cabang itu
+      // tidak pernah tercapai dan transfer bisa membuat saldo minus.
+      if (error instanceof InsufficientBalanceError) {
+        return ApiErrors.badRequest(error.message);
       }
+      if (error instanceof FinancialAccountNotFoundError) {
+        return ApiErrors.notFound("Akun keuangan");
+      }
+      logger.error("Transfer Error:", error);
       throw error; // Let createHandler handle unknown errors
     }
   },
