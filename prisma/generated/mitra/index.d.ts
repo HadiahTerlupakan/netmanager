@@ -1498,7 +1498,6 @@ export namespace Prisma {
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
-    mitraRateFeePelanggan: number | null;
     targetHarian: number | null;
     minWithdrawal: number | null;
     latitudeRumah: number | null;
@@ -1515,7 +1514,6 @@ export namespace Prisma {
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
-    mitraRateFeePelanggan: number | null;
     targetHarian: number | null;
     minWithdrawal: number | null;
     latitudeRumah: number | null;
@@ -1544,8 +1542,6 @@ export namespace Prisma {
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
-    mitraRateFeePelanggan: number | null;
-    enableFeePelanggan: boolean | null;
     bankName: string | null;
     bankAccountNo: string | null;
     bankAccountName: string | null;
@@ -1590,8 +1586,6 @@ export namespace Prisma {
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
-    mitraRateFeePelanggan: number | null;
-    enableFeePelanggan: boolean | null;
     bankName: string | null;
     bankAccountNo: string | null;
     bankAccountName: string | null;
@@ -1637,14 +1631,11 @@ export namespace Prisma {
     mitraRateWoPsb: number;
     mitraRateWoMaintenance: number;
     mitraRateCanvasing: number;
-    mitraRateFeePelanggan: number;
-    enableFeePelanggan: number;
     bankName: number;
     bankAccountNo: number;
     bankAccountName: number;
     targetHarian: number;
     minWithdrawal: number;
-    mixradiusOwnerNames: number;
     nik: number;
     tempatLahir: number;
     tanggalLahir: number;
@@ -1673,7 +1664,6 @@ export namespace Prisma {
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
-    mitraRateFeePelanggan?: true;
     targetHarian?: true;
     minWithdrawal?: true;
     latitudeRumah?: true;
@@ -1690,7 +1680,6 @@ export namespace Prisma {
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
-    mitraRateFeePelanggan?: true;
     targetHarian?: true;
     minWithdrawal?: true;
     latitudeRumah?: true;
@@ -1719,8 +1708,6 @@ export namespace Prisma {
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
-    mitraRateFeePelanggan?: true;
-    enableFeePelanggan?: true;
     bankName?: true;
     bankAccountNo?: true;
     bankAccountName?: true;
@@ -1765,8 +1752,6 @@ export namespace Prisma {
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
-    mitraRateFeePelanggan?: true;
-    enableFeePelanggan?: true;
     bankName?: true;
     bankAccountNo?: true;
     bankAccountName?: true;
@@ -1812,14 +1797,11 @@ export namespace Prisma {
     mitraRateWoPsb?: true;
     mitraRateWoMaintenance?: true;
     mitraRateCanvasing?: true;
-    mitraRateFeePelanggan?: true;
-    enableFeePelanggan?: true;
     bankName?: true;
     bankAccountNo?: true;
     bankAccountName?: true;
     targetHarian?: true;
     minWithdrawal?: true;
-    mixradiusOwnerNames?: true;
     nik?: true;
     tempatLahir?: true;
     tanggalLahir?: true;
@@ -1950,14 +1932,11 @@ export namespace Prisma {
     mitraRateWoPsb: number | null;
     mitraRateWoMaintenance: number | null;
     mitraRateCanvasing: number | null;
-    mitraRateFeePelanggan: number | null;
-    enableFeePelanggan: boolean;
     bankName: string | null;
     bankAccountNo: string | null;
     bankAccountName: string | null;
     targetHarian: number | null;
     minWithdrawal: number | null;
-    mixradiusOwnerNames: string[];
     nik: string | null;
     tempatLahir: string | null;
     tanggalLahir: Date | null;
@@ -2019,14 +1998,11 @@ export namespace Prisma {
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
-      mitraRateFeePelanggan?: boolean;
-      enableFeePelanggan?: boolean;
       bankName?: boolean;
       bankAccountNo?: boolean;
       bankAccountName?: boolean;
       targetHarian?: boolean;
       minWithdrawal?: boolean;
-      mixradiusOwnerNames?: boolean;
       nik?: boolean;
       tempatLahir?: boolean;
       tanggalLahir?: boolean;
@@ -2076,14 +2052,11 @@ export namespace Prisma {
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
-      mitraRateFeePelanggan?: boolean;
-      enableFeePelanggan?: boolean;
       bankName?: boolean;
       bankAccountNo?: boolean;
       bankAccountName?: boolean;
       targetHarian?: boolean;
       minWithdrawal?: boolean;
-      mixradiusOwnerNames?: boolean;
       nik?: boolean;
       tempatLahir?: boolean;
       tanggalLahir?: boolean;
@@ -2129,14 +2102,11 @@ export namespace Prisma {
       mitraRateWoPsb?: boolean;
       mitraRateWoMaintenance?: boolean;
       mitraRateCanvasing?: boolean;
-      mitraRateFeePelanggan?: boolean;
-      enableFeePelanggan?: boolean;
       bankName?: boolean;
       bankAccountNo?: boolean;
       bankAccountName?: boolean;
       targetHarian?: boolean;
       minWithdrawal?: boolean;
-      mixradiusOwnerNames?: boolean;
       nik?: boolean;
       tempatLahir?: boolean;
       tanggalLahir?: boolean;
@@ -2179,14 +2149,11 @@ export namespace Prisma {
     mitraRateWoPsb?: boolean;
     mitraRateWoMaintenance?: boolean;
     mitraRateCanvasing?: boolean;
-    mitraRateFeePelanggan?: boolean;
-    enableFeePelanggan?: boolean;
     bankName?: boolean;
     bankAccountNo?: boolean;
     bankAccountName?: boolean;
     targetHarian?: boolean;
     minWithdrawal?: boolean;
-    mixradiusOwnerNames?: boolean;
     nik?: boolean;
     tempatLahir?: boolean;
     tanggalLahir?: boolean;
@@ -2229,14 +2196,11 @@ export namespace Prisma {
     | "mitraRateWoPsb"
     | "mitraRateWoMaintenance"
     | "mitraRateCanvasing"
-    | "mitraRateFeePelanggan"
-    | "enableFeePelanggan"
     | "bankName"
     | "bankAccountNo"
     | "bankAccountName"
     | "targetHarian"
     | "minWithdrawal"
-    | "mixradiusOwnerNames"
     | "nik"
     | "tempatLahir"
     | "tanggalLahir"
@@ -2302,14 +2266,11 @@ export namespace Prisma {
         mitraRateWoPsb: number | null;
         mitraRateWoMaintenance: number | null;
         mitraRateCanvasing: number | null;
-        mitraRateFeePelanggan: number | null;
-        enableFeePelanggan: boolean;
         bankName: string | null;
         bankAccountNo: string | null;
         bankAccountName: string | null;
         targetHarian: number | null;
         minWithdrawal: number | null;
-        mixradiusOwnerNames: string[];
         nik: string | null;
         tempatLahir: string | null;
         tanggalLahir: Date | null;
@@ -2972,14 +2933,11 @@ export namespace Prisma {
     readonly mitraRateWoPsb: FieldRef<"Mitra", "Float">;
     readonly mitraRateWoMaintenance: FieldRef<"Mitra", "Float">;
     readonly mitraRateCanvasing: FieldRef<"Mitra", "Float">;
-    readonly mitraRateFeePelanggan: FieldRef<"Mitra", "Float">;
-    readonly enableFeePelanggan: FieldRef<"Mitra", "Boolean">;
     readonly bankName: FieldRef<"Mitra", "String">;
     readonly bankAccountNo: FieldRef<"Mitra", "String">;
     readonly bankAccountName: FieldRef<"Mitra", "String">;
     readonly targetHarian: FieldRef<"Mitra", "Int">;
     readonly minWithdrawal: FieldRef<"Mitra", "Int">;
-    readonly mixradiusOwnerNames: FieldRef<"Mitra", "String[]">;
     readonly nik: FieldRef<"Mitra", "String">;
     readonly tempatLahir: FieldRef<"Mitra", "String">;
     readonly tanggalLahir: FieldRef<"Mitra", "DateTime">;
@@ -9497,14 +9455,11 @@ export namespace Prisma {
     mitraRateWoPsb: "mitraRateWoPsb";
     mitraRateWoMaintenance: "mitraRateWoMaintenance";
     mitraRateCanvasing: "mitraRateCanvasing";
-    mitraRateFeePelanggan: "mitraRateFeePelanggan";
-    enableFeePelanggan: "enableFeePelanggan";
     bankName: "bankName";
     bankAccountNo: "bankAccountNo";
     bankAccountName: "bankAccountName";
     targetHarian: "targetHarian";
     minWithdrawal: "minWithdrawal";
-    mixradiusOwnerNames: "mixradiusOwnerNames";
     nik: "nik";
     tempatLahir: "tempatLahir";
     tanggalLahir: "tanggalLahir";
@@ -9790,14 +9745,11 @@ export namespace Prisma {
     mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null;
     mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null;
     mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null;
-    mitraRateFeePelanggan?: FloatNullableFilter<"Mitra"> | number | null;
-    enableFeePelanggan?: BoolFilter<"Mitra"> | boolean;
     bankName?: StringNullableFilter<"Mitra"> | string | null;
     bankAccountNo?: StringNullableFilter<"Mitra"> | string | null;
     bankAccountName?: StringNullableFilter<"Mitra"> | string | null;
     targetHarian?: IntNullableFilter<"Mitra"> | number | null;
     minWithdrawal?: IntNullableFilter<"Mitra"> | number | null;
-    mixradiusOwnerNames?: StringNullableListFilter<"Mitra">;
     nik?: StringNullableFilter<"Mitra"> | string | null;
     tempatLahir?: StringNullableFilter<"Mitra"> | string | null;
     tanggalLahir?: DateTimeNullableFilter<"Mitra"> | Date | string | null;
@@ -9848,14 +9800,11 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrderInput | SortOrder;
     mitraRateWoMaintenance?: SortOrderInput | SortOrder;
     mitraRateCanvasing?: SortOrderInput | SortOrder;
-    mitraRateFeePelanggan?: SortOrderInput | SortOrder;
-    enableFeePelanggan?: SortOrder;
     bankName?: SortOrderInput | SortOrder;
     bankAccountNo?: SortOrderInput | SortOrder;
     bankAccountName?: SortOrderInput | SortOrder;
     targetHarian?: SortOrderInput | SortOrder;
     minWithdrawal?: SortOrderInput | SortOrder;
-    mixradiusOwnerNames?: SortOrder;
     nik?: SortOrderInput | SortOrder;
     tempatLahir?: SortOrderInput | SortOrder;
     tanggalLahir?: SortOrderInput | SortOrder;
@@ -9913,14 +9862,11 @@ export namespace Prisma {
       mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null;
       mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null;
       mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null;
-      mitraRateFeePelanggan?: FloatNullableFilter<"Mitra"> | number | null;
-      enableFeePelanggan?: BoolFilter<"Mitra"> | boolean;
       bankName?: StringNullableFilter<"Mitra"> | string | null;
       bankAccountNo?: StringNullableFilter<"Mitra"> | string | null;
       bankAccountName?: StringNullableFilter<"Mitra"> | string | null;
       targetHarian?: IntNullableFilter<"Mitra"> | number | null;
       minWithdrawal?: IntNullableFilter<"Mitra"> | number | null;
-      mixradiusOwnerNames?: StringNullableListFilter<"Mitra">;
       nik?: StringNullableFilter<"Mitra"> | string | null;
       tempatLahir?: StringNullableFilter<"Mitra"> | string | null;
       tanggalLahir?: DateTimeNullableFilter<"Mitra"> | Date | string | null;
@@ -9973,14 +9919,11 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrderInput | SortOrder;
     mitraRateWoMaintenance?: SortOrderInput | SortOrder;
     mitraRateCanvasing?: SortOrderInput | SortOrder;
-    mitraRateFeePelanggan?: SortOrderInput | SortOrder;
-    enableFeePelanggan?: SortOrder;
     bankName?: SortOrderInput | SortOrder;
     bankAccountNo?: SortOrderInput | SortOrder;
     bankAccountName?: SortOrderInput | SortOrder;
     targetHarian?: SortOrderInput | SortOrder;
     minWithdrawal?: SortOrderInput | SortOrder;
-    mixradiusOwnerNames?: SortOrder;
     nik?: SortOrderInput | SortOrder;
     tempatLahir?: SortOrderInput | SortOrder;
     tanggalLahir?: SortOrderInput | SortOrder;
@@ -10050,11 +9993,6 @@ export namespace Prisma {
       | FloatNullableWithAggregatesFilter<"Mitra">
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | FloatNullableWithAggregatesFilter<"Mitra">
-      | number
-      | null;
-    enableFeePelanggan?: BoolWithAggregatesFilter<"Mitra"> | boolean;
     bankName?: StringNullableWithAggregatesFilter<"Mitra"> | string | null;
     bankAccountNo?: StringNullableWithAggregatesFilter<"Mitra"> | string | null;
     bankAccountName?:
@@ -10063,7 +10001,6 @@ export namespace Prisma {
       | null;
     targetHarian?: IntNullableWithAggregatesFilter<"Mitra"> | number | null;
     minWithdrawal?: IntNullableWithAggregatesFilter<"Mitra"> | number | null;
-    mixradiusOwnerNames?: StringNullableListFilter<"Mitra">;
     nik?: StringNullableWithAggregatesFilter<"Mitra"> | string | null;
     tempatLahir?: StringNullableWithAggregatesFilter<"Mitra"> | string | null;
     tanggalLahir?:
@@ -10631,14 +10568,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -10682,14 +10616,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -10747,17 +10678,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -10826,17 +10751,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -10891,14 +10810,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -10953,17 +10869,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -11029,17 +10939,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -11737,14 +11641,11 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
-    mitraRateFeePelanggan?: SortOrder;
-    enableFeePelanggan?: SortOrder;
     bankName?: SortOrder;
     bankAccountNo?: SortOrder;
     bankAccountName?: SortOrder;
     targetHarian?: SortOrder;
     minWithdrawal?: SortOrder;
-    mixradiusOwnerNames?: SortOrder;
     nik?: SortOrder;
     tempatLahir?: SortOrder;
     tanggalLahir?: SortOrder;
@@ -11772,7 +11673,6 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
-    mitraRateFeePelanggan?: SortOrder;
     targetHarian?: SortOrder;
     minWithdrawal?: SortOrder;
     latitudeRumah?: SortOrder;
@@ -11801,8 +11701,6 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
-    mitraRateFeePelanggan?: SortOrder;
-    enableFeePelanggan?: SortOrder;
     bankName?: SortOrder;
     bankAccountNo?: SortOrder;
     bankAccountName?: SortOrder;
@@ -11847,8 +11745,6 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
-    mitraRateFeePelanggan?: SortOrder;
-    enableFeePelanggan?: SortOrder;
     bankName?: SortOrder;
     bankAccountNo?: SortOrder;
     bankAccountName?: SortOrder;
@@ -11881,7 +11777,6 @@ export namespace Prisma {
     mitraRateWoPsb?: SortOrder;
     mitraRateWoMaintenance?: SortOrder;
     mitraRateCanvasing?: SortOrder;
-    mitraRateFeePelanggan?: SortOrder;
     targetHarian?: SortOrder;
     minWithdrawal?: SortOrder;
     latitudeRumah?: SortOrder;
@@ -12486,10 +12381,6 @@ export namespace Prisma {
     set: string[];
   };
 
-  export type MitraCreatemixradiusOwnerNamesInput = {
-    set: string[];
-  };
-
   export type MitraWalletCreateNestedOneWithoutMitraInput = {
     create?: XOR<
       MitraWalletCreateWithoutMitraInput,
@@ -12623,11 +12514,6 @@ export namespace Prisma {
     decrement?: number;
     multiply?: number;
     divide?: number;
-  };
-
-  export type MitraUpdatemixradiusOwnerNamesInput = {
-    set?: string[];
-    push?: string | string[];
   };
 
   export type DateTimeFieldUpdateOperationsInput = {
@@ -13985,14 +13871,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -14035,14 +13918,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -14215,17 +14095,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -14293,17 +14167,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -14545,14 +14413,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -14595,14 +14460,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -14721,17 +14583,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -14799,17 +14655,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -14939,14 +14789,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -14989,14 +14836,11 @@ export namespace Prisma {
     mitraRateWoPsb?: number | null;
     mitraRateWoMaintenance?: number | null;
     mitraRateCanvasing?: number | null;
-    mitraRateFeePelanggan?: number | null;
-    enableFeePelanggan?: boolean;
     bankName?: string | null;
     bankAccountNo?: string | null;
     bankAccountName?: string | null;
     targetHarian?: number | null;
     minWithdrawal?: number | null;
-    mixradiusOwnerNames?: MitraCreatemixradiusOwnerNamesInput | string[];
     nik?: string | null;
     tempatLahir?: string | null;
     tanggalLahir?: Date | string | null;
@@ -15081,17 +14925,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:
@@ -15159,17 +14997,11 @@ export namespace Prisma {
       | NullableFloatFieldUpdateOperationsInput
       | number
       | null;
-    mitraRateFeePelanggan?:
-      | NullableFloatFieldUpdateOperationsInput
-      | number
-      | null;
-    enableFeePelanggan?: BoolFieldUpdateOperationsInput | boolean;
     bankName?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountNo?: NullableStringFieldUpdateOperationsInput | string | null;
     bankAccountName?: NullableStringFieldUpdateOperationsInput | string | null;
     targetHarian?: NullableIntFieldUpdateOperationsInput | number | null;
     minWithdrawal?: NullableIntFieldUpdateOperationsInput | number | null;
-    mixradiusOwnerNames?: MitraUpdatemixradiusOwnerNamesInput | string[];
     nik?: NullableStringFieldUpdateOperationsInput | string | null;
     tempatLahir?: NullableStringFieldUpdateOperationsInput | string | null;
     tanggalLahir?:

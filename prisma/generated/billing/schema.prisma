@@ -218,32 +218,6 @@ enum UnmatchedStatus {
 
 // Transksi dan Transaksi Kategori sengaja dihapus per Rencana Refactoring 
 
-model MixRadiusInvoice {
-  id            String    @id @default(cuid())
-  invoiceNumber String
-  mixRadiusId   String? // The internal ID from MixRadius
-  username      String
-  fullName      String?
-  ownerName     String?
-  planName      String?
-  amount        Decimal   @db.Decimal(19, 2)
-  status        String // PAID, UNPAID, etc.
-  paymentMethod String?
-  issuedDate    DateTime // derived from renewed_on or created_on
-  dueDate       DateTime? // derived or calculated
-  expiredOn     DateTime?
-  syncedAt      DateTime  @default(now())
-  tenantId      String?
-
-  @@unique([tenantId, invoiceNumber])
-  @@index([status])
-  @@index([username])
-  @@index([ownerName])
-  @@index([dueDate])
-  @@index([tenantId])
-  @@map("mix_radius_invoices")
-}
-
 enum InvoiceStatus {
   DRAFT
   SENT
@@ -318,73 +292,4 @@ enum GatewayPaymentStatus {
   EXPIRED
   CANCELLED
   REFUNDED
-}
-
-model MixRadiusCustomer {
-  id           String    @id
-  mixRadiusId  String
-  username     String
-  fullName     String?
-  address      String?
-  phoneNumber  String?
-  planName     String?
-  status       String?
-  ownerName    String?
-  expiredOn    DateTime?
-  lastSyncedAt DateTime  @default(now())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  tenantId     String?
-
-  @@unique([tenantId, mixRadiusId])
-  @@unique([tenantId, username])
-  @@index([tenantId])
-  @@map("mix_radius_customers")
-}
-
-model MixRadiusOwnerGroup {
-  id        String   @id @default(uuid())
-  name      String
-  owners    String[]
-  siteId    String? // Soft-relation to Sites in main DB
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Note: expenses and rabProjects are managed via repository layer (soft-relations)
-  tenantId String?
-
-  @@index([siteId])
-  @@index([tenantId])
-  @@map("mix_radius_owner_groups")
-}
-
-model MixRadiusInvestorSite {
-  id        String   @id @default(uuid())
-  name      String // Nama Site Investor (misal: "Proyek Cimenyan - Investor A")
-  owners    String[] // Daftar owner MixRadius yang pendapatannya masuk ke site ini
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenantId  String?
-
-  @@index([tenantId])
-  @@map("mix_radius_investor_sites")
-}
-
-model MixRadiusConfig {
-  id           String    @id @default(uuid())
-  name         String    @default("Default")
-  apiUrl       String
-  username     String
-  password     String
-  apiKey       String
-  isDefault    Boolean   @default(false)
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  tenantId     String
-
-  @@index([tenantId])
-  @@map("mix_radius_configs")
 }

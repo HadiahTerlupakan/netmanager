@@ -260,76 +260,6 @@ exports.Prisma.WebhookEventScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
-  id: 'id',
-  invoiceNumber: 'invoiceNumber',
-  mixRadiusId: 'mixRadiusId',
-  username: 'username',
-  fullName: 'fullName',
-  ownerName: 'ownerName',
-  planName: 'planName',
-  amount: 'amount',
-  status: 'status',
-  paymentMethod: 'paymentMethod',
-  issuedDate: 'issuedDate',
-  dueDate: 'dueDate',
-  expiredOn: 'expiredOn',
-  syncedAt: 'syncedAt',
-  tenantId: 'tenantId'
-};
-
-exports.Prisma.MixRadiusCustomerScalarFieldEnum = {
-  id: 'id',
-  mixRadiusId: 'mixRadiusId',
-  username: 'username',
-  fullName: 'fullName',
-  address: 'address',
-  phoneNumber: 'phoneNumber',
-  planName: 'planName',
-  status: 'status',
-  ownerName: 'ownerName',
-  expiredOn: 'expiredOn',
-  lastSyncedAt: 'lastSyncedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  tenantId: 'tenantId'
-};
-
-exports.Prisma.MixRadiusOwnerGroupScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  owners: 'owners',
-  siteId: 'siteId',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  tenantId: 'tenantId'
-};
-
-exports.Prisma.MixRadiusInvestorSiteScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  owners: 'owners',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  tenantId: 'tenantId'
-};
-
-exports.Prisma.MixRadiusConfigScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  apiUrl: 'apiUrl',
-  username: 'username',
-  password: 'password',
-  apiKey: 'apiKey',
-  isDefault: 'isDefault',
-  lastSyncedAt: 'lastSyncedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  tenantId: 'tenantId'
-};
-
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -429,12 +359,7 @@ exports.Prisma.ModelName = {
   Payment: 'Payment',
   PaymentGatewayConfig: 'PaymentGatewayConfig',
   UnmatchedMutation: 'UnmatchedMutation',
-  WebhookEvent: 'WebhookEvent',
-  MixRadiusInvoice: 'MixRadiusInvoice',
-  MixRadiusCustomer: 'MixRadiusCustomer',
-  MixRadiusOwnerGroup: 'MixRadiusOwnerGroup',
-  MixRadiusInvestorSite: 'MixRadiusInvestorSite',
-  MixRadiusConfig: 'MixRadiusConfig'
+  WebhookEvent: 'WebhookEvent'
 };
 
 /**

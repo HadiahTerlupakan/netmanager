@@ -190,7 +190,8 @@ modules/accounting/
 ### 5. OLT (Fiber Equipment Management) — dihapus
 
 Modul `olt` dihapus pada 2026-09-17 karena tidak pernah dipakai operasional (di produksi hanya 1 OLT uji
-coba dan 0 ONU). Tabel `olt_*`/`onu_*` masih ada di skema sampai migration drop disetujui.
+coba dan 0 ONU). Tabel `olt_*`/`onu_*` beserta enum-nya di-drop pada 2026-09-18
+(`20260918000116_drop_mixradius_columns_and_olt_tables`).
 
 ---
 

@@ -138,13 +138,32 @@ User minta seluruh MixRadius dihapus dari aplikasi. Cakupan awal: 305 file / ~5.
     Perlu dipilih manual: 3 Expense OPEX "Pejaten" Maret 2026 (Rp2.475.000; kandidat site Jakarta Selatan)
     dan RAB DRAFT "JAKARTA" (site investor "Zawiyah", owner "tegalnew" — ambigu Jakarta Selatan/Tegal).
 
-### Tahap 2 — BELUM dijalankan (destruktif, tunggu persetujuan user)
-- Drop tabel billing `mix_radius_{invoices,customers,owner_groups,investor_sites,configs}` (configs berisi kredensial panel)
-- Drop kolom `Expense.mixRadiusGroupId`, `RabProject.mixRadiusGroupId`, `RabProject.mixRadiusInvestorSiteId`,
-  `Pelanggan.mixRadiusId`, `Mitra.{mixradiusOwnerNames,enableFeePelanggan,mitraRateFeePelanggan}`
-- Hapus row `Permission` `mixradius*`/`m_mixradius`, `Settings.key='mixradius_fees'`, `TenantFeatureFlag.feature='integrations'`
-- WAJIB sebelum drop: jalankan `node node_modules/.bin/tsx scripts/backfill-site-from-mixradius-groups.ts`
-  (dry-run) lalu `--apply` di produksi; hapus skrip itu bersama kolomnya
+### Tahap 2 — destruktif, disetujui user 2026-09-18
+
+Inventaris produksi sebelum drop: billing `mix_radius_customers` 3.130, `mix_radius_invoices` 2.930,
+`owner_groups` 11, `investor_sites` 1, `configs` 0 (tidak ada kredensial tersimpan). Utama:
+`Expense.mixRadiusGroupId` 102/147, `rab_projects` 1 + 2 baris, `Pelanggan.mixRadiusId` 0 (tabel kosong),
+tabel OLT hanya `olt_devices` 1 / `olt_cards` 1 / `olt_command_logs` 2, sisanya 0; 211 baris `Permission`.
+Mitra: 1 baris, 0 memakai owner/fee/tarif. `Settings.mixradius_fees` dan `TenantFeatureFlag.integrations`
+ternyata sudah 0 baris. Tidak ada FK dari tabel lain ke objek yang dihapus; `_PermissionToRole` cascade.
+
+- [x] 1. Padanan dry-run backfill diverifikasi lewat SQL di produksi: 0 Expense & 0 RAB bisa dipetakan
+      otomatis (grup "Pejaten" ber-`siteId` string kosong). `siteId` tidak ditebak.
+- [x] 2. Penyelamatan data di awal migration: nama investor site lama ("Zawiyah — owner tegalnew — Manager")
+      disimpan ke deskripsi RAB yang belum bersite. Grup owner pada 3 Expense "Pejaten" sudah tercermin di
+      deskripsinya sendiri, jadi tidak ada keterangan lain yang hilang.
+- [x] 3. Tiga migration: `20260918000116_drop_mixradius_columns_and_olt_tables` (utama),
+      `20260918000117_drop_mix_radius_tables` (billing), `20260918000118_drop_mixradius_fee_columns` (mitra).
+      SQL ditulis manual: `migrate diff` ikut memuat drift DB lokal yang tidak berkaitan (antara lain
+      `support_tickets DROP COLUMN "rating"`), dan `migrate dev` menuntut reset karena riwayat lokal disquash.
+- [x] 4. Hapus `scripts/backfill-site-from-mixradius-groups*.ts` + tesnya (wajib dibuang bersama kolomnya)
+- [x] 5. Uji di DB lokal: ketiga migration `migrate deploy` bersih, objek sasaran hilang di ketiga DB
+- [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 12 warning · test 686 file, 4.044 lulus, 3 skip
+- [ ] 7. Deploy 1 (expand): push schema tanpa migration → semua pod memakai client yang tidak lagi
+      memilih kolom `mixRadius*`. Wajib duluan karena pipeline menjalankan migration job sebelum rollout,
+      dan Prisma client menyebut semua kolom skalar di setiap query — drop satu deploy = query
+      `Pelanggan`/`Expense`/`rab_projects`/`Mitra` gagal sampai rollout selesai.
+- [ ] 8. Deploy 2 (contract): push 3 migration drop → cadangan pra-migrasi 4 DB → verifikasi produksi
 
 ## Pindah CI dari Jenkins ke Gitea Actions (2026-09-07)
 

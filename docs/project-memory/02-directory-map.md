@@ -150,7 +150,6 @@ modules/
 - `finance` — Billing, invoicing, payments
 - `accounting` — Double-entry accounting
 - `network` — MikroTik provisioning
-- `olt` — OLT/ONU management
 
 **HR & Operations:**
 - `attendance` — Check-in/out, geofencing

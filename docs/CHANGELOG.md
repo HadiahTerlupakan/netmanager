@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-18] — Lepas model & kolom MixRadius/OLT dari Prisma schema (pra-drop)
+
+- **Tipe**: [CHANGED]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Langkah pertama dari dua deploy untuk tahap 2 (drop skema).
+  Model `MixRadius*` (billing), kolom `mixRadius*` (utama), kolom fee mitra, serta 9
+  model `Olt*`/`Onu*` dan enum-nya dilepas dari schema, tanpa migration. Alasan
+  pemisahan: pipeline menjalankan migration job sebelum rollout, sedangkan Prisma
+  client menyebut semua kolom skalar secara eksplisit di setiap query. Bila kolom
+  di-drop dalam deploy yang sama, pod lama akan gagal di query `Pelanggan`,
+  `Expense`, `rab_projects`, dan `Mitra` sampai rollout selesai. Dengan urutan ini,
+  semua pod sudah memakai client tanpa kolom tersebut sebelum drop dijalankan.
+  Kolom/tabelnya sendiri masih ada di database sampai deploy berikutnya dan tidak
+  mengganggu karena Prisma mengabaikan kolom yang tidak ada di skema. Skrip backfill
+  site ikut dihapus karena tidak bisa lagi dikompilasi tanpa kolom itu; padanan
+  dry-run-nya sudah diverifikasi lewat SQL di produksi (0 baris bisa dipetakan).
+- **Files**: `prisma/schema.prisma`, `prisma/billing.prisma`, `prisma/mitra.prisma`,
+  `scripts/backfill-site-from-mixradius-groups*.ts` (dihapus),
+  `tests/scripts/backfill-site-from-mixradius-groups-plan.test.ts` (dihapus)
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-17] — Verifikasi Barang Sampai gagal meski foto sudah dipilih
 
 - **Tipe**: [FIXED]

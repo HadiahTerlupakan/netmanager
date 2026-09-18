@@ -44,7 +44,7 @@ NetManager menggunakan **4 database terpisah** dengan arsitektur multi-tenant:
 **Core Tables**:
 - `Pelanggan` (Customer master) - 1002 lines, central customer entity
   - PK: `id` (String, UUID)
-  - UK: `username`, `tenantId + idPelanggan`, `mixRadiusId` (legacy MixRadius, tidak dipakai kode sejak 2026-09-17; menunggu migration drop)
+  - UK: `username`, `tenantId + idPelanggan`
   - FK: `hargaPaketId` → HargaPaket, `odpId` → Odp, `siteId` → Sites
   - Relations: 12 tables (invoices, payments, work orders, usage, support tickets)
   - Multi-tenancy: `tenantId` + unique constraints
@@ -77,7 +77,6 @@ NetManager menggunakan **4 database terpisah** dengan arsitektur multi-tenant:
 - `BillingSchedule` - Scheduled billing jobs (overdue, isolir)
 - `UnmatchedMutation` - Bank mutation matching
 - `WebhookEvent` - Payment gateway webhooks
-- `MixRadiusInvoice` - Legacy MixRadius, tidak dipakai kode sejak 2026-09-17 (menunggu migration drop)
 
 **Key Patterns**:
 - Idempotency: `dedupeKey` on BillingSchedule
@@ -215,16 +214,8 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 - `ProfilePPP` - PPPoE profiles with IP pools
 - `Bandwidth` - Bandwidth profiles
 
-**OLT/ONU Provisioning** (GPON/FTTH) — legacy, tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop:
-- `OltDevice` - OLT devices (ZTE, HSGQ, HIOSO, CDATA)
-- `OltCard` - OLT card/slot configuration
-- `OnuDevice` - ONUs with optical power monitoring
-- `OltVlanConfig` - VLAN configurations
-- `OltBandwidthProfile` - Bandwidth profiles for ONUs
-- `OnuPreRegistration` - Pre-registration workflow
-- `OnuPowerHistory` - Optical power history
-- `OltAlert` - LOS/power alerts
-- `OltCommandLog` - Provisioning command audit
+**OLT/ONU Provisioning** (GPON/FTTH): modulnya dihapus 2026-09-17 dan 9 tabel `olt_*`/`onu_*`
+beserta enum-nya di-drop 2026-09-18 (`20260918000116_drop_mixradius_columns_and_olt_tables`).
 
 **Device Management**:
 - `DeviceBackups` - Configuration backups
@@ -445,10 +436,6 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
    - Time-series data per device
    - Retention policy needed
 
-10. **`OnuPowerHistory`** - ONU optical power logs (tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop)
-    - Time-series data per ONU
-    - Used for signal quality monitoring
-
 **Optimization Patterns**:
 - Composite indexes for common query patterns
 - Partial indexes on status fields
@@ -525,9 +512,6 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 6. **`TaxConfigHistory`** - Tax config changes
    - Tracks: field, oldValue, newValue, changedById
 
-7. **`OltCommandLog`** - OLT provisioning commands (tidak dipakai kode sejak 2026-09-17 (modul OLT dihapus); menunggu migration drop)
-   - Tracks: command, params, result, errorMsg
-
 **Common Audit Pattern**:
 - Actor tracking: `performedBy`/`performedById`
 - Timestamp: `createdAt`/`performedAt`
@@ -583,7 +567,6 @@ PENDING → ASSIGNED → IN_PROGRESS → ON_HOLD → COMPLETED → VERIFIED → 
 4. **`BillingSchedule`** - Scheduled jobs (overdue, auto-isolir)
 5. **`UnmatchedMutation`** - Bank mutation matching
 6. **`WebhookEvent`** - Payment gateway webhooks (idempotency)
-7. **`MixRadius*`** - Legacy MixRadius, tidak dipakai kode sejak 2026-09-17 (menunggu migration drop)
 
 ---
 

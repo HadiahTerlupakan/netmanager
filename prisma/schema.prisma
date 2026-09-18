@@ -346,7 +346,6 @@ model Expense {
   siteId            String?
   depreciation      BigInt?           @default(0)
   expenseCategoryId String?
-  mixRadiusGroupId  String?
   usefulLife        Int?              @default(0)
   accountId         String?
   categoryId        String?
@@ -370,7 +369,6 @@ model Expense {
   @@index([date])
   @@index([userId])
   @@index([siteId])
-  @@index([mixRadiusGroupId])
   @@index([rabProjectId])
   @@index([rabItemId])
   @@index([tenantId])
@@ -950,7 +948,6 @@ model Pelanggan {
   autoIsolir                    Boolean             @default(true)
   siteId                        String?
   lastSyncedAt                  DateTime?
-  mixRadiusId                   String?             @unique
   syncError                     String?
   syncRetryCount                Int                 @default(0)
   syncStatus                    String              @default("PENDING")
@@ -966,7 +963,6 @@ model Pelanggan {
   pendingPackageApplyAt         DateTime?
   saldoKreditRupiah             BigInt              @default(0)
   couponUsage                   CouponUsage[]
-  onuDevices                    OnuDevice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   pendingPackage                HargaPaket?         @relation("PelangganPendingPackage", fields: [pendingPackageId], references: [id])
   odp                           MappingNode?        @relation(fields: [odpId], references: [nodeId])
@@ -3468,7 +3464,6 @@ model RabProject {
   name                                String
   description                         String?
   siteId                              String?
-  mixRadiusGroupId                    String?
   projectedRevenue                    BigInt                     @default(0)
   projectedOpex                       BigInt                     @default(0)
   status                              RabStatus                  @default(DRAFT)
@@ -3500,7 +3495,6 @@ model RabProject {
   opexBufferCompanyPercent            Float                      @default(0)
   opexBufferInvestorFixedAmount       BigInt                     @default(0)
   opexBufferSafetyPercent             Float                      @default(0)
-  mixRadiusInvestorSiteId             String?
   finalApprovedRevisionId             String?
   tenantId                            String?
   expenses                            Expense[]
@@ -5148,272 +5142,6 @@ enum TaxRateCategory {
   PPH
   BHP_USO
   OTHER
-}
-
-// ============================================================
-// OLT Provisioning Module
-// ============================================================
-
-enum OltVendor {
-  ZTE
-  HSGQ
-  HIOSO
-  CDATA
-}
-
-enum OltStatus {
-  ACTIVE
-  MAINTENANCE
-  OFFLINE
-}
-
-enum OnuStatus {
-  UNREGISTERED
-  REGISTERED
-  ACTIVE
-  OFFLINE
-  DISABLED
-  LOS
-  DYING_GASP
-}
-
-enum VlanPurpose {
-  INTERNET
-  IPTV
-  VOIP
-  MANAGEMENT
-}
-
-enum OltCommandResult {
-  SUCCESS
-  FAILED
-  TIMEOUT
-  PENDING
-}
-
-enum PreRegStatus {
-  PENDING
-  COMPLETED
-  EXPIRED
-  CANCELLED
-}
-
-enum OltCardStatus {
-  ACTIVE
-  MAINTENANCE
-  OFFLINE
-}
-
-model OltDevice {
-  id               String    @id @default(cuid())
-  tenantId         String
-  name             String
-  vendor           OltVendor
-  model            String
-  ipAddress        String
-  snmpCommunity    String?
-  snmpPort         Int       @default(161)
-  telnetPort       Int?      @default(23)
-  telnetUser       String?
-  telnetPass       String?
-  telnetEnablePass String?
-  defaultSlotFrame Int       @default(1)
-  defaultSlot      Int       @default(1)
-  totalPonPorts    Int
-  location         String?
-  status           OltStatus @default(ACTIVE)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  onus              OnuDevice[]
-  vlanConfigs       OltVlanConfig[]
-  bandwidthProfiles OltBandwidthProfile[]
-  alerts            OltAlert[]
-  cards             OltCard[]
-
-  @@index([tenantId])
-  @@map("olt_devices")
-}
-
-model OltCard {
-  id        String        @id @default(cuid())
-  tenantId  String
-  oltId     String
-  slotFrame Int
-  slot      Int
-  cardType  String?
-  ponCount  Int
-  status    OltCardStatus @default(ACTIVE)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  olt OltDevice @relation(fields: [oltId], references: [id], onDelete: Cascade)
-
-  @@unique([oltId, slotFrame, slot])
-  @@index([tenantId])
-  @@map("olt_cards")
-}
-
-model OnuDevice {
-  id               String    @id @default(cuid())
-  tenantId         String
-  oltId            String
-  pelangganId      String?
-  serialNumber     String
-  slotFrame        Int       @default(1)
-  slot             Int       @default(1)
-  ponPort          Int
-  onuIndex         Int?
-  vendor           String?
-  model            String?
-  softwareVersion  String?
-  distance         Int?
-  status           OnuStatus @default(UNREGISTERED)
-  rxPower          Float?
-  txPower          Float?
-  oltRxPower       Float?
-  vlanId           Int?
-  bandwidthProfile String?
-  description      String?
-  lastSeen         DateTime?
-  registeredAt     DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  olt          OltDevice         @relation(fields: [oltId], references: [id])
-  pelanggan    Pelanggan?        @relation(fields: [pelangganId], references: [id])
-  commandLogs  OltCommandLog[]
-  powerHistory OnuPowerHistory[]
-  alerts       OltAlert[]
-
-  @@unique([oltId, serialNumber])
-  @@unique([tenantId, serialNumber])
-  @@index([tenantId])
-  @@index([oltId])
-  @@index([pelangganId])
-  @@index([status])
-  @@index([oltId, ponPort, onuIndex])
-  @@map("onu_devices")
-}
-
-model OltVlanConfig {
-  id        String      @id @default(cuid())
-  tenantId  String
-  oltId     String
-  ponPort   Int?
-  vlanId    Int
-  vlanName  String?
-  purpose   VlanPurpose @default(INTERNET)
-  createdAt DateTime    @default(now())
-
-  olt OltDevice @relation(fields: [oltId], references: [id])
-
-  @@index([oltId])
-  @@map("olt_vlan_configs")
-}
-
-model OltCommandLog {
-  id         String           @id @default(cuid())
-  tenantId   String
-  oltId      String
-  onuId      String?
-  command    String
-  params     Json
-  result     OltCommandResult
-  errorMsg   String?
-  executedBy String
-  executedAt DateTime         @default(now())
-
-  onu OnuDevice? @relation(fields: [onuId], references: [id])
-
-  @@index([tenantId, executedAt])
-  @@index([oltId])
-  @@index([onuId])
-  @@map("olt_command_logs")
-}
-
-model OnuPreRegistration {
-  id               String       @id @default(cuid())
-  tenantId         String
-  serialNumber     String
-  oltId            String?
-  pelangganId      String?
-  bandwidthProfile String?
-  vlanId           Int?
-  status           PreRegStatus @default(PENDING)
-  completedAt      DateTime?
-  createdBy        String
-  createdAt        DateTime     @default(now())
-
-  @@unique([tenantId, serialNumber])
-  @@index([tenantId, status])
-  @@map("onu_pre_registrations")
-}
-
-model OltBandwidthProfile {
-  id           String   @id @default(cuid())
-  tenantId     String
-  oltId        String
-  name         String
-  uploadRate   Int
-  downloadRate Int
-  description  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  olt OltDevice @relation(fields: [oltId], references: [id])
-
-  @@index([tenantId])
-  @@index([oltId])
-  @@map("olt_bandwidth_profiles")
-}
-
-model OnuPowerHistory {
-  id         String   @id @default(cuid())
-  tenantId   String
-  onuId      String
-  rxPower    Float?
-  txPower    Float?
-  recordedAt DateTime @default(now())
-
-  onu OnuDevice @relation(fields: [onuId], references: [id], onDelete: Cascade)
-
-  @@index([onuId, recordedAt])
-  @@index([tenantId, recordedAt])
-  @@map("onu_power_history")
-}
-
-enum OltAlertType {
-  LOS
-  LOW_POWER
-  OFFLINE
-  CRITICAL_POWER
-}
-
-enum OltAlertSeverity {
-  INFO
-  WARNING
-  CRITICAL
-}
-
-model OltAlert {
-  id        String           @id @default(cuid())
-  tenantId  String
-  oltId     String
-  onuId     String?
-  type      OltAlertType
-  message   String
-  severity  OltAlertSeverity @default(WARNING)
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  olt OltDevice  @relation(fields: [oltId], references: [id])
-  onu OnuDevice? @relation(fields: [onuId], references: [id])
-
-  @@index([tenantId, isRead, createdAt])
-  @@index([oltId])
-  @@index([onuId])
-  @@map("olt_alerts")
 }
 
 enum InvestorDepositType {
