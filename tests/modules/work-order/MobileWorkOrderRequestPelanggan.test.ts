@@ -123,4 +123,26 @@ describe("MobileWorkOrderRequestService dengan pelangganId", () => {
     const [findFirstArgs] = mockFns.findFirst.mock.calls[0];
     expect(findFirstArgs.where).toEqual({ id: "plg-1" });
   });
+
+  it("memakai siteId pelanggan yang ditautkan, bukan siteId body atau sesi", async () => {
+    mockFns.findFirst.mockResolvedValue({
+      id: "plg-1",
+      nama: "Budi",
+      noTelp: "08123",
+      alamat: "Jl. Mawar 1",
+      latitude: -6.2,
+      longitude: 106.8,
+      siteId: "site-pelanggan",
+      tenantId: "tenant-1",
+    });
+
+    await new MobileWorkOrderRequestService().createRequest(
+      { ...body, siteId: "site-body" },
+      { ...sessionUser, siteId: "site-sesi" },
+    );
+
+    expect(mockFns.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ siteId: "site-pelanggan" }),
+    );
+  });
 });
