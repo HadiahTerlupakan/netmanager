@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-19] — Endpoint pelanggan mobile & tautan work order ke pelanggan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan`, `modules/work-order`, `app/api/mobile`, `lib/authorization`
+- **Author**: agent (sesi mobile-netmanager-44)
+- **Deskripsi**: Mengganti sumber data MixRadius yang sudah dihapus dengan data
+  billing/PPPoE milik sendiri. Endpoint baru `GET /api/mobile/pelanggan` (filter
+  status, pencarian, paginasi maksimal 50) dibatasi ke site yang ditugaskan kepada
+  karyawan dan dijaga permission baru `m_pelanggan:read`. `MobileWorkOrderRequestService`
+  kini menerima `pelangganId` opsional, memvalidasinya terhadap site karyawan,
+  mengisi kontak dan koordinat dari data pelanggan, lalu menyimpan
+  `WorkOrders.pelangganId` sehingga WO dari HP tertaut ke pelanggan sungguhan.
+  Scoping site sengaja TIDAK memakai `checkSiteRestriction`: sesi mobile hanya
+  membawa permission `m_*`, sehingga `pelanggan:site_only` tidak akan pernah
+  menggigit. Helper bersama `resolveAllowedSiteIds` dipakai kedua service agar satu
+  konsep tidak punya dua jawaban — sebelumnya karyawan dengan `siteIds: []` plus
+  `siteId` legacy ditolak di daftar pelanggan tetapi tetap bisa menautkan WO.
+  Filter tenant manual TIDAK ditambahkan: ekstensi `withTenantIsolation` sudah
+  menanganinya, dan filter manual justru memutus akses lintas tenant super admin.
+  Dua temuan review yang ikut diperbaiki: `body.pelangganId` tanpa validasi runtime
+  bisa dikirim sebagai filter Prisma (`{"not":"x"}`) sehingga pemegang
+  `m_work_order:create` saja dapat menarik nama, telepon, alamat, dan koordinat
+  pelanggan sembarang di dalam site-nya; dan `?status=` kosong mematikan pengecualian
+  `DISMANTLE`. Status tak dikenal kini ditolak 400, bukan 500.
+- **Files**: `app/api/mobile/pelanggan/route.ts`,
+  `modules/pelanggan/services/MobilePelangganService.ts`, `modules/pelanggan/index.ts`,
+  `modules/pelanggan/repositories/PelangganRepository.ts`,
+  `modules/pelanggan/repositories/pelanggan-repository.prisma.helpers.ts`,
+  `modules/work-order/services/MobileWorkOrderRequestService.ts`,
+  `lib/authorization/allowed-site-ids.ts`, `lib/permission-config.ts`,
+  tes di `tests/modules/pelanggan/` dan `tests/modules/work-order/`
+- **Breaking**: ❌ Tidak
+- **Catatan rilis**: permission `m_pelanggan` harus di-seed dan diberikan ke role
+  yang dituju sebelum menu muncul di aplikasi; tanpa itu endpoint menolak 403.
+
 ### [2026-09-19] — Pembatasan per-site tidak pernah berlaku di route berbasis createHandler
 
 - **Tipe**: [SECURITY]
