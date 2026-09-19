@@ -12,6 +12,7 @@ export interface MobileWorkOrderRequestBody {
   priority?: CreateWorkOrderData["priority"];
   departmentId?: string;
   siteId?: string;
+  pelangganId?: string;
   contactName?: string;
   contactPhone?: string;
   locationAddress?: string;
@@ -25,6 +26,8 @@ export interface MobileWorkOrderRequestSessionUser {
   name?: string | null;
   tenantId?: string | null;
   siteId?: string | null;
+  siteIds?: string[];
+  isSuperAdmin?: boolean;
 }
 
 export class MobileWorkOrderRequestService {
@@ -51,6 +54,10 @@ export class MobileWorkOrderRequestService {
       body.type,
     );
 
+    const pelanggan = body.pelangganId
+      ? await this.resolvePelanggan(body.pelangganId, userSession)
+      : null;
+
     const workOrder = await this.workOrderRepo.createRequest({
       type: body.type,
       title: body.title,
@@ -59,13 +66,21 @@ export class MobileWorkOrderRequestService {
       departmentId,
       ...(body.siteId && { siteId: body.siteId }),
       ...(!body.siteId && userSession.siteId && { siteId: userSession.siteId }),
-      contactName: body.contactName || userName,
-      contactPhone: body.contactPhone,
-      locationAddress: body.locationAddress,
-      ...(body.latitude && { locationLat: parseFloat(String(body.latitude)) }),
-      ...(body.longitude && {
-        locationLng: parseFloat(String(body.longitude)),
+      ...(pelanggan && {
+        pelangganId: pelanggan.id,
+        siteId: pelanggan.siteId ?? undefined,
       }),
+      contactName: body.contactName || pelanggan?.nama || userName,
+      contactPhone: body.contactPhone ?? pelanggan?.noTelp ?? undefined,
+      locationAddress: body.locationAddress ?? pelanggan?.alamat ?? undefined,
+      ...(body.latitude
+        ? { locationLat: parseFloat(String(body.latitude)) }
+        : pelanggan?.latitude != null && { locationLat: pelanggan.latitude }),
+      ...(body.longitude
+        ? { locationLng: parseFloat(String(body.longitude)) }
+        : pelanggan?.longitude != null && {
+            locationLng: pelanggan.longitude,
+          }),
       internalNotes: body.notes,
       requestedById: userId,
       tenantId,
@@ -161,6 +176,45 @@ export class MobileWorkOrderRequestService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Pastikan pelanggan ada dan berada di site karyawan (tenant sudah
+   * difilter otomatis oleh ekstensi Prisma). Super admin tidak dibatasi
+   * site, mengikuti pola yang sama dengan MobilePelangganService.
+   */
+  private async resolvePelanggan(
+    pelangganId: string,
+    user: MobileWorkOrderRequestSessionUser,
+  ) {
+    const allowedSiteIds = user.siteIds?.length
+      ? user.siteIds
+      : user.siteId
+        ? [user.siteId]
+        : [];
+
+    const pelanggan = await this.prisma.pelanggan.findFirst({
+      where: {
+        id: pelangganId,
+        ...(user.isSuperAdmin ? {} : { siteId: { in: allowedSiteIds } }),
+      },
+      select: {
+        id: true,
+        nama: true,
+        noTelp: true,
+        alamat: true,
+        latitude: true,
+        longitude: true,
+        siteId: true,
+      },
+    });
+
+    if (!pelanggan) {
+      throw new Error(
+        "FORBIDDEN: Pelanggan tidak ditemukan atau di luar site Anda",
+      );
+    }
+    return pelanggan;
   }
 
   private async broadcastNewWorkOrder(
