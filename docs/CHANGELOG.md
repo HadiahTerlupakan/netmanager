@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-19] — Riwayat mutasi kas: transfer tidak lagi tanpa jejak
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/finance`, `app/admin/finance/accounts`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya "Mutasi Saldo" hanya mengubah dua angka saldo. Tanggal
+  dan keterangan yang diisi operator tidak tersimpan di mana pun, dan tidak ada
+  catatan yang bisa direkonsiliasi — satu-satunya jejak adalah baris log aktivitas
+  yang tidak terlihat dari halaman. Tabel `treasury_mutations` mencatat setiap
+  perpindahan dana (tanggal, jumlah, akun asal/tujuan, keterangan, pelakunya), dan
+  barisnya ditulis di transaksi yang sama dengan perubahan saldo sehingga keduanya
+  tidak pernah berbeda: transfer yang ditolak karena saldo kurang tidak
+  meninggalkan baris. Halaman Kas & Bank kini menampilkan 20 mutasi terakhir.
+  Jurnal akuntansi sengaja belum disentuh: buku besar belum pernah dipakai di
+  produksi (0 jurnal) dan akun kas belum tertaut COA, jadi menjurnal transfer
+  hanya akan menulis ke sistem yang belum hidup.
+- **Files**: `prisma/schema.prisma`, `modules/finance/dto/TreasuryMutationDTO.ts`,
+  `modules/finance/repositories/FinancialAccountRepository.ts`,
+  `modules/finance/services/{FinanceAccountFacadeService,FinanceService}.ts`,
+  `app/admin/finance/accounts/{page.tsx,TreasuryClient.tsx}`
+- **Migration**: `20260919130617_add_treasury_mutations` (aditif; 0 transfer pernah
+  terjadi di produksi sehingga tidak ada backfill)
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-19] — Hak baca keuangan tidak lagi bisa memindahkan uang
 
 - **Tipe**: [SECURITY]

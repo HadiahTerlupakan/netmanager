@@ -5,8 +5,11 @@ type AccountType = "BANK" | "CASH" | "EWALLET" | "OTHER";
 
 type FinancialAccountRepo = Pick<
   FinancialAccountRepository,
-  "findActive" | "create" | "transferBetweenAccounts"
+  "findActive" | "create" | "transferBetweenAccounts" | "findRecentMutations"
 >;
+
+/** Banyaknya riwayat mutasi yang ditampilkan di halaman Kas & Bank. */
+const RECENT_MUTATION_LIMIT = 20;
 
 export class FinanceAccountFacadeService {
   constructor(
@@ -16,6 +19,11 @@ export class FinanceAccountFacadeService {
   /** Get all active financial accounts. */
   async getAccounts() {
     return this.financialAccountRepo.findActive();
+  }
+
+  /** Riwayat mutasi saldo terbaru untuk ditampilkan di halaman Kas & Bank. */
+  async getRecentMutations(limit: number = RECENT_MUTATION_LIMIT) {
+    return this.financialAccountRepo.findRecentMutations(limit);
   }
 
   /** Create a new financial account. */
@@ -39,10 +47,11 @@ export class FinanceAccountFacadeService {
   /**
    * Transfer funds between accounts.
    *
-   * Tanggal dan keterangan yang diisi operator ikut dicatat. Belum ada tabel
-   * riwayat mutasi kas, jadi log aktivitas inilah satu-satunya jejak transfer —
-   * sebelumnya kedua nilai itu diminta di form lalu dibuang tanpa tersimpan
-   * di mana pun.
+   * Tanggal dan keterangan yang diisi operator tersimpan sebagai baris
+   * `TreasuryMutation` di transaksi yang sama dengan perubahan saldo —
+   * sebelumnya kedua nilai itu diminta di form lalu dibuang, dan transfer sama
+   * sekali tidak meninggalkan jejak yang bisa direkonsiliasi. Log aktivitas
+   * tetap ditulis sebagai jejak audit lintas modul.
    */
   async transferFunds(data: {
     sourceAccountId: string;
@@ -56,6 +65,9 @@ export class FinanceAccountFacadeService {
       sourceAccountId: data.sourceAccountId,
       destinationAccountId: data.destinationAccountId,
       amount: data.amount,
+      date: data.date,
+      ...(data.description ? { description: data.description } : {}),
+      createdById: data.createdById,
     });
 
     logActivitySafe({

@@ -16,6 +16,9 @@ const TRANSFER = {
   sourceAccountId: "akun-sumber",
   destinationAccountId: "akun-tujuan",
   amount: 500_000,
+  date: "2026-09-19",
+  description: "Setor tunai ke bank",
+  createdById: "user-1",
 };
 
 interface FakeClientOptions {
@@ -38,14 +41,19 @@ function createFakeClient({
     .mockResolvedValue(
       sourceBalance === null ? null : { balance: sourceBalance },
     );
+  const createMutation = vi.fn().mockResolvedValue({ id: "mutasi-1" });
 
-  const tx = { financialAccount: { updateMany, findUnique } };
+  const tx = {
+    financialAccount: { updateMany, findUnique },
+    treasuryMutation: { create: createMutation },
+  };
   const client = {
     $transaction: vi.fn(async (run: (tx: unknown) => unknown) => run(tx)),
     financialAccount: { updateMany, findUnique },
+    treasuryMutation: { create: createMutation },
   };
 
-  return { client, updateMany, findUnique };
+  return { client, updateMany, findUnique, createMutation };
 }
 
 function createRepository(options: FakeClientOptions) {
@@ -83,8 +91,27 @@ describe("FinancialAccountRepository.transferBetweenAccounts", () => {
     });
   });
 
+  it("mencatat riwayat mutasi di transaksi yang sama dengan perubahan saldo", async () => {
+    const { repository, createMutation } = createRepository({
+      debitedCount: 1,
+    });
+
+    await repository.transferBetweenAccounts(TRANSFER);
+
+    expect(createMutation).toHaveBeenCalledWith({
+      data: {
+        date: new Date(TRANSFER.date),
+        amount: TRANSFER.amount,
+        description: TRANSFER.description,
+        sourceAccountId: TRANSFER.sourceAccountId,
+        destinationAccountId: TRANSFER.destinationAccountId,
+        createdById: TRANSFER.createdById,
+      },
+    });
+  });
+
   it("menolak transfer yang melebihi saldo alih-alih membuat saldo minus", async () => {
-    const { repository, updateMany } = createRepository({
+    const { repository, updateMany, createMutation } = createRepository({
       debitedCount: 0,
       sourceBalance: 100_000,
     });
@@ -93,8 +120,10 @@ describe("FinancialAccountRepository.transferBetweenAccounts", () => {
       repository.transferBetweenAccounts(TRANSFER),
     ).rejects.toBeInstanceOf(InsufficientBalanceError);
 
-    // Akun tujuan tidak boleh ikut bertambah saat pendebetan gagal.
+    // Akun tujuan tidak boleh ikut bertambah saat pendebetan gagal, dan tidak
+    // boleh ada baris riwayat untuk transfer yang tidak jadi.
     expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(createMutation).not.toHaveBeenCalled();
   });
 
   it("membawa saldo tersedia pada error agar bisa dilaporkan", async () => {

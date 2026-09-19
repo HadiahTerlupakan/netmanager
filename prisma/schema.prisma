@@ -1455,6 +1455,7 @@ model User {
   attendanceEvaluationAudit                  AttendanceEvaluationAudit[]
   conversation_participants                  ConversationParticipant[]
   expense                                    Expense[]
+  treasuryMutations                          TreasuryMutation[]
   leaveBalances                              LeaveBalance[]
   leaveRequest                               LeaveRequest[]
   messages                                   Message[]
@@ -3186,8 +3187,40 @@ model FinancialAccount {
   tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseOrders PurchaseOrder[] @relation("POPaidFrom")
 
+  mutationsOut TreasuryMutation[] @relation("TreasuryMutationSource")
+  mutationsIn  TreasuryMutation[] @relation("TreasuryMutationDestination")
+
   @@index([tenantId])
   @@map("financial_accounts")
+}
+
+/// Riwayat perpindahan dana antar akun kas/bank.
+///
+/// Sebelum ada tabel ini, "Mutasi Saldo" hanya mengubah dua angka saldo: tanggal
+/// dan keterangan yang diisi operator tidak tersimpan, dan tidak ada yang bisa
+/// direkonsiliasi. Baris ditulis dalam transaksi yang sama dengan perubahan
+/// saldo, sehingga saldo dan riwayatnya tidak pernah berbeda.
+model TreasuryMutation {
+  id                   String   @id @default(uuid())
+  date                 DateTime
+  amount               Float
+  description          String?
+  sourceAccountId      String
+  destinationAccountId String
+  createdById          String?
+  createdAt            DateTime @default(now())
+  tenantId             String?
+
+  sourceAccount      FinancialAccount @relation("TreasuryMutationSource", fields: [sourceAccountId], references: [id])
+  destinationAccount FinancialAccount @relation("TreasuryMutationDestination", fields: [destinationAccountId], references: [id])
+  createdBy          User?            @relation(fields: [createdById], references: [id])
+  tenant             Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([date])
+  @@index([sourceAccountId])
+  @@index([destinationAccountId])
+  @@index([tenantId])
+  @@map("treasury_mutations")
 }
 
 model Asset {
@@ -3860,6 +3893,7 @@ model Tenant {
   employeeLoan              EmployeeLoan[]
   employeeLocation          EmployeeLocation[]
   financialAccount          FinancialAccount[]
+  treasuryMutations         TreasuryMutation[]
   gudang                    Gudang[]
   loanPayment               LoanPayment[]
   mapSettings               MapSettings[]

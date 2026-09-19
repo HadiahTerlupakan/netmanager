@@ -30,6 +30,11 @@ export class FinanceService {
     return this.accountService.getAccounts();
   }
 
+  /** Riwayat mutasi saldo antar akun, terbaru lebih dulu. */
+  async getTreasuryMutations(limit?: number) {
+    return this.accountService.getRecentMutations(limit);
+  }
+
   /** Create a new financial account. */
   async createAccount(data: {
     name: string;

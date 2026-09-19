@@ -7,6 +7,7 @@ describe("FinanceAccountFacadeService", () => {
       create: vi.fn().mockResolvedValue({ id: "account-1" }),
       findActive: vi.fn(),
       transferBetweenAccounts: vi.fn(),
+      findRecentMutations: vi.fn().mockResolvedValue([]),
     };
     const service = new FinanceAccountFacadeService(financialAccountRepo);
 

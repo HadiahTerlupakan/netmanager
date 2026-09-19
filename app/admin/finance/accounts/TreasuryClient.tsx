@@ -17,13 +17,18 @@ import {
   TREASURY_ACCOUNT_CREATE_PERMISSIONS,
   TREASURY_TRANSFER_PERMISSIONS,
 } from "@/lib/financial-write-permissions";
+import type { TreasuryMutationRecord } from "@/modules/finance";
 import type { Account } from "@/types";
 
 interface TreasuryClientProps {
   accounts: Account[];
+  mutations: TreasuryMutationRecord[];
 }
 
-export default function TreasuryClient({ accounts }: TreasuryClientProps) {
+export default function TreasuryClient({
+  accounts,
+  mutations,
+}: TreasuryClientProps) {
   const router = useRouter();
   const { hasPermission } = usePermission();
 
@@ -48,6 +53,13 @@ export default function TreasuryClient({ accounts }: TreasuryClientProps) {
       maximumFractionDigits: 0,
     }).format(val);
   };
+
+  const formatDate = (value: Date | string) =>
+    new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(value));
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -194,6 +206,55 @@ export default function TreasuryClient({ accounts }: TreasuryClientProps) {
               Rekening Bank, E-Wallet, atau Kas
             </span>
           </Button>
+        )}
+      </div>
+
+      {/* Riwayat Mutasi */}
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-10 mb-4">
+        Riwayat Mutasi Saldo
+      </h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+        {mutations.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
+            Belum ada perpindahan dana antar akun.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-900/40 text-left text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Tanggal</th>
+                <th className="px-4 py-3 font-semibold">Dari</th>
+                <th className="px-4 py-3 font-semibold">Ke</th>
+                <th className="px-4 py-3 font-semibold text-right">Jumlah</th>
+                <th className="px-4 py-3 font-semibold">Keterangan</th>
+                <th className="px-4 py-3 font-semibold">Oleh</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {mutations.map((mutation) => (
+                <tr key={mutation.id}>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                    {formatDate(mutation.date)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    {mutation.sourceAccount.name}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    {mutation.destinationAccount.name}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-gray-900 dark:text-white">
+                    {formatCurrency(mutation.amount)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                    {mutation.description || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                    {mutation.createdBy?.name || "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

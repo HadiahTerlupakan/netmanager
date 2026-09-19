@@ -40,9 +40,22 @@
     `payment_gateway:update"` (mutasi tak terpadan); pola lama `treasury:*","finance:read"` tidak ditemukan lagi.
   - `/api/health` 200, `/admin/finance/accounts` 307 ke login (normal tanpa sesi).
 
+### Lanjutan atas permintaan "lanjutkan sampai selesai" (2026-09-19)
+- [x] 8. Tabel riwayat `treasury_mutations` + migration aditif `20260919130617_add_treasury_mutations`
+- [x] 9. Baris riwayat ditulis di transaksi yang sama dengan perubahan saldo; transfer gagal tidak menyisakan baris
+- [x] 10. Halaman Kas & Bank menampilkan 20 mutasi terakhir (tanggal, dari → ke, jumlah, keterangan, pelaku)
+- [x] 11. Uji SQL langsung di Postgres lokal: pendebetan bersyarat `UPDATE 1` saat cukup / `UPDATE 0` saat kurang,
+      saldo 750.000/250.000, baris riwayat tertulis, FK menolak akun asing, data uji dibersihkan
+- [ ] 12. Commit & push → pantau deploy → verifikasi produksi
+
+### Temuan baru saat membuat migration
+- **Schema Prisma dan riwayat migration sudah lama tidak sinkron.** `migrate diff --from-migrations --to-schema`
+  memunculkan perubahan yang tidak pernah dibuatkan migration, antara lain `support_tickets DROP COLUMN "rating"`,
+  beberapa `DROP DEFAULT` pada model Planning/Message, dan sejumlah rename index. Artinya schema pernah diedit
+  tanpa migration pasangannya. **Tidak saya rapikan**: menyelaraskannya berarti menjalankan pernyataan destruktif
+  di produksi (kolom `rating` akan hilang). Perlu keputusan Anda.
+
 ### Belum dikerjakan (perlu keputusan user)
-- **Tidak ada tabel riwayat mutasi kas.** Transfer hanya menyisakan log aktivitas; tidak ada buku besar kas yang
-  bisa direkonsiliasi. Menambahkannya = tabel baru + migration.
 - **`financial_accounts.balance` bertipe `Float`** (uang dalam floating point), sementara `Expense.amount` `BigInt`.
   Mengubahnya = migration + penyesuaian kode.
 - **Akun "BRI SBL" tidak punya `coaId`**, jadi mutasi kas tidak terhubung ke jurnal akuntansi.

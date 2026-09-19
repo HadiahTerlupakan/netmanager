@@ -5,6 +5,16 @@ import {
   FinancialAccountNotFoundError,
   InsufficientBalanceError,
 } from "../domain/errors";
+import type { TreasuryMutationRecord } from "../dto/TreasuryMutationDTO";
+
+export interface TransferInput {
+  sourceAccountId: string;
+  destinationAccountId: string;
+  amount: number;
+  date: Date | string;
+  description?: string;
+  createdById?: string;
+}
 
 export interface IFinancialAccountRepository {
   findActive(): Promise<FinancialAccount[]>;
@@ -17,11 +27,8 @@ export interface IFinancialAccountRepository {
     isActive: boolean;
   }): Promise<FinancialAccount>;
   findById(id: string): Promise<FinancialAccount | null>;
-  transferBetweenAccounts(data: {
-    sourceAccountId: string;
-    destinationAccountId: string;
-    amount: number;
-  }): Promise<{ success: true }>;
+  transferBetweenAccounts(data: TransferInput): Promise<{ success: true }>;
+  findRecentMutations(limit: number): Promise<TreasuryMutationRecord[]>;
 }
 
 export class FinancialAccountRepository implements IFinancialAccountRepository {
@@ -49,6 +56,23 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
     return this.client.financialAccount.findUnique({ where: { id } });
   }
 
+  /** Riwayat mutasi terbaru, terbaru lebih dulu. */
+  async findRecentMutations(limit: number): Promise<TreasuryMutationRecord[]> {
+    return this.client.treasuryMutation.findMany({
+      take: limit,
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        date: true,
+        amount: true,
+        description: true,
+        sourceAccount: { select: { id: true, name: true } },
+        destinationAccount: { select: { id: true, name: true } },
+        createdBy: { select: { name: true } },
+      },
+    });
+  }
+
   /**
    * Pindahkan dana antar akun dalam satu transaksi.
    *
@@ -56,12 +80,13 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
    * membaca saldo lalu mengurangi: satu pernyataan UPDATE bersyarat tidak bisa
    * disalip transfer lain yang berjalan bersamaan. Bila tidak ada baris yang
    * terpengaruh, barulah dibedakan apakah akunnya tidak ada atau saldonya kurang.
+   *
+   * Baris riwayat ditulis di transaksi yang sama, jadi saldo dan riwayatnya
+   * tidak pernah berbeda: kalau salah satu gagal, keduanya batal.
    */
-  async transferBetweenAccounts(data: {
-    sourceAccountId: string;
-    destinationAccountId: string;
-    amount: number;
-  }): Promise<{ success: true }> {
+  async transferBetweenAccounts(data: TransferInput): Promise<{
+    success: true;
+  }> {
     return this.client.$transaction(async (tx) => {
       const debited = await tx.financialAccount.updateMany({
         where: { id: data.sourceAccountId, balance: { gte: data.amount } },
@@ -91,6 +116,17 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
       if (credited.count === 0) {
         throw new FinancialAccountNotFoundError(data.destinationAccountId);
       }
+
+      await tx.treasuryMutation.create({
+        data: {
+          date: new Date(data.date),
+          amount: data.amount,
+          description: data.description ?? null,
+          sourceAccountId: data.sourceAccountId,
+          destinationAccountId: data.destinationAccountId,
+          createdById: data.createdById ?? null,
+        },
+      });
 
       return { success: true };
     });

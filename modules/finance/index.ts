@@ -88,3 +88,4 @@ export { rabProjectCreateSchema, rabProjectUpdateSchema } from "./validation";
 
 // Kesalahan domain kas & bank, dipetakan route ke status HTTP yang tepat.
 export * from "./domain/errors";
+export * from "./dto/TreasuryMutationDTO";
