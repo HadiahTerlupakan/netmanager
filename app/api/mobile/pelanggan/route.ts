@@ -34,7 +34,7 @@ export const GET = createHandler(
 
     try {
       const { data, total } = await listMobilePelanggan({
-        session: ctx.session as never,
+        session: ctx.session!,
         ...query,
       });
       return apiPaginated(data, {
