@@ -120,6 +120,7 @@ export const PERMISSION_GROUPS_MOBILE = {
   MARKETING: ["m_canvasing"],
   KOMUNIKASI: ["m_chat"],
   NETWORK: ["m_topology"],
+  PELANGGAN: ["m_pelanggan"],
 } as const;
 
 /**
