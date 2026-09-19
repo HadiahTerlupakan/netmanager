@@ -7,7 +7,9 @@ const resellerClientPath = "app/admin/resellers/ResellersClient.tsx";
 const pppInfoSectionPath =
   "app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection.tsx";
 const pppUpdateRoutePath = "app/api/pelanggan-ppp/[id]/route-handlers-impl.ts";
-const pppCreateRoutePath = "app/api/pelanggan-ppp/route.ts";
+// `route.ts` kini hanya re-export satu baris; implementasinya ada di berkas
+// impl, mengikuti pola folder `[id]` di atas.
+const pppCreateRoutePath = "app/api/pelanggan-ppp/route-handlers-impl.ts";
 const pelangganServiceHelperPath =
   "modules/pelanggan/services/pelanggan-service.helpers.ts";
 
