@@ -1,4 +1,8 @@
-import { apiSuccess, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { AdminOptionsRouteService } from "@/modules/roles";
 import { checkSiteRestriction } from "@/modules/roles";
 
@@ -8,7 +12,7 @@ const adminOptionsRouteService = new AdminOptionsRouteService();
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const resource = new URL(req.url).searchParams.get("resource") || "users";
   const { isRestricted, siteIds } = checkSiteRestriction(
-    ctx.session as never,
+    buildSessionWithPermissions(ctx.session!, ctx.permissions),
     resource,
   );
 

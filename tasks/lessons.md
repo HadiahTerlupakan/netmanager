@@ -278,3 +278,23 @@
   - Jangan ubah data izin peran atas inisiatif sendiri; laporkan siapa yang perlu dicentangkan permission baru.
 - **Dugaan yang wajib diverifikasi dulu:** "repository tidak memfilter tenant" ternyata salah — client Prisma
   dibungkus `withTenantIsolation`. Periksa lapisan infrastruktur sebelum melaporkan kebocoran data.
+
+## Cast `as never` di titik panggil menyembunyikan bug otorisasi dari tsc
+
+- **Konteks:** `checkSiteRestriction(ctx.session as never, "pelanggan")`. Sesi `createHandler` tidak memuat
+  `permissions` (disimpan di `ctx.permissions`), jadi `isRestricted` selalu false dan `:site_only` tidak pernah
+  berlaku di 13 route. Cast-nya membuat kompilator diam.
+- **Why:** Tipe adalah jaring pengaman utama untuk ketidakcocokan bentuk data. `as never`/`as unknown as X` di
+  batas fungsi otorisasi berarti jaring itu sengaja dilubangi tepat di tempat paling berbahaya.
+- **How to apply:**
+  - Curigai setiap cast pada argumen fungsi otorisasi; itu penanda bentuk data yang tidak cocok, bukan sekadar
+    keberisikan TypeScript.
+  - Kalau sudah ada helper penjembatan (di sini `lib/api/build-session-with-permissions.ts`), periksa berapa
+    banyak titik panggil yang benar-benar memakainya — ada 2 dari 15.
+  - Helper bersama sebaiknya menuntut data yang dibutuhkannya secara eksplisit (`permissions: string[]`),
+    bukan menerima objek longgar yang kebetulan lolos tipe.
+- **Soal temuan dari sesi lain:** verifikasi premisnya, jangan hanya kesimpulannya. Klaim "permissions selalu
+  undefined" ternyata terlalu luas — jalur getServerSession mengisinya lewat fallback. Kesimpulan akhirnya tetap
+  benar, tapi cakupan perbaikannya berbeda jauh kalau premis itu ditelan mentah-mentah.
+- **Ukur dampak sebelum menyebut "kebocoran":** di produksi izin `pelanggan:site_only` hanya dipegang role tanpa
+  pengguna, jadi ini laten. Menyebutnya kebocoran aktif akan menyesatkan.

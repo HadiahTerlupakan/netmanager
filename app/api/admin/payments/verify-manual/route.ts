@@ -1,6 +1,11 @@
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
+import {
+  ApiErrors,
+  apiSuccess,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import {
   ManualPaymentAdminRouteService,
   isRouteServiceError,
@@ -26,7 +31,7 @@ export const POST = createHandler(
   async (_req, ctx) => {
     try {
       const { isRestricted, siteIds } = checkSiteRestriction(
-        ctx.session as never,
+        buildSessionWithPermissions(ctx.session!, ctx.permissions),
         "finance",
       );
       const allowedSiteIds = isRestricted ? siteIds : undefined;

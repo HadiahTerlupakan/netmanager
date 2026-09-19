@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-19] — Pembatasan per-site tidak pernah berlaku di route berbasis createHandler
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api`, `lib/api`
+- **Author**: agent
+- **Deskripsi**: `checkSiteRestriction` membaca `session.user.permissions`,
+  sedangkan sesi yang dibangun `createHandler` sengaja tidak memuatnya (permissions
+  disimpan terpisah di `ctx.permissions`). Tiga belas route mengoper sesi itu apa
+  adanya dengan cast — `ctx.session as never`, `{ user } as never`,
+  `ctx.session as Session | null` — sehingga daftar permission selalu kosong,
+  `isRestricted` selalu false, dan pembatasan `<resource>:site_only` tidak pernah
+  menggigit: pengguna yang seharusnya dibatasi pada site tertentu bisa melihat
+  seluruh data tenant. Cast tersebut juga menyembunyikan ketidakcocokan bentuk sesi
+  dari tsc. Semua titik panggil kini memakai `buildSessionWithPermissions`, helper
+  yang memang sudah ada untuk ini tetapi baru dipakai 2 route. Helper bersama di
+  `lib/api/guards.ts` menerima `permissions` secara eksplisit, dan dua salinan
+  `ensureMitraInScope` yang terduplikasi di route wallet/face-verifications dihapus.
+  Terdampak: pelanggan-ppp, hargapakets, admin/sites, admin/options,
+  admin/payments (verify-manual, cancel), admin/invoices/void, dan lima route mitra.
+  Dampak di produksi saat diperbaiki: nol — satu-satunya izin `:site_only` yang
+  relevan (`pelanggan:site_only`) dipegang role Helpdesk yang punya 0 pengguna,
+  jadi ini bug laten yang akan menggigit begitu ada peran terbatas-site dipakai.
+  Ditemukan oleh sesi mobile-netmanager-44 dan diverifikasi ulang di sini; premis
+  awalnya ("permissions selalu undefined") dikoreksi: jalur getServerSession aman
+  karena callback sesi NextAuth mengisi permissions lewat fallback query.
+- **Files**: `lib/api/guards.ts`, 13 route di `app/api/**`,
+  `tests/architecture/site-restriction-session-shape.test.ts`,
+  `tests/lib/site-restriction-handler-session.test.ts`
+- **Breaking**: ❌ Tidak (tidak ada pengguna produksi yang kehilangan akses hari ini)
+
 ### [2026-09-19] — Riwayat mutasi kas: transfer tidak lagi tanpa jejak
 
 - **Tipe**: [ADDED]

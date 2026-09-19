@@ -1,4 +1,8 @@
-import { createHandler, apiSuccess } from "@/lib/api";
+import {
+  createHandler,
+  apiSuccess,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { VoidInvoiceService } from "@/modules/finance";
 import { checkSiteRestriction } from "@/modules/roles";
 import * as z from "zod";
@@ -27,7 +31,7 @@ export const POST = createHandler(
     const { id } = ctx.params;
     const { reason } = ctx.validated;
     const { isRestricted, siteIds } = checkSiteRestriction(
-      ctx.session as never,
+      buildSessionWithPermissions(ctx.session!, ctx.permissions),
       "finance",
     );
     const allowedSiteIds = isRestricted ? siteIds : undefined;

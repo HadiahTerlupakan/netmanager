@@ -6,6 +6,7 @@ import {
   ErrorCodes,
   apiError,
   createHandler,
+  buildSessionWithPermissions,
 } from "@/lib/api";
 import { checkSiteRestriction } from "@/modules/roles";
 import { siteCreateSchema } from "@/lib/validations/site";
@@ -32,7 +33,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   // Apply scope restriction even for activeOnly (dropdown)
   const { isRestricted, siteIds } = checkSiteRestriction(
-    ctx.session as never,
+    buildSessionWithPermissions(ctx.session!, ctx.permissions),
     "site",
   );
   const allowedSiteIds = isRestricted ? siteIds : undefined;

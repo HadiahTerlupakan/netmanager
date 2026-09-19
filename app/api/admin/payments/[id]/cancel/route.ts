@@ -1,5 +1,10 @@
 import { logger } from "@/lib/logger";
-import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
+import {
+  ApiErrors,
+  apiSuccess,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { cancelPaidPayment, PaymentCancellationError } from "@/modules/finance";
 import { checkSiteRestriction } from "@/modules/roles";
 
@@ -8,7 +13,7 @@ export const POST = createHandler(
   async (_req, ctx) => {
     try {
       const { isRestricted, siteIds } = checkSiteRestriction(
-        ctx.session as never,
+        buildSessionWithPermissions(ctx.session!, ctx.permissions),
         "finance",
       );
       const allowedSiteIds = isRestricted ? siteIds : undefined;

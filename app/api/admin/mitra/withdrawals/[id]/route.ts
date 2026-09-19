@@ -1,6 +1,11 @@
 import * as z from "zod";
 
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { getMitraWithdrawService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 import { rejectWithdrawSchema } from "@/lib/validations/mitra";
@@ -32,7 +37,7 @@ export const POST = createHandler(
     }
 
     const { isRestricted, siteIds } = checkSiteRestriction(
-      { user } as never,
+      buildSessionWithPermissions(ctx.session!, ctx.permissions),
       "withdrawals",
     );
     const tenantId = user.tenantId ?? undefined;

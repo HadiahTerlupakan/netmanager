@@ -2,38 +2,12 @@ import * as z from "zod";
 
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { getMitraService } from "@/modules/mitra";
-import { checkSiteRestriction } from "@/modules/roles";
+import { ensureMitraInScope } from "@/lib/api/guards";
 
 const queryFaceVerificationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
-
-async function ensureMitraInScope(
-  mitraId: string,
-  user: { id: string; name?: string; tenantId?: string | null },
-): Promise<{ allowed: boolean; error?: string }> {
-  const tenantId = user.tenantId ?? undefined;
-  const mitra = await getMitraService().getMitraById(mitraId, tenantId);
-  if (!mitra.success) {
-    return { allowed: false, error: "Mitra tidak ditemukan" };
-  }
-
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    { user } as never,
-    "mitra",
-  );
-  if (!isRestricted) return { allowed: true };
-
-  if (!mitra.data.siteId || !siteIds.includes(mitra.data.siteId)) {
-    return {
-      allowed: false,
-      error: "Anda tidak dapat mengakses mitra di luar scope Anda",
-    };
-  }
-
-  return { allowed: true };
-}
 
 export const GET = createHandler(
   {
@@ -44,7 +18,7 @@ export const GET = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const access = await ensureMitraInScope(id, user);
+    const access = await ensureMitraInScope(id, user, ctx.permissions);
     if (!access.allowed) {
       return ApiErrors.forbidden(access.error);
     }

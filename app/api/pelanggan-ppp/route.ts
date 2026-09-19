@@ -12,6 +12,7 @@ import {
   ApiErrors,
   createHandler,
   apiError,
+  buildSessionWithPermissions,
 } from "@/lib/api";
 import { createPelangganSchema } from "@/lib/validations/pelanggan";
 import { logger } from "@/lib/logger";
@@ -40,7 +41,10 @@ export const GET = createHandler(
   async (req, ctx) => {
     const session = ctx.session!;
     const searchParams = req.nextUrl.searchParams;
-    const restriction = checkSiteRestriction(session as never, "pelanggan");
+    const restriction = checkSiteRestriction(
+      buildSessionWithPermissions(session, ctx.permissions),
+      "pelanggan",
+    );
     const status = searchParams.get("status") as Status | null;
     const search = searchParams.get("search");
     const siteIdParam = searchParams.get("siteId");
@@ -101,7 +105,10 @@ export const POST = createHandler(
     }
 
     const data = validationResult.data;
-    const restriction = checkSiteRestriction(session as never, "pelanggan");
+    const restriction = checkSiteRestriction(
+      buildSessionWithPermissions(session, ctx.permissions),
+      "pelanggan",
+    );
 
     let inputWithSite: typeof data;
     try {

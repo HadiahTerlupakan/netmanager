@@ -1,6 +1,11 @@
 import * as z from "zod";
 
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { getMitraService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 import { createMitraSchema } from "@/lib/validations/mitra";
@@ -26,7 +31,7 @@ export const GET = createHandler(
     const { search, type, active, page, limit } = parsed.data;
 
     const { isRestricted, siteIds } = checkSiteRestriction(
-      { user: ctx.session!.user } as never,
+      buildSessionWithPermissions(ctx.session!, ctx.permissions),
       "mitra",
     );
 
@@ -60,7 +65,7 @@ export const POST = createHandler(
     const body = ctx.validated;
 
     const { isRestricted, siteIds } = checkSiteRestriction(
-      { user } as never,
+      buildSessionWithPermissions(ctx.session!, ctx.permissions),
       "mitra",
     );
     if (isRestricted && body.siteId && !siteIds.includes(body.siteId)) {

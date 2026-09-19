@@ -1,6 +1,11 @@
 import * as z from "zod";
 
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { getMitraWithdrawService } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 
@@ -23,7 +28,7 @@ export const GET = createHandler(
     const { status, page, limit } = parsed.data;
 
     const { isRestricted, siteIds } = checkSiteRestriction(
-      { user: ctx.session!.user } as never,
+      buildSessionWithPermissions(ctx.session!, ctx.permissions),
       "withdrawals",
     );
 

@@ -1,5 +1,22 @@
 # TODO
 
+## Pembatasan per-site tidak berlaku di route createHandler (2026-09-19)
+
+Ditemukan sesi mobile-netmanager-44, diverifikasi ulang di sini. `checkSiteRestriction` membaca
+`session.user.permissions`; sesi `createHandler` tidak memuatnya. 13 route mengoper sesi mentah dengan cast,
+sehingga `<resource>:site_only` tidak pernah berlaku.
+
+- [x] 1. Verifikasi premis: jalur getServerSession AMAN (callback NextAuth mengisi permissions lewat fallback);
+      yang rusak hanya sesi createHandler tanpa `buildSessionWithPermissions`
+- [x] 2. Ukur dampak produksi: nol pengguna terdampak (`pelanggan:site_only` hanya di role Helpdesk, 0 pengguna)
+- [x] 3. Perbaiki 13 route + helper bersama `lib/api/guards.ts` (permissions jadi parameter eksplisit)
+- [x] 4. Hapus duplikasi `ensureMitraInScope` di route wallet & face-verifications
+- [x] 5. Tes penjaga arsitektur (terbukti merah saat satu route dikembalikan) + 7 tes perilaku
+- [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 13 warning · tes terkait lulus
+- [ ] 7. Push DITAHAN: checkout ini dipakai bersama sesi mobile-netmanager-44 yang punya 2 commit belum siap.
+      Push apa pun akan membawa commit mereka ke produksi. Menunggu mereka selesai / keputusan user.
+
+
 ## Periksa halaman Kas & Bank `/admin/finance/accounts` (2026-09-19)
 
 ### Temuan

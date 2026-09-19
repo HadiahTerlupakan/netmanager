@@ -18,7 +18,7 @@ export const GET = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const access = await ensureMitraInScope(id, user);
+    const access = await ensureMitraInScope(id, user, ctx.permissions);
     if (!access.allowed) {
       return ApiErrors.forbidden(access.error);
     }
@@ -45,12 +45,16 @@ export const PUT = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const access = await ensureMitraInScope(id, user);
+    const access = await ensureMitraInScope(id, user, ctx.permissions);
     if (!access.allowed) {
       return ApiErrors.forbidden(access.error);
     }
 
-    const siteCheck = ensureSiteIdInScope(user, ctx.validated.siteId);
+    const siteCheck = ensureSiteIdInScope(
+      user,
+      ctx.permissions,
+      ctx.validated.siteId,
+    );
     if (!siteCheck.valid) {
       return ApiErrors.forbidden(siteCheck.error);
     }
@@ -78,7 +82,7 @@ export const DELETE = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const access = await ensureMitraInScope(id, user);
+    const access = await ensureMitraInScope(id, user, ctx.permissions);
     if (!access.allowed) {
       return ApiErrors.forbidden(access.error);
     }
@@ -106,12 +110,16 @@ export const PATCH = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const access = await ensureMitraInScope(id, user);
+    const access = await ensureMitraInScope(id, user, ctx.permissions);
     if (!access.allowed) {
       return ApiErrors.forbidden(access.error);
     }
 
-    const siteCheck = ensureSiteIdInScope(user, ctx.validated.siteId);
+    const siteCheck = ensureSiteIdInScope(
+      user,
+      ctx.permissions,
+      ctx.validated.siteId,
+    );
     if (!siteCheck.valid) {
       return ApiErrors.forbidden(siteCheck.error);
     }

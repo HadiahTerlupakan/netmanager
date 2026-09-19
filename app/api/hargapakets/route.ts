@@ -7,6 +7,7 @@ import {
   ErrorCodes,
   apiError,
   createHandler,
+  buildSessionWithPermissions,
 } from "@/lib/api";
 import { checkSiteRestriction } from "@/modules/roles";
 import type { Session } from "next-auth";
@@ -30,7 +31,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (featured !== null) options.featured = featured === "true";
 
   const { isRestricted, siteIds } = checkSiteRestriction(
-    ctx.session as Session | null,
+    buildSessionWithPermissions(ctx.session!, ctx.permissions),
     "harga",
   );
 
@@ -59,7 +60,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { isRestricted, primarySiteId } = checkSiteRestriction(
-    ctx.session as Session | null,
+    buildSessionWithPermissions(ctx.session!, ctx.permissions),
     "harga",
   );
 
