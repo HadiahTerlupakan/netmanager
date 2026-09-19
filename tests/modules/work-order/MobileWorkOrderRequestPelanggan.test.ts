@@ -106,7 +106,7 @@ describe("MobileWorkOrderRequestService dengan pelangganId", () => {
     });
   });
 
-  it("memakai siteId lama sebagai fallback saat siteIds kosong", async () => {
+  it("memakai siteId lama sebagai fallback saat siteIds tidak ada sama sekali", async () => {
     await new MobileWorkOrderRequestService().createRequest(body, {
       id: "user-1",
       name: "Teknisi",
@@ -119,6 +119,41 @@ describe("MobileWorkOrderRequestService dengan pelangganId", () => {
       id: "plg-1",
       siteId: { in: ["site-a"] },
     });
+  });
+
+  it("memakai siteId lama sebagai fallback saat siteIds kosong (bentuk nyata dari verifyMobileToken)", async () => {
+    // verifyMobileToken (lib/mobile-auth.ts) SELALU mengisi siteIds sebagai
+    // array — untuk karyawan yang belum dimigrasi ke userSites, itu berarti
+    // siteIds: [] (bukan absen/undefined), dengan siteId legacy tetap ada.
+    await new MobileWorkOrderRequestService().createRequest(body, {
+      id: "user-1",
+      name: "Teknisi",
+      tenantId: "tenant-1",
+      siteIds: [],
+      siteId: "site-a",
+    });
+
+    const [findFirstArgs] = mockFns.findFirst.mock.calls[0];
+    expect(findFirstArgs.where).toEqual({
+      id: "plg-1",
+      siteId: { in: ["site-a"] },
+    });
+  });
+
+  it("mengabaikan pelangganId yang bukan string (mis. filter Prisma buatan) dan tidak menautkan pelanggan apa pun", async () => {
+    const maliciousBody = {
+      ...body,
+      pelangganId: { not: "x" } as unknown as string,
+    };
+
+    await new MobileWorkOrderRequestService().createRequest(
+      maliciousBody,
+      sessionUser,
+    );
+
+    expect(mockFns.findFirst).not.toHaveBeenCalled();
+    const [payload] = mockFns.createRequest.mock.calls[0];
+    expect("pelangganId" in payload).toBe(false);
   });
 
   it("membiarkan super admin mengakses pelanggan tanpa batasan site", async () => {

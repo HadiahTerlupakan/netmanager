@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseListQuery } from "@/app/api/mobile/pelanggan/route";
+import {
+  isValidStatus,
+  parseListQuery,
+} from "@/app/api/mobile/pelanggan/route";
 
 describe("parseListQuery", () => {
   it("memakai halaman 1 dan limit 20 ketika query kosong", () => {
@@ -31,5 +34,26 @@ describe("parseListQuery", () => {
       search: "budi",
       siteId: "site-a",
     });
+  });
+
+  it("menganggap status kosong (?status=) sama dengan status tidak dikirim", () => {
+    const parsed = parseListQuery(new URLSearchParams("status="));
+    expect(parsed.status).toBeNull();
+  });
+});
+
+describe("isValidStatus", () => {
+  it("menerima setiap anggota enum Status", () => {
+    expect(isValidStatus("AKTIF")).toBe(true);
+    expect(isValidStatus("NONAKTIF")).toBe(true);
+    expect(isValidStatus("MAINTENANCE")).toBe(true);
+    expect(isValidStatus("ISOLIR")).toBe(true);
+    expect(isValidStatus("DISMANTLE")).toBe(true);
+  });
+
+  it("menolak nilai yang bukan anggota enum Status", () => {
+    expect(isValidStatus("BUKAN_STATUS")).toBe(false);
+    expect(isValidStatus("aktif")).toBe(false); // case-sensitive
+    expect(isValidStatus("")).toBe(false);
   });
 });

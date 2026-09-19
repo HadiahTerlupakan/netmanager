@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import type { PrismaClient } from "@prisma/client";
+import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { prisma } from "@/modules/database";
 import { createNotification, sendPushToUsers } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
@@ -54,8 +55,9 @@ export class MobileWorkOrderRequestService {
       body.type,
     );
 
-    const pelanggan = body.pelangganId
-      ? await this.resolvePelanggan(body.pelangganId, userSession)
+    const pelangganId = this.extractValidPelangganId(body.pelangganId);
+    const pelanggan = pelangganId
+      ? await this.resolvePelanggan(pelangganId, userSession)
       : null;
 
     const workOrder = await this.workOrderRepo.createRequest({
@@ -177,6 +179,24 @@ export class MobileWorkOrderRequestService {
   }
 
   /**
+   * Terima `pelangganId` hanya bila berupa string non-kosong. Body request
+   * ini datang dari JSON mentah tanpa validasi skema (lihat route.ts), jadi
+   * nilainya bisa berupa apa saja — termasuk object filter Prisma buatan
+   * (mis. `{ not: "x" }`) yang, kalau lolos ke `where: { id: pelangganId }`,
+   * membuat `findFirst` mengembalikan pelanggan ACAK pertama di site
+   * pemanggil alih-alih pelanggan yang sebenarnya diminta. Nilai selain
+   * string non-kosong dianggap "tidak ada pelanggan yang ditautkan" — bukan
+   * error — request tetap diproses tanpa link pelanggan.
+   */
+  private extractValidPelangganId(rawPelangganId: unknown): string | null {
+    if (typeof rawPelangganId !== "string") {
+      return null;
+    }
+    const trimmedPelangganId = rawPelangganId.trim();
+    return trimmedPelangganId.length > 0 ? trimmedPelangganId : null;
+  }
+
+  /**
    * Pastikan pelanggan ada dan berada di site karyawan (tenant sudah
    * difilter otomatis oleh ekstensi Prisma). Super admin tidak dibatasi
    * site, mengikuti pola yang sama dengan MobilePelangganService.
@@ -185,11 +205,7 @@ export class MobileWorkOrderRequestService {
     pelangganId: string,
     user: MobileWorkOrderRequestSessionUser,
   ) {
-    const allowedSiteIds = user.siteIds?.length
-      ? user.siteIds
-      : user.siteId
-        ? [user.siteId]
-        : [];
+    const allowedSiteIds = resolveAllowedSiteIds(user);
 
     const pelanggan = await this.prisma.pelanggan.findFirst({
       where: {

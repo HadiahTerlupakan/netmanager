@@ -120,9 +120,17 @@ describe("listMobilePelanggan", () => {
     expect(mockFns.findAllPaginated).not.toHaveBeenCalled();
   });
 
-  it("fallback ke siteId legacy sebagai satu-satunya site yang diizinkan saat siteIds tidak ada", async () => {
+  it("fallback ke siteId legacy saat siteIds kosong (bentuk nyata dari verifyMobileToken)", async () => {
+    // verifyMobileToken (lib/mobile-auth.ts) SELALU mengisi siteIds sebagai
+    // array — untuk karyawan yang belum dimigrasi ke userSites, itu berarti
+    // siteIds: [] (bukan absen/undefined), dengan siteId legacy tetap ada.
     const session: { user: MobileSessionUser } = {
-      user: { id: "user-3", tenantId: "tenant-1", siteId: "site-a" },
+      user: {
+        id: "user-3",
+        tenantId: "tenant-1",
+        siteIds: [],
+        siteId: "site-a",
+      },
     };
 
     await listMobilePelanggan({ session, page: 1, limit: 20 });

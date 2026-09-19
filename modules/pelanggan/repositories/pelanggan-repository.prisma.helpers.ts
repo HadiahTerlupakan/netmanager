@@ -41,7 +41,10 @@ export async function findAllPaginatedPelanggan(
     prisma.pelanggan.findMany({
       where,
       include: pelangganWithPackageInclude,
-      orderBy: { createdAt: "desc" },
+      // `id` sebagai tiebreaker: baris dengan `createdAt` sama (mis. hasil
+      // bulk import) tetap punya urutan stabil, jadi tidak ada baris yang
+      // duplikat/hilang saat infinite-scroll pindah halaman.
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: (page - 1) * limit,
       take: limit,
     }),

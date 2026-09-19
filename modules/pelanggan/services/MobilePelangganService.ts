@@ -1,4 +1,5 @@
 import type { Prisma, Status } from "@prisma/client";
+import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
 export class SiteAccessDeniedError extends Error {}
@@ -69,7 +70,7 @@ function resolveSiteFilter(
     return requestedSiteId ?? undefined;
   }
 
-  const allowedSiteIds = user.siteIds ?? (user.siteId ? [user.siteId] : []);
+  const allowedSiteIds = resolveAllowedSiteIds(user);
 
   if (allowedSiteIds.length === 0) {
     throw new SiteAccessDeniedError("User tidak memiliki akses site");
