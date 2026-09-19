@@ -33,7 +33,12 @@
 - [x] 4. Catat tanggal & keterangan transfer di log aktivitas; hapus `updateBalance`
 - [x] 5. Tes: 5 kasus repository, 3 kasus service, penjaga arsitektur (terbukti merah pada dua bentuk regresi)
 - [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 12 warning (sama baseline) · test 689 file, 4.058 lulus
-- [ ] 7. Commit & push → pantau deploy → verifikasi produksi
+- [x] 7. Commit & push `90c8c4252` → pipeline quality ✅ build ✅ deploy ✅ → verifikasi produksi
+  - Image `90c8c4252238-40`, rollout app/worker/cron/radius sukses, pod siap tanpa restart, 0 error di log.
+  - Bukti pada berkas server yang berjalan: array izin kini `treasury:update","finance:update"` (mutasi saldo),
+    `treasury:create","finance:update"` (tambah akun), `finance:update","treasury:update"` (bayar PO),
+    `payment_gateway:update"` (mutasi tak terpadan); pola lama `treasury:*","finance:read"` tidak ditemukan lagi.
+  - `/api/health` 200, `/admin/finance/accounts` 307 ke login (normal tanpa sesi).
 
 ### Belum dikerjakan (perlu keputusan user)
 - **Tidak ada tabel riwayat mutasi kas.** Transfer hanya menyisakan log aktivitas; tidak ada buku besar kas yang
