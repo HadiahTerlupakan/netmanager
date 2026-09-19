@@ -82,9 +82,17 @@ describe("MobileWorkOrderRequestService dengan pelangganId", () => {
   it("menolak pelanggan dari site lain", async () => {
     mockFns.findFirst.mockResolvedValue(null);
 
-    await expect(
-      new MobileWorkOrderRequestService().createRequest(body, sessionUser),
-    ).rejects.toThrow(/pelanggan/i);
+    const rejection = new MobileWorkOrderRequestService().createRequest(
+      body,
+      sessionUser,
+    );
+
+    // Prefix "FORBIDDEN: " dikunci eksplisit: itulah yang dicocokkan
+    // lib/api/handler.ts:407-413 untuk memetakan error ini ke HTTP 403.
+    // Kalau prefix hilang, endpoint diam-diam jatuh ke 500 walau pesannya
+    // masih menyebut "pelanggan".
+    await expect(rejection).rejects.toThrow(/^FORBIDDEN: /);
+    await expect(rejection).rejects.toThrow(/pelanggan/i);
     expect(mockFns.createRequest).not.toHaveBeenCalled();
   });
 
@@ -143,6 +151,43 @@ describe("MobileWorkOrderRequestService dengan pelangganId", () => {
 
     expect(mockFns.createRequest).toHaveBeenCalledWith(
       expect.objectContaining({ siteId: "site-pelanggan" }),
+    );
+  });
+
+  it("menganggap kontak string kosong sebagai belum diisi dan memakai data pelanggan", async () => {
+    await new MobileWorkOrderRequestService().createRequest(
+      { ...body, contactName: "", contactPhone: "", locationAddress: "" },
+      sessionUser,
+    );
+
+    expect(mockFns.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactName: "Budi",
+        contactPhone: "08123",
+        locationAddress: "Jl. Mawar 1",
+      }),
+    );
+  });
+
+  it("mempertahankan siteId hasil resolusi saat pelanggan tidak memiliki site", async () => {
+    mockFns.findFirst.mockResolvedValue({
+      id: "plg-1",
+      nama: "Budi",
+      noTelp: "08123",
+      alamat: "Jl. Mawar 1",
+      latitude: -6.2,
+      longitude: 106.8,
+      siteId: null,
+      tenantId: "tenant-1",
+    });
+
+    await new MobileWorkOrderRequestService().createRequest(body, {
+      ...sessionUser,
+      isSuperAdmin: true,
+    });
+
+    expect(mockFns.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ pelangganId: "plg-1", siteId: "site-a" }),
     );
   });
 });

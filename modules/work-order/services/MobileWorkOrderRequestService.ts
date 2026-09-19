@@ -66,13 +66,11 @@ export class MobileWorkOrderRequestService {
       departmentId,
       ...(body.siteId && { siteId: body.siteId }),
       ...(!body.siteId && userSession.siteId && { siteId: userSession.siteId }),
-      ...(pelanggan && {
-        pelangganId: pelanggan.id,
-        siteId: pelanggan.siteId ?? undefined,
-      }),
+      ...(pelanggan && { pelangganId: pelanggan.id }),
+      ...(pelanggan?.siteId && { siteId: pelanggan.siteId }),
       contactName: body.contactName || pelanggan?.nama || userName,
-      contactPhone: body.contactPhone ?? pelanggan?.noTelp ?? undefined,
-      locationAddress: body.locationAddress ?? pelanggan?.alamat ?? undefined,
+      contactPhone: body.contactPhone || pelanggan?.noTelp || undefined,
+      locationAddress: body.locationAddress || pelanggan?.alamat || undefined,
       ...(body.latitude
         ? { locationLat: parseFloat(String(body.latitude)) }
         : pelanggan?.latitude != null && { locationLat: pelanggan.latitude }),
