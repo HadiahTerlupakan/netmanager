@@ -105,6 +105,11 @@ export {
   PelangganPppRouteService,
   RouteServiceError,
 } from "./services/PelangganPppRouteService";
+export {
+  listMobilePelanggan,
+  SiteAccessDeniedError,
+  type MobilePelangganDTO,
+} from "./services/MobilePelangganService";
 
 // Event handlers — exposed via public API supaya lib/event-bus tidak
 // import path internal services/.

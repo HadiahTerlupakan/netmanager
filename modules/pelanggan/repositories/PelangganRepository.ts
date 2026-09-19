@@ -108,7 +108,7 @@ export type PelangganWithPackage = Prisma.PelangganGetPayload<
 >;
 
 export interface FilterOptions {
-  status?: Status;
+  status?: Status | Prisma.EnumStatusFilter;
   siteId?: string | Prisma.StringNullableFilter;
   search?: string;
 }
