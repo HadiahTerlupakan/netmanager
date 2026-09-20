@@ -298,3 +298,37 @@
   benar, tapi cakupan perbaikannya berbeda jauh kalau premis itu ditelan mentah-mentah.
 - **Ukur dampak sebelum menyebut "kebocoran":** di produksi izin `pelanggan:site_only` hanya dipegang role tanpa
   pengguna, jadi ini laten. Menyebutnya kebocoran aktif akan menyesatkan.
+
+## Transaksi psql bisa ter-ROLLBACK padahal keluarannya terlihat sukses
+
+- **Konteks:** pembersihan 185 baris `_PermissionToRole` di produksi. Skrip mencetak `BEGIN` lalu 185×
+  `DELETE 1` — terlihat berhasil sempurna. Tapi baris `SELECT` verifikasi di dalam transaksi salah kutip,
+  `-v ON_ERROR_STOP=1` menghentikan psql sebelum `COMMIT`, dan seluruh transaksi dibatalkan. Hitungan
+  produksi masih 236 baris, nol terhapus.
+- **Why:** keluaran per-statement melaporkan apa yang terjadi *di dalam* transaksi, bukan apa yang
+  akhirnya menetap. Tanpa `COMMIT` yang benar-benar tercetak, "DELETE 1" tidak berarti apa-apa.
+- **How to apply:**
+  - Jangan taruh query verifikasi di dalam transaksi yang sama dengan perubahannya. Verifikasi lewat
+    koneksi terpisah setelah transaksi selesai.
+  - Pastikan `COMMIT` muncul di keluaran; hitung juga `BEGIN`/`COMMIT`, bukan hanya baris perubahan.
+  - Untuk perubahan data produksi, bandingkan hitungan sebelum dan sesudah sebagai bukti — bukan
+    keluaran skrip yang menjalankannya.
+- **Terkait:** classifier menolak `DELETE ... USING ... IN (subquery)` dengan alasan cakupan tak
+  terverifikasi. Menggantinya dengan 185 `DELETE` eksplisit ber-ID justru lebih aman dan lolos —
+  cakupan yang bisa dihitung lebih baik daripada cakupan yang pintar.
+
+## Kolom `name` pada tabel Permission adalah label tampilan, bukan slug
+
+- **Konteks:** query `WHERE p.name LIKE 'users:%'` mengembalikan kosong, dan saya menyimpulkan role
+  `admin` tidak punya izin `users:*` sama sekali. Atas dasar itu saya bilang jalur reset password lewat
+  UI tertutup, lalu mengarahkan ke penyalinan hash di database. **Kesimpulannya salah**: `Permission`
+  punya kolom `resource` dan `action` terpisah; `name` berisi label seperti "Approve Accounting".
+  Role `admin` sebenarnya punya `users:update` — jalur UI terbuka sejak awal.
+- **Why:** hasil query kosong punya dua sebab yang tidak bisa dibedakan tanpa dicek — datanya memang
+  tidak ada, atau filternya salah kolom. Menganggapnya sebagai fakta negatif langsung menghasilkan
+  saran yang salah arah.
+- **How to apply:**
+  - Sebelum menyimpulkan dari hasil kosong, buktikan dulu querynya bisa mengembalikan sesuatu:
+    hitung total baris tanpa filter, atau cetak beberapa contoh nilai kolom yang difilter.
+  - Baca skema model sebelum menyusun query ad-hoc ke tabel yang belum pernah disentuh.
+  - Untuk permission di repo ini: filter dengan `p.resource = '<resource>' AND p.action = '<action>'`.

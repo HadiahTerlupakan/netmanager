@@ -31,6 +31,23 @@
       `lib/` untuk tiap `checkSiteRestriction(..., "<resource>")` dan literal `"<resource>:site_only"` /
       `"<resource>:department_only"`, lalu menuntut aksi itu tampil di katalog. Resource tanpa entri
       katalog aman — `getResourceCapabilities` jatuh ke default yang memuat keduanya.
+- [x] 6. **Audit arah sebaliknya: matriks menjanjikan pembatasan yang tidak pernah ditegakkan.**
+      `site_only` — 93 toggle tampil di matriks, hanya 30 resource ditegakkan (63 mati).
+      `department_only` — 59 tampil, 5 ditegakkan (53 mati). Menyalakan toggle pada mis. Peta Jaringan
+      atau Gaji tersimpan dan tampil menyala, tapi tidak ada satu baris kode pun yang membacanya.
+- [x] 7. **Hapus opsi `siteRestricted` yang tidak pernah bekerja** (`4b95a08d`).
+      `lib/authorization/evaluator.ts` memanggil `checkSiteRestriction(session, "resource")` dengan
+      string harfiah `"resource"` lalu membuang hasilnya ke blok `if` berisi komentar. Tidak ada route
+      yang memakainya, jadi dampak nol — yang dibuang adalah ranjaunya.
+- [x] 8. **Pembersihan izin inert di produksi: 236 → 51 baris (185 dihapus, 12 role).**
+      Klasifikasi 65 resource pemegang `site_only`: 19 ditegakkan & terlihat (A), 13 terlihat tapi mati (B),
+      33 tak terlihat & mati (C). Dihapus B + C = 46 resource. Nol perubahan perilaku — 185 baris itu
+      memang tidak pernah dibaca kode. Sisa 51 baris seluruhnya kategori A.
+      **Pelajaran proses**: percobaan pertama menjalankan 185 `DELETE 1` lalu ter-ROLLBACK karena baris
+      `SELECT` verifikasi di dalam transaksi salah kutip dan `ON_ERROR_STOP` menghentikan psql. Keluaran
+      "185 DELETE 1" terlihat seperti sukses padahal database utuh. **Verifikasi hitungan lewat koneksi
+      terpisah, jangan percaya keluaran skrip yang sama.**
+      Backup + skrip pemulihan (185 `INSERT ... ON CONFLICT DO NOTHING`) ada di scratchpad sesi.
 
 ### Keputusan pemilik sistem
 - Matikan centang "Site Sendiri" pada resource **Site** untuk peran pengelola: admin, Super Admin, SUPPORT,
