@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-20] — Toggle "Batasi ke Site Sendiri" muncul untuk resource Site
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Entri `site` di katalog kapabilitas hanya memuat
+  read/create/update/delete, padahal `/api/admin/sites` menegakkan
+  `site:site_only`. Akibatnya kartu "Site" di halaman Hak Akses cuma menampilkan
+  baris BASIC ACCESS: pembatasan itu tidak terlihat, tidak bisa dimatikan, dan
+  ikut tersimpan ulang setiap kali role disimpan — dropdown SITE/AREA pada form
+  Work Order menyusut ke satu site tanpa pemiliknya pernah mengaktifkan apa pun.
+  Menambahkan `site_only` ke entri `site` membuat toggle-nya tergambar.
+  Penjaga baru `tests/architecture/site-restriction-capability-catalog.test.ts`
+  memindai seluruh `app/`, `modules/`, dan `lib/` untuk setiap
+  `checkSiteRestriction(..., "<resource>")` dan literal
+  `"<resource>:site_only"`/`"<resource>:department_only"`, lalu menuntut aksi
+  pembatasan itu tampil di katalog — resource tanpa entri katalog aman karena
+  `getResourceCapabilities` jatuh ke default yang sudah memuat keduanya.
+- **Files**: `lib/resource-capabilities.ts`,
+  `tests/architecture/site-restriction-capability-catalog.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-19] — Endpoint pelanggan mobile & tautan work order ke pelanggan
 
 - **Tipe**: [ADDED]

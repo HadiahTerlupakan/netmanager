@@ -329,7 +329,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Manajemen department",
   },
   site: {
-    actions: ["read", "create", "update", "delete"],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Manajemen site",
   },
 
