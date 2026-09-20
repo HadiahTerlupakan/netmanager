@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/logger", () => ({ logActivitySafe: vi.fn() }));
+// `logger` ikut disediakan: service ini menarik modul akuntansi yang memakainya.
+vi.mock("@/lib/logger", () => ({
+  logActivitySafe: vi.fn(),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 
 import { logActivitySafe } from "@/lib/logger";
 import { FinanceAccountFacadeService } from "@/modules/finance/services/FinanceAccountFacadeService";

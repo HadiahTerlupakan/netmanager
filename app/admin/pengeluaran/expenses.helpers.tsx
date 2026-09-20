@@ -36,6 +36,7 @@ export function createDefaultExpenseFormData(): ExpensesFormState {
     date: `${year}-${month}-${day}`,
     category: DEFAULT_EXPENSE_CATEGORY,
     siteId: "",
+    accountId: "",
     invoiceNumber: "",
     invoiceFile: "",
   };
@@ -58,6 +59,7 @@ export function mapExpenseToFormState(item: ExpenseItem) {
       date: new Date(item.date).toISOString().split("T")[0],
       category: item.category,
       siteId: item.siteId || "",
+      accountId: item.accountId || "",
       invoiceNumber: item.invoiceNumber || "",
       invoiceFile: item.invoiceFile || "",
     },

@@ -19,3 +19,17 @@ export class FinancialAccountNotFoundError extends Error {
     this.name = "FinancialAccountNotFoundError";
   }
 }
+
+/**
+ * Akun COA yang dipilih tidak layak dipakai sebagai pasangan jurnal akun kas.
+ *
+ * Handler jurnal menurunkan sisi kredit dari `financial_accounts.coaId`, jadi
+ * akun yang dipilih wajib ada, milik tenant yang sama, dan `isPostable` —
+ * akun header tidak bisa menerima posting.
+ */
+export class InvalidChartOfAccountError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidChartOfAccountError";
+  }
+}

@@ -2,25 +2,40 @@
  * Finance-related types untuk accounting, invoicing, dan payment
  */
 
-import type { Timestamps } from './common';
+import type { Timestamps } from "./common";
 
 // Account types
 export interface Account extends Timestamps {
   id: string;
   accountNumber: string | null;
   name: string;
-  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | 'BANK' | 'CASH' | 'EWALLET' | 'OTHER';
+  type:
+    | "ASSET"
+    | "LIABILITY"
+    | "EQUITY"
+    | "REVENUE"
+    | "EXPENSE"
+    | "BANK"
+    | "CASH"
+    | "EWALLET"
+    | "OTHER";
   balance: number;
   parentAccountId?: string;
   isActive?: boolean;
   description?: string | null;
+  /**
+   * COA pasangan jurnal untuk akun kas/bank. Handler akuntansi menurunkan sisi
+   * kredit dari tautan ini; selama kosong, transaksi akun ini tidak pernah
+   * menghasilkan jurnal sehingga Laporan Arus Kas tetap nol.
+   */
+  coaId?: string | null;
 }
 
 // Transaction Category
 export interface Category extends Timestamps {
   id: string;
   name: string;
-  type: 'INCOME' | 'EXPENSE';
+  type: "INCOME" | "EXPENSE";
   expenseType?: string | null;
   isSystem?: boolean;
   description?: string | null;
@@ -28,7 +43,13 @@ export interface Category extends Timestamps {
 }
 
 // Invoice types
-export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'PARTIAL' | 'OVERDUE' | 'CANCELLED';
+export type InvoiceStatus =
+  | "DRAFT"
+  | "SENT"
+  | "PAID"
+  | "PARTIAL"
+  | "OVERDUE"
+  | "CANCELLED";
 
 export interface Invoice extends Timestamps {
   id: string;
@@ -61,8 +82,14 @@ export interface InvoiceItem {
 }
 
 // Payment types
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'E_WALLET' | 'OTHER';
-export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+export type PaymentMethod =
+  | "CASH"
+  | "TRANSFER"
+  | "CREDIT_CARD"
+  | "DEBIT_CARD"
+  | "E_WALLET"
+  | "OTHER";
+export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
 
 export interface Payment extends Timestamps {
   id: string;
@@ -78,7 +105,16 @@ export interface Payment extends Timestamps {
 }
 
 // Purchase Order types
-export type PurchaseOrderStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL' | 'ORDERED' | 'RECEIVED';
+export type PurchaseOrderStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "PARTIAL"
+  | "ORDERED"
+  | "RECEIVED";
 
 export interface PurchaseOrder extends Timestamps {
   id: string;
@@ -86,7 +122,7 @@ export interface PurchaseOrder extends Timestamps {
   supplierId: string | null;
   supplier?: Supplier | null;
   status: PurchaseOrderStatus;
-  paymentStatus?: 'PAID' | 'PARTIAL' | 'UNPAID';
+  paymentStatus?: "PAID" | "PARTIAL" | "UNPAID";
   totalAmount: number;
   taxAmount?: number;
   ppnAmount: number;
@@ -115,7 +151,12 @@ export interface PurchaseOrderItem {
 }
 
 // Expense types
-export type ExpenseCategory = 'OPERATIONAL' | 'SALARY' | 'MAINTENANCE' | 'UTILITIES' | 'OTHER';
+export type ExpenseCategory =
+  | "OPERATIONAL"
+  | "SALARY"
+  | "MAINTENANCE"
+  | "UTILITIES"
+  | "OTHER";
 
 export interface Expense extends Timestamps {
   id: string;
@@ -127,7 +168,7 @@ export interface Expense extends Timestamps {
   expenseDate: Date | string;
   userId: string;
   receiptUrl?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: "PENDING" | "APPROVED" | "REJECTED";
   approvedBy?: string;
   approvedAt?: Date;
   notes?: string;
@@ -146,11 +187,11 @@ export interface Transaction extends Timestamps {
   accountId: string;
   categoryId?: string;
   category?: Category;
-  type: 'DEBIT' | 'CREDIT' | 'INCOME' | 'EXPENSE';
+  type: "DEBIT" | "CREDIT" | "INCOME" | "EXPENSE";
   amount: number;
   description: string;
   date: Date | string;
-  referenceType?: 'INVOICE' | 'PAYMENT' | 'EXPENSE' | 'PURCHASE_ORDER';
+  referenceType?: "INVOICE" | "PAYMENT" | "EXPENSE" | "PURCHASE_ORDER";
   referenceId?: string;
   userId?: string;
   createdBy?: { name: string };
@@ -178,7 +219,7 @@ export interface RevenueSnapshot extends Timestamps {
   revenue: number;
   expenses: number;
   netIncome: number;
-  period: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  period: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
 }
 
 // MRR Movement (Monthly Recurring Revenue)
@@ -189,7 +230,7 @@ export interface MRRMovement extends Timestamps {
   previousMRR: number;
   currentMRR: number;
   change: number;
-  changeType: 'NEW' | 'EXPANSION' | 'CONTRACTION' | 'CHURN' | 'REACTIVATION';
+  changeType: "NEW" | "EXPANSION" | "CONTRACTION" | "CHURN" | "REACTIVATION";
   reason?: string;
 }
 
@@ -220,7 +261,16 @@ export interface FinancialAccount extends Timestamps {
   id: string;
   accountCode: string;
   name: string;
-  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | 'BANK' | 'CASH' | 'EWALLET' | 'OTHER';
+  type:
+    | "ASSET"
+    | "LIABILITY"
+    | "EQUITY"
+    | "REVENUE"
+    | "EXPENSE"
+    | "BANK"
+    | "CASH"
+    | "EWALLET"
+    | "OTHER";
   parentId?: string;
   balance: number;
   isActive: boolean;

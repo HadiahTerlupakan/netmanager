@@ -29,6 +29,27 @@ export const TREASURY_TRANSFER_PERMISSIONS: string[] = [
   "finance:update",
 ];
 
+/** Mengubah atribut akun kas/bank, termasuk tautan COA-nya. */
+export const TREASURY_ACCOUNT_UPDATE_PERMISSIONS: string[] = [
+  "treasury:update",
+  "finance:update",
+];
+
+/**
+ * Membaca daftar akun kas/bank.
+ *
+ * Halaman Pengeluaran (`/admin/pengeluaran`) digerbangi `expense:read`, bukan
+ * `finance:read`, sedangkan formnya perlu daftar akun untuk menautkan
+ * pengeluaran ke sumber dananya. Tanpa `expense:*` di sini, role Chief
+ * Financial Officer — yang memegang `expense:*` tanpa `finance:read` — melihat
+ * pilihan akun kosong. Semua role pada daftar ini adalah peran keuangan.
+ */
+export const CASH_ACCOUNT_READ_PERMISSIONS: string[] = [
+  "finance:read",
+  "expense:create",
+  "expense:read",
+];
+
 /** Membayar purchase order dari saldo akun kas/bank. */
 export const PURCHASE_ORDER_PAYMENT_PERMISSIONS: string[] = [
   "finance:update",

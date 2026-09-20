@@ -1,11 +1,19 @@
 import { logActivitySafe } from "@/lib/logger";
+import { getChartOfAccountService } from "@/modules/accounting";
+
+import { InvalidChartOfAccountError } from "../domain/errors";
 import { FinancialAccountRepository } from "../repositories";
+import type { AccountUpdateInput } from "../repositories/FinancialAccountRepository";
 
 type AccountType = "BANK" | "CASH" | "EWALLET" | "OTHER";
 
 type FinancialAccountRepo = Pick<
   FinancialAccountRepository,
-  "findActive" | "create" | "transferBetweenAccounts" | "findRecentMutations"
+  | "findActive"
+  | "create"
+  | "update"
+  | "transferBetweenAccounts"
+  | "findRecentMutations"
 >;
 
 /** Banyaknya riwayat mutasi yang ditampilkan di halaman Kas & Bank. */
@@ -26,6 +34,43 @@ export class FinanceAccountFacadeService {
     return this.financialAccountRepo.findRecentMutations(limit);
   }
 
+  /**
+   * Ubah atribut akun, termasuk tautan COA-nya.
+   *
+   * Tautan COA bukan sekadar label: handler jurnal menurunkan sisi kredit dari
+   * `financial_accounts.coaId`, jadi selama kosong tidak ada satu pun jurnal
+   * pengeluaran/pembayaran yang bisa terbentuk — dan laporan arus kas ikut
+   * kosong. Karena kolomnya tidak punya foreign key, kelayakan akun COA
+   * diperiksa di sini.
+   */
+  async updateAccount(
+    id: string,
+    tenantId: string | null,
+    data: AccountUpdateInput,
+  ) {
+    if (data.coaId) {
+      await this.assertPostableCoa(tenantId, data.coaId);
+    }
+    return this.financialAccountRepo.update(id, data);
+  }
+
+  private async assertPostableCoa(tenantId: string | null, coaId: string) {
+    const coa = await getChartOfAccountService().findById(coaId);
+    if (!coa || (tenantId && coa.tenantId !== tenantId)) {
+      throw new InvalidChartOfAccountError("Akun COA tidak ditemukan");
+    }
+    if (!coa.isPostable) {
+      throw new InvalidChartOfAccountError(
+        `Akun COA ${coa.code} adalah akun header dan tidak bisa menerima jurnal; pilih akun yang bisa diposting`,
+      );
+    }
+    if (!coa.isActive) {
+      throw new InvalidChartOfAccountError(
+        `Akun COA ${coa.code} tidak aktif; pilih akun yang aktif`,
+      );
+    }
+  }
+
   /** Create a new financial account. */
   async createAccount(data: {
     name: string;
@@ -33,7 +78,13 @@ export class FinanceAccountFacadeService {
     accountNumber?: string;
     description?: string;
     initialBalance?: number;
+    coaId?: string;
+    tenantId?: string | null;
   }) {
+    if (data.coaId) {
+      await this.assertPostableCoa(data.tenantId ?? null, data.coaId);
+    }
+
     return this.financialAccountRepo.create({
       name: data.name,
       type: data.type,
@@ -41,6 +92,7 @@ export class FinanceAccountFacadeService {
       description: data.description ?? null,
       balance: data.initialBalance || 0,
       isActive: true,
+      ...(data.coaId ? { coaId: data.coaId } : {}),
     });
   }
 

@@ -76,6 +76,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Catatan rilis**: permission `m_pelanggan` harus di-seed dan diberikan ke role
   yang dituju sebelum menu muncul di aplikasi; tanpa itu endpoint menolak 403.
 
+### [2026-09-20] — Hidupkan jalur jurnal: akun kas bisa ditautkan COA, pengeluaran bisa memilih sumber dana
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/finance`, `app/admin/finance/accounts`, `app/admin/pengeluaran`, `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Laporan Arus Kas (Akuntansi → Laporan → Arus Kas) selalu nol karena
+  produksi tidak punya satu pun jurnal, bukan karena laporannya rusak. Penyebabnya
+  dua mata rantai yang tidak pernah bisa diisi dari aplikasi: `financial_accounts.coaId`
+  (sisi kredit jurnal diturunkan dari sini) dan `Expense.accountId` (event
+  `EXPENSE_APPROVED` hanya dikirim bila akun kas terisi) — kolomnya ada di skema,
+  tetapi tidak ada UI maupun API yang bisa mengisinya, dan form Pengeluaran tidak
+  pernah mengirim akun sama sekali. Ditambahkan: `PATCH /api/finance/accounts/[id]`
+  (izin tingkat tulis) yang memvalidasi akun COA harus ada, milik tenant yang sama,
+  aktif, dan `isPostable`; `POST` akun menerima `coaId`; kartu akun di Kas & Bank
+  menampilkan status "Tertaut COA / Belum tertaut COA" beserta tombol menautkan;
+  form Pengeluaran punya pilihan "Sumber Dana (Kas/Bank)" yang diteruskan pada jalur
+  tunggal, edit, maupun batch. Daftar akun kini juga bisa dibaca pemegang `expense:*`
+  (role Chief Financial Officer tidak punya `finance:read`, sebelumnya pilihannya kosong).
+- **Files**: `lib/financial-write-permissions.ts`, `modules/finance/{domain/errors,repositories/FinancialAccountRepository,services/FinanceAccountFacadeService,services/FinanceService,services/ExpenseRouteService}.ts`,
+  `app/api/finance/accounts/[id]/route.ts` (baru), `app/api/finance/accounts/route.ts`,
+  `app/api/finance/expenses/batch/route.ts`, `app/admin/finance/accounts/{EditAccountModal,TreasuryClient}.tsx`,
+  `app/admin/pengeluaran/{ExpensesClient.tsx,expenses.helpers.tsx,expenses.types.ts}`, `types/finance.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-19] — Pembatasan per-site tidak pernah berlaku di route berbasis createHandler
 
 - **Tipe**: [SECURITY]

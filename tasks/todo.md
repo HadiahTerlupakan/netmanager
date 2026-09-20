@@ -1,5 +1,39 @@
 # TODO
 
+## Hidupkan laporan arus kas (2026-09-20)
+
+### Diagnosis (bukan bug laporan — mata rantai konfigurasi yang tidak pernah selesai)
+Mesin akuntansi lengkap: 14 handler jurnal terdaftar di event bus, COA 60 akun (25 berkategori arus kas),
+periode akuntansi dibuat otomatis oleh handler. Tapi produksi punya 0 jurnal karena:
+1. `financial_accounts.coaId` kosong → sisi kredit jurnal pengeluaran tidak bisa di-resolve
+   (`resolveExpenseApprovedCoa` → `findBankCoaByAccountId`).
+2. `Expense.accountId` kosong di 147/147 baris → event `EXPENSE_APPROVED` tidak pernah dikirim
+   (publish dijaga `if (expense.tenantId && expense.accountId)`), dan form Pengeluaran tidak menyediakan
+   pilihan akun sama sekali (hanya ada di tipe, tidak pernah dikirim).
+3. `ExpenseCategory.coaId` kosong di 108/108 → sisi debit jatuh ke default `BEBAN_LAINNYA` (masih benar
+   untuk arus kas, hanya kurang rinci).
+4. 70/79 item PO berharga 0 → handler GRN berhenti di "subtotal <= 0, skip jurnal" (sebelum membuat periode;
+   itu sebabnya tidak ada periode Agustus/September meski ada GRN).
+5. Sisi pendapatan 0 invoice & 0 payment — penagihan dulu di MixRadius.
+Tidak ada satu pun UI/API yang bisa mengisi `coaId`, baik untuk akun kas maupun kategori pengeluaran.
+
+### Tahapan (kode)
+- [x] 1. `PATCH /api/finance/accounts/[id]` — ubah akun kas termasuk `coaId`, izin tingkat tulis
+- [x] 2. `POST /api/finance/accounts` menerima `coaId` opsional
+- [x] 3. UI Kas & Bank: ubah akun + pemilih COA (sumber `/api/admin/accounting/coa`)
+- [x] 4. UI Pengeluaran: pemilih akun kas/bank pada form (create, edit, batch) → `accountId` terkirim
+- [x] 5. Tes: 7 kasus validasi COA + 3 kasus jalur batch pengeluaran (sebelumnya: tes route + tes kontrak payload pengeluaran membawa accountId
+- [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error/13 warning · 696 berkas, 4.106 tes lulus
+- [ ] 7. Deploy & verifikasi produksi, lalu pemilik sistem menautkan akun BRI SBL ke COA
+
+### Keputusan pemilik sistem (tidak saya putuskan sendiri)
+- Akun "BRI SBL" ditautkan ke COA mana (kandidat jelas: `1-120 Bank`).
+- Apakah 108 kategori pengeluaran dipetakan satu per satu ke COA beban, atau dibiarkan jatuh ke Beban Lainnya.
+- Apakah 147 pengeluaran Maret (Rp306.675.120) dijurnal surut — butuh skrip backfill terpisah.
+- Harga item PO perlu diisi bila penerimaan barang ingin ikut menjurnal.
+- Pendapatan tidak bisa dijurnal sampai invoice/pembayaran dicatat di aplikasi ini.
+
+
 ## Pembatasan per-site tidak berlaku di route createHandler (2026-09-19)
 
 Ditemukan sesi mobile-netmanager-44, diverifikasi ulang di sini. `checkSiteRestriction` membaca

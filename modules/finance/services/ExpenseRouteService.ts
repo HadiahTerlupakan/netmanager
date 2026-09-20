@@ -26,6 +26,8 @@ type BatchExpenseItemInput = {
 type BatchExpenseInput = {
   date: Date;
   siteId?: string;
+  /** Akun kas/bank sumber dana; menentukan apakah jurnal otomatis terbentuk. */
+  accountId?: string;
   invoiceNumber?: string;
   invoiceFile?: string;
   items: BatchExpenseItemInput[];
@@ -81,6 +83,7 @@ export class ExpenseRouteService {
       rabItemId: item.rabItemId,
       invoiceNumber: input.invoiceNumber,
       invoiceFile: input.invoiceFile,
+      accountId: input.accountId,
     }));
 
     const expenses = await this.expenseRepository.createManyExpenses(entries);

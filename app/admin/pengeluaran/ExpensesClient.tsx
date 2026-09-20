@@ -216,6 +216,17 @@ export default function ExpensesClient() {
     [sitesResp],
   );
 
+  // Akun kas/bank sumber dana. Nilainya menentukan apakah pengeluaran
+  // menghasilkan jurnal: event EXPENSE_APPROVED hanya dikirim bila akun terisi,
+  // dan sisi kredit jurnal diambil dari tautan COA akun tersebut.
+  const { data: accountsResp } = useApi<
+    Array<{ id: string; name: string; type: string }>
+  >("/api/finance/accounts");
+  const cashAccounts = useMemo(
+    () => (Array.isArray(accountsResp) ? accountsResp : []),
+    [accountsResp],
+  );
+
   // Filter Categories: depend on selectedCategory
   const { data: filterCategoriesResp } = useApi<CategoryOption[]>(
     selectedCategory
@@ -608,6 +619,7 @@ export default function ExpensesClient() {
         const payload = {
           date: formData.date,
           siteId: formData.siteId,
+          accountId: formData.accountId,
           invoiceNumber: formData.invoiceNumber,
           invoiceFile: formData.invoiceFile,
           items: items.map((item) => ({
@@ -1519,6 +1531,32 @@ export default function ExpensesClient() {
                               </option>
                             ))}
                           </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                            Sumber Dana (Kas/Bank)
+                          </label>
+                          <select
+                            value={formData.accountId}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                accountId: e.target.value,
+                              })
+                            }
+                            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                          >
+                            <option value="">-- Tidak dipilih --</option>
+                            {cashAccounts.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                {account.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            Diisi agar pengeluaran tercatat di jurnal dan masuk
+                            Laporan Arus Kas.
+                          </p>
                         </div>
                       </div>
 

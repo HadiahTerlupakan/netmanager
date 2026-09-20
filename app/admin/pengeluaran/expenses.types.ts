@@ -82,4 +82,6 @@ export interface ExpensesFormState {
   siteId: string;
   invoiceNumber: string;
   invoiceFile: string;
+  /** Akun kas/bank sumber dana; menentukan jurnal otomatis. */
+  accountId: string;
 }

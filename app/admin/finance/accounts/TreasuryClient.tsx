@@ -11,10 +11,12 @@ import {
 import { Button } from "@/components/ui/Button";
 import TransferModal from "./TransferModal";
 import AddAccountModal from "./AddAccountModal";
+import EditAccountModal from "./EditAccountModal";
 import clsx from "clsx";
 import { usePermission } from "@/hooks/use-permission";
 import {
   TREASURY_ACCOUNT_CREATE_PERMISSIONS,
+  TREASURY_ACCOUNT_UPDATE_PERMISSIONS,
   TREASURY_TRANSFER_PERMISSIONS,
 } from "@/lib/financial-write-permissions";
 import type { TreasuryMutationRecord } from "@/modules/finance";
@@ -42,9 +44,13 @@ export default function TreasuryClient({
     TREASURY_ACCOUNT_CREATE_PERMISSIONS,
   );
   const canTransferFunds = hasAnyPermission(TREASURY_TRANSFER_PERMISSIONS);
+  const canLinkCoa = hasAnyPermission(TREASURY_ACCOUNT_UPDATE_PERMISSIONS);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
+  const [accountBeingLinked, setAccountBeingLinked] = useState<Account | null>(
+    null,
+  );
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -107,6 +113,14 @@ export default function TreasuryClient({
       <AddAccountModal
         isOpen={addAccountModalOpen}
         onClose={() => setAddAccountModalOpen(false)}
+        onSuccess={handleTransferSuccess}
+      />
+
+      {/* Tautkan akun ke COA */}
+      <EditAccountModal
+        isOpen={accountBeingLinked !== null}
+        account={accountBeingLinked}
+        onClose={() => setAccountBeingLinked(null)}
         onSuccess={handleTransferSuccess}
       />
 
@@ -184,6 +198,29 @@ export default function TreasuryClient({
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(acc.balance)}
                 </p>
+              </div>
+
+              {/* Status tautan COA — tanpa ini transaksi akun tidak menjurnal
+                  dan Laporan Arus Kas tetap kosong. */}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
+                <span
+                  className={clsx(
+                    "text-xs font-medium",
+                    acc.coaId
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-amber-600 dark:text-amber-400",
+                  )}
+                >
+                  {acc.coaId ? "Tertaut COA" : "Belum tertaut COA"}
+                </span>
+                {canLinkCoa && (
+                  <button
+                    onClick={() => setAccountBeingLinked(acc)}
+                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    {acc.coaId ? "Ubah" : "Tautkan"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

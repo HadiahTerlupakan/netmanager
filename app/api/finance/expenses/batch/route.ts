@@ -20,6 +20,9 @@ const batchExpenseSchema = z.object({
     .or(z.date())
     .transform((val) => new Date(val)),
   siteId: z.string().optional(),
+  // Sumber dana. Tanpa ini pengeluaran tidak menghasilkan jurnal: event
+  // EXPENSE_APPROVED hanya dikirim bila akun kas terisi.
+  accountId: z.string().optional(),
   invoiceNumber: z.string().optional(),
   invoiceFile: z.string().optional(),
   // Per-item fields

@@ -7,6 +7,27 @@ import {
 } from "../domain/errors";
 import type { TreasuryMutationRecord } from "../dto/TreasuryMutationDTO";
 
+export interface AccountCreateInput {
+  name: string;
+  type: "BANK" | "CASH" | "EWALLET" | "OTHER";
+  accountNumber?: string | null;
+  description?: string | null;
+  balance: number;
+  isActive: boolean;
+  /** COA pasangan jurnal; tanpa ini jurnal otomatis tidak bisa dibentuk. */
+  coaId?: string | null;
+}
+
+export interface AccountUpdateInput {
+  name?: string;
+  type?: "BANK" | "CASH" | "EWALLET" | "OTHER";
+  accountNumber?: string | null;
+  description?: string | null;
+  /** COA pasangan jurnal; `null` melepas tautannya. */
+  coaId?: string | null;
+  isActive?: boolean;
+}
+
 export interface TransferInput {
   sourceAccountId: string;
   destinationAccountId: string;
@@ -18,15 +39,9 @@ export interface TransferInput {
 
 export interface IFinancialAccountRepository {
   findActive(): Promise<FinancialAccount[]>;
-  create(data: {
-    name: string;
-    type: "BANK" | "CASH" | "EWALLET" | "OTHER";
-    accountNumber?: string | null;
-    description?: string | null;
-    balance: number;
-    isActive: boolean;
-  }): Promise<FinancialAccount>;
+  create(data: AccountCreateInput): Promise<FinancialAccount>;
   findById(id: string): Promise<FinancialAccount | null>;
+  update(id: string, data: AccountUpdateInput): Promise<FinancialAccount>;
   transferBetweenAccounts(data: TransferInput): Promise<{ success: true }>;
   findRecentMutations(limit: number): Promise<TreasuryMutationRecord[]>;
 }
@@ -41,19 +56,20 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
     });
   }
 
-  async create(data: {
-    name: string;
-    type: "BANK" | "CASH" | "EWALLET" | "OTHER";
-    accountNumber?: string | null;
-    description?: string | null;
-    balance: number;
-    isActive: boolean;
-  }): Promise<FinancialAccount> {
+  async create(data: AccountCreateInput): Promise<FinancialAccount> {
     return this.client.financialAccount.create({ data });
   }
 
   async findById(id: string): Promise<FinancialAccount | null> {
     return this.client.financialAccount.findUnique({ where: { id } });
+  }
+
+  /** Ubah atribut akun. Saldo tidak pernah diubah lewat jalur ini. */
+  async update(
+    id: string,
+    data: AccountUpdateInput,
+  ): Promise<FinancialAccount> {
+    return this.client.financialAccount.update({ where: { id }, data });
   }
 
   /** Riwayat mutasi terbaru, terbaru lebih dulu. */

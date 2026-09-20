@@ -42,8 +42,26 @@ export class FinanceService {
     accountNumber?: string;
     description?: string;
     initialBalance?: number;
+    coaId?: string;
+    tenantId?: string | null;
   }) {
     return this.accountService.createAccount(data);
+  }
+
+  /** Ubah akun kas/bank, termasuk menautkannya ke COA untuk jurnal otomatis. */
+  async updateAccount(
+    id: string,
+    tenantId: string | null,
+    data: {
+      name?: string;
+      type?: "BANK" | "CASH" | "EWALLET" | "OTHER";
+      accountNumber?: string | null;
+      description?: string | null;
+      coaId?: string | null;
+      isActive?: boolean;
+    },
+  ) {
+    return this.accountService.updateAccount(id, tenantId, data);
   }
 
   /** Get expenses with filtering and BigInt serialization. */
