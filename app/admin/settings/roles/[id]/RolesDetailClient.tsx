@@ -53,6 +53,7 @@ const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
   cube: <HiOutlineCube className="w-5 h-5" />,
 };
 import type { ResourceAction } from "@/lib/resource-capabilities";
+import { getCapabilityActions } from "./role-permission-actions";
 
 // Helper: daftar semua resource admin & mobile untuk validasi konsistensi
 const _ALL_ADMIN_RESOURCES = Object.values(
@@ -930,10 +931,18 @@ export function ClientComponent() {
                                 ].includes(a),
                             );
 
-                            // Check "All" status
-                            const resourcePermissionIds = availableActions.map(
-                              (action) => `${resource}:${action}`,
-                            );
+                            // Check "All" status.
+                            //
+                            // Sengaja hanya mencakup aksi kemampuan, bukan aksi
+                            // pembatasan (`site_only`/`department_only`).
+                            // Sebelumnya "Semua" ikut menyalakan pembatasan,
+                            // sehingga menekan tombol yang terbaca "beri semua
+                            // akses" justru MENGURANGI jangkauan data role —
+                            // itulah yang membuat role admin diam-diam terkunci
+                            // ke satu site.
+                            const resourcePermissionIds = getCapabilityActions(
+                              availableActions,
+                            ).map((action) => `${resource}:${action}`);
                             const isAllSelected = resourcePermissionIds.every(
                               (id) => formData.permissions.includes(id),
                             );

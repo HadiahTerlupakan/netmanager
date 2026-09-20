@@ -76,6 +76,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Catatan rilis**: permission `m_pelanggan` harus di-seed dan diberikan ke role
   yang dituju sebelum menu muncul di aplikasi; tanpa itu endpoint menolak 403.
 
+### [2026-09-20] — Tombol "Semua" di Hak Akses tidak lagi menyalakan pembatasan site
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/settings/roles`
+- **Author**: agent
+- **Deskripsi**: Di halaman Hak Akses, centang "Semua" pada satu resource ikut
+  menyalakan aksi pembatasan (`site_only`, `department_only`). Artinya menekan
+  tombol yang terbaca "beri semua akses" justru MENGURANGI jangkauan data role.
+  Ditemukan saat menelusuri laporan user: role `admin` ternyata memegang 27
+  permission `site_only` — termasuk `site:site_only` — sehingga daftar dan
+  dropdown site menyusut ke satu site milik penggunanya, padahal pemiliknya
+  merasa tidak pernah membatasi apa pun. Pemilihan massal kini hanya mencakup
+  aksi kemampuan; aksi pembatasan tetap dipilih satu per satu. Logikanya dipisah
+  ke `role-permission-actions.ts` agar bisa diuji tanpa merender komponen.
+  Catatan: pembatasan itu baru terasa sejak `20041310a` (2026-09-19) membuat
+  `checkSiteRestriction` benar-benar bekerja di 13 route; sebelumnya permission
+  tersebut tersimpan tetapi diabaikan diam-diam.
+- **Files**: `app/admin/settings/roles/[id]/{RolesDetailClient.tsx,role-permission-actions.ts}`,
+  `tests/admin/role-permission-actions.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-20] — Hidupkan jalur jurnal: akun kas bisa ditautkan COA, pengeluaran bisa memilih sumber dana
 
 - **Tipe**: [ADDED]
