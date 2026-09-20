@@ -21,10 +21,21 @@
 - [x] 2. Perbaiki tombol "Semua" agar tidak menyalakan aksi pembatasan (`df8b44db1`)
 - [x] 3. Pisahkan logikanya ke `role-permission-actions.ts` + 5 tes
 - [x] 4. Deploy & verifikasi produksi (image `df8b44db13ef-44`, rollout 4 deployment sukses, 0 error di log)
+- [x] 5. **Toggle "Batasi ke Site Sendiri" pada kartu Site tidak pernah tergambar** (`5eb6a679`).
+      Entri `site` di `lib/resource-capabilities.ts` hanya memuat read/create/update/delete, padahal
+      `/api/admin/sites` menegakkan `site:site_only`. Kartu Site cuma menampilkan baris BASIC ACCESS,
+      jadi pembatasannya tak terlihat, **tak bisa dimatikan dari layar**, dan ikut tersimpan ulang tiap
+      kali peran disimpan. Inilah sebab dropdown SITE/AREA di form Work Order tetap satu site meski
+      pemiliknya tidak pernah mengaktifkan apa pun.
+      Penjaga `tests/architecture/site-restriction-capability-catalog.test.ts` memindai `app/`, `modules/`,
+      `lib/` untuk tiap `checkSiteRestriction(..., "<resource>")` dan literal `"<resource>:site_only"` /
+      `"<resource>:department_only"`, lalu menuntut aksi itu tampil di katalog. Resource tanpa entri
+      katalog aman — `getResourceCapabilities` jatuh ke default yang memuat keduanya.
 
 ### Keputusan pemilik sistem
 - Matikan centang "Site Sendiri" pada resource **Site** untuk peran pengelola: admin, Super Admin, SUPPORT,
-  Field Manager, THD. Kelimanya hanya punya pembatasan itu.
+  Field Manager, THD. Kelimanya hanya punya pembatasan itu. **Baru bisa dikerjakan setelah `5eb6a679`
+  tayang** — sebelum itu toggle-nya tidak ada di layar.
 - Tinjau apakah pembatasan site untuk **Teknisi** memang dikehendaki (34 pengguna, 18 resource).
 
 ### Catatan operasional
