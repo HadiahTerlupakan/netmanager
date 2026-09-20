@@ -1,5 +1,39 @@
 # TODO
 
+## Pembatasan site menyala tanpa disadari di banyak peran (2026-09-20)
+
+### Temuan
+- Halaman Hak Akses punya centang "Semua" per resource yang **ikut menyalakan** aksi pembatasan
+  (`site_only`, `department_only`). Menekan tombol yang terbaca "beri semua akses" justru mengurangi
+  jangkauan data peran. Inilah cara 27 izin `site_only` menyala di peran `admin` tanpa disadari pemiliknya.
+- Audit produksi: **12 peran** memegang izin `site_only`; **10 peran** punya yang benar-benar ditegakkan di kode.
+  Teknisi (34 pengguna) 18 resource, Branch Manager (5) 13, KACAB PKP 16, SALES 9, Helpdesk 9 (0 pengguna),
+  dan lima peran pengelola hanya `site`: admin, Super Admin, SUPPORT, Field Manager, THD.
+- **Yang baru terasa hanya resource `site`** (daftar & dropdown site), terdampak 6 peran / 44 pengguna.
+  Penyebabnya `20041310a` (2026-09-19) membuat `checkSiteRestriction` benar-benar bekerja; sebelumnya izin
+  itu tersimpan tapi diabaikan. Pembatasan lain (absensi, izin, lembur, canvasing, sales, WO) ditegakkan lewat
+  `hasPermission("x:site_only")` di route masing-masing dan tidak pernah berubah.
+- 26 izin `site_only` lain yang dipegang peran `admin` (mis. `roles`, `umum`, `whatsapp`) tidak dipakai kode
+  mana pun — menyesatkan saat dibaca, tanpa efek.
+
+### Tahapan
+- [x] 1. Audit seluruh peran di produksi + pemetaan resource yang benar-benar ditegakkan
+- [x] 2. Perbaiki tombol "Semua" agar tidak menyalakan aksi pembatasan (`df8b44db1`)
+- [x] 3. Pisahkan logikanya ke `role-permission-actions.ts` + 5 tes
+- [x] 4. Deploy & verifikasi produksi (image `df8b44db13ef-44`, rollout 4 deployment sukses, 0 error di log)
+
+### Keputusan pemilik sistem
+- Matikan centang "Site Sendiri" pada resource **Site** untuk peran pengelola: admin, Super Admin, SUPPORT,
+  Field Manager, THD. Kelimanya hanya punya pembatasan itu.
+- Tinjau apakah pembatasan site untuk **Teknisi** memang dikehendaki (34 pengguna, 18 resource).
+
+### Catatan operasional
+- Saat rollout, satu permintaan sempat mendapat **502** karena mendarat di pod yang sedang berhenti.
+  Deployment memakai `maxUnavailable: 0` dan readiness `/api/health`, tetapi **tanpa `preStop`**; celah
+  itu muncul antara pod dihapus dari endpoint dan proses benar-benar berhenti. Layak ditambahkan
+  `preStop: sleep 5` bila ingin rollout benar-benar mulus.
+
+
 ## Hidupkan laporan arus kas (2026-09-20)
 
 ### Diagnosis (bukan bug laporan — mata rantai konfigurasi yang tidak pernah selesai)
