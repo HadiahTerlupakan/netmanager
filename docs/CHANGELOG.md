@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Hapus opsi siteRestricted yang tidak pernah bekerja
+
+- **Tipe**: [REMOVED]
+- **Scope**: `lib/authorization`
+- **Author**: agent
+- **Deskripsi**: `AuthorizationConfig.siteRestricted` memanggil
+  `checkSiteRestriction(session, "resource")` dengan string harfiah `"resource"`
+  — bukan nama resource yang dimaksud — lalu membuang hasilnya ke blok `if` yang
+  isinya hanya komentar. Opsi itu tidak pernah membatasi apa pun. Tidak ada route
+  yang memakainya, jadi dampak penghapusan nol; yang hilang adalah ranjaunya:
+  siapa pun yang menyetel `siteRestricted: true` akan mengira mendapat pembatasan
+  site padahal tidak. Pembatasan site yang sesungguhnya tetap lewat pemanggilan
+  `checkSiteRestriction(session, "<resource>")` langsung di route, satu-satunya
+  pola yang ditegakkan dan diuji. Ikut dibuang: `siteIdField` dan
+  `errorMessages.siteRestricted` yang juga tidak pernah dibaca.
+- **Files**: `lib/authorization/evaluator.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-20] — Toggle "Batasi ke Site Sendiri" muncul untuk resource Site
 
 - **Tipe**: [FIXED]

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { NextAuthOptions, Session } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import {
   authConfig,
@@ -7,7 +7,6 @@ import {
   isSuperAdmin as isSuperAdminHelper,
 } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import { checkSiteRestriction } from "./site-restriction";
 import { logAuthAttempt } from "./audit";
 
 /**
@@ -19,13 +18,10 @@ export interface AuthorizationConfig {
   requireAll?: boolean;
   allowSelf?: boolean;
   selfIdParam?: string;
-  siteRestricted?: boolean;
-  siteIdField?: string;
   auditLog?: boolean;
   errorMessages?: {
     unauthorized?: string;
     forbidden?: string;
-    siteRestricted?: string;
   };
 }
 
@@ -75,7 +71,6 @@ export async function authorize(
     requireAll = false,
     allowSelf = false,
     selfIdParam = "id",
-    siteRestricted = false,
     auditLog = false,
     errorMessages = {},
   } = config;
@@ -213,17 +208,6 @@ export async function authorize(
           { status: 403 },
         ),
       };
-    }
-  }
-
-  if (siteRestricted && userSiteId) {
-    const restrictionResult = checkSiteRestriction(
-      session as unknown as Session,
-      "resource",
-    );
-
-    if (restrictionResult.isRestricted) {
-      // Site restriction info attached to session
     }
   }
 
