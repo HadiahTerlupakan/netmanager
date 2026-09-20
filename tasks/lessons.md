@@ -332,3 +332,22 @@
     hitung total baris tanpa filter, atau cetak beberapa contoh nilai kolom yang difilter.
   - Baca skema model sebelum menyusun query ad-hoc ke tabel yang belum pernah disentuh.
   - Untuk permission di repo ini: filter dengan `p.resource = '<resource>' AND p.action = '<action>'`.
+
+## `[skip ci]` pada commit teratas membatalkan build untuk SELURUH push
+
+- **Konteks:** commit `4b95a08d` (kode, `lib/authorization/evaluator.ts`) dan `86359420`
+  (`docs(tasks)` ber-`[skip ci]`) di-push bersamaan. Gitea tidak membuat run sama sekali —
+  `action_run` terakhir tetap #74 untuk commit sebelumnya. Perubahan kode duduk di `main`
+  tanpa pernah dibangun, sementara produksi masih memakai image lama.
+- **Why:** `[skip ci]` dievaluasi pada commit kepala push, bukan per commit. Satu commit
+  dokumentasi di atas tumpukan mematikan build untuk semua commit di bawahnya. Sehari sebelumnya
+  pola yang sama selamat hanya karena kebetulan di-push dua kali terpisah.
+- **How to apply:**
+  - Jangan pernah menaruh commit ber-`[skip ci]` di atas commit kode dalam satu push.
+    Push commit kode lebih dulu, baru commit dokumentasi menyusul.
+  - Setelah push yang memuat perubahan kode, pastikan run-nya benar-benar dibuat — jangan
+    hanya menunggu image berubah. Cek `action_run` di database Gitea:
+    `docker exec gitea-db psql -U gitea -d gitea -At -c "SELECT id,status,left(commit_sha,8) FROM action_run ORDER BY id DESC LIMIT 3;"`
+  - Watcher rollout jangan menyerah hanya karena tidak melihat container job: job butuh waktu
+    untuk mulai, dan ketiadaan job juga bisa berarti run-nya tidak pernah dibuat. Bedakan
+    "belum mulai" dari "tidak ada run".
