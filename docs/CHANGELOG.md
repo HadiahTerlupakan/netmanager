@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Dashboard Work Order menghormati pembatasan resource sendiri
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Gerbang pembatasan dashboard Work Order membaca
+  `workorders:site_only` dan `workorders:department_only` — permission resource
+  LAIN — padahal route-nya dijaga `work_order_dashboard:read`. Role yang diberi
+  `work_order_dashboard:site_only` (antara lain lewat `lib/role-templates.ts`)
+  tanpa `workorders:site_only` melihat dashboard seluruh site: pembatasan yang
+  dinyalakan di matriks tidak menggigit sama sekali. Sekarang kedua nama
+  diterima — `work_order_dashboard:*` karena itu resource-nya sendiri, dan
+  `workorders:*` karena isinya memang data work order, jadi role yang dibatasi
+  pada work order wajar ikut dibatasi di dashboard-nya. Nama permission ditulis
+  sebagai literal utuh (bukan dirakit template) agar tetap bisa ditemukan
+  penjaga katalog kapabilitas.
+- **Files**: `modules/work-order/services/admin-work-order-dashboard.helpers.ts`,
+  `tests/modules/work-order/work-order-dashboard-scope-permission.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Hapus opsi siteRestricted yang tidak pernah bekerja
 
 - **Tipe**: [REMOVED]

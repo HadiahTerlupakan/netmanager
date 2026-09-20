@@ -73,12 +73,39 @@ function isDashboardSuperAdmin(options: DashboardAccessFilterOptions) {
   });
 }
 
+/**
+ * Dashboard ini dijaga permission `work_order_dashboard:*`, jadi pembatasannya
+ * wajib membaca nama itu. Nama `workorders:*` tetap diterima karena isinya data
+ * work order: role yang dibatasi pada work order wajar ikut dibatasi di sini.
+ *
+ * Nama permission ditulis sebagai literal utuh — bukan dirakit dari template —
+ * supaya bisa ditemukan lewat pencarian teks, termasuk oleh penjaga
+ * `tests/architecture/site-restriction-capability-catalog.test.ts`.
+ */
+const SCOPE_PERMISSIONS = {
+  site_only: ["work_order_dashboard:site_only", "workorders:site_only"],
+  department_only: [
+    "work_order_dashboard:department_only",
+    "workorders:department_only",
+  ],
+} as const;
+
+function hasScopeRestriction(
+  permissions: string[] | undefined,
+  scope: keyof typeof SCOPE_PERMISSIONS,
+): boolean {
+  const diterima: readonly string[] = SCOPE_PERMISSIONS[scope];
+  return (
+    permissions?.some((permission) => diterima.includes(permission)) ?? false
+  );
+}
+
 function resolveDashboardDepartmentFilter(
   options: DashboardAccessFilterOptions,
   isSuper: boolean,
 ) {
   return resolveRestrictedValue({
-    isRestricted: options.permissions?.includes("workorders:department_only"),
+    isRestricted: hasScopeRestriction(options.permissions, "department_only"),
     isSuper,
     value: options.departmentId,
   });
@@ -89,7 +116,7 @@ function resolveDashboardSiteFilter(
   isSuper: boolean,
 ) {
   return resolveRestrictedValue({
-    isRestricted: options.permissions?.includes("workorders:site_only"),
+    isRestricted: hasScopeRestriction(options.permissions, "site_only"),
     isSuper,
     value: options.siteId,
   });
