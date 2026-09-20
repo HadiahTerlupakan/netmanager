@@ -13,8 +13,20 @@ sehingga `<resource>:site_only` tidak pernah berlaku.
 - [x] 4. Hapus duplikasi `ensureMitraInScope` di route wallet & face-verifications
 - [x] 5. Tes penjaga arsitektur (terbukti merah saat satu route dikembalikan) + 7 tes perilaku
 - [x] 6. Verifikasi lokal: typecheck bersih · lint 0 error / 13 warning · tes terkait lulus
-- [ ] 7. Push DITAHAN: checkout ini dipakai bersama sesi mobile-netmanager-44 yang punya 2 commit belum siap.
-      Push apa pun akan membawa commit mereka ke produksi. Menunggu mereka selesai / keputusan user.
+- [x] 7. Push terjadi 2026-09-20 lewat sesi mobile-netmanager-44 (user mereka menyetujui); karena satu branch
+      bersama, 3 commit saya ikut terdorong: 20041310a, 058cf53d1, 4a87ced7b. Ketiganya memang sudah final.
+- [x] 8. Deploy gabungan 11 commit → image `4e64083ae1d0-42`: rollout app/worker/cron/radius sukses, pod siap
+      tanpa restart, migration job sukses, 0 error di log keempat deployment.
+- [x] 9. Verifikasi produksi: `/api/pelanggan-ppp`, `/api/hargapakets`, `/api/admin/sites`, `/api/admin/options`
+      merespons 401 (butuh sesi, bukan 404) sehingga refactor route tidak memutus perutean; berkas route
+      terbangun ada di pod; `/api/health` dan `/login` 200.
+
+### Catatan koordinasi (checkout bersama)
+- Dua kegagalan tes yang dilaporkan sesi sebelah (route >200 baris, tes reseller membaca teks sumber) keduanya
+  akibat satu sebab: hook commit memformat ulang berkas SETELAH tes dijalankan, jadi hasil pra-commit tidak
+  mewakili isi commit. Verifikasi ulang setelah commit terbentuk, bukan hanya sebelum.
+- Jalur resmi menambah permission ke produksi: simpan role di UI → `resolvePermissionIds` membuat baris yang
+  belum ada (`RoleService.ts:147,174`). Tidak perlu seed/migration/akses DB.
 
 
 ## Periksa halaman Kas & Bank `/admin/finance/accounts` (2026-09-19)
