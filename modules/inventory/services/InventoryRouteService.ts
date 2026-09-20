@@ -158,10 +158,16 @@ export class InventoryRouteService {
     };
   }
 
-  /** Ambil daftar purchase request restock. */
+  /**
+   * Ambil daftar purchase request restock.
+   *
+   * `siteIds` diisi pemanggil saat role memegang `restock:site_only`; kosongkan
+   * untuk melihat seluruh gudang.
+   */
   async getPurchaseRequests(input: {
     tenantId: string;
     status?: string | null;
+    siteIds?: string[];
   }) {
     const data = await this.repository.findPurchaseRequests(input);
     return { data };

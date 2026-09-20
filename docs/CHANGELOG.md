@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Pembatasan site laporan kehadiran dan restock ditegakkan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`, `modules/inventory`, `lib/authorization`
+- **Author**: agent
+- **Deskripsi**: Dua resource menawarkan pembatasan site di matriks tanpa ada
+  kode yang menegakkannya.
+  **`report`** — `GET /api/admin/reports/presence` menerima `attendance:read`
+  MAUPUN `report:read`, tapi pembatasannya hanya membaca `attendance:site_only`.
+  Role ber-`report:read` + `report:site_only` (di produksi: KACAB PKP, SALES,
+  Teknisi — 16 pengguna aktif) membaca laporan kehadiran seluruh site. Logika
+  cakupannya dipindah dari route ke `resolvePresenceReportScope` agar bisa
+  diuji, dan kini menerima kedua nama permission.
+  **`restock`** — `findPurchaseRequests` hanya memfilter `tenantId` dan
+  `status`, nol filter site. `PurchaseRequest` tidak punya `siteId` sendiri,
+  jadi filternya lewat relasi M2M `gudang.sites`. Daftar site kosong berarti
+  "tidak ada gudang yang cocok", bukan "tanpa pembatasan".
+  Helper bersama `hasAnyScopeRestriction` dipakai kedua tempat sekaligus
+  dashboard Work Order: sebuah layar yang dibuka beberapa nama permission harus
+  menerima semuanya sebagai pemicu pembatasan.
+- **Files**: `lib/authorization/scope-restriction-permissions.ts`,
+  `modules/attendance/services/presence-report-scope.ts`,
+  `app/api/admin/reports/presence/route.ts`,
+  `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`,
+  `app/api/inventory/restock/requests/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Route jaringan menuntut permission, bukan sekadar login
 
 - **Tipe**: [SECURITY]

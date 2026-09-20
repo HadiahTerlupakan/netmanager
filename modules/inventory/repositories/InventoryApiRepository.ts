@@ -108,6 +108,7 @@ export class InventoryApiRepository {
   async findPurchaseRequests(input: {
     tenantId: string;
     status?: string | null;
+    siteIds?: string[];
   }) {
     return this.purchaseRequestRepository.findPurchaseRequests(input);
   }

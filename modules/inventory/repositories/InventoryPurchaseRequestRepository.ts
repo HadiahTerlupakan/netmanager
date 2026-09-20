@@ -6,16 +6,28 @@ type PrismaClientLike = Prisma.TransactionClient;
 export class InventoryPurchaseRequestRepository {
   constructor(private readonly db: PrismaClientLike) {}
 
-  /** Ambil daftar purchase request restock. */
+  /**
+   * Ambil daftar purchase request restock.
+   *
+   * `siteIds` membatasi hasil ke gudang milik site tersebut. `PurchaseRequest`
+   * tidak punya `siteId` sendiri — dimensi site-nya lewat relasi M2M
+   * `Gudang.sites`. Daftar kosong berarti "tidak ada gudang yang cocok", bukan
+   * "tanpa pembatasan": pemanggil yang tidak membatasi cukup tidak mengirim
+   * `siteIds` sama sekali.
+   */
   async findPurchaseRequests(input: {
     tenantId: string;
     status?: string | null;
+    siteIds?: string[];
   }) {
     const requests = await this.db.purchaseRequest.findMany({
       where: {
         tenantId: input.tenantId,
         ...(input.status
           ? { status: input.status as PurchaseRequestStatus }
+          : {}),
+        ...(input.siteIds
+          ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
           : {}),
       },
       include: {

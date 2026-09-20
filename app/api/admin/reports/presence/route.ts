@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
+import { resolvePresenceReportScope } from "@/modules/attendance";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 
 // Disable Next.js caching for this route
@@ -38,16 +39,17 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (!isSuper) {
     const userRouteService = new AdminUserPerformanceRouteService();
     const dbUser = await userRouteService.getUserRestrictionContext(user.id);
-    const permissions = ctx.permissions || [];
-    if (permissions.includes("attendance:site_only")) {
-      if (!dbUser?.siteId) return apiSuccess({ attendance: [], overtime: [] });
-      siteId = dbUser.siteId;
-    }
-    if (permissions.includes("attendance:department_only")) {
-      if (!dbUser?.departmentId)
-        return apiSuccess({ attendance: [], overtime: [] });
-      departmentId = dbUser.departmentId;
-    }
+    const scope = resolvePresenceReportScope({
+      permissions: ctx.permissions || [],
+      userSiteId: dbUser?.siteId,
+      userDepartmentId: dbUser?.departmentId,
+      requestedSiteId: siteId,
+      requestedDepartmentId: departmentId,
+    });
+
+    if (scope.isEmpty) return apiSuccess({ attendance: [], overtime: [] });
+    siteId = scope.siteId;
+    departmentId = scope.departmentId;
   }
 
   if (!startDateStr || !endDateStr) {

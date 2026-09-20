@@ -1,4 +1,5 @@
 import { isSuperAdmin } from "@/lib/auth";
+import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const LAST_30_DAYS = 30;
@@ -90,22 +91,15 @@ const SCOPE_PERMISSIONS = {
   ],
 } as const;
 
-function hasScopeRestriction(
-  permissions: string[] | undefined,
-  scope: keyof typeof SCOPE_PERMISSIONS,
-): boolean {
-  const diterima: readonly string[] = SCOPE_PERMISSIONS[scope];
-  return (
-    permissions?.some((permission) => diterima.includes(permission)) ?? false
-  );
-}
-
 function resolveDashboardDepartmentFilter(
   options: DashboardAccessFilterOptions,
   isSuper: boolean,
 ) {
   return resolveRestrictedValue({
-    isRestricted: hasScopeRestriction(options.permissions, "department_only"),
+    isRestricted: hasAnyScopeRestriction(
+      options.permissions,
+      SCOPE_PERMISSIONS.department_only,
+    ),
     isSuper,
     value: options.departmentId,
   });
@@ -116,7 +110,10 @@ function resolveDashboardSiteFilter(
   isSuper: boolean,
 ) {
   return resolveRestrictedValue({
-    isRestricted: hasScopeRestriction(options.permissions, "site_only"),
+    isRestricted: hasAnyScopeRestriction(
+      options.permissions,
+      SCOPE_PERMISSIONS.site_only,
+    ),
     isSuper,
     value: options.siteId,
   });

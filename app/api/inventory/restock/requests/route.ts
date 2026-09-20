@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
+import { checkSiteRestriction } from "@/lib/authorization/site-restriction";
 import { hasPermission } from "@/lib/rbac";
 import {
   createRestockRequest,
@@ -44,9 +45,11 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
+  const { isRestricted, siteIds } = checkSiteRestriction(session, "restock");
   const result = await inventoryRouteService.getPurchaseRequests({
     tenantId: session.user.tenantId as string,
     status,
+    ...(isRestricted ? { siteIds } : {}),
   });
 
   return NextResponse.json(result);
