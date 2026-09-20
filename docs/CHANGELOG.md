@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Matriks berhenti menawarkan pembatasan site yang mustahil
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Tujuh resource menawarkan toggle "Batasi ke Site Sendiri" di
+  halaman Hak Akses padahal tidak ada kode yang membacanya. Menyalakannya
+  tersimpan dan tampil menyala, tapi tidak membatasi apa pun — kebalikan dari
+  bug `site` kemarin: dulu matriks menyembunyikan pembatasan nyata, ini matriks
+  menjanjikan pembatasan yang tidak ada. Aksinya dibuang beserta alasannya di
+  komentar tiap entri:
+  `radius` (data di database RADIUS terpisah, nol kolom site),
+  `announcement` / `holiday` / `department` (modelnya tidak punya `siteId` maupun
+  relasi ke `Sites`), `dashboard` (tidak ada route API untuk dipasangi filter),
+  `inventory` dan `marketing` (permission menu induk — datanya sudah dibatasi
+  sub-resource `barang`/`gudang`/`k_barang` dan `sales`/`sales_dashboard`/`canvasing`).
+  Aman dilakukan karena 185 baris izin inert sudah dibersihkan dari produksi
+  lebih dulu, jadi tidak ada role yang kehilangan pembatasan aktif — dijaga
+  `tests/architecture/site-restriction-capability-catalog.test.ts` yang tetap
+  hijau (tidak ada resource yang ditegakkan tapi toggle-nya hilang).
+- **Files**: `lib/resource-capabilities.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Dashboard Work Order menghormati pembatasan resource sendiri
 
 - **Tipe**: [FIXED]

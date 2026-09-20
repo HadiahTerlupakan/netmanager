@@ -71,7 +71,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   // ====== READ-ONLY RESOURCES ======
   // Hanya bisa lihat data, tidak ada CRUD
   dashboard: {
-    actions: ["read", "site_only"],
+    // Tanpa `site_only`: tidak ada route API yang dijaga `dashboard:*` — satu-
+    // satunya pemakai `dashboard:read` adalah Server Component `app/admin/page.tsx`,
+    // dan tidak ada satu titik pun tempat filter site bisa dipasang.
+    actions: ["read"],
     description: "Dashboard utama admin portal",
   },
   work_order_dashboard: {
@@ -149,7 +152,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Data lembur karyawan",
   },
   holiday: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: model `Holiday` hanya punya date/description/isNational
+    // dan `tenantId`. Hari libur berlaku se-tenant; tidak ada sumbu site untuk
+    // difilter.
+    actions: ["read", "create", "update", "delete"],
     description: "Hari libur nasional/perusahaan",
   },
   shift: {
@@ -237,14 +243,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Request restock",
   },
   inventory: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    // Tanpa aksi pembatasan: ini permission menu induk — tidak ada route API
+    // yang dijaga `inventory:*`. Datanya dilayani `barang`/`gudang`/`k_barang`,
+    // yang sudah menegakkan pembatasan site lewat `gudang.sites`. Toggle di sini
+    // hanya akan menjanjikan pembatasan kedua yang tidak pernah dibaca.
+    actions: ["read", "create", "update", "delete"],
     description: "Menu inventory (parent)",
   },
 
@@ -325,7 +328,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Manajemen role",
   },
   department: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: `Departments` adalah master data se-tenant tanpa `siteId`.
+    // Site dan departemen adalah dua sumbu pembatasan terpisah yang hanya
+    // bersinggungan di `User` (punya `siteId` DAN `departmentId`).
+    actions: ["read", "create", "update", "delete"],
     description: "Manajemen department",
   },
   site: {
@@ -347,7 +353,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "MikroTik routers",
   },
   radius: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: data RADIUS ada di database terpisah
+    // (`prisma/schema.radius.prisma`) yang tidak punya kolom site sama sekali —
+    // isolasinya hanya `tenantId`. Menawarkan toggle site di sini berarti
+    // menjanjikan pembatasan yang mustahil ditegakkan.
+    actions: ["read", "create", "update", "delete"],
     description: "Radius server",
   },
   acs_dashboard: {
@@ -401,7 +411,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 
   // ====== OTHERS ======
   announcement: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: model `Announcement` tidak punya `siteId` maupun relasi
+    // ke `Sites`. Penargetannya lewat enum `target` dan `tenantId`; pembatasan
+    // per-site butuh kolom/tabel baru lebih dulu.
+    actions: ["read", "create", "update", "delete"],
     description: "Pengumuman",
   },
   support: {
@@ -443,7 +456,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   },
   // ====== MARKETING MODULE ======
   marketing: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: permission menu induk — tidak ada route yang dijaga
+    // `marketing:read`. Datanya dilayani `sales`, `sales_dashboard`, dan
+    // `canvasing`, yang ketiganya sudah menegakkan pembatasan site lewat
+    // `User.siteId`.
+    actions: ["read", "create", "update", "delete"],
     description: "Menu marketing (parent)",
   },
   coupon: {
