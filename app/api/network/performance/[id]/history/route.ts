@@ -84,23 +84,26 @@ const historyQuerySchema = z.object({
  *       500:
  *         description: Server error
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const { id } = ctx.params;
-  const { searchParams } = req.nextUrl;
-  const queryParams = Object.fromEntries(searchParams.entries());
+export const GET = createHandler(
+  { auth: true, permissions: ["network:read"] },
+  async (req, ctx) => {
+    const { id } = ctx.params;
+    const { searchParams } = req.nextUrl;
+    const queryParams = Object.fromEntries(searchParams.entries());
 
-  const parsed = historyQuerySchema.safeParse(queryParams);
-  if (!parsed.success) {
-    return ApiErrors.badRequest("Invalid query parameters", {
-      errors: z.flattenError(parsed.error),
-    });
-  }
+    const parsed = historyQuerySchema.safeParse(queryParams);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("Invalid query parameters", {
+        errors: z.flattenError(parsed.error),
+      });
+    }
 
-  const networkPerformanceService = new NetworkPerformanceService();
-  const result = await networkPerformanceService.getPerformanceHistory(
-    id,
-    parsed.data,
-  );
+    const networkPerformanceService = new NetworkPerformanceService();
+    const result = await networkPerformanceService.getPerformanceHistory(
+      id,
+      parsed.data,
+    );
 
-  return apiSuccess(result);
-});
+    return apiSuccess(result);
+  },
+);

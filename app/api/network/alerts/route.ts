@@ -8,26 +8,30 @@ import {
 import * as z from "zod";
 import type { NetworkAlertCreateData } from "@/lib/validations/network-performance";
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-  const { searchParams } = req.nextUrl;
-  const queryParams = Object.fromEntries(searchParams.entries());
+export const GET = createHandler(
+  { auth: true, permissions: ["network:read"] },
+  async (req, _ctx) => {
+    const { searchParams } = req.nextUrl;
+    const queryParams = Object.fromEntries(searchParams.entries());
 
-  const parsed = networkAlertQuerySchema.safeParse(queryParams);
-  if (!parsed.success) {
-    return ApiErrors.badRequest("Invalid query parameters", {
-      errors: z.flattenError(parsed.error),
-    });
-  }
+    const parsed = networkAlertQuerySchema.safeParse(queryParams);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("Invalid query parameters", {
+        errors: z.flattenError(parsed.error),
+      });
+    }
 
-  const networkAlertService = new NetworkAlertService();
-  const result = await networkAlertService.getAlertList(parsed.data);
+    const networkAlertService = new NetworkAlertService();
+    const result = await networkAlertService.getAlertList(parsed.data);
 
-  return apiSuccess(result);
-});
+    return apiSuccess(result);
+  },
+);
 
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["network:create"],
     schema: networkAlertCreateSchema,
   },
   async (_req, ctx) => {

@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Route jaringan menuntut permission, bukan sekadar login
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/network`
+- **Author**: agent
+- **Deskripsi**: Keempat belas handler di `app/api/network` memakai
+  `createHandler({ auth: true })` tanpa satu pun pemeriksaan permission. Setiap
+  pengguna yang berhasil login — peran apa pun — bisa membaca peringatan
+  jaringan, data performa, dan daftar backup perangkat; `POST
+  /api/network/backups/[id]/restore` bahkan memulihkan backup ke MikroTik,
+  operasi yang mengubah konfigurasi perangkat. Gerbang UI tidak pernah menutupi
+  ini: halaman `/admin/network` dijaga `ensureAnyPermission`, tapi endpoint-nya
+  tetap bisa dipanggil langsung. Kini tiap handler menuntut `network:read` /
+  `network:create` / `network:update` / `network:delete` sesuai operasinya, dan
+  restore menuntut `network:update`. Tidak ada kode aplikasi yang memanggil
+  endpoint ini (pencarian menyeluruh hanya menemukan komentar OpenAPI), jadi
+  risiko putus akses nihil. Penjaga baru
+  `tests/architecture/network-route-authorization.test.ts` menolak handler baru
+  yang hanya mengandalkan `auth: true`.
+- **Files**: 8 berkas `app/api/network/**/route.ts`,
+  `tests/architecture/network-route-authorization.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Matriks berhenti menawarkan pembatasan site yang mustahil
 
 - **Tipe**: [CHANGED]

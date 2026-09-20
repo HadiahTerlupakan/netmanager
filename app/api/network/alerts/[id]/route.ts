@@ -34,16 +34,19 @@ import { networkAlertUpdateSchema } from "@/lib/validations/network-performance"
  *       500:
  *         description: Server error
  */
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkAlertService = new NetworkAlertService();
-  const alert = await networkAlertService.getAlertById(ctx.params.id);
+export const GET = createHandler(
+  { auth: true, permissions: ["network:read"] },
+  async (_req, ctx) => {
+    const networkAlertService = new NetworkAlertService();
+    const alert = await networkAlertService.getAlertById(ctx.params.id);
 
-  if (!alert) {
-    return ApiErrors.notFound("Alert");
-  }
+    if (!alert) {
+      return ApiErrors.notFound("Alert");
+    }
 
-  return apiSuccess(alert);
-});
+    return apiSuccess(alert);
+  },
+);
 
 /**
  * @swagger
@@ -111,6 +114,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 export const PUT = createHandler(
   {
     auth: true,
+    permissions: ["network:update"],
     schema: networkAlertUpdateSchema,
   },
   async (_req, ctx) => {
@@ -163,20 +167,23 @@ export const PUT = createHandler(
  *       500:
  *         description: Server error
  */
-export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkAlertService = new NetworkAlertService();
-  const deletedAlert = await networkAlertService.deleteAlert(ctx.params.id);
+export const DELETE = createHandler(
+  { auth: true, permissions: ["network:delete"] },
+  async (_req, ctx) => {
+    const networkAlertService = new NetworkAlertService();
+    const deletedAlert = await networkAlertService.deleteAlert(ctx.params.id);
 
-  if (!deletedAlert) {
-    return ApiErrors.notFound("Alert");
-  }
+    if (!deletedAlert) {
+      return ApiErrors.notFound("Alert");
+    }
 
-  logActivitySafe({
-    action: "DELETE",
-    subject: "Network Alert",
-    userId: ctx.session!.user.id,
-    details: { id: ctx.params.id, title: deletedAlert.title },
-  });
+    logActivitySafe({
+      action: "DELETE",
+      subject: "Network Alert",
+      userId: ctx.session!.user.id,
+      details: { id: ctx.params.id, title: deletedAlert.title },
+    });
 
-  return apiSuccess({ message: "Alert berhasil dihapus" });
-});
+    return apiSuccess({ message: "Alert berhasil dihapus" });
+  },
+);

@@ -16,7 +16,7 @@ const backupService = new DeviceBackupService();
  *     description: Mengambil semua data backup perangkat dengan filter
  *     tags: [Device Backups]
  */
-export const GET = createHandler({ auth: true }, async (req) => {
+export const GET = createHandler({ auth: true, permissions: ["network:read"] }, async (req) => {
   const queryParams = Object.fromEntries(req.nextUrl.searchParams.entries());
   const parsed = deviceBackupQuerySchema.safeParse(queryParams);
 
@@ -41,6 +41,7 @@ export const GET = createHandler({ auth: true }, async (req) => {
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["network:create"],
     schema: deviceBackupCreateSchema,
   },
   async (_req, ctx) => {

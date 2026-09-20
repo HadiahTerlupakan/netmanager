@@ -11,7 +11,7 @@ const backupService = new DeviceBackupService();
  *     description: Mengambil data backup perangkat berdasarkan ID
  *     tags: [Device Backups]
  */
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+export const GET = createHandler({ auth: true, permissions: ["network:read"] }, async (_req, ctx) => {
   const result = await backupService.getBackup(ctx.params.id);
   return toBackupResponse(result);
 });
@@ -24,7 +24,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
  *     description: Menghapus data backup perangkat
  *     tags: [Device Backups]
  */
-export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
+export const DELETE = createHandler({ auth: true, permissions: ["network:delete"] }, async (_req, ctx) => {
   const result = await backupService.deleteBackup({
     id: ctx.params.id,
     userId: ctx.session!.user.id,

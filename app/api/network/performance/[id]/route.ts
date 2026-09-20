@@ -32,29 +32,31 @@ import { NetworkPerformanceService } from "@/modules/network";
  *       500:
  *         description: Server error
  */
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkPerformanceService = new NetworkPerformanceService();
+export const GET = createHandler(
+  { auth: true, permissions: ["network:read"] },
+  async (_req, ctx) => {
+    const networkPerformanceService = new NetworkPerformanceService();
 
-  try {
-    const performanceData = await networkPerformanceService.getPerformanceById(
-      ctx.params.id,
-    );
+    try {
+      const performanceData =
+        await networkPerformanceService.getPerformanceById(ctx.params.id);
 
-    if (!performanceData) {
-      return ApiErrors.notFound("Data performa");
+      if (!performanceData) {
+        return ApiErrors.notFound("Data performa");
+      }
+
+      return apiSuccess(performanceData);
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        (error as Error & { code?: string }).code === "P2021"
+      ) {
+        return ApiErrors.internalError(
+          "Network performance monitoring will be available after database migration",
+        );
+      }
+
+      throw error;
     }
-
-    return apiSuccess(performanceData);
-  } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      (error as Error & { code?: string }).code === "P2021"
-    ) {
-      return ApiErrors.internalError(
-        "Network performance monitoring will be available after database migration",
-      );
-    }
-
-    throw error;
-  }
-});
+  },
+);

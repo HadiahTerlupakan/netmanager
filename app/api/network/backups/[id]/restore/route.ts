@@ -15,6 +15,7 @@ const backupService = new DeviceBackupService();
 export const POST = createHandler(
   {
     auth: true,
+    permissions: ["network:update"],
     schema: configurationRestoreCreateSchema,
   },
   async (_req, ctx) => {
