@@ -400,3 +400,22 @@
   \S*node_modules`) lolos saat diuji karena `\w` tidak mencakup tanda hubung,
   padahal nama stage-nya `prod-deps`. **Selalu buktikan penjaga baru MERAH** dengan
   menyisipkan pelanggaran sungguhan, bukan hanya melihatnya hijau.
+
+## Pakai `npm test`, bukan `npx vitest run`
+
+- **Konteks:** sepanjang sesi 2026-09-21 saya menjalankan `npx vitest run`, yang
+  memakai SELURUH core. Di mesin 10 core dengan graf modul sebesar repo ini,
+  tiap worker memuat salinannya sendiri sampai memori habis. Akibatnya kegagalan
+  yang datang-pergi: satu kali 11 berkas gagal, lalu 2, lalu nol — tanpa satu
+  baris kode pun berubah. Beberapa kali saya membubarkannya sebagai "timeout
+  karena memori" dan lanjut, alih-alih memperbaiki penyebabnya.
+- **Why:** proyek ini sudah menetapkan batasnya sendiri:
+  `"test": "vitest run --maxWorkers=50%"`. Melewati skrip itu berarti membuang
+  keputusan yang sudah diambil dengan sengaja, lalu menyalahkan hasilnya.
+- **How to apply:**
+  - Jalankan `npm test`. Jangan `npx vitest run` kecuali memang sedang menyetel
+    satu berkas dan paham konsekuensinya.
+  - Kegagalan yang datang-pergi tanpa perubahan kode adalah sinyal LINGKUNGAN,
+    dan lingkungan itu bisa diperbaiki — bukan sekadar ditoleransi.
+  - Sebelum menyebut sesuatu flaky, jalankan ulang dengan batas sumber daya yang
+    benar. Kalau hijau, itu bukan flaky: itu salah cara menjalankan.

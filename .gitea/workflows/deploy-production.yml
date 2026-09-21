@@ -248,13 +248,30 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ steps.refs.outputs.app_image }}"
+
+          # Pencatat puncak memori host selama build. `free` di dalam container
+          # job membaca /proc host, jadi angkanya memang milik mesin runner.
+          #
+          # Ada dua hal yang selama ini hanya ditebak dan sekarang diukur:
+          # berapa puncak memori webpack sebenarnya, dan berapa sisa ruang
+          # sebelum kejadian seperti sisa proses 8,9 GB terulang. Tanpa angka
+          # ini, menaikkan paralelisme atau menguji ulang Turbopack cuma
+          # tebakan.
+          CUPLIKAN="$(mktemp)"
+          ( while :; do
+              free -m | awk '/^Mem:/{printf "%s %s\n", $3, $7}'
+              sleep 10
+            done > "$CUPLIKAN" ) &
+          PENCATAT=$!
+          trap 'kill "$PENCATAT" 2>/dev/null || true' EXIT
+
           timeout 5400 docker build --progress=plain \
             -t "$IMAGE" \
             --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
             --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
             --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
             --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
-            --build-arg NEXT_BUILD_CPUS=1 \
+            --build-arg NEXT_BUILD_CPUS=2 \
             --build-arg NEXT_BUILD_FLAGS=--webpack \
             --build-arg NODE_OPTIONS="--no-deprecation --max-old-space-size=6144" \
             --label org.opencontainers.image.revision="${GITHUB_SHA}" \
@@ -268,6 +285,23 @@ jobs:
             --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}" \
             --build-arg SKIP_TS_CHECK=true \
             .
+
+          # `wait` menuai proses latar tanpa membiarkan shell mencetak
+          # "Terminated" ke log build.
+          kill "$PENCATAT" 2>/dev/null || true
+          wait "$PENCATAT" 2>/dev/null || true
+          trap - EXIT
+          echo "=== Puncak sumber daya host selama docker build ==="
+          awk 'NR==1{min=$2}
+               {if ($1 > maks) maks = $1; if ($2 < min) min = $2}
+               END {
+                 if (NR == 0) { print "  (tidak ada cuplikan)"; exit }
+                 printf "  memori terpakai, puncak : %d MB\n", maks
+                 printf "  memori tersedia, minimum: %d MB\n", min
+                 printf "  jumlah cuplikan (10 dtk): %d\n", NR
+               }' "$CUPLIKAN"
+          echo "  beban rata-rata 1/5/15   : $(cut -d' ' -f1-3 /proc/loadavg) (dari $(nproc) core)"
+
           timeout 3600 docker push "$IMAGE"
 
       - name: Bangun & dorong image cron

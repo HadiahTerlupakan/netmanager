@@ -41,6 +41,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Pakai kapasitas runner & ukur puncak memori build
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Host runner punya 4 core dan 11,8 GB RAM, tetapi saat build
+  beban hanya 1,89 dari 4 core — lebih dari separuh menganggur. Penyebabnya
+  `--build-arg NEXT_BUILD_CPUS=1`: nilai itu tidak hanya membatasi worker
+  pengumpul halaman, tetapi juga **mengunci paralelisme webpack ke 1** lewat
+  `config.parallelism` di `next.config.ts`, sehingga kompilasi 14,8 menit
+  berjalan praktis satu utas. Dinaikkan ke `2`, yang menurut rumus di
+  `next.config.ts` memberi paralelisme webpack 2 — manfaat yang sama dengan
+  nilai 3, tetapi dengan satu worker lebih sedikit sehingga jejak memorinya
+  lebih kecil, dan menyisakan core untuk Gitea, dockerd, dan Postgres yang
+  hidup di host yang sama.
+  Ditambah pencatat puncak sumber daya di sekitar `docker build`: mencuplik
+  `free -m` tiap 10 detik (di dalam container job, `free` membaca /proc host)
+  lalu mencetak memori terpakai tertinggi, memori tersedia terendah, dan beban
+  rata-rata. Dua angka itu selama ini hanya ditebak — termasuk saat memutuskan
+  memakai webpack demi menghindari OOM, dan saat menilai apakah Turbopack layak
+  diuji ulang. Catatan di workflow menyebut sisa proses pernah menahan 8,9 GB,
+  jadi ruang sisanya perlu diketahui, bukan diasumsikan.
+- **Files**: `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Hapus stage deps yang menyalin 1,8 GB tanpa manfaat
 
 - **Tipe**: [CHANGED]
