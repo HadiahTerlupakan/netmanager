@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Build lokal berhenti menjalankan typecheck dua kali
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: `npm run build` lokal menjalankan typecheck penuh, padahal
+  `npm run typecheck` sudah ada terpisah dan pipeline melewatkannya lewat
+  `--build-arg SKIP_TS_CHECK=true`. Lebih buruk, `npm run check` menjalankan
+  typecheck **dua kali**: sekali eksplisit, sekali lagi di dalam `build`.
+  Skrip baru `build:quick` melewatkan typecheck, dan `check` kini memakainya
+  karena typecheck-nya sudah dijalankan satu langkah sebelumnya.
+  Diukur pada cache kosong: **672 detik → 477 detik** (11m12s → 7m57s, 29%).
+  Pemecahan fase: kompilasi 4,0→4,6 mnt, tulis cache filesystem 4,3→2,4 mnt,
+  typecheck hilang.
+  Terpisah, `experimental.cpus` tidak lagi dipaksa ke `2` bila
+  `NEXT_BUILD_CPUS` kosong — angka itu tidak melayani siapa pun karena
+  `.gitea/workflows/deploy-production.yml` sudah mengirim `NEXT_BUILD_CPUS=1`
+  sendiri, sehingga yang terkena hanya mesin pengembang. Perubahan ini
+  **bukan** optimasi: fase yang dibatasinya hanya 347 ms, dan dengan 9 worker
+  justru jadi 2,5 detik. Yang dihapus adalah magic number yang menyesatkan.
+- **Files**: `package.json`, `next.config.ts`, `CLAUDE.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Jaga cache dev Next.js agar tidak membusuk
 
 - **Tipe**: [INFRA]

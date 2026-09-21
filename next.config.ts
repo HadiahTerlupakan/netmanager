@@ -184,11 +184,21 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "1gb",
     },
     proxyClientMaxBodySize: "1gb",
-    // Batasi worker collect/static gen (default ~15 worker → peak RAM tinggi).
-    // NODE_OPTIONS diwariskan ke setiap worker, jadi peak RAM kira-kira
-    // (worker + 1) x max-old-space-size. Runner Gitea jauh lebih kecil daripada
-    // host CI 31Gi ini, sehingga jumlahnya bisa ditimpa lewat env.
-    cpus: Number(process.env.NEXT_BUILD_CPUS) || 2,
+    // Jumlah worker collect/static gen. Dibatasi HANYA bila `NEXT_BUILD_CPUS`
+    // diisi; tanpa itu Next memakai default-nya sendiri (turun dari jumlah core).
+    //
+    // Dulu nilainya `|| 2`, dan batas itu tidak melayani siapa pun: pipeline
+    // sudah mengirim `--build-arg NEXT_BUILD_CPUS=1` sendiri
+    // (`.gitea/workflows/deploy-production.yml`), sehingga angka 2 tidak pernah
+    // dipakai CI — yang terkena justru mesin pengembang, yang punya banyak core
+    // tapi dipaksa jalan dengan dua worker.
+    //
+    // Alasan pembatasan di CI tetap berlaku: NODE_OPTIONS diwariskan ke setiap
+    // worker, jadi peak RAM kira-kira (worker + 1) x max-old-space-size, dan
+    // runner Gitea jauh lebih kecil daripada host ini.
+    ...(process.env.NEXT_BUILD_CPUS
+      ? { cpus: Number(process.env.NEXT_BUILD_CPUS) }
+      : {}),
     // Filesystem cache untuk dev — compile result di-persist antar restart, bukan in-memory only.
     // Ini paling impactful untuk project besar dengan banyak route.
     turbopackFileSystemCacheForDev: true,

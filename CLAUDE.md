@@ -346,10 +346,14 @@ Tipe commit yang valid: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `per
 - `npm run db:down` - Stop Database/Redis
 
 **Build & Lint:**
-- `npm run build` - Build production
+- `npm run build` - Build production (termasuk typecheck)
+- `npm run build:quick` - Build production tanpa typecheck — dipakai bila
+  `npm run typecheck` sudah dijalankan terpisah. Menghemat ~3 menit; diukur
+  2026-09-21 pada cache kosong: 672 detik → 477 detik.
 - `npm run lint` - Lint code
 - `npm run typecheck` - Type checking
-- `npm run check` - Full check (Lint + Typecheck + Build)
+- `npm run check` - Full check (Lint + Typecheck + Test + Build). Memakai
+  `build:quick` karena typecheck-nya sudah dijalankan satu langkah sebelumnya.
 
 **Database (Prisma):**
 - `npm run prisma:generate` - Generate Prisma client
