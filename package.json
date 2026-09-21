@@ -203,7 +203,6 @@
     "inflight": "^1.0.6",
     "dompurify": "^3.4.1",
     "serialize-javascript": "^7.0.5",
-    "@hono/node-server": "^1.19.11",
     "immutable": "^3.8.3",
     "protobufjs": "^7.5.5",
     "protocol-buffers-schema": "^3.6.1",

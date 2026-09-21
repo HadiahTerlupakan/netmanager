@@ -437,3 +437,25 @@
     image berarti tidak ada build, apa pun kata log.
   - Kalau sebuah klaim bisa dibuktikan dengan memeriksa hasilnya, periksa
     hasilnya — jangan menyimpulkan dari log.
+
+## Pesan `npm ci` "package-lock.json tidak ada" sering bukan soal lock
+
+- **Konteks:** run #87 gagal di `npm ci` dengan
+  `EUSAGE: The npm ci command can only install with an existing
+  package-lock.json`. Lock-nya ADA, 854 KB, `lockfileVersion 3`, identik
+  byte-per-byte dengan yang di-commit, dan checkout CI terbukti membawanya.
+  Penyebab sebenarnya baru terbaca di `~/.npm/_logs/*-debug-0.log`:
+  `Override for @hono/node-server@^1.19.17 conflicts with direct dependency`.
+  Sebuah paket tidak boleh ada di `overrides` sekaligus jadi dependensi
+  langsung.
+- **Why:** npm melaporkan kegagalan `loadVirtual` sebagai "lock tidak ada",
+  padahal lock-nya sah dan yang ditolak adalah konfigurasinya. Mengejar pesan
+  itu apa adanya menghabiskan waktu pada berkas yang tidak bermasalah.
+- **How to apply:**
+  - Saat `npm ci` gagal, baca `~/.npm/_logs/<terbaru>-debug-0.log` dan cari
+    baris `verbose` sebelum `stack`. Di situ sebabnya, bukan di keluaran layar.
+  - Sebelum mempromosikan paket dari transitif jadi dependensi langsung,
+    periksa apakah namanya ada di `overrides` — kalau ya, hapus override-nya.
+  - Pola ini pernah muncul lebih dulu hari yang sama pada `dompurify`
+    ("Override ... conflicts with direct dependency"). Kenali sekali, terapkan
+    seterusnya.
