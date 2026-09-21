@@ -377,3 +377,26 @@
   webpack diukur SETELAH perbaikan Spotlight, Turbopack SEBELUMNYA, lalu saya
   hampir menyimpulkan webpack lebih cepat. Saat mengubah dua variabel, ulangi
   pengukuran pada kondisi yang sama sebelum menyimpulkan apa pun.
+
+## Ubah Dockerfile/konfigurasi = tetap wajib jalankan suite penuh
+
+- **Konteks:** menghapus stage `deps` dari Dockerfile. Saya verifikasi dengan
+  lint, typecheck, dan `docker build` sungguhan sampai sebelum `next build` —
+  semuanya lulus — lalu commit dan push. Job `quality` di CI **gagal**:
+  `tests/ci/docker-image-build-safety.test.ts` mengunci struktur lama
+  (`COPY --from=deps /app/node_modules`). Suite penuh tidak pernah saya jalankan.
+- **Why:** "perubahan ini bukan kode aplikasi" terasa seperti alasan sah untuk
+  melewatkan `vitest`. Tidak. Repo ini punya test arsitektur yang membaca
+  Dockerfile, workflow CI, package.json, dan migration SQL sebagai teks. Berkas
+  konfigurasi apa pun bisa punya penjaga.
+- **How to apply:**
+  - Jalankan `npx vitest run` sebelum commit, apa pun berkas yang disentuh —
+    termasuk Dockerfile, `.gitea/workflows/`, `package.json`, dan `next.config.ts`.
+  - Sebelum mengubah struktur yang dikunci test, cari dulu penjaganya:
+    `grep -rl "<nama berkas>" tests/`.
+  - Saat memperbarui penjaga yang menghalangi, pisahkan **properti keamanan**
+    dari **detail struktur**. Yang pertama dipertahankan, yang kedua disesuaikan.
+- **Pelajaran kedua dari kejadian yang sama:** penjaga baru saya (`COPY --from=\w+
+  \S*node_modules`) lolos saat diuji karena `\w` tidak mencakup tanda hubung,
+  padahal nama stage-nya `prod-deps`. **Selalu buktikan penjaga baru MERAH** dengan
+  menyisipkan pelanggaran sungguhan, bukan hanya melihatnya hijau.

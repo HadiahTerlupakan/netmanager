@@ -43,21 +43,45 @@ function getDockerfileStageBlock(
 describe("docker image build safety", () => {
   it("installs dependencies deterministically without an npm install fallback", () => {
     const dockerfile = readProjectFile("Dockerfile");
-    const depsStage = getDockerfileStageBlock(dockerfile, "deps");
+    const builderStage = getDockerfileStageBlock(dockerfile, "builder");
+    const prodDepsStage = getDockerfileStageBlock(dockerfile, "prod-deps");
 
     expect(dockerfile).toContain("COPY package.json package-lock.json ./");
-    expect(dockerfile).toContain(
-      "COPY scripts/run-husky-prepare.js ./scripts/run-husky-prepare.js",
-    );
-    expect(depsStage).toContain("COPY prisma ./prisma");
-    expect(depsStage).toContain("prisma.config.ts");
-    expect(depsStage).toContain("prisma.radius.config.ts");
-    expect(depsStage).toContain("prisma.billing.config.ts");
-    expect(depsStage).toContain("prisma.mitra.config.ts");
-    expect(dockerfile).toContain(
+    expect(builderStage).toContain(
       "npm ci --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts",
     );
+
+    // prod-deps men-generate client Prisma sendiri, jadi skema dan config-nya
+    // harus ada di stage itu — builder mendapatkannya lewat `COPY . .`.
+    expect(prodDepsStage).toContain("COPY prisma ./prisma");
+    expect(prodDepsStage).toContain("prisma.config.ts");
+    expect(prodDepsStage).toContain("prisma.radius.config.ts");
+    expect(prodDepsStage).toContain("prisma.billing.config.ts");
+    expect(prodDepsStage).toContain("prisma.mitra.config.ts");
+
     expect(dockerfile).not.toContain("|| npm install");
+  });
+
+  it("tidak menyalin node_modules antar stage build", () => {
+    const dockerfile = readProjectFile("Dockerfile");
+    const builderStage = getDockerfileStageBlock(dockerfile, "builder");
+
+    // Dulu ada stage `deps` yang hanya menjalankan `npm ci`, lalu builder
+    // menyalinnya dengan `COPY --from=deps /app/node_modules`. Salinan itu
+    // memindahkan ~1,8 GB dan memakan 115 detik tanpa manfaat: `npm ci` di
+    // builder ter-cache oleh layer yang sama persis (package.json +
+    // package-lock.json), dan tidak ada stage lain yang memakai `deps`.
+    //
+    // `node_modules` dari `prod-deps` ke `runner` TIDAK termasuk larangan ini:
+    // itu satu-satunya cara node_modules produksi sampai ke image akhir.
+    // `[\w-]+` bukan `\w+`: nama stage boleh mengandung tanda hubung
+    // (`prod-deps`), dan versi pertama penjaga ini lolos justru karena itu.
+    expect(builderStage).not.toMatch(/COPY --from=[\w-]+ \S*node_modules/);
+    expect(dockerfile).not.toContain("AS deps");
+
+    // Builder memasang dependensinya sendiri.
+    expect(builderStage).toContain("COPY package.json package-lock.json ./");
+    expect(builderStage).toContain("npm ci");
   });
 
   it("keeps transient working directories out of the build context", () => {
@@ -83,9 +107,6 @@ describe("docker image build safety", () => {
 
     expect(packageJson.scripts.postinstall).toBe("npm run prisma:generate");
     expect(builderStage).toContain("FROM node:24-alpine AS builder");
-    expect(builderStage).toContain(
-      "COPY --from=deps /app/node_modules ./node_modules",
-    );
     expect(builderStage).toContain("COPY . .");
     // Dua generate yang disengaja: builder butuh client saat mengompilasi, dan
     // prod-deps menyiapkan client untuk node_modules yang dipakai runtime.
