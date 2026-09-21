@@ -211,7 +211,10 @@
     "effect": "^3.21.0",
     "url-parse": "^1.5.10",
     "follow-redirects": "^1.16.0",
-    "websocket-driver": "^0.7.5"
+    "websocket-driver": "^0.7.5",
+    "uuid": "^11",
+    "magic-string": "^0.30",
+    "source-map": "^0.8.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

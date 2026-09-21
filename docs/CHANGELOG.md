@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Peringatan deprecated npm ci: 10 baris menjadi 1
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Tiga `overrides` baru menutup enam dari tujuh peringatan
+  `deprecated` yang dicetak `npm ci` tiap run. Semuanya transitif; tidak ada
+  yang jadi dependensi langsung.
+  **`uuid: ^11`** — `uuid@8.3.2` dan `uuid@9.0.1` dibawa `@google-cloud/storage`,
+  `gaxios`, `google-gax`, dan `teeny-request` (rantai `firebase-admin`).
+  Keempatnya diperiksa dan **hanya memakai `uuid.v4()`**, API yang tidak berubah
+  dari v8 sampai v11, dan `uuid@11` tetap menyediakan CJS (`"require":
+  "./dist/cjs/index.js"`) sehingga `require("uuid")` di paket-paket itu tetap
+  jalan. `next-auth@4.24.15` bahkan sudah memakai `uuid ^11.1.1`, jadi override
+  ini justru menyatukan pohon ke satu versi.
+  **`source-map: ^0.8.0`** — `workbox-build` memasang `0.8.0-beta.0` padahal
+  versi stabil 0.8.0 sudah rilis.
+  **`magic-string: ^0.30`** — `0.25.9` (lewat `@rollup/plugin-replace` dan
+  `@surma/rollup-plugin-off-main-thread` di bawah `workbox-build`) membawa
+  `sourcemap-codec`; `0.30` memakai `@jridgewell/sourcemap-codec`. Karena ini
+  menyentuh kompilasi service worker PWA, diverifikasi dengan build webpack
+  sungguhan: `✓ (pwa) Compiling for server/client`, `public/sw.js` 115 KB dan
+  custom worker terbentuk, exit 0.
+  Sisa satu peringatan, `node-domexception@1.0.0`, tidak bisa diperbaiki dari
+  sini: `fetch-blob@4` pun masih menuntutnya, jadi hanya hilang bila rantai
+  `node-fetch` memperbaikinya di hulu.
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — swagger-jsdoc 6.3.0 melepas z-schema yang usang
 
 - **Tipe**: [CHANGED]
