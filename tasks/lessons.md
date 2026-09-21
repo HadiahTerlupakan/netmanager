@@ -513,3 +513,62 @@
   - Ini kekeliruan performa ketiga yang sejenis dalam satu sesi (Turbopack,
     NEXT_BUILD_CPUS, lalu ini). Polanya sama: menyimpulkan dari arsitektur,
     bukan dari pengukuran.
+
+## `crictl` DeadlineExceeded adalah tenggat KLIEN, bukan operasi yang gagal
+
+- **Konteks:** menghapus 5 image lama di node produksi dengan `crictl rmi`.
+  Kelimanya melapor `rpc error: code = DeadlineExceeded` — dua di antaranya
+  `stream terminated by RST_STREAM`. Terlihat seperti lima kegagalan. Ketika
+  saya memeriksa keadaan sesudahnya, kelimanya sudah terhapus dan hanya tiga
+  image yang saya niatkan simpan yang tersisa. Disk turun 100G → 88G.
+- **Why:** tenggat bawaan `crictl` adalah 2 detik, sementara penghapusan
+  snapshot butuh puluhan detik. Klien menyerah dan mencetak error, tetapi
+  containerd di sisi server menyelesaikan pekerjaannya. Mempercayai pesan itu
+  apa adanya akan membuat saya mengulangi penghapusan — atau lebih buruk,
+  melaporkan ke user bahwa pembersihan gagal padahal berhasil.
+- **How to apply:**
+  - Beri `crictl --timeout 300s` untuk `rmi`/`pull` pada image besar.
+  - Untuk operasi yang mengubah keadaan, JANGAN simpulkan dari kode keluar
+    saja — periksa keadaan akhirnya (`crictl images`, `df -h`). Ini sejalan
+    dengan pelajaran "verifikasi artefaknya" pada build Docker.
+
+## BSD `grep` menafsirkan `{...}` sebagai interval — pakai `-F` untuk pola harfiah
+
+- **Konteks:** membuktikan sebuah penjaga bisa merah dengan menghapus baris
+  `grep -qx "${tag}"` dari workflow memakai `grep -v 'grep -qx "${tag}"'`.
+  Barisnya tidak terhapus, tesnya tetap hijau, dan sekilas tampak seperti
+  penjaga yang hampa. Padahal penjaganya benar; yang salah alat buktinya.
+- **Why:** pada BRE, `{` dan `}` adalah pembatas ekspresi interval. `{tag}`
+  bukan interval yang sah, dan grep BSD memperlakukan polanya di luar dugaan
+  sehingga tidak cocok. Bahaya khususnya: kegagalan ini menghasilkan "tes
+  tetap hijau", yang mudah disalahartikan sebagai tes yang tidak berguna lalu
+  tesnya yang dilemahkan.
+- **How to apply:**
+  - Untuk mencocokkan teks harfiah yang mengandung `{`, `}`, `$`, `[`, `]`,
+    gunakan `grep -F`.
+  - Saat bukti merah tidak menyala, curigai dulu ALAT pembuktiannya sebelum
+    menyimpulkan tesnya hampa. Verifikasi mutasinya benar-benar terjadi —
+    di sini cukup `grep -c` pada berkas hasil mutasi.
+
+## Pipa yang berakhir `grep -q` gagal hanya kalau masukannya besar
+
+- **Konteks:** langkah pemangkasan image yang saya tulis memakai
+  `if printf '%s\n' "${dipakai}" | grep -qx "${tag}"` untuk melindungi image
+  yang masih dirujuk workload. Uji tiruan saya lolos, dan di produksi daftar
+  itu memang cuma 3 baris — jadi tidak ada gejala. `tests/ci/pipefail-safety.test.ts`
+  yang menolaknya. Pembuktian sesudahnya: masukan 3 baris LOLOS, masukan
+  200.000 baris GAGAL, dan gagalnya ke arah "tidak ketemu" — artinya image
+  yang masih dipakai justru ikut terhapus.
+- **Why:** `grep -q` berhenti di kecocokan pertama. Kalau penulis di kiri pipa
+  masih punya data, ia kena SIGPIPE (141) dan `pipefail` menjadikan seluruh
+  pipa gagal. Dengan keluaran kecil, penulis selesai sebelum pipa ditutup,
+  sehingga bug-nya tidak terlihat. Uji dengan data kecil TIDAK membuktikan
+  apa-apa untuk kelas cacat ini.
+- **How to apply:**
+  - Di shell ber-`pipefail`, jangan akhiri pipa dengan perintah yang berhenti
+    lebih awal (`grep -q`, `head`). Pakai here-string: `grep -qx "$x" <<< "$daftar"`.
+  - Saat menguji perlindungan yang bergantung pipa, uji dengan masukan yang
+    melebihi buffer pipa (~64 KB), bukan hanya beberapa baris.
+  - Penjaga rule-shaped yang sudah ada bisa menangkap cacat yang uji fungsional
+    saya lewatkan. Jalankan `npm test` penuh SEBELUM percaya pada uji tiruan
+    sendiri.

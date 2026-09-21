@@ -40,6 +40,10 @@ env:
   APP_IMAGE_NAME: netmanager-app
   CRON_IMAGE_NAME: netmanager-cron
   RADIUS_IMAGE_NAME: netmanager-radius
+  # Berapa image netmanager-app yang ditahan di node setelah deploy: yang
+  # sedang berjalan plus dua sasaran rollback. Sisanya dipangkas, dan tetap
+  # bisa ditarik ulang dari registry kalau memang dibutuhkan.
+  JUMLAH_IMAGE_DISIMPAN: "3"
   DOCKER_BUILDKIT: "1"
   # Container job berada di jaringan gitea_giteanet, sehingga instance Gitea
   # terjangkau lewat nama servicenya. Ini juga URL yang dipakai
@@ -623,6 +627,68 @@ jobs:
           # Rollout bisa dilaporkan sukses padahal manifes lama yang terpasang;
           # pemeriksaan ini menutup celah itu.
           [ "${AKTIF}" = "${{ needs.build.outputs.app_image }}" ]
+
+      - name: Pangkas image aplikasi lama di node
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
+          $SSH "JUMLAH_DISIMPAN='${JUMLAH_IMAGE_DISIMPAN}' bash -s" <<'PANGKAS'
+          set -euo pipefail
+
+          # Tiap deploy meninggalkan satu image netmanager-app baru di node, dan
+          # kubelet baru membersihkannya saat disk menyentuh 85%. Pada 2026-09-22
+          # sudah menumpuk 8 image; menghapus 5 yang terlama membebaskan 13 GB —
+          # jauh di atas jumlah nominalnya, karena biaya sebenarnya ada di lapisan
+          # snapshot yang sudah diekstrak, bukan di manifes.
+          #
+          # Hanya netmanager-app yang dipangkas. Tag netmanager-cron dan
+          # netmanager-radius memang banyak, tetapi semuanya menunjuk SATU image
+          # id yang sama, jadi tidak memakan disk tambahan.
+          REPO=netmanager-app
+
+          # Apa pun yang masih dirujuk workload tidak boleh disentuh, berapa pun
+          # umurnya — termasuk image yang sedang berjalan.
+          dipakai="$(sudo -n kubectl get pods,deploy,statefulset,cronjob,job -A \
+            -o jsonpath='{range .items[*]}{.spec.template.spec.containers[*].image}{"\n"}{.spec.containers[*].image}{"\n"}{end}' 2>/dev/null \
+            | tr ' ' '\n' | grep "${REPO}:" | sed 's/.*://' | sort -u || true)"
+
+          # Sufiks tag adalah nomor run CI yang menaik, jadi bisa dipakai untuk
+          # mengurutkan dari terbaru ke terlama tanpa menanyakan waktu pembuatan
+          # (CRI tidak menyediakannya).
+          semua="$(sudo -n crictl images 2>/dev/null | awk -v r="${REPO}" '$1 ~ r"$" {print $2" "$3}' | sort -t- -k2 -rn || true)"
+          jumlah="$(printf '%s\n' "${semua}" | grep -c . || true)"
+
+          echo "image ${REPO} di node: ${jumlah}, disimpan: ${JUMLAH_DISIMPAN}"
+          if [ "${jumlah}" -le "${JUMLAH_DISIMPAN}" ]; then
+            echo "tidak ada yang perlu dipangkas"
+            exit 0
+          fi
+
+          printf '%s\n' "${semua}" | tail -n +$((JUMLAH_DISIMPAN + 1)) | while read -r tag id; do
+            [ -n "${id}" ] || continue
+            # Here-string, BUKAN `printf ... | grep -qx`. Dengan `pipefail`,
+            # `grep -q` berhenti di kecocokan pertama dan membuat penulis di
+            # kiri pipa kena SIGPIPE, sehingga seluruh pipa dianggap gagal —
+            # artinya cabang `if` ini tidak diambil justru ketika tag-nya
+            # KETEMU, dan image yang masih dipakai malah ikut terhapus.
+            # `tests/ci/pipefail-safety.test.ts` menahan pola itu.
+            if grep -qx "${tag}" <<< "${dipakai}"; then
+              echo "  lewati ${tag} — masih dirujuk workload"
+              continue
+            fi
+            # `crictl rmi` default timeout-nya 2 detik dan penghapusan snapshot
+            # jauh lebih lama; tanpa ini ia melapor DeadlineExceeded padahal
+            # penghapusannya tetap berjalan sampai selesai di sisi server.
+            if sudo -n crictl --timeout 300s rmi "${id}" >/dev/null 2>&1; then
+              echo "  hapus ${tag}"
+            else
+              echo "  GAGAL menghapus ${tag} (${id})"
+            fi
+          done
+
+          echo "sisa disk:"
+          df -h / | tail -1
+          PANGKAS
 
       - name: Hapus kunci SSH
         if: always()

@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-22] — Pangkas image aplikasi lama di node produksi otomatis
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Setiap deploy meninggalkan satu image `netmanager-app` baru di
+  node, dan kubelet k3s baru membersihkannya ketika disk menyentuh 85%. Pada
+  2026-09-22 sudah menumpuk 8 image. Lima yang terlama dihapus manual dan
+  membebaskan **13 GB** — disk 100G → 88G (43% → 38%), direktori containerd
+  36G → 23G. Angka itu jauh di atas jumlah nominal image (5 × ~515 MB), karena
+  biaya sebenarnya ada di lapisan snapshot yang sudah diekstrak.
+
+  Tag `netmanager-cron` (20 tag) dan `netmanager-radius` (33 tag) sengaja
+  dibiarkan: semuanya menunjuk satu image id yang sama, jadi tidak memakan
+  disk tambahan dan memangkasnya hanya menambah risiko.
+
+  Agar tidak berulang, ditambahkan langkah `Pangkas image aplikasi lama di
+  node` pada job `deploy`, berjalan setelah verifikasi image aktif. Langkah
+  itu menyimpan `JUMLAH_IMAGE_DISIMPAN` (3: yang berjalan plus dua sasaran
+  rollback), mengurutkan berdasarkan sufiks nomor run CI, dan **melewati image
+  apa pun yang masih dirujuk workload** berapa pun umurnya — sehingga produksi
+  yang tertinggal di tag lama tidak bisa kehilangan image-nya. Image yang
+  terhapus tetap dapat ditarik ulang dari registry.
+
+  Logikanya diuji lebih dulu dengan `crictl` dan `kubectl` tiruan: urutan
+  terbaru-ke-terlama benar, batas jumlah dihormati, dan image tua yang masih
+  dirujuk terbukti selamat. Penjaga
+  `tests/ci/deploy-image-prune-safety.test.ts` menahan kelima sifat itu.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/deploy-image-prune-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-22] — Hapus `chown -R node_modules` yang jadi jalur kritis build
 
 - **Tipe**: [FIXED]
