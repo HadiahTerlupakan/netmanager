@@ -1,5 +1,4 @@
 import { Prisma } from "@prisma/client";
-import type { AttendanceStatus } from "@prisma/client";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import type { CreateAttendanceWithIdInput } from "./AttendanceCrudRepository";
 import { AttendanceCorrectionRepository } from "./AttendanceCorrectionRepository";

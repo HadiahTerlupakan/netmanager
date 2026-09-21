@@ -10,7 +10,6 @@ import {
   buildSessionWithPermissions,
 } from "@/lib/api";
 import { checkSiteRestriction } from "@/modules/roles";
-import type { Session } from "next-auth";
 
 const hargaPaketService = new HargaPaketService();
 

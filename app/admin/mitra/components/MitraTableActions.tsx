@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   HiOutlineEye,
   HiOutlinePencilSquare,
@@ -23,10 +24,12 @@ export interface MitraTableActionsProps {
 }
 
 export function MitraTableActions({ mitra, handlers }: MitraTableActionsProps) {
+  const router = useRouter();
+
   return (
     <>
       <button
-        onClick={() => (window.location.href = `/admin/mitra/${mitra.id}`)}
+        onClick={() => router.push(`/admin/mitra/${mitra.id}`)}
         className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         title="Lihat Detail"
       >

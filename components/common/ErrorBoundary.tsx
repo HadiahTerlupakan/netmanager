@@ -64,7 +64,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     this.props.onReset?.();
   };
 
+  /**
+   * Muat ulang penuh di sini DISENGAJA, bukan kelalaian.
+   *
+   * Handler ini hanya dipanggil setelah pohon React tumbang dan error boundary
+   * menangkapnya. Navigasi sisi-klien (`router.push`) mempertahankan runtime
+   * yang sama beserta state yang sudah rusak — persis yang ingin ditinggalkan.
+   * `window.location.href` memulai dokumen baru, sehingga benar-benar bersih.
+   *
+   * Lagi pula ini class component: hook `useRouter` tidak tersedia.
+   */
   handleGoHome = (): void => {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- pemulihan dari crash butuh dokumen baru, lihat komentar di atas
     window.location.href = "/admin";
   };
 

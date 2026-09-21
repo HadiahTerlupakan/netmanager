@@ -196,22 +196,31 @@ export function renderPppListActions(
 
       <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-      <button
-        onClick={() =>
-          allowed
-            ? (window.location.href = `/admin/pelanggan/ppp/${item.id}/renew`)
-            : null
-        }
-        disabled={!allowed}
-        title={
-          allowed
-            ? "Perpanjang Layanan"
-            : `Bisa diperpanjang ${disableDuration} hari sebelum jatuh tempo`
-        }
-        className={`p-2 rounded-lg transition-colors ${allowed ? "text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:text-indigo-400" : "text-gray-400 bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60"}`}
-      >
-        <HiArrowPathRoundedSquare className="w-4 h-4" />
-      </button>
+      {/*
+        Saat diizinkan ini tautan sungguhan, bukan tombol ber-`window.location`:
+        navigasinya jadi sisi-klien (tanpa muat ulang penuh) dan mendukung
+        klik-tengah/buka-tab-baru. Saat tidak diizinkan tetap `<button disabled>`
+        supaya tidak bisa diklik maupun difokus.
+        `renderPppListActions` fungsi biasa, bukan komponen, jadi `useRouter`
+        tidak tersedia di sini.
+      */}
+      {allowed ? (
+        <Link
+          href={`/admin/pelanggan/ppp/${item.id}/renew`}
+          title="Perpanjang Layanan"
+          className="inline-flex items-center p-2 rounded-lg transition-colors text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:text-indigo-400"
+        >
+          <HiArrowPathRoundedSquare className="w-4 h-4" />
+        </Link>
+      ) : (
+        <button
+          disabled
+          title={`Bisa diperpanjang ${disableDuration} hari sebelum jatuh tempo`}
+          className="inline-flex items-center p-2 rounded-lg transition-colors text-gray-400 bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60"
+        >
+          <HiArrowPathRoundedSquare className="w-4 h-4" />
+        </button>
+      )}
       <button
         onClick={() =>
           window.open(

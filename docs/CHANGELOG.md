@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Lint bersih: 13 peringatan menjadi nol
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/`, `components/`, `modules/attendance`, `tests/e2e`
+- **Author**: agent
+- **Deskripsi**: Menghapus impor dan parameter yang tidak terpakai
+  (`Session` di `app/api/hargapakets/route.ts`, `AttendanceStatus` di
+  `AttendanceRepositoryFacade.ts`, serta `expect` dan sepuluh parameter `page`
+  di `tests/e2e/planning.spec.ts` — berkas placeholder yang seluruh tesnya masih
+  `test.skip` dengan TODO, jadi fixture-nya memang belum dibutuhkan).
+  Tiga peringatan sisanya muncul bersama upgrade `eslint-config-next` ke 16.3.5
+  (aturan baru `no-location-assign-relative-destination`) dan ditangani berbeda
+  sesuai maksud masing-masing:
+  `MitraTableActions` memakai `useRouter().push()` — komponen klien, DOM tidak
+  berubah; `pppListColumns` memakai `<Link>` saat diizinkan dan `<button
+  disabled>` saat tidak, karena `renderPppListActions` fungsi biasa sehingga hook
+  tidak tersedia; `ErrorBoundary.handleGoHome` **tetap** memakai
+  `window.location.href` dengan `eslint-disable` beralasan — pemulihan dari crash
+  justru menuntut dokumen baru, sebab navigasi sisi-klien mempertahankan runtime
+  rusak yang ingin ditinggalkan, dan class component tidak bisa memakai hook.
+- **Files**: `app/api/hargapakets/route.ts`,
+  `modules/attendance/repositories/AttendanceRepositoryFacade.ts`,
+  `tests/e2e/planning.spec.ts`, `app/admin/mitra/components/MitraTableActions.tsx`,
+  `app/admin/pelanggan/ppp/pppListColumns.tsx`, `components/common/ErrorBoundary.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Tutup seluruh kerentanan kritis dependensi
 
 - **Tipe**: [SECURITY]
