@@ -35,7 +35,16 @@ ARG NEXT_TELEMETRY_DISABLED=1
 # 4GB cukup untuk next build di CI; jangan 8GB — host OOM (build #228).
 # package.json "build" tidak hardcode heap supaya ENV ini dihormati.
 ARG NODE_OPTIONS="--no-deprecation --max-old-space-size=4096"
-ARG NEXT_BUILD_CPUS=""
+# Default konservatif ada DI SINI, bukan di next.config.ts. Alasannya: build
+# Docker selalu berjalan di runner/host yang lebih kecil daripada mesin
+# pengembang, dan tiap worker menambah pemakaian heap sendiri (lihat NODE_OPTIONS
+# di atas — host pernah OOM di build #228). Pipeline tetap mengirim
+# `--build-arg NEXT_BUILD_CPUS=1`; nilai di sini menjaga `docker build` manual
+# yang lupa mengirimnya.
+#
+# Di luar Docker, `next.config.ts` sengaja TIDAK memaksa nilai apa pun sehingga
+# mesin pengembang memakai default Next dari jumlah core-nya sendiri.
+ARG NEXT_BUILD_CPUS="1"
 # Flag tambahan untuk `next build`, mis. --webpack. Kosong = default Next.
 ARG NEXT_BUILD_FLAGS=""
 # Diagnosis: matikan minifikasi agar jejak tumpukan menyebut nama asli.
