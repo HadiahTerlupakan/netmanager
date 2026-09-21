@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Prettier berhenti memformat client Prisma hasil generate
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/generated/`, `infra/`
+- **Author**: agent
+- **Deskripsi**: Enam berkas di `prisma/generated/` muncul sebagai berubah di
+  `git status` setiap kali `npm install` dijalankan, dengan diff **46.000
+  baris**. Isinya ternyata hanya gaya kutip: `prisma generate` menulis
+  `from '@prisma/client-runtime-utils'` (kutip tunggal), lalu `lint-staged`
+  menjalankan `prettier --write` pada tiap `*.ts` yang di-stage dan
+  mengubahnya jadi kutip ganda. Salinan yang ter-commit karenanya tidak
+  pernah bisa sama dengan keluaran generator, sehingga `postinstall` →
+  `prisma:generate` selalu mengotori ulang berkas yang sama.
+
+  Derau sebesar itu berbahaya karena menutupi perubahan sungguhan, dan
+  sempat menyesatkan: drift ini awalnya disangka ketidakcocokan versi Prisma
+  antara commit dan mesin lokal, padahal keduanya sama-sama 7.10.0.
+
+  Perbaikannya menambahkan `prisma/generated/` ke `.prettierignore` —
+  menyelaraskan Prettier dengan `eslint.config.mjs` yang sudah mengabaikan
+  direktori itu sejak lama — dan meng-commit keluaran generator apa adanya,
+  sehingga mulai sekarang isi ter-commit identik dengan hasil `generate`.
+  Prettier tidak ditambahkan ke `prisma:generate` karena stage `prod-deps`
+  di `Dockerfile` memasang dependensi dengan `--omit=dev`; Prettier tidak
+  tersedia di sana dan perintahnya akan gagal.
+
+  Penjaga `tests/architecture/generated-code-left-unformatted.test.ts`
+  menahan ketiga sisi aturan ini, masing-masing dibuktikan merah lebih dulu.
+- **Files**: `.prettierignore`, `prisma/generated/{billing,mitra,radius}/`,
+  `tests/architecture/generated-code-left-unformatted.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — firebase-admin 13.10.0 → 14.4.0
 
 - **Tipe**: [CHANGED]

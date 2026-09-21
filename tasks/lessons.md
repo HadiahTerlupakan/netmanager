@@ -459,3 +459,27 @@
   - Pola ini pernah muncul lebih dulu hari yang sama pada `dompurify`
     ("Override ... conflicts with direct dependency"). Kenali sekali, terapkan
     seterusnya.
+
+## Drift berkas hasil generate: bandingkan ISI, jangan langsung tuduh versi
+
+- **Konteks:** enam berkas `prisma/generated/*.d.ts` muncul berubah dengan diff
+  46.000 baris. Saya melihat HEAD mengimpor dari `@prisma/client-runtime-utils`
+  sementara working tree tidak, lalu menyatakan ke user bahwa "berkas lokal
+  saya basi, dibuat sebelum bump 7.10.0". Itu salah. Regenerasi dengan Prisma
+  7.10.0 justru menghasilkan versi working tree. Setelah benar-benar membaca
+  sisi `+` dari diff, bedanya cuma kutip tunggal vs kutip ganda: `lint-staged`
+  menjalankan `prettier --write` pada `*.ts` yang di-stage, termasuk berkas
+  hasil generate.
+- **Why:** `git diff --stat` yang besar mengundang kesimpulan dramatis
+  (ketidakcocokan versi, drift skema). Padahal perubahan format menghasilkan
+  diff raksasa dengan nol perubahan makna. Saya menyimpulkan dari bentuk diff,
+  bukan dari isinya, dan sempat menyampaikan kesimpulan itu sebagai fakta.
+- **How to apply:**
+  - Sebelum menuduh versi/toolchain, baca sisi `+` dan `-` berdampingan untuk
+    beberapa baris. Kalau tokennya sama dan hanya tanda baca yang berbeda,
+    itu format — bukan semantik.
+  - Uji hipotesis "berkas ini basi" dengan cara termurah: regenerasi lalu
+    `git status`. Kalau masih kotor, hipotesisnya gugur — jangan diteruskan.
+  - Untuk berkas hasil generate, cek siapa yang menyentuhnya setelah generator:
+    `lint-staged`, hook pre-commit, formatter. Generator harus jadi acuan;
+    formatter tidak boleh ikut campur.

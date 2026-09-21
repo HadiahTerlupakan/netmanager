@@ -1,3 +1,18 @@
 
 # K8s Templates
 k8s/migration-job.yaml
+
+# Client Prisma hasil generate.
+#
+# `prisma generate` menulis impor dengan kutip tunggal; `lint-staged`
+# menjalankan `prettier --write` pada tiap `*.ts` yang di-stage dan
+# mengubahnya jadi kutip ganda. Akibatnya salinan yang ter-commit tidak
+# pernah sama dengan keluaran generator, dan setiap `npm install` — yang
+# memicu `postinstall` -> `prisma:generate` — mengotori enam berkas dengan
+# diff 46.000 baris yang isinya hanya gaya kutip. Derau itu menutupi
+# perubahan sungguhan di `git status`.
+#
+# Berkas hasil generate bukan kode yang ditulis manusia: generatornya yang
+# jadi acuan, bukan Prettier. ESLint sudah mengabaikannya lewat
+# `eslint.config.mjs`; ini menyelaraskan Prettier dengan keputusan itu.
+prisma/generated/
