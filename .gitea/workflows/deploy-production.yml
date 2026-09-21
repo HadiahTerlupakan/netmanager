@@ -125,6 +125,14 @@ jobs:
           RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
           DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
           DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
+          # `prisma:generate` menjalankan empat generate, dan tiap generate
+          # mencetak kotak "Update available" sepuluh baris — 40 baris derau per
+          # run. Lebih buruk lagi, yang ditawarkannya adalah 8.0.0-rc.15: Prisma
+          # menandai sebuah release candidate sebagai `latest`, jadi banner itu
+          # menyarankan versi pra-rilis untuk sistem billing produksi.
+          # Disenyapkan DI CI SAJA; di mesin pengembang notifikasinya tetap
+          # muncul supaya rilis stabil Prisma 8 nanti tidak terlewat.
+          PRISMA_HIDE_UPDATE_MESSAGE: "true"
         run: |
           set -euo pipefail
           npm config set fetch-retries 5

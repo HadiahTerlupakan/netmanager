@@ -107,19 +107,23 @@ export class InventoryDashboardService {
     return session.siteId || undefined;
   }
 
-  /** Build site-aware filters for dashboard queries. */
+  /**
+   * Build site-aware filters for dashboard queries.
+   *
+   * Bertipe langsung sebagai `InventoryDashboardFilters` — bukan
+   * `Record<string, unknown>` yang dulu dipakai — supaya salah ketik nama kunci
+   * atau bentuk filter tertangkap kompilator di sini, bukan lolos sampai ke
+   * pemanggilan Prisma.
+   */
   private buildFilters(siteId?: string): InventoryDashboardFilters {
-    const gudangFilter: Record<string, unknown> = { isActive: true };
-    const transactionFilter: Record<string, unknown> = {};
-
     if (!siteId) {
-      return { gudangFilter, transactionFilter };
+      return { gudangFilter: { isActive: true }, transactionFilter: {} };
     }
 
-    gudangFilter.sites = { some: { id: siteId } };
-    transactionFilter.gudang = { sites: { some: { id: siteId } } };
-
-    return { gudangFilter, transactionFilter };
+    return {
+      gudangFilter: { isActive: true, sites: { some: { id: siteId } } },
+      transactionFilter: { gudang: { sites: { some: { id: siteId } } } },
+    };
   }
 
   /** Build the trend range from query params or fall back to default months. */

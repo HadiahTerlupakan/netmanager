@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Prisma 7.10.0, dan tipe filter dashboard inventory dikencangkan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/inventory`, `infra/`
+- **Author**: agent
+- **Deskripsi**: `prisma`, `@prisma/client`, dan `@prisma/adapter-pg` naik
+  7.8.0 → **7.10.0** — rilis stabil terbaru pada mayor yang sama. Banner
+  "Update available" yang muncul tiap `prisma generate` menawarkan
+  **8.0.0-rc.15**: Prisma menandai sebuah *release candidate* sebagai tag
+  `latest`, jadi saran itu mengarah ke pra-rilis dan **tidak** diikuti. Banner
+  disenyapkan dengan `PRISMA_HIDE_UPDATE_MESSAGE=true` **hanya di CI** (empat
+  generate × kotak sepuluh baris = 40 baris derau per run); di mesin pengembang
+  notifikasinya tetap muncul supaya rilis stabil Prisma 8 tidak terlewat.
+  Upgrade ini membuka tiga kesalahan tipe yang selama ini tersembunyi:
+  `InventoryDashboardFilters` memakai `Record<string, unknown>`, yang lolos di
+  7.8 tetapi ditolak 7.10 yang lebih ketat — dan memang seharusnya ditolak,
+  karena `unknown` di posisi `where` berarti kompilator tidak pernah memeriksa
+  bentuk filternya. Diganti tipe struktural `GudangSiteFilter`, bukan
+  `Prisma.*`, karena lapisan `services/` dilarang mengimpor `@prisma/client`
+  (`tests/architecture/clean-architecture-boundary.test.ts` menangkap percobaan
+  pertama yang memakai tipe Prisma).
+  Terpisah: `@hono/node-server` dipromosikan jadi dependensi sungguhan.
+  `server-api.ts` mengimpornya langsung tetapi paketnya hanya terdaftar sebagai
+  `overrides`, jadi selama ini ikut terpasang secara transitif dan menghilang
+  begitu pohon dependensi berubah.
+- **Files**: `package.json`, `package-lock.json`, `prisma/generated/**`,
+  `modules/inventory/services/inventory-dashboard.queries.ts`,
+  `modules/inventory/services/InventoryDashboardService.ts`,
+  `.gitea/workflows/deploy-production.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Salin node_modules tanpa --chown: 773 detik di jalur kritis
 
 - **Tipe**: [CHANGED]

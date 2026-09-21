@@ -5,9 +5,27 @@ const RECENT_QUERY_LIMIT = 10;
 const TOP_ITEMS_LIMIT = 10;
 const SLOW_MOVING_DAYS = 30;
 
+/**
+ * Bentuk filter site untuk gudang, ditulis struktural — bukan `Prisma.*` dan
+ * bukan `Record<string, unknown>`.
+ *
+ * `Record<string, unknown>` lolos di Prisma 7.8 tetapi ditolak 7.10 yang
+ * tipenya lebih ketat, dan memang seharusnya ditolak: `unknown` di posisi
+ * `where` berarti kompilator tidak pernah memeriksa bentuk filternya.
+ *
+ * Tipe Prisma tidak dipakai di sini karena lapisan `services/` dilarang
+ * mengimpor `@prisma/client` — lihat
+ * `tests/architecture/clean-architecture-boundary.test.ts`. Bentuk struktural
+ * ini tetap diterima Prisma dan tetap menangkap salah ketik kunci.
+ */
+export interface GudangSiteFilter {
+  isActive?: boolean;
+  sites?: { some: { id: string } };
+}
+
 export interface InventoryDashboardFilters {
-  gudangFilter: Record<string, unknown>;
-  transactionFilter: Record<string, unknown>;
+  gudangFilter: GudangSiteFilter;
+  transactionFilter: { gudang?: GudangSiteFilter };
 }
 
 export interface InventoryDashboardTrendRange {
@@ -217,17 +235,19 @@ export async function getInventoryStockAlerts(
   );
 }
 
-function buildStockWhere(transactionFilter: Record<string, unknown>) {
+function buildStockWhere(
+  transactionFilter: InventoryDashboardFilters["transactionFilter"],
+): { gudang?: GudangSiteFilter } {
   const gudangFilter = transactionFilter.gudang;
   return gudangFilter ? { gudang: gudangFilter } : {};
 }
 
-function buildTransferWhere(stockWhere: Record<string, unknown>) {
-  if (!("gudang" in stockWhere)) {
+function buildTransferWhere(stockWhere: { gudang?: GudangSiteFilter }) {
+  const gudang = stockWhere.gudang;
+  if (!gudang) {
     return undefined;
   }
 
-  const gudang = stockWhere.gudang;
   return {
     OR: [{ gudangDari: gudang }, { gudangKe: gudang }],
   };
