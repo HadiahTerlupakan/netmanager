@@ -41,6 +41,34 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Tutup seluruh kerentanan kritis dependensi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: `npm audit` menemukan 47 kerentanan (5 kritis, 23 tinggi).
+  Yang paling serius ada di **`next@16.2.6`** dengan 11 advisory kritis, dan
+  beberapa mengenai persis arsitektur ini: *Middleware/Proxy bypass di App Router
+  dengan Turbopack* (bypass otorisasi — merongrong seluruh penegakan RBAC),
+  *SSRF di Server Actions pada custom server* (`server.ts`), *unauthenticated RCE
+  di Image Optimization API via AVIF*, dan *disclosure endpoint Server Function*.
+  Ditambah `next-auth` kritis (cookie OAuth state/nonce/PKCE tidak terikat ke
+  provider pembuatnya), `axios` (10 advisory, prototype pollution), dan `hono`
+  (19 advisory, termasuk CORS merefleksikan origin apa pun dengan credentials).
+  Dinaikkan dalam batas semver yang sama — tidak ada breaking change:
+  next & eslint-config-next 16.2.6→16.3.5, next-auth 4.24.14→4.24.15,
+  @auth/prisma-adapter 2.11.2→2.11.3, axios 1.16.1→1.20.0, hono 4.12.19→4.13.8,
+  postcss 8.5.14→8.5.28, dompurify 3.4.3→3.4.15, swagger-ui-react 5.32.6→5.33.0,
+  firebase 12.13.0→12.19.0. Satu kritis sisanya, `websocket-driver@0.7.4` yang
+  terbawa `firebase → @firebase/database → faye-websocket`, ditutup lewat
+  `overrides` — pola yang sudah dipakai proyek ini.
+  **Hasil: 47 → 37 kerentanan, kritis 5 → 0.** Sisanya menuntut lompatan mayor
+  dan dicatat per paket di `tasks/todo.md`.
+  Verifikasi: typecheck bersih, 703 berkas / 4135 tes lolos, lint 0 error,
+  `build:quick` exit 0.
+- **Files**: `package.json`, `package-lock.json`, `tasks/todo.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Samakan --no-deprecation pada skrip build dan start
 
 - **Tipe**: [CHANGED]

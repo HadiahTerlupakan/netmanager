@@ -3560,3 +3560,22 @@ bukan upgrade disambi.
 Dockerfile sudah memakainya sejak dulu, hanya skrip build lokal yang tertinggal.
 Kosmetik: tidak ada koneksi yang dibuka saat build karena `lib/redis.ts` memakai
 `lazyConnect: true`.
+
+## Upgrade mayor yang tersisa (audit 2026-09-21)
+
+Setelah upgrade keamanan non-breaking, sisa 37 kerentanan (0 kritis, 21 tinggi,
+14 sedang, 2 rendah). Semuanya menuntut lompatan mayor, jadi masing-masing perlu
+pekerjaan dan pengujian tersendiri:
+
+- `sharp 0.34.5 → 0.35.4` — kerentanan warisan libvips (CVE-2026-33327/33328/
+  35590/35591). Dipakai untuk optimasi gambar; uji upload & Image Optimization.
+- `nodemailer 8.0.7 → 10.0.10` — dua lompatan mayor. Ada `overrides.nodemailer
+  ^8.0.5` yang harus ikut dinaikkan. Uji seluruh jalur email.
+- `adm-zip 0.5.17 → 0.6.1` — dipakai untuk backup/export.
+- `firebase-admin 13.10.0 → 14.4.0` — notifikasi push & realtime.
+- `bullmq 5.76.9 → 6.3.8` + `ioredis 5.10.1 → 6.0.0` — lihat bagian terpisah di atas.
+- `prisma 7.8.0 → 8.0.0-rc.15` — masih release candidate, jangan sekarang.
+  CATATAN: `npm audit` menyarankan `prisma@6.19.3` sebagai "perbaikan" — itu
+  DOWNGRADE dari 7.8.0. Jangan diterapkan mentah-mentah.
+- `typescript 5.9.3 → 7.0.2`, `eslint 9 → 10`, `vitest 4 → 5` — perkakas, ada
+  `overrides.typescript 5.9.3` yang mengunci.
