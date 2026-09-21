@@ -90,7 +90,7 @@
     "effect": "^3.21.0",
     "expo-server-sdk": "^6.1.0",
     "firebase": "^12.19.0",
-    "firebase-admin": "^13.0.0",
+    "firebase-admin": "^14.4.0",
     "follow-redirects": "^1.16.0",
     "formidable": "^3.5.4",
     "geolib": "^3.3.4",

@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — firebase-admin 13.10.0 → 14.4.0
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/firebase/`, `infra/`
+- **Author**: agent
+- **Deskripsi**: Naik satu mayor. Perlu dicatat bahwa ini **tidak**
+  menghilangkan peringatan `npm warn deprecated node-domexception@1.0.0`
+  yang menjadi alasan awal upgrade ini ditimbang: rantainya hanya berpindah
+  dari `google-auth-library → gaxios → node-fetch` menjadi
+  `@google-cloud/firestore@9 → google-gax@6 → node-fetch@3.3.2 → fetch-blob@3.2.0`,
+  dan tetap berujung di `node-domexception@1.0.0`. Jumlah baris deprecated
+  pada `npm ci` bersih tetap satu, sebelum dan sesudah.
+
+  Radius dampaknya lebih luas daripada namanya: `@google-cloud/firestore`
+  7.11.6 → **9.2.0**, `google-gax` 4.6.1 → **6.4.0**, `@google-cloud/storage`
+  7.19.0 → **8.2.0**. Seluruh paket `@firebase/*` — termasuk
+  `@firebase/database-compat` yang menopang Realtime Database — **tidak
+  berubah versi**, jadi jalur RTDB tidak tersentuh. `@google-cloud/storage`
+  tidak dipakai kode mana pun (transitif saja).
+
+  Permukaan API yang benar-benar dipanggil aplikasi kecil dan seluruhnya masih
+  ada di v14: `auth.createCustomToken()`, `auth.setCustomUserClaims()`,
+  `messaging.sendEachForMulticast()`, `db.collection()`, `db.batch()`,
+  `realtimeDb.ref()`. Tidak satu pun API FCM lama yang dihapus v14
+  (`sendToDevice`, `sendMulticast`, `sendAll`, dll.) dipakai.
+
+  Verifikasi: typecheck, lint, dan 4140 tes lulus; ditambah smoke test
+  terhadap Firebase sungguhan yang memanggil persis titik-titik di atas —
+  pertukaran service account jadi access token, `createCustomToken`, baca
+  Firestore, dan `sendEachForMulticast` dengan `dryRun` sehingga FCM
+  memvalidasi tanpa mengantar notifikasi ke perangkat mana pun.
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Prisma 7.10.0, dan tipe filter dashboard inventory dikencangkan
 
 - **Tipe**: [CHANGED]
