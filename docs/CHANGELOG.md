@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — swagger-jsdoc 6.3.0 melepas z-schema yang usang
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: `npm ci` mencetak peringatan `deprecated` untuk `lodash.get` dan
+  `lodash.isequal` tiap run. Keduanya transitif, dibawa `z-schema@5.0.5` lewat
+  `swagger-jsdoc@6.2.8 → swagger-parser@10`. Pada `swagger-jsdoc@6.3.0`
+  parser-nya naik ke `@apidevtools/swagger-parser@12`, yang memvalidasi dengan
+  `ajv` dan **tidak lagi memakai `z-schema`** — jadi kenaikan minor ini
+  menghapus dua peringatan sekaligus tanpa override paksa.
+  Lima peringatan sisanya tidak bisa diperbaiki dari sini karena dimiliki paket
+  lain: `uuid@8`/`uuid@9` dan `node-domexception` dari `firebase-admin@13` serta
+  `next-auth@4`, `sourcemap-codec` dan `source-map@0.8.0-beta.0` dari
+  `@ducanh2912/next-pwa@10.2.9` (sudah versi terbaru). Semuanya hanya muncul
+  saat pemasangan, tanpa efek runtime, dan baru hilang bila paket induknya naik
+  mayor — sudah tercatat di `tasks/todo.md`. Memaksa `uuid@11` lewat `overrides`
+  ke dalam pustaka autentikasi dan push notification adalah risiko yang tidak
+  sepadan untuk menghapus baris log.
+- **Files**: `package.json`, `package-lock.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Runner CI naik ke Node 24, definisinya masuk repo
 
 - **Tipe**: [INFRA]
