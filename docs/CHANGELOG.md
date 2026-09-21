@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Samakan --no-deprecation pada skrip build dan start
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: `npm run dev` dan Dockerfile (`ARG NODE_OPTIONS`) sudah memakai
+  `--no-deprecation`, tetapi `npm run build`, `build:quick`, dan `start` tidak —
+  sehingga build lokal membanjirkan DEP0169 `url.parse()` sekali per worker
+  (9 baris), padahal log CI bersih. Ketiganya kini disamakan.
+  Asal peringatan sudah ditelusuri sampai sumbernya:
+  `node_modules/ioredis/built/utils/index.js:205` memanggil `url.parse()` bawaan
+  Node. Bukan kode sendiri, dan tidak bisa dihilangkan dengan menaikkan ioredis
+  saja: `bullmq@5.76.9` mematok `ioredis: 5.10.1` sebagai dependency keras, jadi
+  menaikkan ioredis ke 6 justru menghasilkan dua versi dalam satu pohon.
+  `ioredis@6` sudah memakai `new URL()`/`URLSearchParams`, dan `bullmq@6.3.8`
+  memindahkan ioredis ke peerDependency — jadi solusi sebenarnya adalah menaikkan
+  keduanya, dicatat sebagai pekerjaan tersendiri di `tasks/todo.md`.
+  Tidak ada koneksi Redis yang dibuka saat build (`lazyConnect: true`).
+- **Files**: `package.json`, `tasks/todo.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — SNMP berhenti mendaftarkan shutdown handler saat di-import
 
 - **Tipe**: [FIXED]

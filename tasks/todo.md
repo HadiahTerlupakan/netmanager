@@ -3532,3 +3532,31 @@ M1 ──┬─→ M2 ─┐
 - Multi-instance accel-ppp di satu IP
 - Auto-provisioning accel-ppp box (ansible)
 - Disconnect-Request via CoA saat delete server
+
+## Upgrade BullMQ 6 + ioredis 6 (belum dikerjakan, 2026-09-21)
+
+### Kenapa
+`ioredis@5.10.1` memakai `url.parse()` bawaan Node yang deprecated
+(`node_modules/ioredis/built/utils/index.js:205`), memunculkan DEP0169 sekali per
+worker saat `next build`. `ioredis@6.0.0` sudah membuangnya total — memakai
+`new URL()` + `URLSearchParams`, dan `require("url")` hilang dari `built/`.
+
+### Kenapa belum bisa
+`bullmq@5.76.9` mematok `ioredis: 5.10.1` sebagai **dependency keras**, bukan peer.
+Menaikkan ioredis sendirian membuat BullMQ menarik salinan ioredis 5-nya sendiri:
+peringatan tetap muncul, dan pohon dependensi berisi dua versi ioredis sekaligus.
+
+`bullmq@6.3.8` memindahkannya ke `peerDependencies: { ioredis: ">=5.0.0" }`, jadi
+jalur yang benar adalah menaikkan **keduanya** sekaligus.
+
+### Risiko
+Dua lompatan mayor pada tulang punggung antrean pekerjaan produksi. BullMQ 6 juga
+menambah peer `pg >=8.0.0` dan `redis >=5.0.0` — tanda perubahan arsitektur yang
+tidak sepele. Butuh pengujian antrean (event bus, cron, worker) yang serius,
+bukan upgrade disambi.
+
+### Penanganan sementara
+`--no-deprecation` disamakan di `build`, `build:quick`, dan `start` — `dev` dan
+Dockerfile sudah memakainya sejak dulu, hanya skrip build lokal yang tertinggal.
+Kosmetik: tidak ada koneksi yang dibuka saat build karena `lib/redis.ts` memakai
+`lazyConnect: true`.
