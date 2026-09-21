@@ -41,6 +41,7 @@ export async function snmpWalkOptimized(
     chunkSize?: number;
   } = {},
 ): Promise<Record<string, string>> {
+  pastikanPembersihTerdaftar();
   return snmpWalkOptimizedInternal(
     ipAddress,
     port,
@@ -70,6 +71,7 @@ export async function fetchOnuDataPaginated(
     totalPages: number;
   };
 }> {
+  pastikanPembersihTerdaftar();
   const statusCacheKey = cache.getCacheKey(
     ipAddress,
     "1.3.6.1.4.1.3902.1012.3.28.2.1.4",
@@ -124,8 +126,24 @@ export function cleanupSNMPConnections(): void {
   cache.clear();
 }
 
-// Register cleanup on graceful shutdown
-if (typeof process !== "undefined") {
+let pembersihTerdaftar = false;
+
+/**
+ * Daftarkan pembersihan pool SNMP — sekali saja, dan hanya saat SNMP benar-benar
+ * dipakai.
+ *
+ * Dulu pendaftaran ini berjalan saat modul di-import. Karena
+ * `modules/network/index.ts` mengekspor modul ini, setiap import dari
+ * `@/modules/network` ikut menyeretnya: saat `next build`, sembilan worker
+ * pengumpul data halaman masing-masing mendaftarkan listener proses lalu
+ * membanjiri output build dengan log shutdown yang tidak ada hubungannya
+ * dengan build — termasuk menjalankan `process.exit(0)` milik aplikasi di dalam
+ * worker build.
+ */
+function pastikanPembersihTerdaftar(): void {
+  if (pembersihTerdaftar || typeof process === "undefined") return;
+  pembersihTerdaftar = true;
+
   shutdownManager.register(() => {
     cleanupSNMPConnections();
   });

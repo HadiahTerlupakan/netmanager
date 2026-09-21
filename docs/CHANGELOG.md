@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — SNMP berhenti mendaftarkan shutdown handler saat di-import
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network`
+- **Author**: agent
+- **Deskripsi**: `snmp-optimized.ts` memanggil `shutdownManager.register()` di
+  level modul, sehingga berjalan saat MODUL DI-IMPORT — bukan saat SNMP dipakai.
+  Karena `modules/network/index.ts` mengekspornya, setiap import dari
+  `@/modules/network` ikut menyeretnya. Saat `next build`, tiap worker pengumpul
+  data halaman mendaftarkan listener proses sendiri lalu membanjiri output build
+  dengan `[ShutdownManager] Process listeners registered` dan, ketika worker
+  ditutup, `Received SIGINT, starting graceful shutdown...` — logika shutdown
+  aplikasi termasuk `process.exit(0)` berjalan di dalam worker build.
+  Pendaftaran kini malas: dilakukan sekali pada pemakaian SNMP pertama.
+  Terukur: baris `ShutdownManager` di log build **17 → 0**.
+  Sisa peringatan `url.parse()` (9 baris) sengaja dibiarkan — asalnya konstruktor
+  ioredis di `lib/redis.ts` yang memakai `lazyConnect: true`, jadi tidak ada
+  koneksi yang dibuka saat build; murni kosmetik dan memperbaikinya menuntut
+  mengubah bentuk ekspor `redis` di puluhan pemanggil.
+- **Files**: `modules/network/services/snmp-optimized.ts`,
+  `tests/modules/network/snmp-no-import-side-effect.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Build lokal berhenti menjalankan typecheck dua kali
 
 - **Tipe**: [CHANGED]
