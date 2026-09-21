@@ -351,3 +351,29 @@
   - Watcher rollout jangan menyerah hanya karena tidak melihat container job: job butuh waktu
     untuk mulai, dan ketiadaan job juga bisa berarti run-nya tidak pernah dibuat. Bedakan
     "belum mulai" dari "tidak ada run".
+
+## "Lemot" pada dev server: ukur lapisannya, jangan tebak pustakanya
+
+- **Konteks:** halaman admin butuh 22–40 detik di dev lokal. Dugaan awal jatuh ke
+  TanStack Query, lalu ke Turbopack. Keduanya salah. Log Next.js memisahkan
+  waktunya sendiri: `GET /api/roles/[id] 200 in 40s (next.js: 39.7s,
+  application-code: 725ms)` — 98% di compiler, 0,7 detik di kode aplikasi
+  termasuk query database.
+- **Penyebab sebenarnya:** cache `.next` membengkak ke 39 GB (20 GB
+  `cache/turbopack` + 17 GB `dev`, 43.078 berkas) sambil diindeks Spotlight.
+  Next.js sendiri mencetak `⚠ Slow filesystem detected. The benchmark took 418ms`.
+- **Why:** angka yang menentukan bukan kompilasi pertama, tapi **hit kedua** pada
+  route yang sudah terkompilasi: 13,7 detik dengan cache gemuk versus 0,06 detik
+  setelah dibersihkan. Kalau route sudah dikompilasi dan masih lambat, yang
+  lambat adalah pembacaan cache — bukan compiler, apalagi pustaka runtime.
+- **How to apply:**
+  - Baca pemisahan waktu di log dev Next.js sebelum menyalahkan pustaka apa pun.
+    `next.js:` = compiler/cache, `application-code:` = kode sendiri.
+  - Selalu ukur hit kedua. Hit pertama mencampur kompilasi dengan segalanya.
+  - Cek `du -sh .next`. Di atas ~10 GB, cache jadi beban, bukan bantuan.
+  - Pustaka runtime browser (TanStack Query, dsb) tidak pernah bisa menjelaskan
+    waktu kompilasi route server. Itu kategori yang salah.
+- **Kesalahan saya yang perlu dihindari:** perbandingan pertama saya cacat —
+  webpack diukur SETELAH perbaikan Spotlight, Turbopack SEBELUMNYA, lalu saya
+  hampir menyimpulkan webpack lebih cepat. Saat mengubah dua variabel, ulangi
+  pengukuran pada kondisi yang sama sebelum menyimpulkan apa pun.

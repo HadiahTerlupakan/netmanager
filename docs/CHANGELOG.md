@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Jaga cache dev Next.js agar tidak membusuk
+
+- **Tipe**: [INFRA]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Dev server lokal melambat sampai 22–40 detik per halaman.
+  Penyebabnya bukan Turbopack, webpack, maupun TanStack — melainkan cache
+  `.next` yang membengkak ke 39 GB sambil diindeks Spotlight. Diukur pada route
+  yang SUDAH terkompilasi: 13,7 detik dengan cache gemuk versus 0,06 detik
+  setelah dibersihkan (228x). Perbandingan tiga kombinasi pada route yang sama
+  (`/api/roles/[id]`, kompilasi pertama → hit kedua): Turbopack cache 37 GB
+  15,4s → 13,7s; webpack tanpa cache 4,7s → 0,22s; Turbopack cache bersih
+  4,4s → 0,06s. Turbopack tetap pilihan tercepat setelah cache sehat, jadi
+  tidak dimatikan. Skrip `predev` baru membuat ulang penanda
+  `.metadata_never_index` (ikut terhapus tiap `rm -rf .next`) dan memperingatkan
+  bila cache melewati 10 GB. Skrip tidak pernah menghapus apa pun sendiri.
+- **Files**: `scripts/prepare-dev-cache.sh`, `package.json`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Pembatasan site laporan kehadiran dan restock ditegakkan
 
 - **Tipe**: [FIXED]
