@@ -1,32 +1,28 @@
 # ==============================================================================
-# Stage 1: Dependencies
+# Stage 1: Builder
 # ==============================================================================
-FROM node:24-alpine AS deps
+#
+# Dulu ada stage `deps` terpisah yang hanya menjalankan `npm ci`, lalu builder
+# menyalin hasilnya dengan `COPY --from=deps /app/node_modules`. Salinan itu
+# memindahkan ~1,8 GB antar stage dan memakan 115 detik pada build produksi —
+# tanpa manfaat: `deps` tidak dipakai stage lain, dan `npm ci` di sini
+# ter-cache oleh layer yang sama persis (package.json + package-lock.json).
+#
+# `node_modules` ada di .dockerignore, jadi `COPY . .` di bawah tidak menimpa
+# hasil instalasi ini.
+FROM node:24-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files and Prisma inputs required by postinstall generation
 COPY package.json package-lock.json ./
 
-# Install dependencies with npm cache mount (speeds up reinstall when package-lock changes)
+# Cache mount mempercepat pemasangan ulang saat package-lock.json berubah.
 RUN --mount=type=cache,target=/root/.npm \
     npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm ci --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts
 
-COPY scripts/run-husky-prepare.js ./scripts/run-husky-prepare.js
-COPY prisma ./prisma
-COPY prisma.config.ts prisma.radius.config.ts prisma.billing.config.ts prisma.mitra.config.ts ./
-
-# ==============================================================================
-# Stage 2: Builder
-# ==============================================================================
-FROM node:24-alpine AS builder
-WORKDIR /app
-
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Generate Prisma and Build
@@ -108,7 +104,7 @@ RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
     npm run build ${NEXT_BUILD_FLAGS:+-- ${NEXT_BUILD_FLAGS}}
 
 # ==============================================================================
-# Stage 3: Production Dependencies
+# Stage 2: Production Dependencies
 # ==============================================================================
 # Dulu tahap ini `npm prune --omit=dev` di builder, dan itu memakan 9,6 menit
 # dari 31 menit build karena prune menghitung ulang seluruh pohon dependensi.
@@ -145,7 +141,7 @@ RUN npm run prisma:generate
 
 
 # ==============================================================================
-# Stage 4: Production Runner
+# Stage 3: Production Runner
 # ==============================================================================
 FROM node:24-alpine AS runner
 WORKDIR /app

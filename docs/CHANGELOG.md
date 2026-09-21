@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Hapus stage deps yang menyalin 1,8 GB tanpa manfaat
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Dockerfile punya stage `deps` yang hanya menjalankan `npm ci`,
+  lalu `builder` menyalin hasilnya dengan `COPY --from=deps /app/node_modules`.
+  Salinan itu memindahkan ~1,8 GB antar stage dan memakan **115 detik** pada
+  build produksi — tanpa manfaat: `deps` tidak direferensikan stage lain
+  (hanya satu `--from=deps` di seluruh berkas), dan `npm ci` di `builder`
+  ter-cache oleh layer yang sama persis (`package.json` + `package-lock.json`).
+  Tiga `COPY` terakhir di stage `deps` (`scripts/run-husky-prepare.js`,
+  `prisma`, config Prisma) bahkan tidak pernah dipakai siapa pun karena builder
+  hanya mengambil `node_modules` — ~12 detik lagi yang terbuang.
+  `node_modules` ada di `.dockerignore`, jadi `COPY . .` tidak menimpa hasil
+  instalasi. Diverifikasi dengan membangun stage builder sampai tepat sebelum
+  `next build`: 950 entri `node_modules`, `next` dan `@prisma` ada, berkas dari
+  `COPY . .` ada, `prisma:generate` berhasil.
+  Perkiraan penghematan: ~127 detik dari build ~18 menit (~12%).
+  **Tidak dikerjakan**: pemangkasan `outputFileTracingExcludes`. Setelah diukur,
+  seluruh devDependency hanya 92 MB dari 1800 MB `node_modules` (5%), sementara
+  yang besar semuanya dependensi produksi yang wajib ditelusuri (`next` 218 MB,
+  `@prisma` 165 MB, `@firebase` 111 MB). Penghematannya hitungan detik — tidak
+  sepadan dengan risiko modul hilang saat runtime.
+- **Files**: `Dockerfile`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Lint bersih: 13 peringatan menjadi nol
 
 - **Tipe**: [FIXED]
