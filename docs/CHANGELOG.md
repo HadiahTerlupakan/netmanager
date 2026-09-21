@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Runner CI naik ke Node 24, definisinya masuk repo
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`, `tests/ci`
+- **Author**: agent
+- **Deskripsi**: Image runner `netmanager-ci` tertinggal di `node:20-bullseye`
+  selama berbulan-bulan, sementara `package.json` menuntut `>=24.0.0` dan image
+  produksi memakai `node:24-alpine`. Akibatnya job `quality` — lint, typecheck,
+  dan seluruh tes — **memvalidasi di runtime yang tidak pernah dipakai
+  menjalankan aplikasi**. `npm ci` mencetak EBADENGINE tiap run untuk
+  `web@1.0.0`, `@prisma/streams-local`, `lint-staged`, `listr2`, dan
+  `swagger-client`, tetapi peringatan bukan kegagalan sehingga tidak
+  ditindaklanjuti.
+  Image dibangun ulang di host Gitea dari `node:24-bookworm` (Debian 12, basis
+  tag `node:24` resmi) dan dipromosikan ke `netmanager-ci:latest` setelah
+  seluruh perkakas pipeline diverifikasi bekerja: node v24.21.0, npm 11.19.0,
+  docker 27.5.1, buildx v0.19.3, kubectl v1.34.4, git, bash, `free`. Image lama
+  disimpan sebagai `netmanager-ci:node20-cadangan` untuk rollback seketika.
+  Penyimpangan ini bertahan lama karena definisi image hidup di luar repo
+  (`/home/ubuntu/ci-image/Dockerfile` di host) sehingga tak pernah terlihat saat
+  review. Salinannya kini diversikan di `.gitea/ci-image/Dockerfile`, lengkap
+  dengan prosedur bangun ulang dan rollback. Penjaga baru
+  `tests/ci/runner-node-version.test.ts` menuntut mayor Node pada image runner
+  dan image produksi sama dengan `engines.node` di `package.json` — dibuktikan
+  merah dengan mengembalikannya ke Node 20, lalu hijau.
+- **Files**: `.gitea/ci-image/Dockerfile`,
+  `tests/ci/runner-node-version.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Pakai kapasitas runner & ukur puncak memori build
 
 - **Tipe**: [INFRA]
