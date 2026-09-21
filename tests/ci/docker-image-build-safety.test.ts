@@ -20,6 +20,21 @@ function readPackageJson(): { scripts: Record<string, string> } {
   };
 }
 
+/**
+ * Buang baris komentar agar asersi menguji INSTRUKSI, bukan prosa.
+ *
+ * Perlu karena komentar di `Dockerfile` sengaja mengutip perintah yang
+ * dilarang — lengkap dengan angka pengukurannya — supaya alasan pelarangan
+ * ikut terbaca di tempat kejadian. Tanpa penyaringan ini, kutipan tersebut
+ * membuat penjaga menyala terhadap dirinya sendiri.
+ */
+function stripComments(dockerfile: string): string {
+  return dockerfile
+    .split("\n")
+    .filter((baris) => !baris.trimStart().startsWith("#"))
+    .join("\n");
+}
+
 function getDockerfileStageBlock(
   dockerfile: string,
   stageName: string,
@@ -130,26 +145,37 @@ describe("docker image build safety", () => {
     );
   });
 
-  it("menyiapkan kepemilikan node_modules di prod-deps, bukan saat menyalin", () => {
+  it("tidak pernah menulis ulang kepemilikan seluruh node_modules", () => {
     const dockerfile = readProjectFile("Dockerfile");
     const prodDepsStage = getDockerfileStageBlock(dockerfile, "prod-deps");
     const runnerStage = getDockerfileStageBlock(dockerfile, "runner");
 
-    // `COPY --chown` menulis ulang kepemilikan SATU PER SATU untuk ratusan ribu
-    // berkas, dan itu terjadi di jalur kritis: terukur 773 detik pada run #84 —
-    // lebih lama daripada kompilasi webpack-nya sendiri (432 detik).
+    // Dua cara menulis ulang kepemilikan ratusan ribu berkas, dua-duanya sudah
+    // diukur dan dua-duanya mahal:
     //
-    // `prod-deps` tidak bergantung pada builder, jadi BuildKit menjalankannya
-    // paralel dengan kompilasi. Menyetel kepemilikan dan merampingkan
-    // node_modules di sana memindahkan ongkosnya keluar dari jalur kritis, dan
-    // `COPY --from` mempertahankan UID/GID sumber sehingga hasilnya sama.
+    //   `COPY --chown` di runner ................  773 detik (run #84)
+    //   `RUN chown -R` di prod-deps ............. 4276 detik (run #88)
+    //   `COPY` tanpa keduanya ...................   29,7 detik (run #88)
     //
-    // UID/GID numerik, bukan nama: user `nextjs` baru dibuat di stage runner.
-    expect(prodDepsStage).toContain("chown -R 1001:1001 /app/node_modules");
-    expect(prodDepsStage).toContain("node_modules trimmed successfully");
-    expect(runnerStage).not.toContain(
+    // `RUN chown -R` sempat dikira gratis karena `prod-deps` berjalan paralel
+    // dengan kompilasi builder. Ternyata justru menjadi jalur kritis: webpack
+    // selesai dalam 1608 detik, lalu build menunggu 44 menit lagi untuk chown.
+    // `RUN` membuat layer baru, dan mengubah metadata tiap berkas memaksa
+    // overlayfs menyalin-naik seluruh ~1,8 GB.
+    //
+    // Kepemilikan itu tidak dibutuhkan sama sekali: `npm ci` menulis mode
+    // 644/755, jadi user `nextjs` bisa membaca dan menelusuri node_modules
+    // milik root, dan tidak ada kode runtime yang menulis ke dalamnya.
+    expect(stripComments(dockerfile)).not.toMatch(
+      /chown -R \S+ \S*node_modules/,
+    );
+    expect(stripComments(runnerStage)).not.toContain(
       "--chown=nextjs:nodejs /app/node_modules",
     );
+
+    // Perampingan tetap di prod-deps: itu memang murah dan membuat COPY
+    // memindahkan lebih sedikit berkas.
+    expect(prodDepsStage).toContain("node_modules trimmed successfully");
   });
 
   it("stamps the git revision into the image so a running pod can be traced back", () => {

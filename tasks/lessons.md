@@ -483,3 +483,33 @@
   - Untuk berkas hasil generate, cek siapa yang menyentuhnya setelah generator:
     `lint-staged`, hook pre-commit, formatter. Generator harus jadi acuan;
     formatter tidak boleh ikut campur.
+
+## "Paralel" tidak berarti gratis — ukur jalur kritisnya, jangan disimpulkan
+
+- **Konteks:** saya memindahkan `chown -R 1001:1001 /app/node_modules` dari
+  `COPY --chown` di runner ke `RUN` di stage `prod-deps`, dengan alasan
+  `prod-deps` berjalan paralel dengan kompilasi builder sehingga ongkosnya
+  keluar dari jalur kritis. Saya menyatakannya sebagai perbaikan sebelum ada
+  angka. Run #88 mengukurnya: `chown -R` memakan **4276 detik**, sementara
+  kompilasi webpack di sebelahnya hanya 1608 detik. Build menunggu 44 menit
+  setelah webpack selesai — langkah yang saya pindahkan JUSTRU menjadi jalur
+  kritis yang baru, 5,5× lebih mahal daripada 773 detik yang saya hilangkan.
+- **Why:** dua kekeliruan bertumpuk. Pertama, pekerjaan paralel hanya gratis
+  bila lebih pendek daripada cabang terpanjang — kalau lebih panjang, dialah
+  jalur kritisnya. Kedua, `RUN` membuat layer baru: mengubah metadata setiap
+  berkas memaksa overlayfs menyalin-naik seluruh ~1,8 GB, jauh lebih mahal
+  daripada menulis kepemilikan sambil menyalin. Saya juga tidak pernah
+  bertanya apakah `chown` itu dibutuhkan sama sekali — ternyata tidak, karena
+  `npm ci` menulis mode 644/755 dan tidak ada kode runtime yang menulis ke
+  node_modules.
+- **How to apply:**
+  - Sebelum menyebut sebuah pemindahan sebagai optimasi, sebutkan durasi
+    cabang terpanjang dan durasi langkah yang dipindahkan. Kalau salah satunya
+    belum diukur, klaimnya belum boleh dibuat.
+  - Untuk Docker: `RUN <sesuatu> -R` pada direktori besar hampir selalu lebih
+    mahal daripada mengerjakannya saat COPY. Layer baru = salin-naik.
+  - Tanya lebih dulu "apakah langkah ini perlu?" sebelum "di mana sebaiknya
+    langkah ini dijalankan". Menghapus mengalahkan memindahkan.
+  - Ini kekeliruan performa ketiga yang sejenis dalam satu sesi (Turbopack,
+    NEXT_BUILD_CPUS, lalu ini). Polanya sama: menyimpulkan dari arsitektur,
+    bukan dari pengukuran.

@@ -41,6 +41,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-22] — Hapus `chown -R node_modules` yang jadi jalur kritis build
+
+- **Tipe**: [FIXED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Memperbaiki regresi yang diperkenalkan sendiri. Pada commit
+  `298a0e2a`, `COPY --chown` di stage `runner` diganti `RUN chown -R` di stage
+  `prod-deps`, dengan alasan `prod-deps` berjalan paralel dengan kompilasi
+  builder sehingga ongkosnya keluar dari jalur kritis. Alasan itu tidak pernah
+  diukur, dan ternyata salah.
+
+  Pengukuran dari log run #88:
+
+  | Langkah | Waktu |
+  |---|---|
+  | `COPY --chown` di runner (cara lama, run #84) | 773 detik |
+  | `RUN chown -R` di prod-deps (run #88) | **4276 detik** |
+  | `COPY` tanpa keduanya (run #88) | **29,7 detik** |
+
+  Kompilasi webpack yang berjalan paralel hanya 1608 detik, jadi build
+  menunggu 44 menit setelah webpack selesai — langkah yang dipindahkan justru
+  menjadi jalur kritis baru, 5,5× lebih mahal daripada yang dihilangkan.
+  Penyebabnya: `RUN` membuat layer baru, dan mengubah metadata tiap berkas
+  memaksa overlayfs menyalin-naik seluruh ~1,8 GB node_modules.
+
+  Kepemilikan itu memang tidak pernah dibutuhkan: `npm ci` menulis berkas
+  dengan mode 644 dan direktori 755 (diverifikasi: 0 dari 20.000 berkas contoh
+  yang tidak terbaca-semua, 0 direktori tanpa `o+x`), dan tidak ada kode
+  runtime yang menulis ke dalam node_modules. User `nextjs` cukup membacanya.
+
+  Penjaga `tests/ci/docker-image-build-safety.test.ts` dibalik: dari
+  **mewajibkan** `chown -R` menjadi **melarang** segala bentuk penulisan ulang
+  kepemilikan seluruh node_modules. Penjaga itu kini menyaring baris komentar
+  lebih dulu, karena komentar di `Dockerfile` sengaja mengutip perintah
+  terlarang beserta angkanya.
+- **Files**: `Dockerfile`, `tests/ci/docker-image-build-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Prettier berhenti memformat client Prisma hasil generate
 
 - **Tipe**: [FIXED]

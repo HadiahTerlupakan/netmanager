@@ -163,10 +163,23 @@ RUN find node_modules \( \
     \) -type d -exec rm -rf {} + 2>/dev/null; \
     echo "node_modules trimmed successfully"
 
-# Kepemilikan disetel di sini dengan UID/GID numerik (user `nextjs` baru ada
-# di stage runner). `COPY --from` mempertahankannya, sehingga runner tidak
-# perlu `--chown` yang mahal.
-RUN chown -R 1001:1001 /app/node_modules
+# SENGAJA TIDAK ADA `chown -R` DI SINI.
+#
+# Pernah ada, dengan alasan bahwa stage ini berjalan paralel dengan kompilasi
+# sehingga ongkosnya "gratis". Alasan itu salah dan terukur salah: pada run #88
+# langkah `RUN chown -R 1001:1001 /app/node_modules` memakan **4276 detik**,
+# sementara kompilasi webpack yang berjalan di sebelahnya hanya 1608 detik.
+# Build lalu menunggu 44 menit setelah webpack selesai, hanya untuk chown.
+# `RUN` membuat layer baru, dan mengubah metadata setiap berkas memaksa
+# overlayfs menyalin-naik seluruh ~1,8 GB node_modules.
+#
+# Kepemilikan itu memang tidak pernah dibutuhkan: `npm ci` menulis berkas
+# dengan mode 644 dan direktori 755 — terbaca dan tertelusuri oleh user mana
+# pun — dan tidak ada kode runtime yang menulis ke dalam node_modules. User
+# `nextjs` (uid 1001) cukup membacanya.
+#
+# `COPY --from=prod-deps` tanpa `--chown` di runner memakan 29,7 detik
+# (run #88), dibanding 773 detik ketika `--chown` masih dipakai (run #84).
 
 
 # ==============================================================================
@@ -203,11 +216,16 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # This replaces the fragile per-module COPY approach that caused missing
 # sub-dependency errors (e.g. pure-rand, ioredis, socket.io, etc.)
 # The standalone node_modules is overwritten with the complete set.
-# Tanpa `--chown`: kepemilikan sudah disetel di stage `prod-deps`, dan
-# `COPY --from` mempertahankan UID/GID sumber. Menulis ulang kepemilikan di
-# sini berarti menyentuh ratusan ribu berkas SATU PER SATU pada jalur kritis —
-# terukur 773 detik pada run #84, lebih lama daripada kompilasi webpack-nya
-# sendiri (432 detik).
+# Tanpa `--chown`. Menulis ulang kepemilikan di sini berarti menyentuh ratusan
+# ribu berkas SATU PER SATU pada jalur kritis — terukur 773 detik pada run #84,
+# lebih lama daripada kompilasi webpack-nya sendiri (432 detik). Tanpa itu,
+# langkah yang sama memakan 29,7 detik pada run #88.
+#
+# Berkasnya mendarat sebagai milik root, dan itu memang tidak masalah: mode
+# bawaan `npm ci` adalah 644/755, sehingga user `nextjs` bisa membaca dan
+# menelusurinya, dan tidak ada kode runtime yang menulis ke node_modules.
+# Lihat catatan panjang di stage `prod-deps` soal mengapa `chown -R` di sana
+# justru menjadi jalur kritis yang lebih mahal.
 COPY --from=prod-deps /app/node_modules ./node_modules
 
 # `COPY --from` mempertahankan kepemilikan ISI direktori, tetapi direktori
