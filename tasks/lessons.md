@@ -419,3 +419,21 @@
     dan lingkungan itu bisa diperbaiki — bukan sekadar ditoleransi.
   - Sebelum menyebut sesuatu flaky, jalankan ulang dengan batas sumber daya yang
     benar. Kalau hijau, itu bukan flaky: itu salah cara menjalankan.
+
+## Baca kode keluar perintahnya, bukan pembungkus tugas latar
+
+- **Konteks:** `docker build` di latar belakang. Berkas keluarannya diakhiri
+  `[exited with code 0]` — itu status PEMBUNGKUS tugas, bukan build-nya. Baris
+  pertama berisi `EXIT=102` (ResourceExhausted, kehabisan memori). Saya membaca
+  ekornya, menyimpulkan sukses, dan melaporkannya begitu ke pengguna. Image-nya
+  tidak pernah ada.
+- **Why:** pembungkus selalu berhasil selama skripnya jalan sampai habis; kode
+  keluar perintah di dalamnya adalah data terpisah. Sama persis dengan jebakan
+  ROLLBACK psql: keluaran per-langkah bukan hasil akhir.
+- **How to apply:**
+  - Cetak kode keluar secara eksplisit (`echo "EXIT=$?"`) dan **baca baris itu**,
+    bukan ekor berkas.
+  - Untuk build, verifikasi artefaknya ada: `docker images <tag>`. Tidak ada
+    image berarti tidak ada build, apa pun kata log.
+  - Kalau sebuah klaim bisa dibuktikan dengan memeriksa hasilnya, periksa
+    hasilnya — jangan menyimpulkan dari log.

@@ -123,10 +123,32 @@ describe("docker image build safety", () => {
     expect(prodDepsStage).toContain("npm ci --omit=dev");
     expect(prodDepsStage).toContain("RUN npm run prisma:generate");
     expect(runnerStage).toContain(
-      "COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules",
+      "COPY --from=prod-deps /app/node_modules ./node_modules",
     );
+    expect(runnerStage).not.toMatch(
+      /COPY --from=builder \S*\s*\/app\/node_modules/,
+    );
+  });
+
+  it("menyiapkan kepemilikan node_modules di prod-deps, bukan saat menyalin", () => {
+    const dockerfile = readProjectFile("Dockerfile");
+    const prodDepsStage = getDockerfileStageBlock(dockerfile, "prod-deps");
+    const runnerStage = getDockerfileStageBlock(dockerfile, "runner");
+
+    // `COPY --chown` menulis ulang kepemilikan SATU PER SATU untuk ratusan ribu
+    // berkas, dan itu terjadi di jalur kritis: terukur 773 detik pada run #84 —
+    // lebih lama daripada kompilasi webpack-nya sendiri (432 detik).
+    //
+    // `prod-deps` tidak bergantung pada builder, jadi BuildKit menjalankannya
+    // paralel dengan kompilasi. Menyetel kepemilikan dan merampingkan
+    // node_modules di sana memindahkan ongkosnya keluar dari jalur kritis, dan
+    // `COPY --from` mempertahankan UID/GID sumber sehingga hasilnya sama.
+    //
+    // UID/GID numerik, bukan nama: user `nextjs` baru dibuat di stage runner.
+    expect(prodDepsStage).toContain("chown -R 1001:1001 /app/node_modules");
+    expect(prodDepsStage).toContain("node_modules trimmed successfully");
     expect(runnerStage).not.toContain(
-      "COPY --from=builder --chown=nextjs:nodejs /app/node_modules",
+      "--chown=nextjs:nodejs /app/node_modules",
     );
   });
 

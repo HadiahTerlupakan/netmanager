@@ -139,6 +139,35 @@ ENV RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
 
 RUN npm run prisma:generate
 
+# Dirampingkan DI SINI, bukan di runner: stage ini berjalan paralel dengan
+# kompilasi builder, jadi ongkosnya tidak menambah jalur kritis. Membuang
+# berkas lebih dulu juga berarti COPY ke runner memindahkan jauh lebih sedikit
+# berkas.
+# Trim node_modules: remove files not needed at runtime to reduce image size.
+# This is safe because these files are never imported/required at runtime.
+# Estimated savings: ~50-80MB
+RUN find node_modules \( \
+      -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" \
+      -o -name "*.map" \
+      -o -name "README.md" -o -name "README" -o -name "readme.md" \
+      -o -name "CHANGELOG.md" -o -name "CHANGELOG" -o -name "HISTORY.md" \
+      -o -name "LICENSE" -o -name "LICENSE.md" -o -name "LICENSE.txt" -o -name "license" \
+      -o -name ".editorconfig" -o -name ".npmignore" \
+      -o -name "tsconfig.json" -o -name "tsconfig.*.json" \
+      -o -name ".eslintrc*" -o -name ".prettierrc*" \
+    \) -type f -delete 2>/dev/null; \
+    find node_modules \( \
+      -name "test" -o -name "tests" -o -name "__tests__" \
+      -o -name "docs" -o -name ".github" \
+      -o -name "example" -o -name "examples" \
+    \) -type d -exec rm -rf {} + 2>/dev/null; \
+    echo "node_modules trimmed successfully"
+
+# Kepemilikan disetel di sini dengan UID/GID numerik (user `nextjs` baru ada
+# di stage runner). `COPY --from` mempertahankannya, sehingga runner tidak
+# perlu `--chown` yang mahal.
+RUN chown -R 1001:1001 /app/node_modules
+
 
 # ==============================================================================
 # Stage 3: Production Runner
@@ -174,27 +203,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # This replaces the fragile per-module COPY approach that caused missing
 # sub-dependency errors (e.g. pure-rand, ioredis, socket.io, etc.)
 # The standalone node_modules is overwritten with the complete set.
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Tanpa `--chown`: kepemilikan sudah disetel di stage `prod-deps`, dan
+# `COPY --from` mempertahankan UID/GID sumber. Menulis ulang kepemilikan di
+# sini berarti menyentuh ratusan ribu berkas SATU PER SATU pada jalur kritis —
+# terukur 773 detik pada run #84, lebih lama daripada kompilasi webpack-nya
+# sendiri (432 detik).
+COPY --from=prod-deps /app/node_modules ./node_modules
 
-# Trim node_modules: remove files not needed at runtime to reduce image size.
-# This is safe because these files are never imported/required at runtime.
-# Estimated savings: ~50-80MB
-RUN find node_modules \( \
-      -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" \
-      -o -name "*.map" \
-      -o -name "README.md" -o -name "README" -o -name "readme.md" \
-      -o -name "CHANGELOG.md" -o -name "CHANGELOG" -o -name "HISTORY.md" \
-      -o -name "LICENSE" -o -name "LICENSE.md" -o -name "LICENSE.txt" -o -name "license" \
-      -o -name ".editorconfig" -o -name ".npmignore" \
-      -o -name "tsconfig.json" -o -name "tsconfig.*.json" \
-      -o -name ".eslintrc*" -o -name ".prettierrc*" \
-    \) -type f -delete 2>/dev/null; \
-    find node_modules \( \
-      -name "test" -o -name "tests" -o -name "__tests__" \
-      -o -name "docs" -o -name ".github" \
-      -o -name "example" -o -name "examples" \
-    \) -type d -exec rm -rf {} + 2>/dev/null; \
-    echo "node_modules trimmed successfully"
+# `COPY --from` mempertahankan kepemilikan ISI direktori, tetapi direktori
+# tujuannya sendiri dibuat sebagai root. Satu chown non-rekursif menutup
+# celah itu — ongkosnya satu inode, bukan ratusan ribu seperti `--chown`.
+RUN chown 1001:1001 node_modules
 
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone

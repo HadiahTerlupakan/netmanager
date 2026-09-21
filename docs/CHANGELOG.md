@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-21] — Salin node_modules tanpa --chown: 773 detik di jalur kritis
+
+- **Tipe**: [CHANGED]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Langkah paling lambat di seluruh build ternyata bukan
+  kompilasi, melainkan penyalinan `node_modules` ke image akhir. Pada run #84:
+  `COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules` memakan
+  **773 detik**, sementara kompilasi webpack hanya 432 detik. `--chown` menulis
+  ulang kepemilikan satu per satu untuk ratusan ribu berkas.
+  Diperparah urutan: perampingan `node_modules` (`find ... -delete`) berjalan
+  SETELAH penyalinan, jadi berkas `.d.ts`, `.map`, `docs`, dan `test` ikut
+  disalin dengan ongkos penuh lalu langsung dihapus.
+  Keduanya dipindah ke stage `prod-deps`, yang tidak bergantung pada builder
+  sehingga BuildKit menjalankannya paralel dengan kompilasi — ongkosnya keluar
+  dari jalur kritis. Kepemilikan disetel dengan UID/GID numerik (`chown -R
+  1001:1001`) karena user `nextjs` baru ada di stage runner, dan `COPY --from`
+  mempertahankan kepemilikan isi direktori. Satu `chown` non-rekursif di runner
+  menutup celah terakhir: direktori tujuannya sendiri tetap dibuat sebagai root.
+  Diverifikasi pada image nyata: `node_modules` dan isinya `1001:1001`, dapat
+  ditulis oleh `nextjs`, `require("next/package.json")` berhasil, dan trim
+  menyisakan **0 berkas `.d.ts`**.
+  Penjaga `docker-image-build-safety` diperbarui: asersi `--chown` yang memaku
+  struktur diganti properti sebenarnya (runner mengambil dari `prod-deps`,
+  bukan dari builder), plus penjaga baru bahwa kepemilikan disiapkan di
+  `prod-deps` — dibuktikan merah sebelum hijau.
+- **Files**: `Dockerfile`, `tests/ci/docker-image-build-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-21] — Peringatan deprecated npm ci: 10 baris menjadi 1
 
 - **Tipe**: [CHANGED]
