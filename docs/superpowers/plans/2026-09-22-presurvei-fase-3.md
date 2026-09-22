@@ -6,13 +6,13 @@
 
 **Architecture:** Mengikuti konvensi admin yang sudah terbukti di repo — Server Component tipis sebagai gerbang permission, Client Component sebagai shell, hook untuk pengambilan data, dan komponen presentasional murni. Logika yang tidak bisa diuji lewat DOM (aturan seret kanban, pemetaan status, pembentukan query) ditarik keluar menjadi fungsi murni yang diuji langsung.
 
-**Tech Stack:** Next.js 16 App Router (React 19; `params` adalah `Promise`, wajib di-`await`) · TanStack Query · Zod · `ResponsiveTable` · OpenLayers (`ol`) · react-hot-toast · Vitest (tanpa DOM palsu)
+**Tech Stack:** Next.js 16 App Router (React 19; `params` adalah `Promise`, wajib di-`await`) · TanStack Query · Zod · `ResponsiveTable` · OpenLayers (`ol`) · react-hot-toast · Vitest (default `node`; jsdom tersedia lewat pragma per-berkas)
 
 **Spec:** `docs/architecture/presurvei-ui-admin-design.md`
 
 ## Global Constraints
 
-- **Tidak ada DOM palsu.** Repo ini tidak memakai testing-library, jsdom, maupun happy-dom. Ke-31 test komponennya memakai `renderToStaticMarkup` dari `react-dom/server`, atau memalsukan komponen anak dengan `vi.mock` lalu memeriksa props yang diteruskan. Acuan: `tests/ui/restock-table.test.tsx`. **Interaksi seret dan klik tidak dapat diuji** — karena itu logikanya wajib berada di fungsi murni di luar komponen.
+- **DOM palsu TERSEDIA, tapi bukan jalur default.** `jsdom` 29 terpasang dan 14 berkas test memakainya lewat pragma `// @vitest-environment jsdom` di baris pertama; preseden matang ada di `tests/lib/use-invalidate-planning.test.tsx` (createRoot + act + QueryClientProvider, menguji `invalidateQueries` lalu `router.push`) dan `tests/app/admin/canvasing-list.test.tsx`. Tidak ada `@testing-library` — render dan `waitFor` ditulis tangan. Default tetap `environment: "node"`, dan **fungsi murni tetap diuji langsung tanpa DOM karena jauh lebih murah** — itu sebabnya task-task di bawah memindahkan logika keluar dari komponen. Tapi jangan pernah menulis "tak terhindarkan tanpa DOM palsu": kalau sebuah kabel hanya bisa dijaga dengan merender, merender itu mungkin di sini.
 - **`strictNullChecks: false` digabung `strict: true`.** `tsc` bukan jaring pengaman untuk nullability: `x?.id` tanpa `?? null` lolos kompilasi lalu mengembalikan `undefined` di tempat yang kontraknya `null`. Object literal ber-`null` tanpa tipe kontekstual memicu TS7018 — beri anotasi eksplisit pada fixture.
 - **Vitest TIDAK melakukan typecheck.** Jalankan `npx tsc -p tsconfig.typecheck.json --noEmit` terpisah; `tsconfig.typecheck.json` mencakup berkas test.
 - **Jalankan test dengan `npm test` atau `--maxWorkers=50%`**, bukan `npx vitest run` polos. Kontensi CPU di mesin ini menimbulkan timeout palsu; terdokumentasi di `tasks/lessons.md`.
@@ -441,7 +441,7 @@ git commit -m "feat(presurvei): tambah konfigurasi status dan barrel klien"
 
 Inilah bagian yang membuat papan bisa dipakai. Tanpa pembatasan, mayoritas seretan ditolak server dan pemakai belajar mengabaikan pesan error. Aturannya **tidak ditulis ulang di UI** — `isTransisiStatusSah` sudah memegangnya di domain.
 
-Fungsi ini murni dan berada di lapisan domain karena interaksi seretnya sendiri tidak dapat diuji: repo ini tidak punya DOM palsu. Preseden yang sama persis ada di `modules/planning/domain/planning-kanban-transitions.ts` beserta testnya.
+Fungsi ini murni dan berada di lapisan domain karena menguji keputusannya sebagai fungsi murni jauh lebih murah daripada merender interaksi seretnya. Preseden yang sama persis ada di `modules/planning/domain/planning-kanban-transitions.ts` beserta testnya.
 
 `DEAL` dibedakan karena mencapainya bukan sekadar mengubah status — ia mempromosikan prospek menjadi canvasing, dan itu menuntut nomor KTP serta paket yang tidak ada pada prospek.
 
@@ -454,7 +454,7 @@ import { describe, expect, it } from "vitest";
 /**
  * Penentu aksi saat kartu dijatuhkan ke sebuah kolom. Murni dan di domain,
  * karena interaksi seretnya sendiri tidak dapat diuji — repo ini tidak punya
- * DOM palsu.
+ * fungsi murni, yang jauh lebih murah daripada merender.
  */
 
 import { PROSPEK_STATUSES } from "@/modules/presurvei/domain/entities/Prospek";
@@ -992,7 +992,7 @@ git commit -m "feat(presurvei): daftarkan menu admin presurvei"
 
 Dikerjakan lebih dulu karena paling sederhana: satu daftar, tiga filter, tanpa peta maupun seret. Ia menetapkan pola yang disalin layar lain.
 
-**Yang diuji adalah pembentukan URL-nya, bukan komponennya.** Repo ini tidak punya DOM palsu, jadi menguji komponen berarti memeriksa props yang diteruskan — berguna, tapi rapuh. Pembentukan query dari filter adalah logika nyata dengan banyak cara gagal (filter kosong ikut terkirim, `isAktif: false` hilang karena dianggap falsy, halaman tidak ikut berubah), dan itu bisa diuji langsung sebagai fungsi murni.
+**Yang diuji adalah pembentukan URL-nya, bukan komponennya.** Merender mungkin di repo ini, tapi mahal dan rapuh untuk hal yang bisa diuji sebagai fungsi murni. Pembentukan query dari filter adalah logika nyata dengan banyak cara gagal (filter kosong ikut terkirim, `isAktif: false` hilang karena dianggap falsy, halaman tidak ikut berubah), dan itu bisa diuji langsung sebagai fungsi murni.
 
 **Konsekuensinya soal penempatan, dan ini yang disalin Task 7 dan 15:** setiap fungsi
 murni dan setiap tabel pemetaan hidup di `iklanListQuery.ts`, bukan di berkas komponen.
@@ -1010,7 +1010,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Pembentukan URL daftar iklan dari state filter. Diuji langsung sebagai
- * fungsi murni karena repo ini tidak punya DOM palsu — logika yang tertinggal
+ * fungsi murni karena jauh lebih murah daripada merender — logika yang tertinggal
  * di dalam komponen tidak akan pernah teruji.
  */
 
@@ -1096,7 +1096,7 @@ export interface FilterIklan {
  * URL daftar iklan dari state filter.
  *
  * Dipisahkan dari komponen supaya bisa diuji langsung: repo ini tidak punya
- * DOM palsu, jadi logika yang tertinggal di dalam komponen tidak akan teruji.
+ * merender, jadi logika yang tertinggal di dalam komponen jarang teruji.
  */
 export function buildIklanListUrl(filter: FilterIklan): string {
   const params = new URLSearchParams({
@@ -2177,7 +2177,7 @@ export interface BlokDetail {
 /**
  * Blok opsional mana yang punya isi.
  *
- * Dipisahkan dari komponen supaya bisa diuji: repo ini tidak punya DOM palsu,
+ * Dipisahkan dari komponen supaya murah diuji tanpa merender,
  * dan ketiga penentuan di bawah punya cara gagal yang senyap.
  */
 export function blokYangTampil(kegiatan: KegiatanDetailDto): BlokDetail {
@@ -2494,7 +2494,7 @@ Inilah yang membuat papan bisa dipakai. Tanpa pembatasan, mayoritas seretan dito
 
 Memakai HTML5 drag-drop native, mengikuti `app/admin/planning/PlanningKanbanClient.tsx` yang sudah berjalan — tidak ada pustaka drag-drop baru yang ditambahkan. Baca berkas itu lebih dulu, khususnya `handleDragStart`, `handleDrop`, dan perhitungan `isDropTarget`.
 
-**Interaksi seretnya sendiri tidak dapat diuji** — repo ini tidak punya DOM palsu. Yang diuji adalah hook yang memegang keputusannya: status apa yang sedang diangkat, kolom mana yang boleh menerima, dan aksi apa yang dipanggil saat dijatuhkan.
+**Interaksi seretnya sendiri mahal diuji** meski jsdom tersedia. Yang diuji adalah hook yang memegang keputusannya: status apa yang sedang diangkat, kolom mana yang boleh menerima, dan aksi apa yang dipanggil saat dijatuhkan.
 
 - [ ] **Step 1: Tulis test yang gagal**
 
