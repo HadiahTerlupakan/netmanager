@@ -16,13 +16,25 @@ interface Props {
   onPageChange: (page: number) => void;
 }
 
+/** Teks kolom "Mulai"; diekspor supaya pemformatannya bisa diuji tanpa DOM. */
+export function teksTanggalMulai(item: IklanListItemDto): string {
+  return formatDateDisplay(item.tanggalMulai);
+}
+
+/** Teks kolom "Selesai"; kampanye tanpa tanggal akhir tampil sebagai "-". */
+export function teksTanggalSelesai(item: IklanListItemDto): string {
+  return formatDateDisplay(item.tanggalSelesai);
+}
+
 /**
  * Definisi kolom daftar iklan.
  *
- * Diekspor supaya `render` kolom tanggal bisa diuji langsung sebagai fungsi:
- * keduanya mengembalikan string biasa, jadi tidak butuh DOM palsu.
+ * Sengaja TIDAK diekspor: array ini adalah reference yang sama persis yang
+ * diteruskan ke `<ResponsiveTable columns={...}>`, jadi mengekspornya berarti
+ * siapa pun bisa memutasinya dan bocor ke tabel produksi. Yang diuji adalah
+ * kedua fungsi teks di atas, bukan isi arraynya.
  */
-export const kolom: Column<IklanListItemDto>[] = [
+const kolom: Column<IklanListItemDto>[] = [
   { key: "nama", header: "Nama kampanye", priority: "primary" },
   { key: "kode", header: "Kode UTM", priority: "primary" },
   {
@@ -57,13 +69,13 @@ export const kolom: Column<IklanListItemDto>[] = [
     key: "tanggalMulai",
     header: "Mulai",
     priority: "tertiary",
-    render: (item) => formatDateDisplay(item.tanggalMulai),
+    render: teksTanggalMulai,
   },
   {
     key: "tanggalSelesai",
     header: "Selesai",
     priority: "tertiary",
-    render: (item) => formatDateDisplay(item.tanggalSelesai),
+    render: teksTanggalSelesai,
   },
 ];
 

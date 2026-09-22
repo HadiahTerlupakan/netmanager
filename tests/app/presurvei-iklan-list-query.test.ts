@@ -6,9 +6,10 @@ import { describe, expect, it } from "vitest";
  * di dalam komponen tidak akan pernah teruji.
  */
 
-import type { ReactNode } from "react";
-
-import { kolom } from "@/app/admin/presurvei/iklan/IklanTable";
+import {
+  teksTanggalMulai,
+  teksTanggalSelesai,
+} from "@/app/admin/presurvei/iklan/IklanTable";
 import {
   buildIklanListUrl,
   filterSetelahPindahHalaman,
@@ -158,45 +159,46 @@ describe("filterSetelahPindahHalaman", () => {
   });
 });
 
-/**
- * Menjalankan `render` satu kolom tanpa DOM apa pun.
- *
- * Hanya sah untuk kolom tanggal: keduanya mengembalikan string biasa, bukan
- * JSX. Kolom `channel` dan `isBerjalan` mengembalikan elemen dan memang tidak
- * terjangkau tanpa DOM palsu.
- */
-function renderKolomTanggal(
-  key: string,
-  item: Partial<IklanListItemDto>,
-): ReactNode {
-  const kolomTanggal = kolom.find((satuKolom) => satuKolom.key === key);
-  return kolomTanggal?.render?.(item as IklanListItemDto, 0);
+/** Item daftar seadanya; hanya field tanggal yang dibaca kedua fungsi teks. */
+function iklanDengan(field: Partial<IklanListItemDto>): IklanListItemDto {
+  return field as IklanListItemDto;
 }
 
-describe("kolom tanggal IklanTable", () => {
+/**
+ * Teks kolom tanggal.
+ *
+ * Diuji lewat kedua fungsi yang diekspor `IklanTable`, bukan dengan menelusuri
+ * definisi kolomnya: array kolom adalah reference yang sama yang diteruskan ke
+ * `<ResponsiveTable>`, jadi ia sengaja tidak diekspor.
+ *
+ * PERHATIAN — assertion di bawah bergantung pada `process.env.TZ =
+ * "Asia/Jakarta"` yang dipaku di `tests/setup.ts`. `formatDateDisplay`
+ * memformat dalam waktu lokal, jadi tanpa pemakuan itu ISO tengah malam UTC
+ * mundur sehari di mesin ber-offset negatif dan kedua assertion berikut merah
+ * tanpa ada yang salah pada kode produksinya.
+ */
+describe("teks kolom tanggal IklanTable", () => {
   it("memformat tanggal mulai, tidak mencetak ISO mentah", () => {
-    // Tanpa ini, mengembalikan render ke `item.tanggalMulai` lolos hijau dan
+    // Tanpa ini, mengembalikan isinya ke `item.tanggalMulai` lolos hijau dan
     // tabel mencetak 2026-09-22T00:00:00.000Z ke layar.
     expect(
-      renderKolomTanggal("tanggalMulai", {
-        tanggalMulai: "2026-09-22T00:00:00.000Z",
-      }),
+      teksTanggalMulai(
+        iklanDengan({ tanggalMulai: "2026-09-22T00:00:00.000Z" }),
+      ),
     ).toBe("22 Sep 2026");
   });
 
   it("memformat tanggal selesai dari fieldnya sendiri", () => {
-    // Tanggal sengaja berbeda dari test di atas: kalau kolom ini keliru
+    // Tanggal sengaja berbeda dari test di atas: kalau fungsi ini keliru
     // membaca `tanggalMulai`, nilainya jadi undefined dan hasilnya "-".
     expect(
-      renderKolomTanggal("tanggalSelesai", {
-        tanggalSelesai: "2026-10-05T00:00:00.000Z",
-      }),
+      teksTanggalSelesai(
+        iklanDengan({ tanggalSelesai: "2026-10-05T00:00:00.000Z" }),
+      ),
     ).toBe("5 Okt 2026");
   });
 
   it("menampilkan strip untuk kampanye tanpa tanggal selesai", () => {
-    expect(renderKolomTanggal("tanggalSelesai", { tanggalSelesai: null })).toBe(
-      "-",
-    );
+    expect(teksTanggalSelesai(iklanDengan({ tanggalSelesai: null }))).toBe("-");
   });
 });
