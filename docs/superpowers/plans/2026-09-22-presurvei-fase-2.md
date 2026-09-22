@@ -3728,16 +3728,21 @@ describe("TargetService.tetapkan", () => {
       bangunProspekRepo(),
     );
 
-    await service.tetapkan({
+    const masukan = {
       userId: "sales-1",
       periodeTahun: 2026,
       periodeBulan: 9,
       targetKunjungan: 20,
       targetProspek: 10,
       targetKonversi: 5,
-    });
+    };
 
-    expect(targetRepo.simpan).toHaveBeenCalledOnce();
+    await service.tetapkan(masukan);
+
+    // Memeriksa argumennya, bukan sekadar bahwa repository terpanggil: nama
+    // test ini menjanjikan "apa adanya", dan angka-angkanya bersebelahan serta
+    // bertipe sama sehingga tertukarnya tidak akan ditolak compiler.
+    expect(targetRepo.simpan).toHaveBeenCalledWith(masukan);
   });
 });
 ```
