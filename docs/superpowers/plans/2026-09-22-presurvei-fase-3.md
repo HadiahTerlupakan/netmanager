@@ -3450,3 +3450,49 @@ menolak melaporkannya sebagai lulus dan menjalankan varian yang benar untuk memb
 test-nya memang bergigi.
 
 **Setiap task menuntut pembuktian bahwa test-nya bergigi.** Tabel mutasi di tiap task bukan formalitas — di Fase 2 modul ini, tiga puluh dua mutasi dijalankan dan sembilan lolos hidup, termasuk assertion yang sudah diperketat sekali. Terapkan mutasinya, pastikan merah, lalu kembalikan, dan pastikan `git status --short` bersih sebelum commit.
+
+---
+
+## Task 19: Jaring jsdom untuk kabel yang hanya terlihat saat dirender
+
+> **Dijalankan SEBELUM Task 18.** Task 18 mengonsolidasikan changelog, jadi ia harus
+> melihat pekerjaan ini. Nomornya 19 hanya supaya penomoran task 1-18 tidak bergeser
+> dan brief yang sudah diekstrak tidak rusak.
+
+**Files:**
+- Test: `tests/app/presurvei-iklan-wiring.test.tsx` (baru)
+- Test tambahan sesuai daftar celah di ledger
+
+**Interfaces:**
+- Consumes: komponen dan hook yang sudah ada; task ini **tidak mengubah kode produksi**
+
+Task ini lahir dari kekeliruanku. Sepanjang Fase 3 aku memegang premis "repo ini tidak
+punya DOM palsu" dan menutup beberapa celah sebagai tak terhindarkan. Premis itu salah:
+`jsdom` 29 terpasang dan 14 berkas test sudah memakainya lewat pragma
+`// @vitest-environment jsdom` di baris pertama.
+
+**Yang ditutup task ini adalah kelas yang sama:** kabel antar-berkas yang tidak bisa
+dijaga fungsi murni mana pun, karena yang salah bukan isi fungsinya melainkan nilai
+yang diteruskan ke sana. Semuanya sudah dibuktikan lolos hijau lewat mutasi saat
+task asalnya direview — daftar lengkap beserta mutasi pembuktinya ada di
+`.superpowers/sdd/2026-09-22-presurvei-fase-3/progress.md`.
+
+Celah yang sudah teridentifikasi saat rencana ini ditulis:
+
+| Celah | Berkas | Mutasi yang lolos hijau |
+|---|---|---|
+| Mode form ditulis dua kali di situs pakai | `IklanEditClient.tsx` | `mode={{ jenis: "buat" }}` di JSX sementara `opsiSimpanUntukMode(mode)` memakai mode ubah |
+| Baris `render:` kolom tanggal | `IklanTable.tsx` | `render: (item) => item.tanggalMulai` |
+| Kunci invalidasi cache | `useSimpanIklan.ts` | kunci diganti jadi yang tidak cocok |
+| Tujuan `router.push` setelah simpan | `useSimpanIklan.ts` | diganti rute lain |
+
+**Preseden yang diikuti:** `tests/lib/use-invalidate-planning.test.tsx` — `createRoot` +
+`act` + `QueryClientProvider`, menguji `invalidateQueries` lalu `router.push`, lahir dari
+regresi nyata. Juga `tests/app/admin/canvasing-list.test.tsx`. Repo ini **tidak** punya
+`@testing-library`; render dan `waitFor` ditulis tangan.
+
+**Sebelum mulai, baca ledger** dan tambahkan celah yang ditemukan Task 7-17 ke daftar di
+atas. Tiap celah wajib disertai mutasi yang membuktikannya merah setelah test ditulis.
+
+**Yang TIDAK dikerjakan:** jangan mengubah kode produksi. Kalau sebuah celah ternyata
+menuntut perubahan kode untuk bisa diuji, laporkan — jangan ubah sendiri.
