@@ -2716,6 +2716,19 @@ describe("toIklanListItem", () => {
   it("menandai iklan berjalan saat aktif dan tanggalnya masih berlaku", () => {
     expect(toIklanListItem(iklan()).isBerjalan).toBe(true);
   });
+
+  it("membawa field penanda dari entitas tanpa tertukar", () => {
+    // `id` dan `kode` sama-sama string, jadi tertukarnya tidak akan ditolak
+    // compiler maupun test yang hanya memeriksa tanggal dan penanda. Padahal
+    // `kode` adalah kunci pencocokan utm_campaign: tertukar dengan `id`,
+    // seluruh atribusi iklan meleset tanpa satu pun gejala di permukaan.
+    expect(toIklanListItem(iklan())).toMatchObject({
+      id: "iklan-1",
+      nama: "Promo Ramadan",
+      kode: "promo-ramadan",
+      channel: "META",
+    });
+  });
 });
 
 describe("toIklanDetail", () => {
@@ -2732,13 +2745,24 @@ describe("toIklanDetail", () => {
     // Kampanye berbiaya nol itu wajar — organik, atau anggarannya belum diisi.
     expect(toIklanDetail(iklan({ biaya: 0 })).biaya).toBe(0);
   });
+
+  it("membawa field penanda dan jejak waktu dari entitas tanpa tertukar", () => {
+    expect(toIklanDetail(iklan())).toMatchObject({
+      id: "iklan-1",
+      nama: "Promo Ramadan",
+      kode: "promo-ramadan",
+      channel: "META",
+      createdAt: "2020-01-01T00:00:00.000Z",
+      updatedAt: "2020-01-01T00:00:00.000Z",
+    });
+  });
 });
 ```
 
 - [ ] **Step 3: Jalankan test**
 
 Run: `npx vitest run tests/modules/presurvei/iklan-dto.test.ts`
-Expected: PASS — 6 test lulus.
+Expected: PASS — 8 test lulus.
 
 - [ ] **Step 4: Ekspor dari public API**
 
