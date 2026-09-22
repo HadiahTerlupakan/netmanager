@@ -161,6 +161,19 @@ describe("toKegiatanDetail", () => {
       "2026-09-22T01:00:00.000Z",
     );
   });
+
+  it("mewarisi koordinat dari item daftar, tidak menyalinnya sendiri", () => {
+    // Kedua baris ini ada di dalam toKegiatanDetail sampai koordinat pindah
+    // ke DTO induk. Sejak KegiatanDetailDto tidak lagi mendeklarasikannya
+    // sendiri, compiler tidak akan menolak override yang ditambahkan setelah
+    // spread — jadi assertion inilah satu-satunya yang menjaganya.
+    const hasil = toKegiatanDetail(
+      kegiatan({ latitude: -6.2, longitude: 106.8 }),
+    );
+
+    expect(hasil.latitude).toBe(-6.2);
+    expect(hasil.longitude).toBe(106.8);
+  });
 });
 
 describe("toProspekDetail — tanggal konversi", () => {

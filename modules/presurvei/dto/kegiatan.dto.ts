@@ -15,10 +15,10 @@ export interface KegiatanListItemDto {
   waktuMulai: string;
   alamatDikunjungi: string | null;
   ditemuiNama: string | null;
-  hasil: string;
-  jumlahFoto: number;
   latitude: number | null;
   longitude: number | null;
+  hasil: string;
+  jumlahFoto: number;
 }
 
 export interface KegiatanDetailDto extends KegiatanListItemDto {
@@ -46,10 +46,10 @@ export function toKegiatanListItem(
     waktuMulai: kegiatan.waktuMulai.toISOString(),
     alamatDikunjungi: kegiatan.alamatDikunjungi,
     ditemuiNama: kegiatan.ditemuiNama,
-    hasil: kegiatan.hasil,
-    jumlahFoto: kegiatan.fotoUrls.length,
     latitude: kegiatan.latitude,
     longitude: kegiatan.longitude,
+    hasil: kegiatan.hasil,
+    jumlahFoto: kegiatan.fotoUrls.length,
   };
 }
 
