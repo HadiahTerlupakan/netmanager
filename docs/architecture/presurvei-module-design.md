@@ -658,7 +658,7 @@ tetap berfungsi.
 |---|---|---|---|
 | 1 | Skema + migration + domain + repository + `KegiatanService` + `ProspekService` + API kegiatan & prospek + test | Kegiatan dan prospek bisa dicatat lewat API | ✅ Selesai |
 | 2 | `PresurveiIklan` + `PresurveiTarget` + event registration + UTM + `ProspekKonversiService` | Atribusi sumber lengkap, promosi ke canvasing berfungsi | ✅ Selesai (2026-09-22) |
-| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan | Manajemen bisa melihat kegiatan tim | ⬜ Belum dikerjakan |
+| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan — desain rinci di [`presurvei-ui-admin-design.md`](./presurvei-ui-admin-design.md) | Manajemen bisa melihat kegiatan tim | ⬜ Belum dikerjakan |
 | 4 | Mobile: route group `(sales)`, beranda sales, layar presurvei, pengarahan setelah login | Sales bekerja penuh dari aplikasi | ⬜ Belum dikerjakan |
 
 Fase 1 dan 2 selesai. Sampai Fase 3 (UI admin web) dan Fase 4 (mobile sales)
