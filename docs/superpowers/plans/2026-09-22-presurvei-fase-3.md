@@ -3504,3 +3504,45 @@ atas. Tiap celah wajib disertai mutasi yang membuktikannya merah setelah test di
 
 **Yang TIDAK dikerjakan:** jangan mengubah kode produksi. Kalau sebuah celah ternyata
 menuntut perubahan kode untuk bisa diuji, laporkan — jangan ubah sendiri.
+
+---
+
+## Task 20: Sumber nama sales untuk layar presurvei
+
+> **Dijalankan SEBELUM Task 15.** Task 15, 16, dan 17 menampilkan "sales × metrik";
+> tanpa ini ketiganya mencetak cuid mentah. Dinomori 20 supaya penomoran 1-18 tidak
+> bergeser.
+
+**Files:**
+- Modify: `modules/presurvei/repositories/`, `modules/presurvei/dto/`
+- Create: satu endpoint daftar sales di bawah permission presurvei
+- Test: sesuai berkas yang disentuh
+
+Ditemukan implementer Task 7. Seluruh modul presurvei hanya membawa `userId`:
+`KegiatanListItemDto`, `KegiatanEntity`, `TargetDto`, dan `BarisLaporanDto` tidak
+punya satu pun field nama, dan **tidak ada satu pun repository presurvei yang join ke
+tabel user**. Layar Task 7 sudah menampilkan id mentah hari ini.
+
+**Kenapa tidak cukup memanggil endpoint yang sudah ada:** `/api/admin/users` menuntut
+`users:read` dan `/api/admin/marketing/sales` menuntut `sales:read`. Pemegang
+`presurvei:read` — pemakai utama layar-layar ini — belum tentu punya keduanya, jadi
+memanggilnya akan menyambut mereka dengan 403 di layar yang seharusnya mereka miliki.
+
+**Polanya sudah ada di modul ini.** `modules/presurvei/services/event-handlers/cari-sales-teringan.ts:22`
+melakukan `prisma.user.findMany({ where: { tenantId, isSales: true, isActive: true } })`.
+Itu definisi "sales" yang dipakai modul ini, dan itu yang harus dipakai ulang.
+
+Dua kebutuhan berbeda, keduanya perlu:
+
+1. **Nama pada baris daftar** — join di repository lalu bawa di DTO. Mengambilnya
+   per-baris lewat endpoint terpisah melahirkan N+1 pada halaman berisi puluhan baris,
+   persis alasan Task 3 memindahkan koordinat ke DTO induk.
+2. **Daftar sales untuk dropdown filter dan layar target** — satu endpoint di bawah
+   permission presurvei yang mengembalikan `{ id, nama }` untuk sales aktif di tenant.
+
+**Perhatian tenant:** ekstensi Prisma **tidak** menjangkau `where` yang bersarang di
+dalam `include`/`select`. Bila join ditulis bersarang, `tenantId` wajib ditulis eksplisit
+di situ — lihat `cari-sales-teringan.ts` sebagai contoh yang sudah benar.
+
+**Sebelum mulai:** putuskan apakah nama yang ditampilkan adalah `name`, `username`, atau
+gabungan, dan pastikan konsisten di kedua kebutuhan di atas.
