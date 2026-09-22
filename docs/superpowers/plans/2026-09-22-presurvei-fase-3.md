@@ -212,7 +212,11 @@ Create `modules/presurvei/utils/statusConfig.ts`:
 
 import type { IklanChannel } from "../domain/entities/Iklan";
 import type { KegiatanHasil, KegiatanJenis } from "../domain/entities/Kegiatan";
-import type { ProspekStatus, ProspekSumber } from "../domain/entities/Prospek";
+import {
+  PROSPEK_STATUSES,
+  type ProspekStatus,
+  type ProspekSumber,
+} from "../domain/entities/Prospek";
 
 /** Bagaimana satu nilai enum ditampilkan. */
 export interface TampilanStatus {
@@ -271,25 +275,31 @@ export const IKLAN_CHANNEL_CONFIG: Record<IklanChannel, TampilanStatus> = {
  * pemanggil yang meng-`sort()` hasilnya akan mengacak urutan kolom bagi
  * seluruh pemakai proses ini, dan server ini berumur panjang.
  */
-const KOLOM_HIDUP: readonly ProspekStatus[] = [
-  "BARU",
-  "DIHUBUNGI",
-  "TERTARIK",
-  "NEGOSIASI",
-  "DEAL",
-];
+const KOLOM_STATUS: Record<ProspekStatus, "hidup" | "mati"> = {
+  BARU: "hidup",
+  DIHUBUNGI: "hidup",
+  TERTARIK: "hidup",
+  NEGOSIASI: "hidup",
+  DEAL: "hidup",
+  TIDAK_MINAT: "mati",
+  TIDAK_LAYAK: "mati",
+};
 
-/** Status yang disembunyikan di balik sakelar; prospek mati mengotori papan kerja. */
-const KOLOM_MATI: readonly ProspekStatus[] = ["TIDAK_MINAT", "TIDAK_LAYAK"];
-
-/** Salinan kolom corong hidup, berurutan dari kiri. */
+/**
+ * Salinan kolom corong hidup, berurutan dari kiri.
+ *
+ * Diturunkan dari `PROSPEK_STATUSES` lewat `.filter()`, bukan ditulis sebagai
+ * array tersendiri: bentuk `Record` memaksa status baru dijawab saat kompilasi,
+ * dan `.filter()` menghasilkan array baru tiap panggilan sehingga sifat
+ * salinannya tetap.
+ */
 export function daftarKolomHidup(): ProspekStatus[] {
-  return [...KOLOM_HIDUP];
+  return PROSPEK_STATUSES.filter((status) => KOLOM_STATUS[status] === "hidup");
 }
 
-/** Salinan kolom status mati. */
+/** Salinan kolom status mati; prospek mati mengotori papan kerja. */
 export function daftarKolomMati(): ProspekStatus[] {
-  return [...KOLOM_MATI];
+  return PROSPEK_STATUSES.filter((status) => KOLOM_STATUS[status] === "mati");
 }
 ```
 
