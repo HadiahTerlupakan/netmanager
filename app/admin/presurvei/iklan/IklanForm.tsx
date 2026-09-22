@@ -12,8 +12,7 @@ import {
 } from "@/modules/presurvei/client";
 
 import {
-  keMuatanBuat,
-  keMuatanUbah,
+  muatanUntukMode,
   schemaUntukMode,
   URL_DAFTAR_IKLAN,
   type MuatanBuatIklan,
@@ -89,7 +88,7 @@ export function IklanForm({
 
     // Muatan dibentuk sekali lalu dipakai ulang: yang divalidasi wajib persis
     // yang dikirim. Dua ekspresi terpisah bisa menyimpang tanpa ditolak `tsc`.
-    const muatan = isModeUbah ? keMuatanUbah(nilai) : keMuatanBuat(nilai);
+    const muatan = muatanUntukMode(isModeUbah, nilai);
     const hasil = schemaUntukMode(isModeUbah).safeParse(muatan);
 
     if (!hasil.success) {

@@ -96,6 +96,19 @@ export function schemaUntukMode(isModeUbah: boolean) {
   return isModeUbah ? ubahIklanSchema : buatIklanSchema;
 }
 
+/**
+ * Pembentuk muatan yang berlaku untuk mode form saat ini.
+ *
+ * Dipisah dari komponen karena tertukarnya tidak simetris: mode buat dengan
+ * pembentuk ubah ditolak di klik pertama (kode hilang), tapi mode ubah dengan
+ * pembentuk buat LOLOS SENYAP — `ubahIklanSchema` men-strip `kode` tanpa error,
+ * dan tidak ada yang tahu sampai seseorang bertanya kenapa kode UTM-nya tidak
+ * pernah berubah.
+ */
+export function muatanUntukMode(isModeUbah: boolean, nilai: NilaiFormIklan) {
+  return isModeUbah ? keMuatanUbah(nilai) : keMuatanBuat(nilai);
+}
+
 /** Nilai form dari kampanye yang sudah ada, untuk mode ubah. */
 export function keNilaiForm(iklan: IklanDetailDto): NilaiFormIklan {
   return {

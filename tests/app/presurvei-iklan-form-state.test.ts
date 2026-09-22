@@ -11,6 +11,7 @@ import {
   keMuatanBuat,
   keMuatanUbah,
   keNilaiForm,
+  muatanUntukMode,
   schemaUntukMode,
   type NilaiFormIklan,
 } from "@/app/admin/presurvei/iklan/iklanFormState";
@@ -91,6 +92,27 @@ describe("schemaUntukMode", () => {
 
     expect(schemaUntukMode(false).safeParse(tanpaKode).success).toBe(false);
     expect(schemaUntukMode(true).safeParse(tanpaKode).success).toBe(true);
+  });
+});
+
+describe("muatanUntukMode", () => {
+  it("memakai pembentuk ubah pada mode ubah", () => {
+    expect(muatanUntukMode(true, nilaiLengkap)).toEqual(
+      keMuatanUbah(nilaiLengkap),
+    );
+  });
+
+  it("memakai pembentuk buat pada mode buat", () => {
+    expect(muatanUntukMode(false, nilaiLengkap)).toEqual(
+      keMuatanBuat(nilaiLengkap),
+    );
+  });
+
+  it("tidak pernah mengirim kode pada mode ubah", () => {
+    // Inilah arah yang senyap. `ubahIklanSchema` men-strip `kode` tanpa error,
+    // jadi memakai pembentuk buat di mode ubah lolos validasi dan lolos test
+    // identitas apa pun yang cuma membandingkan bentuk.
+    expect(muatanUntukMode(true, nilaiLengkap)).not.toHaveProperty("kode");
   });
 });
 
