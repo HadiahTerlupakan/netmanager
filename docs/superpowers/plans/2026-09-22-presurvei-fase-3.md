@@ -1634,7 +1634,7 @@ Terapkan mutasi berikut, pastikan merah, lalu **kembalikan**:
 
 | Mutasi | Harus merah |
 |---|---|
-| Ganti `bersih === ""` jadi `!bersih` di `angkaAtauNull` | test "mempertahankan biaya nol" |
+| Ganti seluruh badan `angkaAtauNull` jadi `return Number(bersih) \|\| null;` | test "mempertahankan biaya nol" |
 | Ganti `iklan.biaya === null` jadi `!iklan.biaya` di `keNilaiForm` | test "mengisi medan dari iklan yang sudah ada" |
 | Tambahkan `kode` ke keluaran `keMuatanUbah` | test "tidak pernah mengirim kode" |
 
@@ -2900,7 +2900,7 @@ Berhasil: panggil `useInvalidatePresurveiKonversi()`, `toast.success`, tutup mod
 
 | Mutasi | Harus merah |
 |---|---|
-| Ganti `bersih === ""` jadi truthiness pada kabel | test "mengirim null untuk kabel yang dikosongkan" |
+| Ganti pembentuk nilai kabel jadi `Number(...) \|\| null` | test "mengirim null untuk kabel yang dikosongkan" |
 | Tukar `noKtp` dengan `paket` di keluaran | test "memakai nilai yang berbeda untuk noKtp dan paket" |
 
 - [ ] **Step 7: Commit**
@@ -3439,5 +3439,14 @@ git commit -m "docs(presurvei): catat penyelesaian fase 3 UI admin"
 **Urutan task disengaja.** Iklan (Task 5–6) dikerjakan lebih dulu meski bukan yang paling penting, karena ia layar paling sederhana yang lengkap — satu daftar, satu form, tanpa peta maupun seret. Ia menetapkan pola yang disalin lima layar lain. Memulai dari papan kanban akan membuat keputusan pola diambil sambil bergulat dengan bagian tersulit.
 
 **Empat task pertama tidak menghasilkan layar apa pun.** Itu disengaja: barrel klien, konfigurasi status, aturan seret, dan registrasi menu adalah prasyarat yang dipakai berulang, dan membangunnya sambil jalan akan melahirkan empat versi berbeda.
+
+**Mutasi truthiness harus mengenai ANGKA, bukan string.** `const bersih = teks.trim()`
+selalu bertipe `string`, dan satu-satunya string falsy adalah `""` — jadi mengganti
+`bersih === ""` dengan `!bersih` adalah **no-op**, bukan cacat yang lolos, dan test yang
+tetap hijau tidak membuktikan apa pun. Jebakan falsy yang sesungguhnya ada pada hasil
+konversinya: `Number("0")` adalah `0`, yang falsy. Jadi mutasi yang benar berbentuk
+`Number(...) || null`. Ini cacat rencanaku yang ditemukan implementer Task 6 — ia
+menolak melaporkannya sebagai lulus dan menjalankan varian yang benar untuk membuktikan
+test-nya memang bergigi.
 
 **Setiap task menuntut pembuktian bahwa test-nya bergigi.** Tabel mutasi di tiap task bukan formalitas — di Fase 2 modul ini, tiga puluh dua mutasi dijalankan dan sembilan lolos hidup, termasuk assertion yang sudah diperketat sekali. Terapkan mutasinya, pastikan merah, lalu kembalikan, dan pastikan `git status --short` bersih sebelum commit.
