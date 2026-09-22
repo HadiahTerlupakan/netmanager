@@ -38,6 +38,8 @@ export {
   isSumberButuhReferral,
 } from "./domain/prospek-rules";
 
+export { resolveAksiKanban, type AksiKanban } from "./domain/prospek-kanban";
+
 export {
   isButuhDataTeknis,
   isButuhIklan,
