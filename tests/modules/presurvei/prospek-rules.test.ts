@@ -9,7 +9,9 @@ import { describe, expect, it } from "vitest";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 import {
   canPromosikanKeCanvasing,
+  daftarStatusBebanAktif,
   getStatusLanjutan,
+  isStatusBebanAktif,
   isStatusFinal,
   isSumberButuhIklan,
   isSumberButuhReferral,
@@ -82,6 +84,46 @@ describe("isStatusFinal", () => {
 
   it("tidak menandai TIDAK_MINAT sebagai final karena bisa dibuka lagi", () => {
     expect(isStatusFinal("TIDAK_MINAT")).toBe(false);
+  });
+});
+
+describe("isStatusBebanAktif", () => {
+  it("menghitung status yang masih dikerjakan", () => {
+    for (const status of [
+      "BARU",
+      "DIHUBUNGI",
+      "TERTARIK",
+      "NEGOSIASI",
+    ] as const) {
+      expect(isStatusBebanAktif(status)).toBe(true);
+    }
+  });
+
+  it("tidak menghitung TIDAK_MINAT walau statusnya belum final", () => {
+    // Inti perbaikannya. TIDAK_MINAT punya transisi keluar ke DIHUBUNGI,
+    // sehingga isStatusFinal-nya false — tapi ia tidak lagi menuntut kerja.
+    // Meminjam isStatusFinal di sini membuat sales yang rajin menandai lead
+    // mati berhenti menerima lead baru selamanya.
+    expect(isStatusFinal("TIDAK_MINAT")).toBe(false);
+    expect(isStatusBebanAktif("TIDAK_MINAT")).toBe(false);
+  });
+
+  it("tidak menghitung status final", () => {
+    expect(isStatusBebanAktif("DEAL")).toBe(false);
+    expect(isStatusBebanAktif("TIDAK_LAYAK")).toBe(false);
+  });
+});
+
+describe("daftarStatusBebanAktif", () => {
+  it("mengembalikan salinan, bukan tabel aslinya", () => {
+    const pertama = daftarStatusBebanAktif();
+    pertama.sort();
+    expect(daftarStatusBebanAktif()).toEqual([
+      "BARU",
+      "DIHUBUNGI",
+      "TERTARIK",
+      "NEGOSIASI",
+    ]);
   });
 });
 

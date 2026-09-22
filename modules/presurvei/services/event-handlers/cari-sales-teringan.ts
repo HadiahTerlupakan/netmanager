@@ -1,26 +1,33 @@
 import { prisma } from "@/modules/database";
-import { PROSPEK_STATUSES } from "../../domain/entities/Prospek";
-import { isStatusFinal } from "../../domain/prospek-rules";
+import { daftarStatusBebanAktif } from "../../domain/prospek-rules";
 
 /**
- * Sales dengan prospek aktif paling sedikit, atau null bila tidak ada sales.
+ * Sales dengan beban prospek paling ringan di sebuah tenant, atau null bila
+ * tenant itu tidak punya sales aktif.
  *
  * Prospek dari form publik tidak membawa petunjuk siapa yang harus menanganinya,
  * jadi dibagi merata. Mengembalikan null — bukan menempelkannya ke orang pertama
  * yang ditemukan — supaya prospek tak bertuan terlihat jelas di daftar admin.
+ *
+ * `tenantId` wajib dan dipakai dua kali: pada sales yang dicari, dan pada
+ * hitungan bebannya. Yang kedua tidak bisa diserahkan ke ekstensi Prisma —
+ * ekstensi hanya menulis ulang `where` level atas, tidak yang bersarang di
+ * dalam `_count`.
  */
-export async function cariSalesTeringan(): Promise<string | null> {
-  const statusAktif = PROSPEK_STATUSES.filter(
-    (status) => !isStatusFinal(status),
-  );
+export async function cariSalesTeringan(
+  tenantId: string,
+): Promise<string | null> {
+  const statusBeban = daftarStatusBebanAktif();
 
   const sales = await prisma.user.findMany({
-    where: { isSales: true, isActive: true },
+    where: { tenantId, isSales: true, isActive: true },
     select: {
       id: true,
       _count: {
         select: {
-          presurveiProspek: { where: { status: { in: statusAktif } } },
+          presurveiProspek: {
+            where: { tenantId, status: { in: statusBeban } },
+          },
         },
       },
     },

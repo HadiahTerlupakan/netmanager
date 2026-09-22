@@ -22,7 +22,9 @@ export {
 
 export {
   canPromosikanKeCanvasing,
+  daftarStatusBebanAktif,
   getStatusLanjutan,
+  isStatusBebanAktif,
   isStatusFinal,
   isSumberButuhIklan,
   isSumberButuhReferral,

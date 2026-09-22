@@ -60,6 +60,31 @@ export function isStatusFinal(status: ProspekStatus): boolean {
 }
 
 /**
+ * Status yang masih menuntut kerja dari sales pemiliknya.
+ *
+ * Sengaja TIDAK diturunkan dari `isStatusFinal`: yang itu menjawab "masih bisa
+ * pindah status", dan TIDAK_MINAT masih bisa (kembali ke DIHUBUNGI bila
+ * pelanggan berubah pikiran) padahal tidak lagi menuntut kerja. Meminjamnya
+ * membuat prospek mati ikut terhitung sebagai beban.
+ */
+const STATUS_BEBAN_AKTIF: readonly ProspekStatus[] = [
+  "BARU",
+  "DIHUBUNGI",
+  "TERTARIK",
+  "NEGOSIASI",
+];
+
+/** Apakah status ini masih menuntut kerja dari sales pemiliknya. */
+export function isStatusBebanAktif(status: ProspekStatus): boolean {
+  return STATUS_BEBAN_AKTIF.includes(status);
+}
+
+/** Salinan daftar status beban aktif, untuk dipakai sebagai filter query. */
+export function daftarStatusBebanAktif(): ProspekStatus[] {
+  return [...STATUS_BEBAN_AKTIF];
+}
+
+/**
  * Apakah prospek siap dipromosikan menjadi canvasing.
  *
  * Syaratnya: sudah DEAL, belum pernah dipromosikan, dan data minimal untuk

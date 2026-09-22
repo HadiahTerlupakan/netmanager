@@ -26,6 +26,11 @@ export async function handleRegistrationCreatedPresurvei(
   const nama = requirePayloadString(payload.nama, "nama", SOURCE);
   const noTelp = requirePayloadString(payload.noTelp, "noTelp", SOURCE);
   const alamat = requirePayloadString(payload.alamat, "alamat", SOURCE);
+  // Tanpa ini handler berjalan di system context, dan di sana ekstensi Prisma
+  // tidak menyuntik filter tenant sama sekali: sales tenant lain bisa terpilih
+  // sebagai pemilik, dan barisnya lahir ber-tenantId null sehingga tak pernah
+  // muncul di daftar mana pun.
+  const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
 
   const repository = new ProspekRepository();
 
@@ -37,6 +42,8 @@ export async function handleRegistrationCreatedPresurvei(
     return;
   }
 
+  const pemilikId = await cariSalesTeringan(tenantId);
+
   const prospek = await repository.create({
     nama,
     noTelp,
@@ -45,7 +52,7 @@ export async function handleRegistrationCreatedPresurvei(
     paketDiminati: (payload.paketDiminati as string | null) ?? null,
     sumber: "WEBSITE",
     registrationId,
-    pemilikId: await cariSalesTeringan(),
+    pemilikId,
   });
 
   logger.info(

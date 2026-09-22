@@ -110,4 +110,24 @@ describe("handleRegistrationCreatedPresurvei", () => {
       handleRegistrationCreatedPresurvei(job(tanpaTelp)),
     ).rejects.toThrow();
   });
+
+  it("menolak payload tanpa tenantId dan tidak menyentuh apa pun", async () => {
+    // Tanpa tenantId, worker menjalankan handler di system context dan ekstensi
+    // Prisma berhenti memfilter: sales tenant lain bisa terpilih dan barisnya
+    // lahir yatim. Lebih baik gagal berisik.
+    const { tenantId: _dibuang, ...tanpaTenant } = payloadLengkap;
+
+    await expect(
+      handleRegistrationCreatedPresurvei(job(tanpaTenant)),
+    ).rejects.toThrow();
+
+    expect(cariSalesTeringan).not.toHaveBeenCalled();
+    expect(buatProspek).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan tenantId ke pencarian sales", async () => {
+    await handleRegistrationCreatedPresurvei(job(payloadLengkap));
+
+    expect(cariSalesTeringan).toHaveBeenCalledWith("tenant-1");
+  });
 });
