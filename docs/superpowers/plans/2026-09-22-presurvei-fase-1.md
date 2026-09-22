@@ -614,7 +614,7 @@ export function canPromosikanKeCanvasing(
 - [ ] **Step 4: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/prospek-rules.test.ts`
-Expected: PASS — 14 test lulus.
+Expected: PASS — 16 test lulus.
 
 - [ ] **Step 5: Commit**
 
@@ -808,7 +808,7 @@ export function isHasilMelahirkanProspek(hasil: KegiatanHasil): boolean {
 - [ ] **Step 4: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/kegiatan-rules.test.ts`
-Expected: PASS — 8 test lulus.
+Expected: PASS — 6 test lulus.
 
 - [ ] **Step 5: Commit**
 
@@ -1614,6 +1614,69 @@ describe("KegiatanRepository.findMany", () => {
     const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0];
     expect(argumen?.orderBy).toEqual({ waktuMulai: "desc" });
   });
+
+  it("memakai batas bawah saja saat hanya dariTanggal diisi", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      dariTanggal: new Date("2026-09-01T00:00:00.000Z"),
+    });
+
+    const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0];
+    expect(argumen?.where?.waktuMulai).toEqual({
+      gte: new Date("2026-09-01T00:00:00.000Z"),
+    });
+  });
+
+  it("memakai batas atas saja saat hanya sampaiTanggal diisi", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      sampaiTanggal: new Date("2026-09-30T00:00:00.000Z"),
+    });
+
+    const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0];
+    expect(argumen?.where?.waktuMulai).toEqual({
+      lte: new Date("2026-09-30T00:00:00.000Z"),
+    });
+  });
+
+  it("menggabungkan filter sederhana dan rentang tanggal sekaligus", async () => {
+    // Tiap filter tunggal sudah punya testnya sendiri, tapi itu tidak menangkap
+    // penggabungan yang saling menimpa — satu key yang hilang saat di-spread
+    // hanya terlihat ketika beberapa filter dipakai bersamaan.
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      userId: "user-1",
+      jenis: "SURVEI_LOKASI",
+      hasil: "TERTARIK",
+      prospekId: "prospek-1",
+      dariTanggal: new Date("2026-09-01T00:00:00.000Z"),
+      sampaiTanggal: new Date("2026-09-30T00:00:00.000Z"),
+    });
+
+    const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0];
+    expect(argumen?.where).toEqual({
+      userId: "user-1",
+      jenis: "SURVEI_LOKASI",
+      hasil: "TERTARIK",
+      prospekId: "prospek-1",
+      waktuMulai: {
+        gte: new Date("2026-09-01T00:00:00.000Z"),
+        lte: new Date("2026-09-30T00:00:00.000Z"),
+      },
+    });
+  });
 });
 
 describe("KegiatanRepository.create", () => {
@@ -1819,7 +1882,7 @@ export class KegiatanRepository implements IKegiatanRepository {
 - [ ] **Step 5: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/kegiatan-repository.test.ts`
-Expected: PASS — 6 test lulus.
+Expected: PASS — 9 test lulus.
 
 - [ ] **Step 6: Commit**
 
