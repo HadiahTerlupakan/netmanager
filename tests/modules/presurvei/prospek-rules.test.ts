@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
  * tidak diizinkan — misalnya langsung dari BARU ke DEAL tanpa pernah dihubungi.
  */
 
+import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 import {
   canPromosikanKeCanvasing,
   getStatusLanjutan,
@@ -76,8 +77,13 @@ describe("getStatusLanjutan", () => {
 });
 
 describe("canPromosikanKeCanvasing", () => {
-  const prospekSiap = {
-    status: "DEAL" as const,
+  // Anotasi tipe wajib: tanpanya `canvasingId: null` jadi implicit any karena
+  // repo mematikan strictNullChecks.
+  const prospekSiap: Pick<
+    ProspekEntity,
+    "status" | "canvasingId" | "noTelp" | "alamat"
+  > = {
+    status: "DEAL",
     canvasingId: null,
     noTelp: "081234567890",
     alamat: "Jl. Merdeka 10",
