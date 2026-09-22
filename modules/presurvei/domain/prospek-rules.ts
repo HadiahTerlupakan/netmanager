@@ -7,7 +7,7 @@ import type { ProspekEntity, ProspekStatus } from "./entities/Prospek";
  * satu-satunya definisi "kapan prospek boleh pindah status" tidak tersebar.
  */
 
-const TRANSISI_SAH: Record<ProspekStatus, ProspekStatus[]> = {
+const TRANSISI_SAH: Record<ProspekStatus, readonly ProspekStatus[]> = {
   BARU: ["DIHUBUNGI", "TIDAK_MINAT"],
   DIHUBUNGI: ["TERTARIK", "TIDAK_MINAT", "TIDAK_LAYAK"],
   TERTARIK: ["NEGOSIASI", "TIDAK_MINAT", "TIDAK_LAYAK"],
@@ -17,9 +17,16 @@ const TRANSISI_SAH: Record<ProspekStatus, ProspekStatus[]> = {
   TIDAK_LAYAK: [],
 };
 
-/** Daftar status yang boleh dituju dari status saat ini. */
+/**
+ * Daftar status yang boleh dituju dari status saat ini.
+ *
+ * Mengembalikan salinan, bukan array aslinya: server berjalan sebagai proses
+ * panjang, jadi satu pemanggil yang memutasi hasilnya — `.sort()` untuk
+ * menampilkan dropdown sudah cukup — akan merusak tabel transisi bagi seluruh
+ * tenant selama proses itu hidup.
+ */
 export function getStatusLanjutan(status: ProspekStatus): ProspekStatus[] {
-  return TRANSISI_SAH[status];
+  return [...TRANSISI_SAH[status]];
 }
 
 /** Apakah perpindahan status prospek diizinkan aturan funnel. */

@@ -70,9 +70,21 @@ describe("getStatusLanjutan", () => {
   });
 
   it("mengembalikan semua tujuan yang sah dari NEGOSIASI", () => {
-    expect(getStatusLanjutan("NEGOSIASI").sort()).toEqual(
+    expect([...getStatusLanjutan("NEGOSIASI")].sort()).toEqual(
       ["DEAL", "TIDAK_LAYAK", "TIDAK_MINAT"].sort(),
     );
+  });
+
+  it("mengembalikan salinan sehingga pemanggil tidak bisa merusak tabel transisi", () => {
+    const hasil = getStatusLanjutan("NEGOSIASI");
+    hasil.sort();
+    hasil.push("BARU");
+
+    expect(getStatusLanjutan("NEGOSIASI")).toEqual([
+      "DEAL",
+      "TIDAK_MINAT",
+      "TIDAK_LAYAK",
+    ]);
   });
 });
 
