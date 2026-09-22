@@ -112,4 +112,39 @@ describe("toKegiatanDetail", () => {
       estimasiKabelMeter: 120,
     });
   });
+
+  it("tetap menampilkan data teknis saat estimasi kabelnya nol meter", () => {
+    // Nol meter adalah hasil survei yang sah. Kalau pemeriksaan ini suatu saat
+    // "disederhanakan" jadi truthiness, seluruh blok data teknis akan hilang
+    // dari UI dan hasil surveinya tidak pernah terlihat.
+    const hasil = toKegiatanDetail(
+      kegiatan({ jenis: "SURVEI_LOKASI", estimasiKabelMeter: 0 }),
+    );
+
+    expect(hasil.dataTeknis).toEqual({
+      odpTerdekat: null,
+      estimasiKabelMeter: 0,
+      catatanTeknis: null,
+    });
+  });
+
+  it("mengubah waktu mulai menjadi ISO string", () => {
+    expect(toKegiatanDetail(kegiatan()).waktuMulai).toBe(
+      "2026-09-22T01:00:00.000Z",
+    );
+  });
+});
+
+describe("toProspekDetail — tanggal konversi", () => {
+  it("mengembalikan null saat prospek belum pernah dikonversi", () => {
+    expect(toProspekDetail(prospek()).konversiAt).toBeNull();
+  });
+
+  it("mengubah tanggal konversi menjadi ISO string saat sudah terisi", () => {
+    const hasil = toProspekDetail(
+      prospek({ konversiAt: new Date("2026-09-23T04:05:06.000Z") }),
+    );
+
+    expect(hasil.konversiAt).toBe("2026-09-23T04:05:06.000Z");
+  });
 });

@@ -53,7 +53,10 @@ export function toKegiatanListItem(
 
 /** Rincian lengkap kegiatan untuk halaman detail. */
 export function toKegiatanDetail(kegiatan: KegiatanEntity): KegiatanDetailDto {
-  const punyaDataTeknis =
+  // Perbandingan eksplisit terhadap null, bukan truthiness: estimasi kabel
+  // 0 meter adalah hasil survei yang sah, dan `Boolean(0)` akan menyembunyikan
+  // seluruh blok data teknis dari UI.
+  const hasDataTeknis =
     kegiatan.odpTerdekat !== null ||
     kegiatan.estimasiKabelMeter !== null ||
     kegiatan.catatanTeknis !== null;
@@ -66,7 +69,7 @@ export function toKegiatanDetail(kegiatan: KegiatanEntity): KegiatanDetailDto {
     longitude: kegiatan.longitude,
     catatan: kegiatan.catatan,
     fotoUrls: kegiatan.fotoUrls,
-    dataTeknis: punyaDataTeknis
+    dataTeknis: hasDataTeknis
       ? {
           odpTerdekat: kegiatan.odpTerdekat,
           estimasiKabelMeter: kegiatan.estimasiKabelMeter,
