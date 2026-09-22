@@ -486,6 +486,18 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     actions: ["read", "create", "update", "delete"],
     description: "Kegiatan sales & marketing dan prospek presurvei",
   },
+  presurvei_iklan: {
+    actions: ["read", "create", "update"],
+    description: "Kampanye iklan sebagai asal prospek presurvei",
+  },
+  presurvei_target: {
+    actions: ["read", "create"],
+    description: "Target sales presurvei per periode",
+  },
+  presurvei_laporan: {
+    actions: ["read"],
+    description: "Laporan pencapaian target presurvei",
+  },
 
   // ====== MOBILE APP RESOURCES (m_*) ======
   m_dashboard: {

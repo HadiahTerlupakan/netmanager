@@ -34,9 +34,40 @@ const PERMISSIONS = [
     action: "delete",
     description: "Hapus data presurvei",
   },
-  // Tidak ada `site_only`: pembatasan per-site adalah pekerjaan Fase 3 dan belum
+  // Tidak ada `site_only` di bawah ini (termasuk iklan/target/laporan dan
+  // m_presurvei): pembatasan per-site adalah pekerjaan Fase 3 dan belum
   // ditegakkan kode mana pun. Menyemainya membuat toggle "Batasi ke Site Sendiri"
   // di panel admin tampak aktif padahal tidak berefek.
+  {
+    resource: "presurvei_iklan",
+    action: "read",
+    description: "Lihat kampanye iklan presurvei",
+  },
+  {
+    resource: "presurvei_iklan",
+    action: "create",
+    description: "Catat kampanye iklan presurvei",
+  },
+  {
+    resource: "presurvei_iklan",
+    action: "update",
+    description: "Ubah kampanye iklan presurvei",
+  },
+  {
+    resource: "presurvei_target",
+    action: "read",
+    description: "Lihat target sales presurvei",
+  },
+  {
+    resource: "presurvei_target",
+    action: "create",
+    description: "Tetapkan target sales presurvei",
+  },
+  {
+    resource: "presurvei_laporan",
+    action: "read",
+    description: "Lihat laporan pencapaian presurvei",
+  },
   {
     resource: "m_presurvei",
     action: "read",
@@ -87,7 +118,17 @@ async function main() {
   }
 
   const semuaPermission = await prisma.permission.findMany({
-    where: { resource: { in: ["presurvei", "m_presurvei"] } },
+    where: {
+      resource: {
+        in: [
+          "presurvei",
+          "m_presurvei",
+          "presurvei_iklan",
+          "presurvei_target",
+          "presurvei_laporan",
+        ],
+      },
+    },
   });
 
   const permissionSales = semuaPermission.filter((p) =>

@@ -131,6 +131,18 @@ export const PERMISSIONS = {
       UPDATE: "presurvei:update",
       DELETE: "presurvei:delete",
     },
+    PRESURVEI_IKLAN: {
+      READ: "presurvei_iklan:read",
+      CREATE: "presurvei_iklan:create",
+      UPDATE: "presurvei_iklan:update",
+    },
+    PRESURVEI_TARGET: {
+      READ: "presurvei_target:read",
+      CREATE: "presurvei_target:create",
+    },
+    PRESURVEI_LAPORAN: {
+      READ: "presurvei_laporan:read",
+    },
   },
   PLANNING: {
     READ: "planning:read",
