@@ -21,6 +21,12 @@ export {
 } from "./domain/entities/Prospek";
 
 export {
+  IKLAN_CHANNELS,
+  type IklanChannel,
+  type IklanEntity,
+} from "./domain/entities/Iklan";
+
+export {
   canPromosikanKeCanvasing,
   daftarStatusBebanAktif,
   getStatusLanjutan,
@@ -37,6 +43,8 @@ export {
   isButuhLokasi,
   isHasilMelahirkanProspek,
 } from "./domain/kegiatan-rules";
+
+export { isIklanBerjalan } from "./domain/iklan-rules";
 
 export {
   catatKegiatanSchema,
@@ -55,6 +63,12 @@ export {
 } from "./validators/konversi.validator";
 
 export {
+  buatIklanSchema,
+  daftarIklanSchema,
+  ubahIklanSchema,
+} from "./validators/iklan.validator";
+
+export {
   KegiatanService,
   type CatatKegiatanInput,
   type DataProspekBaru,
@@ -64,6 +78,8 @@ export {
 export { ProspekService } from "./services/ProspekService";
 
 export { ProspekKonversiService } from "./services/ProspekKonversiService";
+
+export { IklanService } from "./services/IklanService";
 
 export {
   toKegiatanDetail,
@@ -79,8 +95,17 @@ export {
   type ProspekListItemDto,
 } from "./dto/prospek.dto";
 
+export {
+  toIklanDetail,
+  toIklanListItem,
+  type IklanDetailDto,
+  type IklanListItemDto,
+} from "./dto/iklan.dto";
+
 export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/registration-created-presurvei.handler";
 
 // NOTE: ProspekRepository dan KegiatanRepository sengaja TIDAK diekspor
 // (detail implementasi internal).
 // NOTE: prospek.mapper dan kegiatan.mapper sengaja TIDAK diekspor (internal).
+// NOTE: IklanRepository dan iklan.mapper sengaja TIDAK diekspor (internal),
+// konsisten dengan pola repository/mapper Fase 1 di atas.
