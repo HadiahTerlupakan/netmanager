@@ -74,4 +74,12 @@ describe("blok menu presurvei", () => {
     // — tak satu pun anak lolos dan hasilnya `undefined`.
     expect(tampil("presurvei_iklan:read")).toEqual(["PRESURVEI.IKLAN"]);
   });
+
+  it("ditandai featureModule supaya bisa dimatikan per tenant", () => {
+    // Menghapus properti ini tidak membuat test lain merah: gate di
+    // `filterAdminMenuItem` hanya berjalan bila `item.featureModule` truthy,
+    // jadi tanpa properti itu gate dilewati dan menu lolos ke semua tenant —
+    // termasuk yang modul presurvei-nya dimatikan.
+    expect(blokPresurvei()?.featureModule).toBe("presurvei");
+  });
 });
