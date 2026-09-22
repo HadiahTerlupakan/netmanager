@@ -1061,6 +1061,34 @@ describe("ProspekRepository.findMany", () => {
     await repository.findMany({ page: 1, limit: 10, search: "budi" });
 
     const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock.calls[0][0];
+    // Memeriksa kolomnya, bukan cuma jumlahnya: klausa yang tertukar ke kolom
+    // lain tetap berjumlah tiga dan akan lolos dari pemeriksaan panjang saja.
+    expect(argumen?.where?.OR).toEqual([
+      { nama: { contains: "budi", mode: "insensitive" } },
+      { noTelp: { contains: "budi", mode: "insensitive" } },
+      { alamat: { contains: "budi", mode: "insensitive" } },
+    ]);
+  });
+
+  it("menggabungkan beberapa filter sekaligus", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({
+      page: 1,
+      limit: 10,
+      status: "NEGOSIASI",
+      sumber: "IKLAN",
+      pemilikId: "user-1",
+      search: "budi",
+    });
+
+    const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock.calls[0][0];
+    expect(argumen?.where).toMatchObject({
+      status: "NEGOSIASI",
+      sumber: "IKLAN",
+      pemilikId: "user-1",
+    });
     expect(argumen?.where?.OR).toHaveLength(3);
   });
 
@@ -1098,6 +1126,84 @@ describe("ProspekRepository.findById", () => {
     const hasil = await new ProspekRepository().findById("tidak-ada");
 
     expect(hasil).toBeNull();
+  });
+
+  it("memetakan seluruh kolom baris menjadi entitas domain", async () => {
+    // Memeriksa kedua puluh dua field sekaligus, bukan sekadar beberapa:
+    // satu field yang lupa dipetakan di mapper berarti datanya hilang senyap
+    // setiap kali prospek dibaca dari database.
+    const baris = barisProspek({
+      email: "budi@contoh.id",
+      latitude: -6.2,
+      longitude: 106.8,
+      shareloc: "https://maps.google.com/?q=-6.2,106.8",
+      iklanId: "iklan-1",
+      registrationId: "reg-1",
+      referralNama: "Sari",
+      status: "NEGOSIASI",
+      paketDiminati: "20 Mbps",
+      catatan: "minta dipasang akhir bulan",
+      canvasingId: "canv-1",
+      konversiAt: new Date("2026-09-23T00:00:00.000Z"),
+      siteId: "site-1",
+    });
+    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue(
+      baris as never,
+    );
+
+    const hasil = await new ProspekRepository().findById("prospek-1");
+
+    expect(hasil).toEqual({ ...baris });
+  });
+});
+
+describe("ProspekRepository.create", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("meneruskan masukan ke Prisma dan memetakan hasilnya jadi entitas", async () => {
+    vi.mocked(prisma.presurveiProspek.create).mockResolvedValue(
+      barisProspek() as never,
+    );
+
+    const hasil = await new ProspekRepository().create({
+      nama: "Budi",
+      noTelp: "081234567890",
+      alamat: "Jl. Merdeka 10",
+      sumber: "WALK_IN",
+      pemilikId: "user-1",
+    });
+
+    expect(prisma.presurveiProspek.create).toHaveBeenCalledWith({
+      data: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+        sumber: "WALK_IN",
+        pemilikId: "user-1",
+      },
+    });
+    expect(hasil.id).toBe("prospek-1");
+  });
+});
+
+describe("ProspekRepository.update", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("menyasar prospek yang tepat dan meneruskan perubahannya", async () => {
+    vi.mocked(prisma.presurveiProspek.update).mockResolvedValue(
+      barisProspek({ status: "DIHUBUNGI" }) as never,
+    );
+
+    const hasil = await new ProspekRepository().update("prospek-1", {
+      status: "DIHUBUNGI",
+      catatan: "sudah ditelepon",
+    });
+
+    expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
+      where: { id: "prospek-1" },
+      data: { status: "DIHUBUNGI", catatan: "sudah ditelepon" },
+    });
+    expect(hasil.status).toBe("DIHUBUNGI");
   });
 });
 ```
@@ -1200,7 +1306,7 @@ export class ProspekRepository implements IProspekRepository {
 - [ ] **Step 5: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/prospek-repository.test.ts`
-Expected: PASS — 5 test lulus.
+Expected: PASS — 9 test lulus.
 
 - [ ] **Step 6: Commit**
 
@@ -1449,6 +1555,34 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { KegiatanRepository } from "@/modules/presurvei/repositories/KegiatanRepository";
+import type { KegiatanRow } from "@/modules/presurvei/mappers/kegiatan.mapper";
+
+// Anotasi `: KegiatanRow` wajib: tanpanya properti bernilai `null` jadi implicit
+// any karena repo mematikan strictNullChecks (lihat Global Constraints).
+const barisKegiatan = (over: Partial<KegiatanRow> = {}): KegiatanRow => ({
+  id: "kegiatan-1",
+  jenis: "KUNJUNGAN",
+  userId: "user-1",
+  prospekId: null,
+  iklanId: null,
+  waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+  waktuSelesai: null,
+  latitude: -6.2,
+  longitude: 106.8,
+  alamatDikunjungi: "Jl. Merdeka 10",
+  ditemuiNama: "Budi",
+  hasil: "TERTARIK",
+  catatan: null,
+  fotoUrls: [],
+  odpTerdekat: null,
+  estimasiKabelMeter: null,
+  catatanTeknis: null,
+  siteId: null,
+  tenantId: "tenant-1",
+  createdAt: new Date("2026-09-22T01:00:00.000Z"),
+  updatedAt: new Date("2026-09-22T01:00:00.000Z"),
+  ...over,
+});
 
 describe("KegiatanRepository.findMany", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -1479,6 +1613,68 @@ describe("KegiatanRepository.findMany", () => {
 
     const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0];
     expect(argumen?.orderBy).toEqual({ waktuMulai: "desc" });
+  });
+});
+
+describe("KegiatanRepository.create", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("meneruskan masukan ke Prisma tanpa membuat prospek", async () => {
+    vi.mocked(prisma.presurveiKegiatan.create).mockResolvedValue(
+      barisKegiatan() as never,
+    );
+
+    const hasil = await new KegiatanRepository().create({
+      jenis: "TELEPON",
+      userId: "user-1",
+      waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+      hasil: "PERLU_FOLLOWUP",
+    });
+
+    expect(prisma.presurveiKegiatan.create).toHaveBeenCalledWith({
+      data: {
+        jenis: "TELEPON",
+        userId: "user-1",
+        waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+        hasil: "PERLU_FOLLOWUP",
+      },
+    });
+    expect(hasil.id).toBe("kegiatan-1");
+  });
+});
+
+describe("KegiatanRepository.findById", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("mengembalikan null saat kegiatan tidak ada", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findUnique).mockResolvedValue(
+      null as never,
+    );
+
+    expect(await new KegiatanRepository().findById("tidak-ada")).toBeNull();
+  });
+
+  it("memetakan seluruh kolom baris menjadi entitas domain", async () => {
+    // Memeriksa seluruh field sekaligus: satu field yang lupa dipetakan berarti
+    // hasil survei teknis hilang senyap setiap kali kegiatan dibaca.
+    const baris = barisKegiatan({
+      jenis: "SURVEI_LOKASI",
+      prospekId: "prospek-1",
+      waktuSelesai: new Date("2026-09-22T02:00:00.000Z"),
+      catatan: "rumah pojok, pagar hitam",
+      fotoUrls: ["https://contoh.id/a.webp"],
+      odpTerdekat: "ODP-12",
+      estimasiKabelMeter: 120,
+      catatanTeknis: "perlu tiang tambahan",
+      siteId: "site-1",
+    });
+    vi.mocked(prisma.presurveiKegiatan.findUnique).mockResolvedValue(
+      baris as never,
+    );
+
+    const hasil = await new KegiatanRepository().findById("kegiatan-1");
+
+    expect(hasil).toEqual({ ...baris });
   });
 });
 
@@ -1623,7 +1819,7 @@ export class KegiatanRepository implements IKegiatanRepository {
 - [ ] **Step 5: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/kegiatan-repository.test.ts`
-Expected: PASS — 3 test lulus.
+Expected: PASS — 6 test lulus.
 
 - [ ] **Step 6: Commit**
 
