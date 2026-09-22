@@ -306,4 +306,17 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
 
     expect(buatCanvasing).not.toHaveBeenCalled();
   });
+
+  it("menolak kabel nol dari body, tidak menggantinya diam-diam", async () => {
+    // Cabang `input.kabel ??`. Dengan `||`, nilai 0 jatuh ke estimasi survei
+    // (kegiatanRepo bawaan mencatat estimasiKabelMeter: 120, angka yang sah)
+    // atau bawaan — canvasing lahir dengan angka yang tidak pernah diminta
+    // pemanggil, dan tidak ada yang tahu. Dengan `??` nilainya sampai ke
+    // validator marketing dan ditolak terang-terangan.
+    await expect(
+      service().jadikanCanvasing("prospek-1", { ...masukan, kabel: 0 }),
+    ).rejects.toThrow();
+
+    expect(buatCanvasing).not.toHaveBeenCalled();
+  });
 });

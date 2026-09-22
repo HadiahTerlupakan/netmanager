@@ -223,29 +223,59 @@ describe("ProspekRepository.findByNoTelp", () => {
   });
 });
 
-describe("ProspekRepository.update — penandaan konversi", () => {
+describe("ProspekRepository.tandaiKonversi", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("meneruskan canvasingId dan konversiAt ke Prisma", async () => {
-    // Task berikutnya menandai prospek yang sudah jadi canvasing lewat kedua
-    // field ini. Bila `update` suatu saat diubah menjadi daftar field eksplisit
-    // dan keduanya terlupa, penandaannya hilang tanpa suara — test ini yang
-    // akan gagal.
+  it("hanya menandai prospek yang belum pernah ditandai", async () => {
+    // `canvasingId: null` di where inilah titik serialisasinya. Pemeriksaan di
+    // domain berjalan sebelum canvasing dibuat, jadi dua permintaan bersamaan
+    // bisa sama-sama melewatinya — hanya penulisan ini yang bisa memutuskan
+    // siapa yang menang. Tanpa filter itu keduanya menang dan satu canvasing
+    // jadi yatim.
     const konversiAt = new Date("2026-09-23T00:00:00.000Z");
     vi.mocked(prisma.presurveiProspek.update).mockResolvedValue(
       barisProspek({ canvasingId: "canvasing-1", konversiAt }) as never,
     );
 
-    const hasil = await new ProspekRepository().update("prospek-1", {
-      canvasingId: "canvasing-1",
-      konversiAt,
-    });
+    const hasil = await new ProspekRepository().tandaiKonversi(
+      "prospek-1",
+      "canvasing-1",
+    );
 
     expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
-      where: { id: "prospek-1" },
-      data: { canvasingId: "canvasing-1", konversiAt },
+      where: { id: "prospek-1", canvasingId: null },
+      data: { canvasingId: "canvasing-1", konversiAt: expect.any(Date) },
     });
-    expect(hasil.canvasingId).toBe("canvasing-1");
+    expect(hasil?.canvasingId).toBe("canvasing-1");
+  });
+
+  it("mengembalikan null saat prospek sudah tertandai", async () => {
+    // Prisma melempar P2025 ketika tidak ada baris yang cocok dengan where.
+    // Bagi pemanggil itu bukan kegagalan sistem melainkan kekalahan balapan,
+    // dan ia harus bisa membedakannya untuk membersihkan canvasing-nya.
+    vi.mocked(prisma.presurveiProspek.update).mockRejectedValue(
+      Object.assign(new Error("Record to update not found"), { code: "P2025" }),
+    );
+
+    const hasil = await new ProspekRepository().tandaiKonversi(
+      "prospek-1",
+      "canvasing-1",
+    );
+
+    expect(hasil).toBeNull();
+  });
+
+  it("melempar ulang kegagalan selain P2025", async () => {
+    // Koneksi putus atau konteks tenant hilang bukan kekalahan balapan.
+    // Menelannya jadi null akan membuat pemanggil menghapus canvasing yang
+    // sebetulnya masih sah, dan menutupi penyebab aslinya.
+    vi.mocked(prisma.presurveiProspek.update).mockRejectedValue(
+      Object.assign(new Error("connection reset"), { code: "P1001" }),
+    );
+
+    await expect(
+      new ProspekRepository().tandaiKonversi("prospek-1", "canvasing-1"),
+    ).rejects.toThrow("connection reset");
   });
 });
 

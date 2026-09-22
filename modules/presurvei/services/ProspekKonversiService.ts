@@ -112,7 +112,17 @@ export class ProspekKonversiService {
 
   /** Hapus canvasing yang terlanjur dibuat saat penandaan prospek tidak jadi. */
   private async batalkanCanvasing(canvasingId: string): Promise<void> {
-    await this.hapusCanvasing(canvasingId).catch((): void => undefined);
+    await this.hapusCanvasing(canvasingId).catch((error: unknown) => {
+      // Kegagalan kompensasi tidak boleh menutupi error aslinya (lihat
+      // pemanggil, yang tetap melempar setelah ini) — tapi tanpa jejak ini,
+      // yang tersisa persis canvasing yatim yang seluruh mekanisme ini
+      // hendak bunuh, dan tak satu baris log pun menyebut id mana yang
+      // perlu dibereskan manual.
+      logger.error(
+        `[ProspekKonversiService] Gagal menghapus canvasing kompensasi ${canvasingId}:`,
+        error,
+      );
+    });
   }
 
   private async ambilProspek(
