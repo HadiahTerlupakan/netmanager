@@ -118,6 +118,24 @@ describe("IklanRepository.findByKode", () => {
 
     expect(await new IklanRepository().findByKode("entah")).toBeNull();
   });
+
+  it("memetakan baris yang ditemukan menjadi entitas domain", async () => {
+    // Kedua test lain mem-mock hasil null, jadi jalur ditemukan tidak pernah
+    // dilewati. Tanpa test ini, hilangnya pemanggilan mapper saat refactor
+    // meloloskan objek Decimal mentah ke pemanggil — dan inilah jalur yang
+    // mencocokkan utm_campaign dari form publik.
+    vi.mocked(prisma.presurveiIklan.findFirst).mockResolvedValue(
+      barisIklan({
+        kode: "promo-ramadan",
+        biaya: { toNumber: () => 250000 },
+      }) as never,
+    );
+
+    const hasil = await new IklanRepository().findByKode("promo-ramadan");
+
+    expect(hasil?.kode).toBe("promo-ramadan");
+    expect(hasil?.biaya).toBe(250000);
+  });
 });
 
 describe("IklanRepository — pemetaan", () => {
@@ -163,5 +181,18 @@ describe("IklanRepository — pemetaan", () => {
     const hasil = await new IklanRepository().findById("iklan-1");
 
     expect(hasil?.biaya).toBeNull();
+  });
+
+  it("membedakan biaya nol dari biaya yang tidak diisi", async () => {
+    // `biaya: 0` adalah iklan organik/gratis — nilai yang sah dan harus
+    // terbedakan dari null. Pemeriksaan falsy (`!row.biaya`) akan menyamakan
+    // keduanya, dan tanpa test ini perubahan itu lolos tanpa suara.
+    vi.mocked(prisma.presurveiIklan.findUnique).mockResolvedValue(
+      barisIklan({ biaya: 0 }) as never,
+    );
+
+    const hasil = await new IklanRepository().findById("iklan-1");
+
+    expect(hasil?.biaya).toBe(0);
   });
 });

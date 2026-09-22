@@ -66,7 +66,7 @@ describe("IklanService.buat", () => {
   it("menyimpan saat kodenya belum dipakai", async () => {
     await new IklanService(repository).buat(masukan);
 
-    expect(repository.create).toHaveBeenCalledOnce();
+    expect(repository.create).toHaveBeenCalledWith(masukan);
   });
 
   it("menolak tanggal selesai yang mendahului tanggal mulai", async () => {
@@ -87,7 +87,10 @@ describe("IklanService.buat", () => {
       tanggalSelesai: WAKTU,
     });
 
-    expect(repository.create).toHaveBeenCalledOnce();
+    expect(repository.create).toHaveBeenCalledWith({
+      ...masukan,
+      tanggalSelesai: WAKTU,
+    });
   });
 });
 
@@ -123,6 +126,9 @@ describe("IklanService.ubah", () => {
       tanggalSelesai: new Date("2026-08-15T00:00:00.000Z"),
     });
 
-    expect(repository.update).toHaveBeenCalledOnce();
+    expect(repository.update).toHaveBeenCalledWith("iklan-1", {
+      tanggalMulai: new Date("2026-08-01T00:00:00.000Z"),
+      tanggalSelesai: new Date("2026-08-15T00:00:00.000Z"),
+    });
   });
 });
