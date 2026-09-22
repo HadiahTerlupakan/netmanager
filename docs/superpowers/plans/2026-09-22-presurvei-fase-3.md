@@ -1998,7 +1998,7 @@ export function keTitikPeta(baris: KegiatanListItemDto[]): {
       hasil: item.hasil,
       label: tampilan.label,
       alamat: item.alamatDikunjungi,
-      warna: WARNA_PENANDA[item.hasil as KegiatanHasil] ?? "#6b7280",
+      warna: WARNA_PENANDA[item.hasil],
     });
   }
 
