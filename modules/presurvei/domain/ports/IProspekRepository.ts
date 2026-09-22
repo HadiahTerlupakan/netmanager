@@ -50,6 +50,8 @@ export interface UpdateProspekInput {
   pemilikId?: string | null;
   paketDiminati?: string | null;
   catatan?: string | null;
+  canvasingId?: string | null;
+  konversiAt?: Date | null;
 }
 
 export interface IProspekRepository {
@@ -57,6 +59,10 @@ export interface IProspekRepository {
     filters: ProspekListFilters,
   ): Promise<{ items: ProspekEntity[]; total: number }>;
   findById(id: string): Promise<ProspekEntity | null>;
+  /** Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat. */
+  findByNoTelp(noTelp: string): Promise<ProspekEntity[]>;
+  /** Prospek yang lahir dari satu pendaftaran publik, null bila belum ada. */
+  findByRegistrationId(registrationId: string): Promise<ProspekEntity | null>;
   create(input: CreateProspekInput): Promise<ProspekEntity>;
   update(id: string, input: UpdateProspekInput): Promise<ProspekEntity>;
 }

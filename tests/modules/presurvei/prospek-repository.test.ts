@@ -176,6 +176,58 @@ describe("ProspekRepository.findById", () => {
   });
 });
 
+describe("ProspekRepository.findByNoTelp", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("mencari persis pada nomor yang diberikan", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+
+    await new ProspekRepository().findByNoTelp("081234567890");
+
+    expect(prisma.presurveiProspek.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { noTelp: "081234567890" } }),
+    );
+  });
+
+  it("mengembalikan entitas domain, bukan baris mentah", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([
+      barisProspek(),
+    ] as never);
+
+    const hasil = await new ProspekRepository().findByNoTelp("081234567890");
+
+    expect(hasil).toHaveLength(1);
+    expect(hasil[0]).toMatchObject({ id: "prospek-1", status: "BARU" });
+  });
+});
+
+describe("ProspekRepository.findByRegistrationId", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("mengembalikan null saat pendaftaran belum punya prospek", async () => {
+    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue(
+      null as never,
+    );
+
+    expect(
+      await new ProspekRepository().findByRegistrationId("reg-1"),
+    ).toBeNull();
+  });
+
+  it("mencari lewat kolom unik registrationId", async () => {
+    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue(
+      barisProspek({ registrationId: "reg-1" }) as never,
+    );
+
+    const hasil = await new ProspekRepository().findByRegistrationId("reg-1");
+
+    expect(prisma.presurveiProspek.findUnique).toHaveBeenCalledWith({
+      where: { registrationId: "reg-1" },
+    });
+    expect(hasil?.registrationId).toBe("reg-1");
+  });
+});
+
 describe("ProspekRepository.create", () => {
   beforeEach(() => vi.clearAllMocks());
 

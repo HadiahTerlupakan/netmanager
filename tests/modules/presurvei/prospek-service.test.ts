@@ -39,6 +39,8 @@ const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity => ({
 const bangunRepository = (): IProspekRepository => ({
   findMany: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   findById: vi.fn().mockResolvedValue(null),
+  findByNoTelp: vi.fn().mockResolvedValue([]),
+  findByRegistrationId: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
   update: vi.fn(),
 });

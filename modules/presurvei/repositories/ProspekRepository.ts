@@ -44,6 +44,25 @@ export class ProspekRepository implements IProspekRepository {
     return row ? toProspekEntity(row as ProspekRow) : null;
   }
 
+  /** Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat. */
+  async findByNoTelp(noTelp: string): Promise<ProspekEntity[]> {
+    const rows = await prisma.presurveiProspek.findMany({
+      where: { noTelp },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => toProspekEntity(row as ProspekRow));
+  }
+
+  /** Prospek yang lahir dari satu pendaftaran publik, null bila belum ada. */
+  async findByRegistrationId(
+    registrationId: string,
+  ): Promise<ProspekEntity | null> {
+    const row = await prisma.presurveiProspek.findUnique({
+      where: { registrationId },
+    });
+    return row ? toProspekEntity(row as ProspekRow) : null;
+  }
+
   /** Simpan prospek baru. */
   async create(input: CreateProspekInput): Promise<ProspekEntity> {
     const row = await prisma.presurveiProspek.create({ data: input });
