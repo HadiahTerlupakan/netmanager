@@ -1937,7 +1937,7 @@ export interface IklanRow {
   channel: string;
   tanggalMulai: Date;
   tanggalSelesai: Date | null;
-  biaya: { toString(): string } | null;
+  biaya: { toNumber(): number } | number | null;
   penanggungJawabId: string | null;
   isAktif: boolean;
   tenantId: string | null;
@@ -1954,9 +1954,17 @@ export function toIklanEntity(row: IklanRow): IklanEntity {
     channel: row.channel as IklanChannel,
     tanggalMulai: row.tanggalMulai,
     tanggalSelesai: row.tanggalSelesai,
-    // Decimal Prisma diubah lewat string, bukan Number() langsung: konversi
-    // biner bisa menggeser sen pada nilai anggaran yang besar.
-    biaya: row.biaya === null ? null : Number(row.biaya.toString()),
+    // Decimal Prisma dan number polos (dari fixture test) ditangani lewat union
+    // eksplisit, bukan duck-typing `toString()`. Setiap nilai JavaScript punya
+    // `toString()`, jadi bentuk baris yang keliru akan lolos kompilasi lalu
+    // diam-diam menghasilkan NaN pada kolom yang dipakai menghitung biaya per
+    // lead. `toNumber()` hanya dipenuhi objek mirip-Decimal.
+    biaya:
+      row.biaya === null
+        ? null
+        : typeof row.biaya === "number"
+          ? row.biaya
+          : row.biaya.toNumber(),
     penanggungJawabId: row.penanggungJawabId,
     isAktif: row.isAktif,
     tenantId: row.tenantId,
