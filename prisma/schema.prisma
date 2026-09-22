@@ -1473,6 +1473,10 @@ model User {
   barang_masuk                               BarangMasuk[]
   approverCanvasing                          Canvasing[]                 @relation("ApproverCanvasing")
   salesCanvasing                             Canvasing[]                 @relation("UserSalesCanvasing")
+  presurveiKegiatan                          PresurveiKegiatan[]         @relation("UserPresurveiKegiatan")
+  presurveiProspek                           PresurveiProspek[]          @relation("UserPresurveiProspek")
+  presurveiIklan                             PresurveiIklan[]            @relation("UserPresurveiIklan")
+  presurveiTarget                            PresurveiTarget[]           @relation("UserPresurveiTarget")
   employeeLoans                              EmployeeLoan[]
   employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
@@ -2141,6 +2145,8 @@ model Sites {
   otbs             Otb[]
   pelanggan        Pelanggan[]
   poles            Pole[]
+  presurveiKegiatan PresurveiKegiatan[]
+  presurveiProspek  PresurveiProspek[]
   profilePPPs      ProfilePPP[]
   user             User[]
   notifications    Notifications[]
@@ -2840,6 +2846,147 @@ model PointClaim {
   @@index([status])
   @@index([tenantId])
   @@map("point_claims")
+}
+
+model PresurveiKegiatan {
+  id String @id @default(uuid())
+
+  jenis  PresurveiJenisKegiatan
+  userId String
+
+  prospekId String?
+  iklanId   String?
+
+  waktuMulai   DateTime
+  waktuSelesai DateTime?
+
+  latitude         Float?
+  longitude        Float?
+  alamatDikunjungi String?
+
+  ditemuiNama String?
+  hasil       PresurveiHasilKegiatan
+  catatan     String?
+  fotoUrls    String[]
+
+  odpTerdekat        String?
+  estimasiKabelMeter Int?
+  catatanTeknis      String?
+
+  siteId   String?
+  tenantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User              @relation("UserPresurveiKegiatan", fields: [userId], references: [id])
+  prospek PresurveiProspek? @relation(fields: [prospekId], references: [id])
+  iklan   PresurveiIklan?   @relation(fields: [iklanId], references: [id])
+  site    Sites?            @relation(fields: [siteId], references: [id])
+  tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([userId, waktuMulai])
+  @@index([prospekId])
+  @@index([iklanId])
+  @@index([tenantId])
+  @@index([jenis, hasil])
+  @@map("presurvei_kegiatan")
+}
+
+model PresurveiProspek {
+  id String @id @default(uuid())
+
+  nama      String
+  noTelp    String
+  email     String?
+  alamat    String
+  latitude  Float?
+  longitude Float?
+  shareloc  String?
+
+  sumber         PresurveiSumberProspek
+  iklanId        String?
+  registrationId String?                @unique
+  referralNama   String?
+
+  status        PresurveiStatusProspek @default(BARU)
+  pemilikId     String?
+  paketDiminati String?
+  catatan       String?
+
+  canvasingId String?   @unique
+  konversiAt  DateTime?
+
+  siteId   String?
+  tenantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  iklan    PresurveiIklan?     @relation(fields: [iklanId], references: [id])
+  pemilik  User?               @relation("UserPresurveiProspek", fields: [pemilikId], references: [id])
+  site     Sites?              @relation(fields: [siteId], references: [id])
+  tenant   Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  kegiatan PresurveiKegiatan[]
+
+  @@index([pemilikId, status])
+  @@index([sumber])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("presurvei_prospek")
+}
+
+model PresurveiIklan {
+  id   String @id @default(uuid())
+  nama String
+  kode String
+
+  channel        PresurveiChannelIklan
+  tanggalMulai   DateTime
+  tanggalSelesai DateTime?
+  biaya          Decimal?              @db.Decimal(15, 2)
+
+  penanggungJawabId String?
+  isAktif           Boolean @default(true)
+
+  tenantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  penanggungJawab User?               @relation("UserPresurveiIklan", fields: [penanggungJawabId], references: [id])
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  prospek         PresurveiProspek[]
+  kegiatan        PresurveiKegiatan[]
+
+  @@unique([kode, tenantId])
+  @@index([tenantId])
+  @@index([isAktif, tanggalMulai])
+  @@map("presurvei_iklan")
+}
+
+model PresurveiTarget {
+  id     String @id @default(uuid())
+  userId String
+
+  periodeTahun Int
+  periodeBulan Int
+
+  targetKunjungan Int @default(0)
+  targetProspek   Int @default(0)
+  targetKonversi  Int @default(0)
+
+  tenantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User    @relation("UserPresurveiTarget", fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, periodeTahun, periodeBulan, tenantId])
+  @@index([tenantId])
+  @@map("presurvei_target")
 }
 
 model PurchaseRequest {
@@ -3885,6 +4032,10 @@ model Tenant {
   barangKeluar              BarangKeluar[]
   barangMasuk               BarangMasuk[]
   canvasing                 Canvasing[]
+  presurveiKegiatan         PresurveiKegiatan[]
+  presurveiProspek          PresurveiProspek[]
+  presurveiIklan            PresurveiIklan[]
+  presurveiTarget           PresurveiTarget[]
   companyBankAccount        CompanyBankAccount[]
   configurationRestores     ConfigurationRestores[]
   customerUsage             CustomerUsage[]
@@ -4490,6 +4641,49 @@ enum PointClaimStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PresurveiJenisKegiatan {
+  KUNJUNGAN
+  SURVEI_LOKASI
+  TELEPON
+  CHAT
+  IKLAN
+}
+
+enum PresurveiHasilKegiatan {
+  TERTARIK
+  PERLU_FOLLOWUP
+  TIDAK_MINAT
+  TIDAK_ADA_ORANG
+  DEAL
+}
+
+enum PresurveiSumberProspek {
+  LAPANGAN
+  IKLAN
+  WEBSITE
+  REFERRAL
+  WALK_IN
+}
+
+enum PresurveiStatusProspek {
+  BARU
+  DIHUBUNGI
+  TERTARIK
+  NEGOSIASI
+  DEAL
+  TIDAK_MINAT
+  TIDAK_LAYAK
+}
+
+enum PresurveiChannelIklan {
+  META
+  GOOGLE
+  TIKTOK
+  WHATSAPP
+  OFFLINE
+  LAINNYA
 }
 
 enum PurchaseRequestStatus {
