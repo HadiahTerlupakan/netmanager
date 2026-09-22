@@ -31,6 +31,14 @@ vi.mock(
   () => ({ cariSalesTeringan: mocks.cariSalesTeringan }),
 );
 
+const cariIklanByKode = vi.fn();
+
+vi.mock("@/modules/presurvei/repositories/IklanRepository", () => ({
+  IklanRepository: class {
+    findByKode = cariIklanByKode;
+  },
+}));
+
 import { handleRegistrationCreatedPresurvei } from "@/modules/presurvei/services/event-handlers/registration-created-presurvei.handler";
 
 const job = (payload: Record<string, unknown>): Job<never> =>
@@ -55,6 +63,7 @@ describe("handleRegistrationCreatedPresurvei", () => {
     cariByRegistrationId.mockResolvedValue(null);
     cariSalesTeringan.mockResolvedValue("sales-1");
     buatProspek.mockResolvedValue({ id: "prospek-1" });
+    cariIklanByKode.mockResolvedValue(null);
   });
 
   it("melahirkan prospek bersumber WEBSITE dari pendaftaran", async () => {
@@ -129,5 +138,60 @@ describe("handleRegistrationCreatedPresurvei", () => {
     await handleRegistrationCreatedPresurvei(job(payloadLengkap));
 
     expect(cariSalesTeringan).toHaveBeenCalledWith("tenant-1");
+  });
+});
+
+describe("handleRegistrationCreatedPresurvei — atribusi iklan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cariByRegistrationId.mockResolvedValue(null);
+    cariSalesTeringan.mockResolvedValue("sales-1");
+    buatProspek.mockResolvedValue({ id: "prospek-1" });
+    cariIklanByKode.mockResolvedValue(null);
+  });
+
+  it("menautkan prospek ke iklan yang kodenya cocok dengan utm_campaign", async () => {
+    cariIklanByKode.mockResolvedValue({ id: "iklan-1", isAktif: true });
+
+    await handleRegistrationCreatedPresurvei(job(payloadLengkap));
+
+    expect(cariIklanByKode).toHaveBeenCalledWith("promo-ramadan");
+    expect(buatProspek).toHaveBeenCalledWith(
+      expect.objectContaining({ iklanId: "iklan-1", sumber: "IKLAN" }),
+    );
+  });
+
+  it("tetap bersumber WEBSITE saat kampanyenya tidak dikenal", async () => {
+    // UTM dari tautan lama atau salah ketik tidak boleh membuat prospek hilang —
+    // ia tetap tercatat, hanya tanpa atribusi kampanye.
+    cariIklanByKode.mockResolvedValue(null);
+
+    await handleRegistrationCreatedPresurvei(job(payloadLengkap));
+
+    expect(buatProspek).toHaveBeenCalledWith(
+      expect.objectContaining({ iklanId: null, sumber: "WEBSITE" }),
+    );
+  });
+
+  it("tidak mencari iklan saat pendaftaran datang tanpa utm_campaign", async () => {
+    const { utmCampaign: _dibuang, ...tanpaKampanye } = payloadLengkap;
+
+    await handleRegistrationCreatedPresurvei(job(tanpaKampanye));
+
+    expect(cariIklanByKode).not.toHaveBeenCalled();
+    expect(buatProspek).toHaveBeenCalledWith(
+      expect.objectContaining({ iklanId: null, sumber: "WEBSITE" }),
+    );
+  });
+
+  it("tidak jatuh saat pencarian iklan gagal", async () => {
+    // Atribusi adalah pelengkap; kegagalannya tidak boleh menelan pendaftaran.
+    cariIklanByKode.mockRejectedValue(new Error("database sibuk"));
+
+    await handleRegistrationCreatedPresurvei(job(payloadLengkap));
+
+    expect(buatProspek).toHaveBeenCalledWith(
+      expect.objectContaining({ iklanId: null, sumber: "WEBSITE" }),
+    );
   });
 });

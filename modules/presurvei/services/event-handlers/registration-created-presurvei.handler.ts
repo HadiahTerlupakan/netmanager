@@ -3,9 +3,35 @@ import { logger } from "@/lib/logger";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { ProspekRepository } from "../../repositories/ProspekRepository";
+import { IklanRepository } from "../../repositories/IklanRepository";
 import { cariSalesTeringan } from "./cari-sales-teringan";
 
 const SOURCE = "RegistrationCreatedPresurveiHandler";
+
+/**
+ * Cari iklan yang kodenya cocok dengan `utm_campaign` pendaftaran.
+ *
+ * Mengembalikan null untuk kampanye yang tidak dikenal maupun saat pencariannya
+ * gagal: atribusi adalah pelengkap, dan kehilangannya jauh lebih ringan daripada
+ * kehilangan pendaftarnya.
+ */
+async function cariIklanDariKampanye(
+  utmCampaign: unknown,
+): Promise<string | null> {
+  if (typeof utmCampaign !== "string" || utmCampaign.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    const iklan = await new IklanRepository().findByKode(utmCampaign);
+    return iklan?.id ?? null;
+  } catch (error) {
+    logger.warn(
+      `[${SOURCE}] Gagal mencocokkan kampanye "${utmCampaign}": ${String(error)}`,
+    );
+    return null;
+  }
+}
 
 /**
  * Lahirkan prospek dari pendaftaran yang masuk lewat form publik.
@@ -42,6 +68,11 @@ export async function handleRegistrationCreatedPresurvei(
     return;
   }
 
+  // Pencocokan kampanye WAJIB berada setelah penjaga `tenantId` di atas.
+  // `findByKode` menyandarkan penyaringan tenant pada ekstensi Prisma, dan
+  // ekstensi itu hanya menyaring bila konteks tenant sudah terpasang. Dipindah
+  // ke atas penjaga, ia bisa mencocokkan kode kampanye milik tenant lain.
+  const iklanId = await cariIklanDariKampanye(payload.utmCampaign);
   const pemilikId = await cariSalesTeringan(tenantId);
 
   const prospek = await repository.create({
@@ -50,7 +81,8 @@ export async function handleRegistrationCreatedPresurvei(
     alamat,
     email: (payload.email as string | null) ?? null,
     paketDiminati: (payload.paketDiminati as string | null) ?? null,
-    sumber: "WEBSITE",
+    sumber: iklanId ? "IKLAN" : "WEBSITE",
+    iklanId,
     registrationId,
     pemilikId,
   });
