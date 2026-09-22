@@ -30,6 +30,19 @@ const dataProspekBaruSchema = z.object({
   paketDiminati: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
 });
 
+/**
+ * Apakah sebuah field benar-benar diisi.
+ *
+ * Dipakai agar pemeriksaan tidak memakai truthiness: angka `0` adalah nilai
+ * yang sah untuk koordinat (khatulistiwa, meridian) maupun estimasi kabel,
+ * sedangkan `!0` bernilai true dan akan menganggapnya kosong.
+ */
+function isTerisi(nilai: unknown): boolean {
+  if (nilai === null || nilai === undefined) return false;
+  if (typeof nilai === "string") return nilai.trim().length > 0;
+  return true;
+}
+
 export const catatKegiatanSchema = z
   .object({
     jenis: z.enum(KEGIATAN_JENIS),
@@ -59,22 +72,19 @@ export const catatKegiatanSchema = z
   .refine(
     (kegiatan) =>
       !isButuhLokasi(kegiatan.jenis) ||
-      (kegiatan.latitude !== null &&
-        kegiatan.latitude !== undefined &&
-        kegiatan.longitude !== null &&
-        kegiatan.longitude !== undefined),
+      (isTerisi(kegiatan.latitude) && isTerisi(kegiatan.longitude)),
     { message: "Kunjungan dan survei lokasi wajib menyertakan koordinat" },
   )
   .refine(
     (kegiatan) =>
       isButuhDataTeknis(kegiatan.jenis) ||
-      (!kegiatan.odpTerdekat &&
-        !kegiatan.estimasiKabelMeter &&
-        !kegiatan.catatanTeknis),
+      (!isTerisi(kegiatan.odpTerdekat) &&
+        !isTerisi(kegiatan.estimasiKabelMeter) &&
+        !isTerisi(kegiatan.catatanTeknis)),
     { message: "Data teknis hanya boleh diisi pada survei lokasi" },
   )
   .refine(
-    (kegiatan) => !isButuhIklan(kegiatan.jenis) || Boolean(kegiatan.iklanId),
+    (kegiatan) => !isButuhIklan(kegiatan.jenis) || isTerisi(kegiatan.iklanId),
     { message: "Kegiatan iklan wajib menunjuk ke sebuah iklan" },
   );
 

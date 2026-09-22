@@ -127,6 +127,63 @@ describe("KegiatanService.catat", () => {
     });
   });
 
+  it("mewariskan lokasi, iklan, dan site kunjungan ke prospeknya", async () => {
+    // Prospek yang lahir dari kunjungan harus membawa koordinat kunjungan itu.
+    // Tanpa test ini, lat/lng yang tertukar atau fallback yang hilang tidak
+    // akan tertangkap apa pun.
+    const service = new KegiatanService(repository);
+
+    await service.catat({
+      ...masukanKunjungan,
+      hasil: "TERTARIK",
+      iklanId: "iklan-1",
+      siteId: "site-1",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+        email: "budi@contoh.id",
+        paketDiminati: "20 Mbps",
+      },
+    });
+
+    const [, prospekDibuat] = vi.mocked(repository.createDenganProspek).mock
+      .calls[0];
+    expect(prospekDibuat).toEqual({
+      nama: "Budi",
+      noTelp: "081234567890",
+      alamat: "Jl. Merdeka 10",
+      email: "budi@contoh.id",
+      paketDiminati: "20 Mbps",
+      latitude: -6.2,
+      longitude: 106.8,
+      sumber: "LAPANGAN",
+      iklanId: "iklan-1",
+      pemilikId: "user-1",
+      siteId: "site-1",
+    });
+  });
+
+  it("tidak membuat prospek saat hasilnya belum berminat meski datanya lengkap", async () => {
+    // Mengisolasi cabang `isHasilMelahirkanProspek`: data prospek sengaja
+    // disertakan supaya satu-satunya alasan penolakan adalah hasilnya.
+    const service = new KegiatanService(repository);
+
+    const hasil = await service.catat({
+      ...masukanKunjungan,
+      hasil: "TIDAK_MINAT",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledOnce();
+    expect(repository.createDenganProspek).not.toHaveBeenCalled();
+    expect(hasil.prospek).toBeNull();
+  });
+
   it("tetap menyimpan kegiatan tanpa prospek saat data prospek tidak disertakan", async () => {
     const service = new KegiatanService(repository);
 
