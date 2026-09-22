@@ -29,10 +29,21 @@ export function teksTanggalSelesai(item: IklanListItemDto): string {
 /**
  * Definisi kolom daftar iklan.
  *
- * Sengaja TIDAK diekspor: array ini adalah reference yang sama persis yang
- * diteruskan ke `<ResponsiveTable columns={...}>`, jadi mengekspornya berarti
- * siapa pun bisa memutasinya dan bocor ke tabel produksi. Yang diuji adalah
- * kedua fungsi teks di atas, bukan isi arraynya.
+ * Sengaja TIDAK diekspor: array ini mutable, dan reference-nya yang sama persis
+ * diteruskan ke `<ResponsiveTable columns={kolom}>` — bukan salinannya. Siapa
+ * pun yang mengimpornya bisa memutasi tabel produksi dari luar.
+ *
+ * Harga yang dibayar untuk itu, disengaja dan perlu diketahui: **baris `render:`
+ * di bawah tidak dijaga test mana pun.** Yang diuji adalah `teksTanggalMulai`
+ * dan `teksTanggalSelesai` secara berdiri sendiri, bukan pemasangannya ke
+ * kolom. Mengganti `render: teksTanggalMulai` dengan lambda yang memformat
+ * sendiri — atau yang mengembalikan `item.tanggalMulai` mentah — akan lolos
+ * seluruh test, `tsc`, maupun lint tanpa satu pun keluhan.
+ *
+ * Yang menahannya tetap benar hanyalah bentuk penugasannya: `render:
+ * teksTanggalMulai` adalah reference langsung ke fungsi yang diuji, sehingga
+ * pemformatan di layar tidak mungkin menyimpang dari yang dikunci test.
+ * **Mengubahnya jadi lambda menghapus proteksi itu — jangan.**
  */
 const kolom: Column<IklanListItemDto>[] = [
   { key: "nama", header: "Nama kampanye", priority: "primary" },
