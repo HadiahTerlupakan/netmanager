@@ -2136,7 +2136,7 @@ describe("IklanRepository — pemetaan", () => {
   it("memetakan seluruh kolom baris menjadi entitas domain", async () => {
     const baris = barisIklan({
       tanggalSelesai: new Date("2026-09-30T00:00:00.000Z"),
-      biaya: { toString: () => "1500000.50" },
+      biaya: { toNumber: () => 1500000.5 },
       penanggungJawabId: "user-1",
     });
     vi.mocked(prisma.presurveiIklan.findUnique).mockResolvedValue(
