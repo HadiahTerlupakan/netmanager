@@ -701,6 +701,10 @@ describe("ProspekService.buat — peringatan duplikat", () => {
     await service.buat(masukan, { abaikanDuplikat: true });
 
     expect(repository.create).toHaveBeenCalledOnce();
+    // Pencariannya harus benar-benar dilewati, bukan dijalankan lalu hasilnya
+    // dibuang — kalau tidak, setiap pembuatan yang disengaja tetap membayar
+    // satu query pada kolom yang belum ber-index.
+    expect(repository.findByNoTelp).not.toHaveBeenCalled();
   });
 
   it("tidak menghitung prospek yang sudah final sebagai duplikat", async () => {
@@ -763,10 +767,12 @@ export interface OpsiBuatProspek {
 interface RingkasanDuplikat {
   id: string;
   nama: string;
-  status: string;
+  status: ProspekStatus;
   pemilikId: string | null;
 }
 ```
+
+`status` memakai `ProspekStatus`, bukan `string` polos — tipe itu sudah ada di domain, dan memakainya berarti status yang keliru tertangkap saat kompilasi. Impor `ProspekStatus` bersama `ProspekEntity` dari `../domain/entities/Prospek`.
 
 dan di dalam kelas:
 
