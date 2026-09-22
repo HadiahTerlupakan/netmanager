@@ -21,12 +21,14 @@ import { describe, expect, it } from "vitest";
  */
 
 import {
+  PresurveiChannelIklan,
   PresurveiHasilKegiatan,
   PresurveiJenisKegiatan,
   PresurveiStatusProspek,
   PresurveiSumberProspek,
 } from "@prisma/client";
 
+import { IKLAN_CHANNELS } from "@/modules/presurvei/domain/entities/Iklan";
 import {
   KEGIATAN_HASIL,
   KEGIATAN_JENIS,
@@ -40,6 +42,12 @@ const sebagaiHimpunan = (nilai: readonly string[]): string[] =>
   [...nilai].sort();
 
 describe("paritas enum Prisma dengan const array domain", () => {
+  it("channel iklan sama di kedua sisi", () => {
+    expect(sebagaiHimpunan(IKLAN_CHANNELS)).toEqual(
+      sebagaiHimpunan(Object.values(PresurveiChannelIklan)),
+    );
+  });
+
   it("jenis kegiatan sama di kedua sisi", () => {
     expect(sebagaiHimpunan(KEGIATAN_JENIS)).toEqual(
       sebagaiHimpunan(Object.values(PresurveiJenisKegiatan)),
