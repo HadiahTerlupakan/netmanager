@@ -1,4 +1,4 @@
-import type { IklanEntity } from "../domain/entities/Iklan";
+import type { IklanChannel, IklanEntity } from "../domain/entities/Iklan";
 import { isIklanBerjalan } from "../domain/iklan-rules";
 
 /**
@@ -12,7 +12,7 @@ export interface IklanListItemDto {
   id: string;
   nama: string;
   kode: string;
-  channel: string;
+  channel: IklanChannel;
   tanggalMulai: string;
   tanggalSelesai: string | null;
   isAktif: boolean;

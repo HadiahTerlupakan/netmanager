@@ -1,4 +1,8 @@
-import type { KegiatanEntity } from "../domain/entities/Kegiatan";
+import type {
+  KegiatanEntity,
+  KegiatanHasil,
+  KegiatanJenis,
+} from "../domain/entities/Kegiatan";
 
 /**
  * Bentuk data kegiatan yang dikirim ke klien.
@@ -9,7 +13,7 @@ import type { KegiatanEntity } from "../domain/entities/Kegiatan";
 
 export interface KegiatanListItemDto {
   id: string;
-  jenis: string;
+  jenis: KegiatanJenis;
   userId: string;
   prospekId: string | null;
   waktuMulai: string;
@@ -17,7 +21,7 @@ export interface KegiatanListItemDto {
   ditemuiNama: string | null;
   latitude: number | null;
   longitude: number | null;
-  hasil: string;
+  hasil: KegiatanHasil;
   jumlahFoto: number;
 }
 

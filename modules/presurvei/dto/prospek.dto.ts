@@ -1,4 +1,8 @@
-import type { ProspekEntity } from "../domain/entities/Prospek";
+import type {
+  ProspekEntity,
+  ProspekStatus,
+  ProspekSumber,
+} from "../domain/entities/Prospek";
 import { canPromosikanKeCanvasing } from "../domain/prospek-rules";
 
 /**
@@ -13,8 +17,8 @@ export interface ProspekListItemDto {
   nama: string;
   noTelp: string;
   alamat: string;
-  sumber: string;
-  status: string;
+  sumber: ProspekSumber;
+  status: ProspekStatus;
   pemilikId: string | null;
   paketDiminati: string | null;
   createdAt: string;
