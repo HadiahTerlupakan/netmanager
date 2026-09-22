@@ -404,6 +404,11 @@ telepon lewat `POST /api/presurvei/prospek` dengan `sumber = IKLAN` dan `iklanId
 `sumber = WEBSITE`, mencocokkan `utmCampaign` dengan `PresurveiIklan.kode` untuk
 mengisi `iklanId`, dan menugaskan pemiliknya.
 
+Pencocokan kampanye bersifat pelengkap, bukan syarat: bila `utmCampaign` kosong,
+tidak dikirim, atau tidak cocok dengan `kode` iklan mana pun, prospek **tetap
+dibuat** dengan `sumber = WEBSITE` dan `iklanId` kosong — pendaftar tidak pernah
+hilang hanya karena atribusi kampanyenya tidak terlacak.
+
 Penugasan pemilik memakai aturan beban paling ringan: sales aktif di site tersebut
 dengan jumlah prospek berstatus `BARU`/`DIHUBUNGI`/`TERTARIK`/`NEGOSIASI` paling
 sedikit. Bila site tidak punya sales aktif, prospek dibuat tanpa pemilik dan muncul
@@ -416,21 +421,33 @@ tidak menghasilkan prospek ganda.
 
 ### 6.3 Promosi prospek menjadi canvasing
 
-`ProspekKonversiService.jadikanCanvasing(prospekId, userId)`:
+`ProspekKonversiService.jadikanCanvasing(prospekId, input, pemilikWajib?)`:
 
 1. Muat prospek, verifikasi `canPromosikanKeCanvasing()` — bila gagal, lempar
    `AppError` dengan kode `INVALID_STATE`
-2. Ambil kegiatan `SURVEI_LOKASI` terbaru milik prospek untuk mengambil data teknis
-3. Panggil `CanvasingService.createRequest()` lewat public API `@/modules/marketing`
-   dengan data ter-prefill: nama, telepon, alamat, koordinat, shareloc, paket, ODP,
-   estimasi kabel, foto
-4. Simpan `canvasingId` dan `konversiAt` ke prospek
-5. Publikasikan event `presurvei:prospek.converted`
+2. Ambil kegiatan `SURVEI_LOKASI` terbaru milik prospek — bila ada, data teknisnya
+   (`odpTerdekat`, `estimasiKabelMeter`, foto pertama) jadi **nilai awal** untuk
+   kolom sejenis di canvasing
+3. Bangun payload canvasing: nama, telepon, email, alamat, koordinat, shareloc, dan
+   pemilik disalin apa adanya dari prospek. `noKtp` dan `paket` **wajib dikirim
+   lewat body** endpoint — prospek tidak memiliki keduanya sama sekali. `kabel`,
+   `odp`, `sn`, `foto`, dan `fotoKtp` juga diterima dari body; bila `kabel`, `odp`,
+   atau `foto` tidak dikirim, nilainya jatuh ke data teknis dari langkah 2 (`kabel`
+   jatuh lagi ke 1 meter bila kegiatan survei pun tidak ada)
+4. Panggil `CanvasingService.createRequest()` lewat public API `@/modules/marketing`
+   dengan payload tersebut, divalidasi ulang lewat validator marketing
+   (`parseCreateCanvasingInput`) supaya invarian seperti kabel minimal 1 meter tetap
+   berlaku meski jalur ini yang satu-satunya melewatinya
+5. Tandai prospek dengan `canvasingId` dan `konversiAt` lewat pembaruan bersyarat
+   (`where: { id, canvasingId: null }`), yang sekaligus jadi titik serialisasi:
+   permintaan promosi yang kalah balapan menghapus canvasing yang terlanjur dibuat
+   alih-alih meninggalkannya yatim
+6. Publikasikan event `presurvei:prospek.converted`
 
-Bila langkah 4 gagal setelah canvasing terbuat, jalankan kompensasi dengan mencatat
-kegagalan dan membiarkan canvasing tetap ada — mengikuti pola kompensasi yang sudah
-dipakai `CanvasingService.approveRequest()`, karena dua domain tidak bisa berada dalam
-satu transaksi Prisma.
+Bila langkah 4 gagal setelah canvasing terbuat, atau langkah 5 kalah balapan,
+jalankan kompensasi: hapus canvasing yang terlanjur dibuat dan catat kegagalannya —
+mengikuti pola kompensasi yang sudah dipakai `CanvasingService.approveRequest()`,
+karena dua domain tidak bisa berada dalam satu transaksi Prisma.
 
 ---
 
@@ -443,15 +460,23 @@ satu transaksi Prisma.
 | `presurvei:prospek.created` | Prospek baru dibuat dari jalur mana pun | notifikasi |
 | `presurvei:prospek.converted` | Prospek dipromosikan menjadi canvasing | statistik, kelak komisi |
 
+**`presurvei:prospek.created` belum dipublikasikan.** Hanya `prospek.converted` yang
+nyata sampai akhir Fase 2 — tidak ada `EVENT_NAMES.PRESURVEI_PROSPEK_CREATED`, tidak
+ada `presurvei.notifications.ts`, dan notifikasi "prospek tanpa pemilik" yang disebut
+di §6.2 belum terkirim ke mana pun. `cariSalesTeringan()` mengembalikan `null` dengan
+tenang saat tidak ada sales aktif; prospeknya tersimpan tanpa `pemilikId`, tapi tidak
+ada yang diberi tahu. Seluruh jalur notifikasi presurvei — termasuk deep link mobile
+di paragraf berikut — adalah pekerjaan yang belum dimulai, bukan yang sudah berjalan.
+
 **Event yang dikonsumsi:**
 
 | Event | Sumber | Penanganan |
 |---|---|---|
-| `registration:registration.created` | `modules/registration` (baru) | Membuat prospek `sumber = WEBSITE` |
+| `registration:registration.created` | `modules/registration` | Membuat prospek `sumber = WEBSITE` |
 
-Event `registration:registration.created` belum ada dan perlu ditambahkan:
-definisi di `lib/event-bus/types.ts` (nama, payload, metadata routing), publikasi
-fire-and-forget di `RegistrationService.register()`, dan registrasi handler di
+Event `registration:registration.created` sudah dibangun di Fase 2: definisi di
+`lib/event-bus/types.ts`, publikasi fire-and-forget di `RegistrationService.register()`,
+dan handler `registration-created-presurvei.handler.ts` terdaftar di
 `lib/event-bus/event-handlers.ts`.
 
 **Notifikasi**: mengikuti pola `canvasing.notifications.ts` — fire-and-forget dari
@@ -476,7 +501,7 @@ Route yang dipakai sales lapangan menerima permission web **atau** mobile:
 | `/api/presurvei/prospek/[id]` | GET, PATCH | `presurvei:read` + `m_presurvei:read` / `presurvei:update` + `m_presurvei:update` |
 | `/api/presurvei/prospek/[id]/jadikan-canvasing` | POST | `presurvei:update` + `m_presurvei:update` |
 | `/api/admin/presurvei/iklan` | GET, POST | `presurvei_iklan:read` / `:create` |
-| `/api/admin/presurvei/iklan/[id]` | GET, PATCH, DELETE | `presurvei_iklan:*` |
+| `/api/admin/presurvei/iklan/[id]` | GET, PATCH | `presurvei_iklan:read` / `:update` |
 | `/api/admin/presurvei/target` | GET, POST | `presurvei_target:read` / `:create` |
 | `/api/admin/presurvei/laporan` | GET | `presurvei_laporan:read` |
 
@@ -492,8 +517,14 @@ otomatis ke HTTP oleh `createHandler`. Ini mengikuti modul terbaru di repo
 ## 9. Permission & menu
 
 **Web** (grup `MARKETING` di `lib/permission-config.ts`):
-`presurvei:read|create|update|delete`, `presurvei_iklan:read|create|update|delete`,
-`presurvei_target:read|create|update|delete`, `presurvei_laporan:read`
+`presurvei:read|create|update|delete`, `presurvei_iklan:read|create|update`,
+`presurvei_target:read|create`, `presurvei_laporan:read`.
+
+Tiga yang terakhir (`presurvei_iklan`, `presurvei_target`, `presurvei_laporan`) baru
+di Fase 2 dan **admin-web saja** — tidak ada padanan `m_*` untuk mereka di
+`PERMISSION_GROUPS_MOBILE`. `presurvei_iklan` tidak punya `delete` dan
+`presurvei_target` tidak punya `update`/`delete` karena route admin yang dibangun
+Fase 2 hanya menyediakan aksi itu (lihat tabel route di §8).
 
 **Mobile** (grup `MARKETING` di `PERMISSION_GROUPS_MOBILE`):
 `m_presurvei:read|create|update` — `update` diperlukan karena sales mengubah
@@ -614,7 +645,7 @@ tetap berfungsi.
 
 | Risiko | Penanganan |
 |---|---|
-| Prospek ganda antara jalur manual dan form publik | Peringatan duplikat berbasis nomor telepon saat input manual; `registrationId @unique` untuk jalur otomatis |
+| Prospek ganda antara jalur manual dan form publik | **Dibangun (Fase 2).** `ProspekService.buat()` menolak dengan 409 `DUPLIKAT` bila ada prospek aktif (status belum final) dengan nomor telepon sama, dan menyertakan daftar yang bentrok. Ini **peringatan yang bisa dilewati** (`abaikanDuplikat: true`), bukan larangan keras — dua orang memang bisa berbagi satu nomor telepon. Jalur otomatis (form publik) memakai `registrationId @unique` untuk idempotensi, mekanisme terpisah dari peringatan ini |
 | Sales bingung membedakan Presurvei dan Canvasing | Penamaan layar yang tegas: Presurvei = "sedang dikejar", Canvasing = "siap dipasang". Tombol promosi hanya muncul saat status `DEAL` |
 | Event registration gagal terkirim | Publikasi fire-and-forget dengan outbox yang sudah ada di event bus; prospek tetap bisa dibuat manual dari daftar registrasi |
 | Foto kunjungan membengkakkan penyimpanan | Kompresi ke WebP sudah otomatis; batas jumlah foto per kegiatan ditetapkan lewat konstanta di validator |
@@ -623,12 +654,16 @@ tetap berfungsi.
 
 ## 14. Fase pengerjaan
 
-| Fase | Isi | Hasil yang bisa diuji |
-|---|---|---|
-| 1 | Skema + migration + domain + repository + `KegiatanService` + `ProspekService` + API kegiatan & prospek + test | Kegiatan dan prospek bisa dicatat lewat API |
-| 2 | `PresurveiIklan` + `PresurveiTarget` + event registration + UTM + `ProspekKonversiService` | Atribusi sumber lengkap, promosi ke canvasing berfungsi |
-| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan | Manajemen bisa melihat kegiatan tim |
-| 4 | Mobile: route group `(sales)`, beranda sales, layar presurvei, pengarahan setelah login | Sales bekerja penuh dari aplikasi |
+| Fase | Isi | Hasil yang bisa diuji | Status |
+|---|---|---|---|
+| 1 | Skema + migration + domain + repository + `KegiatanService` + `ProspekService` + API kegiatan & prospek + test | Kegiatan dan prospek bisa dicatat lewat API | ✅ Selesai |
+| 2 | `PresurveiIklan` + `PresurveiTarget` + event registration + UTM + `ProspekKonversiService` | Atribusi sumber lengkap, promosi ke canvasing berfungsi | ✅ Selesai (2026-09-22) |
+| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan | Manajemen bisa melihat kegiatan tim | ⬜ Belum dikerjakan |
+| 4 | Mobile: route group `(sales)`, beranda sales, layar presurvei, pengarahan setelah login | Sales bekerja penuh dari aplikasi | ⬜ Belum dikerjakan |
+
+Fase 1 dan 2 selesai. Sampai Fase 3 (UI admin web) dan Fase 4 (mobile sales)
+dikerjakan, modul ini hanya bisa dipakai lewat pemanggilan API langsung dan lewat
+form publik `/register` — belum ada satu layar pun yang memakainya.
 
 Setiap fase punya migration sendiri bila menyentuh skema, dan entri `docs/CHANGELOG.md`
 sendiri.

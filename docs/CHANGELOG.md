@@ -41,6 +41,55 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-22] — Selesaikan Fase 2 modul presurvei: iklan, target, laporan, dan integrasi pendaftaran publik
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Menutup Fase 2 modul presurvei (39 commit) di atas fondasi Fase 1.
+  Prospek kini lahir otomatis dari form pendaftaran publik `/register` lewat event
+  `registration:registration.created` — dicocokkan ke kampanye iklan lewat
+  `utm_campaign`, ditugaskan ke sales dengan beban prospek paling ringan, dan tetap
+  tercatat dengan `sumber = WEBSITE` bila kampanyenya tidak dikenal. Input manual
+  prospek kini diperingatkan (409 `DUPLIKAT`, bisa dilewati — bukan ditolak keras)
+  saat nomor telepon sudah dipakai prospek aktif lain. Prospek berstatus `DEAL` bisa
+  dipromosikan menjadi Canvasing lewat `ProspekKonversiService`, dengan kompensasi
+  (hapus canvasing yang terlanjur dibuat) bila penandaan konversi gagal atau kalah
+  balapan melawan permintaan promosi lain — penandaan itu sendiri jadi titik
+  serialisasi lewat pembaruan bersyarat, sehingga dua klik pada tombol yang sama
+  tidak melahirkan dua canvasing. Perjalanan prospek kini tertutup penuh: kegiatan
+  lapangan → prospek → canvasing → work order instalasi (langkah terakhir lewat
+  alur Canvasing yang sudah ada, tidak diubah).
+
+  Entitas `PresurveiIklan` dan `PresurveiTarget` mendapat domain, repository,
+  service, DTO, dan route admin penuh (`/api/admin/presurvei/iklan`, `/target`,
+  `/laporan`), dijaga 6 permission baru (`presurvei_iklan:read|create|update`,
+  `presurvei_target:read|create`, `presurvei_laporan:read`) yang terdaftar ke role
+  admin lewat `scripts/seed-presurvei-permissions.ts` — **skrip ini belum
+  dijalankan terhadap database mana pun**, jadi keempat route admin baru menolak
+  semua pemanggil kecuali pemegang wildcard `*` sampai skrip itu dijalankan.
+  Laporan pencapaian menggabungkan kunjungan, prospek baru, dan konversi per sales
+  per periode bulanan, tapi belum sadar timezone tenant (pakai `Date.UTC`) dan
+  belum punya breakdown per-iklan meski `iklanId` sudah terkumpul sejak prospek
+  dibuat.
+
+  Modul Canvasing (`modules/marketing`) tidak diubah selain satu tipe yang
+  diekspor (`CreateCanvasingInput`) untuk dipakai promosi prospek. Modul presurvei
+  sendiri kini punya 257 test (233 domain/service/repository/DTO + 24 route), naik
+  dari 119 di akhir Fase 1; seluruh 733 berkas test repo (4418 test) lulus tanpa
+  kegagalan yang berkaitan dengan presurvei.
+- **Files**: `modules/presurvei/**` (entitas `Iklan`, `Target`, service
+  `IklanService`, `TargetService`, `ProspekKonversiService`, handler
+  `registration-created-presurvei.handler.ts`), `app/api/admin/presurvei/**`,
+  `app/api/presurvei/prospek/[id]/jadikan-canvasing/`, `modules/registration/**`
+  (publikasi event + kolom UTM), `modules/marketing/index.ts` (ekspor tipe
+  `CreateCanvasingInput`), `lib/event-bus/types.ts`,
+  `lib/event-bus/event-handlers.ts`, `lib/permissions.ts`,
+  `lib/permission-config.ts`, `lib/resource-capabilities.ts`,
+  `scripts/seed-presurvei-permissions.ts`
+- **Migration**: `20260922060531_add_utm_to_registrations`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-22] — Tambah modul presurvei (kegiatan sales & prospek)
 
 - **Tipe**: [ADDED]
