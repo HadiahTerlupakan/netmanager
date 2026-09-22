@@ -37,3 +37,34 @@ export function buildIklanListUrl(filter: FilterIklan): string {
 
   return `/api/admin/presurvei/iklan?${params.toString()}`;
 }
+
+/**
+ * Urutan pilihan status, sekaligus sumber union-nya.
+ *
+ * Tiga nilai, bukan dua: "semua" berarti tidak menyaring, "nonaktif" berarti
+ * menyaring `isAktif=false`. Checkbox dua nilai akan menggabungkan keduanya.
+ */
+export const URUTAN_STATUS = ["semua", "aktif", "nonaktif"] as const;
+
+export type KunciStatus = (typeof URUTAN_STATUS)[number];
+
+/** Nilai filter untuk tiap pilihan status; Record memaksa ketiganya dijawab. */
+export const STATUS_PILIHAN: Record<
+  KunciStatus,
+  { label: string; isAktif: boolean | null }
+> = {
+  semua: { label: "Semua status", isAktif: null },
+  aktif: { label: "Hanya yang aktif", isAktif: true },
+  nonaktif: { label: "Hanya yang nonaktif", isAktif: false },
+};
+
+/**
+ * Kunci pilihan yang mewakili nilai filter saat ini.
+ *
+ * Perbandingan eksplisit terhadap null: `false` adalah pilihan yang sah, dan
+ * percabangan berbasis truthiness akan menyamakan "nonaktif" dengan "semua".
+ */
+export function kunciStatusDari(isAktif: boolean | null): KunciStatus {
+  if (isAktif === null) return "semua";
+  return isAktif ? "aktif" : "nonaktif";
+}

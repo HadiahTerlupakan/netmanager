@@ -9,41 +9,16 @@ import {
   type IklanChannel,
 } from "@/modules/presurvei/client";
 
-import type { FilterIklan } from "./iklanListQuery";
-
-/**
- * Urutan pilihan status, sekaligus sumber union-nya.
- *
- * Tiga nilai, bukan dua: "semua" berarti tidak menyaring, "nonaktif" berarti
- * menyaring `isAktif=false`. Checkbox dua nilai akan menggabungkan keduanya.
- */
-const URUTAN_STATUS = ["semua", "aktif", "nonaktif"] as const;
-
-type KunciStatus = (typeof URUTAN_STATUS)[number];
-
-/** Nilai filter untuk tiap pilihan status; Record memaksa ketiganya dijawab. */
-const STATUS_PILIHAN: Record<
-  KunciStatus,
-  { label: string; isAktif: boolean | null }
-> = {
-  semua: { label: "Semua status", isAktif: null },
-  aktif: { label: "Hanya yang aktif", isAktif: true },
-  nonaktif: { label: "Hanya yang nonaktif", isAktif: false },
-};
+import {
+  kunciStatusDari,
+  STATUS_PILIHAN,
+  URUTAN_STATUS,
+  type FilterIklan,
+  type KunciStatus,
+} from "./iklanListQuery";
 
 /** Nilai `<option>` yang berarti "tidak menyaring channel". */
 const CHANNEL_SEMUA = "";
-
-/**
- * Kunci pilihan yang mewakili nilai filter saat ini.
- *
- * Perbandingan eksplisit terhadap null: `false` adalah pilihan yang sah, dan
- * percabangan berbasis truthiness akan menyamakan "nonaktif" dengan "semua".
- */
-function kunciStatusDari(isAktif: boolean | null): KunciStatus {
-  if (isAktif === null) return "semua";
-  return isAktif ? "aktif" : "nonaktif";
-}
 
 const KELAS_SELECT =
   "appearance-none cursor-pointer rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-8 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";

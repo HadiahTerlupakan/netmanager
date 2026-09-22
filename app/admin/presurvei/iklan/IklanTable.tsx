@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { formatDateDisplay } from "@/lib/utils/datetime";
 import {
   IKLAN_CHANNEL_CONFIG,
   type IklanListItemDto,
@@ -47,8 +48,18 @@ const kolom: Column<IklanListItemDto>[] = [
         </span>
       ),
   },
-  { key: "tanggalMulai", header: "Mulai", priority: "tertiary" },
-  { key: "tanggalSelesai", header: "Selesai", priority: "tertiary" },
+  {
+    key: "tanggalMulai",
+    header: "Mulai",
+    priority: "tertiary",
+    render: (item) => formatDateDisplay(item.tanggalMulai),
+  },
+  {
+    key: "tanggalSelesai",
+    header: "Selesai",
+    priority: "tertiary",
+    render: (item) => formatDateDisplay(item.tanggalSelesai),
+  },
 ];
 
 /** Tabel daftar kampanye iklan beserta paginasinya. */

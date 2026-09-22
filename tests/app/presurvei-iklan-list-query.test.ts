@@ -6,7 +6,12 @@ import { describe, expect, it } from "vitest";
  * di dalam komponen tidak akan pernah teruji.
  */
 
-import { buildIklanListUrl } from "@/app/admin/presurvei/iklan/iklanListQuery";
+import {
+  buildIklanListUrl,
+  kunciStatusDari,
+  STATUS_PILIHAN,
+  URUTAN_STATUS,
+} from "@/app/admin/presurvei/iklan/iklanListQuery";
 
 describe("buildIklanListUrl", () => {
   it("selalu mengirim halaman dan batas", () => {
@@ -61,6 +66,23 @@ describe("buildIklanListUrl", () => {
 
     expect(url).toBe(
       "/api/admin/presurvei/iklan?page=3&limit=20&search=ramadan&channel=META&isAktif=true",
+    );
+  });
+});
+
+describe("kunciStatusDari", () => {
+  it("membedakan nonaktif dari semua", () => {
+    // `false` adalah pilihan yang sah, bukan ketiadaan pilihan. Percabangan
+    // berbasis truthiness akan menyamakan keduanya, dan pemakai yang memilih
+    // "Hanya yang nonaktif" akan melihat seluruh kampanye.
+    expect(kunciStatusDari(false)).toBe("nonaktif");
+    expect(kunciStatusDari(null)).toBe("semua");
+    expect(kunciStatusDari(true)).toBe("aktif");
+  });
+
+  it("memetakan tiap kunci ke nilai filter yang benar", () => {
+    expect(URUTAN_STATUS.map((kunci) => STATUS_PILIHAN[kunci].isAktif)).toEqual(
+      [null, true, false],
     );
   });
 });
