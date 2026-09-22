@@ -1969,7 +1969,7 @@ export function toIklanEntity(row: IklanRow): IklanEntity {
 - [ ] **Step 7: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 148 test.
+Expected: seluruh modul hijau; task ini menambah 6 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
@@ -2562,7 +2562,7 @@ export class IklanService {
 - [ ] **Step 7: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 164 test.
+Expected: seluruh modul hijau; task ini menambah 16 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
@@ -2857,7 +2857,7 @@ Tidak ada DELETE: kampanye yang sudah berjalan menjadi asal-usul prospek yang su
 - [ ] **Step 7: Jalankan verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 170 test.
+Expected: seluruh modul hijau; task ini menambah 6 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npm run typecheck`
 Expected: lulus. Permission `presurvei_iklan:*` belum ada di database sampai Task 14, jadi route ini akan menolak semua pemanggil untuk sementara — itu normal dan tidak mempengaruhi typecheck.
@@ -3017,7 +3017,7 @@ Perhatikan `sumber` ikut berubah menjadi `IKLAN` saat kampanyenya dikenal — it
 - [ ] **Step 4: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 174 test.
+Expected: seluruh modul hijau; task ini menambah 4 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
@@ -3396,7 +3396,7 @@ export class TargetRepository implements ITargetRepository {
 - [ ] **Step 7: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 180 test.
+Expected: seluruh modul hijau; task ini menambah 6 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
@@ -3919,7 +3919,7 @@ export {
 - [ ] **Step 8: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 187 test.
+Expected: seluruh modul hijau; task ini menambah 7 test baru. Jangan mencocokkan totalnya dengan angka apa pun — baseline bergeser tiap ronde perbaikan, dan yang harus benar adalah pertambahannya.
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
