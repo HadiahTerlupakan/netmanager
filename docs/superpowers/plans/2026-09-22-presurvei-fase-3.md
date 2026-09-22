@@ -2924,11 +2924,9 @@ const baris = (over: Partial<BarisLaporanDto>): BarisLaporanDto =>
     userId: "sales-1",
     periodeTahun: 2026,
     periodeBulan: 9,
-    pencapaian: {
-      kunjungan: { target: 20, tercapai: 10, persen: 50 },
-      prospek: { target: 10, tercapai: 5, persen: 50 },
-      konversi: { target: 5, tercapai: 1, persen: 20 },
-    },
+    kunjungan: { target: 20, tercapai: 10, persen: 50 },
+    prospek: { target: 10, tercapai: 5, persen: 50 },
+    konversi: { target: 5, tercapai: 1, persen: 20 },
     ...over,
   }) as BarisLaporanDto;
 
@@ -2937,12 +2935,8 @@ describe("keBarisTampilan", () => {
     // Manajer perlu melihat 40 kunjungan dari target 20, bukan sekadar "100%".
     const hasil = keBarisTampilan([
       baris({
-        pencapaian: {
-          kunjungan: { target: 20, tercapai: 40, persen: 100 },
-          prospek: { target: 10, tercapai: 5, persen: 50 },
-          konversi: { target: 5, tercapai: 1, persen: 20 },
-        },
-      } as never),
+        kunjungan: { target: 20, tercapai: 40, persen: 100 },
+      }),
     ]);
 
     expect(hasil[0].kunjungan.lebarBilah).toBe(100);
@@ -2955,12 +2949,10 @@ describe("keBarisTampilan", () => {
     // belum ditetapkan.
     const hasil = keBarisTampilan([
       baris({
-        pencapaian: {
-          kunjungan: { target: 0, tercapai: 0, persen: 100 },
-          prospek: { target: 0, tercapai: 0, persen: 100 },
-          konversi: { target: 0, tercapai: 0, persen: 100 },
-        },
-      } as never),
+        kunjungan: { target: 0, tercapai: 0, persen: 100 },
+        prospek: { target: 0, tercapai: 0, persen: 100 },
+        konversi: { target: 0, tercapai: 0, persen: 100 },
+      }),
     ]);
 
     expect(hasil[0].isTanpaTarget).toBe(true);
@@ -3030,13 +3022,13 @@ function keMetrik(m: { target: number; tercapai: number; persen: number }): Metr
 export function keBarisTampilan(baris: BarisLaporanDto[]): BarisTampilan[] {
   return baris.map((b) => ({
     userId: b.userId,
-    kunjungan: keMetrik(b.pencapaian.kunjungan),
-    prospek: keMetrik(b.pencapaian.prospek),
-    konversi: keMetrik(b.pencapaian.konversi),
+    kunjungan: keMetrik(b.kunjungan),
+    prospek: keMetrik(b.prospek),
+    konversi: keMetrik(b.konversi),
     isTanpaTarget:
-      b.pencapaian.kunjungan.target === 0 &&
-      b.pencapaian.prospek.target === 0 &&
-      b.pencapaian.konversi.target === 0,
+      b.kunjungan.target === 0 &&
+      b.prospek.target === 0 &&
+      b.konversi.target === 0,
   }));
 }
 ```
@@ -3068,7 +3060,7 @@ Create `app/admin/presurvei/laporan/page.tsx` dengan gerbang `ensureAnyPermissio
 |---|---|
 | Hapus `Math.min` pada `lebarBilah` | test "membatasi lebar bilah pada 100" |
 | Ganti `&&` jadi `\|\|` pada `isTanpaTarget` | test "tidak menandai baris yang punya target" |
-| Salin `b.pencapaian.kunjungan` ke ketiga metrik | test "memakai tiga metrik yang berbeda" |
+| Salin `b.kunjungan` ke ketiga metrik | test "memakai tiga metrik yang berbeda" |
 
 - [ ] **Step 6: Commit**
 
