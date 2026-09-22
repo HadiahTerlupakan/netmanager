@@ -41,9 +41,16 @@ export const PATCH = createHandler(
     schema: ubahProspekSchema,
   },
   async (_request, ctx) => {
+    // Pemanggil tanpa permission web tidak boleh mengalihkan kepemilikan —
+    // `pemilikId` menentukan siapa yang bisa membaca dan mengubah prospek ini,
+    // jadi membiarkannya lewat berarti sales bisa menyerahkan prospeknya ke
+    // orang lain lalu kehilangan aksesnya sendiri.
+    const { pemilikId: _pemilikId, ...perubahanAman } = ctx.validated;
+    const bolehTugaskanPemilik = isBolehLihatSemuaPresurvei(ctx.permissions);
+
     const prospek = await service.ubah(
       ctx.params.id as string,
-      ctx.validated,
+      bolehTugaskanPemilik ? ctx.validated : perubahanAman,
       pemilikWajibUntuk(ctx),
     );
     return apiSuccess(toProspekDetail(prospek));

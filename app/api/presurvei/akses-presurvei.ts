@@ -27,3 +27,22 @@ export function isBolehLihatSemuaPresurvei(permissions: string[]): boolean {
     permissions.includes(PERMISSION_WILDCARD)
   );
 }
+
+/**
+ * Tentukan pemilik prospek, mengabaikan `pemilikId` kiriman klien bila pemanggil
+ * tidak berhak menugaskannya.
+ *
+ * `pemilikId` bukan sekadar data: ia yang menentukan siapa boleh membaca dan
+ * mengubah prospek tersebut. Membiarkan klien menentukannya berarti sales bisa
+ * membuat prospek atas nama rekan setimnya — mengotori laporan performa orang
+ * lain — atau mengalihkan prospeknya sendiri ke orang lain dan kehilangan akses.
+ * Hanya pemegang permission web yang boleh menugaskan pemilik.
+ */
+export function tentukanPemilikProspek(
+  permissions: string[],
+  pemilikDiminta: string | null | undefined,
+  idPemanggil: string,
+): string {
+  if (!isBolehLihatSemuaPresurvei(permissions)) return idPemanggil;
+  return pemilikDiminta ?? idPemanggil;
+}

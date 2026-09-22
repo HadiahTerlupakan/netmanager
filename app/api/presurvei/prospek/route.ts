@@ -7,7 +7,10 @@ import {
   toProspekDetail,
   toProspekListItem,
 } from "@/modules/presurvei";
-import { isBolehLihatSemuaPresurvei } from "../akses-presurvei";
+import {
+  isBolehLihatSemuaPresurvei,
+  tentukanPemilikProspek,
+} from "../akses-presurvei";
 
 const service = new ProspekService();
 
@@ -51,7 +54,11 @@ export const POST = createHandler(
   async (_request, ctx) => {
     const prospek = await service.buat({
       ...ctx.validated,
-      pemilikId: ctx.validated.pemilikId ?? ctx.session!.user.id,
+      pemilikId: tentukanPemilikProspek(
+        ctx.permissions,
+        ctx.validated.pemilikId,
+        ctx.session!.user.id,
+      ),
     });
 
     return apiSuccess(toProspekDetail(prospek), { status: 201 });
