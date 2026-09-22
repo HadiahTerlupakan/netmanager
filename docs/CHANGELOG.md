@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-22] — Tambah modul presurvei (kegiatan sales & prospek)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Modul baru untuk mencatat kegiatan tim sales dan marketing —
+  kunjungan lapangan, survei lokasi, telepon, chat, dan pekerjaan iklan — beserta
+  prospek yang lahir darinya. Kegiatan yang membuahkan minat langsung melahirkan
+  prospek dalam satu transaksi, sehingga sales tidak mengetik ulang data yang sama.
+  Prospek punya aturan transisi status terpusat dan atribusi sumber, menjawab
+  kebutuhan manajemen untuk mengetahui kegiatan tim dan asal setiap prospek.
+  Modul Canvasing dan Registration tidak diubah.
+- **Files**: `modules/presurvei/**`, `app/api/presurvei/**`,
+  `scripts/seed-presurvei-permissions.ts`, `lib/permissions.ts`,
+  `lib/permission-config.ts`, `lib/resource-capabilities.ts`, `lib/role-templates.ts`
+- **Migration**: `20260922004720_add_presurvei_module`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-22] — Pangkas image aplikasi lama di node produksi otomatis
 
 - **Tipe**: [INFRA]
