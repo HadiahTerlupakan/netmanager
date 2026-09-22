@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
  * DOM palsu.
  */
 
+import { PROSPEK_STATUSES } from "@/modules/presurvei/domain/entities/Prospek";
 import { resolveAksiKanban } from "@/modules/presurvei/domain/prospek-kanban";
+import { isTransisiStatusSah } from "@/modules/presurvei/domain/prospek-rules";
 
 describe("resolveAksiKanban", () => {
   it("mengizinkan perpindahan yang sah menurut aturan domain", () => {
@@ -36,10 +38,43 @@ describe("resolveAksiKanban", () => {
     });
   });
 
-  it("memakai aturan domain, bukan daftar tersendiri", () => {
-    // TIDAK_MINAT punya jalan kembali ke DIHUBUNGI — pelanggan bisa berubah
-    // pikiran. Kalau fungsi ini menyalin daftar transisinya sendiri alih-alih
-    // memanggil isTransisiStatusSah, kasus ini yang paling mungkin terlewat.
+  it("tidak membuka form untuk tujuan lain dari NEGOSIASI", () => {
+    // NEGOSIASI satu-satunya status yang punya jalur ke DEAL. Tanpa kasus ini
+    // cabang `ke === "DEAL"` bisa ditukar jadi `dari === "NEGOSIASI"` tanpa
+    // satu pun test merah — lalu sales yang menyeret kartu ke "Tidak Minat"
+    // disambut form konversi yang meminta KTP dan paket.
+    expect(resolveAksiKanban("NEGOSIASI", "TIDAK_MINAT")).toEqual({
+      jenis: "ubah-status",
+      tujuan: "TIDAK_MINAT",
+    });
+  });
+
+  it("sepakat dengan isTransisiStatusSah untuk ke-49 pasangan status", () => {
+    // Inilah yang benar-benar mengunci "tidak menyalin tabel transisi".
+    // Menyalin `TRANSISI_SAH` ke dalam berkas ini tidak berbahaya selama
+    // nilainya sama — bahayanya muncul saat kedua salinan menyimpang, dan di
+    // situlah test ini merah. Test bernilai tunggal tidak bisa melihatnya.
+    for (const dari of PROSPEK_STATUSES) {
+      for (const ke of PROSPEK_STATUSES) {
+        // Pasangan ikut di-assert supaya kegagalannya menyebut pasangan mana
+        // yang menyimpang; `expect(false).toBe(true)` tidak memberi tahu apa pun.
+        expect({
+          dari,
+          ke,
+          adaAksi: resolveAksiKanban(dari, ke) !== null,
+        }).toEqual({
+          dari,
+          ke,
+          adaAksi: dari !== ke && isTransisiStatusSah(dari, ke),
+        });
+      }
+    }
+  });
+
+  it("mengizinkan jalan kembali dari TIDAK_MINAT ke DIHUBUNGI", () => {
+    // Prospek mati bukan jalan buntu: pelanggan bisa berubah pikiran, dan
+    // papan harus mengizinkan kartunya ditarik kembali ke corong hidup.
+    // Contoh konkret yang menemani test ke-49-pasangan di atas.
     expect(resolveAksiKanban("TIDAK_MINAT", "DIHUBUNGI")).toEqual({
       jenis: "ubah-status",
       tujuan: "DIHUBUNGI",
