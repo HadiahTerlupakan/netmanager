@@ -23,6 +23,7 @@ Berlaku untuk setiap task, tanpa perlu diulang di masing-masing:
 - **Penamaan**: fungsi adalah verb (`buatProspek`, `validasiTransisi`); boolean berprefix `is`/`has`/`can` (`isFinal`, `canPromosikan`). Tidak ada magic number — gunakan named constant.
 - **Nullable**: field opsional di domain entity ditulis `| null`, bukan `?`. `Date` tetap `Date` di domain, dikonversi ke ISO string hanya di DTO.
 - **Test**: semua file test di `tests/modules/presurvei/`. Service diuji dengan me-mock port repository; repository diuji dengan me-mock `@/modules/database`. Waktu selalu di-inject supaya deterministik.
+- **`strictNullChecks: false`** — repo ini mematikannya (`tsconfig.json`) sementara `strict: true` tetap menyalakan `noImplicitAny`. Akibatnya **objek literal yang punya properti bernilai `null` dan tidak punya tipe kontekstual akan gagal typecheck** dengan `TS7018: implicitly has an 'any' type`. Karena `tsconfig.typecheck.json` mencakup `**/*.ts`, file test ikut diperiksa. Jadi setiap builder atau konstanta test yang memuat `null` **wajib** punya anotasi tipe eksplisit — lewat return type (`): ProspekEntity =>`), anotasi variabel (`const x: Pick<ProspekEntity, …> =`), atau `as` di akhir. Ini bukan gaya, ini syarat agar `npm run typecheck` lulus.
 - **Migration**: `npx prisma migrate dev --name <deskriptif>`. `prisma db push` **dilarang**. Commit `schema.prisma` dan folder migration dalam satu commit.
 - **Commit**: Conventional Commits — `feat(presurvei): ...`, `test(presurvei): ...`.
 
@@ -487,8 +488,13 @@ describe("getStatusLanjutan", () => {
 });
 
 describe("canPromosikanKeCanvasing", () => {
-  const prospekSiap = {
-    status: "DEAL" as const,
+  // Anotasi tipe wajib: tanpanya `canvasingId: null` jadi implicit any karena
+  // repo mematikan strictNullChecks (lihat Global Constraints).
+  const prospekSiap: Pick<
+    ProspekEntity,
+    "status" | "canvasingId" | "noTelp" | "alamat"
+  > = {
+    status: "DEAL",
     canvasingId: null,
     noTelp: "081234567890",
     alamat: "Jl. Merdeka 10",
@@ -980,8 +986,11 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { ProspekRepository } from "@/modules/presurvei/repositories/ProspekRepository";
+import type { ProspekRow } from "@/modules/presurvei/mappers/prospek.mapper";
 
-const barisProspek = (over: Record<string, unknown> = {}) => ({
+// Anotasi `: ProspekRow` wajib: tanpanya properti bernilai `null` jadi implicit
+// any karena repo mematikan strictNullChecks (lihat Global Constraints).
+const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
   id: "prospek-1",
   nama: "Budi",
   noTelp: "081234567890",
