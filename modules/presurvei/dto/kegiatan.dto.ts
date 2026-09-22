@@ -17,13 +17,13 @@ export interface KegiatanListItemDto {
   ditemuiNama: string | null;
   hasil: string;
   jumlahFoto: number;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface KegiatanDetailDto extends KegiatanListItemDto {
   iklanId: string | null;
   waktuSelesai: string | null;
-  latitude: number | null;
-  longitude: number | null;
   catatan: string | null;
   fotoUrls: string[];
   dataTeknis: {
@@ -48,6 +48,8 @@ export function toKegiatanListItem(
     ditemuiNama: kegiatan.ditemuiNama,
     hasil: kegiatan.hasil,
     jumlahFoto: kegiatan.fotoUrls.length,
+    latitude: kegiatan.latitude,
+    longitude: kegiatan.longitude,
   };
 }
 
@@ -65,8 +67,6 @@ export function toKegiatanDetail(kegiatan: KegiatanEntity): KegiatanDetailDto {
     ...toKegiatanListItem(kegiatan),
     iklanId: kegiatan.iklanId,
     waktuSelesai: kegiatan.waktuSelesai?.toISOString() ?? null,
-    latitude: kegiatan.latitude,
-    longitude: kegiatan.longitude,
     catatan: kegiatan.catatan,
     fotoUrls: kegiatan.fotoUrls,
     dataTeknis: hasDataTeknis

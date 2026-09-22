@@ -10,7 +10,10 @@ import {
   toProspekDetail,
   toProspekListItem,
 } from "@/modules/presurvei/dto/prospek.dto";
-import { toKegiatanDetail } from "@/modules/presurvei/dto/kegiatan.dto";
+import {
+  toKegiatanDetail,
+  toKegiatanListItem,
+} from "@/modules/presurvei/dto/kegiatan.dto";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 import type { KegiatanEntity } from "@/modules/presurvei/domain/entities/Kegiatan";
 
@@ -86,6 +89,31 @@ describe("toProspekDetail", () => {
 
   it("tidak menandai prospek yang belum DEAL", () => {
     expect(toProspekDetail(prospek()).isSiapDipromosikan).toBe(false);
+  });
+});
+
+describe("toKegiatanListItem", () => {
+  it("menyertakan koordinat supaya peta tidak perlu mengambil detail per baris", () => {
+    // Nilai lintang dan bujur sengaja dibuat berjauhan: keduanya `number`
+    // bersebelahan, dan tertukarnya tidak akan ditolak compiler — penanda
+    // peta akan mendarat di belahan bumi yang salah tanpa satu pun keluhan.
+    const hasil = toKegiatanListItem(
+      kegiatan({ latitude: -6.2, longitude: 106.8 }),
+    );
+
+    expect(hasil.latitude).toBe(-6.2);
+    expect(hasil.longitude).toBe(106.8);
+  });
+
+  it("meneruskan koordinat kosong apa adanya", () => {
+    // Kegiatan telepon, chat, dan walk-in kantor tidak punya titik. Mengubah
+    // null menjadi 0 akan menempatkannya di lepas pantai Afrika.
+    const hasil = toKegiatanListItem(
+      kegiatan({ latitude: null, longitude: null }),
+    );
+
+    expect(hasil.latitude).toBeNull();
+    expect(hasil.longitude).toBeNull();
   });
 });
 
