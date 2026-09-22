@@ -73,10 +73,14 @@ const prospekTersimpan: ProspekEntity = {
 };
 
 const beriPermission = (permissions: string[]): void => {
+  // `getUserPermissions` hanya dipanggil createHandler saat session.user
+  // tidak membawa `permissions` sendiri (lihat lib/api/handler.ts). Sesi tiruan
+  // di sini selalu membawanya, jadi cabang fallback itu tidak pernah tersentuh
+  // — mock-nya tetap didaftarkan (bentuk modul @/lib/auth harus utuh) tapi
+  // sengaja tidak diberi `mockResolvedValue` agar tidak menyesatkan pembaca.
   mockFns.getServerSession.mockResolvedValue({
     user: { id: ID_SESI, email: "sales-a@contoh.id", permissions },
   });
-  mockFns.getUserPermissions.mockResolvedValue(permissions);
 };
 
 const mintaDaftar = (query: string) =>
@@ -162,7 +166,7 @@ describe("POST /api/presurvei/prospek — penugasan pemilik", () => {
 
     expect(mockFns.buat).toHaveBeenCalledWith(
       expect.objectContaining({ pemilikId: ID_SESI }),
-      expect.anything(),
+      expect.objectContaining({ abaikanDuplikat: undefined }),
     );
   });
 
@@ -173,7 +177,7 @@ describe("POST /api/presurvei/prospek — penugasan pemilik", () => {
 
     expect(mockFns.buat).toHaveBeenCalledWith(
       expect.objectContaining({ pemilikId: ID_ORANG_LAIN }),
-      expect.anything(),
+      expect.objectContaining({ abaikanDuplikat: undefined }),
     );
   });
 
@@ -182,6 +186,10 @@ describe("POST /api/presurvei/prospek — penugasan pemilik", () => {
 
     await mintaBuat({ ...bodiDasar, abaikanDuplikat: true });
 
+    // Guard sebelum destructure: tanpa ini, `buat` yang tidak terpanggil
+    // menghasilkan TypeError saat destructure `mock.calls[0]` alih-alih
+    // kegagalan assertion yang bersih.
+    expect(mockFns.buat).toHaveBeenCalledTimes(1);
     const [dataProspek, opsi] = mockFns.buat.mock.calls[0];
     expect(dataProspek).not.toHaveProperty("abaikanDuplikat");
     expect(opsi).toMatchObject({ abaikanDuplikat: true });

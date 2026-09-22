@@ -42,10 +42,14 @@ import { POST } from "@/app/api/presurvei/prospek/[id]/jadikan-canvasing/route";
 const ID_SESI = "sales-a";
 
 const beriPermission = (permissions: string[]): void => {
+  // `getUserPermissions` hanya dipanggil createHandler saat session.user
+  // tidak membawa `permissions` sendiri (lihat lib/api/handler.ts). Sesi tiruan
+  // di sini selalu membawanya, jadi cabang fallback itu tidak pernah tersentuh
+  // — mock-nya tetap didaftarkan (bentuk modul @/lib/auth harus utuh) tapi
+  // sengaja tidak diberi `mockResolvedValue` agar tidak menyesatkan pembaca.
   mockFns.getServerSession.mockResolvedValue({
     user: { id: ID_SESI, email: "sales-a@contoh.id", permissions },
   });
-  mockFns.getUserPermissions.mockResolvedValue(permissions);
 };
 
 const mintaPromosi = (body: Record<string, unknown>) =>
