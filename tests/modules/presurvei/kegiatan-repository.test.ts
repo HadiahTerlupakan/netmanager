@@ -1,0 +1,139 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Kegiatan dan prospek yang lahir darinya harus tersimpan bersama atau tidak
+ * sama sekali. Kalau kegiatan tersimpan tapi prospeknya gagal, laporan sales
+ * menunjukkan kunjungan berhasil tanpa prospek yang bisa di-follow-up.
+ */
+
+const transaksiTerpanggil = vi.fn();
+
+vi.mock("@/modules/database", () => ({
+  prisma: {
+    presurveiKegiatan: {
+      findMany: vi.fn(),
+      count: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
+    $transaction: (jalankan: (tx: unknown) => Promise<unknown>) => {
+      transaksiTerpanggil();
+      return jalankan({
+        presurveiProspek: {
+          create: vi.fn().mockResolvedValue({
+            id: "prospek-baru",
+            nama: "Budi",
+            noTelp: "081234567890",
+            email: null,
+            alamat: "Jl. Merdeka 10",
+            latitude: null,
+            longitude: null,
+            shareloc: null,
+            sumber: "LAPANGAN",
+            iklanId: null,
+            registrationId: null,
+            referralNama: null,
+            status: "BARU",
+            pemilikId: "user-1",
+            paketDiminati: null,
+            catatan: null,
+            canvasingId: null,
+            konversiAt: null,
+            siteId: null,
+            tenantId: "tenant-1",
+            createdAt: new Date("2026-09-22T00:00:00.000Z"),
+            updatedAt: new Date("2026-09-22T00:00:00.000Z"),
+          }),
+        },
+        presurveiKegiatan: {
+          create: vi.fn().mockResolvedValue({
+            id: "kegiatan-baru",
+            jenis: "KUNJUNGAN",
+            userId: "user-1",
+            prospekId: "prospek-baru",
+            iklanId: null,
+            waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+            waktuSelesai: null,
+            latitude: -6.2,
+            longitude: 106.8,
+            alamatDikunjungi: "Jl. Merdeka 10",
+            ditemuiNama: "Budi",
+            hasil: "TERTARIK",
+            catatan: null,
+            fotoUrls: [],
+            odpTerdekat: null,
+            estimasiKabelMeter: null,
+            catatanTeknis: null,
+            siteId: null,
+            tenantId: "tenant-1",
+            createdAt: new Date("2026-09-22T01:00:00.000Z"),
+            updatedAt: new Date("2026-09-22T01:00:00.000Z"),
+          }),
+        },
+      });
+    },
+  },
+}));
+
+import { prisma } from "@/modules/database";
+import { KegiatanRepository } from "@/modules/presurvei/repositories/KegiatanRepository";
+
+describe("KegiatanRepository.findMany", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("menyaring rentang tanggal pada waktu mulai", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      dariTanggal: new Date("2026-09-01T00:00:00.000Z"),
+      sampaiTanggal: new Date("2026-09-30T00:00:00.000Z"),
+    });
+
+    const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock
+      .calls[0][0];
+    expect(argumen?.where?.waktuMulai).toEqual({
+      gte: new Date("2026-09-01T00:00:00.000Z"),
+      lte: new Date("2026-09-30T00:00:00.000Z"),
+    });
+  });
+
+  it("mengurutkan kegiatan terbaru lebih dulu", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({ page: 1, limit: 10 });
+
+    const argumen = vi.mocked(prisma.presurveiKegiatan.findMany).mock
+      .calls[0][0];
+    expect(argumen?.orderBy).toEqual({ waktuMulai: "desc" });
+  });
+});
+
+describe("KegiatanRepository.createDenganProspek", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("menyimpan keduanya dalam satu transaksi dan menautkan prospek ke kegiatan", async () => {
+    const hasil = await new KegiatanRepository().createDenganProspek(
+      {
+        jenis: "KUNJUNGAN",
+        userId: "user-1",
+        waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+        hasil: "TERTARIK",
+      },
+      {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+        sumber: "LAPANGAN",
+        pemilikId: "user-1",
+      },
+    );
+
+    expect(transaksiTerpanggil).toHaveBeenCalledOnce();
+    expect(hasil.prospek.id).toBe("prospek-baru");
+    expect(hasil.kegiatan.prospekId).toBe("prospek-baru");
+  });
+});
