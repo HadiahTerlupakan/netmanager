@@ -120,12 +120,58 @@ describe("ProspekService.ubah", () => {
     expect(repository.update).toHaveBeenCalledOnce();
   });
 
+  it("menerima status yang sama dengan status saat ini sebagai update idempotent", async () => {
+    // Tabel transisi tidak memuat perpindahan ke diri sendiri, jadi
+    // isTransisiStatusSah("DEAL","DEAL") bernilai false. Yang menyelamatkan
+    // kasus ini adalah klausa `input.status !== prospek.status` di service —
+    // test ini yang akan gagal kalau klausa itu dihapus sebagai "redundan".
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ status: "DEAL" }),
+    );
+    vi.mocked(repository.update).mockResolvedValue(
+      prospek({ status: "DEAL", catatan: "berkas sudah lengkap" }),
+    );
+    const service = new ProspekService(repository);
+
+    const hasil = await service.ubah("prospek-1", {
+      status: "DEAL",
+      catatan: "berkas sudah lengkap",
+    });
+
+    expect(hasil.status).toBe("DEAL");
+    expect(repository.update).toHaveBeenCalledOnce();
+  });
+
   it("melempar 404 saat prospek yang diubah tidak ada", async () => {
     const service = new ProspekService(repository);
 
     await expect(
       service.ubah("tidak-ada", { catatan: "apa pun" }),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("ProspekService.daftar", () => {
+  it("meneruskan filter apa adanya ke repository", async () => {
+    const repository = bangunRepository();
+    vi.mocked(repository.findMany).mockResolvedValue({
+      items: [prospek()],
+      total: 1,
+    });
+    const service = new ProspekService(repository);
+
+    const hasil = await service.daftar({
+      page: 2,
+      limit: 50,
+      status: "TERTARIK",
+    });
+
+    expect(repository.findMany).toHaveBeenCalledWith({
+      page: 2,
+      limit: 50,
+      status: "TERTARIK",
+    });
+    expect(hasil.total).toBe(1);
   });
 });
 
