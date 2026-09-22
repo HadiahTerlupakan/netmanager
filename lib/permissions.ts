@@ -125,6 +125,13 @@ export const PERMISSIONS = {
       VERIFY: "canvasing:verify",
       SITE_ONLY: "canvasing:site_only",
     },
+    PRESURVEI: {
+      READ: "presurvei:read",
+      CREATE: "presurvei:create",
+      UPDATE: "presurvei:update",
+      DELETE: "presurvei:delete",
+      SITE_ONLY: "presurvei:site_only",
+    },
   },
   PLANNING: {
     READ: "planning:read",

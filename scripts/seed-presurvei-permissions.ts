@@ -1,0 +1,132 @@
+import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import * as dotenv from "dotenv";
+import { logger } from "../lib/logger";
+
+dotenv.config();
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL not found");
+
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+const PERMISSIONS = [
+  {
+    resource: "presurvei",
+    action: "read",
+    description: "Lihat kegiatan & prospek presurvei",
+  },
+  {
+    resource: "presurvei",
+    action: "create",
+    description: "Catat kegiatan & prospek presurvei",
+  },
+  {
+    resource: "presurvei",
+    action: "update",
+    description: "Ubah kegiatan & prospek presurvei",
+  },
+  {
+    resource: "presurvei",
+    action: "delete",
+    description: "Hapus data presurvei",
+  },
+  {
+    resource: "presurvei",
+    action: "site_only",
+    description: "Batasi presurvei ke site sendiri",
+  },
+  {
+    resource: "m_presurvei",
+    action: "read",
+    description: "Akses menu Presurvei di mobile",
+  },
+  {
+    resource: "m_presurvei",
+    action: "create",
+    description: "Catat presurvei lewat mobile",
+  },
+  {
+    resource: "m_presurvei",
+    action: "update",
+    description: "Ubah prospek lewat mobile",
+  },
+];
+
+// Role admin menerima seluruh permission presurvei; sales hanya permission
+// mobile karena mereka tidak mengakses panel admin, dan tidak diberi hak hapus
+// supaya tidak bisa menghilangkan data rekan setimnya.
+const ROLE_ADMIN = ["Super Admin", "SUPER_ADMIN", "ADMIN", "Admin"];
+const ROLE_SALES = ["SALES", "Sales", "Branch Manager", " Branch Manager"];
+const PERMISSION_SALES = [
+  "m_presurvei:read",
+  "m_presurvei:create",
+  "m_presurvei:update",
+];
+
+async function main() {
+  logger.info("Seeding Presurvei permissions...");
+
+  for (const perm of PERMISSIONS) {
+    const exists = await prisma.permission.findFirst({
+      where: { resource: perm.resource, action: perm.action },
+    });
+
+    if (!exists) {
+      await prisma.permission.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: `${perm.resource}:${perm.action}`,
+          ...perm,
+          updatedAt: new Date(),
+        },
+      });
+      logger.info(`Created permission: ${perm.resource}:${perm.action}`);
+    }
+  }
+
+  const semuaPermission = await prisma.permission.findMany({
+    where: { resource: { in: ["presurvei", "m_presurvei"] } },
+  });
+
+  const permissionSales = semuaPermission.filter((p) =>
+    PERMISSION_SALES.includes(p.name),
+  );
+
+  await assignKeRole(ROLE_ADMIN, semuaPermission);
+  await assignKeRole(ROLE_SALES, permissionSales);
+
+  logger.info("Done!");
+}
+
+/** Lampirkan sekumpulan permission ke setiap role yang namanya cocok. */
+async function assignKeRole(
+  namaRole: string[],
+  permissions: { id: string }[],
+): Promise<void> {
+  const roles = await prisma.role.findMany({
+    where: { name: { in: namaRole } },
+  });
+
+  for (const role of roles) {
+    await prisma.role.update({
+      where: { id: role.id },
+      data: { permission: { connect: permissions.map((p) => ({ id: p.id })) } },
+    });
+    logger.info(
+      `Assigned ${permissions.length} permissions to role: ${role.name}`,
+    );
+  }
+}
+
+main()
+  .catch((e) => {
+    logger.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
