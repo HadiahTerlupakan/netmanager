@@ -203,8 +203,14 @@ Lalu di `modules/registration/repositories/RegistrationRepository.ts`, pastikan 
 
 Pakai `window.location.search` di dalam `useEffect`, **bukan** `useSearchParams` — hook itu menuntut halaman dibungkus `<Suspense>` di App Router dan akan mengubah struktur halaman lebih jauh dari yang diperlukan.
 
+Simpan hasilnya di `useRef`, bukan `useState`: nilainya tidak pernah dirender, hanya dibaca saat submit, jadi tidak ada alasan memicu re-render. Repo ini juga menyalakan rule ESLint `react-hooks/set-state-in-effect` yang akan menolak `setState` di dalam `useEffect` seperti itu.
+
 ```tsx
-  const [utm, setUtm] = useState<{
+  // Asal kampanye tidak pernah ditampilkan — ia hanya dibaca saat submit, jadi
+  // tidak perlu memicu re-render (sekaligus menghindari rule
+  // react-hooks/set-state-in-effect untuk setState yang tidak sinkron dengan
+  // tampilan).
+  const utmRef = useRef<{
     utmSource: string | undefined;
     utmMedium: string | undefined;
     utmCampaign: string | undefined;
@@ -214,11 +220,11 @@ Pakai `window.location.search` di dalam `useEffect`, **bukan** `useSearchParams`
     // Ditangkap sekali saat halaman dibuka: pengunjung sering menyunting form
     // cukup lama, dan sebagian browser membersihkan query string di tengah jalan.
     const params = new URLSearchParams(window.location.search);
-    setUtm({
+    utmRef.current = {
       utmSource: params.get("utm_source") ?? undefined,
       utmMedium: params.get("utm_medium") ?? undefined,
       utmCampaign: params.get("utm_campaign") ?? undefined,
-    });
+    };
   }, []);
 ```
 
@@ -227,10 +233,12 @@ Lalu pada `handleSubmit`, ubah body menjadi:
 ```tsx
           body: JSON.stringify({
             ...formData,
-            ...utm,
+            ...utmRef.current,
             turnstileToken,
           }),
 ```
+
+Satu berkas lagi ikut berubah meski tidak disebut di daftar di atas: `modules/registration/domain/entities/Registration.ts`. Tipe `CreateRegistrationData` di sana perlu ketiga field UTM karena `toCreateInput` mengaksesnya sebagai properti, bukan menyebarnya sebagai literal — tanpa itu typecheck gagal, dan menambal dengan type-cast justru menyembunyikan ketidakcocokannya.
 
 `app/api/registrations/route.ts` meneruskan `...body` apa adanya ke service, jadi route itu tidak perlu diubah.
 
