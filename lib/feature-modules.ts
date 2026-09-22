@@ -129,6 +129,12 @@ export const FEATURE_MODULES = [
     description: "Kampanye marketing, lead, broadcast.",
     group: "keuangan",
   },
+  {
+    code: "presurvei",
+    label: "Presurvei",
+    description: "Kegiatan sales, prospek, kampanye iklan, dan target.",
+    group: "keuangan",
+  },
 
   // === SDM ===
   {

@@ -494,6 +494,53 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
   // PEMASARAN
   // ═══════════════════════════════════════════
   {
+    code: "PRESURVEI",
+    name: "Presurvei",
+    path: "/admin/presurvei",
+    icon: "HiOutlineMapPin",
+    section: "Pemasaran",
+    featureModule: "presurvei",
+    children: [
+      {
+        code: "PRESURVEI.DASHBOARD",
+        name: "Dashboard",
+        path: "/admin/presurvei",
+        icon: "HiOutlineChartBar",
+        exact: true,
+      },
+      {
+        code: "PRESURVEI.KEGIATAN",
+        name: "Kegiatan Sales",
+        path: "/admin/presurvei/kegiatan",
+        icon: "HiOutlineClipboardDocumentList",
+      },
+      {
+        code: "PRESURVEI.PROSPEK",
+        name: "Papan Prospek",
+        path: "/admin/presurvei/prospek",
+        icon: "HiOutlineSquares2X2",
+      },
+      {
+        code: "PRESURVEI.IKLAN",
+        name: "Kampanye Iklan",
+        path: "/admin/presurvei/iklan",
+        icon: "HiOutlineMegaphone",
+      },
+      {
+        code: "PRESURVEI.TARGET",
+        name: "Target Sales",
+        path: "/admin/presurvei/target",
+        icon: "HiOutlineArrowTrendingUp",
+      },
+      {
+        code: "PRESURVEI.LAPORAN",
+        name: "Laporan Pencapaian",
+        path: "/admin/presurvei/laporan",
+        icon: "HiOutlinePresentationChartBar",
+      },
+    ],
+  },
+  {
     code: "MARKETING",
     name: "Marketing",
     path: "/admin/marketing",

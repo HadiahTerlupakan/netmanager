@@ -231,6 +231,17 @@ function getPermissionResource(code: string): string {
     "PLANNING.LIST": "planning",
     "PLANNING.KANBAN": "planning",
     "PLANNING.TEMPLATES": "planning",
+    // Presurvei: tiap sub-menu memakai resource-nya sendiri, berbeda dari pola
+    // PLANNING di atas. Memetakan semuanya ke `presurvei` akan menampilkan
+    // menu Iklan kepada orang tanpa `presurvei_iklan:read`, lalu menolaknya
+    // dengan 403 setelah diklik.
+    PRESURVEI: "presurvei",
+    "PRESURVEI.DASHBOARD": "presurvei",
+    "PRESURVEI.KEGIATAN": "presurvei",
+    "PRESURVEI.PROSPEK": "presurvei",
+    "PRESURVEI.IKLAN": "presurvei_iklan",
+    "PRESURVEI.TARGET": "presurvei_target",
+    "PRESURVEI.LAPORAN": "presurvei_laporan",
   };
 
   if (specialMappings[code]) {
