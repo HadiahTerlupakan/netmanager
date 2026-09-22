@@ -48,11 +48,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Author**: agent
 - **Deskripsi**: Modul baru untuk mencatat kegiatan tim sales dan marketing —
   kunjungan lapangan, survei lokasi, telepon, chat, dan pekerjaan iklan — beserta
-  prospek yang lahir darinya. Kegiatan yang membuahkan minat langsung melahirkan
-  prospek dalam satu transaksi, sehingga sales tidak mengetik ulang data yang sama.
-  Prospek punya aturan transisi status terpusat dan atribusi sumber, menjawab
-  kebutuhan manajemen untuk mengetahui kegiatan tim dan asal setiap prospek.
-  Modul Canvasing dan Registration tidak diubah.
+  prospek yang lahir darinya. Kunjungan lapangan yang membuahkan minat langsung
+  melahirkan prospek dalam satu transaksi, sehingga sales tidak mengetik ulang data
+  yang sama; kegiatan telepon dan chat tidak melahirkan prospek otomatis karena
+  belum ada nilai sumber yang tepat untuknya (menunggu Fase 2). Prospek punya
+  aturan transisi status terpusat dan atribusi sumber yang ditegakkan validator:
+  sumber `IKLAN` wajib menunjuk iklan, `REFERRAL` wajib menyebut perujuk.
+  Pemanggil yang hanya memegang permission mobile terikat ke datanya sendiri —
+  daftar disaring ke pemiliknya dan perubahan atas prospek orang lain ditolak 403.
+  Permission `presurvei:site_only` sengaja belum dideklarasikan karena pembatasan
+  per-site adalah Fase 3 dan belum ditegakkan kode mana pun.
+  Modul Canvasing dan Registration tidak diubah. 109 test menyertai modul ini.
 - **Files**: `modules/presurvei/**`, `app/api/presurvei/**`,
   `scripts/seed-presurvei-permissions.ts`, `lib/permissions.ts`,
   `lib/permission-config.ts`, `lib/resource-capabilities.ts`, `lib/role-templates.ts`

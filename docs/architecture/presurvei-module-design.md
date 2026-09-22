@@ -375,9 +375,18 @@ persentase per jenis target, dibatasi pada 100% untuk tampilan progres.
    tambahan: ODP terdekat, estimasi kabel, catatan teknis
 4. `POST /api/presurvei/kegiatan` — bila sedang offline, otomatis masuk antrian SQLite
    dan dikirim saat koneksi kembali (infrastruktur yang sudah ada)
-5. Bila `hasil` bernilai `TERTARIK` atau `DEAL` dan `prospekId` masih kosong,
+5. Bila `hasil` bernilai `TERTARIK` atau `DEAL`, `prospekId` masih kosong, **dan
+   jenis kegiatannya terjadi di lapangan** (`KUNJUNGAN` atau `SURVEI_LOKASI`),
    `KegiatanService` membuat `PresurveiProspek` baru dengan `sumber = LAPANGAN` dan
    `pemilikId` = pelaku kegiatan, lalu menautkannya balik ke kegiatan tersebut.
+
+   Pembatasan ke jenis lapangan itu disengaja: `sumber = LAPANGAN` hanya jujur
+   untuk kegiatan yang benar-benar terjadi di lokasi. Telepon dan chat tidak
+   punya nilai `PresurveiSumberProspek` yang tepat — menyebutnya `WALK_IN` akan
+   melaporkan panggilan keluar sebagai pelanggan yang datang sendiri, dan
+   menambah nilai enum baru menuntut migration (Fase 2). Sampai itu ada, kegiatan
+   telepon dan chat tetap tersimpan tanpa melahirkan prospek, dan prospeknya
+   dibuat lewat `POST /api/presurvei/prospek` dengan `sumber` yang eksplisit.
    Pembuatan kegiatan dan prospek berjalan dalam satu transaksi Prisma — keduanya
    berada di modul yang sama, jadi tidak perlu pola kompensasi. Nama dan nomor telepon
    prospek diambil dari `ditemuiNama` dan masukan tambahan pada formulir; bila nomor
@@ -483,7 +492,7 @@ otomatis ke HTTP oleh `createHandler`. Ini mengikuti modul terbaru di repo
 ## 9. Permission & menu
 
 **Web** (grup `MARKETING` di `lib/permission-config.ts`):
-`presurvei:read|create|update|delete|site_only`, `presurvei_iklan:read|create|update|delete`,
+`presurvei:read|create|update|delete`, `presurvei_iklan:read|create|update|delete`,
 `presurvei_target:read|create|update|delete`, `presurvei_laporan:read`
 
 **Mobile** (grup `MARKETING` di `PERMISSION_GROUPS_MOBILE`):
@@ -496,6 +505,20 @@ dengan `.some()` (`lib/api/handler.ts:238`), sehingga daftarnya bersifat **ATAU*
 admin web lolos lewat permission web, sales lapangan lewat permission mobile.
 Menyebut permission web saja akan menolak sales dengan 403, karena role sales
 punya `accessAdminPanel: false` dan hanya memegang permission berprefix `m_`.
+
+**Pembatasan kepemilikan.** Karena permission bersifat ATAU, pemanggil bermodal
+permission mobile saja tetap lolos ke route yang sama dengan admin web. Karena itu
+route menurunkan kapabilitas dari `ctx.permissions`: pemanggil tanpa
+`presurvei:read` terikat ke datanya sendiri — filter `pemilikId` (prospek) dan
+`userId` (kegiatan) **ditimpa** dengan id sesi, dan `detail` serta `ubah` menolak
+dengan 403 bila pemiliknya orang lain. Tanpa ini, sales bisa melihat seluruh
+prospek tenant dan mengubah milik rekan setimnya. Polanya mengikuti
+`MarketingCanvasingListRouteService` di modul marketing.
+
+**`site_only` belum dideklarasikan.** Pembatasan per-site adalah Fase 3 dan belum
+ditegakkan kode mana pun. Mendeklarasikannya lebih awal membuat toggle "Batasi ke
+Site Sendiri" di panel admin tampak aktif padahal tidak berefek — lebih buruk
+daripada tidak ada. Ia ditambahkan bersama kode yang menegakkannya.
 
 Semuanya didaftarkan di `lib/permissions.ts`, `lib/resource-capabilities.ts`, dan
 `lib/permission-config.ts`, dengan script seed mengikuti pola

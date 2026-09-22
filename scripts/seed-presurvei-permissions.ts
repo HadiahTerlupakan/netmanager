@@ -34,11 +34,9 @@ const PERMISSIONS = [
     action: "delete",
     description: "Hapus data presurvei",
   },
-  {
-    resource: "presurvei",
-    action: "site_only",
-    description: "Batasi presurvei ke site sendiri",
-  },
+  // Tidak ada `site_only`: pembatasan per-site adalah pekerjaan Fase 3 dan belum
+  // ditegakkan kode mana pun. Menyemainya membuat toggle "Batasi ke Site Sendiri"
+  // di panel admin tampak aktif padahal tidak berefek.
   {
     resource: "m_presurvei",
     action: "read",
