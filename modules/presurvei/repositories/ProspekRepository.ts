@@ -8,6 +8,7 @@ import type {
   ProspekListFilters,
   UpdateProspekInput,
 } from "../domain/ports/IProspekRepository";
+import type { RentangPeriode } from "../domain/ports/IKegiatanRepository";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
 
 /**
@@ -113,6 +114,42 @@ export class ProspekRepository implements IProspekRepository {
       if (isPrismaRecordNotFoundError(error)) return null;
       throw error;
     }
+  }
+
+  /** Jumlah prospek baru per pemilik pada satu rentang, berkunci pemilikId. */
+  async hitungBaruPerUser(
+    rentang: RentangPeriode,
+  ): Promise<Record<string, number>> {
+    return this.hitungPerPemilik({
+      createdAt: { gte: rentang.mulai, lte: rentang.selesai },
+    });
+  }
+
+  /** Jumlah prospek terkonversi per pemilik pada satu rentang. */
+  async hitungKonversiPerUser(
+    rentang: RentangPeriode,
+  ): Promise<Record<string, number>> {
+    return this.hitungPerPemilik({
+      konversiAt: { gte: rentang.mulai, lte: rentang.selesai },
+    });
+  }
+
+  private async hitungPerPemilik(
+    where: Prisma.PresurveiProspekWhereInput,
+  ): Promise<Record<string, number>> {
+    const hasil = await prisma.presurveiProspek.groupBy({
+      by: ["pemilikId"],
+      // Prospek tak bertuan tidak dihitung ke siapa pun; ia muncul di daftar
+      // "Belum ditugaskan", bukan di laporan pencapaian seseorang.
+      where: { ...where, pemilikId: { not: null } },
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(
+      hasil
+        .filter((baris) => baris.pemilikId !== null)
+        .map((baris) => [baris.pemilikId as string, baris._count._all]),
+    );
   }
 
   private bangunFilter(

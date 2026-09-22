@@ -3,6 +3,7 @@ import type {
   ProspekStatus,
   ProspekSumber,
 } from "../entities/Prospek";
+import type { RentangPeriode } from "./IKegiatanRepository";
 
 /**
  * Kontrak akses data prospek presurvei.
@@ -81,4 +82,10 @@ export interface IProspekRepository {
     id: string,
     canvasingId: string,
   ): Promise<ProspekEntity | null>;
+  /** Jumlah prospek baru per pemilik pada satu rentang, berkunci pemilikId. */
+  hitungBaruPerUser(rentang: RentangPeriode): Promise<Record<string, number>>;
+  /** Jumlah prospek terkonversi per pemilik pada satu rentang. */
+  hitungKonversiPerUser(
+    rentang: RentangPeriode,
+  ): Promise<Record<string, number>>;
 }

@@ -6,6 +6,7 @@ import type {
   CreateKegiatanInput,
   IKegiatanRepository,
   KegiatanListFilters,
+  RentangPeriode,
 } from "../domain/ports/IKegiatanRepository";
 import type { CreateProspekInput } from "../domain/ports/IProspekRepository";
 import { toKegiatanEntity, type KegiatanRow } from "../mappers/kegiatan.mapper";
@@ -73,6 +74,21 @@ export class KegiatanRepository implements IKegiatanRepository {
         prospek: toProspekEntity(barisProspek as ProspekRow),
       };
     });
+  }
+
+  /** Jumlah kegiatan per pelaku pada satu rentang, berkunci userId. */
+  async hitungPerUser(
+    rentang: RentangPeriode,
+  ): Promise<Record<string, number>> {
+    const hasil = await prisma.presurveiKegiatan.groupBy({
+      by: ["userId"],
+      where: { waktuMulai: { gte: rentang.mulai, lte: rentang.selesai } },
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(
+      hasil.map((baris) => [baris.userId, baris._count._all]),
+    );
   }
 
   private bangunFilter(

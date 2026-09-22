@@ -60,6 +60,7 @@ const bangunRepository = (): IKegiatanRepository => ({
   createDenganProspek: vi
     .fn()
     .mockResolvedValue({ kegiatan: kegiatan(), prospek: prospek() }),
+  hitungPerUser: vi.fn().mockResolvedValue({}),
 });
 
 const masukanKunjungan = {

@@ -27,6 +27,20 @@ export {
 } from "./domain/entities/Iklan";
 
 export {
+  BULAN_MAKS,
+  BULAN_MIN,
+  type PeriodeTarget,
+  type RealisasiTarget,
+  type TargetEntity,
+} from "./domain/entities/Target";
+
+export {
+  hitungPencapaian,
+  type BarisPencapaian,
+  type Pencapaian,
+} from "./domain/target-rules";
+
+export {
   canPromosikanKeCanvasing,
   daftarStatusBebanAktif,
   getStatusLanjutan,
@@ -69,6 +83,11 @@ export {
 } from "./validators/iklan.validator";
 
 export {
+  laporanPeriodeSchema,
+  tetapkanTargetSchema,
+} from "./validators/target.validator";
+
+export {
   KegiatanService,
   type CatatKegiatanInput,
   type DataProspekBaru,
@@ -80,6 +99,8 @@ export { ProspekService } from "./services/ProspekService";
 export { ProspekKonversiService } from "./services/ProspekKonversiService";
 
 export { IklanService } from "./services/IklanService";
+
+export { TargetService, type BarisLaporan } from "./services/TargetService";
 
 export {
   toKegiatanDetail,
@@ -101,6 +122,13 @@ export {
   type IklanDetailDto,
   type IklanListItemDto,
 } from "./dto/iklan.dto";
+
+export {
+  toBarisLaporanDto,
+  toTargetDto,
+  type BarisLaporanDto,
+  type TargetDto,
+} from "./dto/target.dto";
 
 export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/registration-created-presurvei.handler";
 

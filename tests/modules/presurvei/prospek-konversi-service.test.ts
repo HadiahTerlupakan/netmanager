@@ -97,6 +97,8 @@ const bangunProspekRepo = (): IProspekRepository => ({
     .mockResolvedValue(
       prospek({ canvasingId: "canvasing-1", konversiAt: WAKTU }),
     ),
+  hitungBaruPerUser: vi.fn().mockResolvedValue({}),
+  hitungKonversiPerUser: vi.fn().mockResolvedValue({}),
 });
 
 const bangunKegiatanRepo = (): IKegiatanRepository => ({
@@ -104,6 +106,7 @@ const bangunKegiatanRepo = (): IKegiatanRepository => ({
   findById: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
   createDenganProspek: vi.fn(),
+  hitungPerUser: vi.fn().mockResolvedValue({}),
 });
 
 const masukan = { noKtp: "3201234567890001", paket: "HOME_20MBPS" };

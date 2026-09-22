@@ -44,6 +44,12 @@ export interface CreateKegiatanInput {
   siteId?: string | null;
 }
 
+/** Rentang waktu tertutup untuk perhitungan laporan. */
+export interface RentangPeriode {
+  mulai: Date;
+  selesai: Date;
+}
+
 export interface IKegiatanRepository {
   findMany(
     filters: KegiatanListFilters,
@@ -55,4 +61,6 @@ export interface IKegiatanRepository {
     kegiatan: CreateKegiatanInput,
     prospek: CreateProspekInput,
   ): Promise<{ kegiatan: KegiatanEntity; prospek: ProspekEntity }>;
+  /** Jumlah kegiatan per pelaku pada satu rentang, berkunci userId. */
+  hitungPerUser(rentang: RentangPeriode): Promise<Record<string, number>>;
 }
