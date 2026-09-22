@@ -50,7 +50,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   Prospek kini lahir otomatis dari form pendaftaran publik `/register` lewat event
   `registration:registration.created` — dicocokkan ke kampanye iklan lewat
   `utm_campaign`, ditugaskan ke sales dengan beban prospek paling ringan, dan tetap
-  tercatat dengan `sumber = WEBSITE` bila kampanyenya tidak dikenal. Input manual
+  tercatat dengan `sumber = WEBSITE` bila kampanyenya tidak dikenal. Jalur ini
+  **aktif langsung begitu di-deploy** — handler-nya event, bukan route, jadi tidak
+  digerbangi permission apa pun (beda dengan empat route admin iklan/target/laporan
+  di bawah, yang memang menunggu seed permission). Input manual
   prospek kini diperingatkan (409 `DUPLIKAT`, bisa dilewati — bukan ditolak keras)
   saat nomor telepon sudah dipakai prospek aktif lain. Prospek berstatus `DEAL` bisa
   dipromosikan menjadi Canvasing lewat `ProspekKonversiService`, dengan kompensasi
