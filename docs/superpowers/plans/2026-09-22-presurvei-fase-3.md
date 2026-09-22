@@ -1225,7 +1225,7 @@ const kolom: Column<IklanListItemDto>[] = [
     header: "Channel",
     priority: "secondary",
     render: (item) => {
-      const tampilan = IKLAN_CHANNEL_CONFIG[item.channel as keyof typeof IKLAN_CHANNEL_CONFIG];
+      const tampilan = IKLAN_CHANNEL_CONFIG[item.channel];
       return (
         <span className={`rounded px-2 py-0.5 text-xs ${tampilan.warna}`}>
           {tampilan.label}
@@ -1989,15 +1989,14 @@ export function keTitikPeta(baris: KegiatanListItemDto[]): {
       continue;
     }
 
-    const tampilan =
-      KEGIATAN_HASIL_CONFIG[item.hasil as KegiatanHasil] ?? null;
+    const tampilan = KEGIATAN_HASIL_CONFIG[item.hasil];
 
     titik.push({
       id: item.id,
       latitude: item.latitude,
       longitude: item.longitude,
       hasil: item.hasil,
-      label: tampilan?.label ?? item.hasil,
+      label: tampilan.label,
       alamat: item.alamatDikunjungi,
       warna: WARNA_PENANDA[item.hasil as KegiatanHasil] ?? "#6b7280",
     });
