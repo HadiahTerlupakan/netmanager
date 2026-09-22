@@ -152,8 +152,19 @@ pustaka drag-drop baru yang ditambahkan.
 Tab kedua pada halaman kegiatan, berdampingan dengan daftarnya — bukan halaman terpisah,
 supaya filter yang sama berlaku untuk keduanya.
 
-Leaflet dan `react-leaflet` sudah terpasang, dan repo punya komponen peta yang berjalan
-(`components/common/MapPreview.tsx`, `components/attendance/EmployeeLocationMap.tsx`).
+**Repo ini memakai dua pustaka peta untuk tujuan berbeda, dan peta kunjungan mengikuti yang
+kedua.** `react-leaflet` dipakai `components/map/*` untuk topologi jaringan — jalur fiber,
+overlay gambar, lapisan interaktif. **OpenLayers** (`ol`) dipakai untuk peta titik:
+`components/attendance/EmployeeLocationMap.tsx` menggambar banyak lokasi orang dengan popup,
+dan `components/common/MapPicker.tsx` memilih satu titik.
+
+Peta kunjungan berbentuk sama persis dengan yang pertama — banyak titik, diwarnai, bisa
+diklik. Ia mengikuti pola `EmployeeLocationMap`, bukan memperkenalkan react-leaflet ke jenis
+peta yang sudah punya preseden OpenLayers.
+
+Komponennya dimuat lewat `dynamic(..., { ssr: false })` seperti
+`app/admin/kehadiran/live-map/LiveMapClient.tsx:24` — pustaka peta menyentuh `window` saat
+modul dimuat dan akan menggagalkan render di server tanpa itu.
 
 Penanda diwarnai menurut `hasil` kegiatan memakai `statusConfig.ts` yang sama dengan badge,
 sehingga warna di peta dan di daftar tidak pernah berbeda arti. Mengklik penanda membuka
