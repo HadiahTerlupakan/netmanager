@@ -3576,7 +3576,7 @@ git commit -m "feat(presurvei): tambah route API kegiatan dan prospek"
 
 **Interfaces:**
 - Consumes: —
-- Produces: permission `presurvei:read|create|update|delete|site_only` dan `m_presurvei:read|create` yang dikenali RBAC
+- Produces: permission `presurvei:read|create|update|delete|site_only` dan `m_presurvei:read|create|update` yang dikenali RBAC
 
 - [ ] **Step 1: Tambahkan konstanta permission**
 
