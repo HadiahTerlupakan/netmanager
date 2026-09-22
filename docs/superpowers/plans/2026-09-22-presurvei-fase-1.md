@@ -481,9 +481,21 @@ describe("getStatusLanjutan", () => {
   });
 
   it("mengembalikan semua tujuan yang sah dari NEGOSIASI", () => {
-    expect(getStatusLanjutan("NEGOSIASI").sort()).toEqual(
+    expect([...getStatusLanjutan("NEGOSIASI")].sort()).toEqual(
       ["DEAL", "TIDAK_LAYAK", "TIDAK_MINAT"].sort(),
     );
+  });
+
+  it("mengembalikan salinan sehingga pemanggil tidak bisa merusak tabel transisi", () => {
+    const hasil = getStatusLanjutan("NEGOSIASI");
+    hasil.sort();
+    hasil.push("BARU");
+
+    expect(getStatusLanjutan("NEGOSIASI")).toEqual([
+      "DEAL",
+      "TIDAK_MINAT",
+      "TIDAK_LAYAK",
+    ]);
   });
 });
 
@@ -544,7 +556,7 @@ import type { ProspekEntity, ProspekStatus } from "./entities/Prospek";
  * satu-satunya definisi "kapan prospek boleh pindah status" tidak tersebar.
  */
 
-const TRANSISI_SAH: Record<ProspekStatus, ProspekStatus[]> = {
+const TRANSISI_SAH: Record<ProspekStatus, readonly ProspekStatus[]> = {
   BARU: ["DIHUBUNGI", "TIDAK_MINAT"],
   DIHUBUNGI: ["TERTARIK", "TIDAK_MINAT", "TIDAK_LAYAK"],
   TERTARIK: ["NEGOSIASI", "TIDAK_MINAT", "TIDAK_LAYAK"],
@@ -554,9 +566,16 @@ const TRANSISI_SAH: Record<ProspekStatus, ProspekStatus[]> = {
   TIDAK_LAYAK: [],
 };
 
-/** Daftar status yang boleh dituju dari status saat ini. */
+/**
+ * Daftar status yang boleh dituju dari status saat ini.
+ *
+ * Mengembalikan salinan, bukan array aslinya: server berjalan sebagai proses
+ * panjang, jadi satu pemanggil yang memutasi hasilnya — `.sort()` untuk
+ * menampilkan dropdown sudah cukup — akan merusak tabel transisi bagi seluruh
+ * tenant selama proses itu hidup.
+ */
 export function getStatusLanjutan(status: ProspekStatus): ProspekStatus[] {
-  return TRANSISI_SAH[status];
+  return [...TRANSISI_SAH[status]];
 }
 
 /** Apakah perpindahan status prospek diizinkan aturan funnel. */
@@ -2251,7 +2270,10 @@ Create `modules/presurvei/services/KegiatanService.ts`:
 
 ```ts
 import { AppError } from "@/lib/errors";
-import type { KegiatanEntity } from "../domain/entities/Kegiatan";
+import type {
+  KegiatanEntity,
+  KegiatanJenis,
+} from "../domain/entities/Kegiatan";
 import type {
   ProspekEntity,
   ProspekSumber,
@@ -2284,7 +2306,10 @@ export interface HasilCatatKegiatan {
   prospek: ProspekEntity | null;
 }
 
-const SUMBER_PER_JENIS: Record<string, ProspekSumber> = {
+// Dikunci ke `KegiatanJenis`, bukan `string`: dengan begitu penambahan jenis
+// kegiatan baru langsung gagal dikompilasi sampai sumber prospeknya ditentukan,
+// alih-alih diam-diam menghasilkan `undefined` saat dipetakan.
+const SUMBER_PER_JENIS: Record<KegiatanJenis, ProspekSumber> = {
   KUNJUNGAN: "LAPANGAN",
   SURVEI_LOKASI: "LAPANGAN",
   TELEPON: "WALK_IN",
