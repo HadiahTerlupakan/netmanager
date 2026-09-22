@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-22] — Tambah konfigurasi status dan barrel klien modul presurvei (Fase 3 Task 1)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Fondasi Fase 3 (enam layar admin presurvei) sebelum layar apa pun
+  dibangun. Tambah `modules/presurvei/utils/statusConfig.ts` — label dan warna
+  Tailwind untuk seluruh enum presurvei (`ProspekStatus`, `ProspekSumber`,
+  `KegiatanJenis`, `KegiatanHasil`, `IklanChannel`), dipetakan lewat
+  `Record<Union, T>` supaya anggota enum baru wajib dijawab saat kompilasi.
+  Termasuk `daftarKolomHidup()`/`daftarKolomMati()` untuk kolom papan kanban
+  prospek, mengembalikan salinan array (bukan referensi modul) supaya pemanggil
+  yang mutasi hasilnya tidak merusak tabel bagi seluruh pemakai proses jangka
+  panjang ini. Sengaja terpisah dari `components/common/StatusBadge.tsx` karena
+  komponen itu memakai union status hardcode yang dipakai sepuluh berkas lain.
+  Tambah juga `modules/presurvei/client.ts` — barrel klien yang hanya
+  meng-export tipe, konstanta, schema Zod, dan fungsi domain murni (tanpa
+  service/repository), mengikuti pola `modules/planning/client.ts`, supaya
+  komponen klien Fase 3 bisa mengimpor tanpa menyeret Prisma/pg/tls ke bundle
+  browser.
+- **Files**: `modules/presurvei/utils/statusConfig.ts`, `modules/presurvei/client.ts`,
+  `tests/modules/presurvei/status-config.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-22] — Selesaikan Fase 2 modul presurvei: iklan, target, laporan, dan integrasi pendaftaran publik
 
 - **Tipe**: [ADDED]
