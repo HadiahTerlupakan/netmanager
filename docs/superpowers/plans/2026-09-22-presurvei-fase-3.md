@@ -2291,7 +2291,7 @@ Expected: FAIL — modul belum ada.
 
 Create `app/admin/presurvei/kegiatan/kegiatanFormState.ts`. Bentuknya menyalin pola `iklanFormState.ts` dari Task 6: medan semuanya string, dikonversi lewat helper `angkaAtauNull` dan `teksAtauNull` yang memeriksa string kosong, **bukan** truthiness.
 
-Baca `catatKegiatanSchema` di `modules/presurvei/validators/kegiatan.validator.ts` lebih dulu untuk memastikan nama dan bentuk setiap medan cocok — schema itu memakai `superRefine` untuk medan bersyarat, dan muatan yang tidak cocok akan ditolak dengan pesan yang tidak jelas.
+Baca `catatKegiatanSchema` di `modules/presurvei/validators/kegiatan.validator.ts` lebih dulu untuk memastikan nama dan bentuk setiap medan cocok — schema itu merangkai tiga `.refine()` terpisah untuk medan bersyarat (lokasi, data teknis, iklan), dan muatan yang tidak cocok akan ditolak dengan pesan yang tidak jelas. Buka berkasnya — jangan mencari `superRefine`, tidak ada.
 
 - [ ] **Step 4: Tulis modal**
 
@@ -2709,8 +2709,11 @@ describe("keMuatanUbahProspek", () => {
   });
 
   it("tidak pernah mengirim status", () => {
-    // Status berpindah lewat papan, yang menegakkan aturan transisi domain.
-    // Mengirimnya dari form membuka jalur kedua yang melewati aturan itu.
+    // Status berpindah lewat papan. PATCH sebenarnya AMAN — `ProspekService.ubah()`
+    // memanggil `isTransisiStatusSah` dan melempar 409 untuk transisi tak sah —
+    // jadi ini bukan soal keamanan melainkan satu jalur: dua tempat yang bisa
+    // memindahkan status berarti dua tempat yang harus sepakat soal DEAL, yang
+    // menuntut konversi, bukan sekadar ganti status.
     expect(keMuatanUbahProspek(nilai)).not.toHaveProperty("status");
   });
 });
@@ -2917,16 +2920,14 @@ describe("buildTargetUrl", () => {
     // Keduanya `number` bersebelahan; tertukarnya menghasilkan periode
     // "bulan 2026" yang ditolak server dengan pesan yang membingungkan.
     expect(buildTargetUrl({ tahun: 2026, bulan: 9 })).toBe(
-      "/api/admin/presurvei/target?periodeTahun=2026&periodeBulan=9",
+      "/api/admin/presurvei/target?tahun=2026&bulan=9",
     );
   });
 
   it("tidak mengisi bulan dengan nol di depan", () => {
     // `z.coerce.number()` menerima "09", tapi URL jadi tidak konsisten dengan
     // yang dibentuk layar lain dan memecah cache query.
-    expect(buildTargetUrl({ tahun: 2026, bulan: 1 })).toContain(
-      "periodeBulan=1",
-    );
+    expect(buildTargetUrl({ tahun: 2026, bulan: 1 })).toContain("bulan=1");
   });
 });
 
@@ -2979,13 +2980,26 @@ export function periodeSekarang(sekarang: Date = new Date()): Periode {
 
 export function buildTargetUrl(periode: Periode): string {
   const params = new URLSearchParams({
-    periodeTahun: String(periode.tahun),
-    periodeBulan: String(periode.bulan),
+    tahun: String(periode.tahun),
+    bulan: String(periode.bulan),
   });
 
   return `/api/admin/presurvei/target?${params.toString()}`;
 }
 ```
+
+**Nama param wajib dicocokkan ke route, bukan ke test.** `tahun` dan `bulan` di atas
+bukan pilihan bebas: `app/api/admin/presurvei/target/route.ts` membaca persis kedua
+nama itu lewat `laporanPeriodeSchema`, dan keduanya **wajib** — tidak ada `.optional()`.
+Nama yang meleset membuat `searchParams.get("tahun")` mengembalikan null, schema
+melempar, dan layar ini menerima 400 di setiap pembukaan.
+
+Test `buildTargetUrl` **tidak bisa menangkap ini**: ia mengunci string yang rencana ini
+sendiri tentukan, tidak pernah menyentuh route. `tsc`, `lint`, dan seluruh suite akan
+tetap hijau. Jadi sebelum lanjut, buka `app/api/admin/presurvei/target/route.ts` dan
+`modules/presurvei/validators/target.validator.ts`, dan pastikan dengan mata sendiri
+bahwa kedua nama itu cocok. Hal yang sama berlaku untuk route laporan di Task 16 —
+ia memakai schema yang sama.
 
 - [ ] **Step 4: Tulis layar dan modal**
 
@@ -3007,7 +3021,7 @@ Create `app/admin/presurvei/target/page.tsx` dengan gerbang `ensureAnyPermission
 | Mutasi | Harus merah |
 |---|---|
 | Hapus `+ 1` pada `getUTCMonth()` | test "mengembalikan bulan kalender berjalan" |
-| Tukar `periodeTahun` dengan `periodeBulan` di URL | test "mengirim tahun dan bulan sebagai angka" |
+| Tukar `tahun` dengan `bulan` di URL | test "mengirim tahun dan bulan sebagai angka" |
 
 - [ ] **Step 6: Commit**
 
@@ -3159,7 +3173,7 @@ export function keBarisTampilan(baris: BarisLaporanDto[]): BarisTampilan[] {
 
 - [ ] **Step 4: Tulis layar**
 
-`LaporanClient.tsx` memakai pemilih periode yang sama dengan Task 15, memuat `/api/admin/presurvei/laporan?periodeTahun=…&periodeBulan=…`, dan merender tabel sales × tiga metrik dengan bilah kemajuan.
+`LaporanClient.tsx` memakai pemilih periode yang sama dengan Task 15, memuat `/api/admin/presurvei/laporan?tahun=…&bulan=…`, dan merender tabel sales × tiga metrik dengan bilah kemajuan.
 
 Baris ber-`isTanpaTarget` diberi keterangan "target belum ditetapkan" alih-alih bilah penuh.
 
@@ -3382,7 +3396,7 @@ Keterbatasan yang **wajib** tercatat di entri:
 
 1. Kegiatan yang dicatat dari web tidak punya koordinat maupun foto, sehingga tidak muncul di peta kunjungan. Itu disengaja — keduanya lahir dari perangkat di lapangan.
 2. Laporan tidak menampilkan sales yang punya realisasi tapi belum ditetapkan target, karena laporan disusun dari daftar target.
-3. Batas periode laporan memakai UTC, bukan timezone tenant. Aktivitas pada tujuh jam pertama tiap bulan terhitung di bulan sebelumnya. Timezone di repo ini per-tenant (`prisma/schema.prisma:644`), jadi perbaikannya menuntut service membaca pengaturan tenant.
+3. Batas periode laporan memakai UTC, bukan timezone tenant. Aktivitas pada tujuh jam pertama tiap bulan terhitung di bulan sebelumnya. Repo ini **tidak punya** timezone per-tenant: satu-satunya field `timezone` di `prisma/schema.prisma` adalah milik model `MikroTikRouter` (baris 644), dan `Tenant` maupun `TenantSettings` tidak punya padanannya. Jadi perbaikannya menuntut keputusan produk lebih dulu — zona mana yang dipakai — bukan sekadar membaca pengaturan yang sudah ada.
 4. Laporan per-iklan belum ada. Atribusi `iklanId` dikumpulkan sejak Fase 2 tapi belum ada yang mengonsumsinya; saat dibangun nanti ia wajib sadar-periode agar kampanye yang sudah mati tidak menggelembungkan hasilnya.
 5. Filter tidak tersimpan di URL, mengikuti konvensi seluruh halaman admin. Reload menghilangkan filter dan tautannya tidak bisa dibagikan.
 
