@@ -1,4 +1,9 @@
-import type { IklanChannel, IklanDetailDto } from "@/modules/presurvei/client";
+import {
+  buatIklanSchema,
+  ubahIklanSchema,
+  type IklanChannel,
+  type IklanDetailDto,
+} from "@/modules/presurvei/client";
 
 /** Tujuan tombol Batal dan tujuan kembali setelah kampanye tersimpan. */
 export const URL_DAFTAR_IKLAN = "/admin/presurvei/iklan";
@@ -79,6 +84,17 @@ export type MuatanBuatIklan = ReturnType<typeof keMuatanBuat>;
 
 /** Badan `PATCH /api/admin/presurvei/iklan/{id}`. */
 export type MuatanUbahIklan = ReturnType<typeof keMuatanUbah>;
+
+/**
+ * Schema yang berlaku untuk mode form saat ini.
+ *
+ * Dipisah dari komponen supaya bisa diuji: bentuk ubah adalah subset
+ * struktural dari bentuk buat, jadi memasangkan schema yang salah lolos
+ * `tsc` tanpa keluhan dan baru ketahuan saat pemakai menekan simpan.
+ */
+export function schemaUntukMode(isModeUbah: boolean) {
+  return isModeUbah ? ubahIklanSchema : buatIklanSchema;
+}
 
 /** Nilai form dari kampanye yang sudah ada, untuk mode ubah. */
 export function keNilaiForm(iklan: IklanDetailDto): NilaiFormIklan {

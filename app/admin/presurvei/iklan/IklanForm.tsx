@@ -6,16 +6,15 @@ import { HiOutlineArrowLeft } from "react-icons/hi2";
 
 import { Button } from "@/components/ui/Button";
 import {
-  buatIklanSchema,
   IKLAN_CHANNEL_CONFIG,
   IKLAN_CHANNELS,
-  ubahIklanSchema,
   type IklanChannel,
 } from "@/modules/presurvei/client";
 
 import {
   keMuatanBuat,
   keMuatanUbah,
+  schemaUntukMode,
   URL_DAFTAR_IKLAN,
   type MuatanBuatIklan,
   type MuatanUbahIklan,
@@ -88,9 +87,10 @@ export function IklanForm({
   const kirim = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const hasil = isModeUbah
-      ? ubahIklanSchema.safeParse(keMuatanUbah(nilai))
-      : buatIklanSchema.safeParse(keMuatanBuat(nilai));
+    // Muatan dibentuk sekali lalu dipakai ulang: yang divalidasi wajib persis
+    // yang dikirim. Dua ekspresi terpisah bisa menyimpang tanpa ditolak `tsc`.
+    const muatan = isModeUbah ? keMuatanUbah(nilai) : keMuatanBuat(nilai);
+    const hasil = schemaUntukMode(isModeUbah).safeParse(muatan);
 
     if (!hasil.success) {
       setKesalahan(
@@ -108,7 +108,7 @@ export function IklanForm({
     // Muatan mentah, bukan `hasil.data`: Zod meng-coerce tanggal jadi objek
     // `Date`, dan `JSON.stringify` pada `Date` menghasilkan ISO dengan jam
     // lokal ikut tergeser. Server memvalidasi ulang dengan schema yang sama.
-    onSimpan(isModeUbah ? keMuatanUbah(nilai) : keMuatanBuat(nilai));
+    onSimpan(muatan);
   };
 
   return (

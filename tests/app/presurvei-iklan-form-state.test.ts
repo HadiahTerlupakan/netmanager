@@ -6,10 +6,12 @@ import { describe, expect, it } from "vitest";
  * inilah kesalahan paling mudah bersembunyi.
  */
 
+import { buatIklanSchema, ubahIklanSchema } from "@/modules/presurvei/client";
 import {
   keMuatanBuat,
   keMuatanUbah,
   keNilaiForm,
+  schemaUntukMode,
   type NilaiFormIklan,
 } from "@/app/admin/presurvei/iklan/iklanFormState";
 
@@ -67,6 +69,28 @@ describe("keMuatanUbah", () => {
     expect(ubahIklanSchema.safeParse(keMuatanUbah(nilaiLengkap)).success).toBe(
       true,
     );
+  });
+});
+
+describe("schemaUntukMode", () => {
+  it("memakai schema ubah pada mode ubah, yang tidak menerima kode", () => {
+    // Bentuk ubah adalah subset struktural dari bentuk buat, jadi tertukarnya
+    // tidak ditolak compiler — hanya test ini yang menahannya.
+    expect(schemaUntukMode(true)).toBe(ubahIklanSchema);
+  });
+
+  it("memakai schema buat pada mode buat, yang mewajibkan kode", () => {
+    expect(schemaUntukMode(false)).toBe(buatIklanSchema);
+  });
+
+  it("menolak muatan buat tanpa kode, dan menerimanya pada mode ubah", () => {
+    // Identitas saja tidak membuktikan kedua schema memang berbeda perlakuan:
+    // kalau `buatIklanSchema` dan `ubahIklanSchema` kelak jadi sama, kedua
+    // test di atas tetap hijau sementara medan kode diam-diam jadi opsional.
+    const tanpaKode = keMuatanUbah(nilaiLengkap);
+
+    expect(schemaUntukMode(false).safeParse(tanpaKode).success).toBe(false);
+    expect(schemaUntukMode(true).safeParse(tanpaKode).success).toBe(true);
   });
 });
 
