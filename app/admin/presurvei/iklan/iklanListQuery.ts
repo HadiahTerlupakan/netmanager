@@ -3,6 +3,9 @@ import type { IklanChannel } from "@/modules/presurvei/client";
 /** Jumlah baris per halaman daftar iklan. */
 const BATAS_PER_HALAMAN = 20;
 
+/** Halaman pertama daftar; juga batas bawah jumlah halaman. */
+export const HALAMAN_PERTAMA = 1;
+
 /** State filter daftar iklan; string kosong dan null berarti "tidak menyaring". */
 export interface FilterIklan {
   page: number;
@@ -36,6 +39,29 @@ export function buildIklanListUrl(filter: FilterIklan): string {
   }
 
   return `/api/admin/presurvei/iklan?${params.toString()}`;
+}
+
+/**
+ * Filter setelah pemakai mengubah kriteria; selalu kembali ke halaman pertama.
+ *
+ * Transisi state-nya fungsi murni, bukan callback di dalam hook, karena alasan
+ * yang sama dengan `buildIklanListUrl`: tanpa DOM palsu, apa pun yang tinggal
+ * di dalam hook tidak terjangkau test. Menyaring dari halaman lima tanpa reset
+ * ini menghasilkan tabel kosong, dan pemakai menyimpulkan datanya tidak ada.
+ */
+export function filterSetelahUbah(
+  lama: FilterIklan,
+  perubahan: Partial<Omit<FilterIklan, "page">>,
+): FilterIklan {
+  return { ...lama, ...perubahan, page: HALAMAN_PERTAMA };
+}
+
+/** Filter setelah pemakai berpindah halaman; kriteria lain dipertahankan. */
+export function filterSetelahPindahHalaman(
+  lama: FilterIklan,
+  page: number,
+): FilterIklan {
+  return { ...lama, page };
 }
 
 /**

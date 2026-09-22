@@ -9,9 +9,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 
 import { IklanFilters } from "./IklanFilters";
 import { IklanTable } from "./IklanTable";
+import { HALAMAN_PERTAMA } from "./iklanListQuery";
 import { useIklanListQuery } from "./useIklanListQuery";
-
-const HALAMAN_PERTAMA = 1;
 
 /** Shell layar daftar kampanye iklan: judul, filter, dan tabel. */
 export function IklanClient() {

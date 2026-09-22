@@ -20,6 +20,17 @@ import {
 /** Nilai `<option>` yang berarti "tidak menyaring channel". */
 const CHANNEL_SEMUA = "";
 
+/**
+ * Batas panjang kotak pencarian.
+ *
+ * Mencerminkan `search: z.string().max(120)` pada `daftarIklanSchema`
+ * (`modules/presurvei/validators/iklan.validator.ts`). Angkanya ditulis ulang
+ * di sini karena konstanta validator tidak diekspor; tanpa batas ini, teks
+ * yang lebih panjang ditolak Zod dengan 400 dan pemakai melihat toast
+ * "Gagal memuat daftar iklan", bukan "tidak ada hasil".
+ */
+const PANJANG_PENCARIAN_MAKS = 120;
+
 const KELAS_SELECT =
   "appearance-none cursor-pointer rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-8 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
@@ -49,6 +60,7 @@ export function IklanFilters({ filter, onUbah }: IklanFiltersProps) {
           type="text"
           value={filter.search}
           onChange={ubahPencarian}
+          maxLength={PANJANG_PENCARIAN_MAKS}
           placeholder="Cari nama atau kode kampanye..."
           aria-label="Cari kampanye iklan"
           className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"

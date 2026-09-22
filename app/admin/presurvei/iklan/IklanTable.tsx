@@ -16,7 +16,13 @@ interface Props {
   onPageChange: (page: number) => void;
 }
 
-const kolom: Column<IklanListItemDto>[] = [
+/**
+ * Definisi kolom daftar iklan.
+ *
+ * Diekspor supaya `render` kolom tanggal bisa diuji langsung sebagai fungsi:
+ * keduanya mengembalikan string biasa, jadi tidak butuh DOM palsu.
+ */
+export const kolom: Column<IklanListItemDto>[] = [
   { key: "nama", header: "Nama kampanye", priority: "primary" },
   { key: "kode", header: "Kode UTM", priority: "primary" },
   {

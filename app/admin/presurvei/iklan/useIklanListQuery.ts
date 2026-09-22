@@ -5,7 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import type { IklanListItemDto } from "@/modules/presurvei/client";
-import { buildIklanListUrl, type FilterIklan } from "./iklanListQuery";
+import {
+  buildIklanListUrl,
+  filterSetelahPindahHalaman,
+  filterSetelahUbah,
+  HALAMAN_PERTAMA,
+  type FilterIklan,
+} from "./iklanListQuery";
 
 interface AmplopDaftar {
   data: IklanListItemDto[];
@@ -13,7 +19,7 @@ interface AmplopDaftar {
 }
 
 const FILTER_AWAL: FilterIklan = {
-  page: 1,
+  page: HALAMAN_PERTAMA,
   search: "",
   channel: "",
   isAktif: null,
@@ -41,12 +47,11 @@ export function useIklanListQuery() {
     if (query.error) toast.error("Gagal memuat daftar iklan");
   }, [query.error]);
 
-  /** Mengubah filter selalu mengembalikan ke halaman satu. */
   const ubahFilter = (perubahan: Partial<Omit<FilterIklan, "page">>) =>
-    setFilter((lama) => ({ ...lama, ...perubahan, page: 1 }));
+    setFilter((lama) => filterSetelahUbah(lama, perubahan));
 
   const ubahHalaman = (page: number) =>
-    setFilter((lama) => ({ ...lama, page }));
+    setFilter((lama) => filterSetelahPindahHalaman(lama, page));
 
   return {
     filter,
