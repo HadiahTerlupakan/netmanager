@@ -40,6 +40,9 @@ export interface CreateRegistrationData {
   location?: string;
   ipAddress?: string;
   notes?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
   status: RegistrationStatus;
 }
 

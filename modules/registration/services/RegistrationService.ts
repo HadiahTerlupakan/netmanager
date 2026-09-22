@@ -264,6 +264,9 @@ export class RegistrationService {
       packageName: input.packageName,
       notes: input.notes,
       ipAddress: input.ipAddress,
+      utmSource: input.utmSource,
+      utmMedium: input.utmMedium,
+      utmCampaign: input.utmCampaign,
       status: DEFAULT_STATUS,
     };
   }

@@ -2023,6 +2023,9 @@ model Registrations {
   latitude        Float?
   longitude       Float?
   ipAddress       String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
   status          RegistrationStatus @default(PENDING)
   notes           String?
   rejectionReason String?

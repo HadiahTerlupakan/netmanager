@@ -44,6 +44,9 @@ export interface CreateRegistrationDTO {
   packageName?: string;
   notes?: string;
   ipAddress?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
   turnstileToken?: string;
 }
 

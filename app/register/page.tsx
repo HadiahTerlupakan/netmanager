@@ -58,6 +58,28 @@ export default function RegistrationPage() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
 
+  // Atribusi kampanye (UTM) dari query string.
+  // Dipakai useRef, bukan useState: nilainya tidak pernah dirender, hanya
+  // dibaca saat submit, jadi tidak perlu memicu re-render (juga menghindari
+  // rule react-hooks/set-state-in-effect untuk setState yang tidak sinkron
+  // dengan tampilan).
+  const utmRef = useRef<{
+    utmSource: string | undefined;
+    utmMedium: string | undefined;
+    utmCampaign: string | undefined;
+  }>({ utmSource: undefined, utmMedium: undefined, utmCampaign: undefined });
+
+  useEffect(() => {
+    // Ditangkap sekali saat halaman dibuka: pengunjung sering menyunting form
+    // cukup lama, dan sebagian browser membersihkan query string di tengah jalan.
+    const params = new URLSearchParams(window.location.search);
+    utmRef.current = {
+      utmSource: params.get("utm_source") ?? undefined,
+      utmMedium: params.get("utm_medium") ?? undefined,
+      utmCampaign: params.get("utm_campaign") ?? undefined,
+    };
+  }, []);
+
   const { data: locationsData, error: locationsError } = useApi<string[]>(
     "/api/public/service-areas",
   );
@@ -167,6 +189,7 @@ export default function RegistrationPage() {
         },
         body: JSON.stringify({
           ...formData,
+          ...utmRef.current,
           turnstileToken,
         }),
       });
