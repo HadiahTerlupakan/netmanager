@@ -449,7 +449,12 @@ Di `modules/presurvei/domain/ports/IProspekRepository.ts`, tambahkan dua field k
 dan dua metode ke `IProspekRepository`:
 
 ```ts
-  /** Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat. */
+  /**
+   * Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat.
+   *
+   * Hasilnya dibatasi: yang dibutuhkan hanya beberapa contoh untuk ditampilkan,
+   * dan nomor bersama seperti nomor kios bisa terpakai ratusan kali.
+   */
   findByNoTelp(noTelp: string): Promise<ProspekEntity[]>;
   /** Prospek yang lahir dari satu pendaftaran publik, null bila belum ada. */
   findByRegistrationId(registrationId: string): Promise<ProspekEntity | null>;
@@ -482,6 +487,44 @@ describe("ProspekRepository.findByNoTelp", () => {
 
     expect(hasil).toHaveLength(1);
     expect(hasil[0]).toMatchObject({ id: "prospek-1", status: "BARU" });
+  });
+
+  it("membatasi jumlah yang diambil", async () => {
+    // Nomor bersama bisa menempel pada ratusan prospek, dan kolomnya belum
+    // ber-index. Tanpa batas, pemeriksaan duplikat memindai semuanya pada
+    // jalur yang dilewati setiap pembuatan prospek.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+
+    await new ProspekRepository().findByNoTelp("081234567890");
+
+    const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock.calls[0][0];
+    expect(argumen?.take).toBeGreaterThan(0);
+  });
+});
+
+describe("ProspekRepository.update — penandaan konversi", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("meneruskan canvasingId dan konversiAt ke Prisma", async () => {
+    // Task berikutnya menandai prospek yang sudah jadi canvasing lewat kedua
+    // field ini. Bila `update` suatu saat diubah menjadi daftar field eksplisit
+    // dan keduanya terlupa, penandaannya hilang tanpa suara — test ini yang
+    // akan gagal.
+    const konversiAt = new Date("2026-09-23T00:00:00.000Z");
+    vi.mocked(prisma.presurveiProspek.update).mockResolvedValue(
+      barisProspek({ canvasingId: "canvasing-1", konversiAt }) as never,
+    );
+
+    const hasil = await new ProspekRepository().update("prospek-1", {
+      canvasingId: "canvasing-1",
+      konversiAt,
+    });
+
+    expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
+      where: { id: "prospek-1" },
+      data: { canvasingId: "canvasing-1", konversiAt },
+    });
+    expect(hasil.canvasingId).toBe("canvasing-1");
   });
 });
 
@@ -522,12 +565,30 @@ Expected: FAIL — `findByNoTelp is not a function`.
 
 Di `modules/presurvei/repositories/ProspekRepository.ts`, tambahkan setelah `findById`:
 
+Tambahkan named constant di atas kelas:
+
+```ts
+/**
+ * Batas jumlah prospek sebobot nomor yang diambil saat memeriksa duplikat.
+ *
+ * Yang dibutuhkan hanya beberapa contoh untuk ditampilkan sebagai peringatan,
+ * sementara nomor bersama — nomor kios, nomor kantor, atau placeholder yang
+ * dipakai berulang — bisa menempel pada ratusan prospek. Kolom `noTelp` juga
+ * belum ber-index, jadi membiarkannya tanpa batas berarti pemindaian penuh
+ * pada jalur yang dilewati setiap pembuatan prospek.
+ */
+const BATAS_PERIKSA_DUPLIKAT = 10;
+```
+
+dan metodenya:
+
 ```ts
   /** Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat. */
   async findByNoTelp(noTelp: string): Promise<ProspekEntity[]> {
     const rows = await prisma.presurveiProspek.findMany({
       where: { noTelp },
       orderBy: { createdAt: "desc" },
+      take: BATAS_PERIKSA_DUPLIKAT,
     });
     return rows.map((row) => toProspekEntity(row as ProspekRow));
   }
@@ -557,7 +618,7 @@ Jalankan `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei` unt
 - [ ] **Step 6: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
-Expected: seluruh modul hijau, 123 test (119 + 4 baru).
+Expected: seluruh modul hijau, 125 test (119 + 4 baru).
 
 Run: `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei`
 Expected: tanpa output.
