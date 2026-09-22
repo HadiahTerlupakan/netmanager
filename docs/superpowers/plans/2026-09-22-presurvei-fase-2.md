@@ -3029,7 +3029,12 @@ async function cariIklanDariKampanye(
 lalu di dalam handler, sebelum `repository.create`:
 
 ```ts
+  // Pencocokan kampanye WAJIB berada setelah penjaga `tenantId` di atas.
+  // `findByKode` menyandarkan penyaringan tenant pada ekstensi Prisma, dan
+  // ekstensi itu hanya menyaring bila konteks tenant sudah terpasang. Dipindah
+  // ke atas penjaga, ia bisa mencocokkan kode kampanye milik tenant lain.
   const iklanId = await cariIklanDariKampanye(payload.utmCampaign);
+  const pemilikId = await cariSalesTeringan(tenantId);
 
   const prospek = await repository.create({
     nama,
@@ -3040,7 +3045,7 @@ lalu di dalam handler, sebelum `repository.create`:
     sumber: iklanId ? "IKLAN" : "WEBSITE",
     iklanId,
     registrationId,
-    pemilikId: await cariSalesTeringan(),
+    pemilikId,
   });
 ```
 
