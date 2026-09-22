@@ -18,56 +18,36 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { cariSalesTeringan } from "@/modules/presurvei/services/event-handlers/cari-sales-teringan";
-import { daftarStatusBebanAktif } from "@/modules/presurvei/domain/prospek-rules";
-
-// Bentuk minimal argumen yang benar-benar dikirim cariSalesTeringan ke
-// findMany. Tipe hasil generate Prisma untuk `_count` adalah union
-// `boolean | { select?: ... }` — mustahil diakses lewat optional chaining
-// biasa tanpa penyempitan ini.
-interface ArgumenPencarianSales {
-  where?: { tenantId?: string; isSales?: boolean; isActive?: boolean };
-  select?: {
-    _count?: {
-      select?: {
-        presurveiProspek?: {
-          where?: { tenantId?: string; status?: { in: string[] } };
-        };
-      };
-    };
-  };
-}
 
 describe("cariSalesTeringan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("menyaring sales lewat tenantId pada where level atas", async () => {
+  it("menyaring sales dan hitungan bebannya lewat tenantId, termasuk where bersarang dalam _count", async () => {
+    // `where` bersarang di dalam `_count` adalah bagian yang tidak dijangkau
+    // ekstensi Prisma — dibandingkan utuh dalam satu `toEqual`, bukan dibaca
+    // sebagian lewat cast, supaya key tambahan atau nilai yang meleset di
+    // mana pun dalam argumen ini ikut tertangkap.
     vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
 
     await cariSalesTeringan("tenant-1");
 
-    const argumen = vi.mocked(prisma.user.findMany).mock
-      .calls[0][0] as ArgumenPencarianSales;
-    expect(argumen?.where).toEqual({
-      tenantId: "tenant-1",
-      isSales: true,
-      isActive: true,
-    });
-  });
-
-  it("menyaring hitungan beban dengan tenantId yang sama pada where bersarang dalam _count", async () => {
-    // Bagian ini yang tidak dijangkau ekstensi Prisma — assert bentuk
-    // bersarangnya secara eksplisit, bukan cuma memastikan findMany terpanggil.
-    vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
-
-    await cariSalesTeringan("tenant-1");
-
-    const argumen = vi.mocked(prisma.user.findMany).mock
-      .calls[0][0] as ArgumenPencarianSales;
-    expect(argumen?.select?._count?.select?.presurveiProspek?.where).toEqual({
-      tenantId: "tenant-1",
-      status: { in: daftarStatusBebanAktif() },
+    expect(vi.mocked(prisma.user.findMany).mock.calls[0][0]).toEqual({
+      where: { tenantId: "tenant-1", isSales: true, isActive: true },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            presurveiProspek: {
+              where: {
+                tenantId: "tenant-1",
+                status: { in: ["BARU", "DIHUBUNGI", "TERTARIK", "NEGOSIASI"] },
+              },
+            },
+          },
+        },
+      },
     });
   });
 

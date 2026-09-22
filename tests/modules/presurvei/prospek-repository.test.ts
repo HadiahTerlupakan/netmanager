@@ -200,17 +200,26 @@ describe("ProspekRepository.findByNoTelp", () => {
     expect(hasil[0]).toMatchObject({ id: "prospek-1", status: "BARU" });
   });
 
-  it("membatasi jumlah yang diambil", async () => {
+  it("membatasi jumlah yang diambil pada angka yang masuk akal", async () => {
     // Nomor bersama bisa menempel pada ratusan prospek, dan kolomnya belum
     // ber-index. Tanpa batas, pemeriksaan duplikat memindai semuanya pada
     // jalur yang dilewati setiap pembuatan prospek.
+    //
+    // Batas atasnya ikut diperiksa, bukan hanya keberadaannya: `take` bernilai
+    // besar secara teknis "ada batas" tapi menghidupkan kembali persis risiko
+    // yang hendak dicegah. Batas bawahnya juga — `take: 1` akan menyembunyikan
+    // duplikat nyata dari pemakai.
+    const BATAS_WAJAR_MAKS = 50;
+    const BATAS_WAJAR_MIN = 3;
+
     vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
 
     await new ProspekRepository().findByNoTelp("081234567890");
 
     const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock
       .calls[0][0];
-    expect(argumen?.take).toBeGreaterThan(0);
+    expect(argumen?.take).toBeGreaterThanOrEqual(BATAS_WAJAR_MIN);
+    expect(argumen?.take).toBeLessThanOrEqual(BATAS_WAJAR_MAKS);
   });
 });
 

@@ -1,3 +1,4 @@
+import { PROSPEK_STATUSES } from "./entities/Prospek";
 import type {
   ProspekEntity,
   ProspekStatus,
@@ -67,21 +68,24 @@ export function isStatusFinal(status: ProspekStatus): boolean {
  * pelanggan berubah pikiran) padahal tidak lagi menuntut kerja. Meminjamnya
  * membuat prospek mati ikut terhitung sebagai beban.
  */
-const STATUS_BEBAN_AKTIF: readonly ProspekStatus[] = [
-  "BARU",
-  "DIHUBUNGI",
-  "TERTARIK",
-  "NEGOSIASI",
-];
+const STATUS_BEBAN_AKTIF: Record<ProspekStatus, boolean> = {
+  BARU: true,
+  DIHUBUNGI: true,
+  TERTARIK: true,
+  NEGOSIASI: true,
+  DEAL: false,
+  TIDAK_MINAT: false,
+  TIDAK_LAYAK: false,
+};
 
 /** Apakah status ini masih menuntut kerja dari sales pemiliknya. */
 export function isStatusBebanAktif(status: ProspekStatus): boolean {
-  return STATUS_BEBAN_AKTIF.includes(status);
+  return STATUS_BEBAN_AKTIF[status];
 }
 
 /** Salinan daftar status beban aktif, untuk dipakai sebagai filter query. */
 export function daftarStatusBebanAktif(): ProspekStatus[] {
-  return [...STATUS_BEBAN_AKTIF];
+  return PROSPEK_STATUSES.filter(isStatusBebanAktif);
 }
 
 /**

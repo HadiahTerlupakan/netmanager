@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/errors";
-import type { ProspekEntity } from "../domain/entities/Prospek";
+import type { ProspekEntity, ProspekStatus } from "../domain/entities/Prospek";
 import { isStatusFinal, isTransisiStatusSah } from "../domain/prospek-rules";
 import type {
   CreateProspekInput,
@@ -19,7 +19,7 @@ export interface OpsiBuatProspek {
 interface RingkasanDuplikat {
   id: string;
   nama: string;
-  status: string;
+  status: ProspekStatus;
   pemilikId: string | null;
 }
 

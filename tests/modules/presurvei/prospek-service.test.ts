@@ -344,15 +344,16 @@ describe("ProspekService.buat — peringatan duplikat", () => {
   });
 
   it("tetap membuat saat pemanggil menyatakan duplikatnya disengaja", async () => {
-    vi.mocked(repository.findByNoTelp).mockResolvedValue([
-      prospek({ id: "prospek-lama" }),
-    ]);
     vi.mocked(repository.create).mockResolvedValue(prospek());
     const service = new ProspekService(repository);
 
     await service.buat(masukan, { abaikanDuplikat: true });
 
     expect(repository.create).toHaveBeenCalledOnce();
+    // Bukan sekadar "tidak melempar": pencariannya harus benar-benar dilewati.
+    // Menjalankannya lalu mengabaikan hasilnya membebani setiap pembuatan yang
+    // disengaja dengan satu query pada kolom yang belum ber-index.
+    expect(repository.findByNoTelp).not.toHaveBeenCalled();
   });
 
   it("tidak menghitung prospek yang sudah final sebagai duplikat", async () => {
