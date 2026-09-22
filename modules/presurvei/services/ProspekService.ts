@@ -1,6 +1,6 @@
 import { AppError } from "@/lib/errors";
 import type { ProspekEntity } from "../domain/entities/Prospek";
-import { isTransisiStatusSah } from "../domain/prospek-rules";
+import { isStatusFinal, isTransisiStatusSah } from "../domain/prospek-rules";
 import type {
   CreateProspekInput,
   IProspekRepository,
@@ -8,6 +8,20 @@ import type {
   UpdateProspekInput,
 } from "../domain/ports/IProspekRepository";
 import { ProspekRepository } from "../repositories/ProspekRepository";
+
+/** Pilihan tambahan saat membuat prospek. */
+export interface OpsiBuatProspek {
+  /** Lanjutkan meski ada prospek aktif dengan nomor telepon yang sama. */
+  abaikanDuplikat?: boolean;
+}
+
+/** Ringkasan prospek duplikat yang dikembalikan bersama penolakan. */
+interface RingkasanDuplikat {
+  id: string;
+  nama: string;
+  status: string;
+  pemilikId: string | null;
+}
 
 /**
  * Orkestrasi prospek presurvei.
@@ -47,9 +61,44 @@ export class ProspekService {
     return prospek;
   }
 
-  /** Simpan prospek baru. */
-  async buat(input: CreateProspekInput): Promise<ProspekEntity> {
+  /**
+   * Simpan prospek baru, menolak duplikat nomor telepon kecuali diminta lain.
+   *
+   * Penolakannya membawa prospek yang bentrok supaya klien bisa menampilkannya
+   * dan pemakai memutuskan sendiri — dua orang memang bisa berbagi nomor, dan
+   * sales di lapangan tidak boleh terhalang oleh tebakan sistem.
+   */
+  async buat(
+    input: CreateProspekInput,
+    opsi: OpsiBuatProspek = {},
+  ): Promise<ProspekEntity> {
+    if (!opsi.abaikanDuplikat) {
+      const duplikat = await this.cariDuplikatAktif(input.noTelp);
+      if (duplikat.length > 0) {
+        throw new AppError(
+          "Sudah ada prospek aktif dengan nomor telepon ini",
+          409,
+          "DUPLIKAT",
+          { duplikat },
+        );
+      }
+    }
+
     return this.repository.create(input);
+  }
+
+  private async cariDuplikatAktif(
+    noTelp: string,
+  ): Promise<RingkasanDuplikat[]> {
+    const sama = await this.repository.findByNoTelp(noTelp);
+    return sama
+      .filter((prospek) => !isStatusFinal(prospek.status))
+      .map((prospek) => ({
+        id: prospek.id,
+        nama: prospek.nama,
+        status: prospek.status,
+        pemilikId: prospek.pemilikId,
+      }));
   }
 
   /**

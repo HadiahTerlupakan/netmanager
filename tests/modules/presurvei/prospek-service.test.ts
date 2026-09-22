@@ -302,3 +302,81 @@ describe("ProspekService.buat", () => {
     );
   });
 });
+
+describe("ProspekService.buat — peringatan duplikat", () => {
+  let repository: IProspekRepository;
+
+  beforeEach(() => {
+    repository = bangunRepository();
+  });
+
+  const masukan = {
+    nama: "Budi",
+    noTelp: "081234567890",
+    alamat: "Jl. Merdeka 10",
+    sumber: "WALK_IN" as const,
+    pemilikId: "user-1",
+  };
+
+  it("menolak saat ada prospek aktif dengan nomor yang sama", async () => {
+    vi.mocked(repository.findByNoTelp).mockResolvedValue([
+      prospek({ id: "prospek-lama", status: "NEGOSIASI" }),
+    ]);
+    const service = new ProspekService(repository);
+
+    await expect(service.buat(masukan)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "DUPLIKAT",
+    });
+
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("menyertakan prospek duplikatnya supaya klien bisa menampilkannya", async () => {
+    vi.mocked(repository.findByNoTelp).mockResolvedValue([
+      prospek({ id: "prospek-lama", nama: "Budi Lama" }),
+    ]);
+    const service = new ProspekService(repository);
+
+    await expect(service.buat(masukan)).rejects.toMatchObject({
+      details: { duplikat: [{ id: "prospek-lama", nama: "Budi Lama" }] },
+    });
+  });
+
+  it("tetap membuat saat pemanggil menyatakan duplikatnya disengaja", async () => {
+    vi.mocked(repository.findByNoTelp).mockResolvedValue([
+      prospek({ id: "prospek-lama" }),
+    ]);
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await service.buat(masukan, { abaikanDuplikat: true });
+
+    expect(repository.create).toHaveBeenCalledOnce();
+  });
+
+  it("tidak menghitung prospek yang sudah final sebagai duplikat", async () => {
+    // Orang yang dulu menolak boleh dicatat lagi sebagai prospek baru —
+    // yang mengganggu hanyalah dua prospek aktif untuk orang yang sama.
+    vi.mocked(repository.findByNoTelp).mockResolvedValue([
+      prospek({ id: "prospek-lama", status: "TIDAK_LAYAK" }),
+      prospek({ id: "prospek-lawas", status: "DEAL" }),
+    ]);
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await service.buat(masukan);
+
+    expect(repository.create).toHaveBeenCalledOnce();
+  });
+
+  it("membuat langsung saat tidak ada nomor yang sama", async () => {
+    vi.mocked(repository.findByNoTelp).mockResolvedValue([]);
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await service.buat(masukan);
+
+    expect(repository.create).toHaveBeenCalledOnce();
+  });
+});

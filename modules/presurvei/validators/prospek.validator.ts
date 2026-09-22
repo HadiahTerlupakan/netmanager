@@ -44,6 +44,7 @@ export const buatProspekSchema = z
     paketDiminati: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
     catatan: z.string().max(PANJANG_CATATAN_MAKS).optional().nullable(),
     siteId: z.string().optional().nullable(),
+    abaikanDuplikat: z.boolean().optional(),
   })
   .refine(
     (prospek) =>

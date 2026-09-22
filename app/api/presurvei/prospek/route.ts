@@ -52,14 +52,19 @@ export const POST = createHandler(
     schema: buatProspekSchema,
   },
   async (_request, ctx) => {
-    const prospek = await service.buat({
-      ...ctx.validated,
-      pemilikId: tentukanPemilikProspek(
-        ctx.permissions,
-        ctx.validated.pemilikId,
-        ctx.session!.user.id,
-      ),
-    });
+    const { abaikanDuplikat, ...dataProspek } = ctx.validated;
+
+    const prospek = await service.buat(
+      {
+        ...dataProspek,
+        pemilikId: tentukanPemilikProspek(
+          ctx.permissions,
+          ctx.validated.pemilikId,
+          ctx.session!.user.id,
+        ),
+      },
+      { abaikanDuplikat },
+    );
 
     return apiSuccess(toProspekDetail(prospek), { status: 201 });
   },
