@@ -199,6 +199,45 @@ describe("ProspekRepository.findByNoTelp", () => {
     expect(hasil).toHaveLength(1);
     expect(hasil[0]).toMatchObject({ id: "prospek-1", status: "BARU" });
   });
+
+  it("membatasi jumlah yang diambil", async () => {
+    // Nomor bersama bisa menempel pada ratusan prospek, dan kolomnya belum
+    // ber-index. Tanpa batas, pemeriksaan duplikat memindai semuanya pada
+    // jalur yang dilewati setiap pembuatan prospek.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+
+    await new ProspekRepository().findByNoTelp("081234567890");
+
+    const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock
+      .calls[0][0];
+    expect(argumen?.take).toBeGreaterThan(0);
+  });
+});
+
+describe("ProspekRepository.update — penandaan konversi", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("meneruskan canvasingId dan konversiAt ke Prisma", async () => {
+    // Task berikutnya menandai prospek yang sudah jadi canvasing lewat kedua
+    // field ini. Bila `update` suatu saat diubah menjadi daftar field eksplisit
+    // dan keduanya terlupa, penandaannya hilang tanpa suara — test ini yang
+    // akan gagal.
+    const konversiAt = new Date("2026-09-23T00:00:00.000Z");
+    vi.mocked(prisma.presurveiProspek.update).mockResolvedValue(
+      barisProspek({ canvasingId: "canvasing-1", konversiAt }) as never,
+    );
+
+    const hasil = await new ProspekRepository().update("prospek-1", {
+      canvasingId: "canvasing-1",
+      konversiAt,
+    });
+
+    expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
+      where: { id: "prospek-1" },
+      data: { canvasingId: "canvasing-1", konversiAt },
+    });
+    expect(hasil.canvasingId).toBe("canvasing-1");
+  });
 });
 
 describe("ProspekRepository.findByRegistrationId", () => {

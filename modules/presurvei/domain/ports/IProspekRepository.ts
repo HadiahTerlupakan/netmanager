@@ -59,7 +59,12 @@ export interface IProspekRepository {
     filters: ProspekListFilters,
   ): Promise<{ items: ProspekEntity[]; total: number }>;
   findById(id: string): Promise<ProspekEntity | null>;
-  /** Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat. */
+  /**
+   * Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat.
+   *
+   * Hasilnya dibatasi: yang dibutuhkan hanya beberapa contoh untuk ditampilkan,
+   * dan nomor bersama seperti nomor kios bisa terpakai ratusan kali.
+   */
   findByNoTelp(noTelp: string): Promise<ProspekEntity[]>;
   /** Prospek yang lahir dari satu pendaftaran publik, null bila belum ada. */
   findByRegistrationId(registrationId: string): Promise<ProspekEntity | null>;

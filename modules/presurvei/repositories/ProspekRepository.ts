@@ -10,6 +10,17 @@ import type {
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
 
 /**
+ * Batas jumlah prospek sebobot nomor yang diambil saat memeriksa duplikat.
+ *
+ * Yang dibutuhkan hanya beberapa contoh untuk ditampilkan sebagai peringatan,
+ * sementara nomor bersama — nomor kios, nomor kantor, atau placeholder yang
+ * dipakai berulang — bisa menempel pada ratusan prospek. Kolom `noTelp` juga
+ * belum ber-index, jadi membiarkannya tanpa batas berarti pemindaian penuh
+ * pada jalur yang dilewati setiap pembuatan prospek.
+ */
+const BATAS_PERIKSA_DUPLIKAT = 10;
+
+/**
  * Akses data prospek presurvei.
  *
  * Memakai klien Prisma ber-ekstensi isolasi tenant, sehingga penyaringan
@@ -49,6 +60,7 @@ export class ProspekRepository implements IProspekRepository {
     const rows = await prisma.presurveiProspek.findMany({
       where: { noTelp },
       orderBy: { createdAt: "desc" },
+      take: BATAS_PERIKSA_DUPLIKAT,
     });
     return rows.map((row) => toProspekEntity(row as ProspekRow));
   }
