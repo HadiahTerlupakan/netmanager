@@ -994,6 +994,14 @@ Dikerjakan lebih dulu karena paling sederhana: satu daftar, tiga filter, tanpa p
 
 **Yang diuji adalah pembentukan URL-nya, bukan komponennya.** Repo ini tidak punya DOM palsu, jadi menguji komponen berarti memeriksa props yang diteruskan — berguna, tapi rapuh. Pembentukan query dari filter adalah logika nyata dengan banyak cara gagal (filter kosong ikut terkirim, `isAktif: false` hilang karena dianggap falsy, halaman tidak ikut berubah), dan itu bisa diuji langsung sebagai fungsi murni.
 
+**Konsekuensinya soal penempatan, dan ini yang disalin Task 7 dan 15:** setiap fungsi
+murni dan setiap tabel pemetaan hidup di `iklanListQuery.ts`, bukan di berkas komponen.
+Komponen hanya merangkai dan merender. Sebuah `Record` atau fungsi pemetaan yang duduk
+di dalam berkas `.tsx` berada di luar jangkauan test selamanya — dan justru di situlah
+jebakan falsy paling sering lolos, karena tidak ada yang bisa memutasinya untuk
+membuktikan ia berfungsi. Kalau kamu menulis sesuatu di komponen yang bisa diuji tanpa
+merender apa pun, itu tanda ia salah tempat.
+
 - [ ] **Step 1: Tulis test yang gagal**
 
 ```ts
@@ -1240,9 +1248,27 @@ const kolom: Column<IklanListItemDto>[] = [
         </span>
       ),
   },
-  { key: "tanggalMulai", header: "Mulai", priority: "tertiary" },
-  { key: "tanggalSelesai", header: "Selesai", priority: "tertiary" },
+  {
+    key: "tanggalMulai",
+    header: "Mulai",
+    priority: "tertiary",
+    render: (item) => formatDateDisplay(item.tanggalMulai),
+  },
+  {
+    key: "tanggalSelesai",
+    header: "Selesai",
+    priority: "tertiary",
+    render: (item) => formatDateDisplay(item.tanggalSelesai),
+  },
 ];
+
+Kedua kolom tanggal **wajib** punya `render`. `tanggalMulai`/`tanggalSelesai` di DTO
+adalah hasil `toISOString()`, jadi tanpa `render` tabel akan mencetak
+`2026-09-22T00:00:00.000Z` di layar. Pakai `formatDateDisplay` dari
+`@/lib/utils/datetime` — ia sudah menangani null dan tanggal tak sah menjadi `-`,
+dan memakai locale Indonesia. Jangan memakai `formatDateShort` dari
+`@/modules/planning/client`: itu membuat presurvei bergantung pada modul planning
+hanya untuk memformat tanggal, dan implementasinya kalah baik.
 
 export function IklanTable({ baris, isLoading, page, totalPages, onPageChange }: Props) {
   return (
