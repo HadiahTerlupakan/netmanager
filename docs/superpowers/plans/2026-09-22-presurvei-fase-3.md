@@ -3485,6 +3485,14 @@ Celah yang sudah teridentifikasi saat rencana ini ditulis:
 | Baris `render:` kolom tanggal | `IklanTable.tsx` | `render: (item) => item.tanggalMulai` |
 | Kunci invalidasi cache | `useSimpanIklan.ts` | kunci diganti jadi yang tidak cocok |
 | Tujuan `router.push` setelah simpan | `useSimpanIklan.ts` | diganti rute lain |
+| Render pesan kesalahan level-form | `IklanForm.tsx` | blok JSX yang merender `kesalahan[KUNCI_KESALAHAN_FORM]` dihapus |
+| Mode ditulis dua kali per situs pakai | `IklanCreateClient.tsx`, `IklanEditClient.tsx` | `mode={{ jenis: "buat" }}` di JSX sementara `opsiSimpanUntukMode(mode)` memakai mode asli |
+
+Penyempitan yang bisa dikerjakan sekalian, diusulkan reviewer Task 6: memindahkan
+`useSimpanIklan(opsiSimpanUntukMode(mode))` dari kedua client ke dalam `IklanForm`
+sendiri menghapus rujukan `mode` kedua di tiap situs pakai, sekaligus membuang duplikasi
+empat dari lima statement antara `IklanCreateClient` dan `IklanEditClient`. Itu
+**mempersempit** permukaannya, bukan menutupnya — test render tetap yang menutup.
 
 **Preseden yang diikuti:** `tests/lib/use-invalidate-planning.test.tsx` — `createRoot` +
 `act` + `QueryClientProvider`, menguji `invalidateQueries` lalu `router.push`, lahir dari
