@@ -6,7 +6,7 @@
 
 **Architecture:** Mengikuti konvensi admin yang sudah terbukti di repo — Server Component tipis sebagai gerbang permission, Client Component sebagai shell, hook untuk pengambilan data, dan komponen presentasional murni. Logika yang tidak bisa diuji lewat DOM (aturan seret kanban, pemetaan status, pembentukan query) ditarik keluar menjadi fungsi murni yang diuji langsung.
 
-**Tech Stack:** Next.js 14 App Router · TanStack Query · Zod · `ResponsiveTable` · OpenLayers (`ol`) · react-hot-toast · Vitest (tanpa DOM palsu)
+**Tech Stack:** Next.js 16 App Router (React 19; `params` adalah `Promise`, wajib di-`await`) · TanStack Query · Zod · `ResponsiveTable` · OpenLayers (`ol`) · react-hot-toast · Vitest (tanpa DOM palsu)
 
 **Spec:** `docs/architecture/presurvei-ui-admin-design.md`
 

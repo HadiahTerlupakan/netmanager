@@ -369,7 +369,8 @@ Tipe commit yang valid: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `per
 - `npm run test:e2e` - E2E tests (Playwright)
 
 ### Tech Stack
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router) — React 19. Catatan: sejak Next 15 `params`
+  dan `searchParams` adalah `Promise` dan wajib di-`await` di server component.
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Database**: PostgreSQL (via Prisma ORM)
