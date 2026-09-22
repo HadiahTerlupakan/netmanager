@@ -436,10 +436,10 @@ git commit -m "feat(presurvei): tambah konfigurasi status dan barrel klien"
 - Test: `tests/modules/presurvei/prospek-kanban.test.ts`
 
 **Interfaces:**
-- Consumes: `getStatusLanjutan(status: ProspekStatus): ProspekStatus[]` dari `./prospek-rules`
+- Consumes: `isTransisiStatusSah(dari: ProspekStatus, ke: ProspekStatus): boolean` dari `./prospek-rules`
 - Produces: `type AksiKanban`, `resolveAksiKanban(dari: ProspekStatus, ke: ProspekStatus): AksiKanban | null` — dipakai Task 12
 
-Inilah bagian yang membuat papan bisa dipakai. Tanpa pembatasan, mayoritas seretan ditolak server dan pemakai belajar mengabaikan pesan error. Aturannya **tidak ditulis ulang di UI** — `getStatusLanjutan` sudah memegangnya di domain.
+Inilah bagian yang membuat papan bisa dipakai. Tanpa pembatasan, mayoritas seretan ditolak server dan pemakai belajar mengabaikan pesan error. Aturannya **tidak ditulis ulang di UI** — `isTransisiStatusSah` sudah memegangnya di domain.
 
 Fungsi ini murni dan berada di lapisan domain karena interaksi seretnya sendiri tidak dapat diuji: repo ini tidak punya DOM palsu. Preseden yang sama persis ada di `modules/planning/domain/planning-kanban-transitions.ts` beserta testnya.
 
@@ -490,7 +490,7 @@ describe("resolveAksiKanban", () => {
   it("memakai aturan domain, bukan daftar tersendiri", () => {
     // TIDAK_MINAT punya jalan kembali ke DIHUBUNGI — pelanggan bisa berubah
     // pikiran. Kalau fungsi ini menyalin daftar transisinya sendiri alih-alih
-    // memanggil getStatusLanjutan, kasus ini yang paling mungkin terlewat.
+    // memanggil isTransisiStatusSah, kasus ini yang paling mungkin terlewat.
     expect(resolveAksiKanban("TIDAK_MINAT", "DIHUBUNGI")).toEqual({
       jenis: "ubah-status",
       tujuan: "DIHUBUNGI",
@@ -514,13 +514,13 @@ Create `modules/presurvei/domain/prospek-kanban.ts`:
  *
  * Murni: tidak mengimpor apa pun dari luar folder `domain/`.
  *
- * Aturan transisinya TIDAK ditulis ulang di sini — `getStatusLanjutan` sudah
+ * Aturan transisinya TIDAK ditulis ulang di sini — `isTransisiStatusSah` sudah
  * memegangnya, dan menyalinnya akan melahirkan dua sumber kebenaran yang
  * bisa berbeda pendapat.
  */
 
 import type { ProspekStatus } from "./entities/Prospek";
-import { getStatusLanjutan } from "./prospek-rules";
+import { isTransisiStatusSah } from "./prospek-rules";
 
 /** Apa yang terjadi saat kartu dijatuhkan ke sebuah kolom. */
 export type AksiKanban =
@@ -538,11 +538,17 @@ export function resolveAksiKanban(
   dari: ProspekStatus,
   ke: ProspekStatus,
 ): AksiKanban | null {
+  // Menjatuhkan kartu ke kolomnya sendiri bukan perpindahan, apa pun kata
+  // tabel transisi. Penjaga ini TIDAK redundan secara semantik meski hari ini
+  // tak terjangkau mutasi: `TRANSISI_SAH` kebetulan tidak punya satu pun
+  // status yang mendaftarkan dirinya sendiri, jadi penjaga di bawah sudah
+  // menolak kasus ini. Begitu ada satu saja transisi-diri ditambahkan nanti,
+  // tanpa baris ini sebuah non-perpindahan akan diam-diam menulis status.
   if (dari === ke) {
     return null;
   }
 
-  if (!getStatusLanjutan(dari).includes(ke)) {
+  if (!isTransisiStatusSah(dari, ke)) {
     return null;
   }
 
@@ -580,9 +586,17 @@ Terapkan mutasi ini ke `prospek-kanban.ts`, pastikan merah, lalu **kembalikan**:
 
 | Mutasi | Harus merah |
 |---|---|
-| Hapus penjaga `dari === ke` | test "menolak menjatuhkan kartu ke kolomnya sendiri" |
-| Hapus penjaga `getStatusLanjutan` | test "menolak perpindahan yang tidak sah" |
+| Hapus penjaga `isTransisiStatusSah` | test "menolak perpindahan yang tidak sah" |
 | Ganti `ke === "DEAL"` jadi `false` | test "meminta form konversi saat tujuannya DEAL" |
+
+**Penjaga `dari === ke` sengaja TIDAK ada di tabel ini.** Menghapusnya tidak
+akan membuat test apa pun merah, karena `TRANSISI_SAH` tidak punya satu pun
+status yang mendaftarkan dirinya sendiri — penjaga kedua sudah menolak
+kasusnya. Jangan mencoba "membuktikan" baris itu dengan mutasi, dan jangan
+pula menghapusnya karena tampak mati: alasannya sudah ditulis sebagai komentar
+di Step 3. Test "menolak menjatuhkan kartu ke kolomnya sendiri" mengunci
+**perilakunya**, bukan barisnya, dan justru akan merah bila suatu hari ada
+transisi-diri ditambahkan ke `TRANSISI_SAH` tanpa penjaga itu.
 
 Setelah selesai: `git status --short` wajib bersih.
 
