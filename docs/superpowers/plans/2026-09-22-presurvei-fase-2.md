@@ -337,7 +337,22 @@ Di `modules/registration/services/RegistrationService.ts`, pada `createRegistrat
         this.toCreateData(input),
       );
 
-      this.publishRegistrationCreated(registration);
+      // Nilai UTM diambil dari `input`, bukan dari hasil create: Task 1 hanya
+      // menyambungkan jalur tulis, sehingga `RegistrationMapper.toDomain` belum
+      // memetakan ketiga kolom itu balik dari Prisma. Tidak ada normalisasi di
+      // jalur simpan, jadi keduanya bernilai sama.
+      this.publishRegistrationCreated({
+        id: registration.id,
+        name: registration.name,
+        phone: registration.phone,
+        email: registration.email,
+        address: registration.address,
+        packageName: registration.packageName,
+        utmSource: input.utmSource ?? null,
+        utmMedium: input.utmMedium ?? null,
+        utmCampaign: input.utmCampaign ?? null,
+        tenantId: registration.tenantId,
+      });
 
       return { success: true, data: RegistrationMapper.toDTO(registration) };
     } catch (error) {
