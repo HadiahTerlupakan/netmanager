@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { ProspekEntity } from "../domain/entities/Prospek";
 import type {
   CreateProspekInput,
@@ -88,6 +89,30 @@ export class ProspekRepository implements IProspekRepository {
       data: input,
     });
     return toProspekEntity(row as ProspekRow);
+  }
+
+  /**
+   * Tandai prospek sebagai terkonversi, hanya bila ia belum pernah ditandai.
+   *
+   * `canvasingId: null` di `where` membuat penulisan ini titik serialisasi.
+   * Pemeriksaan di domain berjalan sebelum canvasing dibuat, jadi dua
+   * permintaan bersamaan bisa sama-sama melewatinya; hanya satu yang boleh
+   * menang di sini.
+   */
+  async tandaiKonversi(
+    id: string,
+    canvasingId: string,
+  ): Promise<ProspekEntity | null> {
+    try {
+      const row = await prisma.presurveiProspek.update({
+        where: { id, canvasingId: null },
+        data: { canvasingId, konversiAt: new Date() },
+      });
+      return toProspekEntity(row as ProspekRow);
+    } catch (error) {
+      if (isPrismaRecordNotFoundError(error)) return null;
+      throw error;
+    }
   }
 
   private bangunFilter(

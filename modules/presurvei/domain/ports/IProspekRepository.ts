@@ -70,4 +70,15 @@ export interface IProspekRepository {
   findByRegistrationId(registrationId: string): Promise<ProspekEntity | null>;
   create(input: CreateProspekInput): Promise<ProspekEntity>;
   update(id: string, input: UpdateProspekInput): Promise<ProspekEntity>;
+  /**
+   * Tandai prospek sebagai terkonversi, hanya bila ia belum pernah ditandai.
+   *
+   * Mengembalikan null bila prospek sudah punya `canvasingId`. Pemanggil wajib
+   * memperlakukan null sebagai kekalahan balapan — bukan kegagalan sistem —
+   * dan membersihkan canvasing yang terlanjur ia buat.
+   */
+  tandaiKonversi(
+    id: string,
+    canvasingId: string,
+  ): Promise<ProspekEntity | null>;
 }

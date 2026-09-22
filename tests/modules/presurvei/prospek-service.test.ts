@@ -43,6 +43,7 @@ const bangunRepository = (): IProspekRepository => ({
   findByRegistrationId: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
   update: vi.fn(),
+  tandaiKonversi: vi.fn(),
 });
 
 describe("ProspekService.detail", () => {

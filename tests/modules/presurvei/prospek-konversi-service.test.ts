@@ -27,6 +27,9 @@ type BuatCanvasingTiruan = (
   input: CreateCanvasingInput,
 ) => Promise<{ id: string }>;
 
+/** Signature tiruan untuk parameter keempat konstruktor (kompensasi hapus). */
+type PenghapusCanvasingTiruan = (canvasingId: string) => Promise<void>;
+
 const WAKTU = new Date("2026-09-23T00:00:00.000Z");
 
 const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity =>
@@ -88,7 +91,12 @@ const bangunProspekRepo = (): IProspekRepository => ({
   findByNoTelp: vi.fn().mockResolvedValue([]),
   findByRegistrationId: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
-  update: vi.fn().mockResolvedValue(prospek({ canvasingId: "canvasing-1" })),
+  update: vi.fn(),
+  tandaiKonversi: vi
+    .fn()
+    .mockResolvedValue(
+      prospek({ canvasingId: "canvasing-1", konversiAt: WAKTU }),
+    ),
 });
 
 const bangunKegiatanRepo = (): IKegiatanRepository => ({
@@ -104,6 +112,7 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
   let prospekRepo: IProspekRepository;
   let kegiatanRepo: IKegiatanRepository;
   let buatCanvasing: Mock<BuatCanvasingTiruan>;
+  let hapusCanvasing: Mock<PenghapusCanvasingTiruan>;
 
   beforeEach(() => {
     prospekRepo = bangunProspekRepo();
@@ -111,10 +120,18 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
     buatCanvasing = vi
       .fn<BuatCanvasingTiruan>()
       .mockResolvedValue({ id: "canvasing-1" });
+    hapusCanvasing = vi
+      .fn<PenghapusCanvasingTiruan>()
+      .mockResolvedValue(undefined);
   });
 
   const service = () =>
-    new ProspekKonversiService(prospekRepo, kegiatanRepo, buatCanvasing);
+    new ProspekKonversiService(
+      prospekRepo,
+      kegiatanRepo,
+      buatCanvasing,
+      hapusCanvasing,
+    );
 
   it("menolak prospek yang belum DEAL", async () => {
     vi.mocked(prospekRepo.findById).mockResolvedValue(
@@ -148,6 +165,20 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
     );
   });
 
+  it("mencari survei terbaru milik prospek ini saja", async () => {
+    // Tanpa filter prospekId, query menarik survei terbaru milik prospek mana
+    // pun di tenant — lalu ODP dan estimasi kabel pelanggan lain tersalin ke
+    // canvasing ini tanpa satu pun tanda di permukaan.
+    await service().jadikanCanvasing("prospek-1", masukan);
+
+    expect(kegiatanRepo.findMany).toHaveBeenCalledWith({
+      prospekId: "prospek-1",
+      jenis: "SURVEI_LOKASI",
+      page: 1,
+      limit: 1,
+    });
+  });
+
   it("mengutamakan nilai dari body di atas data kegiatan", async () => {
     await service().jadikanCanvasing("prospek-1", {
       ...masukan,
@@ -177,13 +208,22 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
     );
   });
 
+  it("mengembalikan prospek dengan konversiAt terisi", async () => {
+    // "Kapan prospek terkonversi" adalah inti task ini — tandaiKonversi kini
+    // yang menentukan konversiAt (bukan payload dari service), jadi yang
+    // diperiksa di sini adalah hasil akhirnya, bukan argumen pemanggilan.
+    const hasil = await service().jadikanCanvasing("prospek-1", masukan);
+
+    expect(hasil.prospek.konversiAt).toEqual(WAKTU);
+  });
+
   it("menandai prospek setelah canvasing terbentuk, bukan sebelumnya", async () => {
     const urutan: string[] = [];
     buatCanvasing.mockImplementation(async () => {
       urutan.push("canvasing");
       return { id: "canvasing-1" };
     });
-    vi.mocked(prospekRepo.update).mockImplementation(async () => {
+    vi.mocked(prospekRepo.tandaiKonversi).mockImplementation(async () => {
       urutan.push("tandai");
       return prospek({ canvasingId: "canvasing-1" });
     });
@@ -200,7 +240,33 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
       service().jadikanCanvasing("prospek-1", masukan),
     ).rejects.toThrow();
 
-    expect(prospekRepo.update).not.toHaveBeenCalled();
+    expect(prospekRepo.tandaiKonversi).not.toHaveBeenCalled();
+  });
+
+  it("menghapus canvasing yang terlanjur dibuat saat penandaan prospek gagal", async () => {
+    // Tanpa kompensasi, baris canvasing tertinggal berstatus PENDING: ia muncul
+    // di daftar admin, bisa di-approve jadi work order, dan tidak bisa
+    // ditemukan lagi dari sisi prospek karena penandaannya tidak pernah jadi.
+    vi.mocked(prospekRepo.tandaiKonversi).mockRejectedValue(new Error("gagal"));
+
+    await expect(
+      service().jadikanCanvasing("prospek-1", masukan),
+    ).rejects.toThrow();
+
+    expect(hapusCanvasing).toHaveBeenCalledWith("canvasing-1");
+  });
+
+  it("menghapus canvasing dan menolak saat permintaan lain menang balapan", async () => {
+    // `tandaiKonversi` mengembalikan null ketika prospek sudah punya
+    // canvasingId — artinya permintaan kembar sudah menandainya lebih dulu.
+    // Canvasing milik permintaan yang kalah harus ikut dibersihkan.
+    vi.mocked(prospekRepo.tandaiKonversi).mockResolvedValue(null);
+
+    await expect(
+      service().jadikanCanvasing("prospek-1", masukan),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(hapusCanvasing).toHaveBeenCalledWith("canvasing-1");
   });
 
   it("menghormati pembatasan kepemilikan", async () => {
@@ -211,13 +277,33 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
     expect(buatCanvasing).not.toHaveBeenCalled();
   });
 
-  it("memakai kabel nol bila tidak ada kegiatan survei maupun nilai dari body", async () => {
+  it("memakai kabel bawaan bila tidak ada kegiatan survei maupun nilai dari body", async () => {
+    // Bawaannya 1, bukan 0 — validator marketing menolak kabel < 1, jadi
+    // bawaan yang tidak sah membuat baris ini sendiri tidak akan pernah
+    // benar-benar terkirim ke buatCanvasing (lihat Perbaikan 3).
     vi.mocked(kegiatanRepo.findMany).mockResolvedValue({ items: [], total: 0 });
 
     await service().jadikanCanvasing("prospek-1", masukan);
 
     expect(buatCanvasing).toHaveBeenCalledWith(
-      expect.objectContaining({ kabel: 0, odp: null }),
+      expect.objectContaining({ kabel: 1, odp: null }),
     );
+  });
+
+  it("meneruskan estimasi kabel nol apa adanya, tidak menggantinya dengan bawaan", async () => {
+    // Dengan `??` nilai 0 lolos dan validator marketing menolaknya (kabel
+    // minimal 1) — survei yang mencatat 0 meter jadi terlihat, bukan tertutup
+    // diam-diam. Dengan `||` nilai 0 akan jatuh ke bawaan dan canvasing lahir
+    // seolah surveinya mencatat angka yang sah.
+    vi.mocked(kegiatanRepo.findMany).mockResolvedValue({
+      items: [kegiatanSurvei({ estimasiKabelMeter: 0 })],
+      total: 1,
+    });
+
+    await expect(
+      service().jadikanCanvasing("prospek-1", masukan),
+    ).rejects.toThrow();
+
+    expect(buatCanvasing).not.toHaveBeenCalled();
   });
 });

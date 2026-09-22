@@ -1,4 +1,6 @@
+import { ZodError } from "zod";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import type { CreateCanvasingInput } from "@/modules/marketing";
 import type { KegiatanEntity } from "../domain/entities/Kegiatan";
 import type { ProspekEntity } from "../domain/entities/Prospek";
@@ -14,7 +16,10 @@ type PembuatCanvasing = (
   input: CreateCanvasingInput,
 ) => Promise<{ id: string }>;
 
-const KABEL_BAWAAN_METER = 0;
+/** Menghapus canvasing yang sudah terlanjur dibuat. */
+type PenghapusCanvasing = (canvasingId: string) => Promise<void>;
+
+const KABEL_BAWAAN_METER = 1;
 const JUMLAH_KEGIATAN_DIPERIKSA = 1;
 
 /**
@@ -22,8 +27,14 @@ const JUMLAH_KEGIATAN_DIPERIKSA = 1;
  *
  * Ini titik temu dua modul: presurvei memegang prospeknya, marketing memegang
  * canvasing beserta alur instalasinya. Canvasing dibuat lebih dulu, prospek
- * ditandai sesudahnya — bila urutannya dibalik dan pembuatan canvasing gagal,
- * prospek terlanjur tercatat terkonversi ke sesuatu yang tidak pernah ada.
+ * ditandai sesudahnya lewat penulisan bersyarat (`canvasingId: null` di
+ * `where`, lihat `ProspekRepository.tandaiKonversi`) yang menjadikan
+ * penandaan itu sendiri sebagai titik serialisasi — pemeriksaan
+ * `canPromosikanKeCanvasing` berjalan sebelum canvasing dibuat, jadi dua
+ * permintaan bersamaan bisa sama-sama melewatinya. Baik penandaan yang gagal
+ * maupun yang kalah balapan membersihkan canvasing yang terlanjur dibuat,
+ * supaya tidak ada baris canvasing yatim yang muncul di daftar admin tanpa
+ * bisa ditautkan balik ke prospek mana pun.
  */
 export class ProspekKonversiService {
   constructor(
@@ -33,6 +44,10 @@ export class ProspekKonversiService {
       const { createCanvasingService } = await import("@/modules/marketing");
       const hasil = await createCanvasingService().createRequest(input);
       return { id: hasil.id };
+    },
+    private readonly hapusCanvasing: PenghapusCanvasing = async (id) => {
+      const { createCanvasingService } = await import("@/modules/marketing");
+      await createCanvasingService().deleteRequest(id);
     },
   ) {}
 
@@ -60,18 +75,44 @@ export class ProspekKonversiService {
     }
 
     const survei = await this.ambilSurveiTerbaru(prospekId);
-    const canvasing = await this.buatCanvasing(
+    const masukan = await this.validasiMasukanCanvasing(
       this.bangunMasukanCanvasing(prospek, input, survei),
     );
+    const canvasing = await this.buatCanvasing(masukan);
 
-    const diperbarui = await this.prospekRepository.update(prospekId, {
-      canvasingId: canvasing.id,
-      konversiAt: new Date(),
-    });
+    let diperbarui: ProspekEntity | null;
+    try {
+      diperbarui = await this.prospekRepository.tandaiKonversi(
+        prospekId,
+        canvasing.id,
+      );
+    } catch (error) {
+      await this.batalkanCanvasing(canvasing.id);
+      throw error;
+    }
+
+    if (!diperbarui) {
+      // Permintaan lain menang balapan. Canvasing yang baru saja kita buat
+      // tidak akan pernah tertaut ke prospek mana pun, dan tidak ada kolom di
+      // sisi canvasing yang bisa dipakai menemukannya lagi — jadi ia dihapus
+      // sekarang, bukan ditinggalkan sebagai baris yatim yang tetap muncul di
+      // daftar admin dan bisa di-approve menjadi work order.
+      await this.batalkanCanvasing(canvasing.id);
+      throw new AppError(
+        "Prospek ini sudah pernah dijadikan canvasing",
+        409,
+        "INVALID_STATE",
+      );
+    }
 
     this.umumkanKonversi(diperbarui, canvasing.id);
 
     return { prospek: diperbarui, canvasingId: canvasing.id };
+  }
+
+  /** Hapus canvasing yang terlanjur dibuat saat penandaan prospek tidak jadi. */
+  private async batalkanCanvasing(canvasingId: string): Promise<void> {
+    await this.hapusCanvasing(canvasingId).catch((): void => undefined);
   }
 
   private async ambilProspek(
@@ -124,6 +165,32 @@ export class ProspekKonversiService {
     };
   }
 
+  /**
+   * Lewatkan calon masukan lewat validator marketing sebelum dipakai membuat
+   * canvasing — jalur konversi ini satu-satunya yang selama ini melewatinya,
+   * jadi invarian seperti kabel minimal 1 meter tidak boleh diam-diam
+   * terlewati di sini. `ZodError` dibungkus jadi `AppError` 400 supaya
+   * pemanggil menerima pesan yang wajar dan detail internal Zod tidak bocor.
+   */
+  private async validasiMasukanCanvasing(
+    calon: CreateCanvasingInput,
+  ): Promise<CreateCanvasingInput> {
+    const { parseCreateCanvasingInput, getCanvasingValidationMessage } =
+      await import("@/modules/marketing");
+    try {
+      return parseCreateCanvasingInput(calon);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new AppError(
+          getCanvasingValidationMessage(error),
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+      throw error;
+    }
+  }
+
   private umumkanKonversi(prospek: ProspekEntity, canvasingId: string): void {
     void (async () => {
       try {
@@ -137,10 +204,14 @@ export class ProspekKonversiService {
           konversiAt: (prospek.konversiAt ?? new Date()).toISOString(),
           tenantId: prospek.tenantId ?? undefined,
         });
-      } catch {
+      } catch (error) {
         // Konversinya sudah tersimpan; kegagalan mengumumkan tidak boleh
         // membatalkannya. Laporan yang bersandar pada event ini akan tertinggal,
-        // bukan salah.
+        // bukan salah — tapi kegagalannya tetap wajib berjejak.
+        logger.error(
+          "[ProspekKonversiService] Gagal mempublikasikan event konversi prospek:",
+          error,
+        );
       }
     })();
   }
