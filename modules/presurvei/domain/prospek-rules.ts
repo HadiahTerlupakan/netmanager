@@ -1,4 +1,8 @@
-import type { ProspekEntity, ProspekStatus } from "./entities/Prospek";
+import type {
+  ProspekEntity,
+  ProspekStatus,
+  ProspekSumber,
+} from "./entities/Prospek";
 
 /**
  * Aturan bisnis prospek presurvei — fungsi murni, tanpa I/O.
@@ -6,6 +10,19 @@ import type { ProspekEntity, ProspekStatus } from "./entities/Prospek";
  * Ditaruh terpisah dari service supaya bisa diuji tanpa database dan supaya
  * satu-satunya definisi "kapan prospek boleh pindah status" tidak tersebar.
  */
+
+const SUMBER_BERASAL_IKLAN: ProspekSumber[] = ["IKLAN"];
+const SUMBER_BERASAL_REFERRAL: ProspekSumber[] = ["REFERRAL"];
+
+/** Apakah sumber prospek ini harus menunjuk ke sebuah kampanye iklan. */
+export function isSumberButuhIklan(sumber: ProspekSumber): boolean {
+  return SUMBER_BERASAL_IKLAN.includes(sumber);
+}
+
+/** Apakah sumber prospek ini harus mencatat nama perujuknya. */
+export function isSumberButuhReferral(sumber: ProspekSumber): boolean {
+  return SUMBER_BERASAL_REFERRAL.includes(sumber);
+}
 
 const TRANSISI_SAH: Record<ProspekStatus, readonly ProspekStatus[]> = {
   BARU: ["DIHUBUNGI", "TIDAK_MINAT"],

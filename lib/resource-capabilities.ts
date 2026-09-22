@@ -480,7 +480,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Manajemen user sales dan target",
   },
   presurvei: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa `site_only`: pembatasan per-site presurvei belum ditegakkan kode
+    // mana pun (Fase 3). Menampilkan togglenya membuat admin yakin pembatasan
+    // itu nyata padahal no-op.
+    actions: ["read", "create", "update", "delete"],
     description: "Kegiatan sales & marketing dan prospek presurvei",
   },
 

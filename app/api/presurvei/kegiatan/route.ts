@@ -8,13 +8,14 @@ import {
   toKegiatanListItem,
   toProspekDetail,
 } from "@/modules/presurvei";
+import { isBolehLihatSemuaPresurvei } from "../akses-presurvei";
 
 const service = new KegiatanService();
 
 /** GET /api/presurvei/kegiatan — daftar kegiatan dengan filter dan paginasi. */
 export const GET = createHandler(
   { auth: true, permissions: ["presurvei:read", "m_presurvei:read"] },
-  async (request: NextRequest) => {
+  async (request: NextRequest, ctx) => {
     const { searchParams } = new URL(request.url);
     const filters = daftarKegiatanSchema.parse({
       userId: searchParams.get("userId") ?? undefined,
@@ -27,7 +28,13 @@ export const GET = createHandler(
       limit: searchParams.get("limit") ?? undefined,
     });
 
-    const hasil = await service.daftar(filters);
+    // Sales tanpa permission web hanya melihat kegiatannya sendiri; filter
+    // `userId` yang dikirim klien ditimpa, bukan dipercaya.
+    const hasil = await service.daftar(
+      isBolehLihatSemuaPresurvei(ctx.permissions)
+        ? filters
+        : { ...filters, userId: ctx.session!.user.id },
+    );
 
     return apiPaginated(hasil.items.map(toKegiatanListItem), {
       page: filters.page,

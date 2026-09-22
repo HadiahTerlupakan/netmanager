@@ -9,7 +9,13 @@ import { describe, expect, it } from "vitest";
 
 import { catatKegiatanSchema } from "@/modules/presurvei/validators/kegiatan.validator";
 
-const WAKTU = new Date("2026-09-22T01:00:00.000Z");
+const MENIT_KE_MS = 60 * 1000;
+const JAM_KE_MS = 60 * MENIT_KE_MS;
+
+// Relatif terhadap sekarang, bukan tanggal tetap: `waktuMulai` sekarang punya
+// batas atas, jadi tanggal yang dipaku di berkas ini akan menjadi bom waktu
+// begitu ia jatuh di sisi lain batas itu.
+const WAKTU = new Date(Date.now() - JAM_KE_MS);
 
 const kunjungan = (over: Record<string, unknown> = {}) => ({
   jenis: "KUNJUNGAN",
@@ -74,6 +80,44 @@ describe("catatKegiatanSchema — data teknis", () => {
     );
 
     expect(hasil.success).toBe(true);
+  });
+});
+
+describe("catatKegiatanSchema — batas waktu mulai", () => {
+  // Daftar kegiatan diurutkan `waktuMulai: "desc"`. Satu perangkat dengan jam
+  // melenceng jauh, atau satu salah ketik tahun, akan menempel di puncak setiap
+  // daftar selamanya — tapi skew beberapa menit adalah kenyataan lapangan dan
+  // datanya sah.
+  it("menerima kegiatan yang baru saja terjadi", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ waktuMulai: new Date() }),
+    );
+
+    expect(hasil.success).toBe(true);
+  });
+
+  it("menerima jam perangkat yang melenceng sedikit ke depan", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ waktuMulai: new Date(Date.now() + 5 * MENIT_KE_MS) }),
+    );
+
+    expect(hasil.success).toBe(true);
+  });
+
+  it("menolak waktu mulai jauh di masa depan", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ waktuMulai: new Date(Date.now() + 24 * JAM_KE_MS) }),
+    );
+
+    expect(hasil.success).toBe(false);
+  });
+
+  it("menolak salah ketik tahun yang melompat jauh ke depan", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ waktuMulai: new Date("2126-09-22T01:00:00.000Z") }),
+    );
+
+    expect(hasil.success).toBe(false);
   });
 });
 

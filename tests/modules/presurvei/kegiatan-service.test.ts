@@ -214,6 +214,82 @@ describe("KegiatanService.catat", () => {
     expect(repository.create).toHaveBeenCalledOnce();
     expect(repository.createDenganProspek).not.toHaveBeenCalled();
   });
+
+  it("tidak membuat prospek otomatis dari kegiatan telepon meski berminat", async () => {
+    // Hanya kegiatan lapangan yang sumbernya pasti LAPANGAN (spec §6.1).
+    // Telepon dan chat tidak punya nilai enum yang tepat, jadi menebaknya
+    // berarti atribusi sumber yang salah dan tidak bisa dibetulkan lagi —
+    // sales membuat prospeknya lewat POST /api/presurvei/prospek.
+    const service = new KegiatanService(repository);
+
+    const hasil = await service.catat({
+      jenis: "TELEPON",
+      userId: "user-1",
+      waktuMulai: WAKTU_KUNJUNGAN,
+      hasil: "TERTARIK",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledOnce();
+    expect(repository.createDenganProspek).not.toHaveBeenCalled();
+    expect(hasil.prospek).toBeNull();
+  });
+
+  it("tidak membuat prospek otomatis dari kegiatan chat maupun iklan", async () => {
+    const service = new KegiatanService(repository);
+
+    await service.catat({
+      jenis: "CHAT",
+      userId: "user-1",
+      waktuMulai: WAKTU_KUNJUNGAN,
+      hasil: "DEAL",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+    await service.catat({
+      jenis: "IKLAN",
+      userId: "user-1",
+      iklanId: "iklan-1",
+      waktuMulai: WAKTU_KUNJUNGAN,
+      hasil: "DEAL",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledTimes(2);
+    expect(repository.createDenganProspek).not.toHaveBeenCalled();
+  });
+
+  it("mengupas prospekBaru sebelum meneruskan kegiatan ke repository", async () => {
+    // `prospekBaru` bukan kolom Prisma. Kalau suatu refactor meneruskan `input`
+    // utuh, Prisma menolak dengan "Unknown argument `prospekBaru`" di runtime
+    // sementara seluruh test lain tetap hijau.
+    const service = new KegiatanService(repository);
+
+    await service.catat({
+      ...masukanKunjungan,
+      hasil: "TIDAK_MINAT",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({ prospekBaru: expect.anything() }),
+    );
+  });
 });
 
 describe("KegiatanService.detail", () => {
@@ -224,5 +300,44 @@ describe("KegiatanService.detail", () => {
       statusCode: 404,
       code: "NOT_FOUND",
     });
+  });
+
+  it("mengembalikan kegiatan saat pemilik wajibnya cocok", async () => {
+    const repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(
+      kegiatan({ userId: "user-1" }),
+    );
+    const service = new KegiatanService(repository);
+
+    const hasil = await service.detail("kegiatan-1", "user-1");
+
+    expect(hasil.id).toBe("kegiatan-1");
+  });
+
+  it("menolak 403 saat kegiatan milik sales lain", async () => {
+    // Sales lapangan hanya memegang `m_presurvei:read`, jadi tanpa pengikat ini
+    // ia bisa membaca laporan kunjungan seluruh tenant.
+    const repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(
+      kegiatan({ userId: "user-lain" }),
+    );
+    const service = new KegiatanService(repository);
+
+    await expect(service.detail("kegiatan-1", "user-1")).rejects.toMatchObject({
+      statusCode: 403,
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("tidak membatasi kepemilikan saat pemilik wajib tidak diisi", async () => {
+    const repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(
+      kegiatan({ userId: "user-lain" }),
+    );
+    const service = new KegiatanService(repository);
+
+    const hasil = await service.detail("kegiatan-1");
+
+    expect(hasil.userId).toBe("user-lain");
   });
 });

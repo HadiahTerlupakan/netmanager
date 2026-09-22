@@ -24,6 +24,8 @@ export {
   canPromosikanKeCanvasing,
   getStatusLanjutan,
   isStatusFinal,
+  isSumberButuhIklan,
+  isSumberButuhReferral,
   isTransisiStatusSah,
 } from "./domain/prospek-rules";
 

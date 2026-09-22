@@ -7,13 +7,14 @@ import {
   toProspekDetail,
   toProspekListItem,
 } from "@/modules/presurvei";
+import { isBolehLihatSemuaPresurvei } from "../akses-presurvei";
 
 const service = new ProspekService();
 
 /** GET /api/presurvei/prospek — daftar prospek dengan filter dan paginasi. */
 export const GET = createHandler(
   { auth: true, permissions: ["presurvei:read", "m_presurvei:read"] },
-  async (request: NextRequest) => {
+  async (request: NextRequest, ctx) => {
     const { searchParams } = new URL(request.url);
     const filters = daftarProspekSchema.parse({
       status: searchParams.get("status") ?? undefined,
@@ -24,7 +25,13 @@ export const GET = createHandler(
       limit: searchParams.get("limit") ?? undefined,
     });
 
-    const hasil = await service.daftar(filters);
+    // Sales tanpa permission web hanya melihat prospeknya sendiri; filter
+    // `pemilikId` yang dikirim klien ditimpa, bukan dipercaya.
+    const hasil = await service.daftar(
+      isBolehLihatSemuaPresurvei(ctx.permissions)
+        ? filters
+        : { ...filters, pemilikId: ctx.session!.user.id },
+    );
 
     return apiPaginated(hasil.items.map(toProspekListItem), {
       page: filters.page,

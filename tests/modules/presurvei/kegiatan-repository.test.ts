@@ -6,7 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * menunjukkan kunjungan berhasil tanpa prospek yang bisa di-follow-up.
  */
 
-const transaksiTerpanggil = vi.fn();
+// Mock transaksi hidup di scope modul lewat `vi.hoisted`, bukan dibuat di dalam
+// factory `vi.mock`. Versi sebelumnya membuatnya di dalam factory, sehingga
+// argumen `create` mustahil diperiksa dari luar: yang bisa diasersikan hanyalah
+// nilai yang mock itu sendiri tanam — dan `prospekId` tetap hijau meski
+// tautannya dihapus dari implementasi.
+const {
+  transaksiTerpanggil,
+  buatProspekDalamTransaksi,
+  buatKegiatanDalamTransaksi,
+} = vi.hoisted(() => ({
+  transaksiTerpanggil: vi.fn(),
+  buatProspekDalamTransaksi: vi.fn(),
+  buatKegiatanDalamTransaksi: vi.fn(),
+}));
 
 vi.mock("@/modules/database", () => ({
   prisma: {
@@ -19,57 +32,8 @@ vi.mock("@/modules/database", () => ({
     $transaction: (jalankan: (tx: unknown) => Promise<unknown>) => {
       transaksiTerpanggil();
       return jalankan({
-        presurveiProspek: {
-          create: vi.fn().mockResolvedValue({
-            id: "prospek-baru",
-            nama: "Budi",
-            noTelp: "081234567890",
-            email: null,
-            alamat: "Jl. Merdeka 10",
-            latitude: null,
-            longitude: null,
-            shareloc: null,
-            sumber: "LAPANGAN",
-            iklanId: null,
-            registrationId: null,
-            referralNama: null,
-            status: "BARU",
-            pemilikId: "user-1",
-            paketDiminati: null,
-            catatan: null,
-            canvasingId: null,
-            konversiAt: null,
-            siteId: null,
-            tenantId: "tenant-1",
-            createdAt: new Date("2026-09-22T00:00:00.000Z"),
-            updatedAt: new Date("2026-09-22T00:00:00.000Z"),
-          }),
-        },
-        presurveiKegiatan: {
-          create: vi.fn().mockResolvedValue({
-            id: "kegiatan-baru",
-            jenis: "KUNJUNGAN",
-            userId: "user-1",
-            prospekId: "prospek-baru",
-            iklanId: null,
-            waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
-            waktuSelesai: null,
-            latitude: -6.2,
-            longitude: 106.8,
-            alamatDikunjungi: "Jl. Merdeka 10",
-            ditemuiNama: "Budi",
-            hasil: "TERTARIK",
-            catatan: null,
-            fotoUrls: [],
-            odpTerdekat: null,
-            estimasiKabelMeter: null,
-            catatanTeknis: null,
-            siteId: null,
-            tenantId: "tenant-1",
-            createdAt: new Date("2026-09-22T01:00:00.000Z"),
-            updatedAt: new Date("2026-09-22T01:00:00.000Z"),
-          }),
-        },
+        presurveiProspek: { create: buatProspekDalamTransaksi },
+        presurveiKegiatan: { create: buatKegiatanDalamTransaksi },
       });
     },
   },
@@ -78,6 +42,7 @@ vi.mock("@/modules/database", () => ({
 import { prisma } from "@/modules/database";
 import { KegiatanRepository } from "@/modules/presurvei/repositories/KegiatanRepository";
 import type { KegiatanRow } from "@/modules/presurvei/mappers/kegiatan.mapper";
+import type { ProspekRow } from "@/modules/presurvei/mappers/prospek.mapper";
 
 // Anotasi `: KegiatanRow` wajib: tanpanya properti bernilai `null` jadi implicit
 // any karena repo mematikan strictNullChecks (lihat Global Constraints).
@@ -103,6 +68,32 @@ const barisKegiatan = (over: Partial<KegiatanRow> = {}): KegiatanRow => ({
   tenantId: "tenant-1",
   createdAt: new Date("2026-09-22T01:00:00.000Z"),
   updatedAt: new Date("2026-09-22T01:00:00.000Z"),
+  ...over,
+});
+
+const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
+  id: "prospek-baru",
+  nama: "Budi",
+  noTelp: "081234567890",
+  email: null,
+  alamat: "Jl. Merdeka 10",
+  latitude: null,
+  longitude: null,
+  shareloc: null,
+  sumber: "LAPANGAN",
+  iklanId: null,
+  registrationId: null,
+  referralNama: null,
+  status: "BARU",
+  pemilikId: "user-1",
+  paketDiminati: null,
+  catatan: null,
+  canvasingId: null,
+  konversiAt: null,
+  siteId: null,
+  tenantId: "tenant-1",
+  createdAt: new Date("2026-09-22T00:00:00.000Z"),
+  updatedAt: new Date("2026-09-22T00:00:00.000Z"),
   ...over,
 });
 
@@ -269,27 +260,68 @@ describe("KegiatanRepository.findById", () => {
 });
 
 describe("KegiatanRepository.createDenganProspek", () => {
-  beforeEach(() => vi.clearAllMocks());
+  const prospekTersimpan = barisProspek();
 
-  it("menyimpan keduanya dalam satu transaksi dan menautkan prospek ke kegiatan", async () => {
+  const masukanKegiatan = {
+    jenis: "KUNJUNGAN" as const,
+    userId: "user-1",
+    waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
+    hasil: "TERTARIK" as const,
+  };
+
+  const masukanProspek = {
+    nama: "Budi",
+    noTelp: "081234567890",
+    alamat: "Jl. Merdeka 10",
+    sumber: "LAPANGAN" as const,
+    pemilikId: "user-1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    buatProspekDalamTransaksi.mockResolvedValue(prospekTersimpan);
+    buatKegiatanDalamTransaksi.mockResolvedValue(
+      barisKegiatan({
+        id: "kegiatan-baru",
+        prospekId: prospekTersimpan.id,
+      }),
+    );
+  });
+
+  it("menyimpan keduanya dalam satu transaksi", async () => {
     const hasil = await new KegiatanRepository().createDenganProspek(
-      {
-        jenis: "KUNJUNGAN",
-        userId: "user-1",
-        waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
-        hasil: "TERTARIK",
-      },
-      {
-        nama: "Budi",
-        noTelp: "081234567890",
-        alamat: "Jl. Merdeka 10",
-        sumber: "LAPANGAN",
-        pemilikId: "user-1",
-      },
+      masukanKegiatan,
+      masukanProspek,
     );
 
     expect(transaksiTerpanggil).toHaveBeenCalledOnce();
-    expect(hasil.prospek.id).toBe("prospek-baru");
-    expect(hasil.kegiatan.prospekId).toBe("prospek-baru");
+    expect(buatProspekDalamTransaksi).toHaveBeenCalledWith({
+      data: masukanProspek,
+    });
+    expect(hasil.prospek.id).toBe(prospekTersimpan.id);
+  });
+
+  it("menautkan kegiatan ke prospek yang baru saja dibuat", async () => {
+    // Invarian unggulan modul ini: `prospekId` yang dikirim ke Prisma harus id
+    // prospek yang baru lahir, bukan nilai yang ditanam mock. Assertion ini
+    // memeriksa ARGUMEN `create`, sehingga menghapus tautan `prospekId` dari
+    // repository membuatnya merah.
+    await new KegiatanRepository().createDenganProspek(
+      masukanKegiatan,
+      masukanProspek,
+    );
+
+    expect(buatKegiatanDalamTransaksi).toHaveBeenCalledWith({
+      data: expect.objectContaining({ prospekId: prospekTersimpan.id }),
+    });
+  });
+
+  it("mengembalikan kegiatan yang sudah tertaut ke prospeknya", async () => {
+    const hasil = await new KegiatanRepository().createDenganProspek(
+      masukanKegiatan,
+      masukanProspek,
+    );
+
+    expect(hasil.kegiatan.prospekId).toBe(prospekTersimpan.id);
   });
 });

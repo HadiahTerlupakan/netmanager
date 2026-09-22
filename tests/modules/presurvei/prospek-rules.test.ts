@@ -11,6 +11,8 @@ import {
   canPromosikanKeCanvasing,
   getStatusLanjutan,
   isStatusFinal,
+  isSumberButuhIklan,
+  isSumberButuhReferral,
   isTransisiStatusSah,
 } from "@/modules/presurvei/domain/prospek-rules";
 
@@ -49,6 +51,26 @@ describe("isTransisiStatusSah", () => {
 
   it("menolak transisi ke status yang sama", () => {
     expect(isTransisiStatusSah("TERTARIK", "TERTARIK")).toBe(false);
+  });
+});
+
+describe("isSumberButuhIklan", () => {
+  it("hanya prospek dari iklan yang wajib menunjuk kampanye", () => {
+    expect(isSumberButuhIklan("IKLAN")).toBe(true);
+    expect(isSumberButuhIklan("LAPANGAN")).toBe(false);
+    expect(isSumberButuhIklan("WEBSITE")).toBe(false);
+    expect(isSumberButuhIklan("REFERRAL")).toBe(false);
+    expect(isSumberButuhIklan("WALK_IN")).toBe(false);
+  });
+});
+
+describe("isSumberButuhReferral", () => {
+  it("hanya prospek dari referral yang wajib mencatat perujuk", () => {
+    expect(isSumberButuhReferral("REFERRAL")).toBe(true);
+    expect(isSumberButuhReferral("LAPANGAN")).toBe(false);
+    expect(isSumberButuhReferral("IKLAN")).toBe(false);
+    expect(isSumberButuhReferral("WEBSITE")).toBe(false);
+    expect(isSumberButuhReferral("WALK_IN")).toBe(false);
   });
 });
 

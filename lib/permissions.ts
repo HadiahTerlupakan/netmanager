@@ -130,7 +130,6 @@ export const PERMISSIONS = {
       CREATE: "presurvei:create",
       UPDATE: "presurvei:update",
       DELETE: "presurvei:delete",
-      SITE_ONLY: "presurvei:site_only",
     },
   },
   PLANNING: {

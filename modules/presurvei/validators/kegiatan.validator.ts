@@ -5,6 +5,7 @@ import {
   isButuhIklan,
   isButuhLokasi,
 } from "../domain/kegiatan-rules";
+import { isTerisi } from "./field-terisi";
 
 /**
  * Validasi masukan kegiatan presurvei.
@@ -22,6 +23,32 @@ const KABEL_METER_MAKS = 5000;
 const BATAS_HALAMAN_MAKS = 100;
 const ISI_HALAMAN_BAWAAN = 20;
 
+const MENIT_KE_MS = 60 * 1000;
+
+/**
+ * Batas seberapa jauh `waktuMulai` boleh mendahului jam server.
+ *
+ * Perangkat lapangan sering tidak tersinkron NTP — ponsel yang berjam-jam
+ * offline di area tanpa sinyal bisa melenceng beberapa menit — jadi batas nol
+ * toleransi akan menolak data yang sah. Lima belas menit cukup lebar untuk
+ * skew wajar, tapi jauh lebih sempit daripada salah ketik tahun yang akan
+ * menempelkan satu kegiatan di puncak setiap daftar selamanya (daftar kegiatan
+ * diurutkan `waktuMulai: "desc"`).
+ */
+const TOLERANSI_SKEW_JAM_MENIT = 15;
+const TOLERANSI_SKEW_JAM_MS = TOLERANSI_SKEW_JAM_MENIT * MENIT_KE_MS;
+
+/**
+ * Apakah waktu ini belum melampaui jam server di luar toleransi skew.
+ *
+ * Batasnya dihitung saat parse, bukan saat modul dimuat: server berjalan
+ * sebagai proses panjang, jadi batas yang dibekukan di waktu impor akan makin
+ * ketinggalan seiring proses itu hidup.
+ */
+function isBelumMelewatiSekarang(waktu: Date): boolean {
+  return waktu.getTime() <= Date.now() + TOLERANSI_SKEW_JAM_MS;
+}
+
 const dataProspekBaruSchema = z.object({
   nama: z.string().min(2).max(PANJANG_NAMA_MAKS),
   noTelp: z.string().min(8).max(20),
@@ -30,25 +57,14 @@ const dataProspekBaruSchema = z.object({
   paketDiminati: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
 });
 
-/**
- * Apakah sebuah field benar-benar diisi.
- *
- * Dipakai agar pemeriksaan tidak memakai truthiness: angka `0` adalah nilai
- * yang sah untuk koordinat (khatulistiwa, meridian) maupun estimasi kabel,
- * sedangkan `!0` bernilai true dan akan menganggapnya kosong.
- */
-function isTerisi(nilai: unknown): boolean {
-  if (nilai === null || nilai === undefined) return false;
-  if (typeof nilai === "string") return nilai.trim().length > 0;
-  return true;
-}
-
 export const catatKegiatanSchema = z
   .object({
     jenis: z.enum(KEGIATAN_JENIS),
     prospekId: z.string().optional().nullable(),
     iklanId: z.string().optional().nullable(),
-    waktuMulai: z.coerce.date(),
+    waktuMulai: z.coerce.date().refine(isBelumMelewatiSekarang, {
+      message: `Waktu mulai tidak boleh lebih dari ${TOLERANSI_SKEW_JAM_MENIT} menit di masa depan`,
+    }),
     waktuSelesai: z.coerce.date().optional().nullable(),
     latitude: z.number().min(-90).max(90).optional().nullable(),
     longitude: z.number().min(-180).max(180).optional().nullable(),

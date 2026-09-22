@@ -67,6 +67,56 @@ describe("ProspekService.detail", () => {
 
     expect(hasil.id).toBe("prospek-1");
   });
+
+  it("mengembalikan prospek saat pemilik wajibnya cocok", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-1" }),
+    );
+    const service = new ProspekService(repository);
+
+    const hasil = await service.detail("prospek-1", "user-1");
+
+    expect(hasil.id).toBe("prospek-1");
+  });
+
+  it("menolak 403 saat prospek milik sales lain", async () => {
+    // Sales lapangan hanya memegang `m_presurvei:read`, tanpa `presurvei:read`.
+    // Tanpa pengikat ini ia bisa membaca seluruh prospek tenant.
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-lain" }),
+    );
+    const service = new ProspekService(repository);
+
+    await expect(service.detail("prospek-1", "user-1")).rejects.toMatchObject({
+      statusCode: 403,
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("menolak 403 saat prospek belum punya pemilik", async () => {
+    // Prospek tanpa pemilik ada di daftar "Belum ditugaskan" milik admin, bukan
+    // milik sales mana pun — `null === "user-1"` harus tetap bernilai tolak.
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: null }),
+    );
+    const service = new ProspekService(repository);
+
+    await expect(service.detail("prospek-1", "user-1")).rejects.toMatchObject({
+      statusCode: 403,
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("tidak membatasi kepemilikan saat pemilik wajib tidak diisi", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-lain" }),
+    );
+    const service = new ProspekService(repository);
+
+    const hasil = await service.detail("prospek-1");
+
+    expect(hasil.pemilikId).toBe("user-lain");
+  });
 });
 
 describe("ProspekService.ubah", () => {
@@ -148,6 +198,62 @@ describe("ProspekService.ubah", () => {
     await expect(
       service.ubah("tidak-ada", { catatan: "apa pun" }),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("mengizinkan perubahan saat pemilik wajibnya cocok", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-1" }),
+    );
+    vi.mocked(repository.update).mockResolvedValue(
+      prospek({ pemilikId: "user-1", catatan: "sudah ditelepon" }),
+    );
+    const service = new ProspekService(repository);
+
+    await service.ubah("prospek-1", { catatan: "sudah ditelepon" }, "user-1");
+
+    expect(repository.update).toHaveBeenCalledOnce();
+  });
+
+  it("menolak sales mencuri prospek sales lain", async () => {
+    // Tanpa pengikat ini, sales A bisa PATCH prospek sales B dengan
+    // `pemilikId` dirinya sendiri — atau membunuhnya dengan TIDAK_MINAT.
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-lain" }),
+    );
+    const service = new ProspekService(repository);
+
+    await expect(
+      service.ubah("prospek-1", { pemilikId: "user-1" }, "user-1"),
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("menolak sales membunuh prospek sales lain lewat status", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-lain", status: "BARU" }),
+    );
+    const service = new ProspekService(repository);
+
+    await expect(
+      service.ubah("prospek-1", { status: "TIDAK_MINAT" }, "user-1"),
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("tidak membatasi kepemilikan saat pemilik wajib tidak diisi", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "user-lain" }),
+    );
+    vi.mocked(repository.update).mockResolvedValue(
+      prospek({ pemilikId: "user-lain", catatan: "dicatat admin" }),
+    );
+    const service = new ProspekService(repository);
+
+    await service.ubah("prospek-1", { catatan: "dicatat admin" });
+
+    expect(repository.update).toHaveBeenCalledOnce();
   });
 });
 
