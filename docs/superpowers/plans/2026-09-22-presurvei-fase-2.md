@@ -543,7 +543,18 @@ Di `modules/presurvei/repositories/ProspekRepository.ts`, tambahkan setelah `fin
   }
 ```
 
-- [ ] **Step 5: Jalankan kedua verifikasi**
+- [ ] **Step 5: Perbarui mock port di test yang sudah ada**
+
+Menambah metode ke `IProspekRepository` membuat setiap objek mock yang mengaku memenuhi antarmuka itu gagal typecheck (`TS2739`). Tambahkan keduanya ke `bangunRepository()` di `tests/modules/presurvei/prospek-service.test.ts`, mengikuti pola `findById` yang sudah ada:
+
+```ts
+  findByNoTelp: vi.fn().mockResolvedValue([]),
+  findByRegistrationId: vi.fn().mockResolvedValue(null),
+```
+
+Jalankan `npx tsc --noEmit -p tsconfig.typecheck.json 2>&1 | grep presurvei` untuk menemukan berkas mana saja yang mengeluh — jangan menebak daftarnya.
+
+- [ ] **Step 6: Jalankan kedua verifikasi**
 
 Run: `npx vitest run tests/modules/presurvei/`
 Expected: seluruh modul hijau, 123 test (119 + 4 baru).
