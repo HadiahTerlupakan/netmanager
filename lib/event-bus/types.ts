@@ -61,6 +61,7 @@ export const EVENT_NAMES = {
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
+  REGISTRATION_CREATED: "registration:registration.created",
   INCIDENT_CREATED: "incident:created",
   INCIDENT_RESOLVED: "incident:resolved",
 
@@ -482,6 +483,24 @@ export interface MarketingCanvasingApprovedPayload extends BaseEventPayload {
   approvedAt: string;
 }
 
+/**
+ * Pendaftaran publik baru masuk lewat form `/register`.
+ *
+ * Dikonsumsi modul presurvei untuk melahirkan prospek dengan sumber WEBSITE.
+ * Seluruh nilainya primitif supaya aman melewati antrian.
+ */
+export interface RegistrationCreatedPayload extends BaseEventPayload {
+  registrationId: string;
+  nama: string;
+  noTelp: string;
+  email: string | null;
+  alamat: string;
+  paketDiminati: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+}
+
 export interface IncidentCreatedPayload extends BaseEventPayload {
   incidentId: string;
   title: string;
@@ -580,6 +599,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
+  [EVENT_NAMES.REGISTRATION_CREATED]: RegistrationCreatedPayload;
   [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
   [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
@@ -976,6 +996,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: {
     name: EVENT_NAMES.MARKETING_CANVASING_APPROVED,
+    category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.REGISTRATION_CREATED]: {
+    name: EVENT_NAMES.REGISTRATION_CREATED,
     category: "marketing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

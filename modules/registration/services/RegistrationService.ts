@@ -166,6 +166,23 @@ export class RegistrationService {
       const registration = await this.repository.create(
         this.toCreateData(input),
       );
+
+      // utmSource/utmMedium/utmCampaign diambil dari `input`, bukan dari
+      // `registration`: domain entity Registration belum memetakan kolom UTM
+      // saat membaca balik dari Prisma (lihat RegistrationMapper.toDomain).
+      this.publishRegistrationCreated({
+        id: registration.id,
+        name: registration.name,
+        phone: registration.phone,
+        email: registration.email,
+        address: registration.address,
+        packageName: registration.packageName,
+        utmSource: input.utmSource ?? null,
+        utmMedium: input.utmMedium ?? null,
+        utmCampaign: input.utmCampaign ?? null,
+        tenantId: registration.tenantId,
+      });
+
       return { success: true, data: RegistrationMapper.toDTO(registration) };
     } catch (error) {
       logger.error("[RegistrationService] Error creating registration:", error);
@@ -174,6 +191,49 @@ export class RegistrationService {
         HTTP_INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Beri tahu modul lain bahwa pendaftaran publik masuk.
+   *
+   * Sengaja fire-and-forget: pendaftar sudah berhasil tersimpan, dan kegagalan
+   * antrian tidak boleh membuat mereka melihat kesalahan atau mengirim ulang.
+   * Import dinamis supaya BullMQ tidak tertarik ke bundel yang memuat route publik.
+   */
+  private publishRegistrationCreated(registration: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string | null;
+    address: string;
+    packageName: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    tenantId: string | null;
+  }): void {
+    void (async () => {
+      try {
+        const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+        await eventBus.publish(EVENT_NAMES.REGISTRATION_CREATED, {
+          registrationId: registration.id,
+          nama: registration.name,
+          noTelp: registration.phone,
+          email: registration.email,
+          alamat: registration.address,
+          paketDiminati: registration.packageName,
+          utmSource: registration.utmSource,
+          utmMedium: registration.utmMedium,
+          utmCampaign: registration.utmCampaign,
+          tenantId: registration.tenantId ?? undefined,
+        });
+      } catch (error) {
+        logger.error(
+          "[RegistrationService] Gagal mempublikasikan event pendaftaran:",
+          error,
+        );
+      }
+    })();
   }
 
   /** Build update payload for repository. */
