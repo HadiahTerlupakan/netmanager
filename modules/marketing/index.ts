@@ -64,3 +64,4 @@ export type {
   CreateCanvasingDTO,
   ClaimPointsDTO,
 } from "./dto/MarketingDTO";
+export type { CreateCanvasingInput } from "./domain/ports/ICanvasingRepository";

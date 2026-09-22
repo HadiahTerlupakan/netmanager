@@ -62,6 +62,7 @@ export const EVENT_NAMES = {
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
   REGISTRATION_CREATED: "registration:registration.created",
+  PRESURVEI_PROSPEK_CONVERTED: "presurvei:prospek.converted",
   INCIDENT_CREATED: "incident:created",
   INCIDENT_RESOLVED: "incident:resolved",
 
@@ -501,6 +502,21 @@ export interface RegistrationCreatedPayload extends BaseEventPayload {
   utmCampaign: string | null;
 }
 
+/**
+ * Prospek presurvei dipromosikan menjadi canvasing.
+ *
+ * Dipublikasikan agar perhitungan pencapaian target dan laporan atribusi punya
+ * satu titik pasti kapan sebuah prospek dianggap berhasil.
+ */
+export interface PresurveiProspekConvertedPayload extends BaseEventPayload {
+  prospekId: string;
+  canvasingId: string;
+  pemilikId: string | null;
+  sumber: string;
+  iklanId: string | null;
+  konversiAt: string;
+}
+
 export interface IncidentCreatedPayload extends BaseEventPayload {
   incidentId: string;
   title: string;
@@ -600,6 +616,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
   [EVENT_NAMES.REGISTRATION_CREATED]: RegistrationCreatedPayload;
+  [EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED]: PresurveiProspekConvertedPayload;
   [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
   [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
@@ -1003,6 +1020,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.REGISTRATION_CREATED]: {
     name: EVENT_NAMES.REGISTRATION_CREATED,
+    category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED]: {
+    name: EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED,
     category: "marketing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

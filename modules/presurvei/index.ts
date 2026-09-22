@@ -50,6 +50,11 @@ export {
 } from "./validators/prospek.validator";
 
 export {
+  jadikanCanvasingSchema,
+  type JadikanCanvasingInput,
+} from "./validators/konversi.validator";
+
+export {
   KegiatanService,
   type CatatKegiatanInput,
   type DataProspekBaru,
@@ -57,6 +62,8 @@ export {
 } from "./services/KegiatanService";
 
 export { ProspekService } from "./services/ProspekService";
+
+export { ProspekKonversiService } from "./services/ProspekKonversiService";
 
 export {
   toKegiatanDetail,
