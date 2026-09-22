@@ -70,6 +70,8 @@ export {
   type ProspekListItemDto,
 } from "./dto/prospek.dto";
 
+export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/registration-created-presurvei.handler";
+
 // NOTE: ProspekRepository dan KegiatanRepository sengaja TIDAK diekspor
 // (detail implementasi internal).
 // NOTE: prospek.mapper dan kegiatan.mapper sengaja TIDAK diekspor (internal).

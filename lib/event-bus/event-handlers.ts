@@ -54,6 +54,7 @@ import {
   handlePackageChangedMrr,
 } from "@/modules/finance";
 import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
+import { handleRegistrationCreatedPresurvei } from "@/modules/presurvei";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -573,5 +574,12 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.USER_DEACTIVATED,
     handleUserDeactivatedPayrollSync,
+  );
+
+  // --- PRESURVEI: PENDAFTARAN PUBLIK → PROSPEK ---
+
+  registerEventHandler(
+    EVENT_NAMES.REGISTRATION_CREATED,
+    handleRegistrationCreatedPresurvei,
   );
 }
