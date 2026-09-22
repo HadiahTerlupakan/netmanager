@@ -66,6 +66,12 @@ describe("TargetService.laporanPencapaian", () => {
     expect(hasil).toHaveLength(1);
     expect(hasil[0]).toMatchObject({
       userId: "sales-1",
+      // periodeTahun/periodeBulan disertakan, bukan cuma userId dan
+      // pencapaian: keduanya diteruskan dari baris target (2026/9, dua angka
+      // berbeda), dan tertukarnya lolos toMatchObject yang lama karena
+      // keduanya tidak pernah diperiksa sama sekali.
+      periodeTahun: 2026,
+      periodeBulan: 9,
       pencapaian: {
         kunjungan: { target: 20, tercapai: 10, persen: 50 },
         prospek: { target: 10, tercapai: 5, persen: 50 },
@@ -115,6 +121,11 @@ describe("TargetService.laporanPencapaian", () => {
     expect(
       await service().laporanPencapaian({ tahun: 2026, bulan: 9 }),
     ).toEqual([]);
+    // [].map() juga menghasilkan [], jadi toEqual([]) saja tidak menangkap
+    // penjaga `if (target.length === 0) return []` yang terhapus. Yang
+    // hilang justru gunanya: tanpa penjaga, tiga query groupBy tetap
+    // ditembakkan padahal tidak ada target sama sekali.
+    expect(kegiatanRepo.hitungPerUser).not.toHaveBeenCalled();
   });
 });
 
@@ -127,14 +138,18 @@ describe("TargetService.tetapkan", () => {
       bangunProspekRepo(),
     );
 
-    const masukan = {
+    // Dibekukan: tanpa ini, `masukan` adalah referensi yang sama dengan yang
+    // diteruskan ke service, sehingga mutasi in-place (mis. service mengubah
+    // input.targetKonversi sebelum meneruskannya) membandingkan objek dengan
+    // dirinya sendiri dan lolos hijau meski isinya sudah diubah.
+    const masukan = Object.freeze({
       userId: "sales-1",
       periodeTahun: 2026,
       periodeBulan: 9,
       targetKunjungan: 20,
       targetProspek: 10,
       targetKonversi: 5,
-    };
+    });
 
     await service.tetapkan(masukan);
 
@@ -142,5 +157,30 @@ describe("TargetService.tetapkan", () => {
     // test ini menjanjikan "apa adanya", dan angka-angkanya bersebelahan serta
     // bertipe sama sehingga tertukarnya tidak akan ditolak compiler.
     expect(targetRepo.simpan).toHaveBeenCalledWith(masukan);
+  });
+});
+
+describe("TargetService.ambilPeriode", () => {
+  it("meneruskan periode ke repository dan mengembalikan hasilnya apa adanya", async () => {
+    const targetRepo = bangunTargetRepo();
+    const daftarTarget = [target({ userId: "sales-2" })];
+    vi.mocked(targetRepo.findByPeriode).mockResolvedValue(daftarTarget);
+
+    const service = new TargetService(
+      targetRepo,
+      bangunKegiatanRepo(),
+      bangunProspekRepo(),
+    );
+
+    const hasil = await service.ambilPeriode({ tahun: 2026, bulan: 9 });
+
+    expect(targetRepo.findByPeriode).toHaveBeenCalledWith({
+      tahun: 2026,
+      bulan: 9,
+    });
+    // Identitas referensi (toBe), bukan toEqual: mengganti implementasi
+    // dengan `return [];` tetap punya bentuk array yang valid, tapi ini
+    // membuktikan hasilnya benar-benar nilai yang dikembalikan repository.
+    expect(hasil).toBe(daftarTarget);
   });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 /**
  * Kegiatan dan prospek yang lahir darinya harus tersimpan bersama atau tidak
@@ -28,6 +28,7 @@ vi.mock("@/modules/database", () => ({
       count: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
+      groupBy: vi.fn(),
     },
     $transaction: (jalankan: (tx: unknown) => Promise<unknown>) => {
       transaksiTerpanggil();
@@ -323,5 +324,49 @@ describe("KegiatanRepository.createDenganProspek", () => {
     );
 
     expect(hasil.kegiatan.prospekId).toBe(prospekTersimpan.id);
+  });
+});
+
+describe("KegiatanRepository.hitungPerUser", () => {
+  // Tipe `groupBy` Prisma memicu TS2615 (circular reference) begitu
+  // `vi.mocked()` mencoba menyelesaikan tipe parameternya secara penuh —
+  // isu yang sudah didokumentasikan di tests/setup.ts untuk model lain.
+  // Cast ke `Mock` generik di sini mengikuti mitigasi yang sama.
+  const groupByMock = prisma.presurveiKegiatan.groupBy as unknown as Mock;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("mengirim query groupBy terkunci pada waktuMulai, gte/lte, dan userId", async () => {
+    // Seluruh argumen dibandingkan sekaligus, bukan hanya sebagian: itu
+    // satu-satunya cara menangkap gte/lte yang berubah jadi gt/lt, klausa
+    // where yang hilang, atau by yang bergeser ke kolom lain — ketiganya
+    // lolos tanpa test sama sekali sebelum ini.
+    groupByMock.mockResolvedValue([]);
+
+    await new KegiatanRepository().hitungPerUser(RENTANG);
+
+    expect(groupByMock.mock.calls[0][0]).toEqual({
+      by: ["userId"],
+      where: {
+        waktuMulai: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+      },
+      _count: { _all: true },
+    });
+  });
+
+  it("memetakan hasil groupBy menjadi Record berkunci userId", async () => {
+    groupByMock.mockResolvedValue([
+      { userId: "user-1", _count: { _all: 7 } },
+      { userId: "user-2", _count: { _all: 3 } },
+    ]);
+
+    const hasil = await new KegiatanRepository().hitungPerUser(RENTANG);
+
+    expect(hasil).toEqual({ "user-1": 7, "user-2": 3 });
   });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 /**
  * Repository diuji dengan me-mock klien Prisma: yang diperiksa adalah bentuk
@@ -15,6 +15,7 @@ vi.mock("@/modules/database", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }));
@@ -353,5 +354,80 @@ describe("ProspekRepository.update", () => {
       data: { status: "DIHUBUNGI", catatan: "sudah ditelepon" },
     });
     expect(hasil.status).toBe("DIHUBUNGI");
+  });
+});
+
+describe("ProspekRepository.hitungBaruPerUser", () => {
+  // Tipe `groupBy` Prisma memicu TS2615 (circular reference) begitu
+  // `vi.mocked()` mencoba menyelesaikan tipe parameternya secara penuh —
+  // isu yang sudah didokumentasikan di tests/setup.ts untuk model lain.
+  // Cast ke `Mock` generik di sini mengikuti mitigasi yang sama.
+  const groupByMock = prisma.presurveiProspek.groupBy as unknown as Mock;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("mengirim query groupBy terkunci pada createdAt, gte/lte, dan pemilikId", async () => {
+    // `hitungBaruPerUser` dan `hitungKonversiPerUser` mendelegasikan ke helper
+    // yang sama dan hanya beda nama field tanggal — createdAt di sini,
+    // konversiAt di metode sebelah. Assertion penuh inilah yang menangkap
+    // keduanya tertukar; memeriksa "ada rentang" saja tidak akan menangkapnya
+    // karena bentuknya tetap identik setelah tertukar.
+    groupByMock.mockResolvedValue([]);
+
+    await new ProspekRepository().hitungBaruPerUser(RENTANG);
+
+    expect(groupByMock.mock.calls[0][0]).toEqual({
+      by: ["pemilikId"],
+      where: {
+        createdAt: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+        pemilikId: { not: null },
+      },
+      _count: { _all: true },
+    });
+  });
+
+  it("memetakan hasil groupBy menjadi Record berkunci pemilikId", async () => {
+    groupByMock.mockResolvedValue([
+      { pemilikId: "user-1", _count: { _all: 4 } },
+      { pemilikId: "user-2", _count: { _all: 2 } },
+    ]);
+
+    const hasil = await new ProspekRepository().hitungBaruPerUser(RENTANG);
+
+    expect(hasil).toEqual({ "user-1": 4, "user-2": 2 });
+  });
+});
+
+describe("ProspekRepository.hitungKonversiPerUser", () => {
+  const groupByMock = prisma.presurveiProspek.groupBy as unknown as Mock;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("mengirim query groupBy terkunci pada konversiAt, gte/lte, dan pemilikId", async () => {
+    // Pasangan test dari hitungBaruPerUser: kalau createdAt/konversiAt
+    // tertukar antara kedua metode, salah satu dari dua test ini pasti merah
+    // karena masing-masing mengunci nama field tanggalnya sendiri.
+    groupByMock.mockResolvedValue([]);
+
+    await new ProspekRepository().hitungKonversiPerUser(RENTANG);
+
+    expect(groupByMock.mock.calls[0][0]).toEqual({
+      by: ["pemilikId"],
+      where: {
+        konversiAt: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+        pemilikId: { not: null },
+      },
+      _count: { _all: true },
+    });
   });
 });
