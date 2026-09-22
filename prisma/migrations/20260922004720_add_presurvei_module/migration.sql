@@ -1,4 +1,3 @@
-*/
 -- CreateEnum
 CREATE TYPE "PresurveiJenisKegiatan" AS ENUM ('KUNJUNGAN', 'SURVEI_LOKASI', 'TELEPON', 'CHAT', 'IKLAN');
 
