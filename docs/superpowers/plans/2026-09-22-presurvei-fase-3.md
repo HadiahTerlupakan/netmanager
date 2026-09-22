@@ -719,6 +719,7 @@ import { describe, expect, it } from "vitest";
  * tanpa `presurvei_iklan:read` akan melihat menunya lalu ditolak 403.
  */
 
+import { filterAdminMenuItems } from "@/components/layout/admin-sidebar/adminSidebarMenu";
 import { ADMIN_MENU_CONFIG } from "@/lib/menu-config";
 
 const blokPresurvei = () =>
@@ -755,8 +756,41 @@ describe("blok menu presurvei", () => {
       "PRESURVEI.LAPORAN": "/admin/presurvei/laporan",
     });
   });
+
+  it("memberi tiap sub-menu resource permission-nya sendiri", () => {
+    // Inilah alasan task ini ada, dan kedua test di atas TIDAK menjaganya:
+    // keduanya tetap hijau meski Step 5 dilewatkan sepenuhnya. Kalau
+    // dilewatkan, fallback `getPermissionResource` mengambil segmen
+    // TERAKHIR kode — "PRESURVEI.IKLAN" jadi menuntut `iklan:read` yang
+    // tidak pernah ada — dan seluruh menu presurvei lenyap untuk semua
+    // orang tanpa satu pun error di log.
+    const tampil = (izin: string) =>
+      filterAdminMenuItems({
+        items: ADMIN_MENU_CONFIG,
+        hasPermission: (permission) => permission === izin,
+        isSuperAdmin: false,
+        isFeatureEnabled: (feature) => feature === "presurvei",
+      })
+        .find((item) => item.code === "PRESURVEI")
+        ?.children?.map((anak) => anak.code);
+
+    // Pemegang `presurvei:read` melihat tiga menu inti dan TIDAK melihat
+    // iklan, target, atau laporan.
+    expect(tampil("presurvei:read")).toEqual([
+      "PRESURVEI.DASHBOARD",
+      "PRESURVEI.KEGIATAN",
+      "PRESURVEI.PROSPEK",
+    ]);
+
+    // Pemegang `presurvei_iklan:read` melihat persis satu menu. Bila keenam
+    // anak dipetakan ke `presurvei` bersama — kesalahan yang paling mungkin
+    // — tak satu pun anak lolos dan hasilnya `undefined`.
+    expect(tampil("presurvei_iklan:read")).toEqual(["PRESURVEI.IKLAN"]);
+  });
 });
 ```
+
+Test ketiga memakai `filterAdminMenuItems`, bukan memeriksa tabel pemetaan langsung: `getPermissionResource` adalah fungsi privat modul, dan yang ingin dikunci memang perilakunya — siapa melihat apa — bukan bentuk tabelnya.
 
 - [ ] **Step 2: Jalankan test, pastikan merah**
 
@@ -834,7 +868,7 @@ Di `lib/feature-modules.ts`, tambahkan entri mengikuti bentuk `marketing`:
   },
 ```
 
-Periksa tipe `FeatureModuleCode` di berkas itu — bila ia union literal, tambahkan `"presurvei"` ke dalamnya juga, atau `featureModule: "presurvei"` di Step 3 tidak akan kompilasi.
+`FeatureModuleCode` diturunkan dari daftarnya sendiri (`(typeof FEATURE_MODULES)[number]["code"]`), jadi menambahkan entri di atas sudah otomatis memperluas union-nya — tidak ada suntingan kedua yang perlu. `group: "keuangan"` dan `section: "Pemasaran"` keduanya sudah dipakai berkas-berkas itu; jangan menciptakan nilai baru.
 
 - [ ] **Step 5: Petakan permission per sub-menu**
 
@@ -866,7 +900,21 @@ Expected: test menu lulus, **seluruh suite repo tetap hijau**, `tsc` exit 0.
 
 Seluruh suite dijalankan karena task ini menyentuh tiga berkas bersama di luar modul. `tests/lib/rbac.test.ts` dan `tests/architecture/site-restriction-capability-catalog.test.ts` membaca katalog permission dan menu — keduanya harus tetap lulus.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Buktikan test punya gigi**
+
+Terapkan tiap mutasi, pastikan merah, lalu **kembalikan**:
+
+| Mutasi | Harus merah |
+|---|---|
+| Hapus seluruh blok `PRESURVEI*` dari `specialMappings` | test "memberi tiap sub-menu resource permission-nya sendiri" |
+| Ganti `"PRESURVEI.IKLAN": "presurvei_iklan"` jadi `"presurvei"` | test yang sama |
+| Hapus `exact: true` dari anak `PRESURVEI.DASHBOARD` | *(tidak ada — lihat catatan)* |
+
+Baris ketiga sengaja dicantumkan sebagai **peringatan, bukan tugas**: `exact: true` memengaruhi penyorotan item aktif, dan tidak ada test di task ini yang mengunciNya. Jangan menambah test untuknya di sini — `isSidebarItemActive` sudah punya test sendiri di repo. Cukup pastikan nilainya benar saat menulis Step 3.
+
+Setelah selesai: `git status --short` wajib bersih.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add lib/menu-config.ts lib/feature-modules.ts components/layout/admin-sidebar/adminSidebarMenu.ts tests/modules/presurvei/menu-presurvei.test.ts
