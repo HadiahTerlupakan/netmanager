@@ -17,17 +17,20 @@ const SOURCE = "RegistrationCreatedPresurveiHandler";
  */
 async function cariIklanDariKampanye(
   utmCampaign: unknown,
+  registrationId: string,
 ): Promise<string | null> {
   if (typeof utmCampaign !== "string" || utmCampaign.trim().length === 0) {
     return null;
   }
 
+  const kode = utmCampaign.trim();
+
   try {
-    const iklan = await new IklanRepository().findByKode(utmCampaign);
+    const iklan = await new IklanRepository().findByKode(kode);
     return iklan?.id ?? null;
   } catch (error) {
     logger.warn(
-      `[${SOURCE}] Gagal mencocokkan kampanye "${utmCampaign}": ${String(error)}`,
+      `[${SOURCE}] Pendaftaran ${registrationId}: gagal mencocokkan kampanye "${kode}": ${String(error)}`,
     );
     return null;
   }
@@ -68,11 +71,15 @@ export async function handleRegistrationCreatedPresurvei(
     return;
   }
 
-  // Pencocokan kampanye WAJIB berada setelah penjaga `tenantId` di atas.
-  // `findByKode` menyandarkan penyaringan tenant pada ekstensi Prisma, dan
-  // ekstensi itu hanya menyaring bila konteks tenant sudah terpasang. Dipindah
-  // ke atas penjaga, ia bisa mencocokkan kode kampanye milik tenant lain.
-  const iklanId = await cariIklanDariKampanye(payload.utmCampaign);
+  // Pencocokan kampanye berada setelah penjaga `tenantId` dengan sengaja.
+  // `findByKode` menyandarkan penyaringan tenant sepenuhnya pada ekstensi
+  // Prisma, dan ekstensi hanya menyaring bila konteksnya sudah terpasang.
+  // Dipindah ke atas penjaga, ia membaca kode kampanye lintas-tenant lalu
+  // membuang hasilnya — berulang tiap retry, tanpa jejak.
+  const iklanId = await cariIklanDariKampanye(
+    payload.utmCampaign,
+    registrationId,
+  );
   const pemilikId = await cariSalesTeringan(tenantId);
 
   const prospek = await repository.create({
@@ -81,7 +88,11 @@ export async function handleRegistrationCreatedPresurvei(
     alamat,
     email: (payload.email as string | null) ?? null,
     paketDiminati: (payload.paketDiminati as string | null) ?? null,
-    sumber: iklanId ? "IKLAN" : "WEBSITE",
+    // `sumber` menjawab "bagaimana orang ini sampai ke kita" — lewat form web,
+    // dan itu tidak berubah karena ia mengklik iklan lebih dulu. Kampanye yang
+    // membawanya dicatat terpisah di `iklanId`. Menggabungkan keduanya ke satu
+    // kolom membuang salah satu faktanya.
+    sumber: "WEBSITE",
     iklanId,
     registrationId,
     pemilikId,

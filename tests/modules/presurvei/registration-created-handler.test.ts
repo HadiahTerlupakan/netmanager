@@ -16,8 +16,14 @@ const mocks = vi.hoisted(() => ({
   buatProspek: vi.fn(),
   cariByRegistrationId: vi.fn(),
   cariSalesTeringan: vi.fn(),
+  cariIklanByKode: vi.fn(),
 }));
-const { buatProspek, cariByRegistrationId, cariSalesTeringan } = mocks;
+const {
+  buatProspek,
+  cariByRegistrationId,
+  cariSalesTeringan,
+  cariIklanByKode,
+} = mocks;
 
 vi.mock("@/modules/presurvei/repositories/ProspekRepository", () => ({
   ProspekRepository: class {
@@ -31,11 +37,9 @@ vi.mock(
   () => ({ cariSalesTeringan: mocks.cariSalesTeringan }),
 );
 
-const cariIklanByKode = vi.fn();
-
 vi.mock("@/modules/presurvei/repositories/IklanRepository", () => ({
   IklanRepository: class {
-    findByKode = cariIklanByKode;
+    findByKode = mocks.cariIklanByKode;
   },
 }));
 
@@ -131,6 +135,7 @@ describe("handleRegistrationCreatedPresurvei", () => {
     ).rejects.toThrow();
 
     expect(cariSalesTeringan).not.toHaveBeenCalled();
+    expect(cariIklanByKode).not.toHaveBeenCalled();
     expect(buatProspek).not.toHaveBeenCalled();
   });
 
@@ -157,7 +162,7 @@ describe("handleRegistrationCreatedPresurvei — atribusi iklan", () => {
 
     expect(cariIklanByKode).toHaveBeenCalledWith("promo-ramadan");
     expect(buatProspek).toHaveBeenCalledWith(
-      expect.objectContaining({ iklanId: "iklan-1", sumber: "IKLAN" }),
+      expect.objectContaining({ iklanId: "iklan-1", sumber: "WEBSITE" }),
     );
   });
 
@@ -177,6 +182,20 @@ describe("handleRegistrationCreatedPresurvei — atribusi iklan", () => {
     const { utmCampaign: _dibuang, ...tanpaKampanye } = payloadLengkap;
 
     await handleRegistrationCreatedPresurvei(job(tanpaKampanye));
+
+    expect(cariIklanByKode).not.toHaveBeenCalled();
+    expect(buatProspek).toHaveBeenCalledWith(
+      expect.objectContaining({ iklanId: null, sumber: "WEBSITE" }),
+    );
+  });
+
+  it("tidak mencari iklan saat utm_campaign hanya berisi spasi", async () => {
+    // utm_campaign= kosong adalah bentuk UTM rusak yang paling umum (tautan
+    // analytics yang parameternya tidak terisi). Tanpa cabang ini, tiap
+    // pendaftaran semacam itu memicu satu query DB sia-sia.
+    const payloadKampanyeSpasi = { ...payloadLengkap, utmCampaign: "   " };
+
+    await handleRegistrationCreatedPresurvei(job(payloadKampanyeSpasi));
 
     expect(cariIklanByKode).not.toHaveBeenCalled();
     expect(buatProspek).toHaveBeenCalledWith(
