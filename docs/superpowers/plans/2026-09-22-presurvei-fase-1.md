@@ -2319,6 +2319,19 @@ const dataProspekBaruSchema = z.object({
   paketDiminati: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
 });
 
+/**
+ * Apakah sebuah field benar-benar diisi.
+ *
+ * Dipakai agar pemeriksaan tidak memakai truthiness: angka `0` adalah nilai
+ * yang sah untuk koordinat (khatulistiwa, meridian) maupun estimasi kabel,
+ * sedangkan `!0` bernilai true dan akan menganggapnya kosong.
+ */
+function isTerisi(nilai: unknown): boolean {
+  if (nilai === null || nilai === undefined) return false;
+  if (typeof nilai === "string") return nilai.trim().length > 0;
+  return true;
+}
+
 export const catatKegiatanSchema = z
   .object({
     jenis: z.enum(KEGIATAN_JENIS),
@@ -2348,22 +2361,19 @@ export const catatKegiatanSchema = z
   .refine(
     (kegiatan) =>
       !isButuhLokasi(kegiatan.jenis) ||
-      (kegiatan.latitude !== null &&
-        kegiatan.latitude !== undefined &&
-        kegiatan.longitude !== null &&
-        kegiatan.longitude !== undefined),
+      (isTerisi(kegiatan.latitude) && isTerisi(kegiatan.longitude)),
     { message: "Kunjungan dan survei lokasi wajib menyertakan koordinat" },
   )
   .refine(
     (kegiatan) =>
       isButuhDataTeknis(kegiatan.jenis) ||
-      (!kegiatan.odpTerdekat &&
-        !kegiatan.estimasiKabelMeter &&
-        !kegiatan.catatanTeknis),
+      (!isTerisi(kegiatan.odpTerdekat) &&
+        !isTerisi(kegiatan.estimasiKabelMeter) &&
+        !isTerisi(kegiatan.catatanTeknis)),
     { message: "Data teknis hanya boleh diisi pada survei lokasi" },
   )
   .refine(
-    (kegiatan) => !isButuhIklan(kegiatan.jenis) || Boolean(kegiatan.iklanId),
+    (kegiatan) => !isButuhIklan(kegiatan.jenis) || isTerisi(kegiatan.iklanId),
     { message: "Kegiatan iklan wajib menunjuk ke sebuah iklan" },
   );
 
@@ -2516,6 +2526,63 @@ describe("KegiatanService.catat", () => {
       sumber: "LAPANGAN",
       pemilikId: "user-1",
     });
+  });
+
+  it("mewariskan lokasi, iklan, dan site kunjungan ke prospeknya", async () => {
+    // Prospek yang lahir dari kunjungan harus membawa koordinat kunjungan itu.
+    // Tanpa test ini, lat/lng yang tertukar atau fallback yang hilang tidak
+    // akan tertangkap apa pun.
+    const service = new KegiatanService(repository);
+
+    await service.catat({
+      ...masukanKunjungan,
+      hasil: "TERTARIK",
+      iklanId: "iklan-1",
+      siteId: "site-1",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+        email: "budi@contoh.id",
+        paketDiminati: "20 Mbps",
+      },
+    });
+
+    const [, prospekDibuat] = vi.mocked(repository.createDenganProspek).mock
+      .calls[0];
+    expect(prospekDibuat).toEqual({
+      nama: "Budi",
+      noTelp: "081234567890",
+      alamat: "Jl. Merdeka 10",
+      email: "budi@contoh.id",
+      paketDiminati: "20 Mbps",
+      latitude: -6.2,
+      longitude: 106.8,
+      sumber: "LAPANGAN",
+      iklanId: "iklan-1",
+      pemilikId: "user-1",
+      siteId: "site-1",
+    });
+  });
+
+  it("tidak membuat prospek saat hasilnya belum berminat meski datanya lengkap", async () => {
+    // Mengisolasi cabang `isHasilMelahirkanProspek`: data prospek sengaja
+    // disertakan supaya satu-satunya alasan penolakan adalah hasilnya.
+    const service = new KegiatanService(repository);
+
+    const hasil = await service.catat({
+      ...masukanKunjungan,
+      hasil: "TIDAK_MINAT",
+      prospekBaru: {
+        nama: "Budi",
+        noTelp: "081234567890",
+        alamat: "Jl. Merdeka 10",
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledOnce();
+    expect(repository.createDenganProspek).not.toHaveBeenCalled();
+    expect(hasil.prospek).toBeNull();
   });
 
   it("tetap menyimpan kegiatan tanpa prospek saat data prospek tidak disertakan", async () => {
@@ -2697,12 +2764,128 @@ export class KegiatanService {
 - [ ] **Step 4: Jalankan test untuk memastikan lulus**
 
 Run: `npx vitest run tests/modules/presurvei/kegiatan-service.test.ts`
-Expected: PASS — 6 test lulus.
+Expected: PASS — 8 test lulus.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Tulis test validator**
+
+Validator punya berkas test sendiri karena yang diuji di sini adalah aturan
+konsistensi jenis-kolom, bukan orkestrasi service.
+
+Create `tests/modules/presurvei/kegiatan-validator.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+
+/**
+ * Pemeriksaan konsistensi jenis-kolom tidak boleh memakai truthiness. Angka 0
+ * adalah nilai yang sah — koordinat di khatulistiwa atau meridian, dan estimasi
+ * kabel nol meter — sedangkan `!0` bernilai true dan akan salah menganggapnya
+ * kosong. Berkas ini yang menjaga agar jebakan itu tidak kembali.
+ */
+
+import { catatKegiatanSchema } from "@/modules/presurvei/validators/kegiatan.validator";
+
+const WAKTU = new Date("2026-09-22T01:00:00.000Z");
+
+const kunjungan = (over: Record<string, unknown> = {}) => ({
+  jenis: "KUNJUNGAN",
+  waktuMulai: WAKTU,
+  latitude: -6.2,
+  longitude: 106.8,
+  hasil: "PERLU_FOLLOWUP",
+  ...over,
+});
+
+describe("catatKegiatanSchema — koordinat", () => {
+  it("menerima kunjungan berkoordinat nol", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ latitude: 0, longitude: 0 }),
+    );
+
+    expect(hasil.success).toBe(true);
+  });
+
+  it("menolak kunjungan tanpa koordinat", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ latitude: undefined, longitude: undefined }),
+    );
+
+    expect(hasil.success).toBe(false);
+  });
+
+  it("tidak menuntut koordinat untuk kegiatan telepon", () => {
+    const hasil = catatKegiatanSchema.safeParse({
+      jenis: "TELEPON",
+      waktuMulai: WAKTU,
+      hasil: "PERLU_FOLLOWUP",
+    });
+
+    expect(hasil.success).toBe(true);
+  });
+});
+
+describe("catatKegiatanSchema — data teknis", () => {
+  it("menolak estimasi kabel nol pada kegiatan bukan survei", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ estimasiKabelMeter: 0 }),
+    );
+
+    expect(hasil.success).toBe(false);
+  });
+
+  it("menolak data teknis lain pada kegiatan bukan survei", () => {
+    expect(
+      catatKegiatanSchema.safeParse(kunjungan({ odpTerdekat: "ODP-12" }))
+        .success,
+    ).toBe(false);
+    expect(
+      catatKegiatanSchema.safeParse(kunjungan({ catatanTeknis: "perlu tiang" }))
+        .success,
+    ).toBe(false);
+  });
+
+  it("menerima estimasi kabel nol pada survei lokasi", () => {
+    const hasil = catatKegiatanSchema.safeParse(
+      kunjungan({ jenis: "SURVEI_LOKASI", estimasiKabelMeter: 0 }),
+    );
+
+    expect(hasil.success).toBe(true);
+  });
+});
+
+describe("catatKegiatanSchema — kegiatan iklan", () => {
+  it("menolak kegiatan iklan tanpa iklanId", () => {
+    const hasil = catatKegiatanSchema.safeParse({
+      jenis: "IKLAN",
+      waktuMulai: WAKTU,
+      hasil: "PERLU_FOLLOWUP",
+    });
+
+    expect(hasil.success).toBe(false);
+  });
+
+  it("menerima kegiatan iklan yang menunjuk sebuah iklan", () => {
+    const hasil = catatKegiatanSchema.safeParse({
+      jenis: "IKLAN",
+      waktuMulai: WAKTU,
+      hasil: "PERLU_FOLLOWUP",
+      iklanId: "iklan-1",
+    });
+
+    expect(hasil.success).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 6: Jalankan test validator**
+
+Run: `npx vitest run tests/modules/presurvei/kegiatan-validator.test.ts`
+Expected: PASS — 8 test lulus.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add modules/presurvei tests/modules/presurvei/kegiatan-service.test.ts
+git add modules/presurvei tests/modules/presurvei/kegiatan-service.test.ts tests/modules/presurvei/kegiatan-validator.test.ts
 git commit -m "feat(presurvei): tambah validator dan service kegiatan"
 ```
 
