@@ -34,16 +34,20 @@ export function teksTanggalSelesai(item: IklanListItemDto): string {
  * pun yang mengimpornya bisa memutasi tabel produksi dari luar.
  *
  * Harga yang dibayar untuk itu, disengaja dan perlu diketahui: **baris `render:`
- * di bawah tidak dijaga test mana pun.** Yang diuji adalah `teksTanggalMulai`
+ * di bawah belum dijaga test mana pun.** Yang diuji adalah `teksTanggalMulai`
  * dan `teksTanggalSelesai` secara berdiri sendiri, bukan pemasangannya ke
  * kolom. Mengganti `render: teksTanggalMulai` dengan lambda yang memformat
  * sendiri — atau yang mengembalikan `item.tanggalMulai` mentah — akan lolos
  * seluruh test, `tsc`, maupun lint tanpa satu pun keluhan.
  *
- * Yang menahannya tetap benar hanyalah bentuk penugasannya: `render:
- * teksTanggalMulai` adalah reference langsung ke fungsi yang diuji, sehingga
- * pemformatan di layar tidak mungkin menyimpang dari yang dikunci test.
- * **Mengubahnya jadi lambda menghapus proteksi itu — jangan.**
+ * Itu keadaan hari ini, bukan batas yang melekat: penutupannya ada. Repo ini
+ * punya `jsdom`, dan `tests/app/admin/canvasing-list.test.tsx` sudah merender
+ * tabel lalu memeriksa teks yang keluar. Pekerjaannya cuma belum dilakukan.
+ *
+ * Sampai itu ada, yang menahannya tetap benar hanyalah bentuk penugasannya:
+ * `render: teksTanggalMulai` adalah reference langsung ke fungsi yang diuji,
+ * sehingga pemformatan di layar tidak mungkin menyimpang dari yang dikunci
+ * test. **Mengubahnya jadi lambda menghapus proteksi itu — jangan.**
  */
 const kolom: Column<IklanListItemDto>[] = [
   { key: "nama", header: "Nama kampanye", priority: "primary" },

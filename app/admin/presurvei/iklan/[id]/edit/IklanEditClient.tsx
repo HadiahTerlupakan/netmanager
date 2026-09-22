@@ -7,7 +7,12 @@ import { useApi } from "@/lib/hooks/useApi";
 import type { IklanDetailDto } from "@/modules/presurvei/client";
 
 import { IklanForm } from "../../IklanForm";
-import { keNilaiForm, type NilaiFormIklan } from "../../iklanFormState";
+import {
+  keNilaiForm,
+  opsiSimpanUntukMode,
+  type ModeFormIklan,
+  type NilaiFormIklan,
+} from "../../iklanFormState";
 import { useSimpanIklan } from "../../useSimpanIklan";
 
 const KELAS_PESAN = "py-12 text-center text-gray-500 dark:text-gray-400";
@@ -26,12 +31,12 @@ interface FormUbahIklanProps {
 function FormUbahIklan({ iklanId, nilaiAwal }: FormUbahIklanProps) {
   const [nilai, setNilai] = useState<NilaiFormIklan>(nilaiAwal);
 
-  const { simpan, isMenyimpan } = useSimpanIklan({
-    url: `/api/admin/presurvei/iklan/${iklanId}`,
-    method: "PATCH",
-    pesanSukses: "Kampanye berhasil diperbarui",
-    pesanGagal: "Gagal memperbarui kampanye",
-  });
+  // Satu nilai untuk bentuk form dan tujuan permintaannya sekaligus. Dulu
+  // keduanya terpisah, dan mode form yang salah di sini mengirim `kode` ke
+  // `PATCH` — di-strip server tanpa error, 200, dan kode UTM tidak berubah.
+  const mode: ModeFormIklan = { jenis: "ubah", iklanId };
+
+  const { simpan, isMenyimpan } = useSimpanIklan(opsiSimpanUntukMode(mode));
 
   const ubahNilai = (perubahan: Partial<NilaiFormIklan>) =>
     setNilai((lama) => ({ ...lama, ...perubahan }));
@@ -42,7 +47,7 @@ function FormUbahIklan({ iklanId, nilaiAwal }: FormUbahIklanProps) {
       onUbah={ubahNilai}
       onSimpan={simpan}
       isMenyimpan={isMenyimpan}
-      isModeUbah
+      mode={mode}
     />
   );
 }

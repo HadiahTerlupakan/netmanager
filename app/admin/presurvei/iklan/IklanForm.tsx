@@ -12,9 +12,13 @@ import {
 } from "@/modules/presurvei/client";
 
 import {
+  keKesalahanForm,
+  KUNCI_KESALAHAN_FORM,
   muatanUntukMode,
   schemaUntukMode,
   URL_DAFTAR_IKLAN,
+  type KesalahanForm,
+  type ModeFormIklan,
   type MuatanBuatIklan,
   type MuatanUbahIklan,
   type NilaiFormIklan,
@@ -42,33 +46,32 @@ const KELAS_PETUNJUK = "mt-1 text-xs text-gray-500 dark:text-gray-400";
 const KELAS_KARTU =
   "space-y-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800";
 
-/** Pesan kesalahan per medan, hasil `safeParse` yang gagal. */
-type KesalahanForm = Partial<Record<keyof NilaiFormIklan, string>>;
-
 interface IklanFormProps {
   nilai: NilaiFormIklan;
   onUbah: (perubahan: Partial<NilaiFormIklan>) => void;
   onSimpan: (muatan: MuatanBuatIklan | MuatanUbahIklan) => void;
   isMenyimpan: boolean;
-  isModeUbah: boolean;
+  mode: ModeFormIklan;
 }
 
 /**
  * Form kampanye iklan, dipakai ulang oleh mode buat dan ubah.
  *
- * Pemilihan schema, pembentuk muatan, dan bentuk medan kode semuanya
- * diturunkan dari `isModeUbah` di satu tempat ini. Pemanggil hanya menerima
- * muatan yang sudah lolos validasi dan mengirimkannya — sehingga tidak ada
- * kesempatan memasangkan schema buat dengan muatan ubah, atau sebaliknya.
+ * Menerima `mode` utuh, bukan boolean: pemanggil menurunkan tujuan permintaan
+ * simpan dari nilai yang sama, sehingga bentuk form dan endpoint tujuannya
+ * tidak bisa berselisih. Pemanggil hanya menerima muatan yang sudah lolos
+ * validasi dan mengirimkannya.
  */
 export function IklanForm({
   nilai,
   onUbah,
   onSimpan,
   isMenyimpan,
-  isModeUbah,
+  mode,
 }: IklanFormProps) {
   const [kesalahan, setKesalahan] = useState<KesalahanForm>({});
+
+  const isModeUbah = mode.jenis === "ubah";
 
   const ubahMedan = (perubahan: Partial<NilaiFormIklan>) => {
     onUbah(perubahan);
@@ -88,25 +91,22 @@ export function IklanForm({
 
     // Muatan dibentuk sekali lalu dipakai ulang: yang divalidasi wajib persis
     // yang dikirim. Dua ekspresi terpisah bisa menyimpang tanpa ditolak `tsc`.
-    const muatan = muatanUntukMode(isModeUbah, nilai);
-    const hasil = schemaUntukMode(isModeUbah).safeParse(muatan);
+    const muatan = muatanUntukMode(mode, nilai);
+    const hasil = schemaUntukMode(mode).safeParse(muatan);
 
     if (!hasil.success) {
-      setKesalahan(
-        Object.fromEntries(
-          hasil.error.issues.map((masalah) => [
-            String(masalah.path[0]),
-            masalah.message,
-          ]),
-        ),
-      );
+      setKesalahan(keKesalahanForm(hasil.error.issues));
       return;
     }
 
     setKesalahan({});
-    // Muatan mentah, bukan `hasil.data`: Zod meng-coerce tanggal jadi objek
-    // `Date`, dan `JSON.stringify` pada `Date` menghasilkan ISO dengan jam
-    // lokal ikut tergeser. Server memvalidasi ulang dengan schema yang sama.
+    // Muatan mentah, bukan `hasil.data`. Bukan soal zona waktu — `Date.toJSON`
+    // memanggil `toISOString()` dan selalu UTC. Alasannya: `hasil.data` adalah
+    // keluaran yang sudah di-coerce, jadi mengirimkannya berarti tanggal
+    // dikonversi dua kali, di klien lalu di server, dari dua representasi yang
+    // berbeda. Mengirim `"2026-03-01"` apa adanya menaruh satu-satunya konversi
+    // di server, di `z.coerce.date()` yang sama yang memvalidasinya — sehingga
+    // server melihat persis yang dipilih pemakai di medan tanggal.
     onSimpan(muatan);
   };
 
@@ -291,6 +291,18 @@ export function IklanForm({
             </span>
           </label>
         </div>
+
+        {/* Pesan yang tidak menempel ke satu medan pun — aturan lintas-medan,
+            atau medan yang tidak punya slot pesannya sendiri. Tanpa tempat ini
+            form menolak submit tanpa memberi tahu apa yang salah. */}
+        {kesalahan[KUNCI_KESALAHAN_FORM] && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400"
+          >
+            {kesalahan[KUNCI_KESALAHAN_FORM]}
+          </p>
+        )}
 
         <div className="flex items-center justify-end gap-3">
           <Link href={URL_DAFTAR_IKLAN}>

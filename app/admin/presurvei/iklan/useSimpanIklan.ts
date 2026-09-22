@@ -11,18 +11,11 @@ import {
   URL_DAFTAR_IKLAN,
   type MuatanBuatIklan,
   type MuatanUbahIklan,
+  type OpsiSimpanIklan,
 } from "./iklanFormState";
 
 /** Awalan `queryKey` daftar iklan; lihat `useIklanListQuery`. */
 const KUNCI_DAFTAR_IKLAN = "presurvei-iklan-list";
-
-interface OpsiSimpanIklan {
-  /** Endpoint tujuan; untuk mode ubah ini sekaligus key cache detailnya. */
-  url: string;
-  method: "POST" | "PATCH";
-  pesanSukses: string;
-  pesanGagal: string;
-}
 
 /**
  * Pengiriman muatan kampanye ke API, dipakai mode buat maupun ubah.
