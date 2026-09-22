@@ -660,7 +660,20 @@ Keduanya sudah ada di `KegiatanDetailDto`, jadi ini memindahkan field ke indukny
 
 - [ ] **Step 1: Tulis test yang gagal**
 
-Tambahkan ke `tests/modules/presurvei/presurvei-dto.test.ts`, di dalam blok `describe` untuk `toKegiatanListItem` yang sudah ada (baca berkasnya dulu dan ikuti nama helper fixture yang sudah dipakai):
+Di `tests/modules/presurvei/presurvei-dto.test.ts`. Berkas itu **belum punya** blok `describe` untuk `toKegiatanListItem` dan **belum mengimpor** fungsinya — yang ada hanya `toKegiatanDetail`. Jadi dua hal dulu:
+
+1. Perluas impor yang ada di baris 13 menjadi:
+
+```ts
+import {
+  toKegiatanDetail,
+  toKegiatanListItem,
+} from "@/modules/presurvei/dto/kegiatan.dto";
+```
+
+2. Buat blok `describe("toKegiatanListItem", () => { ... })` baru, taruh **sebelum** blok `describe("toKegiatanDetail")` yang sudah ada, dan isi dengan kedua test di bawah.
+
+Helper fixture-nya sudah ada dan bernama `kegiatan(over)` — pakai itu, jangan bikin sendiri:
 
 ```ts
   it("menyertakan koordinat supaya peta tidak perlu mengambil detail per baris", () => {
@@ -690,7 +703,10 @@ Tambahkan ke `tests/modules/presurvei/presurvei-dto.test.ts`, di dalam blok `des
 - [ ] **Step 2: Jalankan test, pastikan merah**
 
 Run: `npx vitest run tests/modules/presurvei/presurvei-dto.test.ts --maxWorkers=50%`
-Expected: FAIL — `expected undefined to be -6.2`
+Expected: FAIL — `expected undefined to be -6.2`, dan test kedua gagal dengan
+`expected undefined to be null`. Keduanya harus gagal karena **nilainya** belum ada,
+bukan karena impor atau `describe` yang salah tulis — kalau pesannya berbeda dari
+itu, perbaiki dulu berkas test-nya sebelum lanjut ke Step 3.
 
 - [ ] **Step 3: Pindahkan field ke DTO induk**
 
