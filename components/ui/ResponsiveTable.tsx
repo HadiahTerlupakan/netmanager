@@ -534,7 +534,7 @@ export function ResponsiveTable<T>({
       </div>
 
       {/* Pagination Controls */}
-      {totalPages && totalPages > 1 && onPageChange && (
+      {totalPages > 1 && onPageChange && (
         <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6">
           <div className="flex flex-1 justify-between sm:hidden">
             <button
