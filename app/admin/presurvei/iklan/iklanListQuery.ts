@@ -17,8 +17,10 @@ export interface FilterIklan {
 /**
  * URL daftar iklan dari state filter.
  *
- * Dipisahkan dari komponen supaya bisa diuji langsung: repo ini tidak punya
- * DOM palsu, jadi logika yang tertinggal di dalam komponen tidak akan teruji.
+ * Dipisahkan dari komponen supaya bisa diuji langsung sebagai fungsi murni
+ * (`tests/app/presurvei-iklan-list-query.test.ts`) — jauh lebih murah
+ * daripada merendernya. Pemakaiannya sebagai kunci cache `useIklanListQuery`
+ * dijaga `tests/app/presurvei-iklan-hook.test.ts`.
  */
 export function buildIklanListUrl(filter: FilterIklan): string {
   const params = new URLSearchParams({
@@ -45,9 +47,9 @@ export function buildIklanListUrl(filter: FilterIklan): string {
  * Filter setelah pemakai mengubah kriteria; selalu kembali ke halaman pertama.
  *
  * Transisi state-nya fungsi murni, bukan callback di dalam hook, karena alasan
- * yang sama dengan `buildIklanListUrl`: tanpa DOM palsu, apa pun yang tinggal
- * di dalam hook tidak terjangkau test. Menyaring dari halaman lima tanpa reset
- * ini menghasilkan tabel kosong, dan pemakai menyimpulkan datanya tidak ada.
+ * yang sama dengan `buildIklanListUrl`: aturannya teruji langsung tanpa harus
+ * merender hook-nya. Menyaring dari halaman lima tanpa reset ini menghasilkan
+ * tabel kosong, dan pemakai menyimpulkan datanya tidak ada.
  */
 export function filterSetelahUbah(
   lama: FilterIklan,

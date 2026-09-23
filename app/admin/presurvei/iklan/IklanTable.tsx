@@ -33,21 +33,17 @@ export function teksTanggalSelesai(item: IklanListItemDto): string {
  * diteruskan ke `<ResponsiveTable columns={kolom}>` — bukan salinannya. Siapa
  * pun yang mengimpornya bisa memutasi tabel produksi dari luar.
  *
- * Harga yang dibayar untuk itu, disengaja dan perlu diketahui: **baris `render:`
- * di bawah belum dijaga test mana pun.** Yang diuji adalah `teksTanggalMulai`
- * dan `teksTanggalSelesai` secara berdiri sendiri, bukan pemasangannya ke
- * kolom. Mengganti `render: teksTanggalMulai` dengan lambda yang memformat
- * sendiri — atau yang mengembalikan `item.tanggalMulai` mentah — akan lolos
- * seluruh test, `tsc`, maupun lint tanpa satu pun keluhan.
+ * Karena kolom tidak bisa diimpor test, pemasangan `render:` dijaga dengan
+ * merender tabelnya: `tests/app/presurvei-iklan-wiring.test.tsx` ("menampilkan
+ * tanggal terformat, bukan ISO mentah") memeriksa kedua tanggal tampil
+ * terformat dan ISO mentahnya tidak. Isi pemformatannya sendiri diuji lewat
+ * `teksTanggalMulai`/`teksTanggalSelesai` di
+ * `tests/app/presurvei-iklan-list-query.test.ts`.
  *
- * Itu keadaan hari ini, bukan batas yang melekat: penutupannya ada. Repo ini
- * punya `jsdom`, dan `tests/app/admin/canvasing-list.test.tsx` sudah merender
- * tabel lalu memeriksa teks yang keluar. Pekerjaannya cuma belum dilakukan.
- *
- * Sampai itu ada, yang menahannya tetap benar hanyalah bentuk penugasannya:
- * `render: teksTanggalMulai` adalah reference langsung ke fungsi yang diuji,
- * sehingga pemformatan di layar tidak mungkin menyimpang dari yang dikunci
- * test. **Mengubahnya jadi lambda menghapus proteksi itu — jangan.**
+ * Yang belum dijaga: kolom mana memakai fungsi mana. Kedua tanggal tampil di
+ * baris yang sama, jadi `render: teksTanggalSelesai` di kolom "Mulai" tetap
+ * lolos. Bentuk penugasan — reference langsung ke fungsi yang diuji, bukan
+ * lambda — tetap yang paling sulit disalahpasangkan; pertahankan.
  */
 const kolom: Column<IklanListItemDto>[] = [
   { key: "nama", header: "Nama kampanye", priority: "primary" },

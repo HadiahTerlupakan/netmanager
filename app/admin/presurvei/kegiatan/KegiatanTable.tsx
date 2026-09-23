@@ -25,18 +25,13 @@ interface Props {
  * pun yang mengimpornya bisa memutasi tabel produksi dari luar. Keputusan yang
  * sama diambil dan dicatat di `IklanTable.tsx`.
  *
- * Konsekuensinya diketahui: **baris `render:` di bawah tidak dijaga test mana
- * pun.** Yang diuji adalah `teksWaktuKegiatan` berdiri sendiri di
- * `presurvei-kegiatan-list-query.test.ts`, bukan pemasangannya ke kolom.
- * Yang menahannya tetap benar adalah bentuk penugasannya: `render:
- * teksWaktuKegiatan` adalah reference langsung ke fungsi yang diuji, sehingga
- * pemformatan di layar tidak mungkin menyimpang darinya. **Mengubahnya jadi
- * lambda menghapus proteksi itu — jangan.**
- *
- * Itu keadaan hari ini, bukan batas yang melekat: penutupannya ada. Repo ini
- * punya `jsdom`, dan `tests/app/presurvei-kegiatan-filters.test.tsx` sudah
- * merender komponen tetangga lalu membaca atribut yang keluar. Pekerjaannya
- * cuma belum dilakukan.
+ * Karena kolom tidak bisa diimpor test, pemasangan `render: teksWaktuKegiatan`
+ * dijaga dengan merender layarnya: `tests/app/presurvei-kegiatan-client.test.tsx`
+ * ("menampilkan waktu kegiatan terformat di tabel, bukan ISO mentah").
+ * Isi pemformatannya sendiri diuji lewat `teksWaktuKegiatan` di
+ * `presurvei-kegiatan-list-query.test.ts`. Bentuk penugasannya — reference
+ * langsung ke fungsi yang diuji, bukan lambda — tetap dipertahankan supaya
+ * pemformatan di layar tidak bisa menyimpang darinya.
  *
  * `alamatDikunjungi` dan `jumlahFoto` tidak perlu `render`: `safeRender` di
  * `ResponsiveTable` sudah memetakan `null` ke "-" dan mencetak angka 0 apa
