@@ -308,6 +308,31 @@ Terpisah dari `User.canvasingTarget` yang sudah ada, karena kolom itu hanya satu
 angka tanpa riwayat periode — tidak bisa menjawab "berapa target sales A bulan lalu".
 `User.canvasingTarget` tetap dipakai modul marketing dan tidak diubah.
 
+### 4.4a `PresurveiKegiatanRiwayat` (Task 21, Fase 3)
+
+Jejak audit jalur ubah kegiatan, preseden `PlanningAuditLog`. Migration
+`20260923090000_add_presurvei_kegiatan_riwayat_table`.
+
+```prisma
+model PresurveiKegiatanRiwayat {
+  id           String   @id @default(uuid())
+  kegiatanId   String   // FK PresurveiKegiatan, onDelete Cascade
+  tenantId     String?  // tenant baris kegiatan; nullable seperti kegiatannya
+  diubahOlehId String?  // FK User, onDelete SetNull
+  diubahPada   DateTime @default(now())
+  perubahan    Json     // { medan: { dari, ke } } — HANYA medan yang berubah
+
+  @@index([kegiatanId])
+  @@index([tenantId])
+  @@map("presurvei_kegiatan_riwayat")
+}
+```
+
+Hanya `catatan`, `ditemuiNama`, dan `hasil` yang bisa diubah; `hasil` tidak boleh
+melintasi batas `isHasilMelahirkanProspek` (`isPerubahanHasilSah`). Kegiatan dan
+riwayatnya ditulis dalam satu transaksi dengan kunci konkurensi optimistis
+(`updateMany where { id, updatedAt }`; versi basi → 409).
+
 ### 4.5 Enum baru
 
 ```prisma
@@ -459,6 +484,7 @@ karena dua domain tidak bisa berada dalam satu transaksi Prisma.
 |---|---|---|
 | `presurvei:prospek.created` | Prospek baru dibuat dari jalur mana pun | notifikasi |
 | `presurvei:prospek.converted` | Prospek dipromosikan menjadi canvasing | statistik, kelak komisi |
+| `presurvei:kegiatan.updated` | Kegiatan diubah lewat `PATCH /api/presurvei/kegiatan/[id]` (setelah commit) | belum ada (tanpa handler) |
 
 **`presurvei:prospek.created` belum dipublikasikan.** Hanya `prospek.converted` yang
 nyata sampai akhir Fase 2 — tidak ada `EVENT_NAMES.PRESURVEI_PROSPEK_CREATED`, tidak
@@ -496,7 +522,7 @@ Route yang dipakai sales lapangan menerima permission web **atau** mobile:
 | Route | Method | Permission (salah satu cukup) |
 |---|---|---|
 | `/api/presurvei/kegiatan` | GET, POST | `presurvei:read` + `m_presurvei:read` / `presurvei:create` + `m_presurvei:create` |
-| `/api/presurvei/kegiatan/[id]` | GET | `presurvei:read` + `m_presurvei:read` |
+| `/api/presurvei/kegiatan/[id]` | GET, PATCH | `presurvei:read` + `m_presurvei:read` / `presurvei:update` + `m_presurvei:update` |
 | `/api/presurvei/prospek` | GET, POST | `presurvei:read` + `m_presurvei:read` / `presurvei:create` + `m_presurvei:create` |
 | `/api/presurvei/prospek/[id]` | GET, PATCH | `presurvei:read` + `m_presurvei:read` / `presurvei:update` + `m_presurvei:update` |
 | `/api/presurvei/prospek/[id]/jadikan-canvasing` | POST | `presurvei:update` + `m_presurvei:update` |

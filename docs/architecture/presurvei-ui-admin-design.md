@@ -12,9 +12,12 @@ layar pun. Dokumen ini merancang lapisan UI admin web yang memakainya.
 Fase 3 selesai dengan sembilan `page.tsx` di bawah `app/admin/presurvei/`. Isi dokumen di
 bawah dipertahankan sebagai rancangan; bagian yang ternyata berbeda saat dibangun:
 
-- **Kegiatan hanya dicatat, tidak disunting.** §2 menyebut kegiatan "dibuat serta
-  disunting lewat modal", tapi `app/api/presurvei/kegiatan/[id]/route.ts` hanya
-  mengekspor `GET`. Jalur ubah kegiatan menunggu keputusan produk (Task 21 di rencana).
+- **Kegiatan disunting terbatas, dari halaman rincian.** §2 menyebut kegiatan "dibuat
+  serta disunting lewat modal". Sejak Task 21, `PATCH /api/presurvei/kegiatan/[id]`
+  hanya mengubah `catatan`, `ditemuiNama`, dan `hasil` (dalam kelompok
+  `isHasilMelahirkanProspek` yang sama), lewat tombol "Ubah" dan
+  `KegiatanUbahModal` di rincian (bukan di modal catat), dengan jejak audit
+  `PresurveiKegiatanRiwayat` yang tampil sebagai kartu "Riwayat perubahan".
 - **Form kegiatan web tanpa data teknis.** §2 memasukkan data teknis ke form web; ia
   dibuang (`4ec618bc3`) karena schema hanya menerimanya pada `SURVEI_LOKASI`, dan jenis
   itu selalu ditolak dari web karena wajib berkoordinat

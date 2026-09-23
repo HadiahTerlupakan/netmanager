@@ -41,6 +41,62 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-23] — Jalur ubah kegiatan presurvei dengan jejak audit
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`, `app/api/presurvei/kegiatan/[id]`, `app/admin/presurvei/kegiatan/[id]`
+- **Author**: agent
+- **Deskripsi**: `PATCH /api/presurvei/kegiatan/[id]` (`presurvei:update` atau
+  `m_presurvei:update`) mengubah HANYA `catatan`, `ditemuiNama`, dan `hasil`.
+  `ubahKegiatanSchema` memakai `.strict()`: medan lain (jenis, waktu, pelaku,
+  koordinat, foto, data teknis, tautan, tenant) ditolak 400, bukan dibuang diam-diam;
+  badan kosong juga 400. `hasil` hanya boleh berganti di dalam kelompok
+  `isHasilMelahirkanProspek` yang sama (`isPerubahanHasilSah`) — penjaga konservatif,
+  karena jalur ubah tidak menjalankan efek samping catat (`KegiatanService.catat`);
+  lintas kelompok → 400 "Hasil ini mengubah apakah kegiatan melahirkan prospek; catat
+  kegiatan baru." Pemegang `presurvei:read`/`*` boleh mengubah kegiatan mana pun di
+  tenantnya; pemanggil mobile hanya miliknya (403) — `pemilikWajibUntuk` kini dibagi
+  route prospek dan kegiatan di `app/api/presurvei/akses-presurvei.ts`. Tanpa batas
+  waktu: medan yang bisa diubah tidak menggeser `hitungPerUser`. Hanya medan yang
+  benar-benar berubah yang ditulis; tanpa perubahan nyata tidak menulis apa pun.
+  Kegiatan dan baris `PresurveiKegiatanRiwayat` ditulis dalam satu transaksi dengan
+  kunci konkurensi optimistis (`updateMany where { id, updatedAt }`); bila kegiatan
+  diubah pihak lain sejak dibaca → 409 tanpa riwayat. `GET`/`PATCH [id]` kini
+  mengembalikan `KegiatanRincianDto` (rincian + `riwayat`, aditif; `POST` catat tetap
+  `KegiatanDetailDto`); nama pengubah lewat penjaga tenant per baris
+  (`namaSalesSatuTenant`). Event baru `presurvei:kegiatan.updated`
+  (`EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED`, konvensi `<domain>:<entity>.<action>` di
+  `lib/event-bus/types.ts`) dipublikasikan setelah commit; kegagalannya dicatat, tidak
+  membatalkan; belum ada handler. UI: tombol "Ubah" di rincian kegiatan (gerbang izin
+  sama dengan route), `KegiatanUbahModal` tiga medan dengan pilihan hasil sekelompok,
+  pesan penolakan server di form, invalidasi rincian + `KUNCI_DAFTAR_KEGIATAN`, dan
+  kartu "Riwayat perubahan".
+- **Files**: `modules/presurvei/domain/kegiatan-perubahan.ts`,
+  `modules/presurvei/domain/kegiatan-rules.ts`,
+  `modules/presurvei/services/KegiatanService.ts`,
+  `modules/presurvei/repositories/KegiatanRepository.ts`,
+  `modules/presurvei/validators/kegiatan.validator.ts`,
+  `app/api/presurvei/kegiatan/[id]/route.ts`, `lib/event-bus/types.ts`,
+  `app/admin/presurvei/kegiatan/[id]/KegiatanUbahModal.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Tabel jejak audit perubahan kegiatan presurvei
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Tabel baru `presurvei_kegiatan_riwayat` (model
+  `PresurveiKegiatanRiwayat`, preseden `PlanningAuditLog`): `kegiatanId` (FK Cascade),
+  `tenantId` nullable mengikuti `PresurveiKegiatan.tenantId`, `diubahOlehId` (FK User,
+  SetNull), `diubahPada`, `perubahan` Json, index `kegiatanId` dan `tenantId`. Aditif
+  saja (CREATE TABLE/INDEX/FK), nol data loss. SQL-nya dibuat lewat
+  `prisma migrate diff --from-schema <schema HEAD> --to-schema prisma/schema.prisma
+  --script` (schema-ke-schema), BUKAN `migrate dev`: DB lokal punya drift lama yang
+  tidak terkait presurvei, sehingga `migrate dev` meminta reset. Diterapkan lokal
+  dengan `migrate deploy`; produksi lewat `migrate deploy` seperti biasa.
+- **Migration**: `20260923090000_add_presurvei_kegiatan_riwayat_table`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-23] — Target dan pemilik prospek wajib sales se-tenant
 
 - **Tipe**: [SECURITY]
@@ -170,8 +226,11 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
      web tidak menangkap GPS maupun foto — keduanya, beserta data teknis survei, lahir
      dari perangkat di lapangan. Kegiatan tercatat atas nama pencatatnya (route menimpa
      `userId` dari sesi, `app/api/presurvei/kegiatan/route.ts`); tidak ada pencatatan
-     atas nama sales lain. Mengubah kegiatan yang sudah tercatat belum didukung — route
-     rincian hanya punya `GET`; jalurnya menunggu keputusan produk (Task 21 rencana).
+     atas nama sales lain. Mengubah kegiatan kini didukung terbatas — lihat entri
+     "Jalur ubah kegiatan presurvei dengan jejak audit" (2026-09-23): hanya `catatan`,
+     `ditemuiNama`, dan `hasil` (dalam kelompok yang sama); `jenis`, `waktuMulai`,
+     `waktuSelesai`, pelaku, prospek/iklan, koordinat, alamat, foto, dan data teknis
+     TIDAK bisa diubah.
   2. Laporan tidak menampilkan sales yang punya realisasi tapi belum ditetapkan target,
      karena laporan disusun dari daftar target (`TargetService.laporanPencapaian`).
   3. Batas periode laporan memakai UTC, bukan timezone tenant: `bangunRentangBulan`
