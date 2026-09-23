@@ -55,7 +55,7 @@ const IZIN_UBAH_PROSPEK = ["presurvei:update", "m_presurvei:update"];
 
 /**
  * Permission yang boleh mencatat prospek; dicocokkan ke gerbang
- * `POST /api/presurvei/prospek` (`app/api/presurvei/prospek/route.ts:51`).
+ * `POST /api/presurvei/prospek` (`app/api/presurvei/prospek/route.ts:53`).
  */
 const IZIN_BUAT_PROSPEK = ["presurvei:create", "m_presurvei:create"];
 

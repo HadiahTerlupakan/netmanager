@@ -23,7 +23,8 @@ import {
   type MuatanKolom,
 } from "./prospekKolomQuery";
 
-interface AmplopKolom {
+/** Amplop satu halaman kolom papan. */
+export interface AmplopKolom {
   data: ProspekListItemDto[];
   meta: MetaKolom & { page: number; limit: number };
 }
@@ -51,6 +52,21 @@ async function ambilHalamanKolom(
 }
 
 /**
+ * Kunci dan pengambil satu halaman kolom papan.
+ *
+ * Satu-satunya sumber pasangan ini: dashboard (`useCorongDashboard`) memakai
+ * cache halaman pertama yang sama, jadi invalidasi papan setelah kartu
+ * dipindahkan ikut menyegarkan angka corong. Kunci yang sama dengan pengambil
+ * berbeda akan menaruh dua bentuk data di satu entri cache.
+ */
+export function opsiQueryHalamanKolom(status: ProspekStatus, page: number) {
+  return {
+    queryKey: [KUNCI_KOLOM_PROSPEK, status, page],
+    queryFn: () => ambilHalamanKolom(status, page),
+  };
+}
+
+/**
  * Isi satu kolom papan prospek, dengan "muat lebih" yang menambah kartu.
  *
  * Satu query per halaman yang sudah dimuat, bukan satu query yang halamannya
@@ -73,10 +89,9 @@ export function useProspekKolom(status: ProspekStatus) {
   const halaman = halamanTermuat(muatan, status);
 
   const hasilPerHalaman = useQueries({
-    queries: daftarHalaman(halaman).map((page) => ({
-      queryKey: [KUNCI_KOLOM_PROSPEK, status, page],
-      queryFn: () => ambilHalamanKolom(status, page),
-    })),
+    queries: daftarHalaman(halaman).map((page) =>
+      opsiQueryHalamanKolom(status, page),
+    ),
   });
 
   const halamanGagal = cariHalamanGagal(

@@ -219,7 +219,7 @@ export type MuatanBuatProspekAbaikanDuplikat = MuatanBuatProspek & {
  * Muatan yang sama persis, ditambah izin melewati pemeriksaan duplikat.
  *
  * `abaikanDuplikat` diterima `buatProspekSchema` dan diteruskan route ke
- * `ProspekService.buat` (`app/api/presurvei/prospek/route.ts:55-67`).
+ * `ProspekService.buat` (`app/api/presurvei/prospek/route.ts:57-69`).
  */
 export function denganAbaikanDuplikat(
   muatan: MuatanBuatProspek,
