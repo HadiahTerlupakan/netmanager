@@ -16,9 +16,9 @@ import {
   PESAN_TANPA_PERUBAHAN,
   urlRincianKegiatan,
 } from "@/app/admin/presurvei/kegiatan/[id]/ubahKegiatanState";
-import type { KegiatanDetailDto } from "@/modules/presurvei/client";
+import type { KegiatanRincianDto } from "@/modules/presurvei/client";
 
-const kegiatan: KegiatanDetailDto = Object.freeze({
+const kegiatan: KegiatanRincianDto = Object.freeze({
   id: "kg-7",
   jenis: "TELEPON",
   userId: "sales-1",
@@ -37,7 +37,9 @@ const kegiatan: KegiatanDetailDto = Object.freeze({
   fotoUrls: [],
   dataTeknis: null,
   createdAt: "2026-09-10T02:05:00.000Z",
-}) as KegiatanDetailDto;
+  updatedAt: "2026-09-10T02:06:07.089Z",
+  riwayat: [],
+}) as KegiatanRincianDto;
 
 describe("urlRincianKegiatan", () => {
   it("mengarah ke route rincian kegiatan", () => {
@@ -130,7 +132,10 @@ describe("periksaFormUbah", () => {
         ...nilaiFormDariKegiatan(kegiatan),
         hasil: "DEAL",
       }),
-    ).toEqual({ success: true, muatan: { hasil: "DEAL" } });
+    ).toEqual({
+      success: true,
+      muatan: { hasil: "DEAL", versi: "2026-09-10T02:06:07.089Z" },
+    });
   });
 });
 
@@ -142,5 +147,26 @@ describe("pilihanHasilUbah", () => {
       "TIDAK_MINAT",
       "TIDAK_ADA_ORANG",
     ]);
+  });
+});
+
+describe("periksaFormUbah — versi", () => {
+  it("selalu menyertakan updatedAt rincian yang ditampilkan sebagai versi", () => {
+    const hasil = periksaFormUbah(kegiatan, {
+      ...nilaiFormDariKegiatan(kegiatan),
+      catatan: "Baru",
+    });
+
+    expect(hasil).toEqual({
+      success: true,
+      muatan: { catatan: "Baru", versi: "2026-09-10T02:06:07.089Z" },
+    });
+  });
+
+  it("tidak menghitung versi sebagai perubahan", () => {
+    expect(periksaFormUbah(kegiatan, nilaiFormDariKegiatan(kegiatan))).toEqual({
+      success: false,
+      pesan: PESAN_TANPA_PERUBAHAN,
+    });
   });
 });

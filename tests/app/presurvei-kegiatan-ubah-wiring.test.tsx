@@ -195,7 +195,10 @@ describe("modal ubah", () => {
       "modal tertutup",
     );
 
-    expect(badanPatch).toEqual([{ catatan: "Catatan baru" }]);
+    // `versi` = `updatedAt` rincian yang ditampilkan, dikirim apa adanya.
+    expect(badanPatch).toEqual([
+      { catatan: "Catatan baru", versi: "2026-09-10T03:25:00.000Z" },
+    ]);
     expect(palsu.toastSuccess).toHaveBeenCalledWith(
       "Perubahan kegiatan tersimpan",
     );
@@ -233,6 +236,23 @@ describe("modal ubah", () => {
     );
     expect(cari('[role="dialog"]')).not.toBeNull();
     expect(palsu.toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("pada 409 menampilkan pesan versi basi di form dan memuat ulang rincian", async () => {
+    responsPatch = () =>
+      responsJson(409, { success: false, error: "Pesan server apa pun" });
+    await bukaModal();
+    const getSebelum = jumlahGet();
+
+    await isiMedan("#ubah-kegiatan-catatan", "Catatan baru");
+    await klikTombol("Simpan Perubahan");
+    await tungguSampai(() => cari('[role="alert"]') !== null, "pesan tampil");
+
+    expect(cari('[role="alert"]').textContent).toBe(
+      "Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.",
+    );
+    expect(cari('[role="dialog"]')).not.toBeNull();
+    await tungguSampai(() => jumlahGet() > getSebelum, "rincian dimuat ulang");
   });
 
   it("menahan penutupan selama PATCH berjalan", async () => {

@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import {
   KEGIATAN_HASIL_CONFIG,
-  type KegiatanDetailDto,
   type KegiatanHasil,
+  type KegiatanRincianDto,
 } from "@/modules/presurvei/client";
 
 import { penutupModalDitahanSaatMenyimpan } from "../../penutupModal";
@@ -32,7 +32,8 @@ const KELAS_PERINGATAN =
   "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400";
 
 interface KegiatanUbahModalProps {
-  kegiatan: KegiatanDetailDto;
+  /** Rincian yang sedang tampil; `updatedAt`-nya dikirim sebagai `versi`. */
+  kegiatan: KegiatanRincianDto;
   onClose: () => void;
 }
 

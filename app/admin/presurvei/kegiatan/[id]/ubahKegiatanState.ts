@@ -5,6 +5,7 @@ import {
   ubahKegiatanSchema,
   type KegiatanDetailDto,
   type KegiatanHasil,
+  type KegiatanRincianDto,
   type UbahKegiatanInput,
 } from "@/modules/presurvei/client";
 
@@ -37,6 +38,21 @@ export interface NilaiFormUbahKegiatan {
 
 /** Pesan saat pemakai menekan Simpan tanpa mengubah apa pun. */
 export const PESAN_TANPA_PERUBAHAN = "Belum ada yang diubah.";
+
+/**
+ * Pesan saat server menolak 409: kegiatan sudah diubah orang lain sejak
+ * rincian ini dimuat. Ditulis sendiri, bukan diambil dari badan respons,
+ * supaya petunjuknya tetap benar apa pun kalimat server.
+ */
+export const PESAN_VERSI_BASI =
+  "Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.";
+
+/**
+ * Badan `PATCH`: medan yang berubah ditambah `versi` — `updatedAt` rincian
+ * yang sedang ditampilkan. Server menolak 409 bila kegiatan sudah tidak
+ * pada versi itu, jadi suntingan orang lain tidak tertimpa diam-diam.
+ */
+export type MuatanUbahKegiatan = UbahKegiatanInput & { versi: string };
 
 /** Nilai awal form dari kegiatan tersimpan; null menjadi isian kosong. */
 export function nilaiFormDariKegiatan(
@@ -83,21 +99,29 @@ export function keMuatanUbahKegiatan(
 
 /** Hasil pemeriksaan form sebelum dikirim. */
 export type HasilPeriksaUbah =
-  | { success: true; muatan: UbahKegiatanInput }
+  | { success: true; muatan: MuatanUbahKegiatan }
   | { success: false; pesan: string };
 
 /**
  * Periksa form dengan schema yang sama dengan server. Tanpa perubahan
  * ditolak di sini, bukan dikirim: server menolak badan kosong 400.
+ *
+ * `versi` ditambahkan SETELAH pemeriksaan tanpa-perubahan — ia bukan medan
+ * yang diubah dan tidak boleh membuat badan "berisi".
  */
 export function periksaFormUbah(
-  kegiatan: KegiatanDetailDto,
+  kegiatan: KegiatanRincianDto,
   nilai: NilaiFormUbahKegiatan,
 ): HasilPeriksaUbah {
-  const muatan = keMuatanUbahKegiatan(kegiatan, nilai);
-  if (Object.keys(muatan).length === 0) {
+  const perubahan = keMuatanUbahKegiatan(kegiatan, nilai);
+  if (Object.keys(perubahan).length === 0) {
     return { success: false, pesan: PESAN_TANPA_PERUBAHAN };
   }
+
+  const muatan: MuatanUbahKegiatan = {
+    ...perubahan,
+    versi: kegiatan.updatedAt,
+  };
 
   const hasil = ubahKegiatanSchema.safeParse(muatan);
   if (!hasil.success) {
