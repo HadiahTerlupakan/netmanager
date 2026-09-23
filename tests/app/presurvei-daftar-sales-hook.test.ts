@@ -14,6 +14,7 @@ const konfigQuery = vi.fn();
 /** Hasil `useQuery` palsu; dianotasi eksplisit karena TS7018. */
 type HasilQueryPalsu = {
   data: { data: SalesPresurveiDto[] } | undefined;
+  isError?: boolean;
 };
 
 const hasilQuery = vi.hoisted(() => ({ nilai: undefined as unknown }));
@@ -25,7 +26,10 @@ vi.mock("@tanstack/react-query", () => ({
   },
 }));
 
-import { useDaftarSalesPresurvei } from "@/app/admin/presurvei/useDaftarSalesPresurvei";
+import {
+  useDaftarSalesPresurvei,
+  useKeadaanDaftarSalesPresurvei,
+} from "@/app/admin/presurvei/useDaftarSalesPresurvei";
 
 describe("useDaftarSalesPresurvei", () => {
   beforeEach(() => {
@@ -76,5 +80,74 @@ describe("useDaftarSalesPresurvei", () => {
 
   it("mengembalikan daftar kosong selama data belum tiba", () => {
     expect(useDaftarSalesPresurvei()).toEqual([]);
+  });
+});
+
+describe("useKeadaanDaftarSalesPresurvei", () => {
+  beforeEach(() => {
+    konfigQuery.mockReset();
+  });
+
+  it("membedakan gagal dari daftar yang memang kosong", () => {
+    // Layar target menahan tombol simpan saat gagal; tanpa pembeda ini modal
+    // hanya menampilkan pemilih kosong tanpa penjelasan.
+    const gagal: HasilQueryPalsu = { data: undefined, isError: true };
+    hasilQuery.nilai = gagal;
+
+    expect(useKeadaanDaftarSalesPresurvei()).toEqual({
+      status: "gagal",
+      daftar: [],
+    });
+  });
+
+  it("melaporkan memuat selama data belum tiba", () => {
+    const memuat: HasilQueryPalsu = { data: undefined, isError: false };
+    hasilQuery.nilai = memuat;
+
+    expect(useKeadaanDaftarSalesPresurvei().status).toBe("memuat");
+  });
+
+  it("melaporkan siap beserta daftarnya, termasuk daftar kosong", () => {
+    const kosong: HasilQueryPalsu = { data: { data: [] }, isError: false };
+    hasilQuery.nilai = kosong;
+    expect(useKeadaanDaftarSalesPresurvei()).toEqual({
+      status: "siap",
+      daftar: [],
+    });
+
+    const tiba: HasilQueryPalsu = {
+      data: { data: [{ id: "sales-2", nama: "Budi" }] },
+      isError: false,
+    };
+    hasilQuery.nilai = tiba;
+    expect(useKeadaanDaftarSalesPresurvei()).toEqual({
+      status: "siap",
+      daftar: [{ id: "sales-2", nama: "Budi" }],
+    });
+  });
+
+  it("tetap siap memakai data lama saat muat ulang di latar gagal", () => {
+    // React Query v5 menyimpan `data` lama walau `isError` true setelah
+    // refetch gagal; daftar yang sudah ada tetap sah untuk dipilih.
+    const basi: HasilQueryPalsu = {
+      data: { data: [{ id: "sales-3", nama: "Sari" }] },
+      isError: true,
+    };
+    hasilQuery.nilai = basi;
+
+    expect(useKeadaanDaftarSalesPresurvei().status).toBe("siap");
+  });
+
+  it("memakai kunci cache yang sama dengan hook daftar lama", () => {
+    // Satu permintaan untuk kedua pemakai; kunci berbeda berarti dua fetch
+    // dan dua salinan cache untuk data yang sama.
+    useKeadaanDaftarSalesPresurvei();
+    useDaftarSalesPresurvei();
+
+    const [pertama, kedua] = konfigQuery.mock.calls.map(
+      ([konfig]) => (konfig as { queryKey: unknown }).queryKey,
+    );
+    expect(pertama).toEqual(["presurvei-daftar-sales"]);
+    expect(kedua).toEqual(["presurvei-daftar-sales"]);
   });
 });

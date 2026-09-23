@@ -18,18 +18,42 @@ async function ambilDaftarSales(): Promise<{ data: SalesPresurveiDto[] }> {
   return respons.json();
 }
 
+/** Keadaan pengambilan daftar sales, dari sudut pandang pemakainya. */
+export type StatusDaftarSales = "memuat" | "gagal" | "siap";
+
+/** Daftar sales beserta keadaan pengambilannya. */
+export interface KeadaanDaftarSales {
+  status: StatusDaftarSales;
+  daftar: readonly SalesPresurveiDto[];
+}
+
 /**
- * Sales aktif di tenant pemakai, untuk dropdown filter dan layar target.
+ * Sales aktif di tenant pemakai beserta keadaan pengambilannya.
+ *
+ * Untuk pemakai yang harus membedakan "gagal dimuat" dari "memang tidak ada
+ * sales" — pemilih sales di modal target. Data yang sudah pernah tiba tetap
+ * `siap` walau muat ulang di latar gagal: React Query mempertahankan `data`
+ * lama bersama `isError`, dan daftar itu masih sah untuk dipilih.
+ */
+export function useKeadaanDaftarSalesPresurvei(): KeadaanDaftarSales {
+  const query = useQuery({
+    queryKey: [KUNCI_DAFTAR_SALES],
+    queryFn: ambilDaftarSales,
+  });
+
+  const daftar = query.data?.data;
+  if (Array.isArray(daftar)) return { status: "siap", daftar };
+  if (query.isError) return { status: "gagal", daftar: TANPA_SALES };
+  return { status: "memuat", daftar: TANPA_SALES };
+}
+
+/**
+ * Sales aktif di tenant pemakai, untuk dropdown filter.
  *
  * Selama belum tiba — atau bila gagal — mengembalikan daftar kosong, bukan
  * melempar: pemakainya (`opsiSales`) tetap punya pilihan dari baris yang
  * sedang tampil, jadi layar tidak kehilangan fungsi filternya.
  */
 export function useDaftarSalesPresurvei(): readonly SalesPresurveiDto[] {
-  const query = useQuery({
-    queryKey: [KUNCI_DAFTAR_SALES],
-    queryFn: ambilDaftarSales,
-  });
-
-  return query.data?.data ?? TANPA_SALES;
+  return useKeadaanDaftarSalesPresurvei().daftar;
 }
