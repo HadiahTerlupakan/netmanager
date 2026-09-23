@@ -1,3 +1,4 @@
+import { TenantContextError } from "@/lib/prisma-extension";
 import { prisma } from "@/modules/database";
 import type { PeriodeTarget, TargetEntity } from "../domain/entities/Target";
 import type {
@@ -32,6 +33,7 @@ export class TargetRepository implements ITargetRepository {
     periode: PeriodeTarget,
     tenantId: string,
   ): Promise<TargetEntity | null> {
+    pastikanTenantTerisi(tenantId, "findByUserPeriode");
     const row = await prisma.presurveiTarget.findFirst({
       where: {
         userId,
@@ -46,11 +48,21 @@ export class TargetRepository implements ITargetRepository {
   /**
    * Simpan target, menimpa yang sudah ada untuk user dan periode yang sama.
    *
-   * `input.tenantId` ikut ditulis pada `create`. Untuk pemanggil biasa
-   * ekstensi isolasi menimpanya dengan tenant konteks (nilainya sama); untuk
-   * super admin nilai eksplisit itu yang dipakai.
+   * `input.tenantId` wajib terisi dan ikut ditulis pada `create`. Nasibnya
+   * di `lib/prisma-extension.ts` bergantung pada konteks:
+   * - pemanggil biasa: `applyTenantToCreateData` membuang nilai ini dan
+   *   menulis tenant konteks (baris 96–102). Service memberi tenant sesi,
+   *   dan konteks yang tenantnya berbeda dari sesi sudah dikosongkan lalu
+   *   ditolak sebelum sampai sini (`enforceSessionHostMatch`,
+   *   `lib/tenant-context.ts`), jadi keduanya sama;
+   * - super admin bertenant konteks: nilai eksplisit dipertahankan karena
+   *   tidak `undefined` (baris 281–289);
+   * - super admin tanpa tenant konteks: ekstensi melewati seluruh injeksi
+   *   (baris 227), sehingga nilai eksplisit inilah satu-satunya tenant baris.
+   * `update` tidak menyentuh `tenantId`: baris lama sudah bertenant.
    */
   async simpan(input: SimpanTargetInput): Promise<TargetEntity> {
+    pastikanTenantTerisi(input.tenantId, "simpan");
     const adaSebelumnya = await this.findByUserPeriode(
       input.userId,
       { tahun: input.periodeTahun, bulan: input.periodeBulan },
@@ -70,4 +82,16 @@ export class TargetRepository implements ITargetRepository {
 
     return toTargetEntity(row as TargetRow);
   }
+}
+
+/**
+ * Fail-closed, pola `SalesRepository.daftarAktif`: `tenantId` kosong berarti
+ * "tanpa syarat" bagi Prisma di `where` dan target bertenant null di `create`.
+ */
+function pastikanTenantTerisi(tenantId: string, operasi: string): void {
+  if (tenantId) return;
+  throw new TenantContextError(
+    "missing-context",
+    `Target presurvei ${operasi} diminta tanpa tenantId`,
+  );
 }

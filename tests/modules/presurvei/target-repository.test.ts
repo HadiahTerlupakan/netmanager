@@ -20,6 +20,7 @@ vi.mock("@/modules/database", () => ({
 }));
 
 import { prisma } from "@/modules/database";
+import { TenantContextError } from "@/lib/prisma-extension";
 import { TargetRepository } from "@/modules/presurvei/repositories/TargetRepository";
 import type { TargetRow } from "@/modules/presurvei/mappers/target.mapper";
 import type { SimpanTargetInput } from "@/modules/presurvei/domain/ports/ITargetRepository";
@@ -183,4 +184,45 @@ describe("TargetRepository.findByPeriode", () => {
       where: { periodeTahun: 2026, periodeBulan: 9 },
     });
   });
+});
+
+// Fail-closed, pola yang sama dengan `SalesRepository.daftarAktif`. Dengan
+// `strictNullChecks: false` compiler meloloskan `undefined`, dan Prisma
+// membaca `tenantId: undefined` sebagai "tanpa syarat" — target user itu di
+// tenant mana pun; `create` super admin tanpa tenant lahir bertenant null.
+describe("TargetRepository — tenantId kosong", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const TENANT_KOSONG = ["", undefined as unknown as string];
+
+  it.each(TENANT_KOSONG)(
+    "findByUserPeriode menolak tenantId %j tanpa menyentuh database",
+    async (tenantId) => {
+      await expect(
+        new TargetRepository().findByUserPeriode(
+          "user-1",
+          { tahun: 2026, bulan: 9 },
+          tenantId,
+        ),
+      ).rejects.toBeInstanceOf(TenantContextError);
+      expect(prisma.presurveiTarget.findFirst).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(TENANT_KOSONG)(
+    "simpan menolak tenantId %j tanpa membaca maupun menulis",
+    async (tenantId) => {
+      const janji = new TargetRepository().simpan({
+        ...masukanTarget,
+        tenantId,
+      });
+      await expect(janji).rejects.toBeInstanceOf(TenantContextError);
+      // Detailnya menyebut operasi yang ditolak, untuk log: penjaga `simpan`
+      // sendiri yang menolak, bukan kebetulan penjaga `findByUserPeriode`.
+      await expect(janji).rejects.toThrow("simpan");
+      expect(prisma.presurveiTarget.findFirst).not.toHaveBeenCalled();
+      expect(prisma.presurveiTarget.create).not.toHaveBeenCalled();
+      expect(prisma.presurveiTarget.update).not.toHaveBeenCalled();
+    },
+  );
 });
