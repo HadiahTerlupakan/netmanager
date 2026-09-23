@@ -331,7 +331,12 @@ model PresurveiKegiatanRiwayat {
 Hanya `catatan`, `ditemuiNama`, dan `hasil` yang bisa diubah; `hasil` tidak boleh
 melintasi batas `isHasilMelahirkanProspek` (`isPerubahanHasilSah`). Kegiatan dan
 riwayatnya ditulis dalam satu transaksi dengan kunci konkurensi optimistis
-(`updateMany where { id, updatedAt }`; versi basi → 409).
+(`updateMany where { id, updatedAt: versi }`; versi basi → 409). `versi` adalah
+medan opsional badan PATCH — `updatedAt` rincian yang dilihat klien
+(`KegiatanRincianDto.updatedAt`), bukan medan yang diubah. Modal web selalu
+mengirimnya, jadi suntingan orang lain sejak modal dibuka tidak tertimpa. Klien
+tanpa `versi` (mobile lama) memakai versi bacaan service sendiri, yang hanya menjaga
+jendela di dalam satu request.
 
 ### 4.5 Enum baru
 

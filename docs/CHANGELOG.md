@@ -84,8 +84,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `<domain>:<entity>.<action>` (mis. `presurvei:prospek.converted`). Pola, contoh, dan
   contoh `type` di struktur payload diluruskan dengan menyebut registry sebagai
   sumbernya; bentuk lama `<domain>:<action>` (mis. `customer:created`) dicatat sebagai
-  warisan. Contoh bertitik di `CLAUDE.md` ("Quick Reference > Events") BELUM diubah:
-  mengubah `CLAUDE.md` menunggu persetujuan user.
+  warisan. Contoh bertitik di `CLAUDE.md` ("Quick Reference > Events") sudah
+  diluruskan juga di commit terpisah (`4c8b29994`).
 - **Files**: `docs/standards/events.md`
 - **Breaking**: ❌ Tidak
 
@@ -108,10 +108,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   waktu: medan yang bisa diubah tidak menggeser `hitungPerUser`. Hanya medan yang
   benar-benar berubah yang ditulis; tanpa perubahan nyata tidak menulis apa pun.
   Kegiatan dan baris `PresurveiKegiatanRiwayat` ditulis dalam satu transaksi dengan
-  kunci konkurensi optimistis (`updateMany where { id, updatedAt }`); bila kegiatan
-  diubah pihak lain sejak dibaca → 409 tanpa riwayat. `GET`/`PATCH [id]` kini
-  mengembalikan `KegiatanRincianDto` (rincian + `riwayat`, aditif; `POST` catat tetap
-  `KegiatanDetailDto`); nama pengubah lewat penjaga tenant per baris
+  kunci konkurensi optimistis (`updateMany where { id, updatedAt: versi }`). `versi`
+  adalah medan opsional badan PATCH (ISO datetime, bukan medan yang diubah — badan
+  yang hanya berisi `versi` tetap 400): `updatedAt` rincian yang dilihat klien. Modal
+  web selalu mengirimnya, jadi suntingan orang lain sejak modal dibuka ditolak 409
+  ("Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.", rincian dimuat
+  ulang) alih-alih tertimpa diam-diam. Klien tanpa `versi` (mobile lama) tetap
+  diterima, tapi kuncinya memakai versi bacaan service sendiri sehingga hanya
+  menjaga jendela di dalam satu request. `catatan`/`ditemuiNama` dirapikan di schema
+  (trim, `""` → `null`) supaya web dan mobile sama. `GET`/`PATCH [id]` kini
+  mengembalikan `KegiatanRincianDto` (rincian + `updatedAt` + `riwayat`, aditif;
+  `POST` catat tetap `KegiatanDetailDto`); nama pengubah lewat penjaga tenant per baris
   (`namaSalesSatuTenant`). Event baru `presurvei:kegiatan.updated`
   (`EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED`, konvensi `<domain>:<entity>.<action>` di
   `lib/event-bus/types.ts`) dipublikasikan setelah commit; kegagalannya dicatat, tidak
