@@ -2929,6 +2929,30 @@ Periksa query key daftar canvasing di `app/admin/marketing/canvasing/useCanvasin
 
 Create `app/admin/presurvei/prospek/KonversiModal.tsx`. Ia menerima `prospekId`, memuat detail prospek dan survei terakhirnya untuk mengisi nilai awal `kabel` dan `odp`, lalu mengirim `POST /api/presurvei/prospek/{id}/jadikan-canvasing`.
 
+**Konversi adalah DUA langkah, bukan satu — dan urutannya wajib.** `jadikanCanvasing`
+**mensyaratkan** prospek sudah berstatus DEAL: `canPromosikanKeCanvasing` menolak status
+lain, dan service melempar 409 "Hanya prospek berstatus DEAL yang bisa dijadikan
+canvasing" (`modules/presurvei/services/ProspekKonversiService.ts:67-75`). Kartu yang
+diseret dari NEGOSIASI belum DEAL, jadi `POST jadikan-canvasing` langsung **selalu
+gagal**. Maka saat simpan:
+
+1. Bila `prospek.status !== "DEAL"`: `PATCH /api/presurvei/prospek/{id}` dengan
+   `{ status: "DEAL" }`. Server menegakkan transisinya lewat `isTransisiStatusSah`.
+2. Lalu `POST /api/presurvei/prospek/{id}/jadikan-canvasing`.
+
+Keputusan "perlu PATCH lebih dulu atau tidak" adalah fungsi murni — taruh di berkas
+state, uji di sana.
+
+**Kedua langkah tidak atomik.** Bila langkah 2 gagal, prospek sudah DEAL tanpa
+canvasing. Itu keadaan sah dan bisa dipulihkan — `canPromosikanKeCanvasing` mengizinkan
+DEAL dengan `canvasingId` kosong. Pesan kesalahannya wajib mengatakan bahwa status
+sudah jadi DEAL dan konversinya bisa diulang dari kartunya, bukan pesan generik.
+
+**Kartu DEAL tanpa canvasing wajib punya tombol "Jadikan canvasing"** yang membuka modal
+yang sama (yang kemudian melewati langkah 1). Keadaan itu tidak hanya lahir dari
+kegagalan langkah 2: aplikasi mobile bisa memasang DEAL lewat `PATCH` biasa
+(`m_presurvei:update`), sehingga prospek DEAL-tanpa-canvasing **pasti ada** di papan.
+
 Berhasil: panggil `useInvalidatePresurveiKonversi()`, `toast.success`, tutup modal. Gagal: `toast.error` dengan pesan dari server — ia menjelaskan hal spesifik seperti "Prospek ini sudah pernah dijadikan canvasing" yang tidak boleh diganti pesan generik.
 
 - [ ] **Step 6: Verifikasi dan buktikan test punya gigi**
