@@ -1,21 +1,3 @@
 {
-  "instructions": "NEVER use git worktree. NEVER create or switch branches without explicit user instruction. All changes must be made directly in the current active working directory and branch.",
-  "permissions": {
-    "deny": [
-      "Bash(git worktree:*)"
-    ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cmd=$(jq -r '.tool_input.command // \"\"'); if echo \"$cmd\" | grep -qE '(^|[[:space:];&|(])git[[:space:]]+worktree([[:space:];&|)]|$)'; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"deny\",permissionDecisionReason:\"Worktree DILARANG di project ini per CLAUDE.md. Kerjakan langsung di branch aktif.\"}}'; fi"
-          }
-        ]
-      }
-    ]
-  }
+  "instructions": "git worktree is ALLOWED with mandatory cleanup (see CLAUDE.md 'Worktree Policy'): create -> work -> commit -> push -> git worktree remove, then verify with git worktree list. NEVER create or switch branches in the main working directory without explicit user instruction."
 }
