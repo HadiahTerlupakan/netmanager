@@ -9,8 +9,10 @@ import type { ProspekListItemDto } from "@/modules/presurvei/client";
 
 import {
   buildUbahProspekUrl,
-  isKartuTermuat,
+  isHalamanSegar,
+  nasibKartuSetelahPindah,
   pesanSetelahPindah,
+  type NasibKartuPindah,
 } from "./pindahProspek";
 import { KUNCI_KOLOM_PROSPEK } from "./prospekKolomQuery";
 import type { PerpindahanProspek } from "./useSeretProspek";
@@ -52,19 +54,20 @@ export function usePindahProspek() {
     });
 
   /**
-   * Ambil ulang kolom asal dan tujuan, lalu periksa apakah kartunya tampil
-   * di kolom tujuan.
+   * Ambil ulang kolom asal dan tujuan, lalu tentukan nasib kartu di kolom
+   * tujuan.
    *
    * Awalan `[KUNCI_KOLOM_PROSPEK, status]` mengenai semua halaman satu kolom
-   * saja. `invalidateQueries` baru selesai setelah query aktifnya selesai
-   * diambil ulang (`node_modules/@tanstack/query-core/src/queryClient.ts:304-310`
-   * dan `:322-337`), jadi cache tujuan yang dibaca sesudahnya sudah versi baru.
+   * saja. `invalidateQueries` baru resolve setelah refetch query aktifnya
+   * selesai atau gagal (`node_modules/@tanstack/query-core/src/queryClient.ts:292-311`
+   * dan `:314-338`) — karena itu kesegaran tiap halaman ikut dibaca, bukan
+   * hanya datanya.
    */
   const segarkanKolom = async ({
     prospekId,
     dari,
     tujuan,
-  }: PerpindahanProspek) => {
+  }: PerpindahanProspek): Promise<NasibKartuPindah> => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: [KUNCI_KOLOM_PROSPEK, dari] }),
       queryClient.invalidateQueries({
@@ -72,16 +75,16 @@ export function usePindahProspek() {
       }),
     ]);
 
-    // Hanya halaman aktif: kolom tersembunyi tidak diambil ulang invalidasi,
-    // dan cache basinya tidak menggambarkan apa yang tampil.
-    const halamanTujuan = queryClient.getQueriesData<AmplopHalamanKolom>({
-      queryKey: [KUNCI_KOLOM_PROSPEK, tujuan],
-      type: "active",
-    });
-    return isKartuTermuat(
-      halamanTujuan.map(([, amplop]) => amplop?.data),
-      prospekId,
-    );
+    // Hanya halaman aktif: halaman yang tidak dirender tidak diambil ulang
+    // invalidasi, dan cache basinya tidak menggambarkan apa yang tampil.
+    const halamanTujuan = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: [KUNCI_KOLOM_PROSPEK, tujuan], type: "active" })
+      .map((query) => ({
+        kartu: (query.state.data as AmplopHalamanKolom | undefined)?.data,
+        isSegar: isHalamanSegar(query.state),
+      }));
+    return nasibKartuSetelahPindah(halamanTujuan, prospekId);
   };
 
   /** Pindahkan status satu prospek dan beri tahu pemakai hasilnya. */
@@ -100,11 +103,11 @@ export function usePindahProspek() {
         return;
       }
 
-      const isTermuat = await segarkanKolom(perpindahan);
-      if (isTermuat) {
-        toast.success(pesanSetelahPindah(tujuan, true));
+      const nasib = await segarkanKolom(perpindahan);
+      if (nasib === "tampil") {
+        toast.success(pesanSetelahPindah(tujuan, nasib));
       } else {
-        toast(pesanSetelahPindah(tujuan, false), {
+        toast(pesanSetelahPindah(tujuan, nasib), {
           duration: DURASI_PESAN_KARTU_TAK_TAMPIL,
         });
       }

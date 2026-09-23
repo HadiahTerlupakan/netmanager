@@ -10,13 +10,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ProspekListItemDto } from "@/modules/presurvei/client";
 
-type AmplopPalsu = { data: ProspekListItemDto[] };
+/**
+ * Bentuk minimal `Query` yang dibaca hook dari `getQueryCache().findAll`.
+ * Dianotasi eksplisit: `strictNullChecks: false` + literal ber-`undefined`
+ * memicu TS7018.
+ */
+type QueryPalsu = {
+  state: {
+    data: { data: ProspekListItemDto[] } | undefined;
+    status: "pending" | "success" | "error";
+    isInvalidated: boolean;
+    fetchStatus: "idle" | "fetching" | "paused";
+  };
+};
 
 const palsu = vi.hoisted(() => ({
   useState: vi.fn(),
   invalidateQueries: vi.fn(),
-  /** Menangkap filter `getQueriesData`; mock yang membuangnya tak menjaga apa pun. */
-  getQueriesData: vi.fn(),
+  /** Menangkap filter `findAll`; mock yang membuangnya tak menjaga apa pun. */
+  findAll: vi.fn(),
   toast: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
@@ -34,7 +46,7 @@ vi.mock("react", async () => {
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     invalidateQueries: palsu.invalidateQueries,
-    getQueriesData: palsu.getQueriesData,
+    getQueryCache: () => ({ findAll: palsu.findAll }),
   }),
 }));
 
@@ -47,8 +59,11 @@ vi.mock("react-hot-toast", () => ({
 
 import {
   buildUbahProspekUrl,
+  isHalamanSegar,
   isKartuTermuat,
+  nasibKartuSetelahPindah,
   pesanSetelahPindah,
+  type StateHalamanKolom,
 } from "@/app/admin/presurvei/prospek/pindahProspek";
 import { usePindahProspek } from "@/app/admin/presurvei/prospek/usePindahProspek";
 
@@ -90,20 +105,105 @@ describe("isKartuTermuat", () => {
   });
 });
 
+describe("isHalamanSegar", () => {
+  const segar: StateHalamanKolom = {
+    status: "success",
+    isInvalidated: false,
+    fetchStatus: "idle",
+  };
+
+  it("menerima halaman yang sukses diambil ulang", () => {
+    expect(isHalamanSegar(segar)).toBe(true);
+  });
+
+  it("menolak halaman yang refetch-nya gagal", () => {
+    // Refetch gagal: data lama tetap ada, status `error`, `isInvalidated`
+    // true (`query-core/src/query.ts:670-684`).
+    expect(
+      isHalamanSegar({
+        status: "error",
+        isInvalidated: true,
+        fetchStatus: "idle",
+      }),
+    ).toBe(false);
+  });
+
+  it("menolak halaman yang masih ditandai basi walau berstatus sukses", () => {
+    // Refetch tertahan offline: `invalidateQueries` resolve tanpa menunggu
+    // (`queryClient.ts:331-333`), data lama tetap `success`.
+    expect(isHalamanSegar({ ...segar, isInvalidated: true })).toBe(false);
+  });
+
+  it("menolak halaman yang belum selesai diambil", () => {
+    expect(isHalamanSegar({ ...segar, fetchStatus: "paused" })).toBe(false);
+    expect(isHalamanSegar({ ...segar, status: "pending" })).toBe(false);
+  });
+});
+
+describe("nasibKartuSetelahPindah", () => {
+  it("tampil bila kartunya ada di halaman mana pun", () => {
+    expect(
+      nasibKartuSetelahPindah(
+        [
+          { kartu: [kartu("a")], isSegar: true },
+          { kartu: [kartu("p7")], isSegar: true },
+        ],
+        "p7",
+      ),
+    ).toBe("tampil");
+  });
+
+  it("di luar muatan bila seluruh kolom segar dan kartunya tidak ada", () => {
+    expect(
+      nasibKartuSetelahPindah(
+        [
+          { kartu: [kartu("a")], isSegar: true },
+          { kartu: [kartu("b")], isSegar: true },
+        ],
+        "p7",
+      ),
+    ).toBe("di-luar-muatan");
+  });
+
+  it("kolom tak termuat bila ada halaman tujuan yang gagal diambil ulang", () => {
+    // Satu halaman segar tidak cukup: kartunya bisa saja ada di halaman yang
+    // gagal, jadi "di luar muatan" akan menyebut penyebab yang salah.
+    expect(
+      nasibKartuSetelahPindah(
+        [
+          { kartu: [kartu("a")], isSegar: true },
+          { kartu: [kartu("b")], isSegar: false },
+        ],
+        "p7",
+      ),
+    ).toBe("kolom-tak-termuat");
+  });
+
+  it("kolom tak termuat bila kolom tujuan tidak dirender sama sekali", () => {
+    expect(nasibKartuSetelahPindah([], "p7")).toBe("kolom-tak-termuat");
+  });
+});
+
 describe("pesanSetelahPindah", () => {
   it("menyebut kolom tujuan dengan labelnya", () => {
-    expect(pesanSetelahPindah("NEGOSIASI", true)).toBe(
+    expect(pesanSetelahPindah("NEGOSIASI", "tampil")).toBe(
       "Prospek dipindah ke Negosiasi",
     );
   });
 
-  it("memberi tahu bila kartunya tidak tampil di kolom tujuan", () => {
-    // Kolom diurutkan `createdAt desc`, bukan waktu pindah, jadi prospek lama
-    // bisa mendarat di halaman yang belum dimuat dan lenyap dari kedua kolom.
-    const pesan = pesanSetelahPindah("TIDAK_MINAT", false);
+  it("menjelaskan kartu yang berada di luar kartu termuat", () => {
+    expect(pesanSetelahPindah("TIDAK_MINAT", "di-luar-muatan")).toBe(
+      "Prospek dipindah ke Tidak minat. Kartunya tidak tampil karena berada di luar kartu yang sudah dimuat kolom Tidak minat.",
+    );
+  });
 
-    expect(pesan).toContain("Tidak minat");
-    expect(pesan).not.toBe(pesanSetelahPindah("TIDAK_MINAT", true));
+  it("menyebut kolom yang gagal dimuat, bukan posisi kartunya", () => {
+    const pesan = pesanSetelahPindah("NEGOSIASI", "kolom-tak-termuat");
+
+    expect(pesan).toBe(
+      "Status prospek sudah dipindah ke Negosiasi, tetapi kolom Negosiasi belum bisa dimuat ulang, jadi kartunya belum tampil.",
+    );
+    expect(pesan).not.toContain("di luar kartu");
   });
 });
 
@@ -126,8 +226,8 @@ describe("usePindahProspek", () => {
     });
     palsu.invalidateQueries.mockReset();
     palsu.invalidateQueries.mockResolvedValue(undefined);
-    palsu.getQueriesData.mockReset();
-    palsu.getQueriesData.mockReturnValue([]);
+    palsu.findAll.mockReset();
+    palsu.findAll.mockReturnValue([]);
     palsu.toast.mockReset();
     palsu.toastSuccess.mockReset();
     palsu.toastError.mockReset();
@@ -143,12 +243,23 @@ describe("usePindahProspek", () => {
     vi.unstubAllGlobals();
   });
 
-  /** Isi cache aktif kolom tujuan, dalam bentuk `getQueriesData`. */
+  /** Satu halaman aktif kolom tujuan, dalam bentuk `Query` dari `findAll`. */
+  function halamanTujuan(
+    ids: string[],
+    status: QueryPalsu["state"]["status"] = "success",
+  ): QueryPalsu {
+    return {
+      state: {
+        data: { data: ids.map(kartu) },
+        status,
+        isInvalidated: status !== "success",
+        fetchStatus: "idle",
+      },
+    };
+  }
+
   function kolomTujuanBerisi(...ids: string[]) {
-    const amplop: AmplopPalsu = { data: ids.map(kartu) };
-    palsu.getQueriesData.mockReturnValue([
-      [["presurvei-prospek-kolom", "NEGOSIASI", 1], amplop],
-    ]);
+    palsu.findAll.mockReturnValue([halamanTujuan(ids)]);
   }
 
   const perpindahan = {
@@ -186,7 +297,7 @@ describe("usePindahProspek", () => {
 
     // `type: "active"`: cache kolom tersembunyi atau halaman yang sudah tidak
     // dirender tidak diperbarui invalidasi, jadi membacanya berbohong.
-    expect(palsu.getQueriesData).toHaveBeenCalledWith({
+    expect(palsu.findAll).toHaveBeenCalledWith({
       queryKey: ["presurvei-prospek-kolom", "NEGOSIASI"],
       type: "active",
     });
@@ -201,7 +312,7 @@ describe("usePindahProspek", () => {
       isInvalidasiSelesai = true;
     });
     let isSelesaiSaatDibaca = false;
-    palsu.getQueriesData.mockImplementation(() => {
+    palsu.findAll.mockImplementation(() => {
       isSelesaiSaatDibaca = isInvalidasiSelesai;
       return [];
     });
@@ -217,7 +328,7 @@ describe("usePindahProspek", () => {
     await usePindahProspek().pindahkan(perpindahan);
 
     expect(palsu.toastSuccess).toHaveBeenCalledWith(
-      pesanSetelahPindah("NEGOSIASI", true),
+      pesanSetelahPindah("NEGOSIASI", "tampil"),
     );
     expect(palsu.toast).not.toHaveBeenCalled();
   });
@@ -228,10 +339,23 @@ describe("usePindahProspek", () => {
     await usePindahProspek().pindahkan(perpindahan);
 
     expect(palsu.toast).toHaveBeenCalledWith(
-      pesanSetelahPindah("NEGOSIASI", false),
+      pesanSetelahPindah("NEGOSIASI", "di-luar-muatan"),
       expect.objectContaining({ duration: expect.any(Number) }),
     );
     expect(palsu.toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("menyebut kolom yang gagal dimuat ulang, bukan kartu di luar muatan", async () => {
+    // `invalidateQueries` tetap resolve walau refetch gagal
+    // (`queryClient.ts:328-330`); data lama tanpa kartu itu masih di cache.
+    palsu.findAll.mockReturnValue([halamanTujuan(["lain-1"], "error")]);
+
+    await usePindahProspek().pindahkan(perpindahan);
+
+    expect(palsu.toast).toHaveBeenCalledWith(
+      pesanSetelahPindah("NEGOSIASI", "kolom-tak-termuat"),
+      expect.objectContaining({ duration: expect.any(Number) }),
+    );
   });
 
   it("menampilkan pesan penolakan dari server apa adanya", async () => {

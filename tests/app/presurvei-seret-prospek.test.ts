@@ -9,6 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 import type { KartuDiangkat } from "@/app/admin/presurvei/prospek/useSeretProspek";
+import {
+  PROSPEK_STATUSES,
+  type ProspekStatus,
+} from "@/modules/presurvei/client";
 
 const palsu = vi.hoisted(() => ({ useState: vi.fn() }));
 
@@ -22,6 +26,7 @@ vi.mock("react", async () => {
 });
 
 import {
+  isKartuDapatDiseret,
   putuskanSeret,
   tampilanKolomSaatSeret,
   useSeretProspek,
@@ -85,6 +90,35 @@ describe("tampilanKolomSaatSeret", () => {
     // baru saja diangkat tampak ditolak dari kolomnya sendiri.
     expect(tampilanKolomSaatSeret(dariTertarik, "TERTARIK")).toBe("netral");
   });
+});
+
+describe("isKartuDapatDiseret", () => {
+  // Seluruh enum, bukan contoh: `Record` memaksa status baru dijawab di sini.
+  // Asimetris — hanya status tanpa transisi sah yang dikunci; TIDAK_MINAT
+  // masih bisa kembali ke DIHUBUNGI (`prospek-rules.ts:34`).
+  const HARAPAN: Record<ProspekStatus, boolean> = {
+    BARU: true,
+    DIHUBUNGI: true,
+    TERTARIK: true,
+    NEGOSIASI: true,
+    DEAL: false,
+    TIDAK_MINAT: true,
+    TIDAK_LAYAK: false,
+  };
+
+  it.each([...PROSPEK_STATUSES])(
+    "mengikuti aturan final untuk %s bila pemakai boleh mengubah",
+    (status) => {
+      expect(isKartuDapatDiseret(status, true)).toBe(HARAPAN[status]);
+    },
+  );
+
+  it.each([...PROSPEK_STATUSES])(
+    "mengunci %s bila pemakai tidak boleh mengubah",
+    (status) => {
+      expect(isKartuDapatDiseret(status, false)).toBe(false);
+    },
+  );
 });
 
 describe("useSeretProspek", () => {

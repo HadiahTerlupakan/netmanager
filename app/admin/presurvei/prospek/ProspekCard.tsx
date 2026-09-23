@@ -38,11 +38,14 @@ export function ProspekCard({
 }: ProspekCardProps) {
   const sumber = PROSPEK_SUMBER_CONFIG[prospek.sumber];
   const isTanpaPemilik = isTakBertuan(prospek);
+  // Satu syarat untuk atribut dan kursornya: kartu yang sedang dipindah tidak
+  // bisa diangkat, jadi juga tidak boleh menampilkan kursor genggam.
+  const isBisaDiangkat = isDapatDiseret && !isSedangDipindah;
 
   return (
     <article
       data-prospek-id={prospek.id}
-      draggable={isDapatDiseret && !isSedangDipindah}
+      draggable={isBisaDiangkat}
       aria-busy={isSedangDipindah}
       onDragStart={(event) => {
         // Sama dengan preseden `app/admin/planning/PlanningKanbanClient.tsx:77-78`.
@@ -55,7 +58,7 @@ export function ProspekCard({
         isTanpaPemilik
           ? "border-amber-400 dark:border-amber-500"
           : "border-gray-200 dark:border-gray-700"
-      } ${isDapatDiseret ? "cursor-grab active:cursor-grabbing" : ""} ${
+      } ${isBisaDiangkat ? "cursor-grab active:cursor-grabbing" : ""} ${
         isSedangDipindah ? "opacity-40" : ""
       }`}
     >

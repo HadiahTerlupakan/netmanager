@@ -384,10 +384,14 @@ describe("ProspekKanbanClient — seret", () => {
   it("memindahkan kartu yang diangkat ke kolom tempat ia dijatuhkan", async () => {
     await render(<ProspekKanbanClient />);
     await angkat("TERTARIK");
+    let jatuhan: Event;
     await act(async () => {
-      kirimSeret(kolom("NEGOSIASI"), "drop");
+      jatuhan = kirimSeret(kolom("NEGOSIASI"), "drop");
     });
 
+    // Tanpa `preventDefault` pada `drop`, peramban menjalankan aksi bawaan
+    // untuk `text/plain` yang dibawa kartu.
+    expect(jatuhan.defaultPrevented).toBe(true);
     expect(palsu.pindahkan).toHaveBeenCalledWith({
       prospekId: "kartu-TERTARIK",
       dari: "TERTARIK",
@@ -456,6 +460,8 @@ describe("ProspekKanbanClient — seret", () => {
 
     expect(kartuDi("BARU").getAttribute("aria-busy")).toBe("true");
     expect(kartuDi("BARU").getAttribute("draggable")).toBe("false");
+    expect(kartuDi("BARU").className).not.toContain("cursor-grab");
     expect(kartuDi("DIHUBUNGI").getAttribute("aria-busy")).toBe("false");
+    expect(kartuDi("DIHUBUNGI").className).toContain("cursor-grab");
   });
 });

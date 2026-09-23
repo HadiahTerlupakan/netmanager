@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import {
+  isStatusFinal,
   resolveAksiKanban,
   type AksiKanban,
   type ProspekStatus,
@@ -72,6 +73,20 @@ export function tampilanKolomSaatSeret(
 ): TampilanKolomSeret {
   if (diangkat === null || diangkat.dari === status) return "netral";
   return putuskanSeret(diangkat, status) === null ? "redup" : "tujuan";
+}
+
+/**
+ * Apakah kartu di kolom `status` boleh diangkat.
+ *
+ * Status final (tanpa transisi sah, `isStatusFinal`) dikunci: mengangkatnya
+ * hanya meredupkan semua kolom selain kolom asalnya, tanpa satu pun tujuan.
+ * `TIDAK_MINAT` BUKAN final — ia bisa kembali ke `DIHUBUNGI`.
+ */
+export function isKartuDapatDiseret(
+  status: ProspekStatus,
+  isBolehUbah: boolean,
+): boolean {
+  return isBolehUbah && !isStatusFinal(status);
 }
 
 /**

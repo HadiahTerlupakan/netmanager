@@ -9,7 +9,6 @@ import { usePermission } from "@/hooks/use-permission";
 import {
   daftarKolomHidup,
   daftarKolomMati,
-  isStatusFinal,
   PROSPEK_STATUS_CONFIG,
   type ProspekStatus,
 } from "@/modules/presurvei/client";
@@ -24,6 +23,7 @@ import {
 import { usePindahProspek } from "./usePindahProspek";
 import { useProspekKolom } from "./useProspekKolom";
 import {
+  isKartuDapatDiseret,
   useSeretProspek,
   type KartuDiangkat,
   type TampilanKolomSeret,
@@ -115,9 +115,7 @@ function BadanKolom({
             <ProspekCard
               key={prospek.id}
               prospek={prospek}
-              // Kartu di status final tidak punya tujuan sah; menyeretnya
-              // hanya meredupkan seluruh papan.
-              isDapatDiseret={seret.isBolehUbah && !isStatusFinal(status)}
+              isDapatDiseret={isKartuDapatDiseret(status, seret.isBolehUbah)}
               isSedangDipindah={seret.isSedangDipindah(prospek.id)}
               onMulaiSeret={() =>
                 seret.mulaiSeret({ id: prospek.id, dari: status })
