@@ -10,6 +10,12 @@ export const TEKS_TAK_BERTUAN = "Belum ada pemilik";
 
 interface ProspekCardProps {
   prospek: ProspekListItemDto;
+  /** Kartu hanya bisa diseret bila pemakai boleh mengubah prospek. */
+  isDapatDiseret?: boolean;
+  /** Kartu menunggu jawaban server setelah dijatuhkan. */
+  isSedangDipindah?: boolean;
+  onMulaiSeret?: () => void;
+  onSelesaiSeret?: () => void;
 }
 
 /**
@@ -23,17 +29,34 @@ interface ProspekCardProps {
  * ada yang membedakannya dari kartu lain, padahal tidak ada sales yang
  * bertanggung jawab menghubunginya.
  */
-export function ProspekCard({ prospek }: ProspekCardProps) {
+export function ProspekCard({
+  prospek,
+  isDapatDiseret = false,
+  isSedangDipindah = false,
+  onMulaiSeret,
+  onSelesaiSeret,
+}: ProspekCardProps) {
   const sumber = PROSPEK_SUMBER_CONFIG[prospek.sumber];
   const isTanpaPemilik = isTakBertuan(prospek);
 
   return (
     <article
       data-prospek-id={prospek.id}
+      draggable={isDapatDiseret && !isSedangDipindah}
+      aria-busy={isSedangDipindah}
+      onDragStart={(event) => {
+        // Sama dengan preseden `app/admin/planning/PlanningKanbanClient.tsx:77-78`.
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", prospek.id);
+        onMulaiSeret?.();
+      }}
+      onDragEnd={onSelesaiSeret}
       className={`rounded-lg border bg-white p-3 dark:bg-gray-800 ${
         isTanpaPemilik
           ? "border-amber-400 dark:border-amber-500"
           : "border-gray-200 dark:border-gray-700"
+      } ${isDapatDiseret ? "cursor-grab active:cursor-grabbing" : ""} ${
+        isSedangDipindah ? "opacity-40" : ""
       }`}
     >
       <p className="line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">

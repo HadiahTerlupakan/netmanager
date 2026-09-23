@@ -15,6 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `useProspekKolom` di-mock, jadi tidak ada jaringan, provider, atau polling —
  * render sinkron lalu baca DOM, seperti
  * `tests/app/presurvei-kegiatan-filters.test.tsx`.
+ *
+ * Kabel seret juga dikunci di sini (Task 12): `usePindahProspek` dan
+ * `usePermission` di-mock, dan event seret dibuat tangan karena jsdom tidak
+ * membawa `DataTransfer`. Keputusannya sendiri diuji tanpa DOM di
+ * `presurvei-seret-prospek.test.ts`.
  */
 
 import type {
@@ -34,10 +39,29 @@ type KolomPalsu = {
 
 const palsu = vi.hoisted(() => ({
   useProspekKolom: vi.fn(),
+  pindahkan: vi.fn(),
+  isSedangDipindah: vi.fn(),
+  hasAnyPermission: vi.fn(),
+  toast: vi.fn(),
 }));
 
 vi.mock("@/app/admin/presurvei/prospek/useProspekKolom", () => ({
   useProspekKolom: palsu.useProspekKolom,
+}));
+
+vi.mock("@/app/admin/presurvei/prospek/usePindahProspek", () => ({
+  usePindahProspek: () => ({
+    pindahkan: palsu.pindahkan,
+    isSedangDipindah: palsu.isSedangDipindah,
+  }),
+}));
+
+vi.mock("@/hooks/use-permission", () => ({
+  usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
+}));
+
+vi.mock("react-hot-toast", () => ({
+  toast: Object.assign(palsu.toast, { success: vi.fn(), error: vi.fn() }),
 }));
 
 import {
@@ -50,6 +74,7 @@ import {
   ProspekCard,
   TEKS_TAK_BERTUAN,
 } from "@/app/admin/presurvei/prospek/ProspekCard";
+import { PESAN_KONVERSI_BELUM_TERSEDIA } from "@/app/admin/presurvei/prospek/pindahProspek";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -93,6 +118,12 @@ beforeEach(() => {
   root = createRoot(container);
   palsu.useProspekKolom.mockReset();
   palsu.useProspekKolom.mockImplementation(() => kolomTiba());
+  palsu.pindahkan.mockReset();
+  palsu.isSedangDipindah.mockReset();
+  palsu.isSedangDipindah.mockReturnValue(false);
+  palsu.hasAnyPermission.mockReset();
+  palsu.hasAnyPermission.mockReturnValue(true);
+  palsu.toast.mockReset();
 });
 
 afterEach(async () => {
@@ -282,5 +313,149 @@ describe("ProspekKanbanClient", () => {
     expect(teks).toContain("Bu Sari");
     expect(teks).toContain("Coba lagi");
     expect(teks).not.toContain("Muat lebih");
+  });
+});
+
+/**
+ * Event seret buatan tangan: jsdom tidak membawa `DragEvent`/`DataTransfer`,
+ * sedangkan handler kartu menulis ke `dataTransfer`.
+ */
+function kirimSeret(elemen: Element, jenis: string): Event {
+  const event = new Event(jenis, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: { setData: vi.fn(), effectAllowed: "", dropEffect: "" },
+  });
+  elemen.dispatchEvent(event);
+  return event;
+}
+
+function kartuDi(status: ProspekStatus): HTMLElement {
+  const elemen = kolom(status).querySelector("article[data-prospek-id]");
+  expect(elemen).not.toBeNull();
+  return elemen as HTMLElement;
+}
+
+/** Satu kartu per kolom hidup, id-nya `kartu-<STATUS>`. */
+function kolomBerkartu() {
+  palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+    kolomTiba({
+      kartu: [prospek({ id: `kartu-${status}`, status })],
+      total: 1,
+    }),
+  );
+}
+
+async function angkat(status: ProspekStatus) {
+  await act(async () => {
+    kirimSeret(kartuDi(status), "dragstart");
+  });
+}
+
+describe("ProspekKanbanClient — seret", () => {
+  beforeEach(() => {
+    kolomBerkartu();
+  });
+
+  it("menyalakan kolom sah dan meredupkan sisanya saat kartu diangkat", async () => {
+    await render(<ProspekKanbanClient />);
+    await angkat("TERTARIK");
+
+    expect(kolom("NEGOSIASI").getAttribute("data-seret")).toBe("tujuan");
+    expect(kolom("BARU").getAttribute("data-seret")).toBe("redup");
+    expect(kolom("DEAL").getAttribute("data-seret")).toBe("redup");
+    expect(kolom("TERTARIK").getAttribute("data-seret")).toBe("netral");
+    // `data-seret` hanya penanda; peredupan yang dilihat pemakai ada di kelasnya.
+    expect(kolom("BARU").className).toContain("opacity-40");
+    expect(kolom("NEGOSIASI").className).not.toContain("opacity-40");
+  });
+
+  it("hanya kolom sah yang menerima kartu", async () => {
+    await render(<ProspekKanbanClient />);
+    await angkat("TERTARIK");
+
+    // `preventDefault` pada `dragover` adalah satu-satunya cara kolom
+    // menyatakan diri bisa dijatuhi; tanpanya peramban menolak jatuhan.
+    expect(kirimSeret(kolom("NEGOSIASI"), "dragover").defaultPrevented).toBe(
+      true,
+    );
+    expect(kirimSeret(kolom("BARU"), "dragover").defaultPrevented).toBe(false);
+  });
+
+  it("memindahkan kartu yang diangkat ke kolom tempat ia dijatuhkan", async () => {
+    await render(<ProspekKanbanClient />);
+    await angkat("TERTARIK");
+    await act(async () => {
+      kirimSeret(kolom("NEGOSIASI"), "drop");
+    });
+
+    expect(palsu.pindahkan).toHaveBeenCalledWith({
+      prospekId: "kartu-TERTARIK",
+      dari: "TERTARIK",
+      tujuan: "NEGOSIASI",
+    });
+    expect(kolom("NEGOSIASI").getAttribute("data-seret")).toBe("netral");
+  });
+
+  it("memberi tahu alih-alih menulis status saat dijatuhkan ke DEAL", async () => {
+    await render(<ProspekKanbanClient />);
+    await angkat("NEGOSIASI");
+    await act(async () => {
+      kirimSeret(kolom("DEAL"), "drop");
+    });
+
+    expect(palsu.toast).toHaveBeenCalledWith(
+      PESAN_KONVERSI_BELUM_TERSEDIA,
+      expect.objectContaining({ id: expect.any(String) }),
+    );
+    expect(palsu.pindahkan).not.toHaveBeenCalled();
+  });
+
+  it("mengembalikan semua kolom ke rupa biasa saat seretan dibatalkan", async () => {
+    await render(<ProspekKanbanClient />);
+    await angkat("TERTARIK");
+    await act(async () => {
+      kirimSeret(kartuDi("TERTARIK"), "dragend");
+    });
+
+    expect(kolom("BARU").getAttribute("data-seret")).toBe("netral");
+    expect(kolom("NEGOSIASI").getAttribute("data-seret")).toBe("netral");
+  });
+
+  it("memeriksa permission yang sama dengan gerbang PATCH", async () => {
+    await render(<ProspekKanbanClient />);
+
+    expect(palsu.hasAnyPermission).toHaveBeenCalledWith([
+      "presurvei:update",
+      "m_presurvei:update",
+    ]);
+    expect(kartuDi("BARU").getAttribute("draggable")).toBe("true");
+  });
+
+  it("tidak membiarkan kartu diseret tanpa permission ubah", async () => {
+    palsu.hasAnyPermission.mockReturnValue(false);
+
+    await render(<ProspekKanbanClient />);
+
+    expect(kartuDi("BARU").getAttribute("draggable")).toBe("false");
+  });
+
+  it("tidak membiarkan kartu berstatus final diseret", async () => {
+    // DEAL tidak punya transisi sah (`prospek-rules.ts:33`).
+    await render(<ProspekKanbanClient />);
+
+    expect(kartuDi("DEAL").getAttribute("draggable")).toBe("false");
+    expect(kartuDi("NEGOSIASI").getAttribute("draggable")).toBe("true");
+  });
+
+  it("menandai kartu yang sedang dipindah dan menahannya dari seretan lagi", async () => {
+    palsu.isSedangDipindah.mockImplementation(
+      (id: string) => id === "kartu-BARU",
+    );
+
+    await render(<ProspekKanbanClient />);
+
+    expect(kartuDi("BARU").getAttribute("aria-busy")).toBe("true");
+    expect(kartuDi("BARU").getAttribute("draggable")).toBe("false");
+    expect(kartuDi("DIHUBUNGI").getAttribute("aria-busy")).toBe("false");
   });
 });

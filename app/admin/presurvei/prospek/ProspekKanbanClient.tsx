@@ -1,23 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
+import { usePermission } from "@/hooks/use-permission";
 import {
   daftarKolomHidup,
   daftarKolomMati,
+  isStatusFinal,
   PROSPEK_STATUS_CONFIG,
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
+import { PESAN_KONVERSI_BELUM_TERSEDIA } from "./pindahProspek";
 import { ProspekCard } from "./ProspekCard";
 import {
   keadaanKolom,
   teksJumlahKolom,
   type KeadaanKolom,
 } from "./prospekKolomQuery";
+import { usePindahProspek } from "./usePindahProspek";
 import { useProspekKolom } from "./useProspekKolom";
+import {
+  useSeretProspek,
+  type KartuDiangkat,
+  type TampilanKolomSeret,
+} from "./useSeretProspek";
 
 /** Jumlah kerangka kartu yang mengisi kolom selama halaman pertamanya dimuat. */
 const JUMLAH_KERANGKA_KARTU = 3;
@@ -34,15 +44,48 @@ export const TEKS_KOLOM_KOSONG = "Belum ada prospek di tahap ini";
 /** Pesan kecil saat kartu sudah ada tetapi halaman berikutnya gagal. */
 const TEKS_SEBAGIAN_GAGAL = "Sebagian kartu gagal dimuat";
 
+/**
+ * Permission yang boleh memindahkan kartu; dicocokkan ke gerbang
+ * `PATCH /api/presurvei/prospek/[id]` (`app/api/presurvei/prospek/[id]/route.ts:40`),
+ * bukan dipilih. Halaman sendiri hanya menuntut `read` (`page.tsx:13`).
+ */
+const IZIN_UBAH_PROSPEK = ["presurvei:update", "m_presurvei:update"];
+
+/** Id toast jatuhan ke DEAL, supaya jatuhan berulang tidak menumpuk. */
+const ID_TOAST_KONVERSI = "presurvei-prospek-konversi";
+
+/** Kelas bingkai kolom per rupa seret. */
+const KELAS_KOLOM_SERET: Record<TampilanKolomSeret, string> = {
+  netral: "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50",
+  tujuan:
+    "border-indigo-400 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/30",
+  redup:
+    "border-gray-200 bg-gray-50 opacity-40 dark:border-gray-700 dark:bg-gray-800/50",
+};
+
 type ProspekKolomData = ReturnType<typeof useProspekKolom>;
+
+/** Kabel seret yang diteruskan papan ke setiap kolom. */
+interface SeretKolom {
+  tampilanKolom: (status: ProspekStatus) => TampilanKolomSeret;
+  isBolehUbah: boolean;
+  mulaiSeret: (kartu: KartuDiangkat) => void;
+  selesaiSeret: () => void;
+  jatuhkan: (status: ProspekStatus) => void;
+  isSedangDipindah: (prospekId: string) => boolean;
+}
 
 /** Badan kolom sesuai keadaannya; kartu hanya dirender saat `berisi`. */
 function BadanKolom({
+  status,
   keadaan,
   kartu,
+  seret,
 }: {
+  status: ProspekStatus;
   keadaan: KeadaanKolom;
   kartu: ProspekKolomData["kartu"];
+  seret: SeretKolom;
 }) {
   switch (keadaan) {
     case "memuat":
@@ -69,7 +112,18 @@ function BadanKolom({
       return (
         <>
           {kartu.map((prospek) => (
-            <ProspekCard key={prospek.id} prospek={prospek} />
+            <ProspekCard
+              key={prospek.id}
+              prospek={prospek}
+              // Kartu di status final tidak punya tujuan sah; menyeretnya
+              // hanya meredupkan seluruh papan.
+              isDapatDiseret={seret.isBolehUbah && !isStatusFinal(status)}
+              isSedangDipindah={seret.isSedangDipindah(prospek.id)}
+              onMulaiSeret={() =>
+                seret.mulaiSeret({ id: prospek.id, dari: status })
+              }
+              onSelesaiSeret={seret.selesaiSeret}
+            />
           ))}
         </>
       );
@@ -107,10 +161,24 @@ function TombolKakiKolom({ kolom }: { kolom: ProspekKolomData }) {
   );
 }
 
-/** Satu kolom papan: mengambil datanya sendiri dan memuat lebih sendiri. */
-function ProspekKolom({ status }: { status: ProspekStatus }) {
+/**
+ * Satu kolom papan: mengambil datanya sendiri dan memuat lebih sendiri.
+ *
+ * Kolom yang bukan tujuan sah tidak memanggil `preventDefault()` pada
+ * `dragover`, jadi tidak menyatakan diri bisa dijatuhi — mekanisme yang sama
+ * dengan `app/admin/planning/PlanningKanbanClient.tsx:168-172`. `jatuhkan`
+ * tetap memeriksa ulang keputusannya bila `drop` sampai juga.
+ */
+function ProspekKolom({
+  status,
+  seret,
+}: {
+  status: ProspekStatus;
+  seret: SeretKolom;
+}) {
   const kolom = useProspekKolom(status);
   const tampilan = PROSPEK_STATUS_CONFIG[status];
+  const tampilanSeret = seret.tampilanKolom(status);
   const keadaan = keadaanKolom({
     isLoading: kolom.isLoading,
     halamanGagal: kolom.halamanGagal,
@@ -123,7 +191,17 @@ function ProspekKolom({ status }: { status: ProspekStatus }) {
     <section
       aria-label={tampilan.label}
       data-status={status}
-      className="flex max-h-[calc(100vh-240px)] w-72 flex-shrink-0 flex-col rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+      data-seret={tampilanSeret}
+      onDragOver={(event) => {
+        if (tampilanSeret !== "tujuan") return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        seret.jatuhkan(status);
+      }}
+      className={`flex max-h-[calc(100vh-240px)] w-72 flex-shrink-0 flex-col rounded-xl border transition-colors ${KELAS_KOLOM_SERET[tampilanSeret]}`}
     >
       <header className="flex items-center justify-between gap-2 border-b border-gray-200 px-3 py-2.5 dark:border-gray-700">
         <span
@@ -139,7 +217,12 @@ function ProspekKolom({ status }: { status: ProspekStatus }) {
       </header>
 
       <div className="min-h-32 flex-1 space-y-2 overflow-y-auto p-2">
-        <BadanKolom keadaan={keadaan} kartu={kolom.kartu} />
+        <BadanKolom
+          status={status}
+          keadaan={keadaan}
+          kartu={kolom.kartu}
+          seret={seret}
+        />
         <TombolKakiKolom kolom={kolom} />
       </div>
     </section>
@@ -158,9 +241,29 @@ function ProspekKolom({ status }: { status: ProspekStatus }) {
  * dalam tiap kolom, supaya kontrol di atas papan tetap terpasang selama kolom
  * memuat — akibat sebaliknya tercatat di
  * `app/admin/planning/PlanningKanbanClient.tsx:45-52`.
+ *
+ * Kartu diseret antar kolom dengan HTML5 drag-drop native, hanya ke kolom
+ * yang sah menurut `resolveAksiKanban`. Jatuhan ke DEAL belum memindahkan
+ * status: formulir konversinya belum ada, jadi pemakai diberi tahu alih-alih
+ * dibiarkan menebak.
  */
 export function ProspekKanbanClient() {
   const [isKolomMatiTampil, setIsKolomMatiTampil] = useState(false);
+  const { hasAnyPermission } = usePermission();
+  const pindah = usePindahProspek();
+  const seret = useSeretProspek({
+    onUbahStatus: (perpindahan) => void pindah.pindahkan(perpindahan),
+    onBukaKonversi: () =>
+      toast(PESAN_KONVERSI_BELUM_TERSEDIA, { id: ID_TOAST_KONVERSI }),
+  });
+  const seretKolom: SeretKolom = {
+    tampilanKolom: seret.tampilanKolom,
+    isBolehUbah: hasAnyPermission(IZIN_UBAH_PROSPEK),
+    mulaiSeret: seret.mulaiSeret,
+    selesaiSeret: seret.selesaiSeret,
+    jatuhkan: seret.jatuhkan,
+    isSedangDipindah: pindah.isSedangDipindah,
+  };
 
   const kolom = isKolomMatiTampil
     ? [...daftarKolomHidup(), ...daftarKolomMati()]
@@ -190,7 +293,7 @@ export function ProspekKanbanClient() {
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {kolom.map((status) => (
-          <ProspekKolom key={status} status={status} />
+          <ProspekKolom key={status} status={status} seret={seretKolom} />
         ))}
       </div>
     </div>
