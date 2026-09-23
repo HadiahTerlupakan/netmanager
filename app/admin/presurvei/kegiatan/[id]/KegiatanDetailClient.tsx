@@ -223,10 +223,26 @@ interface MuatanProps {
 /**
  * Isi halaman menurut keadaan pengambilan datanya.
  *
- * Gagal memuat dibedakan dari tidak ditemukan: menyamakan keduanya membuat
- * gangguan jaringan atau 403 tampil sebagai kegiatan yang seolah tidak ada,
- * dan pemakai yang sebenarnya cuma kehilangan sinyal akan menyimpulkan
- * catatannya hilang. Pembedaan yang sama diambil di `IklanEditClient.tsx`.
+ * **Cabang `error` menangani 404 juga, bukan hanya gangguan jaringan.**
+ * `KegiatanService.detail` melempar `AppError(…, 404)`, route mengembalikannya
+ * sebagai respons non-OK, dan `fetchWithHandling` mengubah SETIAP respons
+ * non-OK jadi `FetchError` yang dilempar. Jadi kegiatan yang sudah dihapus
+ * mendarat di sini, bukan di cabang `!kegiatan` di bawahnya, dan pemakai
+ * membaca pesan ganda "Gagal memuat kegiatan: Kegiatan tidak ditemukan".
+ * Kosmetik, dan penutupannya — bercabang pada `error.status` — belum
+ * dikerjakan, bukan tak mungkin.
+ *
+ * Cabang `!kegiatan` karena itu **bukan keadaan kedua; ia lantai.** Ia
+ * dipertahankan meski tak terjangkau hari ini karena `useApi<T>` menipekan
+ * `data` sebagai `T | undefined`, dan dengan `strictNullChecks: false` tidak
+ * ada satu pun yang akan menolak `IsiDetailKegiatan` menerima `undefined` —
+ * yang berakhir sebagai layar putih. Ketakterjangkauannya bergantung pada
+ * invarian di dua berkas lain (`fetchWithHandling` melempar, `useApi`
+ * mengaktifkan query-nya), bukan pada apa pun yang terlihat dari sini.
+ *
+ * `IklanEditClient.tsx` punya bentuk yang sama persis, dan karena
+ * `IklanService.detail` juga melempar 404, keterangan di atas berlaku untuk
+ * kedua layar.
  */
 function MuatanDetail({ kegiatan, error, isLoading }: MuatanProps) {
   if (isLoading) return <Skeleton className="h-96 w-full" />;
