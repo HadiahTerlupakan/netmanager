@@ -33,6 +33,11 @@ interface Props {
  * pemformatan di layar tidak mungkin menyimpang darinya. **Mengubahnya jadi
  * lambda menghapus proteksi itu — jangan.**
  *
+ * Itu keadaan hari ini, bukan batas yang melekat: penutupannya ada. Repo ini
+ * punya `jsdom`, dan `tests/app/presurvei-kegiatan-filters.test.tsx` sudah
+ * merender komponen tetangga lalu membaca atribut yang keluar. Pekerjaannya
+ * cuma belum dilakukan.
+ *
  * `alamatDikunjungi` dan `jumlahFoto` tidak perlu `render`: `safeRender` di
  * `ResponsiveTable` sudah memetakan `null` ke "-" dan mencetak angka 0 apa
  * adanya, jadi menambahkan lambda di sini justru membuka jebakan falsy.

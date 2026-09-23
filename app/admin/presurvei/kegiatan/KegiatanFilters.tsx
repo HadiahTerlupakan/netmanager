@@ -53,8 +53,10 @@ export function KegiatanFilters({
 
   // Kedua medan saling membatasi supaya rentang terbalik tidak bisa dibentuk
   // lewat widget-nya. Aturannya fungsi murni di `kegiatanListQuery.ts`; di sini
-  // tersisa pemasangannya, dan nama medan menyebut atribut tujuannya supaya
-  // tertukarnya terbaca salah.
+  // tersisa pemasangannya. Nama medan menyebut atribut tujuannya supaya
+  // tertukarnya terbaca salah, dan `presurvei-kegiatan-filters.test.tsx`
+  // merender komponen ini di jsdom untuk memastikan `min`/`max` benar-benar
+  // mendarat di medan yang benar.
   const batas = batasRentangTanggal(filter);
 
   return (

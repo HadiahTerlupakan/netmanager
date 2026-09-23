@@ -82,8 +82,21 @@ export function filterSetelahUbah(
  * lalu menyimpulkan timnya tidak bekerja. Tertukarnya `min` dengan `max`
  * membalik penjaga ini jadi kebalikan tujuannya — ia justru memaksa
  * `dari` >= `sampai`, sehingga SETIAP rentang yang bisa dibentuk adalah rentang
- * terbalik. Karena itu ia fungsi murni di sini, bukan dua `const` di dalam
- * komponen: di sana ia tak terjangkau test selamanya.
+ * terbalik.
+ *
+ * Dua lapis menjaganya, dan keduanya perlu karena masing-masing menutup hal
+ * yang berbeda:
+ *
+ * 1. **Saat dibaca** — penamaan field menurut atribut tujuannya membuat
+ *    pemasangan yang tertukar terbaca salah di JSX, tanpa menjalankan apa pun.
+ * 2. **Saat dijalankan** — `tests/app/presurvei-kegiatan-filters.test.tsx`
+ *    merender komponennya di `jsdom` dan membaca atribut `min`/`max` yang
+ *    benar-benar sampai ke DOM.
+ *
+ * Isinya sendiri diuji sebagai fungsi murni di
+ * `presurvei-kegiatan-list-query.test.ts`. Karena itu ia tinggal di sini, bukan
+ * sebagai dua `const` di dalam komponen: di sana ia hanya terjangkau lewat
+ * render, yang jauh lebih mahal daripada memanggil fungsi.
  *
  * `undefined` berarti "tak ada batas" bagi `<input type="date">`. Perbandingan
  * panjang, bukan truthiness: yang ditanyakan "terisi atau tidak".
