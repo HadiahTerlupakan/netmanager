@@ -10,7 +10,7 @@ import {
   type KegiatanHasil,
 } from "@/modules/presurvei/client";
 
-import { penutupModalTarget } from "../../target/targetFormState";
+import { penutupModalDitahanSaatMenyimpan } from "../../penutupModal";
 import {
   nilaiFormDariKegiatan,
   periksaFormUbah,
@@ -54,7 +54,7 @@ export function KegiatanUbahModal({
     nilaiFormDariKegiatan(kegiatan),
   );
   const [pesanForm, setPesanForm] = useState<string | null>(null);
-  const tutup = penutupModalTarget(isMenyimpan, onClose);
+  const tutup = penutupModalDitahanSaatMenyimpan(isMenyimpan, onClose);
   const pesan = pesanForm ?? pesanServer;
 
   const ubahMedan = (perubahan: Partial<NilaiFormUbahKegiatan>) => {

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * Kabel layar target sales (Task 15) yang hanya terlihat saat dirender.
  *
  * Fungsi murninya — `keBarisTarget`, `labelOpsiSales`, `nilaiSetelahGantiSales`,
- * `isSimpanTargetTerbuka`, `penutupModalTarget`, `pesanTabelKosong` — sudah
+ * `isSimpanTargetTerbuka`, `penutupModalDitahanSaatMenyimpan`, `pesanTabelKosong` — sudah
  * diuji tanpa DOM, dan kedua hook datanya di `presurvei-target-hook.test.ts`.
  * Yang dikunci di sini adalah nilai yang diteruskan ke sana, yang tercatat
  * sebagai kandidat Task 19 di ledger Task 15/16:

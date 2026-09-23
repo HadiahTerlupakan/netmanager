@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { BarisTarget } from "@/app/admin/presurvei/target/barisTarget";
 import {
   isSimpanTargetTerbuka,
   nilaiSetelahGantiSales,
-  penutupModalTarget,
   keAngkaTarget,
   nilaiFormDariTarget,
   periksaFormTarget,
@@ -263,25 +262,5 @@ describe("nilaiSetelahGantiSales", () => {
       targetProspek: "21",
       targetKonversi: "8",
     });
-  });
-});
-
-describe("penutupModalTarget", () => {
-  it("meneruskan penutup asli selama tidak menyimpan", () => {
-    const tutup = vi.fn();
-
-    penutupModalTarget(false, tutup)();
-
-    expect(tutup).toHaveBeenCalledTimes(1);
-  });
-
-  it("menahan penutupan selama POST berjalan", () => {
-    // Menutup di tengah simpan membuka jalan bagi modal berikutnya ditutup
-    // oleh `onBerhasil` milik POST sebelumnya.
-    const tutup = vi.fn();
-
-    penutupModalTarget(true, tutup)();
-
-    expect(tutup).not.toHaveBeenCalled();
   });
 });

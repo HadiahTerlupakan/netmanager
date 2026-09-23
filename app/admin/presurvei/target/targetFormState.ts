@@ -206,20 +206,3 @@ export function nilaiSetelahGantiSales(
 
   return { ...lama, userId: userIdBaru };
 }
-
-/** Penutup yang tidak melakukan apa pun; dipasang selama POST berjalan. */
-const TUTUP_DITAHAN = (): void => undefined;
-
-/**
- * Penutup modal yang dipasang ke Batal, tombol X, backdrop, dan Escape.
- *
- * Selama POST berjalan penutupan ditahan: `useSimpanTarget` memanggil
- * `onBerhasil` saat POST selesai, dan bila modal sudah ditutup lalu modal
- * lain dibuka, panggilan itu menutup modal yang baru.
- */
-export function penutupModalTarget(
-  isMenyimpan: boolean,
-  onClose: () => void,
-): () => void {
-  return isMenyimpan ? TUTUP_DITAHAN : onClose;
-}

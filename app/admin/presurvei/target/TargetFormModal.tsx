@@ -14,6 +14,7 @@ import {
   labelOpsiSales,
   type BarisTarget,
 } from "./barisTarget";
+import { penutupModalDitahanSaatMenyimpan } from "../penutupModal";
 import { namaBulan, type Periode } from "../periode";
 import {
   isSimpanTargetTerbuka,
@@ -22,7 +23,6 @@ import {
   nilaiFormDariTarget,
   nilaiSetelahGantiSales,
   NILAI_FORM_KOSONG,
-  penutupModalTarget,
   periksaFormTarget,
   TARGET_MAKS,
   type KesalahanFormTarget,
@@ -125,7 +125,7 @@ export function TargetFormModal({
     isUbah ? nilaiFormDariTarget(targetDiubah) : NILAI_FORM_KOSONG,
   );
   const [kesalahan, setKesalahan] = useState<KesalahanFormTarget>({});
-  const tutup = penutupModalTarget(isMenyimpan, onClose);
+  const tutup = penutupModalDitahanSaatMenyimpan(isMenyimpan, onClose);
   const isTimpaTersembunyi =
     !isUbah && cariTargetSales(nilai.userId, barisPeriode) !== null;
   const isSalesBerlabel = !isUbah && keadaanDaftarSales.status !== "gagal";
