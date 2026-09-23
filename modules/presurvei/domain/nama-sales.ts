@@ -58,10 +58,13 @@ export function tentukanNamaSales(identitas: IdentitasSales): string {
  * (kelas data yang pernah lahir dari handler pendaftaran tanpa penjaga
  * tenant) akan membawa nama orang di luar tenant.
  *
- * Penjaganya per baris, bukan `where` literal di `include`: literal butuh
- * tenant dari konteks, dan konteks itu null untuk super admin maupun system
- * context — tepat saat baris dari banyak tenant tercampur dalam satu hasil,
- * sehingga satu literal tidak bisa benar untuk semuanya. Membandingkan tenant
+ * Penjaganya per baris, bukan `where` literal di `include`: untuk super admin
+ * ekstensi tidak menyaring sama sekali (`lib/prisma-extension.ts`,
+ * `isNonSuperAdminTenant`), jadi baris dari banyak tenant tercampur dalam satu
+ * hasil — sementara tenant konteksnya null di system context
+ * (`runAsSystemContext` di `lib/tenant-context.ts`) atau tenant
+ * sesi super admin sendiri. Satu literal tidak bisa benar untuk semua baris
+ * itu: ia akan menyembunyikan nama sales sah di tenant lain. Membandingkan tenant
  * sales dengan `tenantId` baris yang merujuknya benar di semua konteks.
  */
 export function namaSalesSatuTenant(
