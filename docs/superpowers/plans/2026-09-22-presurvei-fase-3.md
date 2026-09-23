@@ -2221,7 +2221,7 @@ git commit -m "feat(presurvei): tambah halaman detail kegiatan"
 
 ---
 
-## Task 10: Modal catat dan ubah kegiatan
+## Task 10: Modal catat kegiatan
 
 **Files:**
 - Create: `app/admin/presurvei/kegiatan/kegiatanFormState.ts`
@@ -2233,7 +2233,14 @@ git commit -m "feat(presurvei): tambah halaman detail kegiatan"
 - Consumes: `catatKegiatanSchema`, `KEGIATAN_JENIS`, `KEGIATAN_HASIL`, `isButuhDataTeknis`, `isButuhLokasi`, `isButuhIklan` dari `@/modules/presurvei/client`
 - Produces: `type NilaiFormKegiatan`, `keMuatanKegiatan(nilai: NilaiFormKegiatan)`
 
-**Form web sengaja tidak memuat foto maupun penangkapan GPS.** Keduanya lahir dari perangkat di lapangan; memalsukannya dari kursi kantor merusak arti peta kunjungan. Konsekuensinya kegiatan yang dicatat dari web tidak muncul sebagai penanda — dan itu benar, ia memang tidak terjadi di suatu titik.
+**Hanya catat, bukan ubah.** Judul task ini semula menyebut "catat dan ubah"; itu
+kekeliruanku. Modul presurvei **tidak punya jalur ubah kegiatan sama sekali**:
+`app/api/presurvei/kegiatan/[id]/route.ts` hanya mengekspor `GET`, `KegiatanService`
+hanya punya `daftar`/`detail`/`catat`, `KegiatanRepository` tanpa `update`, dan tidak ada
+`ubahKegiatanSchema`. Spesifikasi juga tidak pernah menyebutnya. Backend-nya ditangani
+Task 21.
+
+**Form web sengaja tidak memuat foto maupun penangkapan GPS.** Keduanya lahir dari perangkat di lapangan; memalsukannya dari kursi kantor merusak arti peta kunjungan. Konsekuensinya lebih keras daripada "tidak muncul di peta": `catatKegiatanSchema` menolak KUNJUNGAN dan SURVEI_LOKASI tanpa koordinat mentah-mentah (`modules/presurvei/validators/kegiatan.validator.ts:88-93`, pesan "Kunjungan dan survei lokasi wajib menyertakan koordinat"). Jadi dari web hanya TELEPON, CHAT, dan IKLAN yang bisa dicatat — dan itu benar, karena ketiganya memang terjadi tanpa titik. Form wajib mengatakan ini sebelum pemakai menekan simpan, bukan menyerahkannya ke pesan kesalahan server.
 
 Domain punya tiga predikat yang menentukan medan mana yang wajib: `isButuhDataTeknis`, `isButuhLokasi`, dan `isButuhIklan`. Form memakainya untuk menampilkan medan yang relevan saja — tapi karena lokasi tidak ditangkap di web, `isButuhLokasi` dipakai untuk **memperingatkan**, bukan untuk memaksa.
 
@@ -2340,7 +2347,7 @@ Terapkan mutasi, pastikan merah, lalu **kembalikan**:
 
 | Mutasi | Harus merah |
 |---|---|
-| Ganti pemeriksaan string kosong jadi truthiness di `angkaAtauNull` | test "mempertahankan estimasi kabel nol" |
+| Ganti badan `angkaAtauNull` jadi `return Number(bersih) \|\| null;` | test "mempertahankan estimasi kabel nol" |
 | Tambahkan `latitude: 0, longitude: 0` ke muatan | test "tidak pernah mengirim koordinat maupun foto" |
 
 - [ ] **Step 6: Commit**
@@ -3546,3 +3553,41 @@ di situ — lihat `cari-sales-teringan.ts` sebagai contoh yang sudah benar.
 
 **Sebelum mulai:** putuskan apakah nama yang ditampilkan adalah `name`, `username`, atau
 gabungan, dan pastikan konsisten di kedua kebutuhan di atas.
+
+---
+
+## Task 21: Jalur ubah kegiatan di backend
+
+> **Dijalankan SEBELUM Task 18**, dan hanya bila user mengonfirmasi ia memang
+> menginginkannya. Dinomori 21 supaya penomoran 1-18 tidak bergeser.
+
+**Files:**
+- Modify: `modules/presurvei/repositories/KegiatanRepository.ts`, `services/KegiatanService.ts`, `validators/kegiatan.validator.ts`
+- Create: `PATCH` di `app/api/presurvei/kegiatan/[id]/route.ts`
+- Modify: `app/admin/presurvei/kegiatan/kegiatanFormState.ts` dan modalnya (mode ubah)
+
+Ditemukan implementer Task 10. Saat memilih bentuk Fase 3, user memilih **"bisa mencatat
+dan mengubah penuh"** untuk prospek **dan** kegiatan. Prospek memenuhinya — 
+`app/api/presurvei/prospek/[id]/route.ts` punya `PATCH`. Kegiatan tidak: route-nya hanya
+mengekspor `GET`, servicenya hanya `daftar`/`detail`/`catat`, repositorynya tanpa
+`update`, dan tidak ada `ubahKegiatanSchema`.
+
+Celahnya lahir di judul Task 10 rencanaku, bukan di spesifikasi — spesifikasi tidak
+pernah menyebut ubah kegiatan. Jadi ini bukan sekadar pekerjaan yang tertunda: ia
+**keputusan produk yang belum pernah diambil**.
+
+**Pertanyaan yang harus dijawab sebelum menulis kode:**
+
+1. **Medan mana yang boleh diubah?** Mengubah `waktuMulai` atau `jenis` setelah fakta
+   mengubah arti laporan pencapaian dan target. Mengubah `catatan` atau `hasil` jauh
+   lebih tidak berbahaya. Kemungkinan besar jawabannya bukan "semua".
+2. **Siapa yang boleh mengubah?** Permission `presurvei:update` sudah ada dan dipakai
+   route prospek. Apakah sales boleh mengubah kegiatannya sendiri, dan sampai kapan?
+3. **Koordinat dan foto tidak boleh diubah dari web** — alasannya sama dengan alasan
+   form catat tidak memuatnya. Kalau `ubahKegiatanSchema` mengizinkannya, penjaga di
+   form jadi tidak ada artinya.
+4. **Apakah perubahan perlu jejak?** Laporan pencapaian dihitung dari kegiatan; mengubah
+   kegiatan lama menggeser angka yang mungkin sudah dilaporkan ke orang.
+
+**Perhatian tenant:** ikuti pola route prospek — ia sudah menangani penyaringan
+kepemilikan (`pemilikWajib`) untuk pemanggil mobile. Kegiatan punya bentuk yang sama.
