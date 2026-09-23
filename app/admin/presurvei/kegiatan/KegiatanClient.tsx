@@ -61,7 +61,7 @@ export function KegiatanClient() {
     ubahFilter,
     ubahHalaman,
     baris,
-    idSalesTersedia,
+    salesTersedia,
     meta,
     isLoading,
   } = useKegiatanListQuery({ untukPeta: isTabPeta });
@@ -102,7 +102,7 @@ export function KegiatanClient() {
       */}
       <KegiatanFilters
         filter={filter}
-        idSalesTersedia={idSalesTersedia}
+        salesTersedia={salesTersedia}
         onUbah={ubahFilter}
       />
 

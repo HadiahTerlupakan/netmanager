@@ -15,6 +15,8 @@ export interface KegiatanListItemDto {
   id: string;
   jenis: KegiatanJenis;
   userId: string;
+  /** Label pelaku; null bila tidak bisa ditampilkan (lihat `KegiatanEntity`). */
+  namaSales: string | null;
   prospekId: string | null;
   waktuMulai: string;
   alamatDikunjungi: string | null;
@@ -46,6 +48,7 @@ export function toKegiatanListItem(
     id: kegiatan.id,
     jenis: kegiatan.jenis,
     userId: kegiatan.userId,
+    namaSales: kegiatan.namaSales ?? null,
     prospekId: kegiatan.prospekId,
     waktuMulai: kegiatan.waktuMulai.toISOString(),
     alamatDikunjungi: kegiatan.alamatDikunjungi,

@@ -3,6 +3,7 @@ import type { QueryKey } from "@tanstack/react-query";
 import {
   jadikanCanvasingSchema,
   PROSPEK_STATUS_CONFIG,
+  type ProspekListItemDto,
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
@@ -54,7 +55,7 @@ function teksAtauNull(teks: string): string | null {
  * `undefined`, bukan `null`: `kabel` di `jadikanCanvasingSchema` hanya
  * `.optional()` (`modules/presurvei/validators/konversi.validator.ts:19`),
  * jadi null ditolak, sedangkan `undefined` hilang dari JSON dan server lalu
- * memakai estimasi survei (`ProspekKonversiService.ts:170`). Nol tetap nol.
+ * memakai estimasi survei (`ProspekKonversiService.ts:176`). Nol tetap nol.
  */
 function kabelAtauKosong(teks: string): number | undefined {
   const bersih = teks.trim();
@@ -65,7 +66,7 @@ function kabelAtauKosong(teks: string): number | undefined {
  * Badan `POST /api/presurvei/prospek/{id}/jadikan-canvasing`.
  *
  * `foto` tidak dikirim: form tidak punya medannya, dan server mengisinya dari
- * foto pertama survei terakhir (`ProspekKonversiService.ts:173`).
+ * foto pertama survei terakhir (`ProspekKonversiService.ts:179`).
  */
 export function keMuatanKonversi(nilai: NilaiFormKonversi) {
   return {
@@ -110,9 +111,9 @@ function isMedanKonversi(kunci: string): kunci is keyof NilaiFormKonversi {
  * Selain `jadikanCanvasingSchema`, kabel nol yang DIISI pemakai ditolak di
  * sini: validator marketing menuntut minimal 1 meter, dan penolakannya di
  * server baru datang SETELAH kartu non-DEAL dipindah ke DEAL. Kabel yang
- * dikosongkan tidak terjaga: bila survei terakhir mencatat 0 meter, server
- * memakai 0 (`ProspekKonversiService.ts:170`, `??`) dan menolaknya setelah
- * PATCH.
+ * dikosongkan tidak perlu dijaga di sini: estimasi survei di bawah 1 meter
+ * diperlakukan server sebagai tak tercatat dan diganti bawaan 1 meter
+ * (`estimasiKabelSurvei`, `ProspekKonversiService.ts:248-252`).
  */
 export function validasiFormKonversi(
   nilai: NilaiFormKonversi,
@@ -145,7 +146,7 @@ export function validasiFormKonversi(
  * Apakah prospek harus dipindah ke DEAL sebelum dijadikan canvasing.
  *
  * `jadikanCanvasing` menolak prospek non-DEAL dengan 409
- * (`modules/presurvei/services/ProspekKonversiService.ts:67-75`). Tertukarnya
+ * (`modules/presurvei/services/ProspekKonversiService.ts:73-81`). Tertukarnya
  * asimetris: status non-DEAL tanpa PATCH gagal berisik, sedangkan PATCH
  * DEAL→DEAL lolos senyap karena `ProspekService.ubah` hanya memeriksa
  * transisi bila statusnya berubah.
@@ -155,19 +156,27 @@ export function isPerluTandaiDeal(status: ProspekStatus): boolean {
 }
 
 /**
- * Apakah kartu berstatus `status` menawarkan tombol konversi.
+ * Apakah kartu prospek ini menawarkan tombol konversi.
  *
  * Kartu DEAL tidak bisa diseret (`isStatusFinal`), jadi tombol ini satu-
  * satunya jalan mengonversi prospek yang dipasang DEAL tanpa canvasing — mis.
  * lewat `PATCH` biasa dari aplikasi mobile, atau konversi yang gagal di
- * langkah kedua. Kartu tidak tahu apakah prospeknya sudah punya canvasing
- * (`ProspekListItemDto` tidak membawa `canvasingId`); modal yang memeriksanya.
+ * langkah kedua. Kartu yang sudah punya canvasing tidak menawarkannya lagi:
+ * server akan menolaknya, dan modal hanya bisa bilang "sudah dijadikan
+ * canvasing" setelah dibuka.
+ *
+ * Perbandingan eksplisit dengan null, dengan `?? null` menampung `undefined`
+ * yang lolos kompilasi karena `strictNullChecks: false`.
  */
 export function isTawarkanKonversi(
-  status: ProspekStatus,
+  prospek: Pick<ProspekListItemDto, "status" | "canvasingId">,
   isBolehUbah: boolean,
 ): boolean {
-  return isBolehUbah && status === STATUS_DEAL;
+  return (
+    isBolehUbah &&
+    prospek.status === STATUS_DEAL &&
+    (prospek.canvasingId ?? null) === null
+  );
 }
 
 /** URL promosi prospek (`app/api/presurvei/prospek/[id]/jadikan-canvasing/route.ts`). */

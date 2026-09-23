@@ -32,7 +32,7 @@ describe("keMuatanKonversi", () => {
 
   it("tidak mengirim kabel yang dikosongkan — bukan nol, bukan null", () => {
     // Dikosongkan berarti "pakai estimasi survei", dan server punya
-    // fallback-nya (`ProspekKonversiService.ts:170`). Mengirim 0 berarti
+    // fallback-nya (`ProspekKonversiService.ts:176`). Mengirim 0 berarti
     // "kabelnya nol meter". Mengirim null ditolak schema: `kabel` hanya
     // `.optional()`, tidak `.nullable()` (`konversi.validator.ts:19`).
     const muatan = keMuatanKonversi({ ...nilai, kabel: "  " });
@@ -134,7 +134,7 @@ describe("validasiFormKonversi", () => {
 describe("isPerluTandaiDeal", () => {
   it("menandai DEAL lebih dulu untuk prospek yang belum DEAL", () => {
     // Arah berisik: tanpa PATCH, `jadikanCanvasing` menolak 409
-    // (`ProspekKonversiService.ts:67-75`).
+    // (`ProspekKonversiService.ts:73-81`).
     expect(isPerluTandaiDeal("NEGOSIASI")).toBe(true);
   });
 
@@ -148,11 +148,29 @@ describe("isPerluTandaiDeal", () => {
 describe("isTawarkanKonversi", () => {
   it("hanya menawarkan konversi pada kartu DEAL bagi pemakai yang boleh mengubah", () => {
     const ditawarkan = PROSPEK_STATUSES.filter((status: ProspekStatus) =>
-      isTawarkanKonversi(status, true),
+      isTawarkanKonversi({ status, canvasingId: null }, true),
     );
 
     expect(ditawarkan).toEqual(["DEAL"]);
-    expect(isTawarkanKonversi("DEAL", false)).toBe(false);
+    expect(
+      isTawarkanKonversi({ status: "DEAL", canvasingId: null }, false),
+    ).toBe(false);
+  });
+
+  it("tidak menawarkan konversi pada kartu DEAL yang sudah punya canvasing", () => {
+    // Tanpa `canvasingId` di daftar, tombol tampil di setiap kartu DEAL dan
+    // modal baru bisa bilang "sudah dijadikan canvasing" setelah dibuka.
+    expect(
+      isTawarkanKonversi({ status: "DEAL", canvasingId: "cv-lama" }, true),
+    ).toBe(false);
+  });
+
+  it("tetap menawarkan konversi saat canvasingId tidak terbawa sama sekali", () => {
+    // `undefined` lolos kompilasi karena `strictNullChecks: false`; ia berarti
+    // "tidak diketahui punya canvasing", bukan "sudah punya".
+    expect(
+      isTawarkanKonversi({ status: "DEAL", canvasingId: undefined }, true),
+    ).toBe(true);
   });
 });
 

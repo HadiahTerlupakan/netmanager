@@ -52,6 +52,16 @@ const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
   ...over,
 });
 
+/**
+ * `include` yang wajib ikut di setiap panggilan yang mengembalikan entitas.
+ * Ditulis ulang sebagai literal, bukan diimpor dari `sertakan-sales.ts`:
+ * test yang memakai konstanta yang sama tetap hijau bila konstanta itu
+ * kehilangan `tenantId` — kolom yang dibutuhkan penjaga tenant di mapper.
+ */
+const SERTAKAN_PEMILIK = {
+  pemilik: { select: { name: true, email: true, tenantId: true } },
+};
+
 describe("ProspekRepository.findMany", () => {
   let repository: ProspekRepository;
 
@@ -69,6 +79,52 @@ describe("ProspekRepository.findMany", () => {
     expect(prisma.presurveiProspek.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 40, take: 20 }),
     );
+  });
+
+  it("menyertakan pemilik untuk nama di kartu", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({ page: 1, limit: 10 });
+
+    expect(
+      vi.mocked(prisma.presurveiProspek.findMany).mock.calls[0][0]?.include,
+    ).toEqual(SERTAKAN_PEMILIK);
+  });
+
+  it("membawa nama pemilik satu tenant dan menyembunyikan pemilik tenant lain", async () => {
+    // Bentuk data yang pernah lahir dari handler pendaftaran tanpa penjaga
+    // tenant: prospek tenant-1 yang ditugaskan ke sales tenant-2. `include`
+    // bersarang tidak disaring ekstensi, jadi penjaganya di mapper.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([
+      barisProspek({
+        id: "prospek-sendiri",
+        pemilik: { name: "Rina", email: "rina@t1.id", tenantId: "tenant-1" },
+      }),
+      barisProspek({
+        id: "prospek-silang",
+        pemilikId: "user-asing",
+        pemilik: {
+          name: "Orang Asing",
+          email: "asing@t2.id",
+          tenantId: "tenant-2",
+        },
+      }),
+      barisProspek({
+        id: "prospek-tak-bertuan",
+        pemilikId: null,
+        pemilik: null,
+      }),
+    ] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(3 as never);
+
+    const hasil = await repository.findMany({ page: 1, limit: 10 });
+
+    expect(hasil.items.map((item) => [item.id, item.namaPemilik])).toEqual([
+      ["prospek-sendiri", "Rina"],
+      ["prospek-silang", null],
+      ["prospek-tak-bertuan", null],
+    ]);
   });
 
   it("mencari pada nama, nomor telepon, dan alamat sekaligus", async () => {
@@ -167,13 +223,19 @@ describe("ProspekRepository.findById", () => {
       konversiAt: new Date("2026-09-23T00:00:00.000Z"),
       siteId: "site-1",
     });
-    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue(
-      baris as never,
-    );
+    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue({
+      ...baris,
+      pemilik: { name: "  Dodi  ", email: "dodi@t1.id", tenantId: "tenant-1" },
+    } as never);
 
     const hasil = await new ProspekRepository().findById("prospek-1");
 
-    expect(hasil).toEqual({ ...baris });
+    // `pemilik` hasil join tidak ikut ke entitas; yang ikut hanya labelnya.
+    expect(hasil).toEqual({ ...baris, namaPemilik: "Dodi" });
+    expect(prisma.presurveiProspek.findUnique).toHaveBeenCalledWith({
+      where: { id: "prospek-1" },
+      include: SERTAKAN_PEMILIK,
+    });
   });
 });
 
@@ -186,7 +248,10 @@ describe("ProspekRepository.findByNoTelp", () => {
     await new ProspekRepository().findByNoTelp("081234567890");
 
     expect(prisma.presurveiProspek.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { noTelp: "081234567890" } }),
+      expect.objectContaining({
+        where: { noTelp: "081234567890" },
+        include: SERTAKAN_PEMILIK,
+      }),
     );
   });
 
@@ -246,6 +311,7 @@ describe("ProspekRepository.tandaiKonversi", () => {
     expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
       where: { id: "prospek-1", canvasingId: null },
       data: { canvasingId: "canvasing-1", konversiAt: expect.any(Date) },
+      include: SERTAKAN_PEMILIK,
     });
     expect(hasil?.canvasingId).toBe("canvasing-1");
   });
@@ -302,6 +368,7 @@ describe("ProspekRepository.findByRegistrationId", () => {
 
     expect(prisma.presurveiProspek.findUnique).toHaveBeenCalledWith({
       where: { registrationId: "reg-1" },
+      include: SERTAKAN_PEMILIK,
     });
     expect(hasil?.registrationId).toBe("reg-1");
   });
@@ -331,6 +398,7 @@ describe("ProspekRepository.create", () => {
         sumber: "WALK_IN",
         pemilikId: "user-1",
       },
+      include: SERTAKAN_PEMILIK,
     });
     expect(hasil.id).toBe("prospek-1");
   });
@@ -352,6 +420,7 @@ describe("ProspekRepository.update", () => {
     expect(prisma.presurveiProspek.update).toHaveBeenCalledWith({
       where: { id: "prospek-1" },
       data: { status: "DIHUBUNGI", catatan: "sudah ditelepon" },
+      include: SERTAKAN_PEMILIK,
     });
     expect(hasil.status).toBe("DIHUBUNGI");
   });

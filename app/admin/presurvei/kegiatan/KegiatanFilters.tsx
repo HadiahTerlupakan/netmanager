@@ -10,6 +10,7 @@ import {
   KEGIATAN_JENIS_CONFIG,
   type KegiatanHasil,
   type KegiatanJenis,
+  type SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
 import { batasRentangTanggal, type FilterKegiatan } from "./kegiatanListQuery";
@@ -25,15 +26,15 @@ const KELAS_TANGGAL =
 
 interface KegiatanFiltersProps {
   filter: FilterKegiatan;
-  /** Id sales yang boleh dipilih; lihat `opsiSales` untuk asal-usulnya. */
-  idSalesTersedia: string[];
+  /** Sales yang boleh dipilih; lihat `opsiSales` untuk asal-usulnya. */
+  salesTersedia: SalesPresurveiDto[];
   onUbah: (perubahan: Partial<Omit<FilterKegiatan, "page">>) => void;
 }
 
 /** Pemilih sales, jenis, hasil, dan rentang tanggal daftar kegiatan. */
 export function KegiatanFilters({
   filter,
-  idSalesTersedia,
+  salesTersedia,
   onUbah,
 }: KegiatanFiltersProps) {
   const ubahSales = (event: ChangeEvent<HTMLSelectElement>) =>
@@ -70,9 +71,9 @@ export function KegiatanFilters({
           className={KELAS_SELECT}
         >
           <option value={TANPA_SARING}>Semua sales</option>
-          {idSalesTersedia.map((idSales) => (
-            <option key={idSales} value={idSales}>
-              {idSales}
+          {salesTersedia.map((sales) => (
+            <option key={sales.id} value={sales.id}>
+              {sales.nama}
             </option>
           ))}
         </select>

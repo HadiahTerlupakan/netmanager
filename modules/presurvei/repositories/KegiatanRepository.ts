@@ -11,12 +11,16 @@ import type {
 import type { CreateProspekInput } from "../domain/ports/IProspekRepository";
 import { toKegiatanEntity, type KegiatanRow } from "../mappers/kegiatan.mapper";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
+import { SERTAKAN_PELAKU, SERTAKAN_PEMILIK } from "./sertakan-sales";
 
 /**
  * Akses data kegiatan presurvei.
  *
  * Memakai klien Prisma ber-ekstensi isolasi tenant, sehingga penyaringan
  * tenantId ditegakkan di lapisan database dan tidak ditulis ulang di sini.
+ * Pengecualiannya join nama sales (`sertakan-sales.ts`): `include` bersarang
+ * tidak dijangkau ekstensi, jadi tenant-nya dijaga mapper lewat
+ * `namaSalesSatuTenant`.
  */
 export class KegiatanRepository implements IKegiatanRepository {
   /** Ambil satu halaman kegiatan beserta jumlah totalnya. */
@@ -31,6 +35,7 @@ export class KegiatanRepository implements IKegiatanRepository {
         orderBy: { waktuMulai: "desc" },
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
+        include: SERTAKAN_PELAKU,
       }),
       prisma.presurveiKegiatan.count({ where }),
     ]);
@@ -43,13 +48,19 @@ export class KegiatanRepository implements IKegiatanRepository {
 
   /** Ambil satu kegiatan berdasarkan id, null bila tidak ditemukan. */
   async findById(id: string): Promise<KegiatanEntity | null> {
-    const row = await prisma.presurveiKegiatan.findUnique({ where: { id } });
+    const row = await prisma.presurveiKegiatan.findUnique({
+      where: { id },
+      include: SERTAKAN_PELAKU,
+    });
     return row ? toKegiatanEntity(row as KegiatanRow) : null;
   }
 
   /** Simpan kegiatan baru tanpa membuat prospek. */
   async create(input: CreateKegiatanInput): Promise<KegiatanEntity> {
-    const row = await prisma.presurveiKegiatan.create({ data: input });
+    const row = await prisma.presurveiKegiatan.create({
+      data: input,
+      include: SERTAKAN_PELAKU,
+    });
     return toKegiatanEntity(row as KegiatanRow);
   }
 
@@ -64,9 +75,13 @@ export class KegiatanRepository implements IKegiatanRepository {
     prospek: CreateProspekInput,
   ): Promise<{ kegiatan: KegiatanEntity; prospek: ProspekEntity }> {
     return prisma.$transaction(async (tx) => {
-      const barisProspek = await tx.presurveiProspek.create({ data: prospek });
+      const barisProspek = await tx.presurveiProspek.create({
+        data: prospek,
+        include: SERTAKAN_PEMILIK,
+      });
       const barisKegiatan = await tx.presurveiKegiatan.create({
         data: { ...kegiatan, prospekId: barisProspek.id },
+        include: SERTAKAN_PELAKU,
       });
 
       return {

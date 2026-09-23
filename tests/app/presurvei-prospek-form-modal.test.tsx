@@ -105,6 +105,7 @@ const rincian: ProspekDetailDto = {
   sumber: "IKLAN",
   status: "TERTARIK",
   pemilikId: "sales-3",
+  namaPemilik: null,
   paketDiminati: null,
   createdAt: "2026-09-01T00:00:00.000Z",
   email: null,

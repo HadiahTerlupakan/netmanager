@@ -3,7 +3,7 @@ import type { KegiatanHasil, KegiatanJenis } from "@/modules/presurvei/client";
 /** Endpoint koleksi kegiatan; `POST` ke sini mencatat kegiatan baru. */
 export const URL_API_KEGIATAN = "/api/presurvei/kegiatan";
 
-/** Awalan `queryKey` daftar kegiatan; lihat `useKegiatanListQuery.ts:60`. */
+/** Awalan `queryKey` daftar kegiatan; lihat `useKegiatanListQuery.ts:63`. */
 export const KUNCI_DAFTAR_KEGIATAN = "presurvei-kegiatan-list";
 
 /** Nilai medan form; semuanya string karena berasal dari `<input>`. */
@@ -25,7 +25,7 @@ export interface NilaiFormKegiatan {
  * `jenis` bawaannya `TELEPON`, bukan anggota pertama `KEGIATAN_JENIS`
  * (`KUNJUNGAN`). Alasannya bukan selera: `KUNJUNGAN` dan `SURVEI_LOKASI`
  * menuntut koordinat lewat refine pertama `catatKegiatanSchema`
- * (`modules/presurvei/validators/kegiatan.validator.ts:88-93`), sedangkan form
+ * (`modules/presurvei/validators/kegiatan.validator.ts:92-97`), sedangkan form
  * ini sengaja tidak menangkap GPS — jadi membuka modal pada jenis itu berarti
  * menyodorkan form yang pasti ditolak sebelum pemakai mengetik apa pun.
  */
@@ -80,7 +80,7 @@ function keInstanIso(teks: string): string {
  *
  * **Tidak pernah menyertakan data teknis survei** (`odpTerdekat`,
  * `estimasiKabelMeter`, `catatanTeknis`). Refine kedua `catatKegiatanSchema`
- * (`modules/presurvei/validators/kegiatan.validator.ts:94-101`) hanya
+ * (`modules/presurvei/validators/kegiatan.validator.ts:98-105`) hanya
  * menerimanya pada survei lokasi, dan survei lokasi selalu ditolak dari web
  * karena tak berkoordinat (refine pertama, baris 88-93). Medan yang tidak
  * pernah bisa tersimpan tidak punya tempat di form ini; ketiadaannya dijaga

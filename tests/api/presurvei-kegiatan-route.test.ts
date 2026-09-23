@@ -54,6 +54,7 @@ const kegiatanTersimpan: KegiatanEntity = {
   id: ID_KEGIATAN,
   jenis: "TELEPON",
   userId: ID_SESI,
+  namaSales: null,
   prospekId: null,
   iklanId: null,
   waktuMulai: new Date("2026-09-22T08:00:00.000Z"),

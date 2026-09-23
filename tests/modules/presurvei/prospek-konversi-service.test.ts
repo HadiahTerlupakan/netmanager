@@ -293,21 +293,21 @@ describe("ProspekKonversiService.jadikanCanvasing", () => {
     );
   });
 
-  it("meneruskan estimasi kabel nol apa adanya, tidak menggantinya dengan bawaan", async () => {
-    // Dengan `??` nilai 0 lolos dan validator marketing menolaknya (kabel
-    // minimal 1) — survei yang mencatat 0 meter jadi terlihat, bukan tertutup
-    // diam-diam. Dengan `||` nilai 0 akan jatuh ke bawaan dan canvasing lahir
-    // seolah surveinya mencatat angka yang sah.
+  it("memperlakukan estimasi kabel survei nol sebagai tak tercatat, jatuh ke bawaan", async () => {
+    // Survei boleh mencatat 0 (`kegiatan.validator.ts`), canvasing menuntut
+    // minimal 1. Dengan `??` polos, 0 lolos lalu ditolak validator marketing
+    // — SETELAH prospek terlanjur dipindah ke DEAL. Nilai nol diperlakukan
+    // sebagai survei yang tidak mencatat kabel.
     vi.mocked(kegiatanRepo.findMany).mockResolvedValue({
-      items: [kegiatanSurvei({ estimasiKabelMeter: 0 })],
+      items: [kegiatanSurvei({ estimasiKabelMeter: 0, odpTerdekat: "ODP-07" })],
       total: 1,
     });
 
-    await expect(
-      service().jadikanCanvasing("prospek-1", masukan),
-    ).rejects.toThrow();
+    await service().jadikanCanvasing("prospek-1", masukan);
 
-    expect(buatCanvasing).not.toHaveBeenCalled();
+    expect(buatCanvasing).toHaveBeenCalledWith(
+      expect.objectContaining({ kabel: 1, odp: "ODP-07" }),
+    );
   });
 
   it("menolak kabel nol dari body, tidak menggantinya diam-diam", async () => {

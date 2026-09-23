@@ -46,7 +46,7 @@ describe("keMuatanKegiatan", () => {
 
   it("tidak pernah membawa data teknis survei, untuk jenis apa pun", () => {
     // Data teknis hanya diterima pada survei lokasi (refine kedua,
-    // `modules/presurvei/validators/kegiatan.validator.ts:94-101`), dan survei
+    // `modules/presurvei/validators/kegiatan.validator.ts:98-105`), dan survei
     // lokasi selalu ditolak dari web karena tak berkoordinat (refine pertama,
     // baris 88-93). Form web karenanya tidak punya medan data teknis sama
     // sekali — termasuk untuk SURVEI_LOKASI.
@@ -116,7 +116,7 @@ describe("keMuatanKegiatan terhadap catatKegiatanSchema", () => {
 
   it("ditolak untuk jenis lapangan, karena web tidak menangkap koordinat", async () => {
     // Bukan "tersimpan tapi tanpa titik di peta" — schema menolaknya mentah di
-    // refine pertama (`modules/presurvei/validators/kegiatan.validator.ts:88-93`),
+    // refine pertama (`modules/presurvei/validators/kegiatan.validator.ts:92-97`),
     // jadi kunjungan dan survei lokasi TIDAK BISA dicatat dari web sama sekali.
     // Keduanya memang milik aplikasi lapangan; modal hanya perlu mengatakannya
     // sebelum pemakai mengetik.

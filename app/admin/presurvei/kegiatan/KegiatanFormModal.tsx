@@ -15,6 +15,7 @@ import {
   KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS,
   KEGIATAN_JENIS_CONFIG,
+  TOLERANSI_SKEW_JAM_MENIT,
   type KegiatanHasil,
   type KegiatanJenis,
 } from "@/modules/presurvei/client";
@@ -41,14 +42,6 @@ import {
 const PANJANG_NAMA_MAKS = 120;
 const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
-
-/**
- * Toleransi `waktuMulai` di masa depan, mencerminkan `TOLERANSI_SKEW_JAM_MENIT`
- * (`modules/presurvei/validators/kegiatan.validator.ts:38`). Konstanta itu
- * tidak diekspor lewat `@/modules/presurvei/client`, jadi angkanya ditulis ulang
- * di sini dengan alasan yang sama seperti batas panjang di atas.
- */
-const TOLERANSI_WAKTU_MASA_DEPAN_MENIT = 15;
 
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -218,7 +211,7 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
           Peringatan, bukan penghalang — tapi kalimatnya menyebut penolakan
           karena itulah yang benar-benar terjadi. Refine pertama
           `catatKegiatanSchema`
-          (`modules/presurvei/validators/kegiatan.validator.ts:88-93`) menolak
+          (`modules/presurvei/validators/kegiatan.validator.ts:92-97`) menolak
           kunjungan dan survei lokasi yang tanpa koordinat, jadi jenis ini tidak
           sekadar "tersimpan tanpa titik di peta": ia tidak tersimpan sama
           sekali. Form tetap memakai schema yang sama, sehingga penolakannya
@@ -248,7 +241,7 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
           )}
           <p className={KELAS_PETUNJUK}>
             Memakai jam di perangkat Anda, dan tidak boleh lebih dari{" "}
-            {TOLERANSI_WAKTU_MASA_DEPAN_MENIT} menit di masa depan.
+            {TOLERANSI_SKEW_JAM_MENIT} menit di masa depan.
           </p>
         </div>
 

@@ -32,22 +32,21 @@ const PANJANG_KTP_MAKS = 20;
 const PANJANG_TEKS_MAKS = 120;
 
 /**
- * Petunjuk medan kabel. Benar terhadap `ProspekKonversiService.ts:170`
- * (`input.kabel ?? survei?.estimasiKabelMeter ?? KABEL_BAWAAN_METER`, dengan
- * `KABEL_BAWAAN_METER = 1` di `:22`) dan `ambilSurveiTerbaru` (`:142-152`),
+ * Petunjuk medan kabel. Benar terhadap `ProspekKonversiService.ts:176`
+ * (`input.kabel ?? estimasiKabelSurvei(survei) ?? KABEL_BAWAAN_METER`, dengan
+ * `KABEL_BAWAAN_METER = 1` di `:22`) dan `ambilSurveiTerbaru` (`:148-158`),
  * yang mengambil SATU survei lokasi terbaru menurut `waktuMulai`
- * (`KegiatanRepository.ts:31`) — survei lebih lama tidak ikut diperiksa.
+ * (`KegiatanRepository.ts`, `orderBy` di `findMany`) — survei lebih lama
+ * tidak ikut diperiksa.
  *
- * Kalimat terakhirnya bersumber dari dua fakta: estimasi survei boleh 0
- * (`modules/presurvei/validators/kegiatan.validator.ts:77-80`), dan `??`
- * tidak menggantikan 0. Kabel 0 lalu ditolak validator marketing yang
- * menuntut minimal 1 (`modules/marketing/validators/canvasingValidation.ts:62-65`),
- * dan penolakan itu baru datang SETELAH PATCH ke DEAL.
+ * "Mencatat 0 meter" bersumber dari `estimasiKabelSurvei` (`:248-252`):
+ * estimasi di bawah minimum canvasing (`KABEL_MINIMAL_CANVASING_METER = 1`,
+ * `:28`) diperlakukan sama dengan survei yang tidak mencatat kabel.
  */
 export const TEKS_PETUNJUK_KABEL =
-  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter. Bila survei itu mencatat 0 meter, isi kabel di sini: canvasing mensyaratkan minimal 1 meter.";
+  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya, mencatat 0 meter, atau belum ada survei, dipakai 1 meter.";
 
-/** Petunjuk medan ODP; benar terhadap `ProspekKonversiService.ts:171`. */
+/** Petunjuk medan ODP; benar terhadap `ProspekKonversiService.ts:177`. */
 export const TEKS_PETUNJUK_ODP =
   "Kosongkan untuk memakai ODP terdekat dari survei lokasi terakhir prospek ini, bila dicatat.";
 
@@ -279,7 +278,7 @@ interface KonversiModalProps {
  *
  * `kabel` dan `odp` dibiarkan kosong, tidak diisi awal dari survei: server
  * sudah memakai survei lokasi terakhir untuk medan yang kosong
- * (`ProspekKonversiService.ts:170-171`) saat konversi dijalankan. Mengisi
+ * (`ProspekKonversiService.ts:176-177`) saat konversi dijalankan. Mengisi
  * awal di klien berarti dua permintaan tambahan (daftar kegiatan tidak
  * membawa data teknis), dan daftar kegiatan bagi pemakai tanpa izin lihat-
  * semua hanya memuat kegiatannya sendiri (`app/api/presurvei/kegiatan/route.ts:31-37`)

@@ -7,7 +7,7 @@ import {
   type KegiatanListItemDto,
 } from "@/modules/presurvei/client";
 
-import { teksWaktuKegiatan } from "./kegiatanListQuery";
+import { teksSalesKegiatan, teksWaktuKegiatan } from "./kegiatanListQuery";
 
 interface Props {
   baris: KegiatanListItemDto[];
@@ -49,7 +49,12 @@ const kolom: Column<KegiatanListItemDto>[] = [
     priority: "primary",
     render: teksWaktuKegiatan,
   },
-  { key: "userId", header: "Sales", priority: "primary" },
+  {
+    key: "userId",
+    header: "Sales",
+    priority: "primary",
+    render: teksSalesKegiatan,
+  },
   {
     key: "jenis",
     header: "Jenis",

@@ -3,6 +3,10 @@ import type {
   ProspekStatus,
   ProspekSumber,
 } from "../domain/entities/Prospek";
+import {
+  namaSalesSatuTenant,
+  type IdentitasSalesBertenant,
+} from "../domain/nama-sales";
 
 /**
  * Pemetaan baris Prisma ke entitas domain prospek.
@@ -34,6 +38,11 @@ export interface ProspekRow {
   tenantId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Pemilik hasil `include` (`SERTAKAN_PEMILIK` di repository). Opsional: baris
+   * yang diambil tanpa join tetap bisa dipetakan, dengan `namaPemilik` null.
+   */
+  pemilik?: IdentitasSalesBertenant | null;
 }
 
 /** Ubah satu baris prospek dari database menjadi entitas domain. */
@@ -53,6 +62,7 @@ export function toProspekEntity(row: ProspekRow): ProspekEntity {
     referralNama: row.referralNama,
     status: row.status as ProspekStatus,
     pemilikId: row.pemilikId,
+    namaPemilik: namaSalesSatuTenant(row.pemilik, row.tenantId),
     paketDiminati: row.paketDiminati,
     catatan: row.catatan,
     canvasingId: row.canvasingId,

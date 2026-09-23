@@ -51,7 +51,7 @@ import type { ProspekDetailDto } from "@/modules/presurvei/client";
  * palsu.
  */
 const PETUNJUK_KABEL =
-  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter. Bila survei itu mencatat 0 meter, isi kabel di sini: canvasing mensyaratkan minimal 1 meter.";
+  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya, mencatat 0 meter, atau belum ada survei, dipakai 1 meter.";
 const PETUNJUK_ODP =
   "Kosongkan untuk memakai ODP terdekat dari survei lokasi terakhir prospek ini, bila dicatat.";
 const TEKS_DUA_LANGKAH =
@@ -88,6 +88,7 @@ function rincian(ubahan: Partial<ProspekDetailDto>): ProspekDetailDto {
     sumber: "LAPANGAN",
     status: "NEGOSIASI",
     pemilikId: "sales-3",
+    namaPemilik: null,
     paketDiminati: null,
     createdAt: "2026-09-01T00:00:00.000Z",
     email: null,

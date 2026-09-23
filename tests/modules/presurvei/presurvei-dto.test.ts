@@ -35,6 +35,7 @@ const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity =>
     referralNama: null,
     status: "BARU",
     pemilikId: "user-1",
+    namaPemilik: null,
     paketDiminati: null,
     catatan: null,
     canvasingId: null,
@@ -51,6 +52,7 @@ const kegiatan = (over: Partial<KegiatanEntity> = {}): KegiatanEntity =>
     id: "kegiatan-1",
     jenis: "KUNJUNGAN",
     userId: "user-1",
+    namaSales: null,
     prospekId: null,
     iklanId: null,
     waktuMulai: WAKTU,
@@ -77,6 +79,37 @@ describe("toProspekListItem", () => {
     expect(toProspekListItem(prospek()).createdAt).toBe(
       "2026-09-22T01:00:00.000Z",
     );
+  });
+});
+
+describe("toProspekListItem — nama pemilik dan canvasing", () => {
+  it("membawa nama pemilik dan canvasing ke daftar", () => {
+    // Nilai sengaja berbeda-beda: `pemilikId` dan `namaPemilik` sama-sama
+    // string, jadi tertukarnya hanya terlihat bila nilainya tidak kembar.
+    const item = toProspekListItem(
+      prospek({
+        pemilikId: "user-9",
+        namaPemilik: "Rina",
+        canvasingId: "canvasing-3",
+      }),
+    );
+
+    expect(item).toMatchObject({
+      pemilikId: "user-9",
+      namaPemilik: "Rina",
+      canvasingId: "canvasing-3",
+    });
+  });
+
+  it("mengirim null, bukan undefined, untuk nama dan canvasing yang kosong", () => {
+    // `strictNullChecks: false` meloloskan entitas tanpa field ini; `undefined`
+    // hilang dari JSON dan klien menerima kontrak yang berbeda dari tipenya.
+    const item = toProspekListItem(
+      prospek({ namaPemilik: undefined, canvasingId: undefined }),
+    );
+
+    expect(item.namaPemilik).toBeNull();
+    expect(item.canvasingId).toBeNull();
   });
 });
 
@@ -114,6 +147,23 @@ describe("toKegiatanListItem", () => {
 
     expect(hasil.latitude).toBeNull();
     expect(hasil.longitude).toBeNull();
+  });
+});
+
+describe("toKegiatanListItem — nama sales", () => {
+  it("membawa nama pelaku di samping id-nya", () => {
+    const item = toKegiatanListItem(
+      kegiatan({ userId: "user-7", namaSales: "Budi Sales" }),
+    );
+
+    expect(item.userId).toBe("user-7");
+    expect(item.namaSales).toBe("Budi Sales");
+  });
+
+  it("mengirim null, bukan undefined, saat nama tidak tersedia", () => {
+    expect(
+      toKegiatanListItem(kegiatan({ namaSales: undefined })).namaSales,
+    ).toBeNull();
   });
 });
 

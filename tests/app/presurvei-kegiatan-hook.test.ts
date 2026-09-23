@@ -68,6 +68,7 @@ vi.mock("@tanstack/react-query", () => ({
             id: "keg-1",
             jenis: "KUNJUNGAN",
             userId: "sales-9",
+            namaSales: "Wati",
             prospekId: null,
             waktuMulai: "2026-09-22T01:30:00.000Z",
             alamatDikunjungi: "Jl. Melati 3",
@@ -81,6 +82,7 @@ vi.mock("@tanstack/react-query", () => ({
             id: "keg-2",
             jenis: "TELEPON",
             userId: "sales-2",
+            namaSales: "Andi",
             prospekId: null,
             waktuMulai: "2026-09-23T04:15:00.000Z",
             alamatDikunjungi: null,
@@ -97,6 +99,16 @@ vi.mock("@tanstack/react-query", () => ({
       isPending: false,
     };
   },
+}));
+
+// Hook daftar sales punya `useQuery`-nya sendiri; di-stub di sini supaya
+// `useQuery` palsu di atas tetap hanya melayani daftar kegiatan. Kabel hook itu
+// sendiri diuji di `presurvei-daftar-sales-hook.test.ts`.
+vi.mock("@/app/admin/presurvei/useDaftarSalesPresurvei", () => ({
+  useDaftarSalesPresurvei: () => [
+    { id: "sales-9", nama: "Wati" },
+    { id: "sales-5", nama: "Eko" },
+  ],
 }));
 
 import { useKegiatanListQuery } from "@/app/admin/presurvei/kegiatan/useKegiatanListQuery";
@@ -184,10 +196,17 @@ describe("useKegiatanListQuery", () => {
     });
   });
 
-  it("menurunkan pilihan sales dari baris yang sedang tampil", () => {
+  it("menggabungkan daftar sales tenant dengan pelaku baris yang sedang tampil", () => {
+    // Menembak argumen PERTAMA dan KEDUA `opsiSales`: sales-5 hanya ada di
+    // daftar sales, sales-2 hanya ada di baris. Melupakan salah satunya
+    // menghapus satu orang dari <select>.
     const hook = useKegiatanListQuery();
 
-    expect(hook.idSalesTersedia).toEqual(["sales-2", "sales-9"]);
+    expect(hook.salesTersedia).toEqual([
+      { id: "sales-2", nama: "Andi" },
+      { id: "sales-5", nama: "Eko" },
+      { id: "sales-9", nama: "Wati" },
+    ]);
   });
 
   it("menyertakan sales terpilih pada pilihan walau tidak ada barisnya", () => {
@@ -198,10 +217,11 @@ describe("useKegiatanListQuery", () => {
 
     // Render berikutnya: filter sudah memuat sales-404, sementara baris yang
     // dikembalikan server tetap sales-9 dan sales-2.
-    expect(useKegiatanListQuery().idSalesTersedia).toEqual([
-      "sales-2",
-      "sales-404",
-      "sales-9",
+    expect(useKegiatanListQuery().salesTersedia).toEqual([
+      { id: "sales-2", nama: "Andi" },
+      { id: "sales-5", nama: "Eko" },
+      { id: "sales-404", nama: "sales-404" },
+      { id: "sales-9", nama: "Wati" },
     ]);
   });
 

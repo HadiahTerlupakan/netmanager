@@ -3,6 +3,7 @@ import type {
   KegiatanHasil,
   KegiatanJenis,
   KegiatanListItemDto,
+  SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
 const BATAS_TABEL = 20;
@@ -129,30 +130,47 @@ export function filterSetelahPindahHalaman(
 }
 
 /**
- * Pilihan pemilih sales, diturunkan dari baris yang sedang tampil.
+ * Pilihan pemilih sales: daftar sales tenant, dilengkapi pelaku baris yang
+ * sedang tampil dan sales yang sedang terpilih.
  *
- * `KegiatanListItemDto` hanya membawa `userId` — tidak ada nama — dan modul
- * presurvei tidak punya endpoint lookup sales. Dua endpoint yang ada
- * (`/api/admin/users`, `/api/admin/marketing/sales`) menuntut `users:read` dan
- * `sales:read`, permission yang belum tentu dipegang orang ber-`presurvei:read`;
- * memanggilnya dari sini akan menyambut mereka dengan 403 di setiap pembukaan.
+ * `daftarSales` (`GET /api/admin/presurvei/sales`) hanya memuat sales AKTIF,
+ * jadi pelaku kegiatan lama yang sudah dinonaktifkan tetap diambil dari
+ * barisnya — tanpa itu ia tidak bisa lagi dipilih walau kegiatannya tampil.
+ * Label dari `daftarSales` didahulukan: keduanya lahir dari
+ * `tentukanNamaSales`, tapi baris bisa membawa `namaSales` null.
  *
- * `terpilih` selalu ikut walau tidak ada barisnya: tanpa itu, menyaring satu
+ * `terpilih` selalu ikut walau tidak ada di mana pun: tanpa itu, menyaring satu
  * sales lalu mempersempit rentang tanggal sampai nol baris akan menghapus
  * pilihan itu dari `<select>`, sehingga layar menampilkan "Semua sales"
  * padahal filternya masih menyaring satu orang.
  */
 export function opsiSales(
+  daftarSales: readonly SalesPresurveiDto[],
   baris: KegiatanListItemDto[],
   terpilih: string,
-): string[] {
-  const idSales = new Set(baris.map((item) => item.userId));
+): SalesPresurveiDto[] {
+  const namaPerId = new Map<string, string>();
 
-  if (terpilih.trim().length > 0) {
-    idSales.add(terpilih);
-  }
+  if (terpilih.trim().length > 0) namaPerId.set(terpilih, terpilih);
+  for (const item of baris) namaPerId.set(item.userId, teksSalesKegiatan(item));
+  for (const sales of daftarSales) namaPerId.set(sales.id, sales.nama);
 
-  return [...idSales].sort();
+  return [...namaPerId]
+    .map(([id, nama]) => ({ id, nama }))
+    .sort((a, b) => a.nama.localeCompare(b.nama) || a.id.localeCompare(b.id));
+}
+
+/**
+ * Teks kolom "Sales": nama pelaku, atau id-nya bila nama tidak tersedia.
+ *
+ * `namaSales` null bila user tidak bisa ditampilkan (lihat
+ * `namaSalesSatuTenant`); id tetap dicetak supaya baris itu masih bisa
+ * dilacak, sama seperti sebelum nama tersedia.
+ */
+export function teksSalesKegiatan(
+  item: Pick<KegiatanListItemDto, "namaSales" | "userId">,
+): string {
+  return item.namaSales ?? item.userId;
 }
 
 /**

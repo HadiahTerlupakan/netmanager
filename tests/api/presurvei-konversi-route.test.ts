@@ -82,6 +82,7 @@ const prospekSetelahPromosi: ProspekEntity = {
   referralNama: null,
   status: "DEAL",
   pemilikId: ID_SESI,
+  namaPemilik: null,
   paketDiminati: null,
   catatan: null,
   canvasingId: "canvasing-1",

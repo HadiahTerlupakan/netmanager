@@ -41,6 +41,12 @@ export interface ProspekEntity {
   referralNama: string | null;
   status: ProspekStatus;
   pemilikId: string | null;
+  /**
+   * Label pemilik (`tentukanNamaSales`), null bila tak bertuan atau pemiliknya
+   * tidak bisa ditampilkan — termasuk pemilik dari tenant lain
+   * (`namaSalesSatuTenant`).
+   */
+  namaPemilik: string | null;
   paketDiminati: string | null;
   catatan: string | null;
   canvasingId: string | null;

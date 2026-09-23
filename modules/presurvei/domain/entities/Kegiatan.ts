@@ -28,6 +28,11 @@ export interface KegiatanEntity {
   id: string;
   jenis: KegiatanJenis;
   userId: string;
+  /**
+   * Label pelaku (`tentukanNamaSales`), null bila tidak bisa ditentukan —
+   * termasuk bila `userId` menunjuk user di tenant lain (`namaSalesSatuTenant`).
+   */
+  namaSales: string | null;
   prospekId: string | null;
   iklanId: string | null;
   waktuMulai: Date;

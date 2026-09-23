@@ -20,6 +20,12 @@ type PembuatCanvasing = (
 type PenghapusCanvasing = (canvasingId: string) => Promise<void>;
 
 const KABEL_BAWAAN_METER = 1;
+/**
+ * Kabel terpendek yang diterima canvasing
+ * (`modules/marketing/validators/canvasingValidation.ts:62-65`). Survei
+ * presurvei sendiri boleh mencatat 0 (`kegiatan.validator.ts`, `estimasiKabelMeter`).
+ */
+const KABEL_MINIMAL_CANVASING_METER = 1;
 const JUMLAH_KEGIATAN_DIPERIKSA = 1;
 
 /**
@@ -167,7 +173,7 @@ export class ProspekKonversiService {
       salesId: prospek.pemilikId,
       noKtp: input.noKtp,
       paket: input.paket,
-      kabel: input.kabel ?? survei?.estimasiKabelMeter ?? KABEL_BAWAAN_METER,
+      kabel: input.kabel ?? estimasiKabelSurvei(survei) ?? KABEL_BAWAAN_METER,
       odp: input.odp ?? survei?.odpTerdekat ?? null,
       sn: input.sn ?? null,
       foto: input.foto ?? survei?.fotoUrls[0] ?? null,
@@ -225,4 +231,22 @@ export class ProspekKonversiService {
       }
     })();
   }
+}
+
+/**
+ * Estimasi kabel survei yang layak dipakai canvasing, atau null.
+ *
+ * Survei boleh mencatat 0 meter, sedangkan canvasing menuntut minimal 1. Nilai
+ * di bawah minimum diperlakukan sama dengan survei yang tidak mencatat kabel —
+ * jatuh ke `KABEL_BAWAAN_METER` — bukan diteruskan untuk ditolak: layar admin
+ * mengirim `PATCH` ke DEAL lebih dulu lalu baru `POST` konversi
+ * (`app/admin/presurvei/prospek/useJadikanCanvasing.ts:97-114`), jadi
+ * penolakan itu datang setelah statusnya terlanjur berubah, dan pemakai tidak
+ * pernah mengetik angka 0 itu sendiri. Kabel 0 yang DIKIRIM
+ * pemanggil tidak melewati fungsi ini dan tetap ditolak terang-terangan.
+ */
+function estimasiKabelSurvei(survei: KegiatanEntity | null): number | null {
+  const estimasi = survei?.estimasiKabelMeter ?? null;
+  if (estimasi === null) return null;
+  return estimasi >= KABEL_MINIMAL_CANVASING_METER ? estimasi : null;
 }

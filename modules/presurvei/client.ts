@@ -51,6 +51,7 @@ export { isIklanBerjalan } from "./domain/iklan-rules";
 export {
   catatKegiatanSchema,
   daftarKegiatanSchema,
+  TOLERANSI_SKEW_JAM_MENIT,
 } from "./validators/kegiatan.validator";
 
 export {
@@ -82,6 +83,7 @@ export type {
 export type { ProspekDetailDto, ProspekListItemDto } from "./dto/prospek.dto";
 export type { IklanDetailDto, IklanListItemDto } from "./dto/iklan.dto";
 export type { BarisLaporanDto, TargetDto } from "./dto/target.dto";
+export type { SalesPresurveiDto } from "./dto/sales.dto";
 
 export {
   IKLAN_CHANNEL_CONFIG,

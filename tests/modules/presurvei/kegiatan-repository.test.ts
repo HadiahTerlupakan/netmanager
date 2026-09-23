@@ -72,6 +72,19 @@ const barisKegiatan = (over: Partial<KegiatanRow> = {}): KegiatanRow => ({
   ...over,
 });
 
+/**
+ * `include` yang wajib ikut di setiap panggilan yang mengembalikan entitas.
+ * Ditulis ulang sebagai literal, bukan diimpor dari `sertakan-sales.ts`:
+ * test yang memakai konstanta yang sama tetap hijau bila konstanta itu
+ * kehilangan `tenantId` — kolom yang dibutuhkan penjaga tenant di mapper.
+ */
+const SERTAKAN_PELAKU = {
+  user: { select: { name: true, email: true, tenantId: true } },
+};
+const SERTAKAN_PEMILIK = {
+  pemilik: { select: { name: true, email: true, tenantId: true } },
+};
+
 const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
   id: "prospek-baru",
   nama: "Budi",
@@ -165,6 +178,49 @@ describe("KegiatanRepository.findMany", () => {
     });
   });
 
+  it("menyertakan pelaku untuk nama sales di baris daftar", async () => {
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+
+    await new KegiatanRepository().findMany({ page: 1, limit: 10 });
+
+    expect(
+      vi.mocked(prisma.presurveiKegiatan.findMany).mock.calls[0][0]?.include,
+    ).toEqual(SERTAKAN_PELAKU);
+  });
+
+  it("membawa nama pelaku satu tenant dan menyembunyikan pelaku tenant lain", async () => {
+    // `include` bersarang tidak disaring ekstensi tenant. Baris tenant-1 yang
+    // menunjuk user tenant-2 harus kehilangan namanya, bukan mencetak nama
+    // orang dari tenant lain.
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([
+      barisKegiatan({
+        id: "kegiatan-sendiri",
+        user: { name: "Rina", email: "rina@t1.id", tenantId: "tenant-1" },
+      }),
+      barisKegiatan({
+        id: "kegiatan-silang",
+        userId: "user-asing",
+        user: {
+          name: "Orang Asing",
+          email: "asing@t2.id",
+          tenantId: "tenant-2",
+        },
+      }),
+    ] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(2 as never);
+
+    const hasil = await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+    });
+
+    expect(hasil.items.map((item) => [item.id, item.namaSales])).toEqual([
+      ["kegiatan-sendiri", "Rina"],
+      ["kegiatan-silang", null],
+    ]);
+  });
+
   it("menggabungkan filter sederhana dan rentang tanggal sekaligus", async () => {
     // Tiap filter tunggal sudah punya testnya sendiri, tapi itu tidak menangkap
     // penggabungan yang saling menimpa — satu key yang hilang saat di-spread
@@ -220,6 +276,7 @@ describe("KegiatanRepository.create", () => {
         waktuMulai: new Date("2026-09-22T01:00:00.000Z"),
         hasil: "PERLU_FOLLOWUP",
       },
+      include: SERTAKAN_PELAKU,
     });
     expect(hasil.id).toBe("kegiatan-1");
   });
@@ -250,13 +307,20 @@ describe("KegiatanRepository.findById", () => {
       catatanTeknis: "perlu tiang tambahan",
       siteId: "site-1",
     });
-    vi.mocked(prisma.presurveiKegiatan.findUnique).mockResolvedValue(
-      baris as never,
-    );
+    vi.mocked(prisma.presurveiKegiatan.findUnique).mockResolvedValue({
+      ...baris,
+      user: { name: null, email: "tanpa-nama@t1.id", tenantId: "tenant-1" },
+    } as never);
 
     const hasil = await new KegiatanRepository().findById("kegiatan-1");
 
-    expect(hasil).toEqual({ ...baris });
+    // `user` hasil join tidak ikut ke entitas; yang ikut hanya labelnya —
+    // email, karena `name` null.
+    expect(hasil).toEqual({ ...baris, namaSales: "tanpa-nama@t1.id" });
+    expect(prisma.presurveiKegiatan.findUnique).toHaveBeenCalledWith({
+      where: { id: "kegiatan-1" },
+      include: SERTAKAN_PELAKU,
+    });
   });
 });
 
@@ -298,6 +362,7 @@ describe("KegiatanRepository.createDenganProspek", () => {
     expect(transaksiTerpanggil).toHaveBeenCalledOnce();
     expect(buatProspekDalamTransaksi).toHaveBeenCalledWith({
       data: masukanProspek,
+      include: SERTAKAN_PEMILIK,
     });
     expect(hasil.prospek.id).toBe(prospekTersimpan.id);
   });
@@ -314,6 +379,7 @@ describe("KegiatanRepository.createDenganProspek", () => {
 
     expect(buatKegiatanDalamTransaksi).toHaveBeenCalledWith({
       data: expect.objectContaining({ prospekId: prospekTersimpan.id }),
+      include: SERTAKAN_PELAKU,
     });
   });
 

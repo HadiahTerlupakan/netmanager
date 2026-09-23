@@ -34,8 +34,12 @@ const MENIT_KE_MS = 60 * 1000;
  * skew wajar, tapi jauh lebih sempit daripada salah ketik tahun yang akan
  * menempelkan satu kegiatan di puncak setiap daftar selamanya (daftar kegiatan
  * diurutkan `waktuMulai: "desc"`).
+ *
+ * Diekspor lewat `modules/presurvei/client.ts` supaya petunjuk di
+ * `KegiatanFormModal.tsx` menyebut angka yang sama dengan yang ditegakkan di
+ * sini, bukan salinan tangan yang bisa menyimpang.
  */
-const TOLERANSI_SKEW_JAM_MENIT = 15;
+export const TOLERANSI_SKEW_JAM_MENIT = 15;
 const TOLERANSI_SKEW_JAM_MS = TOLERANSI_SKEW_JAM_MENIT * MENIT_KE_MS;
 
 /**

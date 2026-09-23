@@ -74,7 +74,7 @@ export function daftarHalaman(sampai: number): number[] {
  * Kartu seluruh halaman yang sudah dimuat, berurutan dan tanpa kembar.
  *
  * Kembar itu nyata, bukan teoretis: daftar diurutkan `createdAt desc` dengan
- * `skip` offset (`modules/presurvei/repositories/ProspekRepository.ts:39-44`),
+ * `skip` offset (`modules/presurvei/repositories/ProspekRepository.ts:43-49`),
  * jadi satu prospek baru yang masuk di antara dua pengambilan menggeser semua
  * baris satu posisi ke bawah, dan kartu terakhir halaman satu muncul lagi di
  * awal halaman dua. Kemunculan pertama yang dipertahankan.
@@ -211,4 +211,18 @@ export function teksJumlahKolom(ditampilkan: number, total: number): string {
  */
 export function isTakBertuan(item: Pick<ProspekListItemDto, "pemilikId">) {
   return (item.pemilikId ?? "").length === 0;
+}
+
+/**
+ * Teks pemilik di kartu: nama pemilik, atau id-nya bila nama tidak tersedia.
+ *
+ * `namaPemilik` null bila pemilik tidak bisa ditampilkan (lihat
+ * `namaSalesSatuTenant`); id tetap dicetak supaya kartu itu masih bisa
+ * dilacak, sama seperti sebelum nama tersedia. Kartu tak bertuan tidak sampai
+ * ke sini — `ProspekCard` menampilkan penandanya sendiri.
+ */
+export function teksPemilikProspek(
+  item: Pick<ProspekListItemDto, "namaPemilik" | "pemilikId">,
+): string {
+  return item.namaPemilik ?? item.pemilikId;
 }

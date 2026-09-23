@@ -63,6 +63,7 @@ export { isIklanBerjalan } from "./domain/iklan-rules";
 export {
   catatKegiatanSchema,
   daftarKegiatanSchema,
+  TOLERANSI_SKEW_JAM_MENIT,
 } from "./validators/kegiatan.validator";
 
 export {
@@ -102,6 +103,8 @@ export { IklanService } from "./services/IklanService";
 
 export { TargetService, type BarisLaporan } from "./services/TargetService";
 
+export { SalesPresurveiService } from "./services/SalesPresurveiService";
+
 export {
   toKegiatanDetail,
   toKegiatanListItem,
@@ -130,10 +133,13 @@ export {
   type TargetDto,
 } from "./dto/target.dto";
 
+export { toSalesPresurveiDto, type SalesPresurveiDto } from "./dto/sales.dto";
+
 export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/registration-created-presurvei.handler";
 
 // NOTE: ProspekRepository dan KegiatanRepository sengaja TIDAK diekspor
 // (detail implementasi internal).
 // NOTE: prospek.mapper dan kegiatan.mapper sengaja TIDAK diekspor (internal).
+// NOTE: SalesRepository sengaja TIDAK diekspor (internal).
 // NOTE: IklanRepository dan iklan.mapper sengaja TIDAK diekspor (internal),
 // konsisten dengan pola repository/mapper Fase 1 di atas.

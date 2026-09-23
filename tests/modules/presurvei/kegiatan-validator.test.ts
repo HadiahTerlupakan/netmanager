@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
  */
 
 import { catatKegiatanSchema } from "@/modules/presurvei/validators/kegiatan.validator";
+import { TOLERANSI_SKEW_JAM_MENIT } from "@/modules/presurvei/client";
 
 const MENIT_KE_MS = 60 * 1000;
 const JAM_KE_MS = 60 * MENIT_KE_MS;
@@ -102,6 +103,30 @@ describe("catatKegiatanSchema — batas waktu mulai", () => {
     );
 
     expect(hasil.success).toBe(true);
+  });
+
+  it("menegakkan batas masa depan persis sebesar toleransi yang diekspor ke klien", () => {
+    // Konstanta yang sama dibaca `KegiatanFormModal.tsx` untuk petunjuknya.
+    // Test identitas (`toBe(15)`) hanya mengunci angka; yang dijaga di sini
+    // adalah bahwa angka itu memang yang ditegakkan schema — satu menit di
+    // bawahnya lolos, satu menit di atasnya ditolak.
+    const diBawahBatas = catatKegiatanSchema.safeParse(
+      kunjungan({
+        waktuMulai: new Date(
+          Date.now() + (TOLERANSI_SKEW_JAM_MENIT - 1) * MENIT_KE_MS,
+        ),
+      }),
+    );
+    const diAtasBatas = catatKegiatanSchema.safeParse(
+      kunjungan({
+        waktuMulai: new Date(
+          Date.now() + (TOLERANSI_SKEW_JAM_MENIT + 1) * MENIT_KE_MS,
+        ),
+      }),
+    );
+
+    expect(diBawahBatas.success).toBe(true);
+    expect(diAtasBatas.success).toBe(false);
   });
 
   it("menolak waktu mulai jauh di masa depan", () => {

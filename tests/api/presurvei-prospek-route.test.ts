@@ -62,6 +62,7 @@ const prospekTersimpan: ProspekEntity = {
   referralNama: null,
   status: "BARU",
   pemilikId: ID_SESI,
+  namaPemilik: null,
   paketDiminati: null,
   catatan: null,
   canvasingId: null,

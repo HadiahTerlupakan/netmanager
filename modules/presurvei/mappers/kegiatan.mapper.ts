@@ -3,6 +3,10 @@ import type {
   KegiatanHasil,
   KegiatanJenis,
 } from "../domain/entities/Kegiatan";
+import {
+  namaSalesSatuTenant,
+  type IdentitasSalesBertenant,
+} from "../domain/nama-sales";
 
 /**
  * Pemetaan baris Prisma ke entitas domain kegiatan.
@@ -33,6 +37,11 @@ export interface KegiatanRow {
   tenantId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Pelaku hasil `include` (`SERTAKAN_PELAKU` di repository). Opsional: baris
+   * yang diambil tanpa join tetap bisa dipetakan, dengan `namaSales` null.
+   */
+  user?: IdentitasSalesBertenant | null;
 }
 
 /** Ubah satu baris kegiatan dari database menjadi entitas domain. */
@@ -41,6 +50,7 @@ export function toKegiatanEntity(row: KegiatanRow): KegiatanEntity {
     id: row.id,
     jenis: row.jenis as KegiatanJenis,
     userId: row.userId,
+    namaSales: namaSalesSatuTenant(row.user, row.tenantId),
     prospekId: row.prospekId,
     iklanId: row.iklanId,
     waktuMulai: row.waktuMulai,

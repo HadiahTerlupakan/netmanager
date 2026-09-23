@@ -25,6 +25,7 @@ const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity => ({
   referralNama: null,
   status: "BARU",
   pemilikId: "user-1",
+  namaPemilik: null,
   paketDiminati: null,
   catatan: null,
   canvasingId: null,

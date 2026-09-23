@@ -147,7 +147,9 @@ function prospek(ubahan: Partial<ProspekListItemDto>): ProspekListItemDto {
     sumber: "WEBSITE",
     status: "BARU",
     pemilikId: "sales-77",
+    namaPemilik: "Rina Sales",
     paketDiminati: null,
+    canvasingId: null,
     createdAt: "2026-09-22T00:00:00.000Z",
     ...ubahan,
   };
@@ -228,8 +230,16 @@ describe("ProspekCard", () => {
     expect(teks).toContain("Pak Budi");
     expect(teks).toContain("081234567890");
     expect(teks).toContain("Website");
-    expect(teks).toContain("sales-77");
+    expect(teks).toContain("Rina Sales");
+    expect(teks).not.toContain("sales-77");
     expect(teks).not.toContain(TEKS_TAK_BERTUAN);
+  });
+
+  it("jatuh ke id pemilik saat namanya tidak tersedia", async () => {
+    // Nama null bila pemiliknya tak bisa ditampilkan — mis. user tenant lain.
+    await render(<ProspekCard prospek={prospek({ namaPemilik: null })} />);
+
+    expect(container.textContent).toContain("sales-77");
   });
 
   it("menandai kartu yang belum punya pemilik", async () => {
@@ -691,6 +701,24 @@ describe("ProspekKanbanClient — tombol konversi di kartu DEAL", () => {
         .querySelector("[data-modal-konversi]")
         ?.getAttribute("data-modal-konversi"),
     ).toBe("kartu-DEAL");
+  });
+
+  it("tidak menawarkan konversi pada kartu DEAL yang sudah punya canvasing", async () => {
+    palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+      kolomTiba({
+        kartu: [
+          prospek({
+            id: `kartu-${status}`,
+            status,
+            canvasingId: status === "DEAL" ? "cv-lama" : null,
+          }),
+        ],
+        total: 1,
+      }),
+    );
+    await render(<ProspekKanbanClient />);
+
+    expect(tombolKonversiDi("DEAL")).toBeUndefined();
   });
 
   it("tidak menawarkan konversi tanpa permission ubah", async () => {

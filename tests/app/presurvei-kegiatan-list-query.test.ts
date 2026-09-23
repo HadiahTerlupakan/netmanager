@@ -6,10 +6,14 @@ import {
   filterSetelahPindahHalaman,
   filterSetelahUbah,
   opsiSales,
+  teksSalesKegiatan,
   teksWaktuKegiatan,
   type FilterKegiatan,
 } from "@/app/admin/presurvei/kegiatan/kegiatanListQuery";
-import type { KegiatanListItemDto } from "@/modules/presurvei/client";
+import type {
+  KegiatanListItemDto,
+  SalesPresurveiDto,
+} from "@/modules/presurvei/client";
 
 const kosong: FilterKegiatan = {
   page: 1,
@@ -31,6 +35,7 @@ function kegiatan(ubahan: Partial<KegiatanListItemDto>): KegiatanListItemDto {
     id: "keg-1",
     jenis: "KUNJUNGAN",
     userId: "sales-1",
+    namaSales: null,
     prospekId: null,
     waktuMulai: "2026-09-22T01:30:00.000Z",
     alamatDikunjungi: "Jl. Melati 3",
@@ -207,28 +212,109 @@ describe("filterSetelahPindahHalaman", () => {
 });
 
 describe("opsiSales", () => {
-  it("mengumpulkan id sales dari baris tanpa duplikat dan terurut", () => {
+  const TANPA_DAFTAR: SalesPresurveiDto[] = [];
+
+  it("memakai daftar sales tenant beserta namanya, terurut menurut nama", () => {
     expect(
       opsiSales(
         [
-          kegiatan({ userId: "sales-9" }),
-          kegiatan({ userId: "sales-2" }),
-          kegiatan({ userId: "sales-9" }),
+          { id: "sales-9", nama: "Wati" },
+          { id: "sales-2", nama: "Andi" },
+        ],
+        [],
+        "",
+      ),
+    ).toEqual([
+      { id: "sales-2", nama: "Andi" },
+      { id: "sales-9", nama: "Wati" },
+    ]);
+  });
+
+  it("melengkapi daftar dengan pelaku baris yang tidak ada di daftar, tanpa duplikat", () => {
+    // Daftar sales hanya memuat yang AKTIF; pelaku kegiatan lama yang sudah
+    // dinonaktifkan tetap harus bisa dipilih selama kegiatannya tampil.
+    expect(
+      opsiSales(
+        [{ id: "sales-2", nama: "Andi" }],
+        [
+          kegiatan({ userId: "sales-lama", namaSales: "Zaenal" }),
+          kegiatan({ userId: "sales-2", namaSales: "Andi" }),
+          kegiatan({ userId: "sales-lama", namaSales: "Zaenal" }),
         ],
         "",
       ),
-    ).toEqual(["sales-2", "sales-9"]);
+    ).toEqual([
+      { id: "sales-2", nama: "Andi" },
+      { id: "sales-lama", nama: "Zaenal" },
+    ]);
   });
 
-  it("mempertahankan sales terpilih walau barisnya tidak ada", () => {
+  it("mendahulukan nama dari daftar sales atas nama di baris", () => {
+    // Baris bisa membawa `namaSales` null (pelaku tak bisa ditampilkan);
+    // daftar sales tenant tidak pernah.
+    expect(
+      opsiSales(
+        [{ id: "sales-3", nama: "Citra" }],
+        [kegiatan({ userId: "sales-3", namaSales: null })],
+        "",
+      ),
+    ).toEqual([{ id: "sales-3", nama: "Citra" }]);
+  });
+
+  it("memakai id sebagai label pelaku baris yang tidak bernama", () => {
+    expect(
+      opsiSales(
+        TANPA_DAFTAR,
+        [kegiatan({ userId: "sales-tanpa-nama", namaSales: null })],
+        "",
+      ),
+    ).toEqual([{ id: "sales-tanpa-nama", nama: "sales-tanpa-nama" }]);
+  });
+
+  it("mempertahankan sales terpilih walau tidak ada di daftar maupun baris", () => {
     // Menyaring satu sales lalu mempersempit rentang tanggal sampai nol baris
     // akan menghapus pilihan itu dari <select>. Layar lalu menampilkan "Semua
     // sales" padahal filternya masih menyaring satu orang — berbohong diam-diam.
-    expect(opsiSales([], "sales-7")).toEqual(["sales-7"]);
+    expect(opsiSales(TANPA_DAFTAR, [], "sales-7")).toEqual([
+      { id: "sales-7", nama: "sales-7" },
+    ]);
+  });
+
+  it("memberi sales terpilih namanya bila ia ada di daftar", () => {
+    expect(opsiSales([{ id: "sales-7", nama: "Gita" }], [], "sales-7")).toEqual(
+      [{ id: "sales-7", nama: "Gita" }],
+    );
   });
 
   it("tidak menambahkan pilihan kosong saat tidak ada sales terpilih", () => {
-    expect(opsiSales([], "")).toEqual([]);
+    expect(opsiSales(TANPA_DAFTAR, [], "")).toEqual([]);
+  });
+
+  it("tidak mengubah daftar sales yang diterimanya", () => {
+    // Daftar itu milik cache React Query; mengurutkannya di tempat akan
+    // merusak data yang dibagi layar lain.
+    const daftar = Object.freeze([
+      Object.freeze({ id: "sales-9", nama: "Wati" }),
+      Object.freeze({ id: "sales-2", nama: "Andi" }),
+    ]);
+
+    opsiSales(daftar, [], "");
+
+    expect(daftar.map((sales) => sales.id)).toEqual(["sales-9", "sales-2"]);
+  });
+});
+
+describe("teksSalesKegiatan", () => {
+  it("menampilkan nama pelaku bila ada", () => {
+    expect(
+      teksSalesKegiatan(kegiatan({ userId: "sales-1", namaSales: "Rina" })),
+    ).toBe("Rina");
+  });
+
+  it("jatuh ke id pelaku saat nama null", () => {
+    expect(
+      teksSalesKegiatan(kegiatan({ userId: "sales-1", namaSales: null })),
+    ).toBe("sales-1");
   });
 });
 

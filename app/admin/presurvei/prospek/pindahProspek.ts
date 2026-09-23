@@ -62,7 +62,7 @@ export type NasibKartuPindah =
  * - `tampil`: ada di salah satu halaman yang dirender.
  * - `di-luar-muatan`: semua halaman kolom tujuan sudah diambil ulang dan
  *   kartunya tidak ada — kolom diurutkan `createdAt desc`, bukan waktu pindah
- *   (`modules/presurvei/repositories/ProspekRepository.ts:41-43`), jadi
+ *   (`modules/presurvei/repositories/ProspekRepository.ts:45-47`), jadi
  *   prospek lama mendarat di halaman yang belum dimuat.
  * - `kolom-tak-termuat`: ada halaman yang gagal atau belum diambil ulang, atau
  *   kolom tujuan tidak dirender sama sekali (mis. sakelar kolom mati

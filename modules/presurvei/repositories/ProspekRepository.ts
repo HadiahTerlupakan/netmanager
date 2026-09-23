@@ -10,6 +10,7 @@ import type {
 } from "../domain/ports/IProspekRepository";
 import type { RentangPeriode } from "../domain/ports/IKegiatanRepository";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
+import { SERTAKAN_PEMILIK } from "./sertakan-sales";
 
 /**
  * Batas jumlah prospek sebobot nomor yang diambil saat memeriksa duplikat.
@@ -27,6 +28,9 @@ const BATAS_PERIKSA_DUPLIKAT = 10;
  *
  * Memakai klien Prisma ber-ekstensi isolasi tenant, sehingga penyaringan
  * tenantId ditegakkan di lapisan database dan tidak ditulis ulang di sini.
+ * Pengecualiannya join nama sales (`sertakan-sales.ts`): `include` bersarang
+ * tidak dijangkau ekstensi, jadi tenant-nya dijaga mapper lewat
+ * `namaSalesSatuTenant`.
  */
 export class ProspekRepository implements IProspekRepository {
   /** Ambil satu halaman prospek beserta jumlah totalnya. */
@@ -41,6 +45,7 @@ export class ProspekRepository implements IProspekRepository {
         orderBy: { createdAt: "desc" },
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
+        include: SERTAKAN_PEMILIK,
       }),
       prisma.presurveiProspek.count({ where }),
     ]);
@@ -53,7 +58,10 @@ export class ProspekRepository implements IProspekRepository {
 
   /** Ambil satu prospek berdasarkan id, null bila tidak ditemukan. */
   async findById(id: string): Promise<ProspekEntity | null> {
-    const row = await prisma.presurveiProspek.findUnique({ where: { id } });
+    const row = await prisma.presurveiProspek.findUnique({
+      where: { id },
+      include: SERTAKAN_PEMILIK,
+    });
     return row ? toProspekEntity(row as ProspekRow) : null;
   }
 
@@ -63,6 +71,7 @@ export class ProspekRepository implements IProspekRepository {
       where: { noTelp },
       orderBy: { createdAt: "desc" },
       take: BATAS_PERIKSA_DUPLIKAT,
+      include: SERTAKAN_PEMILIK,
     });
     return rows.map((row) => toProspekEntity(row as ProspekRow));
   }
@@ -73,13 +82,17 @@ export class ProspekRepository implements IProspekRepository {
   ): Promise<ProspekEntity | null> {
     const row = await prisma.presurveiProspek.findUnique({
       where: { registrationId },
+      include: SERTAKAN_PEMILIK,
     });
     return row ? toProspekEntity(row as ProspekRow) : null;
   }
 
   /** Simpan prospek baru. */
   async create(input: CreateProspekInput): Promise<ProspekEntity> {
-    const row = await prisma.presurveiProspek.create({ data: input });
+    const row = await prisma.presurveiProspek.create({
+      data: input,
+      include: SERTAKAN_PEMILIK,
+    });
     return toProspekEntity(row as ProspekRow);
   }
 
@@ -88,6 +101,7 @@ export class ProspekRepository implements IProspekRepository {
     const row = await prisma.presurveiProspek.update({
       where: { id },
       data: input,
+      include: SERTAKAN_PEMILIK,
     });
     return toProspekEntity(row as ProspekRow);
   }
@@ -108,6 +122,7 @@ export class ProspekRepository implements IProspekRepository {
       const row = await prisma.presurveiProspek.update({
         where: { id, canvasingId: null },
         data: { canvasingId, konversiAt: new Date() },
+        include: SERTAKAN_PEMILIK,
       });
       return toProspekEntity(row as ProspekRow);
     } catch (error) {

@@ -76,6 +76,8 @@ function kartu(id: string): ProspekListItemDto {
     sumber: "IKLAN",
     status: "TERTARIK",
     pemilikId: null,
+    namaPemilik: null,
+    canvasingId: null,
     paketDiminati: null,
     createdAt: "2026-09-22T00:00:00.000Z",
   };

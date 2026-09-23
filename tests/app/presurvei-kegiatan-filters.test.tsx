@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { KegiatanFilters } from "@/app/admin/presurvei/kegiatan/KegiatanFilters";
 import type { FilterKegiatan } from "@/app/admin/presurvei/kegiatan/kegiatanListQuery";
+import type { SalesPresurveiDto } from "@/modules/presurvei/client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -60,12 +61,15 @@ describe("KegiatanFilters", () => {
     document.body.innerHTML = "";
   });
 
-  async function render(ubahan: Partial<FilterKegiatan>) {
+  async function render(
+    ubahan: Partial<FilterKegiatan>,
+    salesTersedia: SalesPresurveiDto[] = [],
+  ) {
     await act(async () => {
       root.render(
         <KegiatanFilters
           filter={{ ...FILTER_KOSONG, ...ubahan }}
-          idSalesTersedia={[]}
+          salesTersedia={salesTersedia}
           onUbah={() => undefined}
         />,
       );
@@ -111,5 +115,30 @@ describe("KegiatanFilters", () => {
 
     expect(medanTanggal(LABEL_DARI).getAttribute("max")).toBeNull();
     expect(medanTanggal(LABEL_SAMPAI).getAttribute("min")).toBeNull();
+  });
+
+  it("memakai id sales sebagai nilai pilihan dan namanya sebagai label", async () => {
+    // Nilai dan label sengaja berbeda: `value={sales.nama}` akan mengirim nama
+    // sebagai `userId` ke route — lolos `tsc` karena keduanya string — dan
+    // setiap penyaringan sales mengembalikan nol baris tanpa satu pun pesan.
+    await render({ userId: "sales-2" }, [
+      { id: "sales-2", nama: "Andi" },
+      { id: "sales-9", nama: "Wati" },
+    ]);
+
+    const pemilih = container.querySelector(
+      'select[aria-label="Filter sales"]',
+    ) as HTMLSelectElement;
+    const pilihan = [...pemilih.querySelectorAll("option")].map((opsi) => [
+      opsi.value,
+      opsi.textContent,
+    ]);
+
+    expect(pilihan).toEqual([
+      ["", "Semua sales"],
+      ["sales-2", "Andi"],
+      ["sales-9", "Wati"],
+    ]);
+    expect(pemilih.value).toBe("sales-2");
   });
 });

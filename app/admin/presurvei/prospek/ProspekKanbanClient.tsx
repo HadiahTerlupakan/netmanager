@@ -142,7 +142,7 @@ function BadanKolom({
                 onUbahProspek ? () => onUbahProspek(prospek.id) : undefined
               }
               onJadikanCanvasing={
-                isTawarkanKonversi(status, seret.isBolehUbah)
+                isTawarkanKonversi(prospek, seret.isBolehUbah)
                   ? () => onJadikanCanvasing(prospek.id)
                   : undefined
               }

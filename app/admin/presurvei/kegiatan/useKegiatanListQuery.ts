@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import type { KegiatanListItemDto } from "@/modules/presurvei/client";
+
+import { useDaftarSalesPresurvei } from "../useDaftarSalesPresurvei";
 import {
   buildKegiatanListUrl,
   filterSetelahPindahHalaman,
@@ -50,6 +52,7 @@ const FILTER_AWAL: FilterKegiatan = {
 export function useKegiatanListQuery(opsi: { untukPeta?: boolean } = {}) {
   const untukPeta = opsi.untukPeta === true;
   const [filter, setFilter] = useState<FilterKegiatan>(FILTER_AWAL);
+  const daftarSales = useDaftarSalesPresurvei();
 
   const url = useMemo(
     () => buildKegiatanListUrl(filter, { untukPeta }),
@@ -85,7 +88,7 @@ export function useKegiatanListQuery(opsi: { untukPeta?: boolean } = {}) {
     ubahFilter,
     ubahHalaman,
     baris,
-    idSalesTersedia: opsiSales(baris, filter.userId),
+    salesTersedia: opsiSales(daftarSales, baris, filter.userId),
     meta: query.data?.meta,
     isLoading: query.isPending,
   };

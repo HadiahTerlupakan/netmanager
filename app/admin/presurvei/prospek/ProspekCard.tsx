@@ -4,7 +4,7 @@ import {
 } from "@/modules/presurvei/client";
 
 import { LABEL_TOMBOL_JADIKAN_CANVASING } from "./konversiFormState";
-import { isTakBertuan } from "./prospekKolomQuery";
+import { isTakBertuan, teksPemilikProspek } from "./prospekKolomQuery";
 
 /** Penanda kartu tanpa pemilik; juga dipakai test sebagai selektor teks. */
 export const TEKS_TAK_BERTUAN = "Belum ada pemilik";
@@ -29,8 +29,8 @@ interface ProspekCardProps {
 /**
  * Satu kartu prospek di papan.
  *
- * Pemilik ditampilkan sebagai `pemilikId` apa adanya: DTO presurvei belum
- * membawa nama sales, dan sumber namanya dijadwalkan sebagai Task 20.
+ * Pemilik ditampilkan dengan namanya (`teksPemilikProspek`), jatuh ke id bila
+ * nama tidak tersedia.
  *
  * Kartu tanpa pemilik diberi penanda mencolok. Prospek tak bertuan lahir saat
  * form publik masuk dan tenant belum punya sales aktif; tanpa penanda tidak
@@ -91,7 +91,7 @@ export function ProspekCard({
             className="truncate text-gray-500 dark:text-gray-400"
             title="Pemilik"
           >
-            {prospek.pemilikId}
+            {teksPemilikProspek(prospek)}
           </span>
         )}
         {onUbah && (
