@@ -3623,6 +3623,33 @@ di situ — lihat `cari-sales-teringan.ts` sebagai contoh yang sudah benar.
 **Sebelum mulai:** putuskan apakah nama yang ditampilkan adalah `name`, `username`, atau
 gabungan, dan pastikan konsisten di kedua kebutuhan di atas.
 
+**Tiga titipan dari Task 10-14** — semuanya butuh menyentuh `modules/presurvei/`, jadi
+dikerjakan di sini, bukan di task asalnya:
+
+1. **`canvasingId` di `ProspekListItemDto`.** Tanpa penanda itu, tombol "Jadikan
+   canvasing" (Task 14) tampil di **semua** kartu DEAL, termasuk yang sudah dikonversi;
+   modal hanya bisa bilang "sudah dijadikan canvasing" setelah dibuka. Tambahkan field-nya
+   ke list DTO, lalu sembunyikan tombol di kartu yang sudah punya canvasing.
+2. **Kabel 0 dari survei.** `ProspekKonversiService.ts:170` memakai
+   `input.kabel ?? survei?.estimasiKabelMeter ?? KABEL_BAWAAN_METER`. Survei boleh
+   mencatat 0 (`kegiatan.validator.ts:77-80`), dan `??` tidak mengganti 0 — sementara
+   canvasing mensyaratkan minimal 1 (`modules/marketing/validators/canvasingValidation.ts:62-65`).
+   Akibatnya prospek sudah terlanjur DEAL lalu konversinya ditolak 400. Perlakukan survei
+   ber-0 meter sebagai tak ada (bawaan 1 m) — atau tolak sebelum langkah PATCH; pilih dan
+   jelaskan. Setelah itu, perbarui petunjuk kabel di `KonversiModal.tsx` supaya tetap benar
+   terhadap perilaku server yang baru.
+3. **Toleransi waktu masa depan.** `TOLERANSI_WAKTU_MASA_DEPAN_MENIT` di
+   `app/admin/presurvei/kegiatan/KegiatanFormModal.tsx` adalah salinan tangan dari
+   `TOLERANSI_SKEW_JAM_MENIT` (`kegiatan.validator.ts:38`); mengubah salah satunya tidak
+   memerahkan apa pun. Ekspor konstanta validator lewat `modules/presurvei/client.ts` dan
+   pakai itu di modal.
+
+**Perhatian tenant — wajib dibaca sebelum menulis join.** Ekstensi Prisma tenant
+(`lib/prisma-extension.ts`) **tidak menjangkau `where` yang bersarang** di dalam
+`include`/`select`, dan pada system context (`isSuperAdmin: true`) ia tidak menyaring apa
+pun. Endpoint daftar sales wajib menyaring `tenantId` secara eksplisit, dan test-nya wajib
+membuktikan sales tenant lain **tidak** ikut muncul.
+
 ---
 
 ## Task 21: Jalur ubah kegiatan di backend
