@@ -6,10 +6,11 @@ import { keteranganPeta, type RingkasanTakTergambar } from "./titikPeta";
  * Keterangan di bawah peta: kegiatan mana yang TIDAK tergambar, dan kenapa.
  *
  * Berdiri sebagai komponennya sendiri, bukan potongan JSX di dalam
- * `KegiatanPeta`, karena di sana ia hanya terjangkau dengan membangun peta
- * OpenLayers di atas kanvas yang tidak dipunyai jsdom. Di sini ia presentasional
- * murni — props masuk, JSX keluar — sehingga kabelnya bisa dijaga render
- * sungguhan di `tests/app/presurvei-peta-keterangan.test.tsx`.
+ * `KegiatanPeta`, karena menjangkaunya di sana menuntut belasan mock modul `ol`
+ * yang tidak menegaskan apa pun tentang petanya — lebih mahal daripada nilainya,
+ * BUKAN tak terjangkau. Di sini ia presentasional murni — props masuk, JSX
+ * keluar — sehingga kabelnya dijaga render sungguhan di
+ * `tests/app/presurvei-peta-keterangan.test.tsx` seharga 1,7 detik.
  *
  * Props-nya memakai nama field `RingkasanTakTergambar` apa adanya supaya
  * meneruskannya tertukar terbaca salah di JSX pemanggil, tanpa menjalankan

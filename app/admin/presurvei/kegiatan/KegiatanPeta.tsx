@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { KegiatanPetaKeterangan } from "./KegiatanPetaKeterangan";
-import type { TitikKegiatan } from "./titikPeta";
+import { koordinatLonLat, type TitikKegiatan } from "./titikPeta";
 
 interface Props {
   titik: TitikKegiatan[];
@@ -66,8 +66,27 @@ export default function KegiatanPeta({
 
   // Membangun peta sekali saja. Seluruh impor OpenLayers dinamis supaya tidak
   // ada satu pun yang dieksekusi di luar browser.
+  //
+  // Pembatalannya ditulis dengan penanda, bukan dengan fungsi `bersihkan` yang
+  // dirakit di dalam badan async. Yang terakhir itu cacat: `return () =>
+  // bersihkan()` menangkap fungsi kosong yang ada SAAT effect dijalankan,
+  // sementara penggantinya baru dirakit setelah delapan `await import(...)`.
+  // Dengan `reactStrictMode: true` (`next.config.ts:179`), tiap pembukaan tab di dev
+  // menjalankan effect → cleanup → effect; cleanup pertama tidak membuang apa
+  // pun karena impornya belum selesai, lalu KEDUA badan async menyelesaikan
+  // dirinya dan memanggil `new Map({ target })` pada div yang sama — React
+  // mempertahankan node DOM itu lintas remount StrictMode. Hasilnya dua
+  // `.ol-viewport` bersaudara: yang terlihat yang pertama, sementara ketiga ref
+  // di bawah menunjuk yang kedua, sehingga penanda dan popup menempel pada peta
+  // yang terpotong keluar layar. Di produksi jalurnya lebih sempit tapi nyata —
+  // klik "Peta" lalu "Daftar" sebelum modul `ol` selesai dimuat membangun peta
+  // di div yang sudah terlepas, dan tiap toggle yang dibatalkan menambah satu.
+  //
+  // `EmployeeLocationMap.tsx` tidak punya lubang ini karena impornya statis,
+  // jadi badan effect-nya sinkron. Lubangnya lahir dari impor dinamis — yang
+  // tetap benar dan tetap wajib di sini.
   useEffect(() => {
-    let bersihkan = () => {};
+    let isDibatalkan = false;
 
     (async () => {
       if (!wadahPetaRef.current) return;
@@ -85,6 +104,11 @@ export default function KegiatanPeta({
         FullScreen,
         Zoom,
       } = await import("ol/control");
+
+      // Diperiksa SETELAH seluruh `await` dan SEBELUM apa pun dibangun: effect
+      // ini bisa saja sudah dibersihkan selagi modul `ol` dimuat. Tidak ada
+      // `await` lagi di bawah sini, jadi tidak ada celah untuk disisipi.
+      if (isDibatalkan || !wadahPetaRef.current) return;
 
       const lapisanPenanda = new VectorLayer({ source: new VectorSource() });
       lapisanPenandaRef.current = lapisanPenanda;
@@ -140,14 +164,21 @@ export default function KegiatanPeta({
           : "";
       });
 
-      bersihkan = () => {
-        peta.setTarget(undefined);
-      };
-
       setIsPetaSiap(true);
     })();
 
-    return () => bersihkan();
+    // Membuang lewat ref, bukan lewat variabel yang dirakit belakangan: ref-nya
+    // sudah ada sejak render pertama, jadi cleanup ini benar baik saat petanya
+    // sudah jadi (dibuang) maupun saat impornya belum selesai (penanda batal
+    // yang bekerja).
+    return () => {
+      isDibatalkan = true;
+      petaRef.current?.setTarget(undefined);
+      petaRef.current = null;
+      lapisanPenandaRef.current = null;
+      overlayPopupRef.current = null;
+      setIsPetaSiap(false);
+    };
   }, []);
 
   // Menggambar ulang penanda tiap himpunan titik berubah — yaitu tiap filter
@@ -157,16 +188,23 @@ export default function KegiatanPeta({
   useEffect(() => {
     if (!isPetaSiap) return;
 
-    (async () => {
-      const peta = petaRef.current;
-      const sumber = lapisanPenandaRef.current?.getSource();
-      if (!peta || !sumber) return;
+    let isDibatalkan = false;
 
+    (async () => {
       const { default: Feature } = await import("ol/Feature");
       const { default: Point } = await import("ol/geom/Point");
       const { fromLonLat } = await import("ol/proj");
       const { Fill, Stroke, Style } = await import("ol/style");
       const { default: CircleStyle } = await import("ol/style/Circle");
+
+      if (isDibatalkan) return;
+
+      // Ref dibaca SETELAH `await`, bukan sebelum: peta yang dibaca lebih dulu
+      // bisa sudah dibuang saat impornya selesai, dan yang tergambar adalah
+      // penanda di atas peta yang tidak ada lagi.
+      const peta = petaRef.current;
+      const sumber = lapisanPenandaRef.current?.getSource();
+      if (!peta || !sumber) return;
 
       sumber.clear();
 
@@ -178,9 +216,11 @@ export default function KegiatanPeta({
 
       for (const item of titik) {
         const fitur = new Feature({
-          // `fromLonLat` menerima [bujur, lintang] — urutan kebalikan dari cara
-          // koordinat biasa dibaca orang.
-          geometry: new Point(fromLonLat([item.longitude, item.latitude])),
+          // Urutan [bujur, lintang] dirakit `koordinatLonLat` di `titikPeta.ts`
+          // dan diuji di sana. Reference langsung, bukan literal tulis tangan:
+          // menukar keduanya lolos `tsc` dan MENGHILANGKAN seluruh penanda dari
+          // layar tanpa satu pun pesan.
+          geometry: new Point(fromLonLat(koordinatLonLat(item))),
           [KUNCI_TITIK]: item,
         });
         fitur.setId(item.id);
@@ -210,6 +250,10 @@ export default function KegiatanPeta({
         duration: DURASI_FIT_MS,
       });
     })();
+
+    return () => {
+      isDibatalkan = true;
+    };
   }, [titik, isPetaSiap]);
 
   return (

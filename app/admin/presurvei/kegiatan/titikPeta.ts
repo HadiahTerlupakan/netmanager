@@ -76,6 +76,25 @@ export function keTitikPeta(baris: KegiatanListItemDto[]): {
 }
 
 /**
+ * Koordinat titik dalam urutan yang diminta `fromLonLat`: [bujur, lintang].
+ *
+ * Urutan itu kebalikan dari cara koordinat dibaca orang, dan kedua nilainya
+ * `number` — menukarnya lolos `tsc` tanpa keluhan. Akibatnya bukan penanda yang
+ * bergeser sedikit: lintang 106,8° tidak ada, Web Mercator melempar titiknya ke
+ * luar jangkauan, dan SELURUH penanda hilang dari layar tanpa satu pun pesan.
+ * Manajer lalu menyimpulkan timnya tidak bergerak — persis kesalahpahaman yang
+ * seluruh layar ini dibangun untuk mencegah.
+ *
+ * Karena itu ia fungsi murni di berkas ini, bukan literal `[item.longitude,
+ * item.latitude]` di dalam `KegiatanPeta.tsx`: di sana urutannya hanya bisa
+ * dijaga dengan membangun peta sungguhan. `keTitikPeta` yang benar tidak
+ * membuat petanya benar — penukaran kedua inilah yang menentukan.
+ */
+export function koordinatLonLat(titik: TitikKegiatan): [number, number] {
+  return [titik.longitude, titik.latitude];
+}
+
+/**
  * Jumlah kegiatan yang cocok dengan filter tapi tidak ikut terambil.
  *
  * Mode peta meminta `limit=100`, batas tertinggi yang diizinkan validator.
@@ -91,7 +110,10 @@ export function keTitikPeta(baris: KegiatanListItemDto[]): {
  * mengerjakan dua tugas sekaligus karena itu: ia menahan selisih negatif DAN
  * `NaN` (perbandingan apa pun dengan `NaN` bernilai false) keluar ke layar.
  * Penjaga `typeof` terpisah sempat ditulis di sini lalu dibuang — mutasi
- * membuktikannya no-op, tidak ada satu pun masukan yang membedakannya.
+ * membuktikannya no-op untuk setiap masukan yang bisa lolos `tsc` di titik
+ * pakai ini. (Masukan yang membedakannya ADA — string, `null`, `NaN` yang
+ * ditulis langsung — tapi tak satu pun bisa sampai ke sini lewat `meta?.total`
+ * tanpa cast yang tidak ada di kode mana pun.)
  *
  * Satu objek bernama, bukan dua parameter `number` berurutan: menukarnya
  * senyap ke arah yang salah (`terambil - total` selalu negatif, lalu dilantai

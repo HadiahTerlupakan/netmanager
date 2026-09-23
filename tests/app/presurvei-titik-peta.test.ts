@@ -5,6 +5,8 @@ import {
   jumlahDiLuarBatas,
   keTitikPeta,
   keteranganPeta,
+  koordinatLonLat,
+  type TitikKegiatan,
 } from "@/app/admin/presurvei/kegiatan/titikPeta";
 import {
   KEGIATAN_HASIL,
@@ -108,6 +110,41 @@ describe("keTitikPeta", () => {
     const hasil = keTitikPeta([kegiatan({ alamatDikunjungi: null })]);
 
     expect(hasil.titik[0].alamat).toBeNull();
+  });
+});
+
+describe("koordinatLonLat", () => {
+  /**
+   * Nilainya sengaja berlawanan tanda dan berjauhan besarannya: kalau lintang
+   * dan bujur kembar atau berdekatan, tertukarnya tidak terlihat di assertion
+   * mana pun. Literal terpisah, bukan keluaran `keTitikPeta`, supaya penukaran
+   * di kedua fungsi tidak bisa saling meniadakan.
+   */
+  const TITIK_JAKARTA: TitikKegiatan = Object.freeze({
+    id: "kegiatan-1",
+    latitude: -6.2,
+    longitude: 106.8,
+    hasil: "TERTARIK",
+    label: "Tertarik",
+    alamat: "Jl. Merdeka 10",
+    warna: "#f59e0b",
+  });
+
+  it("menaruh bujur di elemen pertama, urutan yang diminta fromLonLat", () => {
+    // Urutan [bujur, lintang] adalah kebalikan dari cara koordinat dibaca
+    // orang, dan keduanya `number` — tertukarnya tidak ditolak compiler.
+    // Akibatnya bukan penanda yang bergeser sedikit: lintang 106,8° tidak ada,
+    // Web Mercator melempar titiknya ke luar jangkauan, dan SELURUH penanda
+    // hilang dari layar tanpa satu pun pesan — persis kesalahpahaman yang
+    // seluruh layar ini dibangun untuk mencegah.
+    const [bujur, lintang] = koordinatLonLat(TITIK_JAKARTA);
+
+    expect(bujur).toBe(106.8);
+    expect(lintang).toBe(-6.2);
+  });
+
+  it("mengembalikan tepat dua elemen", () => {
+    expect(koordinatLonLat(TITIK_JAKARTA)).toHaveLength(2);
   });
 });
 
