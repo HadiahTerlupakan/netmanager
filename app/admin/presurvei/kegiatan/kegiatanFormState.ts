@@ -82,7 +82,7 @@ function keInstanIso(teks: string): string {
  * `estimasiKabelMeter`, `catatanTeknis`). Refine kedua `catatKegiatanSchema`
  * (`modules/presurvei/validators/kegiatan.validator.ts:98-105`) hanya
  * menerimanya pada survei lokasi, dan survei lokasi selalu ditolak dari web
- * karena tak berkoordinat (refine pertama, baris 88-93). Medan yang tidak
+ * karena tak berkoordinat (refine pertama, baris 92-97). Medan yang tidak
  * pernah bisa tersimpan tidak punya tempat di form ini; ketiadaannya dijaga
  * test untuk setiap jenis.
  *
