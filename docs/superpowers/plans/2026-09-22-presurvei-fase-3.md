@@ -83,7 +83,8 @@ Semuanya pernah lolos ke kode dan baru ketahuan lewat mutation testing:
 |---|---|
 | `app/admin/presurvei/prospek/page.tsx` | Server Component, gerbang `presurvei:read`. |
 | `app/admin/presurvei/prospek/ProspekKanbanClient.tsx` | Papan: kolom, seret, sakelar status mati. |
-| `app/admin/presurvei/prospek/useProspekKanban.ts` | Pengambilan + mutasi status. |
+| `app/admin/presurvei/prospek/useProspekKolom.ts` | Pengambilan kartu per kolom (Task 11). |
+| `app/admin/presurvei/prospek/useSeretProspek.ts` | Keputusan dan mutasi seret (Task 12). |
 | `app/admin/presurvei/prospek/ProspekCard.tsx` | Kartu presentasional. |
 | `app/admin/presurvei/prospek/ProspekFormModal.tsx` | Modal buat/ubah prospek. |
 | `app/admin/presurvei/prospek/KonversiModal.tsx` | Modal promosi ke canvasing. |
@@ -453,8 +454,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Penentu aksi saat kartu dijatuhkan ke sebuah kolom. Murni dan di domain,
- * karena interaksi seretnya sendiri tidak dapat diuji — repo ini tidak punya
- * fungsi murni, yang jauh lebih murah daripada merender.
+ * karena menguji keputusannya sebagai fungsi murni jauh lebih murah daripada
+ * merender interaksi seretnya.
  */
 
 import { PROSPEK_STATUSES } from "@/modules/presurvei/domain/entities/Prospek";
@@ -2516,8 +2517,8 @@ Memakai HTML5 drag-drop native, mengikuti `app/admin/planning/PlanningKanbanClie
 import { describe, expect, it, vi } from "vitest";
 
 /**
- * Keputusan seret dipegang hook, bukan komponen: repo ini tidak punya DOM
- * palsu, jadi logika yang tertinggal di dalam handler DOM tidak akan teruji.
+ * Keputusan seret dipegang hook, bukan komponen: menguji handler DOM lewat
+ * render jsdom jauh lebih mahal daripada menguji keputusannya langsung.
  */
 
 import { putuskanSeret } from "@/app/admin/presurvei/prospek/useSeretProspek";
@@ -2591,8 +2592,8 @@ export interface KeputusanSeret {
 /**
  * Apa yang terjadi bila kartu yang sedang diangkat dijatuhkan ke `ke`.
  *
- * Murni dan terpisah dari komponen supaya bisa diuji — interaksi seretnya
- * sendiri tidak dapat diuji tanpa DOM.
+ * Murni dan terpisah dari komponen supaya murah diuji — interaksi seretnya
+ * sendiri lebih mahal diuji daripada nilainya di sini.
  */
 export function putuskanSeret(
   diangkat: KartuDiangkat | null,
