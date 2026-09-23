@@ -59,6 +59,12 @@ export interface RiwayatKegiatanDto {
  * `KegiatanDetailDto` — kegiatan baru belum punya riwayat.
  */
 export interface KegiatanRincianDto extends KegiatanDetailDto {
+  /**
+   * Versi baris (ISO bermilidetik). Klien web mengirimnya kembali sebagai
+   * `versi` pada `PATCH`, supaya perubahan orang lain sejak rincian ini
+   * dimuat ditolak 409 alih-alih tertimpa diam-diam.
+   */
+  updatedAt: string;
   riwayat: RiwayatKegiatanDto[];
 }
 
@@ -129,6 +135,7 @@ export function toKegiatanRincian(rincian: {
 }): KegiatanRincianDto {
   return {
     ...toKegiatanDetail(rincian.kegiatan),
+    updatedAt: rincian.kegiatan.updatedAt.toISOString(),
     riwayat: rincian.riwayat.map(toRiwayatKegiatanDto),
   };
 }

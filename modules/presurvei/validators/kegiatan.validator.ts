@@ -128,23 +128,51 @@ export const daftarKegiatanSchema = z.object({
 const PESAN_UBAH_KOSONG = "Kirim minimal satu medan yang diubah";
 
 /**
+ * Teks ubah yang dirapikan: spasi di kedua ujung dibuang, lalu isian kosong
+ * menjadi `null`. Dikerjakan di schema, bukan di klien, supaya web dan mobile
+ * menghasilkan nilai yang sama dan tidak lahir riwayat `null → ""`. Batas
+ * panjang dihitung setelah dirapikan.
+ */
+const teksUbah = (panjangMaks: number) =>
+  z
+    .string()
+    .trim()
+    .max(panjangMaks)
+    .transform((teks) => (teks === "" ? null : teks))
+    .nullable()
+    .optional();
+
+/**
  * Masukan `PATCH /api/presurvei/kegiatan/[id]`.
  *
- * Hanya `catatan`, `ditemuiNama`, dan `hasil` (lihat
+ * Hanya `catatan`, `ditemuiNama`, dan `hasil` yang bisa diubah (lihat
  * `domain/kegiatan-perubahan.ts`). `.strict()` membuat medan lain DITOLAK
  * dengan 400, bukan dibuang diam-diam — pemanggil yang mengirim `waktuMulai`
  * harus tahu perubahannya tidak tersimpan. Batas hasil lintas kelompok butuh
  * nilai tersimpan, jadi ditegakkan service, bukan di sini.
+ *
+ * `versi` BUKAN medan yang diubah: ia `updatedAt` rincian yang dilihat klien
+ * (ISO bermilidetik, sama presisinya dengan kolom TIMESTAMP(3)), dipakai
+ * sebagai kunci konkurensi optimistis. Opsional supaya klien mobile lama
+ * tetap diterima; tanpa `versi`, kuncinya hanya menjaga jendela di dalam
+ * satu request. Ia tidak dihitung sebagai "ada perubahan" — badan yang hanya
+ * berisi `versi` tetap ditolak.
  */
 export const ubahKegiatanSchema = z
   .object({
-    catatan: z.string().max(PANJANG_CATATAN_MAKS).nullable().optional(),
-    ditemuiNama: z.string().max(PANJANG_NAMA_MAKS).nullable().optional(),
+    catatan: teksUbah(PANJANG_CATATAN_MAKS),
+    ditemuiNama: teksUbah(PANJANG_NAMA_MAKS),
     hasil: z.enum(KEGIATAN_HASIL).optional(),
+    versi: z.iso
+      .datetime()
+      .transform((teks) => new Date(teks))
+      .optional(),
   })
   .strict()
   .refine(
-    (perubahan) =>
-      Object.values(perubahan).some((nilai) => nilai !== undefined),
+    (masukan) =>
+      masukan.catatan !== undefined ||
+      masukan.ditemuiNama !== undefined ||
+      masukan.hasil !== undefined,
     { message: PESAN_UBAH_KOSONG },
   );

@@ -105,10 +105,12 @@ export class KegiatanRepository implements IKegiatanRepository {
    * Tulis perubahan kegiatan dan jejak auditnya dalam satu transaksi.
    *
    * `updateMany` dengan `updatedAt` di `where` adalah kunci konkurensi
-   * optimistis: bila baris sudah disunting pihak lain sejak service
-   * membacanya, tidak ada baris yang cocok, tidak ada yang ditulis, dan
-   * `dari` di jejak audit tidak pernah basi. Pola yang sama dengan
-   * `ProspekRepository.tandaiKonversi` (`canvasingId: null` di `where`).
+   * optimistis: bila baris sudah tidak pada `versi` (lihat port), tidak ada
+   * baris yang cocok, tidak ada yang ditulis, dan service menolak 409.
+   * Seberapa lebar jendela yang dijaga ditentukan asal `versi`: versi klien
+   * menjaga sejak form dibuka, versi bacaan service hanya di dalam satu
+   * request. Pola yang sama dengan `ProspekRepository.tandaiKonversi`
+   * (`canvasingId: null` di `where`).
    */
   async ubahDenganRiwayat(
     input: UbahKegiatanDenganRiwayatInput,

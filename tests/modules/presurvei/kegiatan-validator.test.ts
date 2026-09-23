@@ -235,3 +235,74 @@ describe("ubahKegiatanSchema — medan terlarang ditolak, bukan dibuang", () => 
     expect(hasil.success).toBe(false);
   });
 });
+
+describe("ubahKegiatanSchema — versi yang dilihat klien", () => {
+  it("mengubah versi ISO bermilidetik menjadi Date tanpa kehilangan presisi", () => {
+    // `toISOString()` bermilidetik, sama dengan kolom TIMESTAMP(3).
+    const updatedAt = new Date("2026-09-22T04:00:00.123Z");
+
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: "Baru",
+      versi: updatedAt.toISOString(),
+    });
+
+    expect(hasil.success).toBe(true);
+    expect(hasil.data.versi).toBeInstanceOf(Date);
+    expect(hasil.data.versi.getTime()).toBe(updatedAt.getTime());
+  });
+
+  it("menolak versi yang bukan datetime ISO", () => {
+    expect(
+      ubahKegiatanSchema.safeParse({ catatan: "Baru", versi: "kemarin" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("menolak badan yang hanya berisi versi — versi bukan perubahan", () => {
+    expect(
+      ubahKegiatanSchema.safeParse({ versi: "2026-09-22T04:00:00.123Z" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("tetap menerima badan tanpa versi (klien mobile lama)", () => {
+    const hasil = ubahKegiatanSchema.safeParse({ catatan: "Baru" });
+
+    expect(hasil.success).toBe(true);
+    expect(hasil.data).toEqual({ catatan: "Baru" });
+  });
+});
+
+describe("ubahKegiatanSchema — perapian teks", () => {
+  // Web dan mobile harus menghasilkan nilai yang sama, supaya tidak lahir
+  // riwayat `null → ""` atau `"Budi" → " Budi "`.
+  it("merapikan spasi di kedua ujung", () => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: "  Minta sore  ",
+      ditemuiNama: " Pak Joko ",
+    });
+
+    expect(hasil.data).toEqual({
+      catatan: "Minta sore",
+      ditemuiNama: "Pak Joko",
+    });
+  });
+
+  it("menjadikan isian kosong atau spasi saja sebagai null", () => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: "   ",
+      ditemuiNama: "",
+    });
+
+    expect(hasil.success).toBe(true);
+    expect(hasil.data).toEqual({ catatan: null, ditemuiNama: null });
+  });
+
+  it("menghitung batas panjang setelah dirapikan", () => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: ` ${"x".repeat(1000)} `,
+    });
+
+    expect(hasil.success).toBe(true);
+  });
+});

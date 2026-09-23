@@ -15,6 +15,7 @@ import {
   toKegiatanListItem,
   toKegiatanRincian,
 } from "@/modules/presurvei/dto/kegiatan.dto";
+import { ubahKegiatanSchema } from "@/modules/presurvei/validators/kegiatan.validator";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 import type { KegiatanEntity } from "@/modules/presurvei/domain/entities/Kegiatan";
 
@@ -260,6 +261,7 @@ describe("toKegiatanRincian", () => {
 
     expect(hasil).toEqual({
       ...toKegiatanDetail(kegiatan()),
+      updatedAt: kegiatan().updatedAt.toISOString(),
       riwayat: [
         {
           id: "riwayat-2",
@@ -270,5 +272,25 @@ describe("toKegiatanRincian", () => {
         },
       ],
     });
+  });
+});
+
+describe("toKegiatanRincian — versi", () => {
+  it("membawa updatedAt yang kembali utuh lewat ubahKegiatanSchema", () => {
+    // Round-trip DTO → PATCH: milidetik harus bertahan, kalau tidak setiap
+    // simpan dari web ditolak 409 karena versinya tidak pernah cocok.
+    const updatedAt = new Date("2026-09-22T04:00:00.987Z");
+    const dto = toKegiatanRincian({
+      kegiatan: kegiatan({ updatedAt }),
+      riwayat: [],
+    });
+
+    const hasil = ubahKegiatanSchema.parse({
+      catatan: "Baru",
+      versi: dto.updatedAt,
+    });
+
+    expect(dto.updatedAt).toBe("2026-09-22T04:00:00.987Z");
+    expect(hasil.versi.getTime()).toBe(updatedAt.getTime());
   });
 });

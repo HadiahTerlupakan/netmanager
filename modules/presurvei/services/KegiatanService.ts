@@ -53,6 +53,12 @@ export interface KonteksPengubah {
   idPengubah: string;
   /** Sama artinya dengan `pemilikWajib` pada `detail`. */
   pemilikWajib?: string;
+  /**
+   * `updatedAt` kegiatan saat klien memuat form-nya (`versi` di badan PATCH).
+   * Tanpa ini (klien mobile lama) service memakai versi bacaannya sendiri,
+   * sehingga kunci hanya menjaga jendela di dalam satu request.
+   */
+  versiDilihat?: Date;
 }
 
 /** Muatan pengumuman perubahan kegiatan, tanpa nilai lama/baru. */
@@ -75,7 +81,7 @@ const PESAN_HASIL_LINTAS_KELOMPOK =
   "Hasil ini mengubah apakah kegiatan melahirkan prospek; catat kegiatan baru.";
 
 const PESAN_KEGIATAN_BERUBAH =
-  "Kegiatan ini baru saja diubah orang lain. Muat ulang lalu coba lagi.";
+  "Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.";
 
 /** Pengumum bawaan: event bus, diimpor dinamis seperti `ProspekKonversiService`. */
 const umumkanLewatEventBus: PengumumPerubahanKegiatan = async (muatan) => {
@@ -148,7 +154,8 @@ export class KegiatanService {
    * batas `isHasilMelahirkanProspek` (`isPerubahanHasilSah`). Tidak ada batas
    * waktu: medan yang bisa diubah tidak menggeser angka laporan pencapaian
    * (`KegiatanRepository.hitungPerUser` berkunci `userId` dan `waktuMulai`),
-   * dan jejak audit memberi akuntabilitasnya.
+   * dan jejak audit memberi akuntabilitasnya. Kegiatan yang sudah tidak pada
+   * versi dasar perubahan ditolak 409 (`KonteksPengubah.versiDilihat`).
    */
   async ubah(
     id: string,
@@ -171,7 +178,7 @@ export class KegiatanService {
 
     const diperbarui = await this.repository.ubahDenganRiwayat({
       id,
-      versi: kegiatan.updatedAt,
+      versi: konteks.versiDilihat ?? kegiatan.updatedAt,
       nilaiBaru: nilaiBaruDariPerubahan(perubahan),
       riwayat: {
         tenantId: kegiatan.tenantId,

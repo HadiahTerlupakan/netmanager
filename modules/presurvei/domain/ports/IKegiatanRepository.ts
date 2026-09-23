@@ -59,8 +59,10 @@ export interface RentangPeriode {
 export interface UbahKegiatanDenganRiwayatInput {
   id: string;
   /**
-   * `updatedAt` kegiatan saat dibaca service. Penulisan hanya terjadi bila
-   * baris belum berubah sejak itu, supaya `dari` di jejak audit tidak basi.
+   * Versi baris yang menjadi dasar perubahan ini: `updatedAt` yang dilihat
+   * klien (`versi` di badan PATCH) bila dikirim, selain itu `updatedAt`
+   * bacaan service sendiri — yang hanya menjaga jendela di dalam satu
+   * request. Penulisan hanya terjadi bila baris masih pada versi ini.
    */
   versi: Date;
   nilaiBaru: UbahKegiatanInput;

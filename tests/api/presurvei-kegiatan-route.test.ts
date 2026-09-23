@@ -329,6 +329,40 @@ describe("PATCH /api/presurvei/kegiatan/[id]", () => {
     expect(respons.status).toBe(404);
   });
 
+  it("memisahkan versi dari perubahan dan meneruskannya sebagai Date", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+
+    await mintaUbah({ catatan: "Baru", versi: "2026-09-22T08:00:00.321Z" });
+
+    expect(mockFns.ubah).toHaveBeenCalledWith(
+      ID_KEGIATAN,
+      { catatan: "Baru" },
+      {
+        idPengubah: ID_SESI,
+        pemilikWajib: undefined,
+        versiDilihat: new Date("2026-09-22T08:00:00.321Z"),
+      },
+    );
+  });
+
+  it("tanpa versi (mobile lama), service yang menentukan versinya", async () => {
+    beriPermission(["m_presurvei:update"]);
+
+    await mintaUbah({ catatan: "Baru" });
+
+    const [, , konteks] = mockFns.ubah.mock.calls[0];
+    expect(konteks.versiDilihat).toBeUndefined();
+  });
+
+  it("menolak 400 badan yang hanya berisi versi", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+
+    const respons = await mintaUbah({ versi: "2026-09-22T08:00:00.321Z" });
+
+    expect(respons.status).toBe(400);
+    expect(mockFns.ubah).not.toHaveBeenCalled();
+  });
+
   it("mengembalikan rincian beserta riwayat", async () => {
     beriPermission(["presurvei:read", "presurvei:update"]);
 

@@ -76,6 +76,7 @@ const kegiatanDasar: KegiatanRincianDto = {
   fotoUrls: [],
   dataTeknis: null,
   createdAt: "2026-09-10T02:05:00.000Z",
+  updatedAt: "2026-09-10T03:25:00.000Z",
   riwayat: [],
 };
 

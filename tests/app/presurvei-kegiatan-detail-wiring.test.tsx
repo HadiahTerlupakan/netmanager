@@ -98,6 +98,7 @@ const kegiatanDasar: KegiatanRincianDto = {
     catatanTeknis: "Lewat gang",
   },
   createdAt: "2026-09-10T03:20:00.000Z",
+  updatedAt: "2026-09-10T03:25:00.000Z",
   riwayat: [],
 };
 

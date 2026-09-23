@@ -25,7 +25,9 @@ export const GET = createHandler(
  * hasil. Medan lain ditolak 400 oleh `ubahKegiatanSchema` (`.strict()`).
  *
  * Pemanggil mobile hanya boleh mengubah kegiatannya sendiri (`pemilikWajib`),
- * pemegang permission web kegiatan mana pun di tenantnya. Pengubah yang
+ * pemegang permission web kegiatan mana pun di tenantnya. `versi` (opsional)
+ * adalah `updatedAt` rincian yang dilihat klien; versi basi ditolak 409.
+ * Pengubah yang
  * tercatat di jejak audit selalu identitas sesi; tenant riwayat diturunkan
  * service dari baris kegiatan, bukan dari masukan klien.
  */
@@ -36,9 +38,13 @@ export const PATCH = createHandler(
     schema: ubahKegiatanSchema,
   },
   async (_request, ctx) => {
-    const rincian = await service.ubah(ctx.params.id as string, ctx.validated, {
+    // `versi` bukan medan yang diubah; ia dipisah di sini supaya tidak pernah
+    // sampai ke diff perubahan maupun jejak audit.
+    const { versi, ...perubahan } = ctx.validated;
+    const rincian = await service.ubah(ctx.params.id as string, perubahan, {
       idPengubah: ctx.session!.user.id,
       pemilikWajib: pemilikWajibUntuk(ctx),
+      versiDilihat: versi,
     });
     return apiSuccess(toKegiatanRincian(rincian));
   },

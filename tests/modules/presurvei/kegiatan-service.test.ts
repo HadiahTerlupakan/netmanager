@@ -523,8 +523,30 @@ describe("KegiatanService.ubah", () => {
         { catatan: "Baru" },
         { idPengubah: "admin-3" },
       ),
-    ).rejects.toMatchObject({ statusCode: 409, code: "CONFLICT" });
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "CONFLICT",
+      message:
+        "Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.",
+    });
     expect(umumkan).not.toHaveBeenCalled();
+  });
+
+  it("memakai versi yang dilihat klien sebagai kunci, bukan versi bacaannya sendiri", async () => {
+    // Klien membuka form pada versi lama; server sudah membaca versi yang
+    // lebih baru. Kunci harus versi klien supaya tulisan orang lain di antara
+    // keduanya tidak tertimpa diam-diam.
+    const VERSI_KLIEN = new Date("2026-09-22T03:59:00.456Z");
+
+    await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru" },
+      { idPengubah: "admin-3", versiDilihat: VERSI_KLIEN },
+    );
+
+    expect(repository.ubahDenganRiwayat).toHaveBeenCalledWith(
+      expect.objectContaining({ versi: VERSI_KLIEN }),
+    );
   });
 
   it("mengumumkan perubahan setelah tersimpan, dengan medan yang berubah", async () => {
