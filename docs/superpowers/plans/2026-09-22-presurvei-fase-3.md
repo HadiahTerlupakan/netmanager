@@ -2788,7 +2788,24 @@ Expected: FAIL — modul belum ada.
 
 Create `app/admin/presurvei/prospek/prospekFormState.ts` mengikuti bentuk `iklanFormState.ts` dari Task 6 — helper `teksAtauNull` yang memeriksa string kosong setelah `.trim()`, bukan truthiness.
 
-`keMuatanUbahProspek` **tidak** memuat `pemilikId` maupun `status`. Keduanya punya jalurnya sendiri: kepemilikan ditentukan server, status berpindah lewat papan yang menegakkan aturan transisi.
+`keMuatanUbahProspek` **tidak** memuat `pemilikId` maupun `status`. Keduanya punya jalurnya sendiri: kepemilikan tidak diubah dari form ini, status berpindah lewat papan yang menegakkan aturan transisi.
+
+**Siapa pemilik prospek yang dibuat dari web — tulis apa adanya, jangan dikaburkan.**
+"Kepemilikan ditentukan server" hanya separuh benar. `tentukanPemilikProspek`
+(`app/api/presurvei/akses-presurvei.ts:41-48`) memaksa pemanggil mobile menjadi pemilik,
+tapi untuk pemegang permission web ia memakai `pemilikDiminta ?? idPemanggil`. Form ini
+tidak mengirim `pemilikId`, jadi **prospek yang dibuat admin dari web menjadi milik admin
+itu sendiri**, bukan milik sales. Penugasan ke sales menunggu Task 20 (sumber nama sales);
+sampai saat itu, form wajib mengatakan kepada pemakai bahwa prospek ini akan tercatat atas
+namanya.
+
+**Duplikat nomor telepon wajib ditangani.** `ProspekService.buat` menolak dengan 409
+berkode `DUPLIKAT` bila sudah ada prospek aktif bernomor telepon sama, dan melampirkan
+`{ duplikat }` berisi id, nama, status, dan pemilik prospek yang bentrok
+(`modules/presurvei/services/ProspekService.ts:75-83`). Jangan tampilkan itu sebagai toast
+kesalahan umum. Tampilkan prospek yang bentrok, dan beri pilihan **"Tetap simpan"** yang
+mengirim ulang dengan `abaikanDuplikat: true` — jalur yang sengaja disediakan Fase 1.
+Keputusan "respons ini duplikat atau kesalahan lain" adalah fungsi murni; uji di sana.
 
 - [ ] **Step 4: Tulis modal**
 
