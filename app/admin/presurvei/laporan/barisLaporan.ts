@@ -88,7 +88,7 @@ export function keBarisTampilan(
  * Pesan tabel tanpa baris: gagal memuat dibedakan dari periode kosong.
  *
  * Laporan disusun dari daftar target
- * (`modules/presurvei/services/TargetService.ts:52-53`), jadi laporan kosong
+ * (`modules/presurvei/services/TargetService.ts:53-54,64`), jadi laporan kosong
  * berarti belum ada target — bukan belum ada kegiatan.
  */
 export function pesanLaporanKosong(isError: boolean): string {

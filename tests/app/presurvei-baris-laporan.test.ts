@@ -129,7 +129,7 @@ describe("keBarisTampilan", () => {
 
 describe("pesanLaporanKosong", () => {
   it("membedakan gagal memuat dari periode tanpa target", () => {
-    // Laporan disusun dari daftar target (`TargetService.ts:52-53`), jadi
+    // Laporan disusun dari daftar target (`TargetService.ts:53-54,64`), jadi
     // laporan kosong berarti belum ada target — bukan belum ada kegiatan.
     expect(pesanLaporanKosong(true)).toBe("Laporan gagal dimuat.");
     expect(pesanLaporanKosong(false)).toBe(

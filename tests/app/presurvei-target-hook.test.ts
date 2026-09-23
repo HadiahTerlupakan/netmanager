@@ -49,7 +49,8 @@ vi.mock("react", async () => {
     useState: ((initial: unknown) =>
       mockUseState(initial)) as typeof actual.useState,
     useMemo: ((factory: () => unknown) => factory()) as typeof actual.useMemo,
-    useEffect: (() => undefined) as typeof actual.useEffect,
+    // Effect dijalankan langsung supaya kabel toast gagal ikut teruji.
+    useEffect: ((efek: () => void) => efek()) as typeof actual.useEffect,
   };
 });
 
@@ -74,6 +75,7 @@ describe("useTargetPeriode", () => {
   beforeEach(() => {
     periodeTersimpan = undefined;
     hasilQuery.nilai = HASIL_MEMUAT;
+    toastGagal.mockReset();
     konfigQuery.mockReset();
     mockUseState.mockReset();
     // Nilai awal (lazy initializer) hanya dipakai pada panggilan pertama,
@@ -152,6 +154,26 @@ describe("useTargetPeriode", () => {
     expect(useTargetPeriode().isError).toBe(false);
   });
 
+  it("melaporkan memuat selama GET belum selesai", () => {
+    expect(useTargetPeriode().isLoading).toBe(true);
+  });
+
+  it("memberi tahu pemakai lewat toast saat GET gagal, dan diam saat tidak", () => {
+    useTargetPeriode();
+    expect(toastGagal).not.toHaveBeenCalled();
+
+    const gagal: HasilQueryPalsu = {
+      data: undefined,
+      error: new Error("jaringan putus"),
+      isError: true,
+      isPending: false,
+    };
+    hasilQuery.nilai = gagal;
+    useTargetPeriode();
+
+    expect(toastGagal).toHaveBeenCalledWith("Gagal memuat target");
+  });
+
   it("mengambil dari URL periode yang sama dengan kunci cachenya", async () => {
     periodeTersimpan = { tahun: 2024, bulan: 7 };
     const amplop: { data: unknown[] } = { data: [] };
@@ -210,12 +232,22 @@ describe("useSimpanTarget", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(MUATAN),
     });
+    // Kedua kunci: laporan disusun dari daftar target
+    // (`modules/presurvei/services/TargetService.ts:53-54,64`), jadi laporan
+    // periode yang sama basi begitu targetnya berubah.
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: [
         "presurvei-target-periode",
         "/api/admin/presurvei/target?tahun=2025&bulan=11",
       ],
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: [
+        "presurvei-laporan-periode",
+        "/api/admin/presurvei/laporan?tahun=2025&bulan=11",
+      ],
+    });
+    expect(invalidateQueries).toHaveBeenCalledTimes(2);
     expect(onBerhasil).toHaveBeenCalledTimes(1);
     expect(toastGagal).not.toHaveBeenCalled();
   });

@@ -34,7 +34,8 @@ vi.mock("react", async () => {
     ...actual,
     useState: ((initial: unknown) =>
       mockUseState(initial)) as typeof actual.useState,
-    useEffect: (() => undefined) as typeof actual.useEffect,
+    // Effect dijalankan langsung supaya kabel toast gagal ikut teruji.
+    useEffect: ((efek: () => void) => efek()) as typeof actual.useEffect,
   };
 });
 
@@ -45,7 +46,10 @@ vi.mock("@tanstack/react-query", () => ({
   },
 }));
 
-vi.mock("react-hot-toast", () => ({ toast: { error: vi.fn() } }));
+// Dievaluasi saat factory `vi.mock` berjalan, jadi wajib ikut di-hoist.
+const { toastGagal } = vi.hoisted(() => ({ toastGagal: vi.fn() }));
+
+vi.mock("react-hot-toast", () => ({ toast: { error: toastGagal } }));
 
 import { useLaporanPeriode } from "@/app/admin/presurvei/laporan/useLaporanPeriode";
 
@@ -55,6 +59,7 @@ describe("useLaporanPeriode", () => {
   beforeEach(() => {
     periodeTersimpan = undefined;
     hasilQuery.nilai = HASIL_MEMUAT;
+    toastGagal.mockReset();
     konfigQuery.mockReset();
     mockUseState.mockReset();
     mockUseState.mockImplementation((awal: Periode | (() => Periode)) => {
@@ -147,6 +152,26 @@ describe("useLaporanPeriode", () => {
     };
 
     await expect(queryFn()).rejects.toThrow("Gagal memuat laporan");
+  });
+
+  it("melaporkan memuat selama GET belum selesai", () => {
+    expect(useLaporanPeriode().isLoading).toBe(true);
+  });
+
+  it("memberi tahu pemakai lewat toast saat GET gagal, dan diam saat tidak", () => {
+    useLaporanPeriode();
+    expect(toastGagal).not.toHaveBeenCalled();
+
+    const gagal: HasilQueryPalsu = {
+      data: undefined,
+      error: new Error("jaringan putus"),
+      isError: true,
+      isPending: false,
+    };
+    hasilQuery.nilai = gagal;
+    useLaporanPeriode();
+
+    expect(toastGagal).toHaveBeenCalledWith("Gagal memuat laporan");
   });
 
   it("meneruskan kegagalan GET dan membuka amplop data", () => {

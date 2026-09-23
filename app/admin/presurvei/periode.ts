@@ -31,11 +31,12 @@ const PENGATUR_NAMA_BULAN = new Intl.DateTimeFormat("id-ID", {
  * 1, jadi meneruskannya apa adanya membuat Januari ditolak.
  *
  * UTC dipilih supaya konsisten dengan server: batas bulan pencapaian di
- * `laporanPencapaian` (`modules/presurvei/services/TargetService.ts:52-56`)
+ * `laporanPencapaian` (`modules/presurvei/services/TargetService.ts:56-61`)
  * dihitung dengan `Date.UTC` lewat `bangunRentangBulan` (baris 85-95).
- * Konsekuensi yang diterima: pemakai WIB (UTC+7) yang membuka layar pada
- * tanggal 1 pukul 00:00–06:59 melihat bulan sebelumnya sebagai periode
- * bawaan, dan perlu menggeser pemilih bulan sendiri.
+ * Konsekuensi yang diterima: pemakai di zona UTC+N yang membuka layar pada
+ * N jam pertama tanggal 1 melihat bulan sebelumnya sebagai periode bawaan —
+ * sampai 06:59 WIB, 07:59 WITA, atau 08:59 WIT — dan perlu menggeser pemilih
+ * bulan sendiri.
  */
 export function periodeSekarang(sekarang: Date = new Date()): Periode {
   return {

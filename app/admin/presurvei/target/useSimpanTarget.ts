@@ -6,6 +6,8 @@ import { toast } from "react-hot-toast";
 
 import { formatApiError } from "@/lib/utils/api-response-parser";
 
+import { kunciQueryLaporan } from "../laporan/laporanQuery";
+import type { Periode } from "../periode";
 import { kunciQueryTarget, URL_API_TARGET } from "./periodeQuery";
 import type { MuatanTarget } from "./targetFormState";
 
@@ -40,12 +42,17 @@ export function useSimpanTarget(onBerhasil: () => void) {
       toast.success("Target tersimpan");
 
       // Kunci dibentuk dari periode muatan: periode yang benar-benar
-      // disimpan.
+      // disimpan. Laporan periode itu ikut dibuang karena disusun dari daftar
+      // target (`modules/presurvei/services/TargetService.ts:53-54,64`).
+      const periodeMuatan: Periode = {
+        tahun: muatan.periodeTahun,
+        bulan: muatan.periodeBulan,
+      };
       queryClient.invalidateQueries({
-        queryKey: kunciQueryTarget({
-          tahun: muatan.periodeTahun,
-          bulan: muatan.periodeBulan,
-        }),
+        queryKey: kunciQueryTarget(periodeMuatan),
+      });
+      queryClient.invalidateQueries({
+        queryKey: kunciQueryLaporan(periodeMuatan),
       });
       onBerhasil();
     } catch {
