@@ -9,7 +9,6 @@ import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { formatApiError } from "@/lib/utils/api-response-parser";
 import {
   catatKegiatanSchema,
-  isButuhDataTeknis,
   isButuhIklan,
   isButuhLokasi,
   KEGIATAN_HASIL,
@@ -28,6 +27,7 @@ import {
   NILAI_FORM_KOSONG,
   URL_API_KEGIATAN,
   type KesalahanForm,
+  type MuatanKegiatan,
   type NilaiFormKegiatan,
 } from "./kegiatanFormState";
 
@@ -42,9 +42,13 @@ const PANJANG_NAMA_MAKS = 120;
 const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
 
-/** Rentang estimasi kabel yang diterima schema; 0 berarti ODP tepat di lokasi. */
-const KABEL_METER_MIN = 0;
-const KABEL_METER_MAKS = 5000;
+/**
+ * Toleransi `waktuMulai` di masa depan, mencerminkan `TOLERANSI_SKEW_JAM_MENIT`
+ * (`modules/presurvei/validators/kegiatan.validator.ts:38`). Konstanta itu
+ * tidak diekspor lewat `@/modules/presurvei/client`, jadi angkanya ditulis ulang
+ * di sini dengan alasan yang sama seperti batas panjang di atas.
+ */
+const TOLERANSI_WAKTU_MASA_DEPAN_MENIT = 15;
 
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -66,6 +70,10 @@ interface KegiatanFormModalProps {
  * palsu di peta kunjungan. Pembentuk muatannya
  * (`kegiatanFormState.ts:keMuatanKegiatan`) menjaga ketiadaan itu, dan ada test
  * yang memerahi penambahannya.
+ *
+ * **Sengaja tanpa medan data teknis survei.** Data teknis hanya diterima pada
+ * survei lokasi, dan survei lokasi selalu ditolak dari web karena tak
+ * berkoordinat — lihat `kegiatanFormState.ts:keMuatanKegiatan`.
  *
  * **Sengaja tanpa pemilih sales.** `app/api/presurvei/kegiatan/route.ts:57`
  * menimpa `userId` dengan identitas sesi, jadi kegiatan selalu tercatat atas
@@ -97,13 +105,13 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
     });
   };
 
-  const simpan = async () => {
+  const simpan = async (muatan: MuatanKegiatan) => {
     setIsMenyimpan(true);
     try {
       const respons = await fetch(URL_API_KEGIATAN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(keMuatanKegiatan(nilai)),
+        body: JSON.stringify(muatan),
       });
       const badan = await respons.json();
 
@@ -137,7 +145,8 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
 
     // Muatan dibentuk sekali lalu dipakai ulang: yang divalidasi wajib persis
     // yang dikirim. Dua ekspresi terpisah bisa menyimpang tanpa ditolak `tsc`.
-    const hasil = catatKegiatanSchema.safeParse(keMuatanKegiatan(nilai));
+    const muatan = keMuatanKegiatan(nilai);
+    const hasil = catatKegiatanSchema.safeParse(muatan);
 
     if (!hasil.success) {
       setKesalahan(keKesalahanForm(hasil.error.issues));
@@ -145,7 +154,7 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
     }
 
     setKesalahan({});
-    void simpan();
+    void simpan(muatan);
   };
 
   return (
@@ -218,9 +227,8 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
         {isButuhLokasi(nilai.jenis) && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
             Kegiatan jenis ini wajib menyertakan titik lokasi, sedangkan halaman
-            web tidak menangkap GPS — pencatatannya akan ditolak. Catat lewat
-            aplikasi mobile di lapangan supaya titik kunjungannya ikut
-            tersimpan.
+            web tidak menangkap GPS — pencatatannya akan ditolak. Catat dari
+            aplikasi mobile.
           </p>
         )}
 
@@ -239,8 +247,8 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
             <p className={KELAS_KESALAHAN}>{kesalahan.waktuMulai}</p>
           )}
           <p className={KELAS_PETUNJUK}>
-            Memakai jam di perangkat Anda, dan tidak boleh lebih dari 15 menit
-            di masa depan.
+            Memakai jam di perangkat Anda, dan tidak boleh lebih dari{" "}
+            {TOLERANSI_WAKTU_MASA_DEPAN_MENIT} menit di masa depan.
           </p>
         </div>
 
@@ -329,89 +337,6 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
             </p>
           </div>
         </div>
-
-        {/*
-          Data teknis hanya untuk jenis yang membawanya. Refine kedua schema
-          (`modules/presurvei/validators/kegiatan.validator.ts:94-101`) menolak
-          data teknis di luar survei lokasi, dan `keMuatanKegiatan` membuang
-          sisa isian saat jenisnya berpindah supaya medan yang tak terlihat
-          tidak ikut terkirim.
-        */}
-        {isButuhDataTeknis(nilai.jenis) && (
-          <div className="space-y-4 rounded-xl border border-gray-100 p-4 dark:border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Data Teknis Survei
-            </h3>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className={KELAS_LABEL} htmlFor="kegiatan-odp">
-                  ODP terdekat
-                </label>
-                <input
-                  id="kegiatan-odp"
-                  type="text"
-                  value={nilai.odpTerdekat}
-                  onChange={(event) =>
-                    ubahMedan({ odpTerdekat: event.target.value })
-                  }
-                  maxLength={PANJANG_NAMA_MAKS}
-                  placeholder="Contoh: ODP-12"
-                  className={KELAS_INPUT}
-                />
-                {kesalahan.odpTerdekat && (
-                  <p className={KELAS_KESALAHAN}>{kesalahan.odpTerdekat}</p>
-                )}
-              </div>
-
-              <div>
-                <label className={KELAS_LABEL} htmlFor="kegiatan-kabel">
-                  Estimasi kabel (meter)
-                </label>
-                <input
-                  id="kegiatan-kabel"
-                  type="number"
-                  min={KABEL_METER_MIN}
-                  max={KABEL_METER_MAKS}
-                  value={nilai.estimasiKabelMeter}
-                  onChange={(event) =>
-                    ubahMedan({ estimasiKabelMeter: event.target.value })
-                  }
-                  placeholder="120"
-                  className={KELAS_INPUT}
-                />
-                {kesalahan.estimasiKabelMeter && (
-                  <p className={KELAS_KESALAHAN}>
-                    {kesalahan.estimasiKabelMeter}
-                  </p>
-                )}
-                <p className={KELAS_PETUNJUK}>
-                  Isi 0 bila ODP tepat di lokasi; kosongkan bila belum diukur.
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className={KELAS_LABEL} htmlFor="kegiatan-catatan-teknis">
-                Catatan teknis
-              </label>
-              <textarea
-                id="kegiatan-catatan-teknis"
-                rows={2}
-                value={nilai.catatanTeknis}
-                onChange={(event) =>
-                  ubahMedan({ catatanTeknis: event.target.value })
-                }
-                maxLength={PANJANG_CATATAN_MAKS}
-                placeholder="Kondisi tiang, rute kabel, hambatan pemasangan"
-                className={KELAS_INPUT}
-              />
-              {kesalahan.catatanTeknis && (
-                <p className={KELAS_KESALAHAN}>{kesalahan.catatanTeknis}</p>
-              )}
-            </div>
-          </div>
-        )}
 
         <div>
           <label className={KELAS_LABEL} htmlFor="kegiatan-catatan">

@@ -1,8 +1,4 @@
-import {
-  isButuhDataTeknis,
-  type KegiatanHasil,
-  type KegiatanJenis,
-} from "@/modules/presurvei/client";
+import type { KegiatanHasil, KegiatanJenis } from "@/modules/presurvei/client";
 
 /** Endpoint koleksi kegiatan; `POST` ke sini mencatat kegiatan baru. */
 export const URL_API_KEGIATAN = "/api/presurvei/kegiatan";
@@ -21,9 +17,6 @@ export interface NilaiFormKegiatan {
   catatan: string;
   prospekId: string;
   iklanId: string;
-  odpTerdekat: string;
-  estimasiKabelMeter: string;
-  catatanTeknis: string;
 }
 
 /**
@@ -45,24 +38,7 @@ export const NILAI_FORM_KOSONG: NilaiFormKegiatan = {
   catatan: "",
   prospekId: "",
   iklanId: "",
-  odpTerdekat: "",
-  estimasiKabelMeter: "",
-  catatanTeknis: "",
 };
-
-/**
- * Angka dari medan teks, atau null bila medannya dikosongkan.
- *
- * Perbandingan terhadap string kosong, bukan truthiness: "0" adalah masukan
- * yang sah dan `Boolean("0")` memang true, tapi `Number("")` menghasilkan 0
- * sehingga medan kosong akan diam-diam terkirim sebagai nol. Untuk estimasi
- * kabel keduanya berbeda arti — 0 meter berarti ODP tepat di lokasi, kosong
- * berarti belum diukur.
- */
-function angkaAtauNull(teks: string): number | null {
-  const bersih = teks.trim();
-  return bersih === "" ? null : Number(bersih);
-}
 
 /** Teks yang sudah dirapikan, atau null bila medannya dikosongkan. */
 function teksAtauNull(teks: string): string | null {
@@ -95,39 +71,20 @@ function keInstanIso(teks: string): string {
 }
 
 /**
- * Data teknis survei, atau tiga null bila jenisnya tidak membawanya.
- *
- * Dikosongkan berdasarkan jenis, bukan berdasarkan apa yang tersisa di state.
- * Refine kedua `catatKegiatanSchema`
- * (`modules/presurvei/validators/kegiatan.validator.ts:94-101`) menolak data
- * teknis pada jenis selain survei lokasi, sementara modal menyembunyikan
- * medannya untuk jenis itu. Tanpa pengosongan ini, pemakai yang mengisi ODP
- * lalu berpindah jenis mengirim medan yang sudah tidak terlihat olehnya dan
- * ditolak dengan pesan tentang medan yang tidak ada di layarnya.
- */
-function keDataTeknis(nilai: NilaiFormKegiatan) {
-  if (!isButuhDataTeknis(nilai.jenis)) {
-    return {
-      odpTerdekat: null,
-      estimasiKabelMeter: null,
-      catatanTeknis: null,
-    };
-  }
-
-  return {
-    odpTerdekat: teksAtauNull(nilai.odpTerdekat),
-    estimasiKabelMeter: angkaAtauNull(nilai.estimasiKabelMeter),
-    catatanTeknis: teksAtauNull(nilai.catatanTeknis),
-  };
-}
-
-/**
  * Muatan `POST /api/presurvei/kegiatan` dari nilai form yang seluruhnya string.
  *
  * **Tidak pernah menyertakan `latitude`, `longitude`, maupun `fotoUrls`.**
  * Ketiganya lahir dari perangkat di lapangan; membangkitkannya dari kursi
  * kantor menaruh penanda palsu di peta kunjungan. Ketiadaannya bukan celah
  * yang belum ditambal — ia dijaga test dan wajib tetap begitu.
+ *
+ * **Tidak pernah menyertakan data teknis survei** (`odpTerdekat`,
+ * `estimasiKabelMeter`, `catatanTeknis`). Refine kedua `catatKegiatanSchema`
+ * (`modules/presurvei/validators/kegiatan.validator.ts:94-101`) hanya
+ * menerimanya pada survei lokasi, dan survei lokasi selalu ditolak dari web
+ * karena tak berkoordinat (refine pertama, baris 88-93). Medan yang tidak
+ * pernah bisa tersimpan tidak punya tempat di form ini; ketiadaannya dijaga
+ * test untuk setiap jenis.
  *
  * **Tidak ada pemilih sales, dan itu penjaga keamanan, bukan medan yang
  * terlupa.** `app/api/presurvei/kegiatan/route.ts:57` menetapkan
@@ -146,7 +103,6 @@ export function keMuatanKegiatan(nilai: NilaiFormKegiatan) {
     catatan: teksAtauNull(nilai.catatan),
     prospekId: teksAtauNull(nilai.prospekId),
     iklanId: teksAtauNull(nilai.iklanId),
-    ...keDataTeknis(nilai),
   };
 }
 
@@ -176,9 +132,6 @@ const MEDAN_BERSLOT_PESAN: Record<keyof NilaiFormKegiatan, boolean> = {
   catatan: true,
   prospekId: true,
   iklanId: true,
-  odpTerdekat: true,
-  estimasiKabelMeter: true,
-  catatanTeknis: true,
 };
 
 /** Bentuk minimal issue Zod yang dibaca form; menghindari tipe internal Zod. */

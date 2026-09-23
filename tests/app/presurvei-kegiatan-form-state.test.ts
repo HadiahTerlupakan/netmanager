@@ -4,8 +4,10 @@ import {
   keKesalahanForm,
   keMuatanKegiatan,
   KUNCI_KESALAHAN_FORM,
+  NILAI_FORM_KOSONG,
   type NilaiFormKegiatan,
 } from "@/app/admin/presurvei/kegiatan/kegiatanFormState";
+import { KEGIATAN_JENIS } from "@/modules/presurvei/client";
 
 const nilai: NilaiFormKegiatan = {
   jenis: "SURVEI_LOKASI",
@@ -16,38 +18,20 @@ const nilai: NilaiFormKegiatan = {
   catatan: "",
   prospekId: "",
   iklanId: "",
-  odpTerdekat: "ODP-12",
-  estimasiKabelMeter: "0",
-  catatanTeknis: "",
 };
 
 describe("keMuatanKegiatan", () => {
-  it("mengubah estimasi kabel menjadi angka", () => {
-    expect(keMuatanKegiatan(nilai).estimasiKabelMeter).toBe(0);
-  });
-
-  it("mempertahankan estimasi kabel nol, bukan mengubahnya jadi null", () => {
-    // Survei yang mencatat 0 meter berarti ODP tepat di lokasi. Mengubahnya
-    // jadi null menghilangkan hasil survei yang sah.
-    expect(
-      keMuatanKegiatan({ ...nilai, estimasiKabelMeter: "0" })
-        .estimasiKabelMeter,
-    ).toBe(0);
-  });
-
   it("mengirim null untuk medan opsional yang dikosongkan", () => {
     const muatan = keMuatanKegiatan({
       ...nilai,
       catatan: "",
       prospekId: "",
       iklanId: "",
-      estimasiKabelMeter: "",
     });
 
     expect(muatan.catatan).toBeNull();
     expect(muatan.prospekId).toBeNull();
     expect(muatan.iklanId).toBeNull();
-    expect(muatan.estimasiKabelMeter).toBeNull();
   });
 
   it("tidak pernah mengirim koordinat maupun foto", () => {
@@ -60,16 +44,22 @@ describe("keMuatanKegiatan", () => {
     expect(muatan).not.toHaveProperty("fotoUrls");
   });
 
-  it("membuang data teknis pada jenis yang tidak membawanya", () => {
-    // Refine kedua `catatKegiatanSchema` menolak data teknis di luar survei
-    // lokasi. Modal menyembunyikan medannya, jadi sisa isian dari jenis
-    // sebelumnya harus dibuang di sini — bukan dibiarkan terkirim dan ditolak
-    // dengan pesan tentang medan yang tidak terlihat pemakai.
-    const muatan = keMuatanKegiatan({ ...nilai, jenis: "TELEPON" });
+  it("tidak pernah membawa data teknis survei, untuk jenis apa pun", () => {
+    // Data teknis hanya diterima pada survei lokasi (refine kedua,
+    // `modules/presurvei/validators/kegiatan.validator.ts:94-101`), dan survei
+    // lokasi selalu ditolak dari web karena tak berkoordinat (refine pertama,
+    // baris 88-93). Form web karenanya tidak punya medan data teknis sama
+    // sekali — termasuk untuk SURVEI_LOKASI.
+    for (const jenis of KEGIATAN_JENIS) {
+      const muatan = keMuatanKegiatan({ ...nilai, jenis }) as Record<
+        string,
+        unknown
+      >;
 
-    expect(muatan.odpTerdekat).toBeNull();
-    expect(muatan.estimasiKabelMeter).toBeNull();
-    expect(muatan.catatanTeknis).toBeNull();
+      expect(muatan, jenis).not.toHaveProperty("odpTerdekat");
+      expect(muatan, jenis).not.toHaveProperty("estimasiKabelMeter");
+      expect(muatan, jenis).not.toHaveProperty("catatanTeknis");
+    }
   });
 
   it("mengubah waktu mulai menjadi instan absolut ber-Z", () => {
@@ -92,6 +82,22 @@ describe("keMuatanKegiatan", () => {
 });
 
 describe("keMuatanKegiatan terhadap catatKegiatanSchema", () => {
+  it("diterima dari nilai awal form begitu waktu mulai diisi", async () => {
+    // Menjaga default `jenis` di `NILAI_FORM_KOSONG`. Membuka modal pada jenis
+    // lapangan (KUNJUNGAN atau SURVEI_LOKASI) berarti menyodorkan form yang
+    // pasti ditolak sebelum pemakai mengetik apa pun.
+    const { catatKegiatanSchema } = await import("@/modules/presurvei/client");
+
+    const hasil = catatKegiatanSchema.safeParse(
+      keMuatanKegiatan({
+        ...NILAI_FORM_KOSONG,
+        waktuMulai: "2026-09-10T09:00",
+      }),
+    );
+
+    expect(hasil.success).toBe(true);
+  });
+
   it("diterima untuk jenis yang memang dicatat dari kantor", async () => {
     const { catatKegiatanSchema } = await import("@/modules/presurvei/client");
 
@@ -170,11 +176,11 @@ describe("keKesalahanForm", () => {
   it("menaruh pesan medan berslot di medannya sendiri", () => {
     const kesalahan = keKesalahanForm([
       { path: ["waktuMulai"], message: "Waktu mulai tidak sah" },
-      { path: ["odpTerdekat"], message: "ODP terlalu panjang" },
+      { path: ["ditemuiNama"], message: "Nama terlalu panjang" },
     ]);
 
     expect(kesalahan.waktuMulai).toBe("Waktu mulai tidak sah");
-    expect(kesalahan.odpTerdekat).toBe("ODP terlalu panjang");
+    expect(kesalahan.ditemuiNama).toBe("Nama terlalu panjang");
     expect(kesalahan[KUNCI_KESALAHAN_FORM]).toBeUndefined();
   });
 });
