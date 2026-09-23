@@ -41,6 +41,62 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-23] — Target dan pemilik prospek wajib sales se-tenant
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: `TargetService.tetapkan` dan penugasan pemilik prospek
+  (`POST`/`PATCH /api/presurvei/prospek`) sebelumnya menerima `userId`/`pemilikId`
+  apa adanya — FK ke `User` tidak mengenal tenant, sehingga baris tenant A bisa
+  menunjuk user tenant B atau user yang bukan sales. Kini keduanya melewati satu
+  aturan domain `isCalonSalesSah` (`modules/presurvei/domain/penugasan-sales.ts`)
+  lewat `PenugasanSalesService`: user harus ada, `isSales`, dan `tenantId`-nya sama
+  dengan tenant baris. Query `User` hanya di `SalesRepository.cariCalonSales`.
+  Penugasan BARU (target baru, pemilik prospek berganti) menuntut sales aktif;
+  mengubah target yang sudah ada untuk sales yang kini nonaktif tetap boleh — "baru"
+  ditentukan server dari ada-tidaknya target periode itu di tenant baris. Tenant
+  baris: target dan `POST` prospek memakai tenant sesi; `PATCH` prospek memakai
+  `prospek.tenantId`, bukan tenant sesi. Super admin tanpa tenant sesi tidak ditolak
+  (keputusan user 2026-09-23): tenant baris diambil dari sales itu dan ditulis
+  eksplisit (`requireSessionTenantIdUnlessSuperAdmin` baru di
+  `lib/api/session-tenant.ts`), karena `lib/prisma-extension.ts` tidak mengisi
+  `tenantId` apa pun untuk konteks itu. `PATCH` yang tidak mengubah pemilik, atau
+  melepasnya (`null`), tidak divalidasi; `POST` tanpa `pemilikId` berperilaku seperti
+  sebelumnya. Penolakan 422 `SALES_TIDAK_SAH` berpesan generik "Sales tidak ditemukan
+  di tenant ini" untuk semua sebab, supaya keberadaan user tenant lain tidak bocor.
+  Otorisasi (siapa boleh menugaskan) tetap di route/`akses-presurvei.ts`.
+- **Files**: `modules/presurvei/domain/penugasan-sales.ts`,
+  `modules/presurvei/services/PenugasanSalesService.ts`,
+  `modules/presurvei/services/TargetService.ts`,
+  `modules/presurvei/services/ProspekService.ts`,
+  `modules/presurvei/repositories/SalesRepository.ts`,
+  `modules/presurvei/repositories/TargetRepository.ts`,
+  `app/api/admin/presurvei/target/route.ts`, `app/api/presurvei/prospek/route.ts`,
+  `app/api/presurvei/akses-presurvei.ts`, `lib/api/session-tenant.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Pemilih pemilik opsional di form prospek web
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/presurvei/prospek`
+- **Author**: agent
+- **Deskripsi**: Modal buat/ubah prospek mendapat medan "Pemilik" opsional, hanya
+  untuk pemakai bercakupan tenant (`isCakupanTenantPresurvei`, definisi yang sama
+  dengan dashboard; sales lapangan tidak melihatnya dan daftar sales tidak diminta).
+  Mode buat berawal "Saya sendiri (pembuat)" — sesuai `pemilikDiminta ?? idPemanggil`
+  di server. Mode ubah berawal dari pemilik sekarang, termasuk yang tak tercantum di
+  daftar sales aktif (label `labelSales` bersama), dengan opsi "Lepaskan pemilik" yang
+  mengirim `pemilikId: null`. `pemilikId` hanya dikirim bila berubah, supaya pemilik
+  nonaktif lama tidak memicu validasi sales aktif. Daftar sales gagal dimuat mengunci
+  medan dengan pesan tanpa menghalangi simpan; penolakan 422 `SALES_TIDAK_SAH` tampil
+  di medan pemilik, bukan toast.
+- **Files**: `app/admin/presurvei/prospek/ProspekFormModal.tsx`,
+  `app/admin/presurvei/prospek/prospekFormState.ts`,
+  `app/admin/presurvei/prospek/useSimpanProspek.ts`,
+  `app/admin/presurvei/ringkasanDashboard.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-23] — Tambah UI admin presurvei (Fase 3)
 
 - **Tipe**: [ADDED]
@@ -87,30 +143,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   4. Realisasi "kunjungan" di laporan menghitung **semua** jenis kegiatan pelaku,
      termasuk `TELEPON`, `CHAT`, dan `IKLAN` yang kini bisa dicatat dari web —
      `KegiatanRepository.hitungPerUser` tidak menyaring `jenis`
-     (`KegiatanRepository.ts:98-101`). Perilaku ini warisan Fase 2; apakah memang
-     dimaksud belum pernah diputuskan.
+     (`KegiatanRepository.ts:98-101`). Keputusan user 2026-09-23: **disengaja** — setiap
+     kegiatan sales dihitung sebagai realisasi kunjungan.
   5. Laporan per-iklan belum ada. Atribusi `iklanId` dikumpulkan sejak Fase 2 tapi belum
      ada konsumennya; saat dibangun ia wajib sadar-periode agar kampanye yang sudah mati
      tidak menggelembungkan hasilnya.
   6. Filter tidak tersimpan di URL, mengikuti konvensi seluruh halaman admin: reload
      menghilangkan filter dan tautannya tidak bisa dibagikan.
-  7. Web belum bisa menugaskan pemilik prospek. Form prospek tidak pernah mengirim
-     `pemilikId` (`app/admin/presurvei/prospek/prospekFormState.ts`), jadi prospek
-     buatan web tercatat atas nama pembuatnya (`tentukanPemilikProspek`,
-     `app/api/presurvei/akses-presurvei.ts:41-48`), dan prospek tak bertuan yang
-     ditonjolkan dashboard belum bisa diberi pemilik dari layar web — API `PATCH`
-     sudah menerimanya.
+  7. ~~Web belum bisa menugaskan pemilik prospek.~~ Selesai — lihat entri "Pemilih
+     pemilik opsional di form prospek web" (2026-09-23).
   8. Dashboard: pemegang super admin melihat "Prospek tanpa pemilik" lintas-tenant,
      karena ekstensi tenant tidak menyaring super admin (`isNonSuperAdminTenant`,
-     `lib/prisma-extension.ts:157-162`). Kelas lama, bukan regresi fase ini.
+     `lib/prisma-extension.ts:157-162`). Keputusan user 2026-09-23: **disengaja** —
+     super admin tidak dibatasi dalam melihat. Baris yang ia tulis tetap wajib
+     konsisten tenant (lihat entri "Target dan pemilik prospek wajib sales se-tenant").
   9. Daftar prospek tak bertuan di dashboard disegarkan oleh perubahan dari layar web
      sendiri, tapi perubahan dari luar (mis. aplikasi mobile) baru terlihat saat query
      dimuat ulang setelah cache basi (`staleTime` 30 detik,
      `components/providers/session-provider.tsx`) — tidak ada polling, dan
      `refetchOnWindowFocus` dimatikan global.
-  10. Target: `TargetService.tetapkan` tidak memeriksa bahwa `userId` adalah sales di
-      tenant yang sama. Unique `[userId, periodeTahun, periodeBulan, tenantId]` dan FK ke
-      `User` ada; tidak ada kebocoran data, hanya integritas.
+  10. ~~Target: `TargetService.tetapkan` tidak memeriksa bahwa `userId` adalah sales di
+      tenant yang sama.~~ Diperbaiki — lihat entri "Target dan pemilik prospek wajib
+      sales se-tenant" (2026-09-23).
   11. Pesan penolakan angka target (pecahan, di atas batas) berbahasa Inggris — bawaan
       Zod — bila constraint browser pada input dilewati; tak terjangkau lewat UI normal.
   12. Pemilih kampanye di form prospek memuat paling banyak 100 kampanye aktif lalu
