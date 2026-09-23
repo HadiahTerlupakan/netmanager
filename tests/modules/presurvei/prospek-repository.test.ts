@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 /**
  * Repository diuji dengan me-mock klien Prisma: yang diperiksa adalah bentuk
  * query yang dikirim (filter, paginasi, urutan), bukan perilaku database.
- * Filter tenantId sengaja tidak diperiksa karena ditegakkan oleh ekstensi
- * Prisma di lapisan database, bukan oleh repository.
+ * Filter tenantId umumnya tidak diperiksa karena ditegakkan oleh ekstensi
+ * Prisma di lapisan database. Pengecualiannya `findByIdDalamCakupan`, yang
+ * menulis `tenantId` sendiri — lihat blok test-nya.
  */
 
 vi.mock("@/modules/database", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/modules/database", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       groupBy: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("@/modules/database", () => ({
 }));
 
 import { prisma } from "@/modules/database";
+import { TenantContextError } from "@/lib/prisma-extension";
 import { ProspekRepository } from "@/modules/presurvei/repositories/ProspekRepository";
 import { toProspekListItem } from "@/modules/presurvei/dto/prospek.dto";
 import type { ProspekRow } from "@/modules/presurvei/mappers/prospek.mapper";
@@ -307,6 +310,81 @@ describe("ProspekRepository.findById", () => {
       include: SERTAKAN_PEMILIK,
     });
   });
+});
+
+/**
+ * Pembacaan prospek acuan untuk daftar calon pemilik. Isolasi tenant dipegang
+ * repository lewat `where`, bukan dibandingkan belakangan di service: untuk
+ * cakupan satu tenant, `tenantId` ditulis eksplisit supaya tidak bergantung
+ * pada ekstensi tenant saja.
+ */
+describe("ProspekRepository.findByIdDalamCakupan", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("cakupan satu tenant menyaring id DAN tenantId di query", async () => {
+    vi.mocked(prisma.presurveiProspek.findFirst).mockResolvedValue(
+      barisProspek({ tenantId: "tenant-a" }) as never,
+    );
+
+    const hasil = await new ProspekRepository().findByIdDalamCakupan(
+      "prospek-1",
+      { jenis: "tenant", tenantId: "tenant-a" },
+    );
+
+    expect(prisma.presurveiProspek.findFirst).toHaveBeenCalledWith({
+      where: { id: "prospek-1", tenantId: "tenant-a" },
+      include: SERTAKAN_PEMILIK,
+    });
+    expect(prisma.presurveiProspek.findUnique).not.toHaveBeenCalled();
+    expect(hasil).toMatchObject({ id: "prospek-1", tenantId: "tenant-a" });
+  });
+
+  it("cakupan satu tenant mengembalikan null bila tak ada baris yang cocok", async () => {
+    vi.mocked(prisma.presurveiProspek.findFirst).mockResolvedValue(
+      null as never,
+    );
+
+    expect(
+      await new ProspekRepository().findByIdDalamCakupan("prospek-1", {
+        jenis: "tenant",
+        tenantId: "tenant-a",
+      }),
+    ).toBeNull();
+  });
+
+  it("lintas tenant (super admin) mencari lewat id saja", async () => {
+    vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue(
+      barisProspek({ tenantId: "tenant-b" }) as never,
+    );
+
+    const hasil = await new ProspekRepository().findByIdDalamCakupan(
+      "prospek-1",
+      { jenis: "lintas-tenant" },
+    );
+
+    expect(prisma.presurveiProspek.findUnique).toHaveBeenCalledWith({
+      where: { id: "prospek-1" },
+      include: SERTAKAN_PEMILIK,
+    });
+    expect(prisma.presurveiProspek.findFirst).not.toHaveBeenCalled();
+    expect(hasil).toMatchObject({ tenantId: "tenant-b" });
+  });
+
+  it.each(["", undefined as unknown as string])(
+    "menolak cakupan tenant dengan tenantId %j tanpa menyentuh database",
+    async (tenantId) => {
+      // Prisma membaca `tenantId: undefined` sebagai "tanpa syarat";
+      // `strictNullChecks: false` tidak mencegahnya sampai ke sini.
+      await expect(
+        new ProspekRepository().findByIdDalamCakupan("prospek-1", {
+          jenis: "tenant",
+          tenantId,
+        }),
+      ).rejects.toBeInstanceOf(TenantContextError);
+      expect(prisma.presurveiProspek.findFirst).not.toHaveBeenCalled();
+      expect(prisma.presurveiProspek.findUnique).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("ProspekRepository.findByNoTelp", () => {

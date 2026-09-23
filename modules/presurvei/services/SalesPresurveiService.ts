@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import type { AksesTenantPresurvei } from "../domain/akses-tenant";
 import type { IProspekRepository } from "../domain/ports/IProspekRepository";
 import type {
   ISalesRepository,
@@ -6,16 +7,6 @@ import type {
 } from "../domain/ports/ISalesRepository";
 import { ProspekRepository } from "../repositories/ProspekRepository";
 import { SalesRepository } from "../repositories/SalesRepository";
-
-/**
- * Cakupan tenant pemanggil saat membaca prospek acuan.
- *
- * Union bertanda, bukan `string | null`: nilai `undefined` yang lolos karena
- * `strictNullChecks: false` tidak boleh terbaca sebagai "tanpa batas".
- */
-export type AksesTenantPresurvei =
-  | { jenis: "tenant"; tenantId: string }
-  | { jenis: "lintas-tenant" };
 
 /**
  * Sumber daftar sales untuk layar presurvei — dropdown filter, layar target,
@@ -40,10 +31,10 @@ export class SalesPresurveiService {
    * `ProspekService.ubah`. Tenant diturunkan di server dari barisnya, tidak
    * pernah dari klien.
    *
-   * Prospek tenant lain (atau tak bertenant) dijawab 404 yang sama dengan
-   * "tidak ada" bagi pemanggil bercakupan satu tenant. Ekstensi tenant sudah
-   * menyaring pembacaan mereka; pemeriksaan di sini lapis kedua yang tidak
-   * bergantung padanya. Bagi super admin, prospek tanpa tenant dijawab 422:
+   * Isolasi tenant ditegakkan repository (`findByIdDalamCakupan`): prospek
+   * tenant lain (atau tak bertenant) tidak ditemukan bagi pemanggil
+   * bercakupan satu tenant, dan dijawab 404 yang sama dengan "tidak ada".
+   * Service hanya memutuskan 404 atau 422. Prospek tanpa tenant dijawab 422:
    * tidak ada sales yang bisa lolos validasi penugasan untuk baris itu, dan
    * daftar kosong tidak akan bisa dibedakan dari "tenant tanpa sales".
    */
@@ -51,11 +42,11 @@ export class SalesPresurveiService {
     prospekId: string,
     akses: AksesTenantPresurvei,
   ): Promise<SalesRingkas[]> {
-    const prospek = await this.prospekRepository.findById(prospekId);
-    const isTerjangkau =
-      Boolean(prospek) &&
-      (akses.jenis === "lintas-tenant" || prospek.tenantId === akses.tenantId);
-    if (!isTerjangkau) {
+    const prospek = await this.prospekRepository.findByIdDalamCakupan(
+      prospekId,
+      akses,
+    );
+    if (!prospek) {
       throw new AppError("Prospek tidak ditemukan", 404, "NOT_FOUND");
     }
     if (!prospek.tenantId) {

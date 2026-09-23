@@ -90,6 +90,7 @@ const bangunProspekRepo = (): IProspekRepository => ({
   findById: vi.fn().mockResolvedValue(prospek()),
   findByNoTelp: vi.fn().mockResolvedValue([]),
   findByRegistrationId: vi.fn().mockResolvedValue(null),
+  findByIdDalamCakupan: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
   update: vi.fn(),
   tandaiKonversi: vi

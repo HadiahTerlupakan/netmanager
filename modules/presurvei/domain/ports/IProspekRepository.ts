@@ -3,6 +3,7 @@ import type {
   ProspekStatus,
   ProspekSumber,
 } from "../entities/Prospek";
+import type { AksesTenantPresurvei } from "../akses-tenant";
 import type { RentangPeriode } from "./IKegiatanRepository";
 
 /**
@@ -70,6 +71,15 @@ export interface IProspekRepository {
     filters: ProspekListFilters,
   ): Promise<{ items: ProspekEntity[]; total: number }>;
   findById(id: string): Promise<ProspekEntity | null>;
+  /**
+   * Satu prospek dalam cakupan tenant pemanggil, null bila tidak ada atau di
+   * luar cakupan. Cakupan satu tenant menulis `tenantId` eksplisit di `where`
+   * dan menolak `tenantId` kosong (fail-closed); lintas tenant hanya id.
+   */
+  findByIdDalamCakupan(
+    id: string,
+    akses: AksesTenantPresurvei,
+  ): Promise<ProspekEntity | null>;
   /**
    * Prospek dengan nomor telepon yang sama — dipakai memperingatkan duplikat.
    *

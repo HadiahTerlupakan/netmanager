@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
+import { TenantContextError } from "@/lib/prisma-extension";
+import type { AksesTenantPresurvei } from "../domain/akses-tenant";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { ProspekEntity } from "../domain/entities/Prospek";
 import type {
@@ -60,6 +62,35 @@ export class ProspekRepository implements IProspekRepository {
   async findById(id: string): Promise<ProspekEntity | null> {
     const row = await prisma.presurveiProspek.findUnique({
       where: { id },
+      include: SERTAKAN_PEMILIK,
+    });
+    return row ? toProspekEntity(row as ProspekRow) : null;
+  }
+
+  /**
+   * Satu prospek dalam cakupan tenant pemanggil, null bila tidak ada atau di
+   * luar cakupan.
+   *
+   * Cakupan satu tenant menulis `tenantId` eksplisit di `where` — isolasi di
+   * repository, tidak diserahkan ke ekstensi saja — dan menolak `tenantId`
+   * kosong, yang bagi Prisma berarti "tanpa syarat". Lintas tenant (super
+   * admin) mencari lewat id saja.
+   */
+  async findByIdDalamCakupan(
+    id: string,
+    akses: AksesTenantPresurvei,
+  ): Promise<ProspekEntity | null> {
+    if (akses.jenis === "lintas-tenant") return this.findById(id);
+
+    if (!akses.tenantId) {
+      throw new TenantContextError(
+        "missing-context",
+        "Prospek presurvei dalam cakupan diminta tanpa tenantId",
+      );
+    }
+
+    const row = await prisma.presurveiProspek.findFirst({
+      where: { id, tenantId: akses.tenantId },
       include: SERTAKAN_PEMILIK,
     });
     return row ? toProspekEntity(row as ProspekRow) : null;

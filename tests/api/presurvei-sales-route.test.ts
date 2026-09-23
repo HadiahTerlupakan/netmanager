@@ -43,42 +43,59 @@ vi.mock("@/lib/auth", () => ({
   getUserPermissions: mockFns.getUserPermissions,
 }));
 
+/** Baris Prisma lengkap dari prospek tiruan, atau null. */
+function barisProspekTiruan(prospek: ProspekTiruan | undefined) {
+  if (!prospek) return null;
+  const waktu = new Date("2026-09-23T00:00:00.000Z");
+  return {
+    nama: "Budi",
+    noTelp: "081234567890",
+    email: null as string | null,
+    alamat: "Jl. Merdeka 10",
+    latitude: null as number | null,
+    longitude: null as number | null,
+    shareloc: null as string | null,
+    sumber: "WALK_IN",
+    iklanId: null as string | null,
+    registrationId: null as string | null,
+    referralNama: null as string | null,
+    status: "BARU",
+    pemilikId: null as string | null,
+    paketDiminati: null as string | null,
+    catatan: null as string | null,
+    canvasingId: null as string | null,
+    konversiAt: null as Date | null,
+    siteId: null as string | null,
+    createdAt: waktu,
+    updatedAt: waktu,
+    pemilik: null as null,
+    ...prospek,
+  };
+}
+
 vi.mock("@/modules/database", () => ({
   prisma: {
-    // Tiruan TIDAK menyaring tenant, meniru konteks super admin di mana
-    // ekstensi tenant tidak menyaring apa pun. Penolakan prospek tenant lain
-    // untuk pemanggil biasa karenanya harus datang dari service, bukan dari
-    // ekstensi saja.
+    // Tiruan tidak memasang ekstensi tenant, meniru konteks super admin di
+    // mana ekstensi tidak menyaring apa pun. Penolakan prospek tenant lain
+    // untuk pemanggil biasa karenanya harus datang dari `where` yang ditulis
+    // repository (`findByIdDalamCakupan`), bukan dari ekstensi saja.
     presurveiProspek: {
-      findUnique: vi.fn(async (args: { where: { id: string } }) => {
-        const prospek = mockFns.prospek.find((p) => p.id === args.where.id);
-        if (!prospek) return null;
-        const waktu = new Date("2026-09-23T00:00:00.000Z");
-        return {
-          nama: "Budi",
-          noTelp: "081234567890",
-          email: null,
-          alamat: "Jl. Merdeka 10",
-          latitude: null,
-          longitude: null,
-          shareloc: null,
-          sumber: "WALK_IN",
-          iklanId: null,
-          registrationId: null,
-          referralNama: null,
-          status: "BARU",
-          pemilikId: null,
-          paketDiminati: null,
-          catatan: null,
-          canvasingId: null,
-          konversiAt: null,
-          siteId: null,
-          createdAt: waktu,
-          updatedAt: waktu,
-          pemilik: null,
-          ...prospek,
-        };
-      }),
+      // `findFirst` menyaring `where` apa adanya (id DAN tenantId), jadi
+      // repository yang lupa menulis `tenantId` membuat prospek tenant lain
+      // kembali ke pemanggil biasa.
+      findFirst: vi.fn(
+        async (args: { where: { id: string; tenantId?: string } }) =>
+          barisProspekTiruan(
+            mockFns.prospek.find((p) =>
+              Object.entries(args.where).every(
+                ([kolom, nilai]) => p[kolom as keyof ProspekTiruan] === nilai,
+              ),
+            ),
+          ),
+      ),
+      findUnique: vi.fn(async (args: { where: { id: string } }) =>
+        barisProspekTiruan(mockFns.prospek.find((p) => p.id === args.where.id)),
+      ),
     },
     user: {
       findMany: vi.fn(
@@ -372,6 +389,7 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
       expect(res.status).toBe(400);
       expect(body.code).toBe("VALIDATION_ERROR");
       expect(prisma.presurveiProspek.findUnique).not.toHaveBeenCalled();
+      expect(prisma.presurveiProspek.findFirst).not.toHaveBeenCalled();
       expect(prisma.user.findMany).not.toHaveBeenCalled();
     },
   );

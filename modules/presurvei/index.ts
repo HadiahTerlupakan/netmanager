@@ -117,10 +117,9 @@ export { IklanService } from "./services/IklanService";
 
 export { TargetService, type BarisLaporan } from "./services/TargetService";
 
-export {
-  SalesPresurveiService,
-  type AksesTenantPresurvei,
-} from "./services/SalesPresurveiService";
+export { SalesPresurveiService } from "./services/SalesPresurveiService";
+
+export type { AksesTenantPresurvei } from "./domain/akses-tenant";
 
 export {
   toKegiatanDetail,
