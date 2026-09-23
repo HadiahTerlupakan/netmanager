@@ -34,7 +34,10 @@ export function buildKegiatanListUrl(
   opsi: { untukPeta?: boolean } = {},
 ): string {
   const params = new URLSearchParams({
-    page: String(opsi.untukPeta ? 1 : filter.page),
+    // Mode peta selalu dipakukan ke halaman pertama. Tanpa itu, membuka tab
+    // peta dari halaman 3 tabel meminta baris 201-300 dan peta menggambar nol
+    // titik di sebelah tabel yang penuh, tanpa satu pun pesan.
+    page: String(opsi.untukPeta ? HALAMAN_PERTAMA : filter.page),
     limit: String(opsi.untukPeta ? BATAS_PETA : BATAS_TABEL),
   });
 
@@ -65,6 +68,36 @@ export function filterSetelahUbah(
   perubahan: Partial<Omit<FilterKegiatan, "page">>,
 ): FilterKegiatan {
   return { ...lama, ...perubahan, page: HALAMAN_PERTAMA };
+}
+
+/**
+ * Batas yang dipasang kedua medan tanggal pada satu sama lain.
+ *
+ * Nama medannya menyebut atribut yang diisinya — `maksDariTanggal` adalah
+ * `max` medan "dari", `minSampaiTanggal` adalah `min` medan "sampai" — supaya
+ * memasangnya tertukar di JSX terbaca salah tanpa perlu menjalankan apa pun.
+ *
+ * Tanpa batas ini pemakai bisa membentuk rentang terbalik (`dari` > `sampai`),
+ * yang selalu mengembalikan nol baris tanpa satu pun pesan kesalahan; pemakai
+ * lalu menyimpulkan timnya tidak bekerja. Tertukarnya `min` dengan `max`
+ * membalik penjaga ini jadi kebalikan tujuannya — ia justru memaksa
+ * `dari` >= `sampai`, sehingga SETIAP rentang yang bisa dibentuk adalah rentang
+ * terbalik. Karena itu ia fungsi murni di sini, bukan dua `const` di dalam
+ * komponen: di sana ia tak terjangkau test selamanya.
+ *
+ * `undefined` berarti "tak ada batas" bagi `<input type="date">`. Perbandingan
+ * panjang, bukan truthiness: yang ditanyakan "terisi atau tidak".
+ */
+export function batasRentangTanggal(filter: FilterKegiatan): {
+  maksDariTanggal: string | undefined;
+  minSampaiTanggal: string | undefined;
+} {
+  return {
+    maksDariTanggal:
+      filter.sampaiTanggal.length > 0 ? filter.sampaiTanggal : undefined,
+    minSampaiTanggal:
+      filter.dariTanggal.length > 0 ? filter.dariTanggal : undefined,
+  };
 }
 
 /** Filter setelah pemakai berpindah halaman; kriteria lain dipertahankan. */

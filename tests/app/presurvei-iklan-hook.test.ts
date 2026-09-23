@@ -20,6 +20,17 @@ import type { FilterIklan } from "@/app/admin/presurvei/iklan/iklanListQuery";
 const mockUseState = vi.fn();
 
 /**
+ * Menangkap objek konfigurasi yang diteruskan hook ke `useQuery`.
+ *
+ * Mock yang membuang argumennya tidak memeriksa SATU PUN konfigurasi, dan
+ * membuat `queryKey: [..., url]` → `queryKey: [...]` lolos hijau: state dan URL
+ * tetap berubah tiap filter diubah, tapi cache tidak pernah berubah, sehingga
+ * layar menampilkan halaman pertama tanpa filter selamanya dan seluruh filter
+ * jadi dekorasi.
+ */
+const konfigQuery = vi.fn();
+
+/**
  * Bentuk minimal hasil `useQuery` yang dibaca hook ini.
  *
  * Dianotasi eksplisit: dengan `strictNullChecks: false`, object literal
@@ -44,11 +55,10 @@ vi.mock("react", async () => {
 
 vi.mock("@tanstack/react-query", () => ({
   keepPreviousData: "keepPreviousData",
-  useQuery: (): HasilQueryPalsu => ({
-    data: undefined,
-    error: null,
-    isPending: true,
-  }),
+  useQuery: (konfig: unknown): HasilQueryPalsu => {
+    konfigQuery(konfig);
+    return { data: undefined, error: null, isPending: true };
+  },
 }));
 
 import { useIklanListQuery } from "@/app/admin/presurvei/iklan/useIklanListQuery";
@@ -57,9 +67,14 @@ let filterTersimpan: FilterIklan;
 
 describe("useIklanListQuery", () => {
   beforeEach(() => {
+    filterTersimpan = undefined;
+    konfigQuery.mockReset();
     mockUseState.mockReset();
+    // Nilai awal hanya dipakai pada panggilan pertama; panggilan berikutnya
+    // mengembalikan state tersimpan, seperti render ulang sungguhan — tanpa itu
+    // hook tidak bisa dipanggil dua kali dalam satu test.
     mockUseState.mockImplementation((awal: FilterIklan) => {
-      filterTersimpan = awal;
+      if (filterTersimpan === undefined) filterTersimpan = awal;
       const setFilter = vi.fn(
         (berikutnya: FilterIklan | ((lama: FilterIklan) => FilterIklan)) => {
           filterTersimpan =
@@ -99,6 +114,40 @@ describe("useIklanListQuery", () => {
       channel: "",
       isAktif: null,
     });
+  });
+
+  it("memakai URL berfilter sebagai kunci cache", () => {
+    useIklanListQuery();
+
+    // Bukan `toHaveBeenCalledOnce()`: yang dijaga adalah ISI konfigurasinya.
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-iklan-list",
+          "/api/admin/presurvei/iklan?page=1&limit=20",
+        ],
+        placeholderData: "keepPreviousData",
+      }),
+    );
+  });
+
+  it("mengubah kunci cache saat filter berubah", () => {
+    useIklanListQuery().ubahFilter({ search: "ramadan" });
+    konfigQuery.mockClear();
+
+    // Render berikutnya harus meminta kunci yang BERBEDA. Tanpa `url` di dalam
+    // `queryKey`, kedua render memakai kunci yang sama dan React Query
+    // menyajikan hasil lama — filter berubah di layar, data tidak pernah.
+    useIklanListQuery();
+
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-iklan-list",
+          "/api/admin/presurvei/iklan?page=1&limit=20&search=ramadan",
+        ],
+      }),
+    );
   });
 
   it("memulai dari halaman pertama tanpa filter apa pun", () => {

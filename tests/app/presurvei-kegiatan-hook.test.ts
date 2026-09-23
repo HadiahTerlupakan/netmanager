@@ -21,6 +21,18 @@ import type { KegiatanListItemDto } from "@/modules/presurvei/client";
 const mockUseState = vi.fn();
 
 /**
+ * Menangkap objek konfigurasi yang diteruskan hook ke `useQuery`.
+ *
+ * Mock yang membuang argumennya tidak memeriksa SATU PUN konfigurasi, dan
+ * membuat `queryKey: [...,  url]` → `queryKey: [...]` lolos hijau: state dan URL
+ * tetap berubah tiap filter diubah, tapi cache tidak pernah berubah, sehingga
+ * layar menampilkan halaman pertama tanpa filter selamanya dan seluruh filter
+ * jadi dekorasi. Itu kelas cacat nomor 1 di batasan global dalam bentuk
+ * terparahnya: nol argumen diperiksa.
+ */
+const konfigQuery = vi.fn();
+
+/**
  * Bentuk minimal hasil `useQuery` yang dibaca hook ini.
  *
  * Dianotasi eksplisit: dengan `strictNullChecks: false`, object literal
@@ -47,41 +59,44 @@ vi.mock("react", async () => {
 // merujuk konstanta luar dari sini akan meledak sebelum konstanta itu ada.
 vi.mock("@tanstack/react-query", () => ({
   keepPreviousData: "keepPreviousData",
-  useQuery: (): HasilQueryPalsu => ({
-    data: {
-      data: [
-        {
-          id: "keg-1",
-          jenis: "KUNJUNGAN",
-          userId: "sales-9",
-          prospekId: null,
-          waktuMulai: "2026-09-22T01:30:00.000Z",
-          alamatDikunjungi: "Jl. Melati 3",
-          ditemuiNama: "Bu Ani",
-          latitude: -6.2,
-          longitude: 106.8,
-          hasil: "TERTARIK",
-          jumlahFoto: 2,
-        },
-        {
-          id: "keg-2",
-          jenis: "TELEPON",
-          userId: "sales-2",
-          prospekId: null,
-          waktuMulai: "2026-09-23T04:15:00.000Z",
-          alamatDikunjungi: null,
-          ditemuiNama: null,
-          latitude: null,
-          longitude: null,
-          hasil: "PERLU_FOLLOWUP",
-          jumlahFoto: 0,
-        },
-      ],
-      meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
-    },
-    error: null,
-    isPending: false,
-  }),
+  useQuery: (konfig: unknown): HasilQueryPalsu => {
+    konfigQuery(konfig);
+    return {
+      data: {
+        data: [
+          {
+            id: "keg-1",
+            jenis: "KUNJUNGAN",
+            userId: "sales-9",
+            prospekId: null,
+            waktuMulai: "2026-09-22T01:30:00.000Z",
+            alamatDikunjungi: "Jl. Melati 3",
+            ditemuiNama: "Bu Ani",
+            latitude: -6.2,
+            longitude: 106.8,
+            hasil: "TERTARIK",
+            jumlahFoto: 2,
+          },
+          {
+            id: "keg-2",
+            jenis: "TELEPON",
+            userId: "sales-2",
+            prospekId: null,
+            waktuMulai: "2026-09-23T04:15:00.000Z",
+            alamatDikunjungi: null,
+            ditemuiNama: null,
+            latitude: null,
+            longitude: null,
+            hasil: "PERLU_FOLLOWUP",
+            jumlahFoto: 0,
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+      error: null,
+      isPending: false,
+    };
+  },
 }));
 
 import { useKegiatanListQuery } from "@/app/admin/presurvei/kegiatan/useKegiatanListQuery";
@@ -91,6 +106,7 @@ let filterTersimpan: FilterKegiatan;
 describe("useKegiatanListQuery", () => {
   beforeEach(() => {
     filterTersimpan = undefined;
+    konfigQuery.mockReset();
     mockUseState.mockReset();
     // Nilai awal hanya dipakai pada panggilan pertama; panggilan berikutnya
     // mengembalikan state yang tersimpan, seperti render ulang sungguhan.
@@ -187,6 +203,42 @@ describe("useKegiatanListQuery", () => {
       "sales-404",
       "sales-9",
     ]);
+  });
+
+  it("memakai URL berfilter sebagai kunci cache", () => {
+    useKegiatanListQuery();
+
+    // Bukan `toHaveBeenCalledOnce()`: yang dijaga adalah ISI konfigurasinya.
+    // `untukPeta` yang bocor ke sini juga tertangkap — ia mengubah URL-nya
+    // jadi `page=1&limit=100`.
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-kegiatan-list",
+          "/api/presurvei/kegiatan?page=1&limit=20",
+        ],
+        placeholderData: "keepPreviousData",
+      }),
+    );
+  });
+
+  it("mengubah kunci cache saat filter berubah", () => {
+    useKegiatanListQuery().ubahFilter({ hasil: "DEAL" });
+    konfigQuery.mockClear();
+
+    // Render berikutnya harus meminta kunci yang BERBEDA. Tanpa `url` di dalam
+    // `queryKey`, kedua render memakai kunci yang sama dan React Query
+    // menyajikan hasil lama — filter berubah di layar, data tidak pernah.
+    useKegiatanListQuery();
+
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-kegiatan-list",
+          "/api/presurvei/kegiatan?page=1&limit=20&hasil=DEAL",
+        ],
+      }),
+    );
   });
 
   it("meneruskan baris dan meta amplop apa adanya", () => {

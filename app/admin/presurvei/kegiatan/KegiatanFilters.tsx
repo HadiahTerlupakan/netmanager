@@ -12,7 +12,7 @@ import {
   type KegiatanJenis,
 } from "@/modules/presurvei/client";
 
-import type { FilterKegiatan } from "./kegiatanListQuery";
+import { batasRentangTanggal, type FilterKegiatan } from "./kegiatanListQuery";
 
 /** Nilai `<option>` yang berarti "tidak menyaring". */
 const TANPA_SARING = "";
@@ -52,14 +52,10 @@ export function KegiatanFilters({
     onUbah({ sampaiTanggal: event.target.value });
 
   // Kedua medan saling membatasi supaya rentang terbalik tidak bisa dibentuk
-  // lewat widget-nya. Rentang terbalik selalu mengembalikan nol baris tanpa
-  // satu pun pesan kesalahan, dan pemakai menyimpulkan timnya tidak bekerja.
-  // Perbandingan panjang, bukan truthiness: yang ditanyakan "terisi atau
-  // tidak", dan `undefined` berarti tak ada batas bagi `<input type="date">`.
-  const batasAtasDari =
-    filter.sampaiTanggal.length > 0 ? filter.sampaiTanggal : undefined;
-  const batasBawahSampai =
-    filter.dariTanggal.length > 0 ? filter.dariTanggal : undefined;
+  // lewat widget-nya. Aturannya fungsi murni di `kegiatanListQuery.ts`; di sini
+  // tersisa pemasangannya, dan nama medan menyebut atribut tujuannya supaya
+  // tertukarnya terbaca salah.
+  const batas = batasRentangTanggal(filter);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -119,7 +115,7 @@ export function KegiatanFilters({
           type="date"
           value={filter.dariTanggal}
           onChange={ubahDariTanggal}
-          max={batasAtasDari}
+          max={batas.maksDariTanggal}
           aria-label="Kegiatan sejak tanggal"
           className={KELAS_TANGGAL}
         />
@@ -128,7 +124,7 @@ export function KegiatanFilters({
           type="date"
           value={filter.sampaiTanggal}
           onChange={ubahSampaiTanggal}
-          min={batasBawahSampai}
+          min={batas.minSampaiTanggal}
           aria-label="Kegiatan sampai tanggal"
           className={KELAS_TANGGAL}
         />

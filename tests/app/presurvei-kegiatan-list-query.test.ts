@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  batasRentangTanggal,
   buildKegiatanListUrl,
   filterSetelahPindahHalaman,
   filterSetelahUbah,
@@ -92,6 +93,59 @@ describe("buildKegiatanListUrl", () => {
     expect(buildKegiatanListUrl(kosong, { untukPeta: true })).toContain(
       "limit=100",
     );
+  });
+
+  it("memakukan peta ke halaman pertama walau tabel sedang di halaman lain", () => {
+    // Assertion string penuh, bukan `toContain`: tanpa pemakuan ini, membuka
+    // tab peta dari halaman 3 meminta baris 201-300 dan peta menggambar nol
+    // titik di sebelah tabel yang penuh, tanpa satu pun pesan. `toContain`
+    // pada "limit=100" saja tidak pernah menyentuh `page`.
+    expect(
+      buildKegiatanListUrl(
+        { ...kosong, page: 3, hasil: "DEAL" },
+        { untukPeta: true },
+      ),
+    ).toBe("/api/presurvei/kegiatan?page=1&limit=100&hasil=DEAL");
+  });
+
+  it("memangkas spasi pada nilai yang dikirim, bukan hanya pada penjaganya", () => {
+    // Nilai tak ter-trim membuat pencarian server nol hasil. Hari ini seluruh
+    // sumber filter adalah <select> dan <input type="date">, jadi spasi tidak
+    // bisa lahir dari layar — penjaga ini defensif untuk medan teks bebas yang
+    // mungkin menyusul, dan dikunci di sini supaya ia sudah terbukti benar.
+    expect(buildKegiatanListUrl({ ...kosong, userId: "  sales-7  " })).toBe(
+      "/api/presurvei/kegiatan?page=1&limit=20&userId=sales-7",
+    );
+  });
+
+  it("memperlakukan nilai berisi spasi saja sebagai kosong", () => {
+    expect(buildKegiatanListUrl({ ...kosong, userId: "   " })).toBe(
+      "/api/presurvei/kegiatan?page=1&limit=20",
+    );
+  });
+});
+
+describe("batasRentangTanggal", () => {
+  it("memasang ujung atas rentang sebagai batas medan 'dari' saja", () => {
+    // Sengaja ASIMETRIS: hanya `sampaiTanggal` yang terisi, sehingga menukar
+    // `min` dengan `max` memindahkan nilainya ke medan yang salah dan membuat
+    // sisi satunya `undefined` — langsung merah, bukan sekadar bertukar diam.
+    expect(
+      batasRentangTanggal({ ...kosong, sampaiTanggal: "2026-09-30" }),
+    ).toEqual({ maksDariTanggal: "2026-09-30", minSampaiTanggal: undefined });
+  });
+
+  it("memasang ujung bawah rentang sebagai batas medan 'sampai' saja", () => {
+    expect(
+      batasRentangTanggal({ ...kosong, dariTanggal: "2026-09-01" }),
+    ).toEqual({ maksDariTanggal: undefined, minSampaiTanggal: "2026-09-01" });
+  });
+
+  it("tidak membatasi apa pun saat kedua medan kosong", () => {
+    expect(batasRentangTanggal(kosong)).toEqual({
+      maksDariTanggal: undefined,
+      minSampaiTanggal: undefined,
+    });
   });
 });
 
