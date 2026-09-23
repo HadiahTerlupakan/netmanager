@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Pembentukan URL daftar iklan dari state filter. Diuji langsung sebagai
- * fungsi murni karena repo ini tidak punya DOM palsu — logika yang tertinggal
- * di dalam komponen tidak akan pernah teruji.
+ * fungsi murni karena jauh lebih murah daripada merender. Repo ini punya
+ * jsdom; pemasangan fungsi-fungsi ini ke komponen dijaga di
+ * `presurvei-iklan-wiring.test.tsx`.
  */
 
 import {

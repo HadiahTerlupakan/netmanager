@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 /**
- * Penentu aksi saat kartu dijatuhkan ke sebuah kolom. Murni dan di domain,
- * karena interaksi seretnya sendiri tidak dapat diuji — repo ini tidak punya
- * DOM palsu.
+ * Penentu aksi saat kartu dijatuhkan ke sebuah kolom. Murni dan di domain
+ * supaya aturannya diuji tanpa merender. Interaksi seretnya sendiri diuji di
+ * jsdom oleh `tests/app/presurvei-prospek-papan.test.tsx`.
  */
 
 import { PROSPEK_STATUSES } from "@/modules/presurvei/domain/entities/Prospek";

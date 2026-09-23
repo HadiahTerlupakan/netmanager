@@ -10,9 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * `Partial<...>`) dan membuat tombol pindah halaman diam-diam selalu kembali
  * ke halaman satu.
  *
- * Repo ini tidak punya DOM palsu, jadi hook dipanggil sebagai fungsi biasa
- * dengan `useState` distub — pola yang sama dengan
- * `tests/lib/useRadiusDashboardData.test.ts`.
+ * Hook dipanggil sebagai fungsi biasa dengan `useState` distub — pola yang
+ * sama dengan `tests/lib/useRadiusDashboardData.test.ts` — karena itu jalur
+ * termurah untuk konfigurasi `useQuery`. Ini pilihan biaya, bukan keterpaksaan:
+ * repo ini punya jsdom, dan kabel yang hanya terlihat saat dirender dijaga di
+ * `presurvei-iklan-wiring.test.tsx`.
  */
 
 import type { FilterIklan } from "@/app/admin/presurvei/iklan/iklanListQuery";
