@@ -2495,6 +2495,27 @@ git commit -m "feat(presurvei): tambah papan prospek dengan kolom per status"
 
 ## Task 12: Papan prospek — interaksi seret
 
+> **Warisan dari Task 11 yang wajib diketahui sebelum menulis kode.** Kolom papan
+> tidak menyimpan kartu di `useState`; ia memakai `useQueries` dengan **satu query per
+> halaman yang sudah dimuat**, berkunci `[KUNCI_KOLOM_PROSPEK, status, page]`. Alasannya
+> terbukti dari sumber: `invalidateQueries` hanya mengambil ulang query **aktif**
+> (`@tanstack/query-core` `queryClient.ts:307`), dan salinan di `useState` membuat kartu
+> yang dipindah tetap tampil di kolom asal. Konsekuensinya untuk task ini:
+>
+> 1. **Invalidasi per kolom memakai awalan `[KUNCI_KOLOM_PROSPEK, status]`** — mengenai
+>    semua halaman kolom itu, tidak menyentuh kolom lain.
+> 2. **Biayanya N permintaan paralel per kolom** untuk kolom yang sudah dimuat N halaman;
+>    satu seretan meng-invalidate dua kolom, jadi 2N permintaan, masing-masing
+>    `findMany` + `count` (`ProspekRepository.ts:38-46`). Terima, tapi jangan tambah
+>    invalidasi yang tidak perlu (mis. seluruh `[KUNCI_KOLOM_PROSPEK]`).
+> 3. **Optimistic update, bila dipakai, harus menulis ke N cache halaman**, bukan satu
+>    array.
+> 4. **Kartu yang dipindah bisa tak terlihat di kolom tujuan.** Urutannya `createdAt desc`
+>    (`ProspekRepository.ts:41-43`), bukan waktu pindah, jadi prospek lama bisa mendarat
+>    di halaman yang belum dimuat. Pemakai menyeret kartu, lalu kartunya lenyap dari
+>    kedua kolom. Task ini **wajib** menanganinya — minimal memberi tahu pemakai di mana
+>    kartunya berada — dan tidak boleh diam-diam.
+
 **Files:**
 - Modify: `app/admin/presurvei/prospek/ProspekKanbanClient.tsx`
 - Create: `app/admin/presurvei/prospek/useSeretProspek.ts`
