@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "react-hot-toast";
 
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
@@ -13,7 +12,8 @@ import {
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
-import { PESAN_KONVERSI_BELUM_TERSEDIA } from "./pindahProspek";
+import { isTawarkanKonversi } from "./konversiFormState";
+import { KonversiModal } from "./KonversiModal";
 import { ProspekCard } from "./ProspekCard";
 import type { ModeFormProspek } from "./prospekFormState";
 import { ProspekFormModal } from "./ProspekFormModal";
@@ -65,9 +65,6 @@ const MODE_BUAT: ModeFormProspek = { jenis: "buat" };
 /** Label tombol pembuka form prospek baru; juga dipakai test sebagai selektor. */
 export const LABEL_TOMBOL_TAMBAH_PROSPEK = "Tambah Prospek";
 
-/** Id toast jatuhan ke DEAL, supaya jatuhan berulang tidak menumpuk. */
-const ID_TOAST_KONVERSI = "presurvei-prospek-konversi";
-
 /** Kelas bingkai kolom per rupa seret. */
 const KELAS_KOLOM_SERET: Record<TampilanKolomSeret, string> = {
   netral: "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50",
@@ -96,6 +93,7 @@ function BadanKolom({
   kartu,
   seret,
   onUbahProspek,
+  onJadikanCanvasing,
 }: {
   status: ProspekStatus;
   keadaan: KeadaanKolom;
@@ -103,6 +101,8 @@ function BadanKolom({
   seret: SeretKolom;
   /** Pembuka form ubah; tidak diisi bila pemakai tak boleh mengubah prospek. */
   onUbahProspek: ((prospekId: string) => void) | undefined;
+  /** Pembuka modal konversi. */
+  onJadikanCanvasing: (prospekId: string) => void;
 }) {
   switch (keadaan) {
     case "memuat":
@@ -140,6 +140,11 @@ function BadanKolom({
               onSelesaiSeret={seret.selesaiSeret}
               onUbah={
                 onUbahProspek ? () => onUbahProspek(prospek.id) : undefined
+              }
+              onJadikanCanvasing={
+                isTawarkanKonversi(status, seret.isBolehUbah)
+                  ? () => onJadikanCanvasing(prospek.id)
+                  : undefined
               }
             />
           ))}
@@ -191,10 +196,12 @@ function ProspekKolom({
   status,
   seret,
   onUbahProspek,
+  onJadikanCanvasing,
 }: {
   status: ProspekStatus;
   seret: SeretKolom;
   onUbahProspek: ((prospekId: string) => void) | undefined;
+  onJadikanCanvasing: (prospekId: string) => void;
 }) {
   const kolom = useProspekKolom(status);
   const tampilan = PROSPEK_STATUS_CONFIG[status];
@@ -243,6 +250,7 @@ function ProspekKolom({
           kartu={kolom.kartu}
           seret={seret}
           onUbahProspek={onUbahProspek}
+          onJadikanCanvasing={onJadikanCanvasing}
         />
         <TombolKakiKolom kolom={kolom} />
       </div>
@@ -264,22 +272,24 @@ function ProspekKolom({
  * `app/admin/planning/PlanningKanbanClient.tsx:45-52`.
  *
  * Kartu diseret antar kolom dengan HTML5 drag-drop native, hanya ke kolom
- * yang sah menurut `resolveAksiKanban`. Jatuhan ke DEAL belum memindahkan
- * status: formulir konversinya belum ada, jadi pemakai diberi tahu alih-alih
- * dibiarkan menebak.
+ * yang sah menurut `resolveAksiKanban`. Jatuhan ke DEAL tidak memindahkan
+ * status: ia membuka `KonversiModal`, dan status baru ditulis saat pemakai
+ * menyimpan konversinya — membatalkan modal tidak mengubah apa pun.
  */
 export function ProspekKanbanClient() {
   const [isKolomMatiTampil, setIsKolomMatiTampil] = useState(false);
   const [isFormBuatTerbuka, setIsFormBuatTerbuka] = useState(false);
   const [idProspekDiubah, setIdProspekDiubah] = useState<string | null>(null);
+  const [idProspekDikonversi, setIdProspekDikonversi] = useState<string | null>(
+    null,
+  );
   const { hasAnyPermission } = usePermission();
   const isBolehUbah = hasAnyPermission(IZIN_UBAH_PROSPEK);
   const isBolehBuat = hasAnyPermission(IZIN_BUAT_PROSPEK);
   const pindah = usePindahProspek();
   const seret = useSeretProspek({
     onUbahStatus: (perpindahan) => void pindah.pindahkan(perpindahan),
-    onBukaKonversi: () =>
-      toast(PESAN_KONVERSI_BELUM_TERSEDIA, { id: ID_TOAST_KONVERSI }),
+    onBukaKonversi: setIdProspekDikonversi,
   });
   const seretKolom: SeretKolom = {
     tampilanKolom: seret.tampilanKolom,
@@ -334,6 +344,7 @@ export function ProspekKanbanClient() {
             status={status}
             seret={seretKolom}
             onUbahProspek={bukaFormUbah}
+            onJadikanCanvasing={setIdProspekDikonversi}
           />
         ))}
       </div>
@@ -358,6 +369,17 @@ export function ProspekKanbanClient() {
           mode={{ jenis: "ubah", prospekId: idProspekDiubah }}
           isOpen
           onClose={() => setIdProspekDiubah(null)}
+        />
+      )}
+
+      {/* Modal konversi juga dipasang per prospek: nomor KTP dan paket milik
+          satu calon pelanggan tidak boleh terbawa ke prospek lain. */}
+      {idProspekDikonversi !== null && (
+        <KonversiModal
+          key={idProspekDikonversi}
+          prospekId={idProspekDikonversi}
+          isOpen
+          onClose={() => setIdProspekDikonversi(null)}
         />
       )}
     </div>

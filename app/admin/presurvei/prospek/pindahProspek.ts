@@ -6,17 +6,6 @@ import {
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
-/**
- * Pemberitahuan saat kartu dijatuhkan ke DEAL.
- *
- * DEAL menuntut data pelanggan yang tidak ada pada prospek
- * (`modules/presurvei/domain/prospek-kanban.ts:44-48`), dan formulir
- * konversinya belum dibangun (Task 14). Jatuhan ke DEAL tetap memberi umpan
- * balik alih-alih diam, dan tidak menulis status apa pun.
- */
-export const PESAN_KONVERSI_BELUM_TERSEDIA =
-  "Memindahkan prospek ke Deal butuh formulir konversi, yang belum tersedia di papan ini. Status prospek tidak diubah.";
-
 /** URL `PATCH` satu prospek (`app/api/presurvei/prospek/[id]/route.ts`). */
 export function buildUbahProspekUrl(prospekId: string): string {
   return `/api/presurvei/prospek/${encodeURIComponent(prospekId)}`;

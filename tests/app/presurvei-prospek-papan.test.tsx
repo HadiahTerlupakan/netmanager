@@ -97,6 +97,26 @@ vi.mock("@/app/admin/presurvei/prospek/ProspekFormModal", async () => {
   };
 });
 
+// Modal konversi diganti penanda yang mencetak prospeknya; isinya diuji di
+// `presurvei-konversi-modal.test.tsx`.
+vi.mock("@/app/admin/presurvei/prospek/KonversiModal", () => ({
+  KonversiModal: ({
+    prospekId,
+    isOpen,
+    onClose,
+  }: {
+    prospekId: string;
+    isOpen: boolean;
+    onClose: () => void;
+  }) => (
+    <div data-modal-konversi={prospekId} data-terbuka={String(isOpen)}>
+      <button type="button" onClick={onClose}>
+        tutup-modal-konversi
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("react-hot-toast", () => ({
   toast: Object.assign(palsu.toast, { success: vi.fn(), error: vi.fn() }),
 }));
@@ -113,7 +133,6 @@ import {
   ProspekCard,
   TEKS_TAK_BERTUAN,
 } from "@/app/admin/presurvei/prospek/ProspekCard";
-import { PESAN_KONVERSI_BELUM_TERSEDIA } from "@/app/admin/presurvei/prospek/pindahProspek";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -169,6 +188,7 @@ afterEach(async () => {
   await act(async () => {
     root.unmount();
   });
+  vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
 
@@ -439,18 +459,44 @@ describe("ProspekKanbanClient — seret", () => {
     expect(kolom("NEGOSIASI").getAttribute("data-seret")).toBe("netral");
   });
 
-  it("memberi tahu alih-alih menulis status saat dijatuhkan ke DEAL", async () => {
+  it("membuka modal konversi alih-alih menulis status saat dijatuhkan ke DEAL", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
     await render(<ProspekKanbanClient />);
     await angkat("NEGOSIASI");
     await act(async () => {
       kirimSeret(kolom("DEAL"), "drop");
     });
 
-    expect(palsu.toast).toHaveBeenCalledWith(
-      PESAN_KONVERSI_BELUM_TERSEDIA,
-      expect.objectContaining({ id: expect.any(String) }),
+    const modalKonversi = container.querySelector("[data-modal-konversi]");
+    expect(modalKonversi?.getAttribute("data-modal-konversi")).toBe(
+      "kartu-NEGOSIASI",
     );
+    expect(modalKonversi?.getAttribute("data-terbuka")).toBe("true");
+    // Status baru ditulis saat pemakai menyimpan di modal, bukan saat jatuh.
     expect(palsu.pindahkan).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(palsu.toast).not.toHaveBeenCalled();
+  });
+
+  it("tidak menulis status apa pun saat modal konversi dibatalkan", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    await render(<ProspekKanbanClient />);
+    await angkat("NEGOSIASI");
+    await act(async () => {
+      kirimSeret(kolom("DEAL"), "drop");
+    });
+
+    await act(async () => {
+      [...container.querySelectorAll("button")]
+        .find((elemen) => elemen.textContent === "tutup-modal-konversi")
+        .click();
+    });
+
+    expect(container.querySelector("[data-modal-konversi]")).toBeNull();
+    expect(palsu.pindahkan).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("mengembalikan semua kolom ke rupa biasa saat seretan dibatalkan", async () => {
@@ -606,5 +652,55 @@ describe("ProspekKanbanClient — form prospek", () => {
     await render(<ProspekKanbanClient />);
 
     expect(tombol(LABEL_TOMBOL_UBAH)).toBeUndefined();
+  });
+});
+
+describe("ProspekKanbanClient — tombol konversi di kartu DEAL", () => {
+  /** Ditulis ulang sebagai literal, bukan diimpor dari produksi. */
+  const LABEL_JADIKAN_CANVASING = "Jadikan canvasing";
+
+  function tombolKonversiDi(
+    status: ProspekStatus,
+  ): HTMLButtonElement | undefined {
+    return [...kolom(status).querySelectorAll("button")].find(
+      (elemen) => elemen.textContent.trim() === LABEL_JADIKAN_CANVASING,
+    );
+  }
+
+  beforeEach(() => {
+    kolomBerkartu();
+  });
+
+  it("hanya kartu DEAL yang menawarkan konversi", async () => {
+    await render(<ProspekKanbanClient />);
+
+    expect(tombolKonversiDi("DEAL")).toBeDefined();
+    expect(tombolKonversiDi("NEGOSIASI")).toBeUndefined();
+    expect(tombolKonversiDi("BARU")).toBeUndefined();
+  });
+
+  it("membuka modal konversi untuk kartu DEAL yang tombolnya ditekan", async () => {
+    await render(<ProspekKanbanClient />);
+
+    await act(async () => {
+      tombolKonversiDi("DEAL").click();
+    });
+
+    expect(
+      container
+        .querySelector("[data-modal-konversi]")
+        ?.getAttribute("data-modal-konversi"),
+    ).toBe("kartu-DEAL");
+  });
+
+  it("tidak menawarkan konversi tanpa permission ubah", async () => {
+    // Gerbang `POST .../jadikan-canvasing` sama dengan gerbang PATCH
+    // (`app/api/presurvei/prospek/[id]/jadikan-canvasing/route.ts:15`).
+    palsu.hasAnyPermission.mockImplementation(
+      (izin: string[]) => !izin.includes("presurvei:update"),
+    );
+    await render(<ProspekKanbanClient />);
+
+    expect(tombolKonversiDi("DEAL")).toBeUndefined();
   });
 });

@@ -13,7 +13,7 @@
  * daftar 5 cross-module invalidation flow yang ditangani di file ini.
  */
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 
 /**
  * Invalidate cache untuk seluruh resource yang dipengaruhi customer
@@ -149,5 +149,34 @@ export function useInvalidatePlanningRelated() {
         return !exceptedKeys.has(key);
       },
     });
+  };
+}
+
+/**
+ * Awalan key daftar canvasing (`app/admin/marketing/canvasing/useCanvasingListQuery.ts:87`,
+ * `["canvasing-list", url]`). Disalin, bukan diimpor: `lib/` tidak boleh
+ * bergantung ke `app/`.
+ */
+const KUNCI_DAFTAR_CANVASING = "canvasing-list";
+
+/**
+ * Invalidate cache setelah prospek presurvei dijadikan canvasing.
+ *
+ * Konversi melahirkan baris baru di modul marketing. QueryClient hidup sekali
+ * untuk seluruh aplikasi (`app/layout.tsx` → `components/providers/session-provider.tsx`,
+ * `staleTime` 30 detik), jadi daftar canvasing yang pernah dibuka tetap
+ * tersaji dari cache; tanpa invalidasi ini halaman canvasing menampilkan
+ * daftar basi dan pemakainya mengira promosinya gagal.
+ *
+ * Kunci presurvei diterima dari pemanggil karena bentuknya (kolom asal, kolom
+ * DEAL, rincian prospek) milik halaman papan, bukan `lib/`.
+ */
+export function useInvalidatePresurveiKonversi() {
+  const queryClient = useQueryClient();
+  return (kunciPresurvei: readonly QueryKey[]) => {
+    for (const queryKey of kunciPresurvei) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+    void queryClient.invalidateQueries({ queryKey: [KUNCI_DAFTAR_CANVASING] });
   };
 }

@@ -3,6 +3,7 @@ import {
   type ProspekListItemDto,
 } from "@/modules/presurvei/client";
 
+import { LABEL_TOMBOL_JADIKAN_CANVASING } from "./konversiFormState";
 import { isTakBertuan } from "./prospekKolomQuery";
 
 /** Penanda kartu tanpa pemilik; juga dipakai test sebagai selektor teks. */
@@ -21,6 +22,8 @@ interface ProspekCardProps {
   onSelesaiSeret?: () => void;
   /** Membuka form ubah; tombolnya hanya tampil bila diisi. */
   onUbah?: () => void;
+  /** Membuka modal konversi; tombolnya hanya tampil bila diisi. */
+  onJadikanCanvasing?: () => void;
 }
 
 /**
@@ -41,6 +44,7 @@ export function ProspekCard({
   onMulaiSeret,
   onSelesaiSeret,
   onUbah,
+  onJadikanCanvasing,
 }: ProspekCardProps) {
   const sumber = PROSPEK_SUMBER_CONFIG[prospek.sumber];
   const isTanpaPemilik = isTakBertuan(prospek);
@@ -100,6 +104,15 @@ export function ProspekCard({
           </button>
         )}
       </div>
+      {onJadikanCanvasing && (
+        <button
+          type="button"
+          onClick={onJadikanCanvasing}
+          className="mt-2 w-full rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+        >
+          {LABEL_TOMBOL_JADIKAN_CANVASING}
+        </button>
+      )}
     </article>
   );
 }
