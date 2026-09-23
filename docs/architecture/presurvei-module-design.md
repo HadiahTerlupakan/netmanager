@@ -338,6 +338,15 @@ mengirimnya, jadi suntingan orang lain sejak modal dibuka tidak tertimpa. Klien
 tanpa `versi` (mobile lama) memakai versi bacaan service sendiri, yang hanya menjaga
 jendela di dalam satu request.
 
+**Kontrak untuk klien mobile.** Per 2026-09-24 aplikasi `mobile-netmanager` belum
+punya fitur presurvei sama sekali (tidak ada pemanggilan `/api/presurvei/*`). Saat
+alur ubah kegiatan dibangun di sana, klien WAJIB mengirim `versi` = `updatedAt` dari
+`GET /api/presurvei/kegiatan/[id]` apa adanya. Formatnya ISO 8601 bermilidetik
+berakhiran `Z`, persis keluaran `Date.prototype.toISOString()`. `z.iso.datetime()`
+menolak offset lain seperti `+07:00`, dan membulatkan ke detik akan selalu memicu
+409. Respons 409 berarti kegiatan diubah pihak lain: muat ulang rincian, jangan
+kirim ulang otomatis.
+
 ### 4.5 Enum baru
 
 ```prisma
