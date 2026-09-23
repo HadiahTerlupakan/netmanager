@@ -2329,14 +2329,20 @@ Baca `catatKegiatanSchema` di `modules/presurvei/validators/kegiatan.validator.t
 
 Create `app/admin/presurvei/kegiatan/KegiatanFormModal.tsx` memakai `Modal` dari `@/components/ui/Modal`.
 
-Medan data teknis hanya tampil bila `isButuhDataTeknis(jenis)` bernilai true. Bila `isButuhLokasi(jenis)` true — misalnya untuk `SURVEI_LOKASI` — tampilkan keterangan, bukan penghalang:
+**Form web tidak memuat medan data teknis sama sekali.** `isButuhDataTeknis` hanya benar
+untuk SURVEI_LOKASI, dan SURVEI_LOKASI selalu ditolak dari web karena tak berkoordinat
+(`kegiatan.validator.ts:88-93`). Menampilkan blok data teknis berarti mengundang pemakai
+mengisi medan yang tidak pernah bisa tersimpan. Data teknis lahir dari survei di lapangan,
+sama seperti foto dan GPS.
+
+Bila `isButuhLokasi(jenis)` true, tampilkan keterangan yang menyatakan akibat **sebenarnya**
+— penolakan — bukan penghalang:
 
 ```tsx
 {isButuhLokasi(nilai.jenis) && (
   <p className="text-sm text-amber-600">
-    Kegiatan jenis ini biasanya dicatat dari lapangan lewat aplikasi mobile
-    supaya titik lokasinya ikut tersimpan. Yang dicatat dari sini tidak akan
-    muncul di peta kunjungan.
+    Kegiatan jenis ini wajib menyertakan titik lokasi, sedangkan halaman web tidak
+    menangkap GPS — pencatatannya akan ditolak. Catat dari aplikasi mobile.
   </p>
 )}
 ```
@@ -2354,7 +2360,7 @@ Terapkan mutasi, pastikan merah, lalu **kembalikan**:
 
 ```bash
 git add app/admin/presurvei/kegiatan tests/app/presurvei-kegiatan-form-state.test.ts
-git commit -m "feat(presurvei): tambah modal catat dan ubah kegiatan"
+git commit -m "feat(presurvei): tambah modal catat kegiatan dari web"
 ```
 
 ---
@@ -3426,7 +3432,7 @@ Tidak ada migration Prisma di fase ini — perubahan koordinat pada Task 3 hanya
 
 Keterbatasan yang **wajib** tercatat di entri:
 
-1. Kegiatan yang dicatat dari web tidak punya koordinat maupun foto, sehingga tidak muncul di peta kunjungan. Itu disengaja — keduanya lahir dari perangkat di lapangan.
+1. Dari web hanya kegiatan TELEPON, CHAT, dan IKLAN yang bisa dicatat. KUNJUNGAN dan SURVEI_LOKASI ditolak karena wajib berkoordinat (`kegiatan.validator.ts:88-93`) dan web tidak menangkap GPS maupun foto — keduanya, beserta data teknis, lahir dari perangkat di lapangan. Kegiatan tercatat atas nama pencatatnya (route menimpa `userId` dari sesi); tidak ada pencatatan atas nama sales lain. Mengubah kegiatan yang sudah tercatat belum didukung (Task 21).
 2. Laporan tidak menampilkan sales yang punya realisasi tapi belum ditetapkan target, karena laporan disusun dari daftar target.
 3. Batas periode laporan memakai UTC, bukan timezone tenant. Aktivitas pada tujuh jam pertama tiap bulan terhitung di bulan sebelumnya. Repo ini **tidak punya** timezone per-tenant: satu-satunya field `timezone` di `prisma/schema.prisma` adalah milik model `MikroTikRouter` (baris 644), dan `Tenant` maupun `TenantSettings` tidak punya padanannya. Jadi perbaikannya menuntut keputusan produk lebih dulu — zona mana yang dipakai — bukan sekadar membaca pengaturan yang sudah ada.
 4. Laporan per-iklan belum ada. Atribusi `iklanId` dikumpulkan sejak Fase 2 tapi belum ada yang mengonsumsinya; saat dibangun nanti ia wajib sadar-periode agar kampanye yang sudah mati tidak menggelembungkan hasilnya.
