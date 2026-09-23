@@ -8,6 +8,7 @@ import {
   toProspekListItem,
 } from "@/modules/presurvei";
 import {
+  ikatFilterProspekKePemanggil,
   isBolehLihatSemuaPresurvei,
   tentukanPemilikProspek,
 } from "../akses-presurvei";
@@ -23,17 +24,18 @@ export const GET = createHandler(
       status: searchParams.get("status") ?? undefined,
       sumber: searchParams.get("sumber") ?? undefined,
       pemilikId: searchParams.get("pemilikId") ?? undefined,
+      tanpaPemilik: searchParams.get("tanpaPemilik") ?? undefined,
       search: searchParams.get("search") ?? undefined,
       page: searchParams.get("page") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
     });
 
     // Sales tanpa permission web hanya melihat prospeknya sendiri; filter
-    // `pemilikId` yang dikirim klien ditimpa, bukan dipercaya.
+    // `pemilikId` yang dikirim klien ditimpa dan `tanpaPemilik` dibuang.
     const hasil = await service.daftar(
       isBolehLihatSemuaPresurvei(ctx.permissions)
         ? filters
-        : { ...filters, pemilikId: ctx.session!.user.id },
+        : ikatFilterProspekKePemanggil(filters, ctx.session!.user.id),
     );
 
     return apiPaginated(hasil.items.map(toProspekListItem), {

@@ -167,13 +167,30 @@ export class ProspekRepository implements IProspekRepository {
     );
   }
 
+  /**
+   * Klausa pemilik: `pemilikId` yang terisi selalu menang atas `tanpaPemilik`.
+   *
+   * Route mengisi `pemilikId` dengan id sesi untuk sales lapangan
+   * (`app/api/presurvei/prospek/route.ts`). Bila `tanpaPemilik` boleh
+   * menimpanya menjadi `null`, sales itu menerima seluruh prospek tak bertuan
+   * milik tenant. Route juga membuang `tanpaPemilik` dari pemanggil itu; aturan
+   * di sini lapis kedua untuk pemanggil lain dari repository ini.
+   */
+  private bangunFilterPemilik(
+    filters: ProspekListFilters,
+  ): Prisma.PresurveiProspekWhereInput {
+    if (filters.pemilikId) return { pemilikId: filters.pemilikId };
+    if (filters.tanpaPemilik) return { pemilikId: null };
+    return {};
+  }
+
   private bangunFilter(
     filters: ProspekListFilters,
   ): Prisma.PresurveiProspekWhereInput {
     return {
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.sumber ? { sumber: filters.sumber } : {}),
-      ...(filters.pemilikId ? { pemilikId: filters.pemilikId } : {}),
+      ...this.bangunFilterPemilik(filters),
       ...(filters.search
         ? {
             OR: [

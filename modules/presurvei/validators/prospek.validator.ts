@@ -79,6 +79,14 @@ export const daftarProspekSchema = z.object({
   status: z.enum(PROSPEK_STATUSES).optional(),
   sumber: z.enum(PROSPEK_SUMBER).optional(),
   pemilikId: z.string().optional(),
+  /**
+   * Hanya prospek tak bertuan. Dibaca dari query string, jadi enum string —
+   * `z.coerce.boolean()` akan mengubah "false" menjadi true.
+   */
+  tanpaPemilik: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((nilai) => nilai === "true"),
   search: z.string().max(PANJANG_NAMA_MAKS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce

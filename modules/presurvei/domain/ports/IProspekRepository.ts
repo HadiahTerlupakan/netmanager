@@ -16,6 +16,11 @@ export interface ProspekListFilters {
   status?: ProspekStatus;
   sumber?: ProspekSumber;
   pemilikId?: string;
+  /**
+   * Hanya prospek tanpa pemilik. Kalah dari `pemilikId` yang terisi — lihat
+   * `ProspekRepository.bangunFilter`.
+   */
+  tanpaPemilik?: boolean;
   search?: string;
   page: number;
   limit: number;

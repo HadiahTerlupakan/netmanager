@@ -200,6 +200,54 @@ describe("ProspekRepository.findMany", () => {
     expect(argumen?.where).toEqual({});
   });
 
+  it("menyaring prospek tak bertuan saat tanpaPemilik diminta", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({ page: 1, limit: 10, tanpaPemilik: true });
+
+    // Anotasi wajib: `null` tanpa tipe kontekstual memicu TS7018.
+    const where: { pemilikId: string | null } = { pemilikId: null };
+    expect(prisma.presurveiProspek.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+    // `count` ikut disaring: tanpanya `meta.total` menghitung seluruh tenant.
+    expect(prisma.presurveiProspek.count).toHaveBeenCalledWith({ where });
+  });
+
+  it("tidak menyaring pemilik saat tanpaPemilik bernilai false", async () => {
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({ page: 1, limit: 10, tanpaPemilik: false });
+
+    const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock
+      .calls[0][0];
+    expect(argumen?.where).toEqual({});
+  });
+
+  it("memenangkan pemilikId terisi atas tanpaPemilik", async () => {
+    // Aturan keamanan: route mengisi `pemilikId` dengan id sesi untuk sales
+    // lapangan. Bila `tanpaPemilik` sampai menimpanya menjadi `null`, sales itu
+    // menerima seluruh prospek tak bertuan milik tenant. Pemilik yang terisi
+    // selalu menang, apa pun urutan pemanggil menyusun filternya.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({
+      page: 1,
+      limit: 10,
+      pemilikId: "user-1",
+      tanpaPemilik: true,
+    });
+
+    const where = { pemilikId: "user-1" };
+    expect(prisma.presurveiProspek.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+    expect(prisma.presurveiProspek.count).toHaveBeenCalledWith({ where });
+  });
+
   it("mengembalikan entitas domain, bukan baris mentah", async () => {
     vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([
       barisProspek(),

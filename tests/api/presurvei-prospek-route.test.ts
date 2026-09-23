@@ -147,6 +147,60 @@ describe("GET /api/presurvei/prospek — pembatasan kepemilikan", () => {
   });
 });
 
+describe("GET /api/presurvei/prospek — filter tanpaPemilik", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.daftar.mockResolvedValue({ items: [], total: 0 });
+  });
+
+  /** Filter yang benar-benar diterima service; gagal bersih bila tak terpanggil. */
+  const filterDiterimaService = (): Record<string, unknown> => {
+    expect(mockFns.daftar).toHaveBeenCalledTimes(1);
+    return mockFns.daftar.mock.calls[0][0];
+  };
+
+  it("membuang tanpaPemilik dari pemanggil bermodal permission mobile", async () => {
+    // Syarat utama: sales lapangan tidak boleh pernah menerima prospek tak
+    // bertuan milik tenant. Filternya dibuang di route, bukan hanya dikalahkan
+    // di repository — dua lapis, masing-masing punya test sendiri.
+    beriPermission(["m_presurvei:read"]);
+
+    await mintaDaftar("tanpaPemilik=true");
+
+    const filter = filterDiterimaService();
+    expect(filter.pemilikId).toBe(ID_SESI);
+    expect(filter).not.toHaveProperty("tanpaPemilik");
+  });
+
+  it("tetap mengikat pemanggil mobile yang mengirim tanpaPemilik dan pemilik orang lain", async () => {
+    beriPermission(["m_presurvei:read"]);
+
+    await mintaDaftar(`tanpaPemilik=true&pemilikId=${ID_ORANG_LAIN}`);
+
+    const filter = filterDiterimaService();
+    expect(filter.pemilikId).toBe(ID_SESI);
+    expect(filter).not.toHaveProperty("tanpaPemilik");
+  });
+
+  it("meneruskan tanpaPemilik dari pemegang permission web", async () => {
+    beriPermission(["presurvei:read"]);
+
+    await mintaDaftar("tanpaPemilik=true");
+
+    const filter = filterDiterimaService();
+    expect(filter.tanpaPemilik).toBe(true);
+    expect(filter.pemilikId).toBeUndefined();
+  });
+
+  it('membaca "false" dari pemegang permission web sebagai tidak menyaring', async () => {
+    beriPermission(["presurvei:read"]);
+
+    await mintaDaftar("tanpaPemilik=false");
+
+    expect(filterDiterimaService().tanpaPemilik).toBe(false);
+  });
+});
+
 describe("POST /api/presurvei/prospek — penugasan pemilik", () => {
   beforeEach(() => {
     vi.clearAllMocks();

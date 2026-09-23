@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
  */
 
 import {
+  ikatFilterProspekKePemanggil,
   isBolehLihatSemuaPresurvei,
   tentukanPemilikProspek,
 } from "@/app/api/presurvei/akses-presurvei";
@@ -97,5 +98,21 @@ describe("tentukanPemilikProspek", () => {
         tentukanPemilikProspek(permissions, null, ID_PEMANGGIL),
       ).toBeTruthy();
     }
+  });
+});
+
+describe("ikatFilterProspekKePemanggil", () => {
+  it("menimpa pemilik dan membuang tanpaPemilik", () => {
+    const filter = Object.freeze({
+      pemilikId: ID_ORANG_LAIN,
+      tanpaPemilik: true,
+      page: 2,
+      limit: 7,
+    });
+
+    const hasil = ikatFilterProspekKePemanggil(filter, ID_PEMANGGIL);
+
+    expect(hasil).toEqual({ pemilikId: ID_PEMANGGIL, page: 2, limit: 7 });
+    expect(hasil).not.toHaveProperty("tanpaPemilik");
   });
 });

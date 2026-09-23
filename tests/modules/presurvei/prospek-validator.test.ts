@@ -10,7 +10,10 @@ import { describe, expect, it } from "vitest";
  * spasi harus dianggap kosong dan jebakan `!0` tidak boleh kembali.
  */
 
-import { buatProspekSchema } from "@/modules/presurvei/validators/prospek.validator";
+import {
+  buatProspekSchema,
+  daftarProspekSchema,
+} from "@/modules/presurvei/validators/prospek.validator";
 
 const prospek = (over: Record<string, unknown> = {}) => ({
   nama: "Budi",
@@ -82,5 +85,32 @@ describe("buatProspekSchema — sumber lain", () => {
     expect(
       buatProspekSchema.safeParse(prospek({ sumber: "WEBSITE" })).success,
     ).toBe(true);
+  });
+});
+
+describe("daftarProspekSchema — tanpaPemilik", () => {
+  // Nilainya datang dari query string, jadi selalu string. `z.coerce.boolean()`
+  // mengubah string "false" menjadi true (`Boolean("false")`); test "false" di
+  // bawah yang menjaga agar bentuk itu tidak kembali.
+  it('membaca "true" sebagai permintaan prospek tak bertuan', () => {
+    expect(
+      daftarProspekSchema.parse({ tanpaPemilik: "true" }).tanpaPemilik,
+    ).toBe(true);
+  });
+
+  it('membaca "false" sebagai tidak menyaring, bukan sebaliknya', () => {
+    expect(
+      daftarProspekSchema.parse({ tanpaPemilik: "false" }).tanpaPemilik,
+    ).toBe(false);
+  });
+
+  it("tidak menyaring saat param tidak dikirim", () => {
+    expect(daftarProspekSchema.parse({}).tanpaPemilik).toBe(false);
+  });
+
+  it("menolak nilai selain true/false", () => {
+    expect(daftarProspekSchema.safeParse({ tanpaPemilik: "1" }).success).toBe(
+      false,
+    );
   });
 });

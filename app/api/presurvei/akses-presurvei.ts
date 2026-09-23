@@ -46,3 +46,25 @@ export function tentukanPemilikProspek(
   if (!isBolehLihatSemuaPresurvei(permissions)) return idPemanggil;
   return pemilikDiminta ?? idPemanggil;
 }
+
+/** Filter daftar prospek yang dapat dibatasi ke pemanggil. */
+interface FilterPemilikProspek {
+  pemilikId?: string;
+  tanpaPemilik?: boolean;
+}
+
+/**
+ * Ikat filter daftar prospek ke pemanggil yang hanya boleh melihat miliknya.
+ *
+ * `pemilikId` kiriman klien ditimpa id pemanggil, dan `tanpaPemilik` dibuang
+ * seluruhnya — sales lapangan tidak boleh pernah menerima prospek tak bertuan
+ * milik tenant. Membuangnya (bukan sekadar mengandalkan `pemilikId` yang
+ * menang di repository) membuat jaminan itu tidak bergantung pada satu lapis.
+ */
+export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
+  filters: T,
+  idPemanggil: string,
+): Omit<T, "tanpaPemilik"> & { pemilikId: string } {
+  const { tanpaPemilik: _dibuang, ...sisa } = filters;
+  return { ...sisa, pemilikId: idPemanggil };
+}
