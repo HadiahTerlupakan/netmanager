@@ -7,7 +7,7 @@ import {
 
 import type { StatusDaftarSales } from "../useDaftarSalesPresurvei";
 import { cariTargetSales, type BarisTarget } from "./barisTarget";
-import type { Periode } from "./periodeQuery";
+import type { Periode } from "../periode";
 
 /**
  * Batas atas tiap angka target, dipasang sebagai atribut `max` medan: browser

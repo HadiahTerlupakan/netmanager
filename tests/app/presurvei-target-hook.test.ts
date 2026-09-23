@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `presurvei-iklan-hook.test.ts`.
  */
 
-import type { Periode } from "@/app/admin/presurvei/target/periodeQuery";
+import type { Periode } from "@/app/admin/presurvei/periode";
 import type { MuatanTarget } from "@/app/admin/presurvei/target/targetFormState";
 
 const mockUseState = vi.fn();

@@ -14,7 +14,7 @@ import {
   labelOpsiSales,
   type BarisTarget,
 } from "./barisTarget";
-import { namaBulan, type Periode } from "./periodeQuery";
+import { namaBulan, type Periode } from "../periode";
 import {
   isSimpanTargetTerbuka,
   KUNCI_KESALAHAN_FORM,

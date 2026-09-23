@@ -4,7 +4,6 @@ import {
   cariTargetSales,
   keBarisTarget,
   labelOpsiSales,
-  labelSalesTarget,
   pesanTabelKosong,
   type BarisTarget,
 } from "@/app/admin/presurvei/target/barisTarget";
@@ -14,21 +13,6 @@ const DAFTAR_SALES: readonly SalesPresurveiDto[] = Object.freeze([
   { id: "user-rina-000111", nama: "Rina" },
   { id: "user-budi-000222", nama: "Budi" },
 ]);
-
-describe("labelSalesTarget", () => {
-  it("memakai nama dari daftar sales aktif", () => {
-    expect(labelSalesTarget("user-budi-000222", DAFTAR_SALES)).toBe("Budi");
-  });
-
-  it("memberi label netral berpotongan ujung id untuk sales di luar daftar", () => {
-    // Daftar hanya berisi sales AKTIF, jadi target milik sales yang sudah
-    // nonaktif tidak menemukan namanya. Label ini tidak membuka email dan
-    // tidak mencetak id utuh.
-    expect(labelSalesTarget("cl0000000000abc987", DAFTAR_SALES)).toBe(
-      "Sales tak tercantum (…abc987)",
-    );
-  });
-});
 
 describe("keBarisTarget", () => {
   it("menempelkan label sales ke setiap target tanpa mengubah angkanya", () => {

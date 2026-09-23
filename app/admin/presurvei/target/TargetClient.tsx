@@ -7,20 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { usePermission } from "@/hooks/use-permission";
 import { PERMISSIONS } from "@/lib/permissions";
 
+import { PemilihPeriode } from "../PemilihPeriode";
 import { useDaftarSalesPresurvei } from "../useDaftarSalesPresurvei";
 import { keBarisTarget, type BarisTarget } from "./barisTarget";
-import {
-  namaBulan,
-  periodeSekarang,
-  pilihanBulan,
-  pilihanTahun,
-} from "./periodeQuery";
 import { TargetFormModal } from "./TargetFormModal";
 import { TargetTable } from "./TargetTable";
 import { useTargetPeriode } from "./useTargetPeriode";
-
-const KELAS_SELECT =
-  "cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 /** Modal yang sedang terbuka: tertutup, menetapkan baru, atau mengubah baris. */
 type KeadaanModal =
@@ -45,11 +37,6 @@ export function TargetClient() {
     () => keBarisTarget(daftarTarget, daftarSales),
     [daftarTarget, daftarSales],
   );
-  const tahunTersedia = useMemo(
-    () => pilihanTahun(periodeSekarang().tahun),
-    [],
-  );
-
   const tutupModal = () => setModal(MODAL_TERTUTUP);
 
   return (
@@ -73,43 +60,7 @@ export function TargetClient() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="sr-only" htmlFor="target-periode-bulan">
-          Bulan
-        </label>
-        <select
-          id="target-periode-bulan"
-          value={periode.bulan}
-          onChange={(event) =>
-            ubahPeriode({ bulan: Number(event.target.value) })
-          }
-          className={KELAS_SELECT}
-        >
-          {pilihanBulan().map((bulan) => (
-            <option key={bulan} value={bulan}>
-              {namaBulan(bulan)}
-            </option>
-          ))}
-        </select>
-
-        <label className="sr-only" htmlFor="target-periode-tahun">
-          Tahun
-        </label>
-        <select
-          id="target-periode-tahun"
-          value={periode.tahun}
-          onChange={(event) =>
-            ubahPeriode({ tahun: Number(event.target.value) })
-          }
-          className={KELAS_SELECT}
-        >
-          {tahunTersedia.map((tahun) => (
-            <option key={tahun} value={tahun}>
-              {tahun}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PemilihPeriode periode={periode} onUbah={ubahPeriode} />
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <TargetTable
