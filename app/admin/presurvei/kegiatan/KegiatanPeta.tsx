@@ -82,9 +82,9 @@ export default function KegiatanPeta({
   // klik "Peta" lalu "Daftar" sebelum modul `ol` selesai dimuat membangun peta
   // di div yang sudah terlepas, dan tiap toggle yang dibatalkan menambah satu.
   //
-  // `EmployeeLocationMap.tsx` tidak punya lubang ini karena impornya statis,
-  // jadi badan effect-nya sinkron. Lubangnya lahir dari impor dinamis — yang
-  // tetap benar dan tetap wajib di sini.
+  // `EmployeeLocationMap.tsx` juga memakai impor dinamis dan membawa pola cacat
+  // yang sama ini. Bukan acuan untuk cleanup pattern — perbaikan di modul
+  // attendance ditangani terpisah, agar pembaca tidak menyalin pola kurang sehat.
   useEffect(() => {
     let isDibatalkan = false;
 
