@@ -33,6 +33,7 @@ import {
   NILAI_FORM_KOSONG,
   opsiPemilikUntukMode,
   schemaUntukMode,
+  tentukanKetersediaanPemilih,
   type KesalahanForm,
   type ModeFormProspek,
   type NilaiFormProspek,
@@ -62,6 +63,14 @@ const PANJANG_CATATAN_MAKS = 1000;
  */
 export const TEKS_PEMILIK_PROSPEK_BARU =
   "Prospek ini akan tercatat atas nama Anda.";
+
+/**
+ * Petunjuk mode buat bagi super admin tanpa tenant sesi
+ * (`tentukanKetersediaanPemilih`): server memakai id pembuat bila
+ * `pemilikId` tidak dikirim.
+ */
+const TEKS_PEMILIH_TANPA_TENANT_SESI =
+  "Tanpa tenant sesi, pemilik tidak bisa ditugaskan saat membuat prospek; prospek tercatat atas nama Anda.";
 
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -166,7 +175,14 @@ const PETUNJUK_DAFTAR_SALES: Record<StatusDaftarSales, string> = {
   gagal:
     "Daftar sales gagal dimuat; pemilik tidak bisa diganti sekarang, tetapi perubahan lain tetap bisa disimpan.",
   siap: "Hanya sales aktif yang bisa dipilih.",
+  "tanpa-tenant": "Prospek ini tidak bertenant; pemilik tidak bisa ditugaskan.",
 };
+
+/** Keadaan daftar yang petunjuknya ditampilkan sebagai peringatan. */
+const STATUS_PETUNJUK_PERINGATAN: ReadonlySet<StatusDaftarSales> = new Set([
+  "gagal",
+  "tanpa-tenant",
+]);
 
 interface PemilihPemilikProps {
   mode: ModeFormProspek;
@@ -191,7 +207,11 @@ function PemilihPemilik({
   onUbah,
   kesalahan,
 }: PemilihPemilikProps) {
-  const keadaan = useKeadaanDaftarSalesPresurvei();
+  // Mode ubah: tenant diturunkan server dari prospeknya, bukan dari sesi —
+  // super admin bisa membuka prospek tenant lain.
+  const keadaan = useKeadaanDaftarSalesPresurvei(
+    mode.jenis === "ubah" ? mode.prospekId : undefined,
+  );
   const opsi = opsiPemilikUntukMode(mode, pemilikAwal, keadaan.daftar);
 
   return (
@@ -215,7 +235,9 @@ function PemilihPemilik({
       <PesanMedan pesan={kesalahan} />
       <p
         className={
-          keadaan.status === "gagal" ? KELAS_KESALAHAN : KELAS_PETUNJUK
+          STATUS_PETUNJUK_PERINGATAN.has(keadaan.status)
+            ? KELAS_KESALAHAN
+            : KELAS_PETUNJUK
         }
       >
         {PETUNJUK_DAFTAR_SALES[keadaan.status]}
@@ -334,8 +356,12 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
     setKesalahan((lama) => ({ ...lama, pemilikId: pesan }));
   const { simpan, tetapSimpan, lupakanDuplikat, duplikat, isMenyimpan } =
     useSimpanProspek(mode, setelahTersimpan, tampilkanPenolakanPemilik);
-  const { hasPermission } = usePermission();
+  const { hasPermission, isSuperAdmin, user } = usePermission();
   const isBolehTugaskanPemilik = isCakupanTenantPresurvei(hasPermission);
+  const ketersediaanPemilih = tentukanKetersediaanPemilih(mode, {
+    isSuperAdmin,
+    tenantId: (user as { tenantId?: string | null } | undefined)?.tenantId,
+  });
   const isModeBuat = mode.jenis === "buat";
 
   const ubahMedan = (perubahan: Partial<NilaiFormProspek>) => {
@@ -526,7 +552,12 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
             </div>
           )}
 
-          {isBolehTugaskanPemilik && (
+          {isBolehTugaskanPemilik &&
+            ketersediaanPemilih === "tanpa-tenant-sesi" && (
+              <p className={KELAS_PETUNJUK}>{TEKS_PEMILIH_TANPA_TENANT_SESI}</p>
+            )}
+
+          {isBolehTugaskanPemilik && ketersediaanPemilih === "tersedia" && (
             <PemilihPemilik
               mode={mode}
               pemilikAwal={nilaiAwal.pemilikId}

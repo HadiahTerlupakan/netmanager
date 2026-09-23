@@ -14,6 +14,7 @@ import {
   muatanUntukMode,
   opsiPemilikUntukMode,
   opsiSimpanUntukMode,
+  tentukanKetersediaanPemilih,
   perubahanPemilik,
   ringkasPilihanKampanye,
   schemaUntukMode,
@@ -595,5 +596,49 @@ describe("bacaPenolakanPemilik", () => {
   it("mengabaikan badan yang tak terbaca", () => {
     expect(bacaPenolakanPemilik(422, null)).toBeNull();
     expect(bacaPenolakanPemilik(422, { code: "SALES_TIDAK_SAH" })).toBeNull();
+  });
+});
+
+describe("tentukanKetersediaanPemilih", () => {
+  it("mode buat super admin tanpa tenant sesi: tak ada tenant baris yang bisa diturunkan", () => {
+    expect(
+      tentukanKetersediaanPemilih(MODE_BUAT, {
+        isSuperAdmin: true,
+        tenantId: null,
+      }),
+    ).toBe("tanpa-tenant-sesi");
+  });
+
+  it("tidak menyembunyikan pemilih dari pemakai biasa tanpa tenant — petunjuknya khusus super admin", () => {
+    // Petunjuk "tanpa tenant sesi" menjelaskan keadaan sah super admin.
+    // Pemakai biasa tanpa tenant ditolak server di setiap permintaan (400),
+    // dan pesan itu akan menyesatkannya.
+    expect(
+      tentukanKetersediaanPemilih(MODE_BUAT, {
+        isSuperAdmin: false,
+        tenantId: null,
+      }),
+    ).toBe("tersedia");
+  });
+
+  it("tersedia untuk super admin bertenant, pemakai biasa, dan mode ubah", () => {
+    expect(
+      tentukanKetersediaanPemilih(MODE_BUAT, {
+        isSuperAdmin: true,
+        tenantId: "tenant-1",
+      }),
+    ).toBe("tersedia");
+    expect(
+      tentukanKetersediaanPemilih(MODE_BUAT, {
+        isSuperAdmin: false,
+        tenantId: "tenant-1",
+      }),
+    ).toBe("tersedia");
+    expect(
+      tentukanKetersediaanPemilih(MODE_UBAH, {
+        isSuperAdmin: true,
+        tenantId: null,
+      }),
+    ).toBe("tersedia");
   });
 });

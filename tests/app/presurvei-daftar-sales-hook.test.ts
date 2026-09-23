@@ -15,6 +15,7 @@ const konfigQuery = vi.fn();
 type HasilQueryPalsu = {
   data: { data: SalesPresurveiDto[] } | undefined;
   isError?: boolean;
+  error?: unknown;
 };
 
 const hasilQuery = vi.hoisted(() => ({ nilai: undefined as unknown }));
@@ -149,5 +150,102 @@ describe("useKeadaanDaftarSalesPresurvei", () => {
     );
     expect(pertama).toEqual(["presurvei-daftar-sales"]);
     expect(kedua).toEqual(["presurvei-daftar-sales"]);
+  });
+});
+
+describe("useKeadaanDaftarSalesPresurvei — prospek acuan", () => {
+  beforeEach(() => {
+    konfigQuery.mockReset();
+    vi.unstubAllGlobals();
+    const kosong: HasilQueryPalsu = { data: undefined };
+    hasilQuery.nilai = kosong;
+  });
+
+  const queryFnPertama = () =>
+    (konfigQuery.mock.calls[0][0] as { queryFn: () => Promise<unknown> })
+      .queryFn;
+
+  it("meminta daftar sales tenant prospek lewat ?prospekId=", async () => {
+    const amplopKosong: { data: SalesPresurveiDto[] } = { data: [] };
+    const ambil = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => amplopKosong,
+    });
+    vi.stubGlobal("fetch", ambil);
+
+    useKeadaanDaftarSalesPresurvei("prospek 9/x");
+    await queryFnPertama()();
+
+    expect(ambil).toHaveBeenCalledWith(
+      "/api/admin/presurvei/sales?prospekId=prospek%209%2Fx",
+    );
+  });
+
+  it("memuat prospekId di kunci cache, supaya daftar antar-tenant tidak tercampur", () => {
+    useKeadaanDaftarSalesPresurvei("prospek-a");
+    useKeadaanDaftarSalesPresurvei("prospek-b");
+
+    expect(
+      konfigQuery.mock.calls.map(
+        ([konfig]) => (konfig as { queryKey: unknown }).queryKey,
+      ),
+    ).toEqual([
+      ["presurvei-daftar-sales", "prospek", "prospek-a"],
+      ["presurvei-daftar-sales", "prospek", "prospek-b"],
+    ]);
+  });
+
+  it("menandai prospek tanpa tenant dari penolakan 422 PROSPEK_TANPA_TENANT", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({ success: false, code: "PROSPEK_TANPA_TENANT" }),
+      }),
+    );
+    useKeadaanDaftarSalesPresurvei("prospek-yatim");
+    const galat = await queryFnPertama()().then(
+      (): unknown => null,
+      (alasan: unknown): unknown => alasan,
+    );
+
+    konfigQuery.mockReset();
+    const ditolak: HasilQueryPalsu = {
+      data: undefined,
+      isError: true,
+      error: galat,
+    };
+    hasilQuery.nilai = ditolak;
+
+    expect(useKeadaanDaftarSalesPresurvei("prospek-yatim")).toEqual({
+      status: "tanpa-tenant",
+      daftar: [],
+    });
+  });
+
+  it("tetap 'gagal' untuk 422 berkode lain", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({ success: false, code: "VALIDATION_ERROR" }),
+      }),
+    );
+    useKeadaanDaftarSalesPresurvei("prospek-a");
+    const galat = await queryFnPertama()().then(
+      (): unknown => null,
+      (alasan: unknown): unknown => alasan,
+    );
+
+    const ditolak: HasilQueryPalsu = {
+      data: undefined,
+      isError: true,
+      error: galat,
+    };
+    hasilQuery.nilai = ditolak;
+
+    expect(useKeadaanDaftarSalesPresurvei("prospek-a").status).toBe("gagal");
   });
 });

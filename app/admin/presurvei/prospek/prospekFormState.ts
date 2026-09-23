@@ -216,6 +216,25 @@ export function muatanUntukMode(
     : keMuatanBuatProspek(nilai);
 }
 
+/** Apakah pemilih pemilik bisa dipakai, bagi pemakai yang boleh menugaskan. */
+export type KetersediaanPemilih = "tersedia" | "tanpa-tenant-sesi";
+
+/**
+ * Mode buat butuh tenant sesi: tenant baris prospek baru diturunkan server
+ * dari sesi, dan daftar sales pun hanya bisa diambil untuk tenant sesi. Super
+ * admin tanpa tenant sesi tidak punya keduanya. Mode ubah selalu tersedia
+ * karena tenant diturunkan dari prospeknya (`?prospekId=`).
+ */
+export function tentukanKetersediaanPemilih(
+  mode: ModeFormProspek,
+  sesi: { isSuperAdmin: boolean; tenantId: string | null | undefined },
+): KetersediaanPemilih {
+  if (mode.jenis === "buat" && sesi.isSuperAdmin && !sesi.tenantId) {
+    return "tanpa-tenant-sesi";
+  }
+  return "tersedia";
+}
+
 /** Satu pilihan pemilih pemilik prospek. */
 export interface OpsiPemilik {
   nilai: string;

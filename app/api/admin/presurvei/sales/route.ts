@@ -1,7 +1,14 @@
-import { apiSuccess, createHandler, requireSessionTenantId } from "@/lib/api";
+import type { NextRequest } from "next/server";
+import {
+  apiSuccess,
+  createHandler,
+  requireSessionTenantId,
+  type HandlerContext,
+} from "@/lib/api";
 import {
   SalesPresurveiService,
   toSalesPresurveiDto,
+  type AksesTenantPresurvei,
 } from "@/modules/presurvei";
 
 const service = new SalesPresurveiService();
@@ -16,6 +23,10 @@ const service = new SalesPresurveiService();
  *
  * Tidak berpaginasi: jumlah sales satu tenant kecil, dan dropdown butuh
  * seluruhnya sekaligus.
+ *
+ * `?prospekId=` (pemilih pemilik prospek): sales aktif di tenant prospek itu,
+ * diturunkan di server. 404 bila prospek di luar jangkauan pemanggil, 422
+ * `PROSPEK_TANPA_TENANT` bila prospeknya tak bertenant.
  */
 export const GET = createHandler(
   {
@@ -26,7 +37,20 @@ export const GET = createHandler(
       "presurvei_laporan:read",
     ],
   },
-  async (_request, ctx) => {
+  async (request: NextRequest, ctx) => {
+    // Pemilih pemilik prospek: tenant diturunkan server dari prospek acuan,
+    // supaya super admin yang membuka prospek tenant lain ditawari sales
+    // tenant prospek itu — satu-satunya yang akan diterima validasi
+    // penugasan. `tenantId` dari query string tidak pernah dibaca.
+    const prospekId = new URL(request.url).searchParams.get("prospekId");
+    if (prospekId) {
+      const salesProspek = await service.daftarAktifUntukProspek(
+        prospekId,
+        aksesTenantPemanggil(ctx),
+      );
+      return apiSuccess(salesProspek.map(toSalesPresurveiDto));
+    }
+
     // Tenant HANYA dari sesi — tidak dari query string, body, atau header —
     // lalu ditulis eksplisit ke query, tidak diserahkan ke ekstensi tenant
     // yang tidak menyaring apa pun untuk super admin. Sesi tanpa tenant
@@ -36,3 +60,14 @@ export const GET = createHandler(
     return apiSuccess(sales.map(toSalesPresurveiDto));
   },
 );
+
+/**
+ * Cakupan tenant pemanggil: super admin lintas tenant, selain itu terikat
+ * tenant sesi (400 bila sesi tak bertenant).
+ */
+function aksesTenantPemanggil(
+  ctx: Pick<HandlerContext, "session">,
+): AksesTenantPresurvei {
+  if (ctx.session?.user?.isSuperAdmin) return { jenis: "lintas-tenant" };
+  return { jenis: "tenant", tenantId: requireSessionTenantId(ctx) };
+}

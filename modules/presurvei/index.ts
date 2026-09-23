@@ -103,7 +103,10 @@ export { IklanService } from "./services/IklanService";
 
 export { TargetService, type BarisLaporan } from "./services/TargetService";
 
-export { SalesPresurveiService } from "./services/SalesPresurveiService";
+export {
+  SalesPresurveiService,
+  type AksesTenantPresurvei,
+} from "./services/SalesPresurveiService";
 
 export {
   toKegiatanDetail,

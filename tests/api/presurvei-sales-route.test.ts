@@ -20,10 +20,17 @@ interface PenggunaTiruan {
   isActive: boolean;
 }
 
+/** Prospek tiruan: hanya kolom yang dibaca mapper. */
+interface ProspekTiruan {
+  id: string;
+  tenantId: string | null;
+}
+
 const mockFns = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   getUserPermissions: vi.fn(),
   penghuni: [] as PenggunaTiruan[],
+  prospek: [] as ProspekTiruan[],
 }));
 
 vi.mock("next-auth", () => ({
@@ -38,6 +45,41 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/modules/database", () => ({
   prisma: {
+    // Tiruan TIDAK menyaring tenant, meniru konteks super admin di mana
+    // ekstensi tenant tidak menyaring apa pun. Penolakan prospek tenant lain
+    // untuk pemanggil biasa karenanya harus datang dari service, bukan dari
+    // ekstensi saja.
+    presurveiProspek: {
+      findUnique: vi.fn(async (args: { where: { id: string } }) => {
+        const prospek = mockFns.prospek.find((p) => p.id === args.where.id);
+        if (!prospek) return null;
+        const waktu = new Date("2026-09-23T00:00:00.000Z");
+        return {
+          nama: "Budi",
+          noTelp: "081234567890",
+          email: null,
+          alamat: "Jl. Merdeka 10",
+          latitude: null,
+          longitude: null,
+          shareloc: null,
+          sumber: "WALK_IN",
+          iklanId: null,
+          registrationId: null,
+          referralNama: null,
+          status: "BARU",
+          pemilikId: null,
+          paketDiminati: null,
+          catatan: null,
+          canvasingId: null,
+          konversiAt: null,
+          siteId: null,
+          createdAt: waktu,
+          updatedAt: waktu,
+          pemilik: null,
+          ...prospek,
+        };
+      }),
+    },
     user: {
       findMany: vi.fn(
         async (args: {
@@ -66,6 +108,18 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { GET } from "@/app/api/admin/presurvei/sales/route";
+
+const beriSesiSuperAdmin = (tenantId?: string): void => {
+  mockFns.getServerSession.mockResolvedValue({
+    user: {
+      id: "root",
+      email: "root@contoh.id",
+      isSuperAdmin: true,
+      permissions: ["*"],
+      ...(tenantId ? { tenantId } : {}),
+    },
+  });
+};
 
 const beriSesi = (permissions: string[], tenantId = "tenant-a"): void => {
   mockFns.getServerSession.mockResolvedValue({
@@ -194,6 +248,120 @@ describe("GET /api/admin/presurvei/sales", () => {
     const res = await minta();
 
     expect(res.status).toBe(403);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.penghuni.length = 0;
+    mockFns.penghuni.push(
+      {
+        id: "sales-a-rina",
+        name: "Rina",
+        email: "rina@a.id",
+        tenantId: "tenant-a",
+        isSales: true,
+        isActive: true,
+      },
+      {
+        id: "sales-b-citra",
+        name: "Citra",
+        email: "citra@b.id",
+        tenantId: "tenant-b",
+        isSales: true,
+        isActive: true,
+      },
+    );
+    mockFns.prospek.length = 0;
+    mockFns.prospek.push(
+      { id: "prospek-a", tenantId: "tenant-a" },
+      { id: "prospek-b", tenantId: "tenant-b" },
+      { id: "prospek-yatim", tenantId: null },
+    );
+  });
+
+  it("memberi pemanggil biasa sales tenant prospeknya sendiri", async () => {
+    beriSesi(["presurvei:read"], "tenant-a");
+
+    const res = await minta("?prospekId=prospek-a");
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual([
+      { id: "sales-a-rina", nama: "Rina" },
+    ]);
+  });
+
+  it("membalas 404 generik untuk pemanggil biasa + prospek tenant lain", async () => {
+    beriSesi(["presurvei:read"], "tenant-a");
+
+    const res = await minta("?prospekId=prospek-b");
+    const teks = JSON.stringify(await res.json());
+
+    expect(res.status).toBe(404);
+    expect(teks).not.toContain("sales-b-citra");
+    expect(teks).not.toContain("tenant-b");
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it("membalas 404 untuk prospek yang tidak ada", async () => {
+    beriSesi(["presurvei:read"], "tenant-a");
+
+    expect((await minta("?prospekId=hantu")).status).toBe(404);
+  });
+
+  it("memberi super admin bertenant sesi A sales tenant PROSPEK (B)", async () => {
+    beriSesiSuperAdmin("tenant-a");
+
+    const res = await minta("?prospekId=prospek-b");
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual([
+      { id: "sales-b-citra", nama: "Citra" },
+    ]);
+  });
+
+  it("melayani super admin tanpa tenant sesi lewat tenant prospek", async () => {
+    beriSesiSuperAdmin();
+
+    const res = await minta("?prospekId=prospek-b");
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual([
+      { id: "sales-b-citra", nama: "Citra" },
+    ]);
+  });
+
+  it("tidak pernah mengambil tenant dari query string", async () => {
+    beriSesi(["presurvei:read"], "tenant-a");
+    const denganProspek = await (
+      await minta("?prospekId=prospek-a&tenantId=tenant-b")
+    ).json();
+    beriSesiSuperAdmin("tenant-a");
+    const superAdmin = await (
+      await minta("?prospekId=prospek-a&tenantId=tenant-b")
+    ).json();
+
+    expect(denganProspek.data).toEqual([{ id: "sales-a-rina", nama: "Rina" }]);
+    expect(superAdmin.data).toEqual([{ id: "sales-a-rina", nama: "Rina" }]);
+  });
+
+  it("membalas 404, bukan 422, bagi pemanggil biasa atas prospek tanpa tenant", async () => {
+    // Prospek tanpa tenant bukan milik tenant pemanggil; 422 akan membocorkan
+    // bahwa prospek itu ada.
+    beriSesi(["presurvei:read"], "tenant-a");
+
+    expect((await minta("?prospekId=prospek-yatim")).status).toBe(404);
+  });
+
+  it("membalas 422 PROSPEK_TANPA_TENANT untuk prospek tanpa tenant", async () => {
+    beriSesiSuperAdmin();
+
+    const res = await minta("?prospekId=prospek-yatim");
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("PROSPEK_TANPA_TENANT");
     expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 });

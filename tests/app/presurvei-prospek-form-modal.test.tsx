@@ -23,6 +23,7 @@ const palsu = vi.hoisted(() => ({
   useApi: vi.fn(),
   hasAnyPermission: vi.fn(),
   hasPermission: vi.fn(),
+  sesi: { isSuperAdmin: false, user: { tenantId: "tenant-1" } as unknown },
   useKeadaanDaftarSalesPresurvei: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
@@ -39,6 +40,8 @@ vi.mock("@/hooks/use-permission", () => ({
   usePermission: () => ({
     hasAnyPermission: palsu.hasAnyPermission,
     hasPermission: palsu.hasPermission,
+    isSuperAdmin: palsu.sesi.isSuperAdmin,
+    user: palsu.sesi.user,
   }),
 }));
 
@@ -76,7 +79,7 @@ const TEKS_PEMILIK_DIHARAPKAN = "Prospek ini akan tercatat atas nama Anda.";
 
 /** Keadaan daftar sales palsu; dianotasi eksplisit karena TS7018. */
 type KeadaanSalesPalsu = {
-  status: "memuat" | "gagal" | "siap";
+  status: "memuat" | "gagal" | "siap" | "tanpa-tenant";
   daftar: { id: string; nama: string }[];
 };
 
@@ -205,6 +208,7 @@ beforeEach(() => {
   palsu.hasAnyPermission.mockReturnValue(true);
   palsu.hasPermission.mockReset();
   palsu.hasPermission.mockReturnValue(true);
+  palsu.sesi = { isSuperAdmin: false, user: { tenantId: "tenant-1" } };
   palsu.useKeadaanDaftarSalesPresurvei.mockReset();
   palsu.useKeadaanDaftarSalesPresurvei.mockReturnValue(salesSiap);
   palsu.toastSuccess.mockReset();
@@ -797,5 +801,66 @@ describe("ProspekFormModal — pemilih pemilik", () => {
     expect(document.body.textContent).not.toContain(
       "Sales tidak ditemukan di tenant ini",
     );
+  });
+});
+
+describe("ProspekFormModal — pemilih pemilik mengikuti tenant prospek", () => {
+  it("mode ubah meminta daftar sales tenant prospek, mode buat tenant sesi", async () => {
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+    expect(palsu.useKeadaanDaftarSalesPresurvei).toHaveBeenLastCalledWith(
+      "prospek-9",
+    );
+
+    await renderModal({ jenis: "buat" });
+    expect(palsu.useKeadaanDaftarSalesPresurvei).toHaveBeenLastCalledWith(
+      undefined,
+    );
+  });
+
+  it("prospek tanpa tenant: medan terkunci dengan petunjuk, simpan tetap jalan", async () => {
+    palsu.useKeadaanDaftarSalesPresurvei.mockReturnValue({
+      status: "tanpa-tenant",
+      daftar: [],
+    } satisfies KeadaanSalesPalsu);
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(cari("#prospek-pemilik")?.parentElement?.textContent).toContain(
+      "Prospek ini tidak bertenant; pemilik tidak bisa ditugaskan",
+    );
+    expect(
+      cari<HTMLSelectElement>("#prospek-pemilik").matches(":disabled"),
+    ).toBe(true);
+
+    await klikTombol("Simpan Perubahan");
+    expect(badanTerkirim(0)).not.toHaveProperty("pemilikId");
+  });
+
+  it("mode buat super admin tanpa tenant sesi: pemilih disembunyikan dengan petunjuk", async () => {
+    palsu.sesi = { isSuperAdmin: true, user: { tenantId: null } };
+
+    await renderModal({ jenis: "buat" });
+
+    expect(cari("#prospek-pemilik")).toBeNull();
+    expect(palsu.useKeadaanDaftarSalesPresurvei).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Tanpa tenant sesi, pemilik tidak bisa ditugaskan saat membuat prospek; prospek tercatat atas nama Anda.",
+    );
+  });
+
+  it("mode buat super admin bertenant sesi tetap mendapat pemilih", async () => {
+    palsu.sesi = { isSuperAdmin: true, user: { tenantId: "tenant-1" } };
+
+    await renderModal({ jenis: "buat" });
+
+    expect(cari("#prospek-pemilik")).not.toBeNull();
+  });
+
+  it("mode ubah super admin tanpa tenant sesi tetap mendapat pemilih (tenant dari prospek)", async () => {
+    palsu.sesi = { isSuperAdmin: true, user: { tenantId: null } };
+
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(cari("#prospek-pemilik")).not.toBeNull();
   });
 });
