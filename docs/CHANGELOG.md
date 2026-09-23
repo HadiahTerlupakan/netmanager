@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-24] — Beri akses menu Presurvei ke role admin produksi
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/` | `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Permission `presurvei*` hanya pernah dibuat oleh `prisma/seed.ts`, yang
+  tidak dijalankan di produksi. Pemeriksaan read-only produksi 2026-09-24 menemukan nol
+  baris permission presurvei, sehingga hanya role ber-`isSuperAdmin` (Chief Executive
+  Officer) yang melihat menu Presurvei. Migration data ini membuat 10 permission yang
+  dipakai kode (`presurvei:{read,create,update,delete}`,
+  `presurvei_iklan:{read,create,update}`, `presurvei_target:{read,create}`,
+  `presurvei_laporan:read`) per tenant role, lalu memasangnya ke role `admin`,
+  `Super Admin`, `Branch Manager`, dan `KACAB PKP` (keputusan user). Role SALES sengaja
+  tidak diberi akses web. Nama role dicocokkan lewat `trim()` karena di produksi
+  tertulis `" Branch Manager"`. Idempoten (`ON CONFLICT DO NOTHING`), tidak menghapus
+  apa pun, dan tidak berefek di lingkungan tanpa role bernama itu (DB lokal hasil seed).
+  Diuji di DB lokal dalam transaksi yang di-rollback, dua kali berturut-turut, termasuk
+  jalur pembuatan permission: 10 permission + 20 grant, run kedua menulis 0 baris.
+- **Files**: `prisma/migrations/20260923211611_grant_presurvei_permissions_to_admin_roles/migration.sql`
+- **Migration**: `20260923211611_grant_presurvei_permissions_to_admin_roles`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-24] — Selaraskan schema.prisma dengan riwayat migration
 
 - **Tipe**: [FIXED]
