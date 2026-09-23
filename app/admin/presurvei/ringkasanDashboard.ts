@@ -206,21 +206,36 @@ export function buildProspekTakBertuanUrl(): string {
 const SEGMEN_TAK_BERTUAN = "tak-bertuan";
 
 /**
+ * Awalan kunci daftar tak bertuan, `[KUNCI_KOLOM_PROSPEK, "tak-bertuan"]`,
+ * untuk invalidasi yang tidak peduli halaman atau batas daftarnya.
+ */
+export function awalanKunciProspekTakBertuan(): [string, string] {
+  return [KUNCI_KOLOM_PROSPEK, SEGMEN_TAK_BERTUAN];
+}
+
+/**
  * Kunci cache daftar prospek tak bertuan: `[KUNCI_KOLOM_PROSPEK, "tak-bertuan", url]`.
  *
- * Di bawah awalan kolom papan supaya invalidasi seluruh awalan
- * (`prospek/prospekFormState.ts:289`, dipakai saat status hasil simpan tak
- * terbaca) ikut mengenainya. Invalidasi per status (`[KUNCI_KOLOM_PROSPEK,
- * status]` — seret, konversi, dan simpan dengan status terbaca) TIDAK
- * mengenainya; di jalur itu daftar ini baru segar lagi setelah `staleTime`
- * 30 detik (`components/providers/session-provider.tsx:31`).
+ * Invalidasi yang mengenainya:
+ * - seluruh awalan `[KUNCI_KOLOM_PROSPEK]` (`prospek/prospekFormState.ts`,
+ *   `kunciKolomSetelahSimpan`, dipakai saat status hasil simpan tak terbaca);
+ * - `awalanKunciProspekTakBertuan()` setelah prospek diubah lewat form
+ *   (`prospek/useSimpanProspek.ts`), karena nama dan telepon yang tampil di
+ *   daftar ini bisa ikut berubah.
+ *
+ * Invalidasi per status (`[KUNCI_KOLOM_PROSPEK, status]` — seret dan konversi)
+ * TIDAK mengenainya. Keanggotaan daftar ini ditentukan pemilik, bukan status,
+ * dan kedua jalur itu tidak mengubah pemilik; tak ada jalur web yang
+ * menugaskan pemilik (`keMuatanUbahProspek` tidak mengirim `pemilikId`).
+ * Perubahan pemilik dari luar layar ini — mis. aplikasi mobile — baru terlihat
+ * setelah `staleTime` 30 detik (`components/providers/session-provider.tsx:31`).
  *
  * Aman terhadap `findAll({ queryKey: [KUNCI_KOLOM_PROSPEK, tujuan] })` di
  * `prospek/usePindahProspek.ts:80-82`, yang membaca datanya sebagai halaman
  * kolom: `tujuan` selalu status, tidak pernah `SEGMEN_TAK_BERTUAN`.
  */
 export function kunciQueryProspekTakBertuan(): [string, string, string] {
-  return [KUNCI_KOLOM_PROSPEK, SEGMEN_TAK_BERTUAN, buildProspekTakBertuanUrl()];
+  return [...awalanKunciProspekTakBertuan(), buildProspekTakBertuanUrl()];
 }
 
 /** Daftar sales kosong: dashboard tidak memuat daftar sales untuk bagian kegiatan. */

@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 
 import { formatApiError } from "@/lib/utils/api-response-parser";
 
+import { awalanKunciProspekTakBertuan } from "../ringkasanDashboard";
 import {
   bacaDuplikat,
   denganAbaikanDuplikat,
@@ -74,6 +75,14 @@ export function useSimpanProspek(
       });
       if (mode.jenis === "ubah") {
         queryClient.invalidateQueries({ queryKey: [opsi.url] });
+        // Prospek yang diubah bisa tak bertuan; nama dan teleponnya tampil di
+        // daftar tak bertuan dashboard. Mode buat tidak perlu: prospek dari
+        // form ini selalu berpemilik (`pemilikDiminta ?? idPemanggil`,
+        // `app/api/presurvei/akses-presurvei.ts:41-48`), jadi tak pernah
+        // masuk daftar itu.
+        queryClient.invalidateQueries({
+          queryKey: awalanKunciProspekTakBertuan(),
+        });
       }
 
       setDuplikat(null);

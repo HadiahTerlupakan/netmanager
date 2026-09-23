@@ -50,6 +50,8 @@ import {
 } from "@/app/admin/presurvei/prospek/ProspekFormModal";
 import type { ModeFormProspek } from "@/app/admin/presurvei/prospek/prospekFormState";
 import { KUNCI_KOLOM_PROSPEK } from "@/app/admin/presurvei/prospek/prospekKolomQuery";
+import { buildProspekTakBertuanUrl } from "@/app/admin/presurvei/ringkasanDashboard";
+import { useProspekTakBertuan } from "@/app/admin/presurvei/useDashboardPresurvei";
 import type {
   IklanListItemDto,
   ProspekDetailDto,
@@ -222,6 +224,12 @@ async function renderModal(mode: ModeFormProspek, isOpen = true) {
   });
 }
 
+/** Menahan query daftar tak bertuan dashboard tetap aktif. */
+function DaftarTakBertuanAktif(): null {
+  useProspekTakBertuan();
+  return null;
+}
+
 /** Seluruh panggilan `invalidateQueries`, persis dan berurutan. */
 function panggilanInvalidasi(): unknown[] {
   return vi.mocked(queryClient.invalidateQueries).mock.calls;
@@ -369,6 +377,8 @@ describe("ProspekFormModal — mode buat", () => {
 
     await klikTombol("Catat Prospek");
 
+    // Daftar tak bertuan sengaja tidak diinvalidasi: prospek dari form ini
+    // selalu berpemilik (`akses-presurvei.ts:41-48`).
     expect(panggilanInvalidasi()).toEqual([
       [{ queryKey: [KUNCI_KOLOM_PROSPEK, "BARU"] }],
     ]);
@@ -490,16 +500,54 @@ describe("ProspekFormModal — mode ubah", () => {
     });
   });
 
-  it("menginvalidasi kolom prospek dan salinan rinciannya", async () => {
+  it("menginvalidasi kolom prospek, salinan rinciannya, dan daftar tak bertuan", async () => {
     mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
     await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
 
     await klikTombol("Simpan Perubahan");
 
+    // Kunci tak bertuan ditulis literal: test harus merah bila awalan
+    // `kunciQueryProspekTakBertuan` bergeser dari yang diinvalidasi di sini.
     expect(panggilanInvalidasi()).toEqual([
       [{ queryKey: [KUNCI_KOLOM_PROSPEK, "TERTARIK"] }],
       [{ queryKey: ["/api/presurvei/prospek/prospek-9"] }],
+      [{ queryKey: ["presurvei-prospek-kolom", "tak-bertuan"] }],
     ]);
+  });
+
+  it("mengambil ulang daftar tak bertuan dashboard yang sedang tampil", async () => {
+    // Dibuktikan lewat refetch query aktif, bukan menyalin kuncinya: nama dan
+    // telepon prospek tak bertuan tampil di dashboard
+    // (`BagianDashboard.tsx`, `ProspekTakBertuan`), jadi mengubahnya lewat
+    // form harus menyegarkan daftar itu tanpa menunggu `staleTime`.
+    const urlTakBertuan = buildProspekTakBertuanUrl();
+    mockFetch.mockImplementation(async (url: string) =>
+      url === urlTakBertuan
+        ? respons(200, { success: true, data: [], meta: { total: 0 } })
+        : respons(200, { success: true, data: rincian }),
+    );
+    const jumlahGetTakBertuan = () =>
+      mockFetch.mock.calls.filter(([url]) => url === urlTakBertuan).length;
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <DaftarTakBertuanAktif />
+          <ProspekFormModal
+            mode={{ jenis: "ubah", prospekId: "prospek-9" }}
+            isOpen
+            onClose={onClose}
+          />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((selesai) => setTimeout(selesai, 0));
+    });
+    expect(jumlahGetTakBertuan()).toBe(1);
+
+    await klikTombol("Simpan Perubahan");
+
+    expect(jumlahGetTakBertuan()).toBeGreaterThanOrEqual(2);
   });
 });
 
