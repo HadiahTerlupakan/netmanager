@@ -47,13 +47,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Scope**: `modules/presurvei`
 - **Author**: agent
 - **Deskripsi**: `TargetService.tetapkan` dan penugasan pemilik prospek
-  (`POST`/`PATCH /api/presurvei/prospek`) sebelumnya menerima `userId`/`pemilikId`
+  (`POST /api/presurvei/prospek` dan `PATCH /api/presurvei/prospek/[id]`) sebelumnya
+  menerima `userId`/`pemilikId`
   apa adanya — FK ke `User` tidak mengenal tenant, sehingga baris tenant A bisa
   menunjuk user tenant B atau user yang bukan sales. Kini keduanya melewati satu
   aturan domain `isCalonSalesSah` (`modules/presurvei/domain/penugasan-sales.ts`)
   lewat `PenugasanSalesService`: user harus ada, `isSales`, dan `tenantId`-nya sama
   dengan tenant baris. Query `User` hanya di `SalesRepository.cariCalonSales`.
-  Penugasan BARU (target baru, pemilik prospek berganti) menuntut sales aktif;
+  Calon sales dimuat sekali per penugasan (`muatUntukBarisBaru`/`muatUntukBaris`, lalu
+  `pastikanSah`). Penugasan BARU (target baru, pemilik prospek berganti) menuntut sales aktif;
   mengubah target yang sudah ada untuk sales yang kini nonaktif tetap boleh — "baru"
   ditentukan server dari ada-tidaknya target periode itu di tenant baris. Tenant
   baris: target dan `POST` prospek memakai tenant sesi; `PATCH` prospek memakai
@@ -66,15 +68,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   sebelumnya. Penolakan 422 `SALES_TIDAK_SAH` berpesan generik "Sales tidak ditemukan
   di tenant ini" untuk semua sebab, supaya keberadaan user tenant lain tidak bocor.
   Otorisasi (siapa boleh menugaskan) tetap di route/`akses-presurvei.ts`.
+  `TargetRepository.findByUserPeriode` dan `simpan` melempar `TenantContextError`
+  bila `tenantId` kosong (fail-closed, pola `SalesRepository.daftarAktif`).
+
+  **Perubahan perilaku API**: pemegang izin web (`presurvei:read` atau `*`) yang
+  mengirim `pemilikId` berupa user bukan-sales, sales nonaktif, atau user tenant lain
+  kini mendapat 422 `SALES_TIDAK_SAH`; sebelumnya diterima dan tersimpan. Hal yang sama
+  berlaku untuk `userId` di `POST /api/admin/presurvei/target`.
+
+  Keterbatasan yang diketahui:
+  1. Prospek lama bertenant null tidak bisa diberi pemilik (fail-closed): `PATCH`
+     dengan `pemilikId` baru dibalas 422 karena tidak ada tenant baris yang cocok, dan
+     tenant sales sengaja tidak "diadopsi" untuk baris yang sudah ada. Pemilih pemilik
+     di web menampilkan petunjuknya (lihat entri "Pemilih pemilik opsional…"). Jumlah
+     baris seperti ini di produksi belum diperiksa.
+  2. Risiko laten: pemanggil tanpa izin web (sales lapangan, aplikasi mobile) yang
+     mengirim `pemilikId` tidak ditolak — `pemilikId`-nya dibuang diam-diam (`PATCH`)
+     atau diganti id pemanggil (`POST`), dan respons tetap sukses. Klien yang mengira
+     penugasannya berhasil tidak diberi tahu. Sengaja tidak diubah ke 403: aplikasi
+     mobile mungkin mengirim medan itu, dan penolakan keras bisa mematahkannya.
 - **Files**: `modules/presurvei/domain/penugasan-sales.ts`,
   `modules/presurvei/services/PenugasanSalesService.ts`,
   `modules/presurvei/services/TargetService.ts`,
   `modules/presurvei/services/ProspekService.ts`,
   `modules/presurvei/repositories/SalesRepository.ts`,
   `modules/presurvei/repositories/TargetRepository.ts`,
+  `modules/presurvei/domain/ports/ISalesRepository.ts`,
+  `modules/presurvei/domain/ports/ITargetRepository.ts`,
+  `modules/presurvei/domain/ports/IProspekRepository.ts`,
   `app/api/admin/presurvei/target/route.ts`, `app/api/presurvei/prospek/route.ts`,
-  `app/api/presurvei/akses-presurvei.ts`, `lib/api/session-tenant.ts`
-- **Breaking**: ❌ Tidak
+  `app/api/presurvei/prospek/[id]/route.ts`, `app/api/presurvei/akses-presurvei.ts`,
+  `lib/api/session-tenant.ts`, `lib/api/index.ts`
+- **Breaking**: ✅ Ya — perilaku API: `pemilikId`/`userId` yang bukan sales aktif
+  se-tenant kini ditolak 422 (sebelumnya diterima). Bentuk request/response tidak
+  berubah.
 
 ### [2026-09-23] — Pemilih pemilik opsional di form prospek web
 
@@ -91,10 +118,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   nonaktif lama tidak memicu validasi sales aktif. Daftar sales gagal dimuat mengunci
   medan dengan pesan tanpa menghalangi simpan; penolakan 422 `SALES_TIDAK_SAH` tampil
   di medan pemilik, bukan toast.
+
+  Daftar calon pemilik mengikuti tenant PROSPEK, bukan tenant sesi: endpoint
+  `GET /api/admin/presurvei/sales` menerima parameter opsional baru `?prospekId=`.
+  Tenant diturunkan di server dari prospek itu — `tenantId` dari klien tidak pernah
+  dibaca. Pemanggil bercakupan satu tenant menerima 404 generik untuk prospek di luar
+  tenantnya (juga yang tak bertenant); super admin menerima sales tenant prospek,
+  bertenant sesi atau tidak. Prospek tanpa tenant dibalas 422 `PROSPEK_TANPA_TENANT`,
+  bukan daftar kosong, supaya klien bisa membedakannya dari "tenant tanpa sales" dan
+  menampilkan "Prospek ini tidak bertenant; pemilik tidak bisa ditugaskan". Tanpa
+  `prospekId` perilakunya tetap. Mode ubah memakai parameter ini, dengan kunci cache
+  `["presurvei-daftar-sales", "prospek", prospekId]` supaya daftar antar-tenant tidak
+  tercampur. Mode buat untuk super admin tanpa tenant sesi menyembunyikan pemilih dan
+  menampilkan petunjuk, karena tidak ada tenant baris yang bisa diturunkan.
 - **Files**: `app/admin/presurvei/prospek/ProspekFormModal.tsx`,
   `app/admin/presurvei/prospek/prospekFormState.ts`,
   `app/admin/presurvei/prospek/useSimpanProspek.ts`,
-  `app/admin/presurvei/ringkasanDashboard.ts`
+  `app/admin/presurvei/ringkasanDashboard.ts`,
+  `app/admin/presurvei/useDaftarSalesPresurvei.ts`,
+  `app/api/admin/presurvei/sales/route.ts`,
+  `modules/presurvei/services/SalesPresurveiService.ts`
 - **Breaking**: ❌ Tidak
 
 ### [2026-09-23] — Tambah UI admin presurvei (Fase 3)
