@@ -111,13 +111,12 @@ export class ProspekService {
   ): Promise<CreateProspekInput> {
     if (!opsi.penugasanPemilik || !input.pemilikId) return input;
 
-    const tenantBaris = await this.penugasanSales.tentukanTenantBaris(
+    const penugasan = await this.penugasanSales.muatUntukBarisBaru(
       input.pemilikId,
       opsi.penugasanPemilik.tenantSesi,
     );
-    await this.penugasanSales.pastikanSah(
-      input.pemilikId,
-      tenantBaris,
+    const tenantBaris = this.penugasanSales.pastikanSah(
+      penugasan,
       SYARAT_PEMILIK_BARU,
     );
     return { ...input, tenantId: tenantBaris };
@@ -159,11 +158,11 @@ export class ProspekService {
     const isPemilikBerganti =
       input.pemilikId != null && input.pemilikId !== prospek.pemilikId;
     if (isPemilikBerganti) {
-      await this.penugasanSales.pastikanSah(
+      const penugasan = await this.penugasanSales.muatUntukBaris(
         input.pemilikId,
         prospek.tenantId,
-        SYARAT_PEMILIK_BARU,
       );
+      this.penugasanSales.pastikanSah(penugasan, SYARAT_PEMILIK_BARU);
     }
 
     if (input.status && input.status !== prospek.status) {

@@ -1,6 +1,7 @@
 import { AppError } from "@/lib/errors";
 import {
   isCalonSalesSah,
+  type CalonSales,
   type SyaratPenugasan,
 } from "../domain/penugasan-sales";
 import type { ISalesRepository } from "../domain/ports/ISalesRepository";
@@ -15,6 +16,12 @@ const PESAN_SALES_TIDAK_SAH = "Sales tidak ditemukan di tenant ini";
 const KODE_SALES_TIDAK_SAH = "SALES_TIDAK_SAH";
 const STATUS_HTTP_TIDAK_DAPAT_DIPROSES = 422;
 
+/** Calon sales yang sudah dimuat beserta tenant baris yang dituju. */
+export interface PenugasanSales {
+  calon: CalonSales | null;
+  tenantBaris: string | null;
+}
+
 /**
  * Validasi integritas "sales se-tenant" untuk baris presurvei yang menunjuk
  * seorang sales — target dan pemilik prospek.
@@ -22,6 +29,9 @@ const STATUS_HTTP_TIDAK_DAPAT_DIPROSES = 422;
  * Ini bukan otorisasi: siapa yang boleh menugaskan tetap diputuskan route
  * (`app/api/presurvei/akses-presurvei.ts`) dan gerbang permission. Yang
  * dijaga di sini adalah bahwa baris tenant A tidak menunjuk user tenant B.
+ *
+ * Pemuatan dan pemeriksaan dipisah supaya user hanya dibaca sekali, walau
+ * pemanggil (target) perlu tenant baris dulu untuk memutuskan syaratnya.
  */
 export class PenugasanSalesService {
   constructor(
@@ -29,27 +39,35 @@ export class PenugasanSalesService {
   ) {}
 
   /**
-   * Tenant tempat baris baru ditulis: tenant sesi, atau — hanya bila sesi tak
-   * bertenant (super admin) — tenant milik sales itu sendiri. Null bila tak
-   * dapat ditentukan; `pastikanSah` lalu menolaknya.
+   * Muat calon untuk baris BARU: tenant baris = tenant sesi, atau — hanya
+   * bila sesi tak bertenant (super admin) — tenant milik sales itu sendiri.
    */
-  async tentukanTenantBaris(
+  async muatUntukBarisBaru(
     userId: string,
     tenantSesi: string | null,
-  ): Promise<string | null> {
-    if (tenantSesi) return tenantSesi;
+  ): Promise<PenugasanSales> {
     const calon = await this.salesRepository.cariCalonSales(userId);
-    return calon?.tenantId ?? null;
+    // `||`, bukan `??`: tenant sesi "" bukan tenant, sama seperti null.
+    return { calon, tenantBaris: tenantSesi || (calon?.tenantId ?? null) };
   }
 
-  /** Lempar 422 generik bila `userId` bukan sales sah di `tenantBaris`. */
-  async pastikanSah(
+  /**
+   * Muat calon untuk baris yang tenantnya sudah pasti (prospek yang ada).
+   * Tenant baris kosong TIDAK jatuh ke tenant sales — `pastikanSah` menolaknya.
+   */
+  async muatUntukBaris(
     userId: string,
     tenantBaris: string | null,
-    syarat: SyaratPenugasan,
-  ): Promise<void> {
+  ): Promise<PenugasanSales> {
     const calon = await this.salesRepository.cariCalonSales(userId);
-    if (isCalonSalesSah(calon, tenantBaris, syarat)) return;
+    return { calon, tenantBaris };
+  }
+
+  /** Tenant baris yang sah, atau lempar 422 generik bila calon tidak sah. */
+  pastikanSah(penugasan: PenugasanSales, syarat: SyaratPenugasan): string {
+    if (isCalonSalesSah(penugasan.calon, penugasan.tenantBaris, syarat)) {
+      return penugasan.tenantBaris;
+    }
 
     throw new AppError(
       PESAN_SALES_TIDAK_SAH,

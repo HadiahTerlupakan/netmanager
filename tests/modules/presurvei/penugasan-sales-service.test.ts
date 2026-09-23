@@ -38,28 +38,33 @@ async function tangkap(janji: Promise<unknown>): Promise<AppError> {
 }
 
 describe("PenugasanSalesService.pastikanSah", () => {
-  it("lolos untuk sales aktif se-tenant dan mencari user yang diminta", async () => {
+  it("lolos untuk sales aktif se-tenant dan mengembalikan tenant barisnya", async () => {
     const repo = bangunRepo(calon());
+    const service = new PenugasanSalesService(repo);
 
-    await expect(
-      new PenugasanSalesService(repo).pastikanSah("sales-1", TENANT_SALES, {
-        isWajibAktif: true,
-      }),
-    ).resolves.toBeUndefined();
+    const penugasan = await service.muatUntukBaris("sales-1", TENANT_SALES);
+
+    expect(service.pastikanSah(penugasan, { isWajibAktif: true })).toBe(
+      TENANT_SALES,
+    );
     expect(repo.cariCalonSales).toHaveBeenCalledWith("sales-1");
   });
 
   it("menolak user bukan-sales, tenant lain, dan tak dikenal dengan pesan yang sama persis", async () => {
     const galat = await Promise.all(
       [calon({ isSales: false }), calon({ tenantId: "tenant-lain" }), null].map(
-        (hasil) =>
-          tangkap(
-            new PenugasanSalesService(bangunRepo(hasil)).pastikanSah(
-              "sales-1",
-              TENANT_SALES,
-              { isWajibAktif: false },
+        async (hasil) => {
+          const service = new PenugasanSalesService(bangunRepo(hasil));
+          const penugasan = await service.muatUntukBaris(
+            "sales-1",
+            TENANT_SALES,
+          );
+          return tangkap(
+            Promise.resolve().then(() =>
+              service.pastikanSah(penugasan, { isWajibAktif: false }),
             ),
-          ),
+          );
+        },
       ),
     );
 
@@ -77,54 +82,75 @@ describe("PenugasanSalesService.pastikanSah", () => {
   });
 
   it("menolak sales nonaktif hanya bila diwajibkan aktif", async () => {
-    const repo = bangunRepo(calon({ isActive: false }));
-    const service = new PenugasanSalesService(repo);
+    const service = new PenugasanSalesService(
+      bangunRepo(calon({ isActive: false })),
+    );
+    const penugasan = await service.muatUntukBaris("sales-1", TENANT_SALES);
 
-    await expect(
-      service.pastikanSah("sales-1", TENANT_SALES, { isWajibAktif: true }),
-    ).rejects.toBeInstanceOf(AppError);
-    await expect(
-      service.pastikanSah("sales-1", TENANT_SALES, { isWajibAktif: false }),
-    ).resolves.toBeUndefined();
+    expect(() =>
+      service.pastikanSah(penugasan, { isWajibAktif: true }),
+    ).toThrow(AppError);
+    expect(service.pastikanSah(penugasan, { isWajibAktif: false })).toBe(
+      TENANT_SALES,
+    );
   });
 });
 
-describe("PenugasanSalesService.tentukanTenantBaris", () => {
-  it("memakai tenant sesi tanpa membaca user bila sesi bertenant", async () => {
+describe("PenugasanSalesService.muatUntukBarisBaru", () => {
+  it("memakai tenant sesi bila sesi bertenant", async () => {
     const repo = bangunRepo(calon());
 
-    expect(
-      await new PenugasanSalesService(repo).tentukanTenantBaris(
-        "sales-1",
-        TENANT_SESI,
-      ),
-    ).toBe(TENANT_SESI);
-    expect(repo.cariCalonSales).not.toHaveBeenCalled();
+    const penugasan = await new PenugasanSalesService(repo).muatUntukBarisBaru(
+      "sales-1",
+      TENANT_SESI,
+    );
+
+    expect(penugasan.tenantBaris).toBe(TENANT_SESI);
+    expect(repo.cariCalonSales).toHaveBeenCalledTimes(1);
   });
 
-  it("memakai tenant sales bila sesi tak bertenant (super admin)", async () => {
+  it("memakai tenant sales bila sesi tak bertenant — dengan SATU pemuatan user", async () => {
     const repo = bangunRepo(calon());
+    const service = new PenugasanSalesService(repo);
 
-    expect(
-      await new PenugasanSalesService(repo).tentukanTenantBaris(
-        "sales-1",
-        null,
-      ),
-    ).toBe(TENANT_SALES);
+    const penugasan = await service.muatUntukBarisBaru("sales-1", null);
+    service.pastikanSah(penugasan, { isWajibAktif: true });
+
+    expect(penugasan.tenantBaris).toBe(TENANT_SALES);
+    expect(repo.cariCalonSales).toHaveBeenCalledTimes(1);
     expect(repo.cariCalonSales).toHaveBeenCalledWith("sales-1");
   });
 
-  it("mengembalikan null bila user tak dikenal atau tak bertenant", async () => {
+  it("tenant baris null bila user tak dikenal atau tak bertenant", async () => {
     expect(
-      await new PenugasanSalesService(bangunRepo(null)).tentukanTenantBaris(
-        "hantu",
-        null,
-      ),
+      (
+        await new PenugasanSalesService(bangunRepo(null)).muatUntukBarisBaru(
+          "hantu",
+          null,
+        )
+      ).tenantBaris,
     ).toBeNull();
     expect(
-      await new PenugasanSalesService(
-        bangunRepo(calon({ tenantId: null })),
-      ).tentukanTenantBaris("sales-1", null),
+      (
+        await new PenugasanSalesService(
+          bangunRepo(calon({ tenantId: null })),
+        ).muatUntukBarisBaru("sales-1", null)
+      ).tenantBaris,
     ).toBeNull();
+  });
+});
+
+describe("PenugasanSalesService.muatUntukBaris", () => {
+  it("tidak pernah jatuh ke tenant sales bila tenant baris kosong", async () => {
+    // Prospek lama bertenant null tidak boleh "mengadopsi" tenant sales yang
+    // ditugaskan kepadanya.
+    const service = new PenugasanSalesService(bangunRepo(calon()));
+
+    const penugasan = await service.muatUntukBaris("sales-1", null);
+
+    expect(penugasan.tenantBaris).toBeNull();
+    expect(() =>
+      service.pastikanSah(penugasan, { isWajibAktif: false }),
+    ).toThrow(AppError);
   });
 });

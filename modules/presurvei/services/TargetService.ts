@@ -53,19 +53,19 @@ export class TargetService {
     input: DataTarget,
     tenantSesi: string | null,
   ): Promise<TargetEntity> {
-    const tenantBaris = await this.penugasanSales.tentukanTenantBaris(
+    const penugasan = await this.penugasanSales.muatUntukBarisBaru(
       input.userId,
       tenantSesi,
     );
-    const targetLama = tenantBaris
+    const targetLama = penugasan.tenantBaris
       ? await this.targetRepository.findByUserPeriode(
           input.userId,
           { tahun: input.periodeTahun, bulan: input.periodeBulan },
-          tenantBaris,
+          penugasan.tenantBaris,
         )
       : null;
 
-    await this.penugasanSales.pastikanSah(input.userId, tenantBaris, {
+    const tenantBaris = this.penugasanSales.pastikanSah(penugasan, {
       isWajibAktif: targetLama === null,
     });
 

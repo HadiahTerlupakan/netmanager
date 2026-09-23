@@ -269,6 +269,7 @@ describe("TargetService.tetapkan", () => {
       ...masukan,
       tenantId: TENANT_LAIN,
     });
+    expect(salesRepo.cariCalonSales).toHaveBeenCalledTimes(1);
   });
 
   it("super admin tanpa tenant sesi ditolak untuk user tak dikenal", async () => {

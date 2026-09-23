@@ -484,6 +484,18 @@ describe("ProspekService — validasi pemilik yang ditugaskan", () => {
       ).rejects.toMatchObject({ statusCode: 422 });
     });
 
+    it("tidak membiarkan prospek tanpa tenant mengadopsi tenant sales yang ditugaskan", async () => {
+      // Cadangan "tenant dari sales" hanya untuk baris BARU buatan super
+      // admin tanpa tenant sesi, tidak untuk baris yang sudah ada.
+      vi.mocked(repository.findById).mockResolvedValue(
+        prospek({ pemilikId: "sales-lama", tenantId: null }),
+      );
+
+      await expect(
+        service().ubah("prospek-1", { pemilikId: "sales-baru" }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
     it("tidak memvalidasi saat pemilikId tidak dikirim", async () => {
       await service().ubah("prospek-1", { catatan: "Telepon ulang" });
 
@@ -584,6 +596,7 @@ describe("ProspekService — validasi pemilik yang ditugaskan", () => {
         ...masukan,
         tenantId: TENANT_PROSPEK,
       });
+      expect(salesRepo.cariCalonSales).toHaveBeenCalledTimes(1);
     });
   });
 });
