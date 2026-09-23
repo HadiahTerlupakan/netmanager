@@ -42,6 +42,7 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { KegiatanRepository } from "@/modules/presurvei/repositories/KegiatanRepository";
+import { toKegiatanListItem } from "@/modules/presurvei/dto/kegiatan.dto";
 import type { KegiatanRow } from "@/modules/presurvei/mappers/kegiatan.mapper";
 import type { ProspekRow } from "@/modules/presurvei/mappers/prospek.mapper";
 
@@ -79,10 +80,10 @@ const barisKegiatan = (over: Partial<KegiatanRow> = {}): KegiatanRow => ({
  * kehilangan `tenantId` — kolom yang dibutuhkan penjaga tenant di mapper.
  */
 const SERTAKAN_PELAKU = {
-  user: { select: { name: true, email: true, tenantId: true } },
+  user: { select: { id: true, name: true, tenantId: true } },
 };
 const SERTAKAN_PEMILIK = {
-  pemilik: { select: { name: true, email: true, tenantId: true } },
+  pemilik: { select: { id: true, name: true, tenantId: true } },
 };
 
 const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
@@ -196,14 +197,14 @@ describe("KegiatanRepository.findMany", () => {
     vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([
       barisKegiatan({
         id: "kegiatan-sendiri",
-        user: { name: "Rina", email: "rina@t1.id", tenantId: "tenant-1" },
+        user: { id: "user-1", name: "Rina", tenantId: "tenant-1" },
       }),
       barisKegiatan({
         id: "kegiatan-silang",
         userId: "user-asing",
         user: {
           name: "Orang Asing",
-          email: "asing@t2.id",
+          id: "user-asing",
           tenantId: "tenant-2",
         },
       }),
@@ -219,6 +220,32 @@ describe("KegiatanRepository.findMany", () => {
       ["kegiatan-sendiri", "Rina"],
       ["kegiatan-silang", null],
     ]);
+  });
+
+  it("tidak meloloskan email pelaku tanpa nama ke DTO daftar", async () => {
+    // Tiruan sengaja membawa `email` seolah kolom itu ikut ter-select. Label
+    // cadangan wajib netral: email rekan tidak boleh terbuka bagi pemegang
+    // permission presurvei yang belum tentu berhak melihatnya.
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([
+      barisKegiatan({
+        user: {
+          id: "user-anonim-77aa11",
+          name: null,
+          tenantId: "tenant-1",
+          email: "bocor@t1.id",
+        } as never,
+      }),
+    ] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(1 as never);
+
+    const hasil = await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+    });
+    const dto = toKegiatanListItem(hasil.items[0]);
+
+    expect(JSON.stringify(dto)).not.toContain("bocor@t1.id");
+    expect(dto.namaSales).toBe("Tanpa nama (…77aa11)");
   });
 
   it("menggabungkan filter sederhana dan rentang tanggal sekaligus", async () => {
@@ -309,14 +336,18 @@ describe("KegiatanRepository.findById", () => {
     });
     vi.mocked(prisma.presurveiKegiatan.findUnique).mockResolvedValue({
       ...baris,
-      user: { name: null, email: "tanpa-nama@t1.id", tenantId: "tenant-1" },
+      user: {
+        id: "user-tanpa-nama-9f3k2q",
+        name: null,
+        tenantId: "tenant-1",
+      },
     } as never);
 
     const hasil = await new KegiatanRepository().findById("kegiatan-1");
 
     // `user` hasil join tidak ikut ke entitas; yang ikut hanya labelnya —
-    // email, karena `name` null.
-    expect(hasil).toEqual({ ...baris, namaSales: "tanpa-nama@t1.id" });
+    // label netral, karena `name` null.
+    expect(hasil).toEqual({ ...baris, namaSales: "Tanpa nama (…9f3k2q)" });
     expect(prisma.presurveiKegiatan.findUnique).toHaveBeenCalledWith({
       where: { id: "kegiatan-1" },
       include: SERTAKAN_PELAKU,

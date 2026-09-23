@@ -22,6 +22,7 @@ vi.mock("@/modules/database", () => ({
 
 import { prisma } from "@/modules/database";
 import { ProspekRepository } from "@/modules/presurvei/repositories/ProspekRepository";
+import { toProspekListItem } from "@/modules/presurvei/dto/prospek.dto";
 import type { ProspekRow } from "@/modules/presurvei/mappers/prospek.mapper";
 
 // Anotasi `: ProspekRow` wajib: tanpanya properti bernilai `null` jadi implicit
@@ -59,7 +60,7 @@ const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
  * kehilangan `tenantId` — kolom yang dibutuhkan penjaga tenant di mapper.
  */
 const SERTAKAN_PEMILIK = {
-  pemilik: { select: { name: true, email: true, tenantId: true } },
+  pemilik: { select: { id: true, name: true, tenantId: true } },
 };
 
 describe("ProspekRepository.findMany", () => {
@@ -81,6 +82,27 @@ describe("ProspekRepository.findMany", () => {
     );
   });
 
+  it("tidak meloloskan email pemilik tanpa nama ke DTO daftar", async () => {
+    // Tiruan sengaja membawa `email` seolah kolom itu ikut ter-select.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([
+      barisProspek({
+        pemilik: {
+          id: "user-anonim-55cc33",
+          name: "  ",
+          tenantId: "tenant-1",
+          email: "bocor@t1.id",
+        } as never,
+      }),
+    ] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(1 as never);
+
+    const hasil = await repository.findMany({ page: 1, limit: 10 });
+    const dto = toProspekListItem(hasil.items[0]);
+
+    expect(JSON.stringify(dto)).not.toContain("bocor@t1.id");
+    expect(dto.namaPemilik).toBe("Tanpa nama (…55cc33)");
+  });
+
   it("menyertakan pemilik untuk nama di kartu", async () => {
     vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
@@ -99,14 +121,14 @@ describe("ProspekRepository.findMany", () => {
     vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([
       barisProspek({
         id: "prospek-sendiri",
-        pemilik: { name: "Rina", email: "rina@t1.id", tenantId: "tenant-1" },
+        pemilik: { id: "user-1", name: "Rina", tenantId: "tenant-1" },
       }),
       barisProspek({
         id: "prospek-silang",
         pemilikId: "user-asing",
         pemilik: {
           name: "Orang Asing",
-          email: "asing@t2.id",
+          id: "user-asing",
           tenantId: "tenant-2",
         },
       }),
@@ -225,7 +247,7 @@ describe("ProspekRepository.findById", () => {
     });
     vi.mocked(prisma.presurveiProspek.findUnique).mockResolvedValue({
       ...baris,
-      pemilik: { name: "  Dodi  ", email: "dodi@t1.id", tenantId: "tenant-1" },
+      pemilik: { id: "user-1", name: "  Dodi  ", tenantId: "tenant-1" },
     } as never);
 
     const hasil = await new ProspekRepository().findById("prospek-1");

@@ -96,7 +96,8 @@ describe("SalesRepository.daftarAktif", () => {
 
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: { tenantId: "tenant-a", isSales: true, isActive: true },
-      select: { id: true, name: true, email: true },
+      // Tanpa `email`: kolom yang tidak diambil tidak bisa bocor.
+      select: { id: true, name: true },
     });
   });
 
@@ -109,16 +110,26 @@ describe("SalesRepository.daftarAktif", () => {
     expect(ids).not.toContain("sales-a-cuti");
   });
 
-  it("memberi label email pada sales tanpa nama, lalu mengurutkan menurut label", async () => {
+  it("memberi label netral pada sales tanpa nama, lalu mengurutkan menurut label", async () => {
+    penghuni.push(
+      pengguna({ id: "sales-a-x9k2mz", name: null, email: "anonim@contoh.id" }),
+    );
+
+    expect(await new SalesRepository().daftarAktif("tenant-a")).toEqual([
+      { id: "sales-a-budi", nama: "Budi" },
+      { id: "sales-a-rina", nama: "Rina" },
+      { id: "sales-a-x9k2mz", nama: "Tanpa nama (…x9k2mz)" },
+    ]);
+  });
+
+  it("tidak membawa email siapa pun di hasilnya", async () => {
     penghuni.push(
       pengguna({ id: "sales-a-anonim", name: null, email: "anonim@contoh.id" }),
     );
 
-    expect(await new SalesRepository().daftarAktif("tenant-a")).toEqual([
-      { id: "sales-a-anonim", nama: "anonim@contoh.id" },
-      { id: "sales-a-budi", nama: "Budi" },
-      { id: "sales-a-rina", nama: "Rina" },
-    ]);
+    const hasil = await new SalesRepository().daftarAktif("tenant-a");
+
+    expect(JSON.stringify(hasil)).not.toContain("@contoh.id");
   });
 
   it("menolak tanpa menyentuh database saat tenantId kosong", async () => {

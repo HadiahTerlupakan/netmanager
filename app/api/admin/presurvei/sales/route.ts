@@ -1,4 +1,4 @@
-import { apiSuccess, createHandler } from "@/lib/api";
+import { apiSuccess, createHandler, requireSessionTenantId } from "@/lib/api";
 import {
   SalesPresurveiService,
   toSalesPresurveiDto,
@@ -27,9 +27,12 @@ export const GET = createHandler(
     ],
   },
   async (_request, ctx) => {
-    // Tenant dari sesi, ditulis eksplisit ke query. Tidak diserahkan ke
-    // ekstensi tenant, yang tidak menyaring apa pun untuk super admin.
-    const sales = await service.daftarAktif(ctx.session!.user.tenantId);
+    // Tenant HANYA dari sesi — tidak dari query string, body, atau header —
+    // lalu ditulis eksplisit ke query, tidak diserahkan ke ekstensi tenant
+    // yang tidak menyaring apa pun untuk super admin. Sesi tanpa tenant
+    // dibalas 400 di sini; penjaga di `SalesRepository` tetap sebagai lapis
+    // kedua.
+    const sales = await service.daftarAktif(requireSessionTenantId(ctx));
     return apiSuccess(sales.map(toSalesPresurveiDto));
   },
 );

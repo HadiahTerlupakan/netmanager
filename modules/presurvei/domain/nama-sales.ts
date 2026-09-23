@@ -10,9 +10,21 @@
 
 /** Kolom `User` yang dibutuhkan untuk menentukan label seorang sales. */
 export interface IdentitasSales {
+  id: string;
   name: string | null;
-  email: string;
 }
+
+/** Awalan label sales yang `name`-nya kosong. */
+export const LABEL_TANPA_NAMA = "Tanpa nama";
+
+/**
+ * Panjang potongan id yang ikut di label sales tanpa nama.
+ *
+ * Diambil dari UJUNG id: cuid diawali cap waktu, jadi dua user yang dibuat
+ * berdekatan berbagi awalan yang sama, sedangkan ujungnya acak. Enam karakter
+ * cukup untuk membedakan segelintir sales tanpa nama dalam satu tenant.
+ */
+const PANJANG_POTONGAN_ID = 6;
 
 /** Identitas sales hasil join, beserta tenant pemiliknya untuk dijaga. */
 export interface IdentitasSalesBertenant extends IdentitasSales {
@@ -20,16 +32,21 @@ export interface IdentitasSalesBertenant extends IdentitasSales {
 }
 
 /**
- * Label seorang sales: `name` bila terisi, selain itu `email`.
+ * Label seorang sales: `name` bila terisi, selain itu "Tanpa nama (…xxxxxx)".
  *
  * `User.name` bertipe `String?` dan bisa kosong; model `User` tidak punya
- * kolom `username`. `email` wajib dan unik, jadi dua sales tanpa nama tetap
- * bisa dibedakan di dropdown — label tetap seperti "Tanpa nama" akan membuat
- * keduanya kembar. Nama yang hanya berisi spasi diperlakukan kosong.
+ * kolom `username`. Email sengaja TIDAK dipakai sebagai cadangan: pemegang
+ * permission presurvei belum tentu berhak melihat email rekannya (sebelumnya
+ * hanya terbuka lewat `users:read`/`sales:read`), dan menampilkan nama tidak
+ * boleh sekaligus memperluas akses data pribadi. Potongan ujung id membuat dua
+ * sales tanpa nama tetap bisa dibedakan di dropdown tanpa membuka apa pun
+ * yang belum terlihat — id sudah ada di DTO. Nama yang hanya berisi spasi
+ * diperlakukan kosong.
  */
 export function tentukanNamaSales(identitas: IdentitasSales): string {
   const nama = identitas.name?.trim() ?? "";
-  return nama.length > 0 ? nama : identitas.email;
+  if (nama.length > 0) return nama;
+  return `${LABEL_TANPA_NAMA} (…${identitas.id.slice(-PANJANG_POTONGAN_ID)})`;
 }
 
 /**
@@ -37,11 +54,15 @@ export function tentukanNamaSales(identitas: IdentitasSales): string {
  *
  * Join ke `User` lewat `include` tidak disaring ekstensi tenant — ekstensi
  * hanya menulis ulang `where` level atas (`lib/prisma-extension.ts`, blok
- * "Automatic Filter Injection") — dan relasi ke-satu tidak menerima `where`
- * sama sekali. Maka baris yang menunjuk sales tenant lain (kelas data yang
- * pernah lahir dari handler pendaftaran tanpa penjaga tenant) akan membawa
- * nama orang di luar tenant. Penjaganya di sini: nama hanya dipakai bila
- * tenant sales sama persis dengan tenant baris yang merujuknya.
+ * "Automatic Filter Injection"). Maka baris yang menunjuk sales tenant lain
+ * (kelas data yang pernah lahir dari handler pendaftaran tanpa penjaga
+ * tenant) akan membawa nama orang di luar tenant.
+ *
+ * Penjaganya per baris, bukan `where` literal di `include`: literal butuh
+ * tenant dari konteks, dan konteks itu null untuk super admin maupun system
+ * context — tepat saat baris dari banyak tenant tercampur dalam satu hasil,
+ * sehingga satu literal tidak bisa benar untuk semuanya. Membandingkan tenant
+ * sales dengan `tenantId` baris yang merujuknya benar di semua konteks.
  */
 export function namaSalesSatuTenant(
   identitas: IdentitasSalesBertenant | null | undefined,

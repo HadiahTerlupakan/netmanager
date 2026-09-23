@@ -80,8 +80,8 @@ const beriSesiTanpaTenant = (permissions: string[]): void => {
   });
 };
 
-const minta = () =>
-  GET(new NextRequest("http://localhost/api/admin/presurvei/sales"), {
+const minta = (query = "") =>
+  GET(new NextRequest(`http://localhost/api/admin/presurvei/sales${query}`), {
     params: Promise.resolve({}),
   } as never);
 
@@ -125,10 +125,34 @@ describe("GET /api/admin/presurvei/sales", () => {
 
     expect(res.status).toBe(200);
     expect(body.data).toEqual([
-      { id: "sales-a-anonim", nama: "anonim@a.id" },
       { id: "sales-a-rina", nama: "Rina" },
+      { id: "sales-a-anonim", nama: "Tanpa nama (…anonim)" },
     ]);
     expect(JSON.stringify(body)).not.toContain("sales-b-citra");
+  });
+
+  it("mengabaikan tenantId dari query string, tetap memakai tenant sesi", async () => {
+    // Tenant hanya boleh berasal dari sesi. Refactor "biar super admin bisa
+    // memilih tenant" yang membaca query lebih dulu akan membuat admin tenant
+    // A menerima daftar sales tenant B lewat `?tenantId=tenant-b`.
+    beriSesi(["presurvei:read"]);
+
+    const body = await (await minta("?tenantId=tenant-b")).json();
+
+    expect(body.data.map((sales: { id: string }) => sales.id)).toEqual([
+      "sales-a-rina",
+      "sales-a-anonim",
+    ]);
+    expect(JSON.stringify(body)).not.toContain("sales-b-citra");
+  });
+
+  it("tidak membawa email siapa pun di respons", async () => {
+    beriSesi(["presurvei:read"]);
+
+    const teks = JSON.stringify(await (await minta()).json());
+
+    expect(teks).not.toContain("@a.id");
+    expect(teks).not.toContain("@b.id");
   });
 
   it("memakai tenant sesi, bukan tenant bawaan apa pun", async () => {
@@ -141,12 +165,17 @@ describe("GET /api/admin/presurvei/sales", () => {
     expect(body.data).toEqual([{ id: "sales-b-citra", nama: "Citra" }]);
   });
 
-  it("gagal tertutup tanpa menyentuh database saat sesi tidak bertenant", async () => {
+  it("membalas 400 tanpa menyentuh database saat sesi tidak bertenant", async () => {
+    // Kondisi yang bisa ditebak (mis. super admin tanpa tenant), bukan
+    // kesalahan server: 400 `TENANT_ID_REQUIRED`, bukan 500 yang memicu
+    // `logger.error` dan tiga kali percobaan ulang react-query.
     beriSesiTanpaTenant(["presurvei:read"]);
 
     const res = await minta();
+    const body = await res.json();
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("TENANT_ID_REQUIRED");
     expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 

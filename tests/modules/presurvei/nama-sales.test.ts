@@ -9,34 +9,60 @@ import {
  * `User.name` bertipe `String?`. Dengan `strictNullChecks: false`, compiler
  * tidak memperingatkan apa pun bila nilai null itu lolos ke layar — maka kasus
  * null diuji eksplisit di sini.
+ *
+ * Cadangan untuk nama kosong sengaja BUKAN email: pemegang permission
+ * presurvei belum tentu berhak melihat email rekannya. Label cadangan ditulis
+ * ulang sebagai literal, bukan dirakit dari konstanta produksi.
  */
 
 describe("tentukanNamaSales", () => {
   it("memakai name bila terisi", () => {
     expect(
-      tentukanNamaSales({ name: "Rina Sales", email: "rina@contoh.id" }),
+      tentukanNamaSales({ id: "clsales0000rina01", name: "Rina Sales" }),
     ).toBe("Rina Sales");
   });
 
-  it("jatuh ke email saat name null", () => {
-    expect(
-      tentukanNamaSales({ name: null, email: "tanpa-nama@contoh.id" }),
-    ).toBe("tanpa-nama@contoh.id");
+  it("memakai label netral berpotongan ujung id saat name null", () => {
+    expect(tentukanNamaSales({ id: "clxyz0000abc123", name: null })).toBe(
+      "Tanpa nama (…abc123)",
+    );
   });
 
-  it("jatuh ke email saat name kosong atau hanya spasi", () => {
-    expect(tentukanNamaSales({ name: "", email: "kosong@contoh.id" })).toBe(
-      "kosong@contoh.id",
+  it("memakai label netral yang sama saat name kosong atau hanya spasi", () => {
+    expect(tentukanNamaSales({ id: "clxyz0000kosong", name: "" })).toBe(
+      "Tanpa nama (…kosong)",
     );
-    expect(tentukanNamaSales({ name: "   ", email: "spasi@contoh.id" })).toBe(
-      "spasi@contoh.id",
+    expect(tentukanNamaSales({ id: "clxyz0000spasi9", name: "   " })).toBe(
+      "Tanpa nama (…spasi9)",
     );
+  });
+
+  it("membedakan dua sales tanpa nama yang id-nya berawalan sama", () => {
+    // cuid diawali cap waktu: dua user yang dibuat berdekatan berbagi awalan.
+    // Potongan AWAL id akan membuat keduanya kembar di dropdown.
+    const pertama = tentukanNamaSales({ id: "clmsama000aaa111", name: null });
+    const kedua = tentukanNamaSales({ id: "clmsama000bbb222", name: null });
+
+    expect(pertama).not.toBe(kedua);
+  });
+
+  it("tidak memakai email walau objek masukan kebetulan membawanya", () => {
+    // Baris Prisma yang diteruskan apa adanya bisa membawa kolom lebih. Label
+    // tidak boleh jatuh ke email dalam keadaan apa pun.
+    const hasil = tentukanNamaSales({
+      id: "clxyz0000anonim",
+      name: null,
+      email: "anonim@contoh.id",
+    } as never);
+
+    expect(hasil).not.toContain("anonim@contoh.id");
+    expect(hasil).toBe("Tanpa nama (…anonim)");
   });
 
   it("merapikan spasi di tepi name", () => {
-    expect(
-      tentukanNamaSales({ name: "  Dodi  ", email: "dodi@contoh.id" }),
-    ).toBe("Dodi");
+    expect(tentukanNamaSales({ id: "clxyz0000dodi01", name: "  Dodi  " })).toBe(
+      "Dodi",
+    );
   });
 });
 
@@ -44,8 +70,8 @@ describe("namaSalesSatuTenant", () => {
   const sales = (
     ubahan: Partial<IdentitasSalesBertenant> = {},
   ): IdentitasSalesBertenant => ({
+    id: "clxyz0000rina01",
     name: "Rina Sales",
-    email: "rina@contoh.id",
     tenantId: "tenant-a",
     ...ubahan,
   });
@@ -55,8 +81,8 @@ describe("namaSalesSatuTenant", () => {
   });
 
   it("menyembunyikan nama sales dari tenant lain", () => {
-    // Relasi ke-satu tidak bisa disaring di `include`; tanpa pembandingan ini
-    // baris tenant A yang menunjuk sales tenant B mencetak nama orang B.
+    // Penjaga per baris: baris tenant A yang menunjuk sales tenant B tidak
+    // boleh mencetak nama orang B.
     expect(
       namaSalesSatuTenant(sales({ tenantId: "tenant-b" }), "tenant-a"),
     ).toBe(null);
@@ -75,12 +101,12 @@ describe("namaSalesSatuTenant", () => {
     expect(namaSalesSatuTenant(undefined, "tenant-a")).toBe(null);
   });
 
-  it("memakai aturan email yang sama untuk sales tanpa nama", () => {
+  it("memakai label netral yang sama untuk sales tanpa nama", () => {
     expect(
       namaSalesSatuTenant(
-        sales({ name: null, email: "anonim@contoh.id" }),
+        sales({ id: "clxyz0000anon77", name: null }),
         "tenant-a",
       ),
-    ).toBe("anonim@contoh.id");
+    ).toBe("Tanpa nama (…anon77)");
   });
 });

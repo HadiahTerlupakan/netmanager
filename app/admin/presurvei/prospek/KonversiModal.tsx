@@ -163,8 +163,9 @@ function FormKonversi({ prospek, isOpen, onClose }: FormKonversiProps) {
     // Divalidasi sebelum permintaan apa pun: langkah pertama sudah menulis
     // status DEAL, jadi ISIAN yang pasti ditolak tidak boleh sampai ke sana.
     // Nilai yang diambil server dari survei (kabel kosong) tidak terlihat di
-    // sini. Survei yang mencatat 0 meter tetap ditolak baru setelah PATCH;
-    // lihat `TEKS_PETUNJUK_KABEL`.
+    // sini, dan tidak perlu dijaga: estimasi survei di bawah 1 meter diganti
+    // bawaan 1 meter oleh server (`estimasiKabelSurvei`); lihat
+    // `TEKS_PETUNJUK_KABEL`.
     const kesalahanBaru = validasiFormKonversi(nilai);
     setKesalahan(kesalahanBaru);
     if (Object.keys(kesalahanBaru).length > 0) return;

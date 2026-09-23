@@ -8,14 +8,14 @@ import type { Prisma } from "@prisma/client";
  * menyertakannya.
  *
  * `tenantId` ikut dipilih bukan untuk ditampilkan, melainkan untuk penjaga
- * tenant di `namaSalesSatuTenant`: `include` bersarang tidak dijangkau
- * ekstensi tenant, dan relasi ke-satu tidak menerima `where` untuk ditulisi
- * `tenantId` secara eksplisit — jadi penyaringannya dilakukan setelah baris
- * kembali, oleh mapper.
+ * tenant per baris di `namaSalesSatuTenant` — lihat di sana kenapa penjaga
+ * itu, bukan `where` di `include`. `email` sengaja tidak dipilih: label sales
+ * tidak memakainya (`tentukanNamaSales`), dan kolom yang tidak diambil tidak
+ * bisa bocor ke DTO.
  */
 const KOLOM_IDENTITAS_SALES = {
+  id: true,
   name: true,
-  email: true,
   tenantId: true,
 } as const;
 

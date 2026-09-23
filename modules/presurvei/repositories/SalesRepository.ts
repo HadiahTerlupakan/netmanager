@@ -30,7 +30,7 @@ export class SalesRepository implements ISalesRepository {
 
     const rows = await prisma.user.findMany({
       where: { tenantId, isSales: true, isActive: true },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true },
     });
 
     return rows
