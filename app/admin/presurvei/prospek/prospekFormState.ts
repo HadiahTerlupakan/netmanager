@@ -17,16 +17,21 @@ import { KUNCI_KOLOM_PROSPEK } from "./prospekKolomQuery";
 const URL_API_PROSPEK = "/api/presurvei/prospek";
 
 /**
+ * Jumlah kampanye yang diminta pemilih iklan: batas atas `limit` schema daftar
+ * iklan (`modules/presurvei/validators/iklan.validator.ts:17`).
+ */
+const BATAS_PILIHAN_KAMPANYE = 100;
+
+/**
  * Daftar kampanye untuk pemilih iklan.
  *
  * Endpoint ini tidak punya filter "sedang berjalan"
  * (`modules/presurvei/validators/iklan.validator.ts:47-61`), jadi yang diminta
  * hanya yang `isAktif`, lalu disaring lagi dengan `isBerjalan` di
- * `pilihanKampanye`. `limit=100` adalah batas atas schema itu (baris 17): tenant
- * dengan lebih dari seratus kampanye aktif tidak akan melihat sisanya di sini.
+ * `ringkasPilihanKampanye`. Tenant dengan lebih dari seratus kampanye aktif
+ * menerima daftar terpotong; pemotongan itu dideteksi dari `meta.total`.
  */
-export const URL_PILIHAN_KAMPANYE =
-  "/api/admin/presurvei/iklan?isAktif=true&limit=100";
+export const URL_PILIHAN_KAMPANYE = `/api/admin/presurvei/iklan?isAktif=true&limit=${BATAS_PILIHAN_KAMPANYE}`;
 
 /**
  * Permission gerbang `GET /api/admin/presurvei/iklan`
@@ -284,11 +289,37 @@ export function kunciKolomSetelahSimpan(badan: unknown): readonly string[] {
     : [KUNCI_KOLOM_PROSPEK];
 }
 
-/** Kampanye yang boleh dipilih: hanya yang sedang berjalan menurut server. */
-export function pilihanKampanye(
-  daftar: readonly IklanListItemDto[],
-): IklanListItemDto[] {
-  return daftar.filter((iklan) => iklan.isBerjalan);
+/** Bagian amplop daftar kampanye yang dibaca pemilih iklan. */
+export interface AmplopPilihanKampanye {
+  data: IklanListItemDto[];
+  meta: { total: number };
+}
+
+/** Kampanye yang bisa dipilih beserta apakah daftarnya lengkap. */
+export interface RingkasanPilihanKampanye {
+  pilihan: IklanListItemDto[];
+  /**
+   * Server punya lebih banyak kampanye aktif daripada yang dikirim. Kampanye
+   * yang dicari mungkin tidak ada di `pilihan`, jadi pemakai harus bisa
+   * mengisi ID-nya langsung.
+   */
+  isTerpotong: boolean;
+}
+
+/**
+ * Kampanye yang boleh dipilih — hanya yang sedang berjalan menurut server —
+ * dan apakah daftar aktifnya terpotong.
+ *
+ * Pemotongan dibandingkan dengan jumlah yang diterima SEBELUM disaring
+ * `isBerjalan`: `meta.total` menghitung kampanye aktif, bukan yang berjalan.
+ */
+export function ringkasPilihanKampanye(
+  amplop: AmplopPilihanKampanye,
+): RingkasanPilihanKampanye {
+  return {
+    pilihan: amplop.data.filter((iklan) => iklan.isBerjalan),
+    isTerpotong: amplop.meta.total > amplop.data.length,
+  };
 }
 
 /** Nilai form dari prospek yang sudah ada, untuk mode ubah. */

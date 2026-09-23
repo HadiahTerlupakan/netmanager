@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
@@ -13,7 +13,6 @@ import {
   PROSPEK_STATUS_CONFIG,
   PROSPEK_SUMBER,
   PROSPEK_SUMBER_CONFIG,
-  type IklanListItemDto,
   type ProspekDetailDto,
   type ProspekSumber,
 } from "@/modules/presurvei/client";
@@ -27,14 +26,13 @@ import {
   KUNCI_KESALAHAN_FORM,
   muatanUntukMode,
   NILAI_FORM_KOSONG,
-  pilihanKampanye,
   schemaUntukMode,
-  URL_PILIHAN_KAMPANYE,
   type KesalahanForm,
   type ModeFormProspek,
   type NilaiFormProspek,
 } from "./prospekFormState";
 import { isTakBertuan } from "./prospekKolomQuery";
+import { useKampanyeBerjalan } from "./useKampanyeBerjalan";
 import { useSimpanProspek, type DuplikatTertunda } from "./useSimpanProspek";
 
 /**
@@ -78,29 +76,50 @@ interface PemilihKampanyeProps {
   kesalahan: string | undefined;
 }
 
+/** Alasan pemilih kampanye jatuh ke isian ID manual; null bila memakai daftar. */
+function alasanIsianManual(
+  isBolehBacaKampanye: boolean,
+  kampanye: ReturnType<typeof useKampanyeBerjalan>,
+): string | null {
+  if (!isBolehBacaKampanye || kampanye.isGagal) {
+    return "Daftar kampanye tidak bisa dimuat untuk akun Anda; isi ID kampanye secara manual.";
+  }
+  if (kampanye.ringkasan?.isTerpotong === true) {
+    return TEKS_KAMPANYE_TERPOTONG;
+  }
+  return null;
+}
+
+/**
+ * Petunjuk saat daftar kampanye aktif lebih panjang dari yang dikirim server
+ * (`prospekFormState.ts:ringkasPilihanKampanye`). Daftar yang tidak lengkap
+ * tidak ditampilkan sebagai pilihan sama sekali: kampanye yang dicari bisa
+ * jadi yang terpotong, dan pemilih yang tampak lengkap menyembunyikannya.
+ */
+export const TEKS_KAMPANYE_TERPOTONG =
+  "Kampanye aktif terlalu banyak untuk ditampilkan semuanya; isi ID kampanye langsung dari daftar kampanye.";
+
 /**
  * Pemilih kampanye yang sedang berjalan.
  *
  * Daftar kampanye dijaga `presurvei_iklan:read`, permission yang berbeda dari
- * gerbang pembuatan prospek. Pemakai tanpanya, atau yang daftarnya gagal
- * dimuat, tetap bisa menyalin ID kampanye secara manual — seperti form
- * kegiatan — alih-alih terhalang membuat prospek dari iklan.
+ * gerbang pembuatan prospek. Pemakai tanpanya, yang daftarnya gagal dimuat,
+ * atau yang daftarnya terpotong tetap bisa mengisi ID kampanye secara manual —
+ * seperti form kegiatan — alih-alih terhalang membuat prospek dari iklan.
  */
 function PemilihKampanye({ iklanId, onUbah, kesalahan }: PemilihKampanyeProps) {
   const { hasAnyPermission } = usePermission();
   const isBolehBacaKampanye = hasAnyPermission(IZIN_BACA_KAMPANYE);
-  const daftar = useApi<IklanListItemDto[]>(
-    isBolehBacaKampanye ? URL_PILIHAN_KAMPANYE : null,
-  );
-  const isPakaiIsianManual = !isBolehBacaKampanye || daftar.error !== null;
-  const pilihan = pilihanKampanye(daftar.data ?? []);
+  const kampanye = useKampanyeBerjalan(isBolehBacaKampanye);
+  const alasanManual = alasanIsianManual(isBolehBacaKampanye, kampanye);
+  const pilihan = kampanye.ringkasan?.pilihan ?? [];
 
   return (
     <div>
       <label className={KELAS_LABEL} htmlFor="prospek-iklan">
         Kampanye iklan *
       </label>
-      {isPakaiIsianManual ? (
+      {alasanManual !== null ? (
         <input
           id="prospek-iklan"
           type="text"
@@ -114,11 +133,11 @@ function PemilihKampanye({ iklanId, onUbah, kesalahan }: PemilihKampanyeProps) {
           id="prospek-iklan"
           value={iklanId}
           onChange={(event) => onUbah(event.target.value)}
-          disabled={daftar.isLoading}
+          disabled={kampanye.isLoading}
           className={`${KELAS_INPUT} cursor-pointer`}
         >
           <option value="">
-            {daftar.isLoading ? "Memuat kampanye…" : "Pilih kampanye"}
+            {kampanye.isLoading ? "Memuat kampanye…" : "Pilih kampanye"}
           </option>
           {pilihan.map((iklan) => (
             <option key={iklan.id} value={iklan.id}>
@@ -129,9 +148,8 @@ function PemilihKampanye({ iklanId, onUbah, kesalahan }: PemilihKampanyeProps) {
       )}
       <PesanMedan pesan={kesalahan} />
       <p className={KELAS_PETUNJUK}>
-        {isPakaiIsianManual
-          ? "Daftar kampanye tidak bisa dimuat untuk akun Anda; isi ID kampanye secara manual."
-          : "Hanya kampanye yang sedang berjalan yang ditampilkan."}
+        {alasanManual ??
+          "Hanya kampanye yang sedang berjalan yang ditampilkan."}
       </p>
     </div>
   );
@@ -192,24 +210,66 @@ function PanelDuplikat({
   );
 }
 
-interface IsiFormProspekProps {
+interface KerangkaModalProps {
+  mode: ModeFormProspek;
+  isOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+/** Bingkai modal yang sama untuk form, kerangka muat, dan pesan gagal. */
+function KerangkaModal({
+  mode,
+  isOpen,
+  onClose,
+  children,
+}: KerangkaModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={mode.jenis === "buat" ? "Tambah Prospek" : "Ubah Prospek"}
+      size="2xl"
+    >
+      {children}
+    </Modal>
+  );
+}
+
+interface FormProspekProps {
   mode: ModeFormProspek;
   nilaiAwal: NilaiFormProspek;
+  isOpen: boolean;
   onClose: () => void;
 }
 
-/** Medan form dan pengirimannya; dipasang setelah nilai awalnya tersedia. */
-function IsiFormProspek({ mode, nilaiAwal, onClose }: IsiFormProspekProps) {
+/**
+ * Form beserta state-nya, dengan modal di DALAM komponen ini.
+ *
+ * State sengaja tinggal di atas `<Modal>`: modal yang tertutup merender null
+ * (`components/ui/Modal.tsx:54`), sehingga state di dalamnya ikut hilang. Di
+ * sini isian bertahan selama komponen ini terpasang, dan direset hanya
+ * setelah simpan berhasil.
+ */
+function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
   const [nilai, setNilai] = useState<NilaiFormProspek>(nilaiAwal);
   const [kesalahan, setKesalahan] = useState<KesalahanForm>({});
+  const setelahTersimpan = () => {
+    setNilai(nilaiAwal);
+    setKesalahan({});
+    onClose();
+  };
   const { simpan, tetapSimpan, lupakanDuplikat, duplikat, isMenyimpan } =
-    useSimpanProspek(mode, onClose);
+    useSimpanProspek(mode, setelahTersimpan);
   const isModeBuat = mode.jenis === "buat";
 
   const ubahMedan = (perubahan: Partial<NilaiFormProspek>) => {
     setNilai((lama) => ({ ...lama, ...perubahan }));
-    // Penolakan duplikat berlaku untuk isian yang ditolak, bukan isian yang
-    // sudah diubah; "Tetap simpan" tidak boleh mengirim isian lama.
+    // Penolakan duplikat berlaku untuk isian yang ditolak. Medan dikunci
+    // selama permintaan berjalan (`<fieldset disabled>` di bawah), jadi isian
+    // tidak bisa berubah antara pengiriman dan tibanya penolakan; perubahan
+    // sesudahnya membuang penolakan, sehingga "Tetap simpan" hanya pernah
+    // mengirim isian yang memang ditolak.
     lupakanDuplikat();
     setKesalahan((lama) => {
       const berikutnya = { ...lama };
@@ -240,212 +300,220 @@ function IsiFormProspek({ mode, nilaiAwal, onClose }: IsiFormProspekProps) {
   };
 
   return (
-    <form onSubmit={kirim} className="space-y-4">
-      {isModeBuat && (
-        <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
-          {TEKS_PEMILIK_PROSPEK_BARU}
-        </p>
-      )}
+    <KerangkaModal mode={mode} isOpen={isOpen} onClose={onClose}>
+      <form onSubmit={kirim}>
+        <fieldset disabled={isMenyimpan} className="min-w-0 space-y-4">
+          {isModeBuat && (
+            <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+              {TEKS_PEMILIK_PROSPEK_BARU}
+            </p>
+          )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-nama">
-            Nama *
-          </label>
-          <input
-            id="prospek-nama"
-            type="text"
-            value={nilai.nama}
-            onChange={(event) => ubahMedan({ nama: event.target.value })}
-            maxLength={PANJANG_NAMA_MAKS}
-            className={KELAS_INPUT}
-          />
-          <PesanMedan pesan={kesalahan.nama} />
-        </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-nama">
+                Nama *
+              </label>
+              <input
+                id="prospek-nama"
+                type="text"
+                value={nilai.nama}
+                onChange={(event) => ubahMedan({ nama: event.target.value })}
+                maxLength={PANJANG_NAMA_MAKS}
+                className={KELAS_INPUT}
+              />
+              <PesanMedan pesan={kesalahan.nama} />
+            </div>
 
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-telp">
-            Nomor telepon *
-          </label>
-          <input
-            id="prospek-telp"
-            type="tel"
-            value={nilai.noTelp}
-            onChange={(event) => ubahMedan({ noTelp: event.target.value })}
-            maxLength={PANJANG_TELP_MAKS}
-            placeholder="08xxxxxxxxxx"
-            className={KELAS_INPUT}
-          />
-          <PesanMedan pesan={kesalahan.noTelp} />
-        </div>
-      </div>
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-telp">
+                Nomor telepon *
+              </label>
+              <input
+                id="prospek-telp"
+                type="tel"
+                value={nilai.noTelp}
+                onChange={(event) => ubahMedan({ noTelp: event.target.value })}
+                maxLength={PANJANG_TELP_MAKS}
+                placeholder="08xxxxxxxxxx"
+                className={KELAS_INPUT}
+              />
+              <PesanMedan pesan={kesalahan.noTelp} />
+            </div>
+          </div>
 
-      <div>
-        <label className={KELAS_LABEL} htmlFor="prospek-alamat">
-          Alamat *
-        </label>
-        <input
-          id="prospek-alamat"
-          type="text"
-          value={nilai.alamat}
-          onChange={(event) => ubahMedan({ alamat: event.target.value })}
-          maxLength={PANJANG_ALAMAT_MAKS}
-          className={KELAS_INPUT}
-        />
-        <PesanMedan pesan={kesalahan.alamat} />
-      </div>
+          <div>
+            <label className={KELAS_LABEL} htmlFor="prospek-alamat">
+              Alamat *
+            </label>
+            <input
+              id="prospek-alamat"
+              type="text"
+              value={nilai.alamat}
+              onChange={(event) => ubahMedan({ alamat: event.target.value })}
+              maxLength={PANJANG_ALAMAT_MAKS}
+              className={KELAS_INPUT}
+            />
+            <PesanMedan pesan={kesalahan.alamat} />
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-email">
-            Email
-          </label>
-          <input
-            id="prospek-email"
-            type="email"
-            value={nilai.email}
-            onChange={(event) => ubahMedan({ email: event.target.value })}
-            className={KELAS_INPUT}
-          />
-          <PesanMedan pesan={kesalahan.email} />
-        </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-email">
+                Email
+              </label>
+              <input
+                id="prospek-email"
+                type="email"
+                value={nilai.email}
+                onChange={(event) => ubahMedan({ email: event.target.value })}
+                className={KELAS_INPUT}
+              />
+              <PesanMedan pesan={kesalahan.email} />
+            </div>
 
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-paket">
-            Paket diminati
-          </label>
-          <input
-            id="prospek-paket"
-            type="text"
-            value={nilai.paketDiminati}
-            onChange={(event) =>
-              ubahMedan({ paketDiminati: event.target.value })
-            }
-            maxLength={PANJANG_NAMA_MAKS}
-            className={KELAS_INPUT}
-          />
-          <PesanMedan pesan={kesalahan.paketDiminati} />
-        </div>
-      </div>
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-paket">
+                Paket diminati
+              </label>
+              <input
+                id="prospek-paket"
+                type="text"
+                value={nilai.paketDiminati}
+                onChange={(event) =>
+                  ubahMedan({ paketDiminati: event.target.value })
+                }
+                maxLength={PANJANG_NAMA_MAKS}
+                className={KELAS_INPUT}
+              />
+              <PesanMedan pesan={kesalahan.paketDiminati} />
+            </div>
+          </div>
 
-      {isModeBuat ? (
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-sumber">
-            Sumber *
-          </label>
-          <select
-            id="prospek-sumber"
-            value={nilai.sumber}
-            onChange={(event) =>
-              ubahMedan({ sumber: event.target.value as ProspekSumber })
-            }
-            className={`${KELAS_INPUT} cursor-pointer`}
-          >
-            {PROSPEK_SUMBER.map((sumber) => (
-              <option key={sumber} value={sumber}>
-                {PROSPEK_SUMBER_CONFIG[sumber].label}
-              </option>
-            ))}
-          </select>
-          <PesanMedan pesan={kesalahan.sumber} />
-        </div>
-      ) : (
-        // `ubahProspekSchema` tidak menerima sumber maupun atribusinya
-        // (`prospekFormState.ts:keMuatanUbahProspek`), jadi pada mode ubah
-        // ia hanya ditampilkan, bukan medan yang bisa disunting.
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Sumber:{" "}
-          <span className="font-medium">
-            {PROSPEK_SUMBER_CONFIG[nilai.sumber].label}
-          </span>{" "}
-          — tidak bisa diubah setelah prospek tercatat.
-        </p>
-      )}
+          {isModeBuat ? (
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-sumber">
+                Sumber *
+              </label>
+              <select
+                id="prospek-sumber"
+                value={nilai.sumber}
+                onChange={(event) =>
+                  ubahMedan({ sumber: event.target.value as ProspekSumber })
+                }
+                className={`${KELAS_INPUT} cursor-pointer`}
+              >
+                {PROSPEK_SUMBER.map((sumber) => (
+                  <option key={sumber} value={sumber}>
+                    {PROSPEK_SUMBER_CONFIG[sumber].label}
+                  </option>
+                ))}
+              </select>
+              <PesanMedan pesan={kesalahan.sumber} />
+            </div>
+          ) : (
+            // `ubahProspekSchema` tidak menerima sumber maupun atribusinya
+            // (`prospekFormState.ts:keMuatanUbahProspek`), jadi pada mode ubah
+            // ia hanya ditampilkan, bukan medan yang bisa disunting.
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Sumber:{" "}
+              <span className="font-medium">
+                {PROSPEK_SUMBER_CONFIG[nilai.sumber].label}
+              </span>{" "}
+              — tidak bisa diubah setelah prospek tercatat.
+            </p>
+          )}
 
-      {isModeBuat && isSumberButuhIklan(nilai.sumber) && (
-        <PemilihKampanye
-          iklanId={nilai.iklanId}
-          onUbah={(iklanId) => ubahMedan({ iklanId })}
-          kesalahan={kesalahan.iklanId}
-        />
-      )}
+          {isModeBuat && isSumberButuhIklan(nilai.sumber) && (
+            <PemilihKampanye
+              iklanId={nilai.iklanId}
+              onUbah={(iklanId) => ubahMedan({ iklanId })}
+              kesalahan={kesalahan.iklanId}
+            />
+          )}
 
-      {isModeBuat && isSumberButuhReferral(nilai.sumber) && (
-        <div>
-          <label className={KELAS_LABEL} htmlFor="prospek-referral">
-            Nama perujuk *
-          </label>
-          <input
-            id="prospek-referral"
-            type="text"
-            value={nilai.referralNama}
-            onChange={(event) =>
-              ubahMedan({ referralNama: event.target.value })
-            }
-            maxLength={PANJANG_NAMA_MAKS}
-            className={KELAS_INPUT}
-          />
-          <PesanMedan pesan={kesalahan.referralNama} />
-        </div>
-      )}
+          {isModeBuat && isSumberButuhReferral(nilai.sumber) && (
+            <div>
+              <label className={KELAS_LABEL} htmlFor="prospek-referral">
+                Nama perujuk *
+              </label>
+              <input
+                id="prospek-referral"
+                type="text"
+                value={nilai.referralNama}
+                onChange={(event) =>
+                  ubahMedan({ referralNama: event.target.value })
+                }
+                maxLength={PANJANG_NAMA_MAKS}
+                className={KELAS_INPUT}
+              />
+              <PesanMedan pesan={kesalahan.referralNama} />
+            </div>
+          )}
 
-      <div>
-        <label className={KELAS_LABEL} htmlFor="prospek-catatan">
-          Catatan
-        </label>
-        <textarea
-          id="prospek-catatan"
-          rows={3}
-          value={nilai.catatan}
-          onChange={(event) => ubahMedan({ catatan: event.target.value })}
-          maxLength={PANJANG_CATATAN_MAKS}
-          className={KELAS_INPUT}
-        />
-        <PesanMedan pesan={kesalahan.catatan} />
-      </div>
+          <div>
+            <label className={KELAS_LABEL} htmlFor="prospek-catatan">
+              Catatan
+            </label>
+            <textarea
+              id="prospek-catatan"
+              rows={3}
+              value={nilai.catatan}
+              onChange={(event) => ubahMedan({ catatan: event.target.value })}
+              maxLength={PANJANG_CATATAN_MAKS}
+              className={KELAS_INPUT}
+            />
+            <PesanMedan pesan={kesalahan.catatan} />
+          </div>
 
-      {/* Refine `buatProspekSchema` berpath kosong; tanpa tempat ini form
+          {/* Refine `buatProspekSchema` berpath kosong; tanpa tempat ini form
           menolak submit tanpa memberi tahu apa yang salah. */}
-      {kesalahan[KUNCI_KESALAHAN_FORM] && (
-        <p
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400"
-        >
-          {kesalahan[KUNCI_KESALAHAN_FORM]}
-        </p>
-      )}
+          {kesalahan[KUNCI_KESALAHAN_FORM] && (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400"
+            >
+              {kesalahan[KUNCI_KESALAHAN_FORM]}
+            </p>
+          )}
 
-      {duplikat !== null && (
-        <PanelDuplikat
-          duplikat={duplikat}
-          isMenyimpan={isMenyimpan}
-          onTetapSimpan={tetapSimpan}
-          onBatal={lupakanDuplikat}
-        />
-      )}
+          {duplikat !== null && (
+            <PanelDuplikat
+              duplikat={duplikat}
+              isMenyimpan={isMenyimpan}
+              onTetapSimpan={tetapSimpan}
+              onBatal={lupakanDuplikat}
+            />
+          )}
+        </fieldset>
 
-      <ModalFooter className="-mx-5 -mb-5 mt-6 sm:-mx-6 sm:-mb-6">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Batal
-        </Button>
-        <Button
-          type="submit"
-          loading={isMenyimpan}
-          disabled={duplikat !== null}
-        >
-          {isModeBuat ? "Catat Prospek" : "Simpan Perubahan"}
-        </Button>
-      </ModalFooter>
-    </form>
+        <ModalFooter className="-mx-5 -mb-5 mt-6 sm:-mx-6 sm:-mb-6">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Batal
+          </Button>
+          {/* Selama panel duplikat tampil, keputusannya lewat panel itu:
+            simpan biasa hanya akan ditolak 409 lagi. */}
+          <Button
+            type="submit"
+            loading={isMenyimpan}
+            disabled={duplikat !== null}
+          >
+            {isModeBuat ? "Catat Prospek" : "Simpan Perubahan"}
+          </Button>
+        </ModalFooter>
+      </form>
+    </KerangkaModal>
   );
 }
 
-/** Isi modal mode ubah: menunggu rincian prospek sebelum memasang form. */
+/** Modal mode ubah: menunggu rincian prospek sebelum memasang form. */
 function FormUbahProspek({
   mode,
+  isOpen,
   onClose,
 }: {
   mode: Extract<ModeFormProspek, { jenis: "ubah" }>;
+  isOpen: boolean;
   onClose: () => void;
 }) {
   // Kartu papan hanya membawa `ProspekListItemDto`; email, catatan, dan
@@ -454,26 +522,31 @@ function FormUbahProspek({
 
   if (rincian.error !== null) {
     return (
-      <p role="alert" className="py-6 text-center text-sm text-red-600">
-        Rincian prospek gagal dimuat.
-      </p>
+      <KerangkaModal mode={mode} isOpen={isOpen} onClose={onClose}>
+        <p role="alert" className="py-6 text-center text-sm text-red-600">
+          Rincian prospek gagal dimuat.
+        </p>
+      </KerangkaModal>
     );
   }
 
   if (rincian.data === undefined) {
     return (
-      <div className="space-y-3">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
+      <KerangkaModal mode={mode} isOpen={isOpen} onClose={onClose}>
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </KerangkaModal>
     );
   }
 
   return (
-    <IsiFormProspek
+    <FormProspek
       mode={mode}
       nilaiAwal={keNilaiForm(rincian.data)}
+      isOpen={isOpen}
       onClose={onClose}
     />
   );
@@ -481,6 +554,7 @@ function FormUbahProspek({
 
 interface ProspekFormModalProps {
   mode: ModeFormProspek;
+  isOpen: boolean;
   onClose: () => void;
 }
 
@@ -490,31 +564,29 @@ interface ProspekFormModalProps {
  * Modal, bukan halaman: menavigasi keluar dari papan lalu kembali memutus
  * konteks dan menghilangkan posisi guliran tiap kolom.
  *
- * Dipasang hanya selama terbuka (lihat `ProspekKanbanClient`), jadi isian
- * yang belum disimpan hilang saat modal ditutup.
+ * Isian bertahan selama komponen ini terpasang, termasuk saat modal ditutup
+ * lewat overlay atau Escape; ia direset hanya setelah simpan berhasil.
+ * `ProspekKanbanClient` membiarkan modal buat tetap terpasang dan memasang
+ * modal ubah per prospek.
  *
  * **Sengaja tanpa pemilih sales.** Nama sales belum tersedia di modul ini
  * (Task 20); lihat `TEKS_PEMILIK_PROSPEK_BARU`.
  */
-export function ProspekFormModal({ mode, onClose }: ProspekFormModalProps) {
-  const isModeBuat = mode.jenis === "buat";
+export function ProspekFormModal({
+  mode,
+  isOpen,
+  onClose,
+}: ProspekFormModalProps) {
+  if (mode.jenis === "ubah") {
+    return <FormUbahProspek mode={mode} isOpen={isOpen} onClose={onClose} />;
+  }
 
   return (
-    <Modal
-      isOpen
+    <FormProspek
+      mode={mode}
+      nilaiAwal={NILAI_FORM_KOSONG}
+      isOpen={isOpen}
       onClose={onClose}
-      title={isModeBuat ? "Tambah Prospek" : "Ubah Prospek"}
-      size="2xl"
-    >
-      {mode.jenis === "ubah" ? (
-        <FormUbahProspek mode={mode} onClose={onClose} />
-      ) : (
-        <IsiFormProspek
-          mode={mode}
-          nilaiAwal={NILAI_FORM_KOSONG}
-          onClose={onClose}
-        />
-      )}
-    </Modal>
+    />
   );
 }

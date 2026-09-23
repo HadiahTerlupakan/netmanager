@@ -12,7 +12,7 @@ import {
   KUNCI_KESALAHAN_FORM,
   muatanUntukMode,
   opsiSimpanUntukMode,
-  pilihanKampanye,
+  ringkasPilihanKampanye,
   schemaUntukMode,
   type ModeFormProspek,
   type NilaiFormProspek,
@@ -151,6 +151,18 @@ describe("keMuatanBuatProspek — medan kosong dan tersembunyi", () => {
     });
 
     expect(muatan.referralNama).toBeNull();
+  });
+
+  it("memangkas spasi pada ID kampanye yang diisi manual", () => {
+    // Isian manual dipakai saat daftar kampanye tak bisa dimuat atau
+    // terpotong; ID bersalin-tempel sering membawa spasi di ujung.
+    const muatan = keMuatanBuatProspek({
+      ...nilai,
+      sumber: "IKLAN",
+      iklanId: "  iklan-7  ",
+    });
+
+    expect(muatan.iklanId).toBe("iklan-7");
   });
 
   it("mengirim referralNama saat sumbernya REFERRAL", () => {
@@ -340,7 +352,7 @@ describe("kunciKolomSetelahSimpan", () => {
   });
 });
 
-describe("pilihanKampanye", () => {
+describe("ringkasPilihanKampanye", () => {
   const iklan = (id: string, isBerjalan: boolean): IklanListItemDto => ({
     id,
     nama: `Kampanye ${id}`,
@@ -353,9 +365,33 @@ describe("pilihanKampanye", () => {
   });
 
   it("hanya menyisakan kampanye yang sedang berjalan", () => {
-    const hasil = pilihanKampanye([iklan("a", true), iklan("b", false)]);
+    const hasil = ringkasPilihanKampanye({
+      data: [iklan("a", true), iklan("b", false)],
+      meta: { total: 2 },
+    });
 
-    expect(hasil.map((item) => item.id)).toEqual(["a"]);
+    expect(hasil.pilihan.map((item) => item.id)).toEqual(["a"]);
+  });
+
+  it("menandai daftar terpotong bila server punya lebih banyak kampanye aktif", () => {
+    const hasil = ringkasPilihanKampanye({
+      data: [iklan("a", true)],
+      meta: { total: 101 },
+    });
+
+    expect(hasil.isTerpotong).toBe(true);
+  });
+
+  it("membandingkan total dengan jumlah SEBELUM disaring isBerjalan", () => {
+    // `meta.total` menghitung kampanye aktif. Membandingkannya dengan jumlah
+    // setelah disaring akan menyebut daftar lengkap sebagai terpotong setiap
+    // kali ada kampanye aktif yang belum mulai.
+    const hasil = ringkasPilihanKampanye({
+      data: [iklan("a", true), iklan("b", false)],
+      meta: { total: 2 },
+    });
+
+    expect(hasil.isTerpotong).toBe(false);
   });
 });
 

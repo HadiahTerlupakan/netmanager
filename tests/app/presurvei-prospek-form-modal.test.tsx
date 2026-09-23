@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * dan kunci yang diinvalidasi setelah berhasil.
  *
  * `useSimpanProspek` TIDAK di-mock — ia berjalan dengan `QueryClient` sungguhan
- * dan `fetch` yang distub. `useApi` dan `usePermission` di-mock supaya
+ * dan `fetch` yang distub. `useApi`, `useKampanyeBerjalan`, dan `usePermission` di-mock supaya
  * pengambilan rincian dan daftar kampanye tidak menyentuh jaringan.
  */
 
@@ -24,9 +24,14 @@ const palsu = vi.hoisted(() => ({
   hasAnyPermission: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  useKampanyeBerjalan: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/useApi", () => ({ useApi: palsu.useApi }));
+
+vi.mock("@/app/admin/presurvei/prospek/useKampanyeBerjalan", () => ({
+  useKampanyeBerjalan: palsu.useKampanyeBerjalan,
+}));
 
 vi.mock("@/hooks/use-permission", () => ({
   usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
@@ -41,7 +46,7 @@ vi.mock("react-hot-toast", () => ({
 
 import {
   ProspekFormModal,
-  TEKS_PEMILIK_PROSPEK_BARU,
+  TEKS_KAMPANYE_TERPOTONG,
 } from "@/app/admin/presurvei/prospek/ProspekFormModal";
 import type { ModeFormProspek } from "@/app/admin/presurvei/prospek/prospekFormState";
 import { KUNCI_KOLOM_PROSPEK } from "@/app/admin/presurvei/prospek/prospekKolomQuery";
@@ -49,6 +54,22 @@ import type {
   IklanListItemDto,
   ProspekDetailDto,
 } from "@/modules/presurvei/client";
+
+/**
+ * Teks kepemilikan ditulis ulang sebagai literal, bukan diimpor dari
+ * produksi: ia menyatakan fakta tentang server (`akses-presurvei.ts:41-48`),
+ * dan test yang memakai konstanta yang sama tetap hijau bila konstanta itu
+ * diganti klaim palsu.
+ */
+const TEKS_PEMILIK_DIHARAPKAN =
+  "Prospek ini akan tercatat atas nama Anda. Penugasan ke sales belum bisa dilakukan dari halaman ini.";
+
+/** Hasil `useKampanyeBerjalan` palsu; dianotasi eksplisit karena TS7018. */
+type HasilKampanyePalsu = {
+  ringkasan: { pilihan: IklanListItemDto[]; isTerpotong: boolean } | undefined;
+  isLoading: boolean;
+  isGagal: boolean;
+};
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -164,11 +185,22 @@ beforeEach(() => {
     if (key === "/api/presurvei/prospek/prospek-9") {
       return { data: rincian, error: null, isLoading: false };
     }
-    if (key !== null && key.startsWith("/api/admin/presurvei/iklan")) {
-      return { data: kampanye, error: null, isLoading: false };
-    }
     return { data: undefined, error: null, isLoading: false };
   });
+  palsu.useKampanyeBerjalan.mockReset();
+  palsu.useKampanyeBerjalan.mockImplementation(
+    (isBolehMemuat: boolean): HasilKampanyePalsu =>
+      isBolehMemuat
+        ? {
+            ringkasan: {
+              pilihan: kampanye.filter((iklan) => iklan.isBerjalan),
+              isTerpotong: false,
+            },
+            isLoading: false,
+            isGagal: false,
+          }
+        : { ringkasan: undefined, isLoading: false, isGagal: false },
+  );
 });
 
 afterEach(async () => {
@@ -179,14 +211,23 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-async function renderModal(mode: ModeFormProspek) {
+async function renderModal(mode: ModeFormProspek, isOpen = true) {
   await act(async () => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ProspekFormModal mode={mode} onClose={onClose} />
+        <ProspekFormModal mode={mode} isOpen={isOpen} onClose={onClose} />
       </QueryClientProvider>,
     );
   });
+}
+
+/** Seluruh panggilan `invalidateQueries`, persis dan berurutan. */
+function panggilanInvalidasi(): unknown[] {
+  return vi.mocked(queryClient.invalidateQueries).mock.calls;
+}
+
+function tombolSimpan(): HTMLButtonElement {
+  return cari<HTMLButtonElement>('button[type="submit"]');
 }
 
 /** Elemen di dalam modal; modal dirender lewat portal ke `document.body`. */
@@ -239,7 +280,7 @@ describe("ProspekFormModal — mode buat", () => {
   it("memberi tahu bahwa prospek tercatat atas nama pemakai", async () => {
     await renderModal({ jenis: "buat" });
 
-    expect(document.body.textContent).toContain(TEKS_PEMILIK_PROSPEK_BARU);
+    expect(document.body.textContent).toContain(TEKS_PEMILIK_DIHARAPKAN);
   });
 
   it("menampilkan pemilih kampanye hanya untuk sumber IKLAN, berisi kampanye berjalan", async () => {
@@ -252,9 +293,23 @@ describe("ProspekFormModal — mode buat", () => {
       ...cari<HTMLSelectElement>("#prospek-iklan").querySelectorAll("option"),
     ].map((opsi) => opsi.value);
     expect(pilihan).toEqual(["", "iklan-jalan"]);
-    expect(palsu.useApi).toHaveBeenCalledWith(
-      "/api/admin/presurvei/iklan?isAktif=true&limit=100",
+    expect(palsu.useKampanyeBerjalan).toHaveBeenCalledWith(true);
+  });
+
+  it("jatuh ke isian ID manual dan berterus terang bila daftar kampanye terpotong", async () => {
+    palsu.useKampanyeBerjalan.mockImplementation(
+      (): HasilKampanyePalsu => ({
+        ringkasan: { pilihan: [kampanye[0]], isTerpotong: true },
+        isLoading: false,
+        isGagal: false,
+      }),
     );
+    await renderModal({ jenis: "buat" });
+
+    await isi("#prospek-sumber", "IKLAN");
+
+    expect(cari("#prospek-iklan")?.tagName).toBe("INPUT");
+    expect(document.body.textContent).toContain(TEKS_KAMPANYE_TERPOTONG);
   });
 
   it("jatuh ke isian ID manual bila pemakai tak boleh membaca kampanye", async () => {
@@ -267,9 +322,7 @@ describe("ProspekFormModal — mode buat", () => {
 
     expect(cari("#prospek-iklan")?.tagName).toBe("INPUT");
     // Tanpa permission, daftar tidak diminta sama sekali (menghindari 403).
-    expect(palsu.useApi).not.toHaveBeenCalledWith(
-      "/api/admin/presurvei/iklan?isAktif=true&limit=100",
-    );
+    expect(palsu.useKampanyeBerjalan).not.toHaveBeenCalledWith(true);
   });
 
   it("menampilkan medan perujuk hanya untuk sumber REFERRAL", async () => {
@@ -315,9 +368,9 @@ describe("ProspekFormModal — mode buat", () => {
 
     await klikTombol("Catat Prospek");
 
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: [KUNCI_KOLOM_PROSPEK, "BARU"],
-    });
+    expect(panggilanInvalidasi()).toEqual([
+      [{ queryKey: [KUNCI_KOLOM_PROSPEK, "BARU"] }],
+    ]);
     expect(palsu.toastSuccess).toHaveBeenCalledWith("Prospek berhasil dicatat");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -397,7 +450,7 @@ describe("ProspekFormModal — mode ubah", () => {
     expect(cari<HTMLInputElement>("#prospek-nama").value).toBe("Siti Aminah");
     expect(cari("#prospek-sumber")).toBeNull();
     expect(cari("#prospek-iklan")).toBeNull();
-    expect(document.body.textContent).not.toContain(TEKS_PEMILIK_PROSPEK_BARU);
+    expect(document.body.textContent).not.toContain(TEKS_PEMILIK_DIHARAPKAN);
   });
 
   it("mengirim PATCH ke endpoint detail tanpa sumber, status, maupun pemilik", async () => {
@@ -425,11 +478,90 @@ describe("ProspekFormModal — mode ubah", () => {
 
     await klikTombol("Simpan Perubahan");
 
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: [KUNCI_KOLOM_PROSPEK, "TERTARIK"],
+    expect(panggilanInvalidasi()).toEqual([
+      [{ queryKey: [KUNCI_KOLOM_PROSPEK, "TERTARIK"] }],
+      [{ queryKey: ["/api/presurvei/prospek/prospek-9"] }],
+    ]);
+  });
+});
+
+describe("ProspekFormModal — isian dan penguncian", () => {
+  it("mempertahankan isian mode buat saat modal ditutup tanpa menyimpan", async () => {
+    // Klik overlay atau Escape memanggil `onClose`; papan lalu mengirim
+    // `isOpen={false}`. Isian sembilan medan tidak boleh ikut hilang.
+    await renderModal({ jenis: "buat" });
+    await isi("#prospek-nama", "Budi Baru");
+
+    await renderModal({ jenis: "buat" }, false);
+    expect(cari("#prospek-nama")).toBeNull();
+    await renderModal({ jenis: "buat" }, true);
+
+    expect(cari<HTMLInputElement>("#prospek-nama").value).toBe("Budi Baru");
+  });
+
+  it("mereset isian mode buat setelah simpan berhasil", async () => {
+    mockFetch.mockResolvedValue(
+      respons(201, { success: true, data: { ...rincian, status: "BARU" } }),
+    );
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+    await klikTombol("Catat Prospek");
+
+    await renderModal({ jenis: "buat" }, false);
+    await renderModal({ jenis: "buat" }, true);
+
+    expect(cari<HTMLInputElement>("#prospek-nama").value).toBe("");
+  });
+
+  it("mengunci medan dan tombol selama permintaan simpan berjalan", async () => {
+    // Tanpa kunci, suntingan di tengah POST tidak membuang penolakan duplikat
+    // yang belum tiba, dan "Tetap simpan" kemudian mengirim isian lama.
+    let jawab: (nilai: ResponsPalsu) => void = () => undefined;
+    mockFetch.mockReturnValue(
+      new Promise<ResponsPalsu>((selesai) => {
+        jawab = selesai;
+      }),
+    );
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+
+    await klikTombol("Catat Prospek");
+
+    expect(cari<HTMLInputElement>("#prospek-nama").matches(":disabled")).toBe(
+      true,
+    );
+    expect(
+      cari<HTMLSelectElement>("#prospek-sumber").matches(":disabled"),
+    ).toBe(true);
+    expect(tombolSimpan().disabled).toBe(true);
+
+    await act(async () => {
+      jawab(respons(409, badanDuplikat));
+      await new Promise((selesai) => setTimeout(selesai, 0));
     });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ["/api/presurvei/prospek/prospek-9"],
-    });
+
+    expect(cari<HTMLInputElement>("#prospek-nama").matches(":disabled")).toBe(
+      false,
+    );
+  });
+
+  it("menonaktifkan simpan biasa selama panel duplikat tampil", async () => {
+    mockFetch.mockResolvedValueOnce(respons(409, badanDuplikat));
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+
+    await klikTombol("Catat Prospek");
+
+    expect(tombolSimpan().disabled).toBe(true);
+  });
+
+  it("hanya mengirim abaikanDuplikat pada percobaan ulang, bukan simpan pertama", async () => {
+    mockFetch.mockResolvedValueOnce(respons(409, badanDuplikat));
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+
+    await klikTombol("Catat Prospek");
+
+    expect(badanTerkirim(0)).not.toHaveProperty("abaikanDuplikat");
   });
 });

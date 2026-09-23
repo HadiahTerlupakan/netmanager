@@ -59,6 +59,9 @@ const IZIN_UBAH_PROSPEK = ["presurvei:update", "m_presurvei:update"];
  */
 const IZIN_BUAT_PROSPEK = ["presurvei:create", "m_presurvei:create"];
 
+/** Mode form prospek baru; konstanta supaya referensinya stabil antar-render. */
+const MODE_BUAT: ModeFormProspek = { jenis: "buat" };
+
 /** Label tombol pembuka form prospek baru; juga dipakai test sebagai selektor. */
 export const LABEL_TOMBOL_TAMBAH_PROSPEK = "Tambah Prospek";
 
@@ -267,9 +270,11 @@ function ProspekKolom({
  */
 export function ProspekKanbanClient() {
   const [isKolomMatiTampil, setIsKolomMatiTampil] = useState(false);
-  const [modeForm, setModeForm] = useState<ModeFormProspek | null>(null);
+  const [isFormBuatTerbuka, setIsFormBuatTerbuka] = useState(false);
+  const [idProspekDiubah, setIdProspekDiubah] = useState<string | null>(null);
   const { hasAnyPermission } = usePermission();
   const isBolehUbah = hasAnyPermission(IZIN_UBAH_PROSPEK);
+  const isBolehBuat = hasAnyPermission(IZIN_BUAT_PROSPEK);
   const pindah = usePindahProspek();
   const seret = useSeretProspek({
     onUbahStatus: (perpindahan) => void pindah.pindahkan(perpindahan),
@@ -286,7 +291,7 @@ export function ProspekKanbanClient() {
   };
 
   const bukaFormUbah = isBolehUbah
-    ? (prospekId: string) => setModeForm({ jenis: "ubah", prospekId })
+    ? (prospekId: string) => setIdProspekDiubah(prospekId)
     : undefined;
 
   const kolom = isKolomMatiTampil
@@ -314,8 +319,8 @@ export function ProspekKanbanClient() {
             />
             {LABEL_SAKELAR_KOLOM_MATI}
           </label>
-          {hasAnyPermission(IZIN_BUAT_PROSPEK) && (
-            <Button onClick={() => setModeForm({ jenis: "buat" })}>
+          {isBolehBuat && (
+            <Button onClick={() => setIsFormBuatTerbuka(true)}>
               {LABEL_TOMBOL_TAMBAH_PROSPEK}
             </Button>
           )}
@@ -333,14 +338,26 @@ export function ProspekKanbanClient() {
         ))}
       </div>
 
-      {/* Dipasang hanya selama terbuka, dengan key per prospek: tiap pembukaan
-          mulai dari isian bersih atau rincian prospek yang dipilih, bukan sisa
-          pembukaan sebelumnya. */}
-      {modeForm !== null && (
+      {/* Modal buat tetap terpasang saat ditutup: klik overlay atau Escape
+          (`components/ui/Modal.tsx:44-52`, `:72`) tidak boleh membuang isian
+          yang belum disimpan. Isiannya direset hanya setelah simpan berhasil,
+          seperti `../kegiatan/KegiatanFormModal.tsx`. */}
+      {isBolehBuat && (
         <ProspekFormModal
-          key={modeForm.jenis === "ubah" ? modeForm.prospekId : "buat"}
-          mode={modeForm}
-          onClose={() => setModeForm(null)}
+          mode={MODE_BUAT}
+          isOpen={isFormBuatTerbuka}
+          onClose={() => setIsFormBuatTerbuka(false)}
+        />
+      )}
+
+      {/* Modal ubah dipasang per prospek (key = id): nilai awalnya rincian
+          prospek yang dipilih, bukan sisa suntingan prospek lain. */}
+      {idProspekDiubah !== null && (
+        <ProspekFormModal
+          key={idProspekDiubah}
+          mode={{ jenis: "ubah", prospekId: idProspekDiubah }}
+          isOpen
+          onClose={() => setIdProspekDiubah(null)}
         />
       )}
     </div>

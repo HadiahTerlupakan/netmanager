@@ -60,23 +60,42 @@ vi.mock("@/hooks/use-permission", () => ({
   usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
 }));
 
-// Modal diganti penanda yang mencetak mode-nya: yang dikunci di sini hanya
-// kabel papan → modal. Isi modal diuji di `presurvei-prospek-form-modal.test.tsx`.
-vi.mock("@/app/admin/presurvei/prospek/ProspekFormModal", () => ({
-  ProspekFormModal: ({
-    mode,
-    onClose,
-  }: {
-    mode: unknown;
-    onClose: () => void;
-  }) => (
-    <div data-modal-prospek={JSON.stringify(mode)}>
-      <button type="button" onClick={onClose}>
-        tutup-modal-palsu
-      </button>
-    </div>
-  ),
-}));
+// Modal diganti penanda yang mencetak mode, keadaan terbuka, dan nomor
+// pemasangannya. Nomor itu diambil sekali saat komponen dipasang, jadi berubah
+// hanya bila modal di-unmount lalu dipasang lagi — tanda isiannya hilang.
+// Isi modal diuji di `presurvei-prospek-form-modal.test.tsx`.
+vi.mock("@/app/admin/presurvei/prospek/ProspekFormModal", async () => {
+  const { useState } = await vi.importActual<typeof import("react")>("react");
+  let jumlahPemasangan = 0;
+
+  return {
+    ProspekFormModal: ({
+      mode,
+      isOpen,
+      onClose,
+    }: {
+      mode: { jenis: string };
+      isOpen: boolean;
+      onClose: () => void;
+    }) => {
+      const [nomorPemasangan] = useState(() => (jumlahPemasangan += 1));
+      return (
+        <div
+          data-modal-prospek={JSON.stringify(mode)}
+          data-jenis={mode.jenis}
+          data-terbuka={String(isOpen)}
+          data-pemasangan={nomorPemasangan}
+        >
+          {isOpen && (
+            <button type="button" onClick={onClose}>
+              tutup-modal-{mode.jenis}
+            </button>
+          )}
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("react-hot-toast", () => ({
   toast: Object.assign(palsu.toast, { success: vi.fn(), error: vi.fn() }),
@@ -493,27 +512,41 @@ describe("ProspekKanbanClient — form prospek", () => {
     );
   }
 
-  function modeModal(): unknown {
-    const modal = container.querySelector("[data-modal-prospek]");
-    return modal === null
-      ? null
-      : JSON.parse(modal.getAttribute("data-modal-prospek"));
+  function modal(jenis: "buat" | "ubah"): HTMLElement | null {
+    return container.querySelector(`[data-jenis="${jenis}"]`);
   }
 
-  it("tidak memasang modal sebelum diminta", async () => {
+  async function klik(teks: string) {
+    await act(async () => {
+      tombol(teks).click();
+    });
+  }
+
+  it("memasang modal buat dalam keadaan tertutup dan belum memasang modal ubah", async () => {
     await render(<ProspekKanbanClient />);
 
-    expect(modeModal()).toBeNull();
+    expect(modal("buat")?.getAttribute("data-terbuka")).toBe("false");
+    expect(modal("ubah")).toBeNull();
   });
 
-  it("membuka modal mode buat dari tombol tambah", async () => {
+  it("membuka modal buat dari tombol tambah", async () => {
     await render(<ProspekKanbanClient />);
 
-    await act(async () => {
-      tombol(LABEL_TOMBOL_TAMBAH_PROSPEK).click();
-    });
+    await klik(LABEL_TOMBOL_TAMBAH_PROSPEK);
 
-    expect(modeModal()).toEqual({ jenis: "buat" });
+    expect(modal("buat")?.getAttribute("data-terbuka")).toBe("true");
+  });
+
+  it("tidak melepas modal buat saat ditutup, supaya isiannya bertahan", async () => {
+    await render(<ProspekKanbanClient />);
+    await klik(LABEL_TOMBOL_TAMBAH_PROSPEK);
+    const pemasanganAwal = modal("buat").getAttribute("data-pemasangan");
+
+    await klik("tutup-modal-buat");
+    expect(modal("buat")?.getAttribute("data-terbuka")).toBe("false");
+    await klik(LABEL_TOMBOL_TAMBAH_PROSPEK);
+
+    expect(modal("buat").getAttribute("data-pemasangan")).toBe(pemasanganAwal);
   });
 
   it("membuka modal mode ubah untuk kartu yang tombol ubahnya ditekan", async () => {
@@ -527,24 +560,26 @@ describe("ProspekKanbanClient — form prospek", () => {
     );
     await render(<ProspekKanbanClient />);
 
-    await act(async () => {
-      tombol(LABEL_TOMBOL_UBAH).click();
-    });
+    await klik(LABEL_TOMBOL_UBAH);
 
-    expect(modeModal()).toEqual({ jenis: "ubah", prospekId: "p-7" });
+    const ubah = modal("ubah");
+    expect(JSON.parse(ubah.getAttribute("data-modal-prospek"))).toEqual({
+      jenis: "ubah",
+      prospekId: "p-7",
+    });
+    expect(ubah.getAttribute("data-terbuka")).toBe("true");
   });
 
-  it("melepas modal saat ditutup", async () => {
+  it("melepas modal ubah saat ditutup", async () => {
+    palsu.useProspekKolom.mockImplementation(() =>
+      kolomTiba({ kartu: [prospek({})], total: 1 }),
+    );
     await render(<ProspekKanbanClient />);
-    await act(async () => {
-      tombol(LABEL_TOMBOL_TAMBAH_PROSPEK).click();
-    });
+    await klik(LABEL_TOMBOL_UBAH);
 
-    await act(async () => {
-      tombol("tutup-modal-palsu").click();
-    });
+    await klik("tutup-modal-ubah");
 
-    expect(modeModal()).toBeNull();
+    expect(modal("ubah")).toBeNull();
   });
 
   it("memeriksa permission yang sama dengan gerbang POST untuk tombol tambah", async () => {
@@ -554,6 +589,7 @@ describe("ProspekKanbanClient — form prospek", () => {
     await render(<ProspekKanbanClient />);
 
     expect(tombol(LABEL_TOMBOL_TAMBAH_PROSPEK)).toBeUndefined();
+    expect(modal("buat")).toBeNull();
     expect(palsu.hasAnyPermission).toHaveBeenCalledWith([
       "presurvei:create",
       "m_presurvei:create",
