@@ -6,6 +6,7 @@ import {
   type HandlerContext,
 } from "@/lib/api";
 import {
+  daftarSalesPresurveiSchema,
   SalesPresurveiService,
   toSalesPresurveiDto,
   type AksesTenantPresurvei,
@@ -42,8 +43,13 @@ export const GET = createHandler(
     // supaya super admin yang membuka prospek tenant lain ditawari sales
     // tenant prospek itu — satu-satunya yang akan diterima validasi
     // penugasan. `tenantId` dari query string tidak pernah dibaca.
-    const prospekId = new URL(request.url).searchParams.get("prospekId");
-    if (prospekId) {
+    // Divalidasi Zod: id tak berbentuk UUID dibalas 400 `VALIDATION_ERROR`
+    // oleh `createHandler` sebelum menyentuh database.
+    const { prospekId } = daftarSalesPresurveiSchema.parse({
+      prospekId:
+        new URL(request.url).searchParams.get("prospekId") ?? undefined,
+    });
+    if (prospekId !== undefined) {
       const salesProspek = await service.daftarAktifUntukProspek(
         prospekId,
         aksesTenantPemanggil(ctx),

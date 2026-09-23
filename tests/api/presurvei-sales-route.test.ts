@@ -109,6 +109,12 @@ vi.mock("@/modules/database", () => ({
 import { prisma } from "@/modules/database";
 import { GET } from "@/app/api/admin/presurvei/sales/route";
 
+/** Id prospek berbentuk UUID, seperti `PresurveiProspek.id` (`@default(uuid())`). */
+const PROSPEK_A = "0b8f3a52-5c7e-4d8a-9f1e-2a6b7c8d9e01";
+const PROSPEK_B = "1c9e4b63-6d8f-4e9b-8a2f-3b7c8d9e0f12";
+const PROSPEK_YATIM = "2dae5c74-7e90-4fac-9b30-4c8d9e0f1a23";
+const PROSPEK_HANTU = "3ebf6d85-8fa1-4abd-8c41-5d9e0f1a2b34";
+
 const beriSesiSuperAdmin = (tenantId?: string): void => {
   mockFns.getServerSession.mockResolvedValue({
     user: {
@@ -276,16 +282,16 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
     );
     mockFns.prospek.length = 0;
     mockFns.prospek.push(
-      { id: "prospek-a", tenantId: "tenant-a" },
-      { id: "prospek-b", tenantId: "tenant-b" },
-      { id: "prospek-yatim", tenantId: null },
+      { id: PROSPEK_A, tenantId: "tenant-a" },
+      { id: PROSPEK_B, tenantId: "tenant-b" },
+      { id: PROSPEK_YATIM, tenantId: null },
     );
   });
 
   it("memberi pemanggil biasa sales tenant prospeknya sendiri", async () => {
     beriSesi(["presurvei:read"], "tenant-a");
 
-    const res = await minta("?prospekId=prospek-a");
+    const res = await minta(`?prospekId=${PROSPEK_A}`);
 
     expect(res.status).toBe(200);
     expect((await res.json()).data).toEqual([
@@ -296,7 +302,7 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
   it("membalas 404 generik untuk pemanggil biasa + prospek tenant lain", async () => {
     beriSesi(["presurvei:read"], "tenant-a");
 
-    const res = await minta("?prospekId=prospek-b");
+    const res = await minta(`?prospekId=${PROSPEK_B}`);
     const teks = JSON.stringify(await res.json());
 
     expect(res.status).toBe(404);
@@ -308,13 +314,13 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
   it("membalas 404 untuk prospek yang tidak ada", async () => {
     beriSesi(["presurvei:read"], "tenant-a");
 
-    expect((await minta("?prospekId=hantu")).status).toBe(404);
+    expect((await minta(`?prospekId=${PROSPEK_HANTU}`)).status).toBe(404);
   });
 
   it("memberi super admin bertenant sesi A sales tenant PROSPEK (B)", async () => {
     beriSesiSuperAdmin("tenant-a");
 
-    const res = await minta("?prospekId=prospek-b");
+    const res = await minta(`?prospekId=${PROSPEK_B}`);
 
     expect(res.status).toBe(200);
     expect((await res.json()).data).toEqual([
@@ -325,7 +331,7 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
   it("melayani super admin tanpa tenant sesi lewat tenant prospek", async () => {
     beriSesiSuperAdmin();
 
-    const res = await minta("?prospekId=prospek-b");
+    const res = await minta(`?prospekId=${PROSPEK_B}`);
 
     expect(res.status).toBe(200);
     expect((await res.json()).data).toEqual([
@@ -336,11 +342,11 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
   it("tidak pernah mengambil tenant dari query string", async () => {
     beriSesi(["presurvei:read"], "tenant-a");
     const denganProspek = await (
-      await minta("?prospekId=prospek-a&tenantId=tenant-b")
+      await minta(`?prospekId=${PROSPEK_A}&tenantId=tenant-b`)
     ).json();
     beriSesiSuperAdmin("tenant-a");
     const superAdmin = await (
-      await minta("?prospekId=prospek-a&tenantId=tenant-b")
+      await minta(`?prospekId=${PROSPEK_A}&tenantId=tenant-b`)
     ).json();
 
     expect(denganProspek.data).toEqual([{ id: "sales-a-rina", nama: "Rina" }]);
@@ -352,13 +358,28 @@ describe("GET /api/admin/presurvei/sales?prospekId= — tenant dari prospek", ()
     // bahwa prospek itu ada.
     beriSesi(["presurvei:read"], "tenant-a");
 
-    expect((await minta("?prospekId=prospek-yatim")).status).toBe(404);
+    expect((await minta(`?prospekId=${PROSPEK_YATIM}`)).status).toBe(404);
   });
+
+  it.each(["bukan-uuid", "", "prospek-a' OR 1=1"])(
+    "menolak prospekId tidak valid %j dengan 400 tanpa menyentuh database",
+    async (prospekId) => {
+      beriSesiSuperAdmin();
+
+      const res = await minta(`?prospekId=${encodeURIComponent(prospekId)}`);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.code).toBe("VALIDATION_ERROR");
+      expect(prisma.presurveiProspek.findUnique).not.toHaveBeenCalled();
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    },
+  );
 
   it("membalas 422 PROSPEK_TANPA_TENANT untuk prospek tanpa tenant", async () => {
     beriSesiSuperAdmin();
 
-    const res = await minta("?prospekId=prospek-yatim");
+    const res = await minta(`?prospekId=${PROSPEK_YATIM}`);
 
     expect(res.status).toBe(422);
     expect((await res.json()).code).toBe("PROSPEK_TANPA_TENANT");

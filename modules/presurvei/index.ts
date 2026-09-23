@@ -98,6 +98,8 @@ export {
   tetapkanTargetSchema,
 } from "./validators/target.validator";
 
+export { daftarSalesPresurveiSchema } from "./validators/sales.validator";
+
 export {
   KegiatanService,
   type CatatKegiatanInput,
