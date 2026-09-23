@@ -467,7 +467,7 @@ Untuk detail lengkap setiap standard, lihat dokumentasi di folder `docs/`:
 - Mock external API, gunakan real DB untuk integration test
 
 **Events:**
-- Event naming: `<domain>.<entity>.<action>` (e.g., "users.user.created")
+- Event naming: `<domain>:<entity>.<action>` (e.g., "users:user.created"; registry `lib/event-bus/types.ts`)
 - Gunakan events untuk komunikasi antar module yang loosely coupled
 - Handlers wajib idempotent (at-least-once delivery)
 
