@@ -41,6 +41,175 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-23] — Tambah UI admin presurvei (Fase 3)
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/presurvei`
+- **Author**: agent
+- **Deskripsi**: Menutup Fase 3 modul presurvei: sembilan halaman admin web di bawah
+  `/admin/presurvei` — dashboard (corong prospek, kegiatan terbaru, ringkasan
+  pencapaian bulan berjalan, prospek tanpa pemilik); daftar kegiatan dengan filter,
+  tab peta kunjungan (OpenLayers), halaman rincian, dan modal catat kegiatan; papan
+  prospek per status dengan seret-lepas yang mengikuti aturan transisi domain, modal
+  buat/ubah prospek (termasuk peringatan duplikat nomor telepon), dan modal konversi
+  prospek → canvasing; daftar serta form kampanye iklan; target sales per periode;
+  dan laporan pencapaian. Menu `PRESURVEI` beserta enam anaknya terdaftar di
+  `lib/menu-config.ts`, tiap sub-menu digerbangi resource permission-nya sendiri
+  (`presurvei`, `presurvei_iklan`, `presurvei_target`, `presurvei_laporan`), dan modul
+  bisa dimatikan per-tenant lewat `lib/feature-modules.ts`. Komponen klien hanya
+  mengimpor barrel aman-klien baru `modules/presurvei/client.ts` (label & warna status
+  di `modules/presurvei/utils/statusConfig.ts`), bukan barrel penuh yang menyeret
+  Prisma ke bundle browser. Konversi prospek meng-invalidate daftar canvasing lewat
+  helper baru di `lib/hooks/useInvalidate.ts` (penambahan murni). Kabel render
+  layar-layar ini dijaga 14 berkas test jsdom; seluruh suite 780 berkas / 5040 test
+  lulus (3 dilewati).
+
+  Keterbatasan yang diketahui:
+  1. Dari web hanya kegiatan `TELEPON`, `CHAT`, dan `IKLAN` yang bisa dicatat.
+     `KUNJUNGAN` dan `SURVEI_LOKASI` tetap ada di pilihan form tapi ditolak, karena wajib
+     berkoordinat (`modules/presurvei/validators/kegiatan.validator.ts:92-97`) sedangkan
+     web tidak menangkap GPS maupun foto — keduanya, beserta data teknis survei, lahir
+     dari perangkat di lapangan. Kegiatan tercatat atas nama pencatatnya (route menimpa
+     `userId` dari sesi, `app/api/presurvei/kegiatan/route.ts`); tidak ada pencatatan
+     atas nama sales lain. Mengubah kegiatan yang sudah tercatat belum didukung — route
+     rincian hanya punya `GET`; jalurnya menunggu keputusan produk (Task 21 rencana).
+  2. Laporan tidak menampilkan sales yang punya realisasi tapi belum ditetapkan target,
+     karena laporan disusun dari daftar target (`TargetService.laporanPencapaian`).
+  3. Batas periode laporan memakai UTC, bukan timezone tenant: `bangunRentangBulan`
+     (`modules/presurvei/services/TargetService.ts:85-95`) menyaring **ketiga** metrik —
+     kunjungan (`waktuMulai`, `KegiatanRepository.ts:100`), prospek baru (`createdAt`,
+     `ProspekRepository.ts:139`), dan konversi (`konversiAt`, `ProspekRepository.ts:148`).
+     Aktivitas pada tanggal 1 pukul 00:00–06:59 WIB, 00:00–07:59 WITA, atau 00:00–08:59
+     WIT terhitung di bulan sebelumnya. Repo ini tidak punya timezone per-tenant: satu-
+     satunya field `timezone` di `prisma/schema.prisma` (baris 644) milik model
+     `MikroTikRouter`, sedangkan `Tenant` dan `TenantSettings` tidak punya padanannya —
+     perbaikannya menuntut keputusan produk (zona mana yang dipakai) lebih dulu.
+  4. Realisasi "kunjungan" di laporan menghitung **semua** jenis kegiatan pelaku,
+     termasuk `TELEPON`, `CHAT`, dan `IKLAN` yang kini bisa dicatat dari web —
+     `KegiatanRepository.hitungPerUser` tidak menyaring `jenis`
+     (`KegiatanRepository.ts:98-101`). Perilaku ini warisan Fase 2; apakah memang
+     dimaksud belum pernah diputuskan.
+  5. Laporan per-iklan belum ada. Atribusi `iklanId` dikumpulkan sejak Fase 2 tapi belum
+     ada konsumennya; saat dibangun ia wajib sadar-periode agar kampanye yang sudah mati
+     tidak menggelembungkan hasilnya.
+  6. Filter tidak tersimpan di URL, mengikuti konvensi seluruh halaman admin: reload
+     menghilangkan filter dan tautannya tidak bisa dibagikan.
+  7. Web belum bisa menugaskan pemilik prospek. Form prospek tidak pernah mengirim
+     `pemilikId` (`app/admin/presurvei/prospek/prospekFormState.ts`), jadi prospek
+     buatan web tercatat atas nama pembuatnya (`tentukanPemilikProspek`,
+     `app/api/presurvei/akses-presurvei.ts:41-48`), dan prospek tak bertuan yang
+     ditonjolkan dashboard belum bisa diberi pemilik dari layar web — API `PATCH`
+     sudah menerimanya.
+  8. Dashboard: pemegang super admin melihat "Prospek tanpa pemilik" lintas-tenant,
+     karena ekstensi tenant tidak menyaring super admin (`isNonSuperAdminTenant`,
+     `lib/prisma-extension.ts:157-162`). Kelas lama, bukan regresi fase ini.
+  9. Daftar prospek tak bertuan di dashboard disegarkan oleh perubahan dari layar web
+     sendiri, tapi perubahan dari luar (mis. aplikasi mobile) baru terlihat saat query
+     dimuat ulang setelah cache basi (`staleTime` 30 detik,
+     `components/providers/session-provider.tsx`) — tidak ada polling, dan
+     `refetchOnWindowFocus` dimatikan global.
+  10. Target: `TargetService.tetapkan` tidak memeriksa bahwa `userId` adalah sales di
+      tenant yang sama. Unique `[userId, periodeTahun, periodeBulan, tenantId]` dan FK ke
+      `User` ada; tidak ada kebocoran data, hanya integritas.
+  11. Pesan penolakan angka target (pecahan, di atas batas) berbahasa Inggris — bawaan
+      Zod — bila constraint browser pada input dilewati; tak terjangkau lewat UI normal.
+  12. Pemilih kampanye di form prospek memuat paling banyak 100 kampanye aktif lalu
+      menyaring yang sedang berjalan di klien; endpoint iklan belum punya filter
+      "sedang berjalan". Pemotongan diberitahukan ke pemakai, bukan disembunyikan.
+- **Files**: `app/admin/presurvei/**` (67 berkas baru), `modules/presurvei/client.ts`,
+  `modules/presurvei/utils/statusConfig.ts`, `modules/presurvei/domain/prospek-kanban.ts`,
+  `lib/menu-config.ts`, `lib/feature-modules.ts`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`, `lib/hooks/useInvalidate.ts`,
+  `tests/app/**`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Nama sales di daftar presurvei dan endpoint daftar sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: `KegiatanListItemDto` mendapat `namaSales` dan `ProspekListItemDto`
+  mendapat `namaPemilik` serta `canvasingId` (sebelumnya hanya di DTO rincian), supaya
+  layar tidak menampilkan id mentah dan papan tidak menawarkan konversi ulang. Endpoint
+  baru `GET /api/admin/presurvei/sales` mengembalikan sales aktif untuk pemilih sales,
+  digerbangi `presurvei:read`, `presurvei_target:read`, atau `presurvei_laporan:read`
+  (`m_presurvei:read` sengaja tidak). Tenant diambil **hanya** dari sesi
+  (`requireSessionTenantId`) dan ditulis eksplisit ke query; sesi tanpa tenant dibalas
+  400 `TENANT_ID_REQUIRED`, dengan penjaga di `SalesRepository` sebagai lapis kedua.
+  Nama di DTO daftar dijaga per baris oleh `namaSalesSatuTenant`
+  (`modules/presurvei/domain/nama-sales.ts`): nama hanya dipakai bila tenant user sama
+  dengan tenant baris, sehingga benar juga di system context tempat baris multi-tenant
+  bercampur. Keputusan privasi (dapat dibalik): email **tidak** dipakai sebagai
+  cadangan label — sales tanpa nama tampil sebagai "Tanpa nama (…xxxxxx)" (enam karakter
+  terakhir id) dan email tidak di-select sama sekali, agar pemegang `presurvei:read`
+  tidak memperoleh email rekan yang sebelumnya hanya terbuka bagi `users:read`/
+  `sales:read`. Tidak ada perubahan skema.
+- **Files**: `app/api/admin/presurvei/sales/route.ts`,
+  `modules/presurvei/domain/nama-sales.ts`,
+  `modules/presurvei/repositories/SalesRepository.ts`,
+  `modules/presurvei/repositories/sertakan-sales.ts`,
+  `modules/presurvei/services/SalesPresurveiService.ts`,
+  `modules/presurvei/dto/sales.dto.ts`, `modules/presurvei/dto/kegiatan.dto.ts`,
+  `modules/presurvei/dto/prospek.dto.ts`, `modules/presurvei/mappers/*`
+- **Breaking**: ❌ Tidak — field DTO dan endpoint bersifat tambahan.
+
+### [2026-09-23] — Filter tanpaPemilik pada daftar prospek
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/presurvei/prospek`
+- **Author**: agent
+- **Deskripsi**: `GET /api/presurvei/prospek` menerima query `tanpaPemilik=true|false`
+  (enum string, bukan `z.coerce.boolean()` yang mengubah `"false"` jadi true) untuk
+  menampilkan prospek tak bertuan di dashboard. Hanya pemegang `presurvei:read` (atau
+  wildcard `*`) yang boleh memakainya; pemanggil lain yang mengirim `true` dibalas 403,
+  bukan dibuang diam-diam. Sebagai lapis kedua, `ikatFilterProspekKePemanggil`
+  (`app/api/presurvei/akses-presurvei.ts`) membuang `tanpaPemilik` dan menimpa
+  `pemilikId` untuk sales lapangan.
+- **Files**: `app/api/presurvei/prospek/route.ts`,
+  `app/api/presurvei/akses-presurvei.ts`,
+  `modules/presurvei/validators/prospek.validator.ts`,
+  `modules/presurvei/repositories/ProspekRepository.ts`
+- **Breaking**: ❌ Tidak — parameter opsional baru.
+
+### [2026-09-23] — Koordinat masuk DTO daftar kegiatan presurvei
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/presurvei/dto`
+- **Author**: agent
+- **Deskripsi**: `latitude` dan `longitude` dipindah dari `KegiatanDetailDto` ke
+  `KegiatanListItemDto` supaya peta kunjungan tidak perlu memanggil endpoint rincian
+  per baris (N+1). DTO rincian tetap memuat keduanya karena mewarisi DTO daftar. Field
+  `jenis`, `hasil`, `sumber`, `status`, dan `channel` di DTO daftar kini bertipe union
+  enum, bukan `string` — perubahan tipe saja, nilai di kawat tidak berubah.
+- **Files**: `modules/presurvei/dto/kegiatan.dto.ts`, `modules/presurvei/dto/prospek.dto.ts`,
+  `modules/presurvei/dto/iklan.dto.ts`
+- **Breaking**: ❌ Tidak — respons daftar hanya bertambah field.
+
+### [2026-09-23] — Estimasi kabel survei di bawah 1 m jadi bawaan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/presurvei/services`
+- **Author**: agent
+- **Deskripsi**: Konversi prospek → canvasing memperlakukan estimasi kabel survei di
+  bawah 1 m sebagai tak tercatat dan jatuh ke bawaan 1 m (`estimasiKabelSurvei` di
+  `ProspekKonversiService.ts`). Survei boleh mencatat 0 m, sedangkan canvasing menuntut
+  minimal 1 m (`modules/marketing/validators/canvasingValidation.ts`); sebelumnya `??`
+  meneruskan 0 sehingga konversi ditolak 400 setelah layar admin terlanjur memindah
+  prospek ke DEAL. Kabel 0 yang dikirim pemanggil sendiri tetap ditolak.
+- **Files**: `modules/presurvei/services/ProspekKonversiService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Koreksi versi Next.js di CLAUDE.md
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Tech stack di `CLAUDE.md` diubah dari Next.js 14 menjadi Next.js 16 /
+  React 19 (sesuai `package.json`), plus catatan bahwa sejak Next 15 `params` dan
+  `searchParams` adalah `Promise` yang wajib di-`await` di server component.
+- **Files**: `CLAUDE.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-22] — Selesaikan Fase 2 modul presurvei: iklan, target, laporan, dan integrasi pendaftaran publik
 
 - **Tipe**: [ADDED]

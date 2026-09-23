@@ -1,11 +1,38 @@
 # Desain UI Admin Presurvei (Fase 3)
 
-**Status:** Disetujui untuk direncanakan · 2026-09-22
+**Status:** Selesai · 2026-09-23 (disetujui untuk direncanakan 2026-09-22)
 **Spec induk:** `docs/architecture/presurvei-module-design.md`
 **Fase sebelumnya:** Fase 1 & 2 selesai — domain, repository, service, API, dan RBAC lengkap.
 
-Modul presurvei sudah berfungsi penuh lewat API, tapi belum punya satu layar pun.
-Dokumen ini merancang lapisan UI admin web yang memakainya.
+Saat dirancang, modul presurvei sudah berfungsi penuh lewat API tapi belum punya satu
+layar pun. Dokumen ini merancang lapisan UI admin web yang memakainya.
+
+### Catatan penyelesaian (2026-09-23)
+
+Fase 3 selesai dengan sembilan `page.tsx` di bawah `app/admin/presurvei/`. Isi dokumen di
+bawah dipertahankan sebagai rancangan; bagian yang ternyata berbeda saat dibangun:
+
+- **Kegiatan hanya dicatat, tidak disunting.** §2 menyebut kegiatan "dibuat serta
+  disunting lewat modal", tapi `app/api/presurvei/kegiatan/[id]/route.ts` hanya
+  mengekspor `GET`. Jalur ubah kegiatan menunggu keputusan produk (Task 21 di rencana).
+- **Form kegiatan web tanpa data teknis.** §2 memasukkan data teknis ke form web; ia
+  dibuang (`4ec618bc3`) karena schema hanya menerimanya pada `SURVEI_LOKASI`, dan jenis
+  itu selalu ditolak dari web karena wajib berkoordinat
+  (`modules/presurvei/validators/kegiatan.validator.ts:92-105`).
+- **Koordinat bukan satu-satunya perubahan backend** (lawan §3). Menyusul: nama sales
+  di DTO daftar kegiatan/prospek, `canvasingId` di DTO daftar prospek, endpoint
+  `GET /api/admin/presurvei/sales`, filter `tanpaPemilik` pada
+  `GET /api/presurvei/prospek`, dan bawaan kabel konversi — lihat entri
+  `docs/CHANGELOG.md` bertanggal 2026-09-23.
+- **Konversi dari papan terdiri dari dua langkah.** Menjatuhkan kartu ke DEAL (§5)
+  membuka modal konversi yang lebih dulu mengirim `PATCH` status DEAL, lalu `POST`
+  `jadikan-canvasing` (`app/admin/presurvei/prospek/useJadikanCanvasing.ts:94-116`),
+  karena `jadikanCanvasing` mensyaratkan prospek sudah berstatus DEAL.
+- **Repo ini punya DOM palsu** (lawan §9). `jsdom` terpasang dan 28 berkas test memakai
+  pragma `// @vitest-environment jsdom`, 14 di antaranya test presurvei yang menjaga
+  kabel render layar-layar fase ini.
+- **Batas UTC laporan** berlaku untuk ketiga metrik, bukan hanya kegiatan — §7 sudah
+  dikoreksi.
 
 ---
 
@@ -187,8 +214,11 @@ terlihat di layar, bukan disembunyikan:
 - Sales yang punya realisasi tapi **belum ditetapkan target** tidak muncul, karena laporan
   digerakkan daftar target. Halaman harus menyatakan ini, bukan membiarkan manajer mengira
   timnya lebih kecil dari kenyataan.
-- Batas periode memakai UTC, bukan timezone tenant. Aktivitas pada tujuh jam pertama tiap
-  bulan terhitung di bulan sebelumnya.
+- Batas periode memakai UTC, bukan timezone tenant (`bangunRentangBulan`,
+  `modules/presurvei/services/TargetService.ts:85-95`). Rentang itu menyaring **ketiga**
+  metrik — kunjungan (`waktuMulai`), prospek baru (`createdAt`), dan konversi
+  (`konversiAt`) — sehingga aktivitas pada tanggal 1 pukul 00:00–06:59 WIB, 00:00–07:59
+  WITA, atau 00:00–08:59 WIT terhitung di bulan sebelumnya.
 
 ## 8. Dashboard
 

@@ -658,12 +658,16 @@ tetap berfungsi.
 |---|---|---|---|
 | 1 | Skema + migration + domain + repository + `KegiatanService` + `ProspekService` + API kegiatan & prospek + test | Kegiatan dan prospek bisa dicatat lewat API | ✅ Selesai |
 | 2 | `PresurveiIklan` + `PresurveiTarget` + event registration + UTM + `ProspekKonversiService` | Atribusi sumber lengkap, promosi ke canvasing berfungsi | ✅ Selesai (2026-09-22) |
-| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan — desain rinci di [`presurvei-ui-admin-design.md`](./presurvei-ui-admin-design.md) | Manajemen bisa melihat kegiatan tim | ⬜ Belum dikerjakan |
+| 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan — desain rinci di [`presurvei-ui-admin-design.md`](./presurvei-ui-admin-design.md) | Manajemen bisa melihat kegiatan tim | ✅ Selesai (2026-09-23) |
 | 4 | Mobile: route group `(sales)`, beranda sales, layar presurvei, pengarahan setelah login | Sales bekerja penuh dari aplikasi | ⬜ Belum dikerjakan |
 
-Fase 1 dan 2 selesai. Sampai Fase 3 (UI admin web) dan Fase 4 (mobile sales)
-dikerjakan, modul ini hanya bisa dipakai lewat pemanggilan API langsung dan lewat
-form publik `/register` — belum ada satu layar pun yang memakainya.
+Fase 1, 2, dan 3 selesai. Modul ini kini punya sembilan halaman admin web di bawah
+`/admin/presurvei` (dashboard, kegiatan beserta peta dan rinciannya, papan prospek,
+kampanye iklan, target, laporan). Sampai Fase 4 (mobile sales) dikerjakan, kegiatan
+lapangan — `KUNJUNGAN` dan `SURVEI_LOKASI`, yang wajib berkoordinat — hanya bisa
+dicatat lewat pemanggilan API langsung, karena form web sengaja tidak menangkap GPS
+maupun foto. Keterbatasan Fase 3 lainnya tercatat di entri `docs/CHANGELOG.md`
+bertanggal 2026-09-23.
 
 Setiap fase punya migration sendiri bila menyentuh skema, dan entri `docs/CHANGELOG.md`
 sendiri.
