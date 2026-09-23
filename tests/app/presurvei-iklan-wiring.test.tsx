@@ -349,6 +349,7 @@ describe("IklanTable", () => {
     expect(teks).toContain("1 Mar 2026");
     expect(teks).toContain("15 Apr 2026");
     expect(teks).not.toContain("2026-03-01T00:00:00.000Z");
+    expect(teks).not.toContain("2026-04-15T00:00:00.000Z");
   });
 
   it("tidak mencetak angka halaman mentah saat daftar kosong ber-totalPages 0", async () => {

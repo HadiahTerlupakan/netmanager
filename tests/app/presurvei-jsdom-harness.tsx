@@ -66,7 +66,11 @@ export function pasangPanggung(): Panggung {
     akar: createRoot(wadah),
     queryClient: new QueryClient({
       defaultOptions: {
-        queries: { retry: false, staleTime: STALE_TIME_PRODUKSI_MS },
+        queries: {
+          refetchOnWindowFocus: false,
+          retry: false,
+          staleTime: STALE_TIME_PRODUKSI_MS,
+        },
       },
     }),
   };

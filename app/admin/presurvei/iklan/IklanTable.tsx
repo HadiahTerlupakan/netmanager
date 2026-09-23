@@ -41,8 +41,7 @@ export function teksTanggalSelesai(item: IklanListItemDto): string {
  * `tests/app/presurvei-iklan-list-query.test.ts`.
  *
  * Yang belum dijaga: kolom mana memakai fungsi mana. Kedua tanggal tampil di
- * baris yang sama, jadi `render: teksTanggalSelesai` di kolom "Mulai" tetap
- * lolos. Bentuk penugasan — reference langsung ke fungsi yang diuji, bukan
+ * baris yang sama, jadi menukar fungsi kedua kolom sekaligus tetap lolos. Bentuk penugasan — reference langsung ke fungsi yang diuji, bukan
  * lambda — tetap yang paling sulit disalahpasangkan; pertahankan.
  */
 const kolom: Column<IklanListItemDto>[] = [

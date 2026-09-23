@@ -142,7 +142,7 @@ const laporan: BarisLaporanDto[] = [
     periodeTahun: 2026,
     periodeBulan: 9,
     kunjungan: { target: 10, tercapai: 6, persen: 60 },
-    prospek: { target: 4, tercapai: 1, persen: 25 },
+    prospek: { target: 4, tercapai: 3, persen: 75 },
     konversi: { target: 2, tercapai: 1, persen: 50 },
   },
   {
@@ -479,7 +479,7 @@ describe("RingkasanPencapaian", () => {
       (li) => li.textContent,
     );
     expect(baris).toEqual([
-      "BudiKunjungan 6/10 · Prospek 1/4 · Konversi 1/2",
+      "BudiKunjungan 6/10 · Prospek 3/4 · Konversi 1/2",
       "CiciBelum ada target",
     ]);
   });
