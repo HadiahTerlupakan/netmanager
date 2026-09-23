@@ -120,6 +120,21 @@ export interface BagianDashboard {
 }
 
 /**
+ * Apakah pemakai bercakupan seluruh tenant presurvei — melihat prospek siapa
+ * pun, dan karena itu juga boleh menugaskan pemilik prospek.
+ *
+ * Satu-satunya definisi di klien, dipakai dashboard dan form prospek. Server
+ * memakai `isBolehLihatSemuaPresurvei` (`app/api/presurvei/akses-presurvei.ts`)
+ * dengan string persis; `punyaIzin` di sini sadar alias
+ * (`contexts/PermissionContext.tsx`).
+ */
+export function isCakupanTenantPresurvei(
+  punyaIzin: (izin: string) => boolean,
+): boolean {
+  return punyaIzin(PERMISSIONS.MARKETING.PRESURVEI.READ);
+}
+
+/**
  * Bagian dashboard menurut izin pemakai.
  *
  * Gerbang halaman menerima izin web ATAU mobile, tetapi route daftar prospek
@@ -131,7 +146,7 @@ export interface BagianDashboard {
 export function tentukanBagianDashboard(
   punyaIzin: (izin: string) => boolean,
 ): BagianDashboard {
-  const isCakupanTenant = punyaIzin(PERMISSIONS.MARKETING.PRESURVEI.READ);
+  const isCakupanTenant = isCakupanTenantPresurvei(punyaIzin);
   const cakupan = isCakupanTenant ? "tenant" : "Anda";
 
   return {
@@ -225,9 +240,10 @@ export function awalanKunciProspekTakBertuan(): [string, string] {
  *
  * Invalidasi per status (`[KUNCI_KOLOM_PROSPEK, status]` — seret dan konversi)
  * TIDAK mengenainya. Keanggotaan daftar ini ditentukan pemilik, bukan status,
- * dan kedua jalur itu tidak mengubah pemilik; tak ada jalur web yang
- * menugaskan pemilik (`keMuatanUbahProspek` tidak mengirim `pemilikId`).
- * Perubahan pemilik dari luar layar ini — mis. aplikasi mobile — baru terlihat
+ * dan kedua jalur itu tidak mengubah pemilik. Satu-satunya jalur web yang
+ * mengubah pemilik adalah form prospek: mode ubah menginvalidasi awalan ini
+ * (butir di atas), dan mode buat selalu menghasilkan prospek berpemilik
+ * (`pemilikDiminta ?? idPemanggil`). Perubahan pemilik dari luar layar ini — mis. aplikasi mobile — baru terlihat
  * setelah `staleTime` 30 detik (`components/providers/session-provider.tsx:31`).
  *
  * Aman terhadap `findAll({ queryKey: [KUNCI_KOLOM_PROSPEK, tujuan] })` di

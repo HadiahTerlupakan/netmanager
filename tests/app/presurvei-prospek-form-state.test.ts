@@ -7,11 +7,14 @@ import {
   keKesalahanForm,
   keMuatanBuatProspek,
   keMuatanUbahProspek,
+  bacaPenolakanPemilik,
   keNilaiForm,
   kunciKolomSetelahSimpan,
   KUNCI_KESALAHAN_FORM,
   muatanUntukMode,
+  opsiPemilikUntukMode,
   opsiSimpanUntukMode,
+  perubahanPemilik,
   ringkasPilihanKampanye,
   schemaUntukMode,
   type ModeFormProspek,
@@ -35,6 +38,7 @@ const nilai: NilaiFormProspek = {
   referralNama: "",
   paketDiminati: "",
   catatan: "",
+  pemilikId: "",
 };
 
 describe("keMuatanBuatProspek", () => {
@@ -76,11 +80,13 @@ describe("keMuatanBuatProspek", () => {
 });
 
 describe("keMuatanUbahProspek", () => {
-  it("tidak pernah mengirim pemilikId", () => {
-    // Kepemilikan menentukan siapa boleh membaca dan mengubah prospek. Route
-    // membuangnya untuk pemanggil tanpa permission web, dan form tidak punya
-    // alasan mengirimkannya sama sekali.
-    expect(keMuatanUbahProspek(nilai)).not.toHaveProperty("pemilikId");
+  it("tidak mengirim pemilikId yang tidak berubah", () => {
+    // Mengirim ulang pemilik yang sama memicu validasi sales aktif di server
+    // (`ProspekService.ubah`) — prospek milik sales yang kini nonaktif jadi
+    // tak bisa disunting sama sekali.
+    expect(
+      keMuatanUbahProspek({ ...nilai, pemilikId: "sales-3" }, "sales-3"),
+    ).not.toHaveProperty("pemilikId");
   });
 
   it("tidak pernah mengirim status", () => {
@@ -89,7 +95,7 @@ describe("keMuatanUbahProspek", () => {
     // jadi ini bukan soal keamanan melainkan satu jalur: dua tempat yang bisa
     // memindahkan status berarti dua tempat yang harus sepakat soal DEAL, yang
     // menuntut konversi, bukan sekadar ganti status.
-    expect(keMuatanUbahProspek(nilai)).not.toHaveProperty("status");
+    expect(keMuatanUbahProspek(nilai, "")).not.toHaveProperty("status");
   });
 });
 
@@ -112,6 +118,7 @@ const nilaiLengkap: NilaiFormProspek = Object.freeze({
   referralNama: "Pak Joko",
   paketDiminati: "Paket 20 Mbps",
   catatan: "Minta dihubungi sore",
+  pemilikId: "",
 });
 
 describe("keMuatanBuatProspek — medan kosong dan tersembunyi", () => {
@@ -169,10 +176,17 @@ describe("keMuatanBuatProspek — medan kosong dan tersembunyi", () => {
     expect(keMuatanBuatProspek(nilaiLengkap).referralNama).toBe("Pak Joko");
   });
 
-  it("tidak pernah mengirim pemilikId", () => {
-    // Form memberi tahu pemakai bahwa prospek tercatat atas namanya. Itu hanya
-    // benar selama pemilikId tidak dikirim (`akses-presurvei.ts:41-48`).
+  it("tidak mengirim pemilikId bila pemilik dibiarkan kosong (pembuat jadi pemilik)", () => {
+    // Opsi kosong berlabel "Saya sendiri (pembuat)". Itu hanya benar selama
+    // pemilikId tidak dikirim: server memakai `pemilikDiminta ?? idPemanggil`
+    // (`app/api/presurvei/akses-presurvei.ts`, `tentukanPemilikProspek`).
     expect(keMuatanBuatProspek(nilaiLengkap)).not.toHaveProperty("pemilikId");
+  });
+
+  it("mengirim pemilikId sales yang dipilih", () => {
+    expect(
+      keMuatanBuatProspek({ ...nilaiLengkap, pemilikId: "sales-7" }).pemilikId,
+    ).toBe("sales-7");
   });
 
   it("memetakan setiap medan ke kuncinya sendiri", () => {
@@ -194,7 +208,7 @@ describe("keMuatanUbahProspek — medan yang tidak dikenal PATCH", () => {
   it("tidak mengirim sumber, iklanId, maupun referralNama", () => {
     // `ubahProspekSchema` tidak mengenal ketiganya dan men-strip-nya tanpa
     // error; mengirimnya membuat pemakai yakin atribusinya berubah.
-    const muatan = keMuatanUbahProspek(nilaiLengkap);
+    const muatan = keMuatanUbahProspek(nilaiLengkap, "");
 
     expect(muatan).not.toHaveProperty("sumber");
     expect(muatan).not.toHaveProperty("iklanId");
@@ -202,27 +216,29 @@ describe("keMuatanUbahProspek — medan yang tidak dikenal PATCH", () => {
   });
 
   it("mengirim null untuk medan opsional yang dikosongkan, supaya isinya terhapus", () => {
-    const muatan = keMuatanUbahProspek({ ...nilaiLengkap, email: "  " });
+    const muatan = keMuatanUbahProspek({ ...nilaiLengkap, email: "  " }, "");
 
     expect(muatan.email).toBeNull();
   });
 
   it("lolos validasi schema ubah", () => {
     expect(
-      ubahProspekSchema.safeParse(keMuatanUbahProspek(nilaiLengkap)).success,
+      ubahProspekSchema.safeParse(
+        keMuatanUbahProspek({ ...nilaiLengkap, pemilikId: "" }, "sales-3"),
+      ).success,
     ).toBe(true);
   });
 });
 
 describe("keputusan bergantung-mode", () => {
   it("mode ubah memakai pembentuk ubah — arah yang senyap bila tertukar", () => {
-    expect(muatanUntukMode(MODE_UBAH, nilaiLengkap)).not.toHaveProperty(
+    expect(muatanUntukMode(MODE_UBAH, nilaiLengkap, "")).not.toHaveProperty(
       "sumber",
     );
   });
 
   it("mode buat memakai pembentuk buat", () => {
-    expect(muatanUntukMode(MODE_BUAT, nilaiLengkap)).toHaveProperty(
+    expect(muatanUntukMode(MODE_BUAT, nilaiLengkap, "")).toHaveProperty(
       "sumber",
       "REFERRAL",
     );
@@ -231,7 +247,7 @@ describe("keputusan bergantung-mode", () => {
   it("schema mode ubah menerima muatan ubah, schema mode buat menolaknya", () => {
     // Test perilaku yang menemani pilihan schema: muatan ubah tidak membawa
     // `sumber`, dan hanya schema ubah yang menerimanya.
-    const muatanUbah = keMuatanUbahProspek(nilaiLengkap);
+    const muatanUbah = keMuatanUbahProspek(nilaiLengkap, "");
 
     expect(schemaUntukMode(MODE_UBAH).safeParse(muatanUbah).success).toBe(true);
     expect(schemaUntukMode(MODE_BUAT).safeParse(muatanUbah).success).toBe(
@@ -432,7 +448,12 @@ describe("keNilaiForm", () => {
       referralNama: "",
       paketDiminati: "",
       catatan: "Minta dihubungi sore",
+      pemilikId: "sales-3",
     });
+  });
+
+  it("memetakan prospek tak bertuan ke pemilik kosong", () => {
+    expect(keNilaiForm({ ...detail, pemilikId: null }).pemilikId).toBe("");
   });
 });
 
@@ -451,5 +472,128 @@ describe("keKesalahanForm", () => {
         "Prospek dari iklan wajib menunjuk ke sebuah iklan",
       noTelp: "Nomor telepon minimal 8 digit",
     });
+  });
+});
+
+describe("perubahanPemilik", () => {
+  it("kosong bila pilihan sama dengan pemilik awal", () => {
+    expect(perubahanPemilik("sales-3", "sales-3")).toEqual({});
+    expect(perubahanPemilik("", "")).toEqual({});
+  });
+
+  it("membawa id sales baru bila pilihan berubah", () => {
+    expect(perubahanPemilik("sales-7", "sales-3")).toEqual({
+      pemilikId: "sales-7",
+    });
+    expect(perubahanPemilik("sales-7", "")).toEqual({ pemilikId: "sales-7" });
+  });
+
+  it("membawa null — bukan string kosong — saat pemilik dilepas", () => {
+    expect(perubahanPemilik("", "sales-3")).toEqual({ pemilikId: null });
+  });
+});
+
+describe("pemilik pada muatan per mode", () => {
+  it("mode ubah mengirim null untuk 'Lepaskan pemilik'", () => {
+    expect(
+      muatanUntukMode(MODE_UBAH, { ...nilaiLengkap, pemilikId: "" }, "sales-3"),
+    ).toHaveProperty("pemilikId", null);
+  });
+
+  it("mode ubah mengirim pemilik baru dan lolos schema ubah", () => {
+    const muatan = muatanUntukMode(
+      MODE_UBAH,
+      { ...nilaiLengkap, pemilikId: "sales-7" },
+      "sales-3",
+    );
+
+    expect(muatan).toHaveProperty("pemilikId", "sales-7");
+    expect(ubahProspekSchema.safeParse(muatan).success).toBe(true);
+  });
+
+  it("mode buat dengan pemilik terpilih lolos schema buat", () => {
+    expect(
+      buatProspekSchema.safeParse(
+        muatanUntukMode(
+          MODE_BUAT,
+          { ...nilaiLengkap, sumber: "WALK_IN", pemilikId: "sales-7" },
+          "",
+        ),
+      ).success,
+    ).toBe(true);
+  });
+});
+
+describe("opsiPemilikUntukMode", () => {
+  const daftarSales = Object.freeze([
+    Object.freeze({ id: "sales-7", nama: "Rina" }),
+    Object.freeze({ id: "sales-8", nama: "Budi" }),
+  ]);
+
+  it("mode buat: opsi kosong adalah pembuat sendiri, lalu sales aktif", () => {
+    expect(opsiPemilikUntukMode(MODE_BUAT, "", daftarSales)).toEqual([
+      { nilai: "", label: "Saya sendiri (pembuat)" },
+      { nilai: "sales-7", label: "Rina" },
+      { nilai: "sales-8", label: "Budi" },
+    ]);
+  });
+
+  it("mode ubah: opsi kosong melepas pemilik yang ada", () => {
+    expect(opsiPemilikUntukMode(MODE_UBAH, "sales-7", daftarSales)).toEqual([
+      { nilai: "", label: "Lepaskan pemilik" },
+      { nilai: "sales-7", label: "Rina" },
+      { nilai: "sales-8", label: "Budi" },
+    ]);
+  });
+
+  it("mode ubah: pemilik yang tidak tercantum (nonaktif) tetap tampil dengan label bersama", () => {
+    expect(
+      opsiPemilikUntukMode(MODE_UBAH, "sales-lawas9", daftarSales),
+    ).toEqual([
+      { nilai: "", label: "Lepaskan pemilik" },
+      { nilai: "sales-lawas9", label: "Sales tak tercantum (…lawas9)" },
+      { nilai: "sales-7", label: "Rina" },
+      { nilai: "sales-8", label: "Budi" },
+    ]);
+  });
+
+  it("mode ubah tak bertuan: opsi kosong jujur menyebut tanpa pemilik", () => {
+    expect(opsiPemilikUntukMode(MODE_UBAH, "", [])).toEqual([
+      { nilai: "", label: "Tanpa pemilik" },
+    ]);
+  });
+
+  it("tidak menyentuh daftar sales milik pemanggil", () => {
+    const daftar = [{ id: "sales-8", nama: "Budi" }];
+
+    opsiPemilikUntukMode(MODE_UBAH, "sales-lawas9", daftar);
+
+    expect(daftar).toEqual([{ id: "sales-8", nama: "Budi" }]);
+  });
+});
+
+describe("bacaPenolakanPemilik", () => {
+  const badan = {
+    success: false,
+    error: "Sales tidak ditemukan di tenant ini",
+    code: "SALES_TIDAK_SAH",
+  };
+
+  it("membaca pesan penolakan sales tak sah", () => {
+    expect(bacaPenolakanPemilik(422, badan)).toBe(
+      "Sales tidak ditemukan di tenant ini",
+    );
+  });
+
+  it("mengabaikan 422 berkode lain dan kode yang sama pada status lain", () => {
+    expect(
+      bacaPenolakanPemilik(422, { ...badan, code: "VALIDATION_ERROR" }),
+    ).toBeNull();
+    expect(bacaPenolakanPemilik(400, badan)).toBeNull();
+  });
+
+  it("mengabaikan badan yang tak terbaca", () => {
+    expect(bacaPenolakanPemilik(422, null)).toBeNull();
+    expect(bacaPenolakanPemilik(422, { code: "SALES_TIDAK_SAH" })).toBeNull();
   });
 });

@@ -17,6 +17,11 @@ import {
   type ProspekSumber,
 } from "@/modules/presurvei/client";
 
+import { isCakupanTenantPresurvei } from "../ringkasanDashboard";
+import {
+  useKeadaanDaftarSalesPresurvei,
+  type StatusDaftarSales,
+} from "../useDaftarSalesPresurvei";
 import { TEKS_TAK_BERTUAN } from "./ProspekCard";
 import { buildUbahProspekUrl } from "./pindahProspek";
 import {
@@ -26,6 +31,7 @@ import {
   KUNCI_KESALAHAN_FORM,
   muatanUntukMode,
   NILAI_FORM_KOSONG,
+  opsiPemilikUntukMode,
   schemaUntukMode,
   type KesalahanForm,
   type ModeFormProspek,
@@ -47,16 +53,15 @@ const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
 
 /**
- * Pemberitahuan kepemilikan pada mode buat.
+ * Pemberitahuan kepemilikan pada mode buat, untuk pemakai yang tidak boleh
+ * menugaskan pemilik.
  *
- * Form tidak mengirim `pemilikId` (`prospekFormState.ts:keMuatanBuatProspek`),
- * dan `tentukanPemilikProspek` (`app/api/presurvei/akses-presurvei.ts:41-48`)
- * lalu memakai id pemanggil — untuk pemegang permission web lewat
- * `pemilikDiminta ?? idPemanggil`, untuk yang lain tanpa syarat. Penugasan ke
- * sales menunggu sumber nama sales (Task 20).
+ * Tanpa pemilih pemilik, form tidak mengirim `pemilikId`, dan
+ * `tentukanPemilikProspek` (`app/api/presurvei/akses-presurvei.ts`) memakai id
+ * pemanggil — untuk pemanggil tanpa permission web tanpa syarat.
  */
 export const TEKS_PEMILIK_PROSPEK_BARU =
-  "Prospek ini akan tercatat atas nama Anda. Penugasan ke sales belum bisa dilakukan dari halaman ini.";
+  "Prospek ini akan tercatat atas nama Anda.";
 
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -150,6 +155,70 @@ function PemilihKampanye({ iklanId, onUbah, kesalahan }: PemilihKampanyeProps) {
       <p className={KELAS_PETUNJUK}>
         {alasanManual ??
           "Hanya kampanye yang sedang berjalan yang ditampilkan."}
+      </p>
+    </div>
+  );
+}
+
+/** Petunjuk di bawah pemilih pemilik menurut keadaan daftar sales. */
+const PETUNJUK_DAFTAR_SALES: Record<StatusDaftarSales, string> = {
+  memuat: "Memuat daftar sales…",
+  gagal:
+    "Daftar sales gagal dimuat; pemilik tidak bisa diganti sekarang, tetapi perubahan lain tetap bisa disimpan.",
+  siap: "Hanya sales aktif yang bisa dipilih.",
+};
+
+interface PemilihPemilikProps {
+  mode: ModeFormProspek;
+  /** `pemilikId` nilai awal form; kosong pada mode buat. */
+  pemilikAwal: string;
+  pemilikId: string;
+  onUbah: (pemilikId: string) => void;
+  kesalahan: string | undefined;
+}
+
+/**
+ * Pemilih pemilik prospek — opsional, hanya dipasang untuk pemakai yang boleh
+ * menugaskan, sehingga daftar sales tidak pernah diminta oleh yang lain.
+ *
+ * Daftar yang belum tiba atau gagal mengunci pilihan pada nilai awalnya:
+ * medan ini opsional, jadi form tetap bisa disimpan tanpa mengubah pemilik.
+ */
+function PemilihPemilik({
+  mode,
+  pemilikAwal,
+  pemilikId,
+  onUbah,
+  kesalahan,
+}: PemilihPemilikProps) {
+  const keadaan = useKeadaanDaftarSalesPresurvei();
+  const opsi = opsiPemilikUntukMode(mode, pemilikAwal, keadaan.daftar);
+
+  return (
+    <div>
+      <label className={KELAS_LABEL} htmlFor="prospek-pemilik">
+        Pemilik
+      </label>
+      <select
+        id="prospek-pemilik"
+        value={pemilikId}
+        onChange={(event) => onUbah(event.target.value)}
+        disabled={keadaan.status !== "siap"}
+        className={`${KELAS_INPUT} cursor-pointer`}
+      >
+        {opsi.map((pilihan) => (
+          <option key={pilihan.nilai} value={pilihan.nilai}>
+            {pilihan.label}
+          </option>
+        ))}
+      </select>
+      <PesanMedan pesan={kesalahan} />
+      <p
+        className={
+          keadaan.status === "gagal" ? KELAS_KESALAHAN : KELAS_PETUNJUK
+        }
+      >
+        {PETUNJUK_DAFTAR_SALES[keadaan.status]}
       </p>
     </div>
   );
@@ -259,8 +328,14 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
     setKesalahan({});
     onClose();
   };
+  // Penolakan server atas pemilik yang dipilih tampil di medannya sendiri;
+  // mengganti pilihan membuangnya lewat `ubahMedan`.
+  const tampilkanPenolakanPemilik = (pesan: string) =>
+    setKesalahan((lama) => ({ ...lama, pemilikId: pesan }));
   const { simpan, tetapSimpan, lupakanDuplikat, duplikat, isMenyimpan } =
-    useSimpanProspek(mode, setelahTersimpan);
+    useSimpanProspek(mode, setelahTersimpan, tampilkanPenolakanPemilik);
+  const { hasPermission } = usePermission();
+  const isBolehTugaskanPemilik = isCakupanTenantPresurvei(hasPermission);
   const isModeBuat = mode.jenis === "buat";
 
   const ubahMedan = (perubahan: Partial<NilaiFormProspek>) => {
@@ -287,7 +362,7 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
     event.preventDefault();
 
     // Yang divalidasi wajib persis yang dikirim.
-    const muatan = muatanUntukMode(mode, nilai);
+    const muatan = muatanUntukMode(mode, nilai, nilaiAwal.pemilikId);
     const hasil = schemaUntukMode(mode).safeParse(muatan);
 
     if (!hasil.success) {
@@ -303,7 +378,7 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
     <KerangkaModal mode={mode} isOpen={isOpen} onClose={onClose}>
       <form onSubmit={kirim}>
         <fieldset disabled={isMenyimpan} className="min-w-0 space-y-4">
-          {isModeBuat && (
+          {isModeBuat && !isBolehTugaskanPemilik && (
             <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
               {TEKS_PEMILIK_PROSPEK_BARU}
             </p>
@@ -451,6 +526,16 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
             </div>
           )}
 
+          {isBolehTugaskanPemilik && (
+            <PemilihPemilik
+              mode={mode}
+              pemilikAwal={nilaiAwal.pemilikId}
+              pemilikId={nilai.pemilikId}
+              onUbah={(pemilikId) => ubahMedan({ pemilikId })}
+              kesalahan={kesalahan.pemilikId}
+            />
+          )}
+
           <div>
             <label className={KELAS_LABEL} htmlFor="prospek-catatan">
               Catatan
@@ -569,8 +654,9 @@ interface ProspekFormModalProps {
  * `ProspekKanbanClient` membiarkan modal buat tetap terpasang dan memasang
  * modal ubah per prospek.
  *
- * **Sengaja tanpa pemilih sales.** Nama sales belum tersedia di modul ini
- * (Task 20); lihat `TEKS_PEMILIK_PROSPEK_BARU`.
+ * Pemilih pemilik hanya untuk pemakai bercakupan tenant
+ * (`isCakupanTenantPresurvei`, definisi yang sama dengan dashboard); yang lain
+ * melihat `TEKS_PEMILIK_PROSPEK_BARU` pada mode buat.
  */
 export function ProspekFormModal({
   mode,

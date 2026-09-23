@@ -9,6 +9,7 @@ import { formatApiError } from "@/lib/utils/api-response-parser";
 import { awalanKunciProspekTakBertuan } from "../ringkasanDashboard";
 import {
   bacaDuplikat,
+  bacaPenolakanPemilik,
   denganAbaikanDuplikat,
   kunciKolomSetelahSimpan,
   opsiSimpanUntukMode,
@@ -32,10 +33,14 @@ export interface DuplikatTertunda {
  * sebagai `duplikat` supaya form bisa menampilkan prospek yang bentrok dan
  * menawarkan "Tetap simpan". Keputusan "duplikat atau kesalahan lain" ada di
  * `bacaDuplikat`, yang diuji terhadap bentuk kawat sungguhan.
+ *
+ * Penolakan pemilik (sales bukan sales aktif se-tenant) juga bukan toast:
+ * pesannya diserahkan ke `onPemilikDitolak` supaya tampil di medan pemilik.
  */
 export function useSimpanProspek(
   mode: ModeFormProspek,
   onBerhasil: () => void,
+  onPemilikDitolak: (pesan: string) => void,
 ) {
   const queryClient = useQueryClient();
   const [isMenyimpan, setIsMenyimpan] = useState(false);
@@ -58,6 +63,11 @@ export function useSimpanProspek(
         // (`ProspekService.buat`); `sumber` membedakannya dari muatan ubah.
         if (bentrok !== null && "sumber" in muatan) {
           setDuplikat({ bentrok, muatan });
+          return;
+        }
+        const pesanPemilik = bacaPenolakanPemilik(respons.status, badan);
+        if (pesanPemilik !== null) {
+          onPemilikDitolak(pesanPemilik);
           return;
         }
         toast.error(formatApiError(badan, opsi.pesanGagal));

@@ -22,6 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const palsu = vi.hoisted(() => ({
   useApi: vi.fn(),
   hasAnyPermission: vi.fn(),
+  hasPermission: vi.fn(),
+  useKeadaanDaftarSalesPresurvei: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   useKampanyeBerjalan: vi.fn(),
@@ -34,7 +36,14 @@ vi.mock("@/app/admin/presurvei/prospek/useKampanyeBerjalan", () => ({
 }));
 
 vi.mock("@/hooks/use-permission", () => ({
-  usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
+  usePermission: () => ({
+    hasAnyPermission: palsu.hasAnyPermission,
+    hasPermission: palsu.hasPermission,
+  }),
+}));
+
+vi.mock("@/app/admin/presurvei/useDaftarSalesPresurvei", () => ({
+  useKeadaanDaftarSalesPresurvei: palsu.useKeadaanDaftarSalesPresurvei,
 }));
 
 vi.mock("react-hot-toast", () => ({
@@ -63,8 +72,21 @@ import type {
  * dan test yang memakai konstanta yang sama tetap hijau bila konstanta itu
  * diganti klaim palsu.
  */
-const TEKS_PEMILIK_DIHARAPKAN =
-  "Prospek ini akan tercatat atas nama Anda. Penugasan ke sales belum bisa dilakukan dari halaman ini.";
+const TEKS_PEMILIK_DIHARAPKAN = "Prospek ini akan tercatat atas nama Anda.";
+
+/** Keadaan daftar sales palsu; dianotasi eksplisit karena TS7018. */
+type KeadaanSalesPalsu = {
+  status: "memuat" | "gagal" | "siap";
+  daftar: { id: string; nama: string }[];
+};
+
+const salesSiap: KeadaanSalesPalsu = {
+  status: "siap",
+  daftar: [
+    { id: "sales-7", nama: "Rina" },
+    { id: "sales-8", nama: "Budi" },
+  ],
+};
 
 /** Hasil `useKampanyeBerjalan` palsu; dianotasi eksplisit karena TS7018. */
 type HasilKampanyePalsu = {
@@ -181,6 +203,10 @@ beforeEach(() => {
   onClose = vi.fn<() => void>();
   palsu.hasAnyPermission.mockReset();
   palsu.hasAnyPermission.mockReturnValue(true);
+  palsu.hasPermission.mockReset();
+  palsu.hasPermission.mockReturnValue(true);
+  palsu.useKeadaanDaftarSalesPresurvei.mockReset();
+  palsu.useKeadaanDaftarSalesPresurvei.mockReturnValue(salesSiap);
   palsu.toastSuccess.mockReset();
   palsu.toastError.mockReset();
   palsu.useApi.mockReset();
@@ -286,7 +312,8 @@ function badanTerkirim(indeks: number): Record<string, unknown> {
 }
 
 describe("ProspekFormModal — mode buat", () => {
-  it("memberi tahu bahwa prospek tercatat atas nama pemakai", async () => {
+  it("memberi tahu pemakai tanpa izin menugaskan bahwa prospek tercatat atas namanya", async () => {
+    palsu.hasPermission.mockReturnValue(false);
     await renderModal({ jenis: "buat" });
 
     expect(document.body.textContent).toContain(TEKS_PEMILIK_DIHARAPKAN);
@@ -629,5 +656,146 @@ describe("ProspekFormModal — isian dan penguncian", () => {
     await klikTombol("Catat Prospek");
 
     expect(badanTerkirim(0)).not.toHaveProperty("abaikanDuplikat");
+  });
+});
+
+describe("ProspekFormModal — pemilih pemilik", () => {
+  /** Nilai `<option>` pemilih pemilik beserta labelnya, berurutan. */
+  function opsiPemilik(): [string, string][] {
+    return [
+      ...cari<HTMLSelectElement>("#prospek-pemilik").querySelectorAll("option"),
+    ].map((opsi) => [opsi.value, opsi.textContent.trim()]);
+  }
+
+  it("tidak tampil — dan daftar sales tidak diminta — tanpa izin web presurvei", async () => {
+    palsu.hasPermission.mockImplementation(
+      (izin: string) => izin !== "presurvei:read",
+    );
+
+    await renderModal({ jenis: "buat" });
+    expect(cari("#prospek-pemilik")).toBeNull();
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+    expect(cari("#prospek-pemilik")).toBeNull();
+
+    expect(palsu.useKeadaanDaftarSalesPresurvei).not.toHaveBeenCalled();
+    expect(palsu.hasPermission).toHaveBeenCalledWith("presurvei:read");
+  });
+
+  it("mode buat menawarkan pembuat sendiri sebagai bawaan, lalu sales aktif", async () => {
+    await renderModal({ jenis: "buat" });
+
+    expect(cari<HTMLSelectElement>("#prospek-pemilik").value).toBe("");
+    expect(opsiPemilik()).toEqual([
+      ["", "Saya sendiri (pembuat)"],
+      ["sales-7", "Rina"],
+      ["sales-8", "Budi"],
+    ]);
+    expect(document.body.textContent).not.toContain(TEKS_PEMILIK_DIHARAPKAN);
+  });
+
+  it("POST membawa pemilikId sales yang dipilih", async () => {
+    mockFetch.mockResolvedValue(
+      respons(201, { success: true, data: { ...rincian, status: "BARU" } }),
+    );
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+    await isi("#prospek-pemilik", "sales-8");
+
+    await klikTombol("Catat Prospek");
+
+    expect(badanTerkirim(0)).toMatchObject({ pemilikId: "sales-8" });
+    // Prospek baru yang ditugaskan tetap berpemilik: daftar tak bertuan
+    // tidak perlu diinvalidasi (keputusan Task 19).
+    expect(panggilanInvalidasi()).toEqual([
+      [{ queryKey: [KUNCI_KOLOM_PROSPEK, "BARU"] }],
+    ]);
+  });
+
+  it("mode ubah berawal dari pemilik sekarang dan tidak mengirimnya bila tak berubah", async () => {
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(cari<HTMLSelectElement>("#prospek-pemilik").value).toBe("sales-3");
+    await isi("#prospek-nama", "Siti A.");
+    await klikTombol("Simpan Perubahan");
+
+    expect(badanTerkirim(0)).not.toHaveProperty("pemilikId");
+  });
+
+  it("mode ubah menampilkan pemilik yang tidak tercantum di daftar sales aktif", async () => {
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(opsiPemilik()).toEqual([
+      ["", "Lepaskan pemilik"],
+      ["sales-3", "Sales tak tercantum (…ales-3)"],
+      ["sales-7", "Rina"],
+      ["sales-8", "Budi"],
+    ]);
+  });
+
+  it("PATCH membawa pemilik baru yang dipilih", async () => {
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+    await isi("#prospek-pemilik", "sales-7");
+
+    await klikTombol("Simpan Perubahan");
+
+    expect(badanTerkirim(0)).toMatchObject({ pemilikId: "sales-7" });
+  });
+
+  it("PATCH membawa null saat pemilik dilepas", async () => {
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+    await isi("#prospek-pemilik", "");
+
+    await klikTombol("Simpan Perubahan");
+
+    expect(badanTerkirim(0)).toHaveProperty("pemilikId", null);
+  });
+
+  it("daftar sales gagal dimuat: medan berterus terang, form tetap bisa disimpan", async () => {
+    palsu.useKeadaanDaftarSalesPresurvei.mockReturnValue({
+      status: "gagal",
+      daftar: [],
+    } satisfies KeadaanSalesPalsu);
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(document.body.textContent).toContain("Daftar sales gagal dimuat");
+    expect(
+      cari<HTMLSelectElement>("#prospek-pemilik").matches(":disabled"),
+    ).toBe(true);
+
+    await klikTombol("Simpan Perubahan");
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(badanTerkirim(0)).not.toHaveProperty("pemilikId");
+  });
+
+  it("menampilkan penolakan sales tak sah di medan pemilik, bukan toast", async () => {
+    mockFetch.mockResolvedValueOnce(
+      respons(422, {
+        success: false,
+        error: "Sales tidak ditemukan di tenant ini",
+        code: "SALES_TIDAK_SAH",
+      }),
+    );
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+    await isi("#prospek-pemilik", "sales-7");
+
+    await klikTombol("Catat Prospek");
+
+    expect(cari("#prospek-pemilik")?.parentElement?.textContent).toContain(
+      "Sales tidak ditemukan di tenant ini",
+    );
+    expect(palsu.toastError).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Mengganti pilihan membuang pesan lama.
+    await isi("#prospek-pemilik", "sales-8");
+    expect(document.body.textContent).not.toContain(
+      "Sales tidak ditemukan di tenant ini",
+    );
   });
 });

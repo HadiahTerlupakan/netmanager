@@ -13,6 +13,7 @@ import {
   tanggalAwalKegiatan,
   teksJumlahKartu,
   teksPelakuKegiatan,
+  isCakupanTenantPresurvei,
   tentukanBagianDashboard,
   type KartuCorong,
 } from "@/app/admin/presurvei/ringkasanDashboard";
@@ -291,5 +292,16 @@ describe("teksPelakuKegiatan", () => {
     // Label netral bersama `labelSales`, berpotongan ujung id.
     expect(teks).toBe("Sales tak tercantum (…123456)");
     expect(teks).not.toContain("user-abcdef123456");
+  });
+});
+
+describe("isCakupanTenantPresurvei", () => {
+  it("benar untuk pemegang izin web presurvei, salah untuk izin mobile saja", () => {
+    expect(isCakupanTenantPresurvei((izin) => izin === "presurvei:read")).toBe(
+      true,
+    );
+    expect(
+      isCakupanTenantPresurvei((izin) => izin === "m_presurvei:read"),
+    ).toBe(false);
   });
 });

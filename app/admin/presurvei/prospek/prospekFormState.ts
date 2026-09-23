@@ -8,8 +8,10 @@ import {
   type ProspekDetailDto,
   type ProspekStatus,
   type ProspekSumber,
+  type SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
+import { labelSales } from "../labelSales";
 import { buildUbahProspekUrl } from "./pindahProspek";
 import { KUNCI_KOLOM_PROSPEK } from "./prospekKolomQuery";
 
@@ -52,6 +54,11 @@ export interface NilaiFormProspek {
   referralNama: string;
   paketDiminati: string;
   catatan: string;
+  /**
+   * Id sales pemilik. String kosong berarti "pembuat sendiri" pada mode buat
+   * dan "tanpa pemilik" pada mode ubah — lihat `opsiPemilikUntukMode`.
+   */
+  pemilikId: string;
 }
 
 /**
@@ -71,6 +78,7 @@ export const NILAI_FORM_KOSONG: NilaiFormProspek = {
   referralNama: "",
   paketDiminati: "",
   catatan: "",
+  pemilikId: "",
 };
 
 /**
@@ -90,6 +98,23 @@ function teksAtauNull(teks: string): string | null {
 }
 
 /**
+ * `pemilikId` untuk muatan, HANYA bila pilihannya berbeda dari pemilik awal.
+ *
+ * Tidak berubah → kunci tidak dikirim sama sekali. Pada mode ubah, mengirim
+ * ulang pemilik yang sama akan memicu validasi "sales aktif" di server
+ * (`ProspekService.ubah`) dan menolak suntingan prospek milik sales yang kini
+ * nonaktif. Pilihan kosong dikirim sebagai `null` (lepaskan pemilik), bukan
+ * `""` — string kosong bukan id siapa pun.
+ */
+export function perubahanPemilik(
+  pemilikDipilih: string,
+  pemilikAwal: string,
+): { pemilikId?: string | null } {
+  if (pemilikDipilih === pemilikAwal) return {};
+  return { pemilikId: pemilikDipilih === "" ? null : pemilikDipilih };
+}
+
+/**
  * Muatan `POST /api/presurvei/prospek` dari nilai form yang seluruhnya string.
  *
  * `iklanId` dan `referralNama` hanya dikirim bila sumbernya menuntutnya. Medan
@@ -97,11 +122,10 @@ function teksAtauNull(teks: string): string | null {
  * lalu mengganti sumber ke `WALK_IN` tidak melihatnya lagi — dan tanpa
  * penyaringan ini prospek walk-in tercatat menempel ke kampanye tersebut.
  *
- * **Tidak pernah menyertakan `pemilikId`.** Form ini memberi tahu pemakai
- * bahwa prospek tercatat atas namanya sendiri, dan itu hanya benar selama
- * `pemilikId` tidak dikirim: `tentukanPemilikProspek`
- * (`app/api/presurvei/akses-presurvei.ts:41-48`) memakai
- * `pemilikDiminta ?? idPemanggil` untuk pemegang permission web.
+ * `pemilikId` hanya dikirim bila sebuah sales dipilih. Pilihan kosong berlabel
+ * "Saya sendiri (pembuat)", dan itu hanya benar selama `pemilikId` tidak
+ * dikirim: `tentukanPemilikProspek` (`app/api/presurvei/akses-presurvei.ts`)
+ * memakai `pemilikDiminta ?? idPemanggil` untuk pemegang permission web.
  */
 export function keMuatanBuatProspek(nilai: NilaiFormProspek) {
   return {
@@ -118,14 +142,16 @@ export function keMuatanBuatProspek(nilai: NilaiFormProspek) {
       : null,
     paketDiminati: teksAtauNull(nilai.paketDiminati),
     catatan: teksAtauNull(nilai.catatan),
+    ...perubahanPemilik(nilai.pemilikId, ""),
   };
 }
 
 /**
  * Muatan `PATCH /api/presurvei/prospek/{id}`.
  *
- * Tanpa `pemilikId` dan `status`: kepemilikan tidak diubah dari form ini, dan
- * status berpindah lewat papan yang menegakkan aturan transisinya.
+ * Tanpa `status`: status berpindah lewat papan yang menegakkan aturan
+ * transisinya. `pemilikId` hanya bila berubah dari `pemilikAwal`
+ * (`perubahanPemilik`).
  *
  * Tanpa `sumber`, `iklanId`, dan `referralNama` karena `ubahProspekSchema`
  * (`modules/presurvei/validators/prospek.validator.ts:60-76`) tidak mengenal
@@ -133,7 +159,10 @@ export function keMuatanBuatProspek(nilai: NilaiFormProspek) {
  * mengirimnya menghasilkan 200 sementara atribusinya tidak berubah — form
  * menampilkannya sebagai teks saja pada mode ubah.
  */
-export function keMuatanUbahProspek(nilai: NilaiFormProspek) {
+export function keMuatanUbahProspek(
+  nilai: NilaiFormProspek,
+  pemilikAwal: string,
+) {
   return {
     nama: nilai.nama.trim(),
     noTelp: nilai.noTelp.trim(),
@@ -141,6 +170,7 @@ export function keMuatanUbahProspek(nilai: NilaiFormProspek) {
     alamat: nilai.alamat.trim(),
     paketDiminati: teksAtauNull(nilai.paketDiminati),
     catatan: teksAtauNull(nilai.catatan),
+    ...perubahanPemilik(nilai.pemilikId, pemilikAwal),
   };
 }
 
@@ -173,14 +203,64 @@ export function schemaUntukMode(mode: ModeFormProspek) {
  * Arah yang senyap adalah mode ubah dengan pembentuk buat: `sumber`,
  * `iklanId`, dan `referralNama` ikut terkirim ke `PATCH`, di-strip
  * `ubahProspekSchema` tanpa error, dan pemakai yakin atribusinya berubah.
+ *
+ * `pemilikAwal` adalah `pemilikId` nilai awal form — kosong pada mode buat.
  */
 export function muatanUntukMode(
   mode: ModeFormProspek,
   nilai: NilaiFormProspek,
+  pemilikAwal: string,
 ): MuatanBuatProspek | MuatanUbahProspek {
   return mode.jenis === "ubah"
-    ? keMuatanUbahProspek(nilai)
+    ? keMuatanUbahProspek(nilai, pemilikAwal)
     : keMuatanBuatProspek(nilai);
+}
+
+/** Satu pilihan pemilih pemilik prospek. */
+export interface OpsiPemilik {
+  nilai: string;
+  label: string;
+}
+
+/**
+ * Label opsi kosong per mode. Mode buat: server memakai id pembuat bila
+ * `pemilikId` tidak dikirim — "Tanpa pemilik" akan berbohong. Mode ubah:
+ * melepas pemilik yang ada, atau jujur menyebut prospeknya memang tak bertuan.
+ */
+function labelOpsiKosong(mode: ModeFormProspek, pemilikAwal: string): string {
+  if (mode.jenis === "buat") return "Saya sendiri (pembuat)";
+  return pemilikAwal === "" ? "Tanpa pemilik" : "Lepaskan pemilik";
+}
+
+/**
+ * Pilihan pemilik prospek: opsi kosong, pemilik sekarang bila ia tidak ada di
+ * daftar sales aktif (nonaktif, atau daftar gagal dimuat), lalu sales aktif.
+ *
+ * Pemilik yang tak tercantum tetap ditampilkan supaya `<select>` tidak diam-diam
+ * menampilkan opsi lain sebagai nilai sekarang; labelnya dari `labelSales`
+ * bersama layar target dan laporan.
+ */
+export function opsiPemilikUntukMode(
+  mode: ModeFormProspek,
+  pemilikAwal: string,
+  daftarSales: readonly SalesPresurveiDto[],
+): OpsiPemilik[] {
+  const opsiSales = daftarSales.map((sales) => ({
+    nilai: sales.id,
+    label: sales.nama,
+  }));
+  const isPemilikTakTercantum =
+    pemilikAwal !== "" &&
+    !daftarSales.some((sales) => sales.id === pemilikAwal);
+  const opsiPemilikAwal = isPemilikTakTercantum
+    ? [{ nilai: pemilikAwal, label: labelSales(pemilikAwal, daftarSales) }]
+    : [];
+
+  return [
+    { nilai: "", label: labelOpsiKosong(mode, pemilikAwal) },
+    ...opsiPemilikAwal,
+    ...opsiSales,
+  ];
 }
 
 /** Tujuan permintaan simpan beserta teks notifikasinya. */
@@ -225,6 +305,29 @@ export function denganAbaikanDuplikat(
   muatan: MuatanBuatProspek,
 ): MuatanBuatProspekAbaikanDuplikat {
   return { ...muatan, abaikanDuplikat: true };
+}
+
+/** Status HTTP penolakan sales tak sah (`modules/presurvei/services/PenugasanSalesService.ts`). */
+const STATUS_HTTP_TIDAK_DAPAT_DIPROSES = 422;
+
+/** Kode penolakan sales tak sah (`modules/presurvei/services/PenugasanSalesService.ts`). */
+const KODE_SALES_TIDAK_SAH = "SALES_TIDAK_SAH";
+
+/**
+ * Pesan server bila pemilik yang dipilih ditolak sebagai bukan sales aktif
+ * se-tenant, atau null untuk kesalahan lain. Pesannya generik dari server —
+ * sengaja tidak membedakan "tenant lain" dari "bukan sales".
+ */
+export function bacaPenolakanPemilik(
+  statusHttp: number,
+  badan: unknown,
+): string | null {
+  if (statusHttp !== STATUS_HTTP_TIDAK_DAPAT_DIPROSES) return null;
+  if (typeof badan !== "object" || badan === null) return null;
+
+  const { code, error } = badan as { code?: unknown; error?: unknown };
+  if (code !== KODE_SALES_TIDAK_SAH || typeof error !== "string") return null;
+  return error;
 }
 
 /** Status HTTP penolakan duplikat (`modules/presurvei/services/ProspekService.ts:75-83`). */
@@ -334,6 +437,7 @@ export function keNilaiForm(prospek: ProspekDetailDto): NilaiFormProspek {
     referralNama: prospek.referralNama ?? "",
     paketDiminati: prospek.paketDiminati ?? "",
     catatan: prospek.catatan ?? "",
+    pemilikId: prospek.pemilikId ?? "",
   };
 }
 
@@ -360,6 +464,7 @@ const MEDAN_BERSLOT_PESAN: Record<keyof NilaiFormProspek, boolean> = {
   referralNama: true,
   paketDiminati: true,
   catatan: true,
+  pemilikId: true,
 };
 
 /** Bentuk minimal issue Zod yang dibaca form; menghindari tipe internal Zod. */
