@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useMemo, useState } from "react";
 
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/LoadingSkeleton";
 
 import { KegiatanFilters } from "./KegiatanFilters";
 import { KegiatanTable } from "./KegiatanTable";
@@ -12,7 +13,18 @@ import {
   URUTAN_TAB,
   type TabKegiatan,
 } from "./kegiatanListQuery";
+import { jumlahDiLuarBatas, keTitikPeta } from "./titikPeta";
 import { useKegiatanListQuery } from "./useKegiatanListQuery";
+
+/**
+ * Peta dimuat tanpa SSR: OpenLayers menyentuh `window` saat modulnya dimuat,
+ * dan render di server gagal dengan `window is not defined`. Pola yang sama
+ * dipakai `app/admin/kehadiran/live-map/LiveMapClient.tsx:24`.
+ */
+const KegiatanPeta = dynamic(() => import("./KegiatanPeta"), {
+  ssr: false,
+  loading: () => <Skeleton className="m-4 h-[480px] w-auto" />,
+});
 
 /** Tab yang terbuka saat halaman dimuat. */
 const TAB_AWAL: TabKegiatan = "daftar";
@@ -24,6 +36,7 @@ const KELAS_TAB_DIAM =
 /** Shell layar kegiatan sales: judul, filter bersama, dan sakelar tab. */
 export function KegiatanClient() {
   const [tabAktif, setTabAktif] = useState<TabKegiatan>(TAB_AWAL);
+  const isTabPeta = tabAktif === "peta";
 
   const {
     filter,
@@ -33,9 +46,15 @@ export function KegiatanClient() {
     idSalesTersedia,
     meta,
     isLoading,
-  } = useKegiatanListQuery();
+  } = useKegiatanListQuery({ untukPeta: isTabPeta });
 
   const totalPages = meta?.totalPages ?? HALAMAN_PERTAMA;
+
+  // Dimemo bukan demi kecepatan pemetaannya — seratus baris murah — tapi demi
+  // reference-nya: `titik` yang baru tiap render membuat effect penggambar
+  // penanda di `KegiatanPeta` membangun ulang seluruh lapisan setiap kali
+  // apa pun di layar ini berubah.
+  const petaKegiatan = useMemo(() => keTitikPeta(baris), [baris]);
 
   return (
     <div className="space-y-6">
@@ -83,18 +102,22 @@ export function KegiatanClient() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        {tabAktif === "daftar" ? (
+        {isTabPeta ? (
+          <KegiatanPeta
+            titik={petaKegiatan.titik}
+            tanpaKoordinat={petaKegiatan.tanpaKoordinat}
+            diLuarBatas={jumlahDiLuarBatas({
+              totalCocok: meta?.total,
+              jumlahTerambil: baris.length,
+            })}
+          />
+        ) : (
           <KegiatanTable
             baris={baris}
             isLoading={isLoading}
             page={filter.page}
             totalPages={totalPages}
             onPageChange={ubahHalaman}
-          />
-        ) : (
-          <EmptyState
-            title="Peta kunjungan belum tersedia"
-            description="Titik kunjungan akan digambar di sini memakai filter yang sama dengan daftar."
           />
         )}
       </div>

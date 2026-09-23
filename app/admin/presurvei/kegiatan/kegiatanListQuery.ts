@@ -6,8 +6,15 @@ import type {
 } from "@/modules/presurvei/client";
 
 const BATAS_TABEL = 20;
-/** Batas maksimum yang diizinkan `daftarKegiatanSchema`. */
-const BATAS_PETA = 100;
+/**
+ * Batas maksimum yang diizinkan `daftarKegiatanSchema`.
+ *
+ * Diekspor karena angka yang sama muncul di dua tempat yang wajib sepakat:
+ * `limit` pada URL mode peta, dan kalimat yang memberi tahu pemakai berapa
+ * banyak kegiatan yang tidak ikut digambar. Menyalinnya membuat salah satunya
+ * berbohong begitu batasnya digeser.
+ */
+export const BATAS_PETA = 100;
 
 /** Halaman pertama daftar; juga batas bawah jumlah halaman. */
 export const HALAMAN_PERTAMA = 1;

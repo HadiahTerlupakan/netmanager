@@ -241,6 +241,45 @@ describe("useKegiatanListQuery", () => {
     );
   });
 
+  it("meminta batas peta dan tetap dipakukan ke halaman pertama", () => {
+    // Halaman sengaja digeser lebih dulu. Tanpa `untukPeta` sampai ke
+    // `buildKegiatanListUrl`, membuka tab peta dari halaman 3 tabel meminta
+    // baris 41-60 dengan batas tabel: peta menggambar segelintir titik di
+    // sebelah tabel yang penuh, tanpa satu pun pesan.
+    useKegiatanListQuery().ubahHalaman(3);
+    konfigQuery.mockClear();
+
+    useKegiatanListQuery({ untukPeta: true });
+
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-kegiatan-list",
+          "/api/presurvei/kegiatan?page=1&limit=100",
+        ],
+      }),
+    );
+  });
+
+  it("membawa kriteria yang sedang aktif ke URL mode peta", () => {
+    // Inilah janji "peta dan daftar menyaring himpunan yang sama". Mode peta
+    // yang mengabaikan `filter` akan menggambar seluruh kunjungan semua sales
+    // sementara tabel di sebelahnya menampilkan satu orang saja.
+    useKegiatanListQuery().ubahFilter({ userId: "sales-7", hasil: "DEAL" });
+    konfigQuery.mockClear();
+
+    useKegiatanListQuery({ untukPeta: true });
+
+    expect(konfigQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          "presurvei-kegiatan-list",
+          "/api/presurvei/kegiatan?page=1&limit=100&userId=sales-7&hasil=DEAL",
+        ],
+      }),
+    );
+  });
+
   it("meneruskan baris dan meta amplop apa adanya", () => {
     const hook = useKegiatanListQuery();
 

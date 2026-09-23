@@ -40,11 +40,21 @@ const FILTER_AWAL: FilterKegiatan = {
  * akan menambah jeda tanpa menghemat panggilan apa pun. Konsekuensinya: kalau
  * kelak medan teks bebas ditambahkan ke `KegiatanFilters`, keputusan ini wajib
  * ditinjau ulang bersama jebakan skeleton di `PlanningKanbanClient.tsx:45-52`.
+ *
+ * `untukPeta` hanya mengubah SEBERAPA BANYAK baris yang diambil, bukan state
+ * filternya. Ia sengaja jadi parameter alih-alih panggilan hook kedua: tiap
+ * panggilan membawa `useState`-nya sendiri, jadi dua panggilan berarti dua
+ * himpunan filter yang berjalan sendiri-sendiri — persis kebalikan dari janji
+ * "peta dan daftar menyaring himpunan yang sama".
  */
-export function useKegiatanListQuery() {
+export function useKegiatanListQuery(opsi: { untukPeta?: boolean } = {}) {
+  const untukPeta = opsi.untukPeta === true;
   const [filter, setFilter] = useState<FilterKegiatan>(FILTER_AWAL);
 
-  const url = useMemo(() => buildKegiatanListUrl(filter), [filter]);
+  const url = useMemo(
+    () => buildKegiatanListUrl(filter, { untukPeta }),
+    [filter, untukPeta],
+  );
 
   const query = useQuery<AmplopDaftar>({
     queryKey: ["presurvei-kegiatan-list", url],
