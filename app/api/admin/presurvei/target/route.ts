@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
-import { apiSuccess, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  createHandler,
+  requireSessionTenantIdUnlessSuperAdmin,
+} from "@/lib/api";
 import {
   laporanPeriodeSchema,
   TargetService,
@@ -33,7 +37,13 @@ export const POST = createHandler(
     schema: tetapkanTargetSchema,
   },
   async (_request, ctx) => {
-    const target = await service.tetapkan(ctx.validated);
+    // Tenant baris HANYA dari sesi. Super admin tanpa tenant sesi tidak
+    // ditolak: service memakai tenant milik sales itu dan menulisnya
+    // eksplisit, sambil memastikan `userId` memang sales se-tenant.
+    const target = await service.tetapkan(
+      ctx.validated,
+      requireSessionTenantIdUnlessSuperAdmin(ctx),
+    );
     return apiSuccess(toTargetDto(target), { status: 201 });
   },
 );

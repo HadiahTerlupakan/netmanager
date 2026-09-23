@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Repository diuji dengan me-mock klien Prisma: yang diperiksa adalah bentuk
- * query yang dikirim, bukan perilaku database. Filter tenantId sengaja tidak
- * diperiksa karena ditegakkan ekstensi Prisma di lapisan database.
+ * query yang dikirim, bukan perilaku database. `findByPeriode` menyerahkan
+ * filter tenant ke ekstensi Prisma; `findByUserPeriode` dan `simpan` menulis
+ * `tenantId` eksplisit karena ekstensi tidak menyaring maupun mengisi apa pun
+ * untuk super admin tanpa tenant sesi (`lib/prisma-extension.ts`).
  */
 
 vi.mock("@/modules/database", () => ({
@@ -49,6 +51,7 @@ const masukanTarget: SimpanTargetInput = {
   targetKunjungan: 20,
   targetProspek: 10,
   targetKonversi: 4,
+  tenantId: "tenant-1",
 };
 
 describe("TargetRepository.findByUserPeriode", () => {
@@ -59,13 +62,19 @@ describe("TargetRepository.findByUserPeriode", () => {
       null as never,
     );
 
-    await new TargetRepository().findByUserPeriode("user-1", {
-      tahun: 2026,
-      bulan: 9,
-    });
+    await new TargetRepository().findByUserPeriode(
+      "user-1",
+      { tahun: 2026, bulan: 9 },
+      "tenant-1",
+    );
 
     expect(prisma.presurveiTarget.findFirst).toHaveBeenCalledWith({
-      where: { userId: "user-1", periodeTahun: 2026, periodeBulan: 9 },
+      where: {
+        userId: "user-1",
+        periodeTahun: 2026,
+        periodeBulan: 9,
+        tenantId: "tenant-1",
+      },
     });
   });
 
@@ -80,10 +89,11 @@ describe("TargetRepository.findByUserPeriode", () => {
       }) as never,
     );
 
-    const hasil = await new TargetRepository().findByUserPeriode("user-1", {
-      tahun: 2026,
-      bulan: 9,
-    });
+    const hasil = await new TargetRepository().findByUserPeriode(
+      "user-1",
+      { tahun: 2026, bulan: 9 },
+      "tenant-1",
+    );
 
     expect(hasil).toMatchObject({
       periodeTahun: 2026,
@@ -133,8 +143,26 @@ describe("TargetRepository.simpan", () => {
 
     await new TargetRepository().simpan(masukanTarget);
 
+    expect(prisma.presurveiTarget.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        periodeTahun: 2026,
+        periodeBulan: 9,
+        tenantId: "tenant-1",
+      },
+    });
+    // `tenantId` ikut di `data`: untuk super admin tanpa tenant sesi, ekstensi
+    // tidak mengisinya, dan target tanpa tenant hilang dari laporan tenant.
     expect(prisma.presurveiTarget.create).toHaveBeenCalledWith({
-      data: masukanTarget,
+      data: {
+        userId: "user-1",
+        periodeTahun: 2026,
+        periodeBulan: 9,
+        targetKunjungan: 20,
+        targetProspek: 10,
+        targetKonversi: 4,
+        tenantId: "tenant-1",
+      },
     });
     expect(prisma.presurveiTarget.update).not.toHaveBeenCalled();
   });

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   ikatFilterProspekKePemanggil,
   isBolehLihatSemuaPresurvei,
+  isMenugaskanPemilik,
   tentukanPemilikProspek,
 } from "@/app/api/presurvei/akses-presurvei";
 
@@ -114,5 +115,24 @@ describe("ikatFilterProspekKePemanggil", () => {
 
     expect(hasil).toEqual({ pemilikId: ID_PEMANGGIL, page: 2, limit: 7 });
     expect(hasil).not.toHaveProperty("tanpaPemilik");
+  });
+});
+
+describe("isMenugaskanPemilik", () => {
+  it("benar hanya untuk pemegang permission web yang mengirim pemilik", () => {
+    expect(isMenugaskanPemilik(["presurvei:read"], ID_ORANG_LAIN)).toBe(true);
+    expect(isMenugaskanPemilik(["*"], ID_ORANG_LAIN)).toBe(true);
+  });
+
+  it("salah bila pemilik tidak dikirim — pemilik jatuh ke pemanggil", () => {
+    expect(isMenugaskanPemilik(["presurvei:read"], undefined)).toBe(false);
+    expect(isMenugaskanPemilik(["presurvei:read"], null)).toBe(false);
+    expect(isMenugaskanPemilik(["presurvei:read"], "")).toBe(false);
+  });
+
+  it("salah untuk pemegang permission mobile, yang pemiliknya diabaikan", () => {
+    expect(isMenugaskanPemilik(["m_presurvei:create"], ID_ORANG_LAIN)).toBe(
+      false,
+    );
   });
 });

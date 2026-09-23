@@ -44,7 +44,9 @@ export const PATCH = createHandler(
     // Pemanggil tanpa permission web tidak boleh mengalihkan kepemilikan —
     // `pemilikId` menentukan siapa yang bisa membaca dan mengubah prospek ini,
     // jadi membiarkannya lewat berarti sales bisa menyerahkan prospeknya ke
-    // orang lain lalu kehilangan aksesnya sendiri.
+    // orang lain lalu kehilangan aksesnya sendiri. Pemilik yang ditugaskan
+    // pemegang permission web divalidasi service terhadap tenant baris
+    // prospek — sengaja tanpa tenant sesi, yang bagi super admin bisa lain.
     const { pemilikId: _pemilikId, ...perubahanAman } = ctx.validated;
     const bolehTugaskanPemilik = isBolehLihatSemuaPresurvei(ctx.permissions);
 

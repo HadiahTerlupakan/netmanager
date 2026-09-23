@@ -9,6 +9,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProspekService } from "@/modules/presurvei/services/ProspekService";
 import type { IProspekRepository } from "@/modules/presurvei/domain/ports/IProspekRepository";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
+import type { CalonSales } from "@/modules/presurvei/domain/penugasan-sales";
+import type { ISalesRepository } from "@/modules/presurvei/domain/ports/ISalesRepository";
+import { PenugasanSalesService } from "@/modules/presurvei/services/PenugasanSalesService";
 
 const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity => ({
   id: "prospek-1",
@@ -383,5 +386,204 @@ describe("ProspekService.buat — peringatan duplikat", () => {
     await service.buat(masukan);
 
     expect(repository.create).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * Penugasan pemilik dari web: pemilik yang BERGANTI wajib sales aktif di
+ * tenant prospek. Mengubah data lain — atau mengirim ulang pemilik yang sama
+ * — tidak memvalidasi ulang, supaya prospek milik sales yang kini nonaktif
+ * tetap bisa disunting.
+ */
+describe("ProspekService — validasi pemilik yang ditugaskan", () => {
+  const TENANT_PROSPEK = "tenant-prospek";
+  const TENANT_SESI = "tenant-sesi";
+
+  const calon = (ubahan: Partial<CalonSales> = {}): CalonSales => ({
+    id: "sales-baru",
+    tenantId: TENANT_PROSPEK,
+    isSales: true,
+    isActive: true,
+    ...ubahan,
+  });
+
+  let repository: IProspekRepository;
+  let salesRepo: ISalesRepository;
+
+  beforeEach(() => {
+    repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ pemilikId: "sales-lama", tenantId: TENANT_PROSPEK }),
+    );
+    vi.mocked(repository.update).mockResolvedValue(prospek());
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    salesRepo = {
+      daftarAktif: vi.fn(),
+      cariCalonSales: vi.fn().mockResolvedValue(calon()),
+    };
+  });
+
+  const service = () =>
+    new ProspekService(repository, new PenugasanSalesService(salesRepo));
+
+  describe("ubah", () => {
+    it("menerima pemilik baru yang sales aktif di tenant PROSPEK", async () => {
+      await service().ubah("prospek-1", { pemilikId: "sales-baru" });
+
+      expect(salesRepo.cariCalonSales).toHaveBeenCalledWith("sales-baru");
+      expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+        pemilikId: "sales-baru",
+      });
+    });
+
+    it("menolak pemilik dari tenant lain — termasuk tenant sesi yang bukan tenant prospek", async () => {
+      // Super admin bisa membuka prospek tenant mana pun; yang mengikat
+      // adalah tenant baris prospeknya, bukan tenant sesi pemanggil.
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ tenantId: TENANT_SESI }),
+      );
+
+      await expect(
+        service().ubah("prospek-1", { pemilikId: "sales-baru" }),
+      ).rejects.toMatchObject({ statusCode: 422, code: "SALES_TIDAK_SAH" });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("menolak pemilik baru yang bukan sales", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ isSales: false }),
+      );
+
+      await expect(
+        service().ubah("prospek-1", { pemilikId: "sales-baru" }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("menolak pemilik baru yang nonaktif", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ isActive: false }),
+      );
+
+      await expect(
+        service().ubah("prospek-1", { pemilikId: "sales-baru" }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("menolak penugasan pada prospek yang tidak bertenant", async () => {
+      vi.mocked(repository.findById).mockResolvedValue(
+        prospek({ pemilikId: "sales-lama", tenantId: null }),
+      );
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ tenantId: null }),
+      );
+
+      await expect(
+        service().ubah("prospek-1", { pemilikId: "sales-baru" }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
+    it("tidak memvalidasi saat pemilikId tidak dikirim", async () => {
+      await service().ubah("prospek-1", { catatan: "Telepon ulang" });
+
+      expect(salesRepo.cariCalonSales).not.toHaveBeenCalled();
+      expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+        catatan: "Telepon ulang",
+      });
+    });
+
+    it("tidak memvalidasi ulang pemilik yang sama, walau ia kini nonaktif", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ id: "sales-lama", isActive: false }),
+      );
+
+      await service().ubah("prospek-1", {
+        pemilikId: "sales-lama",
+        catatan: "Telepon ulang",
+      });
+
+      expect(salesRepo.cariCalonSales).not.toHaveBeenCalled();
+      expect(repository.update).toHaveBeenCalledOnce();
+    });
+
+    it("tidak memvalidasi pelepasan pemilik (pemilikId null)", async () => {
+      await service().ubah("prospek-1", { pemilikId: null });
+
+      expect(salesRepo.cariCalonSales).not.toHaveBeenCalled();
+      expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+        pemilikId: null,
+      });
+    });
+  });
+
+  describe("buat", () => {
+    const masukan = Object.freeze({
+      nama: "Budi",
+      noTelp: "081234567890",
+      alamat: "Jl. Merdeka 10",
+      sumber: "WALK_IN" as const,
+      pemilikId: "sales-baru",
+    });
+
+    it("tidak memvalidasi bila pemilik tidak ditugaskan (perilaku lama)", async () => {
+      await service().buat(masukan);
+
+      expect(salesRepo.cariCalonSales).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalledWith(masukan);
+    });
+
+    it("menulis tenant sesi saat pemilik ditugaskan ke sales se-tenant", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ tenantId: TENANT_SESI }),
+      );
+
+      await service().buat(masukan, {
+        penugasanPemilik: { tenantSesi: TENANT_SESI },
+      });
+
+      expect(repository.create).toHaveBeenCalledWith({
+        ...masukan,
+        tenantId: TENANT_SESI,
+      });
+    });
+
+    it("menolak penugasan ke sales tenant lain sebelum mencari duplikat", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ tenantId: TENANT_PROSPEK }),
+      );
+
+      await expect(
+        service().buat(masukan, {
+          penugasanPemilik: { tenantSesi: TENANT_SESI },
+        }),
+      ).rejects.toMatchObject({ statusCode: 422, code: "SALES_TIDAK_SAH" });
+      expect(repository.findByNoTelp).not.toHaveBeenCalled();
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it("menolak penugasan ke sales nonaktif", async () => {
+      vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+        calon({ tenantId: TENANT_SESI, isActive: false }),
+      );
+
+      await expect(
+        service().buat(masukan, {
+          penugasanPemilik: { tenantSesi: TENANT_SESI },
+        }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it("super admin tanpa tenant sesi menulis tenant milik sales", async () => {
+      await service().buat(masukan, {
+        penugasanPemilik: { tenantSesi: null },
+      });
+
+      expect(repository.create).toHaveBeenCalledWith({
+        ...masukan,
+        tenantId: TENANT_PROSPEK,
+      });
+    });
   });
 });

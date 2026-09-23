@@ -21,3 +21,20 @@ export function requireSessionTenantId(
 
   return tenantId;
 }
+
+/**
+ * Tenant sesi untuk penulisan yang boleh dilakukan super admin lintas tenant.
+ *
+ * Mengembalikan null HANYA bila pemanggil super admin tanpa tenant sesi;
+ * pemanggilnya lalu wajib menurunkan tenant baris dari data lain dan
+ * menulisnya eksplisit, karena ekstensi tenant tidak mengisi apa pun untuk
+ * konteks itu (`lib/prisma-extension.ts`). Pemanggil lain diperlakukan persis
+ * seperti `requireSessionTenantId`.
+ */
+export function requireSessionTenantIdUnlessSuperAdmin(
+  ctx: Pick<HandlerContext, "session">,
+): string | null {
+  const user = ctx.session?.user;
+  if (user?.isSuperAdmin && !user.tenantId) return null;
+  return requireSessionTenantId(ctx);
+}

@@ -42,6 +42,11 @@ export interface CreateProspekInput {
   paketDiminati?: string | null;
   catatan?: string | null;
   siteId?: string | null;
+  /**
+   * Diisi service hanya saat pemilik ditugaskan. Pemanggil biasa ditimpa
+   * ekstensi tenant; super admin tanpa tenant sesi memakai nilai ini.
+   */
+  tenantId?: string;
 }
 
 export interface UpdateProspekInput {

@@ -5,13 +5,14 @@ import type {
 } from "../domain/ports/IKegiatanRepository";
 import type { IProspekRepository } from "../domain/ports/IProspekRepository";
 import type {
+  DataTarget,
   ITargetRepository,
-  SimpanTargetInput,
 } from "../domain/ports/ITargetRepository";
 import { hitungPencapaian, type Pencapaian } from "../domain/target-rules";
 import { KegiatanRepository } from "../repositories/KegiatanRepository";
 import { ProspekRepository } from "../repositories/ProspekRepository";
 import { TargetRepository } from "../repositories/TargetRepository";
+import { PenugasanSalesService } from "./PenugasanSalesService";
 
 /** Satu baris laporan: target seorang sales beserta pencapaiannya. */
 export interface BarisLaporan {
@@ -36,11 +37,39 @@ export class TargetService {
     private readonly targetRepository: ITargetRepository = new TargetRepository(),
     private readonly kegiatanRepository: IKegiatanRepository = new KegiatanRepository(),
     private readonly prospekRepository: IProspekRepository = new ProspekRepository(),
+    private readonly penugasanSales: PenugasanSalesService = new PenugasanSalesService(),
   ) {}
 
-  /** Tetapkan target seorang sales, menimpa target periode yang sama. */
-  async tetapkan(input: SimpanTargetInput): Promise<TargetEntity> {
-    return this.targetRepository.simpan(input);
+  /**
+   * Tetapkan target seorang sales, menimpa target periode yang sama.
+   *
+   * `tenantSesi` null hanya untuk super admin tanpa tenant sesi; tenant baris
+   * lalu diambil dari sales itu sendiri. Target BARU menuntut sales aktif,
+   * sedangkan target yang sudah ada tetap boleh diubah walau sales-nya kini
+   * nonaktif — "baru" ditentukan dari ada-tidaknya target periode itu di
+   * tenant baris, bukan dari klien.
+   */
+  async tetapkan(
+    input: DataTarget,
+    tenantSesi: string | null,
+  ): Promise<TargetEntity> {
+    const tenantBaris = await this.penugasanSales.tentukanTenantBaris(
+      input.userId,
+      tenantSesi,
+    );
+    const targetLama = tenantBaris
+      ? await this.targetRepository.findByUserPeriode(
+          input.userId,
+          { tahun: input.periodeTahun, bulan: input.periodeBulan },
+          tenantBaris,
+        )
+      : null;
+
+    await this.penugasanSales.pastikanSah(input.userId, tenantBaris, {
+      isWajibAktif: targetLama === null,
+    });
+
+    return this.targetRepository.simpan({ ...input, tenantId: tenantBaris });
   }
 
   /** Seluruh target pada satu periode. */

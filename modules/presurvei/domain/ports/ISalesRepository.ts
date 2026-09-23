@@ -1,3 +1,5 @@
+import type { CalonSales } from "../penugasan-sales";
+
 /**
  * Kontrak akses daftar sales untuk layar presurvei.
  *
@@ -19,4 +21,12 @@ export interface ISalesRepository {
    * apa pun (`lib/prisma-extension.ts`, `isNonSuperAdminTenant`).
    */
   daftarAktif(tenantId: string): Promise<SalesRingkas[]>;
+
+  /**
+   * Fakta penugasan satu user, null bila tidak ada.
+   *
+   * Sengaja TIDAK menyaring `isSales`/`isActive`/tenant di query: keputusan
+   * itu milik `isCalonSalesSah` supaya hanya ada satu definisinya.
+   */
+  cariCalonSales(userId: string): Promise<CalonSales | null>;
 }

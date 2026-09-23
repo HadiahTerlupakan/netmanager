@@ -1,6 +1,7 @@
 import { prisma } from "@/modules/database";
 import { TenantContextError } from "@/lib/prisma-extension";
 import { tentukanNamaSales } from "../domain/nama-sales";
+import type { CalonSales } from "../domain/penugasan-sales";
 import type {
   ISalesRepository,
   SalesRingkas,
@@ -36,5 +37,28 @@ export class SalesRepository implements ISalesRepository {
     return rows
       .map((row) => ({ id: row.id, nama: tentukanNamaSales(row) }))
       .sort((a, b) => a.nama.localeCompare(b.nama) || a.id.localeCompare(b.id));
+  }
+
+  /**
+   * Fakta penugasan satu user — tanpa nama maupun email.
+   *
+   * `userId` kosong dijawab null tanpa query: `findUnique` dengan
+   * `id: undefined` bukan "tidak ada", melainkan query yang tidak sah.
+   */
+  async cariCalonSales(userId: string): Promise<CalonSales | null> {
+    if (!userId) return null;
+
+    const row = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, tenantId: true, isSales: true, isActive: true },
+    });
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      tenantId: row.tenantId ?? null,
+      isSales: row.isSales,
+      isActive: row.isActive,
+    };
   }
 }

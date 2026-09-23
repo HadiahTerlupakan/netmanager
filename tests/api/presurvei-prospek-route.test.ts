@@ -46,6 +46,7 @@ import { GET, POST } from "@/app/api/presurvei/prospek/route";
 
 const ID_SESI = "sales-a";
 const ID_ORANG_LAIN = "sales-b";
+const TENANT_SESI = "tenant-sesi";
 
 const prospekTersimpan: ProspekEntity = {
   id: "prospek-1",
@@ -80,7 +81,12 @@ const beriPermission = (permissions: string[]): void => {
   // — mock-nya tetap didaftarkan (bentuk modul @/lib/auth harus utuh) tapi
   // sengaja tidak diberi `mockResolvedValue` agar tidak menyesatkan pembaca.
   mockFns.getServerSession.mockResolvedValue({
-    user: { id: ID_SESI, email: "sales-a@contoh.id", permissions },
+    user: {
+      id: ID_SESI,
+      email: "sales-a@contoh.id",
+      tenantId: TENANT_SESI,
+      permissions,
+    },
   });
 };
 
@@ -257,6 +263,61 @@ describe("POST /api/presurvei/prospek — penugasan pemilik", () => {
     expect(mockFns.buat).toHaveBeenCalledWith(
       expect.objectContaining({ pemilikId: ID_ORANG_LAIN }),
       expect.objectContaining({ abaikanDuplikat: undefined }),
+    );
+  });
+
+  it("meminta validasi sales se-tenant sesi saat admin web menugaskan pemilik", async () => {
+    beriPermission(["presurvei:read", "presurvei:create"]);
+
+    await mintaBuat({ ...bodiDasar, pemilikId: ID_ORANG_LAIN });
+
+    expect(mockFns.buat).toHaveBeenCalledWith(
+      expect.objectContaining({ pemilikId: ID_ORANG_LAIN }),
+      {
+        abaikanDuplikat: undefined,
+        penugasanPemilik: { tenantSesi: TENANT_SESI },
+      },
+    );
+  });
+
+  it("super admin tanpa tenant sesi tidak ditolak — tenant diturunkan service dari sales", async () => {
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: ID_SESI,
+        email: "root@contoh.id",
+        isSuperAdmin: true,
+        permissions: ["*"],
+      },
+    });
+
+    const respons = await mintaBuat({ ...bodiDasar, pemilikId: ID_ORANG_LAIN });
+
+    expect(respons.status).toBe(201);
+    expect(mockFns.buat).toHaveBeenCalledWith(
+      expect.objectContaining({ pemilikId: ID_ORANG_LAIN }),
+      { abaikanDuplikat: undefined, penugasanPemilik: { tenantSesi: null } },
+    );
+  });
+
+  it("tidak meminta validasi saat pemilik tidak dikirim (pembuat jadi pemilik)", async () => {
+    beriPermission(["presurvei:read", "presurvei:create"]);
+
+    await mintaBuat(bodiDasar);
+
+    expect(mockFns.buat).toHaveBeenCalledWith(
+      expect.objectContaining({ pemilikId: ID_SESI }),
+      { abaikanDuplikat: undefined },
+    );
+  });
+
+  it("tidak meminta validasi untuk pemanggil mobile walau ia mengirim pemilik", async () => {
+    beriPermission(["m_presurvei:create"]);
+
+    await mintaBuat({ ...bodiDasar, pemilikId: ID_ORANG_LAIN });
+
+    expect(mockFns.buat).toHaveBeenCalledWith(
+      expect.objectContaining({ pemilikId: ID_SESI }),
+      { abaikanDuplikat: undefined },
     );
   });
 

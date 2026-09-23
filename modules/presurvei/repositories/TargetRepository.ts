@@ -20,16 +20,24 @@ export class TargetRepository implements ITargetRepository {
     return rows.map((row) => toTargetEntity(row as TargetRow));
   }
 
-  /** Target seorang sales pada satu periode, null bila belum ditetapkan. */
+  /**
+   * Target seorang sales pada satu periode di satu tenant, null bila belum
+   * ditetapkan.
+   *
+   * `tenantId` ditulis eksplisit: untuk super admin ekstensi tenant tidak
+   * menyaring apa pun (`lib/prisma-extension.ts`, `isNonSuperAdminTenant`).
+   */
   async findByUserPeriode(
     userId: string,
     periode: PeriodeTarget,
+    tenantId: string,
   ): Promise<TargetEntity | null> {
     const row = await prisma.presurveiTarget.findFirst({
       where: {
         userId,
         periodeTahun: periode.tahun,
         periodeBulan: periode.bulan,
+        tenantId,
       },
     });
     return row ? toTargetEntity(row as TargetRow) : null;
@@ -38,15 +46,16 @@ export class TargetRepository implements ITargetRepository {
   /**
    * Simpan target, menimpa yang sudah ada untuk user dan periode yang sama.
    *
-   * Memakai cari-lalu-tulis alih-alih `upsert`: batasan uniknya menyertakan
-   * `tenantId`, dan nilai itu diisi ekstensi isolasi — bukan oleh pemanggil —
-   * sehingga tidak bisa disusun menjadi kunci `where` yang utuh di sini.
+   * `input.tenantId` ikut ditulis pada `create`. Untuk pemanggil biasa
+   * ekstensi isolasi menimpanya dengan tenant konteks (nilainya sama); untuk
+   * super admin nilai eksplisit itu yang dipakai.
    */
   async simpan(input: SimpanTargetInput): Promise<TargetEntity> {
-    const adaSebelumnya = await this.findByUserPeriode(input.userId, {
-      tahun: input.periodeTahun,
-      bulan: input.periodeBulan,
-    });
+    const adaSebelumnya = await this.findByUserPeriode(
+      input.userId,
+      { tahun: input.periodeTahun, bulan: input.periodeBulan },
+      input.tenantId,
+    );
 
     const row = adaSebelumnya
       ? await prisma.presurveiTarget.update({

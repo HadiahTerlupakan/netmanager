@@ -24,9 +24,33 @@ const { penghuni } = vi.hoisted(() => ({
   penghuni: [] as PenggunaTiruan[],
 }));
 
+/** Kolom `select` dari satu pengguna tiruan. */
+function pilihKolom(
+  pengguna: PenggunaTiruan,
+  select: Record<string, boolean>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.keys(select).map((kolom) => [
+      kolom,
+      pengguna[kolom as keyof PenggunaTiruan],
+    ]),
+  );
+}
+
 vi.mock("@/modules/database", () => ({
   prisma: {
     user: {
+      findUnique: vi.fn(
+        async (args: {
+          where: { id: string };
+          select: Record<string, boolean>;
+        }) => {
+          const pengguna = penghuni.find(
+            (kandidat) => kandidat.id === args.where.id,
+          );
+          return pengguna ? pilihKolom(pengguna, args.select) : null;
+        },
+      ),
       findMany: vi.fn(
         async (args: {
           where: Record<string, unknown>;
@@ -39,14 +63,7 @@ vi.mock("@/modules/database", () => ({
                   pengguna[kolom as keyof PenggunaTiruan] === nilai,
               ),
             )
-            .map((pengguna) =>
-              Object.fromEntries(
-                Object.keys(args.select).map((kolom) => [
-                  kolom,
-                  pengguna[kolom as keyof PenggunaTiruan],
-                ]),
-              ),
-            ),
+            .map((pengguna) => pilihKolom(pengguna, args.select)),
       ),
     },
   },
@@ -144,5 +161,63 @@ describe("SalesRepository.daftarAktif", () => {
     );
 
     expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("SalesRepository.cariCalonSales", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockClear();
+    penghuni.length = 0;
+    penghuni.push(
+      pengguna({ id: "sales-a-rina", name: "Rina" }),
+      pengguna({
+        id: "admin-b",
+        name: "Admin B",
+        tenantId: "tenant-b",
+        isSales: false,
+        isActive: false,
+      }),
+    );
+  });
+
+  it("mengembalikan fakta penugasan user apa adanya, tanpa menyaringnya", async () => {
+    // Penyaringan milik aturan domain (`isCalonSalesSah`), bukan query:
+    // bila query ikut menyaring, sebuah cabang aturan bisa terhapus tanpa
+    // satu test service pun merah.
+    expect(await new SalesRepository().cariCalonSales("admin-b")).toEqual({
+      id: "admin-b",
+      tenantId: "tenant-b",
+      isSales: false,
+      isActive: false,
+    });
+    expect(await new SalesRepository().cariCalonSales("sales-a-rina")).toEqual({
+      id: "sales-a-rina",
+      tenantId: "tenant-a",
+      isSales: true,
+      isActive: true,
+    });
+  });
+
+  it("hanya memilih kolom penugasan — tanpa nama maupun email", async () => {
+    await new SalesRepository().cariCalonSales("sales-a-rina");
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "sales-a-rina" },
+      select: { id: true, tenantId: true, isSales: true, isActive: true },
+    });
+  });
+
+  it("mengembalikan null untuk user yang tidak ada", async () => {
+    expect(await new SalesRepository().cariCalonSales("hantu")).toBeNull();
+  });
+
+  it("mengembalikan null tanpa menyentuh database saat userId kosong", async () => {
+    expect(
+      await new SalesRepository().cariCalonSales(
+        undefined as unknown as string,
+      ),
+    ).toBeNull();
+    expect(await new SalesRepository().cariCalonSales("")).toBeNull();
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });

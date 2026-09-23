@@ -47,6 +47,20 @@ export function tentukanPemilikProspek(
   return pemilikDiminta ?? idPemanggil;
 }
 
+/**
+ * Apakah pemanggil sungguh MENUGASKAN pemilik — pemegang permission web yang
+ * mengirim `pemilikId` — alih-alih pemilik jatuh ke dirinya sendiri.
+ *
+ * Hanya penugasan yang divalidasi sebagai sales se-tenant; pemilik bawaan
+ * (`idPemanggil`) mempertahankan perilaku lama.
+ */
+export function isMenugaskanPemilik(
+  permissions: string[],
+  pemilikDiminta: string | null | undefined,
+): boolean {
+  return isBolehLihatSemuaPresurvei(permissions) && Boolean(pemilikDiminta);
+}
+
 /** Filter daftar prospek yang dapat dibatasi ke pemanggil. */
 interface FilterPemilikProspek {
   pemilikId?: string;

@@ -11,6 +11,9 @@ import type { ITargetRepository } from "@/modules/presurvei/domain/ports/ITarget
 import type { IKegiatanRepository } from "@/modules/presurvei/domain/ports/IKegiatanRepository";
 import type { IProspekRepository } from "@/modules/presurvei/domain/ports/IProspekRepository";
 import type { TargetEntity } from "@/modules/presurvei/domain/entities/Target";
+import type { CalonSales } from "@/modules/presurvei/domain/penugasan-sales";
+import type { ISalesRepository } from "@/modules/presurvei/domain/ports/ISalesRepository";
+import { PenugasanSalesService } from "@/modules/presurvei/services/PenugasanSalesService";
 
 const WAKTU = new Date("2026-09-01T00:00:00.000Z");
 
@@ -130,33 +133,151 @@ describe("TargetService.laporanPencapaian", () => {
 });
 
 describe("TargetService.tetapkan", () => {
-  it("meneruskan masukan apa adanya ke repository", async () => {
-    const targetRepo = bangunTargetRepo();
-    const service = new TargetService(
+  const TENANT_SESI = "tenant-sesi";
+  const TENANT_LAIN = "tenant-lain";
+
+  // Dibekukan: tanpa ini, `masukan` adalah referensi yang sama dengan yang
+  // diteruskan ke service, sehingga mutasi in-place (mis. service mengubah
+  // input.targetKonversi sebelum meneruskannya) membandingkan objek dengan
+  // dirinya sendiri dan lolos hijau meski isinya sudah diubah.
+  const masukan = Object.freeze({
+    userId: "sales-1",
+    periodeTahun: 2026,
+    periodeBulan: 9,
+    targetKunjungan: 20,
+    targetProspek: 10,
+    targetKonversi: 5,
+  });
+
+  const calon = (ubahan: Partial<CalonSales> = {}): CalonSales => ({
+    id: "sales-1",
+    tenantId: TENANT_SESI,
+    isSales: true,
+    isActive: true,
+    ...ubahan,
+  });
+
+  let targetRepo: ITargetRepository;
+  let salesRepo: ISalesRepository;
+
+  beforeEach(() => {
+    targetRepo = bangunTargetRepo();
+    salesRepo = {
+      daftarAktif: vi.fn(),
+      cariCalonSales: vi.fn().mockResolvedValue(calon()),
+    };
+  });
+
+  const service = () =>
+    new TargetService(
       targetRepo,
       bangunKegiatanRepo(),
       bangunProspekRepo(),
+      new PenugasanSalesService(salesRepo),
     );
 
-    // Dibekukan: tanpa ini, `masukan` adalah referensi yang sama dengan yang
-    // diteruskan ke service, sehingga mutasi in-place (mis. service mengubah
-    // input.targetKonversi sebelum meneruskannya) membandingkan objek dengan
-    // dirinya sendiri dan lolos hijau meski isinya sudah diubah.
-    const masukan = Object.freeze({
+  it("meneruskan masukan apa adanya ke repository, ditambah tenant sesi", async () => {
+    await service().tetapkan(masukan, TENANT_SESI);
+
+    // Memeriksa argumennya, bukan sekadar bahwa repository terpanggil: nama
+    // test ini menjanjikan "apa adanya", dan angka-angkanya bersebelahan serta
+    // bertipe sama sehingga tertukarnya tidak akan ditolak compiler.
+    expect(targetRepo.simpan).toHaveBeenCalledWith({
       userId: "sales-1",
       periodeTahun: 2026,
       periodeBulan: 9,
       targetKunjungan: 20,
       targetProspek: 10,
       targetKonversi: 5,
+      tenantId: TENANT_SESI,
     });
+  });
 
-    await service.tetapkan(masukan);
+  it("mencari target yang sudah ada di tenant baris, bukan lintas tenant", async () => {
+    await service().tetapkan(masukan, TENANT_SESI);
 
-    // Memeriksa argumennya, bukan sekadar bahwa repository terpanggil: nama
-    // test ini menjanjikan "apa adanya", dan angka-angkanya bersebelahan serta
-    // bertipe sama sehingga tertukarnya tidak akan ditolak compiler.
-    expect(targetRepo.simpan).toHaveBeenCalledWith(masukan);
+    expect(targetRepo.findByUserPeriode).toHaveBeenCalledWith(
+      "sales-1",
+      { tahun: 2026, bulan: 9 },
+      TENANT_SESI,
+    );
+  });
+
+  it("menolak sales dari tenant lain tanpa menyimpan apa pun", async () => {
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+      calon({ tenantId: TENANT_LAIN }),
+    );
+
+    await expect(
+      service().tetapkan(masukan, TENANT_SESI),
+    ).rejects.toMatchObject({ statusCode: 422, code: "SALES_TIDAK_SAH" });
+    expect(targetRepo.simpan).not.toHaveBeenCalled();
+  });
+
+  it("menolak user yang bukan sales", async () => {
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+      calon({ isSales: false }),
+    );
+
+    await expect(
+      service().tetapkan(masukan, TENANT_SESI),
+    ).rejects.toMatchObject({ statusCode: 422 });
+    expect(targetRepo.simpan).not.toHaveBeenCalled();
+  });
+
+  it("menolak target BARU untuk sales nonaktif", async () => {
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+      calon({ isActive: false }),
+    );
+
+    await expect(
+      service().tetapkan(masukan, TENANT_SESI),
+    ).rejects.toMatchObject({ statusCode: 422 });
+    expect(targetRepo.simpan).not.toHaveBeenCalled();
+  });
+
+  it("tetap mengizinkan mengubah target yang sudah ada milik sales yang kini nonaktif", async () => {
+    // Layar target mode ubah mengunci sales dari barisnya
+    // (`app/admin/presurvei/target/targetFormState.ts`), jadi sales yang
+    // dinonaktifkan di tengah bulan tetap harus bisa dikoreksi targetnya.
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+      calon({ isActive: false }),
+    );
+    vi.mocked(targetRepo.findByUserPeriode).mockResolvedValue(target());
+
+    await service().tetapkan(masukan, TENANT_SESI);
+
+    expect(targetRepo.simpan).toHaveBeenCalledWith({
+      ...masukan,
+      tenantId: TENANT_SESI,
+    });
+  });
+
+  it("super admin tanpa tenant sesi menulis tenant milik sales itu secara eksplisit", async () => {
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(
+      calon({ tenantId: TENANT_LAIN }),
+    );
+
+    await service().tetapkan(masukan, null);
+
+    expect(targetRepo.findByUserPeriode).toHaveBeenCalledWith(
+      "sales-1",
+      { tahun: 2026, bulan: 9 },
+      TENANT_LAIN,
+    );
+    expect(targetRepo.simpan).toHaveBeenCalledWith({
+      ...masukan,
+      tenantId: TENANT_LAIN,
+    });
+  });
+
+  it("super admin tanpa tenant sesi ditolak untuk user tak dikenal", async () => {
+    vi.mocked(salesRepo.cariCalonSales).mockResolvedValue(null);
+
+    await expect(service().tetapkan(masukan, null)).rejects.toMatchObject({
+      statusCode: 422,
+    });
+    expect(targetRepo.simpan).not.toHaveBeenCalled();
   });
 });
 

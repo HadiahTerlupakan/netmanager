@@ -8,12 +8,22 @@ import type {
   UpdateProspekInput,
 } from "../domain/ports/IProspekRepository";
 import { ProspekRepository } from "../repositories/ProspekRepository";
+import { PenugasanSalesService } from "./PenugasanSalesService";
 
 /** Pilihan tambahan saat membuat prospek. */
 export interface OpsiBuatProspek {
   /** Lanjutkan meski ada prospek aktif dengan nomor telepon yang sama. */
   abaikanDuplikat?: boolean;
+  /**
+   * Diisi route bila `pemilikId` DITUGASKAN pemanggil, bukan jatuh ke dirinya
+   * sendiri. Memicu validasi sales se-tenant dan penulisan tenant eksplisit.
+   * `tenantSesi` null hanya untuk super admin tanpa tenant sesi.
+   */
+  penugasanPemilik?: { tenantSesi: string | null };
 }
+
+/** Penugasan pemilik selalu penugasan baru, jadi sales-nya wajib aktif. */
+const SYARAT_PEMILIK_BARU = { isWajibAktif: true };
 
 /** Ringkasan prospek duplikat yang dikembalikan bersama penolakan. */
 interface RingkasanDuplikat {
@@ -33,6 +43,7 @@ interface RingkasanDuplikat {
 export class ProspekService {
   constructor(
     private readonly repository: IProspekRepository = new ProspekRepository(),
+    private readonly penugasanSales: PenugasanSalesService = new PenugasanSalesService(),
   ) {}
 
   /** Ambil satu halaman prospek sesuai filter. */
@@ -72,6 +83,8 @@ export class ProspekService {
     input: CreateProspekInput,
     opsi: OpsiBuatProspek = {},
   ): Promise<ProspekEntity> {
+    const data = await this.sertakanTenantPenugasan(input, opsi);
+
     if (!opsi.abaikanDuplikat) {
       const duplikat = await this.cariDuplikatAktif(input.noTelp);
       if (duplikat.length > 0) {
@@ -84,7 +97,30 @@ export class ProspekService {
       }
     }
 
-    return this.repository.create(input);
+    return this.repository.create(data);
+  }
+
+  /**
+   * Masukan apa adanya bila pemilik tidak ditugaskan; bila ditugaskan,
+   * divalidasi lalu ditambah tenant baris eksplisit supaya prospek buatan
+   * super admin tanpa tenant sesi tidak lahir dengan `tenantId` null.
+   */
+  private async sertakanTenantPenugasan(
+    input: CreateProspekInput,
+    opsi: OpsiBuatProspek,
+  ): Promise<CreateProspekInput> {
+    if (!opsi.penugasanPemilik || !input.pemilikId) return input;
+
+    const tenantBaris = await this.penugasanSales.tentukanTenantBaris(
+      input.pemilikId,
+      opsi.penugasanPemilik.tenantSesi,
+    );
+    await this.penugasanSales.pastikanSah(
+      input.pemilikId,
+      tenantBaris,
+      SYARAT_PEMILIK_BARU,
+    );
+    return { ...input, tenantId: tenantBaris };
   }
 
   private async cariDuplikatAktif(
@@ -114,6 +150,21 @@ export class ProspekService {
     pemilikWajib?: string,
   ): Promise<ProspekEntity> {
     const prospek = await this.detail(id, pemilikWajib);
+
+    // Hanya pemilik yang BERGANTI ke seseorang yang divalidasi, terhadap
+    // tenant baris prospek — bukan tenant sesi, yang bagi super admin bisa
+    // berbeda. Melepas pemilik (null) dan mengirim ulang pemilik yang sama
+    // tidak divalidasi, supaya prospek milik sales yang kini nonaktif tetap
+    // bisa disunting.
+    const isPemilikBerganti =
+      input.pemilikId != null && input.pemilikId !== prospek.pemilikId;
+    if (isPemilikBerganti) {
+      await this.penugasanSales.pastikanSah(
+        input.pemilikId,
+        prospek.tenantId,
+        SYARAT_PEMILIK_BARU,
+      );
+    }
 
     if (input.status && input.status !== prospek.status) {
       if (!isTransisiStatusSah(prospek.status, input.status)) {

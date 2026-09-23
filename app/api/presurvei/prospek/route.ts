@@ -1,5 +1,11 @@
 import type { NextRequest } from "next/server";
-import { ApiErrors, apiPaginated, apiSuccess, createHandler } from "@/lib/api";
+import {
+  ApiErrors,
+  apiPaginated,
+  apiSuccess,
+  createHandler,
+  requireSessionTenantIdUnlessSuperAdmin,
+} from "@/lib/api";
 import {
   buatProspekSchema,
   daftarProspekSchema,
@@ -10,6 +16,7 @@ import {
 import {
   ikatFilterProspekKePemanggil,
   isBolehLihatSemuaPresurvei,
+  isMenugaskanPemilik,
   tentukanPemilikProspek,
 } from "../akses-presurvei";
 
@@ -69,6 +76,16 @@ export const POST = createHandler(
   async (_request, ctx) => {
     const { abaikanDuplikat, ...dataProspek } = ctx.validated;
 
+    // Penugasan pemilik divalidasi service sebagai sales se-tenant. Tenant
+    // sesi hanya dibaca saat menugaskan, supaya pembuatan tanpa `pemilikId`
+    // tetap berperilaku seperti sebelumnya.
+    const penugasanPemilik = isMenugaskanPemilik(
+      ctx.permissions,
+      ctx.validated.pemilikId,
+    )
+      ? { tenantSesi: requireSessionTenantIdUnlessSuperAdmin(ctx) }
+      : undefined;
+
     const prospek = await service.buat(
       {
         ...dataProspek,
@@ -78,7 +95,7 @@ export const POST = createHandler(
           ctx.session!.user.id,
         ),
       },
-      { abaikanDuplikat },
+      { abaikanDuplikat, penugasanPemilik },
     );
 
     return apiSuccess(toProspekDetail(prospek), { status: 201 });

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@/lib/errors";
 import type { ProspekEntity } from "@/modules/presurvei";
 
 /**
@@ -134,6 +135,56 @@ describe("PATCH /api/presurvei/prospek/[id] — penugasan pemilik", () => {
     expect(mockFns.ubah).toHaveBeenCalledTimes(1);
     const [, perubahan] = mockFns.ubah.mock.calls[0];
     expect(perubahan).toMatchObject({ pemilikId: ID_ORANG_LAIN });
+  });
+});
+
+describe("PATCH /api/presurvei/prospek/[id] — tenant penugasan pemilik", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.ubah.mockResolvedValue(prospekTersimpan);
+  });
+
+  it("tidak meneruskan tenant sesi — service mengikat pemilik ke tenant baris prospek", async () => {
+    // Super admin bertenant sesi A bisa membuka prospek tenant B; bila route
+    // meneruskan tenant sesinya, pemilik tenant A bisa ditempelkan ke
+    // prospek tenant B. `toHaveBeenCalledWith` menolak argumen keempat.
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: ID_SESI,
+        email: "admin@contoh.id",
+        tenantId: "tenant-sesi",
+        isSuperAdmin: true,
+        permissions: ["*"],
+      },
+    });
+
+    await mintaUbah({ pemilikId: ID_ORANG_LAIN });
+
+    expect(mockFns.ubah).toHaveBeenCalledWith(
+      ID_PROSPEK,
+      { pemilikId: ID_ORANG_LAIN },
+      undefined,
+    );
+  });
+
+  it("membalas penolakan sales tak sah dengan 422 berpesan generik", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+    mockFns.ubah.mockRejectedValue(
+      new AppError(
+        "Sales tidak ditemukan di tenant ini",
+        422,
+        "SALES_TIDAK_SAH",
+      ),
+    );
+
+    const respons = await mintaUbah({ pemilikId: ID_ORANG_LAIN });
+
+    expect(respons.status).toBe(422);
+    expect(await respons.json()).toEqual({
+      success: false,
+      error: "Sales tidak ditemukan di tenant ini",
+      code: "SALES_TIDAK_SAH",
+    });
   });
 });
 
