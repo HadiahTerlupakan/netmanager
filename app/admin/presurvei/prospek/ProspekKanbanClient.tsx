@@ -15,6 +15,8 @@ import {
 
 import { PESAN_KONVERSI_BELUM_TERSEDIA } from "./pindahProspek";
 import { ProspekCard } from "./ProspekCard";
+import type { ModeFormProspek } from "./prospekFormState";
+import { ProspekFormModal } from "./ProspekFormModal";
 import {
   keadaanKolom,
   teksJumlahKolom,
@@ -51,6 +53,15 @@ const TEKS_SEBAGIAN_GAGAL = "Sebagian kartu gagal dimuat";
  */
 const IZIN_UBAH_PROSPEK = ["presurvei:update", "m_presurvei:update"];
 
+/**
+ * Permission yang boleh mencatat prospek; dicocokkan ke gerbang
+ * `POST /api/presurvei/prospek` (`app/api/presurvei/prospek/route.ts:51`).
+ */
+const IZIN_BUAT_PROSPEK = ["presurvei:create", "m_presurvei:create"];
+
+/** Label tombol pembuka form prospek baru; juga dipakai test sebagai selektor. */
+export const LABEL_TOMBOL_TAMBAH_PROSPEK = "Tambah Prospek";
+
 /** Id toast jatuhan ke DEAL, supaya jatuhan berulang tidak menumpuk. */
 const ID_TOAST_KONVERSI = "presurvei-prospek-konversi";
 
@@ -81,11 +92,14 @@ function BadanKolom({
   keadaan,
   kartu,
   seret,
+  onUbahProspek,
 }: {
   status: ProspekStatus;
   keadaan: KeadaanKolom;
   kartu: ProspekKolomData["kartu"];
   seret: SeretKolom;
+  /** Pembuka form ubah; tidak diisi bila pemakai tak boleh mengubah prospek. */
+  onUbahProspek: ((prospekId: string) => void) | undefined;
 }) {
   switch (keadaan) {
     case "memuat":
@@ -121,6 +135,9 @@ function BadanKolom({
                 seret.mulaiSeret({ id: prospek.id, dari: status })
               }
               onSelesaiSeret={seret.selesaiSeret}
+              onUbah={
+                onUbahProspek ? () => onUbahProspek(prospek.id) : undefined
+              }
             />
           ))}
         </>
@@ -170,9 +187,11 @@ function TombolKakiKolom({ kolom }: { kolom: ProspekKolomData }) {
 function ProspekKolom({
   status,
   seret,
+  onUbahProspek,
 }: {
   status: ProspekStatus;
   seret: SeretKolom;
+  onUbahProspek: ((prospekId: string) => void) | undefined;
 }) {
   const kolom = useProspekKolom(status);
   const tampilan = PROSPEK_STATUS_CONFIG[status];
@@ -220,6 +239,7 @@ function ProspekKolom({
           keadaan={keadaan}
           kartu={kolom.kartu}
           seret={seret}
+          onUbahProspek={onUbahProspek}
         />
         <TombolKakiKolom kolom={kolom} />
       </div>
@@ -247,7 +267,9 @@ function ProspekKolom({
  */
 export function ProspekKanbanClient() {
   const [isKolomMatiTampil, setIsKolomMatiTampil] = useState(false);
+  const [modeForm, setModeForm] = useState<ModeFormProspek | null>(null);
   const { hasAnyPermission } = usePermission();
+  const isBolehUbah = hasAnyPermission(IZIN_UBAH_PROSPEK);
   const pindah = usePindahProspek();
   const seret = useSeretProspek({
     onUbahStatus: (perpindahan) => void pindah.pindahkan(perpindahan),
@@ -256,12 +278,16 @@ export function ProspekKanbanClient() {
   });
   const seretKolom: SeretKolom = {
     tampilanKolom: seret.tampilanKolom,
-    isBolehUbah: hasAnyPermission(IZIN_UBAH_PROSPEK),
+    isBolehUbah,
     mulaiSeret: seret.mulaiSeret,
     selesaiSeret: seret.selesaiSeret,
     jatuhkan: seret.jatuhkan,
     isSedangDipindah: pindah.isSedangDipindah,
   };
+
+  const bukaFormUbah = isBolehUbah
+    ? (prospekId: string) => setModeForm({ jenis: "ubah", prospekId })
+    : undefined;
 
   const kolom = isKolomMatiTampil
     ? [...daftarKolomHidup(), ...daftarKolomMati()]
@@ -278,22 +304,45 @@ export function ProspekKanbanClient() {
             Calon pelanggan yang sedang digarap tim sales, per tahap corong
           </p>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={isKolomMatiTampil}
-            onChange={(event) => setIsKolomMatiTampil(event.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          {LABEL_SAKELAR_KOLOM_MATI}
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={isKolomMatiTampil}
+              onChange={(event) => setIsKolomMatiTampil(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            {LABEL_SAKELAR_KOLOM_MATI}
+          </label>
+          {hasAnyPermission(IZIN_BUAT_PROSPEK) && (
+            <Button onClick={() => setModeForm({ jenis: "buat" })}>
+              {LABEL_TOMBOL_TAMBAH_PROSPEK}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {kolom.map((status) => (
-          <ProspekKolom key={status} status={status} seret={seretKolom} />
+          <ProspekKolom
+            key={status}
+            status={status}
+            seret={seretKolom}
+            onUbahProspek={bukaFormUbah}
+          />
         ))}
       </div>
+
+      {/* Dipasang hanya selama terbuka, dengan key per prospek: tiap pembukaan
+          mulai dari isian bersih atau rincian prospek yang dipilih, bukan sisa
+          pembukaan sebelumnya. */}
+      {modeForm !== null && (
+        <ProspekFormModal
+          key={modeForm.jenis === "ubah" ? modeForm.prospekId : "buat"}
+          mode={modeForm}
+          onClose={() => setModeForm(null)}
+        />
+      )}
     </div>
   );
 }

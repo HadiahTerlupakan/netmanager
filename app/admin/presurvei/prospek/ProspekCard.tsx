@@ -8,6 +8,9 @@ import { isTakBertuan } from "./prospekKolomQuery";
 /** Penanda kartu tanpa pemilik; juga dipakai test sebagai selektor teks. */
 export const TEKS_TAK_BERTUAN = "Belum ada pemilik";
 
+/** Label tombol pembuka form ubah; juga dipakai test sebagai selektor. */
+export const LABEL_TOMBOL_UBAH = "Ubah";
+
 interface ProspekCardProps {
   prospek: ProspekListItemDto;
   /** Kartu hanya bisa diseret bila pemakai boleh mengubah prospek. */
@@ -16,6 +19,8 @@ interface ProspekCardProps {
   isSedangDipindah?: boolean;
   onMulaiSeret?: () => void;
   onSelesaiSeret?: () => void;
+  /** Membuka form ubah; tombolnya hanya tampil bila diisi. */
+  onUbah?: () => void;
 }
 
 /**
@@ -35,6 +40,7 @@ export function ProspekCard({
   isSedangDipindah = false,
   onMulaiSeret,
   onSelesaiSeret,
+  onUbah,
 }: ProspekCardProps) {
   const sumber = PROSPEK_SUMBER_CONFIG[prospek.sumber];
   const isTanpaPemilik = isTakBertuan(prospek);
@@ -83,6 +89,15 @@ export function ProspekCard({
           >
             {prospek.pemilikId}
           </span>
+        )}
+        {onUbah && (
+          <button
+            type="button"
+            onClick={onUbah}
+            className="ml-auto rounded px-1.5 py-0.5 font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+          >
+            {LABEL_TOMBOL_UBAH}
+          </button>
         )}
       </div>
     </article>

@@ -60,17 +60,37 @@ vi.mock("@/hooks/use-permission", () => ({
   usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
 }));
 
+// Modal diganti penanda yang mencetak mode-nya: yang dikunci di sini hanya
+// kabel papan → modal. Isi modal diuji di `presurvei-prospek-form-modal.test.tsx`.
+vi.mock("@/app/admin/presurvei/prospek/ProspekFormModal", () => ({
+  ProspekFormModal: ({
+    mode,
+    onClose,
+  }: {
+    mode: unknown;
+    onClose: () => void;
+  }) => (
+    <div data-modal-prospek={JSON.stringify(mode)}>
+      <button type="button" onClick={onClose}>
+        tutup-modal-palsu
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("react-hot-toast", () => ({
   toast: Object.assign(palsu.toast, { success: vi.fn(), error: vi.fn() }),
 }));
 
 import {
   LABEL_SAKELAR_KOLOM_MATI,
+  LABEL_TOMBOL_TAMBAH_PROSPEK,
   ProspekKanbanClient,
   TEKS_KOLOM_GAGAL,
   TEKS_KOLOM_KOSONG,
 } from "@/app/admin/presurvei/prospek/ProspekKanbanClient";
 import {
+  LABEL_TOMBOL_UBAH,
   ProspekCard,
   TEKS_TAK_BERTUAN,
 } from "@/app/admin/presurvei/prospek/ProspekCard";
@@ -463,5 +483,92 @@ describe("ProspekKanbanClient — seret", () => {
     expect(kartuDi("BARU").className).not.toContain("cursor-grab");
     expect(kartuDi("DIHUBUNGI").getAttribute("aria-busy")).toBe("false");
     expect(kartuDi("DIHUBUNGI").className).toContain("cursor-grab");
+  });
+});
+
+describe("ProspekKanbanClient — form prospek", () => {
+  function tombol(teks: string): HTMLButtonElement | undefined {
+    return [...container.querySelectorAll("button")].find(
+      (elemen) => elemen.textContent.trim() === teks,
+    );
+  }
+
+  function modeModal(): unknown {
+    const modal = container.querySelector("[data-modal-prospek]");
+    return modal === null
+      ? null
+      : JSON.parse(modal.getAttribute("data-modal-prospek"));
+  }
+
+  it("tidak memasang modal sebelum diminta", async () => {
+    await render(<ProspekKanbanClient />);
+
+    expect(modeModal()).toBeNull();
+  });
+
+  it("membuka modal mode buat dari tombol tambah", async () => {
+    await render(<ProspekKanbanClient />);
+
+    await act(async () => {
+      tombol(LABEL_TOMBOL_TAMBAH_PROSPEK).click();
+    });
+
+    expect(modeModal()).toEqual({ jenis: "buat" });
+  });
+
+  it("membuka modal mode ubah untuk kartu yang tombol ubahnya ditekan", async () => {
+    palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+      status === "TERTARIK"
+        ? kolomTiba({
+            kartu: [prospek({ id: "p-7", status: "TERTARIK" })],
+            total: 1,
+          })
+        : kolomTiba(),
+    );
+    await render(<ProspekKanbanClient />);
+
+    await act(async () => {
+      tombol(LABEL_TOMBOL_UBAH).click();
+    });
+
+    expect(modeModal()).toEqual({ jenis: "ubah", prospekId: "p-7" });
+  });
+
+  it("melepas modal saat ditutup", async () => {
+    await render(<ProspekKanbanClient />);
+    await act(async () => {
+      tombol(LABEL_TOMBOL_TAMBAH_PROSPEK).click();
+    });
+
+    await act(async () => {
+      tombol("tutup-modal-palsu").click();
+    });
+
+    expect(modeModal()).toBeNull();
+  });
+
+  it("memeriksa permission yang sama dengan gerbang POST untuk tombol tambah", async () => {
+    palsu.hasAnyPermission.mockImplementation(
+      (izin: string[]) => !izin.includes("presurvei:create"),
+    );
+    await render(<ProspekKanbanClient />);
+
+    expect(tombol(LABEL_TOMBOL_TAMBAH_PROSPEK)).toBeUndefined();
+    expect(palsu.hasAnyPermission).toHaveBeenCalledWith([
+      "presurvei:create",
+      "m_presurvei:create",
+    ]);
+  });
+
+  it("tidak menawarkan tombol ubah tanpa permission ubah", async () => {
+    palsu.hasAnyPermission.mockImplementation(
+      (izin: string[]) => !izin.includes("presurvei:update"),
+    );
+    palsu.useProspekKolom.mockImplementation(() =>
+      kolomTiba({ kartu: [prospek({})], total: 1 }),
+    );
+    await render(<ProspekKanbanClient />);
+
+    expect(tombol(LABEL_TOMBOL_UBAH)).toBeUndefined();
   });
 });
