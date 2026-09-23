@@ -12,7 +12,11 @@ import {
 } from "@/modules/presurvei/client";
 
 import { ProspekCard } from "./ProspekCard";
-import { teksJumlahKolom } from "./prospekKolomQuery";
+import {
+  keadaanKolom,
+  teksJumlahKolom,
+  type KeadaanKolom,
+} from "./prospekKolomQuery";
 import { useProspekKolom } from "./useProspekKolom";
 
 /** Jumlah kerangka kartu yang mengisi kolom selama halaman pertamanya dimuat. */
@@ -21,11 +25,99 @@ const JUMLAH_KERANGKA_KARTU = 3;
 /** Label sakelar kolom mati; juga dipakai test sebagai selektor. */
 export const LABEL_SAKELAR_KOLOM_MATI = "Tampilkan prospek yang gugur";
 
+/** Pesan badan kolom yang halaman pertamanya gagal dimuat. */
+export const TEKS_KOLOM_GAGAL = "Kolom ini gagal dimuat";
+
+/** Pesan badan kolom yang memang tidak punya prospek. */
+export const TEKS_KOLOM_KOSONG = "Belum ada prospek di tahap ini";
+
+/** Pesan kecil saat kartu sudah ada tetapi halaman berikutnya gagal. */
+const TEKS_SEBAGIAN_GAGAL = "Sebagian kartu gagal dimuat";
+
+type ProspekKolomData = ReturnType<typeof useProspekKolom>;
+
+/** Badan kolom sesuai keadaannya; kartu hanya dirender saat `berisi`. */
+function BadanKolom({
+  keadaan,
+  kartu,
+}: {
+  keadaan: KeadaanKolom;
+  kartu: ProspekKolomData["kartu"];
+}) {
+  switch (keadaan) {
+    case "memuat":
+      return (
+        <>
+          {Array.from({ length: JUMLAH_KERANGKA_KARTU }, (_, index) => (
+            <Skeleton key={index} className="h-20 w-full" />
+          ))}
+        </>
+      );
+    case "gagal":
+      return (
+        <p role="alert" className="px-3 py-8 text-center text-xs text-red-600">
+          {TEKS_KOLOM_GAGAL}
+        </p>
+      );
+    case "kosong":
+      return (
+        <p className="px-3 py-8 text-center text-xs text-gray-400">
+          {TEKS_KOLOM_KOSONG}
+        </p>
+      );
+    case "berisi":
+      return (
+        <>
+          {kartu.map((prospek) => (
+            <ProspekCard key={prospek.id} prospek={prospek} />
+          ))}
+        </>
+      );
+  }
+}
+
+/**
+ * Tombol kaki kolom: satu jalan untuk memuat lebih maupun mencoba lagi.
+ *
+ * Bila ada halaman yang gagal, `muatLebih` mengambil ulang halaman itu alih-
+ * alih maju (`useProspekKolom`), jadi labelnya ikut berganti.
+ */
+function TombolKakiKolom({ kolom }: { kolom: ProspekKolomData }) {
+  const isAdaGagal = kolom.halamanGagal !== null;
+  if (kolom.isLoading || (!isAdaGagal && !kolom.adaLagi)) return null;
+
+  return (
+    <>
+      {isAdaGagal && kolom.kartu.length > 0 && (
+        <p role="alert" className="text-center text-xs text-red-600">
+          {TEKS_SEBAGIAN_GAGAL}
+        </p>
+      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full"
+        loading={kolom.isMemuatLebih}
+        disabled={kolom.isMemuatLebih}
+        onClick={kolom.muatLebih}
+      >
+        {isAdaGagal ? "Coba lagi" : "Muat lebih"}
+      </Button>
+    </>
+  );
+}
+
 /** Satu kolom papan: mengambil datanya sendiri dan memuat lebih sendiri. */
 function ProspekKolom({ status }: { status: ProspekStatus }) {
-  const { kartu, total, adaLagi, isLoading, isMemuatLebih, muatLebih } =
-    useProspekKolom(status);
+  const kolom = useProspekKolom(status);
   const tampilan = PROSPEK_STATUS_CONFIG[status];
+  const keadaan = keadaanKolom({
+    isLoading: kolom.isLoading,
+    halamanGagal: kolom.halamanGagal,
+    jumlahKartu: kolom.kartu.length,
+  });
+  // Tanpa meta, "0 dari 0" di kolom yang gagal akan berbohong.
+  const isJumlahDiketahui = keadaan === "kosong" || keadaan === "berisi";
 
   return (
     <section
@@ -39,40 +131,16 @@ function ProspekKolom({ status }: { status: ProspekStatus }) {
         >
           {tampilan.label}
         </span>
-        {!isLoading && (
+        {isJumlahDiketahui && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {teksJumlahKolom(kartu.length, total)}
+            {teksJumlahKolom(kolom.kartu.length, kolom.total)}
           </span>
         )}
       </header>
 
       <div className="min-h-32 flex-1 space-y-2 overflow-y-auto p-2">
-        {isLoading ? (
-          Array.from({ length: JUMLAH_KERANGKA_KARTU }, (_, index) => (
-            <Skeleton key={index} className="h-20 w-full" />
-          ))
-        ) : kartu.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs text-gray-400">
-            Belum ada prospek di tahap ini
-          </p>
-        ) : (
-          kartu.map((prospek) => (
-            <ProspekCard key={prospek.id} prospek={prospek} />
-          ))
-        )}
-
-        {adaLagi && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            loading={isMemuatLebih}
-            disabled={isMemuatLebih}
-            onClick={muatLebih}
-          >
-            Muat lebih
-          </Button>
-        )}
+        <BadanKolom keadaan={keadaan} kartu={kolom.kartu} />
+        <TombolKakiKolom kolom={kolom} />
       </div>
     </section>
   );

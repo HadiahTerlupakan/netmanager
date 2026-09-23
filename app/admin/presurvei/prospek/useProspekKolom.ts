@@ -10,6 +10,7 @@ import type {
 } from "@/modules/presurvei/client";
 import {
   buildProspekKolomUrl,
+  cariHalamanGagal,
   daftarHalaman,
   gabungKartu,
   HALAMAN_PERTAMA,
@@ -17,6 +18,7 @@ import {
   KUNCI_KOLOM_PROSPEK,
   muatanSetelahMuatLebih,
   ringkasJumlahKolom,
+  tentukanLangkahMuat,
   type MetaKolom,
   type MuatanKolom,
 } from "./prospekKolomQuery";
@@ -32,9 +34,10 @@ const PESAN_GAGAL = "Gagal memuat papan prospek";
  * Id toast bersama seluruh kolom.
  *
  * Papan memasang lima sampai tujuh kolom sekaligus, dan saat server menolak
- * semuanya gagal bersamaan. Toast ber-id sama diperbarui alih-alih ditumpuk —
- * reducer `react-hot-toast` mengubah ADD jadi UPDATE bila id-nya sudah ada
- * (`node_modules/react-hot-toast/dist/index.mjs`, cabang `case 2`).
+ * semuanya gagal bersamaan. `toast.error` men-dispatch UPSERT, yang di reducer
+ * `react-hot-toast` menjadi UPDATE bila id-nya sudah ada dan ADD bila belum
+ * (`node_modules/react-hot-toast/dist/index.mjs`, cabang `case 2`) — jadi
+ * toast ber-id sama diperbarui alih-alih ditumpuk.
  */
 const ID_TOAST_GAGAL = "presurvei-prospek-kolom-gagal";
 
@@ -76,24 +79,50 @@ export function useProspekKolom(status: ProspekStatus) {
     })),
   });
 
-  const isGagal = hasilPerHalaman.some((hasil) => hasil.error !== null);
+  const halamanGagal = cariHalamanGagal(
+    hasilPerHalaman.map((hasil) => hasil.error !== null),
+  );
 
   useEffect(() => {
-    if (isGagal) toast.error(PESAN_GAGAL, { id: ID_TOAST_GAGAL });
-  }, [isGagal]);
+    if (halamanGagal !== null) {
+      toast.error(PESAN_GAGAL, { id: ID_TOAST_GAGAL });
+    }
+  }, [halamanGagal]);
 
   const { total, adaLagi } = ringkasJumlahKolom(
-    hasilPerHalaman.map((hasil) => hasil.data?.meta),
+    hasilPerHalaman.map((hasil) => ({
+      meta: hasil.data?.meta,
+      diperbaruiPada: hasil.dataUpdatedAt,
+    })),
     halaman,
   );
+
+  /**
+   * Aksi tombol kaki kolom: coba ulang halaman gagal pertama bila ada, baru
+   * maju ke halaman berikutnya bila semuanya berhasil. Satu jalan pemulihan
+   * untuk kolom yang gagal dari awal maupun yang gagal di tengah.
+   */
+  const muatLebih = () => {
+    const langkah = tentukanLangkahMuat(halamanGagal);
+    if (langkah.jenis === "coba-lagi") {
+      void hasilPerHalaman[langkah.halaman - 1].refetch();
+      return;
+    }
+    setMuatan((lama) => muatanSetelahMuatLebih(lama, status));
+  };
+
+  const isMencobaLagi =
+    halamanGagal !== null && hasilPerHalaman[halamanGagal - 1].isFetching;
 
   return {
     kartu: gabungKartu(hasilPerHalaman.map((hasil) => hasil.data?.data)),
     total,
     adaLagi,
+    halamanGagal,
     isLoading: hasilPerHalaman[0].isPending,
     isMemuatLebih:
-      halaman > HALAMAN_PERTAMA && hasilPerHalaman[halaman - 1].isPending,
-    muatLebih: () => setMuatan((lama) => muatanSetelahMuatLebih(lama, status)),
+      isMencobaLagi ||
+      (halaman > HALAMAN_PERTAMA && hasilPerHalaman[halaman - 1].isPending),
+    muatLebih,
   };
 }

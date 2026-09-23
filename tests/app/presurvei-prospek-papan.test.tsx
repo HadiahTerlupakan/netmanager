@@ -26,6 +26,7 @@ type KolomPalsu = {
   kartu: ProspekListItemDto[];
   total: number;
   adaLagi: boolean;
+  halamanGagal: number | null;
   isLoading: boolean;
   isMemuatLebih: boolean;
   muatLebih: () => void;
@@ -42,6 +43,8 @@ vi.mock("@/app/admin/presurvei/prospek/useProspekKolom", () => ({
 import {
   LABEL_SAKELAR_KOLOM_MATI,
   ProspekKanbanClient,
+  TEKS_KOLOM_GAGAL,
+  TEKS_KOLOM_KOSONG,
 } from "@/app/admin/presurvei/prospek/ProspekKanbanClient";
 import {
   ProspekCard,
@@ -72,6 +75,7 @@ function kolomTiba(ubahan: Partial<KolomPalsu> = {}): KolomPalsu {
     kartu: [],
     total: 0,
     adaLagi: false,
+    halamanGagal: null,
     isLoading: false,
     isMemuatLebih: false,
     muatLebih: vi.fn(),
@@ -231,5 +235,52 @@ describe("ProspekKanbanClient", () => {
     });
 
     expect(muatLebihDeal).toHaveBeenCalledTimes(1);
+  });
+
+  it("menampilkan kolom gagal sebagai gagal, bukan kosong", async () => {
+    const cobaLagiBaru = vi.fn();
+    palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+      status === "BARU"
+        ? kolomTiba({ halamanGagal: 1, muatLebih: cobaLagiBaru })
+        : kolomTiba(),
+    );
+
+    await render(<ProspekKanbanClient />);
+
+    const teksBaru = kolom("BARU").textContent;
+    expect(teksBaru).toContain(TEKS_KOLOM_GAGAL);
+    expect(teksBaru).not.toContain(TEKS_KOLOM_KOSONG);
+    // Tanpa meta, "0 dari 0" di kolom yang gagal berbohong.
+    expect(teksBaru).not.toContain("menampilkan");
+    expect(kolom("DEAL").textContent).toContain(TEKS_KOLOM_KOSONG);
+
+    const tombol = [...kolom("BARU").querySelectorAll("button")].find(
+      (elemen) => elemen.textContent.includes("Coba lagi"),
+    );
+    expect(tombol).toBeDefined();
+    await act(async () => {
+      tombol.click();
+    });
+    expect(cobaLagiBaru).toHaveBeenCalledTimes(1);
+  });
+
+  it("tetap menampilkan kartu dan menawarkan coba lagi saat halaman berikutnya gagal", async () => {
+    palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+      status === "TERTARIK"
+        ? kolomTiba({
+            kartu: [prospek({ nama: "Bu Sari" })],
+            total: 47,
+            adaLagi: true,
+            halamanGagal: 2,
+          })
+        : kolomTiba(),
+    );
+
+    await render(<ProspekKanbanClient />);
+
+    const teks = kolom("TERTARIK").textContent;
+    expect(teks).toContain("Bu Sari");
+    expect(teks).toContain("Coba lagi");
+    expect(teks).not.toContain("Muat lebih");
   });
 });

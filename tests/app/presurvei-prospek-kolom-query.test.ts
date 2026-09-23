@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProspekKolomUrl,
+  cariHalamanGagal,
   daftarHalaman,
   gabungKartu,
   halamanTermuat,
   isTakBertuan,
+  keadaanKolom,
   muatanSetelahMuatLebih,
   ringkasJumlahKolom,
   teksJumlahKolom,
+  tentukanLangkahMuat,
 } from "@/app/admin/presurvei/prospek/prospekKolomQuery";
 import type { ProspekListItemDto } from "@/modules/presurvei/client";
 
@@ -114,13 +117,27 @@ describe("gabungKartu", () => {
 });
 
 describe("ringkasJumlahKolom", () => {
-  it("membaca total dan sisa halaman dari meta terjauh yang tiba", () => {
+  it("membaca meta yang terakhir tiba, bukan halaman terjauh", () => {
+    // Setelah invalidasi semua halaman diambil ulang bersamaan; di sini
+    // halaman satu dijawab paling akhir dan hitungannya yang paling baru.
+    expect(
+      ringkasJumlahKolom(
+        [
+          { meta: { total: 48, totalPages: 3 }, diperbaruiPada: 2000 },
+          { meta: { total: 47, totalPages: 2 }, diperbaruiPada: 1000 },
+        ],
+        2,
+      ),
+    ).toEqual({ total: 48, adaLagi: true });
+  });
+
+  it("membaca halaman berikutnya bila ia yang lebih baru", () => {
     // Nilai kedua meta sengaja berbeda: membaca meta yang salah terlihat.
     expect(
       ringkasJumlahKolom(
         [
-          { total: 40, totalPages: 2 },
-          { total: 47, totalPages: 3 },
+          { meta: { total: 40, totalPages: 2 }, diperbaruiPada: 1000 },
+          { meta: { total: 47, totalPages: 3 }, diperbaruiPada: 2000 },
         ],
         2,
       ),
@@ -128,23 +145,81 @@ describe("ringkasJumlahKolom", () => {
   });
 
   it("tidak menawarkan halaman lagi di halaman terakhir", () => {
-    expect(ringkasJumlahKolom([{ total: 12, totalPages: 1 }], 1)).toEqual({
-      total: 12,
-      adaLagi: false,
-    });
+    expect(
+      ringkasJumlahKolom(
+        [{ meta: { total: 12, totalPages: 1 }, diperbaruiPada: 1000 }],
+        1,
+      ),
+    ).toEqual({ total: 12, adaLagi: false });
   });
 
-  it("memakai meta terakhir yang sudah tiba selama halaman baru dimuat", () => {
+  it("melewati halaman yang belum punya meta", () => {
     expect(
-      ringkasJumlahKolom([{ total: 47, totalPages: 3 }, undefined], 2),
+      ringkasJumlahKolom(
+        [
+          { meta: { total: 47, totalPages: 3 }, diperbaruiPada: 1000 },
+          { meta: undefined, diperbaruiPada: 0 },
+        ],
+        2,
+      ),
     ).toEqual({ total: 47, adaLagi: true });
   });
 
   it("menganggap kolom kosong sebelum meta apa pun tiba", () => {
-    expect(ringkasJumlahKolom([undefined], 1)).toEqual({
-      total: 0,
-      adaLagi: false,
-    });
+    expect(
+      ringkasJumlahKolom([{ meta: undefined, diperbaruiPada: 0 }], 1),
+    ).toEqual({ total: 0, adaLagi: false });
+  });
+});
+
+describe("cariHalamanGagal", () => {
+  it("menunjuk halaman gagal pertama, dihitung dari satu", () => {
+    expect(cariHalamanGagal([false, true, true])).toBe(2);
+  });
+
+  it("menunjuk halaman pertama bila ia yang gagal", () => {
+    expect(cariHalamanGagal([true, false])).toBe(1);
+  });
+
+  it("null bila semua halaman berhasil", () => {
+    expect(cariHalamanGagal([false, false])).toBeNull();
+  });
+});
+
+describe("tentukanLangkahMuat", () => {
+  it("mencoba ulang halaman yang gagal alih-alih maju", () => {
+    // Maju melewati halaman gagal membuang dua puluh kartu tanpa jejak.
+    expect(tentukanLangkahMuat(2)).toEqual({ jenis: "coba-lagi", halaman: 2 });
+  });
+
+  it("maju bila tidak ada halaman yang gagal", () => {
+    expect(tentukanLangkahMuat(null)).toEqual({ jenis: "maju" });
+  });
+});
+
+describe("keadaanKolom", () => {
+  it("membedakan kolom gagal dari kolom kosong", () => {
+    expect(
+      keadaanKolom({ isLoading: false, halamanGagal: 1, jumlahKartu: 0 }),
+    ).toBe("gagal");
+  });
+
+  it("kosong hanya bila tidak ada yang gagal", () => {
+    expect(
+      keadaanKolom({ isLoading: false, halamanGagal: null, jumlahKartu: 0 }),
+    ).toBe("kosong");
+  });
+
+  it("tetap berisi walau halaman berikutnya gagal", () => {
+    expect(
+      keadaanKolom({ isLoading: false, halamanGagal: 2, jumlahKartu: 20 }),
+    ).toBe("berisi");
+  });
+
+  it("memuat selama halaman pertama belum tiba", () => {
+    expect(
+      keadaanKolom({ isLoading: true, halamanGagal: null, jumlahKartu: 0 }),
+    ).toBe("memuat");
   });
 });
 

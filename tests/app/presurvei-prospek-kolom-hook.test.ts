@@ -30,6 +30,9 @@ type HasilQueryPalsu = {
     | undefined;
   error: Error | null;
   isPending: boolean;
+  isFetching: boolean;
+  dataUpdatedAt: number;
+  refetch: () => Promise<unknown>;
 };
 
 type KonfigQueries = {
@@ -63,14 +66,18 @@ vi.mock("react-hot-toast", () => ({
 vi.mock("@tanstack/react-query", () => ({
   useQueries: (konfig: KonfigQueries): HasilQueryPalsu[] => {
     palsu.konfigQueries(konfig);
-    return konfig.queries.map(({ queryKey }) => {
+    return konfig.queries.map(({ queryKey }): HasilQueryPalsu => {
       const halaman = queryKey[2] as number;
+      const sedangDimuat: HasilQueryPalsu = {
+        data: undefined,
+        error: null,
+        isPending: true,
+        isFetching: true,
+        dataUpdatedAt: 0,
+        refetch: async () => undefined,
+      };
       return (
-        (palsu.hasilPerHalaman.get(halaman) as HasilQueryPalsu) ?? {
-          data: undefined,
-          error: null,
-          isPending: true,
-        }
+        (palsu.hasilPerHalaman.get(halaman) as HasilQueryPalsu) ?? sedangDimuat
       );
     });
   },
@@ -95,11 +102,29 @@ function kartu(id: string): ProspekListItemDto {
 function halamanTiba(
   ids: string[],
   meta: { total: number; totalPages: number },
+  dataUpdatedAt = 1000,
 ): HasilQueryPalsu {
   return {
     data: { data: ids.map(kartu), meta },
     error: null,
     isPending: false,
+    isFetching: false,
+    dataUpdatedAt,
+    refetch: async () => undefined,
+  };
+}
+
+/** Halaman yang ditolak server; `refetch` bisa diamati. */
+function halamanGagal(
+  refetch: () => Promise<unknown> = async () => undefined,
+): HasilQueryPalsu {
+  return {
+    data: undefined,
+    error: new Error("500"),
+    isPending: false,
+    isFetching: false,
+    dataUpdatedAt: 0,
+    refetch,
   };
 }
 
@@ -220,7 +245,7 @@ describe("useProspekKolom", () => {
     );
     palsu.hasilPerHalaman.set(
       2,
-      halamanTiba(["p2", "p3"], { total: 47, totalPages: 3 }),
+      halamanTiba(["p2", "p3"], { total: 47, totalPages: 3 }, 2000),
     );
 
     useProspekKolom("TERTARIK").muatLebih();
@@ -251,11 +276,7 @@ describe("useProspekKolom", () => {
   });
 
   it("memberi tahu pemakai dengan satu toast bersama saat gagal", () => {
-    palsu.hasilPerHalaman.set(1, {
-      data: undefined,
-      error: new Error("500"),
-      isPending: false,
-    });
+    palsu.hasilPerHalaman.set(1, halamanGagal());
 
     useProspekKolom("NEGOSIASI");
 
@@ -274,5 +295,61 @@ describe("useProspekKolom", () => {
     useProspekKolom("NEGOSIASI");
 
     expect(palsu.toastError).not.toHaveBeenCalled();
+  });
+
+  it("memberi tahu pemakai saat hanya halaman berikutnya yang gagal", () => {
+    // Halaman satu sukses: pemeriksaan yang hanya membaca halaman pertama,
+    // atau yang menuntut SEMUA halaman gagal, diam di sini.
+    palsu.hasilPerHalaman.set(
+      1,
+      halamanTiba(["p1"], { total: 30, totalPages: 2 }),
+    );
+    palsu.hasilPerHalaman.set(2, halamanGagal());
+
+    useProspekKolom("DEAL").muatLebih();
+    const kolom = useProspekKolom("DEAL");
+
+    expect(kolom.halamanGagal).toBe(2);
+    expect(palsu.toastError).toHaveBeenCalledWith(
+      "Gagal memuat papan prospek",
+      { id: "presurvei-prospek-kolom-gagal" },
+    );
+  });
+
+  it("mencoba ulang halaman gagal alih-alih maju ke halaman berikutnya", () => {
+    const refetchHalamanDua = vi.fn(async () => undefined);
+    palsu.hasilPerHalaman.set(
+      1,
+      halamanTiba(["p1"], { total: 47, totalPages: 3 }),
+    );
+    palsu.hasilPerHalaman.set(2, halamanGagal(refetchHalamanDua));
+
+    useProspekKolom("DEAL").muatLebih();
+    // Halaman dua gagal; klik berikutnya harus mengambil ulang halaman dua.
+    useProspekKolom("DEAL").muatLebih();
+    useProspekKolom("DEAL");
+
+    expect(refetchHalamanDua).toHaveBeenCalledTimes(1);
+    expect(kunciTerakhir()).toEqual([
+      ["presurvei-prospek-kolom", "DEAL", 1],
+      ["presurvei-prospek-kolom", "DEAL", 2],
+    ]);
+  });
+
+  it("mencoba ulang halaman pertama kolom yang gagal dari awal", () => {
+    const refetchHalamanSatu = vi.fn(async () => undefined);
+    palsu.hasilPerHalaman.set(1, halamanGagal(refetchHalamanSatu));
+
+    useProspekKolom("BARU").muatLebih();
+    useProspekKolom("BARU");
+
+    expect(refetchHalamanSatu).toHaveBeenCalledTimes(1);
+    expect(kunciTerakhir()).toEqual([["presurvei-prospek-kolom", "BARU", 1]]);
+  });
+
+  it("menandai tombol sibuk selama halaman gagal diambil ulang", () => {
+    palsu.hasilPerHalaman.set(1, { ...halamanGagal(), isFetching: true });
+
+    expect(useProspekKolom("BARU").isMemuatLebih).toBe(true);
   });
 });
