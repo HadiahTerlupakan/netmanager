@@ -1615,7 +1615,7 @@ export default async function Page() {
 }
 ```
 
-Create `app/admin/presurvei/iklan/[id]/edit/page.tsx` dengan pola sama, memakai permission `presurvei_iklan:update` dan meneruskan `params.id` ke `IklanEditClient`.
+Create `app/admin/presurvei/iklan/[id]/edit/page.tsx` dengan pola sama, memakai permission `presurvei_iklan:update` dan meneruskan id ke `IklanEditClient`. **`params` adalah `Promise` di Next 16** — deklarasikan `params: Promise<{ id: string }>` lalu `const { id } = await params;`. Pola ini dipakai 90 berkas lain di `app/`.
 
 `IklanCreateClient` memakai `useState(NILAI_FORM_KOSONG)` dan mengirim `POST` ke `/api/admin/presurvei/iklan`. `IklanEditClient` memuat detail lewat `useApi`, mengisi form lewat `keNilaiForm`, dan mengirim `PATCH` ke `/api/admin/presurvei/iklan/{id}`.
 
@@ -2194,7 +2194,7 @@ export function blokYangTampil(kegiatan: KegiatanDetailDto): BlokDetail {
 
 - [ ] **Step 4: Tulis halaman dan komponennya**
 
-Create `app/admin/presurvei/kegiatan/[id]/page.tsx` dengan gerbang `ensureAnyPermission(["presurvei:read", "m_presurvei:read"])`, meneruskan `params.id`.
+Create `app/admin/presurvei/kegiatan/[id]/page.tsx` dengan gerbang `ensureAnyPermission(["presurvei:read", "m_presurvei:read"])`. **`params` adalah `Promise` di Next 16** — deklarasikan `params: Promise<{ id: string }>` lalu `const { id } = await params;`, jangan `params.id` langsung. Pola ini dipakai 90 berkas lain di `app/`.
 
 `KegiatanDetailClient.tsx` memuat detail lewat `useApi<{ data: KegiatanDetailDto }>` ke `/api/presurvei/kegiatan/{id}`, lalu merender: ringkasan (waktu, sales, jenis, hasil, alamat, orang yang ditemui), catatan, dan ketiga blok opsional menurut `blokYangTampil`.
 
