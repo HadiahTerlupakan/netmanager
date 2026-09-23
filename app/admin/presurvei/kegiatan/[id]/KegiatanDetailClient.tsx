@@ -236,9 +236,11 @@ interface MuatanProps {
  * dipertahankan meski tak terjangkau hari ini karena `useApi<T>` menipekan
  * `data` sebagai `T | undefined`, dan dengan `strictNullChecks: false` tidak
  * ada satu pun yang akan menolak `IsiDetailKegiatan` menerima `undefined` —
- * yang berakhir sebagai layar putih. Ketakterjangkauannya bergantung pada
- * invarian di dua berkas lain (`fetchWithHandling` melempar, `useApi`
- * mengaktifkan query-nya), bukan pada apa pun yang terlihat dari sini.
+ * yang tetap crash saat render, lalu ditangkap `ErrorBoundary` di
+ * `app/admin/layout.tsx:53` sebagai kegagalan generik ("Terjadi Kesalahan",
+ * "Coba Lagi") — bukan pesan yang berarti bagi pemakai. Ketakterjangkauannya
+ * bergantung pada invarian di dua berkas lain (`fetchWithHandling` melempar,
+ * `useApi` mengaktifkan query-nya), bukan pada apa pun yang terlihat dari sini.
  *
  * `IklanEditClient.tsx` punya bentuk yang sama persis, dan karena
  * `IklanService.detail` juga melempar 404, keterangan di atas berlaku untuk
