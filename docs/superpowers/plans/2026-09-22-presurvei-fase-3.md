@@ -2196,7 +2196,7 @@ export function blokYangTampil(kegiatan: KegiatanDetailDto): BlokDetail {
 
 Create `app/admin/presurvei/kegiatan/[id]/page.tsx` dengan gerbang `ensureAnyPermission(["presurvei:read", "m_presurvei:read"])`. **`params` adalah `Promise` di Next 16** — deklarasikan `params: Promise<{ id: string }>` lalu `const { id } = await params;`, jangan `params.id` langsung. Pola ini dipakai 90 berkas lain di `app/`.
 
-`KegiatanDetailClient.tsx` memuat detail lewat `useApi<{ data: KegiatanDetailDto }>` ke `/api/presurvei/kegiatan/{id}`, lalu merender: ringkasan (waktu, sales, jenis, hasil, alamat, orang yang ditemui), catatan, dan ketiga blok opsional menurut `blokYangTampil`.
+`KegiatanDetailClient.tsx` memuat detail lewat `useApi<KegiatanDetailDto>` ke `/api/presurvei/kegiatan/{id}` — **bukan** `useApi<{ data: ... }>`: `apiFetcher` sudah membuka amplopnya (`lib/utils/fetch-wrapper.ts:76` mengembalikan `data.data ?? data`), jadi membungkusnya lagi membuat `.data` menjadi `undefined`. Itu lolos `tsc` karena `strictNullChecks: false` dan lolos seluruh suite karena tak ada test yang merender — halamannya baru mati saat dibuka. Preseden benar: `IklanEditClient.tsx:61`, lalu merender: ringkasan (waktu, sales, jenis, hasil, alamat, orang yang ditemui), catatan, dan ketiga blok opsional menurut `blokYangTampil`.
 
 Blok peta memuat komponen yang sama dengan Task 8 lewat `dynamic(..., { ssr: false })`, dengan satu titik.
 
