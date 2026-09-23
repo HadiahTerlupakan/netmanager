@@ -2,20 +2,27 @@
 
 ## Event Naming Convention
 
+Sumber kebenaran: registry `EVENT_TYPES` di `lib/event-bus/types.ts`. Nama event
+baru wajib didaftarkan di sana dan mengikuti pola berikut (titik dua memisahkan domain).
+
 ```typescript
-// Pattern: <domain>.<entity>.<action>
-"attendance.leave.approved"
-"finance.invoice.paid"
-"work-order.task.completed"
-"users.user.created"
+// Pattern: <domain>:<entity>.<action>
+"users:user.created"
+"billing:invoice.paid"
+"finance:expense.approved"
+"presurvei:prospek.converted"
 ```
+
+Sebagian event lama di registry berpola `<domain>:<action>` tanpa entity (mis.
+`"customer:created"`, `"attendance:checkin"`). Bentuk itu warisan; jangan dipakai
+untuk event baru.
 
 ## Event Payload Structure
 
 ```typescript
 interface DomainEvent<T> {
   id: string;              // Unique event ID
-  type: string;            // Event type (e.g., "attendance.leave.approved")
+  type: string;            // Event type (e.g., "presurvei:prospek.converted")
   version: number;         // Schema version
   timestamp: Date;         // When event occurred
   userId: string;          // Who triggered the event

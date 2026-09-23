@@ -41,6 +41,54 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-23] — Validasi Zod untuk prospekId daftar sales presurvei
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/admin/presurvei/sales`
+- **Author**: agent
+- **Deskripsi**: `GET /api/admin/presurvei/sales` membaca `?prospekId=` mentah. Kini
+  query divalidasi `daftarSalesPresurveiSchema`: `prospekId` opsional dan wajib UUID,
+  sesuai `PresurveiProspek.id` (`@default(uuid())`). Id tak valid — termasuk string
+  kosong `?prospekId=` — dibalas 400 `VALIDATION_ERROR` oleh `createHandler` sebelum
+  menyentuh database. Tanpa `prospekId` perilakunya tetap.
+- **Files**: `modules/presurvei/validators/sales.validator.ts`,
+  `app/api/admin/presurvei/sales/route.ts`, `modules/presurvei/index.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Isolasi tenant prospek acuan pindah ke repository
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Cakupan tenant prospek acuan daftar calon pemilik tidak lagi
+  dibandingkan di `SalesPresurveiService`, melainkan ditegakkan
+  `ProspekRepository.findByIdDalamCakupan`: cakupan satu tenant menulis
+  `where: { id, tenantId }` dan menolak `tenantId` kosong dengan `TenantContextError`
+  (fail-closed); lintas tenant (super admin) mencari lewat id saja. Service hanya
+  memutuskan 404 atau 422. Tipe `AksesTenantPresurvei` pindah ke
+  `modules/presurvei/domain/akses-tenant.ts`. Perilaku endpoint tidak berubah: 404
+  tetap mendahului 422, dan super admin tetap lintas tenant.
+- **Files**: `modules/presurvei/repositories/ProspekRepository.ts`,
+  `modules/presurvei/domain/ports/IProspekRepository.ts`,
+  `modules/presurvei/domain/akses-tenant.ts`,
+  `modules/presurvei/services/SalesPresurveiService.ts`, `modules/presurvei/index.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-23] — Luruskan konvensi nama event di standar events
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: `docs/standards/events.md` menulis pola `<domain>.<entity>.<action>`,
+  padahal registry `EVENT_TYPES` di `lib/event-bus/types.ts` memakai
+  `<domain>:<entity>.<action>` (mis. `presurvei:prospek.converted`). Pola, contoh, dan
+  contoh `type` di struktur payload diluruskan dengan menyebut registry sebagai
+  sumbernya; bentuk lama `<domain>:<action>` (mis. `customer:created`) dicatat sebagai
+  warisan. Contoh bertitik di `CLAUDE.md` ("Quick Reference > Events") BELUM diubah:
+  mengubah `CLAUDE.md` menunggu persetujuan user.
+- **Files**: `docs/standards/events.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-23] — Jalur ubah kegiatan presurvei dengan jejak audit
 
 - **Tipe**: [ADDED]
