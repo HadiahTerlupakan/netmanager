@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +51,7 @@ import type { ProspekDetailDto } from "@/modules/presurvei/client";
  * palsu.
  */
 const PETUNJUK_KABEL =
-  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter.";
+  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter. Bila survei itu mencatat 0 meter, isi kabel di sini: canvasing mensyaratkan minimal 1 meter.";
 const PETUNJUK_ODP =
   "Kosongkan untuk memakai ODP terdekat dari survei lokasi terakhir prospek ini, bila dicatat.";
 const TEKS_DUA_LANGKAH =
@@ -339,7 +343,10 @@ describe("KonversiModal — prospek yang belum DEAL", () => {
     );
   });
 
-  it("tidak mengirim PATCH lagi saat simpan diulang setelah langkah kedua gagal", async () => {
+  it("tidak mengirim PATCH lagi selama rincian belum diambil ulang", async () => {
+    // `useApi` di sini statis: memodelkan jendela sebelum pengambilan ulang
+    // rincian selesai (atau saat ia gagal). Versi yang memodelkan pengambilan
+    // ulang ada di blok "setelah rincian diambil ulang".
     mockFetch
       .mockResolvedValueOnce(respons(200, { success: true }))
       .mockResolvedValueOnce(
@@ -356,6 +363,111 @@ describe("KonversiModal — prospek yang belum DEAL", () => {
     expect(permintaan(2).url).toBe(URL_KONVERSI);
     expect(permintaan(2).method).toBe("POST");
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("setelah rincian diambil ulang", () => {
+    /**
+     * Memodelkan produksi: `useApi` palsu di sini adalah `useQuery` sungguhan
+     * berkunci `[url]`, seperti `useApi` asli. Cabang setengah jalan
+     * menginvalidasi `[URL_RINCIAN]`, query aktif itu diambil ulang, dan
+     * `KonversiModal` render ulang dengan rincian berstatus apa pun yang kini
+     * dipegang "server" — DEAL begitu PATCH diterima.
+     */
+    function rincianIkutServer() {
+      let statusServer: ProspekDetailDto["status"] = "NEGOSIASI";
+      palsu.useApi.mockImplementation((key: string): HasilApiPalsu => {
+        const kueri = useQuery({
+          queryKey: [key],
+          queryFn: async () => rincian({ status: statusServer }),
+          retry: false,
+        });
+        return {
+          data: kueri.data,
+          error: null,
+          isLoading: kueri.isLoading,
+        };
+      });
+      return () => {
+        statusServer = "DEAL";
+      };
+    }
+
+    /** Render lalu tunggu query rincian pertama selesai. */
+    async function renderSetelahRincianTiba() {
+      await renderModal();
+      await act(async () => {
+        await new Promise((selesai) => setTimeout(selesai, 0));
+      });
+      expect(cari("#konversi-ktp")).not.toBeNull();
+    }
+
+    it("simpan ulang tidak mengirim PATCH dan membuang kolom DEAL saja", async () => {
+      const terimaPatch = rincianIkutServer();
+      mockFetch
+        .mockImplementationOnce(async () => {
+          terimaPatch();
+          return respons(200, { success: true });
+        })
+        .mockResolvedValueOnce(
+          respons(400, { success: false, error: "Nomor KTP tidak valid" }),
+        )
+        .mockResolvedValueOnce(respons(200, { success: true }));
+      await renderSetelahRincianTiba();
+      await isiMedanWajib();
+      await simpan();
+      vi.mocked(queryClient.invalidateQueries).mockClear();
+
+      await simpan();
+
+      expect(
+        mockFetch.mock.calls.map((_, indeks) => {
+          const { method, url } = permintaan(indeks);
+          return `${method} ${url}`;
+        }),
+      ).toEqual([
+        `PATCH ${URL_RINCIAN}`,
+        `POST ${URL_KONVERSI}`,
+        `POST ${URL_KONVERSI}`,
+      ]);
+      expect(panggilanInvalidasi()).toEqual([
+        [{ queryKey: ["presurvei-prospek-kolom", "DEAL"] }],
+        [{ queryKey: [URL_RINCIAN] }],
+        [{ queryKey: ["canvasing-list"] }],
+      ]);
+      expect(document.body.textContent).not.toContain(TEKS_DUA_LANGKAH);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("kegagalan simpan ulang memakai pesan server apa adanya, bukan pesan setengah jalan", async () => {
+      // Statusnya memang sudah Deal, dan kepala modal menampilkannya; pesan
+      // setengah jalan hanya untuk kegagalan pertama setelah PATCH.
+      const terimaPatch = rincianIkutServer();
+      mockFetch
+        .mockImplementationOnce(async () => {
+          terimaPatch();
+          return respons(200, { success: true });
+        })
+        .mockResolvedValueOnce(
+          respons(400, { success: false, error: "Nomor KTP tidak valid" }),
+        )
+        .mockResolvedValueOnce(
+          respons(400, { success: false, error: "Paket tidak dikenal" }),
+        );
+      await renderSetelahRincianTiba();
+      await isiMedanWajib();
+      await simpan();
+
+      await simpan();
+
+      expect(palsu.toastError.mock.calls).toEqual([
+        [
+          'Status prospek sudah menjadi Deal, tetapi canvasing belum dibuat: Nomor KTP tidak valid. Perbaiki isian lalu simpan lagi, atau ulangi nanti lewat tombol "Jadikan canvasing" di kartunya.',
+          { duration: 8000 },
+        ],
+        ["Paket tidak dikenal"],
+      ]);
+      expect(document.body.textContent).toContain("Rina Wati — Deal");
+    });
   });
 
   it("menolak kabel nol sebelum mengirim apa pun", async () => {

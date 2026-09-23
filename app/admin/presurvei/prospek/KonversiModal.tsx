@@ -37,9 +37,15 @@ const PANJANG_TEKS_MAKS = 120;
  * `KABEL_BAWAAN_METER = 1` di `:22`) dan `ambilSurveiTerbaru` (`:142-152`),
  * yang mengambil SATU survei lokasi terbaru menurut `waktuMulai`
  * (`KegiatanRepository.ts:31`) — survei lebih lama tidak ikut diperiksa.
+ *
+ * Kalimat terakhirnya bersumber dari dua fakta: estimasi survei boleh 0
+ * (`modules/presurvei/validators/kegiatan.validator.ts:77-80`), dan `??`
+ * tidak menggantikan 0. Kabel 0 lalu ditolak validator marketing yang
+ * menuntut minimal 1 (`modules/marketing/validators/canvasingValidation.ts:62-65`),
+ * dan penolakan itu baru datang SETELAH PATCH ke DEAL.
  */
 export const TEKS_PETUNJUK_KABEL =
-  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter.";
+  "Kosongkan untuk memakai estimasi kabel dari survei lokasi terakhir prospek ini. Bila survei itu tidak mencatatnya atau belum ada survei, dipakai 1 meter. Bila survei itu mencatat 0 meter, isi kabel di sini: canvasing mensyaratkan minimal 1 meter.";
 
 /** Petunjuk medan ODP; benar terhadap `ProspekKonversiService.ts:171`. */
 export const TEKS_PETUNJUK_ODP =
@@ -156,7 +162,10 @@ function FormKonversi({ prospek, isOpen, onClose }: FormKonversiProps) {
     event.preventDefault();
 
     // Divalidasi sebelum permintaan apa pun: langkah pertama sudah menulis
-    // status DEAL, jadi isian yang pasti ditolak tidak boleh sampai ke sana.
+    // status DEAL, jadi ISIAN yang pasti ditolak tidak boleh sampai ke sana.
+    // Nilai yang diambil server dari survei (kabel kosong) tidak terlihat di
+    // sini. Survei yang mencatat 0 meter tetap ditolak baru setelah PATCH;
+    // lihat `TEKS_PETUNJUK_KABEL`.
     const kesalahanBaru = validasiFormKonversi(nilai);
     setKesalahan(kesalahanBaru);
     if (Object.keys(kesalahanBaru).length > 0) return;

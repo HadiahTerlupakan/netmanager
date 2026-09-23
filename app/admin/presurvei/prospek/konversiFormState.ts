@@ -107,9 +107,12 @@ function isMedanKonversi(kunci: string): kunci is keyof NilaiFormKonversi {
 /**
  * Kesalahan isian form konversi; objek kosong berarti boleh dikirim.
  *
- * Selain `jadikanCanvasingSchema`, kabel nol ditolak di sini: validator
- * marketing menuntut minimal 1 meter, dan penolakannya di server baru datang
- * SETELAH kartu non-DEAL dipindah ke DEAL.
+ * Selain `jadikanCanvasingSchema`, kabel nol yang DIISI pemakai ditolak di
+ * sini: validator marketing menuntut minimal 1 meter, dan penolakannya di
+ * server baru datang SETELAH kartu non-DEAL dipindah ke DEAL. Kabel yang
+ * dikosongkan tidak terjaga: bila survei terakhir mencatat 0 meter, server
+ * memakai 0 (`ProspekKonversiService.ts:170`, `??`) dan menolaknya setelah
+ * PATCH.
  */
 export function validasiFormKonversi(
   nilai: NilaiFormKonversi,

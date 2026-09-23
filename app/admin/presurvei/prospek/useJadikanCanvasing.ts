@@ -59,9 +59,18 @@ async function kirimJson(
  *    transisinya.
  * 2. `POST .../jadikan-canvasing`.
  *
- * Kedua langkah tidak atomik. Setelah langkah 1 berhasil, hook ini mengingat
- * bahwa prospeknya sudah DEAL, sehingga "simpan lagi" di modal yang sama
- * tidak mengirim PATCH ulang.
+ * Kedua langkah tidak atomik, dan dua keputusan membaca status dari sumber
+ * yang berbeda:
+ *
+ * - **Kirim PATCH atau tidak** membaca `statusTerkini`. State ini diisi sekali
+ *   dari `statusAsal` dan TIDAK mengikuti prop sesudahnya, jadi hanya
+ *   `setStatusTerkini("DEAL")` yang mencegah PATCH kedua saat simpan diulang
+ *   — sebelum maupun sesudah rincian diambil ulang.
+ * - **Pesan setengah jalan atau pesan server** membaca `statusAsal`, prop
+ *   yang mengikuti rincian. Cabang setengah jalan menginvalidasi rincian,
+ *   yang merupakan query aktif `useApi` di `KonversiModal`. Setelah diambil
+ *   ulang, `statusAsal` sudah `DEAL`, dan kegagalan simpan ulang ditampilkan
+ *   sebagai pesan server apa adanya; kepala modal sudah menampilkan Deal.
  */
 export function useJadikanCanvasing(
   prospekId: string,
@@ -108,8 +117,9 @@ export function useJadikanCanvasing(
       if (!konversi.isOk) {
         const alasan = formatApiError(konversi.badan, PESAN_GAGAL_KONVERSI);
         if (isPerluTandaiDeal(statusAsal)) {
-          // Kartunya sudah pindah ke DEAL di server, entah di klik ini atau
-          // klik sebelumnya di modal yang sama.
+          // Status dibaca dari rincian saat render. Bila rincian sudah diambil
+          // ulang setelah PATCH, cabang ini tidak tercapai lagi, dan kegagalan
+          // berikutnya ditangani sebagai kesalahan biasa di bawah.
           invalidasiPresurvei();
           toast.error(pesanDealTanpaCanvasing(alasan), {
             duration: DURASI_PESAN_SETENGAH_JALAN,
