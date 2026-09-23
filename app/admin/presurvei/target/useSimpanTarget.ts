@@ -39,8 +39,8 @@ export function useSimpanTarget(onBerhasil: () => void) {
 
       toast.success("Target tersimpan");
 
-      // Kunci dibentuk dari periode muatan — periode yang benar-benar
-      // disimpan, yang sama dengan periode yang sedang tampil di layar.
+      // Kunci dibentuk dari periode muatan: periode yang benar-benar
+      // disimpan.
       queryClient.invalidateQueries({
         queryKey: kunciQueryTarget({
           tahun: muatan.periodeTahun,

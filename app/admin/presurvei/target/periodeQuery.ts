@@ -34,9 +34,9 @@ const PENGATUR_NAMA_BULAN = new Intl.DateTimeFormat("id-ID", {
  * `Date.getMonth()` mengembalikan 0 untuk Januari; validator menuntut minimal
  * 1, jadi meneruskannya apa adanya membuat Januari ditolak.
  *
- * UTC dipilih supaya konsisten dengan server: batas bulan target dihitung
- * dengan `Date.UTC` di `bangunRentangBulan`
- * (`modules/presurvei/services/TargetService.ts:85-95`). Konsekuensi yang
+ * UTC dipilih supaya konsisten dengan server: batas bulan pencapaian di
+ * `laporanPencapaian` (`modules/presurvei/services/TargetService.ts:52-56`)
+ * dihitung dengan `Date.UTC` lewat `bangunRentangBulan` (baris 85-95). Konsekuensi yang
  * diterima: pemakai WIB (UTC+7) yang membuka layar pada tanggal 1 pukul
  * 00:00–06:59 melihat bulan sebelumnya sebagai periode bawaan, dan perlu
  * menggeser pemilih bulan sendiri.

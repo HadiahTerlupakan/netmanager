@@ -29,8 +29,18 @@ const { toastSukses, toastGagal } = vi.hoisted(() => ({
 type HasilQueryPalsu = {
   data: { data: unknown[] } | undefined;
   error: Error | null;
+  isError: boolean;
   isPending: boolean;
 };
+
+const HASIL_MEMUAT: HasilQueryPalsu = {
+  data: undefined,
+  error: null,
+  isError: false,
+  isPending: true,
+};
+
+const hasilQuery = vi.hoisted(() => ({ nilai: undefined as unknown }));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -46,7 +56,7 @@ vi.mock("react", async () => {
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (konfig: unknown): HasilQueryPalsu => {
     konfigQuery(konfig);
-    return { data: undefined, error: null, isPending: true };
+    return hasilQuery.nilai as HasilQueryPalsu;
   },
   useQueryClient: () => ({ invalidateQueries }),
 }));
@@ -63,6 +73,7 @@ let periodeTersimpan: Periode;
 describe("useTargetPeriode", () => {
   beforeEach(() => {
     periodeTersimpan = undefined;
+    hasilQuery.nilai = HASIL_MEMUAT;
     konfigQuery.mockReset();
     mockUseState.mockReset();
     // Nilai awal (lazy initializer) hanya dipakai pada panggilan pertama,
@@ -125,6 +136,20 @@ describe("useTargetPeriode", () => {
         ],
       }),
     );
+  });
+
+  it("meneruskan kegagalan GET supaya tabel tidak menyebutnya kosong", () => {
+    const gagal: HasilQueryPalsu = {
+      data: undefined,
+      error: new Error("Gagal memuat target"),
+      isError: true,
+      isPending: false,
+    };
+    hasilQuery.nilai = gagal;
+
+    expect(useTargetPeriode().isError).toBe(true);
+    hasilQuery.nilai = HASIL_MEMUAT;
+    expect(useTargetPeriode().isError).toBe(false);
   });
 
   it("mengambil dari URL periode yang sama dengan kunci cachenya", async () => {

@@ -36,7 +36,8 @@ export function TargetClient() {
     PERMISSIONS.MARKETING.PRESURVEI_TARGET.CREATE,
   );
 
-  const { periode, ubahPeriode, daftarTarget, isLoading } = useTargetPeriode();
+  const { periode, ubahPeriode, daftarTarget, isLoading, isError } =
+    useTargetPeriode();
   const daftarSales = useDaftarSalesPresurvei();
   const [modal, setModal] = useState<KeadaanModal>(MODAL_TERTUTUP);
 
@@ -114,6 +115,7 @@ export function TargetClient() {
         <TargetTable
           baris={baris}
           isLoading={isLoading}
+          isError={isError}
           onUbah={
             canCreate
               ? (item) => setModal({ jenis: "terbuka", targetDiubah: item })
@@ -127,6 +129,7 @@ export function TargetClient() {
       {modal.jenis === "terbuka" && (
         <TargetFormModal
           periode={periode}
+          barisPeriode={baris}
           targetDiubah={modal.targetDiubah}
           onClose={tutupModal}
         />

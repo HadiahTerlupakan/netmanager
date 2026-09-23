@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type { BarisTarget } from "@/app/admin/presurvei/target/barisTarget";
 import {
   isSimpanTargetTerbuka,
+  nilaiSetelahGantiSales,
+  penutupModalTarget,
   keAngkaTarget,
   nilaiFormDariTarget,
   periksaFormTarget,
@@ -159,5 +162,126 @@ describe("isSimpanTargetTerbuka", () => {
     expect(
       isSimpanTargetTerbuka({ isUbah: true, statusDaftarSales: "gagal" }),
     ).toBe(true);
+  });
+});
+
+const BARIS_PERIODE: readonly BarisTarget[] = Object.freeze([
+  Object.freeze({
+    id: "target-rina",
+    userId: "user-rina-000111",
+    periodeTahun: 2026,
+    periodeBulan: 9,
+    targetKunjungan: 40,
+    targetProspek: 0,
+    targetKonversi: 3,
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    namaSales: "Rina",
+  }),
+  Object.freeze({
+    id: "target-sari",
+    userId: "user-sari-000333",
+    periodeTahun: 2026,
+    periodeBulan: 9,
+    targetKunjungan: 55,
+    targetProspek: 21,
+    targetKonversi: 8,
+    updatedAt: "2026-09-02T00:00:00.000Z",
+    namaSales: "Sari",
+  }),
+]);
+
+describe("nilaiSetelahGantiSales", () => {
+  it("mengisi medan dengan target lama saat sales yang dipilih sudah punya target", () => {
+    const diketik: NilaiFormTarget = Object.freeze({
+      userId: "",
+      targetKunjungan: "7",
+      targetProspek: "6",
+      targetKonversi: "5",
+    });
+
+    expect(
+      nilaiSetelahGantiSales(diketik, "user-rina-000111", BARIS_PERIODE),
+    ).toEqual({
+      userId: "user-rina-000111",
+      targetKunjungan: "40",
+      targetProspek: "0",
+      targetKonversi: "3",
+    });
+  });
+
+  it("mempertahankan ketikan saat berpindah antar-sales tanpa target", () => {
+    const diketik: NilaiFormTarget = Object.freeze({
+      userId: "user-budi-000222",
+      targetKunjungan: "7",
+      targetProspek: "6",
+      targetKonversi: "5",
+    });
+
+    expect(
+      nilaiSetelahGantiSales(diketik, "user-dewi-000444", BARIS_PERIODE),
+    ).toEqual({
+      userId: "user-dewi-000444",
+      targetKunjungan: "7",
+      targetProspek: "6",
+      targetKonversi: "5",
+    });
+  });
+
+  it("mengosongkan angka milik target sales sebelumnya saat pindah ke sales tanpa target", () => {
+    // Angka itu milik target Rina; membawanya ke Budi menyimpan target yang
+    // tidak pernah diketik untuk Budi.
+    const terisiDariRina: NilaiFormTarget = Object.freeze({
+      userId: "user-rina-000111",
+      targetKunjungan: "40",
+      targetProspek: "0",
+      targetKonversi: "3",
+    });
+
+    expect(
+      nilaiSetelahGantiSales(terisiDariRina, "user-budi-000222", BARIS_PERIODE),
+    ).toEqual({
+      userId: "user-budi-000222",
+      targetKunjungan: "",
+      targetProspek: "",
+      targetKonversi: "",
+    });
+  });
+
+  it("mengganti angka target lama dengan milik sales berikutnya yang juga bertarget", () => {
+    const terisiDariRina: NilaiFormTarget = Object.freeze({
+      userId: "user-rina-000111",
+      targetKunjungan: "40",
+      targetProspek: "0",
+      targetKonversi: "3",
+    });
+
+    expect(
+      nilaiSetelahGantiSales(terisiDariRina, "user-sari-000333", BARIS_PERIODE),
+    ).toEqual({
+      userId: "user-sari-000333",
+      targetKunjungan: "55",
+      targetProspek: "21",
+      targetKonversi: "8",
+    });
+  });
+});
+
+describe("penutupModalTarget", () => {
+  it("meneruskan penutup asli selama tidak menyimpan", () => {
+    const tutup = vi.fn();
+
+    penutupModalTarget(false, tutup)();
+
+    expect(tutup).toHaveBeenCalledTimes(1);
+  });
+
+  it("menahan penutupan selama POST berjalan", () => {
+    // Menutup di tengah simpan membuka jalan bagi modal berikutnya ditutup
+    // oleh `onBerhasil` milik POST sebelumnya.
+    const tutup = vi.fn();
+
+    penutupModalTarget(true, tutup)();
+
+    expect(tutup).not.toHaveBeenCalled();
   });
 });

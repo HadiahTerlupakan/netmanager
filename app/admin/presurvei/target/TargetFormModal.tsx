@@ -9,14 +9,20 @@ import {
   useKeadaanDaftarSalesPresurvei,
   type KeadaanDaftarSales,
 } from "../useDaftarSalesPresurvei";
-import type { BarisTarget } from "./barisTarget";
+import {
+  cariTargetSales,
+  labelOpsiSales,
+  type BarisTarget,
+} from "./barisTarget";
 import { namaBulan, type Periode } from "./periodeQuery";
 import {
   isSimpanTargetTerbuka,
   KUNCI_KESALAHAN_FORM,
   MEDAN_ANGKA,
   nilaiFormDariTarget,
+  nilaiSetelahGantiSales,
   NILAI_FORM_KOSONG,
+  penutupModalTarget,
   periksaFormTarget,
   TARGET_MAKS,
   type KesalahanFormTarget,
@@ -45,6 +51,8 @@ const LABEL_MEDAN_ANGKA: Record<MedanAngka, string> = {
 interface TargetFormModalProps {
   /** Periode yang sedang tampil di layar; tidak bisa diubah dari modal. */
   periode: Periode;
+  /** Baris target periode yang tampil; dipakai menandai sales yang sudah bertarget. */
+  barisPeriode: readonly BarisTarget[];
   /** Baris yang diubah, atau null untuk menetapkan target baru. */
   targetDiubah: BarisTarget | null;
   onClose: () => void;
@@ -53,10 +61,12 @@ interface TargetFormModalProps {
 /** Pemilih sales pada mode buat, sadar keadaan pengambilan daftarnya. */
 function PemilihSales({
   keadaan: { status, daftar },
+  barisPeriode,
   nilai,
   onUbah,
 }: {
   keadaan: KeadaanDaftarSales;
+  barisPeriode: readonly BarisTarget[];
   nilai: string;
   onUbah: (userId: string) => void;
 }) {
@@ -83,7 +93,7 @@ function PemilihSales({
         </option>
         {daftar.map((sales) => (
           <option key={sales.id} value={sales.id}>
-            {sales.nama}
+            {labelOpsiSales(sales, barisPeriode)}
           </option>
         ))}
       </select>
@@ -104,6 +114,7 @@ function PemilihSales({
  */
 export function TargetFormModal({
   periode,
+  barisPeriode,
   targetDiubah,
   onClose,
 }: TargetFormModalProps) {
@@ -114,6 +125,10 @@ export function TargetFormModal({
     isUbah ? nilaiFormDariTarget(targetDiubah) : NILAI_FORM_KOSONG,
   );
   const [kesalahan, setKesalahan] = useState<KesalahanFormTarget>({});
+  const tutup = penutupModalTarget(isMenyimpan, onClose);
+  const isTimpaTersembunyi =
+    !isUbah && cariTargetSales(nilai.userId, barisPeriode) !== null;
+  const isSalesBerlabel = !isUbah && keadaanDaftarSales.status !== "gagal";
 
   const ubahMedan = (perubahan: Partial<NilaiFormTarget>) => {
     setNilai((lama) => ({ ...lama, ...perubahan }));
@@ -143,7 +158,7 @@ export function TargetFormModal({
   return (
     <Modal
       isOpen
-      onClose={onClose}
+      onClose={tutup}
       title={isUbah ? "Ubah Target" : "Tetapkan Target"}
       size="lg"
     >
@@ -162,16 +177,25 @@ export function TargetFormModal({
           </div>
 
           <div>
-            <label className={KELAS_LABEL} htmlFor="target-sales">
-              Sales *
-            </label>
+            {/* `<label>` hanya bila `<select id="target-sales">` benar-benar
+                dirender; selain itu `<span>`, seperti label Periode. */}
+            {isSalesBerlabel ? (
+              <label className={KELAS_LABEL} htmlFor="target-sales">
+                Sales *
+              </label>
+            ) : (
+              <span className={KELAS_LABEL}>Sales *</span>
+            )}
             {isUbah ? (
               <p className={KELAS_TEKS_TETAP}>{targetDiubah.namaSales}</p>
             ) : (
               <PemilihSales
                 keadaan={keadaanDaftarSales}
+                barisPeriode={barisPeriode}
                 nilai={nilai.userId}
-                onUbah={(userId) => ubahMedan({ userId })}
+                onUbah={(userId) =>
+                  ubahMedan(nilaiSetelahGantiSales(nilai, userId, barisPeriode))
+                }
               />
             )}
             {kesalahan.userId && (
@@ -179,6 +203,12 @@ export function TargetFormModal({
             )}
           </div>
         </div>
+
+        {isTimpaTersembunyi && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+            Sales ini sudah punya target periode ini; menyimpan akan menimpanya.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {MEDAN_ANGKA.map((kunci) => (
@@ -211,7 +241,12 @@ export function TargetFormModal({
         )}
 
         <ModalFooter className="-mx-5 -mb-5 mt-6 sm:-mx-6 sm:-mb-6">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={tutup}
+            disabled={isMenyimpan}
+          >
             Batal
           </Button>
           <Button

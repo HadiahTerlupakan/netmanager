@@ -2,11 +2,13 @@
 
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 
-import type { BarisTarget } from "./barisTarget";
+import { pesanTabelKosong, type BarisTarget } from "./barisTarget";
 
 interface TargetTableProps {
   baris: BarisTarget[];
   isLoading: boolean;
+  /** GET target gagal; tabel kosong lalu tidak disebut "belum ada target". */
+  isError: boolean;
   /** Null bila pemakai tidak berhak mengubah; kolom aksi lalu tidak tampil. */
   onUbah: ((baris: BarisTarget) => void) | null;
 }
@@ -39,14 +41,19 @@ const kolom: Column<BarisTarget>[] = [
 ];
 
 /** Tabel target seluruh sales pada satu periode. */
-export function TargetTable({ baris, isLoading, onUbah }: TargetTableProps) {
+export function TargetTable({
+  baris,
+  isLoading,
+  isError,
+  onUbah,
+}: TargetTableProps) {
   return (
     <ResponsiveTable
       data={baris}
       columns={kolom}
       keyField="id"
       loading={isLoading}
-      emptyMessage="Belum ada target untuk periode ini."
+      emptyMessage={pesanTabelKosong(isError)}
       renderActions={
         onUbah
           ? (item) => (

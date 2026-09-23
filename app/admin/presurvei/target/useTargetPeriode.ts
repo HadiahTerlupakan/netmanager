@@ -43,5 +43,6 @@ export function useTargetPeriode() {
     ubahPeriode,
     daftarTarget: query.data?.data ?? TANPA_TARGET,
     isLoading: query.isPending,
+    isError: query.isError,
   };
 }

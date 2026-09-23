@@ -6,14 +6,16 @@ import {
 } from "@/modules/presurvei/client";
 
 import type { StatusDaftarSales } from "../useDaftarSalesPresurvei";
+import { cariTargetSales, type BarisTarget } from "./barisTarget";
 import type { Periode } from "./periodeQuery";
 
 /**
- * Batas atas tiap angka target, mencerminkan `TARGET_MAKS` di
- * `modules/presurvei/validators/target.validator.ts:10`. Konstanta validator
- * tidak diekspor, jadi angkanya ditulis ulang di sini — sama seperti
- * `KegiatanFormModal.tsx:42-44`. Dipakai hanya sebagai atribut `max` medan;
- * penolakannya tetap datang dari `tetapkanTargetSchema`.
+ * Batas atas tiap angka target, dipasang sebagai atribut `max` medan: browser
+ * menolak angka di atasnya lebih dulu, dan `tetapkanTargetSchema` berlaku
+ * sebagai jaring kedua. Salinan dari `TARGET_MAKS` di
+ * `modules/presurvei/validators/target.validator.ts:10` (tidak diekspor) —
+ * WAJIB diselaraskan bila angka di sana berubah, sama seperti
+ * `KegiatanFormModal.tsx:42-44`.
  */
 export const TARGET_MAKS = 10_000;
 
@@ -176,4 +178,48 @@ export function isSimpanTargetTerbuka({
   statusDaftarSales: StatusDaftarSales;
 }): boolean {
   return isUbah || statusDaftarSales === "siap";
+}
+
+/**
+ * Nilai form setelah pemakai mengganti sales pada mode buat.
+ *
+ * - Sales baru sudah punya target periode ini → medan diisi target lamanya,
+ *   menimpa ketikan. Yang akan tertimpa harus terlihat sebelum disimpan.
+ * - Sales sebelumnya bertarget, sales baru tidak → angka dikosongkan. Angka
+ *   itu milik target sales sebelumnya, bukan ketikan untuk sales baru.
+ * - Keduanya tanpa target → ketikan dipertahankan, karena memang diketik
+ *   pemakai dan belum menempel ke target siapa pun.
+ */
+export function nilaiSetelahGantiSales(
+  lama: NilaiFormTarget,
+  userIdBaru: string,
+  barisPeriode: readonly BarisTarget[],
+): NilaiFormTarget {
+  const targetBaru = cariTargetSales(userIdBaru, barisPeriode);
+  if (targetBaru !== null) return nilaiFormDariTarget(targetBaru);
+
+  const isAngkaMilikTargetLama =
+    cariTargetSales(lama.userId, barisPeriode) !== null;
+  if (isAngkaMilikTargetLama) {
+    return { ...NILAI_FORM_KOSONG, userId: userIdBaru };
+  }
+
+  return { ...lama, userId: userIdBaru };
+}
+
+/** Penutup yang tidak melakukan apa pun; dipasang selama POST berjalan. */
+const TUTUP_DITAHAN = (): void => undefined;
+
+/**
+ * Penutup modal yang dipasang ke Batal, tombol X, backdrop, dan Escape.
+ *
+ * Selama POST berjalan penutupan ditahan: `useSimpanTarget` memanggil
+ * `onBerhasil` saat POST selesai, dan bila modal sudah ditutup lalu modal
+ * lain dibuka, panggilan itu menutup modal yang baru.
+ */
+export function penutupModalTarget(
+  isMenyimpan: boolean,
+  onClose: () => void,
+): () => void {
+  return isMenyimpan ? TUTUP_DITAHAN : onClose;
 }
