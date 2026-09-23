@@ -1474,6 +1474,7 @@ model User {
   approverCanvasing                          Canvasing[]                 @relation("ApproverCanvasing")
   salesCanvasing                             Canvasing[]                 @relation("UserSalesCanvasing")
   presurveiKegiatan                          PresurveiKegiatan[]         @relation("UserPresurveiKegiatan")
+  presurveiKegiatanRiwayat                   PresurveiKegiatanRiwayat[]  @relation("UserPresurveiKegiatanRiwayat")
   presurveiProspek                           PresurveiProspek[]          @relation("UserPresurveiProspek")
   presurveiIklan                             PresurveiIklan[]            @relation("UserPresurveiIklan")
   presurveiTarget                            PresurveiTarget[]           @relation("UserPresurveiTarget")
@@ -2888,12 +2889,35 @@ model PresurveiKegiatan {
   site    Sites?            @relation(fields: [siteId], references: [id])
   tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  riwayat PresurveiKegiatanRiwayat[]
+
   @@index([userId, waktuMulai])
   @@index([prospekId])
   @@index([iklanId])
   @@index([tenantId])
   @@index([jenis, hasil])
   @@map("presurvei_kegiatan")
+}
+
+/// Jejak audit perubahan kegiatan presurvei (preseden: PlanningAuditLog).
+/// `perubahan` hanya memuat medan yang benar-benar berubah: { medan: { dari, ke } }.
+/// `tenantId` nullable karena mengikuti tenant baris kegiatan, yang juga nullable.
+model PresurveiKegiatanRiwayat {
+  id String @id @default(uuid())
+
+  kegiatanId   String
+  tenantId     String?
+  diubahOlehId String?
+  diubahPada   DateTime @default(now())
+  perubahan    Json
+
+  kegiatan   PresurveiKegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  diubahOleh User?             @relation("UserPresurveiKegiatanRiwayat", fields: [diubahOlehId], references: [id], onDelete: SetNull)
+
+  @@index([kegiatanId])
+  @@index([tenantId])
+  @@map("presurvei_kegiatan_riwayat")
 }
 
 model PresurveiProspek {
@@ -4036,6 +4060,7 @@ model Tenant {
   barangMasuk               BarangMasuk[]
   canvasing                 Canvasing[]
   presurveiKegiatan         PresurveiKegiatan[]
+  presurveiKegiatanRiwayat  PresurveiKegiatanRiwayat[]
   presurveiProspek          PresurveiProspek[]
   presurveiIklan            PresurveiIklan[]
   presurveiTarget           PresurveiTarget[]
