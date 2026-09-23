@@ -139,17 +139,26 @@ describe("KegiatanDetailClient — pengambilan", () => {
   });
 
   it("menampilkan pesan gagal beserta sebabnya, bukan 'tidak ditemukan'", async () => {
+    // Pesan server sengaja berbeda dari teks cadangan cabang `!kegiatan`
+    // ("Kegiatan tidak ditemukan"), supaya kedua cabang tak bisa tertukar
+    // tanpa terlihat.
     responsRincian = () =>
-      responsJson(404, { success: false, error: "Kegiatan tidak ditemukan" });
+      responsJson(404, {
+        success: false,
+        error: "Kegiatan kg-7 sudah dihapus",
+      });
     await render(panggung, <KegiatanDetailClient kegiatanId="kg-7" />);
 
     await tungguSampai(
-      () => document.body.textContent.includes("Gagal memuat kegiatan"),
-      "pesan gagal tampil",
+      () =>
+        document.body.textContent.includes("Gagal memuat kegiatan") ||
+        document.body.textContent.includes("Kegiatan tidak ditemukan"),
+      "salah satu pesan keadaan akhir tampil",
     );
     expect(document.body.textContent).toContain(
-      "Gagal memuat kegiatan: Kegiatan tidak ditemukan",
+      "Gagal memuat kegiatan: Kegiatan kg-7 sudah dihapus",
     );
+    expect(document.body.textContent).not.toContain("Kegiatan tidak ditemukan");
   });
 });
 
@@ -204,8 +213,14 @@ describe("KegiatanDetailClient — blok opsional", () => {
     expect((props.titik as Array<{ id: string }>).map((t) => t.id)).toEqual([
       "kg-7",
     ]);
-    expect(props.tanpaKoordinat).toBe(0);
-    expect(props.diLuarBatas).toBe(0);
+    // Keduanya 0 secara STRUKTURAL, bukan pilihan fixture: blok peta hanya
+    // dipasang bila lintang dan bujur terisi (`blokDetail.ts:23`), sehingga
+    // `keTitikPeta` tak mungkin menghitung yang tanpa koordinat
+    // (`titikPeta.ts:57`), dan `diLuarBatas` adalah konstanta
+    // `TAK_ADA_YANG_TERPOTONG` (`KegiatanDetailClient.tsx:47`). Tertukarnya
+    // kedua props di halaman ini karena itu tak teramati DAN tak berdampak;
+    // yang dijaga di sini adalah nilainya, bukan urutannya.
+    expect(props).toMatchObject({ tanpaKoordinat: 0, diLuarBatas: 0 });
   });
 
   it("memasang galeri foto untuk kegiatan berfoto tanpa koordinat dan data teknis", async () => {

@@ -48,12 +48,14 @@ vi.mock("@/hooks/use-permission", () => ({
   usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
 }));
 
-vi.mock("react-hot-toast", () => ({
-  toast: Object.assign(vi.fn(), {
-    success: palsu.toastSuccess,
-    error: palsu.toastError,
-  }),
-}));
+vi.mock("react-hot-toast", async () =>
+  (await import("./presurvei-jsdom-harness")).modulToastPalsu(
+    palsu.toastSuccess,
+    palsu.toastError,
+  ),
+);
+
+import { act } from "react";
 
 import { KegiatanClient } from "@/app/admin/presurvei/kegiatan/KegiatanClient";
 import type { KegiatanListItemDto } from "@/modules/presurvei/client";
@@ -123,11 +125,30 @@ const baris: KegiatanListItemDto[] = [
 ];
 
 /**
- * Total cocok 150 sementara yang terambil 3: selisihnya (147) berbeda dari
- * `tanpaKoordinat` (1) dan dari kedua masukannya, sehingga setiap pertukaran
- * props atau field menghasilkan angka yang terbaca salah.
+ * Baris untuk permintaan peta (`limit=100`), sengaja BERBEDA dari baris tabel:
+ * tiga berkoordinat dan dua tanpa. Dengan data yang sama untuk kedua batas,
+ * peta yang digambar dari himpunan tabel (misalnya karena peta dan tabel
+ * memakai dua pemanggilan hook terpisah) tidak bisa dibedakan dari yang benar.
+ */
+const barisPeta: KegiatanListItemDto[] = [
+  { ...baris[0], id: "kg-p1", latitude: -6.1, longitude: 106.7 },
+  { ...baris[0], id: "kg-p2", latitude: -6.15, longitude: 106.75 },
+  { ...baris[1], id: "kg-p3", latitude: -6.25, longitude: 106.85 },
+  { ...baris[2], id: "kg-p4" },
+  { ...baris[2], id: "kg-p5" },
+];
+
+/**
+ * Total cocok 150. Selisihnya terhadap himpunan peta (145) berbeda dari
+ * `tanpaKoordinat` peta (2), dari selisih terhadap himpunan tabel (147), dan
+ * dari kedua masukannya, sehingga setiap pertukaran props, field, atau sumber
+ * data menghasilkan angka yang terbaca salah.
  */
 const TOTAL_COCOK = 150;
+
+/** Batas per permintaan, dicocokkan ke `kegiatanListQuery.ts` (tabel 20, peta 100). */
+const LIMIT_TABEL = "20";
+const LIMIT_PETA = "100";
 
 let panggung: Panggung;
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -172,10 +193,23 @@ beforeEach(() => {
       if (isDaftarGagal) {
         return responsJson(500, { success: false, error: "rusak" });
       }
+      const param = paramDari(url);
+      if (param.limit === LIMIT_PETA) {
+        return responsJson(200, {
+          success: true,
+          data: barisPeta,
+          meta: { page: 1, limit: 100, total: TOTAL_COCOK, totalPages: 2 },
+        });
+      }
       return responsJson(200, {
         success: true,
         data: baris,
-        meta: { page: 1, limit: 20, total: TOTAL_COCOK, totalPages: 8 },
+        meta: {
+          page: Number(param.page),
+          limit: 20,
+          total: TOTAL_COCOK,
+          totalPages: 8,
+        },
       });
     }
     return responsJson(404, { success: false, error: "tidak dikenal" });
@@ -196,8 +230,35 @@ async function renderLayar() {
   );
 }
 
-async function bukaTab(label: string) {
-  await klikTombol(label);
+/** Tombol pembuka modal di kepala halaman — di LUAR dialog. */
+function tombolBukaModal(): HTMLButtonElement | undefined {
+  return [...document.body.querySelectorAll("button")].find(
+    (tombol) =>
+      tombol.closest('[role="dialog"]') === null &&
+      tombol.textContent.trim() === "Catat kegiatan",
+  );
+}
+
+/** Tombol kirim di DALAM dialog, dipilih lewat `type="submit"`, bukan teks. */
+function tombolKirimModal(): HTMLButtonElement | null {
+  return cari<HTMLButtonElement>('[role="dialog"] button[type="submit"]');
+}
+
+async function klikElemen(
+  tombol: HTMLButtonElement | null | undefined,
+  keterangan: string,
+) {
+  expect(tombol, `${keterangan} tidak ditemukan`).toBeTruthy();
+  await act(async () => {
+    tombol.click();
+  });
+}
+
+/** URL GET daftar terakhir yang memakai batas `limit`. */
+function urlTerakhirBerbatas(limit: string): string | undefined {
+  return urlDaftarDiminta()
+    .filter((url) => paramDari(url).limit === limit)
+    .at(-1);
 }
 
 describe("KegiatanClient — tab daftar", () => {
@@ -207,7 +268,7 @@ describe("KegiatanClient — tab daftar", () => {
     expect(tombolBerteks("Daftar")?.getAttribute("aria-selected")).toBe("true");
     expect(paramDari(urlDaftarDiminta()[0])).toMatchObject({
       page: "1",
-      limit: "20",
+      limit: LIMIT_TABEL,
     });
     expect(cari("[data-peta-palsu]")).toBeNull();
   });
@@ -220,7 +281,8 @@ describe("KegiatanClient — tab daftar", () => {
     );
 
     const teks = document.body.textContent;
-    // `formatDateTimeDisplay`, TZ test dipaku Asia/Jakarta (UTC+7).
+    // Bergantung TZ: `tests/setup.ts:5` memaku `process.env.TZ` ke
+    // Asia/Jakarta (UTC+7), jadi 02:00Z tercetak 09:00.
     expect(teks).toContain("10 Sep 2026 09:00");
     expect(teks).not.toContain("2026-09-10T02:00:00.000Z");
   });
@@ -238,13 +300,24 @@ describe("KegiatanClient — tab daftar", () => {
 });
 
 describe("KegiatanClient — tab peta", () => {
-  it("berpindah ke peta dan meminta himpunan peta: halaman 1, batas 100", async () => {
+  it("peta menyaring himpunan yang sama dengan tabel, dipaku ke halaman 1 batas 100", async () => {
     await renderLayar();
 
-    await bukaTab("Peta kunjungan");
+    // Filter diubah lewat UI, lalu tabel dipindah ke halaman 2 — urutan ini
+    // penting karena mengubah filter mengembalikan tabel ke halaman 1.
+    await isiMedan('select[aria-label="Filter jenis kegiatan"]', "KUNJUNGAN");
+    await klikElemen(tombolBerteks("2"), "tombol halaman 2");
     await tungguSampai(
-      () => cari("[data-peta-palsu]") !== null,
-      "peta dirender",
+      () =>
+        paramDari(urlTerakhirBerbatas(LIMIT_TABEL) ?? "").page === "2" &&
+        paramDari(urlTerakhirBerbatas(LIMIT_TABEL) ?? "").jenis === "KUNJUNGAN",
+      "tabel meminta halaman 2 berfilter",
+    );
+
+    await klikTombol("Peta kunjungan");
+    await tungguSampai(
+      () => urlTerakhirBerbatas(LIMIT_PETA) !== undefined,
+      "himpunan peta diminta",
     );
 
     expect(tombolBerteks("Peta kunjungan")?.getAttribute("aria-selected")).toBe(
@@ -253,28 +326,33 @@ describe("KegiatanClient — tab peta", () => {
     expect(tombolBerteks("Daftar")?.getAttribute("aria-selected")).toBe(
       "false",
     );
-    const urlTerakhir = urlDaftarDiminta().at(-1);
-    expect(paramDari(urlTerakhir)).toMatchObject({ page: "1", limit: "100" });
+    expect(paramDari(urlTerakhirBerbatas(LIMIT_PETA))).toEqual({
+      page: "1",
+      limit: LIMIT_PETA,
+      jenis: "KUNJUNGAN",
+    });
   });
 
-  it("meneruskan titik, jumlah tanpa koordinat, dan selisih pemotongan ke peta", async () => {
+  it("meneruskan titik, jumlah tanpa koordinat, dan selisih pemotongan dari himpunan peta", async () => {
     await renderLayar();
 
-    await bukaTab("Peta kunjungan");
+    await klikTombol("Peta kunjungan");
     await tungguSampai(
       () =>
         palsu.propsPeta.length > 0 &&
-        (propsPetaTerakhir().titik as unknown[]).length > 0,
-      "peta menerima titik",
+        (propsPetaTerakhir().titik as unknown[]).length ===
+          barisPeta.length - 2,
+      "peta menerima titik himpunan peta",
     );
 
     const props = propsPetaTerakhir();
     expect((props.titik as Array<{ id: string }>).map((t) => t.id)).toEqual([
-      "kg-1",
-      "kg-2",
+      "kg-p1",
+      "kg-p2",
+      "kg-p3",
     ]);
-    expect(props.tanpaKoordinat).toBe(1);
-    expect(props.diLuarBatas).toBe(TOTAL_COCOK - baris.length);
+    expect(props.tanpaKoordinat).toBe(2);
+    expect(props.diLuarBatas).toBe(TOTAL_COCOK - barisPeta.length);
   });
 });
 
@@ -283,7 +361,7 @@ describe("KegiatanClient — modal catat kegiatan", () => {
     palsu.hasAnyPermission.mockReturnValue(false);
     await renderLayar();
 
-    expect(tombolBerteks("Catat kegiatan")).toBeUndefined();
+    expect(tombolBukaModal()).toBeUndefined();
     expect(palsu.hasAnyPermission).toHaveBeenCalledWith([
       "presurvei:create",
       "m_presurvei:create",
@@ -294,7 +372,7 @@ describe("KegiatanClient — modal catat kegiatan", () => {
     await renderLayar();
     expect(cari('[role="dialog"]')).toBeNull();
 
-    await klikTombol("Catat kegiatan");
+    await klikElemen(tombolBukaModal(), "tombol buka modal");
     expect(cari('[role="dialog"]')).not.toBeNull();
 
     await isiMedan("#kegiatan-hasil", "TERTARIK");
@@ -305,7 +383,7 @@ describe("KegiatanClient — modal catat kegiatan", () => {
     await isiMedan("#kegiatan-prospek", "prospek-8");
     await isiMedan("#kegiatan-catatan", "Minta brosur");
     const jumlahDaftarSebelum = urlDaftarDiminta().length;
-    await klikTombol("Catat Kegiatan");
+    await klikElemen(tombolKirimModal(), "tombol kirim modal");
     await tungguSampai(
       () => palsu.toastSuccess.mock.calls.length > 0,
       "kegiatan tersimpan",
@@ -318,6 +396,8 @@ describe("KegiatanClient — modal catat kegiatan", () => {
     expect(JSON.parse(kirim[1].body as string)).toEqual({
       jenis: "TELEPON",
       hasil: "TERTARIK",
+      // Bergantung TZ: `tests/setup.ts:5` memaku Asia/Jakarta, jadi medan
+      // `datetime-local` 10:00 menjadi instan 03:00Z.
       waktuMulai: "2025-01-15T03:00:00.000Z",
       alamatDikunjungi: "Jl. Kenari 7",
       ditemuiNama: "Pak Joko",
@@ -337,11 +417,11 @@ describe("KegiatanClient — modal catat kegiatan", () => {
 
   it("menampilkan penolakan lintas-medan sebagai pesan level-form, tanpa mengirim", async () => {
     await renderLayar();
-    await klikTombol("Catat kegiatan");
+    await klikElemen(tombolBukaModal(), "tombol buka modal");
 
     await isiMedan("#kegiatan-jenis", "KUNJUNGAN");
     await isiMedan("#kegiatan-waktu-mulai", "2025-01-15T10:00");
-    await klikTombol("Catat Kegiatan");
+    await klikElemen(tombolKirimModal(), "tombol kirim modal");
 
     expect(cari('[role="alert"]')?.textContent).toBe(
       "Kunjungan dan survei lokasi wajib menyertakan koordinat",

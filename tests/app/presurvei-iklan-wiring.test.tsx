@@ -36,13 +36,25 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: palsu.push }),
 }));
 
-vi.mock("react-hot-toast", () => ({
-  toast: Object.assign(vi.fn(), {
-    success: palsu.toastSuccess,
-    error: palsu.toastError,
-  }),
-}));
+vi.mock("react-hot-toast", async () =>
+  (await import("./presurvei-jsdom-harness")).modulToastPalsu(
+    palsu.toastSuccess,
+    palsu.toastError,
+  ),
+);
 
+/**
+ * Mock parsial: seluruh ekspor `iklanFormState` tetap ASLI, kecuali
+ * `schemaUntukMode` yang dibungkus supaya satu test bisa memaksakan schema.
+ *
+ * Kopling yang perlu diketahui: pembungkus ini bergantung pada `IklanForm`
+ * memanggil `schemaUntukMode` lewat impor modul ini. Bila kelak `IklanForm`
+ * memilih schema dengan cara lain (misalnya mengimpor `buatIklanSchema`
+ * langsung), `schemaPaksaan` diam-diam tidak berlaku lagi — test level-form
+ * akan merah karena pesan tak muncul, bukan hijau palsu. Selama
+ * `schemaPaksaan` null, perilakunya identik dengan produksi, sehingga test
+ * mode buat/ubah menguji schema asli.
+ */
 vi.mock("@/app/admin/presurvei/iklan/iklanFormState", async (asli) => {
   const modul =
     await asli<typeof import("@/app/admin/presurvei/iklan/iklanFormState")>();
@@ -219,9 +231,10 @@ describe("IklanCreateClient — mode buat", () => {
     // Query daftar yang aktif diambil ulang: kunci invalidasinya mengenai
     // kunci `useIklanListQuery`, bukan sekadar "invalidateQueries dipanggil".
     await tungguSampai(
-      () => jumlahGet(`${URL_KOLEKSI}?`) === 2,
+      () => jumlahGet(`${URL_KOLEKSI}?`) >= 2,
       "daftar iklan diambil ulang setelah simpan",
     );
+    expect(jumlahGet(`${URL_KOLEKSI}?`)).toBe(2);
   });
 });
 
@@ -241,9 +254,9 @@ describe("IklanEditClient — mode ubah", () => {
     await renderUbah();
 
     expect(jumlahGet(URL_RINCIAN)).toBe(1);
-    expect(cari<HTMLInputElement>("#iklan-nama").value).toBe(
-      "Promo Kemerdekaan",
-    );
+    const medanNama = cari<HTMLInputElement>("#iklan-nama");
+    expect(medanNama, "medan #iklan-nama tidak dirender").not.toBeNull();
+    expect(medanNama.value).toBe("Promo Kemerdekaan");
   });
 
   it("menampilkan kode UTM sebagai teks mati, bukan medan isian", async () => {
@@ -276,9 +289,11 @@ describe("IklanEditClient — mode ubah", () => {
     expect(tulis.badan).not.toHaveProperty("kode");
     expect(palsu.push).toHaveBeenCalledWith(RUTE_DAFTAR_IKLAN);
     await tungguSampai(
-      () => jumlahGet(`${URL_KOLEKSI}?`) === 2 && jumlahGet(URL_RINCIAN) === 2,
+      () => jumlahGet(`${URL_KOLEKSI}?`) >= 2 && jumlahGet(URL_RINCIAN) >= 2,
       "daftar dan rincian diambil ulang setelah simpan",
     );
+    expect(jumlahGet(`${URL_KOLEKSI}?`)).toBe(2);
+    expect(jumlahGet(URL_RINCIAN)).toBe(2);
   });
 });
 
