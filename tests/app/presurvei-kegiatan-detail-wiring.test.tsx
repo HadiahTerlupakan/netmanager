@@ -22,6 +22,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const palsu = vi.hoisted(() => ({
   propsPeta: [] as Array<Record<string, unknown>>,
   ensureAnyPermission: vi.fn(),
+  hasAnyPermission: vi.fn(),
+}));
+
+// `usePermission` melempar di luar `PermissionProvider`
+// (`contexts/PermissionContext.tsx`); halaman ini kini memakainya untuk
+// tombol "Ubah". Kabel tombol itu diuji di presurvei-kegiatan-ubah-wiring.
+vi.mock("@/hooks/use-permission", () => ({
+  usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
 }));
 
 vi.mock("next/dynamic", async () => {
@@ -49,7 +57,7 @@ vi.mock("@/lib/rbac", () => ({
 
 import { KegiatanDetailClient } from "@/app/admin/presurvei/kegiatan/[id]/KegiatanDetailClient";
 import HalamanDetailKegiatan from "@/app/admin/presurvei/kegiatan/[id]/page";
-import type { KegiatanDetailDto } from "@/modules/presurvei/client";
+import type { KegiatanRincianDto } from "@/modules/presurvei/client";
 
 import {
   bongkarPanggung,
@@ -67,7 +75,7 @@ const URL_RINCIAN = "/api/presurvei/kegiatan/kg-7";
 const IZIN_BACA_ROUTE = ["presurvei:read", "m_presurvei:read"];
 
 /** Nilai berbeda di setiap field bersebelahan supaya pertukaran terlihat. */
-const kegiatanDasar: KegiatanDetailDto = {
+const kegiatanDasar: KegiatanRincianDto = {
   id: "kg-7",
   jenis: "SURVEI_LOKASI",
   userId: "sales-1",
@@ -90,6 +98,7 @@ const kegiatanDasar: KegiatanDetailDto = {
     catatanTeknis: "Lewat gang",
   },
   createdAt: "2026-09-10T03:20:00.000Z",
+  riwayat: [],
 };
 
 let panggung: Panggung;
@@ -106,6 +115,7 @@ beforeEach(() => {
   panggung = pasangPanggung();
   palsu.propsPeta.length = 0;
   palsu.ensureAnyPermission.mockReset();
+  palsu.hasAnyPermission.mockReset().mockReturnValue(false);
   responsRincian = () =>
     responsJson(200, { success: true, data: kegiatanDasar });
   mockFetch = vi.fn(async (url: string) =>
@@ -122,7 +132,7 @@ afterEach(async () => {
 });
 
 /** Merender halaman untuk `kegiatan` lalu menunggu sampai keadaannya final. */
-async function renderRincian(kegiatan: KegiatanDetailDto = kegiatanDasar) {
+async function renderRincian(kegiatan: KegiatanRincianDto = kegiatanDasar) {
   responsRincian = () => responsJson(200, { success: true, data: kegiatan });
   await render(panggung, <KegiatanDetailClient kegiatanId="kg-7" />);
   await tungguSampai(
@@ -207,6 +217,7 @@ describe("KegiatanDetailClient — blok opsional", () => {
       "Catatan",
       "Data teknis",
       "Titik lokasi",
+      "Riwayat perubahan",
     ]);
     expect(cari("[data-peta-palsu]")).not.toBeNull();
     const props = palsu.propsPeta.at(-1);
@@ -234,7 +245,12 @@ describe("KegiatanDetailClient — blok opsional", () => {
       jumlahFoto: 2,
     });
 
-    expect(judulKartu()).toEqual(["Ringkasan", "Catatan", "Foto (2)"]);
+    expect(judulKartu()).toEqual([
+      "Ringkasan",
+      "Catatan",
+      "Foto (2)",
+      "Riwayat perubahan",
+    ]);
     expect(cari("[data-peta-palsu]")).toBeNull();
     expect(
       [...document.body.querySelectorAll("img")].map((img) =>

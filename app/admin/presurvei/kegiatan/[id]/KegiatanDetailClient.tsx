@@ -3,15 +3,19 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
-import { HiOutlineArrowLeft } from "react-icons/hi2";
+import { useMemo, useState, type ReactNode } from "react";
+import { HiOutlineArrowLeft, HiOutlinePencilSquare } from "react-icons/hi2";
 
+import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
+import { usePermission } from "@/hooks/use-permission";
 import { useApi, type FetchError } from "@/lib/hooks/useApi";
 import {
   KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
   type KegiatanDetailDto,
+  type KegiatanRincianDto,
+  type RiwayatKegiatanDto,
   type TampilanStatus,
 } from "@/modules/presurvei/client";
 
@@ -23,6 +27,9 @@ import {
   teksRentangWaktu,
   TEKS_KOSONG,
 } from "./blokDetail";
+import { KegiatanUbahModal } from "./KegiatanUbahModal";
+import { keBarisRiwayat } from "./riwayatKegiatan";
+import { IZIN_UBAH_KEGIATAN, urlRincianKegiatan } from "./ubahKegiatanState";
 
 /**
  * Peta dimuat tanpa SSR: OpenLayers menyentuh `window` saat modulnya dimuat,
@@ -150,8 +157,42 @@ function BlokDataTeknis({
   );
 }
 
+/** Jejak audit perubahan: siapa, kapan, dan medan dari → ke. */
+function BlokRiwayat({ riwayat }: { riwayat: RiwayatKegiatanDto[] }) {
+  if (riwayat.length === 0) {
+    return (
+      <Kartu judul="Riwayat perubahan">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Belum pernah diubah.
+        </p>
+      </Kartu>
+    );
+  }
+
+  return (
+    <Kartu judul="Riwayat perubahan">
+      <ol className="space-y-3">
+        {riwayat.map(keBarisRiwayat).map((baris) => (
+          <li key={baris.id} data-riwayat={baris.id} className="text-sm">
+            <p className="text-gray-500 dark:text-gray-400">
+              {baris.pelaku} · {baris.waktu}
+            </p>
+            <ul className="mt-1 space-y-0.5 text-gray-900 dark:text-white">
+              {baris.perubahan.map((ubah) => (
+                <li key={ubah.medan}>
+                  {ubah.label}: {ubah.dari} → {ubah.ke}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+    </Kartu>
+  );
+}
+
 /** Seluruh isi halaman untuk satu kegiatan yang sudah termuat. */
-function IsiDetailKegiatan({ kegiatan }: { kegiatan: KegiatanDetailDto }) {
+function IsiDetailKegiatan({ kegiatan }: { kegiatan: KegiatanRincianDto }) {
   const blok = blokYangTampil(kegiatan);
 
   // Dimemo demi reference-nya, bukan kecepatannya: satu titik memang murah
@@ -211,12 +252,14 @@ function IsiDetailKegiatan({ kegiatan }: { kegiatan: KegiatanDetailDto }) {
           <GaleriFoto urls={kegiatan.fotoUrls} />
         </Kartu>
       )}
+
+      <BlokRiwayat riwayat={kegiatan.riwayat} />
     </div>
   );
 }
 
 interface MuatanProps {
-  kegiatan: KegiatanDetailDto | undefined;
+  kegiatan: KegiatanRincianDto | undefined;
   error: FetchError | null;
   isLoading: boolean;
 }
@@ -275,24 +318,45 @@ export function KegiatanDetailClient({ kegiatanId }: { kegiatanId: string }) {
     data: kegiatan,
     error,
     isLoading,
-  } = useApi<KegiatanDetailDto>(`/api/presurvei/kegiatan/${kegiatanId}`);
+  } = useApi<KegiatanRincianDto>(urlRincianKegiatan(kegiatanId));
+  const [isUbahTerbuka, setIsUbahTerbuka] = useState(false);
+
+  const { hasAnyPermission } = usePermission();
+  // Hanya penyaring tampilan. Pemanggil mobile yang membuka kegiatan orang
+  // lain sudah ditolak GET-nya; kepemilikan PATCH ditegakkan route.
+  const canUbah = hasAnyPermission(IZIN_UBAH_KEGIATAN) && Boolean(kegiatan);
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={RUTE_DAFTAR_KEGIATAN}
-          className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
-        >
-          <HiOutlineArrowLeft className="h-4 w-4" />
-          Kembali ke daftar kegiatan
-        </Link>
-        <h1 className="mt-2 text-xl font-bold text-gray-900 dark:text-white">
-          Detail Kegiatan
-        </h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link
+            href={RUTE_DAFTAR_KEGIATAN}
+            className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            <HiOutlineArrowLeft className="h-4 w-4" />
+            Kembali ke daftar kegiatan
+          </Link>
+          <h1 className="mt-2 text-xl font-bold text-gray-900 dark:text-white">
+            Detail Kegiatan
+          </h1>
+        </div>
+        {canUbah && (
+          <Button type="button" onClick={() => setIsUbahTerbuka(true)}>
+            <HiOutlinePencilSquare className="h-4 w-4" />
+            Ubah
+          </Button>
+        )}
       </div>
 
       <MuatanDetail kegiatan={kegiatan} error={error} isLoading={isLoading} />
+
+      {isUbahTerbuka && kegiatan && (
+        <KegiatanUbahModal
+          kegiatan={kegiatan}
+          onClose={() => setIsUbahTerbuka(false)}
+        />
+      )}
     </div>
   );
 }
