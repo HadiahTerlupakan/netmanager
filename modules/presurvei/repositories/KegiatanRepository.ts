@@ -1,17 +1,27 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import type { KegiatanEntity } from "../domain/entities/Kegiatan";
+import type { RiwayatKegiatanEntity } from "../domain/entities/KegiatanRiwayat";
 import type { ProspekEntity } from "../domain/entities/Prospek";
 import type {
   CreateKegiatanInput,
   IKegiatanRepository,
   KegiatanListFilters,
   RentangPeriode,
+  UbahKegiatanDenganRiwayatInput,
 } from "../domain/ports/IKegiatanRepository";
 import type { CreateProspekInput } from "../domain/ports/IProspekRepository";
 import { toKegiatanEntity, type KegiatanRow } from "../mappers/kegiatan.mapper";
+import {
+  toRiwayatKegiatanEntity,
+  type RiwayatKegiatanRow,
+} from "../mappers/kegiatan-riwayat.mapper";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
-import { SERTAKAN_PELAKU, SERTAKAN_PEMILIK } from "./sertakan-sales";
+import {
+  SERTAKAN_PELAKU,
+  SERTAKAN_PEMILIK,
+  SERTAKAN_PENGUBAH,
+} from "./sertakan-sales";
 
 /**
  * Akses data kegiatan presurvei.
@@ -89,6 +99,54 @@ export class KegiatanRepository implements IKegiatanRepository {
         prospek: toProspekEntity(barisProspek as ProspekRow),
       };
     });
+  }
+
+  /**
+   * Tulis perubahan kegiatan dan jejak auditnya dalam satu transaksi.
+   *
+   * `updateMany` dengan `updatedAt` di `where` adalah kunci konkurensi
+   * optimistis: bila baris sudah disunting pihak lain sejak service
+   * membacanya, tidak ada baris yang cocok, tidak ada yang ditulis, dan
+   * `dari` di jejak audit tidak pernah basi. Pola yang sama dengan
+   * `ProspekRepository.tandaiKonversi` (`canvasingId: null` di `where`).
+   */
+  async ubahDenganRiwayat(
+    input: UbahKegiatanDenganRiwayatInput,
+  ): Promise<KegiatanEntity | null> {
+    return prisma.$transaction(async (tx) => {
+      const { count } = await tx.presurveiKegiatan.updateMany({
+        where: { id: input.id, updatedAt: input.versi },
+        data: input.nilaiBaru,
+      });
+      if (count === 0) return null;
+
+      await tx.presurveiKegiatanRiwayat.create({
+        data: {
+          kegiatanId: input.id,
+          tenantId: input.riwayat.tenantId,
+          diubahOlehId: input.riwayat.diubahOlehId,
+          perubahan: input.riwayat.perubahan as Prisma.InputJsonObject,
+        },
+      });
+
+      const row = await tx.presurveiKegiatan.findUnique({
+        where: { id: input.id },
+        include: SERTAKAN_PELAKU,
+      });
+      return toKegiatanEntity(row as KegiatanRow);
+    });
+  }
+
+  /** Riwayat perubahan satu kegiatan, terbaru lebih dulu. */
+  async findRiwayat(kegiatanId: string): Promise<RiwayatKegiatanEntity[]> {
+    const rows = await prisma.presurveiKegiatanRiwayat.findMany({
+      where: { kegiatanId },
+      orderBy: { diubahPada: "desc" },
+      include: SERTAKAN_PENGUBAH,
+    });
+    return rows.map((row) =>
+      toRiwayatKegiatanEntity(row as RiwayatKegiatanRow),
+    );
   }
 
   /** Jumlah kegiatan per pelaku pada satu rentang, berkunci userId. */

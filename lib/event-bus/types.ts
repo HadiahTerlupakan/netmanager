@@ -63,6 +63,7 @@ export const EVENT_NAMES = {
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
   REGISTRATION_CREATED: "registration:registration.created",
   PRESURVEI_PROSPEK_CONVERTED: "presurvei:prospek.converted",
+  PRESURVEI_KEGIATAN_UPDATED: "presurvei:kegiatan.updated",
   INCIDENT_CREATED: "incident:created",
   INCIDENT_RESOLVED: "incident:resolved",
 
@@ -517,6 +518,19 @@ export interface PresurveiProspekConvertedPayload extends BaseEventPayload {
   konversiAt: string;
 }
 
+/**
+ * Kegiatan presurvei disunting lewat jalur ubah (catatan, nama yang ditemui,
+ * atau hasil). Nilai lama/baru sengaja tidak ikut — catatan bisa memuat data
+ * pribadi dan jejak lengkapnya sudah ada di `PresurveiKegiatanRiwayat`.
+ */
+export interface PresurveiKegiatanUpdatedPayload extends BaseEventPayload {
+  kegiatanId: string;
+  /** Sales pelaku kegiatan (pemilik baris). */
+  pelakuId: string;
+  diubahOlehId: string;
+  medanBerubah: string[];
+}
+
 export interface IncidentCreatedPayload extends BaseEventPayload {
   incidentId: string;
   title: string;
@@ -617,6 +631,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
   [EVENT_NAMES.REGISTRATION_CREATED]: RegistrationCreatedPayload;
   [EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED]: PresurveiProspekConvertedPayload;
+  [EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED]: PresurveiKegiatanUpdatedPayload;
   [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
   [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
@@ -1027,6 +1042,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED]: {
     name: EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED,
+    category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED]: {
+    name: EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED,
     category: "marketing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

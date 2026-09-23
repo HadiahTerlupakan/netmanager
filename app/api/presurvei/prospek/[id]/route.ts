@@ -4,22 +4,12 @@ import {
   toProspekDetail,
   ubahProspekSchema,
 } from "@/modules/presurvei";
-import { isBolehLihatSemuaPresurvei } from "../../akses-presurvei";
+import {
+  isBolehLihatSemuaPresurvei,
+  pemilikWajibUntuk,
+} from "../../akses-presurvei";
 
 const service = new ProspekService();
-
-/**
- * Pemilik yang wajib dicocokkan service, atau undefined bila pemanggil berhak
- * atas seluruh prospek tenant.
- */
-function pemilikWajibUntuk(ctx: {
-  permissions: string[];
-  session: { user: { id: string } } | null;
-}): string | undefined {
-  return isBolehLihatSemuaPresurvei(ctx.permissions)
-    ? undefined
-    : ctx.session!.user.id;
-}
 
 /** GET /api/presurvei/prospek/[id] — rincian satu prospek. */
 export const GET = createHandler(

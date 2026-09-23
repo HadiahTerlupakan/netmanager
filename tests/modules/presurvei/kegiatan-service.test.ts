@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const palsu = vi.hoisted(() => ({ logError: vi.fn() }));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: palsu.logError,
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 /**
  * Kunjungan yang membuahkan minat harus langsung melahirkan prospek. Kalau
  * tidak, sales harus mengetik ulang data yang sama dan prospeknya sering tidak
@@ -9,6 +20,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KegiatanService } from "@/modules/presurvei/services/KegiatanService";
 import type { IKegiatanRepository } from "@/modules/presurvei/domain/ports/IKegiatanRepository";
 import type { KegiatanEntity } from "@/modules/presurvei/domain/entities/Kegiatan";
+import type { RiwayatKegiatanEntity } from "@/modules/presurvei/domain/entities/KegiatanRiwayat";
+import type { PengumumPerubahanKegiatan } from "@/modules/presurvei/services/KegiatanService";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 
 const WAKTU_KUNJUNGAN = new Date("2026-09-22T01:00:00.000Z");
@@ -62,6 +75,8 @@ const bangunRepository = (): IKegiatanRepository => ({
     .fn()
     .mockResolvedValue({ kegiatan: kegiatan(), prospek: prospek() }),
   hitungPerUser: vi.fn().mockResolvedValue({}),
+  ubahDenganRiwayat: vi.fn().mockResolvedValue(null),
+  findRiwayat: vi.fn().mockResolvedValue([]),
 });
 
 const masukanKunjungan = {
@@ -341,5 +356,232 @@ describe("KegiatanService.detail", () => {
     const hasil = await service.detail("kegiatan-1");
 
     expect(hasil.userId).toBe("user-lain");
+  });
+});
+
+describe("KegiatanService.rincian", () => {
+  it("mengikat kepemilikan yang sama dengan detail", async () => {
+    const repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(
+      kegiatan({ userId: "user-lain" }),
+    );
+    const service = new KegiatanService(repository);
+
+    await expect(service.rincian("kegiatan-1", "user-1")).rejects.toMatchObject(
+      { statusCode: 403 },
+    );
+    expect(repository.findRiwayat).not.toHaveBeenCalled();
+  });
+
+  it("mengembalikan kegiatan beserta riwayatnya", async () => {
+    const repository = bangunRepository();
+    const tersimpan = kegiatan();
+    const riwayat: RiwayatKegiatanEntity[] = [
+      {
+        id: "riwayat-1",
+        kegiatanId: "kegiatan-1",
+        tenantId: "tenant-1",
+        diubahOlehId: "admin-3",
+        namaPengubah: "Admin Tiga",
+        diubahPada: WAKTU_KUNJUNGAN,
+        perubahan: { catatan: { dari: null, ke: "Isi" } },
+      },
+    ];
+    vi.mocked(repository.findById).mockResolvedValue(tersimpan);
+    vi.mocked(repository.findRiwayat).mockResolvedValue(riwayat);
+
+    const hasil = await new KegiatanService(repository).rincian("kegiatan-1");
+
+    expect(repository.findRiwayat).toHaveBeenCalledWith("kegiatan-1");
+    expect(hasil).toEqual({ kegiatan: tersimpan, riwayat });
+  });
+});
+
+describe("KegiatanService.ubah", () => {
+  const VERSI = new Date("2026-09-22T04:00:00.000Z");
+  const tersimpan = (): KegiatanEntity =>
+    kegiatan({
+      userId: "sales-1",
+      catatan: "Catatan lama",
+      ditemuiNama: "Bu Rina",
+      hasil: "TERTARIK",
+      tenantId: "tenant-7",
+      updatedAt: VERSI,
+    });
+
+  let repository: IKegiatanRepository;
+  let umumkan: ReturnType<typeof vi.fn<PengumumPerubahanKegiatan>>;
+  let service: KegiatanService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repository = bangunRepository();
+    vi.mocked(repository.findById).mockResolvedValue(tersimpan());
+    vi.mocked(repository.ubahDenganRiwayat).mockResolvedValue(
+      kegiatan({ catatan: "Catatan baru", hasil: "DEAL" }),
+    );
+    umumkan = vi.fn<PengumumPerubahanKegiatan>().mockResolvedValue(undefined);
+    service = new KegiatanService(repository, umumkan);
+  });
+
+  it("melempar 404 saat kegiatan tidak ada", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(null);
+
+    await expect(
+      service.ubah("tidak-ada", { catatan: "x" }, { idPengubah: "admin-3" }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("menolak 403 pemanggil terikat yang bukan pemilik, tanpa menulis apa pun", async () => {
+    await expect(
+      service.ubah(
+        "kegiatan-1",
+        { catatan: "Curang" },
+        { idPengubah: "sales-2", pemilikWajib: "sales-2" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+    expect(repository.ubahDenganRiwayat).not.toHaveBeenCalled();
+    expect(umumkan).not.toHaveBeenCalled();
+  });
+
+  it("membiarkan pemilik terikat mengubah kegiatannya sendiri", async () => {
+    await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru" },
+      { idPengubah: "sales-1", pemilikWajib: "sales-1" },
+    );
+
+    expect(repository.ubahDenganRiwayat).toHaveBeenCalledOnce();
+  });
+
+  it("membiarkan pemanggil tanpa pengikat mengubah kegiatan siapa pun", async () => {
+    await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru" },
+      { idPengubah: "admin-3" },
+    );
+
+    expect(repository.ubahDenganRiwayat).toHaveBeenCalledOnce();
+  });
+
+  it("menolak 400 hasil yang melintasi batas melahirkan prospek", async () => {
+    await expect(
+      service.ubah(
+        "kegiatan-1",
+        { hasil: "PERLU_FOLLOWUP" },
+        { idPengubah: "admin-3" },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+      message:
+        "Hasil ini mengubah apakah kegiatan melahirkan prospek; catat kegiatan baru.",
+    });
+    expect(repository.ubahDenganRiwayat).not.toHaveBeenCalled();
+  });
+
+  it("menulis hanya medan yang berubah, dengan versi, tenant kegiatan, dan pengubah", async () => {
+    await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru", ditemuiNama: "Bu Rina", hasil: "DEAL" },
+      { idPengubah: "admin-3" },
+    );
+
+    expect(repository.ubahDenganRiwayat).toHaveBeenCalledWith({
+      id: "kegiatan-1",
+      versi: VERSI,
+      nilaiBaru: { catatan: "Catatan baru", hasil: "DEAL" },
+      riwayat: {
+        tenantId: "tenant-7",
+        diubahOlehId: "admin-3",
+        perubahan: {
+          catatan: { dari: "Catatan lama", ke: "Catatan baru" },
+          hasil: { dari: "TERTARIK", ke: "DEAL" },
+        },
+      },
+    });
+  });
+
+  it("tidak menulis dan tidak mengumumkan apa pun bila tidak ada yang berubah", async () => {
+    const hasil = await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan lama", hasil: "TERTARIK" },
+      { idPengubah: "admin-3" },
+    );
+
+    expect(repository.ubahDenganRiwayat).not.toHaveBeenCalled();
+    expect(umumkan).not.toHaveBeenCalled();
+    expect(hasil.kegiatan.catatan).toBe("Catatan lama");
+  });
+
+  it("menolak 409 bila kegiatan diubah pihak lain sejak dibaca", async () => {
+    vi.mocked(repository.ubahDenganRiwayat).mockResolvedValue(null);
+
+    await expect(
+      service.ubah(
+        "kegiatan-1",
+        { catatan: "Baru" },
+        { idPengubah: "admin-3" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 409, code: "CONFLICT" });
+    expect(umumkan).not.toHaveBeenCalled();
+  });
+
+  it("mengumumkan perubahan setelah tersimpan, dengan medan yang berubah", async () => {
+    // Urutan dicatat, bukan di-`expect` di dalam mock: kegagalan pengumum
+    // ditelan service (hanya di-log), jadi assertion di dalamnya tak terlihat.
+    const urutan: string[] = [];
+    vi.mocked(repository.ubahDenganRiwayat).mockImplementation(async () => {
+      urutan.push("tulis");
+      return kegiatan({ catatan: "Catatan baru", hasil: "DEAL" });
+    });
+    umumkan.mockImplementation(async () => {
+      urutan.push("umumkan");
+    });
+
+    await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru", hasil: "DEAL" },
+      { idPengubah: "admin-3" },
+    );
+
+    expect(urutan).toEqual(["tulis", "umumkan"]);
+
+    expect(umumkan).toHaveBeenCalledWith({
+      kegiatanId: "kegiatan-1",
+      pelakuId: "sales-1",
+      diubahOlehId: "admin-3",
+      medanBerubah: ["catatan", "hasil"],
+      tenantId: "tenant-7",
+    });
+  });
+
+  it("tetap berhasil dan mencatat log bila pengumuman gagal", async () => {
+    umumkan.mockRejectedValue(new Error("antrian mati"));
+
+    const hasil = await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru" },
+      { idPengubah: "admin-3" },
+    );
+    await new Promise((selesai) => setTimeout(selesai, 0));
+
+    expect(hasil.kegiatan.catatan).toBe("Catatan baru");
+    expect(palsu.logError).toHaveBeenCalledWith(
+      expect.stringContaining("presurvei:kegiatan.updated"),
+      expect.any(Error),
+    );
+  });
+
+  it("mengembalikan kegiatan tersimpan beserta riwayat terbaru", async () => {
+    const hasil = await service.ubah(
+      "kegiatan-1",
+      { catatan: "Catatan baru" },
+      { idPengubah: "admin-3" },
+    );
+
+    expect(repository.findRiwayat).toHaveBeenCalledWith("kegiatan-1");
+    expect(hasil.kegiatan.catatan).toBe("Catatan baru");
+    expect(hasil.riwayat).toEqual([]);
   });
 });

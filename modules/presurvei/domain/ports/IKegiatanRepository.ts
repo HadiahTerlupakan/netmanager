@@ -3,7 +3,12 @@ import type {
   KegiatanHasil,
   KegiatanJenis,
 } from "../entities/Kegiatan";
+import type { RiwayatKegiatanEntity } from "../entities/KegiatanRiwayat";
 import type { ProspekEntity } from "../entities/Prospek";
+import type {
+  PerubahanKegiatan,
+  UbahKegiatanInput,
+} from "../kegiatan-perubahan";
 import type { CreateProspekInput } from "./IProspekRepository";
 
 /**
@@ -50,6 +55,22 @@ export interface RentangPeriode {
   selesai: Date;
 }
 
+/** Satu penulisan perubahan kegiatan beserta baris jejak auditnya. */
+export interface UbahKegiatanDenganRiwayatInput {
+  id: string;
+  /**
+   * `updatedAt` kegiatan saat dibaca service. Penulisan hanya terjadi bila
+   * baris belum berubah sejak itu, supaya `dari` di jejak audit tidak basi.
+   */
+  versi: Date;
+  nilaiBaru: UbahKegiatanInput;
+  riwayat: {
+    tenantId: string | null;
+    diubahOlehId: string;
+    perubahan: PerubahanKegiatan;
+  };
+}
+
 export interface IKegiatanRepository {
   findMany(
     filters: KegiatanListFilters,
@@ -61,6 +82,16 @@ export interface IKegiatanRepository {
     kegiatan: CreateKegiatanInput,
     prospek: CreateProspekInput,
   ): Promise<{ kegiatan: KegiatanEntity; prospek: ProspekEntity }>;
+  /**
+   * Tulis perubahan kegiatan dan baris riwayatnya dalam SATU transaksi.
+   * Null bila kegiatan sudah diubah pihak lain sejak `versi` (tidak ada yang
+   * ditulis).
+   */
+  ubahDenganRiwayat(
+    input: UbahKegiatanDenganRiwayatInput,
+  ): Promise<KegiatanEntity | null>;
+  /** Riwayat perubahan satu kegiatan, terbaru lebih dulu. */
+  findRiwayat(kegiatanId: string): Promise<RiwayatKegiatanEntity[]>;
   /** Jumlah kegiatan per pelaku pada satu rentang, berkunci userId. */
   hitungPerUser(rentang: RentangPeriode): Promise<Record<string, number>>;
 }

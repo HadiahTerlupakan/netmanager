@@ -107,6 +107,8 @@ const bangunKegiatanRepo = (): IKegiatanRepository => ({
   create: vi.fn(),
   createDenganProspek: vi.fn(),
   hitungPerUser: vi.fn().mockResolvedValue({}),
+  ubahDenganRiwayat: vi.fn(),
+  findRiwayat: vi.fn().mockResolvedValue([]),
 });
 
 const masukan = { noKtp: "3201234567890001", paket: "HOME_20MBPS" };

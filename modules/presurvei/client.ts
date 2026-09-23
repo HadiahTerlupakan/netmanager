@@ -41,10 +41,21 @@ export {
 export { resolveAksiKanban, type AksiKanban } from "./domain/prospek-kanban";
 
 export {
+  daftarHasilSekelompok,
   isButuhDataTeknis,
   isButuhIklan,
   isButuhLokasi,
 } from "./domain/kegiatan-rules";
+
+export {
+  hitungPerubahanKegiatan,
+  isTanpaPerubahan,
+  nilaiBaruDariPerubahan,
+  type MedanKegiatanDapatDiubah,
+  type NilaiKegiatanDapatDiubah,
+  type PerubahanKegiatan,
+  type UbahKegiatanInput,
+} from "./domain/kegiatan-perubahan";
 
 export { isIklanBerjalan } from "./domain/iklan-rules";
 
@@ -52,6 +63,7 @@ export {
   catatKegiatanSchema,
   daftarKegiatanSchema,
   TOLERANSI_SKEW_JAM_MENIT,
+  ubahKegiatanSchema,
 } from "./validators/kegiatan.validator";
 
 export {
@@ -79,6 +91,8 @@ export {
 export type {
   KegiatanDetailDto,
   KegiatanListItemDto,
+  KegiatanRincianDto,
+  RiwayatKegiatanDto,
 } from "./dto/kegiatan.dto";
 export type { ProspekDetailDto, ProspekListItemDto } from "./dto/prospek.dto";
 export type { IklanDetailDto, IklanListItemDto } from "./dto/iklan.dto";

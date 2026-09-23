@@ -7,7 +7,10 @@ import { describe, expect, it } from "vitest";
  * kosong. Berkas ini yang menjaga agar jebakan itu tidak kembali.
  */
 
-import { catatKegiatanSchema } from "@/modules/presurvei/validators/kegiatan.validator";
+import {
+  catatKegiatanSchema,
+  ubahKegiatanSchema,
+} from "@/modules/presurvei/validators/kegiatan.validator";
 import { TOLERANSI_SKEW_JAM_MENIT } from "@/modules/presurvei/client";
 
 const MENIT_KE_MS = 60 * 1000;
@@ -166,5 +169,69 @@ describe("catatKegiatanSchema — kegiatan iklan", () => {
     });
 
     expect(hasil.success).toBe(true);
+  });
+});
+
+describe("ubahKegiatanSchema — medan yang boleh diubah", () => {
+  it("menerima catatan, nama yang ditemui, dan hasil", () => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: "Minta dihubungi sore",
+      ditemuiNama: "Pak Joko",
+      hasil: "DEAL",
+    });
+
+    expect(hasil.success).toBe(true);
+    expect(hasil.data).toEqual({
+      catatan: "Minta dihubungi sore",
+      ditemuiNama: "Pak Joko",
+      hasil: "DEAL",
+    });
+  });
+
+  it("menerima null untuk mengosongkan catatan dan nama yang ditemui", () => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: null,
+      ditemuiNama: null,
+    });
+
+    expect(hasil.success).toBe(true);
+  });
+
+  it("menolak badan kosong", () => {
+    expect(ubahKegiatanSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("menolak hasil null — hasil wajib selalu terisi", () => {
+    expect(ubahKegiatanSchema.safeParse({ hasil: null }).success).toBe(false);
+  });
+
+  it("menolak catatan melebihi batas panjang", () => {
+    const hasil = ubahKegiatanSchema.safeParse({ catatan: "x".repeat(1001) });
+    expect(hasil.success).toBe(false);
+  });
+});
+
+describe("ubahKegiatanSchema — medan terlarang ditolak, bukan dibuang", () => {
+  // Satu medan terlarang per kelompok. `.strict()` membuatnya 400; tanpa itu
+  // Zod diam-diam membuang medannya dan pemanggil mengira perubahannya
+  // tersimpan.
+  it.each([
+    ["angka laporan: jenis", { jenis: "KUNJUNGAN" }],
+    ["angka laporan: waktuMulai", { waktuMulai: "2026-09-01T00:00:00.000Z" }],
+    ["angka laporan: userId", { userId: "sales-lain" }],
+    ["koordinat", { latitude: -6.1 }],
+    ["foto", { fotoUrls: ["https://contoh.id/a.jpg"] }],
+    ["data teknis", { odpTerdekat: "ODP-1" }],
+    ["tautan: prospekId", { prospekId: "prospek-9" }],
+    ["alamat", { alamatDikunjungi: "Jl. Lain" }],
+    ["tenant", { tenantId: "tenant-lain" }],
+    ["jejak audit", { diubahOlehId: "orang-lain" }],
+  ])("menolak %s", (_kelompok, medanTerlarang) => {
+    const hasil = ubahKegiatanSchema.safeParse({
+      catatan: "sah",
+      ...medanTerlarang,
+    });
+
+    expect(hasil.success).toBe(false);
   });
 });

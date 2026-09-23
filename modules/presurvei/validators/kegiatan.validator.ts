@@ -123,3 +123,28 @@ export const daftarKegiatanSchema = z.object({
     .max(BATAS_HALAMAN_MAKS)
     .default(ISI_HALAMAN_BAWAAN),
 });
+
+/** Pesan saat badan ubah tidak membawa satu medan pun. */
+const PESAN_UBAH_KOSONG = "Kirim minimal satu medan yang diubah";
+
+/**
+ * Masukan `PATCH /api/presurvei/kegiatan/[id]`.
+ *
+ * Hanya `catatan`, `ditemuiNama`, dan `hasil` (lihat
+ * `domain/kegiatan-perubahan.ts`). `.strict()` membuat medan lain DITOLAK
+ * dengan 400, bukan dibuang diam-diam — pemanggil yang mengirim `waktuMulai`
+ * harus tahu perubahannya tidak tersimpan. Batas hasil lintas kelompok butuh
+ * nilai tersimpan, jadi ditegakkan service, bukan di sini.
+ */
+export const ubahKegiatanSchema = z
+  .object({
+    catatan: z.string().max(PANJANG_CATATAN_MAKS).nullable().optional(),
+    ditemuiNama: z.string().max(PANJANG_NAMA_MAKS).nullable().optional(),
+    hasil: z.enum(KEGIATAN_HASIL).optional(),
+  })
+  .strict()
+  .refine(
+    (perubahan) =>
+      Object.values(perubahan).some((nilai) => nilai !== undefined),
+    { message: PESAN_UBAH_KOSONG },
+  );

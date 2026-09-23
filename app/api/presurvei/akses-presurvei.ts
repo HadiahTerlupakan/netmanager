@@ -28,6 +28,22 @@ export function isBolehLihatSemuaPresurvei(permissions: string[]): boolean {
   );
 }
 
+/** Bagian konteks handler yang dibutuhkan `pemilikWajibUntuk`. */
+interface KonteksPemanggil {
+  permissions: string[];
+  session: { user: { id: string } } | null;
+}
+
+/**
+ * Pemilik yang wajib dicocokkan service, atau undefined bila pemanggil berhak
+ * atas seluruh prospek dan kegiatan tenant.
+ */
+export function pemilikWajibUntuk(ctx: KonteksPemanggil): string | undefined {
+  return isBolehLihatSemuaPresurvei(ctx.permissions)
+    ? undefined
+    : ctx.session!.user.id;
+}
+
 /**
  * Tentukan pemilik prospek, mengabaikan `pemilikId` kiriman klien bila pemanggil
  * tidak berhak menugaskannya.

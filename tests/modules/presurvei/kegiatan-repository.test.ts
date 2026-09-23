@@ -15,10 +15,19 @@ const {
   transaksiTerpanggil,
   buatProspekDalamTransaksi,
   buatKegiatanDalamTransaksi,
+  ubahKegiatanDalamTransaksi,
+  ambilKegiatanDalamTransaksi,
+  buatRiwayatDalamTransaksi,
+  jejakTransaksi,
 } = vi.hoisted(() => ({
   transaksiTerpanggil: vi.fn(),
   buatProspekDalamTransaksi: vi.fn(),
   buatKegiatanDalamTransaksi: vi.fn(),
+  ubahKegiatanDalamTransaksi: vi.fn(),
+  ambilKegiatanDalamTransaksi: vi.fn(),
+  buatRiwayatDalamTransaksi: vi.fn(),
+  /** Apakah callback transaksi sedang berjalan — penjaga "di dalam transaksi". */
+  jejakTransaksi: { isAktif: false },
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -28,14 +37,29 @@ vi.mock("@/modules/database", () => ({
       count: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
+      updateMany: vi.fn(),
       groupBy: vi.fn(),
     },
-    $transaction: (jalankan: (tx: unknown) => Promise<unknown>) => {
+    presurveiKegiatanRiwayat: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+    },
+    $transaction: async (jalankan: (tx: unknown) => Promise<unknown>) => {
       transaksiTerpanggil();
-      return jalankan({
-        presurveiProspek: { create: buatProspekDalamTransaksi },
-        presurveiKegiatan: { create: buatKegiatanDalamTransaksi },
-      });
+      jejakTransaksi.isAktif = true;
+      try {
+        return await jalankan({
+          presurveiProspek: { create: buatProspekDalamTransaksi },
+          presurveiKegiatan: {
+            create: buatKegiatanDalamTransaksi,
+            updateMany: ubahKegiatanDalamTransaksi,
+            findUnique: ambilKegiatanDalamTransaksi,
+          },
+          presurveiKegiatanRiwayat: { create: buatRiwayatDalamTransaksi },
+        });
+      } finally {
+        jejakTransaksi.isAktif = false;
+      }
     },
   },
 }));
@@ -465,5 +489,151 @@ describe("KegiatanRepository.hitungPerUser", () => {
     const hasil = await new KegiatanRepository().hitungPerUser(RENTANG);
 
     expect(hasil).toEqual({ "user-1": 7, "user-2": 3 });
+  });
+});
+
+describe("KegiatanRepository.ubahDenganRiwayat", () => {
+  const VERSI = new Date("2026-09-22T05:00:00.000Z");
+  const masukan = Object.freeze({
+    id: "kegiatan-1",
+    versi: VERSI,
+    nilaiBaru: { catatan: "Catatan baru", hasil: "DEAL" as const },
+    riwayat: {
+      tenantId: "tenant-7",
+      diubahOlehId: "admin-3",
+      perubahan: {
+        catatan: { dari: "Catatan lama", ke: "Catatan baru" },
+        hasil: { dari: "TERTARIK" as const, ke: "DEAL" as const },
+      },
+    },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ubahKegiatanDalamTransaksi.mockResolvedValue({ count: 1 });
+    buatRiwayatDalamTransaksi.mockResolvedValue({ id: "riwayat-1" });
+    ambilKegiatanDalamTransaksi.mockResolvedValue(
+      barisKegiatan({ catatan: "Catatan baru", hasil: "DEAL" }),
+    );
+  });
+
+  it("menulis kegiatan dengan penjaga versi di dalam transaksi", async () => {
+    ubahKegiatanDalamTransaksi.mockImplementation(async () => {
+      expect(jejakTransaksi.isAktif).toBe(true);
+      return { count: 1 };
+    });
+
+    await new KegiatanRepository().ubahDenganRiwayat(masukan);
+
+    expect(transaksiTerpanggil).toHaveBeenCalledOnce();
+    expect(ubahKegiatanDalamTransaksi).toHaveBeenCalledWith({
+      where: { id: "kegiatan-1", updatedAt: VERSI },
+      data: { catatan: "Catatan baru", hasil: "DEAL" },
+    });
+    expect(prisma.presurveiKegiatan.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("menulis baris riwayat di transaksi yang sama, dengan tenant dan pengubah", async () => {
+    buatRiwayatDalamTransaksi.mockImplementation(async () => {
+      expect(jejakTransaksi.isAktif).toBe(true);
+      return { id: "riwayat-1" };
+    });
+
+    await new KegiatanRepository().ubahDenganRiwayat(masukan);
+
+    expect(buatRiwayatDalamTransaksi).toHaveBeenCalledWith({
+      data: {
+        kegiatanId: "kegiatan-1",
+        tenantId: "tenant-7",
+        diubahOlehId: "admin-3",
+        perubahan: {
+          catatan: { dari: "Catatan lama", ke: "Catatan baru" },
+          hasil: { dari: "TERTARIK", ke: "DEAL" },
+        },
+      },
+    });
+    expect(prisma.presurveiKegiatanRiwayat.create).not.toHaveBeenCalled();
+  });
+
+  it("mengembalikan kegiatan hasil baca ulang beserta pelakunya", async () => {
+    const hasil = await new KegiatanRepository().ubahDenganRiwayat(masukan);
+
+    expect(ambilKegiatanDalamTransaksi).toHaveBeenCalledWith({
+      where: { id: "kegiatan-1" },
+      include: SERTAKAN_PELAKU,
+    });
+    expect(hasil.catatan).toBe("Catatan baru");
+    expect(hasil.hasil).toBe("DEAL");
+  });
+
+  it("tidak menulis riwayat dan mengembalikan null bila versinya basi", async () => {
+    ubahKegiatanDalamTransaksi.mockResolvedValue({ count: 0 });
+
+    const hasil = await new KegiatanRepository().ubahDenganRiwayat(masukan);
+
+    expect(hasil).toBeNull();
+    expect(buatRiwayatDalamTransaksi).not.toHaveBeenCalled();
+  });
+});
+
+describe("KegiatanRepository.findRiwayat", () => {
+  const barisRiwayat = (over: Record<string, unknown> = {}) => ({
+    id: "riwayat-1",
+    kegiatanId: "kegiatan-1",
+    tenantId: "tenant-1",
+    diubahOlehId: "admin-3",
+    diubahPada: new Date("2026-09-22T06:00:00.000Z"),
+    perubahan: { hasil: { dari: "TERTARIK", ke: "DEAL" } },
+    diubahOleh: { id: "admin-3", name: "Admin Tiga", tenantId: "tenant-1" },
+    ...over,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("mengambil riwayat satu kegiatan, terbaru lebih dulu, dengan pengubahnya", async () => {
+    vi.mocked(prisma.presurveiKegiatanRiwayat.findMany).mockResolvedValue(
+      [] as never,
+    );
+
+    await new KegiatanRepository().findRiwayat("kegiatan-1");
+
+    expect(prisma.presurveiKegiatanRiwayat.findMany).toHaveBeenCalledWith({
+      where: { kegiatanId: "kegiatan-1" },
+      orderBy: { diubahPada: "desc" },
+      include: {
+        diubahOleh: { select: { id: true, name: true, tenantId: true } },
+      },
+    });
+  });
+
+  it("memetakan baris dan menyembunyikan nama pengubah dari tenant lain", async () => {
+    vi.mocked(prisma.presurveiKegiatanRiwayat.findMany).mockResolvedValue([
+      barisRiwayat(),
+      barisRiwayat({
+        id: "riwayat-2",
+        diubahOleh: {
+          id: "orang-luar",
+          name: "Orang Luar",
+          tenantId: "tenant-9",
+        },
+      }),
+    ] as never);
+
+    const hasil = await new KegiatanRepository().findRiwayat("kegiatan-1");
+
+    expect(hasil).toEqual([
+      {
+        id: "riwayat-1",
+        kegiatanId: "kegiatan-1",
+        tenantId: "tenant-1",
+        diubahOlehId: "admin-3",
+        namaPengubah: "Admin Tiga",
+        diubahPada: new Date("2026-09-22T06:00:00.000Z"),
+        perubahan: { hasil: { dari: "TERTARIK", ke: "DEAL" } },
+      },
+      expect.objectContaining({ id: "riwayat-2", namaPengubah: null }),
+    ]);
   });
 });

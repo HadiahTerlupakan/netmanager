@@ -56,7 +56,16 @@ export {
   isButuhIklan,
   isButuhLokasi,
   isHasilMelahirkanProspek,
+  isPerubahanHasilSah,
 } from "./domain/kegiatan-rules";
+
+export {
+  type MedanKegiatanDapatDiubah,
+  type PerubahanKegiatan,
+  type UbahKegiatanInput,
+} from "./domain/kegiatan-perubahan";
+
+export { type RiwayatKegiatanEntity } from "./domain/entities/KegiatanRiwayat";
 
 export { isIklanBerjalan } from "./domain/iklan-rules";
 
@@ -64,6 +73,7 @@ export {
   catatKegiatanSchema,
   daftarKegiatanSchema,
   TOLERANSI_SKEW_JAM_MENIT,
+  ubahKegiatanSchema,
 } from "./validators/kegiatan.validator";
 
 export {
@@ -93,6 +103,8 @@ export {
   type CatatKegiatanInput,
   type DataProspekBaru,
   type HasilCatatKegiatan,
+  type KonteksPengubah,
+  type RincianKegiatan,
 } from "./services/KegiatanService";
 
 export { ProspekService } from "./services/ProspekService";
@@ -111,8 +123,11 @@ export {
 export {
   toKegiatanDetail,
   toKegiatanListItem,
+  toKegiatanRincian,
   type KegiatanDetailDto,
   type KegiatanListItemDto,
+  type KegiatanRincianDto,
+  type RiwayatKegiatanDto,
 } from "./dto/kegiatan.dto";
 
 export {

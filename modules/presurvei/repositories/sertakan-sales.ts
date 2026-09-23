@@ -28,3 +28,8 @@ export const SERTAKAN_PELAKU = {
 export const SERTAKAN_PEMILIK = {
   pemilik: { select: KOLOM_IDENTITAS_SALES },
 } satisfies Prisma.PresurveiProspekInclude;
+
+/** Sertakan pengubah pada riwayat kegiatan (`PresurveiKegiatanRiwayat.diubahOleh`). */
+export const SERTAKAN_PENGUBAH = {
+  diubahOleh: { select: KOLOM_IDENTITAS_SALES },
+} satisfies Prisma.PresurveiKegiatanRiwayatInclude;

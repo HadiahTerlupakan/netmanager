@@ -3,6 +3,8 @@ import type {
   KegiatanHasil,
   KegiatanJenis,
 } from "../domain/entities/Kegiatan";
+import type { RiwayatKegiatanEntity } from "../domain/entities/KegiatanRiwayat";
+import type { PerubahanKegiatan } from "../domain/kegiatan-perubahan";
 
 /**
  * Bentuk data kegiatan yang dikirim ke klien.
@@ -38,6 +40,26 @@ export interface KegiatanDetailDto extends KegiatanListItemDto {
     catatanTeknis: string | null;
   } | null;
   createdAt: string;
+}
+
+/** Satu baris jejak audit perubahan kegiatan. */
+export interface RiwayatKegiatanDto {
+  id: string;
+  diubahOlehId: string | null;
+  /** Label pengubah; null bila tidak bisa ditampilkan (lihat entitasnya). */
+  namaPengubah: string | null;
+  diubahPada: string;
+  /** Hanya medan yang berubah: `{ medan: { dari, ke } }`. */
+  perubahan: PerubahanKegiatan;
+}
+
+/**
+ * Rincian kegiatan beserta riwayat perubahannya, bentuk
+ * `GET`/`PATCH /api/presurvei/kegiatan/[id]`. `POST` catat tetap memakai
+ * `KegiatanDetailDto` — kegiatan baru belum punya riwayat.
+ */
+export interface KegiatanRincianDto extends KegiatanDetailDto {
+  riwayat: RiwayatKegiatanDto[];
 }
 
 /** Ringkasan kegiatan untuk tampilan daftar. */
@@ -84,5 +106,29 @@ export function toKegiatanDetail(kegiatan: KegiatanEntity): KegiatanDetailDto {
         }
       : null,
     createdAt: kegiatan.createdAt.toISOString(),
+  };
+}
+
+/** Satu baris riwayat untuk klien; `tenantId` sengaja tidak ikut. */
+function toRiwayatKegiatanDto(
+  riwayat: RiwayatKegiatanEntity,
+): RiwayatKegiatanDto {
+  return {
+    id: riwayat.id,
+    diubahOlehId: riwayat.diubahOlehId,
+    namaPengubah: riwayat.namaPengubah,
+    diubahPada: riwayat.diubahPada.toISOString(),
+    perubahan: riwayat.perubahan,
+  };
+}
+
+/** Rincian kegiatan beserta riwayat perubahannya. */
+export function toKegiatanRincian(rincian: {
+  kegiatan: KegiatanEntity;
+  riwayat: RiwayatKegiatanEntity[];
+}): KegiatanRincianDto {
+  return {
+    ...toKegiatanDetail(rincian.kegiatan),
+    riwayat: rincian.riwayat.map(toRiwayatKegiatanDto),
   };
 }

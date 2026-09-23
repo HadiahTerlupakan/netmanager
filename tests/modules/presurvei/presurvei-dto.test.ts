@@ -13,6 +13,7 @@ import {
 import {
   toKegiatanDetail,
   toKegiatanListItem,
+  toKegiatanRincian,
 } from "@/modules/presurvei/dto/kegiatan.dto";
 import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek";
 import type { KegiatanEntity } from "@/modules/presurvei/domain/entities/Kegiatan";
@@ -237,5 +238,37 @@ describe("toProspekDetail — tanggal konversi", () => {
     );
 
     expect(hasil.konversiAt).toBe("2026-09-23T04:05:06.000Z");
+  });
+});
+
+describe("toKegiatanRincian", () => {
+  it("menambahkan riwayat ke rincian, dengan tanggal ISO dan tanpa tenant", () => {
+    const hasil = toKegiatanRincian({
+      kegiatan: kegiatan(),
+      riwayat: [
+        {
+          id: "riwayat-2",
+          kegiatanId: "kegiatan-1",
+          tenantId: "tenant-1",
+          diubahOlehId: "admin-3",
+          namaPengubah: "Admin Tiga",
+          diubahPada: new Date("2026-09-23T02:30:00.000Z"),
+          perubahan: { hasil: { dari: "TERTARIK", ke: "DEAL" } },
+        },
+      ],
+    });
+
+    expect(hasil).toEqual({
+      ...toKegiatanDetail(kegiatan()),
+      riwayat: [
+        {
+          id: "riwayat-2",
+          diubahOlehId: "admin-3",
+          namaPengubah: "Admin Tiga",
+          diubahPada: "2026-09-23T02:30:00.000Z",
+          perubahan: { hasil: { dari: "TERTARIK", ke: "DEAL" } },
+        },
+      ],
+    });
   });
 });

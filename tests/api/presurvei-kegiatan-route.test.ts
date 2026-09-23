@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@/lib/errors";
 import type { KegiatanEntity } from "@/modules/presurvei";
 
 /**
@@ -15,7 +16,8 @@ const mockFns = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   daftar: vi.fn(),
   catat: vi.fn(),
-  detail: vi.fn(),
+  rincian: vi.fn(),
+  ubah: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({
@@ -38,13 +40,17 @@ vi.mock("@/modules/presurvei", async () => {
     KegiatanService: class {
       daftar = mockFns.daftar;
       catat = mockFns.catat;
-      detail = mockFns.detail;
+      rincian = mockFns.rincian;
+      ubah = mockFns.ubah;
     },
   };
 });
 
 import { GET, POST } from "@/app/api/presurvei/kegiatan/route";
-import { GET as GET_DETAIL } from "@/app/api/presurvei/kegiatan/[id]/route";
+import {
+  GET as GET_DETAIL,
+  PATCH,
+} from "@/app/api/presurvei/kegiatan/[id]/route";
 
 const ID_SESI = "sales-a";
 const ID_ORANG_LAIN = "sales-b";
@@ -177,7 +183,10 @@ describe("POST /api/presurvei/kegiatan — userId dari sesi", () => {
 describe("GET /api/presurvei/kegiatan/[id] — pemilikWajib", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.detail.mockResolvedValue(kegiatanTersimpan);
+    mockFns.rincian.mockResolvedValue({
+      kegiatan: kegiatanTersimpan,
+      riwayat: [],
+    });
   });
 
   it("mengikat pemanggil mobile ke id sesinya", async () => {
@@ -186,7 +195,7 @@ describe("GET /api/presurvei/kegiatan/[id] — pemilikWajib", () => {
 
     await mintaDetail();
 
-    expect(mockFns.detail).toHaveBeenCalledWith(ID_KEGIATAN, ID_SESI);
+    expect(mockFns.rincian).toHaveBeenCalledWith(ID_KEGIATAN, ID_SESI);
   });
 
   it("membiarkan pemegang permission web melihat kegiatan siapa pun", async () => {
@@ -195,6 +204,137 @@ describe("GET /api/presurvei/kegiatan/[id] — pemilikWajib", () => {
 
     await mintaDetail();
 
-    expect(mockFns.detail).toHaveBeenCalledWith(ID_KEGIATAN, undefined);
+    expect(mockFns.rincian).toHaveBeenCalledWith(ID_KEGIATAN, undefined);
+  });
+});
+
+describe("GET /api/presurvei/kegiatan/[id] — riwayat", () => {
+  it("menyertakan riwayat perubahan di rincian", async () => {
+    vi.clearAllMocks();
+    beriPermission(["presurvei:read"]);
+    mockFns.rincian.mockResolvedValue({
+      kegiatan: kegiatanTersimpan,
+      riwayat: [
+        {
+          id: "riwayat-1",
+          kegiatanId: ID_KEGIATAN,
+          tenantId: "tenant-1",
+          diubahOlehId: "admin-3",
+          namaPengubah: "Admin Tiga",
+          diubahPada: new Date("2026-09-23T02:00:00.000Z"),
+          perubahan: { catatan: { dari: null, ke: "Isi" } },
+        },
+      ],
+    });
+
+    const respons = await mintaDetail();
+    const badan = await respons.json();
+
+    expect(badan.data.riwayat).toEqual([
+      {
+        id: "riwayat-1",
+        diubahOlehId: "admin-3",
+        namaPengubah: "Admin Tiga",
+        diubahPada: "2026-09-23T02:00:00.000Z",
+        perubahan: { catatan: { dari: null, ke: "Isi" } },
+      },
+    ]);
+  });
+});
+
+const mintaUbah = (body: Record<string, unknown>) =>
+  PATCH(
+    new NextRequest(`http://localhost/api/presurvei/kegiatan/${ID_KEGIATAN}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id: ID_KEGIATAN }) } as never,
+  );
+
+describe("PATCH /api/presurvei/kegiatan/[id]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.ubah.mockResolvedValue({
+      kegiatan: { ...kegiatanTersimpan, catatan: "Baru" },
+      riwayat: [],
+    });
+  });
+
+  it("mengikat pemanggil mobile ke kegiatannya sendiri, pengubah dari sesi", async () => {
+    beriPermission(["m_presurvei:read", "m_presurvei:update"]);
+
+    const respons = await mintaUbah({ catatan: "Baru" });
+
+    expect(respons.status).toBe(200);
+    expect(mockFns.ubah).toHaveBeenCalledWith(
+      ID_KEGIATAN,
+      { catatan: "Baru" },
+      { idPengubah: ID_SESI, pemilikWajib: ID_SESI },
+    );
+  });
+
+  it("membiarkan pemegang permission web mengubah kegiatan siapa pun", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+
+    await mintaUbah({ hasil: "PERLU_FOLLOWUP" });
+
+    expect(mockFns.ubah).toHaveBeenCalledWith(
+      ID_KEGIATAN,
+      { hasil: "PERLU_FOLLOWUP" },
+      { idPengubah: ID_SESI, pemilikWajib: undefined },
+    );
+  });
+
+  it("menolak 403 pemanggil tanpa permission update", async () => {
+    beriPermission(["presurvei:read", "m_presurvei:read"]);
+
+    const respons = await mintaUbah({ catatan: "Baru" });
+
+    expect(respons.status).toBe(403);
+    expect(mockFns.ubah).not.toHaveBeenCalled();
+  });
+
+  it("menolak 400 medan terlarang, termasuk upaya memalsukan pengubah", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+
+    const respons = await mintaUbah({
+      catatan: "Baru",
+      diubahOlehId: ID_ORANG_LAIN,
+    });
+
+    expect(respons.status).toBe(400);
+    expect(mockFns.ubah).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan 403 service untuk kegiatan milik sales lain", async () => {
+    beriPermission(["m_presurvei:update"]);
+    mockFns.ubah.mockRejectedValue(
+      new AppError("Kegiatan ini milik sales lain", 403, "FORBIDDEN"),
+    );
+
+    const respons = await mintaUbah({ catatan: "Baru" });
+
+    expect(respons.status).toBe(403);
+  });
+
+  it("meneruskan 404 service untuk kegiatan yang tidak ada", async () => {
+    beriPermission(["m_presurvei:update"]);
+    mockFns.ubah.mockRejectedValue(
+      new AppError("Kegiatan tidak ditemukan", 404, "NOT_FOUND"),
+    );
+
+    const respons = await mintaUbah({ catatan: "Baru" });
+
+    expect(respons.status).toBe(404);
+  });
+
+  it("mengembalikan rincian beserta riwayat", async () => {
+    beriPermission(["presurvei:read", "presurvei:update"]);
+
+    const badan = await (await mintaUbah({ catatan: "Baru" })).json();
+
+    expect(badan.data.catatan).toBe("Baru");
+    expect(badan.data.riwayat).toEqual([]);
   });
 });
