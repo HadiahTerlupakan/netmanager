@@ -366,6 +366,32 @@ describe("KonversiModal — prospek yang belum DEAL", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("tetap memakai pesan setengah jalan bila simpan ulang gagal sebelum rincian diambil ulang", async () => {
+    // Jendela yang sama dengan test di atas (rincian belum — atau gagal —
+    // diambil ulang), tetapi langkah kedua gagal lagi. Status di server sudah
+    // DEAL tanpa canvasing, jadi pesannya harus tetap mengatakan itu. Cabang
+    // pesan membaca `statusAsal`, bukan `statusTerkini` yang sudah DEAL.
+    mockFetch
+      .mockResolvedValueOnce(respons(200, { success: true }))
+      .mockResolvedValueOnce(
+        respons(400, { success: false, error: "Nomor KTP tidak valid" }),
+      )
+      .mockResolvedValueOnce(
+        respons(400, { success: false, error: "Panjang kabel tidak valid" }),
+      );
+    await renderModal();
+    await isiMedanWajib();
+    await simpan();
+
+    await simpan();
+
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(palsu.toastError).toHaveBeenLastCalledWith(
+      'Status prospek sudah menjadi Deal, tetapi canvasing belum dibuat: Panjang kabel tidak valid. Perbaiki isian lalu simpan lagi, atau ulangi nanti lewat tombol "Jadikan canvasing" di kartunya.',
+      { duration: 8000 },
+    );
+  });
+
   describe("setelah rincian diambil ulang", () => {
     /**
      * Memodelkan produksi: `useApi` palsu di sini adalah `useQuery` sungguhan

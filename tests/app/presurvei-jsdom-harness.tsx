@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { expect } from "vitest";
+import { expect, vi, type Mock } from "vitest";
 
 /**
  * Perkakas render bersama untuk test jsdom layar presurvei.
@@ -20,8 +20,26 @@ import { expect } from "vitest";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-/** Batas putaran penantian sebelum `tungguSampai` menyerah. */
-const BATAS_PUTARAN_TUNGGU = 50;
+/**
+ * Tenggat `tungguSampai`, dalam milidetik jam dinding. Berbasis waktu, bukan
+ * jumlah putaran: di bawah kontensi CPU, komponen yang memuat banyak
+ * `await import` per effect (`KegiatanPeta`) butuh lebih dari 50 putaran
+ * `setTimeout(0)` padahal kodenya benar. Preseden:
+ * `tests/app/admin/canvasing-list.test.tsx:35-44`.
+ */
+const TENGGAT_TUNGGU_MS = 2_000;
+
+/** Jeda antar-pemeriksaan `tungguSampai`. */
+const JEDA_TUNGGU_MS = 10;
+
+/**
+ * `staleTime` produksi (`components/providers/session-provider.tsx:31`).
+ *
+ * Disamakan supaya test invalidasi jujur: dengan `staleTime` 0, query yang
+ * dipasang ulang mengambil ulang sendiri, sehingga invalidasi yang hilang
+ * bisa tertutupi oleh refetch saat mount.
+ */
+const STALE_TIME_PRODUKSI_MS = 30_000;
 
 /** Satu akar React beserta `QueryClient`-nya, dibongkar di `afterEach`. */
 export interface Panggung {
@@ -33,8 +51,10 @@ export interface Panggung {
 /**
  * Menyiapkan akar render baru di `document.body`.
  *
- * `retry: false` meniru `components/providers/session-provider.tsx`, sehingga
- * respons gagal langsung menjadi `error` tanpa menunggu percobaan ulang.
+ * Opsi query meniru `components/providers/session-provider.tsx:26-32`:
+ * `retry: false` membuat respons gagal langsung menjadi `error` tanpa menunggu
+ * percobaan ulang, dan `staleTime` 30 detik membuat data yang sudah tiba tidak
+ * diambil ulang kecuali diinvalidasi — lihat `STALE_TIME_PRODUKSI_MS`.
  */
 export function pasangPanggung(): Panggung {
   document.body.innerHTML = "";
@@ -45,7 +65,9 @@ export function pasangPanggung(): Panggung {
     wadah,
     akar: createRoot(wadah),
     queryClient: new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false, staleTime: STALE_TIME_PRODUKSI_MS },
+      },
     }),
   };
 }
@@ -114,18 +136,26 @@ export async function klikTombol(teks: string): Promise<void> {
 
 /**
  * Menunggu sampai `kondisi` benar, memberi React Query dan `fetch` palsu
- * kesempatan menyelesaikan rantai promise-nya di antara putaran.
+ * kesempatan menyelesaikan rantai promise-nya di antara pemeriksaan.
+ *
+ * Tenggatnya diukur dengan `performance.now()`, bukan `Date.now()`: beberapa
+ * test memalsukan `Date` (`vi.useFakeTimers({ toFake: ["Date"] })`) untuk
+ * memaku periode bawaan, dan jam yang dibekukan membuat tenggat berbasis
+ * `Date.now()` tidak pernah lewat. Kondisi diperiksa sekali lagi setelah
+ * tenggat, supaya perubahan pada jeda terakhir tidak dibaca sebagai gagal.
  */
 export async function tungguSampai(
   kondisi: () => boolean,
   keterangan: string,
 ): Promise<void> {
-  for (let putaran = 0; putaran < BATAS_PUTARAN_TUNGGU; putaran += 1) {
+  const tenggat = performance.now() + TENGGAT_TUNGGU_MS;
+  while (performance.now() < tenggat) {
     if (kondisi()) return;
     await act(async () => {
-      await new Promise((selesai) => setTimeout(selesai, 0));
+      await new Promise((selesai) => setTimeout(selesai, JEDA_TUNGGU_MS));
     });
   }
+  if (kondisi()) return;
   throw new Error(`Tidak pernah terpenuhi: ${keterangan}`);
 }
 
@@ -143,4 +173,23 @@ export function nilaiBerlabel(label: string): string | null {
     (dt) => dt.textContent.trim() === label,
   );
   return judul?.nextElementSibling?.textContent ?? null;
+}
+
+/**
+ * Isi modul `react-hot-toast` palsu, untuk factory `vi.mock`:
+ *
+ * ```ts
+ * vi.mock("react-hot-toast", async () =>
+ *   (await import("./presurvei-jsdom-harness")).modulToastPalsu(
+ *     palsu.toastSuccess,
+ *     palsu.toastError,
+ *   ),
+ * );
+ * ```
+ *
+ * `success`/`error` dioper dari `vi.hoisted` pemakai supaya test bisa
+ * memeriksa argumennya.
+ */
+export function modulToastPalsu(success: Mock, error: Mock) {
+  return { toast: Object.assign(vi.fn(), { success, error }) };
 }

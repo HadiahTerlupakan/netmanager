@@ -442,6 +442,23 @@ describe("ProspekFormModal — duplikat nomor telepon", () => {
     expect(cari('[data-prospek-bentrok="prospek-lama"]')).toBeNull();
     expect(palsu.toastError).toHaveBeenCalledTimes(1);
   });
+
+  it("tidak menawarkan 'Tetap simpan' untuk PATCH mode ubah walau dibalas DUPLIKAT", async () => {
+    // Penjaga `"sumber" in muatan` (`useSimpanProspek.ts`): hanya muatan buat
+    // yang boleh dikirim ulang dengan `abaikanDuplikat`. Hari ini
+    // `ProspekService.ubah` tidak melempar DUPLIKAT, jadi ini mengunci
+    // penjaganya, bukan alur yang sudah terjadi.
+    mockFetch.mockResolvedValueOnce(respons(409, badanDuplikat));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    await klikTombol("Simpan Perubahan");
+
+    expect(cari('[data-prospek-bentrok="prospek-lama"]')).toBeNull();
+    expect(palsu.toastError).toHaveBeenCalledWith(
+      "Sudah ada prospek aktif dengan nomor telepon ini",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe("ProspekFormModal — mode ubah", () => {
