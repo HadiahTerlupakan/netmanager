@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-24] — Kembalikan kolom rating tiket ke schema Prisma
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Migration `20260710120000_add_rating_to_support_ticket` (commit
+  `ce8dcec79`, dibuat manual setelah `db push`) menambah `support_tickets.rating Int?`
+  beserta index `(status, rating)`, tetapi `schema.prisma` tidak pernah ikut diubah.
+  Kolomnya ada di produksi (diverifikasi 2026-09-24 lewat `information_schema`), namun
+  Prisma client tidak mengenalnya, sedangkan
+  `updateCustomerOwnedTicketStatus` (`customer-ticket.repository.prisma-helpers.ts`)
+  menulis `rating` lewat spread bersyarat yang lolos typecheck. Prisma menolak
+  argumen tak dikenal saat runtime (`PrismaClientValidationError`), sehingga
+  penutupan tiket oleh pelanggan yang menyertakan rating gagal. Log produksi tidak
+  menyimpan jejaknya (retensi sebatas umur pod), jadi frekuensinya tidak diketahui.
+  Schema kini memuat `rating Int?` dan `@@index([status, rating])`, cocok 1:1 dengan
+  migration yang sudah diterapkan — tidak ada migration baru.
+- **Files**: `prisma/schema.prisma`
+- **Migration**: tidak ada (memakai `20260710120000_add_rating_to_support_ticket` yang sudah ada)
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-23] — Validasi Zod untuk prospekId daftar sales presurvei
 
 - **Tipe**: [SECURITY]

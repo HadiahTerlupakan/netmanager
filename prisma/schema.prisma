@@ -2242,6 +2242,7 @@ model SupportTickets {
   assignedToId String?
   resolvedAt   DateTime?
   closedAt     DateTime?
+  rating       Int?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime
   tenantId     String?
@@ -2257,6 +2258,7 @@ model SupportTickets {
   @@index([pelangganId])
   @@index([priority])
   @@index([status])
+  @@index([status, rating])
   @@index([tenantId])
   @@map("support_tickets")
 }
