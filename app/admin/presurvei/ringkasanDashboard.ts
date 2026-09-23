@@ -2,8 +2,13 @@ import { PERMISSIONS } from "@/lib/permissions";
 import {
   PROSPEK_STATUS_CONFIG,
   daftarKolomHidup,
+  type KegiatanListItemDto,
   type ProspekStatus,
+  type SalesPresurveiDto,
 } from "@/modules/presurvei/client";
+
+import { labelSales } from "./labelSales";
+import { KUNCI_KOLOM_PROSPEK } from "./prospek/prospekKolomQuery";
 
 /** Kolom corong yang angkanya belum bisa dipercaya. */
 export type KeadaanTakTermuat = "memuat" | "gagal";
@@ -192,4 +197,46 @@ export function buildProspekTakBertuanUrl(): string {
     limit: String(BATAS_PROSPEK_TAK_BERTUAN),
   });
   return `/api/presurvei/prospek?${params.toString()}`;
+}
+
+/**
+ * Segmen kedua kunci daftar tak bertuan. Bukan anggota `PROSPEK_STATUSES`,
+ * jadi pencarian per status tidak pernah menemukannya.
+ */
+const SEGMEN_TAK_BERTUAN = "tak-bertuan";
+
+/**
+ * Kunci cache daftar prospek tak bertuan: `[KUNCI_KOLOM_PROSPEK, "tak-bertuan", url]`.
+ *
+ * Di bawah awalan kolom papan supaya invalidasi seluruh awalan
+ * (`prospek/prospekFormState.ts:289`, dipakai saat status hasil simpan tak
+ * terbaca) ikut mengenainya. Invalidasi per status (`[KUNCI_KOLOM_PROSPEK,
+ * status]` — seret, konversi, dan simpan dengan status terbaca) TIDAK
+ * mengenainya; di jalur itu daftar ini baru segar lagi setelah `staleTime`
+ * 30 detik (`components/providers/session-provider.tsx:31`).
+ *
+ * Aman terhadap `findAll({ queryKey: [KUNCI_KOLOM_PROSPEK, tujuan] })` di
+ * `prospek/usePindahProspek.ts:80-82`, yang membaca datanya sebagai halaman
+ * kolom: `tujuan` selalu status, tidak pernah `SEGMEN_TAK_BERTUAN`.
+ */
+export function kunciQueryProspekTakBertuan(): [string, string, string] {
+  return [KUNCI_KOLOM_PROSPEK, SEGMEN_TAK_BERTUAN, buildProspekTakBertuanUrl()];
+}
+
+/** Daftar sales kosong: dashboard tidak memuat daftar sales untuk bagian kegiatan. */
+const TANPA_DAFTAR_SALES: readonly SalesPresurveiDto[] = Object.freeze([]);
+
+/**
+ * Pelaku satu kegiatan: `namaSales` dari baris, atau label netral `labelSales`.
+ *
+ * Daftar sales sengaja tidak diambil: endpoint-nya
+ * (`app/api/admin/presurvei/sales/route.ts:23-27`) menolak pemegang
+ * `m_presurvei:read` saja, padahal bagian kegiatan tampil untuk mereka. Baris
+ * kegiatan sudah membawa nama bila bisa ditampilkan, jadi yang tersisa hanya
+ * label cadangan — tanpa id utuh.
+ */
+export function teksPelakuKegiatan(
+  item: Pick<KegiatanListItemDto, "namaSales" | "userId">,
+): string {
+  return item.namaSales ?? labelSales(item.userId, TANPA_DAFTAR_SALES);
 }

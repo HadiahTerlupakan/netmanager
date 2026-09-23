@@ -58,8 +58,9 @@ interface FilterPemilikProspek {
  *
  * `pemilikId` kiriman klien ditimpa id pemanggil, dan `tanpaPemilik` dibuang
  * seluruhnya — sales lapangan tidak boleh pernah menerima prospek tak bertuan
- * milik tenant. Membuangnya (bukan sekadar mengandalkan `pemilikId` yang
- * menang di repository) membuat jaminan itu tidak bergantung pada satu lapis.
+ * milik tenant. Route sudah menolak `tanpaPemilik=true` dari pemanggil ini
+ * dengan 403; pembuangan di sini lapis kedua, dan `pemilikId` yang menang di
+ * repository lapis ketiga.
  */
 export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
   filters: T,

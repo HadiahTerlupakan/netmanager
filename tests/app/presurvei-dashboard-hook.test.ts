@@ -213,15 +213,17 @@ describe("useProspekTakBertuan", () => {
     const fetchPalsu = fetchBerhasil();
     vi.stubGlobal("fetch", fetchPalsu);
     const url = "/api/presurvei/prospek?tanpaPemilik=true&page=1&limit=5";
-    palsu.hasilPerKunci.set(
-      JSON.stringify(["presurvei-prospek-tak-bertuan", url]),
-      tiba(9),
-    );
+    // Di bawah awalan kolom papan: invalidasi `[KUNCI_KOLOM_PROSPEK]`
+    // (`prospekFormState.ts:289`) ikut mengenainya. Segmen keduanya bukan
+    // status, jadi `findAll([KUNCI_KOLOM_PROSPEK, status])` di
+    // `usePindahProspek.ts` tidak pernah menemukannya.
+    const kunci = [KUNCI_KOLOM_LITERAL, "tak-bertuan", url];
+    palsu.hasilPerKunci.set(JSON.stringify(kunci), tiba(9));
 
     const hasil = useProspekTakBertuan();
 
     const [konfig] = palsu.konfigQuery.mock.calls[0] as [KonfigQuery];
-    expect(konfig.queryKey).toEqual(["presurvei-prospek-tak-bertuan", url]);
+    expect(konfig.queryKey).toEqual(kunci);
     expect(hasil).toEqual({
       daftar: [],
       total: 9,

@@ -159,27 +159,51 @@ describe("GET /api/presurvei/prospek — filter tanpaPemilik", () => {
     return mockFns.daftar.mock.calls[0][0];
   };
 
-  it("membuang tanpaPemilik dari pemanggil bermodal permission mobile", async () => {
+  it("menolak dengan 403 pemanggil bermodal permission mobile yang meminta tanpaPemilik", async () => {
     // Syarat utama: sales lapangan tidak boleh pernah menerima prospek tak
-    // bertuan milik tenant. Filternya dibuang di route, bukan hanya dikalahkan
-    // di repository — dua lapis, masing-masing punya test sendiri.
+    // bertuan milik tenant. Gagal keras, bukan dibuang diam-diam: UI memeriksa
+    // izin dengan alias (`contexts/PermissionContext.tsx:118-121`) sedangkan
+    // route memakai string persis, jadi bila keduanya kelak berbeda pendapat,
+    // pembuangan diam-diam akan menampilkan prospek milik sales sendiri di
+    // bawah judul "Prospek tanpa pemilik".
     beriPermission(["m_presurvei:read"]);
 
-    await mintaDaftar("tanpaPemilik=true");
+    const response = await mintaDaftar("tanpaPemilik=true");
 
+    expect(response.status).toBe(403);
+    expect(mockFns.daftar).not.toHaveBeenCalled();
+  });
+
+  it("menolak dengan 403 meski pemanggil mobile juga mengirim pemilik orang lain", async () => {
+    beriPermission(["m_presurvei:read"]);
+
+    const response = await mintaDaftar(
+      `tanpaPemilik=true&pemilikId=${ID_ORANG_LAIN}`,
+    );
+
+    expect(response.status).toBe(403);
+    expect(mockFns.daftar).not.toHaveBeenCalled();
+  });
+
+  it('melayani pemanggil mobile yang mengirim tanpaPemilik "false", terikat pada miliknya', async () => {
+    beriPermission(["m_presurvei:read"]);
+
+    const response = await mintaDaftar("tanpaPemilik=false");
+
+    expect(response.status).toBe(200);
     const filter = filterDiterimaService();
     expect(filter.pemilikId).toBe(ID_SESI);
+    // Lapis kedua: `ikatFilterProspekKePemanggil` tetap membuangnya.
     expect(filter).not.toHaveProperty("tanpaPemilik");
   });
 
-  it("tetap mengikat pemanggil mobile yang mengirim tanpaPemilik dan pemilik orang lain", async () => {
+  it("melayani pemanggil mobile tanpa param tanpaPemilik", async () => {
     beriPermission(["m_presurvei:read"]);
 
-    await mintaDaftar(`tanpaPemilik=true&pemilikId=${ID_ORANG_LAIN}`);
+    const response = await mintaDaftar("page=1");
 
-    const filter = filterDiterimaService();
-    expect(filter.pemilikId).toBe(ID_SESI);
-    expect(filter).not.toHaveProperty("tanpaPemilik");
+    expect(response.status).toBe(200);
+    expect(filterDiterimaService().pemilikId).toBe(ID_SESI);
   });
 
   it("meneruskan tanpaPemilik dari pemegang permission web", async () => {

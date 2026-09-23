@@ -16,18 +16,10 @@ import {
   buildKegiatanTerbaruUrl,
   buildProspekTakBertuanUrl,
   hitungCorong,
+  kunciQueryProspekTakBertuan,
   ringkasHasilKolom,
   type KartuCorong,
 } from "./ringkasanDashboard";
-
-/**
- * Awalan kunci daftar prospek tak bertuan.
- *
- * Kunci sendiri, bukan `KUNCI_KOLOM_PROSPEK`: bentuk permintaannya lain
- * (tanpa status), jadi invalidasi papan per status tidak mengenainya. Ia
- * segar kembali lewat `staleTime` bawaan saat dashboard dibuka ulang.
- */
-const KUNCI_PROSPEK_TAK_BERTUAN = "presurvei-prospek-tak-bertuan";
 
 /** Referensi tunggal untuk "belum ada data", supaya tidak lahir array baru tiap render. */
 const TANPA_KEGIATAN: readonly KegiatanListItemDto[] = Object.freeze([]);
@@ -94,11 +86,16 @@ export function useKegiatanTerbaru() {
   };
 }
 
-/** Halaman pertama prospek tak bertuan beserta jumlah seluruhnya. */
+/**
+ * Halaman pertama prospek tak bertuan beserta jumlah seluruhnya.
+ *
+ * Kuncinya dari `kunciQueryProspekTakBertuan` — lihat di sana untuk invalidasi
+ * mana yang mengenainya dan mana yang tidak.
+ */
 export function useProspekTakBertuan() {
   const url = buildProspekTakBertuanUrl();
   const query = useQuery({
-    queryKey: [KUNCI_PROSPEK_TAK_BERTUAN, url],
+    queryKey: kunciQueryProspekTakBertuan(),
     queryFn: () =>
       ambilDaftar<ProspekListItemDto>(url, "Gagal memuat prospek tak bertuan"),
   });

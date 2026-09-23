@@ -173,8 +173,9 @@ export class ProspekRepository implements IProspekRepository {
    * Route mengisi `pemilikId` dengan id sesi untuk sales lapangan
    * (`app/api/presurvei/prospek/route.ts`). Bila `tanpaPemilik` boleh
    * menimpanya menjadi `null`, sales itu menerima seluruh prospek tak bertuan
-   * milik tenant. Route juga membuang `tanpaPemilik` dari pemanggil itu; aturan
-   * di sini lapis kedua untuk pemanggil lain dari repository ini.
+   * milik tenant. Route juga menolak `tanpaPemilik=true` dari pemanggil itu
+   * (403) dan membuang param-nya; aturan di sini lapis terakhir, juga untuk
+   * pemanggil lain dari repository ini.
    */
   private bangunFilterPemilik(
     filters: ProspekListFilters,

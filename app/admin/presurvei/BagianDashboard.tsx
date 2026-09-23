@@ -15,7 +15,11 @@ import {
 import { keBarisTampilan, pesanLaporanKosong } from "./laporan/barisLaporan";
 import { useLaporanPeriode } from "./laporan/useLaporanPeriode";
 import { namaBulan } from "./periode";
-import { teksJumlahKartu, JUMLAH_HARI_KEGIATAN } from "./ringkasanDashboard";
+import {
+  JUMLAH_HARI_KEGIATAN,
+  teksJumlahKartu,
+  teksPelakuKegiatan,
+} from "./ringkasanDashboard";
 import {
   useCorongDashboard,
   useKegiatanTerbaru,
@@ -128,7 +132,7 @@ export function ProspekTakBertuan() {
   return (
     <KerangkaBagian
       judul="Prospek tanpa pemilik"
-      tautan={{ href: URL_PAPAN_PROSPEK, label: "Tugaskan di papan" }}
+      tautan={{ href: URL_PAPAN_PROSPEK, label: "Buka papan prospek" }}
     >
       {isi}
     </KerangkaBagian>
@@ -154,7 +158,7 @@ export function KegiatanTerbaru({ judul }: { judul: string }) {
               {KEGIATAN_HASIL_CONFIG[kegiatan.hasil].label}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              {kegiatan.namaSales ?? kegiatan.userId} ·{" "}
+              {teksPelakuKegiatan(kegiatan)} ·{" "}
               {formatDateTimeDisplay(kegiatan.waktuMulai)}
             </div>
           </li>

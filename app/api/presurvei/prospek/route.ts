@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { apiPaginated, apiSuccess, createHandler } from "@/lib/api";
+import { ApiErrors, apiPaginated, apiSuccess, createHandler } from "@/lib/api";
 import {
   buatProspekSchema,
   daftarProspekSchema,
@@ -30,10 +30,23 @@ export const GET = createHandler(
       limit: searchParams.get("limit") ?? undefined,
     });
 
+    const isBolehLihatSemua = isBolehLihatSemuaPresurvei(ctx.permissions);
+
+    // Prospek tak bertuan hanya untuk pemegang permission web. Ditolak keras,
+    // bukan dibuang diam-diam: UI memeriksa izin dengan alias
+    // (`contexts/PermissionContext.tsx:118-121`), route dengan string persis
+    // (`akses-presurvei.ts`). Bila keduanya kelak berbeda pendapat, pembuangan
+    // diam-diam menampilkan prospek milik sales sendiri di bawah judul
+    // "Prospek tanpa pemilik"; 403 membuat perbedaan itu terlihat.
+    if (filters.tanpaPemilik && !isBolehLihatSemua) {
+      return ApiErrors.forbidden("Akses ditolak");
+    }
+
     // Sales tanpa permission web hanya melihat prospeknya sendiri; filter
-    // `pemilikId` yang dikirim klien ditimpa dan `tanpaPemilik` dibuang.
+    // `pemilikId` yang dikirim klien ditimpa, dan `tanpaPemilik` ("false")
+    // dibuang sebagai lapis kedua.
     const hasil = await service.daftar(
-      isBolehLihatSemuaPresurvei(ctx.permissions)
+      isBolehLihatSemua
         ? filters
         : ikatFilterProspekKePemanggil(filters, ctx.session!.user.id),
     );

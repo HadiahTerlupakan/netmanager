@@ -1,12 +1,18 @@
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
+
+import { KUNCI_KOLOM_PROSPEK } from "@/app/admin/presurvei/prospek/prospekKolomQuery";
+import { PROSPEK_STATUSES } from "@/modules/presurvei/client";
 
 import {
   buildKegiatanTerbaruUrl,
   buildProspekTakBertuanUrl,
   hitungCorong,
+  kunciQueryProspekTakBertuan,
   ringkasHasilKolom,
   tanggalAwalKegiatan,
   teksJumlahKartu,
+  teksPelakuKegiatan,
   tentukanBagianDashboard,
   type KartuCorong,
 } from "@/app/admin/presurvei/ringkasanDashboard";
@@ -235,5 +241,55 @@ describe("buildProspekTakBertuanUrl", () => {
       page: "1",
       limit: "5",
     });
+  });
+});
+
+describe("kunciQueryProspekTakBertuan", () => {
+  it("berada di bawah awalan kolom papan tanpa menyamar sebagai kolom status", () => {
+    // Cache sungguhan, bukan tiruan: yang dijaga adalah pencocokan awalan
+    // React Query. Invalidasi `[KUNCI_KOLOM_PROSPEK]` (`prospekFormState.ts:289`)
+    // harus mengenainya, sedangkan `findAll([KUNCI_KOLOM_PROSPEK, status])`
+    // (`usePindahProspek.ts:80-82`) — yang membaca datanya sebagai halaman
+    // kolom — tidak boleh menemukannya.
+    const cache = new QueryClient();
+    const kunciTakBertuan = kunciQueryProspekTakBertuan();
+    cache.setQueryData(kunciTakBertuan, { data: [], meta: { total: 0 } });
+    cache.setQueryData([KUNCI_KOLOM_PROSPEK, "BARU", 1], {
+      data: [],
+      meta: { total: 0 },
+    });
+
+    const semua = cache
+      .getQueryCache()
+      .findAll({ queryKey: [KUNCI_KOLOM_PROSPEK] })
+      .map((query) => query.queryKey);
+    expect(semua).toContainEqual(kunciTakBertuan);
+
+    for (const status of PROSPEK_STATUSES) {
+      const perStatus = cache
+        .getQueryCache()
+        .findAll({ queryKey: [KUNCI_KOLOM_PROSPEK, status] })
+        .map((query) => query.queryKey);
+      expect(perStatus).not.toContainEqual(kunciTakBertuan);
+    }
+  });
+});
+
+describe("teksPelakuKegiatan", () => {
+  it("memakai nama sales dari baris kegiatan", () => {
+    expect(
+      teksPelakuKegiatan({ namaSales: "Siti", userId: "user-abcdef123456" }),
+    ).toBe("Siti");
+  });
+
+  it("tidak mencetak id mentah saat nama tidak bisa ditampilkan", () => {
+    const teks = teksPelakuKegiatan({
+      namaSales: null,
+      userId: "user-abcdef123456",
+    });
+
+    // Label netral bersama `labelSales`, berpotongan ujung id.
+    expect(teks).toBe("Sales tak tercantum (…123456)");
+    expect(teks).not.toContain("user-abcdef123456");
   });
 });
