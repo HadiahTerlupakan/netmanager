@@ -372,6 +372,7 @@ model Expense {
   @@index([rabProjectId])
   @@index([rabItemId])
   @@index([tenantId])
+  @@index([fakturPajakNo])
 }
 
 model HargaPaket {
@@ -2571,7 +2572,7 @@ model WorkOrders {
   ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
 
   @@unique([tenantId, workOrderNumber], name: "tenantId_workOrderNumber")
-  @@unique([workOrderNumber], name: "uniq_workOrderNumber_global")
+  @@unique([workOrderNumber], name: "uniq_workOrderNumber_global", map: "uniq_workOrderNumber_global")
   @@index([assignedToId])
   @@index([assignedMitraId])
   @@index([departmentId])
@@ -2650,10 +2651,10 @@ model ConversationParticipant {
   // Actor polymorphism: mitra & pelanggan tidak ada di tabel User (DB terpisah).
   // actorType/actorId merepresentasikan aktor non-User tanpa FK;
   // untuk aktor User, actorId diset = userId.
-  actorType String
+  actorType String  @default("user")
   actorId   String?
 
-  @@unique([conversationId, actorType, actorId])
+  @@unique([conversationId, actorType, actorId], map: "ConversationParticipant_conversation_actorType_actorId_key")
   @@index([userId])
   @@index([conversationId])
   @@index([tenantId])
@@ -2673,7 +2674,7 @@ model Message {
   tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   // Actor polymorphism untuk pengirim non-User (mitra/pelanggan).
-  actorType String
+  actorType String  @default("user")
   actorId   String?
 
   @@index([conversationId, createdAt])
@@ -3085,7 +3086,7 @@ model Jasa {
   purchaseRequestJasaItems PurchaseRequestJasaItem[]
   purchaseOrderJasaItems   PurchaseOrderJasaItem[]
 
-  @@unique([tenantId, kode], name: "tenantId_kode_jasa")
+  @@unique([tenantId, kode], name: "tenantId_kode_jasa", map: "tenantId_kode_jasa")
   @@index([tenantId])
   @@index([status])
   @@index([supplierId])
@@ -3193,6 +3194,7 @@ model PurchaseOrder {
   @@unique([tenantId, poNumber], name: "tenantId_poNumber")
   @@index([tenantId])
   @@map("purchase_orders")
+  @@index([fakturPajakNo])
 }
 
 model PurchaseOrderItem {
@@ -4922,7 +4924,7 @@ model WhatsAppAccount {
 model WhatsAppMessage {
   id          String           @id @default(cuid())
   accountId   String?
-  account     WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  account     WhatsAppAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   phone       String
   message     String?
   fileUrl     String?
@@ -6149,7 +6151,7 @@ enum AuditAction {
 }
 
 model Planning {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("gen_random_uuid()"))
   tenantId String
 
   type        PlanningType @default(OSP)
@@ -6207,7 +6209,7 @@ model Planning {
 }
 
 model PlanningItem {
-  id         String @id @default(uuid())
+  id         String @id @default(dbgenerated("gen_random_uuid()"))
   planningId String
   tenantId   String
 
@@ -6230,7 +6232,7 @@ model PlanningItem {
 }
 
 model PlanningMilestone {
-  id         String @id @default(uuid())
+  id         String @id @default(dbgenerated("gen_random_uuid()"))
   planningId String
   tenantId   String
 
@@ -6253,7 +6255,7 @@ model PlanningMilestone {
 }
 
 model PlanningDocument {
-  id         String @id @default(uuid())
+  id         String @id @default(dbgenerated("gen_random_uuid()"))
   planningId String
   tenantId   String
 
@@ -6277,7 +6279,7 @@ model PlanningDocument {
 }
 
 model PlanningAuditLog {
-  id         String @id @default(uuid())
+  id         String @id @default(dbgenerated("gen_random_uuid()"))
   planningId String
   tenantId   String
 
@@ -6298,7 +6300,7 @@ model PlanningAuditLog {
 }
 
 model PlanningTemplate {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("gen_random_uuid()"))
   tenantId String
 
   name        String
@@ -6320,7 +6322,7 @@ model PlanningTemplate {
 }
 
 model PlanningTemplateItem {
-  id         String @id @default(uuid())
+  id         String @id @default(dbgenerated("gen_random_uuid()"))
   templateId String
   tenantId   String
 

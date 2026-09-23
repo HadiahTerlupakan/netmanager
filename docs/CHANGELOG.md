@@ -41,6 +41,33 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-24] — Selaraskan schema.prisma dengan riwayat migration
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Setelah DB lokal di-reset ke riwayat migration (atas persetujuan user),
+  `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`
+  masih menunjukkan selisih antara schema dan migration yang sudah diterapkan di
+  produksi. Selisih itu akan ikut terselip ke migration `migrate dev` berikutnya dan
+  mengubah produksi tanpa sengaja. Yang diselaraskan **di schema saja** (tanpa migration,
+  produksi tidak berubah):
+  - `id` tujuh tabel Planning*: `@default(uuid())` → `@default(dbgenerated("gen_random_uuid()"))`,
+    sesuai `20260809033447_add_planning_osp_tables`. UUID kini dibuat database, bukan client.
+  - `actorType` di `ConversationParticipant` dan `Message`: `@default("user")`, sesuai
+    `20260720030000_add_chat_actor_columns`.
+  - Nama constraint unik lewat `map:`: `ConversationParticipant_conversation_actorType_actorId_key`,
+    `tenantId_kode_jasa`, `uniq_workOrderNumber_global`.
+  - FK `WhatsAppMessage.accountId`: `onUpdate: NoAction`, sesuai
+    `20260711130000_make_whatsapp_message_account_id_nullable`.
+  - `@@index([fakturPajakNo])` di `Expense` dan `PurchaseOrder`, sesuai
+    `20260522181000_add_faktur_pajak_metadata`.
+  Setelahnya diff schema ↔ migration kosong (`-- This is an empty migration.`), jadi
+  `migrate dev` kembali bisa dipakai tanpa reset dan tanpa menyelipkan perubahan.
+- **Files**: `prisma/schema.prisma`
+- **Migration**: tidak ada
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-24] — Kembalikan kolom rating tiket ke schema Prisma
 
 - **Tipe**: [FIXED]
