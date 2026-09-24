@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
-import { apiPaginated, apiSuccess, createHandler } from "@/lib/api";
+import {
+  apiPaginated,
+  createHandler,
+  executeMobileWithIdempotency,
+} from "@/lib/api";
 import {
   catatKegiatanSchema,
   daftarKegiatanSchema,
@@ -11,6 +15,24 @@ import {
 import { isBolehLihatSemuaPresurvei } from "../akses-presurvei";
 
 const service = new KegiatanService();
+
+const HTTP_CREATED = 201;
+
+/** Cakupan kunci idempotensi catat kegiatan, dipisah per tenant sesi. */
+const CAKUPAN_IDEMPOTENSI_CATAT = "presurvei:kegiatan:create";
+
+/** Pengisi cakupan untuk sesi tanpa tenant (super admin lintas tenant). */
+const TENANT_KOSONG = "tanpa-tenant";
+
+/**
+ * Bangun cakupan kunci idempotensi. `GenericIdempotencyService` sudah
+ * menyisipkan userId ke kunci (`lib/api/idempotency.ts` buildKey); tenant
+ * ditambahkan di sini karena tenant sesi super admin bisa berganti, dan
+ * respons milik tenant A tidak boleh diputar ulang di tenant B.
+ */
+function bangunCakupanIdempotensi(tenantId: string | undefined): string {
+  return `${CAKUPAN_IDEMPOTENSI_CATAT}:${tenantId ?? TENANT_KOSONG}`;
+}
 
 /** GET /api/presurvei/kegiatan — daftar kegiatan dengan filter dan paginasi. */
 export const GET = createHandler(
@@ -47,25 +69,36 @@ export const GET = createHandler(
   },
 );
 
-/** POST /api/presurvei/kegiatan — catat kegiatan sales atau marketing. */
+/**
+ * POST /api/presurvei/kegiatan — catat kegiatan sales atau marketing.
+ *
+ * Idempoten bila klien mengirim header `Idempotency-Key`: mobile mengirim
+ * ulang kegiatan dari antrean offline setelah POST pertama timeout, padahal
+ * server bisa saja sudah commit — tanpa ini kegiatan (dan prospek baru)
+ * tercatat ganda. Tanpa header, perilakunya tetap seperti semula.
+ */
 export const POST = createHandler(
   {
     auth: true,
     permissions: ["presurvei:create", "m_presurvei:create"],
     schema: catatKegiatanSchema,
   },
-  async (_request, ctx) => {
-    const hasil = await service.catat({
-      ...ctx.validated,
+  async (request, ctx) =>
+    executeMobileWithIdempotency({
+      request,
+      scope: bangunCakupanIdempotensi(ctx.session!.user.tenantId),
       userId: ctx.session!.user.id,
-    });
-
-    return apiSuccess(
-      {
-        kegiatan: toKegiatanDetail(hasil.kegiatan),
-        prospek: hasil.prospek ? toProspekDetail(hasil.prospek) : null,
+      body: ctx.validated,
+      status: HTTP_CREATED,
+      handler: async () => {
+        const hasil = await service.catat({
+          ...ctx.validated,
+          userId: ctx.session!.user.id,
+        });
+        return {
+          kegiatan: toKegiatanDetail(hasil.kegiatan),
+          prospek: hasil.prospek ? toProspekDetail(hasil.prospek) : null,
+        };
       },
-      { status: 201 },
-    );
-  },
+    }),
 );

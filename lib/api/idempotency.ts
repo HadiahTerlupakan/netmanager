@@ -130,6 +130,9 @@ export class GenericIdempotencyService {
 
   private normalize(value: unknown): unknown {
     if (value === null || typeof value !== "object") return value;
+    // Payload hasil parse Zod (`z.coerce.date()`) berisi Date; tanpa ini
+    // Object.entries(Date) kosong sehingga perubahan waktu tak terdeteksi.
+    if (value instanceof Date) return value.toISOString();
     if (Array.isArray(value)) return value.map((v) => this.normalize(v));
     const entries = Object.entries(value as Record<string, unknown>)
       .sort(([a], [b]) => a.localeCompare(b))

@@ -424,3 +424,153 @@ describe("PATCH /api/presurvei/kegiatan/[id]", () => {
     expect(badan.data.riwayat).toEqual([]);
   });
 });
+
+/**
+ * Idempotensi POST: mobile mengirim ulang kegiatan dari antrean offline
+ * setelah POST pertama timeout padahal server sudah commit. Header
+ * `Idempotency-Key` yang sama wajib menghasilkan satu kegiatan saja.
+ * Redis diganti peta di memori supaya `GenericIdempotencyService` asli ikut
+ * teruji, bukan tiruannya.
+ */
+describe("POST /api/presurvei/kegiatan — idempotensi", () => {
+  const KUNCI_IDEMPOTENSI = "req-kegiatan-1";
+  const TENANT_SESI = "tenant-1";
+  const TENANT_LAIN = "tenant-2";
+  const penyimpanan = new Map<string, string>();
+
+  const pasangRedisDiMemori = async (): Promise<void> => {
+    const { redis } = await import("@/lib/redis");
+    penyimpanan.clear();
+    vi.mocked(redis.set).mockImplementation((async (
+      kunci: string,
+      nilai: string,
+      ...opsi: unknown[]
+    ) => {
+      if (opsi.includes("NX") && penyimpanan.has(kunci)) return null;
+      penyimpanan.set(kunci, nilai);
+      return "OK";
+    }) as never);
+    vi.mocked(redis.get).mockImplementation(
+      (async (kunci: string) => penyimpanan.get(kunci) ?? null) as never,
+    );
+    vi.mocked(redis.setex).mockImplementation((async (
+      kunci: string,
+      _ttl: number,
+      nilai: string,
+    ) => {
+      penyimpanan.set(kunci, nilai);
+      return "OK";
+    }) as never);
+    vi.mocked(redis.del).mockImplementation((async (kunci: string) =>
+      penyimpanan.delete(kunci) ? 1 : 0) as never);
+  };
+
+  const masukSebagai = (userId: string, tenantId: string): void => {
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: userId,
+        email: `${userId}@contoh.id`,
+        tenantId,
+        permissions: ["m_presurvei:create"],
+      },
+    });
+  };
+
+  const mintaCatatBerkunci = (body: Record<string, unknown>, kunci?: string) =>
+    POST(
+      new NextRequest("http://localhost/api/presurvei/kegiatan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(kunci ? { "Idempotency-Key": kunci } : {}),
+        },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({}) } as never,
+    );
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await pasangRedisDiMemori();
+    mockFns.catat.mockResolvedValue({
+      kegiatan: kegiatanTersimpan,
+      prospek: null,
+    });
+  });
+
+  it("kunci sama dua kali: service sekali, respons kedua identik 201", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+
+    const pertama = await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+    const kedua = await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+
+    expect(mockFns.catat).toHaveBeenCalledTimes(1);
+    expect(pertama.status).toBe(201);
+    expect(kedua.status).toBe(201);
+    expect(kedua.headers.get("X-Idempotent-Replay")).toBe("true");
+    const badanPertama = await pertama.json();
+    expect(badanPertama.data.kegiatan.id).toBe(ID_KEGIATAN);
+    expect(await kedua.json()).toEqual(badanPertama);
+  });
+
+  it("tanpa kunci: service dipanggil setiap kali (web admin, klien lama)", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+
+    await mintaCatatBerkunci(bodiDasar);
+    await mintaCatatBerkunci(bodiDasar);
+
+    expect(mockFns.catat).toHaveBeenCalledTimes(2);
+  });
+
+  it("kunci sama dari user lain tidak memakai respons milik user pertama", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+    await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+
+    masukSebagai(ID_ORANG_LAIN, TENANT_SESI);
+    const respons = await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+
+    expect(mockFns.catat).toHaveBeenCalledTimes(2);
+    expect(mockFns.catat).toHaveBeenLastCalledWith(
+      expect.objectContaining({ userId: ID_ORANG_LAIN }),
+    );
+    expect(respons.headers.get("X-Idempotent-Replay")).toBeNull();
+  });
+
+  it("kunci sama dari user yang sama di tenant lain tidak saling memakai", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+    await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+
+    masukSebagai(ID_SESI, TENANT_LAIN);
+    await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+
+    expect(mockFns.catat).toHaveBeenCalledTimes(2);
+  });
+
+  it("kunci sama dengan waktuMulai berbeda ditolak 409 tanpa menulis", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+    const waktuLebihAwal = new Date(
+      Date.parse(bodiDasar.waktuMulai) - 60_000,
+    ).toISOString();
+
+    await mintaCatatBerkunci(bodiDasar, KUNCI_IDEMPOTENSI);
+    const respons = await mintaCatatBerkunci(
+      { ...bodiDasar, waktuMulai: waktuLebihAwal },
+      KUNCI_IDEMPOTENSI,
+    );
+
+    expect(respons.status).toBe(409);
+    expect(mockFns.catat).toHaveBeenCalledTimes(1);
+  });
+
+  it("requestId di badan dibuang skema, bukan diteruskan ke service", async () => {
+    masukSebagai(ID_SESI, TENANT_SESI);
+
+    const respons = await mintaCatatBerkunci({
+      ...bodiDasar,
+      requestId: KUNCI_IDEMPOTENSI,
+    });
+
+    expect(respons.status).toBe(201);
+    expect(mockFns.catat.mock.calls[0][0]).not.toHaveProperty("requestId");
+  });
+});
