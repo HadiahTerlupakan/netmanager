@@ -44,7 +44,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 ### [2026-09-25] — Beri izin presurvei mobile ke role SALES
 
 - **Tipe**: [MIGRATION]
-- **Scope**: `prisma/` | `modules/presurvei`
+- **Scope**: `prisma/migrations`
 - **Author**: agent
 - **Deskripsi**: Migration data yang memberi `m_presurvei:{read,create,update}` ke role
   bernama `SALES` (dicocokkan lewat `trim(name)`, hanya role ber-`tenantId`), agar tab
@@ -90,13 +90,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   bila `bolehCanvasing(user)` dan Absensi hanya dengan `m_absensi`. Teknisi ber-izin
   membuka Presurvei dari tile menu cepat, yang disembunyikan bila tanpa izin.
   `app/(app)/_layout.tsx` diringkas (448 → 281 baris) dengan daftar route tersembunyi
-  terpusat.
+  terpusat. Beranda dan Profil memilih layar lewat `Record<Persona, …>`, dengan pemetaan
+  Profil yang sama seperti sebelumnya.
   **Beranda sales** memakai `GET /api/mobile/presurvei/ringkasan` dan menampilkan:
   - kegiatan hari ini per jenis;
   - target vs realisasi bulan ini;
   - hingga 5 prospek yang perlu di-follow-up;
   - kartu absen (hanya dengan `m_absensi`);
-  - pencairan bonus canvasing (hanya bila `bolehCanvasing`);
+  - pencairan bonus canvasing (hanya bila `bolehCanvasing`), yang baru dirender
+    setelah statistik termuat;
+  - menu cepat Chat, Izin & Cuti, Lembur, dan Kalender Libur. Lembur dan Kalender
+    Libur dipertahankan karena sudah bisa dipakai sales sebelum OTA; tile terkunci
+    tanpa izin. Menu teknisi (Isolir, Request WO, Topology, Barang Keluar) tidak tampil;
   - mode cuti yang sama dengan teknisi.
 
   Respons 403 tampil sebagai kartu "belum aktif" tanpa toast. Tarik-segarkan ikut
@@ -108,7 +113,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - Catat Kegiatan. Kunjungan/Survei wajib titik GPS otomatis (tanpa
     `LocationPickerModal` atau koordinat manual) dan minimal satu foto kamera belakang
     (lebar 1024, JPEG 0.7, maksimal 6). Jenis `IKLAN` tidak pernah ditawarkan.
-  - Rincian prospek dengan Ubah Status, yang hanya menawarkan transisi sah.
+  - Rincian prospek dengan Ubah Status, yang hanya menawarkan transisi sah. Rincian
+    dan Jadikan Canvasing tidak memuat data sebelum guard fitur mengizinkan.
   - Jadikan Canvasing, dengan foto KTP wajib yang diunggah sebagai `marketing`.
 
   Ubah Status dan Jadikan Canvasing butuh online dan tidak pernah diantrekan. Foto
@@ -127,31 +133,62 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
   Salinan foto kini juga dihapus setelah sukses, kedaluwarsa, atau galat permanen di
   semua modul. Jalur online absensi/barang dan semua jalur `photoMap` tidak berubah.
-  **Dampak idempotensi (Task 11b/11c).** Catat kegiatan mengirim `requestId` stabil
-  sebagai `Idempotency-Key`, baik online maupun saat replay. Penanganan 409:
-  - 409 `IDEMPOTENCY_IN_PROGRESS` (kunci server ber-TTL 120 detik) tidak lagi dibuang
-    dari antrean. `SyncService` menandainya untuk retry, dan `useApiMutation`
-    mengantrekannya;
-  - 409 `IDEMPOTENCY_KEY_REUSED` tetap permanen di `SyncService`. Di layar catat,
-    kode ini dibaca sebagai "sudah tercatat".
+  **Dampak ke semua modul yang memakai antrean (`SyncService`, gelombang perbaikan
+  akhir).** URL foto yang sudah terunggah saat replay (`meta.photos` maupun `photoMap`)
+  kini disimpan ke item antrean di medan baru `urlFotoTerunggah` /
+  `urlPetaFotoTerunggah` (`DatabaseService.perbaruiMetaAntrean`), sehingga batch
+  berikutnya tidak mengunggah ulang. `photos`/`photoMap` tetap berisi URI lokal, jadi
+  pembersihan dan perlindungan sweep tidak berubah. Item antrean lama tanpa medan baru
+  diproses seperti sebelumnya. Efek samping: attempt ke-2+ dalam satu batch kini
+  mengirim URL `photoMap` yang sama dengan attempt pertama. Sebelumnya attempt itu
+  mengirim nilai medan yang sudah ada di badan antrean.
+  **Dampak idempotensi (Task 11b/11c dan gelombang perbaikan akhir).** Catat kegiatan
+  mengirim `requestId` stabil sebagai `Idempotency-Key`, baik online maupun saat
+  replay, dan tidak memakai retry otomatis TanStack (`retry: false`). Simpan ulang
+  ditangani layar dengan kunci yang sama. Penanganan 409:
+  - 409 `IDEMPOTENCY_IN_PROGRESS` (kunci server ber-TTL 120 detik) tidak dibuang dari
+    antrean. `SyncService` menandainya RETRY lewat `tandaiUlangTanpaBiaya`, tanpa
+    memakan jatah retry global, lalu menjadwalkan drain setelah 30 detik
+    (`Retry-After` server). `useApiMutation` mengantrekannya;
+  - 409 `IDEMPOTENCY_KEY_REUSED` saat replay POST ber-`requestId` dianggap "sudah
+    tercatat": item dihapus, foto dibersihkan, `sync:succeeded` dipancarkan, dan info
+    "Data offline sudah tercatat sebelumnya." tampil, bukan "Data dibatalkan". Ini juga
+    berlaku untuk leaves, overtime, dan inventory yang memakai helper idempotensi
+    yang sama. Tanpa `requestId` atau selain POST, perilaku lama tetap berlaku. Di layar
+    catat, kode ini dibaca sebagai "sudah tercatat" bila variabelnya dipakai ulang.
+
+  **Dampak ke semua pemakai `useApiMutation`.** Hasil antre kini membawa `alasan`
+  (`offline` | `server-belum-merespons`). Bila mutasi diantre selagi NetInfo online
+  (timeout, galat transport, unggah foto habis waktu, 409 in-progress),
+  `SyncService.scheduleQueueDrain` langsung dijadwalkan dan toast bawaan hook berbunyi
+  "Server belum merespons. Data disimpan dan akan dikirim ulang otomatis.". Saat
+  offline, pesan dan pemicu lama tetap dipakai. Pesan yang ditulis layar sendiri
+  (mis. barang, WO) tidak berubah.
 
   **Asumsi A3, batas hari.** Daftar kegiatan per tanggal memakai hari lokal HP,
   sedangkan ringkasan Beranda memakai hari UTC seperti laporan. Kegiatan
   00:00–07:00 WIB tampil di tanggal lokalnya di tab Kegiatan, tetapi terhitung ke hari
   sebelumnya di Beranda.
   **Rilis** cukup lewat OTA. Fingerprint Android `1d15ce0584b51bc61ffc72ea1a62315d5b0f0475`
-  identik di `805b929` dan `ed85675`, `fingerprint:diff` bernilai `[]`, dan tidak ada
+  identik di `805b929`, `ed85675`, dan `32e7a6b` (setelah gelombang perbaikan akhir),
+  `fingerprint:diff` bernilai `[]`, dan tidak ada
   berkas native yang tersentuh. Tab Presurvei sales tetap terkunci sampai migration izin
   role `SALES` (dicatat terpisah) dideploy.
   **Keterbatasan yang diketahui:**
-  - 409 IN_PROGRESS berulang memakan jatah retry global (10). Bila habis, item menjadi
-    FAILED dan "submit ulang" bisa mendorong dobel.
-  - Item yang diantrekan dari jalur online tidak memicu sinkron segera, dan pesannya
-    "Koneksi tidak tersedia" menyesatkan.
-  - Cache URL foto `SyncService` hilang antar-batch. Unggah ulang bisa berujung 409
-    KEY_REUSED ("Data dibatalkan").
   - Redis mati membuat POST online dilempar (503), tidak diantrekan.
-  - Foto item FAILED disimpan tanpa batas waktu sampai item dihapus.
+  - Item antrean FAILED ("Gagal terkirim") tidak punya aksi Kirim ulang atau Hapus,
+    dan fotonya disimpan tanpa batas waktu sampai item dihapus. Sejak 409 in-progress
+    tidak lagi memakan jatah retry, sumber FAILED berkurang, tetapi aksinya masih utang.
+  - TTL kunci COMPLETED idempotensi server 24 jam, sedangkan TTL antrean umum mobile 7
+    hari. POST yang timeout setelah commit lalu HP mati lebih dari 24 jam akan
+    tercatat ganda saat replay. Komentar "match dengan SyncService TTL" hanya benar
+    untuk absensi.
+  - Daftar antrean kegiatan tidak disegarkan saat item dihapus permanen atau ditandai
+    FAILED (tidak ada event untuk kasus itu), sehingga label "Menunggu kirim" bisa basi
+    sampai refetch berikutnya.
+  - `photoMap` yang sudah terunggah di jalur online tidak diteruskan ke meta antrean,
+    jadi antrean mengunggahnya ulang (izin, canvasing, chat). Setelah KEY_REUSED saat
+    replay dianggap sudah tercatat, dampaknya tinggal boros kuota dan blob yatim.
   - Sweep tidak membaca antrean legacy AsyncStorage.
   - Bug lama: jalur offline yang memakai `photoMap` (izin, canvasing) mengunggah
     sebelum cek online, sehingga kemungkinan gagal alih-alih terantre. Selesai WO
@@ -160,11 +197,12 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - "Sudah tercatat" palsu mungkin muncul pada jendela sempit KEY_REUSED saat kunci
     masih IN_PROGRESS lalu handler gagal.
   - Tampil dobel sesaat server-row vs antrean-row saat item baru sukses.
-  - Bagian pencairan canvasing bisa sekejap menampilkan skema BULANAN 0/30 sebelum
-    statistik termuat.
-  - Utang ukuran berkas: `useApiMutation.ts` 417 baris, `UploadService.ts` 428 baris,
+  - Cabang `isSales` mati di `KaryawanTeknisiDashboardScreen` (layar itu hanya untuk
+    persona teknisi). Sengaja tidak disentuh sebelum OTA teknisi.
+  - Utang ukuran berkas: `SyncService.ts` 677 baris, `DatabaseService.ts` 545 baris,
+    `useApiMutation.ts` 457 baris, `UploadService.ts` 428 baris,
     `LocationPickerModal.tsx` 357 baris.
-- **Files**: `app/(app)/_layout.tsx`, `app/(app)/dashboard.tsx`,
+- **Files**: `app/(app)/_layout.tsx`, `app/(app)/dashboard.tsx`, `app/(app)/profile.tsx`,
   `app/(app)/presurvei/**` (4 layar), `src/utils/persona.ts`,
   `src/utils/tabKaryawanSales.ts`, `src/constants/ruteLayarTersembunyi.ts`,
   `src/components/organisms/navigation/{KaryawanSalesTabBar,TombolTabSales}.tsx`,
