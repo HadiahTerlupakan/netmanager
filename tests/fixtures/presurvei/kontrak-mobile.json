@@ -1,0 +1,20 @@
+{
+  "kegiatanJenis": ["KUNJUNGAN", "SURVEI_LOKASI", "TELEPON", "CHAT", "IKLAN"],
+  "kegiatanHasil": ["TERTARIK", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG", "DEAL"],
+  "prospekStatus": ["BARU", "DIHUBUNGI", "TERTARIK", "NEGOSIASI", "DEAL", "TIDAK_MINAT", "TIDAK_LAYAK"],
+  "transisiStatus": {
+    "BARU": ["DIHUBUNGI", "TIDAK_MINAT"],
+    "DIHUBUNGI": ["TERTARIK", "TIDAK_MINAT", "TIDAK_LAYAK"],
+    "TERTARIK": ["NEGOSIASI", "TIDAK_MINAT", "TIDAK_LAYAK"],
+    "NEGOSIASI": ["DEAL", "TIDAK_MINAT", "TIDAK_LAYAK"],
+    "DEAL": [],
+    "TIDAK_MINAT": ["DIHUBUNGI"],
+    "TIDAK_LAYAK": []
+  },
+  "tujuanBukaKonversi": ["DEAL"],
+  "jenisButuhLokasi": ["KUNJUNGAN", "SURVEI_LOKASI"],
+  "jenisBerdataTeknis": ["SURVEI_LOKASI"],
+  "hasilMelahirkanProspek": ["TERTARIK", "DEAL"],
+  "jumlahFotoMaks": 6,
+  "kabelMeterMaks": 5000
+}
