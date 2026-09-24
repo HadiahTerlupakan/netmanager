@@ -165,6 +165,11 @@ export {
   type TargetDto,
 } from "./dto/target.dto";
 
+export {
+  toRingkasanSalesDto,
+  type RingkasanSalesDto,
+} from "./dto/ringkasan-sales.dto";
+
 export { toSalesPresurveiDto, type SalesPresurveiDto } from "./dto/sales.dto";
 
 export {
