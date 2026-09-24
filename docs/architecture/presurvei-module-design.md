@@ -410,12 +410,13 @@ persentase per jenis target, dibatasi pada 100% untuk tampilan progres.
 ### 6.1 Sales mencatat kunjungan (mobile)
 
 1. Sales membuka layar Presurvei, menekan "Catat Kunjungan"
-2. Aplikasi mengambil GPS (lewat `useApiMutation({ includeLocation: true })` yang
-   sudah ada) dan meminta foto lewat kamera
+2. Untuk kunjungan dan survei lokasi, aplikasi mengambil titik GPS otomatis
+   (`useLokasiKegiatan`) dan meminta foto dari kamera belakang (lihat §10)
 3. Sales mengisi: siapa yang ditemui, hasilnya, catatan. Bila jenisnya survei lokasi,
    tambahan: ODP terdekat, estimasi kabel, catatan teknis
-4. `POST /api/presurvei/kegiatan` — bila sedang offline, otomatis masuk antrian SQLite
-   dan dikirim saat koneksi kembali (infrastruktur yang sudah ada)
+4. `POST /api/presurvei/kegiatan` dengan header `Idempotency-Key`. Bila sedang offline,
+   kegiatan otomatis masuk antrian SQLite beserta fotonya, lalu dikirim saat koneksi
+   kembali dengan kunci yang sama (§10)
 5. Bila `hasil` bernilai `TERTARIK` atau `DEAL`, `prospekId` masih kosong, **dan
    jenis kegiatannya terjadi di lapangan** (`KUNJUNGAN` atau `SURVEI_LOKASI`),
    `KegiatanService` membuat `PresurveiProspek` baru dengan `sumber = LAPANGAN` dan
@@ -542,6 +543,7 @@ Route yang dipakai sales lapangan menerima permission web **atau** mobile:
 | `/api/presurvei/prospek` | GET, POST | `presurvei:read` + `m_presurvei:read` / `presurvei:create` + `m_presurvei:create` |
 | `/api/presurvei/prospek/[id]` | GET, PATCH | `presurvei:read` + `m_presurvei:read` / `presurvei:update` + `m_presurvei:update` |
 | `/api/presurvei/prospek/[id]/jadikan-canvasing` | POST | `presurvei:update` + `m_presurvei:update` |
+| `/api/mobile/presurvei/ringkasan` | GET | `m_presurvei:read` saja (milik sendiri; tenant dari sesi; hari/bulan UTC) |
 | `/api/admin/presurvei/iklan` | GET, POST | `presurvei_iklan:read` / `:create` |
 | `/api/admin/presurvei/iklan/[id]` | GET, PATCH | `presurvei_iklan:read` / `:update` |
 | `/api/admin/presurvei/target` | GET, POST | `presurvei_target:read` / `:create` |
@@ -558,6 +560,23 @@ juga harus satu tenant dengan baris). `GET /api/presurvei/kegiatan` menerima fil
 pengikatan pemanggil mobile ke `userId` sesi tetap berlaku.
 `/api/admin/presurvei/departemen` mengisi dropdown departemen dengan tenant hanya dari
 sesi; ia ada karena `/api/admin/departments` menuntut `department:read`/`users:create`.
+
+**Ringkasan Beranda sales (khusus mobile).** `/api/mobile/presurvei/ringkasan` adalah
+satu-satunya route presurvei yang tidak dipakai bersama web. Isinya data milik
+pemanggil saja: kegiatan hari ini per jenis, target vs realisasi bulan berjalan
+(`target: null` bila belum ditetapkan), dan hingga 5 prospek aktif yang paling lama
+tak disentuh (`BATAS_PERLU_FOLLOW_UP`). Pemeriksaan dibatasi 200 prospek aktif
+terlama (`BATAS_PROSPEK_AKTIF_DIPERIKSA`). Batas hari dan bulan memakai UTC, sama
+dengan laporan. Sesi tanpa tenant ditolak 400. Logika ada di `RingkasanSalesService`
+dan query di `RingkasanSalesRepository`.
+
+**Idempotensi `POST /api/presurvei/kegiatan`.** Header `Idempotency-Key` diproses
+lewat `executeMobileWithIdempotency`. Kuncinya berlingkup user dan tenant sesi. Kunci
+yang sama setelah sukses memutar ulang respons (`X-Idempotent-Replay: true`). Kunci
+yang masih diproses dibalas 409 `IDEMPOTENCY_IN_PROGRESS` dengan `Retry-After: 30`.
+State IN_PROGRESS ber-TTL 120 detik, jadi kunci yatim karena pod mati kedaluwarsa
+sendiri. Payload yang berbeda dengan kunci yang sama dibalas 409
+`IDEMPOTENCY_KEY_REUSED`, dan Redis yang tak tersedia dibalas 503.
 
 Route adalah thin controller: parse request, panggil service, kembalikan DTO. List
 memakai `apiPaginated`, detail memakai `apiSuccess`.
@@ -620,40 +639,113 @@ Menu admin web masuk ke bagian "Pemasaran" yang sudah ada di `lib/menu-config.ts
 
 ---
 
-## 10. Mobile — pengalaman tersendiri untuk sales
+## 10. Mobile — tampilan sales karyawan
 
-Sales mendapat navigasi dan beranda sendiri, terpisah dari teknisi. Pola yang dipakai
-mengikuti preseden yang sudah terbukti di repo: route group `(customer)` sudah
-memberi pelanggan pengalaman terpisah dari `(app)` dalam satu APK.
+Status: dibangun 2026-09-24 di repo `mobile-netmanager` (rencana
+`docs/superpowers/plans/2026-09-24-tampilan-sales-karyawan-presurvei.md` di repo itu).
+Bagian ini menggantikan desain awal yang memakai route group `(sales)/` terpisah.
+Desain awal itu tidak dibangun.
+
+**Satu route group, persona menentukan tata letak.** Tidak ada `app/(sales)/`. Sales,
+teknisi, dan mitra memakai `app/(app)/` yang sama. `tentukanPersona(user)`
+(`src/utils/persona.ts`) memetakan `employeeType` + `isSales` ke salah satu dari
+`KARYAWAN_SALES`, `KARYAWAN_TEKNISI`, `MITRA_SALES`, atau `MITRA_TEKNISI`.
+`employeeType` kosong dianggap karyawan. Persona hanya memilih tata letak. Akses
+tetap ditentukan izin lewat `punyaFitur(user, 'm_…')`:
+
+- `app/(app)/_layout.tsx` memilih tab bar lewat `TAB_BAR_PER_PERSONA`. Sales karyawan
+  mendapat `KaryawanSalesTabBar` dengan urutan dari `RUTE_TAB_KARYAWAN_SALES`
+  (`src/utils/tabKaryawanSales.ts`): Beranda, Presurvei, Canvasing, Absensi, Profil.
+  Work Order dan Barang tidak ada. Tab Presurvei tampil **terkunci** (abu-abu, ditolak
+  saat ditekan) selama role belum memegang `m_presurvei`. Canvasing tampil hanya bila
+  `bolehCanvasing(user)`. Absensi tampil hanya dengan `m_absensi`. Tab bar
+  disembunyikan di layar layar-penuh (`isTabBarDisembunyikan`).
+- `app/(app)/dashboard.tsx` memilih layar Beranda per persona. Sales karyawan mendapat
+  `KaryawanSalesDashboardScreen`, teknisi karyawan `KaryawanTeknisiDashboardScreen`
+  (isinya dipindah tanpa perubahan perilaku), dan layar mitra tidak berubah.
+- Teknisi tidak mendapat tab Presurvei. Ia membukanya dari tile menu cepat
+  `presurvei` (`QuickMenu`, `hideWhenLocked`), yang hanya tampil bila role-nya diberi
+  `m_presurvei`.
+
+**Route mobile** (semua di `app/(app)/`, didaftarkan sebagai layar tersembunyi lewat
+`src/constants/ruteLayarTersembunyi.ts`):
 
 ```
-app/
-├── (app)/        # teknisi & mitra — tidak diubah
-├── (customer)/   # pelanggan — tidak diubah
-└── (sales)/      # BARU
-    ├── _layout.tsx           # tab bar sendiri
-    ├── dashboard.tsx         # progres target, kunjungan hari ini, perlu follow-up
-    ├── presurvei/
-    │   ├── index.tsx         # daftar prospek
-    │   ├── create.tsx        # catat kunjungan
-    │   └── [id]/index.tsx    # detail prospek + riwayat kegiatan
-    ├── canvasing/            # tautan ke layar canvasing yang sudah ada
-    ├── absensi.tsx
-    └── profile.tsx
+app/(app)/presurvei/
+├── index.tsx                          # tab: Kegiatan (per tanggal) | Prospek
+├── kegiatan/catat.tsx                 # catat kegiatan (layar penuh)
+└── prospek/[id]/
+    ├── index.tsx                      # rincian prospek, riwayat, Ubah Status
+    └── jadikan-canvasing.tsx          # konversi ke canvasing (layar penuh)
 ```
 
-Setelah login, pengguna diarahkan berdasarkan identitasnya: `user.isSales` → `(sales)`,
-pelanggan → `(customer)`, selain itu → `(app)`. Logika pengarahan ditempatkan di satu
-tempat supaya tidak tersebar.
+**Beranda sales** membaca `GET /api/mobile/presurvei/ringkasan` (§8). Isinya kegiatan
+hari ini per jenis, target vs realisasi bulan ini, dan hingga 5 prospek yang perlu
+di-follow-up. Kartu absen hari ini tampil hanya dengan `m_absensi`. Kartu pencairan
+bonus canvasing tampil bila `bolehCanvasing(user)`. Saat cuti, Beranda memakai
+`BerandaModeCuti` yang sama dengan teknisi. Respons 403 ditampilkan sebagai kartu
+"belum aktif", bukan toast galat. Tarik-segarkan juga memuat ulang profil supaya
+izin baru langsung terbaca.
 
-**Yang dipakai ulang tanpa perubahan**: antrian offline SQLite, `UploadService`,
-`LocationPickerModal`, `useApiMutation`, `useFeatureGuard`, komponen kamera KTP.
+**Catat kegiatan.** Jenis `IKLAN` tidak pernah ditawarkan. Kunjungan dan Survei Lokasi
+wajib memenuhi dua hal:
 
-**Yang ditambahkan**: `AppFeature.PRESURVEI = 'm_presurvei'` di
-`src/constants/features.ts`, `'presurvei'` pada `UploadType` di kedua repo, dan
-`case "presurvei"` pada resolver folder upload backend.
+- titik GPS otomatis: `useLokasiKegiatan` di atas `useLocationWithTimeout`, dengan
+  `Accuracy.High`, batas 20 detik, dan penanganan izin ditolak. Tidak memakai
+  `LocationPickerModal` dan tidak ada isian koordinat manual;
+- minimal satu foto dari kamera belakang: `KameraBukti` (`expo-camera`). Foto
+  diperkecil ke lebar 1024, JPEG kualitas 0.7 (`expo-image-manipulator`), paling
+  banyak 6 foto.
 
-Karena hanya menyentuh JS/TS, rilis cukup lewat OTA — tidak perlu rebuild APK.
+Telepon dan Chat tidak meminta foto maupun titik. Foto diunggah dengan tipe unggahan
+`presurvei` (`uploads/presurvei/kegiatan`).
+
+**Offline dan idempotensi.** `POST /api/presurvei/kegiatan` dikirim lewat
+`useApiMutation`, yang **diubah** untuk fitur ini. Perubahannya:
+
+- `meta.photos` kini diunggah juga di jalur online. Sebelumnya hanya `SyncService`
+  yang mengunggahnya.
+- Saat mengantre, foto disalin ke `documentDirectory/offline-photos/`. Salinan yatim
+  disapu saat startup oleh `sapuFotoOfflineYatim` (`src/services/sapuFotoOffline.ts`).
+
+Setiap upaya catat membawa `requestId` stabil yang dikirim sebagai header
+`Idempotency-Key`, baik online maupun saat replay antrean. Route membalas 409
+`IDEMPOTENCY_IN_PROGRESS` untuk kunci yang masih diproses; `SyncService` dan
+`useApiMutation` mengulangnya, tidak membuangnya. 409 `IDEMPOTENCY_KEY_REUSED`
+diperlakukan berbeda di dua tempat:
+
+- di layar catat, saat simpan ulang dengan variabel yang sama, berarti "sudah tercatat"
+  (`useLayarCatatKegiatan`);
+- di `SyncService`, tetap menjadi galat permanen.
+
+Item antrean berstatus FAILED tetap tampil di daftar kegiatan berlabel "Gagal terkirim".
+
+**Prospek.** Tab Prospek menampilkan daftar milik sendiri. Dari rincian prospek, sales
+bisa melakukan dua aksi yang keduanya **butuh online** (`useIsOnline`): tombolnya
+nonaktif dan diberi pesan saat offline, dan tidak pernah diantrekan.
+
+- **Ubah Status** hanya menawarkan transisi sah (`daftarPilihanUbahStatus`,
+  `src/utils/presurvei/aturanPresurvei.ts`). 409 `INVALID_STATE` memuat ulang rincian.
+- **Jadikan Canvasing** mewajibkan foto KTP dari `KameraBukti` yang sama. Foto itu
+  diunggah dengan tipe `marketing`.
+
+**Kontrak.** Urutan dan nilai enum mobile dijaga oleh salinan fixture backend
+`tests/fixtures/presurvei/kontrak-mobile.json` di
+`__tests__/fixtures/presurvei/kontrak-mobile.json`.
+
+**Yang ditambahkan di sisi mobile (ringkas)**: `AppFeature.PRESURVEI = 'm_presurvei'`
+(`src/constants/features.ts`), `'presurvei'` pada `UploadType`
+(`src/services/UploadService.ts`), `PresurveiService`, hook query/mutasi di
+`src/hooks/queries/` dan `src/hooks/presurvei/`, serta aturan murni di
+`src/utils/presurvei/`. Semuanya dipakai lewat `queryKeys.presurvei`.
+
+**Batas hari.** Daftar kegiatan per tanggal memakai hari **lokal perangkat**
+(`rentangHariLokal`), sedangkan ringkasan Beranda memakai hari **UTC** (§8). Antara
+00:00 dan 07:00 WIB keduanya bisa menunjuk hari yang berbeda.
+
+**Rilis.** Hanya JS/TS yang berubah, jadi rilis cukup lewat OTA tanpa rebuild APK.
+Fingerprint Android `1d15ce0584b51bc61ffc72ea1a62315d5b0f0475` sama sebelum dan
+sesudah (dibandingkan `805b929` dengan `ed85675`).
 
 ---
 
@@ -719,14 +811,14 @@ tetap berfungsi.
 | 1 | Skema + migration + domain + repository + `KegiatanService` + `ProspekService` + API kegiatan & prospek + test | Kegiatan dan prospek bisa dicatat lewat API | ✅ Selesai |
 | 2 | `PresurveiIklan` + `PresurveiTarget` + event registration + UTM + `ProspekKonversiService` | Atribusi sumber lengkap, promosi ke canvasing berfungsi | ✅ Selesai (2026-09-22) |
 | 3 | UI admin web: daftar kegiatan, papan prospek, kelola iklan, kelola target, laporan — desain rinci di [`presurvei-ui-admin-design.md`](./presurvei-ui-admin-design.md) | Manajemen bisa melihat kegiatan tim | ✅ Selesai (2026-09-23) |
-| 4 | Mobile: route group `(sales)`, beranda sales, layar presurvei, pengarahan setelah login | Sales bekerja penuh dari aplikasi | ⬜ Belum dikerjakan |
+| 4 | Mobile: persona & tab bar sales karyawan, Beranda sales, layar presurvei (§10) + endpoint ringkasan | Sales bekerja penuh dari aplikasi | 🟡 Dibangun (2026-09-25); menunggu OTA dan migration izin role `SALES` |
 
 Fase 1, 2, dan 3 selesai. Modul ini kini punya sembilan halaman admin web di bawah
 `/admin/presurvei` (dashboard, kegiatan beserta peta dan rinciannya, papan prospek,
-kampanye iklan, target, laporan). Sampai Fase 4 (mobile sales) dikerjakan, kegiatan
-lapangan — `KUNJUNGAN` dan `SURVEI_LOKASI`, yang wajib berkoordinat — hanya bisa
-dicatat lewat pemanggilan API langsung, karena form web sengaja tidak menangkap GPS
-maupun foto. Keterbatasan Fase 3 lainnya tercatat di entri `docs/CHANGELOG.md`
+kampanye iklan, target, laporan). Kode Fase 4 (mobile sales) sudah selesai tetapi
+belum sampai ke HP. Sampai OTA-nya terbit, kegiatan lapangan (`KUNJUNGAN` dan
+`SURVEI_LOKASI`, yang wajib berkoordinat) hanya bisa dicatat lewat pemanggilan API
+langsung, karena form web sengaja tidak menangkap GPS maupun foto. Keterbatasan Fase 3 lainnya tercatat di entri `docs/CHANGELOG.md`
 bertanggal 2026-09-23.
 
 Setiap fase punya migration sendiri bila menyentuh skema, dan entri `docs/CHANGELOG.md`

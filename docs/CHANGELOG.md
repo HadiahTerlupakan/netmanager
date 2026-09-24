@@ -41,6 +41,240 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Tampilan sales karyawan dan tab Presurvei di aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager` (repo terpisah)
+- **Author**: agent
+- **Deskripsi**: Sales karyawan kini punya tata letak sendiri di aplikasi mobile.
+  Teknisi dan mitra tidak berubah.
+  **Tab bar dan persona.** Tata letak dipilih oleh `tentukanPersona(user)`
+  (`employeeType` + `isSales`; `employeeType` kosong dianggap karyawan), tetapi akses
+  tetap ditentukan izin `m_*`. Sales karyawan mendapat `KaryawanSalesTabBar` dengan
+  tab Beranda · Presurvei · Canvasing · Absensi · Profil, tanpa Work Order dan Barang.
+  Presurvei tampil terkunci sampai role memegang `m_presurvei`. Canvasing tampil hanya
+  bila `bolehCanvasing(user)` dan Absensi hanya dengan `m_absensi`. Teknisi ber-izin
+  membuka Presurvei dari tile menu cepat, yang disembunyikan bila tanpa izin.
+  `app/(app)/_layout.tsx` diringkas (448 → 281 baris) dengan daftar route tersembunyi
+  terpusat.
+  **Beranda sales** memakai `GET /api/mobile/presurvei/ringkasan` dan menampilkan:
+  - kegiatan hari ini per jenis;
+  - target vs realisasi bulan ini;
+  - hingga 5 prospek yang perlu di-follow-up;
+  - kartu absen (hanya dengan `m_absensi`);
+  - pencairan bonus canvasing (hanya bila `bolehCanvasing`);
+  - mode cuti yang sama dengan teknisi.
+
+  Respons 403 tampil sebagai kartu "belum aktif" tanpa toast. Tarik-segarkan ikut
+  memuat ulang profil.
+  **Layar presurvei** (`app/(app)/presurvei/`):
+  - Tab Kegiatan per tanggal. Item antrean ikut tampil, termasuk yang FAILED dengan
+    label "Gagal terkirim".
+  - Tab Prospek.
+  - Catat Kegiatan. Kunjungan/Survei wajib titik GPS otomatis (tanpa
+    `LocationPickerModal` atau koordinat manual) dan minimal satu foto kamera belakang
+    (lebar 1024, JPEG 0.7, maksimal 6). Jenis `IKLAN` tidak pernah ditawarkan.
+  - Rincian prospek dengan Ubah Status, yang hanya menawarkan transisi sah.
+  - Jadikan Canvasing, dengan foto KTP wajib yang diunggah sebagai `marketing`.
+
+  Ubah Status dan Jadikan Canvasing butuh online dan tidak pernah diantrekan. Foto
+  kegiatan diunggah dengan tipe `presurvei`.
+  **Dampak ke fitur lain (Task 9, `useApiMutation`).** `meta.photos` kini diunggah
+  juga di jalur online. Saat mengantre, foto disalin permanen ke
+  `documentDirectory/offline-photos/`, bukan lagi URI cache. Akibatnya untuk **antrean
+  absensi dan barang masuk/keluar offline**:
+  - fotonya bertahan sampai terkirim;
+  - salinan yatim dibersihkan saat startup oleh `sapuFotoOfflineYatim`. Pembersihan
+    ini melindungi foto semua status antrean termasuk FAILED, tidak berjalan bila
+    antrean gagal dibaca, dan tidak menyentuh berkas yang lebih muda dari 1 jam;
+  - pada race "layar kira offline, hook lihat online", foto kini diunggah.
+    Sebelumnya absensi mengirim URI lokal sebagai `photoUrl` dan barang mengirim
+    `fotoBukti: []`.
+
+  Salinan foto kini juga dihapus setelah sukses, kedaluwarsa, atau galat permanen di
+  semua modul. Jalur online absensi/barang dan semua jalur `photoMap` tidak berubah.
+  **Dampak idempotensi (Task 11b/11c).** Catat kegiatan mengirim `requestId` stabil
+  sebagai `Idempotency-Key`, baik online maupun saat replay. Penanganan 409:
+  - 409 `IDEMPOTENCY_IN_PROGRESS` (kunci server ber-TTL 120 detik) tidak lagi dibuang
+    dari antrean. `SyncService` menandainya untuk retry, dan `useApiMutation`
+    mengantrekannya;
+  - 409 `IDEMPOTENCY_KEY_REUSED` tetap permanen di `SyncService`. Di layar catat,
+    kode ini dibaca sebagai "sudah tercatat".
+
+  **Asumsi A3, batas hari.** Daftar kegiatan per tanggal memakai hari lokal HP,
+  sedangkan ringkasan Beranda memakai hari UTC seperti laporan. Kegiatan
+  00:00–07:00 WIB tampil di tanggal lokalnya di tab Kegiatan, tetapi terhitung ke hari
+  sebelumnya di Beranda.
+  **Rilis** cukup lewat OTA. Fingerprint Android `1d15ce0584b51bc61ffc72ea1a62315d5b0f0475`
+  identik di `805b929` dan `ed85675`, `fingerprint:diff` bernilai `[]`, dan tidak ada
+  berkas native yang tersentuh. Tab Presurvei sales tetap terkunci sampai migration izin
+  role `SALES` (dicatat terpisah) dideploy.
+  **Keterbatasan yang diketahui:**
+  - 409 IN_PROGRESS berulang memakan jatah retry global (10). Bila habis, item menjadi
+    FAILED dan "submit ulang" bisa mendorong dobel.
+  - Item yang diantrekan dari jalur online tidak memicu sinkron segera, dan pesannya
+    "Koneksi tidak tersedia" menyesatkan.
+  - Cache URL foto `SyncService` hilang antar-batch. Unggah ulang bisa berujung 409
+    KEY_REUSED ("Data dibatalkan").
+  - Redis mati membuat POST online dilempar (503), tidak diantrekan.
+  - Foto item FAILED disimpan tanpa batas waktu sampai item dihapus.
+  - Sweep tidak membaca antrean legacy AsyncStorage.
+  - Bug lama: jalur offline yang memakai `photoMap` (izin, canvasing) mengunggah
+    sebelum cek online, sehingga kemungkinan gagal alih-alih terantre. Selesai WO
+    offline mengirim `photo1…N`, bukan `photoUrls`.
+  - Alamat tersimpan bisa berbeda dari tampilan bila variabel catat dipakai ulang.
+  - "Sudah tercatat" palsu mungkin muncul pada jendela sempit KEY_REUSED saat kunci
+    masih IN_PROGRESS lalu handler gagal.
+  - Tampil dobel sesaat server-row vs antrean-row saat item baru sukses.
+  - Bagian pencairan canvasing bisa sekejap menampilkan skema BULANAN 0/30 sebelum
+    statistik termuat.
+  - Utang ukuran berkas: `useApiMutation.ts` 417 baris, `UploadService.ts` 428 baris,
+    `LocationPickerModal.tsx` 357 baris.
+- **Files**: `app/(app)/_layout.tsx`, `app/(app)/dashboard.tsx`,
+  `app/(app)/presurvei/**` (4 layar), `src/utils/persona.ts`,
+  `src/utils/tabKaryawanSales.ts`, `src/constants/ruteLayarTersembunyi.ts`,
+  `src/components/organisms/navigation/{KaryawanSalesTabBar,TombolTabSales}.tsx`,
+  `src/components/screens/{KaryawanSalesDashboardScreen,KaryawanTeknisiDashboardScreen}.tsx`,
+  `src/components/organisms/dashboard/*` (8 baru + `QuickMenu.tsx`),
+  `src/components/organisms/presurvei/*` (16 berkas), `src/components/atoms/{KartuFormulir,TeksKesalahan}.tsx`,
+  `src/components/molecules/{IsianTeks,NavigasiTanggal,PilihanChip,TombolAksi}.tsx`, `src/hooks/presurvei/*` (11 berkas),
+  `src/hooks/queries/{usePresurveiKegiatan,usePresurveiProspek,useRingkasanPresurvei}.ts`,
+  `src/services/PresurveiService.ts`, `src/utils/presurvei/*` (11 berkas),
+  `src/constants/{presurvei,rutePresurvei,gayaPetaOsm,features}.ts`,
+  `src/types/presurvei.ts`; bersama: `src/hooks/queries/useApiMutation.ts`,
+  `src/services/{SyncService,UploadService,DatabaseService,syncQueueHelpers,sapuFotoOffline}.ts`,
+  `src/utils/{fotoMutasi,persistPhoto,galatIdempotensi,httpStatus,statusJaringan}.ts`,
+  `src/lib/queryClient.ts`, `src/hooks/{useAppInitialization,useIsOnline,useOfflineQuery,useFeatureGuard,useLocationWithTimeout,useSegarkanBerandaSales,useStatistikBeranda,useStatusAbsenHariIni}.ts`,
+  `src/components/organisms/marketing/{LocationPickerModal,WebLocationPicker}.tsx` (gaya peta
+  diekstrak ke `gayaPetaOsm`), `__mocks__/expo-sqlite.js`,
+  `__tests__/fixtures/presurvei/kontrak-mobile.json`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-24] — Kunci idempotensi IN_PROGRESS ber-TTL pendek dan 409 berkode
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/` | `app/api/mobile/leaves` | `app/api/mobile/inventory` | `app/api/presurvei/kegiatan`
+- **Author**: agent
+- **Deskripsi**: Kunci IN_PROGRESS dulu ber-TTL 24 jam. Bila pod mati di tengah handler
+  (setiap deploy), setiap replay mendapat 409 selama 24 jam, lalu klien mobile
+  membuangnya sebagai 4xx sehingga data hilang diam-diam. Perubahannya:
+  - IN_PROGRESS kini ber-TTL `IN_PROGRESS_TTL_SECONDS = 120`. TTL 24 jam hanya
+    untuk COMPLETED.
+  - 409 in-progress membawa `code: IDEMPOTENCY_IN_PROGRESS` + `Retry-After: 30`, dan
+    boleh diulang dengan kunci sama.
+  - 409 hash-mismatch membawa `code: IDEMPOTENCY_KEY_REUSED` (permanen). Status HTTP
+    dan pesan tidak berubah. Sebelumnya keduanya `BUSINESS_LOGIC_ERROR`, dan tidak
+    ada klien yang membacanya.
+  - Gagal menyimpan state COMPLETED tidak lagi melempar. Klien tetap menerima
+    sukses, kunci dibiarkan kedaluwarsa, dan kejadiannya dicatat `logger.warn`.
+
+  Switch penolakan yang tersalin di helper generik, leaves, dan inventory
+  dikonsolidasi ke `buildIdempotencyRejectionResponse`. Pemanggil yang terdampak:
+  presurvei kegiatan, mobile leaves, overtime, inventory masuk/keluar (dijaga test
+  regresi per route). Attendance dan payment gateway memakai service sendiri, jadi
+  tidak tersentuh. **Keterbatasan**: `releaseInProgress`/`persistCompleted` tanpa
+  token pemilik, sehingga handler yang berjalan lebih dari 120 detik bisa tumpang
+  tindih dengan replay.
+- **Files**: `lib/api/idempotency.ts`, `lib/api/idempotency-route-helpers.ts`,
+  `lib/api/index.ts`, `lib/api-response.ts`, `app/api/mobile/leaves/route.ts`,
+  `app/api/mobile/inventory/route-utils.ts`, `tests/lib/idempotency.test.ts`,
+  `tests/api/idempotency-callers-regression.test.ts`,
+  `tests/helpers/redis-idempotensi-di-memori.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-24] — POST kegiatan presurvei idempoten lewat Idempotency-Key
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/presurvei/kegiatan` | `lib/`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya POST kegiatan yang timeout lalu dikirim ulang dari antrean
+  mobile menghasilkan kegiatan (dan prospek) ganda. Kini POST memakai
+  `executeMobileWithIdempotency` dengan header `Idempotency-Key`, dan kunci berlingkup
+  user + tenant sesi (`presurvei:kegiatan:create:<tenantId|tanpa-tenant>`). Perilakunya:
+  - kunci sama setelah sukses: 201 dengan badan tersimpan + `X-Idempotent-Replay: true`;
+  - payload berbeda: 409;
+  - Redis galat: 503 fail-closed;
+  - tanpa header: perilaku lama.
+
+  `normalize()` di `lib/api/idempotency.ts` kini mengubah `Date` ke ISO. Tanpa itu,
+  hasil `z.coerce.date()` di-hash sebagai `{}` dan perubahan waktu tidak terdeteksi.
+  Pemanggil lain meng-hash JSON mentah, jadi tidak terpengaruh. `requestId` di badan
+  tetap dibuang skema.
+- **Files**: `app/api/presurvei/kegiatan/route.ts`, `lib/api/idempotency.ts`,
+  `tests/api/presurvei-kegiatan-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-24] — Fixture kontrak presurvei untuk aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `tests/`
+- **Author**: agent
+- **Deskripsi**: Fixture JSON yang memuat urutan dan nilai enum presurvei serta aturan
+  (transisi status, jenis yang butuh lokasi, batas foto) yang dipakai aplikasi mobile.
+  Test backend menjaga fixture tetap sama dengan kode. Salinannya di
+  `mobile-netmanager` (`__tests__/fixtures/presurvei/kontrak-mobile.json`) dijaga test
+  paritas di sana.
+- **Files**: `tests/fixtures/presurvei/kontrak-mobile.json`,
+  `tests/modules/presurvei/kontrak-mobile.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-24] — Endpoint ringkasan Beranda sales presurvei mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `app/api/mobile/presurvei/ringkasan`
+- **Author**: agent
+- **Deskripsi**: `GET /api/mobile/presurvei/ringkasan` (izin `m_presurvei:read` saja)
+  mengembalikan tiga hal:
+  - jumlah kegiatan hari ini per jenis;
+  - target vs realisasi bulan berjalan milik sendiri (`target: null` bila belum
+    ditetapkan, bukan nol);
+  - hingga 5 prospek aktif yang paling lama tidak disentuh. "Disentuh" berarti yang
+    lebih akhir antara perubahan prospek dan kegiatan terakhir yang tertaut, karena
+    mencatat follow-up tidak mengubah `updatedAt` prospek.
+
+  Pemilik dan tenant hanya diambil dari sesi. Sesi tanpa tenant ditolak 400
+  (`TENANT_ID_REQUIRED`). Logika ada di `RingkasanSalesService`. Query ada di
+  `RingkasanSalesRepository`, dengan `tenantId` eksplisit dan fail-closed
+  (`pastikan-tenant-terisi`). Realisasi difilter `userId` sesi di query (method baru di
+  repository kegiatan/prospek). `TargetService.pencapaianSendiri` ditambahkan.
+  **Keterbatasan**: batas "hari ini"/"bulan ini" memakai UTC (sama dengan laporan),
+  sehingga kegiatan 00:00–07:00 WIB terhitung ke hari sebelumnya. Pemeriksaan
+  follow-up dibatasi 200 prospek aktif terlama (`BATAS_PROSPEK_AKTIF_DIPERIKSA`).
+- **Files**: `modules/presurvei/domain/ringkasan-sales.ts`,
+  `modules/presurvei/domain/rentang-waktu.ts`,
+  `modules/presurvei/domain/ports/IRingkasanSalesRepository.ts`,
+  `modules/presurvei/domain/ports/IKegiatanRepository.ts`,
+  `modules/presurvei/domain/ports/IProspekRepository.ts`,
+  `modules/presurvei/repositories/RingkasanSalesRepository.ts`,
+  `modules/presurvei/repositories/pastikan-tenant-terisi.ts`,
+  `modules/presurvei/repositories/KegiatanRepository.ts`,
+  `modules/presurvei/repositories/ProspekRepository.ts`,
+  `modules/presurvei/repositories/TargetRepository.ts`,
+  `modules/presurvei/repositories/SalesRepository.ts`,
+  `modules/presurvei/repositories/DepartemenRepository.ts`,
+  `modules/presurvei/services/RingkasanSalesService.ts`,
+  `modules/presurvei/services/TargetService.ts`,
+  `modules/presurvei/dto/ringkasan-sales.dto.ts`,
+  `modules/presurvei/index.ts`,
+  `app/api/mobile/presurvei/ringkasan/route.ts`,
+  `tests/modules/presurvei/ringkasan-sales-{rules,repository,service,dto}.test.ts`,
+  `tests/api/presurvei-ringkasan-mobile-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-24] — Jenis unggahan presurvei untuk foto kegiatan mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/mobile/upload` | `lib/`
+- **Author**: agent
+- **Deskripsi**: `POST /api/mobile/upload` dengan `type=presurvei` kini menyimpan ke
+  `public/uploads/presurvei/kegiatan` (lokal) dan `uploads/presurvei/kegiatan/…` (R2).
+  Sebelumnya tipe tak dikenal jatuh ke folder umum. `type` tetap tidak divalidasi di
+  route, mempertahankan perilaku lama untuk klien lain.
+- **Files**: `lib/utils/image-upload.ts`, `lib/utils/r2-client.ts`,
+  `app/api/mobile/upload/route-handlers-impl.ts`,
+  `tests/api/mobile-upload-route.test.ts`, `tests/lib/r2-client.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-24] — Bedakan kegiatan presurvei sales dan non-sales
 
 - **Tipe**: [ADDED]
