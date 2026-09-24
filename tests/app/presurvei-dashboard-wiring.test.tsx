@@ -126,8 +126,8 @@ const kegiatan: KegiatanListItemDto = {
   jenis: "KUNJUNGAN",
   userId: "sales-andi",
   namaSales: "Andi",
-  peranPelaku: null,
-  departemenPelaku: null,
+  peranPelaku: "SALES",
+  departemenPelaku: "Marketing",
   prospekId: null,
   waktuMulai: "2026-09-14T02:00:00.000Z",
   alamatDikunjungi: "Jl. Melati 1",
@@ -161,6 +161,14 @@ const daftarSales: SalesPresurveiDto[] = [
   { id: "sales-budi", nama: "Budi" },
   { id: "sales-cici", nama: "Cici" },
 ];
+
+/** Jumlah kegiatan 7 hari per peran; berbeda supaya tertukarnya terbaca. */
+const TOTAL_PER_PERAN: Record<string, number> = { SALES: 12, NON_SALES: 4 };
+
+/** Nilai `peran` di URL kegiatan, atau "" bila tidak menyaring peran. */
+function paramPeran(url: string): string {
+  return new URL(url, "http://x").searchParams.get("peran") ?? "";
+}
 
 type Penjawab = (url: string) => Response | Promise<Response>;
 
@@ -227,7 +235,8 @@ beforeEach(() => {
   jawabKolom = (status) =>
     responsJson(200, amplop<ProspekListItemDto>([], TOTAL_KOLOM[status]));
   jawabTakBertuan = () => responsJson(200, amplop([prospekTakBertuan], 7));
-  jawabKegiatan = () => responsJson(200, amplop([kegiatan], 1));
+  jawabKegiatan = (url) =>
+    responsJson(200, amplop([kegiatan], TOTAL_PER_PERAN[paramPeran(url)] ?? 1));
   jawabLaporan = () => responsJson(200, { success: true, data: laporan });
 
   mockFetch = vi.fn(async (url: string) => {
@@ -401,12 +410,98 @@ describe("ProspekTakBertuan", () => {
   });
 });
 
+/** Label kartu jumlah per peran di bagian kegiatan → teks angkanya. */
+function kartuPeran(): Record<string, string> {
+  const hasil: Record<string, string> = {};
+  for (const isi of bagian("Kegiatan").querySelectorAll(".flex-1")) {
+    const [label, nilai] = [...isi.children];
+    hasil[label.textContent] = nilai.textContent;
+  }
+  return hasil;
+}
+
+describe("DashboardClient — kegiatan per peran", () => {
+  it("pemegang izin tenant melihat jumlah 7 hari untuk Sales dan Non-sales dari meta.total", async () => {
+    await render(panggung, <DashboardClient />);
+
+    await tungguSampai(
+      () => kartuPeran().Sales === "12" && kartuPeran()["Non-sales"] === "4",
+      "kartu jumlah per peran termuat",
+    );
+    expect(kartuPeran()).toEqual({ Sales: "12", "Non-sales": "4" });
+  });
+
+  it("pemegang izin mobile saja tidak melihat pemisahan peran dan tidak memintanya", async () => {
+    palsu.izin = new Set([IZIN_MOBILE, IZIN_LAPORAN]);
+    await render(panggung, <DashboardClient />);
+    await tungguSampai(
+      () => bagian("Kegiatan Anda").textContent.includes("Andi"),
+      "kegiatan terbaru tampil",
+    );
+
+    expect(kartuPeran()).toEqual({});
+    expect(urlDiminta().some((url) => paramPeran(url) !== "")).toBe(false);
+  });
+});
+
 describe("KegiatanTerbaru", () => {
   const isiBagian = () => bagian("Kegiatan tenant").textContent;
 
+  it("menampilkan '—' untuk peran yang gagal dimuat, bukan 0", async () => {
+    jawabKegiatan = (url) => {
+      if (paramPeran(url) === "NON_SALES") return DITOLAK(url);
+      return responsJson(
+        200,
+        amplop([kegiatan], TOTAL_PER_PERAN[paramPeran(url)] ?? 1),
+      );
+    };
+    await render(
+      panggung,
+      <KegiatanTerbaru judul="Kegiatan tenant" canLihatPemisahanPeran />,
+    );
+
+    await tungguSampai(
+      () => kartuPeran()["Non-sales"] === "—" && kartuPeran().Sales === "12",
+      "kartu gagal dan termuat",
+    );
+  });
+
+  it("tanpa pemisahan peran tidak memasang kartu dan tidak meminta hitungan", async () => {
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
+    await tungguSampai(() => isiBagian().includes("Andi"), "kegiatan tampil");
+
+    expect(kartuPeran()).toEqual({});
+    expect(urlDiminta().some((url) => paramPeran(url) !== "")).toBe(false);
+  });
+
+  it("menampilkan label peran pelaku di daftar terbaru", async () => {
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
+
+    await tungguSampai(() => isiBagian().includes("Andi"), "kegiatan tampil");
+    expect(isiBagian()).toContain("Andi (Sales · Marketing)");
+  });
+
   it("menyebut memuat selama daftar belum tiba", async () => {
     jawabKegiatan = TAK_PERNAH_SELESAI;
-    await render(panggung, <KegiatanTerbaru judul="Kegiatan tenant" />);
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
 
     expect(isiBagian()).toContain(MEMUAT);
     expect(isiBagian()).not.toContain("Belum ada kegiatan pada rentang ini.");
@@ -414,7 +509,13 @@ describe("KegiatanTerbaru", () => {
 
   it("menyebut gagal, bukan kosong, saat GET ditolak", async () => {
     jawabKegiatan = DITOLAK;
-    await render(panggung, <KegiatanTerbaru judul="Kegiatan tenant" />);
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
 
     await tungguSampai(
       () => isiBagian().includes("Kegiatan gagal dimuat."),
@@ -425,7 +526,13 @@ describe("KegiatanTerbaru", () => {
 
   it("menyebut rentang kosong saat tidak ada kegiatan", async () => {
     jawabKegiatan = () => responsJson(200, amplop([], 0));
-    await render(panggung, <KegiatanTerbaru judul="Kegiatan tenant" />);
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
 
     await tungguSampai(
       () => isiBagian().includes("Belum ada kegiatan pada rentang ini."),
@@ -434,7 +541,13 @@ describe("KegiatanTerbaru", () => {
   });
 
   it("mendaftar jenis, hasil, dan pelaku kegiatan", async () => {
-    await render(panggung, <KegiatanTerbaru judul="Kegiatan tenant" />);
+    await render(
+      panggung,
+      <KegiatanTerbaru
+        judul="Kegiatan tenant"
+        canLihatPemisahanPeran={false}
+      />,
+    );
 
     await tungguSampai(() => isiBagian().includes("Andi"), "kegiatan tampil");
     expect(isiBagian()).toContain("Kunjungan · Tertarik");

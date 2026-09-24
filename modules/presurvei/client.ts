@@ -108,6 +108,7 @@ export {
   KEGIATAN_JENIS_CONFIG,
   PROSPEK_STATUS_CONFIG,
   PROSPEK_SUMBER_CONFIG,
+  PERAN_PELAKU_LABEL,
   daftarKolomHidup,
   daftarKolomMati,
   type TampilanStatus,

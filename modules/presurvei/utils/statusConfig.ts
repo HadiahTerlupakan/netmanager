@@ -8,6 +8,7 @@
 
 import type { IklanChannel } from "../domain/entities/Iklan";
 import type { KegiatanHasil, KegiatanJenis } from "../domain/entities/Kegiatan";
+import type { PeranPelaku } from "../domain/peran-pelaku";
 import {
   PROSPEK_STATUSES,
   type ProspekStatus,
@@ -71,6 +72,16 @@ export const IKLAN_CHANNEL_CONFIG: Record<IklanChannel, TampilanStatus> = {
   WHATSAPP: { label: "WhatsApp", warna: "bg-green-100 text-green-700" },
   OFFLINE: { label: "Offline", warna: "bg-stone-100 text-stone-700" },
   LAINNYA: { label: "Lainnya", warna: "bg-gray-100 text-gray-600" },
+};
+
+/**
+ * Label peran pelaku kegiatan. "Non-sales", bukan "Teknisi": admin yang
+ * mencatat telepon dari web juga bukan sales. Departemen ditampilkan terpisah
+ * di sampingnya supaya teknisi tetap terbaca.
+ */
+export const PERAN_PELAKU_LABEL: Record<PeranPelaku, string> = {
+  SALES: "Sales",
+  NON_SALES: "Non-sales",
 };
 
 const KOLOM_STATUS: Record<ProspekStatus, "hidup" | "mati"> = {

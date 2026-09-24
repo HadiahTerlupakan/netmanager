@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 
 import type { KegiatanListItemDto } from "@/modules/presurvei/client";
 
+import { useDaftarDepartemenPresurvei } from "../useDaftarDepartemenPresurvei";
 import { useDaftarSalesPresurvei } from "../useDaftarSalesPresurvei";
 import {
   buildKegiatanListUrl,
@@ -26,6 +27,8 @@ const PESAN_GAGAL = "Gagal memuat daftar kegiatan";
 const FILTER_AWAL: FilterKegiatan = {
   page: HALAMAN_PERTAMA,
   userId: "",
+  peran: "",
+  departemenId: "",
   jenis: "",
   hasil: "",
   dariTanggal: "",
@@ -36,7 +39,7 @@ const FILTER_AWAL: FilterKegiatan = {
  * State filter daftar kegiatan beserta pengambilan datanya.
  *
  * **Tanpa debounce, dan itu keputusan sadar.** Seluruh medan filter layar ini
- * diskret — tiga `<select>` dan dua `<input type="date">` — sehingga satu
+ * diskret — lima `<select>` dan dua `<input type="date">` — sehingga satu
  * interaksi pemakai sama dengan satu niat, dan satu request. Tidak ada medan
  * teks bebas yang bisa melahirkan satu request per huruf, jadi debounce hanya
  * akan menambah jeda tanpa menghemat panggilan apa pun. Konsekuensinya: kalau
@@ -53,6 +56,7 @@ export function useKegiatanListQuery(opsi: { untukPeta?: boolean } = {}) {
   const untukPeta = opsi.untukPeta === true;
   const [filter, setFilter] = useState<FilterKegiatan>(FILTER_AWAL);
   const daftarSales = useDaftarSalesPresurvei();
+  const departemenTersedia = useDaftarDepartemenPresurvei();
 
   const url = useMemo(
     () => buildKegiatanListUrl(filter, { untukPeta }),
@@ -89,6 +93,7 @@ export function useKegiatanListQuery(opsi: { untukPeta?: boolean } = {}) {
     ubahHalaman,
     baris,
     salesTersedia: opsiSales(daftarSales, baris, filter.userId),
+    departemenTersedia,
     meta: query.data?.meta,
     isLoading: query.isPending,
   };

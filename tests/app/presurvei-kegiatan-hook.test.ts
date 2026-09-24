@@ -153,6 +153,8 @@ describe("useKegiatanListQuery", () => {
     expect(filterTersimpan).toEqual({
       page: 1,
       userId: "",
+      peran: "",
+      departemenId: "",
       jenis: "",
       hasil: "",
       dariTanggal: "",
@@ -167,6 +169,8 @@ describe("useKegiatanListQuery", () => {
     // tertukarnya di dalam hook tidak akan terlihat.
     hook.ubahFilter({
       userId: "sales-7",
+      peran: "NON_SALES",
+      departemenId: "dept-teknik",
       jenis: "SURVEI_LOKASI",
       hasil: "DEAL",
       dariTanggal: "2026-09-01",
@@ -177,6 +181,8 @@ describe("useKegiatanListQuery", () => {
     expect(filterTersimpan).toEqual({
       page: 4,
       userId: "sales-7",
+      peran: "NON_SALES",
+      departemenId: "dept-teknik",
       jenis: "SURVEI_LOKASI",
       hasil: "DEAL",
       dariTanggal: "2026-09-01",
@@ -193,6 +199,8 @@ describe("useKegiatanListQuery", () => {
     expect(filterTersimpan).toEqual({
       page: 1,
       userId: "",
+      peran: "",
+      departemenId: "",
       jenis: "",
       hasil: "TIDAK_MINAT",
       dariTanggal: "",

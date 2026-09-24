@@ -18,6 +18,8 @@ import type {
 const kosong: FilterKegiatan = {
   page: 1,
   userId: "",
+  peran: "",
+  departemenId: "",
   jenis: "",
   hasil: "",
   dariTanggal: "",
@@ -84,13 +86,28 @@ describe("buildKegiatanListUrl", () => {
       buildKegiatanListUrl({
         page: 2,
         userId: "sales-7",
+        peran: "NON_SALES",
+        departemenId: "dept-teknik",
         jenis: "SURVEI_LOKASI",
         hasil: "TERTARIK",
         dariTanggal: "2026-09-01",
         sampaiTanggal: "2026-09-30",
       }),
     ).toBe(
-      "/api/presurvei/kegiatan?page=2&limit=20&userId=sales-7&jenis=SURVEI_LOKASI&hasil=TERTARIK&dariTanggal=2026-09-01&sampaiTanggal=2026-09-30",
+      "/api/presurvei/kegiatan?page=2&limit=20&userId=sales-7&peran=NON_SALES&departemenId=dept-teknik&jenis=SURVEI_LOKASI&hasil=TERTARIK&dariTanggal=2026-09-01&sampaiTanggal=2026-09-30",
+    );
+  });
+
+  it("peta ikut membawa peran dan departemen — himpunan yang sama dengan tabel", () => {
+    // Nama param dicocokkan ke `app/api/presurvei/kegiatan/route.ts`
+    // (`searchParams.get("peran")`, `searchParams.get("departemenId")`).
+    expect(
+      buildKegiatanListUrl(
+        { ...kosong, page: 4, peran: "SALES", departemenId: "dept-cs" },
+        { untukPeta: true },
+      ),
+    ).toBe(
+      "/api/presurvei/kegiatan?page=1&limit=100&peran=SALES&departemenId=dept-cs",
     );
   });
 
@@ -165,10 +182,25 @@ describe("filterSetelahUbah", () => {
     ).toEqual({
       page: 1,
       userId: "",
+      peran: "",
+      departemenId: "",
       jenis: "",
       hasil: "DEAL",
       dariTanggal: "",
       sampaiTanggal: "",
+    });
+  });
+
+  it("mengembalikan halaman ke satu saat peran atau departemen berubah", () => {
+    expect(
+      filterSetelahUbah(
+        { ...kosong, page: 3 },
+        { peran: "NON_SALES", departemenId: "dept-teknik" },
+      ),
+    ).toMatchObject({
+      page: 1,
+      peran: "NON_SALES",
+      departemenId: "dept-teknik",
     });
   });
 
@@ -180,6 +212,8 @@ describe("filterSetelahUbah", () => {
     expect(lama).toEqual({
       page: 5,
       userId: "",
+      peran: "",
+      departemenId: "",
       jenis: "",
       hasil: "",
       dariTanggal: "",
@@ -195,6 +229,8 @@ describe("filterSetelahPindahHalaman", () => {
         {
           page: 1,
           userId: "sales-7",
+          peran: "",
+          departemenId: "",
           jenis: "TELEPON",
           hasil: "DEAL",
           dariTanggal: "2026-09-01",
@@ -205,6 +241,8 @@ describe("filterSetelahPindahHalaman", () => {
     ).toEqual({
       page: 4,
       userId: "sales-7",
+      peran: "",
+      departemenId: "",
       jenis: "TELEPON",
       hasil: "DEAL",
       dariTanggal: "2026-09-01",

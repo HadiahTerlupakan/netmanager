@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import {
   KEGIATAN_HASIL_CONFIG,
@@ -7,6 +9,7 @@ import {
   type KegiatanListItemDto,
 } from "@/modules/presurvei/client";
 
+import { teksPeranPelaku } from "../labelPeranPelaku";
 import { teksSalesKegiatan, teksWaktuKegiatan } from "./kegiatanListQuery";
 
 interface Props {
@@ -15,6 +18,23 @@ interface Props {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+}
+
+/**
+ * Isi kolom "Sales": nama pelaku, lalu peran dan departemennya — keadaan user
+ * SAAT INI — di baris kedua. Kedua teksnya fungsi murni yang diuji tanpa DOM;
+ * pemasangannya dijaga render di `presurvei-kegiatan-client.test.tsx`.
+ */
+function selPelakuKegiatan(item: KegiatanListItemDto): ReactNode {
+  const peran = teksPeranPelaku(item);
+  return (
+    <div>
+      <div>{teksSalesKegiatan(item)}</div>
+      {peran !== null && (
+        <div className="text-xs text-gray-500 dark:text-gray-400">{peran}</div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -48,7 +68,7 @@ const kolom: Column<KegiatanListItemDto>[] = [
     key: "userId",
     header: "Sales",
     priority: "primary",
-    render: teksSalesKegiatan,
+    render: selPelakuKegiatan,
   },
   {
     key: "jenis",

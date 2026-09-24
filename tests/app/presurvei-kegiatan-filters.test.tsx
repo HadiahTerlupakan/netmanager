@@ -2,7 +2,7 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Kabel `batasRentangTanggal` ke atribut DOM kedua medan tanggal.
@@ -24,7 +24,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { KegiatanFilters } from "@/app/admin/presurvei/kegiatan/KegiatanFilters";
 import type { FilterKegiatan } from "@/app/admin/presurvei/kegiatan/kegiatanListQuery";
-import type { SalesPresurveiDto } from "@/modules/presurvei/client";
+import type {
+  DepartemenPresurveiDto,
+  SalesPresurveiDto,
+} from "@/modules/presurvei/client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -33,6 +36,8 @@ import type { SalesPresurveiDto } from "@/modules/presurvei/client";
 const FILTER_KOSONG: FilterKegiatan = {
   page: 1,
   userId: "",
+  peran: "",
+  departemenId: "",
   jenis: "",
   hasil: "",
   dariTanggal: "",
@@ -64,15 +69,47 @@ describe("KegiatanFilters", () => {
   async function render(
     ubahan: Partial<FilterKegiatan>,
     salesTersedia: SalesPresurveiDto[] = [],
+    opsi: {
+      departemenTersedia?: DepartemenPresurveiDto[];
+      onUbah?: (perubahan: Partial<FilterKegiatan>) => void;
+    } = {},
   ) {
     await act(async () => {
       root.render(
         <KegiatanFilters
           filter={{ ...FILTER_KOSONG, ...ubahan }}
           salesTersedia={salesTersedia}
-          onUbah={() => undefined}
+          departemenTersedia={opsi.departemenTersedia ?? []}
+          onUbah={opsi.onUbah ?? (() => undefined)}
         />,
       );
+    });
+  }
+
+  function pemilih(label: string): HTMLSelectElement {
+    const elemen = container.querySelector(
+      `select[aria-label="${label}"]`,
+    ) as HTMLSelectElement;
+    expect(elemen, `pemilih ${label}`).not.toBeNull();
+    return elemen;
+  }
+
+  function pilihanDari(label: string): string[][] {
+    return [...pemilih(label).querySelectorAll("option")].map((opsi) => [
+      opsi.value,
+      opsi.textContent,
+    ]);
+  }
+
+  async function pilih(label: string, nilai: string) {
+    const elemen = pemilih(label);
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    ).set;
+    await act(async () => {
+      setter.call(elemen, nilai);
+      elemen.dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
 
@@ -140,5 +177,42 @@ describe("KegiatanFilters", () => {
       ["sales-9", "Wati"],
     ]);
     expect(pemilih.value).toBe("sales-2");
+  });
+
+  it("menawarkan Semua peran / Sales / Non-sales dan mengirim nilai enum-nya", async () => {
+    const onUbah = vi.fn();
+    await render({}, [], { onUbah });
+
+    expect(pilihanDari("Filter peran pelaku")).toEqual([
+      ["", "Semua peran"],
+      ["SALES", "Sales"],
+      ["NON_SALES", "Non-sales"],
+    ]);
+
+    await pilih("Filter peran pelaku", "NON_SALES");
+    expect(onUbah).toHaveBeenCalledWith({ peran: "NON_SALES" });
+  });
+
+  it("memakai id departemen sebagai nilai dan mengirimnya sebagai departemenId", async () => {
+    // Nilai dan label berbeda: `value={departemen.nama}` mengirim nama sebagai
+    // id ke route dan setiap penyaringan kembali nol baris.
+    const onUbah = vi.fn();
+    await render({ departemenId: "dept-cs" }, [], {
+      onUbah,
+      departemenTersedia: [
+        { id: "dept-cs", nama: "Customer Service" },
+        { id: "dept-teknik", nama: "Teknik" },
+      ],
+    });
+
+    expect(pilihanDari("Filter departemen pelaku")).toEqual([
+      ["", "Semua departemen"],
+      ["dept-cs", "Customer Service"],
+      ["dept-teknik", "Teknik"],
+    ]);
+    expect(pemilih("Filter departemen pelaku").value).toBe("dept-cs");
+
+    await pilih("Filter departemen pelaku", "dept-teknik");
+    expect(onUbah).toHaveBeenCalledWith({ departemenId: "dept-teknik" });
   });
 });

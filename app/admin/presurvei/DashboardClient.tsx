@@ -38,7 +38,10 @@ export function DashboardClient() {
       <div className="grid gap-6 lg:grid-cols-2">
         {bagian.canLihatTakBertuan && <ProspekTakBertuan />}
         {bagian.canLihatLaporan && <RingkasanPencapaian />}
-        <KegiatanTerbaru judul={bagian.judulKegiatan} />
+        <KegiatanTerbaru
+          judul={bagian.judulKegiatan}
+          canLihatPemisahanPeran={bagian.canLihatPemisahanPeran}
+        />
       </div>
     </div>
   );

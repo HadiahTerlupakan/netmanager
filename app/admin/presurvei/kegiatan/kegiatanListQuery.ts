@@ -3,6 +3,7 @@ import type {
   KegiatanHasil,
   KegiatanJenis,
   KegiatanListItemDto,
+  PeranPelaku,
   SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
@@ -23,6 +24,10 @@ export const HALAMAN_PERTAMA = 1;
 export interface FilterKegiatan {
   page: number;
   userId: string;
+  /** Peran pelaku saat ini; kosong berarti semua peran. */
+  peran: PeranPelaku | "";
+  /** Id departemen pelaku saat ini; kosong berarti semua departemen. */
+  departemenId: string;
   jenis: KegiatanJenis | "";
   hasil: KegiatanHasil | "";
   /** Format `YYYY-MM-DD`; kosong berarti tidak membatasi. */
@@ -50,7 +55,10 @@ export function buildKegiatanListUrl(
   });
 
   for (const [kunci, nilai] of [
+    // Nama param dicocokkan ke `app/api/presurvei/kegiatan/route.ts`.
     ["userId", filter.userId],
+    ["peran", filter.peran],
+    ["departemenId", filter.departemenId],
     ["jenis", filter.jenis],
     ["hasil", filter.hasil],
     ["dariTanggal", filter.dariTanggal],

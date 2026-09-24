@@ -1,12 +1,15 @@
 import { PERMISSIONS } from "@/lib/permissions";
 import {
+  PERAN_PELAKU_LABEL,
   PROSPEK_STATUS_CONFIG,
   daftarKolomHidup,
   type KegiatanListItemDto,
+  type PeranPelaku,
   type ProspekStatus,
   type SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
+import { teksPeranPelaku } from "./labelPeranPelaku";
 import { labelSales } from "./labelSales";
 import { KUNCI_KOLOM_PROSPEK } from "./prospek/prospekKolomQuery";
 
@@ -104,7 +107,9 @@ const TEKS_KARTU_TAK_TERMUAT: Record<KeadaanTakTermuat, string> = {
 };
 
 /** Teks angka kartu; kolom gagal dan yang masih dimuat tidak pernah tampil "0". */
-export function teksJumlahKartu(kartu: KartuCorong): string {
+export function teksJumlahKartu(
+  kartu: Pick<KartuCorong, "jumlah" | "keadaan">,
+): string {
   if (kartu.keadaan === "termuat") return String(kartu.jumlah);
   return TEKS_KARTU_TAK_TERMUAT[kartu.keadaan];
 }
@@ -117,6 +122,12 @@ export interface BagianDashboard {
   canLihatTakBertuan: boolean;
   /** Ringkasan pencapaian — endpoint laporan punya izinnya sendiri. */
   canLihatLaporan: boolean;
+  /**
+   * Jumlah kegiatan per peran (Sales/Non-sales). Hanya untuk cakupan tenant:
+   * pemanggil lain diikat route ke kegiatannya sendiri, jadi angka
+   * "Non-sales" baginya pasti 0 dan hanya menyesatkan.
+   */
+  canLihatPemisahanPeran: boolean;
 }
 
 /**
@@ -154,6 +165,7 @@ export function tentukanBagianDashboard(
     judulKegiatan: `Kegiatan ${cakupan}`,
     canLihatTakBertuan: isCakupanTenant,
     canLihatLaporan: punyaIzin(PERMISSIONS.MARKETING.PRESURVEI_LAPORAN.READ),
+    canLihatPemisahanPeran: isCakupanTenant,
   };
 }
 
@@ -202,6 +214,75 @@ export function buildKegiatanTerbaruUrl(sekarang: Date): string {
     dariTanggal: tanggalAwalKegiatan(sekarang),
   });
   return `/api/presurvei/kegiatan?${params.toString()}`;
+}
+
+/** Satu baris per permintaan hitungan: yang dibaca hanya `meta.total`. */
+const BATAS_HITUNG_KEGIATAN = 1;
+
+/**
+ * URL hitungan kegiatan satu peran pada rentang yang sama dengan kegiatan
+ * terbaru. Nama param `peran` dicocokkan ke `app/api/presurvei/kegiatan/route.ts`.
+ */
+export function buildJumlahKegiatanPeranUrl(
+  sekarang: Date,
+  peran: PeranPelaku,
+): string {
+  const params = new URLSearchParams({
+    page: String(HALAMAN_PERTAMA),
+    limit: String(BATAS_HITUNG_KEGIATAN),
+    dariTanggal: tanggalAwalKegiatan(sekarang),
+    peran,
+  });
+  return `/api/presurvei/kegiatan?${params.toString()}`;
+}
+
+/** Jumlah kegiatan satu peran, dengan keadaan pemuatan seperti kartu corong. */
+export interface KartuPeran {
+  peran: PeranPelaku;
+  label: string;
+  /** Null bila angkanya belum tiba atau gagal dimuat — lihat `keadaan`. */
+  jumlah: number | null;
+  keadaan: KeadaanKartu;
+}
+
+/** Hasil query hitungan satu peran. */
+export interface HasilJumlahPeran {
+  peran: PeranPelaku;
+  /** `meta.total`; undefined selama belum tiba. */
+  total: number | undefined;
+  isGagal: boolean;
+}
+
+/**
+ * Kartu jumlah per peran. Seperti `ringkasHasilKolom`, yang gagal dianggap
+ * gagal walau masih memegang angka lama — dan tidak pernah tampil sebagai 0.
+ */
+export function kartuJumlahPeran(
+  hasil: readonly HasilJumlahPeran[],
+): KartuPeran[] {
+  return hasil.map(({ peran, total, isGagal }) => {
+    const label = PERAN_PELAKU_LABEL[peran];
+    if (isGagal) {
+      // Anotasi wajib: `null` tanpa tipe kontekstual memicu TS7018.
+      const kartuGagal: KartuPeran = {
+        peran,
+        label,
+        jumlah: null,
+        keadaan: "gagal",
+      };
+      return kartuGagal;
+    }
+    if (total === undefined) {
+      const kartuMemuat: KartuPeran = {
+        peran,
+        label,
+        jumlah: null,
+        keadaan: "memuat",
+      };
+      return kartuMemuat;
+    }
+    return { peran, label, jumlah: total, keadaan: "termuat" };
+  });
 }
 
 /** URL halaman pertama prospek tak bertuan (`tanpaPemilik`, `daftarProspekSchema`). */
@@ -270,4 +351,19 @@ export function teksPelakuKegiatan(
   item: Pick<KegiatanListItemDto, "namaSales" | "userId">,
 ): string {
   return item.namaSales ?? labelSales(item.userId, TANPA_DAFTAR_SALES);
+}
+
+/**
+ * Pelaku satu kegiatan beserta peran dan departemennya:
+ * "Joko (Non-sales · Teknik)", atau nama saja bila peran tidak diketahui.
+ */
+export function teksPelakuDenganPeran(
+  item: Pick<
+    KegiatanListItemDto,
+    "namaSales" | "userId" | "peranPelaku" | "departemenPelaku"
+  >,
+): string {
+  const pelaku = teksPelakuKegiatan(item);
+  const peran = teksPeranPelaku(item);
+  return peran === null ? pelaku : `${pelaku} (${peran})`;
 }

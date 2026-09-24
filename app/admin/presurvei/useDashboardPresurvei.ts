@@ -4,6 +4,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
+  PERAN_PELAKU,
   daftarKolomHidup,
   type KegiatanListItemDto,
   type ProspekListItemDto,
@@ -13,12 +14,15 @@ import { KUNCI_DAFTAR_KEGIATAN } from "./kegiatan/kegiatanFormState";
 import { HALAMAN_PERTAMA } from "./prospek/prospekKolomQuery";
 import { opsiQueryHalamanKolom } from "./prospek/useProspekKolom";
 import {
+  buildJumlahKegiatanPeranUrl,
   buildKegiatanTerbaruUrl,
   buildProspekTakBertuanUrl,
   hitungCorong,
+  kartuJumlahPeran,
   kunciQueryProspekTakBertuan,
   ringkasHasilKolom,
   type KartuCorong,
+  type KartuPeran,
 } from "./ringkasanDashboard";
 
 /** Referensi tunggal untuk "belum ada data", supaya tidak lahir array baru tiap render. */
@@ -84,6 +88,41 @@ export function useKegiatanTerbaru() {
     isLoading: query.isPending,
     isError: query.isError,
   };
+}
+
+/**
+ * Jumlah kegiatan `JUMLAH_HARI_KEGIATAN` hari per peran pelaku, dari
+ * `meta.total` dua permintaan satu baris.
+ *
+ * URL dihitung sekali saat pasang, dengan satu "sekarang" untuk kedua peran,
+ * supaya keduanya selalu merentang hari yang sama. Kuncinya berawalan
+ * `KUNCI_DAFTAR_KEGIATAN`, jadi invalidasi form catat/ubah kegiatan ikut
+ * menyegarkan kedua angka.
+ */
+export function useJumlahKegiatanPerPeran(): KartuPeran[] {
+  const [permintaan] = useState(() => {
+    const sekarang = new Date();
+    return PERAN_PELAKU.map((peran) => ({
+      peran,
+      url: buildJumlahKegiatanPeranUrl(sekarang, peran),
+    }));
+  });
+
+  const hasil = useQueries({
+    queries: permintaan.map(({ url }) => ({
+      queryKey: [KUNCI_DAFTAR_KEGIATAN, url],
+      queryFn: () =>
+        ambilDaftar<KegiatanListItemDto>(url, "Gagal memuat jumlah kegiatan"),
+    })),
+  });
+
+  return kartuJumlahPeran(
+    permintaan.map(({ peran }, urutan) => ({
+      peran,
+      total: hasil[urutan].data?.meta.total,
+      isGagal: hasil[urutan].isError,
+    })),
+  );
 }
 
 /**

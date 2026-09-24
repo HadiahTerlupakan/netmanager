@@ -1,15 +1,24 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { HiOutlineFunnel, HiOutlineUser } from "react-icons/hi2";
+import {
+  HiOutlineBuildingOffice,
+  HiOutlineFunnel,
+  HiOutlineIdentification,
+  HiOutlineUser,
+} from "react-icons/hi2";
 
 import {
   KEGIATAN_HASIL,
   KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS,
   KEGIATAN_JENIS_CONFIG,
+  PERAN_PELAKU,
+  PERAN_PELAKU_LABEL,
+  type DepartemenPresurveiDto,
   type KegiatanHasil,
   type KegiatanJenis,
+  type PeranPelaku,
   type SalesPresurveiDto,
 } from "@/modules/presurvei/client";
 
@@ -28,17 +37,29 @@ interface KegiatanFiltersProps {
   filter: FilterKegiatan;
   /** Sales yang boleh dipilih; lihat `opsiSales` untuk asal-usulnya. */
   salesTersedia: SalesPresurveiDto[];
+  /** Departemen tenant pemakai (`useDaftarDepartemenPresurvei`). */
+  departemenTersedia: readonly DepartemenPresurveiDto[];
   onUbah: (perubahan: Partial<Omit<FilterKegiatan, "page">>) => void;
 }
 
-/** Pemilih sales, jenis, hasil, dan rentang tanggal daftar kegiatan. */
+/**
+ * Pemilih sales, peran, departemen, jenis, hasil, dan rentang tanggal daftar
+ * kegiatan. Peran dan departemen adalah keadaan pelaku SAAT INI.
+ */
 export function KegiatanFilters({
   filter,
   salesTersedia,
+  departemenTersedia,
   onUbah,
 }: KegiatanFiltersProps) {
   const ubahSales = (event: ChangeEvent<HTMLSelectElement>) =>
     onUbah({ userId: event.target.value });
+
+  const ubahPeran = (event: ChangeEvent<HTMLSelectElement>) =>
+    onUbah({ peran: event.target.value as PeranPelaku | "" });
+
+  const ubahDepartemen = (event: ChangeEvent<HTMLSelectElement>) =>
+    onUbah({ departemenId: event.target.value });
 
   const ubahJenis = (event: ChangeEvent<HTMLSelectElement>) =>
     onUbah({ jenis: event.target.value as KegiatanJenis | "" });
@@ -74,6 +95,40 @@ export function KegiatanFilters({
           {salesTersedia.map((sales) => (
             <option key={sales.id} value={sales.id}>
               {sales.nama}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="relative">
+        <HiOutlineIdentification className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <select
+          value={filter.peran}
+          onChange={ubahPeran}
+          aria-label="Filter peran pelaku"
+          className={KELAS_SELECT}
+        >
+          <option value={TANPA_SARING}>Semua peran</option>
+          {PERAN_PELAKU.map((peran) => (
+            <option key={peran} value={peran}>
+              {PERAN_PELAKU_LABEL[peran]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="relative">
+        <HiOutlineBuildingOffice className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <select
+          value={filter.departemenId}
+          onChange={ubahDepartemen}
+          aria-label="Filter departemen pelaku"
+          className={KELAS_SELECT}
+        >
+          <option value={TANPA_SARING}>Semua departemen</option>
+          {departemenTersedia.map((departemen) => (
+            <option key={departemen.id} value={departemen.id}>
+              {departemen.nama}
             </option>
           ))}
         </select>

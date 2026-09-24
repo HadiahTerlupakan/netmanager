@@ -80,8 +80,8 @@ const kegiatanDasar: KegiatanRincianDto = {
   jenis: "SURVEI_LOKASI",
   userId: "sales-1",
   namaSales: "Andi",
-  peranPelaku: null,
-  departemenPelaku: null,
+  peranPelaku: "NON_SALES",
+  departemenPelaku: "Teknik",
   prospekId: null,
   waktuMulai: "2026-09-10T02:00:00.000Z",
   waktuSelesai: "2026-09-10T03:15:00.000Z",
@@ -190,6 +190,23 @@ describe("KegiatanDetailClient — ringkasan", () => {
     expect(nilaiBerlabel("Waktu")).toBe(
       "10 Sep 2026 09:00 – 10 Sep 2026 10:15",
     );
+  });
+
+  it("menampilkan peran dan departemen pelaku di sebelah namanya", async () => {
+    await renderRincian();
+
+    expect(nilaiBerlabel("Sales")).toBe("Andi");
+    expect(nilaiBerlabel("Peran")).toBe("Non-sales · Teknik");
+  });
+
+  it("mengganti peran yang tidak diketahui dengan '-'", async () => {
+    await renderRincian({
+      ...kegiatanDasar,
+      peranPelaku: null,
+      departemenPelaku: null,
+    });
+
+    expect(nilaiBerlabel("Peran")).toBe("-");
   });
 
   it("menampilkan estimasi kabel beserta satuannya", async () => {

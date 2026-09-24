@@ -76,6 +76,7 @@ import {
 /** Ditulis literal: test harus merah bila rute atau pesannya diganti. */
 const URL_DAFTAR = "/api/presurvei/kegiatan";
 const URL_SALES = "/api/admin/presurvei/sales";
+const URL_DEPARTEMEN = "/api/admin/presurvei/departemen";
 const PESAN_GAGAL_MUAT = "Gagal memuat daftar kegiatan";
 
 /** Tiga baris, dua berkoordinat: `tanpaKoordinat` = 1. */
@@ -85,8 +86,8 @@ const baris: KegiatanListItemDto[] = [
     jenis: "KUNJUNGAN",
     userId: "sales-1",
     namaSales: "Andi",
-    peranPelaku: null,
-    departemenPelaku: null,
+    peranPelaku: "NON_SALES",
+    departemenPelaku: "Teknik",
     prospekId: null,
     waktuMulai: "2026-09-10T02:00:00.000Z",
     alamatDikunjungi: "Jl. Melati 1",
@@ -101,8 +102,8 @@ const baris: KegiatanListItemDto[] = [
     jenis: "KUNJUNGAN",
     userId: "sales-1",
     namaSales: "Andi",
-    peranPelaku: null,
-    departemenPelaku: null,
+    peranPelaku: "NON_SALES",
+    departemenPelaku: "Teknik",
     prospekId: null,
     waktuMulai: "2026-09-11T03:30:00.000Z",
     alamatDikunjungi: "Jl. Mawar 2",
@@ -117,8 +118,8 @@ const baris: KegiatanListItemDto[] = [
     jenis: "TELEPON",
     userId: "sales-2",
     namaSales: "Budi",
-    peranPelaku: null,
-    departemenPelaku: null,
+    peranPelaku: "SALES",
+    departemenPelaku: "Marketing",
     prospekId: null,
     waktuMulai: "2026-09-12T04:00:00.000Z",
     alamatDikunjungi: null,
@@ -194,6 +195,15 @@ beforeEach(() => {
     }
     if (url === URL_SALES) {
       return responsJson(200, { success: true, data: [] });
+    }
+    if (url === URL_DEPARTEMEN) {
+      return responsJson(200, {
+        success: true,
+        data: [
+          { id: "dept-cs", nama: "Customer Service" },
+          { id: "dept-teknik", nama: "Teknik" },
+        ],
+      });
     }
     if (url.startsWith(`${URL_DAFTAR}?`)) {
       if (isDaftarGagal) {
@@ -359,6 +369,69 @@ describe("KegiatanClient — tab peta", () => {
     ]);
     expect(props.tanpaKoordinat).toBe(2);
     expect(props.diLuarBatas).toBe(TOTAL_COCOK - barisPeta.length);
+  });
+});
+
+describe("KegiatanClient — peran dan departemen pelaku", () => {
+  it("kolom Sales menampilkan nama beserta peran dan departemen pelaku", async () => {
+    await renderLayar();
+    await tungguSampai(
+      () => document.body.textContent.includes("Non-sales · Teknik"),
+      "label peran tampil di tabel",
+    );
+
+    expect(document.body.textContent).toContain("Sales · Marketing");
+    expect(document.body.textContent).toContain("Budi");
+  });
+
+  it("filter peran dan departemen menyaring tabel DAN peta, dan tabel kembali ke halaman 1", async () => {
+    await renderLayar();
+    await tungguSampai(
+      () => tombolBerteks("2") !== undefined,
+      "paginasi tabel tampil",
+    );
+    await klikElemen(tombolBerteks("2"), "tombol halaman 2");
+    await tungguSampai(
+      () => paramDari(urlTerakhirBerbatas(LIMIT_TABEL) ?? "").page === "2",
+      "tabel di halaman 2",
+    );
+
+    await tungguSampai(
+      () =>
+        cari(
+          'select[aria-label="Filter departemen pelaku"] option[value="dept-teknik"]',
+        ) !== null,
+      "pilihan departemen dimuat",
+    );
+    await isiMedan('select[aria-label="Filter peran pelaku"]', "NON_SALES");
+    await isiMedan(
+      'select[aria-label="Filter departemen pelaku"]',
+      "dept-teknik",
+    );
+    await tungguSampai(
+      () =>
+        paramDari(urlTerakhirBerbatas(LIMIT_TABEL) ?? "").departemenId ===
+        "dept-teknik",
+      "tabel meminta daftar berfilter departemen",
+    );
+    expect(paramDari(urlTerakhirBerbatas(LIMIT_TABEL))).toEqual({
+      page: "1",
+      limit: LIMIT_TABEL,
+      peran: "NON_SALES",
+      departemenId: "dept-teknik",
+    });
+
+    await klikTombol("Peta kunjungan");
+    await tungguSampai(
+      () => urlTerakhirBerbatas(LIMIT_PETA) !== undefined,
+      "himpunan peta diminta",
+    );
+    expect(paramDari(urlTerakhirBerbatas(LIMIT_PETA))).toEqual({
+      page: "1",
+      limit: LIMIT_PETA,
+      peran: "NON_SALES",
+      departemenId: "dept-teknik",
+    });
   });
 });
 

@@ -18,10 +18,11 @@ import { namaBulan } from "./periode";
 import {
   JUMLAH_HARI_KEGIATAN,
   teksJumlahKartu,
-  teksPelakuKegiatan,
+  teksPelakuDenganPeran,
 } from "./ringkasanDashboard";
 import {
   useCorongDashboard,
+  useJumlahKegiatanPerPeran,
   useKegiatanTerbaru,
   useProspekTakBertuan,
 } from "./useDashboardPresurvei";
@@ -139,8 +140,37 @@ export function ProspekTakBertuan() {
   );
 }
 
-/** Kegiatan terbaru dalam rentang tujuh hari kalender UTC. */
-export function KegiatanTerbaru({ judul }: { judul: string }) {
+/**
+ * Jumlah kegiatan per peran pelaku. Komponen tersendiri supaya query-nya hanya
+ * dikirim bila bagian ini dipasang — lihat `canLihatPemisahanPeran`.
+ */
+function JumlahKegiatanPerPeran() {
+  const kartu = useJumlahKegiatanPerPeran();
+
+  return (
+    <div className="mb-3 grid grid-cols-2 gap-3">
+      {kartu.map((item) => (
+        <StatCard
+          key={item.peran}
+          label={item.label}
+          value={teksJumlahKartu(item)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Kegiatan terbaru dalam rentang tujuh hari kalender UTC, beserta jumlahnya
+ * per peran bila `canLihatPemisahanPeran`.
+ */
+export function KegiatanTerbaru({
+  judul,
+  canLihatPemisahanPeran,
+}: {
+  judul: string;
+  canLihatPemisahanPeran: boolean;
+}) {
   const { daftar, isLoading, isError } = useKegiatanTerbaru();
 
   const isi = (() => {
@@ -158,7 +188,7 @@ export function KegiatanTerbaru({ judul }: { judul: string }) {
               {KEGIATAN_HASIL_CONFIG[kegiatan.hasil].label}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              {teksPelakuKegiatan(kegiatan)} ·{" "}
+              {teksPelakuDenganPeran(kegiatan)} ·{" "}
               {formatDateTimeDisplay(kegiatan.waktuMulai)}
             </div>
           </li>
@@ -172,6 +202,7 @@ export function KegiatanTerbaru({ judul }: { judul: string }) {
       judul={`${judul} — ${JUMLAH_HARI_KEGIATAN} hari terakhir`}
       tautan={{ href: URL_DAFTAR_KEGIATAN, label: "Semua kegiatan" }}
     >
+      {canLihatPemisahanPeran && <JumlahKegiatanPerPeran />}
       {isi}
       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
         Rentang dihitung per tanggal UTC, mulai pukul 07.00 WIB.

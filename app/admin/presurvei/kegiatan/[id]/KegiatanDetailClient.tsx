@@ -19,6 +19,7 @@ import {
   type TampilanStatus,
 } from "@/modules/presurvei/client";
 
+import { teksPeranPelaku } from "../../labelPeranPelaku";
 import { teksSalesKegiatan } from "../kegiatanListQuery";
 import { keTitikPeta } from "../titikPeta";
 import {
@@ -212,6 +213,7 @@ function IsiDetailKegiatan({ kegiatan }: { kegiatan: KegiatanRincianDto }) {
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <BarisRingkasan label="Waktu" nilai={teksRentangWaktu(kegiatan)} />
           <BarisRingkasan label="Sales" nilai={teksSalesKegiatan(kegiatan)} />
+          <BarisRingkasan label="Peran" nilai={teksPeranPelaku(kegiatan)} />
           <BarisRingkasan
             label="Jenis"
             nilai={

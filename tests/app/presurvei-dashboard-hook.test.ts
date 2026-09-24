@@ -67,6 +67,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 import {
   useCorongDashboard,
+  useJumlahKegiatanPerPeran,
   useKegiatanTerbaru,
   useProspekTakBertuan,
 } from "@/app/admin/presurvei/useDashboardPresurvei";
@@ -205,6 +206,59 @@ describe("useKegiatanTerbaru", () => {
       isLoading: false,
       isError: true,
     });
+  });
+});
+
+describe("useJumlahKegiatanPerPeran", () => {
+  const URL_SALES =
+    "/api/presurvei/kegiatan?page=1&limit=1&dariTanggal=2026-09-17&peran=SALES";
+  const URL_NON_SALES =
+    "/api/presurvei/kegiatan?page=1&limit=1&dariTanggal=2026-09-17&peran=NON_SALES";
+
+  it("dua permintaan satu baris di bawah awalan kunci daftar kegiatan", async () => {
+    // Awalan yang sama dengan invalidasi form catat dan ubah kegiatan, jadi
+    // kedua angka ikut segar setelah kegiatan dicatat.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-23T10:15:00.000Z"));
+    const fetchPalsu = fetchBerhasil();
+    vi.stubGlobal("fetch", fetchPalsu);
+
+    useJumlahKegiatanPerPeran();
+
+    const [{ queries }] = palsu.konfigQueries.mock.calls[0] as [
+      { queries: KonfigQuery[] },
+    ];
+    expect(queries.map((query) => query.queryKey)).toEqual([
+      [KUNCI_KEGIATAN_LITERAL, URL_SALES],
+      [KUNCI_KEGIATAN_LITERAL, URL_NON_SALES],
+    ]);
+
+    await queries[1].queryFn();
+    expect(fetchPalsu).toHaveBeenCalledWith(URL_NON_SALES);
+  });
+
+  it("meneruskan meta.total dan kegagalan tiap peran ke kartunya masing-masing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-23T10:15:00.000Z"));
+    palsu.hasilPerKunci.set(
+      JSON.stringify([KUNCI_KEGIATAN_LITERAL, URL_SALES]),
+      tiba(12),
+    );
+    palsu.hasilPerKunci.set(
+      JSON.stringify([KUNCI_KEGIATAN_LITERAL, URL_NON_SALES]),
+      { data: undefined, isError: true, isPending: false },
+    );
+
+    expect(
+      useJumlahKegiatanPerPeran().map((kartu) => [
+        kartu.peran,
+        kartu.jumlah,
+        kartu.keadaan,
+      ]),
+    ).toEqual([
+      ["SALES", 12, "termuat"],
+      ["NON_SALES", null, "gagal"],
+    ]);
   });
 });
 

@@ -5,13 +5,16 @@ import { KUNCI_KOLOM_PROSPEK } from "@/app/admin/presurvei/prospek/prospekKolomQ
 import { PROSPEK_STATUSES } from "@/modules/presurvei/client";
 
 import {
+  buildJumlahKegiatanPeranUrl,
   buildKegiatanTerbaruUrl,
   buildProspekTakBertuanUrl,
   hitungCorong,
+  kartuJumlahPeran,
   kunciQueryProspekTakBertuan,
   ringkasHasilKolom,
   tanggalAwalKegiatan,
   teksJumlahKartu,
+  teksPelakuDenganPeran,
   teksPelakuKegiatan,
   isCakupanTenantPresurvei,
   tentukanBagianDashboard,
@@ -159,6 +162,7 @@ describe("tentukanBagianDashboard", () => {
       judulKegiatan: "Kegiatan Anda",
       canLihatTakBertuan: false,
       canLihatLaporan: false,
+      canLihatPemisahanPeran: false,
     });
   });
 
@@ -170,6 +174,7 @@ describe("tentukanBagianDashboard", () => {
       judulKegiatan: "Kegiatan tenant",
       canLihatTakBertuan: true,
       canLihatLaporan: false,
+      canLihatPemisahanPeran: true,
     });
   });
 
@@ -183,6 +188,17 @@ describe("tentukanBagianDashboard", () => {
 
     expect(bagian.canLihatLaporan).toBe(true);
     expect(bagian.canLihatTakBertuan).toBe(false);
+  });
+
+  it("menyembunyikan pemisahan peran dari pemegang izin laporan tanpa izin tenant", () => {
+    // Route kegiatan mengikat pemanggil tanpa `presurvei:read` ke miliknya
+    // sendiri; angka "Non-sales" baginya pasti 0 dan menyesatkan. Izin
+    // laporan tidak mengubah cakupan route kegiatan.
+    const bagian = tentukanBagianDashboard(
+      izinDari(["m_presurvei:read", "presurvei_laporan:read"]),
+    );
+
+    expect(bagian.canLihatPemisahanPeran).toBe(false);
   });
 
   it("menanyakan izin dengan nama yang dipakai route", () => {
@@ -229,6 +245,64 @@ describe("rentang kegiatan terbaru", () => {
       limit: "5",
       dariTanggal: "2026-09-17",
     });
+  });
+});
+
+describe("buildJumlahKegiatanPeranUrl", () => {
+  it("meminta satu baris per peran pada rentang yang sama dengan kegiatan terbaru", () => {
+    // Nama param dicocokkan ke `app/api/presurvei/kegiatan/route.ts`. Satu
+    // baris cukup: yang dibaca hanya `meta.total`.
+    const sekarang = new Date("2026-09-23T10:15:00.000Z");
+    const paramDari = (url: string) =>
+      Object.fromEntries(new URL(url, "http://localhost").searchParams);
+
+    expect(paramDari(buildJumlahKegiatanPeranUrl(sekarang, "SALES"))).toEqual({
+      page: "1",
+      limit: "1",
+      dariTanggal: "2026-09-17",
+      peran: "SALES",
+    });
+    expect(
+      paramDari(buildJumlahKegiatanPeranUrl(sekarang, "NON_SALES")).peran,
+    ).toBe("NON_SALES");
+    expect(buildJumlahKegiatanPeranUrl(sekarang, "SALES")).toMatch(
+      /^\/api\/presurvei\/kegiatan\?/,
+    );
+  });
+});
+
+describe("kartuJumlahPeran", () => {
+  it("memetakan total, gagal, dan memuat ke kartu berlabel — gagal bukan nol", () => {
+    const kartu = kartuJumlahPeran([
+      { peran: "SALES", total: 0, isGagal: false },
+      { peran: "NON_SALES", total: 9, isGagal: true },
+    ]);
+
+    expect(kartu).toEqual([
+      { peran: "SALES", label: "Sales", jumlah: 0, keadaan: "termuat" },
+      {
+        peran: "NON_SALES",
+        label: "Non-sales",
+        jumlah: null,
+        keadaan: "gagal",
+      },
+    ]);
+    expect(kartu.map(teksJumlahKartu)).toEqual(["0", "—"]);
+  });
+
+  it("menandai peran yang totalnya belum tiba sebagai memuat", () => {
+    expect(
+      kartuJumlahPeran([
+        { peran: "NON_SALES", total: undefined, isGagal: false },
+      ]),
+    ).toEqual([
+      {
+        peran: "NON_SALES",
+        label: "Non-sales",
+        jumlah: null,
+        keadaan: "memuat",
+      },
+    ]);
   });
 });
 
@@ -292,6 +366,30 @@ describe("teksPelakuKegiatan", () => {
     // Label netral bersama `labelSales`, berpotongan ujung id.
     expect(teks).toBe("Sales tak tercantum (…123456)");
     expect(teks).not.toContain("user-abcdef123456");
+  });
+});
+
+describe("teksPelakuDenganPeran", () => {
+  it("menambahkan peran dan departemen di belakang nama", () => {
+    expect(
+      teksPelakuDenganPeran({
+        namaSales: "Joko",
+        userId: "user-joko",
+        peranPelaku: "NON_SALES",
+        departemenPelaku: "Teknik",
+      }),
+    ).toBe("Joko (Non-sales · Teknik)");
+  });
+
+  it("nama saja bila peran tidak diketahui", () => {
+    expect(
+      teksPelakuDenganPeran({
+        namaSales: "Joko",
+        userId: "user-joko",
+        peranPelaku: null,
+        departemenPelaku: null,
+      }),
+    ).toBe("Joko");
   });
 });
 
