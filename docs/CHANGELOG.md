@@ -59,6 +59,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   apa pun, dan tidak berefek di lingkungan tanpa role bernama itu (DB lokal hasil seed).
   Diuji di DB lokal dalam transaksi yang di-rollback, dua kali berturut-turut, termasuk
   jalur pembuatan permission: 10 permission + 20 grant, run kedua menulis 0 baris.
+  **Versi pertama gagal di produksi** (deploy task 205, 2026-09-24, P3018/42P10): ia memakai
+  `ON CONFLICT (resource, action, "tenantId")`, padahal produksi masih ber-unique
+  `(resource, action)` karena `20260315020000_tenant_unique_constraints` hanya ditandai
+  terterapkan lewat `migrate resolve --applied` (`k8s/migration-job.yaml`). Tidak ada baris
+  tertulis (`applied_steps_count = 0`). Versi perbaikan memakai `NOT EXISTS` dan diuji ulang
+  dengan unique ala produksi; job migrasi otomatis me-roll-back catatan gagal lalu mencoba
+  lagi. Catatan: 10 permission presurvei + grant role `admin` sudah dibuat seseorang lewat
+  editor Role pada 2026-09-23 21:12 UTC, jadi di produksi migration ini hanya menambah grant
+  untuk Super Admin, Branch Manager, dan KACAB PKP.
 - **Files**: `prisma/migrations/20260923211611_grant_presurvei_permissions_to_admin_roles/migration.sql`
 - **Migration**: `20260923211611_grant_presurvei_permissions_to_admin_roles`
 - **Breaking**: ❌ Tidak

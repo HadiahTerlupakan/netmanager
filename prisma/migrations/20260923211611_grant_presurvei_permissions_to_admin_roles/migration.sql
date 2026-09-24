@@ -8,18 +8,25 @@
 -- Daftar permission = seluruh string presurvei yang dipakai kode (grep
 -- "presurvei(_iklan|_target|_laporan)?:<action>" di app/ lib/ modules/).
 --
+-- Sengaja TIDAK memakai ON CONFLICT untuk "Permission". Unique constraint tabel itu
+-- berbeda antar-lingkungan: riwayat migration membuat (resource, action, tenantId),
+-- tetapi produksi masih memakai (resource, action) karena
+-- 20260315020000_tenant_unique_constraints hanya ditandai terterapkan lewat
+-- `migrate resolve --applied` (k8s/migration-job.yaml). Versi pertama migration ini
+-- memakai ON CONFLICT (resource, action, "tenantId") dan gagal di produksi dengan
+-- 42P10 tanpa menulis apa pun. NOT EXISTS berlaku di kedua bentuk constraint.
+--
 -- Aman dijalankan berulang dan aman di lingkungan mana pun:
---   * Role dicocokkan lewat trim(name): di produksi namanya " Branch Manager"
---     (berspasi di depan). Role yang tidak ada = tidak ada yang ditulis (mis. DB lokal
---     hasil seed memakai nama ADMIN/SUPER_ADMIN).
---   * Permission dibuat per tenant milik role, mengikuti konvensi baris permission
---     produksi (tenantId terisi), dan ON CONFLICT pada unique
---     (resource, action, tenantId) mencegah duplikat.
---   * Relasi role↔permission memakai ON CONFLICT pada primary key ("A","B").
+--   * Role dicocokkan lewat trim(name): di produksi namanya " Branch Manager".
+--     Role yang tidak ada = tidak ada yang ditulis (mis. DB lokal hasil seed).
+--   * Permission hanya dibuat bila belum ada pasangan (resource, action) di tenant role
+--     — di produksi kesepuluhnya sudah dibuat lewat editor Role, jadi tidak ada insert.
+--   * Relasi role↔permission memakai ON CONFLICT pada primary key ("A","B"), yang sama
+--     di semua lingkungan.
 -- Tidak menghapus apa pun; mencabut akses tetap lewat editor Role di admin.
 
 WITH role_sasaran AS (
-  SELECT id, "tenantId"
+  SELECT DISTINCT "tenantId"
   FROM roles
   WHERE trim(name) IN ('admin', 'Super Admin', 'Branch Manager', 'KACAB PKP')
     AND "tenantId" IS NOT NULL
@@ -45,10 +52,16 @@ SELECT gen_random_uuid()::text,
        'Izinkan ' || izin.action || ' pada ' || izin.resource,
        NOW(),
        NOW(),
-       tenant."tenantId"
+       role_sasaran."tenantId"
 FROM izin
-CROSS JOIN (SELECT DISTINCT "tenantId" FROM role_sasaran) AS tenant
-ON CONFLICT (resource, action, "tenantId") DO NOTHING;
+CROSS JOIN role_sasaran
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM "Permission" p
+  WHERE p.resource = izin.resource
+    AND p.action = izin.action
+    AND p."tenantId" = role_sasaran."tenantId"
+);
 
 INSERT INTO "_PermissionToRole" ("A", "B")
 SELECT p.id, r.id
