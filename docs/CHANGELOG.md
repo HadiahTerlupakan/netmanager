@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Beri izin presurvei mobile ke role SALES
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/` | `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Migration data yang memberi `m_presurvei:{read,create,update}` ke role
+  bernama `SALES` (dicocokkan lewat `trim(name)`, hanya role ber-`tenantId`), agar tab
+  Presurvei dan Beranda sales di aplikasi mobile terbuka. Permission web `presurvei:*`
+  sengaja tidak diberikan. Permission dibuat per tenant role bila belum ada
+  (`NOT EXISTS (resource, action, tenantId)`) plus `ON CONFLICT DO NOTHING` tanpa
+  target, karena unique `Permission` produksi adalah `(resource, action)` global,
+  sedangkan lokal `(resource, action, tenantId)`. Relasi hanya ke Permission
+  ber-tenant sama dengan role (`ON CONFLICT ("A","B") DO NOTHING`). Keterbatasan: di
+  bawah unique global, tenant lain yang sudah memegang baris `m_presurvei:<aksi>`
+  membuat tenant role SALES tidak mendapat izin itu. Produksi per 2026-09-25 hanya punya
+  satu role SALES dan belum ada baris `m_presurvei`, jadi ketiga izin tercipta.
+  Idempoten dan tidak menghapus apa pun. Di DB lokal hasil seed, migration tidak berefek
+  karena role SALES ber-`tenantId` NULL.
+  Uji yang dijalankan di DB lokal, tiap skenario dalam transaksi yang di-rollback dan
+  migration dijalankan dua kali:
+  - unique global ala produksi dengan SALES dipindah ke tenant utama dan `m_presurvei`
+    dikosongkan: 3 permission + 3 grant, run kedua `INSERT 0 0`;
+  - skenario yang sama dengan nama role `" SALES "`;
+  - unique lokal dengan `m_presurvei` hasil seed: tidak ada insert ganda, 3 grant;
+  - `m_presurvei:read` milik tenant lain di bawah unique global: tanpa galat, 2 grant,
+    tanpa grant lintas tenant;
+  - DB lokal apa adanya dan tanpa unique sama sekali.
+
+  Delapan mutasi merah (dua di antaranya lewat galat `duplicate key`). Migration diterapkan ke DB lokal lewat `prisma migrate deploy`,
+  lalu `migrate status` bersih.
+- **Files**: `prisma/migrations/20260924180113_grant_mobile_presurvei_permissions_to_sales_role/migration.sql`
+- **Migration**: `20260924180113_grant_mobile_presurvei_permissions_to_sales_role`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Tampilan sales karyawan dan tab Presurvei di aplikasi mobile
 
 - **Tipe**: [ADDED]
