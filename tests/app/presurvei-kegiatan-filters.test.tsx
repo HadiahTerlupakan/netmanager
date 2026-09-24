@@ -80,6 +80,7 @@ describe("KegiatanFilters", () => {
           filter={{ ...FILTER_KOSONG, ...ubahan }}
           salesTersedia={salesTersedia}
           departemenTersedia={opsi.departemenTersedia ?? []}
+          canSaringPelaku
           onUbah={opsi.onUbah ?? (() => undefined)}
         />,
       );

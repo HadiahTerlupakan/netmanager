@@ -72,6 +72,14 @@ export function peranPelakuSatuTenant(
  * DAN departemennya juga. `include` bersarang tidak disaring ekstensi tenant
  * (lihat `namaSalesSatuTenant`), jadi user yang `departmentId`-nya menunjuk
  * departemen tenant lain akan membawa nama departemen itu ke layar.
+ *
+ * Departemen tak bertenant sengaja dianggap null pada baris bertenant, walau
+ * ekstensi memperlakukan `Departments` sebagai referensi global yang
+ * meloloskan baris `tenantId` null (`lib/prisma-extension.ts:52`): label ini
+ * harus sepakat dengan dropdown filter (`DepartemenRepository`,
+ * `where: { tenantId }`) dan dengan `DepartmentRepository` modul roles, yang
+ * sama-sama tidak menawarkan departemen tak bertenant. Per 2026-09-24
+ * produksi tidak punya departemen tak bertenant.
  */
 export function departemenPelakuSatuTenant(
   identitas: IdentitasPelakuBertenant | null | undefined,

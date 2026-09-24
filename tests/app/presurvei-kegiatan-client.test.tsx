@@ -28,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const palsu = vi.hoisted(() => ({
   hasAnyPermission: vi.fn(),
+  hasPermission: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   propsPeta: [] as Array<Record<string, unknown>>,
@@ -45,7 +46,10 @@ vi.mock("next/dynamic", async () => {
 });
 
 vi.mock("@/hooks/use-permission", () => ({
-  usePermission: () => ({ hasAnyPermission: palsu.hasAnyPermission }),
+  usePermission: () => ({
+    hasAnyPermission: palsu.hasAnyPermission,
+    hasPermission: palsu.hasPermission,
+  }),
 }));
 
 vi.mock("react-hot-toast", async () =>
@@ -77,6 +81,11 @@ import {
 const URL_DAFTAR = "/api/presurvei/kegiatan";
 const URL_SALES = "/api/admin/presurvei/sales";
 const URL_DEPARTEMEN = "/api/admin/presurvei/departemen";
+/** Izin cakupan tenant (`isCakupanTenantPresurvei`), ditulis literal. */
+const IZIN_BACA_TENANT = "presurvei:read";
+const SELEKTOR_FILTER_PERAN = 'select[aria-label="Filter peran pelaku"]';
+const SELEKTOR_FILTER_DEPARTEMEN =
+  'select[aria-label="Filter departemen pelaku"]';
 const PESAN_GAGAL_MUAT = "Gagal memuat daftar kegiatan";
 
 /** Tiga baris, dua berkoordinat: `tanpaKoordinat` = 1. */
@@ -188,6 +197,10 @@ beforeEach(() => {
   palsu.toastError.mockReset();
   palsu.hasAnyPermission.mockReset();
   palsu.hasAnyPermission.mockReturnValue(true);
+  palsu.hasPermission.mockReset();
+  palsu.hasPermission.mockImplementation(
+    (izin: string) => izin === IZIN_BACA_TENANT,
+  );
   isDaftarGagal = false;
   mockFetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === "POST" && url === URL_DAFTAR) {
@@ -432,6 +445,28 @@ describe("KegiatanClient — peran dan departemen pelaku", () => {
       peran: "NON_SALES",
       departemenId: "dept-teknik",
     });
+  });
+});
+
+describe("KegiatanClient — filter peran dan departemen menurut cakupan", () => {
+  it("tampil bagi pemegang presurvei:read", async () => {
+    await renderLayar();
+
+    expect(cari(SELEKTOR_FILTER_PERAN)).not.toBeNull();
+    expect(cari(SELEKTOR_FILTER_DEPARTEMEN)).not.toBeNull();
+    expect(palsu.hasPermission).toHaveBeenCalledWith(IZIN_BACA_TENANT);
+  });
+
+  it("tersembunyi bagi pemanggil yang terikat ke kegiatannya sendiri", async () => {
+    // Tanpa `presurvei:read` route mengikat daftar ke `userId` sesi, jadi
+    // filter peran tak bermakna, dan endpoint departemen menolaknya dengan 403
+    // sehingga dropdown-nya kosong tanpa penjelasan.
+    palsu.hasPermission.mockReturnValue(false);
+    await renderLayar();
+
+    expect(cari(SELEKTOR_FILTER_PERAN)).toBeNull();
+    expect(cari(SELEKTOR_FILTER_DEPARTEMEN)).toBeNull();
+    expect(cari('select[aria-label="Filter jenis kegiatan"]')).not.toBeNull();
   });
 });
 

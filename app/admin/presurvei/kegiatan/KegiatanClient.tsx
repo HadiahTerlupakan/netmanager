@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { usePermission } from "@/hooks/use-permission";
 
+import { isCakupanTenantPresurvei } from "../ringkasanDashboard";
 import { KegiatanFilters } from "./KegiatanFilters";
 import { KegiatanFormModal } from "./KegiatanFormModal";
 import { KegiatanTable } from "./KegiatanTable";
@@ -53,8 +54,12 @@ export function KegiatanClient() {
   const [isModalTerbuka, setIsModalTerbuka] = useState(false);
   const isTabPeta = tabAktif === "peta";
 
-  const { hasAnyPermission } = usePermission();
+  const { hasAnyPermission, hasPermission } = usePermission();
   const canCreate = hasAnyPermission(IZIN_CATAT_KEGIATAN);
+  // Pemanggil tanpa cakupan tenant diikat route ke kegiatannya sendiri, jadi
+  // filter peran/departemen tak bermakna baginya — dan endpoint departemen
+  // menolaknya. Definisi cakupan yang sama dengan dashboard.
+  const canSaringPelaku = isCakupanTenantPresurvei(hasPermission);
 
   const {
     filter,
@@ -105,6 +110,7 @@ export function KegiatanClient() {
         filter={filter}
         salesTersedia={salesTersedia}
         departemenTersedia={departemenTersedia}
+        canSaringPelaku={canSaringPelaku}
         onUbah={ubahFilter}
       />
 
