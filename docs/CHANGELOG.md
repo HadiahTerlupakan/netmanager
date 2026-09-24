@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Idempotensi: kunci IN_PROGRESS tidak lagi dibalas KEY_REUSED
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/api`
+- **Author**: agent
+- **Deskripsi**: `GenericIdempotencyService` kini memeriksa status sebelum hash. Kunci
+  yang masih IN_PROGRESS selalu dibalas 409 `IDEMPOTENCY_IN_PROGRESS`, dan
+  `IDEMPOTENCY_KEY_REUSED` hanya untuk kunci COMPLETED dengan muatan berbeda.
+  Sebelumnya, bila pod mati di tengah handler lalu sales menekan Simpan lagi dalam
+  120 detik (foto terunggah ulang, jadi hash berbeda), server membalas KEY_REUSED dan
+  aplikasi menampilkan "sudah tercatat" padahal kegiatan tidak tersimpan. Wajib
+  ter-deploy sebelum OTA mobile tampilan sales.
+- **Files**: `lib/api/idempotency.ts`, `tests/lib/idempotency.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Beri izin presurvei mobile ke role SALES
 
 - **Tipe**: [MIGRATION]

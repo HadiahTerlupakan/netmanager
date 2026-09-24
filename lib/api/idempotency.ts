@@ -113,15 +113,18 @@ export class GenericIdempotencyService {
       return { kind: "unavailable" };
     }
 
+    // Status dicek sebelum hash: klien mobile membaca hash-mismatch sebagai
+    // "sudah tercatat". Selama masih IN_PROGRESS, permintaan asli bisa gagal
+    // (pod mati), jadi muatan berbeda harus menunggu, bukan dianggap tercatat.
+    if (existing.status !== "COMPLETED") {
+      return { kind: "in-progress" };
+    }
+
     if (existing.payloadHash !== payloadHash) {
       return { kind: "hash-mismatch" };
     }
 
-    if (existing.status === "COMPLETED") {
-      return { kind: "replay", response: existing.response };
-    }
-
-    return { kind: "in-progress" };
+    return { kind: "replay", response: existing.response };
   }
 
   private buildKey(scope: string, userId: string, requestId: string): string {
