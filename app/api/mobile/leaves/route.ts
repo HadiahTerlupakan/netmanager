@@ -7,6 +7,7 @@ import {
   ErrorCodes,
   idempotencyService,
   resolveIdempotencyKey,
+  buildIdempotencyRejectionResponse,
 } from "@/lib/api";
 
 const employeeLeaveQueryService = new EmployeeLeaveQueryService();
@@ -87,24 +88,8 @@ export const POST = createHandler(
           { success: true, data: outcome.response },
           { status: 201, headers: { "X-Idempotent-Replay": "true" } },
         );
-      case "in-progress":
-        return apiError(
-          "Permintaan masih diproses, tunggu sebentar",
-          ErrorCodes.BUSINESS_LOGIC_ERROR,
-          { status: 409 },
-        );
-      case "hash-mismatch":
-        return apiError(
-          "Idempotency-Key sudah dipakai untuk payload berbeda",
-          ErrorCodes.BUSINESS_LOGIC_ERROR,
-          { status: 409 },
-        );
-      case "unavailable":
-        return apiError(
-          "Layanan idempotency tidak tersedia, silakan coba lagi",
-          ErrorCodes.EXTERNAL_SERVICE_ERROR,
-          { status: 503 },
-        );
+      default:
+        return buildIdempotencyRejectionResponse(outcome);
     }
   },
 );

@@ -22,6 +22,8 @@ import { logger } from "@/lib/logger";
  * Skenario state machine:
  *   - acquired   → first request: jalankan handler, simpan response
  *   - in-progress → request kedua sebelum first selesai (race) → 409
+ *     (kunci IN_PROGRESS ber-TTL pendek: bila proses mati di tengah handler,
+ *     kunci yatim kedaluwarsa sendiri dan replay berikutnya diproses ulang)
  *   - completed  → replay → return cached response
  *   - hash-mismatch → key sama tapi payload beda → 409 (likely client bug)
  *   - unavailable → Redis down → 503 (caller decide retry)
@@ -31,7 +33,19 @@ type IdempotencyState<T = unknown> =
   | { status: "IN_PROGRESS"; payloadHash: string }
   | { status: "COMPLETED"; payloadHash: string; response: T };
 
+/** TTL state COMPLETED: jendela replay 24 jam (match dengan SyncService TTL). */
 const DEFAULT_TTL_SECONDS = 24 * 60 * 60;
+
+/**
+ * TTL state IN_PROGRESS. Harus lebih lama dari handler terpanjang yang wajar,
+ * tetapi cukup pendek agar kunci yatim (pod di-kill saat rollout/OOM, sehingga
+ * `catch` pelepas kunci tak pernah jalan) tidak memblokir replay 24 jam.
+ * 120 detik = 2x timeout klien terpanjang (`HTTP_TIMEOUTS.long` 60 detik,
+ * mobile-netmanager `src/constants/httpTimeouts.ts`) dan 4x
+ * `terminationGracePeriodSeconds: 30` (`k8s/production/app-deployment.yaml`):
+ * handler yang masih berjalan lewat dari itu sudah ditinggal kliennya.
+ */
+export const IN_PROGRESS_TTL_SECONDS = 120;
 
 export type IdempotencyOutcome<T> =
   | { kind: "fresh"; response: T }
@@ -52,7 +66,7 @@ export interface IdempotencyOptions<T> {
   payload: unknown;
   /** Handler bisnis yang akan dieksekusi sekali. */
   handler: () => Promise<T>;
-  /** TTL state di Redis. Default 24 jam (match dengan SyncService TTL). */
+  /** TTL state COMPLETED di Redis. Default 24 jam (match dengan SyncService TTL). */
   ttlSeconds?: number;
 }
 
@@ -77,26 +91,20 @@ export class GenericIdempotencyService {
     const key = this.buildKey(scope, userId, trimmedRequestId);
     const payloadHash = this.hashPayload(payload);
 
-    const acquired = await this.tryAcquire(key, payloadHash, ttl);
+    const acquired = await this.tryAcquire(key, payloadHash);
     if (acquired === "unavailable") {
       return { kind: "unavailable" };
     }
 
     if (acquired === "acquired") {
-      try {
-        const response = await handler();
-        await this.persistCompleted(key, payloadHash, response, ttl);
-        return { kind: "fresh", response };
-      } catch (error) {
-        // Lepas lock agar retry client tidak menemukan IN_PROGRESS yatim.
-        await this.releaseInProgress(key).catch((releaseError) => {
-          logger.warn(
-            "[idempotency] failed to release in-progress key",
-            releaseError,
-          );
-        });
-        throw error;
-      }
+      const response = await this.runHandlerReleasingOnFailure(key, handler);
+      await this.persistCompletedOrLeaveToExpire(
+        key,
+        payloadHash,
+        response,
+        ttl,
+      );
+      return { kind: "fresh", response };
     }
 
     // Locked — cek state existing (bisa IN_PROGRESS dari race, atau COMPLETED replay).
@@ -140,10 +148,52 @@ export class GenericIdempotencyService {
     return Object.fromEntries(entries);
   }
 
+  /**
+   * Jalankan handler; bila handler melempar, lepas kunci IN_PROGRESS agar
+   * retry klien langsung diproses, lalu teruskan galatnya.
+   */
+  private async runHandlerReleasingOnFailure<T>(
+    key: string,
+    handler: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await handler();
+    } catch (error) {
+      await this.releaseInProgress(key).catch((releaseError) => {
+        logger.warn(
+          "[idempotency] failed to release in-progress key",
+          releaseError,
+        );
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Simpan state COMPLETED. Bila gagal (Redis putus setelah handler sukses),
+   * data sudah tertulis: jangan melempar (klien akan retry → tulis ganda) dan
+   * jangan lepas kunci. Kunci IN_PROGRESS dibiarkan kedaluwarsa lewat
+   * `IN_PROGRESS_TTL_SECONDS`; selama itu replay mendapat 409 in-progress.
+   */
+  private async persistCompletedOrLeaveToExpire<T>(
+    key: string,
+    payloadHash: string,
+    response: T,
+    ttlSeconds: number,
+  ): Promise<void> {
+    try {
+      await this.persistCompleted(key, payloadHash, response, ttlSeconds);
+    } catch (error) {
+      logger.warn(
+        "[idempotency] failed to persist completed state, key left to expire",
+        { key, error },
+      );
+    }
+  }
+
   private async tryAcquire(
     key: string,
     payloadHash: string,
-    ttlSeconds: number,
   ): Promise<"acquired" | "locked" | "unavailable"> {
     const state: IdempotencyState = { status: "IN_PROGRESS", payloadHash };
     try {
@@ -151,7 +201,7 @@ export class GenericIdempotencyService {
         key,
         JSON.stringify(state),
         "EX",
-        ttlSeconds,
+        IN_PROGRESS_TTL_SECONDS,
         "NX",
       );
       return result === "OK" ? "acquired" : "locked";

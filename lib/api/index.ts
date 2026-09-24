@@ -51,7 +51,11 @@ export {
   GenericIdempotencyService,
 } from "./idempotency";
 export type { IdempotencyOutcome, IdempotencyOptions } from "./idempotency";
-export { executeMobileWithIdempotency } from "./idempotency-route-helpers";
+export {
+  executeMobileWithIdempotency,
+  buildIdempotencyRejectionResponse,
+  IDEMPOTENCY_RETRY_AFTER_SECONDS,
+} from "./idempotency-route-helpers";
 
 // Request correlation ID (mobile ↔ backend log linking).
 export { getOrCreateRequestId, buildRequestIdHeaders } from "./request-id";

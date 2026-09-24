@@ -4,6 +4,7 @@ import {
   idempotencyService,
   resolveIdempotencyKey,
 } from "@/lib/api/idempotency";
+import { buildIdempotencyRejectionResponse } from "@/lib/api/idempotency-route-helpers";
 import type { MobileInventoryError } from "@/modules/inventory";
 
 /** Bangun response error terstandar untuk route mobile inventory. */
@@ -60,23 +61,7 @@ export async function executeMobileInventoryWithIdempotency<T>(input: {
         { success: true, data: outcome.response },
         { headers: { "X-Idempotent-Replay": "true" } },
       );
-    case "in-progress":
-      return apiError(
-        "Permintaan masih diproses, tunggu sebentar",
-        ErrorCodes.BUSINESS_LOGIC_ERROR,
-        { status: 409 },
-      );
-    case "hash-mismatch":
-      return apiError(
-        "Idempotency-Key sudah dipakai untuk payload berbeda",
-        ErrorCodes.BUSINESS_LOGIC_ERROR,
-        { status: 409 },
-      );
-    case "unavailable":
-      return apiError(
-        "Layanan idempotency tidak tersedia, silakan coba lagi",
-        ErrorCodes.EXTERNAL_SERVICE_ERROR,
-        { status: 503 },
-      );
+    default:
+      return buildIdempotencyRejectionResponse(outcome);
   }
 }
