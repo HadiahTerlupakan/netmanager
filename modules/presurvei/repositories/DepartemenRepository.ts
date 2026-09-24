@@ -1,9 +1,9 @@
 import { prisma } from "@/modules/database";
-import { TenantContextError } from "@/lib/prisma-extension";
 import type {
   DepartemenRingkas,
   IDepartemenRepository,
 } from "../domain/ports/IDepartemenRepository";
+import { pastikanTenantTerisi } from "./pastikan-tenant-terisi";
 
 /**
  * Akses daftar departemen untuk filter layar presurvei.
@@ -19,12 +19,7 @@ export class DepartemenRepository implements IDepartemenRepository {
     // Fail-closed. Dengan `strictNullChecks: false` compiler meloloskan
     // `undefined` ke sini, dan Prisma memperlakukan `tenantId: undefined`
     // sebagai "tanpa syarat" — departemen SEMUA tenant.
-    if (!tenantId) {
-      throw new TenantContextError(
-        "missing-context",
-        "Daftar departemen presurvei diminta tanpa tenantId",
-      );
-    }
+    pastikanTenantTerisi(tenantId, "Daftar departemen presurvei");
 
     const rows = await prisma.departments.findMany({
       where: { tenantId },

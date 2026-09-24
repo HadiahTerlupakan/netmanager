@@ -1,4 +1,3 @@
-import { TenantContextError } from "@/lib/prisma-extension";
 import { prisma } from "@/modules/database";
 import type { PeriodeTarget, TargetEntity } from "../domain/entities/Target";
 import type {
@@ -6,6 +5,7 @@ import type {
   SimpanTargetInput,
 } from "../domain/ports/ITargetRepository";
 import { toTargetEntity, type TargetRow } from "../mappers/target.mapper";
+import { pastikanTenantTerisi } from "./pastikan-tenant-terisi";
 
 /**
  * Akses data target presurvei.
@@ -33,7 +33,7 @@ export class TargetRepository implements ITargetRepository {
     periode: PeriodeTarget,
     tenantId: string,
   ): Promise<TargetEntity | null> {
-    pastikanTenantTerisi(tenantId, "findByUserPeriode");
+    pastikanTenantTerisi(tenantId, "Target presurvei findByUserPeriode");
     const row = await prisma.presurveiTarget.findFirst({
       where: {
         userId,
@@ -62,7 +62,7 @@ export class TargetRepository implements ITargetRepository {
    * `update` tidak menyentuh `tenantId`: baris lama sudah bertenant.
    */
   async simpan(input: SimpanTargetInput): Promise<TargetEntity> {
-    pastikanTenantTerisi(input.tenantId, "simpan");
+    pastikanTenantTerisi(input.tenantId, "Target presurvei simpan");
     const adaSebelumnya = await this.findByUserPeriode(
       input.userId,
       { tahun: input.periodeTahun, bulan: input.periodeBulan },
@@ -82,16 +82,4 @@ export class TargetRepository implements ITargetRepository {
 
     return toTargetEntity(row as TargetRow);
   }
-}
-
-/**
- * Fail-closed, pola `SalesRepository.daftarAktif`: `tenantId` kosong berarti
- * "tanpa syarat" bagi Prisma di `where` dan target bertenant null di `create`.
- */
-function pastikanTenantTerisi(tenantId: string, operasi: string): void {
-  if (tenantId) return;
-  throw new TenantContextError(
-    "missing-context",
-    `Target presurvei ${operasi} diminta tanpa tenantId`,
-  );
 }

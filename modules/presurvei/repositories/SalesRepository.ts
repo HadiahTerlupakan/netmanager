@@ -1,11 +1,11 @@
 import { prisma } from "@/modules/database";
-import { TenantContextError } from "@/lib/prisma-extension";
 import { tentukanNamaSales } from "../domain/nama-sales";
 import type { CalonSales } from "../domain/penugasan-sales";
 import type {
   ISalesRepository,
   SalesRingkas,
 } from "../domain/ports/ISalesRepository";
+import { pastikanTenantTerisi } from "./pastikan-tenant-terisi";
 
 /**
  * Akses daftar sales presurvei.
@@ -22,12 +22,7 @@ export class SalesRepository implements ISalesRepository {
     // Fail-closed. Dengan `strictNullChecks: false` compiler meloloskan
     // `undefined` ke sini, dan Prisma memperlakukan `tenantId: undefined`
     // sebagai "tanpa syarat" — daftar sales SEMUA tenant.
-    if (!tenantId) {
-      throw new TenantContextError(
-        "missing-context",
-        "Daftar sales presurvei diminta tanpa tenantId",
-      );
-    }
+    pastikanTenantTerisi(tenantId, "Daftar sales presurvei");
 
     const rows = await prisma.user.findMany({
       where: { tenantId, isSales: true, isActive: true },

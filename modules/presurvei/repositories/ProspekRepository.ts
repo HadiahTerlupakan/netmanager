@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
-import { TenantContextError } from "@/lib/prisma-extension";
 import type { AksesTenantPresurvei } from "../domain/akses-tenant";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { ProspekEntity } from "../domain/entities/Prospek";
@@ -12,6 +11,7 @@ import type {
 } from "../domain/ports/IProspekRepository";
 import type { RentangPeriode } from "../domain/ports/IKegiatanRepository";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
+import { pastikanTenantTerisi } from "./pastikan-tenant-terisi";
 import { SERTAKAN_PEMILIK } from "./sertakan-sales";
 
 /**
@@ -82,12 +82,7 @@ export class ProspekRepository implements IProspekRepository {
   ): Promise<ProspekEntity | null> {
     if (akses.jenis === "lintas-tenant") return this.findById(id);
 
-    if (!akses.tenantId) {
-      throw new TenantContextError(
-        "missing-context",
-        "Prospek presurvei dalam cakupan diminta tanpa tenantId",
-      );
-    }
+    pastikanTenantTerisi(akses.tenantId, "Prospek presurvei dalam cakupan");
 
     const row = await prisma.presurveiProspek.findFirst({
       where: { id, tenantId: akses.tenantId },

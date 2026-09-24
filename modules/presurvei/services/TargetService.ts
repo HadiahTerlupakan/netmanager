@@ -8,6 +8,7 @@ import type {
   DataTarget,
   ITargetRepository,
 } from "../domain/ports/ITargetRepository";
+import { rentangTertutupUtc } from "../domain/rentang-waktu";
 import { hitungPencapaian, type Pencapaian } from "../domain/target-rules";
 import { KegiatanRepository } from "../repositories/KegiatanRepository";
 import { ProspekRepository } from "../repositories/ProspekRepository";
@@ -23,7 +24,6 @@ export interface BarisLaporan {
 }
 
 const BULAN_BERIKUTNYA = 1;
-const SATU_MILIDETIK = 1;
 
 /**
  * Orkestrasi target sales beserta laporan pencapaiannya.
@@ -106,21 +106,16 @@ export class TargetService {
 /**
  * Rentang tertutup yang mencakup seluruh hari pada satu bulan.
  *
- * Batas atasnya satu milidetik sebelum bulan berikutnya, bukan tengah malam
- * tanggal terakhir — memakai tengah malam akan memotong kegiatan sepanjang
- * hari terakhir dari laporan. Penanggalan bulan diserahkan ke `Date` supaya
- * jumlah hari dan tahun kabisat tidak perlu dihitung sendiri.
+ * Batas atasnya satu milidetik sebelum bulan berikutnya (`rentangTertutupUtc`),
+ * bukan tengah malam tanggal terakhir — memakai tengah malam akan memotong
+ * kegiatan sepanjang hari terakhir dari laporan. Penanggalan bulan diserahkan
+ * ke `Date` supaya jumlah hari dan tahun kabisat tidak perlu dihitung sendiri.
  */
 function bangunRentangBulan(periode: PeriodeTarget): RentangPeriode {
   const mulai = new Date(Date.UTC(periode.tahun, periode.bulan - 1, 1));
-  const awalBulanBerikutnya = Date.UTC(
-    periode.tahun,
-    periode.bulan - 1 + BULAN_BERIKUTNYA,
-    1,
+  const awalBulanBerikutnya = new Date(
+    Date.UTC(periode.tahun, periode.bulan - 1 + BULAN_BERIKUTNYA, 1),
   );
 
-  return {
-    mulai,
-    selesai: new Date(awalBulanBerikutnya - SATU_MILIDETIK),
-  };
+  return rentangTertutupUtc(mulai, awalBulanBerikutnya);
 }
