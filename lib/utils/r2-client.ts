@@ -566,6 +566,7 @@ export function generateR2Key(
     | "user-profile"
     | "app-version"
     | "marketing"
+    | "presurvei"
     | "general"
     | "map-nodes",
   filename: string,
@@ -638,6 +639,11 @@ export function generateR2Key(
         return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`;
       }
       return `uploads/marketing/${timestamp}-${sanitizedFilename}`;
+    case "presurvei":
+      if (subFolder) {
+        return `uploads/presurvei/kegiatan/${subFolder}/${timestamp}-${sanitizedFilename}`;
+      }
+      return `uploads/presurvei/kegiatan/${timestamp}-${sanitizedFilename}`;
     case "map-nodes":
       if (subFolder) {
         return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`;

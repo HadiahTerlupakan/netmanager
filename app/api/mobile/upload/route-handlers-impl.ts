@@ -81,6 +81,14 @@ function resolveUploadDir(type: UploadType) {
         "marketing",
         "canvasing",
       );
+    case "presurvei":
+      return path.join(
+        process.cwd(),
+        "public",
+        "uploads",
+        "presurvei",
+        "kegiatan",
+      );
     default:
       return path.join(process.cwd(), "public", "uploads", "mobile", "general");
   }

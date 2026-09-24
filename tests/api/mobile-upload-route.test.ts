@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import path from "path";
 
 const mockFns = vi.hoisted(() => ({
   getMobileAuthPayload: vi.fn(),
@@ -68,6 +69,38 @@ describe("mobile upload route", () => {
         fileName: expect.any(String),
       },
     });
+  });
+
+  it("menyimpan foto kegiatan presurvei di folder presurvei/kegiatan", async () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "kunjungan.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    formData.set("type", "presurvei");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/upload", {
+        method: "POST",
+        body: formData,
+        headers: { host: "localhost:3000", "x-forwarded-proto": "https" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    // Argumen keempat adalah tipe yang diteruskan ke kunci R2; argumen
+    // kedua folder lokal. Tanpa case "presurvei", folder jatuh ke
+    // uploads/mobile/general (route-handlers-impl.ts:84-85).
+    expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
+      expect.anything(),
+      path.join(process.cwd(), "public", "uploads", "presurvei", "kegiatan"),
+      expect.any(String),
+      "presurvei",
+      undefined,
+      undefined,
+    );
   });
 
   it("deletes trusted uploaded attendance photo urls", async () => {

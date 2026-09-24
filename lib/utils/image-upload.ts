@@ -25,6 +25,7 @@ export type UploadType =
   | "tickets"
   | "user-profile"
   | "marketing"
+  | "presurvei"
   | "app-version"
   | "general"
   | "map-nodes";

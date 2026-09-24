@@ -23,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   clearR2SettingsCache,
+  generateR2Key,
   getR2PublicBaseUrl,
   getR2Settings,
 } from "@/lib/utils/r2-client";
@@ -75,6 +76,20 @@ describe("getR2Settings", () => {
     expect(mockGlobalFindMany).not.toHaveBeenCalled();
     expect(mockTenantFindMany).not.toHaveBeenCalled();
     expect(result).toBe("https://cdn.radpro.id");
+  });
+});
+
+describe("generateR2Key — presurvei", () => {
+  it("menaruh foto kegiatan presurvei di uploads/presurvei/kegiatan", () => {
+    expect(generateR2Key("presurvei", "foto.webp")).toMatch(
+      /^uploads\/presurvei\/kegiatan\/\d+-foto\.webp$/,
+    );
+  });
+
+  it("menaruh subFolder di bawah folder kegiatan", () => {
+    expect(generateR2Key("presurvei", "foto.webp", "sales-1")).toMatch(
+      /^uploads\/presurvei\/kegiatan\/sales-1\/\d+-foto\.webp$/,
+    );
   });
 });
 
