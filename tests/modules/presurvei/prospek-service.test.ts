@@ -51,6 +51,8 @@ const bangunRepository = (): IProspekRepository => ({
   tandaiKonversi: vi.fn(),
   hitungBaruPerUser: vi.fn().mockResolvedValue({}),
   hitungKonversiPerUser: vi.fn().mockResolvedValue({}),
+  hitungBaruUntukUser: vi.fn().mockResolvedValue(0),
+  hitungKonversiUntukUser: vi.fn().mockResolvedValue(0),
 });
 
 describe("ProspekService.detail", () => {

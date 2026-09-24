@@ -100,6 +100,8 @@ const bangunProspekRepo = (): IProspekRepository => ({
     ),
   hitungBaruPerUser: vi.fn().mockResolvedValue({}),
   hitungKonversiPerUser: vi.fn().mockResolvedValue({}),
+  hitungBaruUntukUser: vi.fn().mockResolvedValue(0),
+  hitungKonversiUntukUser: vi.fn().mockResolvedValue(0),
 });
 
 const bangunKegiatanRepo = (): IKegiatanRepository => ({
@@ -108,6 +110,7 @@ const bangunKegiatanRepo = (): IKegiatanRepository => ({
   create: vi.fn(),
   createDenganProspek: vi.fn(),
   hitungPerUser: vi.fn().mockResolvedValue({}),
+  hitungUntukUser: vi.fn().mockResolvedValue(0),
   ubahDenganRiwayat: vi.fn(),
   findRiwayat: vi.fn().mockResolvedValue([]),
 });

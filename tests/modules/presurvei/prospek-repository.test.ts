@@ -648,3 +648,72 @@ describe("ProspekRepository.hitungKonversiPerUser", () => {
     });
   });
 });
+
+describe("ProspekRepository.hitungBaruUntukUser", () => {
+  const countMock = prisma.presurveiProspek.count as unknown as Mock;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("menghitung dengan query yang difilter createdAt, pemilikId, dan tenantId, bukan groupBy se-tenant", async () => {
+    countMock.mockResolvedValue(3);
+
+    const hasil = await new ProspekRepository().hitungBaruUntukUser(
+      "user-1",
+      RENTANG,
+      "tenant-1",
+    );
+
+    expect(countMock).toHaveBeenCalledWith({
+      where: {
+        createdAt: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+        pemilikId: "user-1",
+        tenantId: "tenant-1",
+      },
+    });
+    expect(hasil).toBe(3);
+  });
+
+  it("menolak tenant kosong tanpa menyentuh database", async () => {
+    await expect(
+      new ProspekRepository().hitungBaruUntukUser("user-1", RENTANG, ""),
+    ).rejects.toBeInstanceOf(TenantContextError);
+    expect(countMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProspekRepository.hitungKonversiUntukUser", () => {
+  const countMock = prisma.presurveiProspek.count as unknown as Mock;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("menghitung dengan query yang difilter konversiAt, pemilikId, dan tenantId", async () => {
+    // Pasangan test dari hitungBaruUntukUser: kalau createdAt/konversiAt
+    // tertukar antara kedua metode, salah satu dari dua test ini pasti merah.
+    countMock.mockResolvedValue(1);
+
+    const hasil = await new ProspekRepository().hitungKonversiUntukUser(
+      "user-1",
+      RENTANG,
+      "tenant-1",
+    );
+
+    expect(countMock).toHaveBeenCalledWith({
+      where: {
+        konversiAt: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+        pemilikId: "user-1",
+        tenantId: "tenant-1",
+      },
+    });
+    expect(hasil).toBe(1);
+  });
+});

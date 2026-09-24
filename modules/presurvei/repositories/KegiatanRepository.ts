@@ -18,6 +18,7 @@ import {
   type RiwayatKegiatanRow,
 } from "../mappers/kegiatan-riwayat.mapper";
 import { toProspekEntity, type ProspekRow } from "../mappers/prospek.mapper";
+import { pastikanTenantTerisi } from "./pastikan-tenant-terisi";
 import {
   SERTAKAN_PELAKU,
   SERTAKAN_PEMILIK,
@@ -165,6 +166,22 @@ export class KegiatanRepository implements IKegiatanRepository {
     return Object.fromEntries(
       hasil.map((baris) => [baris.userId, baris._count._all]),
     );
+  }
+
+  /** Jumlah kegiatan milik `userId` pada satu rentang, di satu tenant. */
+  async hitungUntukUser(
+    userId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number> {
+    pastikanTenantTerisi(tenantId, "Kegiatan presurvei hitungUntukUser");
+    return prisma.presurveiKegiatan.count({
+      where: {
+        userId,
+        tenantId,
+        waktuMulai: { gte: rentang.mulai, lte: rentang.selesai },
+      },
+    });
   }
 
   private bangunFilter(

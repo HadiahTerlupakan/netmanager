@@ -54,6 +54,7 @@ const bangunRepository = (): IKegiatanRepository => ({
   create: vi.fn(),
   createDenganProspek: vi.fn(),
   hitungPerUser: vi.fn(),
+  hitungUntukUser: vi.fn(),
   ubahDenganRiwayat: vi
     .fn()
     .mockResolvedValue({ ...kegiatan, catatan: "Rahasia pelanggan" }),

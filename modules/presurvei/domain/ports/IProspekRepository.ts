@@ -108,4 +108,21 @@ export interface IProspekRepository {
   hitungKonversiPerUser(
     rentang: RentangPeriode,
   ): Promise<Record<string, number>>;
+  /**
+   * Jumlah prospek baru milik `pemilikId` pada satu rentang, di satu tenant.
+   *
+   * Query difilter `pemilikId` dan `tenantId` sejak awal — lihat
+   * `IKegiatanRepository.hitungUntukUser` untuk alasannya.
+   */
+  hitungBaruUntukUser(
+    pemilikId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number>;
+  /** Jumlah prospek terkonversi milik `pemilikId` pada satu rentang, di satu tenant. */
+  hitungKonversiUntukUser(
+    pemilikId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number>;
 }

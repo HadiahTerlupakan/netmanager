@@ -175,6 +175,43 @@ export class ProspekRepository implements IProspekRepository {
     });
   }
 
+  /** Jumlah prospek baru milik `pemilikId` pada satu rentang, di satu tenant. */
+  async hitungBaruUntukUser(
+    pemilikId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number> {
+    return this.hitungUntukPemilik(pemilikId, tenantId, {
+      createdAt: { gte: rentang.mulai, lte: rentang.selesai },
+    });
+  }
+
+  /** Jumlah prospek terkonversi milik `pemilikId` pada satu rentang, di satu tenant. */
+  async hitungKonversiUntukUser(
+    pemilikId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number> {
+    return this.hitungUntukPemilik(pemilikId, tenantId, {
+      konversiAt: { gte: rentang.mulai, lte: rentang.selesai },
+    });
+  }
+
+  /**
+   * Hitung prospek milik `pemilikId` yang cocok `where` tambahan, difilter
+   * `tenantId` eksplisit — pola sama dengan `TargetRepository.findByUserPeriode`.
+   */
+  private async hitungUntukPemilik(
+    pemilikId: string,
+    tenantId: string,
+    where: Prisma.PresurveiProspekWhereInput,
+  ): Promise<number> {
+    pastikanTenantTerisi(tenantId, "Prospek presurvei hitungUntukPemilik");
+    return prisma.presurveiProspek.count({
+      where: { ...where, pemilikId, tenantId },
+    });
+  }
+
   private async hitungPerPemilik(
     where: Prisma.PresurveiProspekWhereInput,
   ): Promise<Record<string, number>> {

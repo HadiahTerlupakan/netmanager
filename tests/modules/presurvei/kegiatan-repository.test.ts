@@ -65,6 +65,7 @@ vi.mock("@/modules/database", () => ({
 }));
 
 import { prisma } from "@/modules/database";
+import { TenantContextError } from "@/lib/prisma-extension";
 import { KegiatanRepository } from "@/modules/presurvei/repositories/KegiatanRepository";
 import { toKegiatanListItem } from "@/modules/presurvei/dto/kegiatan.dto";
 import type { KegiatanRow } from "@/modules/presurvei/mappers/kegiatan.mapper";
@@ -640,6 +641,43 @@ describe("KegiatanRepository.hitungPerUser", () => {
     const hasil = await new KegiatanRepository().hitungPerUser(RENTANG);
 
     expect(hasil).toEqual({ "user-1": 7, "user-2": 3 });
+  });
+});
+
+describe("KegiatanRepository.hitungUntukUser", () => {
+  const countMock = prisma.presurveiKegiatan.count as unknown as Mock;
+
+  const RENTANG = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("menghitung dengan query yang difilter userId dan tenantId, bukan groupBy se-tenant", async () => {
+    countMock.mockResolvedValue(7);
+
+    const hasil = await new KegiatanRepository().hitungUntukUser(
+      "user-1",
+      RENTANG,
+      "tenant-1",
+    );
+
+    expect(countMock).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        tenantId: "tenant-1",
+        waktuMulai: { gte: RENTANG.mulai, lte: RENTANG.selesai },
+      },
+    });
+    expect(hasil).toBe(7);
+  });
+
+  it("menolak tenant kosong tanpa menyentuh database", async () => {
+    await expect(
+      new KegiatanRepository().hitungUntukUser("user-1", RENTANG, ""),
+    ).rejects.toBeInstanceOf(TenantContextError);
+    expect(countMock).not.toHaveBeenCalled();
   });
 });
 

@@ -77,6 +77,50 @@ export class TargetService {
     return this.targetRepository.findByPeriode(periode);
   }
 
+  /**
+   * Target seorang sales pada satu periode beserta realisasinya, atau null
+   * bila targetnya belum ditetapkan.
+   *
+   * Null, bukan baris bernilai nol: `hitungPersen` menganggap target nol
+   * tercapai penuh (`domain/target-rules.ts:53-54`), jadi "belum ada target"
+   * yang dipetakan ke nol akan tampil 100%. Realisasi tidak dihitung bila
+   * target tidak ada.
+   *
+   * Realisasi dihitung lewat `hitungUntukUser`/`hitungBaruUntukUser`/
+   * `hitungKonversiUntukUser` — query yang sudah difilter `userId` DAN
+   * `tenantId` sejak awal — BUKAN `laporanPencapaian`'s `hitungRealisasi`
+   * (groupBy seluruh tenant lalu mengambil satu baris). Ringkasan Beranda
+   * memanggil method ini di setiap muat layar; realisasi wajib "dibatasi ke
+   * user sesi" (spec §7.1), dan groupBy se-tenant tiap muat juga jauh lebih
+   * mahal daripada satu `count()` bersyarat `userId`.
+   */
+  async pencapaianSendiri(
+    userId: string,
+    periode: PeriodeTarget,
+    tenantId: string,
+  ): Promise<BarisLaporan | null> {
+    const target = await this.targetRepository.findByUserPeriode(
+      userId,
+      periode,
+      tenantId,
+    );
+    if (!target) return null;
+
+    const rentang = bangunRentangBulan(periode);
+    const [kunjungan, prospek, konversi] = await Promise.all([
+      this.kegiatanRepository.hitungUntukUser(userId, rentang, tenantId),
+      this.prospekRepository.hitungBaruUntukUser(userId, rentang, tenantId),
+      this.prospekRepository.hitungKonversiUntukUser(userId, rentang, tenantId),
+    ]);
+
+    return {
+      userId: target.userId,
+      periodeTahun: target.periodeTahun,
+      periodeBulan: target.periodeBulan,
+      pencapaian: hitungPencapaian(target, { kunjungan, prospek, konversi }),
+    };
+  }
+
   /** Target beserta realisasinya untuk seluruh sales pada satu periode. */
   async laporanPencapaian(periode: PeriodeTarget): Promise<BarisLaporan[]> {
     const target = await this.targetRepository.findByPeriode(periode);

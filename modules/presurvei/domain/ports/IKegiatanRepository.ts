@@ -101,4 +101,17 @@ export interface IKegiatanRepository {
   findRiwayat(kegiatanId: string): Promise<RiwayatKegiatanEntity[]>;
   /** Jumlah kegiatan per pelaku pada satu rentang, berkunci userId. */
   hitungPerUser(rentang: RentangPeriode): Promise<Record<string, number>>;
+  /**
+   * Jumlah kegiatan milik `userId` pada satu rentang, di satu tenant.
+   *
+   * Query difilter `userId` dan `tenantId` sejak awal — bukan `hitungPerUser`
+   * se-tenant yang baris lain-nya lalu dibuang. Dipakai laporan pencapaian
+   * milik sendiri (`TargetService.pencapaianSendiri`), yang dipanggil setiap
+   * muat Beranda sales.
+   */
+  hitungUntukUser(
+    userId: string,
+    rentang: RentangPeriode,
+    tenantId: string,
+  ): Promise<number>;
 }

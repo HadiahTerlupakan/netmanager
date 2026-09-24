@@ -41,12 +41,15 @@ const bangunTargetRepo = (): ITargetRepository => ({
 const bangunKegiatanRepo = () =>
   ({
     hitungPerUser: vi.fn().mockResolvedValue({ "sales-1": 10 }),
+    hitungUntukUser: vi.fn().mockResolvedValue(10),
   }) as unknown as IKegiatanRepository;
 
 const bangunProspekRepo = () =>
   ({
     hitungBaruPerUser: vi.fn().mockResolvedValue({ "sales-1": 5 }),
     hitungKonversiPerUser: vi.fn().mockResolvedValue({ "sales-1": 1 }),
+    hitungBaruUntukUser: vi.fn().mockResolvedValue(5),
+    hitungKonversiUntukUser: vi.fn().mockResolvedValue(1),
   }) as unknown as IProspekRepository;
 
 describe("TargetService.laporanPencapaian", () => {
@@ -304,5 +307,121 @@ describe("TargetService.ambilPeriode", () => {
     // dengan `return [];` tetap punya bentuk array yang valid, tapi ini
     // membuktikan hasilnya benar-benar nilai yang dikembalikan repository.
     expect(hasil).toBe(daftarTarget);
+  });
+});
+
+describe("TargetService.pencapaianSendiri", () => {
+  let targetRepo: ITargetRepository;
+  let kegiatanRepo: IKegiatanRepository;
+  let prospekRepo: IProspekRepository;
+
+  beforeEach(() => {
+    targetRepo = bangunTargetRepo();
+    kegiatanRepo = bangunKegiatanRepo();
+    prospekRepo = bangunProspekRepo();
+  });
+
+  const service = () =>
+    new TargetService(targetRepo, kegiatanRepo, prospekRepo);
+  const SEPTEMBER = { tahun: 2026, bulan: 9 };
+  const RENTANG_SEPTEMBER = {
+    mulai: new Date("2026-09-01T00:00:00.000Z"),
+    selesai: new Date("2026-09-30T23:59:59.999Z"),
+  };
+
+  it("null bila target periode itu belum ditetapkan, tanpa menghitung realisasi", async () => {
+    vi.mocked(targetRepo.findByUserPeriode).mockResolvedValue(null);
+
+    const hasil = await service().pencapaianSendiri(
+      "sales-1",
+      SEPTEMBER,
+      "tenant-1",
+    );
+
+    expect(hasil).toBeNull();
+    expect(targetRepo.findByUserPeriode).toHaveBeenCalledWith(
+      "sales-1",
+      SEPTEMBER,
+      "tenant-1",
+    );
+    expect(kegiatanRepo.hitungUntukUser).not.toHaveBeenCalled();
+    expect(prospekRepo.hitungBaruUntukUser).not.toHaveBeenCalled();
+    expect(prospekRepo.hitungKonversiUntukUser).not.toHaveBeenCalled();
+  });
+
+  it("menghitung realisasi lewat query yang sudah difilter userId dan tenantId, bukan groupBy se-tenant", async () => {
+    vi.mocked(targetRepo.findByUserPeriode).mockResolvedValue(target());
+    vi.mocked(kegiatanRepo.hitungUntukUser).mockResolvedValue(10);
+    vi.mocked(prospekRepo.hitungBaruUntukUser).mockResolvedValue(3);
+    vi.mocked(prospekRepo.hitungKonversiUntukUser).mockResolvedValue(1);
+
+    const hasil = await service().pencapaianSendiri(
+      "sales-1",
+      SEPTEMBER,
+      "tenant-1",
+    );
+
+    expect(hasil).toEqual({
+      userId: "sales-1",
+      periodeTahun: 2026,
+      periodeBulan: 9,
+      pencapaian: {
+        kunjungan: { target: 20, tercapai: 10, persen: 50 },
+        prospek: { target: 10, tercapai: 3, persen: 30 },
+        konversi: { target: 5, tercapai: 1, persen: 20 },
+      },
+    });
+    // Argumennya sendiri, bukan cuma bahwa repository terpanggil: query
+    // pemakai tunggal wajib membawa userId DAN tenantId, tertukarnya salah
+    // satu lolos begitu saja kalau assertion cuma memeriksa hasil akhir.
+    expect(kegiatanRepo.hitungUntukUser).toHaveBeenCalledWith(
+      "sales-1",
+      RENTANG_SEPTEMBER,
+      "tenant-1",
+    );
+    expect(prospekRepo.hitungBaruUntukUser).toHaveBeenCalledWith(
+      "sales-1",
+      RENTANG_SEPTEMBER,
+      "tenant-1",
+    );
+    expect(prospekRepo.hitungKonversiUntukUser).toHaveBeenCalledWith(
+      "sales-1",
+      RENTANG_SEPTEMBER,
+      "tenant-1",
+    );
+  });
+
+  it("realisasi nol pada ketiga metrik bila user belum punya kegiatan sama sekali", async () => {
+    vi.mocked(targetRepo.findByUserPeriode).mockResolvedValue(target());
+    vi.mocked(kegiatanRepo.hitungUntukUser).mockResolvedValue(0);
+    vi.mocked(prospekRepo.hitungBaruUntukUser).mockResolvedValue(0);
+    vi.mocked(prospekRepo.hitungKonversiUntukUser).mockResolvedValue(0);
+
+    const hasil = await service().pencapaianSendiri(
+      "sales-1",
+      SEPTEMBER,
+      "tenant-1",
+    );
+
+    // Ketiga metrik diperiksa, bukan cuma kunjungan: masing-masing punya
+    // sumber datanya sendiri di implementasi, jadi nol yang hanya diperiksa
+    // pada satu metrik tidak membuktikan dua lainnya juga benar.
+    expect(hasil?.pencapaian).toEqual({
+      kunjungan: { target: 20, tercapai: 0, persen: 0 },
+      prospek: { target: 10, tercapai: 0, persen: 0 },
+      konversi: { target: 5, tercapai: 0, persen: 0 },
+    });
+  });
+
+  it("menghitung realisasi dalam rentang bulan penuh periode itu", async () => {
+    vi.mocked(targetRepo.findByUserPeriode).mockResolvedValue(target());
+
+    await service().pencapaianSendiri("sales-1", SEPTEMBER, "tenant-1");
+
+    expect(kegiatanRepo.hitungUntukUser).toHaveBeenCalledWith(
+      "sales-1",
+      RENTANG_SEPTEMBER,
+      "tenant-1",
+    );
   });
 });

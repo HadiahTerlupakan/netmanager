@@ -119,6 +119,17 @@ export { TargetService, type BarisLaporan } from "./services/TargetService";
 
 export { SalesPresurveiService } from "./services/SalesPresurveiService";
 
+export {
+  RingkasanSalesService,
+  type MasukanRingkasanSales,
+} from "./services/RingkasanSalesService";
+
+export {
+  type ProspekPerluFollowUp,
+  type RingkasanSales,
+  type TargetSendiri,
+} from "./domain/ringkasan-sales";
+
 export { DepartemenPresurveiService } from "./services/DepartemenPresurveiService";
 
 export type { AksesTenantPresurvei } from "./domain/akses-tenant";
