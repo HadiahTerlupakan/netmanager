@@ -105,6 +105,43 @@ describe("GenericIdempotencyService — TTL kunci IN_PROGRESS", () => {
   });
 });
 
+describe("GenericIdempotencyService — muatan berbeda pada kunci yang sama", () => {
+  let redisTiruan: RedisIdempotensiDiMemori;
+  let service: GenericIdempotencyService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redisTiruan = pasangRedisIdempotensiDiMemori();
+    service = new GenericIdempotencyService();
+  });
+
+  const opsiMuatanLain = (handler: () => Promise<Respons>) => ({
+    ...opsi(handler),
+    payload: { jenis: "TELEPON", fotoUrls: ["https://cdn/unggah-ulang.jpg"] },
+  });
+
+  it("kunci masih IN_PROGRESS: in-progress, bukan hash-mismatch (klien menganggap hash-mismatch = sudah tercatat)", async () => {
+    void service.execute(opsi(handlerMenggantung()));
+    await vi.waitFor(() => expect(bacaStatus(redisTiruan)).toBe("IN_PROGRESS"));
+
+    const handlerUlang = vi.fn(async () => ({ id: "tak-dipakai" }));
+    const hasil = await service.execute(opsiMuatanLain(handlerUlang));
+
+    expect(hasil).toEqual({ kind: "in-progress" });
+    expect(handlerUlang).not.toHaveBeenCalled();
+  });
+
+  it("kunci sudah COMPLETED: hash-mismatch", async () => {
+    await service.execute(opsi(vi.fn(async () => ({ id: "kegiatan-1" }))));
+
+    const hasil = await service.execute(
+      opsiMuatanLain(vi.fn(async () => ({ id: "tak-dipakai" }))),
+    );
+
+    expect(hasil).toEqual({ kind: "hash-mismatch" });
+  });
+});
+
 describe("GenericIdempotencyService — persistCompleted gagal setelah handler sukses", () => {
   let redisTiruan: RedisIdempotensiDiMemori;
   let service: GenericIdempotencyService;
