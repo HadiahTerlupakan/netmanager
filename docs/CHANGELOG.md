@@ -167,9 +167,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
     (`Retry-After` server). `useApiMutation` mengantrekannya;
   - 409 `IDEMPOTENCY_KEY_REUSED` saat replay POST ber-`requestId` dianggap "sudah
     tercatat": item dihapus, foto dibersihkan, `sync:succeeded` dipancarkan, dan info
-    "Data offline sudah tercatat sebelumnya." tampil, bukan "Data dibatalkan". Ini juga
-    berlaku untuk leaves, overtime, dan inventory yang memakai helper idempotensi
-    yang sama. Tanpa `requestId` atau selain POST, perilaku lama tetap berlaku. Di layar
+    "Data offline sudah tercatat sebelumnya." tampil, bukan "Data dibatalkan". Saat ini
+    hanya POST kegiatan presurvei yang mengirim `requestId`; izin, lembur, dan barang
+    tidak mengirim kunci, jadi perilaku lama tetap berlaku untuk mereka. Server hanya
+    membalas KEY_REUSED bila kunci sudah COMPLETED (lihat entri idempotensi server). Di layar
     catat, kode ini dibaca sebagai "sudah tercatat" bila variabelnya dipakai ulang.
 
   **Dampak ke semua pemakai `useApiMutation`.** Hasil antre kini membawa `alasan`
@@ -202,8 +203,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
     FAILED (tidak ada event untuk kasus itu), sehingga label "Menunggu kirim" bisa basi
     sampai refetch berikutnya.
   - `photoMap` yang sudah terunggah di jalur online tidak diteruskan ke meta antrean,
-    jadi antrean mengunggahnya ulang (izin, canvasing, chat). Setelah KEY_REUSED saat
-    replay dianggap sudah tercatat, dampaknya tinggal boros kuota dan blob yatim.
+    jadi antrean mengunggahnya ulang (izin, canvasing, chat). Karena alur-alur itu tidak
+    mengirim kunci idempotensi, dampaknya hanya boros kuota dan blob yatim.
   - Sweep tidak membaca antrean legacy AsyncStorage.
   - Bug lama: jalur offline yang memakai `photoMap` (izin, canvasing) mengunggah
     sebelum cek online, sehingga kemungkinan gagal alih-alih terantre. Selesai WO
