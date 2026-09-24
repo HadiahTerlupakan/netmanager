@@ -41,6 +41,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-24] — Bedakan kegiatan presurvei sales dan non-sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `app/api/presurvei/kegiatan` | `app/api/admin/presurvei/departemen` | `app/admin/presurvei`
+- **Author**: agent
+- **Deskripsi**: Presurvei kini boleh dipakai teknisi atau staf non-sales, dan laporan
+  membedakan pelakunya. DTO daftar & rincian kegiatan mendapat medan aditif
+  `peranPelaku` (`"SALES" | "NON_SALES" | null`, dari `User.isSales`) dan
+  `departemenPelaku` (nama departemen atau null). Keduanya dijaga tenant per baris seperti
+  `namaSales`: pelaku tenant lain → keduanya null, dan departemen yang tenant-nya berbeda
+  dari baris → null. `GET /api/presurvei/kegiatan` menerima filter opsional `peran`
+  (`SALES`|`NON_SALES`; nilai lain → 400) dan `departemenId`, diterapkan sebagai filter
+  relasi `user` yang hanya mempersempit — pemanggil mobile tetap terikat ke `userId`
+  sesinya. Endpoint baru `GET /api/admin/presurvei/departemen` (izin sama dengan endpoint
+  sales: `presurvei:read` / `presurvei_target:read` / `presurvei_laporan:read`; tenant
+  hanya dari sesi, 400 tanpa tenant) mengisi dropdown. Layar Kegiatan Sales mendapat
+  filter Peran dan Departemen (ikut menyaring tab Peta), kolom Sales dan rincian
+  menampilkan "Non-sales · Teknik"; dashboard menampilkan jumlah kegiatan 7 hari untuk
+  Sales dan Non-sales (disembunyikan bagi pemanggil tanpa `presurvei:read`; gagal tampil
+  "—", bukan 0). Laporan Pencapaian tidak berubah — tetap berbasis target sales.
+  **Keterbatasan**: peran dan departemen adalah keadaan user SAAT INI, bukan saat
+  kegiatan dicatat (tidak ada snapshot) — teknisi yang kemudian dijadikan sales membawa
+  seluruh kegiatan lamanya ke kelompok "Sales". **Cara memberi akses teknisi**: tidak ada
+  aturan otomatis per departemen; berikan izin lewat role — `m_presurvei:read|create|update`
+  untuk mencatat dari aplikasi mobile, atau `presurvei:*` untuk layar web.
+- **Files**: `modules/presurvei/domain/peran-pelaku.ts`,
+  `modules/presurvei/repositories/DepartemenRepository.ts`,
+  `modules/presurvei/repositories/KegiatanRepository.ts`,
+  `app/api/admin/presurvei/departemen/route.ts`,
+  `app/admin/presurvei/kegiatan/KegiatanFilters.tsx`,
+  `app/admin/presurvei/BagianDashboard.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-24] — Beri akses menu Presurvei ke role admin produksi
 
 - **Tipe**: [MIGRATION]

@@ -78,11 +78,13 @@ modules/presurvei/
 │   │   ├── IProspekRepository.ts
 │   │   ├── IIklanRepository.ts
 │   │   └── ITargetRepository.ts
+│   ├── peran-pelaku.ts          # peran & departemen pelaku, penjaga tenant per baris
 │   └── prospek-rules.ts         # aturan transisi status, fungsi murni
 ├── dto/
 │   ├── kegiatan.dto.ts
 │   ├── prospek.dto.ts
 │   ├── iklan.dto.ts
+│   ├── departemen.dto.ts
 │   └── laporan.dto.ts
 ├── mappers/                     # Row Prisma → domain entity
 ├── repositories/
@@ -544,6 +546,18 @@ Route yang dipakai sales lapangan menerima permission web **atau** mobile:
 | `/api/admin/presurvei/iklan/[id]` | GET, PATCH | `presurvei_iklan:read` / `:update` |
 | `/api/admin/presurvei/target` | GET, POST | `presurvei_target:read` / `:create` |
 | `/api/admin/presurvei/laporan` | GET | `presurvei_laporan:read` |
+| `/api/admin/presurvei/departemen` | GET | `presurvei:read` / `presurvei_target:read` / `presurvei_laporan:read` |
+
+**Peran pelaku kegiatan.** `KegiatanListItemDto` (dan turunannya) membawa
+`peranPelaku` (`"SALES" | "NON_SALES" | null`, dari `User.isSales`) dan
+`departemenPelaku` (nama departemen atau null). Keduanya keadaan user **saat ini**,
+bukan snapshot saat kegiatan dicatat, dan dijaga tenant per baris
+(`domain/peran-pelaku.ts`, penjaga yang sama dengan `namaSalesSatuTenant`; departemen
+juga harus satu tenant dengan baris). `GET /api/presurvei/kegiatan` menerima filter
+`peran` dan `departemenId` sebagai filter relasi `user` yang hanya mempersempit —
+pengikatan pemanggil mobile ke `userId` sesi tetap berlaku.
+`/api/admin/presurvei/departemen` mengisi dropdown departemen dengan tenant hanya dari
+sesi; ia ada karena `/api/admin/departments` menuntut `department:read`/`users:create`.
 
 Route adalah thin controller: parse request, panggil service, kembalikan DTO. List
 memakai `apiPaginated`, detail memakai `apiSuccess`.
@@ -569,6 +583,12 @@ Fase 2 hanya menyediakan aksi itu (lihat tabel route di §8).
 **Mobile** (grup `MARKETING` di `PERMISSION_GROUPS_MOBILE`):
 `m_presurvei:read|create|update` — `update` diperlukan karena sales mengubah
 status prospek dari lapangan.
+
+**Pemakai non-sales.** Teknisi atau staf lain boleh memakai presurvei secara opsional.
+Aksesnya diatur lewat role (izin `m_presurvei:*` untuk mobile, `presurvei:*` untuk
+web), bukan aturan otomatis per departemen. Kegiatan mereka tampil sebagai
+"Non-sales · <departemen>" dan bisa disaring terpisah (lihat "Peran pelaku kegiatan"
+di §8).
 
 Tiap route presurvei menyebut **dua** permission sekaligus, misalnya
 `["presurvei:read", "m_presurvei:read"]`. `createHandler` memeriksa daftar itu
