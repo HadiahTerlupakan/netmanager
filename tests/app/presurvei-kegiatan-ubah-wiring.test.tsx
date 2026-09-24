@@ -62,6 +62,8 @@ const kegiatanDasar: KegiatanRincianDto = {
   jenis: "TELEPON",
   userId: "sales-1",
   namaSales: "Andi",
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   waktuMulai: "2026-09-10T02:00:00.000Z",
   waktuSelesai: null,

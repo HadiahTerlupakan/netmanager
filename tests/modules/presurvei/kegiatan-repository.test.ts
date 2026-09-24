@@ -104,7 +104,15 @@ const barisKegiatan = (over: Partial<KegiatanRow> = {}): KegiatanRow => ({
  * kehilangan `tenantId` — kolom yang dibutuhkan penjaga tenant di mapper.
  */
 const SERTAKAN_PELAKU = {
-  user: { select: { id: true, name: true, tenantId: true } },
+  user: {
+    select: {
+      id: true,
+      name: true,
+      tenantId: true,
+      isSales: true,
+      departments: { select: { name: true, tenantId: true } },
+    },
+  },
 };
 const SERTAKAN_PEMILIK = {
   pemilik: { select: { id: true, name: true, tenantId: true } },
@@ -246,6 +254,74 @@ describe("KegiatanRepository.findMany", () => {
     ]);
   });
 
+  it("membawa peran dan departemen pelaku, dijaga tenant per baris", async () => {
+    // Tiga penjaga sekaligus: pelaku tenant lain kehilangan peran DAN
+    // departemen; pelaku satu tenant yang departemennya milik tenant lain
+    // tetap membawa perannya tapi tidak nama departemen itu.
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([
+      barisKegiatan({
+        id: "kegiatan-sales",
+        user: {
+          id: "user-1",
+          name: "Rina",
+          tenantId: "tenant-1",
+          isSales: true,
+          departments: { name: "Marketing", tenantId: "tenant-1" },
+        },
+      }),
+      barisKegiatan({
+        id: "kegiatan-teknisi",
+        userId: "user-2",
+        user: {
+          id: "user-2",
+          name: "Joko",
+          tenantId: "tenant-1",
+          isSales: false,
+          departments: { name: "Teknik", tenantId: "tenant-1" },
+        },
+      }),
+      barisKegiatan({
+        id: "kegiatan-departemen-silang",
+        userId: "user-3",
+        user: {
+          id: "user-3",
+          name: "Sari",
+          tenantId: "tenant-1",
+          isSales: false,
+          departments: { name: "Rahasia T2", tenantId: "tenant-2" },
+        },
+      }),
+      barisKegiatan({
+        id: "kegiatan-pelaku-silang",
+        userId: "user-asing",
+        user: {
+          id: "user-asing",
+          name: "Orang Asing",
+          tenantId: "tenant-2",
+          isSales: true,
+          departments: { name: "Marketing T2", tenantId: "tenant-2" },
+        },
+      }),
+    ] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(4 as never);
+
+    const hasil = await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+    });
+
+    expect(
+      hasil.items
+        .map(toKegiatanListItem)
+        .map((dto) => [dto.id, dto.peranPelaku, dto.departemenPelaku]),
+    ).toEqual([
+      ["kegiatan-sales", "SALES", "Marketing"],
+      ["kegiatan-teknisi", "NON_SALES", "Teknik"],
+      ["kegiatan-departemen-silang", "NON_SALES", null],
+      ["kegiatan-pelaku-silang", null, null],
+    ]);
+  });
+
   it("tidak meloloskan email pelaku tanpa nama ke DTO daftar", async () => {
     // Tiruan sengaja membawa `email` seolah kolom itu ikut ter-select. Label
     // cadangan wajib netral: email rekan tidak boleh terbuka bagi pemegang
@@ -301,6 +377,74 @@ describe("KegiatanRepository.findMany", () => {
         gte: new Date("2026-09-01T00:00:00.000Z"),
         lte: new Date("2026-09-30T00:00:00.000Z"),
       },
+    });
+  });
+});
+
+describe("KegiatanRepository.findMany — filter peran dan departemen pelaku", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.presurveiKegiatan.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiKegiatan.count).mockResolvedValue(0 as never);
+  });
+
+  /** `where` yang diterima findMany DAN count — keduanya wajib sama. */
+  const whereTerkirim = () => {
+    const whereDaftar = vi.mocked(prisma.presurveiKegiatan.findMany).mock
+      .calls[0][0]?.where;
+    const whereJumlah = vi.mocked(prisma.presurveiKegiatan.count).mock
+      .calls[0][0]?.where;
+    expect(whereJumlah).toEqual(whereDaftar);
+    return whereDaftar;
+  };
+
+  it("NON_SALES menyaring pelaku isSales false lewat relasi user", async () => {
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      peran: "NON_SALES",
+    });
+
+    expect(whereTerkirim()).toEqual({ user: { isSales: false } });
+  });
+
+  it("SALES menyaring pelaku isSales true", async () => {
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      peran: "SALES",
+    });
+
+    expect(whereTerkirim()).toEqual({ user: { isSales: true } });
+  });
+
+  it("departemen saja tidak menyentuh isSales", async () => {
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      departemenId: "dept-teknik",
+    });
+
+    expect(whereTerkirim()).toEqual({ user: { departmentId: "dept-teknik" } });
+  });
+
+  it("filter relasi tidak menimpa userId dan tidak menulis tenant", async () => {
+    // Pemanggil mobile diikat ke userId sesi di route; filter peran hanya
+    // boleh mempersempit, jadi `userId` tingkat atas wajib tetap ada. Tenant
+    // tetap urusan ekstensi — repository tidak menulisnya.
+    await new KegiatanRepository().findMany({
+      page: 1,
+      limit: 10,
+      userId: "user-sesi",
+      peran: "SALES",
+      departemenId: "dept-marketing",
+      jenis: "KUNJUNGAN",
+    });
+
+    expect(whereTerkirim()).toEqual({
+      userId: "user-sesi",
+      jenis: "KUNJUNGAN",
+      user: { isSales: true, departmentId: "dept-marketing" },
     });
   });
 });
@@ -364,14 +508,21 @@ describe("KegiatanRepository.findById", () => {
         id: "user-tanpa-nama-9f3k2q",
         name: null,
         tenantId: "tenant-1",
+        isSales: false,
+        departments: { name: "Teknik", tenantId: "tenant-1" },
       },
     } as never);
 
     const hasil = await new KegiatanRepository().findById("kegiatan-1");
 
-    // `user` hasil join tidak ikut ke entitas; yang ikut hanya labelnya —
-    // label netral, karena `name` null.
-    expect(hasil).toEqual({ ...baris, namaSales: "Tanpa nama (…9f3k2q)" });
+    // `user` hasil join tidak ikut ke entitas; yang ikut hanya turunannya —
+    // label netral (karena `name` null), peran, dan nama departemen.
+    expect(hasil).toEqual({
+      ...baris,
+      namaSales: "Tanpa nama (…9f3k2q)",
+      peranPelaku: "NON_SALES",
+      departemenPelaku: "Teknik",
+    });
     expect(prisma.presurveiKegiatan.findUnique).toHaveBeenCalledWith({
       where: { id: "kegiatan-1" },
       include: SERTAKAN_PELAKU,

@@ -26,6 +26,8 @@ const kegiatan: KegiatanEntity = {
   jenis: "TELEPON",
   userId: "sales-1",
   namaSales: null,
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   iklanId: null,
   waktuMulai: WAKTU,

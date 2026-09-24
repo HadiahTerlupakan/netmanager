@@ -5,6 +5,7 @@ import {
   isButuhIklan,
   isButuhLokasi,
 } from "../domain/kegiatan-rules";
+import { PERAN_PELAKU } from "../domain/peran-pelaku";
 import { isTerisi } from "./field-terisi";
 
 /**
@@ -108,8 +109,18 @@ export const catatKegiatanSchema = z
     { message: "Kegiatan iklan wajib menunjuk ke sebuah iklan" },
   );
 
+/**
+ * Query `GET /api/presurvei/kegiatan`.
+ *
+ * `peran` enum, bukan boolean `isSales`: "false" atau nilai asing ditolak 400
+ * alih-alih diterjemahkan diam-diam. `peran` dan `departemenId` menyaring
+ * lewat relasi pelaku (`KegiatanRepository.bangunFilter`) — keadaan user SAAT
+ * INI, bukan saat kegiatan dicatat.
+ */
 export const daftarKegiatanSchema = z.object({
   userId: z.string().optional(),
+  peran: z.enum(PERAN_PELAKU).optional(),
+  departemenId: z.string().optional(),
   jenis: z.enum(KEGIATAN_JENIS).optional(),
   hasil: z.enum(KEGIATAN_HASIL).optional(),
   prospekId: z.string().optional(),

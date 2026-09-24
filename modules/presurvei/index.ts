@@ -119,6 +119,8 @@ export { TargetService, type BarisLaporan } from "./services/TargetService";
 
 export { SalesPresurveiService } from "./services/SalesPresurveiService";
 
+export { DepartemenPresurveiService } from "./services/DepartemenPresurveiService";
+
 export type { AksesTenantPresurvei } from "./domain/akses-tenant";
 
 export {
@@ -154,11 +156,18 @@ export {
 
 export { toSalesPresurveiDto, type SalesPresurveiDto } from "./dto/sales.dto";
 
+export {
+  toDepartemenPresurveiDto,
+  type DepartemenPresurveiDto,
+} from "./dto/departemen.dto";
+
+export { PERAN_PELAKU, type PeranPelaku } from "./domain/peran-pelaku";
+
 export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/registration-created-presurvei.handler";
 
 // NOTE: ProspekRepository dan KegiatanRepository sengaja TIDAK diekspor
 // (detail implementasi internal).
 // NOTE: prospek.mapper dan kegiatan.mapper sengaja TIDAK diekspor (internal).
-// NOTE: SalesRepository sengaja TIDAK diekspor (internal).
+// NOTE: SalesRepository dan DepartemenRepository sengaja TIDAK diekspor (internal).
 // NOTE: IklanRepository dan iklan.mapper sengaja TIDAK diekspor (internal),
 // konsisten dengan pola repository/mapper Fase 1 di atas.

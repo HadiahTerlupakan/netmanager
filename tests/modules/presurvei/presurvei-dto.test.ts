@@ -55,6 +55,8 @@ const kegiatan = (over: Partial<KegiatanEntity> = {}): KegiatanEntity =>
     jenis: "KUNJUNGAN",
     userId: "user-1",
     namaSales: null,
+    peranPelaku: null,
+    departemenPelaku: null,
     prospekId: null,
     iklanId: null,
     waktuMulai: WAKTU,
@@ -166,6 +168,32 @@ describe("toKegiatanListItem — nama sales", () => {
     expect(
       toKegiatanListItem(kegiatan({ namaSales: undefined })).namaSales,
     ).toBeNull();
+  });
+});
+
+describe("toKegiatanListItem — peran dan departemen pelaku", () => {
+  it("meneruskan peran dan departemen ke daftar dan rincian", () => {
+    const sumber = kegiatan({
+      peranPelaku: "NON_SALES",
+      departemenPelaku: "Teknik",
+    });
+
+    expect(toKegiatanListItem(sumber)).toMatchObject({
+      peranPelaku: "NON_SALES",
+      departemenPelaku: "Teknik",
+    });
+    expect(toKegiatanDetail(sumber)).toMatchObject({
+      peranPelaku: "NON_SALES",
+      departemenPelaku: "Teknik",
+    });
+  });
+
+  it("mengirim null, bukan undefined, saat keduanya tidak tersedia", () => {
+    const item = toKegiatanListItem(
+      kegiatan({ peranPelaku: undefined, departemenPelaku: undefined }),
+    );
+    expect(item.peranPelaku).toBeNull();
+    expect(item.departemenPelaku).toBeNull();
   });
 });
 

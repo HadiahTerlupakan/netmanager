@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   catatKegiatanSchema,
   ubahKegiatanSchema,
+  daftarKegiatanSchema,
 } from "@/modules/presurvei/validators/kegiatan.validator";
 import { TOLERANSI_SKEW_JAM_MENIT } from "@/modules/presurvei/client";
 
@@ -304,5 +305,32 @@ describe("ubahKegiatanSchema — perapian teks", () => {
     });
 
     expect(hasil.success).toBe(true);
+  });
+});
+
+describe("daftarKegiatanSchema — peran dan departemen pelaku", () => {
+  it("menerima kedua peran dan meneruskan departemenId apa adanya", () => {
+    expect(
+      daftarKegiatanSchema.parse({ peran: "SALES", departemenId: "dept-7" }),
+    ).toMatchObject({ peran: "SALES", departemenId: "dept-7" });
+    expect(daftarKegiatanSchema.parse({ peran: "NON_SALES" }).peran).toBe(
+      "NON_SALES",
+    );
+  });
+
+  it("menolak nilai peran asing — termasuk bentuk boolean dan huruf kecil", () => {
+    // `peran` bukan boolean: "false" yang dikirim klien lama tidak boleh
+    // diterjemahkan jadi NON_SALES diam-diam.
+    for (const peran of ["false", "true", "sales", "TEKNISI", ""]) {
+      expect(daftarKegiatanSchema.safeParse({ peran }).success, peran).toBe(
+        false,
+      );
+    }
+  });
+
+  it("keduanya opsional", () => {
+    const hasil = daftarKegiatanSchema.parse({});
+    expect(hasil.peran).toBeUndefined();
+    expect(hasil.departemenId).toBeUndefined();
   });
 });

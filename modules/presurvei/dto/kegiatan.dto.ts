@@ -5,6 +5,7 @@ import type {
 } from "../domain/entities/Kegiatan";
 import type { RiwayatKegiatanEntity } from "../domain/entities/KegiatanRiwayat";
 import type { PerubahanKegiatan } from "../domain/kegiatan-perubahan";
+import type { PeranPelaku } from "../domain/peran-pelaku";
 
 /**
  * Bentuk data kegiatan yang dikirim ke klien.
@@ -19,6 +20,13 @@ export interface KegiatanListItemDto {
   userId: string;
   /** Label pelaku; null bila tidak bisa ditampilkan (lihat `KegiatanEntity`). */
   namaSales: string | null;
+  /**
+   * Peran pelaku (`User.isSales`) — keadaan user SAAT INI, bukan saat
+   * kegiatan dicatat. Null bila pelaku tak bisa ditampilkan (tenant lain).
+   */
+  peranPelaku: PeranPelaku | null;
+  /** Nama departemen pelaku saat ini; null bila tidak ada atau tenant lain. */
+  departemenPelaku: string | null;
   prospekId: string | null;
   waktuMulai: string;
   alamatDikunjungi: string | null;
@@ -77,6 +85,8 @@ export function toKegiatanListItem(
     jenis: kegiatan.jenis,
     userId: kegiatan.userId,
     namaSales: kegiatan.namaSales ?? null,
+    peranPelaku: kegiatan.peranPelaku ?? null,
+    departemenPelaku: kegiatan.departemenPelaku ?? null,
     prospekId: kegiatan.prospekId,
     waktuMulai: kegiatan.waktuMulai.toISOString(),
     alamatDikunjungi: kegiatan.alamatDikunjungi,

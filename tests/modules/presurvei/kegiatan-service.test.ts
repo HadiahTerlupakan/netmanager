@@ -31,6 +31,8 @@ const kegiatan = (over: Partial<KegiatanEntity> = {}): KegiatanEntity => ({
   jenis: "KUNJUNGAN",
   userId: "user-1",
   namaSales: null,
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   iklanId: null,
   waktuMulai: WAKTU_KUNJUNGAN,

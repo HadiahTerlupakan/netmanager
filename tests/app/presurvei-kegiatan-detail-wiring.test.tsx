@@ -80,6 +80,8 @@ const kegiatanDasar: KegiatanRincianDto = {
   jenis: "SURVEI_LOKASI",
   userId: "sales-1",
   namaSales: "Andi",
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   waktuMulai: "2026-09-10T02:00:00.000Z",
   waktuSelesai: "2026-09-10T03:15:00.000Z",

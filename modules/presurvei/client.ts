@@ -98,6 +98,9 @@ export type { ProspekDetailDto, ProspekListItemDto } from "./dto/prospek.dto";
 export type { IklanDetailDto, IklanListItemDto } from "./dto/iklan.dto";
 export type { BarisLaporanDto, TargetDto } from "./dto/target.dto";
 export type { SalesPresurveiDto } from "./dto/sales.dto";
+export type { DepartemenPresurveiDto } from "./dto/departemen.dto";
+
+export { PERAN_PELAKU, type PeranPelaku } from "./domain/peran-pelaku";
 
 export {
   IKLAN_CHANNEL_CONFIG,

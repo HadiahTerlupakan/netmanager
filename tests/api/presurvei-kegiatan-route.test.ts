@@ -61,6 +61,8 @@ const kegiatanTersimpan: KegiatanEntity = {
   jenis: "TELEPON",
   userId: ID_SESI,
   namaSales: null,
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   iklanId: null,
   waktuMulai: new Date("2026-09-22T08:00:00.000Z"),
@@ -149,6 +151,56 @@ describe("GET /api/presurvei/kegiatan — pembatasan kepemilikan", () => {
     expect(mockFns.daftar).toHaveBeenCalledWith(
       expect.objectContaining({ userId: ID_ORANG_LAIN }),
     );
+  });
+});
+
+describe("GET /api/presurvei/kegiatan — filter peran dan departemen", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.daftar.mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it("meneruskan peran dan departemenId dari pemegang permission web", async () => {
+    beriPermission(["presurvei:read"]);
+
+    await mintaDaftar("peran=NON_SALES&departemenId=dept-teknik");
+
+    expect(mockFns.daftar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        peran: "NON_SALES",
+        departemenId: "dept-teknik",
+      }),
+    );
+    expect(mockFns.daftar.mock.calls[0][0].userId).toBeUndefined();
+  });
+
+  it("pemanggil mobile tetap terikat ke id sesinya walau mengirim peran", async () => {
+    // Filter peran hanya mempersempit. Ia tidak boleh menjadi jalan keluar
+    // dari pengikatan `userId` — dengan atau tanpa `userId` di query.
+    beriPermission(["m_presurvei:read"]);
+
+    await mintaDaftar("peran=NON_SALES");
+    await mintaDaftar(
+      `peran=SALES&departemenId=dept-teknik&userId=${ID_ORANG_LAIN}`,
+    );
+
+    expect(mockFns.daftar.mock.calls.map(([filter]) => filter.userId)).toEqual([
+      ID_SESI,
+      ID_SESI,
+    ]);
+    expect(mockFns.daftar.mock.calls[1][0]).toMatchObject({
+      peran: "SALES",
+      departemenId: "dept-teknik",
+    });
+  });
+
+  it("menolak peran asing dengan 400 tanpa menyentuh service", async () => {
+    beriPermission(["presurvei:read"]);
+
+    const respons = await mintaDaftar("peran=false");
+
+    expect(respons.status).toBe(400);
+    expect(mockFns.daftar).not.toHaveBeenCalled();
   });
 });
 

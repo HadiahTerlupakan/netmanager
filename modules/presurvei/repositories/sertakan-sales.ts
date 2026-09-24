@@ -19,9 +19,22 @@ const KOLOM_IDENTITAS_SALES = {
   tenantId: true,
 } as const;
 
-/** Sertakan pelaku kegiatan (`PresurveiKegiatan.user`). */
+/**
+ * Sertakan pelaku kegiatan (`PresurveiKegiatan.user`), beserta peran dan
+ * departemennya untuk `peranPelaku`/`departemenPelaku`.
+ *
+ * Hanya pelaku kegiatan yang membawa kedua kolom ini; pemilik prospek dan
+ * pengubah riwayat tidak menampilkannya. `tenantId` departemen dipilih untuk
+ * penjaga tenant keduanya di `departemenPelakuSatuTenant`.
+ */
 export const SERTAKAN_PELAKU = {
-  user: { select: KOLOM_IDENTITAS_SALES },
+  user: {
+    select: {
+      ...KOLOM_IDENTITAS_SALES,
+      isSales: true,
+      departments: { select: { name: true, tenantId: true } },
+    },
+  },
 } satisfies Prisma.PresurveiKegiatanInclude;
 
 /** Sertakan pemilik prospek (`PresurveiProspek.pemilik`). */

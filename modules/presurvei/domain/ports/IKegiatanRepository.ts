@@ -9,6 +9,7 @@ import type {
   PerubahanKegiatan,
   UbahKegiatanInput,
 } from "../kegiatan-perubahan";
+import type { PeranPelaku } from "../peran-pelaku";
 import type { CreateProspekInput } from "./IProspekRepository";
 
 /**
@@ -20,6 +21,10 @@ import type { CreateProspekInput } from "./IProspekRepository";
 
 export interface KegiatanListFilters {
   userId?: string;
+  /** Peran pelaku saat ini (`User.isSales`); hanya mempersempit. */
+  peran?: PeranPelaku;
+  /** Departemen pelaku saat ini (`User.departmentId`); hanya mempersempit. */
+  departemenId?: string;
   jenis?: KegiatanJenis;
   hasil?: KegiatanHasil;
   prospekId?: string;

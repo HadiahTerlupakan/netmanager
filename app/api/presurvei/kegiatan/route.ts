@@ -19,6 +19,8 @@ export const GET = createHandler(
     const { searchParams } = new URL(request.url);
     const filters = daftarKegiatanSchema.parse({
       userId: searchParams.get("userId") ?? undefined,
+      peran: searchParams.get("peran") ?? undefined,
+      departemenId: searchParams.get("departemenId") ?? undefined,
       jenis: searchParams.get("jenis") ?? undefined,
       hasil: searchParams.get("hasil") ?? undefined,
       prospekId: searchParams.get("prospekId") ?? undefined,
@@ -29,7 +31,8 @@ export const GET = createHandler(
     });
 
     // Sales tanpa permission web hanya melihat kegiatannya sendiri; filter
-    // `userId` yang dikirim klien ditimpa, bukan dipercaya.
+    // `userId` yang dikirim klien ditimpa, bukan dipercaya. `peran` dan
+    // `departemenId` tetap diteruskan: keduanya hanya mempersempit.
     const hasil = await service.daftar(
       isBolehLihatSemuaPresurvei(ctx.permissions)
         ? filters

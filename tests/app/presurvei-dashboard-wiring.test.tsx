@@ -126,6 +126,8 @@ const kegiatan: KegiatanListItemDto = {
   jenis: "KUNJUNGAN",
   userId: "sales-andi",
   namaSales: "Andi",
+  peranPelaku: null,
+  departemenPelaku: null,
   prospekId: null,
   waktuMulai: "2026-09-14T02:00:00.000Z",
   alamatDikunjungi: "Jl. Melati 1",

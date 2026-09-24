@@ -71,7 +71,19 @@ export function namaSalesSatuTenant(
   identitas: IdentitasSalesBertenant | null | undefined,
   tenantIdBaris: string | null,
 ): string | null {
-  if (!identitas) return null;
-  if (identitas.tenantId !== tenantIdBaris) return null;
+  if (!isSatuTenant(identitas, tenantIdBaris)) return null;
   return tentukanNamaSales(identitas);
+}
+
+/**
+ * Apakah user hasil join boleh ditampilkan pada baris bertenant
+ * `tenantIdBaris` — penjaga tunggal untuk nama, peran, dan departemen pelaku
+ * (`peran-pelaku.ts`), supaya ketiganya tidak pernah berbeda pendapat.
+ */
+export function isSatuTenant(
+  identitas: IdentitasSalesBertenant | null | undefined,
+  tenantIdBaris: string | null,
+): boolean {
+  if (!identitas) return false;
+  return identitas.tenantId === tenantIdBaris;
 }

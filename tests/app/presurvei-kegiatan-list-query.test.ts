@@ -36,6 +36,8 @@ function kegiatan(ubahan: Partial<KegiatanListItemDto>): KegiatanListItemDto {
     jenis: "KUNJUNGAN",
     userId: "sales-1",
     namaSales: null,
+    peranPelaku: null,
+    departemenPelaku: null,
     prospekId: null,
     waktuMulai: "2026-09-22T01:30:00.000Z",
     alamatDikunjungi: "Jl. Melati 3",

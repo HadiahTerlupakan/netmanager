@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import type { KegiatanEntity } from "../domain/entities/Kegiatan";
+import { IS_SALES_PER_PERAN } from "../domain/peran-pelaku";
 import type { RiwayatKegiatanEntity } from "../domain/entities/KegiatanRiwayat";
 import type { ProspekEntity } from "../domain/entities/Prospek";
 import type {
@@ -185,6 +186,30 @@ export class KegiatanRepository implements IKegiatanRepository {
       ...(filters.hasil ? { hasil: filters.hasil } : {}),
       ...(filters.prospekId ? { prospekId: filters.prospekId } : {}),
       ...rentangWaktu,
+      ...this.bangunFilterPelaku(filters),
+    };
+  }
+
+  /**
+   * Filter relasi pelaku: peran (`isSales`) dan departemen SAAT INI.
+   *
+   * Kunci `user` terpisah dari `userId`, jadi pengikatan pemanggil mobile ke
+   * `userId` sesi tidak pernah tertimpa — filter ini hanya mempersempit.
+   * Tenant tidak ditulis di sini: ekstensi tetap menyaring `where` tingkat
+   * atas, dan relasi `user` tidak memperluas himpunan barisnya.
+   */
+  private bangunFilterPelaku(
+    filters: KegiatanListFilters,
+  ): Pick<Prisma.PresurveiKegiatanWhereInput, "user"> {
+    if (!filters.peran && !filters.departemenId) return {};
+
+    return {
+      user: {
+        ...(filters.peran
+          ? { isSales: IS_SALES_PER_PERAN[filters.peran] }
+          : {}),
+        ...(filters.departemenId ? { departmentId: filters.departemenId } : {}),
+      },
     };
   }
 }
