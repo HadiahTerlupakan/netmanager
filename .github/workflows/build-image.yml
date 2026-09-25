@@ -90,7 +90,38 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run typecheck
 
-      - name: Tes unit
+  # Tes dipecah ke beberapa runner paralel. Waktu tes didominasi biaya memuat
+  # modul per berkas (5.428 tes hanya ±83 detik eksekusi, sisanya import), jadi
+  # menambah worker di satu mesin tidak banyak membantu — membagi berkas ke
+  # beberapa mesin yang membantu.
+  tes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Pasang dependensi
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
+          DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
+          DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
+          PRISMA_HIDE_UPDATE_MESSAGE: "true"
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --prefer-offline --ignore-scripts
+          npm run prisma:generate
+
+      - name: Tes unit (shard ${{ matrix.shard }}/4)
         env:
           NODE_ENV: test
           NODE_OPTIONS: --max-old-space-size=4096
@@ -103,10 +134,10 @@ jobs:
           DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
           DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
           REDIS_URL: redis://localhost:6379
-        run: npx vitest run --maxWorkers=4
+        run: npx vitest run --maxWorkers=4 --shard=${{ matrix.shard }}/4
 
   build:
-    needs: quality
+    needs: [quality, tes]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

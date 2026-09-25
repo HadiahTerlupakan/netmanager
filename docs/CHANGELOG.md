@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Tes unit CI dipecah ke empat shard paralel
+
+- **Tipe**: [INFRA]
+- **Scope**: `.github/workflows/`
+- **Author**: agent
+- **Deskripsi**: Tes unit (804 berkas, 5.428 tes) memakan ±8 menit bahkan di runner
+  publik 4 core, karena waktunya didominasi biaya memuat modul per berkas (eksekusi
+  tes sendiri hanya ±83 detik kumulatif). Tes kini berjalan di job `tes` dengan
+  matriks 4 shard (`--shard=i/4`) yang paralel, dan build image menunggu quality
+  serta keempat shard. Tes penjaga memastikan setiap indeks shard punya runner.
+- **Files**: `.github/workflows/build-image.yml`,
+  `tests/ci/github-build-workflow-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Kosongkan README; panduan setup pindah ke docs/guides
 
 - **Tipe**: [DOCS]

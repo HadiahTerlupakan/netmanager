@@ -52,8 +52,8 @@ describe("workflow build GitHub", () => {
     expect(readJobBlock("build")).toContain("packages: write");
   });
 
-  it("image hanya dibangun setelah quality lulus", () => {
-    expect(readJobBlock("build")).toMatch(/^ {4}needs: quality$/m);
+  it("image hanya dibangun setelah quality dan semua shard tes lulus", () => {
+    expect(readJobBlock("build")).toMatch(/^ {4}needs: \[quality, tes\]$/m);
   });
 
   it("tidak dipicu event yang membawa kode dari luar", () => {
@@ -89,13 +89,28 @@ describe("workflow build GitHub", () => {
     expect(pindai).toBeLessThan(quality.indexOf("npm ci"));
   });
 
-  it("quality menjalankan lint, typecheck, dan tes seperti pipeline Gitea", () => {
+  it("quality menjalankan lint dan typecheck seperti pipeline Gitea", () => {
     const quality = readJobBlock("quality");
 
     expect(quality).toContain("npm ci --no-audit --prefer-offline");
     expect(quality).toContain("npm run prisma:generate");
     expect(quality).toContain("npm run lint");
     expect(quality).toContain("npm run typecheck");
-    expect(quality).toContain("npx vitest run");
+  });
+
+  it("tes unit berjalan di semua shard tanpa ada berkas yang terlewat", () => {
+    const tes = readJobBlock("tes");
+    const daftarShard = tes.match(/shard: \[([\d, ]+)\]/);
+    const jumlahShard = tes.match(/--shard=\$\{\{ matrix\.shard \}\}\/(\d+)/);
+
+    expect(daftarShard).not.toBeNull();
+    expect(jumlahShard).not.toBeNull();
+    const shard = daftarShard![1].split(",").map((nilai) => Number(nilai.trim()));
+    const total = Number(jumlahShard![1]);
+    // Setiap indeks 1..total harus punya runner; shard yang hilang berarti
+    // sebagian berkas tes diam-diam tidak pernah dijalankan.
+    expect(shard).toEqual(Array.from({ length: total }, (_, i) => i + 1));
+    expect(tes).toContain("fail-fast: false");
+    expect(tes).toContain("npm run prisma:generate");
   });
 });
