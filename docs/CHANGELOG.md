@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Keluarkan .mcp.json dari git dan pindai secret di CI
+
+- **Tipe**: [SECURITY]
+- **Scope**: `.github/workflows/`, `.gitignore`
+- **Author**: agent
+- **Deskripsi**: `.mcp.json` (konfigurasi MCP lokal) ter-commit berisi GitHub PAT
+  pribadi; berkasnya kini di-ignore dan dilepas dari index (salinan lokal tetap
+  ada). Pindaian riwayat juga menemukan PAT lama di `.mcp.json` (Februari 2026)
+  dan kunci service account Firebase `firebase-adminsdk.json` (dilepas
+  2026-09-09). Ketiganya sudah diverifikasi tidak dipakai sistem live — kunci
+  Firebase produksi berbeda, dan secret pull image cluster memakai token lain —
+  tetapi tetap WAJIB dicabut manual di GitHub dan Google Cloud Console karena
+  menghapus dari git tidak membatalkan credential. Job quality GitHub kini
+  menjalankan gitleaks pada rentang commit yang didorong dan gagal bila ada
+  secret baru.
+- **Files**: `.gitignore`, `.github/workflows/build-image.yml`,
+  `tests/ci/github-build-workflow-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Quality dan build image netmanager di GitHub Actions
 
 - **Tipe**: [INFRA]

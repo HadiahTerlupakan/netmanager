@@ -79,6 +79,16 @@ describe("workflow build GitHub", () => {
     expect(build).toContain("IMAGE_REVISION=${{ github.sha }}");
   });
 
+  it("memindai secret pada commit yang didorong sebelum apa pun dipasang", () => {
+    const quality = readJobBlock("quality");
+    const pindai = quality.indexOf("zricethezav/gitleaks:");
+
+    expect(pindai).toBeGreaterThan(-1);
+    expect(quality).toContain("fetch-depth: 0");
+    expect(quality).toContain('--log-opts="${RENTANG}"');
+    expect(pindai).toBeLessThan(quality.indexOf("npm ci"));
+  });
+
   it("quality menjalankan lint, typecheck, dan tes seperti pipeline Gitea", () => {
     const quality = readJobBlock("quality");
 

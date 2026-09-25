@@ -41,6 +41,26 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Riwayat penuh dibutuhkan gitleaks untuk memindai rentang push.
+          fetch-depth: 0
+
+      # Riwayat repo ini pernah memuat GitHub PAT (.mcp.json) dan service
+      # account Firebase. Yang dipindai hanya commit yang baru didorong, supaya
+      # temuan lama yang sudah dicabut tidak memblokir setiap run.
+      - name: Pindai secret pada commit yang didorong
+        env:
+          SEBELUM: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SEBELUM:-}" ] || ! git cat-file -e "${SEBELUM}^{commit}" 2>/dev/null; then
+            RENTANG="-1 ${GITHUB_SHA}"
+          else
+            RENTANG="${SEBELUM}..${GITHUB_SHA}"
+          fi
+          echo "Rentang pindai: ${RENTANG}"
+          docker run --rm -v "${PWD}:/repo" -w /repo zricethezav/gitleaks:v8.28.0 \
+            git /repo --no-banner --redact --log-opts="${RENTANG}"
 
       - uses: actions/setup-node@v4
         with:

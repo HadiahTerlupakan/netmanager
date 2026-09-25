@@ -183,3 +183,6 @@ MEMORY.md
 
 # Baileys WhatsApp session state
 .baileys-sessions/
+
+# Konfigurasi MCP lokal — berisi token pribadi (GitHub PAT), jangan di-commit.
+.mcp.json
