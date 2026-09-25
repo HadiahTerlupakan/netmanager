@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Deploy Gitea berhenti cepat bila build GitHub gagal
+
+- **Tipe**: [FIXED]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Job `image` sebelumnya menunggu image sampai batas 60 menit walaupun
+  build GitHub untuk commit itu sudah gagal, sehingga antrean deploy tertahan
+  (run #78). Kini setiap ±2 menit job menanyakan status run `build-image.yml`
+  untuk commit yang sama lewat API GitHub publik (tanpa token), dan berhenti
+  dengan tautan ke run yang gagal bila semua run untuk commit itu selesai tanpa
+  satu pun sukses. Run yang masih berjalan, run ulang yang sukses, atau API yang
+  tidak terjangkau tetap ditunggu sampai batas waktu.
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/gitea-deploy-workflow-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Percepat sebelas berkas tes paling lambat
 
 - **Tipe**: [CHANGED]

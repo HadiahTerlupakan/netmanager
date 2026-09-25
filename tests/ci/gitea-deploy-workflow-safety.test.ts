@@ -101,6 +101,26 @@ describe("Gitea production workflow safety", () => {
     expect(workflow).toMatch(/deploy:\s*\n\s+needs: image/);
   });
 
+  it("stops waiting as soon as the GitHub build for the commit has failed", () => {
+    // Run #78 (2026-09-25) menunggu 60 menit penuh untuk image dari build
+    // GitHub yang sudah gagal, dan menahan antrean deploy selama itu.
+    const workflow = readWorkflow();
+
+    expect(workflow).toContain("status_build_github()");
+    expect(workflow).toContain(
+      "actions/workflows/${alur}/runs?head_sha=${sha}",
+    );
+    expect(workflow).toContain(
+      'runs.every((run) => run.status === "completed")',
+    );
+    expect(workflow).toContain(
+      'runs.some((run) => run.conclusion === "success")',
+    );
+    // Workflow yang ditanya harus workflow build yang sungguhan ada.
+    expect(workflow).toContain("GITHUB_WORKFLOW_BUILD: build-image.yml");
+    expect(readBuildWorkflow()).toContain("name: Quality & Build Image");
+  });
+
   it("computes the same image tag as the GitHub build workflow", () => {
     // Rumus berbeda berarti deploy menunggu tag yang tidak pernah dibuat.
     const rumus =

@@ -168,12 +168,43 @@ jobs:
       # berarti run GitHub gagal (quality, tes, gitleaks, atau build) atau
       # commit belum didorong ke GitHub — deploy dibatalkan sebelum menyentuh
       # cluster.
+      #
+      # Status run GitHub ikut diperiksa supaya build yang gagal langsung
+      # menghentikan job ini, bukan menunggu batas 60 menit (kejadian nyata
+      # 2026-09-25, run #78). Repo GitHub publik, jadi API-nya terbaca tanpa
+      # token; batas API tanpa token 60 permintaan per jam per IP, sehingga
+      # statusnya hanya ditanyakan tiap SETIAP_CEK_STATUS putaran.
       - name: Tunggu image dari GitHub Actions
+        env:
+          GITHUB_REPO_BUILD: HadiahTerlupakan/netmanager
+          GITHUB_WORKFLOW_BUILD: build-image.yml
         run: |
           set -euo pipefail
           BATAS_DETIK=3600
           JEDA_DETIK=30
+          SETIAP_CEK_STATUS=4
           batas=$((SECONDS + BATAS_DETIK))
+          putaran=0
+
+          # Mencetak "gagal <url>" bila SEMUA run build untuk commit ini sudah
+          # selesai dan tidak satu pun sukses. Run yang masih berjalan, run
+          # ulang yang sukses, atau API yang tidak terjangkau berarti tetap
+          # menunggu — keputusan akhir tetap di batas waktu.
+          status_build_github() {
+            node -e '
+              const [repo, alur, sha] = process.argv.slice(1);
+              const url = `https://api.github.com/repos/${repo}/actions/workflows/${alur}/runs?head_sha=${sha}&per_page=20`;
+              fetch(url, { headers: { Accept: "application/vnd.github+json" } })
+                .then((res) => (res.ok ? res.json() : { workflow_runs: [] }))
+                .then(({ workflow_runs: runs = [] }) => {
+                  const selesai = runs.length > 0 && runs.every((run) => run.status === "completed");
+                  const adaSukses = runs.some((run) => run.conclusion === "success");
+                  console.log(selesai && !adaSukses ? `gagal ${runs[0].html_url}` : "lanjut");
+                })
+                .catch(() => console.log("lanjut"));
+            ' "${GITHUB_REPO_BUILD}" "${GITHUB_WORKFLOW_BUILD}" "${GITHUB_SHA}"
+          }
+
           for IMAGE in \
             "${{ steps.refs.outputs.app_image }}" \
             "${{ steps.refs.outputs.cron_image }}" \
@@ -182,6 +213,16 @@ jobs:
               if [ "${SECONDS}" -ge "${batas}" ]; then
                 echo "::error::Image ${IMAGE} belum ada di registry setelah ${BATAS_DETIK} detik. Periksa run 'Quality & Build Image' di GitHub Actions untuk commit ${GITHUB_SHA}, atau pastikan commit ini sudah didorong ke GitHub." >&2
                 exit 1
+              fi
+              putaran=$((putaran + 1))
+              if [ $((putaran % SETIAP_CEK_STATUS)) -eq 0 ]; then
+                status="$(status_build_github)"
+                case "${status}" in
+                  gagal*)
+                    echo "::error::Build GitHub untuk commit ${GITHUB_SHA} gagal, jadi image tidak akan pernah ada: ${status#gagal }. Perbaiki lalu dorong commit baru; deploy dibatalkan tanpa menyentuh cluster." >&2
+                    exit 1
+                    ;;
+                esac
               fi
               echo "menunggu ${IMAGE}"
               sleep "${JEDA_DETIK}"
