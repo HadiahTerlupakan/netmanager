@@ -1,8 +1,15 @@
 name: Deploy Production
 
-# Menggantikan Jenkins. Perbedaan pokoknya: build berjalan di VPS Gitea, bukan
-# sebagai pod di cluster produksi. Build Next.js pernah menembus 21 GB dan
-# menjatuhkan seluruh host produksi ketika keduanya berbagi mesin.
+# Menggantikan Jenkins. Build tidak pernah lagi berjalan di cluster produksi:
+# build Next.js pernah menembus 21 GB dan menjatuhkan seluruh host produksi
+# ketika keduanya berbagi mesin.
+#
+# Sejak 2026-09-25 quality dan build image berjalan di GitHub Actions
+# (`.github/workflows/build-image.yml`, ±15 menit, dulu ±67 menit di sini).
+# Workflow ini hanya menunggu image untuk commit yang sama muncul di GHCR lalu
+# men-deploy-nya. Pemicunya harus tetap himpunan bagian dari pemicu workflow
+# GitHub (lihat paths-ignore di kedua berkas), supaya tidak ada run yang
+# menunggu image yang tidak akan pernah dibangun.
 #
 # Deploy dilakukan lewat SSH ke host produksi, bukan dengan membuka API
 # Kubernetes ke internet: yang menyeberang hanya perintah kubectl yang ringan,
@@ -54,18 +61,26 @@ env:
   REPO_CLONE_URL: http://gitea:3000/${{ github.repository }}.git
 
 jobs:
-  quality:
+  # Quality dan build image berjalan di GitHub Actions
+  # (`.github/workflows/build-image.yml`), yang mendorong image ke GHCR hanya
+  # bila lint, typecheck, dan semua shard tes lulus. Job ini tidak membangun
+  # apa pun: ia menunggu image untuk commit ini muncul di registry, lalu deploy
+  # berjalan seperti biasa. Kunci SSH produksi tetap hanya ada di workflow ini.
+  image:
     runs-on: netmanager-ci
+    outputs:
+      app_image: ${{ steps.refs.outputs.app_image }}
+      cron_image: ${{ steps.refs.outputs.cron_image }}
+      radius_image: ${{ steps.refs.outputs.radius_image }}
     steps:
       # Dua deploy berturut-turut mati di langkah SSH pertama — sekali karena
       # DEPLOY_SSH_TARGET masih menunjuk IP server lama, sekali karena nama
       # secret tersalin ke kolom nilainya. Keduanya baru ketahuan setelah
       # build 23-65 menit selesai, padahal penyebabnya terbaca dalam hitungan
-      # detik. Secret diperiksa di sini, sebelum apa pun dibangun.
+      # detik. Secret diperiksa di sini, sebelum menunggu image.
       #
-      # DEPLOY_SSH_KEY sengaja tidak ikut diperiksa: menariknya ke job ini
-      # berarti kunci privat produksi ikut hadir di environment yang menjalankan
-      # lint, typecheck, dan tes. Kunci itu tetap terkurung di job deploy.
+      # DEPLOY_SSH_KEY sengaja tidak ikut diperiksa: job ini tidak butuh kunci
+      # privat produksi, jadi kunci itu tetap terkurung di job deploy.
       #
       # Nilai secret tidak pernah dicetak — yang dilaporkan hanya lolos/gagal.
       - name: Periksa secret deploy
@@ -125,111 +140,21 @@ jobs:
           git checkout -q FETCH_HEAD
           git config --local --unset-all http.extraheader
 
-      - name: Pasang dependensi
-        env:
-          # Prisma butuh URL berbentuk sah saat generate, bukan koneksi nyata.
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-          RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
-          DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
-          DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
-          # `prisma:generate` menjalankan empat generate, dan tiap generate
-          # mencetak kotak "Update available" sepuluh baris — 40 baris derau per
-          # run. Lebih buruk lagi, yang ditawarkannya adalah 8.0.0-rc.15: Prisma
-          # menandai sebuah release candidate sebagai `latest`, jadi banner itu
-          # menyarankan versi pra-rilis untuk sistem billing produksi.
-          # Disenyapkan DI CI SAJA; di mesin pengembang notifikasinya tetap
-          # muncul supaya rilis stabil Prisma 8 nanti tidak terlewat.
-          PRISMA_HIDE_UPDATE_MESSAGE: "true"
-        run: |
-          set -euo pipefail
-          npm config set fetch-retries 5
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
-          # fetch-retries hanya mengulang permintaan individual; ECONNRESET di
-          # tengah aliran tetap membatalkan seluruh `npm ci`. Jaringan mesin ini
-          # sudah terbukti tidak selalu mulus, jadi perintahnya sendiri diulang.
-          for percobaan in 1 2 3; do
-            if npm ci --no-audit --prefer-offline --ignore-scripts; then
-              break
-            fi
-            if [ "$percobaan" = 3 ]; then
-              echo "npm ci gagal setelah 3 percobaan" >&2
-              exit 1
-            fi
-            echo "npm ci gagal (percobaan $percobaan), mengulang dalam 15 detik" >&2
-            sleep 15
-          done
-          npm run prisma:generate
-
-      - name: Lint
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run lint
-
-      - name: Typecheck
-        # Build Jenkins #316 gagal persis di sini karena berkas tes ditambah
-        # tanpa typecheck ulang. Tahap ini sengaja dipisah agar penyebabnya
-        # langsung terbaca dari nama step yang merah.
-        #
-        # Batas heap dipasang di bawah batas container: Node yang memakai
-        # default lebih besar akan abort (exit 134) alih-alih memicu GC.
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run typecheck
-
-      - name: Tes unit
-        env:
-          NODE_ENV: test
-          NODE_OPTIONS: --max-old-space-size=4096
-          NEXTAUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
-          AUTH_SECRET: ci-build-dummy-secret-at-least-32-chars
-          NEXTAUTH_URL: http://localhost:3000
-          ENABLE_INTERNAL_CRON: "false"
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-          RADIUS_DATABASE_URL: postgresql://user:pass@localhost:5432/radius
-          DATABASE_URL_BILLING: postgresql://user:pass@localhost:5432/billing
-          DATABASE_URL_MITRA: postgresql://user:pass@localhost:5432/mitra
-          REDIS_URL: redis://localhost:6379
-        run: npx vitest run --maxWorkers=2
-
-  build:
-    needs: quality
-    runs-on: netmanager-ci
-    outputs:
-      app_image: ${{ steps.refs.outputs.app_image }}
-      cron_image: ${{ steps.refs.outputs.cron_image }}
-      radius_image: ${{ steps.refs.outputs.radius_image }}
-    steps:
-      # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
-      # github.com sering i/o timeout sementara transfer besarnya ~4 KB/s.
-      # Repositorinya sendiri ada di Gitea lokal, jadi kode diambil langsung
-      # dari sana tanpa perantara mana pun.
-      - name: Ambil kode dari Gitea
-        run: |
-          set -euo pipefail
-          git init -q .
-          git remote add origin "${REPO_CLONE_URL}"
-          # Token ditaruh di config lokal, bukan di argumen perintah, supaya
-          # tidak terbaca lewat daftar proses.
-          git config --local http.extraheader \
-            "Authorization: basic $(printf 'x-access-token:%s' '${{ github.token }}' | base64 -w0)"
-          git fetch -q --depth=1 origin "${GITHUB_SHA}"
-          git checkout -q FETCH_HEAD
-          git config --local --unset-all http.extraheader
-
       - name: Susun referensi image
         id: refs
         run: |
           set -euo pipefail
-          # Tag immutable: 12 karakter commit + nomor run, sama seperti Jenkins.
-          VERSION="$(echo "${GITHUB_SHA}" | cut -c1-12)-${GITHUB_RUN_NUMBER}"
+          # Rumus tag harus sama persis dengan build-image.yml di GitHub:
+          # 12 karakter commit + epoch commit. Sufiks yang menaik menjaga
+          # pemangkasan image di node (urut numerik) tetap benar.
+          VERSION="$(echo "${GITHUB_SHA}" | cut -c1-12)-$(git show -s --format=%ct HEAD)"
           BASE="${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_NAMESPACE }}"
           {
             echo "app_image=${BASE}/${APP_IMAGE_NAME}:${VERSION}"
             echo "cron_image=${BASE}/${CRON_IMAGE_NAME}:${VERSION}"
             echo "radius_image=${BASE}/${RADIUS_IMAGE_NAME}:${VERSION}"
-            echo "cache_base=${BASE}"
           } >> "$GITHUB_OUTPUT"
+          echo "Tag image: ${VERSION}"
 
       - name: Masuk ke registry
         run: |
@@ -238,107 +163,34 @@ jobs:
             | docker login "${{ secrets.REGISTRY_URL }}" \
                 -u "${{ secrets.REGISTRY_USER }}" --password-stdin
 
-      - name: Siapkan secret build
+      # Hanya manifes yang ditanyakan (beberapa KB), jadi egress lambat mesin
+      # ini ke ghcr.io tidak jadi masalah. Image yang tidak kunjung muncul
+      # berarti run GitHub gagal (quality, tes, gitleaks, atau build) atau
+      # commit belum didorong ke GitHub — deploy dibatalkan sebelum menyentuh
+      # cluster.
+      - name: Tunggu image dari GitHub Actions
         run: |
           set -euo pipefail
-          # Nilai dummy: hanya dibutuhkan agar build tidak gagal memvalidasi env.
-          # Nilai sungguhan disuntik saat runtime lewat secret Kubernetes.
-          mkdir -p .secrets && chmod 700 .secrets
-          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
-          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
-          printf '%s' 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
-
-      # Build memakai BuildKit bawaan dockerd, bukan buildx dengan driver
-      # docker-container. Builder terpisah itu punya cgroup, content store, dan
-      # page cache sendiri, sehingga base image tersimpan dua kali dan build
-      # berdesakan dalam plafon memorinya sendiri meski host masih lapang. Ia
-      # juga meninggalkan proses `next build` hidup ketika `timeout` memotong
-      # klien — satu sisa pernah menahan 8,9 GB selama hampir dua jam.
-      #
-      # Cache registry juga tidak dipakai: egress ghcr.io dari mesin ini hanya
-      # ~4 KB/s, sehingga impor cache menggantung lebih lama daripada membangun
-      # ulang. Runner ini menetap, jadi cache build dockerd bertahan antar-run —
-      # peran yang dulu diisi cache registry saat agent Jenkins sekali pakai.
-      - name: Bangun & dorong image aplikasi
-        run: |
-          set -euo pipefail
-          IMAGE="${{ steps.refs.outputs.app_image }}"
-
-          # Pencatat puncak memori host selama build. `free` di dalam container
-          # job membaca /proc host, jadi angkanya memang milik mesin runner.
-          #
-          # Ada dua hal yang selama ini hanya ditebak dan sekarang diukur:
-          # berapa puncak memori webpack sebenarnya, dan berapa sisa ruang
-          # sebelum kejadian seperti sisa proses 8,9 GB terulang. Tanpa angka
-          # ini, menaikkan paralelisme atau menguji ulang Turbopack cuma
-          # tebakan.
-          CUPLIKAN="$(mktemp)"
-          ( while :; do
-              free -m | awk '/^Mem:/{printf "%s %s\n", $3, $7}'
-              sleep 10
-            done > "$CUPLIKAN" ) &
-          PENCATAT=$!
-          trap 'kill "$PENCATAT" 2>/dev/null || true' EXIT
-
-          timeout 5400 docker build --progress=plain \
-            -t "$IMAGE" \
-            --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
-            --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
-            --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
-            --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
-            --build-arg NEXT_BUILD_CPUS=2 \
-            --build-arg NEXT_BUILD_FLAGS=--webpack \
-            --build-arg NODE_OPTIONS="--no-deprecation --max-old-space-size=6144" \
-            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL="${{ secrets.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}" \
-            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}" \
-            --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}" \
-            --build-arg SKIP_TS_CHECK=true \
-            .
-
-          # `wait` menuai proses latar tanpa membiarkan shell mencetak
-          # "Terminated" ke log build.
-          kill "$PENCATAT" 2>/dev/null || true
-          wait "$PENCATAT" 2>/dev/null || true
-          trap - EXIT
-          echo "=== Puncak sumber daya host selama docker build ==="
-          awk 'NR==1{min=$2}
-               {if ($1 > maks) maks = $1; if ($2 < min) min = $2}
-               END {
-                 if (NR == 0) { print "  (tidak ada cuplikan)"; exit }
-                 printf "  memori terpakai, puncak : %d MB\n", maks
-                 printf "  memori tersedia, minimum: %d MB\n", min
-                 printf "  jumlah cuplikan (10 dtk): %d\n", NR
-               }' "$CUPLIKAN"
-          echo "  beban rata-rata 1/5/15   : $(cut -d' ' -f1-3 /proc/loadavg) (dari $(nproc) core)"
-
-          timeout 3600 docker push "$IMAGE"
-
-      - name: Bangun & dorong image cron
-        run: |
-          set -euo pipefail
-          IMAGE="${{ steps.refs.outputs.cron_image }}"
-          timeout 600 docker build --progress=plain -t "$IMAGE" ./cron
-          timeout 1800 docker push "$IMAGE"
-
-      - name: Bangun & dorong image radius
-        run: |
-          set -euo pipefail
-          IMAGE="${{ steps.refs.outputs.radius_image }}"
-          timeout 900 docker build --progress=plain -t "$IMAGE" -f radius/Dockerfile .
-          timeout 1800 docker push "$IMAGE"
-
-      - name: Bersihkan secret build
-        if: always()
-        run: rm -rf .secrets
+          BATAS_DETIK=3600
+          JEDA_DETIK=30
+          batas=$((SECONDS + BATAS_DETIK))
+          for IMAGE in \
+            "${{ steps.refs.outputs.app_image }}" \
+            "${{ steps.refs.outputs.cron_image }}" \
+            "${{ steps.refs.outputs.radius_image }}"; do
+            until docker manifest inspect "${IMAGE}" >/dev/null 2>&1; do
+              if [ "${SECONDS}" -ge "${batas}" ]; then
+                echo "::error::Image ${IMAGE} belum ada di registry setelah ${BATAS_DETIK} detik. Periksa run 'Quality & Build Image' di GitHub Actions untuk commit ${GITHUB_SHA}, atau pastikan commit ini sudah didorong ke GitHub." >&2
+                exit 1
+              fi
+              echo "menunggu ${IMAGE}"
+              sleep "${JEDA_DETIK}"
+            done
+            echo "tersedia: ${IMAGE}"
+          done
 
   deploy:
-    needs: build
+    needs: image
     runs-on: netmanager-ci
     steps:
       # actions/checkout diunduh dari github.com setiap job, dan dari mesin ini
@@ -379,11 +231,11 @@ jobs:
               secrets.yaml|registry-secret.yaml) continue ;;
             esac
             sed \
-              -e "s|{{APP_IMAGE}}|${{ needs.build.outputs.app_image }}|g" \
-              -e "s|{{CRON_IMAGE}}|${{ needs.build.outputs.cron_image }}|g" \
-              -e "s|{{RADIUS_IMAGE}}|${{ needs.build.outputs.radius_image }}|g" \
+              -e "s|{{APP_IMAGE}}|${{ needs.image.outputs.app_image }}|g" \
+              -e "s|{{CRON_IMAGE}}|${{ needs.image.outputs.cron_image }}|g" \
+              -e "s|{{RADIUS_IMAGE}}|${{ needs.image.outputs.radius_image }}|g" \
               -e "s|{{NAMESPACE}}|${NAMESPACE}|g" \
-              -e "s|{{IMAGE_TAG}}|${{ needs.build.outputs.app_image }}|g" \
+              -e "s|{{IMAGE_TAG}}|${{ needs.image.outputs.app_image }}|g" \
               -e "s|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g" \
               "$manifest" > "rendered/$(basename "$manifest")"
           done
@@ -626,10 +478,10 @@ jobs:
           SSH="ssh -i ~/.ssh/deploy -o BatchMode=yes ${{ secrets.DEPLOY_SSH_TARGET }}"
           AKTIF="$($SSH "sudo -n kubectl -n ${NAMESPACE} get deploy netmanager-app -o jsonpath='{.spec.template.spec.containers[0].image}'")"
           echo "aktif   : ${AKTIF}"
-          echo "harusnya: ${{ needs.build.outputs.app_image }}"
+          echo "harusnya: ${{ needs.image.outputs.app_image }}"
           # Rollout bisa dilaporkan sukses padahal manifes lama yang terpasang;
           # pemeriksaan ini menutup celah itu.
-          [ "${AKTIF}" = "${{ needs.build.outputs.app_image }}" ]
+          [ "${AKTIF}" = "${{ needs.image.outputs.app_image }}" ]
 
       - name: Pangkas image aplikasi lama di node
         run: |

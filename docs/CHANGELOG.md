@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Deploy Gitea memakai image dari GitHub Actions
+
+- **Tipe**: [INFRA]
+- **Scope**: `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Tahap 2 pemindahan CI. Job `quality` dan `build` di Gitea dihapus;
+  job baru `image` memeriksa secret deploy, menyusun tag
+  `<12 karakter commit>-<epoch commit>` dengan rumus yang sama dengan
+  `build-image.yml`, lalu menunggu ketiga image muncul di GHCR (maks. 60 menit)
+  sebelum job `deploy` (preflight, cadangan, migrasi, rollout) berjalan tanpa
+  perubahan. Kunci SSH produksi tetap hanya di Gitea. Tes penjaga baru memastikan
+  rumus tag kedua workflow identik dan setiap commit yang memicu deploy Gitea
+  juga memicu build GitHub. Satu siklus push-sampai-live turun dari ±67 menit
+  ditambah antrean menjadi ±25 menit. Konsekuensi operasional: commit harus
+  didorong ke Gitea dan GitHub (remote `origin` lokal kini mendorong ke keduanya).
+- **Files**: `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/gitea-deploy-workflow-safety.test.ts`,
+  `tests/ci/deploy-secret-preflight-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Tes unit CI dipecah ke empat shard paralel
 
 - **Tipe**: [INFRA]

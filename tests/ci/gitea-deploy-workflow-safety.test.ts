@@ -18,6 +18,30 @@ function readWorkflow(): string {
   );
 }
 
+/** Quality dan build image kini berjalan di workflow GitHub ini. */
+function readBuildWorkflow(): string {
+  return readFileSync(
+    resolve(process.cwd(), ".github/workflows/build-image.yml"),
+    "utf8",
+  );
+}
+
+/** Daftar pola `paths-ignore` pemicu push sebuah workflow. */
+function readPathsIgnore(workflow: string): string[] {
+  const pola: string[] = [];
+  const baris = workflow.split("paths-ignore:\n")[1]?.split("\n") ?? [];
+  for (const isi of baris) {
+    const cocok = isi.match(/^\s+- "([^"]+)"$/);
+    if (cocok) {
+      pola.push(cocok[1]);
+      continue;
+    }
+    // Komentar di dalam daftar dilewati; baris lain berarti daftarnya habis.
+    if (!/^\s+#/.test(isi)) break;
+  }
+  return pola;
+}
+
 describe("Gitea production workflow safety", () => {
   it("stops waiting the moment the migration job fails instead of hanging until the timeout", () => {
     // `kubectl wait --for=condition=complete` tidak pernah kembali saat Job
@@ -36,7 +60,7 @@ describe("Gitea production workflow safety", () => {
   });
 
   it("installs dependencies deterministically without an npm install fallback", () => {
-    const workflow = readWorkflow();
+    const workflow = readBuildWorkflow();
 
     expect(workflow).toContain("npm ci --no-audit --prefer-offline");
     expect(workflow).not.toContain("npm install");
@@ -46,7 +70,7 @@ describe("Gitea production workflow safety", () => {
     // `--ignore-scripts` mematikan postinstall, jadi generate harus dipanggil
     // sendiri. Versi paralelnya sengaja tidak dipakai: puncak pemakaian RAM-nya
     // menjatuhkan job.
-    const workflow = readWorkflow();
+    const workflow = readBuildWorkflow();
     const indeksInstall = workflow.indexOf(
       "npm ci --no-audit --prefer-offline --ignore-scripts",
     );
@@ -67,9 +91,35 @@ describe("Gitea production workflow safety", () => {
     );
     expect(workflow).toContain("docker login");
 
-    // Ketiga image didorong, dan deploy menunggu job build selesai.
-    expect(workflow.match(/docker push "\$IMAGE"/g) ?? []).toHaveLength(3);
-    expect(workflow).toMatch(/deploy:\s*\n\s+needs: build/);
+    // Gitea tidak membangun apa pun: deploy menunggu ketiga image yang
+    // didorong GitHub Actions setelah quality dan tes lulus.
+    expect(workflow).not.toMatch(/docker (build|push) /);
+    expect(workflow).toContain('until docker manifest inspect "${IMAGE}"');
+    for (const output of ["app_image", "cron_image", "radius_image"]) {
+      expect(workflow).toContain(`"\${{ steps.refs.outputs.${output} }}"`);
+    }
+    expect(workflow).toMatch(/deploy:\s*\n\s+needs: image/);
+  });
+
+  it("computes the same image tag as the GitHub build workflow", () => {
+    // Rumus berbeda berarti deploy menunggu tag yang tidak pernah dibuat.
+    const rumus =
+      'VERSION="$(echo "${GITHUB_SHA}" | cut -c1-12)-$(git show -s --format=%ct HEAD)"';
+
+    expect(readWorkflow()).toContain(rumus);
+    expect(readBuildWorkflow()).toContain(rumus);
+  });
+
+  it("only deploys commits that the GitHub build workflow also builds", () => {
+    // Setiap pola yang diabaikan GitHub juga harus diabaikan Gitea. Kalau
+    // tidak, Gitea bisa menunggu image untuk commit yang tidak pernah dibangun.
+    const abaikanGitea = readPathsIgnore(readWorkflow());
+    const abaikanGithub = readPathsIgnore(readBuildWorkflow());
+
+    expect(abaikanGithub.length).toBeGreaterThan(0);
+    for (const pola of abaikanGithub) {
+      expect(abaikanGitea).toContain(pola);
+    }
   });
 
   it("never applies the placeholder secret templates that live in the repo", () => {
@@ -93,11 +143,11 @@ describe("Gitea production workflow safety", () => {
   });
 
   it("passes the git revision into the app image build", () => {
-    const workflow = readWorkflow();
+    const workflow = readBuildWorkflow();
 
-    expect(workflow).toContain('--build-arg IMAGE_REVISION="${GITHUB_SHA}"');
+    expect(workflow).toContain("IMAGE_REVISION=${{ github.sha }}");
     expect(workflow).toContain(
-      '--label org.opencontainers.image.revision="${GITHUB_SHA}"',
+      "labels: org.opencontainers.image.revision=${{ github.sha }}",
     );
   });
 

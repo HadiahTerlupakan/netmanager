@@ -27,7 +27,7 @@ function readJobBlock(jobName: string): string {
 
 /** Ambil blok step preflight saja, sampai step berikutnya di indentasi sama. */
 function readPreflightBlock(): string {
-  const quality = readJobBlock("quality");
+  const quality = readJobBlock("image");
   const start = quality.indexOf(PREFLIGHT_STEP);
   expect(start).toBeGreaterThanOrEqual(0);
 
@@ -38,8 +38,8 @@ function readPreflightBlock(): string {
 }
 
 describe("Deploy secret preflight safety", () => {
-  it("runs before anything is checked out or built", () => {
-    const quality = readJobBlock("quality");
+  it("runs before anything is checked out or waited on", () => {
+    const quality = readJobBlock("image");
 
     // Posisinya di paling depan justru supaya salah konfigurasi terbaca dalam
     // hitungan detik, bukan setelah build 23-65 menit selesai.
@@ -50,10 +50,9 @@ describe("Deploy secret preflight safety", () => {
     expect(checkoutIndex).toBeGreaterThan(preflightIndex);
   });
 
-  it("keeps the deploy private key out of the quality job", () => {
-    // Job ini menjalankan lint, typecheck, dan tes. Menarik DEPLOY_SSH_KEY ke
-    // sini berarti kunci privat produksi hadir di environment yang menjalankan
-    // kode pihak ketiga; kunci itu harus tetap terkurung di job deploy.
+  it("keeps the deploy private key out of the image job", () => {
+    // Job ini hanya memeriksa secret dan menunggu image. Kunci privat produksi
+    // tidak dibutuhkan di sini dan harus tetap terkurung di job deploy.
     const preflight = readPreflightBlock();
 
     expect(preflight).toContain("SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}");
@@ -62,7 +61,7 @@ describe("Deploy secret preflight safety", () => {
     );
     // Yang menyuntikkan kunci adalah ekspresinya, bukan penyebutan namanya —
     // komentar yang menjelaskan pengecualian ini justru harus tetap boleh ada.
-    expect(readJobBlock("quality")).not.toContain("secrets.DEPLOY_SSH_KEY");
+    expect(readJobBlock("image")).not.toContain("secrets.DEPLOY_SSH_KEY");
     expect(readJobBlock("deploy")).toContain("secrets.DEPLOY_SSH_KEY");
   });
 
