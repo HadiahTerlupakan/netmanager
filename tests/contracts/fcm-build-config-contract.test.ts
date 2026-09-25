@@ -8,21 +8,33 @@ function readProjectFile(relativePath: string): string {
 
 describe("fcm build config contract", () => {
   it("injects browser Firebase env and VAPID public key during the app image build", () => {
-    const workflow = readProjectFile(".gitea/workflows/deploy-production.yml");
+    const workflow = readProjectFile(".github/workflows/build-image.yml");
     const dockerfile = readProjectFile("Dockerfile");
 
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_API_KEY");
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL");
     expect(workflow).toContain(
-      "--build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+      "NEXT_PUBLIC_FIREBASE_API_KEY=${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}",
     );
     expect(workflow).toContain(
-      "--build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+      "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}",
     );
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_FIREBASE_APP_ID");
-    expect(workflow).toContain("--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}",
+    );
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_FIREBASE_DATABASE_URL=${{ vars.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}",
+    );
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}",
+    );
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}",
+    );
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_FIREBASE_APP_ID=${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}",
+    );
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}",
+    );
 
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_API_KEY");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");

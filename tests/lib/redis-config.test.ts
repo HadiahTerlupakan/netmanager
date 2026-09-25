@@ -89,7 +89,7 @@ describe("Redis configuration contract", () => {
       "utf8",
     );
     const workflow = readFileSync(
-      resolve(root, ".gitea/workflows/deploy-production.yml"),
+      resolve(root, ".github/workflows/build-image.yml"),
       "utf8",
     );
     const deployScript = readFileSync(resolve(root, "deploy.sh"), "utf8");
