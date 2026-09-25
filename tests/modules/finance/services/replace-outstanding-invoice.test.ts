@@ -4,6 +4,15 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// Pembatalan schedule dimuat dinamis dan menarik graf modul finance lengkap
+// (±1.300 berkas). Di sini cukup dipastikan ia dipanggil per invoice.
+const cancelInvoiceBillingSchedules = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined),
+);
+vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
+  cancelInvoiceBillingSchedules,
+}));
+
 import { cancelOutstandingInvoices } from "@/modules/finance/services/outstanding-invoice.helpers";
 
 function createInvoiceRepo(
@@ -34,6 +43,7 @@ describe("cancelOutstandingInvoices", () => {
       "inv-1",
       expect.objectContaining({ status: "CANCELLED" }),
     );
+    expect(cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
   });
 
   it("membatalkan invoice yang sudah lewat jatuh tempo", async () => {

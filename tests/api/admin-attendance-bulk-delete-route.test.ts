@@ -86,6 +86,23 @@ vi.mock("@/modules/attendance/services/AbsenceService", () => ({
   },
 }));
 
+// Route hanya memakai AdminAttendanceRouteService dari barrel absensi; barrel
+// lengkapnya menarik graf seluruh aplikasi. Service tetap implementasi asli.
+vi.mock("@/modules/attendance", async () => ({
+  AdminAttendanceRouteService: (
+    await import("@/modules/attendance/services/AdminAttendanceRouteService")
+  ).AdminAttendanceRouteService,
+}));
+
+// Barrel `@/modules/users` menarik graf seluruh aplikasi (±1.300 berkas) lewat
+// AdminUserRouteService -> event-bus. Service absensi hanya memakai
+// UserLookupService, jadi barrel dipersempit ke implementasi aslinya.
+vi.mock("@/modules/users", async () => ({
+  UserLookupService: (
+    await import("@/modules/users/services/UserLookupService")
+  ).UserLookupService,
+}));
+
 // Runner CI membutuhkan waktu lama untuk dynamic import + transform per-test (~5s
 // per `await import("@/app/api/admin/attendance/route")`). 11 dynamic import + load
 // lambat di CI kadang melewati 30s default. Naikkan timeout per-test ke 60s.

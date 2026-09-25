@@ -19,6 +19,15 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+// `lib/firebase/messaging` hanya memakai clearStaleFcmTokens dari barrel
+// notifikasi; barrel lengkapnya menarik graf seluruh aplikasi (±1.300 berkas).
+// Dipersempit ke implementasi aslinya.
+vi.mock("@/modules/notification", async () => ({
+  clearStaleFcmTokens: (
+    await import("@/modules/notification/services/MobileFcmTokenCleanupService")
+  ).clearStaleFcmTokens,
+}));
+
 describe("Firebase messaging admin token selection", () => {
   let getAdminTokens: (typeof import("@/lib/firebase/messaging"))["getAdminTokens"];
 

@@ -54,18 +54,27 @@ vi.mock("@/modules/attendance/services/AbsenceService", () => ({
   },
 }));
 
-vi.mock("@/modules/attendance", async () => {
-  const actual = await vi.importActual<typeof import("@/modules/attendance")>(
-    "@/modules/attendance",
-  );
-  return {
-    ...actual,
-    AttendanceService: class MockAttendanceService {
-      recomputeHistoricalAttendanceEvaluations =
-        mockFns.recomputeHistoricalAttendanceEvaluations;
-    },
-  };
-});
+// Kedua route hanya memakai AdminAttendanceRouteService dan AttendanceService
+// dari barrel absensi. `importActual` barrel lengkap menarik graf seluruh
+// aplikasi, jadi yang dimuat hanya service route yang asli.
+vi.mock("@/modules/attendance", async () => ({
+  AdminAttendanceRouteService: (
+    await import("@/modules/attendance/services/AdminAttendanceRouteService")
+  ).AdminAttendanceRouteService,
+  AttendanceService: class MockAttendanceService {
+    recomputeHistoricalAttendanceEvaluations =
+      mockFns.recomputeHistoricalAttendanceEvaluations;
+  },
+}));
+
+// Barrel `@/modules/users` menarik graf seluruh aplikasi (±1.300 berkas) lewat
+// AdminUserRouteService -> event-bus. Service absensi hanya memakai
+// UserLookupService, jadi barrel dipersempit ke implementasi aslinya.
+vi.mock("@/modules/users", async () => ({
+  UserLookupService: (
+    await import("@/modules/users/services/UserLookupService")
+  ).UserLookupService,
+}));
 
 describe("admin attendance route historical status backfill", () => {
   beforeEach(() => {

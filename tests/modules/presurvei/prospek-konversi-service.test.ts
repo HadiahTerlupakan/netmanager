@@ -15,6 +15,25 @@ import type { ProspekEntity } from "@/modules/presurvei/domain/entities/Prospek"
 import type { KegiatanEntity } from "@/modules/presurvei/domain/entities/Kegiatan";
 import type { CreateCanvasingInput } from "@/modules/marketing";
 
+// Service memuat `@/modules/marketing` secara dinamis hanya untuk validator
+// canvasing; barrel lengkapnya menarik graf seluruh aplikasi (±1.300 berkas).
+// Dipersempit ke validator asli supaya aturan marketing tetap teruji di sini.
+vi.mock("@/modules/marketing", async () => {
+  const validation =
+    await import("@/modules/marketing/services/CanvasingValidationService");
+  return {
+    parseCreateCanvasingInput: validation.parseCreateCanvasingInput,
+    getCanvasingValidationMessage: validation.getCanvasingValidationMessage,
+  };
+});
+
+// Pengumuman konversi berjalan fire-and-forget dan tidak diperiksa di berkas
+// ini; tanpa stub, `@/lib/event-bus` memuat seluruh registry worker di latar.
+vi.mock("@/lib/event-bus", async () => ({
+  eventBus: { publish: vi.fn().mockResolvedValue(undefined) },
+  EVENT_NAMES: (await import("@/lib/event-bus/types")).EVENT_NAMES,
+}));
+
 /**
  * Signature tiruan untuk parameter ketiga konstruktor `ProspekKonversiService`.
  *

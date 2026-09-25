@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { LocationTrackingService } from "@/modules/attendance/services/LocationTrackingService";
+
 const mockFns = vi.hoisted(() => ({
   publish: vi.fn().mockResolvedValue(undefined),
   createLocation: vi.fn(),
@@ -30,9 +32,17 @@ vi.mock("@/modules/users/repositories/UserRepository", () => ({
   },
 }));
 
+// Service hanya memakai UserLookupService dari barrel `@/modules/users`;
+// barrel lengkapnya menarik graf seluruh aplikasi (±1.300 berkas). Dipersempit
+// ke implementasi aslinya, yang tetap memakai UserRepository tiruan di atas.
+vi.mock("@/modules/users", async () => ({
+  UserLookupService: (
+    await import("@/modules/users/services/UserLookupService")
+  ).UserLookupService,
+}));
+
 describe("LocationTrackingService realtime publishing", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     mockFns.createLocation.mockResolvedValue({
       latitude: -6.2,
@@ -49,8 +59,6 @@ describe("LocationTrackingService realtime publishing", () => {
   });
 
   it("publishes the saved location to the tenant admin Firebase stream", async () => {
-    const { LocationTrackingService } =
-      await import("@/modules/attendance/services/LocationTrackingService");
     const service = new LocationTrackingService();
 
     await service.saveLocation("user-1", {
@@ -82,8 +90,6 @@ describe("LocationTrackingService realtime publishing", () => {
   }, 20000);
 
   it("publishes the latest batched location to the tenant admin Firebase stream", async () => {
-    const { LocationTrackingService } =
-      await import("@/modules/attendance/services/LocationTrackingService");
     const service = new LocationTrackingService();
 
     await service.saveLocations("user-1", [

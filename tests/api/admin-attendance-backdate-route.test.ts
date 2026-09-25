@@ -37,6 +37,23 @@ vi.mock("@/modules/database", () => ({
   prisma: prismaMock,
 }));
 
+// Route hanya memakai AdminAttendanceBackdateRouteService dari barrel absensi;
+// barrel lengkapnya menarik graf seluruh aplikasi. Service tetap asli.
+vi.mock("@/modules/attendance", async () => ({
+  AdminAttendanceBackdateRouteService: (
+    await import("@/modules/attendance/services/AdminAttendanceBackdateRouteService")
+  ).AdminAttendanceBackdateRouteService,
+}));
+
+// Barrel `@/modules/users` menarik graf seluruh aplikasi (±1.300 berkas) lewat
+// AdminUserRouteService -> event-bus. Service absensi hanya memakai
+// UserLookupService, jadi barrel dipersempit ke implementasi aslinya.
+vi.mock("@/modules/users", async () => ({
+  UserLookupService: (
+    await import("@/modules/users/services/UserLookupService")
+  ).UserLookupService,
+}));
+
 describe("admin attendance backdate route", () => {
   beforeEach(() => {
     vi.clearAllMocks();

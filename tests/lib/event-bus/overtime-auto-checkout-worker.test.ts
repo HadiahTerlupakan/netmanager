@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { QUEUE_NAMES } from "@/lib/event-bus/types";
+import {
+  rehydrateOvertimeAutoCheckoutJobs,
+  startWorkers,
+} from "@/lib/event-bus/workers";
+
 import { prismaMock } from "../../setup";
 
 const mockFns = vi.hoisted(() => ({
@@ -33,22 +39,27 @@ vi.mock("bullmq", () => {
   };
 });
 
-class RedisMock {
-  on = vi.fn();
-  once = vi.fn((event: string, callback: () => void) => {
-    if (event === "ready") {
-      setTimeout(callback, 0);
-    }
-  });
-  duplicate = vi.fn(() => ({
-    on: vi.fn(),
-    once: vi.fn((event: string, callback: () => void) => {
+// Di dalam vi.hoisted supaya sudah terdefinisi saat import statis di atas
+// memicu factory mock ioredis.
+const { RedisMock } = vi.hoisted(() => {
+  class RedisMock {
+    on = vi.fn();
+    once = vi.fn((event: string, callback: () => void) => {
       if (event === "ready") {
         setTimeout(callback, 0);
       }
-    }),
-  }));
-}
+    });
+    duplicate = vi.fn(() => ({
+      on: vi.fn(),
+      once: vi.fn((event: string, callback: () => void) => {
+        if (event === "ready") {
+          setTimeout(callback, 0);
+        }
+      }),
+    }));
+  }
+  return { RedisMock };
+});
 
 vi.mock("ioredis", () => ({
   default: RedisMock,
@@ -86,9 +97,29 @@ vi.mock("@/modules/overtime/services/OvertimeAutoCheckoutService", () => ({
   },
 }));
 
+// Registry handler default mengimpor sepuluh barrel modul (seluruh aplikasi,
+// ±1.300 berkas) padahal tes ini hanya menguji rehidrasi dan worker lembur.
+// Registrasi handler yang asli sudah diuji di workers-notification-created.
+vi.mock("@/lib/event-bus/event-handlers", () => ({
+  registerDefaultHandlers: vi.fn(),
+  registerEventHandler: vi.fn(),
+  getEventHandlers: vi.fn(() => []),
+}));
+
+// Worker memuat `@/modules/overtime` secara dinamis. Barrel itu menarik graf
+// modul yang sama besarnya, jadi dipersempit ke dua simbol yang dipakai worker:
+// rehidrasi tetap implementasi asli, service auto checkout tetap mock di atas.
+vi.mock("@/modules/overtime", async () => ({
+  rehydrateOvertimeAutoCheckoutJobs: (
+    await import("@/modules/overtime/services/OvertimeAutoCheckoutRehydrationService")
+  ).rehydrateOvertimeAutoCheckoutJobs,
+  OvertimeAutoCheckoutService: (
+    await import("@/modules/overtime/services/OvertimeAutoCheckoutService")
+  ).OvertimeAutoCheckoutService,
+}));
+
 describe("overtime auto checkout worker startup", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     mockFns.processors.length = 0;
     Object.assign(prismaMock, {
@@ -124,9 +155,6 @@ describe("overtime auto checkout worker startup", () => {
     prismaMock.overtimeAutoCheckoutSchedule.update.mockResolvedValueOnce({
       id: "schedule-2",
     } as never);
-
-    const { rehydrateOvertimeAutoCheckoutJobs } =
-      await import("@/lib/event-bus/workers");
 
     await rehydrateOvertimeAutoCheckoutJobs();
 
@@ -179,27 +207,22 @@ describe("overtime auto checkout worker startup", () => {
       Object.assign(new Error("missing table"), { code: "P2021" }),
     );
 
-    const { rehydrateOvertimeAutoCheckoutJobs } =
-      await import("@/lib/event-bus/workers");
-
     await expect(rehydrateOvertimeAutoCheckoutJobs()).resolves.toBeUndefined();
     expect(mockFns.addOvertimeAutoCheckoutJob).not.toHaveBeenCalled();
   }, 20000);
 
   it("processes overtime auto checkout jobs through the dedicated worker", async () => {
-    const { startWorkers } = await import("@/lib/event-bus/workers");
-    const { QUEUE_NAMES } = await import("@/lib/event-bus/types");
-
     startWorkers();
 
-    // Wait longer for Redis ready event and worker creation
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    const overtimeWorker = mockFns.processors.find(
-      (item) => item.queueName === QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
-    );
-
-    expect(overtimeWorker).toBeDefined();
+    // Worker baru dibuat setelah event "ready" Redis (setTimeout 0 di mock);
+    // tunggu sampai muncul alih-alih tidur dengan durasi tetap.
+    const overtimeWorker = await vi.waitFor(() => {
+      const worker = mockFns.processors.find(
+        (item) => item.queueName === QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
+      );
+      expect(worker).toBeDefined();
+      return worker;
+    });
 
     await overtimeWorker!.processor({
       data: {

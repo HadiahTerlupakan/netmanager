@@ -12,6 +12,13 @@ vi.mock("@/lib/tenant-context", () => ({
   getTenantIdFromContext: vi.fn(),
 }));
 
+// Tanpa mock ini `acquireLock` memanggil `redis.set` dari mock global yang
+// mengembalikan undefined, lalu berputar sampai timeout 5 detik sungguhan di
+// setiap `create`/`createRequest`. Lock bukan pokok tes IDOR ini.
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
 describe("WorkOrderRepository - IDOR Protection", () => {
   let repository: WorkOrderRepository;
 

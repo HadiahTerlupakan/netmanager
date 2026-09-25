@@ -89,6 +89,24 @@ vi.mock("@/modules/attendance/services/AutoCheckoutService", () => ({
   },
 }));
 
+// Registry handler default mengimpor sepuluh barrel modul (seluruh aplikasi,
+// ±1.300 berkas) padahal tes ini hanya menguji antrean dan worker auto
+// checkout. Registrasi handler yang asli sudah diuji di
+// workers-notification-created.
+vi.mock("@/lib/event-bus/event-handlers", () => ({
+  registerDefaultHandlers: vi.fn(),
+  registerEventHandler: vi.fn(),
+  getEventHandlers: vi.fn(() => []),
+}));
+
+// Worker memuat `@/modules/attendance` secara dinamis hanya untuk
+// AutoCheckoutService; barrel lengkapnya menarik graf modul yang sama besar.
+vi.mock("@/modules/attendance", async () => ({
+  AutoCheckoutService: (
+    await import("@/modules/attendance/services/AutoCheckoutService")
+  ).AutoCheckoutService,
+}));
+
 describe("attendance auto checkout worker startup", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -208,14 +226,15 @@ describe("attendance auto checkout worker startup", () => {
 
     startWorkers();
 
-    // Wait for Redis ready event to trigger worker creation
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const attendanceWorker = mockFns.processors.find(
-      (item) => item.queueName === QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
-    );
-
-    expect(attendanceWorker).toBeDefined();
+    // Worker baru dibuat setelah event "ready" Redis (setTimeout 0 di mock);
+    // tunggu sampai muncul alih-alih tidur dengan durasi tetap.
+    const attendanceWorker = await vi.waitFor(() => {
+      const worker = mockFns.processors.find(
+        (item) => item.queueName === QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
+      );
+      expect(worker).toBeDefined();
+      return worker;
+    });
 
     await attendanceWorker!.processor({
       data: {
