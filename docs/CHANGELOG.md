@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Kosongkan README; panduan setup pindah ke docs/guides
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Persiapan repo publik: `README.md` dikosongkan agar repo tidak
+  menonjol di pencarian umum. Isinya dipindah utuh ke `docs/guides/setup.md`, dan
+  tes konfigurasi Redis kini membaca berkas itu.
+- **Files**: `README.md`, `docs/guides/setup.md`, `tests/lib/redis-config.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Keluarkan .mcp.json dari git dan pindai secret di CI
 
 - **Tipe**: [SECURITY]

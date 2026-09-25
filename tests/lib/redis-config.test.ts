@@ -105,7 +105,7 @@ describe("Redis configuration contract", () => {
 
   it("documents redis as explicit local and production configuration using port 6379", () => {
     const root = process.cwd();
-    const readme = readFileSync(resolve(root, "README.md"), "utf8");
+    const readme = readFileSync(resolve(root, "docs/guides/setup.md"), "utf8");
     const envExample = readFileSync(
       resolve(root, ".env.production.example"),
       "utf8",
