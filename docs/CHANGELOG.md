@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Quality dan build image netmanager di GitHub Actions
+
+- **Tipe**: [INFRA]
+- **Scope**: `.github/workflows/`, `.gitea/workflows/`
+- **Author**: agent
+- **Deskripsi**: Tahap 1 pemindahan quality + build image ke runner GitHub-hosted.
+  Di VPS Gitea build image rata-rata 47 menit dan satu run ~67 menit ditambah
+  antrean. Workflow baru `build-image.yml` menjalankan lint, typecheck, dan tes,
+  lalu mendorong image app/cron/radius ke GHCR dengan tag
+  `<12 karakter commit>-<epoch commit>`. Workflow ini tidak memegang akses
+  produksi: tidak ada kunci SSH, kubectl, atau secret runtime; hanya
+  `GITHUB_TOKEN` untuk GHCR, dan nilai `NEXT_PUBLIC_*` sebagai repository
+  variables karena memang tertanam di JavaScript browser. Selama masa uji,
+  pipeline Gitea tetap membangun dan men-deploy seperti biasa. Tahap 2
+  (deploy Gitea menunggu image dari GitHub lalu quality/build Gitea dimatikan)
+  menyusul setelah waktu dan hasil build GitHub terbukti. Pipeline Gitea kini
+  juga tidak terpicu oleh commit yang hanya mengubah `.github/**`.
+- **Files**: `.github/workflows/build-image.yml`,
+  `.gitea/workflows/deploy-production.yml`,
+  `tests/ci/github-build-workflow-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Idempotensi: kunci IN_PROGRESS tidak lagi dibalas KEY_REUSED
 
 - **Tipe**: [FIXED]

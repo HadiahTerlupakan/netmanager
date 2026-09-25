@@ -19,6 +19,9 @@ on:
       - "docs/**"
       - "tasks/**"
       - "**/*.md"
+      # Workflow GitHub (quality + build image) tidak ikut masuk ke image
+      # maupun deploy, jadi mengubahnya tidak perlu memicu siklus deploy.
+      - ".github/**"
   workflow_dispatch:
     inputs:
       allow_migration_without_backup:
