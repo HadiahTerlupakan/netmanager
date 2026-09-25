@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Percepat sebelas berkas tes paling lambat
+
+- **Tipe**: [CHANGED]
+- **Scope**: `tests/`
+- **Author**: agent
+- **Deskripsi**: Sebelas dari lima belas berkas tes paling lambat dipercepat
+  tanpa menghapus atau melemahkan assertion. Penyebab utamanya graf modul:
+  hampir setiap barrel modul terhubung ke `lib/event-bus/index` → `workers` →
+  `event-handlers`, yang mengimpor sepuluh barrel sekaligus (±1.300 berkas).
+  Tes kini mempersempit barrel ke implementasi asli simbol yang dipakai,
+  me-mock `acquireLock` di tes IDOR work order (sebelumnya menunggu timeout
+  lock 5 detik sungguhan dua kali), dan mengganti sleep tetap dengan
+  `vi.waitFor`. Empat berkas sengaja tidak diubah karena memuat graf penuh
+  adalah pokok ujinya. Konfigurasi Vitest tetap: `pool: 'threads'` hanya
+  ±6% lebih cepat, `deps.optimizer` merusak 27 berkas yang me-mock `react`,
+  dan `isolate: false` menggagalkan ±173 berkas.
+- **Files**: `tests/modules/work-order/WorkOrderRepository-IDOR.test.ts`,
+  `tests/lib/event-bus/overtime-auto-checkout-worker.test.ts`,
+  `tests/lib/event-bus/attendance-auto-checkout-worker.test.ts`,
+  `tests/api/admin-attendance-*.test.ts`, `tests/lib/firebase/messaging*.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Deploy Gitea memakai image dari GitHub Actions
 
 - **Tipe**: [INFRA]
