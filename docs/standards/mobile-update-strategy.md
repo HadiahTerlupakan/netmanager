@@ -9,7 +9,7 @@ Project ini punya dua channel update yang jalan bersamaan:
 **Cara kerja:** `runtimeVersion.policy = "fingerprint"` — Expo CLI generate hash dari native files setiap build. OTA bundle hanya ter-deliver ke APK dengan fingerprint sama.
 
 **Trigger:**
-- Edit kode JS/TS → `git push` ke `main` → workflow Gitea `.gitea/workflows/ota.yml` menjalankan `scripts/publish-update.sh production`
+- Edit kode JS/TS → `git push` ke `main` → workflow GitHub `.github/workflows/ota.yml` (repo `mobile-netmanager`) menjalankan `scripts/publish-update.sh production`
   (OTA proyek ini self-hosted lewat `/api/mobile/app-update/manifest`, bukan `eas update` ke `u.expo.dev`)
 - Mobile auto-detect saat AppState 'active', download silent, reload
 

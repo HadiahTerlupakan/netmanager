@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-25] — Deploy produksi langsung dari GitHub Actions; Gitea pensiun
+
+- **Tipe**: [INFRA]
+- **Scope**: `.github/workflows/`, `scripts/deploy/`, `infra/`
+- **Author**: agent
+- **Deskripsi**: Seluruh CI/CD kini di GitHub Actions dan server Gitea siap dimatikan.
+  Job `deploy` di `build-image.yml` (environment `production`, hanya cabang `main`)
+  mengirim SHA commit lewat SSH ke host produksi. Kuncinya dikunci ke satu perintah
+  (`command="/usr/local/bin/netmanager-deploy",restrict`). Langkah deploy pindah
+  dari workflow Gitea ke `scripts/deploy/netmanager-deploy.sh`, yang berjalan di host:
+  memverifikasi commit leluhur `main` lewat compare API, menurunkan tag image dari
+  tanggal commit, mengambil manifes dari commit itu, memeriksa image dengan
+  kredensial pull cluster, lalu preflight, cadangan 4 DB, migrasi, apply, rollout,
+  verifikasi, dan pangkas image. Skrip melepaskan diri dari sesi SSH (tetap selesai
+  bila koneksi putus) dan mencatat log di `/var/backups/netmanager/log/`. Deploy
+  lewat skrip ±1 menit (dulu 8–10 menit lewat SSH dari Gitea). `.gitea/` dihapus;
+  tes penjaga dipindah ke skrip dan workflow GitHub (29 mutasi terbukti tertangkap).
+  Cadangan penuh Gitea (dump + bundle kedua repo) disimpan di luar server.
+- **Files**: `.github/workflows/build-image.yml`, `scripts/deploy/netmanager-deploy.sh`,
+  `tests/helpers/deploy-sources.ts`, `tests/ci/deploy-script-safety.test.ts`,
+  `tests/ci/deploy-production-preflight-safety.test.ts`,
+  `tests/ci/github-deploy-job-safety.test.ts`, `tests/ci/deploy-image-prune-safety.test.ts`,
+  `tests/ci/pipefail-safety.test.ts`, `tests/ci/runner-node-version.test.ts`,
+  `tests/ci/migration-job-safety.test.ts`, `DEPLOYMENT.md`, `docs/standards/*`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Deploy Gitea berhenti cepat bila build GitHub gagal
 
 - **Tipe**: [FIXED]

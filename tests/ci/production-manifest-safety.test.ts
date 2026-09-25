@@ -54,10 +54,7 @@ describe("production manifest safety", () => {
 
     expect(deploymentGuide).not.toContain("kubectl set image");
     expect(deploymentGuide).toContain(
-      "- render manifest Kubernetes dengan image ref immutable",
-    );
-    expect(deploymentGuide).toContain(
-      "4. Deployment merender manifest lalu apply ke Kubernetes",
+      "5. Skrip merender manifest Kubernetes dengan image ref immutable lalu apply ke",
     );
   });
 

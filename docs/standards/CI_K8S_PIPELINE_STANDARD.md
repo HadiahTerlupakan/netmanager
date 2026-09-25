@@ -181,9 +181,12 @@ Sebelum merge perubahan Jenkins/K8s/deploy:
 
 ## 10. Catatan Implementasi Saat Ini
 
-Pipeline berjalan di **Gitea Actions** (`.gitea/workflows/deploy-production.yml`).
-Jenkins dihapus pada 14 September 2026; standar di dokumen ini tidak berubah,
-hanya subjek yang menegakkannya.
+Pipeline berjalan di **GitHub Actions** (`.github/workflows/build-image.yml`);
+langkah deploy dijalankan skrip di host produksi
+(`scripts/deploy/netmanager-deploy.sh`, dipanggil lewat kunci SSH yang terkunci
+ke satu perintah). Jenkins dihapus 14 September 2026 dan Gitea dimatikan
+25 September 2026; standar di dokumen ini tidak berubah, hanya subjek yang
+menegakkannya.
 
 Tiap aturan di atas punya tes yang menjaganya, sehingga pelanggarannya merah di
 CI dan bukan ditemukan saat deploy:

@@ -658,7 +658,8 @@ describe("migration job safety", () => {
   });
 
   it("waits longer than the Job's own deadline so the Job decides the outcome", () => {
-    // Jaminan ini dulu dijaga terhadap Jenkinsfile. Bentuknya sengaja diubah
+    // Jaminan ini dulu dijaga terhadap Jenkinsfile, lalu workflow Gitea, dan
+    // kini skrip deploy produksi. Bentuknya sengaja diubah
     // dari mencocokkan angka menjadi memeriksa hubungan: kedua nilai pernah
     // berjalan sendiri-sendiri sampai batas tunggu CI justru lebih pendek
     // daripada deadline Job-nya.
@@ -670,17 +671,20 @@ describe("migration job safety", () => {
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
       "utf8",
     );
-    const workflow = readFileSync(
-      resolve(process.cwd(), ".gitea/workflows/deploy-production.yml"),
+    const deployScript = readFileSync(
+      resolve(process.cwd(), "scripts/deploy/netmanager-deploy.sh"),
       "utf8",
     );
 
     const deadline = migrationJob.match(/activeDeadlineSeconds:\s*(\d+)/);
     // Penungguan memakai loop yang juga mengenali kondisi Failed, jadi anggaran
-    // waktunya terbaca dari batas loop, bukan lagi dari `--timeout` milik
-    // `kubectl wait`.
-    const batasTunggu = workflow.match(/batas=\$\(\(SECONDS \+ (\d+)\)\)/);
+    // waktunya terbaca dari konstanta batas loop di skrip deploy, dan konstanta
+    // itu harus benar-benar dipakai sebagai batas loop.
+    const batasTunggu = deployScript.match(/^BATAS_TUNGGU_MIGRASI_DETIK=(\d+)$/m);
 
+    expect(deployScript).toContain(
+      "batas=$((SECONDS + BATAS_TUNGGU_MIGRASI_DETIK))",
+    );
     expect(deadline).not.toBeNull();
     expect(batasTunggu).not.toBeNull();
     expect(Number(batasTunggu![1])).toBeGreaterThan(Number(deadline![1]));

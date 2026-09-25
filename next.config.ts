@@ -188,8 +188,8 @@ const nextConfig: NextConfig = {
     // diisi; tanpa itu Next memakai default-nya sendiri (turun dari jumlah core).
     //
     // Dulu nilainya `|| 2`, dan batas itu tidak melayani siapa pun: pipeline
-    // sudah mengirim `--build-arg NEXT_BUILD_CPUS=1` sendiri
-    // (`.gitea/workflows/deploy-production.yml`), sehingga angka 2 tidak pernah
+    // sudah mengirim `NEXT_BUILD_CPUS` sendiri sebagai build-arg
+    // (`.github/workflows/build-image.yml`), sehingga angka 2 tidak pernah
     // dipakai CI — yang terkena justru mesin pengembang, yang punya banyak core
     // tapi dipaksa jalan dengan dua worker.
     //

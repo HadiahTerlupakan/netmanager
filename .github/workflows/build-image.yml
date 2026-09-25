@@ -1,19 +1,19 @@
-name: Quality & Build Image
+name: Quality, Build & Deploy
 
-# Quality dan build image dipindah ke runner GitHub-hosted. Di VPS Gitea
-# (Xeon E3-1220 v3, 4 core) build image memakan rata-rata 47 menit dan seluruh
-# pipeline ~67 menit ditambah antrean.
+# Seluruh CI/CD netmanager: gitleaks, lint, typecheck, tes 4 shard, build image
+# ke GHCR, lalu deploy ke produksi. Menggantikan pipeline Gitea (dimatikan
+# 2026-09-25) dan Jenkins sebelumnya. Build tidak pernah berjalan di host
+# produksi: build Next.js pernah menembus 21 GB dan menjatuhkan seluruh host.
 #
-# Workflow ini SENGAJA tidak memegang akses apa pun ke produksi: tidak ada
-# kunci SSH, tidak ada kubectl, tidak ada secret runtime. Hasilnya hanya image
-# di GHCR. Deploy (preflight, cadangan, migrasi, rollout) tetap di
-# `.gitea/workflows/deploy-production.yml`, satu-satunya tempat kunci SSH
-# produksi berada. Image hanya didorong bila quality lulus, jadi keberadaan
-# image untuk sebuah commit sekaligus bukti commit itu lolos quality.
+# Deploy memakai kunci SSH yang di host produksi dikunci ke satu perintah
+# (`command="/usr/local/bin/netmanager-deploy",restrict`, sumbernya
+# `scripts/deploy/netmanager-deploy.sh`). Workflow hanya mengirim SHA commit;
+# skrip di host sendiri yang memverifikasi commit ada di `main`, menurunkan tag
+# image, dan mengambil manifes dari commit itu. Kunci yang bocor karenanya tidak
+# memberi shell, kubectl bebas, atau jalan menerapkan manifes kiriman sendiri.
 #
-# Tag image: `<12 karakter commit>-<epoch commit>`. Nilainya bisa dihitung
-# ulang oleh job deploy dari commit yang sama, dan sufiks angkanya menaik
-# sehingga pemangkasan image di node (urut numerik sufiks) tetap benar.
+# Tag image: `<12 karakter commit>-<epoch commit>`, dihitung ulang oleh skrip
+# deploy dari commit yang sama.
 
 on:
   push:
@@ -224,3 +224,38 @@ jobs:
           labels: org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=netmanager-radius
           cache-to: type=gha,scope=netmanager-radius,mode=max
+
+  # Satu deploy dalam satu waktu; push beruntun mengantre, tidak dibatalkan.
+  # Environment `production` hanya bisa dipakai dari cabang main dan menyimpan
+  # satu-satunya secret sensitif di workflow ini (DEPLOY_SSH_KEY).
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    # Di atas waktu terburuk skrip: tunggu migrasi 3900 dtk + rollout 4x420 dtk
+    # + cadangan. Kalaupun job diputus, skrip di host tetap berjalan sampai
+    # selesai (lihat bagian "terlepas" di netmanager-deploy.sh).
+    timeout-minutes: 150
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Deploy ke produksi
+        env:
+          KUNCI_DEPLOY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TARGET_DEPLOY: ${{ vars.DEPLOY_SSH_TARGET }}
+          # Host key disematkan: StrictHostKeyChecking=no menerima host palsu.
+          KNOWN_HOSTS_DEPLOY: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${KUNCI_DEPLOY}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "${KNOWN_HOSTS_DEPLOY}" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            "${TARGET_DEPLOY}" "${GITHUB_SHA}"
+
+      - name: Hapus kunci SSH
+        if: always()
+        run: rm -f ~/.ssh/deploy

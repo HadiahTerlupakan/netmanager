@@ -1,29 +1,23 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
+
+import { readBuildWorkflow, readProjectFile } from "../helpers/deploy-sources";
 
 /**
  * Runtime yang dipakai MEMVALIDASI harus sama dengan runtime yang dipakai
  * MENJALANKAN.
  *
- * Kejadian nyata (2026-09-21): image runner `netmanager-ci` tertinggal di
- * `node:20-bullseye` selama berbulan-bulan, sementara `package.json` menuntut
- * `>=24.0.0` dan image produksi memakai `node:24-alpine`. Jadi job `quality` —
- * lint, typecheck, dan 4136 tes — lulus di Node 20, lalu aplikasinya dikirim
- * berjalan di Node 24. Perbedaan perilaku antar versi tidak akan pernah
- * tertangkap. `npm ci` mencetak EBADENGINE tiap run, tetapi peringatan bukan
- * kegagalan sehingga tidak ada yang menindaklanjuti.
+ * Kejadian nyata (2026-09-21): image runner Gitea `netmanager-ci` tertinggal
+ * di `node:20-bullseye` selama berbulan-bulan, sementara `package.json`
+ * menuntut `>=24.0.0` dan image produksi memakai `node:24-alpine`. Jadi job
+ * `quality` — lint, typecheck, dan 4136 tes — lulus di Node 20, lalu
+ * aplikasinya dikirim berjalan di Node 24. `npm ci` mencetak EBADENGINE tiap
+ * run, tetapi peringatan bukan kegagalan sehingga tidak ada yang
+ * menindaklanjuti.
  *
- * Penyimpangan itu bertahan lama karena definisi image hidup di luar repo
- * (`/home/ubuntu/ci-image/Dockerfile` pada host Gitea) sehingga tidak pernah
- * terlihat saat review. Salinannya kini diversikan di `.gitea/ci-image/`, dan
- * tes ini yang menjaganya tetap sejalan.
+ * Runner Gitea sudah pensiun. Validasi kini berjalan di GitHub Actions, dan
+ * versi Node-nya ditentukan `actions/setup-node` di tiap job — itulah yang
+ * dijaga sejalan di sini.
  */
-
-function readProjectFile(relativePath: string): string {
-  return readFileSync(resolve(process.cwd(), relativePath), "utf8");
-}
 
 /** Angka mayor dari rentang semver sederhana seperti ">=24.0.0". */
 function majorFromEngineRange(range: string): number {
@@ -50,13 +44,18 @@ describe("versi Node runner, produksi, dan package.json sejalan", () => {
     expect(enginesRange).toBeTruthy();
   });
 
-  it("image runner CI memakai mayor Node yang sama dengan engines", () => {
-    const diminta = majorFromEngineRange(enginesRange!);
-    const runner = majorFromDockerBase(
-      readProjectFile(".gitea/ci-image/Dockerfile"),
+  it("setiap setup-node di workflow GitHub memakai mayor Node yang sama dengan engines", () => {
+    const workflow = readBuildWorkflow();
+    const jumlahSetupNode = workflow.match(/uses: actions\/setup-node@/g)?.length ?? 0;
+    const versi = [...workflow.matchAll(/^\s+node-version: ["']?(\d+)/gm)].map(
+      (match) => Number(match[1]),
     );
 
-    expect(runner).toBe(diminta);
+    // Setiap setup-node harus menyebut versinya sendiri; tanpa itu runner
+    // memakai Node bawaan image ubuntu yang tidak dijaga siapa pun.
+    expect(jumlahSetupNode).toBeGreaterThan(0);
+    expect(versi).toHaveLength(jumlahSetupNode);
+    expect(new Set(versi)).toEqual(new Set([majorFromEngineRange(enginesRange!)]));
   });
 
   it("image produksi memakai mayor Node yang sama dengan engines", () => {

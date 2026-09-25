@@ -103,7 +103,10 @@ Saat audit security hygiene:
 
 ## 7. Current Audit Outcome (per 14 September 2026)
 
-- CI/CD sepenuhnya di **Gitea Actions**. Jenkins beserta namespace, ingress,
+- (25 September 2026) CI/CD pindah ke **GitHub Actions**; server Gitea
+  dimatikan. `DEPLOY_SSH_KEY` kini ada di environment `production` GitHub dan
+  di host produksi dikunci ke `/usr/local/bin/netmanager-deploy`.
+- (14 September 2026) CI/CD sepenuhnya di **Gitea Actions**. Jenkins beserta namespace, ingress,
   sertifikat, dan secret-nya sudah dihapus dari cluster; cadangan namespace
   tersimpan di `/root/jenkins-namespace-backup-20260914-101216/` pada host
   produksi.

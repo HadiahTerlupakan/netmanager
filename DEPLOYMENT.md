@@ -1,6 +1,6 @@
 # 🚀 Panduan Deployment NetManager
 
-Panduan lengkap untuk bootstrap awal, deployment rutin via Gitea Actions + Kubernetes, dan recovery manual NetManager di VPS Ubuntu 22.04.
+Panduan lengkap untuk bootstrap awal, deployment rutin via GitHub Actions + Kubernetes, dan recovery manual NetManager di VPS Ubuntu 22.04.
 
 ---
 
@@ -67,26 +67,33 @@ Tambahkan DNS records di domain provider (Cloudflare, dll):
 
 ## Aturan Operasional Production
 
-- Production hanya boleh berubah melalui workflow Gitea Actions.
+- Production hanya boleh berubah melalui workflow GitHub Actions.
 - Rancher/kubectl manual bukan jalur deploy atau recovery yang sah.
 - Jika deploy gagal karena drift atau missing secret, selesaikan lewat guardrail resmi lalu jalankan ulang workflow-nya.
 
-### Jalur Utama: Gitea Actions + Kubernetes ✅
+### Jalur Utama: GitHub Actions + skrip deploy di host ✅
 
-Pipeline ada di `.gitea/workflows/deploy-production.yml` dan terpicu setiap push
-ke `main` (commit yang hanya menyentuh dokumentasi dilewati). Pipeline ini
-menangani:
-- build image immutable, ditandai `<12 karakter commit>-<nomor run>`
-- migration job di Kubernetes, didahului preflight dan cadangan basis data
-- render manifest Kubernetes dengan image ref immutable
-- verifikasi rollout sebelum dianggap sukses
+Pipeline ada di `.github/workflows/build-image.yml` dan terpicu setiap push ke
+`main` di GitHub (commit yang hanya menyentuh dokumentasi dilewati). Server
+Gitea dan Jenkins sudah tidak dipakai.
 
 Alur umumnya:
-1. Push ke `main` memicu job `quality` (lint, typecheck, tes) lebih dulu
-2. Job `build` membangun ketiga image dan mendorongnya ke registry
-3. Job `deploy` menjalankan preflight, mencadangkan basis data, lalu menjalankan migration job
-4. Deployment merender manifest lalu apply ke Kubernetes
-5. Pipeline memverifikasi rollout dan image yang benar-benar aktif sebelum menutup run
+1. Job `quality` (gitleaks, lint, typecheck) dan job `tes` (4 shard paralel)
+2. Job `build` membangun ketiga image dan mendorongnya ke GHCR dengan tag
+   `<12 karakter commit>-<epoch commit>`
+3. Job `deploy` (environment `production`, hanya cabang `main`) mengirim SHA
+   commit lewat SSH ke host produksi. Kuncinya terkunci ke satu perintah,
+   `/usr/local/bin/netmanager-deploy` (sumber: `scripts/deploy/netmanager-deploy.sh`)
+4. Skrip di host memverifikasi commit ada di `main`, menurunkan tag image,
+   mengambil manifes dari commit itu, menjalankan preflight, mencadangkan
+   keempat basis data, lalu menjalankan migration job
+5. Skrip merender manifest Kubernetes dengan image ref immutable lalu apply ke
+   Kubernetes, kemudian memverifikasi rollout serta image yang benar-benar aktif
+6. Log setiap deploy tersimpan di `/var/backups/netmanager/log/` di host
+
+Perubahan pada `scripts/deploy/netmanager-deploy.sh` tidak otomatis terpasang:
+salin ulang ke host dengan
+`ssh radpro 'sudo -n install -o root -g root -m 0755 /dev/stdin /usr/local/bin/netmanager-deploy' < scripts/deploy/netmanager-deploy.sh`.
 
 Preflight sebelum migrasi memeriksa tiga hal dan menghentikan deploy bila salah
 satunya gagal: tidak ada node `Ready=False` atau `DiskPressure=True`, secret
@@ -228,7 +235,7 @@ Jika muncul error berikut, pod masih menjalankan image lama atau script belum di
 Security Breach: Attempted data access without valid tenant context.
 ```
 
-Deploy ulang image terbaru lewat workflow Gitea, lalu jalankan dry-run lagi.
+Deploy ulang image terbaru lewat workflow GitHub Actions, lalu jalankan dry-run lagi.
 
 ### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 
@@ -241,14 +248,14 @@ Jangan gunakan langkah manual ini untuk update rutin production.
 
 ## ⚙️ Langkah 4: Konfigurasi Environment
 
-### Environment untuk Gitea Actions + Kubernetes
+### Environment untuk GitHub Actions + Kubernetes
 
 Untuk deployment rutin **production**, environment dibagi menjadi 3 kelompok supaya Next.js, Firebase, dan Kubernetes konsisten.
 
 | Kelompok | Variabel | Disimpan di | Cara dipakai | Catatan |
 |----------|----------|-------------|--------------|---------|
-| Build-time browser env | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Secret repo Gitea | Dipassing ke `docker build` sebagai `--build-arg` | Hanya satu environment aktif, jadi nama secret dipakai apa adanya tanpa suffix. |
-| Runtime secret env | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_DATABASE_URL`, `DATABASE_URL`, `RADIUS_DATABASE_URL`, `DATABASE_URL_BILLING`, `DATABASE_URL_MITRA`, `REDIS_URL`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `CRON_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RADIUS_SECRET` | Kubernetes Secret `netmanager-secrets` + `netmanager-firebase-secrets` | Diinject ke pod lewat `secretKeyRef` pada deployment | Secret umum aplikasi tetap di `netmanager-secrets`, sedangkan Firebase Admin runtime ada di `netmanager-firebase-secrets`. Sejak pindah ke Gitea, pipeline **tidak lagi** menyinkronkan secret Firebase — kredensialnya tidak melewati CI dan di-bootstrap manual di cluster. |
+| Build-time browser env | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Repository variables GitHub (`vars.*`) | Dipassing ke build image sebagai build-arg | Nilai ini tertanam di JavaScript browser, jadi disimpan sebagai variables, bukan secrets. 
+| Runtime secret env | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_DATABASE_URL`, `DATABASE_URL`, `RADIUS_DATABASE_URL`, `DATABASE_URL_BILLING`, `DATABASE_URL_MITRA`, `REDIS_URL`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `CRON_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RADIUS_SECRET` | Kubernetes Secret `netmanager-secrets` + `netmanager-firebase-secrets` | Diinject ke pod lewat `secretKeyRef` pada deployment | Secret umum aplikasi tetap di `netmanager-secrets`, sedangkan Firebase Admin runtime ada di `netmanager-firebase-secrets`. Pipeline **tidak** menyinkronkan secret Firebase — kredensialnya tidak melewati CI dan di-bootstrap manual di cluster. |
 | Runtime non-secret env | `DOMAIN`, `AUTH_URL`, `NEXTAUTH_URL`, `TZ`, `NODE_ENV`, `ALLOWED_ORIGINS` | Kubernetes ConfigMap `netmanager-config` | Diinject ke pod lewat `envFrom` / `configMapKeyRef` | Cocok untuk domain, timezone, dan konfigurasi runtime non-rahasia. |
 
 #### Mapping environment per target
@@ -261,7 +268,7 @@ Untuk deployment rutin **production**, environment dibagi menjadi 3 kelompok sup
 
 #### Aturan praktis
 
-1. **`NEXT_PUBLIC_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` hanya di secret Gitea/build-time.**
+1. **`NEXT_PUBLIC_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` hanya di repository variables GitHub/build-time.**
    - Variabel ini dibaca saat image Next.js dibuild.
    - Mengubah nilainya tanpa rebuild image tidak akan mengubah aplikasi yang sedang jalan.
 
@@ -274,12 +281,12 @@ Untuk deployment rutin **production**, environment dibagi menjadi 3 kelompok sup
 
 4. **Pipeline tidak pernah meng-apply `secrets.yaml` placeholder.**
    - `k8s/production/secrets.yaml` di repo tetap template untuk secret umum seperti DB, Redis, auth, dan cron.
-   - Termasuk Firebase Admin runtime: sejak pindah ke Gitea, pipeline **tidak lagi** menyinkronkan `netmanager-firebase-secrets`. Kredensial Firebase tidak melewati CI dan di-bootstrap langsung di cluster.
+   - Termasuk Firebase Admin runtime: pipeline **tidak** menyinkronkan `netmanager-firebase-secrets`. Kredensial Firebase tidak melewati CI dan di-bootstrap langsung di cluster.
 
 #### Kapan perlu rebuild image vs rollout pod
 
 - Jika yang berubah adalah **`NEXT_PUBLIC_*`** atau **`NEXT_PUBLIC_VAPID_PUBLIC_KEY`**:
-  - update secret di repo Gitea
+  - update repository variable di GitHub
   - jalankan ulang workflow deploy
   - biarkan pipeline build image baru dan rollout deployment
 
@@ -294,12 +301,12 @@ Untuk deployment rutin **production**, environment dibagi menjadi 3 kelompok sup
 
 #### Checklist singkat production
 
-- Set `NEXT_PUBLIC_FIREBASE_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` sebagai secret repo Gitea
+- Set `NEXT_PUBLIC_FIREBASE_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` sebagai repository variables GitHub
 - Pastikan `netmanager-secrets` di namespace `netmanager-production` berisi secret aplikasi umum selain Firebase Admin
 - Pastikan `netmanager-firebase-secrets` sudah dibootstrap manual di namespace yang sama
 - Pastikan `netmanager-config` di namespace `netmanager-production` memakai domain production
 
-> Ringkasnya: **browser Firebase config = secret Gitea build-time**, **Firebase Admin runtime = `netmanager-firebase-secrets` yang dibootstrap manual**, **secret aplikasi lain = `netmanager-secrets`**, **domain dan config non-rahasia = ConfigMap runtime**.
+> Ringkasnya: **browser Firebase config = repository variables GitHub build-time**, **Firebase Admin runtime = `netmanager-firebase-secrets` yang dibootstrap manual**, **secret aplikasi lain = `netmanager-secrets`**, **domain dan config non-rahasia = ConfigMap runtime**.
 
 ### A. Buat File .env
 
@@ -342,7 +349,7 @@ COOKIE_DOMAIN=radpro.id
 
 ### Rutin Production
 
-> Untuk deployment rutin production, gunakan Gitea Actions + Kubernetes. Langkah manual di bawah ini **bukan** jalur normal update.
+> Untuk deployment rutin production, gunakan GitHub Actions + Kubernetes. Langkah manual di bawah ini **bukan** jalur normal update.
 
 ### Bootstrap Awal / Recovery Manual
 
@@ -378,7 +385,7 @@ curl -I https://radpro.id
 
 ### Update Kode, Schema, dan Rollout
 
-Untuk production, update aplikasi, migrasi schema, dan verifikasi rollout harus dilakukan melalui **Gitea Actions + Kubernetes**. Jangan menjalankan rebuild container atau `docker exec` migration sebagai jalur normal, karena itu melewati backup/migration guard pipeline.
+Untuk production, update aplikasi, migrasi schema, dan verifikasi rollout harus dilakukan melalui **GitHub Actions + Kubernetes**. Jangan menjalankan rebuild container atau `docker exec` migration sebagai jalur normal, karena itu melewati backup/migration guard pipeline.
 
 Jika ada perubahan schema atau seed, pipeline akan menjalankan migration job terkontrol sebelum rollout image baru.
 
@@ -441,13 +448,13 @@ Perintah berikut boleh mengubah data atau state, jadi pisahkan dari observabilit
 | `./deploy.sh stop` | Stop semua services — hanya saat bootstrap/recovery manual |
 | `./deploy.sh seed` | Seed database (data awal) — hanya bootstrap awal / recovery data |
 
-> ⚠️ **Catatan**: Semua perintah di atas hanya untuk bootstrap awal, recovery darurat, atau workflow legacy yang belum dimigrasikan. Jangan dipakai sebagai operasi rutin production. Untuk production tetap gunakan Gitea Actions + Kubernetes.
+> ⚠️ **Catatan**: Semua perintah di atas hanya untuk bootstrap awal, recovery darurat, atau workflow legacy yang belum dimigrasikan. Jangan dipakai sebagai operasi rutin production. Untuk production tetap gunakan GitHub Actions + Kubernetes.
 
 ---
 
 ## 🔥 Troubleshooting
 
-> ⚠️ **Catatan**: Bagian ini untuk recovery/legacy/manual handling, bukan jalur operasi rutin production. Untuk update normal tetap gunakan Gitea Actions + Kubernetes.
+> ⚠️ **Catatan**: Bagian ini untuk recovery/legacy/manual handling, bukan jalur operasi rutin production. Untuk update normal tetap gunakan GitHub Actions + Kubernetes.
 
 ### SSL Certificate Error
 
@@ -506,7 +513,7 @@ sudo chown -R 1001:1001 uploads
 
 ## 🏗️ Arsitektur Bootstrap / Manual / Legacy / Recovery
 
-> Diagram berikut menggambarkan topologi bootstrap/recovery manual atau legacy yang masih dipertahankan. Untuk update rutin production, jalur resmi tetap Gitea Actions + Kubernetes.
+> Diagram berikut menggambarkan topologi bootstrap/recovery manual atau legacy yang masih dipertahankan. Untuk update rutin production, jalur resmi tetap GitHub Actions + Kubernetes.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
