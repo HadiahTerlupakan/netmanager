@@ -40,7 +40,7 @@ vi.mock("jose", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
-  prisma: {
+  prismaAuth: {
     tenant: { findFirst: mockFns.findFirst },
     tenantDomain: {
       findFirst: mockFns.tenantDomainFindFirst,

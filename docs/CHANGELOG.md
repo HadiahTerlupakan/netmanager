@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Fix rekursi tenant-context untuk host IP/custom domain
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `resolveTenantContextFromHost` mencari host di `tenantDomain`/`tenant`
+  lewat `prisma` ber-ekstensi tenant; ekstensi itu memanggil `getTenantIdFromContext`
+  lagi sebelum konteks tersimpan sehingga berputar tanpa ujung. Gejala: request
+  ber-token (mobile/sesi) dengan Host selain localhost/`DOMAIN` — IP (mis. emulator
+  `10.0.2.2`) atau custom domain tenant — menggantung ~60–90 detik dan server dev
+  kehabisan heap. Lookup peta domain kini memakai `prismaAuth` (tanpa ekstensi);
+  isolasi tenant untuk query lain tidak berubah. Tes regresi memastikan lookup host
+  tidak menyentuh client ber-ekstensi.
+- **Files**: `lib/tenant-context.ts`, `tests/lib/tenant-context-host-domain.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Deploy produksi langsung dari GitHub Actions; Gitea pensiun
 
 - **Tipe**: [INFRA]

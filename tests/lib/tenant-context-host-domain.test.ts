@@ -8,6 +8,7 @@ const mockFns = vi.hoisted(() => ({
   findFirst: vi.fn(),
   tenantDomainFindFirst: vi.fn(),
   tenantDomainFindUnique: vi.fn(),
+  extendedClientCalled: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -24,7 +25,16 @@ vi.mock("jose", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
+  // Client ber-ekstensi tenant: lookup host tidak boleh menyentuhnya, karena
+  // ekstensinya memanggil getTenantIdFromContext lagi (rekursi tanpa ujung).
   prisma: {
+    tenant: { findFirst: mockFns.extendedClientCalled },
+    tenantDomain: {
+      findFirst: mockFns.extendedClientCalled,
+      findUnique: mockFns.extendedClientCalled,
+    },
+  },
+  prismaAuth: {
     tenant: {
       findFirst: mockFns.findFirst,
     },
@@ -92,5 +102,18 @@ describe("tenant-context host domain", () => {
       isSuperAdmin: false,
     });
     expect(mockFns.findFirst).not.toHaveBeenCalled();
+  }, 20000);
+
+  it("lookup host IP tidak memakai client ber-ekstensi tenant", async () => {
+    mockFns.headers.mockResolvedValue(new Headers({ host: "10.0.2.2:3000" }));
+    mockFns.tenantDomainFindFirst.mockResolvedValue(null);
+    const { getTenantIdFromContext } = await import("@/lib/tenant-context");
+
+    await getTenantIdFromContext();
+
+    expect(mockFns.tenantDomainFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { domain: "10.0.2.2", status: "active" } }),
+    );
+    expect(mockFns.extendedClientCalled).not.toHaveBeenCalled();
   }, 20000);
 });

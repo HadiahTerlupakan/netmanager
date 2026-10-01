@@ -3,7 +3,7 @@ import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
-import { prisma } from "@/modules/database";
+import { prismaAuth } from "@/modules/database";
 // ESM import of Node built-in `module` — safe, does not pull async_hooks
 // into the bundler graph. Used to lazily require async_hooks at runtime
 // only on the server, keeping the client bundle clean.
@@ -91,11 +91,16 @@ async function resolveTenantContextFromHost(
     return null;
   }
 
+  // Lookup host → tenant di bawah memakai `prismaAuth` (tanpa ekstensi
+  // tenant). Peta domain memang lintas-tenant; lewat `prisma` biasa, ekstensi
+  // memanggil getTenantIdFromContext lagi sebelum konteks tersimpan →
+  // rekursi tanpa ujung (request menggantung, heap OOM) untuk host IP /
+  // custom domain.
   // Check if tenant slug subdomain: {slug}.radpro.id
   if (normalizedHost.endsWith(`.${baseDomain}`)) {
     const slug = normalizedHost.replace(`.${baseDomain}`, "");
     if (slug && !slug.includes(".")) {
-      const tenantDomain = await prisma.tenantDomain.findUnique({
+      const tenantDomain = await prismaAuth.tenantDomain.findUnique({
         where: { slug },
         select: { tenantId: true, status: true },
       });
@@ -106,7 +111,7 @@ async function resolveTenantContextFromHost(
   }
 
   // Check custom domain in TenantDomain table (status must be active)
-  const tenantDomain = await prisma.tenantDomain.findFirst({
+  const tenantDomain = await prismaAuth.tenantDomain.findFirst({
     where: { domain: normalizedHost, status: "active" },
     select: { tenantId: true },
   });
@@ -115,7 +120,7 @@ async function resolveTenantContextFromHost(
   }
 
   // Fallback: check legacy Tenant.domain field
-  const tenant = await prisma.tenant.findFirst({
+  const tenant = await prismaAuth.tenant.findFirst({
     where: { domain: normalizedHost, isActive: true },
     select: { id: true },
   });
