@@ -10,6 +10,7 @@ import {
   keadaanKolom,
   muatanSetelahMuatLebih,
   ringkasJumlahKolom,
+  teksJenisProspek,
   teksJumlahKolom,
   tentukanLangkahMuat,
 } from "@/app/admin/presurvei/prospek/prospekKolomQuery";
@@ -22,6 +23,8 @@ function kartu(id: string): ProspekListItemDto {
     nama: `Nama ${id}`,
     noTelp: "0812",
     alamat: "Jl. Mawar",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "LAPANGAN",
     status: "BARU",
     pemilikId: "sales-1",
@@ -52,6 +55,38 @@ describe("buildProspekKolomUrl", () => {
       "status=TIDAK_LAYAK",
     );
     expect(buildProspekKolomUrl("DEAL", 1)).toContain("status=DEAL");
+  });
+});
+
+describe("buildProspekKolomUrl — filter jenis", () => {
+  it("meneruskan jenis yang dipilih ke API", () => {
+    expect(buildProspekKolomUrl("BARU", 1, "PERANTARA")).toBe(
+      "/api/presurvei/prospek?status=BARU&page=1&limit=20&jenis=PERANTARA",
+    );
+  });
+
+  it("tidak mengirim param jenis tanpa filter", () => {
+    expect(buildProspekKolomUrl("BARU", 1)).not.toContain("jenis=");
+  });
+});
+
+describe("teksJenisProspek", () => {
+  it("menyebut peran perantara", () => {
+    expect(
+      teksJenisProspek({ jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    ).toBe("Perantara · Ketua RT 03");
+  });
+
+  it("tetap menandai perantara lama yang perannya kosong", () => {
+    expect(teksJenisProspek({ jenis: "PERANTARA", peran: null })).toBe(
+      "Perantara",
+    );
+  });
+
+  it("tidak menandai calon pelanggan", () => {
+    expect(
+      teksJenisProspek({ jenis: "CALON_PELANGGAN", peran: null }),
+    ).toBeNull();
   });
 });
 

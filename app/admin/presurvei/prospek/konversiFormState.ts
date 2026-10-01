@@ -1,6 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import {
+  isProspekPerantara,
   jadikanCanvasingSchema,
   PROSPEK_STATUS_CONFIG,
   type ProspekListItemDto,
@@ -165,15 +166,19 @@ export function isPerluTandaiDeal(status: ProspekStatus): boolean {
  * server akan menolaknya, dan modal hanya bisa bilang "sudah dijadikan
  * canvasing" setelah dibuka.
  *
+ * Perantara tidak pernah ditawari: server menolak promosinya
+ * (`canPromosikanKeCanvasing`) — yang dipasang adalah pelanggan yang ia bawa.
+ *
  * Perbandingan eksplisit dengan null, dengan `?? null` menampung `undefined`
  * yang lolos kompilasi karena `strictNullChecks: false`.
  */
 export function isTawarkanKonversi(
-  prospek: Pick<ProspekListItemDto, "status" | "canvasingId">,
+  prospek: Pick<ProspekListItemDto, "status" | "canvasingId" | "jenis">,
   isBolehUbah: boolean,
 ): boolean {
   return (
     isBolehUbah &&
+    !isProspekPerantara(prospek.jenis) &&
     prospek.status === STATUS_DEAL &&
     (prospek.canvasingId ?? null) === null
   );

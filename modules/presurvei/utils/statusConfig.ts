@@ -11,6 +11,7 @@ import type { KegiatanHasil, KegiatanJenis } from "../domain/entities/Kegiatan";
 import type { PeranPelaku } from "../domain/peran-pelaku";
 import {
   PROSPEK_STATUSES,
+  type ProspekJenis,
   type ProspekStatus,
   type ProspekSumber,
 } from "../domain/entities/Prospek";
@@ -38,6 +39,14 @@ export const PROSPEK_SUMBER_CONFIG: Record<ProspekSumber, TampilanStatus> = {
   WEBSITE: { label: "Website", warna: "bg-sky-100 text-sky-700" },
   REFERRAL: { label: "Referral", warna: "bg-pink-100 text-pink-700" },
   WALK_IN: { label: "Walk-in", warna: "bg-lime-100 text-lime-700" },
+};
+
+export const PROSPEK_JENIS_CONFIG: Record<ProspekJenis, TampilanStatus> = {
+  CALON_PELANGGAN: {
+    label: "Calon pelanggan",
+    warna: "bg-slate-100 text-slate-700",
+  },
+  PERANTARA: { label: "Perantara", warna: "bg-fuchsia-100 text-fuchsia-700" },
 };
 
 export const KEGIATAN_JENIS_CONFIG: Record<KegiatanJenis, TampilanStatus> = {

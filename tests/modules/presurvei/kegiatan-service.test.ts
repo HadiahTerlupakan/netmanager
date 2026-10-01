@@ -145,6 +145,10 @@ describe("KegiatanService.catat", () => {
       sumber: "LAPANGAN",
       pemilikId: "user-1",
     });
+    // Tanpa jenis: kolomnya berdefault CALON_PELANGGAN di database. Orang
+    // yang ditemui di lapangan adalah calon pemasang, bukan perantara.
+    expect(prospekDibuat).not.toHaveProperty("jenis");
+    expect(prospekDibuat).not.toHaveProperty("peran");
   });
 
   it("mewariskan lokasi, iklan, dan site kunjungan ke prospeknya", async () => {

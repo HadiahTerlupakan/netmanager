@@ -254,6 +254,7 @@ export class ProspekRepository implements IProspekRepository {
     return {
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.sumber ? { sumber: filters.sumber } : {}),
+      ...(filters.jenis ? { jenis: filters.jenis } : {}),
       ...this.bangunFilterPemilik(filters),
       ...(filters.search
         ? {

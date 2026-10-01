@@ -62,6 +62,8 @@ const prospekTersimpan: ProspekEntity = {
   latitude: null,
   longitude: null,
   shareloc: null,
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "WALK_IN",
   iklanId: null,
   registrationId: null,

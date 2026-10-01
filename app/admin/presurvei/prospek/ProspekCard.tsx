@@ -1,10 +1,15 @@
 import {
+  PROSPEK_JENIS_CONFIG,
   PROSPEK_SUMBER_CONFIG,
   type ProspekListItemDto,
 } from "@/modules/presurvei/client";
 
 import { LABEL_TOMBOL_JADIKAN_CANVASING } from "./konversiFormState";
-import { isTakBertuan, teksPemilikProspek } from "./prospekKolomQuery";
+import {
+  isTakBertuan,
+  teksJenisProspek,
+  teksPemilikProspek,
+} from "./prospekKolomQuery";
 
 /** Penanda kartu tanpa pemilik; juga dipakai test sebagai selektor teks. */
 export const TEKS_TAK_BERTUAN = "Belum ada pemilik";
@@ -48,6 +53,7 @@ export function ProspekCard({
 }: ProspekCardProps) {
   const sumber = PROSPEK_SUMBER_CONFIG[prospek.sumber];
   const isTanpaPemilik = isTakBertuan(prospek);
+  const teksJenis = teksJenisProspek(prospek);
   // Satu syarat untuk atribut dan kursornya: kartu yang sedang dipindah tidak
   // bisa diangkat, jadi juga tidak boleh menampilkan kursor genggam.
   const isBisaDiangkat = isDapatDiseret && !isSedangDipindah;
@@ -79,6 +85,14 @@ export function ProspekCard({
         {prospek.noTelp}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+        {teksJenis !== null && (
+          <span
+            data-jenis-prospek={prospek.jenis}
+            className={`rounded-full px-2 py-0.5 font-medium ${PROSPEK_JENIS_CONFIG[prospek.jenis].warna}`}
+          >
+            {teksJenis}
+          </span>
+        )}
         <span className={`rounded-full px-2 py-0.5 ${sumber.warna}`}>
           {sumber.label}
         </span>

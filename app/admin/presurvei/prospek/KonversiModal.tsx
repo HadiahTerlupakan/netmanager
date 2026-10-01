@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { useApi } from "@/lib/hooks/useApi";
 import {
+  isProspekPerantara,
   PROSPEK_STATUS_CONFIG,
   type ProspekDetailDto,
 } from "@/modules/presurvei/client";
@@ -60,12 +61,31 @@ export const TEKS_DUA_LANGKAH =
 /** Pesan untuk prospek yang sudah punya canvasing (`canvasingId` terisi). */
 export const TEKS_SUDAH_CANVASING = "Prospek ini sudah dijadikan canvasing.";
 
+/**
+ * Pesan untuk perantara — mis. kartunya dimuat sebelum jenisnya diubah.
+ * Server menolak promosinya (`canPromosikanKeCanvasing`).
+ */
+export const TEKS_PERANTARA_TIDAK_DIKONVERSI =
+  "Prospek ini perantara, bukan calon pelanggan. Catat pelanggan yang ia bawa sebagai prospek baru, lalu jadikan canvasing dari sana.";
+
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 const KELAS_LABEL =
   "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
 const KELAS_KESALAHAN = "mt-1 text-xs text-red-600";
 const KELAS_PETUNJUK = "mt-1 text-xs text-gray-500 dark:text-gray-400";
+
+/**
+ * Kenapa prospek ini tidak bisa dijadikan canvasing sama sekali, atau null
+ * bila form konversinya boleh ditampilkan.
+ */
+function alasanTakBisaDikonversi(
+  prospek: Pick<ProspekDetailDto, "jenis" | "canvasingId">,
+): string | null {
+  if (isProspekPerantara(prospek.jenis)) return TEKS_PERANTARA_TIDAK_DIKONVERSI;
+  if (prospek.canvasingId !== null) return TEKS_SUDAH_CANVASING;
+  return null;
+}
 
 interface KerangkaModalProps {
   isOpen: boolean;
@@ -315,11 +335,12 @@ export function KonversiModal({
     );
   }
 
-  if (rincian.data.canvasingId !== null) {
+  const alasanTertolak = alasanTakBisaDikonversi(rincian.data);
+  if (alasanTertolak !== null) {
     return (
       <KerangkaModal isOpen={isOpen} onClose={onClose}>
         <p className="py-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          {TEKS_SUDAH_CANVASING}
+          {alasanTertolak}
         </p>
       </KerangkaModal>
     );

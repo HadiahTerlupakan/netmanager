@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { PROSPEK_STATUSES, PROSPEK_SUMBER } from "../domain/entities/Prospek";
+import { PROSPEK_JENIS, PROSPEK_STATUSES, PROSPEK_SUMBER } from "../domain/entities/Prospek";
 import {
+  isPeranProspekSah,
   isSumberButuhIklan,
   isSumberButuhReferral,
 } from "../domain/prospek-rules";
@@ -22,6 +23,8 @@ const PANJANG_TELP_MAKS = 20;
 const PANJANG_ALAMAT_MIN = 5;
 const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
+const PANJANG_PERAN_MAKS = 120;
+const PESAN_PERAN_WAJIB = "Perantara wajib menyebut perannya, mis. Ketua RT 03";
 const BATAS_HALAMAN_MAKS = 100;
 const ISI_HALAMAN_BAWAAN = 20;
 
@@ -37,6 +40,8 @@ export const buatProspekSchema = z
     latitude: z.number().min(-90).max(90).optional().nullable(),
     longitude: z.number().min(-180).max(180).optional().nullable(),
     shareloc: z.string().url("Tautan lokasi tidak valid").optional().nullable(),
+    jenis: z.enum(PROSPEK_JENIS).default("CALON_PELANGGAN"),
+    peran: z.string().max(PANJANG_PERAN_MAKS).optional().nullable(),
     sumber: z.enum(PROSPEK_SUMBER),
     iklanId: z.string().optional().nullable(),
     referralNama: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
@@ -55,7 +60,11 @@ export const buatProspekSchema = z
     (prospek) =>
       !isSumberButuhReferral(prospek.sumber) || isTerisi(prospek.referralNama),
     { message: "Prospek dari referral wajib mencatat nama perujuknya" },
-  );
+  )
+  .refine((prospek) => isPeranProspekSah(prospek.jenis, prospek.peran), {
+    message: PESAN_PERAN_WAJIB,
+    path: ["peran"],
+  });
 
 export const ubahProspekSchema = z.object({
   nama: z.string().min(PANJANG_NAMA_MIN).max(PANJANG_NAMA_MAKS).optional(),
@@ -69,6 +78,8 @@ export const ubahProspekSchema = z.object({
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
   shareloc: z.string().url().optional().nullable(),
+  jenis: z.enum(PROSPEK_JENIS).optional(),
+  peran: z.string().max(PANJANG_PERAN_MAKS).optional().nullable(),
   status: z.enum(PROSPEK_STATUSES).optional(),
   pemilikId: z.string().optional().nullable(),
   paketDiminati: z.string().max(PANJANG_NAMA_MAKS).optional().nullable(),
@@ -78,6 +89,7 @@ export const ubahProspekSchema = z.object({
 export const daftarProspekSchema = z.object({
   status: z.enum(PROSPEK_STATUSES).optional(),
   sumber: z.enum(PROSPEK_SUMBER).optional(),
+  jenis: z.enum(PROSPEK_JENIS).optional(),
   pemilikId: z.string().optional(),
   /**
    * Hanya prospek tak bertuan. Dibaca dari query string, jadi enum string —

@@ -57,6 +57,31 @@ describe("putuskanSeret", () => {
     });
   });
 
+  it("memindahkan status perantara ke DEAL tanpa membuka form konversi", () => {
+    // Konversi perantara pasti ditolak server (`canPromosikanKeCanvasing`).
+    expect(
+      putuskanSeret({ id: "p9", dari: "NEGOSIASI", jenis: "PERANTARA" }, "DEAL"),
+    ).toEqual({
+      prospekId: "p9",
+      aksi: { jenis: "ubah-status", tujuan: "DEAL" },
+    });
+  });
+
+  it("tetap membuka form konversi untuk calon pelanggan yang jenisnya eksplisit", () => {
+    expect(
+      putuskanSeret(
+        { id: "p9", dari: "NEGOSIASI", jenis: "CALON_PELANGGAN" },
+        "DEAL",
+      ),
+    ).toEqual({ prospekId: "p9", aksi: { jenis: "buka-konversi" } });
+  });
+
+  it("tetap menolak perpindahan tak sah untuk perantara", () => {
+    expect(
+      putuskanSeret({ id: "p1", dari: "BARU", jenis: "PERANTARA" }, "DEAL"),
+    ).toBeNull();
+  });
+
   it("membawa id kartu yang benar, bukan id kolomnya", () => {
     // `prospekId` dan status sama-sama string yang diteruskan bersebelahan;
     // tertukarnya akan memindahkan kartu yang salah tanpa ditolak compiler.

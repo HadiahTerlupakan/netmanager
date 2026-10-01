@@ -57,6 +57,8 @@ const prospekTersimpan: ProspekEntity = {
   latitude: null,
   longitude: null,
   shareloc: null,
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "WALK_IN",
   iklanId: null,
   registrationId: null,
@@ -228,6 +230,36 @@ describe("GET /api/presurvei/prospek — filter tanpaPemilik", () => {
     await mintaDaftar("tanpaPemilik=false");
 
     expect(filterDiterimaService().tanpaPemilik).toBe(false);
+  });
+});
+
+describe("GET /api/presurvei/prospek — filter jenis", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.daftar.mockResolvedValue({ items: [], total: 0 });
+    beriPermission(["presurvei:read"]);
+  });
+
+  it("meneruskan filter jenis ke service", async () => {
+    const response = await mintaDaftar("jenis=PERANTARA");
+
+    expect(response.status).toBe(200);
+    expect(mockFns.daftar).toHaveBeenCalledWith(
+      expect.objectContaining({ jenis: "PERANTARA" }),
+    );
+  });
+
+  it("tidak menyaring jenis saat param tidak dikirim", async () => {
+    await mintaDaftar("page=1");
+
+    expect(mockFns.daftar.mock.calls[0][0].jenis).toBeUndefined();
+  });
+
+  it("menolak jenis di luar daftar dengan 400", async () => {
+    const response = await mintaDaftar("jenis=MAKELAR");
+
+    expect(response.status).toBe(400);
+    expect(mockFns.daftar).not.toHaveBeenCalled();
   });
 });
 

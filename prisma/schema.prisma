@@ -2943,6 +2943,10 @@ model PresurveiProspek {
   longitude Float?
   shareloc  String?
 
+  /// CALON_PELANGGAN = calon pemasang; PERANTARA = orang yang bisa membawa pelanggan (ketua RT, tokoh, dll.)
+  jenis          PresurveiJenisProspek  @default(CALON_PELANGGAN)
+  /// Peran perantara, mis. "Ketua RT 03" — null untuk calon pelanggan.
+  peran          String?
   sumber         PresurveiSumberProspek
   iklanId        String?
   registrationId String?                @unique
@@ -4760,6 +4764,11 @@ enum PresurveiHasilKegiatan {
   TIDAK_MINAT
   TIDAK_ADA_ORANG
   DEAL
+}
+
+enum PresurveiJenisProspek {
+  CALON_PELANGGAN
+  PERANTARA
 }
 
 enum PresurveiSumberProspek {

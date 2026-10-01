@@ -22,6 +22,8 @@ const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity => ({
   latitude: null,
   longitude: null,
   shareloc: null,
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "LAPANGAN",
   iklanId: null,
   registrationId: null,
@@ -313,6 +315,112 @@ describe("ProspekService.buat", () => {
   });
 });
 
+describe("ProspekService.buat — jenis & peran", () => {
+  const masukan = {
+    nama: "Budi",
+    noTelp: "081234567890",
+    alamat: "Jl. Merdeka 10",
+    sumber: "LAPANGAN" as const,
+  };
+
+  it("membuang peran yang terbawa pada calon pelanggan", async () => {
+    // Peran yang tertinggal membuat kartu calon pelanggan berbadge perantara.
+    const repository = bangunRepository();
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await service.buat({ ...masukan, peran: "Ketua RT 03" });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ peran: null }),
+    );
+  });
+
+  it("menyimpan peran perantara yang sudah dirapikan", async () => {
+    const repository = bangunRepository();
+    vi.mocked(repository.create).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await service.buat({ ...masukan, jenis: "PERANTARA", peran: "  Kepala desa " });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ jenis: "PERANTARA", peran: "Kepala desa" }),
+    );
+  });
+});
+
+describe("ProspekService.ubah — jenis & peran", () => {
+  let repository: IProspekRepository;
+
+  beforeEach(() => {
+    repository = bangunRepository();
+    vi.mocked(repository.update).mockResolvedValue(prospek());
+  });
+
+  it("menolak 400 saat calon pelanggan diganti perantara tanpa peran", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(prospek());
+    const service = new ProspekService(repository);
+
+    await expect(
+      service.ubah("prospek-1", { jenis: "PERANTARA" }),
+    ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("menolak 400 saat peran perantara dikosongkan", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    );
+    const service = new ProspekService(repository);
+
+    await expect(
+      service.ubah("prospek-1", { peran: "  " }),
+    ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
+  });
+
+  it("menghapus peran saat perantara diganti calon pelanggan", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    );
+    const service = new ProspekService(repository);
+
+    await service.ubah("prospek-1", { jenis: "CALON_PELANGGAN" });
+
+    expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+      jenis: "CALON_PELANGGAN",
+      peran: null,
+    });
+  });
+
+  it("menerima perubahan peran saja pada perantara", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    );
+    const service = new ProspekService(repository);
+
+    await service.ubah("prospek-1", { peran: " Ketua RW 05 " });
+
+    expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+      peran: "Ketua RW 05",
+    });
+  });
+
+  it("tidak menyentuh peran saat jenis maupun peran tidak dikirim", async () => {
+    // Menulis peran di sini akan menghapus peran perantara setiap kali
+    // catatannya diperbarui.
+    vi.mocked(repository.findById).mockResolvedValue(
+      prospek({ jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    );
+    const service = new ProspekService(repository);
+
+    await service.ubah("prospek-1", { catatan: "sudah ditelepon" });
+
+    expect(repository.update).toHaveBeenCalledWith("prospek-1", {
+      catatan: "sudah ditelepon",
+    });
+  });
+});
+
 describe("ProspekService.buat — peringatan duplikat", () => {
   let repository: IProspekRepository;
 
@@ -547,7 +655,8 @@ describe("ProspekService — validasi pemilik yang ditugaskan", () => {
       await service().buat(masukan);
 
       expect(salesRepo.cariCalonSales).not.toHaveBeenCalled();
-      expect(repository.create).toHaveBeenCalledWith(masukan);
+      // `peran: null`: service selalu merapikan peran calon pelanggan.
+      expect(repository.create).toHaveBeenCalledWith({ ...masukan, peran: null });
     });
 
     it("menulis tenant sesi saat pemilik ditugaskan ke sales se-tenant", async () => {
@@ -561,6 +670,7 @@ describe("ProspekService — validasi pemilik yang ditugaskan", () => {
 
       expect(repository.create).toHaveBeenCalledWith({
         ...masukan,
+        peran: null,
         tenantId: TENANT_SESI,
       });
     });
@@ -599,6 +709,7 @@ describe("ProspekService — validasi pemilik yang ditugaskan", () => {
 
       expect(repository.create).toHaveBeenCalledWith({
         ...masukan,
+        peran: null,
         tenantId: TENANT_PROSPEK,
       });
       expect(salesRepo.cariCalonSales).toHaveBeenCalledTimes(1);

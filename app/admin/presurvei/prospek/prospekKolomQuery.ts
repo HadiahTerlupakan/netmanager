@@ -1,6 +1,9 @@
-import type {
-  ProspekListItemDto,
-  ProspekStatus,
+import {
+  isProspekPerantara,
+  PROSPEK_JENIS_CONFIG,
+  type ProspekJenis,
+  type ProspekListItemDto,
+  type ProspekStatus,
 } from "@/modules/presurvei/client";
 
 /** Kartu per kolom pada satu kali pengambilan. */
@@ -19,6 +22,15 @@ export const HALAMAN_PERTAMA = 1;
 export const KUNCI_KOLOM_PROSPEK = "presurvei-prospek-kolom";
 
 /**
+ * Filter jenis papan: satu jenis, atau `undefined` untuk semua jenis.
+ *
+ * `undefined`, bukan string kosong: tanpa filter, kunci cache kolom harus
+ * sama persis dengan milik dashboard (`opsiQueryHalamanKolom`) supaya
+ * keduanya tetap berbagi cache halaman pertama.
+ */
+export type FilterJenisProspek = ProspekJenis | undefined;
+
+/**
  * URL satu kolom papan.
  *
  * Tiap kolom mengambil datanya sendiri: endpoint ini berpaginasi dengan batas
@@ -28,12 +40,14 @@ export const KUNCI_KOLOM_PROSPEK = "presurvei-prospek-kolom";
 export function buildProspekKolomUrl(
   status: ProspekStatus,
   page: number,
+  jenis?: ProspekJenis,
 ): string {
   const params = new URLSearchParams({
     status,
     page: String(page),
     limit: String(ISI_KOLOM),
   });
+  if (jenis !== undefined) params.set("jenis", jenis);
 
   return `/api/presurvei/prospek?${params.toString()}`;
 }
@@ -225,4 +239,18 @@ export function teksPemilikProspek(
   item: Pick<ProspekListItemDto, "namaPemilik" | "pemilikId">,
 ): string {
   return item.namaPemilik ?? item.pemilikId;
+}
+
+/**
+ * Teks badge jenis di kartu — "Perantara · Ketua RT 03" — atau null untuk
+ * calon pelanggan, jenis bawaan yang tidak perlu ditandai. Perantara tanpa
+ * peran (data lama) tetap ditandai "Perantara".
+ */
+export function teksJenisProspek(
+  item: Pick<ProspekListItemDto, "jenis" | "peran">,
+): string | null {
+  if (!isProspekPerantara(item.jenis)) return null;
+  const label = PROSPEK_JENIS_CONFIG.PERANTARA.label;
+  const peran = (item.peran ?? "").trim();
+  return peran === "" ? label : `${label} · ${peran}`;
 }

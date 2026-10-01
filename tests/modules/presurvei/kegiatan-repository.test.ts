@@ -128,6 +128,8 @@ const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
   latitude: null,
   longitude: null,
   shareloc: null,
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "LAPANGAN",
   iklanId: null,
   registrationId: null,

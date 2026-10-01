@@ -91,6 +91,8 @@ function kartu(id: string): ProspekListItemDto {
     nama: `Nama ${id}`,
     noTelp: "0812",
     alamat: "Jl. Mawar",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "IKLAN",
     status: "TERTARIK",
     pemilikId: null,
@@ -204,6 +206,43 @@ describe("useProspekKolom", () => {
     useProspekKolom("DEAL");
 
     expect(kunciTerakhir()).toEqual([["presurvei-prospek-kolom", "DEAL", 1]]);
+  });
+
+  it("tanpa filter jenis memakai kunci yang sama dengan dashboard", () => {
+    // Dashboard memanggil `opsiQueryHalamanKolom(status, 1)`; kunci yang
+    // berbeda di sini memecah cache halaman pertama menjadi dua.
+    useProspekKolom("BARU", undefined);
+
+    expect(kunciTerakhir()).toEqual([["presurvei-prospek-kolom", "BARU", 1]]);
+  });
+
+  it("memisahkan cache per filter jenis, tetap di bawah awalan kolomnya", () => {
+    // Awalan `[KUNCI, status]` tetap mengenai varian berfilter, jadi
+    // invalidasi setelah kartu dipindah ikut menyegarkannya.
+    useProspekKolom("BARU", "PERANTARA");
+
+    expect(kunciTerakhir()).toEqual([
+      ["presurvei-prospek-kolom", "BARU", 1, "PERANTARA"],
+    ]);
+  });
+
+  it("mengambil URL berfilter jenis", async () => {
+    const fetchPalsu = vi.fn(async () => ({
+      ok: true,
+      json: async (): Promise<unknown> => ({
+        data: [],
+        meta: { total: 0, totalPages: 0 },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchPalsu);
+
+    useProspekKolom("BARU", "CALON_PELANGGAN");
+    const [konfig] = palsu.konfigQueries.mock.lastCall as [KonfigQueries];
+    await konfig.queries[0].queryFn();
+
+    expect(fetchPalsu).toHaveBeenCalledWith(
+      "/api/presurvei/prospek?status=BARU&page=1&limit=20&jenis=CALON_PELANGGAN",
+    );
   });
 
   it("mengambil URL milik status dan halaman query-nya", async () => {

@@ -30,6 +30,7 @@ export const GET = createHandler(
     const filters = daftarProspekSchema.parse({
       status: searchParams.get("status") ?? undefined,
       sumber: searchParams.get("sumber") ?? undefined,
+      jenis: searchParams.get("jenis") ?? undefined,
       pemilikId: searchParams.get("pemilikId") ?? undefined,
       tanpaPemilik: searchParams.get("tanpaPemilik") ?? undefined,
       search: searchParams.get("search") ?? undefined,

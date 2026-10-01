@@ -8,12 +8,16 @@ import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
 import {
+  isProspekPerantara,
   isSumberButuhIklan,
   isSumberButuhReferral,
+  PROSPEK_JENIS,
+  PROSPEK_JENIS_CONFIG,
   PROSPEK_STATUS_CONFIG,
   PROSPEK_SUMBER,
   PROSPEK_SUMBER_CONFIG,
   type ProspekDetailDto,
+  type ProspekJenis,
   type ProspekSumber,
 } from "@/modules/presurvei/client";
 
@@ -32,6 +36,7 @@ import {
   muatanUntukMode,
   NILAI_FORM_KOSONG,
   opsiPemilikUntukMode,
+  SARAN_PERAN_PERANTARA,
   schemaUntukMode,
   tentukanKetersediaanPemilih,
   type KesalahanForm,
@@ -52,6 +57,10 @@ const PANJANG_NAMA_MAKS = 120;
 const PANJANG_TELP_MAKS = 20;
 const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
+const PANJANG_PERAN_MAKS = 120;
+
+/** Id `<datalist>` saran peran perantara. */
+const ID_SARAN_PERAN = "prospek-saran-peran";
 
 /**
  * Pemberitahuan kepemilikan pada mode buat, untuk pemakai yang tidak boleh
@@ -82,6 +91,78 @@ const KELAS_PETUNJUK = "mt-1 text-xs text-gray-500 dark:text-gray-400";
 /** Pesan kesalahan satu medan, bila ada. */
 function PesanMedan({ pesan }: { pesan: string | undefined }) {
   return pesan ? <p className={KELAS_KESALAHAN}>{pesan}</p> : null;
+}
+
+interface PemilihJenisProspekProps {
+  jenis: ProspekJenis;
+  peran: string;
+  onUbah: (perubahan: { jenis?: ProspekJenis; peran?: string }) => void;
+  kesalahanPeran: string | undefined;
+}
+
+/**
+ * Pilihan jenis prospek, dan isian "Peran" yang hanya muncul — dan wajib —
+ * untuk perantara. Saran peran hanya bantuan ketik; isian bebas tetap sah.
+ */
+function PemilihJenisProspek({
+  jenis,
+  peran,
+  onUbah,
+  kesalahanPeran,
+}: PemilihJenisProspekProps) {
+  return (
+    <div className="space-y-3">
+      <fieldset>
+        <legend className={KELAS_LABEL}>Jenis prospek *</legend>
+        <div className="flex flex-wrap gap-4">
+          {PROSPEK_JENIS.map((pilihan) => (
+            <label
+              key={pilihan}
+              className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+            >
+              <input
+                type="radio"
+                name="prospek-jenis"
+                value={pilihan}
+                checked={jenis === pilihan}
+                onChange={() => onUbah({ jenis: pilihan })}
+                className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              {PROSPEK_JENIS_CONFIG[pilihan].label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {isProspekPerantara(jenis) && (
+        <div>
+          <label className={KELAS_LABEL} htmlFor="prospek-peran">
+            Peran *
+          </label>
+          <input
+            id="prospek-peran"
+            type="text"
+            list={ID_SARAN_PERAN}
+            value={peran}
+            onChange={(event) => onUbah({ peran: event.target.value })}
+            maxLength={PANJANG_PERAN_MAKS}
+            placeholder="mis. Ketua RT 03"
+            className={KELAS_INPUT}
+          />
+          <datalist id={ID_SARAN_PERAN}>
+            {SARAN_PERAN_PERANTARA.map((saran) => (
+              <option key={saran} value={saran} />
+            ))}
+          </datalist>
+          <PesanMedan pesan={kesalahanPeran} />
+          <p className={KELAS_PETUNJUK}>
+            Orang yang bisa membawa pelanggan; pelanggan yang ia bawa dicatat
+            sebagai prospek tersendiri.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface PemilihKampanyeProps {
@@ -410,6 +491,13 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
             </p>
           )}
 
+          <PemilihJenisProspek
+            jenis={nilai.jenis}
+            peran={nilai.peran}
+            onUbah={ubahMedan}
+            kesalahanPeran={kesalahan.peran}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={KELAS_LABEL} htmlFor="prospek-nama">
@@ -473,22 +561,26 @@ function FormProspek({ mode, nilaiAwal, isOpen, onClose }: FormProspekProps) {
               <PesanMedan pesan={kesalahan.email} />
             </div>
 
-            <div>
-              <label className={KELAS_LABEL} htmlFor="prospek-paket">
-                Paket diminati
-              </label>
-              <input
-                id="prospek-paket"
-                type="text"
-                value={nilai.paketDiminati}
-                onChange={(event) =>
-                  ubahMedan({ paketDiminati: event.target.value })
-                }
-                maxLength={PANJANG_NAMA_MAKS}
-                className={KELAS_INPUT}
-              />
-              <PesanMedan pesan={kesalahan.paketDiminati} />
-            </div>
+            {/* Perantara tidak memasang layanan; paketnya tidak dikirim
+            (`prospekFormState.ts:medanJenisProspek`). */}
+            {!isProspekPerantara(nilai.jenis) && (
+              <div>
+                <label className={KELAS_LABEL} htmlFor="prospek-paket">
+                  Paket diminati
+                </label>
+                <input
+                  id="prospek-paket"
+                  type="text"
+                  value={nilai.paketDiminati}
+                  onChange={(event) =>
+                    ubahMedan({ paketDiminati: event.target.value })
+                  }
+                  maxLength={PANJANG_NAMA_MAKS}
+                  className={KELAS_INPUT}
+                />
+                <PesanMedan pesan={kesalahan.paketDiminati} />
+              </div>
+            )}
           </div>
 
           {isModeBuat ? (

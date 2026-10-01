@@ -19,6 +19,7 @@ import {
   muatanSetelahMuatLebih,
   ringkasJumlahKolom,
   tentukanLangkahMuat,
+  type FilterJenisProspek,
   type MetaKolom,
   type MuatanKolom,
 } from "./prospekKolomQuery";
@@ -45,8 +46,9 @@ const ID_TOAST_GAGAL = "presurvei-prospek-kolom-gagal";
 async function ambilHalamanKolom(
   status: ProspekStatus,
   page: number,
+  jenis: FilterJenisProspek,
 ): Promise<AmplopKolom> {
-  const res = await fetch(buildProspekKolomUrl(status, page));
+  const res = await fetch(buildProspekKolomUrl(status, page, jenis));
   if (!res.ok) throw new Error(PESAN_GAGAL);
   return res.json();
 }
@@ -58,11 +60,22 @@ async function ambilHalamanKolom(
  * cache halaman pertama yang sama, jadi invalidasi papan setelah kartu
  * dipindahkan ikut menyegarkan angka corong. Kunci yang sama dengan pengambil
  * berbeda akan menaruh dua bentuk data di satu entri cache.
+ *
+ * Filter jenis ditaruh SETELAH halaman dan hanya bila diisi: tanpa filter
+ * kuncinya tetap milik dashboard, dan invalidasi berawalan
+ * `[KUNCI_KOLOM_PROSPEK, status]` mengenai semua varian jenis sekaligus.
  */
-export function opsiQueryHalamanKolom(status: ProspekStatus, page: number) {
+export function opsiQueryHalamanKolom(
+  status: ProspekStatus,
+  page: number,
+  jenis?: FilterJenisProspek,
+) {
   return {
-    queryKey: [KUNCI_KOLOM_PROSPEK, status, page],
-    queryFn: () => ambilHalamanKolom(status, page),
+    queryKey:
+      jenis === undefined
+        ? [KUNCI_KOLOM_PROSPEK, status, page]
+        : [KUNCI_KOLOM_PROSPEK, status, page, jenis],
+    queryFn: () => ambilHalamanKolom(status, page, jenis),
   };
 }
 
@@ -81,7 +94,10 @@ export function opsiQueryHalamanKolom(status: ProspekStatus, page: number) {
  * Kuncinya `[KUNCI_KOLOM_PROSPEK, status, page]`, sehingga invalidasi dengan
  * awalan `[KUNCI_KOLOM_PROSPEK, status]` mengenai seluruh halaman satu kolom.
  */
-export function useProspekKolom(status: ProspekStatus) {
+export function useProspekKolom(
+  status: ProspekStatus,
+  jenis?: FilterJenisProspek,
+) {
   const [muatan, setMuatan] = useState<MuatanKolom>({
     status,
     halaman: HALAMAN_PERTAMA,
@@ -90,7 +106,7 @@ export function useProspekKolom(status: ProspekStatus) {
 
   const hasilPerHalaman = useQueries({
     queries: daftarHalaman(halaman).map((page) =>
-      opsiQueryHalamanKolom(status, page),
+      opsiQueryHalamanKolom(status, page, jenis),
     ),
   });
 

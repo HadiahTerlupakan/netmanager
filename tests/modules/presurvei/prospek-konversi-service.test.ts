@@ -61,6 +61,8 @@ const prospek = (over: Partial<ProspekEntity> = {}): ProspekEntity =>
     latitude: -6.2,
     longitude: 106.8,
     shareloc: null,
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "LAPANGAN",
     iklanId: null,
     registrationId: null,

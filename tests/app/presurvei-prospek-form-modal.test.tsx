@@ -129,6 +129,8 @@ const rincian: ProspekDetailDto = {
   nama: "Siti Aminah",
   noTelp: "081299990000",
   alamat: "Jl. Kenanga 4",
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "IKLAN",
   status: "TERTARIK",
   pemilikId: "sales-3",
@@ -391,6 +393,8 @@ describe("ProspekFormModal — mode buat", () => {
       noTelp: "081234567890",
       email: null,
       alamat: "Jl. Merdeka 10",
+      jenis: "CALON_PELANGGAN",
+      peran: null,
       sumber: "LAPANGAN",
       iklanId: null,
       referralNama: null,
@@ -502,6 +506,120 @@ describe("ProspekFormModal — duplikat nomor telepon", () => {
   });
 });
 
+describe("ProspekFormModal — jenis prospek", () => {
+  /** Radio satu jenis prospek. */
+  function radioJenis(jenis: "CALON_PELANGGAN" | "PERANTARA") {
+    const radio = cari<HTMLInputElement>(
+      `input[name="prospek-jenis"][value="${jenis}"]`,
+    );
+    expect(radio).not.toBeNull();
+    return radio;
+  }
+
+  /** Pilih jenis lewat radio-nya, seperti pemakai mengeklik. */
+  async function pilihJenis(jenis: "CALON_PELANGGAN" | "PERANTARA") {
+    const radio = radioJenis(jenis);
+    await act(async () => {
+      radio.click();
+    });
+  }
+
+  /** Rincian mode ubah milik seorang perantara. */
+  function rincianPerantara() {
+    palsu.useApi.mockImplementation(
+      (): HasilApiPalsu => ({
+        data: { ...rincian, jenis: "PERANTARA", peran: "Kepala desa" },
+        error: null,
+        isLoading: false,
+      }),
+    );
+  }
+
+  it("berawal dari calon pelanggan, tanpa isian peran", async () => {
+    await renderModal({ jenis: "buat" });
+
+    expect(radioJenis("CALON_PELANGGAN").checked).toBe(true);
+    expect(cari("#prospek-peran")).toBeNull();
+    expect(cari("#prospek-paket")).not.toBeNull();
+  });
+
+  it("perantara memunculkan isian peran bersaran dan menyembunyikan paket", async () => {
+    await renderModal({ jenis: "buat" });
+
+    await pilihJenis("PERANTARA");
+
+    const peran = cari<HTMLInputElement>("#prospek-peran");
+    expect(peran).not.toBeNull();
+    const saran = [
+      ...document.body.querySelectorAll(
+        `#${peran.getAttribute("list")} option`,
+      ),
+    ].map((opsi) => opsi.getAttribute("value"));
+    expect(saran).toEqual(
+      expect.arrayContaining([
+        "Ketua RT",
+        "Kepala desa/lurah",
+        "Tokoh masyarakat",
+      ]),
+    );
+    expect(cari("#prospek-paket")).toBeNull();
+  });
+
+  it("menolak perantara tanpa peran di medannya tanpa mengirim apa pun", async () => {
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+    await pilihJenis("PERANTARA");
+
+    await klikTombol("Catat Prospek");
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(cari("#prospek-peran").parentElement.textContent).toContain(
+      "Perantara wajib menyebut perannya",
+    );
+  });
+
+  it("mengirim jenis dan peran perantara, tanpa paket yang sempat diisi", async () => {
+    mockFetch.mockResolvedValue(
+      respons(201, { success: true, data: { ...rincian, status: "BARU" } }),
+    );
+    await renderModal({ jenis: "buat" });
+    await isiMedanWajib();
+    await isi("#prospek-paket", "Paket 20 Mbps");
+    await pilihJenis("PERANTARA");
+    await isi("#prospek-peran", "Ketua RT 03");
+
+    await klikTombol("Catat Prospek");
+
+    expect(badanTerkirim(0)).toMatchObject({
+      jenis: "PERANTARA",
+      peran: "Ketua RT 03",
+      paketDiminati: null,
+    });
+  });
+
+  it("mode ubah memuat perantara lengkap dengan perannya", async () => {
+    rincianPerantara();
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    expect(radioJenis("PERANTARA").checked).toBe(true);
+    expect(cari<HTMLInputElement>("#prospek-peran").value).toBe("Kepala desa");
+  });
+
+  it("mode ubah mengganti perantara ke calon pelanggan dengan peran null", async () => {
+    rincianPerantara();
+    mockFetch.mockResolvedValue(respons(200, { success: true, data: rincian }));
+    await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
+
+    await pilihJenis("CALON_PELANGGAN");
+    await klikTombol("Simpan Perubahan");
+
+    expect(badanTerkirim(0)).toMatchObject({
+      jenis: "CALON_PELANGGAN",
+      peran: null,
+    });
+  });
+});
+
 describe("ProspekFormModal — mode ubah", () => {
   it("memuat rincian prospek dan menampilkan sumber tanpa bisa disunting", async () => {
     await renderModal({ jenis: "ubah", prospekId: "prospek-9" });
@@ -526,6 +644,8 @@ describe("ProspekFormModal — mode ubah", () => {
       noTelp: "081299990000",
       email: null,
       alamat: "Jl. Kenanga 4",
+      jenis: "CALON_PELANGGAN",
+      peran: null,
       paketDiminati: null,
       catatan: "Minta dihubungi sore",
     });

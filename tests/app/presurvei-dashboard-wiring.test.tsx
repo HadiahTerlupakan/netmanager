@@ -112,6 +112,8 @@ const prospekTakBertuan: ProspekListItemDto = {
   nama: "Pak Harun",
   noTelp: "081200001111",
   alamat: "Jl. Cempaka 3",
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "IKLAN",
   status: "BARU",
   pemilikId: null,

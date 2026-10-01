@@ -34,6 +34,8 @@ const nilai: NilaiFormProspek = {
   noTelp: "081234567890",
   email: "",
   alamat: "Jl. Merdeka 10",
+  jenis: "CALON_PELANGGAN",
+  peran: "",
   sumber: "WALK_IN",
   iklanId: "",
   referralNama: "",
@@ -114,6 +116,8 @@ const nilaiLengkap: NilaiFormProspek = Object.freeze({
   noTelp: "081299990000",
   email: "siti@contoh.id",
   alamat: "Jl. Kenanga 4",
+  jenis: "CALON_PELANGGAN",
+  peran: "",
   sumber: "REFERRAL",
   iklanId: "iklan-lama",
   referralNama: "Pak Joko",
@@ -196,11 +200,68 @@ describe("keMuatanBuatProspek — medan kosong dan tersembunyi", () => {
       noTelp: "081299990000",
       email: "siti@contoh.id",
       alamat: "Jl. Kenanga 4",
+      jenis: "CALON_PELANGGAN",
+      peran: null,
       sumber: "REFERRAL",
       iklanId: null,
       referralNama: "Pak Joko",
       paketDiminati: "Paket 20 Mbps",
       catatan: "Minta dihubungi sore",
+    });
+  });
+});
+
+describe("jenis & peran dalam muatan", () => {
+  const perantara: NilaiFormProspek = {
+    ...nilaiLengkap,
+    jenis: "PERANTARA",
+    peran: "  Ketua RT 03 ",
+  };
+
+  it("mengirim peran perantara yang dirapikan dan membuang paket diminati", () => {
+    // Medan paket disembunyikan untuk perantara, tapi isiannya masih di state.
+    const muatan = keMuatanBuatProspek(perantara);
+
+    expect(muatan).toMatchObject({
+      jenis: "PERANTARA",
+      peran: "Ketua RT 03",
+      paketDiminati: null,
+    });
+  });
+
+  it("tidak mengirim peran tersembunyi dari calon pelanggan", () => {
+    // Pemakai mengetik peran, lalu mengganti jenis ke calon pelanggan.
+    const muatan = keMuatanBuatProspek({ ...nilaiLengkap, peran: "Ketua RW" });
+
+    expect(muatan.peran).toBeNull();
+    expect(muatan.paketDiminati).toBe("Paket 20 Mbps");
+  });
+
+  it("schema buat menolak perantara tanpa peran, dengan pesan di medan peran", () => {
+    const hasil = schemaUntukMode(MODE_BUAT).safeParse(
+      keMuatanBuatProspek({ ...perantara, peran: "   " }),
+    );
+
+    expect(hasil.success).toBe(false);
+    expect(keKesalahanForm(hasil.error!.issues).peran).toBeDefined();
+  });
+
+  it("schema buat menerima perantara yang menyebut perannya", () => {
+    expect(
+      schemaUntukMode(MODE_BUAT).safeParse(keMuatanBuatProspek(perantara))
+        .success,
+    ).toBe(true);
+  });
+
+  it("muatan ubah membawa jenis dan peran, supaya pergantian jenis tersimpan", () => {
+    expect(keMuatanUbahProspek(perantara, "")).toMatchObject({
+      jenis: "PERANTARA",
+      peran: "Ketua RT 03",
+      paketDiminati: null,
+    });
+    expect(keMuatanUbahProspek(nilaiLengkap, "")).toMatchObject({
+      jenis: "CALON_PELANGGAN",
+      peran: null,
     });
   });
 });
@@ -418,6 +479,8 @@ describe("keNilaiForm", () => {
     nama: "Siti Aminah",
     noTelp: "081299990000",
     alamat: "Jl. Kenanga 4",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "IKLAN",
     status: "TERTARIK",
     pemilikId: "sales-3",
@@ -444,6 +507,8 @@ describe("keNilaiForm", () => {
       noTelp: "081299990000",
       email: "",
       alamat: "Jl. Kenanga 4",
+      jenis: "CALON_PELANGGAN",
+      peran: "",
       sumber: "IKLAN",
       iklanId: "iklan-7",
       referralNama: "",
@@ -451,6 +516,12 @@ describe("keNilaiForm", () => {
       catatan: "Minta dihubungi sore",
       pemilikId: "sales-3",
     });
+  });
+
+  it("membawa jenis dan peran perantara ke form", () => {
+    expect(
+      keNilaiForm({ ...detail, jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    ).toMatchObject({ jenis: "PERANTARA", peran: "Ketua RT 03" });
   });
 
   it("memetakan prospek tak bertuan ke pemilik kosong", () => {

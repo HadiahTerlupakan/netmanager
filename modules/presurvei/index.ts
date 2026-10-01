@@ -13,9 +13,11 @@ export {
 } from "./domain/entities/Kegiatan";
 
 export {
+  PROSPEK_JENIS,
   PROSPEK_STATUSES,
   PROSPEK_SUMBER,
   type ProspekEntity,
+  type ProspekJenis,
   type ProspekStatus,
   type ProspekSumber,
 } from "./domain/entities/Prospek";
@@ -44,11 +46,14 @@ export {
   canPromosikanKeCanvasing,
   daftarStatusBebanAktif,
   getStatusLanjutan,
+  isPeranProspekSah,
+  isProspekPerantara,
   isStatusBebanAktif,
   isStatusFinal,
   isSumberButuhIklan,
   isSumberButuhReferral,
   isTransisiStatusSah,
+  tentukanPeranProspek,
 } from "./domain/prospek-rules";
 
 export {

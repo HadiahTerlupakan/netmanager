@@ -148,12 +148,18 @@ describe("isPerluTandaiDeal", () => {
 describe("isTawarkanKonversi", () => {
   it("hanya menawarkan konversi pada kartu DEAL bagi pemakai yang boleh mengubah", () => {
     const ditawarkan = PROSPEK_STATUSES.filter((status: ProspekStatus) =>
-      isTawarkanKonversi({ status, canvasingId: null }, true),
+      isTawarkanKonversi(
+        { jenis: "CALON_PELANGGAN", status, canvasingId: null },
+        true,
+      ),
     );
 
     expect(ditawarkan).toEqual(["DEAL"]);
     expect(
-      isTawarkanKonversi({ status: "DEAL", canvasingId: null }, false),
+      isTawarkanKonversi(
+        { jenis: "CALON_PELANGGAN", status: "DEAL", canvasingId: null },
+        false,
+      ),
     ).toBe(false);
   });
 
@@ -161,7 +167,21 @@ describe("isTawarkanKonversi", () => {
     // Tanpa `canvasingId` di daftar, tombol tampil di setiap kartu DEAL dan
     // modal baru bisa bilang "sudah dijadikan canvasing" setelah dibuka.
     expect(
-      isTawarkanKonversi({ status: "DEAL", canvasingId: "cv-lama" }, true),
+      isTawarkanKonversi(
+        { jenis: "CALON_PELANGGAN", status: "DEAL", canvasingId: "cv-lama" },
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it("tidak pernah menawarkan konversi pada perantara", () => {
+    // Server menolak promosi perantara (`canPromosikanKeCanvasing`); yang
+    // dipasang adalah pelanggan yang ia bawa.
+    expect(
+      isTawarkanKonversi(
+        { jenis: "PERANTARA", status: "DEAL", canvasingId: null },
+        true,
+      ),
     ).toBe(false);
   });
 
@@ -169,7 +189,10 @@ describe("isTawarkanKonversi", () => {
     // `undefined` lolos kompilasi karena `strictNullChecks: false`; ia berarti
     // "tidak diketahui punya canvasing", bukan "sudah punya".
     expect(
-      isTawarkanKonversi({ status: "DEAL", canvasingId: undefined }, true),
+      isTawarkanKonversi(
+        { jenis: "CALON_PELANGGAN", status: "DEAL", canvasingId: undefined },
+        true,
+      ),
     ).toBe(true);
   });
 });

@@ -1,6 +1,11 @@
 import { AppError } from "@/lib/errors";
 import type { ProspekEntity, ProspekStatus } from "../domain/entities/Prospek";
-import { isStatusFinal, isTransisiStatusSah } from "../domain/prospek-rules";
+import {
+  isPeranProspekSah,
+  isStatusFinal,
+  isTransisiStatusSah,
+  tentukanPeranProspek,
+} from "../domain/prospek-rules";
 import type {
   CreateProspekInput,
   IProspekRepository,
@@ -83,7 +88,10 @@ export class ProspekService {
     input: CreateProspekInput,
     opsi: OpsiBuatProspek = {},
   ): Promise<ProspekEntity> {
-    const data = await this.sertakanTenantPenugasan(input, opsi);
+    const data = await this.sertakanTenantPenugasan(
+      { ...input, peran: tentukanPeranProspek(input.jenis ?? "CALON_PELANGGAN", input.peran) },
+      opsi,
+    );
 
     if (!opsi.abaikanDuplikat) {
       const duplikat = await this.cariDuplikatAktif(input.noTelp);
@@ -175,7 +183,21 @@ export class ProspekService {
       }
     }
 
-    return this.repository.update(id, input);
+    return this.repository.update(id, this.rapikanPeran(prospek, input));
+  }
+
+  /**
+   * Jenis/peran dinilai pada keadaan AKHIR (masukan menimpa baris): pindah ke
+   * perantara wajib berperan, pindah ke calon pelanggan menghapus peran.
+   */
+  private rapikanPeran(prospek: ProspekEntity, input: UpdateProspekInput): UpdateProspekInput {
+    if (input.jenis === undefined && input.peran === undefined) return input;
+    const jenis = input.jenis ?? prospek.jenis;
+    const peran = input.peran !== undefined ? input.peran : prospek.peran;
+    if (!isPeranProspekSah(jenis, peran)) {
+      throw new AppError("Perantara wajib menyebut perannya, mis. Ketua RT 03", 400, "VALIDATION_ERROR");
+    }
+    return { ...input, peran: tentukanPeranProspek(jenis, peran) };
   }
 
   private pastikanBolehMenyentuh(

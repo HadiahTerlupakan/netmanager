@@ -17,8 +17,10 @@ export {
 } from "./domain/entities/Kegiatan";
 
 export {
+  PROSPEK_JENIS,
   PROSPEK_STATUSES,
   PROSPEK_SUMBER,
+  type ProspekJenis,
   type ProspekStatus,
   type ProspekSumber,
 } from "./domain/entities/Prospek";
@@ -33,6 +35,7 @@ export {
 
 export {
   getStatusLanjutan,
+  isProspekPerantara,
   isStatusFinal,
   isSumberButuhIklan,
   isSumberButuhReferral,
@@ -106,6 +109,7 @@ export {
   IKLAN_CHANNEL_CONFIG,
   KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
+  PROSPEK_JENIS_CONFIG,
   PROSPEK_STATUS_CONFIG,
   PROSPEK_SUMBER_CONFIG,
   PERAN_PELAKU_LABEL,

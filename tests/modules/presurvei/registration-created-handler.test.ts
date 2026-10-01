@@ -87,6 +87,16 @@ describe("handleRegistrationCreatedPresurvei", () => {
     );
   });
 
+  it("melahirkan calon pelanggan, bukan perantara", async () => {
+    // Tanpa jenis: kolomnya berdefault CALON_PELANGGAN di database. Pendaftar
+    // form publik adalah calon pemasang itu sendiri.
+    await handleRegistrationCreatedPresurvei(job(payloadLengkap));
+
+    const [prospekDibuat] = buatProspek.mock.calls[0];
+    expect(prospekDibuat).not.toHaveProperty("jenis");
+    expect(prospekDibuat).not.toHaveProperty("peran");
+  });
+
   it("tidak membuat prospek kedua saat event sampai dua kali", async () => {
     cariByRegistrationId.mockResolvedValue({ id: "prospek-lama" });
 

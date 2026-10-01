@@ -8,7 +8,10 @@ import { usePermission } from "@/hooks/use-permission";
 import {
   daftarKolomHidup,
   daftarKolomMati,
+  PROSPEK_JENIS,
+  PROSPEK_JENIS_CONFIG,
   PROSPEK_STATUS_CONFIG,
+  type ProspekJenis,
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
@@ -20,6 +23,7 @@ import { ProspekFormModal } from "./ProspekFormModal";
 import {
   keadaanKolom,
   teksJumlahKolom,
+  type FilterJenisProspek,
   type KeadaanKolom,
 } from "./prospekKolomQuery";
 import { usePindahProspek } from "./usePindahProspek";
@@ -64,6 +68,44 @@ const MODE_BUAT: ModeFormProspek = { jenis: "buat" };
 
 /** Label tombol pembuka form prospek baru; juga dipakai test sebagai selektor. */
 export const LABEL_TOMBOL_TAMBAH_PROSPEK = "Tambah Prospek";
+
+/** Label pemilih filter jenis; juga dipakai test sebagai selektor. */
+export const LABEL_FILTER_JENIS = "Jenis prospek";
+
+/** Nilai `<option>` untuk "semua jenis" — `<select>` hanya mengenal string. */
+const NILAI_SEMUA_JENIS = "";
+
+/** Filter jenis dari nilai `<select>`; string kosong berarti semua jenis. */
+function keFilterJenis(nilai: string): FilterJenisProspek {
+  return nilai === NILAI_SEMUA_JENIS ? undefined : (nilai as ProspekJenis);
+}
+
+/** Pemilih filter jenis di atas papan. */
+function PemilihFilterJenis({
+  jenis,
+  onUbah,
+}: {
+  jenis: FilterJenisProspek;
+  onUbah: (jenis: FilterJenisProspek) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+      {LABEL_FILTER_JENIS}
+      <select
+        value={jenis ?? NILAI_SEMUA_JENIS}
+        onChange={(event) => onUbah(keFilterJenis(event.target.value))}
+        className="cursor-pointer rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+      >
+        <option value={NILAI_SEMUA_JENIS}>Semua</option>
+        {PROSPEK_JENIS.map((pilihan) => (
+          <option key={pilihan} value={pilihan}>
+            {PROSPEK_JENIS_CONFIG[pilihan].label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 /** Kelas bingkai kolom per rupa seret. */
 const KELAS_KOLOM_SERET: Record<TampilanKolomSeret, string> = {
@@ -135,7 +177,11 @@ function BadanKolom({
               isDapatDiseret={isKartuDapatDiseret(status, seret.isBolehUbah)}
               isSedangDipindah={seret.isSedangDipindah(prospek.id)}
               onMulaiSeret={() =>
-                seret.mulaiSeret({ id: prospek.id, dari: status })
+                seret.mulaiSeret({
+                  id: prospek.id,
+                  dari: status,
+                  jenis: prospek.jenis,
+                })
               }
               onSelesaiSeret={seret.selesaiSeret}
               onUbah={
@@ -194,16 +240,18 @@ function TombolKakiKolom({ kolom }: { kolom: ProspekKolomData }) {
  */
 function ProspekKolom({
   status,
+  jenis,
   seret,
   onUbahProspek,
   onJadikanCanvasing,
 }: {
   status: ProspekStatus;
+  jenis: FilterJenisProspek;
   seret: SeretKolom;
   onUbahProspek: ((prospekId: string) => void) | undefined;
   onJadikanCanvasing: (prospekId: string) => void;
 }) {
-  const kolom = useProspekKolom(status);
+  const kolom = useProspekKolom(status, jenis);
   const tampilan = PROSPEK_STATUS_CONFIG[status];
   const tampilanSeret = seret.tampilanKolom(status);
   const keadaan = keadaanKolom({
@@ -278,6 +326,7 @@ function ProspekKolom({
  */
 export function ProspekKanbanClient() {
   const [isKolomMatiTampil, setIsKolomMatiTampil] = useState(false);
+  const [filterJenis, setFilterJenis] = useState<FilterJenisProspek>();
   const [isFormBuatTerbuka, setIsFormBuatTerbuka] = useState(false);
   const [idProspekDiubah, setIdProspekDiubah] = useState<string | null>(null);
   const [idProspekDikonversi, setIdProspekDikonversi] = useState<string | null>(
@@ -316,10 +365,11 @@ export function ProspekKanbanClient() {
             Papan Prospek
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Calon pelanggan yang sedang digarap tim sales, per tahap corong
+            Calon pelanggan dan perantara yang sedang digarap tim sales, per tahap corong
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
+          <PemilihFilterJenis jenis={filterJenis} onUbah={setFilterJenis} />
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
@@ -339,9 +389,12 @@ export function ProspekKanbanClient() {
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {kolom.map((status) => (
+          // Kunci ikut filter: kolom dipasang ulang dan "muat lebih"-nya
+          // kembali ke halaman pertama, bukan membawa jumlah halaman filter lama.
           <ProspekKolom
-            key={status}
+            key={`${status}:${filterJenis ?? NILAI_SEMUA_JENIS}`}
             status={status}
+            jenis={filterJenis}
             seret={seretKolom}
             onUbahProspek={bukaFormUbah}
             onJadikanCanvasing={setIdProspekDikonversi}

@@ -85,6 +85,8 @@ function rincian(ubahan: Partial<ProspekDetailDto>): ProspekDetailDto {
     nama: "Rina Wati",
     noTelp: "081277770000",
     alamat: "Jl. Melati 3",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "LAPANGAN",
     status: "NEGOSIASI",
     pemilikId: "sales-3",
@@ -581,6 +583,19 @@ describe("KonversiModal — tampilan", () => {
     expect(document.body.textContent).toContain(
       "Prospek ini sudah dijadikan canvasing.",
     );
+  });
+
+  it("tidak menampilkan form untuk perantara, walau DEAL tanpa canvasing", async () => {
+    // Mis. kartunya dimuat sebelum jenisnya diganti; server menolak promosinya.
+    pakaiRincian(
+      rincian({ status: "DEAL", jenis: "PERANTARA", peran: "Ketua RT 03" }),
+    );
+
+    await renderModal();
+
+    expect(cari("#konversi-ktp")).toBeNull();
+    expect(document.body.textContent).toContain("Prospek ini perantara");
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("memuat rincian dari endpoint prospek yang dipilih", async () => {

@@ -1,5 +1,6 @@
 import type {
   ProspekEntity,
+  ProspekJenis,
   ProspekStatus,
   ProspekSumber,
 } from "../domain/entities/Prospek";
@@ -24,6 +25,8 @@ export interface ProspekRow {
   latitude: number | null;
   longitude: number | null;
   shareloc: string | null;
+  jenis: string;
+  peran: string | null;
   sumber: string;
   iklanId: string | null;
   registrationId: string | null;
@@ -56,6 +59,8 @@ export function toProspekEntity(row: ProspekRow): ProspekEntity {
     latitude: row.latitude,
     longitude: row.longitude,
     shareloc: row.shareloc,
+    jenis: row.jenis as ProspekJenis,
+    peran: row.peran,
     sumber: row.sumber as ProspekSumber,
     iklanId: row.iklanId,
     registrationId: row.registrationId,

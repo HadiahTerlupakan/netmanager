@@ -73,6 +73,8 @@ function kartu(id: string): ProspekListItemDto {
     nama: `Nama ${id}`,
     noTelp: "0812",
     alamat: "Jl. Mawar",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "IKLAN",
     status: "TERTARIK",
     pemilikId: null,

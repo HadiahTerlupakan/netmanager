@@ -1,6 +1,7 @@
 import { PROSPEK_STATUSES } from "./entities/Prospek";
 import type {
   ProspekEntity,
+  ProspekJenis,
   ProspekStatus,
   ProspekSumber,
 } from "./entities/Prospek";
@@ -89,14 +90,46 @@ export function daftarStatusBebanAktif(): ProspekStatus[] {
 }
 
 /**
+ * Apakah prospek berjenis perantara — orang yang membawa pelanggan, bukan
+ * calon pemasangnya sendiri.
+ */
+export function isProspekPerantara(jenis: ProspekJenis): boolean {
+  return jenis === "PERANTARA";
+}
+
+/** Apakah peran sah untuk jenisnya: perantara wajib menyebut perannya. */
+export function isPeranProspekSah(
+  jenis: ProspekJenis,
+  peran: string | null | undefined,
+): boolean {
+  return !isProspekPerantara(jenis) || (peran ?? "").trim().length > 0;
+}
+
+/** Peran yang disimpan: dirapikan untuk perantara, selalu null untuk calon pelanggan. */
+export function tentukanPeranProspek(
+  jenis: ProspekJenis,
+  peran: string | null | undefined,
+): string | null {
+  if (!isProspekPerantara(jenis)) return null;
+  const bersih = (peran ?? "").trim();
+  return bersih === "" ? null : bersih;
+}
+
+/**
  * Apakah prospek siap dipromosikan menjadi canvasing.
  *
  * Syaratnya: sudah DEAL, belum pernah dipromosikan, dan data minimal untuk
  * membuat canvasing sudah terisi.
  */
 export function canPromosikanKeCanvasing(
-  prospek: Pick<ProspekEntity, "status" | "canvasingId" | "noTelp" | "alamat">,
+  prospek: Pick<
+    ProspekEntity,
+    "status" | "canvasingId" | "noTelp" | "alamat" | "jenis"
+  >,
 ): boolean {
+  // Perantara membawa pelanggan, bukan pelanggannya: yang didaftarkan adalah
+  // orang yang ia bawa (dicatat sebagai prospek calon pelanggan tersendiri).
+  if (isProspekPerantara(prospek.jenis)) return false;
   if (prospek.status !== "DEAL") return false;
   if (prospek.canvasingId) return false;
   if (prospek.noTelp.trim().length === 0) return false;

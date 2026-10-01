@@ -39,6 +39,8 @@ const barisProspek = (over: Partial<ProspekRow> = {}): ProspekRow => ({
   latitude: null,
   longitude: null,
   shareloc: null,
+  jenis: "CALON_PELANGGAN",
+  peran: null,
   sumber: "LAPANGAN",
   iklanId: null,
   registrationId: null,
@@ -190,6 +192,22 @@ describe("ProspekRepository.findMany", () => {
       pemilikId: "user-1",
     });
     expect(argumen?.where?.OR).toHaveLength(3);
+  });
+
+  it("menyaring jenis prospek pada daftar dan hitungannya", async () => {
+    // Hitungan yang tidak ikut tersaring membuat paginasi papan menjanjikan
+    // halaman perantara yang tidak pernah ada.
+    vi.mocked(prisma.presurveiProspek.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.presurveiProspek.count).mockResolvedValue(0 as never);
+
+    await repository.findMany({ page: 1, limit: 10, jenis: "PERANTARA" });
+
+    const argumen = vi.mocked(prisma.presurveiProspek.findMany).mock
+      .calls[0][0];
+    expect(argumen?.where).toEqual({ jenis: "PERANTARA" });
+    expect(
+      vi.mocked(prisma.presurveiProspek.count).mock.calls[0][0]?.where,
+    ).toEqual({ jenis: "PERANTARA" });
   });
 
   it("tidak menyaring apa pun saat tidak ada filter", async () => {

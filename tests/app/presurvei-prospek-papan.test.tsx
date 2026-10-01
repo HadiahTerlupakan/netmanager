@@ -122,6 +122,7 @@ vi.mock("react-hot-toast", () => ({
 }));
 
 import {
+  LABEL_FILTER_JENIS,
   LABEL_SAKELAR_KOLOM_MATI,
   LABEL_TOMBOL_TAMBAH_PROSPEK,
   ProspekKanbanClient,
@@ -144,6 +145,8 @@ function prospek(ubahan: Partial<ProspekListItemDto>): ProspekListItemDto {
     nama: "Pak Budi",
     noTelp: "081234567890",
     alamat: "Jl. Kenanga 7",
+    jenis: "CALON_PELANGGAN",
+    peran: null,
     sumber: "WEBSITE",
     status: "BARU",
     pemilikId: "sales-77",
@@ -240,6 +243,24 @@ describe("ProspekCard", () => {
     await render(<ProspekCard prospek={prospek({ namaPemilik: null })} />);
 
     expect(container.textContent).toContain("sales-77");
+  });
+
+  it("menandai perantara beserta perannya", async () => {
+    await render(
+      <ProspekCard
+        prospek={prospek({ jenis: "PERANTARA", peran: "Ketua RT 03" })}
+      />,
+    );
+
+    const badge = container.querySelector("[data-jenis-prospek]");
+    expect(badge?.textContent).toBe("Perantara · Ketua RT 03");
+  });
+
+  it("tidak memberi badge jenis pada calon pelanggan", async () => {
+    await render(<ProspekCard prospek={prospek({})} />);
+
+    expect(container.querySelector("[data-jenis-prospek]")).toBeNull();
+    expect(container.textContent).not.toContain("Perantara");
   });
 
   it("menandai kartu yang belum punya pemilik", async () => {
@@ -730,5 +751,111 @@ describe("ProspekKanbanClient — tombol konversi di kartu DEAL", () => {
     await render(<ProspekKanbanClient />);
 
     expect(tombolKonversiDi("DEAL")).toBeUndefined();
+  });
+});
+
+describe("ProspekKanbanClient — perantara", () => {
+  /** Ditulis ulang sebagai literal, bukan diimpor dari produksi. */
+  const LABEL_JADIKAN_CANVASING = "Jadikan canvasing";
+
+  /** Satu kartu PERANTARA per kolom hidup, id-nya `kartu-<STATUS>`. */
+  function kolomBerkartuPerantara() {
+    palsu.useProspekKolom.mockImplementation((status: ProspekStatus) =>
+      kolomTiba({
+        kartu: [
+          prospek({
+            id: `kartu-${status}`,
+            status,
+            jenis: "PERANTARA",
+            peran: "Kepala desa",
+          }),
+        ],
+        total: 1,
+      }),
+    );
+  }
+
+  function pemilihFilterJenis(): HTMLSelectElement {
+    const label = [...container.querySelectorAll("label")].find((elemen) =>
+      elemen.textContent.includes(LABEL_FILTER_JENIS),
+    );
+    expect(label).toBeDefined();
+    return label.querySelector("select") as HTMLSelectElement;
+  }
+
+  async function pilihJenis(nilai: string) {
+    const pemilih = pemilihFilterJenis();
+    await act(async () => {
+      pemilih.value = nilai;
+      pemilih.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+
+  it("tidak menawarkan konversi pada kartu DEAL perantara", async () => {
+    kolomBerkartuPerantara();
+    await render(<ProspekKanbanClient />);
+
+    const tombol = [...kolom("DEAL").querySelectorAll("button")].find(
+      (elemen) => elemen.textContent.trim() === LABEL_JADIKAN_CANVASING,
+    );
+    expect(tombol).toBeUndefined();
+  });
+
+  it("memindahkan status perantara yang dijatuhkan ke DEAL tanpa membuka modal konversi", async () => {
+    kolomBerkartuPerantara();
+    await render(<ProspekKanbanClient />);
+    await angkat("NEGOSIASI");
+    await act(async () => {
+      kirimSeret(kolom("DEAL"), "drop");
+    });
+
+    expect(container.querySelector("[data-modal-konversi]")).toBeNull();
+    expect(palsu.pindahkan).toHaveBeenCalledWith({
+      prospekId: "kartu-NEGOSIASI",
+      dari: "NEGOSIASI",
+      tujuan: "DEAL",
+    });
+  });
+
+  it("tidak menyaring jenis secara bawaan", async () => {
+    await render(<ProspekKanbanClient />);
+
+    expect(pemilihFilterJenis().value).toBe("");
+    expect(
+      palsu.useProspekKolom.mock.calls.every(([, jenis]) => jenis === undefined),
+    ).toBe(true);
+  });
+
+  it("meneruskan jenis yang dipilih ke setiap kolom", async () => {
+    await render(<ProspekKanbanClient />);
+    palsu.useProspekKolom.mockClear();
+
+    await pilihJenis("PERANTARA");
+
+    const jenisPerKolom = palsu.useProspekKolom.mock.calls.map(
+      ([status, jenis]) => [status, jenis],
+    );
+    expect(jenisPerKolom).toEqual(
+      expect.arrayContaining([
+        ["BARU", "PERANTARA"],
+        ["DEAL", "PERANTARA"],
+      ]),
+    );
+    expect(jenisPerKolom.every(([, jenis]) => jenis === "PERANTARA")).toBe(
+      true,
+    );
+  });
+
+  it("kembali ke semua jenis saat pilihan Semua dipilih lagi", async () => {
+    await render(<ProspekKanbanClient />);
+    await pilihJenis("CALON_PELANGGAN");
+    palsu.useProspekKolom.mockClear();
+
+    await pilihJenis("");
+
+    expect(palsu.useProspekKolom).toHaveBeenCalled();
+    expect(
+      palsu.useProspekKolom.mock.calls.every(([, jenis]) => jenis === undefined),
+    ).toBe(true);
   });
 });

@@ -3,9 +3,11 @@
 import { useState } from "react";
 
 import {
+  isProspekPerantara,
   isStatusFinal,
   resolveAksiKanban,
   type AksiKanban,
+  type ProspekJenis,
   type ProspekStatus,
 } from "@/modules/presurvei/client";
 
@@ -13,6 +15,8 @@ import {
 export interface KartuDiangkat {
   id: string;
   dari: ProspekStatus;
+  /** Jenis prospek; tanpa isian dianggap calon pelanggan. */
+  jenis?: ProspekJenis;
 }
 
 /** Hasil menjatuhkan kartu yang sah: kartu mana dan apa yang dilakukan. */
@@ -58,7 +62,24 @@ export function putuskanSeret(
   }
 
   const aksi = resolveAksiKanban(diangkat.dari, ke);
-  return aksi === null ? null : { prospekId: diangkat.id, aksi };
+  if (aksi === null) return null;
+  return { prospekId: diangkat.id, aksi: sesuaikanAksiDenganJenis(aksi, diangkat, ke) };
+}
+
+/**
+ * Perantara yang dijatuhkan ke DEAL cukup berpindah status: modal konversi
+ * akan membuat canvasing yang pasti ditolak server (`canPromosikanKeCanvasing`).
+ * DEAL bagi perantara berarti ia sepakat membawa pelanggan.
+ */
+function sesuaikanAksiDenganJenis(
+  aksi: AksiKanban,
+  diangkat: KartuDiangkat,
+  ke: ProspekStatus,
+): AksiKanban {
+  const isPerantara = isProspekPerantara(diangkat.jenis ?? "CALON_PELANGGAN");
+  return aksi.jenis === "buka-konversi" && isPerantara
+    ? { jenis: "ubah-status", tujuan: ke }
+    : aksi;
 }
 
 /**

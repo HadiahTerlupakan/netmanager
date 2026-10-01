@@ -1,5 +1,6 @@
 import type {
   ProspekEntity,
+  ProspekJenis,
   ProspekStatus,
   ProspekSumber,
 } from "../domain/entities/Prospek";
@@ -17,6 +18,9 @@ export interface ProspekListItemDto {
   nama: string;
   noTelp: string;
   alamat: string;
+  jenis: ProspekJenis;
+  /** Peran perantara, mis. "Ketua RT 03"; null untuk calon pelanggan. */
+  peran: string | null;
   sumber: ProspekSumber;
   status: ProspekStatus;
   pemilikId: string | null;
@@ -52,6 +56,8 @@ export function toProspekListItem(prospek: ProspekEntity): ProspekListItemDto {
     nama: prospek.nama,
     noTelp: prospek.noTelp,
     alamat: prospek.alamat,
+    jenis: prospek.jenis,
+    peran: prospek.peran,
     sumber: prospek.sumber,
     status: prospek.status,
     pemilikId: prospek.pemilikId,

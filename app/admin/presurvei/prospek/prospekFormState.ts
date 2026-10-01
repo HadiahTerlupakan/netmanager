@@ -1,11 +1,13 @@
 import {
   buatProspekSchema,
+  isProspekPerantara,
   isSumberButuhIklan,
   isSumberButuhReferral,
   PROSPEK_STATUSES,
   ubahProspekSchema,
   type IklanListItemDto,
   type ProspekDetailDto,
+  type ProspekJenis,
   type ProspekStatus,
   type ProspekSumber,
   type SalesPresurveiDto,
@@ -43,12 +45,27 @@ export const URL_PILIHAN_KAMPANYE = `/api/admin/presurvei/iklan?isAktif=true&lim
  */
 export const IZIN_BACA_KAMPANYE = ["presurvei_iklan:read"];
 
+/**
+ * Saran isian "Peran" perantara. Hanya saran (`<datalist>`): pemakai tetap
+ * boleh mengetik bebas, mis. "Ketua RT 03" lebih berguna daripada "Ketua RT".
+ */
+export const SARAN_PERAN_PERANTARA: readonly string[] = [
+  "Ketua RT",
+  "Ketua RW",
+  "Kepala desa/lurah",
+  "Tokoh masyarakat",
+  "Pemilik usaha/warung",
+];
+
 /** Nilai medan form; semuanya string karena berasal dari `<input>`. */
 export interface NilaiFormProspek {
   nama: string;
   noTelp: string;
   email: string;
   alamat: string;
+  jenis: ProspekJenis;
+  /** Peran perantara; diabaikan untuk calon pelanggan. */
+  peran: string;
   sumber: ProspekSumber;
   iklanId: string;
   referralNama: string;
@@ -73,6 +90,8 @@ export const NILAI_FORM_KOSONG: NilaiFormProspek = {
   noTelp: "",
   email: "",
   alamat: "",
+  jenis: "CALON_PELANGGAN",
+  peran: "",
   sumber: "LAPANGAN",
   iklanId: "",
   referralNama: "",
@@ -95,6 +114,23 @@ export type ModeFormProspek =
 function teksAtauNull(teks: string): string | null {
   const bersih = teks.trim();
   return bersih === "" ? null : bersih;
+}
+
+/**
+ * Jenis, peran, dan paket diminati untuk muatan — dibaca dari jenis.
+ *
+ * Seperti atribusi sumber, medan yang disembunyikan tetap menyimpan isiannya:
+ * peran yang diketik lalu jenisnya diganti ke calon pelanggan, atau paket
+ * calon pelanggan yang lalu diganti ke perantara, tidak boleh ikut terkirim.
+ * Perantara tidak memasang layanan, jadi paketnya selalu null.
+ */
+function medanJenisProspek(nilai: NilaiFormProspek) {
+  const isPerantara = isProspekPerantara(nilai.jenis);
+  return {
+    jenis: nilai.jenis,
+    peran: isPerantara ? teksAtauNull(nilai.peran) : null,
+    paketDiminati: isPerantara ? null : teksAtauNull(nilai.paketDiminati),
+  };
 }
 
 /**
@@ -133,6 +169,7 @@ export function keMuatanBuatProspek(nilai: NilaiFormProspek) {
     noTelp: nilai.noTelp.trim(),
     email: teksAtauNull(nilai.email),
     alamat: nilai.alamat.trim(),
+    ...medanJenisProspek(nilai),
     sumber: nilai.sumber,
     iklanId: isSumberButuhIklan(nilai.sumber)
       ? teksAtauNull(nilai.iklanId)
@@ -140,7 +177,6 @@ export function keMuatanBuatProspek(nilai: NilaiFormProspek) {
     referralNama: isSumberButuhReferral(nilai.sumber)
       ? teksAtauNull(nilai.referralNama)
       : null,
-    paketDiminati: teksAtauNull(nilai.paketDiminati),
     catatan: teksAtauNull(nilai.catatan),
     ...perubahanPemilik(nilai.pemilikId, ""),
   };
@@ -168,7 +204,7 @@ export function keMuatanUbahProspek(
     noTelp: nilai.noTelp.trim(),
     email: teksAtauNull(nilai.email),
     alamat: nilai.alamat.trim(),
-    paketDiminati: teksAtauNull(nilai.paketDiminati),
+    ...medanJenisProspek(nilai),
     catatan: teksAtauNull(nilai.catatan),
     ...perubahanPemilik(nilai.pemilikId, pemilikAwal),
   };
@@ -451,6 +487,8 @@ export function keNilaiForm(prospek: ProspekDetailDto): NilaiFormProspek {
     noTelp: prospek.noTelp,
     email: prospek.email ?? "",
     alamat: prospek.alamat,
+    jenis: prospek.jenis,
+    peran: prospek.peran ?? "",
     sumber: prospek.sumber,
     iklanId: prospek.iklanId ?? "",
     referralNama: prospek.referralNama ?? "",
@@ -478,6 +516,8 @@ const MEDAN_BERSLOT_PESAN: Record<keyof NilaiFormProspek, boolean> = {
   noTelp: true,
   email: true,
   alamat: true,
+  jenis: true,
+  peran: true,
   sumber: true,
   iklanId: true,
   referralNama: true,

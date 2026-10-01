@@ -15,7 +15,9 @@ import {
   isStatusFinal,
   isSumberButuhIklan,
   isSumberButuhReferral,
+  isPeranProspekSah,
   isTransisiStatusSah,
+  tentukanPeranProspek,
 } from "@/modules/presurvei/domain/prospek-rules";
 
 describe("isTransisiStatusSah", () => {
@@ -157,9 +159,10 @@ describe("canPromosikanKeCanvasing", () => {
   // repo mematikan strictNullChecks.
   const prospekSiap: Pick<
     ProspekEntity,
-    "status" | "canvasingId" | "noTelp" | "alamat"
+    "status" | "canvasingId" | "noTelp" | "alamat" | "jenis"
   > = {
     status: "DEAL",
+    jenis: "CALON_PELANGGAN",
     canvasingId: null,
     noTelp: "081234567890",
     alamat: "Jl. Merdeka 10",
@@ -181,6 +184,14 @@ describe("canPromosikanKeCanvasing", () => {
     ).toBe(false);
   });
 
+  it("menolak perantara walau DEAL dan datanya lengkap", () => {
+    // Perantara membawa pelanggan, bukan pelanggannya sendiri; yang dipasang
+    // adalah orang yang ia bawa, dicatat sebagai prospek tersendiri.
+    expect(
+      canPromosikanKeCanvasing({ ...prospekSiap, jenis: "PERANTARA" }),
+    ).toBe(false);
+  });
+
   it("menolak prospek tanpa nomor telepon atau alamat", () => {
     expect(canPromosikanKeCanvasing({ ...prospekSiap, noTelp: "" })).toBe(
       false,
@@ -188,5 +199,37 @@ describe("canPromosikanKeCanvasing", () => {
     expect(canPromosikanKeCanvasing({ ...prospekSiap, alamat: "  " })).toBe(
       false,
     );
+  });
+});
+
+describe("isPeranProspekSah", () => {
+  it("mewajibkan perantara menyebut perannya", () => {
+    expect(isPeranProspekSah("PERANTARA", "Ketua RT 03")).toBe(true);
+    expect(isPeranProspekSah("PERANTARA", null)).toBe(false);
+    expect(isPeranProspekSah("PERANTARA", undefined)).toBe(false);
+    expect(isPeranProspekSah("PERANTARA", "   ")).toBe(false);
+  });
+
+  it("tidak menuntut peran dari calon pelanggan", () => {
+    expect(isPeranProspekSah("CALON_PELANGGAN", null)).toBe(true);
+    expect(isPeranProspekSah("CALON_PELANGGAN", "Ketua RT")).toBe(true);
+  });
+});
+
+describe("tentukanPeranProspek", () => {
+  it("merapikan spasi peran perantara", () => {
+    expect(tentukanPeranProspek("PERANTARA", "  Kepala desa  ")).toBe(
+      "Kepala desa",
+    );
+  });
+
+  it("mengubah peran kosong perantara menjadi null", () => {
+    expect(tentukanPeranProspek("PERANTARA", "  ")).toBeNull();
+    expect(tentukanPeranProspek("PERANTARA", undefined)).toBeNull();
+  });
+
+  it("selalu membuang peran calon pelanggan", () => {
+    // Peran yang tertinggal membuat kartu calon pelanggan berlabel perantara.
+    expect(tentukanPeranProspek("CALON_PELANGGAN", "Ketua RT 03")).toBeNull();
   });
 });

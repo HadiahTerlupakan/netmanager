@@ -41,6 +41,34 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-01] — Prospek berjenis calon pelanggan atau perantara
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/presurvei` | `app/api/presurvei/prospek` | `app/admin/presurvei/prospek` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Prospek bukan hanya calon pemasang; bisa juga perantara, yaitu
+  orang yang bisa membawa pelanggan (ketua RT/RW, kepala desa, tokoh
+  masyarakat, pemilik warung). Kolom baru `jenis` (`CALON_PELANGGAN` |
+  `PERANTARA`, bawaan `CALON_PELANGGAN`, jadi data lama aman) dan `peran`.
+  Perantara wajib menyebut perannya (400 bila kosong); calon pelanggan selalu
+  `peran` null. Aturannya `isPeranProspekSah` dan `tentukanPeranProspek`,
+  dinilai pada keadaan akhir saat ubah. Perantara tidak bisa dipromosikan ke
+  canvasing (`canPromosikanKeCanvasing`), karena yang didaftarkan adalah orang
+  yang ia bawa. `GET /api/presurvei/prospek?jenis=` menyaring.
+  - Admin web: pilihan jenis dan isian "Peran" dengan saran di form, badge
+    "Perantara · <peran>", filter jenis di papan, konversi tidak ditawarkan
+    untuk perantara.
+  - Mobile: form "Tambah Prospek" diawali "Orang ini siapa?"; perantara
+    memilih peran (5 tombol) ditambah keterangan opsional, paket
+    disembunyikan. Badge perantara di daftar, pemilih, form rencana, dan
+    rincian. Segmen filter jenis. Istilah payung kembali menjadi "prospek".
+- **Migration**: `20260926144448_add_jenis_and_peran_to_presurvei_prospek`
+- **Files**: `prisma/schema.prisma`, `modules/presurvei/domain/prospek-rules.ts`,
+  `modules/presurvei/services/ProspekService.ts`,
+  `modules/presurvei/validators/prospek.validator.ts`,
+  `app/admin/presurvei/prospek/ProspekFormModal.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Desain persona pengguna (staff, teknisi, sales, dst.)
 
 - **Tipe**: [DOCS]

@@ -1,5 +1,6 @@
 import type {
   ProspekEntity,
+  ProspekJenis,
   ProspekStatus,
   ProspekSumber,
 } from "../entities/Prospek";
@@ -16,6 +17,7 @@ import type { RentangPeriode } from "./IKegiatanRepository";
 export interface ProspekListFilters {
   status?: ProspekStatus;
   sumber?: ProspekSumber;
+  jenis?: ProspekJenis;
   pemilikId?: string;
   /**
    * Hanya prospek tanpa pemilik. Kalah dari `pemilikId` yang terisi — lihat
@@ -35,6 +37,8 @@ export interface CreateProspekInput {
   latitude?: number | null;
   longitude?: number | null;
   shareloc?: string | null;
+  jenis?: ProspekJenis;
+  peran?: string | null;
   sumber: ProspekSumber;
   iklanId?: string | null;
   registrationId?: string | null;
@@ -58,6 +62,8 @@ export interface UpdateProspekInput {
   latitude?: number | null;
   longitude?: number | null;
   shareloc?: string | null;
+  jenis?: ProspekJenis;
+  peran?: string | null;
   status?: ProspekStatus;
   pemilikId?: string | null;
   paketDiminati?: string | null;

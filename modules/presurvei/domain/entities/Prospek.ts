@@ -26,6 +26,14 @@ export const PROSPEK_SUMBER = [
 
 export type ProspekSumber = (typeof PROSPEK_SUMBER)[number];
 
+/**
+ * Siapa prospek ini: calon pemasang, atau perantara — orang yang bisa membawa
+ * pelanggan (ketua RT/RW, kepala desa, tokoh masyarakat, pemilik warung, dll.).
+ */
+export const PROSPEK_JENIS = ["CALON_PELANGGAN", "PERANTARA"] as const;
+
+export type ProspekJenis = (typeof PROSPEK_JENIS)[number];
+
 export interface ProspekEntity {
   id: string;
   nama: string;
@@ -35,6 +43,9 @@ export interface ProspekEntity {
   latitude: number | null;
   longitude: number | null;
   shareloc: string | null;
+  jenis: ProspekJenis;
+  /** Peran perantara, mis. "Ketua RT 03"; null untuk calon pelanggan. */
+  peran: string | null;
   sumber: ProspekSumber;
   iklanId: string | null;
   registrationId: string | null;
