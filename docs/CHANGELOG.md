@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Warna aplikasi mobile mengikuti persona pengguna
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Warna identitas aplikasi (tombol utama, tab aktif, tautan,
+  chip terpilih, ikon aksen) kini berbeda per persona: Sales biru, Teknisi
+  oranye, Staff tosca, Finance ungu, Direktur indigo; Mitra tetap biru.
+  Token di `src/theme/` (`useTemaPersona()` → `tw` berkelas `utama-*` dan
+  `warna` hex), dipasang `TemaPersonaPenggunaProvider` di `app/_layout.tsx`.
+  ~85 layar/komponen dimigrasi dari `bg-blue-600`/`#2563eb` hardcode.
+  Warna makna (status, merah/hijau/kuning, lencana) sengaja tidak ikut.
+  Test penjaga `__tests__/theme/penjagaWarnaIdentitas.test.ts` mencegah warna
+  identitas di-hardcode lagi. Murni JS → cukup OTA.
+- **Files**: `mobile-netmanager: src/theme/temaPersona.ts`,
+  `src/theme/twPersona.ts`, `src/theme/TemaPersonaContext.tsx`,
+  `src/components/providers/TemaPersonaPenggunaProvider.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Selaraskan template role Inventory Staff dan Manager
 
 - **Tipe**: [CHANGED]
