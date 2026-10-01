@@ -11,13 +11,13 @@ import {
   catatKegiatanSchema,
   isButuhIklan,
   isButuhLokasi,
-  KEGIATAN_HASIL,
-  KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS,
   KEGIATAN_JENIS_CONFIG,
   TOLERANSI_SKEW_JAM_MENIT,
   type KegiatanHasil,
   type KegiatanJenis,
+  HASIL_PER_JENIS,
+  labelHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import {
@@ -30,6 +30,7 @@ import {
   type KesalahanForm,
   type MuatanKegiatan,
   type NilaiFormKegiatan,
+  gantiJenisKegiatan,
 } from "./kegiatanFormState";
 
 /**
@@ -168,7 +169,7 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
               id="kegiatan-jenis"
               value={nilai.jenis}
               onChange={(event) =>
-                ubahMedan({ jenis: event.target.value as KegiatanJenis })
+                ubahMedan(gantiJenisKegiatan(event.target.value as KegiatanJenis, nilai.hasil))
               }
               className={`${KELAS_INPUT} cursor-pointer`}
             >
@@ -195,9 +196,9 @@ export function KegiatanFormModal({ isOpen, onClose }: KegiatanFormModalProps) {
               }
               className={`${KELAS_INPUT} cursor-pointer`}
             >
-              {KEGIATAN_HASIL.map((hasil) => (
+              {HASIL_PER_JENIS[nilai.jenis].map((hasil) => (
                 <option key={hasil} value={hasil}>
-                  {KEGIATAN_HASIL_CONFIG[hasil].label}
+                  {labelHasilKegiatan(hasil, nilai.jenis)}
                 </option>
               ))}
             </select>

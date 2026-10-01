@@ -1,6 +1,6 @@
 {
   "kegiatanJenis": ["KUNJUNGAN", "SURVEI_LOKASI", "TELEPON", "CHAT", "IKLAN"],
-  "kegiatanHasil": ["TERTARIK", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG", "DEAL"],
+  "kegiatanHasil": ["TERTARIK", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG", "DEAL", "BISA_DIPASANG", "TIDAK_BISA_DIPASANG"],
   "prospekStatus": ["BARU", "DIHUBUNGI", "TERTARIK", "NEGOSIASI", "DEAL", "TIDAK_MINAT", "TIDAK_LAYAK"],
   "transisiStatus": {
     "BARU": ["DIHUBUNGI", "TIDAK_MINAT"],
@@ -14,7 +14,7 @@
   "tujuanBukaKonversi": ["DEAL"],
   "jenisButuhLokasi": ["KUNJUNGAN", "SURVEI_LOKASI"],
   "jenisBerdataTeknis": ["SURVEI_LOKASI"],
-  "hasilMelahirkanProspek": ["TERTARIK", "DEAL"],
+  "hasilMelahirkanProspek": ["TERTARIK", "DEAL", "BISA_DIPASANG"],
   "jumlahFotoMaks": 6,
   "kabelMeterMaks": 5000,
   "rencanaJenis": ["KUNJUNGAN", "SURVEI_LOKASI", "TELEPON", "CHAT"],
@@ -23,5 +23,48 @@
   "tujuanRencanaMaks": 500,
   "alamatRencanaMaks": 300,
   "alasanBatalRencanaMin": 3,
-  "alasanBatalRencanaMaks": 300
+  "alasanBatalRencanaMaks": 300,
+  "hasilPerJenis": {
+    "KUNJUNGAN": ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
+    "SURVEI_LOKASI": ["BISA_DIPASANG", "TIDAK_BISA_DIPASANG", "PERLU_FOLLOWUP", "TIDAK_ADA_ORANG"],
+    "TELEPON": ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
+    "CHAT": ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
+    "IKLAN": ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"]
+  },
+  "labelHasilPerJenis": {
+    "KUNJUNGAN": {
+      "TERTARIK": "Tertarik",
+      "DEAL": "Setuju pasang",
+      "PERLU_FOLLOWUP": "Masih pikir-pikir",
+      "TIDAK_MINAT": "Tidak minat",
+      "TIDAK_ADA_ORANG": "Tidak ketemu orangnya"
+    },
+    "SURVEI_LOKASI": {
+      "BISA_DIPASANG": "Bisa dipasang",
+      "TIDAK_BISA_DIPASANG": "Tidak bisa dipasang",
+      "PERLU_FOLLOWUP": "Perlu dicek ulang",
+      "TIDAK_ADA_ORANG": "Tidak ketemu orangnya"
+    },
+    "TELEPON": {
+      "TERTARIK": "Tertarik",
+      "DEAL": "Setuju pasang",
+      "PERLU_FOLLOWUP": "Minta ditelepon lagi",
+      "TIDAK_MINAT": "Tidak minat",
+      "TIDAK_ADA_ORANG": "Tidak diangkat / nomor tidak aktif"
+    },
+    "CHAT": {
+      "TERTARIK": "Tertarik",
+      "DEAL": "Setuju pasang",
+      "PERLU_FOLLOWUP": "Masih tanya-tanya",
+      "TIDAK_MINAT": "Tidak minat",
+      "TIDAK_ADA_ORANG": "Belum dibalas"
+    },
+    "IKLAN": {
+      "TERTARIK": "Tertarik",
+      "DEAL": "Deal",
+      "PERLU_FOLLOWUP": "Perlu follow-up",
+      "TIDAK_MINAT": "Tidak minat",
+      "TIDAK_ADA_ORANG": "Tidak ada orang"
+    }
+  }
 }

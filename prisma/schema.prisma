@@ -4758,12 +4758,16 @@ enum PresurveiStatusRencana {
   BATAL
 }
 
+
+/// BISA_DIPASANG & TIDAK_BISA_DIPASANG hanya untuk survei lokasi (kelayakan pasang).
 enum PresurveiHasilKegiatan {
   TERTARIK
   PERLU_FOLLOWUP
   TIDAK_MINAT
   TIDAK_ADA_ORANG
   DEAL
+  BISA_DIPASANG
+  TIDAK_BISA_DIPASANG
 }
 
 enum PresurveiJenisProspek {

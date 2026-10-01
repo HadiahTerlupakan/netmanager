@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Pilihan hasil kegiatan mengikuti jenis kegiatannya
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/presurvei` | `app/admin/presurvei` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Hasil kegiatan dulu sama untuk semua jenis. Sekarang pilihan
+  dan labelnya mengikuti jenis kegiatan (`modules/presurvei/domain/hasil-kegiatan.ts`):
+  - Kunjungan: Tertarik · Setuju pasang · Masih pikir-pikir · Tidak minat ·
+    Tidak ketemu orangnya.
+  - Survei lokasi: **Bisa dipasang** · **Tidak bisa dipasang** · Perlu dicek
+    ulang · Tidak ketemu orangnya. Dua nilai enum baru; "Bisa dipasang" ikut
+    melahirkan prospek seperti Tertarik/Deal.
+  - Telepon: … Minta ditelepon lagi · Tidak diangkat / nomor tidak aktif.
+  - Chat: … Masih tanya-tanya · Belum dibalas.
+
+  Server hanya menolak hasil khusus survei di jenis lain; kombinasi lama
+  (mis. survei "Tertarik") tetap diterima supaya aplikasi versi lama dan
+  antrean offline tidak gagal. Ubah kegiatan hanya menawarkan hasil yang
+  sesuai jenisnya. Web admin dan mobile menampilkan label sesuai jenis
+  (`tampilanHasilKegiatan`, `labelHasilKegiatan`). Kontrak mobile ditambah
+  `hasilPerJenis` dan `labelHasilPerJenis`.
+- **Migration**: `20261001212110_add_hasil_kelayakan_survei_to_presurvei_kegiatan`
+- **Files**: `modules/presurvei/domain/hasil-kegiatan.ts`,
+  `modules/presurvei/validators/kegiatan.validator.ts`,
+  `modules/presurvei/services/KegiatanService.ts`,
+  `app/admin/presurvei/kegiatan/KegiatanFormModal.tsx`,
+  `mobile-netmanager: src/utils/presurvei/hasilKegiatan.ts`,
+  `src/components/organisms/presurvei/FormCatatKegiatan.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-01] — Prospek berjenis calon pelanggan atau perantara
 
 - **Tipe**: [MIGRATION]

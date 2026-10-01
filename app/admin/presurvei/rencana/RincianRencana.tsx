@@ -6,10 +6,10 @@ import type { ReactNode } from "react";
 
 import { formatDateTimeDisplay } from "@/lib/utils/datetime";
 import {
-  KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
   type KegiatanDetailDto,
   type RincianRencanaDto,
+  tampilanHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import { TEKS_KOSONG } from "../kegiatan/[id]/blokDetail";
@@ -90,7 +90,7 @@ function BlokLaporan({ laporan }: { laporan: KegiatanDetailDto }) {
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Medan
           label="Hasil"
-          nilai={<Badge tampilan={KEGIATAN_HASIL_CONFIG[laporan.hasil]} />}
+          nilai={<Badge tampilan={tampilanHasilKegiatan(laporan.hasil, laporan.jenis)} />}
         />
         <Medan
           label="Waktu"

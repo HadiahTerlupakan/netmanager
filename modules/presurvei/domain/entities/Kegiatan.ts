@@ -22,6 +22,9 @@ export const KEGIATAN_HASIL = [
   "TIDAK_MINAT",
   "TIDAK_ADA_ORANG",
   "DEAL",
+  // Khusus survei lokasi: kelayakan pasang (lihat `hasil-kegiatan.ts`).
+  "BISA_DIPASANG",
+  "TIDAK_BISA_DIPASANG",
 ] as const;
 
 export type KegiatanHasil = (typeof KEGIATAN_HASIL)[number];

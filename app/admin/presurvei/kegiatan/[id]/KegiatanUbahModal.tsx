@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import {
-  KEGIATAN_HASIL_CONFIG,
+  labelHasilKegiatan,
   type KegiatanHasil,
   type KegiatanRincianDto,
 } from "@/modules/presurvei/client";
@@ -98,9 +98,9 @@ export function KegiatanUbahModal({
             }
             className={`${KELAS_INPUT} cursor-pointer`}
           >
-            {pilihanHasilUbah(kegiatan.hasil).map((hasil) => (
+            {pilihanHasilUbah(kegiatan.hasil, kegiatan.jenis).map((hasil) => (
               <option key={hasil} value={hasil}>
-                {KEGIATAN_HASIL_CONFIG[hasil].label}
+                {labelHasilKegiatan(hasil, kegiatan.jenis)}
               </option>
             ))}
           </select>

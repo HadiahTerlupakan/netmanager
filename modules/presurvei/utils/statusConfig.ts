@@ -9,6 +9,7 @@
 import type { IklanChannel } from "../domain/entities/Iklan";
 import type { KegiatanHasil, KegiatanJenis } from "../domain/entities/Kegiatan";
 import type { PeranPelaku } from "../domain/peran-pelaku";
+import { labelHasilKegiatan } from "../domain/hasil-kegiatan";
 import {
   PROSPEK_STATUSES,
   type ProspekJenis,
@@ -72,7 +73,20 @@ export const KEGIATAN_HASIL_CONFIG: Record<KegiatanHasil, TampilanStatus> = {
     warna: "bg-slate-100 text-slate-600",
   },
   DEAL: { label: "Deal", warna: "bg-emerald-100 text-emerald-700" },
+  BISA_DIPASANG: {
+    label: "Bisa dipasang",
+    warna: "bg-teal-100 text-teal-700",
+  },
+  TIDAK_BISA_DIPASANG: {
+    label: "Tidak bisa dipasang",
+    warna: "bg-rose-100 text-rose-700",
+  },
 };
+
+/** Badge hasil dengan label sesuai jenis kegiatannya (mis. telepon: "Tidak diangkat…"). */
+export function tampilanHasilKegiatan(hasil: KegiatanHasil, jenis: KegiatanJenis): TampilanStatus {
+  return { ...KEGIATAN_HASIL_CONFIG[hasil], label: labelHasilKegiatan(hasil, jenis) };
+}
 
 export const IKLAN_CHANNEL_CONFIG: Record<IklanChannel, TampilanStatus> = {
   META: { label: "Meta", warna: "bg-blue-100 text-blue-700" },

@@ -5,6 +5,7 @@ import {
   ubahKegiatanSchema,
   type KegiatanDetailDto,
   type KegiatanHasil,
+  type KegiatanJenis,
   type KegiatanRincianDto,
   type UbahKegiatanInput,
 } from "@/modules/presurvei/client";
@@ -132,8 +133,9 @@ export function periksaFormUbah(
 
 /**
  * Pilihan hasil di modal: hanya yang sekelompok menurut
- * `isHasilMelahirkanProspek`, karena server menolak yang melintasi batas.
+ * `isHasilMelahirkanProspek`, karena server menolak yang melintasi batas,
+ * dan yang ditawarkan untuk jenis kegiatannya (`HASIL_PER_JENIS`).
  */
-export function pilihanHasilUbah(hasil: KegiatanHasil): KegiatanHasil[] {
-  return daftarHasilSekelompok(hasil);
+export function pilihanHasilUbah(hasil: KegiatanHasil, jenis: KegiatanJenis): KegiatanHasil[] {
+  return daftarHasilSekelompok(hasil, jenis);
 }

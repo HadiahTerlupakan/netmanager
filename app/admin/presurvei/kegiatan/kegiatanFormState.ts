@@ -1,4 +1,8 @@
-import type { KegiatanHasil, KegiatanJenis } from "@/modules/presurvei/client";
+import {
+  HASIL_PER_JENIS,
+  type KegiatanHasil,
+  type KegiatanJenis,
+} from "@/modules/presurvei/client";
 
 /** Endpoint koleksi kegiatan; `POST` ke sini mencatat kegiatan baru. */
 export const URL_API_KEGIATAN = "/api/presurvei/kegiatan";
@@ -169,4 +173,18 @@ export function keKesalahanForm(
   }
 
   return kesalahan;
+}
+
+/**
+ * Perubahan saat jenis diganti: hasil yang tidak ditawarkan untuk jenis baru
+ * diganti "Perlu follow-up" (ada di semua jenis) supaya form tidak mengirim
+ * kombinasi yang ditolak server (mis. "Bisa dipasang" pada telepon).
+ */
+export function gantiJenisKegiatan(
+  jenis: KegiatanJenis,
+  hasil: KegiatanHasil,
+): { jenis: KegiatanJenis; hasil?: KegiatanHasil } {
+  return HASIL_PER_JENIS[jenis].includes(hasil)
+    ? { jenis }
+    : { jenis, hasil: "PERLU_FOLLOWUP" };
 }

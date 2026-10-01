@@ -44,6 +44,13 @@ export {
 export { resolveAksiKanban, type AksiKanban } from "./domain/prospek-kanban";
 
 export {
+  HASIL_PER_JENIS,
+  isHasilSesuaiJenis,
+  LABEL_HASIL_UMUM,
+  labelHasilKegiatan,
+} from "./domain/hasil-kegiatan";
+
+export {
   daftarHasilSekelompok,
   isButuhDataTeknis,
   isButuhIklan,
@@ -109,6 +116,7 @@ export {
   IKLAN_CHANNEL_CONFIG,
   KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
+  tampilanHasilKegiatan,
   PROSPEK_JENIS_CONFIG,
   PROSPEK_STATUS_CONFIG,
   PROSPEK_SUMBER_CONFIG,

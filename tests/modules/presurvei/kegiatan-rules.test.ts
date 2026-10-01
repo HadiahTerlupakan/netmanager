@@ -87,11 +87,19 @@ describe("isPerubahanHasilSah", () => {
 
 describe("daftarHasilSekelompok", () => {
   it("menawarkan hanya hasil berminat untuk kegiatan berminat", () => {
-    expect(daftarHasilSekelompok("TERTARIK")).toEqual(["TERTARIK", "DEAL"]);
+    expect(daftarHasilSekelompok("TERTARIK")).toEqual(["TERTARIK", "DEAL", "BISA_DIPASANG"]);
+    // Dengan jenis: hanya yang ditawarkan untuk jenis itu.
+    expect(daftarHasilSekelompok("TERTARIK", "KUNJUNGAN")).toEqual(["TERTARIK", "DEAL"]);
   });
 
   it("menawarkan hanya hasil belum berminat untuk kegiatan belum berminat", () => {
     expect(daftarHasilSekelompok("TIDAK_MINAT")).toEqual([
+      "PERLU_FOLLOWUP",
+      "TIDAK_MINAT",
+      "TIDAK_ADA_ORANG",
+      "TIDAK_BISA_DIPASANG",
+    ]);
+    expect(daftarHasilSekelompok("TIDAK_MINAT", "TELEPON")).toEqual([
       "PERLU_FOLLOWUP",
       "TIDAK_MINAT",
       "TIDAK_ADA_ORANG",
@@ -101,6 +109,6 @@ describe("daftarHasilSekelompok", () => {
   it("mengembalikan salinan baru, bukan tabel modul", () => {
     // Pemanggil yang meng-sort hasilnya tidak boleh merusak panggilan berikut.
     daftarHasilSekelompok("TERTARIK").reverse();
-    expect(daftarHasilSekelompok("TERTARIK")).toEqual(["TERTARIK", "DEAL"]);
+    expect(daftarHasilSekelompok("TERTARIK")).toEqual(["TERTARIK", "DEAL", "BISA_DIPASANG"]);
   });
 });

@@ -95,12 +95,15 @@ describe("keTitikPeta", () => {
   it("membawa label hasil dan alamat untuk isi popup", () => {
     // Popup penanda hanya punya ketiga field ini. `label` yang diisi kode enum
     // mentah (`item.hasil`) lolos `tsc` karena keduanya `string`, lalu popup
-    // menampilkan "PERLU_FOLLOWUP" alih-alih "Perlu follow-up".
+    // menampilkan "PERLU_FOLLOWUP" alih-alih labelnya. Labelnya mengikuti jenis:
+    // kunjungan "Masih pikir-pikir", survei lokasi "Perlu dicek ulang".
     const hasil = keTitikPeta([
       kegiatan({ hasil: "PERLU_FOLLOWUP", alamatDikunjungi: "Jl. Kenanga 4" }),
+      kegiatan({ id: "k-survei", jenis: "SURVEI_LOKASI", hasil: "PERLU_FOLLOWUP" }),
     ]);
 
-    expect(hasil.titik[0].label).toBe("Perlu follow-up");
+    expect(hasil.titik[0].label).toBe("Masih pikir-pikir");
+    expect(hasil.titik[1].label).toBe("Perlu dicek ulang");
     expect(hasil.titik[0].alamat).toBe("Jl. Kenanga 4");
   });
 

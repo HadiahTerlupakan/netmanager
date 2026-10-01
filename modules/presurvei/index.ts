@@ -63,6 +63,11 @@ export {
   isHasilMelahirkanProspek,
   isPerubahanHasilSah,
 } from "./domain/kegiatan-rules";
+export {
+  HASIL_PER_JENIS,
+  isHasilSesuaiJenis,
+  labelHasilKegiatan,
+} from "./domain/hasil-kegiatan";
 
 export {
   type MedanKegiatanDapatDiubah,

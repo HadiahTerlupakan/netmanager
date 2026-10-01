@@ -1,7 +1,7 @@
 import {
-  KEGIATAN_HASIL_CONFIG,
   type KegiatanHasil,
   type KegiatanListItemDto,
+  tampilanHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import { BATAS_PETA } from "./kegiatanListQuery";
@@ -19,6 +19,8 @@ const WARNA_PENANDA: Record<KegiatanHasil, string> = {
   TIDAK_MINAT: "#9ca3af",
   TIDAK_ADA_ORANG: "#94a3b8",
   DEAL: "#10b981",
+  BISA_DIPASANG: "#14b8a6",
+  TIDAK_BISA_DIPASANG: "#f43f5e",
 };
 
 export interface TitikKegiatan {
@@ -59,7 +61,7 @@ export function keTitikPeta(baris: KegiatanListItemDto[]): {
       continue;
     }
 
-    const tampilan = KEGIATAN_HASIL_CONFIG[item.hasil];
+    const tampilan = tampilanHasilKegiatan(item.hasil, item.jenis);
 
     titik.push({
       id: item.id,

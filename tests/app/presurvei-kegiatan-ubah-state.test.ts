@@ -141,12 +141,23 @@ describe("periksaFormUbah", () => {
 
 describe("pilihanHasilUbah", () => {
   it("hanya menawarkan hasil sekelompok", () => {
-    expect(pilihanHasilUbah("TERTARIK")).toEqual(["TERTARIK", "DEAL"]);
-    expect(pilihanHasilUbah("PERLU_FOLLOWUP")).toEqual([
+    expect(pilihanHasilUbah("TERTARIK", "KUNJUNGAN")).toEqual(["TERTARIK", "DEAL"]);
+    expect(pilihanHasilUbah("PERLU_FOLLOWUP", "KUNJUNGAN")).toEqual([
       "PERLU_FOLLOWUP",
       "TIDAK_MINAT",
       "TIDAK_ADA_ORANG",
     ]);
+  });
+
+  it("survei lokasi menawarkan kelayakan pasang; data lama tetap bisa dipertahankan", () => {
+    expect(pilihanHasilUbah("PERLU_FOLLOWUP", "SURVEI_LOKASI")).toEqual([
+      "PERLU_FOLLOWUP",
+      "TIDAK_ADA_ORANG",
+      "TIDAK_BISA_DIPASANG",
+    ]);
+    // Survei lama berhasil "Tertarik": nilainya tetap ada, plus "Bisa dipasang" sekelompok.
+    expect(pilihanHasilUbah("TERTARIK", "SURVEI_LOKASI")).toEqual(["TERTARIK", "BISA_DIPASANG"]);
+    expect(pilihanHasilUbah("TIDAK_MINAT", "TELEPON")).not.toContain("TIDAK_BISA_DIPASANG");
   });
 });
 

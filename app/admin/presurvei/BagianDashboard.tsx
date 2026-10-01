@@ -7,9 +7,9 @@ import { useMemo } from "react";
 import { StatCard } from "@/components/common/StatCard";
 import { formatDateTimeDisplay } from "@/lib/utils/datetime";
 import {
-  KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
   PROSPEK_SUMBER_CONFIG,
+  tampilanHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import { keBarisTampilan, pesanLaporanKosong } from "./laporan/barisLaporan";
@@ -185,7 +185,7 @@ export function KegiatanTerbaru({
           <li key={kegiatan.id} className="py-2 text-sm">
             <div className="font-medium text-gray-900 dark:text-white">
               {KEGIATAN_JENIS_CONFIG[kegiatan.jenis].label} ·{" "}
-              {KEGIATAN_HASIL_CONFIG[kegiatan.hasil].label}
+              {tampilanHasilKegiatan(kegiatan.hasil, kegiatan.jenis).label}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {teksPelakuDenganPeran(kegiatan)} ·{" "}

@@ -5,6 +5,7 @@ import {
   isButuhIklan,
   isButuhLokasi,
 } from "../domain/kegiatan-rules";
+import { isHasilSesuaiJenis } from "../domain/hasil-kegiatan";
 import { PERAN_PELAKU } from "../domain/peran-pelaku";
 import { isTerisi } from "./field-terisi";
 
@@ -108,7 +109,11 @@ export const catatKegiatanSchema = z
   .refine(
     (kegiatan) => !isButuhIklan(kegiatan.jenis) || isTerisi(kegiatan.iklanId),
     { message: "Kegiatan iklan wajib menunjuk ke sebuah iklan" },
-  );
+  )
+  .refine((kegiatan) => isHasilSesuaiJenis(kegiatan.hasil, kegiatan.jenis), {
+    message: "Hasil \"bisa/tidak bisa dipasang\" hanya untuk survei lokasi",
+    path: ["hasil"],
+  });
 
 /**
  * Query `GET /api/presurvei/kegiatan`.

@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import {
-  KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
   type KegiatanListItemDto,
+  tampilanHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import { teksPeranPelaku } from "../labelPeranPelaku";
@@ -88,7 +88,7 @@ const kolom: Column<KegiatanListItemDto>[] = [
     header: "Hasil",
     priority: "primary",
     render: (item) => {
-      const tampilan = KEGIATAN_HASIL_CONFIG[item.hasil];
+      const tampilan = tampilanHasilKegiatan(item.hasil, item.jenis);
       return (
         <span className={`rounded px-2 py-0.5 text-xs ${tampilan.warna}`}>
           {tampilan.label}

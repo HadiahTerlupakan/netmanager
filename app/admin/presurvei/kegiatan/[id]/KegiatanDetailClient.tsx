@@ -11,12 +11,12 @@ import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi, type FetchError } from "@/lib/hooks/useApi";
 import {
-  KEGIATAN_HASIL_CONFIG,
   KEGIATAN_JENIS_CONFIG,
   type KegiatanDetailDto,
   type KegiatanRincianDto,
   type RiwayatKegiatanDto,
   type TampilanStatus,
+  tampilanHasilKegiatan,
 } from "@/modules/presurvei/client";
 
 import { teksPeranPelaku } from "../../labelPeranPelaku";
@@ -223,7 +223,7 @@ function IsiDetailKegiatan({ kegiatan }: { kegiatan: KegiatanRincianDto }) {
           <BarisRingkasan
             label="Hasil"
             nilai={
-              <BadgeStatus tampilan={KEGIATAN_HASIL_CONFIG[kegiatan.hasil]} />
+              <BadgeStatus tampilan={tampilanHasilKegiatan(kegiatan.hasil, kegiatan.jenis)} />
             }
           />
           <BarisRingkasan label="Alamat" nilai={kegiatan.alamatDikunjungi} />

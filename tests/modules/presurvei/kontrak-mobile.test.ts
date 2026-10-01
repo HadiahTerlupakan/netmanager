@@ -5,11 +5,13 @@ import { describe, expect, it } from "vitest";
 import {
   catatKegiatanSchema,
   getStatusLanjutan,
+  HASIL_PER_JENIS,
   isButuhDataTeknis,
   isButuhLokasi,
   isHasilMelahirkanProspek,
   KEGIATAN_HASIL,
   KEGIATAN_JENIS,
+  labelHasilKegiatan,
   PROSPEK_STATUSES,
   ALAMAT_RENCANA_MAKS,
   ALASAN_BATAL_MAKS,
@@ -43,6 +45,8 @@ interface KontrakMobile {
   jenisButuhLokasi: string[];
   jenisBerdataTeknis: string[];
   hasilMelahirkanProspek: string[];
+  hasilPerJenis: Record<string, string[]>;
+  labelHasilPerJenis: Record<string, Record<string, string>>;
   jumlahFotoMaks: number;
   kabelMeterMaks: number;
   rencanaJenis: string[];
@@ -146,5 +150,19 @@ describe("kontrak presurvei untuk mobile", () => {
         surveiDenganKabel(kontrak.kabelMeterMaks + 1),
       ).success,
     ).toBe(false);
+  });
+
+  it("hasil per jenis kegiatan beserta labelnya", () => {
+    expect(kontrak.hasilPerJenis).toEqual(
+      Object.fromEntries(KEGIATAN_JENIS.map((jenis) => [jenis, [...HASIL_PER_JENIS[jenis]]])),
+    );
+    expect(kontrak.labelHasilPerJenis).toEqual(
+      Object.fromEntries(
+        KEGIATAN_JENIS.map((jenis) => [
+          jenis,
+          Object.fromEntries(HASIL_PER_JENIS[jenis].map((hasil) => [hasil, labelHasilKegiatan(hasil, jenis)])),
+        ]),
+      ),
+    );
   });
 });

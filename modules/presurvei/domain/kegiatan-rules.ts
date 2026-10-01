@@ -3,6 +3,7 @@ import {
   type KegiatanHasil,
   type KegiatanJenis,
 } from "./entities/Kegiatan";
+import { HASIL_PER_JENIS } from "./hasil-kegiatan";
 
 /**
  * Aturan bisnis kegiatan presurvei — fungsi murni, tanpa I/O.
@@ -14,7 +15,8 @@ import {
 const JENIS_DI_LAPANGAN: KegiatanJenis[] = ["KUNJUNGAN", "SURVEI_LOKASI"];
 const JENIS_BERDATA_TEKNIS: KegiatanJenis[] = ["SURVEI_LOKASI"];
 const JENIS_TERKAIT_IKLAN: KegiatanJenis[] = ["IKLAN"];
-const HASIL_BERMINAT: KegiatanHasil[] = ["TERTARIK", "DEAL"];
+/** Lokasi yang bisa dipasang juga layak jadi prospek: survei dilakukan karena ada minat. */
+const HASIL_BERMINAT: KegiatanHasil[] = ["TERTARIK", "DEAL", "BISA_DIPASANG"];
 
 /** Apakah jenis kegiatan ini terjadi di lokasi sehingga butuh koordinat. */
 export function isButuhLokasi(jenis: KegiatanJenis): boolean {
@@ -57,8 +59,13 @@ export function isPerubahanHasilSah(
 
 /**
  * Hasil yang boleh dipilih saat mengubah kegiatan berhasil `hasil`, termasuk
- * dirinya sendiri, dalam urutan `KEGIATAN_HASIL`. Selalu array baru.
+ * dirinya sendiri, dalam urutan `KEGIATAN_HASIL`. Dengan `jenis`, hanya hasil
+ * yang ditawarkan untuk jenis itu (hasil saat ini selalu ikut, walau data
+ * lama). Selalu array baru.
  */
-export function daftarHasilSekelompok(hasil: KegiatanHasil): KegiatanHasil[] {
-  return KEGIATAN_HASIL.filter((calon) => isPerubahanHasilSah(hasil, calon));
+export function daftarHasilSekelompok(hasil: KegiatanHasil, jenis?: KegiatanJenis): KegiatanHasil[] {
+  const ditawarkan = jenis ? HASIL_PER_JENIS[jenis] : KEGIATAN_HASIL;
+  return KEGIATAN_HASIL.filter(
+    (calon) => isPerubahanHasilSah(hasil, calon) && (calon === hasil || ditawarkan.includes(calon)),
+  );
 }
