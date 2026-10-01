@@ -22,6 +22,14 @@ export type {
   UpdateSiteDTO,
 } from "./dto/SiteDTO";
 
+export * from "./client";
+export {
+  createRoleSchema,
+  updateRoleSchema,
+  type CreateRoleInput,
+  type UpdateRoleInput,
+} from "./validators";
+
 export {
   DepartmentService,
   getDepartmentService,

@@ -215,7 +215,7 @@ export {
   type RencanaStatusTampil,
   type RencanaSumber,
 } from "./domain/entities/Rencana";
-export { isKepalaSalesDariIzin, isSalesEfektif } from "./domain/peran-sales";
+export { isKepalaSalesDariIzin } from "./domain/peran-sales";
 export {
   hitungRekapRencana,
   isBolehMengatur,

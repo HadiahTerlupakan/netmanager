@@ -34,9 +34,10 @@ vi.mock("@/modules/users/mappers/UserMapper", () => ({
 }));
 
 vi.mock("@/modules/users/services/UserService.helpers", () => ({
-  buildCreateUserInput: vi.fn((data, passwordHash) => ({
+  buildCreateUserInput: vi.fn((data, passwordHash, isSales) => ({
     ...data,
     password: passwordHash,
+    isSales,
   })),
   buildUpdateUserData: vi.fn((data) => data),
   validateWorkingHoursPayload: vi.fn(),
@@ -78,6 +79,7 @@ describe("UserService", () => {
       findById: vi.fn(),
       findByIdWithRelations: vi.fn(),
       findByEmail: vi.fn(),
+      findRolePersona: vi.fn().mockResolvedValue("STAFF"),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -208,6 +210,32 @@ describe("UserService", () => {
       expect(mockRepository.create).toHaveBeenCalled();
     });
 
+    it("isSales diturunkan dari persona role, mengabaikan payload", async () => {
+      vi.mocked(mockRepository.findRolePersona).mockResolvedValue("SALES");
+      vi.mocked(mockRepository.create).mockResolvedValue(mockUser);
+
+      await userService.createUser({
+        ...createInput,
+        isSales: false,
+      } as CreateUserInput);
+
+      expect(mockRepository.findRolePersona).toHaveBeenCalledWith("role-1");
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isSales: true }),
+      );
+    });
+
+    it("tanpa role → bukan sales, tanpa query persona", async () => {
+      vi.mocked(mockRepository.create).mockResolvedValue(mockUser);
+
+      await userService.createUser({ ...createInput, roleId: undefined });
+
+      expect(mockRepository.findRolePersona).not.toHaveBeenCalled();
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isSales: false }),
+      );
+    });
+
     it("harus throw error jika email sudah terdaftar", async () => {
       const { checkGlobalIdentifier } =
         await import("@/lib/validations/global-identifier");
@@ -282,6 +310,29 @@ describe("UserService", () => {
       await userService.updateUser("user-1", { roleId: "new-role" });
 
       expect(invalidatePermissionCache).toHaveBeenCalledWith("user-1");
+    });
+
+    it("ganti role menyinkronkan isSales dari persona role baru", async () => {
+      vi.mocked(mockRepository.findById).mockResolvedValue(mockUser);
+      vi.mocked(mockRepository.update).mockResolvedValue(mockUser);
+      vi.mocked(mockRepository.findRolePersona).mockResolvedValue("SALES");
+
+      await userService.updateUser("user-1", { roleId: "role-sales" });
+
+      expect(mockRepository.update).toHaveBeenCalledWith(
+        "user-1",
+        expect.objectContaining({ roleId: "role-sales", isSales: true }),
+      );
+    });
+
+    it("tanpa perubahan role, isSales tidak disentuh", async () => {
+      vi.mocked(mockRepository.findById).mockResolvedValue(mockUser);
+      vi.mocked(mockRepository.update).mockResolvedValue(mockUser);
+
+      await userService.updateUser("user-1", { name: "Baru" });
+
+      expect(mockRepository.findRolePersona).not.toHaveBeenCalled();
+      expect(vi.mocked(mockRepository.update).mock.calls[0][1]).not.toHaveProperty("isSales");
     });
   });
 

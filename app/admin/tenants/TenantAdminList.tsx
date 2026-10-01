@@ -149,7 +149,6 @@ export default function TenantAdminList({
           isActive: true,
           // Default fields required by createUserSchema (only for POST)
           ...(!isEditMode && {
-            isSales: false,
             workingHourMode: "FIXED",
             attendanceGeofencePolicy: "WARN",
             startWorkTime: "09:00",

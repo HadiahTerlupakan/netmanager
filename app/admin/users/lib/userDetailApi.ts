@@ -10,6 +10,8 @@ export interface ReferenceRole {
   id: string;
   name: string;
   description?: string;
+  /** Persona role (`RoleListItemDTO.persona`); menentukan tampilan HP & status sales. */
+  persona?: string;
 }
 
 export interface ReferenceSite {

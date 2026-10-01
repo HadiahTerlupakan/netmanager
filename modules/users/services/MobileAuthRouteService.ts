@@ -6,7 +6,7 @@ import { prismaAuth } from "@/modules/database";
 import { MobileCustomerAuthService } from "./MobileCustomerAuthService";
 import { MobileEmployeeAuthService } from "./MobileEmployeeAuthService";
 import { MobileAuthVersionService } from "./MobileAuthVersionService";
-import { isSalesPengguna } from "./peran-sales-pengguna";
+import { isSalesPengguna, personaPengguna, type PersonaKaryawan } from "./peran-sales-pengguna";
 
 const DEFAULT_EMPLOYEE_TYPE = "KARYAWAN";
 const DEFAULT_WORKING_HOUR_MODE = "FLEXIBLE";
@@ -51,15 +51,21 @@ export async function getMobileEmployeeMe(id: string, role?: string) {
       email: true,
       isActive: true,
       employeeType: true,
-      isSales: true,
       image: true,
       role: {
-        select: { isSuperAdmin: true, permission: { select: { resource: true, action: true } } },
+        select: {
+          isSuperAdmin: true,
+          persona: true,
+          permission: { select: { resource: true, action: true } },
+        },
       },
     },
   });
   if (!user?.isActive) return null;
-  return buildEmployeeMePayload({ ...user, isSales: isSalesPengguna(user) }, role);
+  return buildEmployeeMePayload(
+    { ...user, isSales: isSalesPengguna(user), persona: personaPengguna(user) },
+    role,
+  );
 }
 
 /** Mencoba login mobile untuk customer. */
@@ -236,6 +242,7 @@ function buildEmployeeMePayload(
     email: string;
     employeeType: string | null;
     isSales: boolean;
+    persona: PersonaKaryawan;
     image: string | null;
   },
   role?: string,
@@ -248,6 +255,7 @@ function buildEmployeeMePayload(
     features: [] as string[],
     employeeType: user.employeeType || DEFAULT_EMPLOYEE_TYPE,
     isSales: user.isSales,
+    persona: user.persona,
     image: user.image,
     workDays: [] as string[],
     workingHourMode: DEFAULT_WORKING_HOUR_MODE,

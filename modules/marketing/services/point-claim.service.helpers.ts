@@ -106,7 +106,7 @@ export function ensureRejectNotes(notes: string): void {
 
 export async function requireEligibleCashoutUser(
   userId: string,
-  access: { hasCashoutPermission: boolean; isKepalaSales: boolean },
+  access: { hasCashoutPermission: boolean },
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -118,8 +118,8 @@ export async function requireEligibleCashoutUser(
   }
 
   const isEligible = canCashoutCanvasingBonus({
-    // Kepala sales (dari role) adalah sales walau kolom isSales tidak dicentang.
-    isSales: user.isSales || access.isKepalaSales,
+    // `isSales` tersinkron dari persona role (lihat `isSalesDariPersona`).
+    isSales: user.isSales,
     hasCashoutPermission: access.hasCashoutPermission,
   });
   if (!isEligible) {

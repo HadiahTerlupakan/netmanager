@@ -23,7 +23,9 @@ import {
 import { UsersDetailView } from "./UsersDetailView";
 import { usePermission } from "@/hooks/use-permission";
 import { StatusAndSalesSection } from "../components/UserFormSections";
+import { RolePersonaHint } from "../components/RolePersonaHint";
 import { kepalaSalesIdUntukDikirim } from "../lib/kepalaSales";
+import { personaRoleTerpilih } from "../lib/personaRole";
 import { generateStrongPassword } from "../lib/password-generator";
 import { fetchAdminUserDetail, updateAdminUser } from "../lib/userDetailApi";
 import { useUserReferenceData } from "../lib/useUserDetailData";
@@ -38,6 +40,15 @@ const normalizeNumericField = (value: unknown): number | null => {
 
   return typeof value === "number" ? value : Number(value);
 };
+
+/**
+ * Skema lama di luar pilihan form (REVENUE/QUANTITY/POINTS) diperlakukan
+ * bulanan oleh logika pencairan; tampilkan sebagai Bulanan supaya dropdown
+ * tidak diam-diam memilih opsi pertama.
+ */
+function skemaTargetTampil(skema: string | null | undefined): string {
+  return skema === "ACCUMULATED" ? "ACCUMULATED" : "MONTHLY_RESET";
+}
 
 export function ClientComponent({
   params,
@@ -87,12 +98,18 @@ export function ClientComponent({
     endWorkTime: "",
     workDays: "",
     flexibleTargetHour: 8,
-    isSales: false,
     canvasingTarget: 0,
-    targetSchema: "REVENUE",
+    targetSchema: "MONTHLY_RESET",
     kepalaSalesId: "",
     tenantId: "",
   });
+
+  const personaRole = personaRoleTerpilih(roles, formData.roleId);
+  // Role tersimpan bisa tak ada di daftar (role restricted / daftar belum
+  // dimuat): pakai isSales tersimpan agar kepala sales tidak ikut terhapus.
+  const isSales = personaRole
+    ? personaRole.isSales
+    : Boolean(user?.isSales && formData.roleId === user.roleId);
 
   const currentFormSnapshot = JSON.stringify({ formData });
   const hasFormChanges =
@@ -117,9 +134,8 @@ export function ClientComponent({
           endWorkTime: usr.endWorkTime ?? "",
           workDays: usr.workDays ?? "",
           flexibleTargetHour: usr.flexibleTargetHour ?? 8,
-          isSales: usr.isSales ?? false,
           canvasingTarget: usr.canvasingTarget ?? 0,
-          targetSchema: usr.targetSchema ?? "REVENUE",
+          targetSchema: skemaTargetTampil(usr.targetSchema),
           kepalaSalesId: usr.kepalaSalesId ?? "",
           tenantId: usr.tenantId ?? usr.tenant?.id ?? "",
         };
@@ -226,11 +242,10 @@ export function ClientComponent({
         phone: formData.phone || null,
         roleId: formData.roleId,
         isActive: formData.isActive,
-        isSales: formData.isSales,
         canvasingTarget: normalizeNumericField(formData.canvasingTarget),
         targetSchema: formData.targetSchema,
         kepalaSalesId: kepalaSalesIdUntukDikirim(
-          formData.isSales,
+          isSales,
           formData.kepalaSalesId,
         ),
         tenantId: formData.tenantId || null,
@@ -298,7 +313,7 @@ export function ClientComponent({
           name: formData.name,
           phone: formData.phone,
           isActive: formData.isActive,
-          isSales: formData.isSales,
+          isSales: user?.isSales ?? false,
           departmentId: formData.departmentId,
           workingHourMode: formData.workingHourMode,
           startWorkTime: formData.startWorkTime,
@@ -456,6 +471,7 @@ export function ClientComponent({
                     ))}
                   </select>
                 </div>
+                <RolePersonaHint personaRole={personaRole} />
                 {errors.roleId && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                     {errors.roleId}
@@ -603,6 +619,7 @@ export function ClientComponent({
 
         <StatusAndSalesSection
           formData={formData}
+          isSales={isSales}
           handleChange={handleChange}
           userIdDiubah={id}
           kepalaSalesTersimpan={

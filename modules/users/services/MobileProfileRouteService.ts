@@ -6,7 +6,7 @@ import {
   hasCanvasingCashoutPermission,
 } from "@/modules/marketing";
 import { jenisLingkupDariIzin } from "@/modules/presurvei";
-import { daftarIzinRole, isSalesPengguna } from "./peran-sales-pengguna";
+import { daftarIzinRole, isSalesPengguna, personaPengguna } from "./peran-sales-pengguna";
 
 type MobileProfileUser = {
   id?: string;
@@ -164,6 +164,7 @@ async function getRegularUserProfile(user: MobileProfileUser) {
           id: true,
           name: true,
           isSuperAdmin: true,
+          persona: true,
           permission: { select: { resource: true, action: true } },
         },
       },
@@ -179,6 +180,7 @@ async function getRegularUserProfile(user: MobileProfileUser) {
   return {
     ...profile,
     isSales,
+    persona: personaPengguna(profile),
     features: extractMobileFeaturesFromPermissions(permissions),
     canCashoutCanvasing: canCashoutCanvasingBonus({
       isSales,

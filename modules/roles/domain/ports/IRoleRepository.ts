@@ -1,4 +1,5 @@
 import type { RoleEntity, UserRoleContextEntity } from "../entities/RoleEntity";
+import type { PersonaKaryawan } from "../persona-karyawan";
 
 export interface RoleFilterOptions {
   filterRestricted?: boolean;
@@ -13,6 +14,7 @@ export interface CreateRoleRepositoryInput {
   accessEmployeePanel?: boolean;
   isRestricted?: boolean;
   isTechnical?: boolean;
+  persona?: PersonaKaryawan;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
   canReceiveWhatsappApproval?: boolean;
@@ -26,6 +28,7 @@ export interface UpdateRoleRepositoryInput {
   accessEmployeePanel?: boolean;
   isRestricted?: boolean;
   isTechnical?: boolean;
+  persona?: PersonaKaryawan;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
   canReceiveWhatsappApproval?: boolean;

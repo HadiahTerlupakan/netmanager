@@ -12,6 +12,11 @@ import type {
   UserRoleContextEntity,
 } from "../domain/entities/RoleEntity";
 import { RoleMapper } from "../mappers/RoleMapper";
+import {
+  PERSONA_KARYAWAN_DEFAULT,
+  isSalesDariPersona,
+  type PersonaKaryawan,
+} from "../domain/persona-karyawan";
 
 const SUPER_ADMIN_ROLE_NAME = "SUPER_ADMIN";
 
@@ -95,6 +100,7 @@ export class RoleRepository implements IRoleRepository {
         accessEmployeePanel: data.accessEmployeePanel ?? false,
         isRestricted: data.isRestricted ?? false,
         isTechnical: data.isTechnical ?? false,
+        persona: data.persona ?? PERSONA_KARYAWAN_DEFAULT,
         isSuperAdmin: data.isSuperAdmin ?? false,
         canApproveRab: data.canApproveRab ?? false,
         canReceiveWhatsappApproval: data.canReceiveWhatsappApproval ?? false,
@@ -108,21 +114,49 @@ export class RoleRepository implements IRoleRepository {
     return RoleMapper.toDomain(role);
   }
 
-  /** Update an existing role entity. */
+  /**
+   * Update an existing role entity. Bila persona ikut dikirim, `User.isSales`
+   * seluruh pengguna role ini disinkronkan dalam transaksi yang sama, karena
+   * kolom itu turunan persona role (`isSalesDariPersona`).
+   */
   async update(
     id: string,
     data: UpdateRoleRepositoryInput,
   ): Promise<RoleEntity> {
-    const role = await prisma.role.update({
-      where: { id },
-      data: {
-        ...this.buildUpdateData(data),
-        updatedAt: new Date(),
-      },
-      include: { _count: { select: { user: true } }, permission: true },
+    const role = await prisma.$transaction(async (tx) => {
+      const updatedRole = await tx.role.update({
+        where: { id },
+        data: {
+          ...this.buildUpdateData(data),
+          updatedAt: new Date(),
+        },
+        include: { _count: { select: { user: true } }, permission: true },
+      });
+
+      if (data.persona !== undefined) {
+        await this.syncUserIsSales(tx, updatedRole);
+      }
+
+      return updatedRole;
     });
 
     return RoleMapper.toDomain(role);
+  }
+
+  /** Samakan `User.isSales` pengguna role (tenant role) dengan persona role. */
+  private async syncUserIsSales(
+    tx: Prisma.TransactionClient,
+    role: { id: string; tenantId: string | null; persona: PersonaKaryawan },
+  ): Promise<void> {
+    const isSales = isSalesDariPersona(role.persona);
+    await tx.user.updateMany({
+      where: {
+        roleId: role.id,
+        isSales: { not: isSales },
+        ...(role.tenantId ? { tenantId: role.tenantId } : {}),
+      },
+      data: { isSales },
+    });
   }
 
   /** Delete role entity by ID. */
@@ -173,6 +207,7 @@ export class RoleRepository implements IRoleRepository {
       updateData.isRestricted = data.isRestricted;
     if (data.isTechnical !== undefined)
       updateData.isTechnical = data.isTechnical;
+    if (data.persona !== undefined) updateData.persona = data.persona;
     if (data.isSuperAdmin !== undefined)
       updateData.isSuperAdmin = data.isSuperAdmin;
     if (data.canApproveRab !== undefined)

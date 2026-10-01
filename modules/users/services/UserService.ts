@@ -18,6 +18,7 @@ import {
   buildUpdateUserData,
   validateWorkingHoursPayload,
 } from "./UserService.helpers";
+import { hitungIsSalesDariRole } from "./peran-sales-pengguna";
 import type {
   CreateUserInput,
   UpdateUserInput,
@@ -81,7 +82,7 @@ export class UserService {
     await this.ensureEmailAvailable(data.email);
     const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
     const user = await this.userRepository.create(
-      buildCreateUserInput(data, passwordHash),
+      buildCreateUserInput(data, passwordHash, await this.resolveIsSales(data.roleId)),
     );
     await invalidatePermissionCache(user.id);
     return user;
@@ -95,7 +96,7 @@ export class UserService {
     await this.ensureEmailAvailable(data.email);
     const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
     const user = await this.userRepository.createWithSites(
-      buildCreateUserInput(data, passwordHash),
+      buildCreateUserInput(data, passwordHash, await this.resolveIsSales(data.roleId)),
       userSites,
     );
     await invalidatePermissionCache(user.id);
@@ -106,10 +107,11 @@ export class UserService {
   async updateUser(id: string, data: UpdateUserInput): Promise<UserEntity> {
     const existingUser = await this.getRequiredUser(id);
     await this.ensureUpdatedEmailAvailable(id, existingUser.email, data.email);
-    const updatedUser = await this.userRepository.update(
-      id,
-      buildUpdateUserData(data),
-    );
+    const updateData = buildUpdateUserData(data);
+    if (data.roleId !== undefined) {
+      updateData.isSales = await this.resolveIsSales(data.roleId);
+    }
+    const updatedUser = await this.userRepository.update(id, updateData);
     await this.clearUserScheduleCache(id);
     await this.invalidateUserAuthCache(id, data);
     return updatedUser;
@@ -130,6 +132,13 @@ export class UserService {
     const updatedUser = await this.userRepository.updateWorkingHours(id, data);
     await this.clearUserScheduleCache(id);
     return updatedUser;
+  }
+
+  /** `isSales` selalu turunan persona role, tidak pernah dari payload. */
+  private resolveIsSales(roleId: string | null | undefined): Promise<boolean> {
+    return hitungIsSalesDariRole(roleId, (id) =>
+      this.userRepository.findRolePersona(id),
+    );
   }
 
   private async ensureEmailAvailable(email: string): Promise<void> {

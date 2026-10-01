@@ -1,6 +1,10 @@
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
-import { getRoleService, RolePolicyError } from "@/modules/roles";
+import {
+  createRoleSchema,
+  getRoleService,
+  RolePolicyError,
+} from "@/modules/roles";
 import * as z from "zod";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { logActivitySafe } from "@/lib/logger";
@@ -13,19 +17,6 @@ import {
   withPermission,
   type AuthenticatedHandler,
 } from "@/lib/middleware";
-
-const roleSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().optional(),
-  permissions: z.array(z.string()), // Array of permission IDs
-  accessAdminPanel: z.boolean().optional().default(false),
-  accessEmployeePanel: z.boolean().optional().default(false),
-  isRestricted: z.boolean().optional().default(false),
-  isTechnical: z.boolean().optional().default(false),
-  isSuperAdmin: z.boolean().optional().default(false),
-  canApproveRab: z.boolean().optional().default(false),
-  canReceiveWhatsappApproval: z.boolean().optional().default(false),
-});
 
 const handleGet: AuthenticatedHandler = async ({ request, user }) => {
   try {
@@ -52,7 +43,7 @@ const handleGet: AuthenticatedHandler = async ({ request, user }) => {
 const handlePost: AuthenticatedHandler = async ({ request, user }) => {
   try {
     const body = await request.json();
-    const validated = roleSchema.parse(body);
+    const validated = createRoleSchema.parse(body);
     const roleService = getRoleService();
     const newRole = await roleService.createRoleWithPolicy(validated, {
       tenantId: user.tenantId ?? null,

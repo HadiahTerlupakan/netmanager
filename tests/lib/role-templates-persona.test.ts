@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { ROLE_TEMPLATES } from "@/lib/role-templates";
+import { isPersonaKaryawan } from "@/modules/roles/client";
+
+const personaPerTemplate = Object.fromEntries(
+  ROLE_TEMPLATES.map((template) => [template.id, template.persona]),
+);
+
+describe("ROLE_TEMPLATES — persona", () => {
+  it("setiap template punya persona sah", () => {
+    for (const template of ROLE_TEMPLATES) {
+      expect(isPersonaKaryawan(template.persona), template.id).toBe(true);
+    }
+  });
+
+  it("memetakan template ke persona yang sesuai tugasnya", () => {
+    expect(personaPerTemplate).toEqual({
+      teknisi: "TEKNISI",
+      admin: "STAFF",
+      helpdesk: "STAFF",
+      "staff-keuangan": "FINANCE",
+      sales: "SALES",
+      kepala_sales: "SALES",
+      manager: "STAFF",
+      noc: "STAFF",
+      "inventory-staff": "TEKNISI",
+      hrd: "STAFF",
+    });
+  });
+
+  it("template berpersona TEKNISI memegang izin lapangan mobile (work order atau barang)", () => {
+    for (const template of ROLE_TEMPLATES.filter(
+      (item) => item.persona === "TEKNISI",
+    )) {
+      const isPunyaIzinLapangan = template.permissions.some(
+        (izin) => izin === "m_work_order:read" || izin === "m_barang:read",
+      );
+      expect(isPunyaIzinLapangan, template.id).toBe(true);
+    }
+  });
+
+  it("template berpersona SALES memegang izin presurvei mobile", () => {
+    for (const template of ROLE_TEMPLATES.filter(
+      (item) => item.persona === "SALES",
+    )) {
+      expect(template.permissions, template.id).toContain("m_presurvei:read");
+    }
+  });
+});

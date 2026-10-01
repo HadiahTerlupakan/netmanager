@@ -8,12 +8,15 @@ import { toast } from "react-hot-toast";
 import { FiPlus, FiEdit2, FiTrash2 } from "react-icons/fi";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { useApi } from "@/lib/hooks/useApi";
+import { toPersonaKaryawan } from "@/modules/roles/client";
+import { PersonaBadge } from "./PersonaBadge";
 
 interface Role {
   id: string;
   name: string;
   description: string;
   userCount: number; // Matches RoleListItemDTO from backend
+  persona?: string;
 }
 
 export function ClientComponent() {
@@ -114,6 +117,15 @@ export function ClientComponent() {
                 <span className="text-gray-500 dark:text-gray-400">
                   {item.description || "-"}
                 </span>
+              ),
+            },
+            {
+              key: "persona",
+              header: "Persona Mobile",
+              priority: "secondary",
+              align: "center",
+              render: (item) => (
+                <PersonaBadge persona={toPersonaKaryawan(item.persona)} />
               ),
             },
             {

@@ -39,8 +39,8 @@ export function opsiKepalaSales(
 
 /**
  * Nilai `kepalaSalesId` yang dikirim ke API. Medan hanya tampil untuk user
- * sales, jadi mematikan sakelar Sales ikut melepas user dari timnya; string
- * kosong (opsi "tanpa kepala sales") dikirim sebagai null.
+ * sales (role ber-persona Sales), jadi memilih role non-Sales ikut melepas
+ * user dari timnya; string kosong ("tanpa kepala sales") dikirim sebagai null.
  */
 export function kepalaSalesIdUntukDikirim(
   isSales: boolean,

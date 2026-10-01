@@ -260,6 +260,7 @@ describe("RoleService", () => {
           accessEmployeePanel: false,
           isRestricted: false,
           isTechnical: false,
+          persona: "STAFF",
           isSuperAdmin: false,
           canApproveRab: false,
           canReceiveWhatsappApproval: false,

@@ -1,26 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { isKepalaSalesDariIzin, isSalesEfektif } from "@/modules/presurvei/domain/peran-sales";
+import { isKepalaSalesDariIzin } from "@/modules/presurvei/domain/peran-sales";
 
-describe("peran sales", () => {
-  it("kepala sales (lingkup TIM) adalah sales meski kolom isSales tidak dicentang", () => {
-    const izinKepala = ["presurvei_rencana:read", "presurvei_rencana:create", "m_presurvei:read"];
-
-    expect(isKepalaSalesDariIzin(izinKepala)).toBe(true);
-    expect(isSalesEfektif({ isSales: false, permissions: izinKepala })).toBe(true);
-  });
-
-  it("admin (lingkup SEMUA) dan teknisi bukan sales", () => {
-    expect(isSalesEfektif({ isSales: false, permissions: ["*"] })).toBe(false);
+describe("isKepalaSalesDariIzin", () => {
+  it("izin rencana tanpa view_all menandai kepala sales (lingkup TIM)", () => {
     expect(
-      isSalesEfektif({
-        isSales: false,
-        permissions: ["presurvei_rencana:read", "presurvei_rencana:view_all"],
-      }),
-    ).toBe(false);
-    expect(isSalesEfektif({ isSales: false, permissions: ["m_work_order:read", "m_canvasing:read"] })).toBe(false);
+      isKepalaSalesDariIzin(["presurvei_rencana:read", "presurvei_rencana:create", "m_presurvei:read"]),
+    ).toBe(true);
   });
 
-  it("sales yang ditandai di data tetap sales", () => {
-    expect(isSalesEfektif({ isSales: true, permissions: ["m_presurvei:read"] })).toBe(true);
+  it("admin (lingkup SEMUA) dan teknisi bukan kepala sales", () => {
+    expect(isKepalaSalesDariIzin(["*"])).toBe(false);
+    expect(isKepalaSalesDariIzin(["presurvei_rencana:read", "presurvei_rencana:view_all"])).toBe(false);
+    expect(isKepalaSalesDariIzin(["m_work_order:read", "m_canvasing:read"])).toBe(false);
   });
 });

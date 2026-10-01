@@ -41,6 +41,7 @@ export class RoleMapper {
       accessEmployeePanel: entity.accessEmployeePanel,
       isRestricted: entity.isRestricted,
       isTechnical: entity.isTechnical,
+      persona: entity.persona,
       isSuperAdmin: entity.isSuperAdmin,
       canApproveRab: entity.canApproveRab,
       canReceiveWhatsappApproval: entity.canReceiveWhatsappApproval,
@@ -67,6 +68,7 @@ export class RoleMapper {
       accessEmployeePanel: entity.accessEmployeePanel,
       isRestricted: entity.isRestricted,
       isTechnical: entity.isTechnical,
+      persona: entity.persona,
     };
   }
 
@@ -86,6 +88,7 @@ export class RoleMapper {
       accessEmployeePanel: entity.accessEmployeePanel,
       isRestricted: entity.isRestricted,
       isTechnical: entity.isTechnical,
+      persona: entity.persona,
       isSuperAdmin: entity.isSuperAdmin,
       canApproveRab: entity.canApproveRab,
       canReceiveWhatsappApproval: entity.canReceiveWhatsappApproval,

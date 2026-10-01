@@ -1,4 +1,3 @@
-import { isKepalaSalesDariIzin } from "@/modules/presurvei/client";
 import type { PointSummaryEntity } from "../domain/entities/PointClaimEntity";
 import type { PointClaimDTO, PointClaimListItemDTO } from "../dto/MarketingDTO";
 import type { PointClaimFilters } from "../domain/ports/IPointClaimRepository";
@@ -232,10 +231,7 @@ export class MarketingPointClaimRouteService {
     try {
       const result = await this.service.cashoutAccumulatedClaims(
         input.session.id,
-        {
-          hasCashoutPermission: hasCashoutPermission(input),
-          isKepalaSales: isKepalaSalesDariIzin(input.permissions),
-        },
+        { hasCashoutPermission: hasCashoutPermission(input) },
       );
       return {
         success: true,

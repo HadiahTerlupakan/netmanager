@@ -172,7 +172,9 @@ describe("admin users edit safety", () => {
     }
 
     expect(formSectionsFile).toContain("Akses & Privilege");
-    expect(formSectionsFile).toContain("Fitur Sales & Canvassing");
+    // Saklar sales manual dihapus: status sales mengikuti persona role.
+    expect(formSectionsFile).not.toContain("Fitur Sales & Canvassing");
+    expect(formSectionsFile).not.toContain('name="isSales"');
     expect(formSectionsFile).not.toContain("Akses & Privilese");
     expect(formSectionsFile).not.toContain("Canvasing");
 

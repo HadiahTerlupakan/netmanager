@@ -31,7 +31,6 @@ export class UserFactory {
             siteId: dto.siteId,
             roleId: dto.roleId,
             isActive: true,
-            isSales: false,
             // Default working hours (Fixed 9-5)
             workingHourMode: 'FIXED' as WorkingHourMode,
             startWorkTime: '09:00',
@@ -60,7 +59,6 @@ export class UserFactory {
             departmentId: dto.departmentId,
             siteId: dto.siteId,
             isActive: true,
-            isSales: false,
             // Flexible hours for field workers
             workingHourMode: 'FLEXIBLE' as WorkingHourMode,
             flexibleTargetHour: 8,
@@ -88,7 +86,6 @@ export class UserFactory {
             departmentId: dto.departmentId,
             siteId: dto.siteId,
             isActive: true,
-            isSales: true,
             // Flexible hours for sales
             workingHourMode: 'FLEXIBLE' as WorkingHourMode,
             flexibleTargetHour: 8,
@@ -125,7 +122,6 @@ export class UserFactory {
             siteId: dto.siteId,
             roleId: adminRole?.id,
             isActive: true,
-            isSales: false,
             workingHourMode: 'FIXED' as WorkingHourMode,
             startWorkTime: '09:00',
             endWorkTime: '17:00',
@@ -153,7 +149,6 @@ export class UserFactory {
             departmentId: dto.departmentId,
             siteId: dto.siteId,
             isActive: true,
-            isSales: false,
             workingHourMode: 'SHIFT' as WorkingHourMode,
             shiftId: dto.shiftId,
         }

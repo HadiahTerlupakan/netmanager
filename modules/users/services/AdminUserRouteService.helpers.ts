@@ -191,7 +191,6 @@ function applyCommonFieldUpdates(
   if (isDefined(payload.siteId)) data.siteId = payload.siteId;
   if (isDefined(payload.departmentId)) data.departmentId = payload.departmentId;
   if (isDefined(payload.isActive)) data.isActive = payload.isActive;
-  if (isDefined(payload.isSales)) data.isSales = payload.isSales;
   if (isDefined(payload.kepalaSalesId)) {
     data.kepalaSalesId = payload.kepalaSalesId;
   }

@@ -110,6 +110,15 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Ambil persona role untuk menurunkan `User.isSales`. */
+  async findRolePersona(roleId: string): Promise<string | null> {
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
+      select: { persona: true },
+    });
+    return role?.persona ?? null;
+  }
+
   /** Buat user baru. */
   async create(data: CreateUserRepositoryInput): Promise<UserEntity> {
     const userId = randomUUID();

@@ -1,3 +1,5 @@
+import type { PersonaKaryawan } from "../persona-karyawan";
+
 export interface PermissionEntity {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export interface RoleEntity {
   accessEmployeePanel: boolean;
   isRestricted: boolean;
   isTechnical: boolean;
+  persona: PersonaKaryawan;
   isSuperAdmin: boolean;
   canApproveRab: boolean;
   canReceiveWhatsappApproval: boolean;

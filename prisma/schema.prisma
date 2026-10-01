@@ -1305,6 +1305,8 @@ model Role {
   isRestricted               Boolean             @default(false)
   isTechnical                Boolean             @default(false)
   isSuperAdmin               Boolean             @default(false)
+  /// Persona karyawan: menentukan Beranda & tab aplikasi mobile; izin tetap menentukan isi.
+  persona                    PersonaKaryawan     @default(STAFF)
   canApproveRab              Boolean             @default(false)
   canReceiveWhatsappApproval Boolean             @default(false)
   tenantId                   String?
@@ -1420,6 +1422,7 @@ model User {
   lastVersionUpdate                          DateTime?
   lastOtaUpdateId                            String?
   canvasingTarget                            Int                         @default(50)
+  /// Turunan dari persona role (`role.persona = SALES`); jangan diatur manual — disinkronkan otomatis saat user dibuat/diganti role dan saat persona role berubah.
   isSales                                    Boolean                     @default(false)
   /// Kepala sales yang membawahi user ini (tim penugasan rencana kunjungan).
   kepalaSalesId                              String?
@@ -4758,6 +4761,14 @@ enum PresurveiStatusRencana {
   BATAL
 }
 
+/// Persona karyawan (lihat docs/architecture/persona-pengguna-design.md).
+enum PersonaKaryawan {
+  STAFF
+  TEKNISI
+  SALES
+  FINANCE
+  DIREKTUR
+}
 
 /// BISA_DIPASANG & TIDAK_BISA_DIPASANG hanya untuk survei lokasi (kelayakan pasang).
 enum PresurveiHasilKegiatan {

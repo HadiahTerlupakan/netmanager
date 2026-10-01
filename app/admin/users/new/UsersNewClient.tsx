@@ -24,7 +24,9 @@ import {
   StatusAndSalesSection,
 } from "../components/UserFormSections";
 import { usePermission } from "@/hooks/use-permission";
+import { RolePersonaHint } from "../components/RolePersonaHint";
 import { kepalaSalesIdUntukDikirim } from "../lib/kepalaSales";
+import { personaRoleTerpilih } from "../lib/personaRole";
 import { generateStrongPassword } from "../lib/password-generator";
 import { useUserReferenceData } from "../lib/useUserDetailData";
 
@@ -68,13 +70,14 @@ export function ClientComponent() {
     departmentId: "",
     roleId: "",
     isActive: true,
-    isSales: false,
     tenantId: "",
     canvasingTarget: 0,
-    targetSchema: "REVENUE",
+    targetSchema: "MONTHLY_RESET",
     kepalaSalesId: "",
   });
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
+  const personaRole = personaRoleTerpilih(roles, formData.roleId);
+  const isSales = personaRole?.isSales ?? false;
 
   const [prevTenantParamKey, setPrevTenantParamKey] = useState<string>(
     `${canReadTenants}|${tenantIdParam ?? ""}`,
@@ -261,7 +264,7 @@ export function ClientComponent() {
         // Input angka memberi string setelah diedit; skema API menuntut number.
         canvasingTarget: angkaAtauBawaan(formData.canvasingTarget),
         kepalaSalesId: kepalaSalesIdUntukDikirim(
-          formData.isSales,
+          isSales,
           formData.kepalaSalesId,
         ),
         userSites: selectedSites,
@@ -495,6 +498,7 @@ export function ClientComponent() {
                     ))}
                   </select>
                 </div>
+                <RolePersonaHint personaRole={personaRole} />
                 {errors.roleId && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                     {errors.roleId}
@@ -633,6 +637,7 @@ export function ClientComponent() {
 
         <StatusAndSalesSection
           formData={formData}
+          isSales={isSales}
           handleChange={handleChange}
           userIdDiubah={null}
           kepalaSalesTersimpan={null}

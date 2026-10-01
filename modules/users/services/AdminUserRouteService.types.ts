@@ -14,7 +14,6 @@ export type CreateAdminUserInput = {
   siteId?: string;
   departmentId?: string;
   isActive?: boolean;
-  isSales?: boolean;
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
   userSites?: Array<{ siteId: string; isPrimary?: boolean }>;
@@ -54,7 +53,6 @@ export type UpdateUserPayload = {
   isAttendanceRequired?: boolean;
   departmentId?: string | null;
   isActive?: boolean;
-  isSales?: boolean;
   tenantId?: string | null;
   userSites?: Array<{ siteId: string; isPrimary?: boolean }>;
   workingHourMode?: string;

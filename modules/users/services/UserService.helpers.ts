@@ -8,7 +8,6 @@ import {
   type AttendanceGeofencePolicy,
 } from "@/lib/geofencePolicy";
 
-const DEFAULT_IS_SALES = false;
 const DEFAULT_IS_ATTENDANCE_REQUIRED = true;
 
 type UpdateFieldSetter = (
@@ -38,7 +37,6 @@ const UPDATE_FIELD_SETTERS: UpdateFieldSetter[] = [
   (updateData, data) => assignIfDefined(updateData, "workDays", data.workDays),
   (updateData, data) =>
     assignIfDefined(updateData, "flexibleTargetHour", data.flexibleTargetHour),
-  (updateData, data) => assignIfDefined(updateData, "isSales", data.isSales),
   (updateData, data) =>
     assignIfDefined(updateData, "canvasingTarget", data.canvasingTarget),
   (updateData, data) =>
@@ -88,10 +86,14 @@ const UPDATE_FIELD_SETTERS: UpdateFieldSetter[] = [
   assignOvertimeCalcTypeNational,
 ];
 
-/** Build repository input for creating a user. */
+/**
+ * Build repository input for creating a user. `isSales` dihitung pemanggil
+ * dari persona role (lihat `hitungIsSalesDariRole`), bukan dari payload.
+ */
 export function buildCreateUserInput(
   data: CreateUserInput,
   passwordHash: string,
+  isSales: boolean,
 ): CreateUserRepositoryInput {
   return {
     email: data.email,
@@ -111,7 +113,7 @@ export function buildCreateUserInput(
     workDays: data.workDays,
     flexibleTargetHour: data.flexibleTargetHour,
     shiftId: data.shiftId || null,
-    isSales: data.isSales || DEFAULT_IS_SALES,
+    isSales,
     canvasingTarget: data.canvasingTarget,
     kepalaSalesId: data.kepalaSalesId || null,
     targetSchema: data.targetSchema,

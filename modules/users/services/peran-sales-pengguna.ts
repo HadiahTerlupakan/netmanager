@@ -1,9 +1,18 @@
-import { isSalesEfektif } from "@/modules/presurvei/client";
+import {
+  PERSONA_KARYAWAN_DEFAULT,
+  isSalesDariPersona,
+  toPersonaKaryawan,
+  type PersonaKaryawan,
+} from "@/modules/roles/client";
 
-/** Role beserta izinnya sebagaimana dimuat Prisma. */
+export type { PersonaKaryawan } from "@/modules/roles/client";
+
+/** Role beserta izin dan personanya sebagaimana dimuat Prisma. */
 export interface RoleDenganIzin {
   isSuperAdmin: boolean;
   permission: { resource: string; action: string }[];
+  /** Kosong pada data/uji lama: diperlakukan STAFF. */
+  persona?: PersonaKaryawan | null;
 }
 
 /** Izin role sebagai `resource:action`; super admin = wildcard, sama dengan `getUserPermissions`. */
@@ -14,12 +23,30 @@ export function daftarIzinRole(role: RoleDenganIzin | null | undefined): string[
 }
 
 /**
- * `isSales` yang dikirim ke aplikasi mobile: kolom user ATAU kepala sales
- * lewat role-nya (`isSalesEfektif`). Menentukan persona Beranda sales.
+ * `isSales` yang dikirim ke aplikasi mobile: semata-mata persona role
+ * (`isSalesDariPersona`). Kolom `User.isSales` hanya salinan tersinkron.
  */
 export function isSalesPengguna(user: {
-  isSales: boolean;
-  role: RoleDenganIzin | null | undefined;
+  role: Pick<RoleDenganIzin, "persona"> | null | undefined;
 }): boolean {
-  return isSalesEfektif({ isSales: user.isSales, permissions: daftarIzinRole(user.role) });
+  return isSalesDariPersona(user.role?.persona);
+}
+
+/**
+ * Nilai `User.isSales` untuk disimpan: turunan persona role yang dipilih.
+ * Tanpa role → bukan sales. Dipakai saat user dibuat atau role-nya diubah.
+ */
+export async function hitungIsSalesDariRole(
+  roleId: string | null | undefined,
+  findRolePersona: (roleId: string) => Promise<string | null>,
+): Promise<boolean> {
+  if (!roleId) return false;
+  return isSalesDariPersona(toPersonaKaryawan(await findRolePersona(roleId)));
+}
+
+/** Persona karyawan untuk aplikasi: persona role, bawaan STAFF. */
+export function personaPengguna(user: {
+  role: Pick<RoleDenganIzin, "persona"> | null | undefined;
+}): PersonaKaryawan {
+  return user.role?.persona ?? PERSONA_KARYAWAN_DEFAULT;
 }

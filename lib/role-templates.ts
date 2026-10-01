@@ -5,6 +5,8 @@
  * Used by the "Tambah Role Baru" form to quickly configure permissions.
  */
 
+import type { PersonaKaryawan } from "@/modules/roles/client";
+
 export interface RoleTemplate {
   id: string;
   name: string;
@@ -14,6 +16,8 @@ export interface RoleTemplate {
   accessAdminPanel: boolean;
   accessEmployeePanel: boolean;
   isTechnical: boolean;
+  /** Tampilan aplikasi mobile untuk role ini (lihat `LABEL_PERSONA_KARYAWAN`). */
+  persona: PersonaKaryawan;
   isRestricted: boolean;
   isSuperAdmin: boolean;
   permissions: string[]; // resource:action format
@@ -31,6 +35,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: false,
     accessEmployeePanel: true,
     isTechnical: true,
+    persona: "TEKNISI",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Mobile", "Lapangan", "Work Order"],
@@ -73,6 +78,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: false,
     isTechnical: false,
+    persona: "STAFF",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Portal Admin", "Kantor", "Manajemen"],
@@ -154,6 +160,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: true,
     isTechnical: true,
+    persona: "STAFF",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Support", "Tiket", "Work Order"],
@@ -212,6 +219,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: false,
     isTechnical: false,
+    persona: "FINANCE",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Finance", "Invoice", "Laporan"],
@@ -275,6 +283,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: false,
     accessEmployeePanel: true,
     isTechnical: false,
+    persona: "SALES",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Marketing", "Canvasing", "Mobile"],
@@ -305,6 +314,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: true,
     isTechnical: false,
+    persona: "SALES",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Supervisi", "Marketing", "Mobile"],
@@ -342,6 +352,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: true,
     isTechnical: false,
+    persona: "STAFF",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Supervisi", "Approval", "Laporan"],
@@ -477,9 +488,14 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "announcement:site_only",
       // Mobile
       "m_dashboard:read",
-      "m_work_order:read",
       "m_absensi:read",
       "m_absensi:create",
+      // Tampilan Staff: work order dipantau lewat web, bukan HP.
+      "m_izin:read",
+      "m_izin:create",
+      "m_lembur:read",
+      "m_lembur:create",
+      "m_holidays:read",
       "m_chat:read",
       "m_chat:create",
       "m_salary:read",
@@ -500,6 +516,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: false,
     isTechnical: true,
+    persona: "STAFF",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Network", "Monitoring", "MikroTik"],
@@ -564,6 +581,8 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: true,
     isTechnical: false,
+    // Menu Barang di HP hanya ada di tampilan Teknisi (tab Barang).
+    persona: "TEKNISI",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["Gudang", "Stok", "Inventory"],
@@ -659,6 +678,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     accessAdminPanel: true,
     accessEmployeePanel: false,
     isTechnical: false,
+    persona: "STAFF",
     isRestricted: false,
     isSuperAdmin: false,
     tags: ["HR", "Payroll", "Kehadiran"],

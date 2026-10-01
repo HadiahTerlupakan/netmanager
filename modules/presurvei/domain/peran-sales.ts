@@ -1,10 +1,10 @@
 /**
- * Siapa yang diperlakukan sebagai sales — fungsi murni, tanpa I/O.
+ * Penanda kepala sales dari izin role — fungsi murni, tanpa I/O.
  *
- * Kepala sales adalah bagian dari tim sales: role-nya boleh memberi rencana
- * dengan lingkup TIM. Admin (lingkup SEMUA) memang memantau sales, tapi bukan
- * sales. Aturan diturunkan dari role, bukan disalin ke kolom `User.isSales`,
- * supaya perubahan role langsung berlaku tanpa sinkronisasi data.
+ * Kepala sales = role yang boleh memberi rencana kunjungan dengan lingkup TIM.
+ * Ini BUKAN penentu "siapa sales": satu-satunya penentu sales adalah persona
+ * role (`isSalesDariPersona` di modul roles). Fungsi ini dipakai form role
+ * untuk menyarankan persona Sales bagi role kepala sales.
  */
 
 import { jenisLingkupDariIzin } from "./rencana-rules";
@@ -12,9 +12,4 @@ import { jenisLingkupDariIzin } from "./rencana-rules";
 /** Apakah daftar izin role menandai kepala sales (lingkup rencana TIM). */
 export function isKepalaSalesDariIzin(permissions: string[]): boolean {
   return jenisLingkupDariIzin(permissions) === "TIM";
-}
-
-/** Sales efektif: ditandai sales di data user, atau kepala sales lewat role-nya. */
-export function isSalesEfektif(input: { isSales: boolean; permissions: string[] }): boolean {
-  return input.isSales || isKepalaSalesDariIzin(input.permissions);
 }

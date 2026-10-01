@@ -249,6 +249,8 @@ async function main() {
     update: {
       accessAdminPanel: false,
       accessEmployeePanel: true,
+      // Persona SALES = satu-satunya penentu sales (User.isSales turunannya).
+      persona: "SALES",
       permission: {
         set: [], // Clear existing
         connect: karyawanPermissions
@@ -268,6 +270,7 @@ async function main() {
       description: "Sales Representative - Employee Portal Access",
       accessAdminPanel: false,
       accessEmployeePanel: true,
+      persona: "SALES",
       permission: {
         connect: karyawanPermissions
           .filter(
@@ -754,7 +757,7 @@ async function main() {
       siteId: jkt01Site.id,
       isActive: true,
       roleId: salesRole.id,
-      isSales: true,
+      isSales: true, // turunan persona role SALES; jaga tetap sama dengan role
       canvasingTarget: 50,
       workingHourMode: "FIXED",
       startWorkTime: "09:00",

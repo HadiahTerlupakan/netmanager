@@ -14,7 +14,6 @@ export interface CreateUserInput {
   workDays?: string;
   flexibleTargetHour?: number;
   shiftId?: string | null;
-  isSales?: boolean;
   canvasingTarget?: number;
   kepalaSalesId?: string | null;
   targetSchema?: string;
@@ -51,7 +50,6 @@ export interface UpdateUserInput {
   workDays?: string | null;
   flexibleTargetHour?: number | null;
   shiftId?: string | null;
-  isSales?: boolean;
   canvasingTarget?: number;
   kepalaSalesId?: string | null;
   targetSchema?: string;

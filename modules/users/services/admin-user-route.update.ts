@@ -21,6 +21,7 @@ import type {
 } from "./AdminUserRouteService.types";
 
 import { assertCanAssignRoleId } from "./role-assignment-guard";
+import { hitungIsSalesDariRole } from "./peran-sales-pengguna";
 
 const userRepository = new UserRepository();
 
@@ -67,6 +68,12 @@ export class AdminUserRouteUpdateService {
     });
 
     const data = buildBaseUpdateData(payload);
+    if (payload.roleId !== undefined) {
+      // isSales turunan persona role; nilai isSales dari payload diabaikan.
+      data.isSales = await hitungIsSalesDariRole(payload.roleId, (id) =>
+        userRepository.findRolePersona(id),
+      );
+    }
     const tenantChange = await applyTenantChange({
       session,
       currentUser,

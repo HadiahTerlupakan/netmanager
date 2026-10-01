@@ -1,3 +1,5 @@
+import type { PersonaKaryawan } from "../domain/persona-karyawan";
+
 export type RoleMutationInput = {
   name: string;
   description?: string;
@@ -6,6 +8,7 @@ export type RoleMutationInput = {
   accessEmployeePanel?: boolean;
   isRestricted?: boolean;
   isTechnical?: boolean;
+  persona?: PersonaKaryawan;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
   canReceiveWhatsappApproval?: boolean;

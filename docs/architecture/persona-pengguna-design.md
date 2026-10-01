@@ -57,6 +57,30 @@ membaca satu medan.
   ada kolom yang bisa lupa dicentang (akar bug kepala sales tampil sebagai
   teknisi, 2026-09-26).
 
+### 2.2a Persona role = satu-satunya penentu sales (2026-10-02)
+
+Sebelumnya ada **tiga jalan** seseorang dianggap sales: (1) persona role
+`SALES`, (2) saklar user "Fitur Sales & Canvassing" (`User.isSales`), dan
+(3) role yang memegang izin kepala sales (`presurvei_rencana` tanpa
+`view_all`, lewat `isSalesEfektif`). Ketiganya disatukan:
+
+- Aturan tunggal `isSalesDariPersona(persona)` di
+  `modules/roles/domain/persona-karyawan.ts`: sales ⇔ `role.persona === SALES`.
+- `User.isSales` **tidak dihapus** (dipakai daftar/manajemen sales, target,
+  cashout canvasing, peran pelaku presurvei, sesi), tetapi menjadi **turunan
+  otomatis** yang tidak bisa diatur manual:
+  - buat user / ganti role → dihitung dari persona role terpilih
+    (`hitungIsSalesDariRole`); nilai `isSales` dari payload diabaikan
+    (validator masih menerimanya, `@deprecated`, demi klien lama);
+  - ubah persona role → `User.isSales` seluruh pengguna role itu disinkronkan
+    dalam transaksi yang sama (`RoleRepository.update`).
+- Izin kepala sales tidak lagi menjadikan seseorang sales. `isSalesEfektif`
+  dihapus; `isKepalaSalesDariIzin` tersisa hanya untuk saran di form role
+  ("Biasanya dipasangkan dengan tampilan Sales").
+- Form user admin: saklar sales dihapus; di bawah pilihan role tampil
+  "Tampilan di HP: <persona> (mengikuti role <nama>)" dengan tautan ke Hak Akses.
+  Target canvassing/skema target/kepala sales tampil hanya untuk persona Sales.
+
 ### 2.3 Persona menentukan kerangka, permission menentukan isi
 
 Persona memilih **Beranda dan tab bawah**. Di dalamnya setiap fitur tetap
@@ -94,16 +118,23 @@ Staff **bukan** teknisi. Beranda staff minimal:
    tiap persona punya layar saat kompilasi. Urutan rilis: Staff → Finance →
    Direktur → Investor. Perlu rilis APK/OTA sesuai `mobile-update-strategy.md`
    (JS-only → OTA cukup).
-6. **Deprecate** `User.isSales` setelah semua klien memakai `persona`; hapus di
-   migration berikutnya (drop column) setelah dilaporkan ke user.
+6. **Satukan penentu sales** — migration data
+   `20261001222557_sync_user_is_sales_from_role_persona`: `User.isSales` =
+   `role.persona = SALES` (user tanpa role → `false`). Tinjau dulu dengan
+   laporan pra-deploy `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+   Sejak langkah ini `isSales` adalah salinan tersinkron, bukan masukan.
+7. **Deprecate** `User.isSales` setelah semua klien & query memakai `persona`;
+   hapus di migration berikutnya (drop column) setelah dilaporkan ke user.
 
 ## 4. Kompatibilitas
 
 - Aplikasi lama yang belum mengenal `persona` tetap membaca `isSales` →
   persona sales/teknisi seperti sekarang; staff lama tampil sebagai teknisi
   sampai aplikasi diperbarui.
-- `isSalesEfektif` (`modules/presurvei/domain/peran-sales.ts`) diganti menjadi
-  turunan `persona === SALES` pada langkah 3.
+- `isSalesEfektif` sudah dihapus (langkah 6); `isSales` yang dikirim ke
+  aplikasi = `isSalesDariPersona(role.persona)`.
+- Klien lama yang masih mengirim `isSales` di payload user tidak ditolak —
+  nilainya diabaikan server.
 
 ## 5. Pertanyaan terbuka
 

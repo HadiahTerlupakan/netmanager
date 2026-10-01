@@ -18,7 +18,11 @@ vi.mock("@/modules/users/services/MobileAuthVersionService", () => ({
 
 import { getMobileEmployeeMe } from "@/modules/users/services/MobileAuthRouteService";
 
-function karyawan(isSales: boolean, permission: { resource: string; action: string }[] = []) {
+function karyawan(
+  isSales: boolean,
+  permission: { resource: string; action: string }[] = [],
+  persona: "STAFF" | "TEKNISI" | "SALES" | "FINANCE" | "DIREKTUR" = "STAFF",
+) {
   return {
     id: "user-1",
     name: "Budi",
@@ -27,31 +31,32 @@ function karyawan(isSales: boolean, permission: { resource: string; action: stri
     employeeType: "KARYAWAN",
     isSales,
     image: null as string | null,
-    role: { isSuperAdmin: false, permission },
+    role: { isSuperAdmin: false, permission, persona },
   };
 }
 
 describe("getMobileEmployeeMe — isSales", () => {
   beforeEach(() => findFirst.mockReset());
 
-  it("mengikuti flag isSales di database, bukan nama role", async () => {
+  it("mengikuti persona role, bukan nama role", async () => {
     findFirst.mockResolvedValue(karyawan(false));
 
     const me = await getMobileEmployeeMe("user-1", "SALES");
 
     expect(me?.isSales).toBe(false);
-    expect(findFirst.mock.calls[0][0].select.isSales).toBe(true);
+    expect(findFirst.mock.calls[0][0].select.role.select.persona).toBe(true);
   });
 
-  it("teknisi yang ditandai sales tetap terbaca sales", async () => {
-    findFirst.mockResolvedValue(karyawan(true));
+  it("kolom isSales lama tanpa persona SALES tidak lagi membuat sales", async () => {
+    findFirst.mockResolvedValue(karyawan(true, [], "TEKNISI"));
 
     const me = await getMobileEmployeeMe("user-1", "TEKNISI");
 
-    expect(me?.isSales).toBe(true);
+    expect(me?.isSales).toBe(false);
+    expect(me?.persona).toBe("TEKNISI");
   });
 
-  it("kepala sales (role lingkup TIM) terbaca sales walau kolom isSales tidak dicentang", async () => {
+  it("izin kepala sales (lingkup TIM) tanpa persona SALES bukan sales", async () => {
     findFirst.mockResolvedValue(
       karyawan(false, [
         { resource: "presurvei_rencana", action: "read" },
@@ -61,7 +66,7 @@ describe("getMobileEmployeeMe — isSales", () => {
 
     const me = await getMobileEmployeeMe("user-1", "KEPALA SALES");
 
-    expect(me?.isSales).toBe(true);
+    expect(me?.isSales).toBe(false);
   });
 
   it("admin (lingkup SEMUA) tidak berubah jadi sales", async () => {
@@ -75,5 +80,22 @@ describe("getMobileEmployeeMe — isSales", () => {
     const me = await getMobileEmployeeMe("user-1", "ADMIN");
 
     expect(me?.isSales).toBe(false);
+  });
+
+  it("mengirim persona role apa adanya", async () => {
+    findFirst.mockResolvedValue(karyawan(false, [], "TEKNISI"));
+    expect((await getMobileEmployeeMe("user-1", "TEKNISI"))?.persona).toBe("TEKNISI");
+
+    findFirst.mockResolvedValue(karyawan(false, [], "FINANCE"));
+    expect((await getMobileEmployeeMe("user-1", "FINANCE"))?.persona).toBe("FINANCE");
+  });
+
+  it("role berpersona SALES membuat isSales true walau kolomnya tidak dicentang", async () => {
+    findFirst.mockResolvedValue(karyawan(false, [], "SALES"));
+
+    const me = await getMobileEmployeeMe("user-1", "SALES");
+
+    expect(me?.isSales).toBe(true);
+    expect(me?.persona).toBe("SALES");
   });
 });

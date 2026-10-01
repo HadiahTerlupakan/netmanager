@@ -2,6 +2,8 @@
  * Role & Permission DTOs (Data Transfer Objects)
  */
 
+import type { PersonaKaryawan } from "../domain/persona-karyawan";
+
 // ==================== Response DTOs ====================
 
 /**
@@ -16,6 +18,7 @@ export interface RoleListItemDTO {
   accessEmployeePanel: boolean;
   isRestricted: boolean;
   isTechnical: boolean;
+  persona: PersonaKaryawan;
 }
 
 /**
@@ -29,6 +32,7 @@ export interface RoleDetailDTO {
   accessEmployeePanel: boolean;
   isRestricted: boolean;
   isTechnical: boolean;
+  persona: PersonaKaryawan;
   isSuperAdmin: boolean;
   canApproveRab: boolean;
   canReceiveWhatsappApproval: boolean;
@@ -82,6 +86,7 @@ export interface CreateRoleDTO {
   accessEmployeePanel?: boolean;
   isRestricted?: boolean;
   isTechnical?: boolean;
+  persona?: PersonaKaryawan;
 }
 
 /**
@@ -95,4 +100,5 @@ export interface UpdateRoleDTO {
   accessEmployeePanel?: boolean;
   isRestricted?: boolean;
   isTechnical?: boolean;
+  persona?: PersonaKaryawan;
 }

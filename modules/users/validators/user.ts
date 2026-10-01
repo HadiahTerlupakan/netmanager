@@ -114,7 +114,11 @@ export const createUserSchema = z.object({
   siteId: optionalIdSchema,
   departmentId: optionalIdSchema,
   isActive: z.boolean().default(true),
-  isSales: z.boolean().default(false),
+  /**
+   * @deprecated Diabaikan server: `isSales` kini turunan persona role
+   * (`isSalesDariPersona`). Tetap diterima agar klien lama tidak ditolak.
+   */
+  isSales: z.boolean().optional(),
   isAttendanceRequired: z.boolean().default(true),
   tenantId: optionalIdSchema,
 
@@ -188,6 +192,10 @@ export const updateUserSchema = z
     isAttendanceRequired: z.boolean().optional(),
     departmentId: optionalIdSchema,
     isActive: z.boolean().optional(),
+    /**
+     * @deprecated Diabaikan server: `isSales` kini turunan persona role
+     * (`isSalesDariPersona`). Tetap diterima agar klien lama tidak ditolak.
+     */
     isSales: z.boolean().optional(),
     tenantId: optionalIdSchema,
 

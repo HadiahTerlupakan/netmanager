@@ -41,6 +41,110 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Selaraskan template role Inventory Staff dan Manager
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/role-templates.ts`
+- **Author**: agent
+- **Deskripsi**: Dua template memberi izin mobile yang tak pernah tampil di HP
+  persona-nya. Inventory Staff kini berpersona Teknisi, karena menu Barang
+  hanya ada di tampilan Teknisi. Manager tetap Staff; `m_work_order:read`
+  dibuang (work order dipantau lewat web) dan diganti izin kepegawaian standar
+  (izin, lembur, libur). Tes kini mewajibkan tak ada template yang memuat izin
+  mobile tak terlihat. Hanya template (untuk role baru); role yang sudah ada
+  tidak diubah.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Matriks izin Mobile App mengikuti persona role
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/roles` | `app/admin/settings/roles`
+- **Author**: agent
+- **Deskripsi**: Matriks Mobile App di form role kini memilah izin menurut
+  tampilan HP persona terpilih. Pemetaannya diturunkan dari kode aplikasi
+  mobile (`modules/roles/domain/izin-mobile-persona.ts`).
+  - "Dipakai di tampilan <persona>" tampil di atas. Sisanya terlipat di
+    "Tidak tampil di HP <persona>", dengan hitungan izin yang tak akan
+    terlihat.
+  - Tombol "Isi izin standar <persona>" (dengan konfirmasi) mengganti hanya
+    izin `m_*`; izin portal admin tidak disentuh.
+  - Peringatan izin inti yang hilang, mis. Teknisi tanpa Work Order, atau
+    `m_dashboard` yang selama ini tak bisa dicentang dari matriks sehingga
+    role buatan sendiri tanpa template kehilangan tab Beranda.
+
+  `RolesDetailClient.tsx` dipecah (1278 → 881 baris): `PermissionGroupCard`
+  dan `MobilePermissionMatrix`. Fix ikutan: kartu resource yang dikecualikan
+  untuk tenant non-utama kini ikut disembunyikan.
+- **Files**: `modules/roles/domain/izin-mobile-persona.ts`,
+  `app/admin/settings/roles/[id]/MobilePermissionMatrix.tsx`,
+  `app/admin/settings/roles/[id]/mobile-permission-matrix-state.ts`,
+  `app/admin/settings/roles/[id]/PermissionGroupCard.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Persona role jadi satu-satunya penentu sales
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/users` | `modules/roles` | `modules/marketing` | `app/admin/users` | `app/admin/settings/roles`
+- **Author**: agent
+- **Deskripsi**: Sebelumnya ada tiga jalan seseorang dianggap sales:
+  persona role, saklar "Fitur Sales & Canvassing" di form user, dan izin
+  kepala sales. Sekarang hanya persona role. `User.isSales` tetap ada (dipakai
+  manajemen sales, target, cashout), tetapi menjadi turunan otomatis
+  `role.persona === SALES`. Kolom ini disinkron saat user dibuat atau
+  role-nya diganti, dan saat persona sebuah role diubah (`updateMany` dalam
+  transaksi). Nilai `isSales` dari payload diabaikan (deprecated).
+  - Form user: saklar sales dihapus, diganti keterangan "Tampilan di HP:
+    <persona> (mengikuti role <nama>) · Ubah di Hak Akses". Target canvassing
+    tampil untuk semua (teknisi yang ikut canvasing perlu target); kepala sales
+    hanya untuk persona Sales.
+  - Form role: saran memasangkan persona Sales bila izin role menandai kepala
+    sales.
+  - Pencairan bonus canvasing: `user.isSales` (tersinkron) ATAU izin cashout.
+    `isSalesEfektif` dihapus.
+  - Laporan pra-deploy produksi:
+    `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+- **Migration**: `20261001222557_sync_user_is_sales_from_role_persona`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Fix pilihan skema target canvassing di form user
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/users`
+- **Author**: agent
+- **Deskripsi**: Dropdown "Skema Target" menawarkan REVENUE/QUANTITY/POINTS,
+  padahal logika pencairan hanya mengenal Akumulasi (`ACCUMULATED`, dicairkan
+  sendiri). Selain Akumulasi semuanya diperlakukan bulanan. Akibatnya admin
+  tidak pernah bisa mengaktifkan pencairan mandiri, dan form User Baru
+  menyimpan `REVENUE`. Pilihan kini Bulanan (`MONTHLY_RESET`) dan Akumulasi;
+  nilai lama ditampilkan sebagai Bulanan. Data tidak diubah.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Persona karyawan per role: staff dipisah dari teknisi
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/roles` | `modules/users` | `app/admin/settings/roles` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Tahap 1 desain persona (`docs/architecture/persona-pengguna-design.md`).
+  Role punya `persona` (STAFF, TEKNISI, SALES, FINANCE, DIREKTUR; bawaan
+  STAFF). Migration mengisi otomatis: role yang dipakai user sales atau role
+  kepala sales menjadi SALES, role berizin `m_work_order` menjadi TEKNISI,
+  sisanya STAFF. FINANCE dan DIREKTUR diatur manual. Login, `/me`, dan
+  profil mobile mengirim `persona`; sales efektif selalu SALES (konsisten
+  dengan `isSales`), dan role berpersona SALES membuat `isSales` true.
+  - Admin web: pilihan "Tampilan aplikasi mobile (persona)" di form role,
+    badge persona di daftar role, template role membawa persona.
+  - Mobile: Beranda Staff baru (absen, menu kepegawaian sesuai izin, kartu
+    kinerja tim bagi pemberi tugas; tanpa work order). Tab Staff: Beranda ·
+    Absensi · Chat · Profil. Finance dan Direktur sementara memakai tampilan
+    Staff. Aplikasi lama tanpa `persona` memakai aturan lama.
+- **Migration**: `20261001214142_add_persona_to_roles`
+- **Files**: `modules/roles/domain/persona-karyawan.ts`,
+  `modules/users/services/peran-sales-pengguna.ts`,
+  `app/admin/settings/roles/[id]/PersonaSelector.tsx`,
+  `mobile-netmanager: src/utils/persona.ts`,
+  `src/components/screens/KaryawanStaffDashboardScreen.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Pilihan hasil kegiatan mengikuti jenis kegiatannya
 
 - **Tipe**: [MIGRATION]

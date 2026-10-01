@@ -77,6 +77,11 @@ export interface IUserRepository {
   findUploadPermissionContextById(
     id: string,
   ): Promise<UploadPermissionContext | null>;
+  /**
+   * Persona role (nilai enum `PersonaKaryawan`) untuk menurunkan
+   * `User.isSales`; null bila role tidak ada.
+   */
+  findRolePersona(roleId: string): Promise<string | null>;
   /** Create a user and return its domain entity. */
   create(data: CreateUserRepositoryInput): Promise<UserEntity>;
   /** Create a user with sites in a single transaction. */

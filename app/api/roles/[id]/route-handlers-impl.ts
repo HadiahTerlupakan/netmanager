@@ -1,7 +1,11 @@
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
-import { getRoleService, RolePolicyError } from "@/modules/roles";
+import {
+  getRoleService,
+  RolePolicyError,
+  updateRoleSchema,
+} from "@/modules/roles";
 import * as z from "zod";
 import { logActivitySafe } from "@/lib/logger";
 import { apiSuccess } from "@/lib/api";
@@ -12,19 +16,6 @@ import {
   withPermission,
   type AuthenticatedHandler,
 } from "@/lib/middleware";
-
-const roleUpdateSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().optional(),
-  permissions: z.array(z.string()),
-  accessAdminPanel: z.boolean().optional(),
-  accessEmployeePanel: z.boolean().optional(),
-  isRestricted: z.boolean().optional(),
-  isTechnical: z.boolean().optional(),
-  isSuperAdmin: z.boolean().optional(),
-  canApproveRab: z.boolean().optional(),
-  canReceiveWhatsappApproval: z.boolean().optional(),
-});
 
 type RoleRouteContext = {
   params: Promise<{ id: string }>;
@@ -143,7 +134,7 @@ const handlePut: AuthenticatedHandler = async (
   if (!id) return roleNotFoundResponse();
 
   try {
-    const validated = roleUpdateSchema.parse(await request.json());
+    const validated = updateRoleSchema.parse(await request.json());
     const updatedRole = await getRoleService().updateRoleWithPolicy(
       id,
       validated,
