@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Kepala sales selalu mendapat tampilan sales di mobile
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users` | `modules/presurvei` | `modules/marketing`
+- **Author**: agent
+- **Deskripsi**: Persona Beranda mobile dipilih dari `isSales`, yang sebelumnya
+  hanya membaca kolom `User.isSales`. Akibatnya kepala sales yang kolomnya tidak
+  dicentang jatuh ke tampilan teknisi. Sekarang sales efektif = kolom `isSales`
+  ATAU role kepala sales (lingkup rencana TIM), lewat satu aturan domain
+  `isSalesEfektif` di `modules/presurvei/domain/peran-sales.ts`. Admin (lingkup
+  SEMUA) tidak ikut menjadi sales. Aturan ini dipakai payload login mobile,
+  `/api/mobile/auth/me`, profil mobile (termasuk `canCashoutCanvasing`), dan
+  gerbang cashout canvasing di server, supaya UI dan server konsisten.
+- **Files**: `modules/presurvei/domain/peran-sales.ts`,
+  `modules/users/services/peran-sales-pengguna.ts`,
+  `modules/users/services/MobileEmployeeAuthService.ts`,
+  `modules/users/services/MobileAuthRouteService.ts`,
+  `modules/users/services/MobileProfileRouteService.ts`,
+  `modules/marketing/services/point-claim.service.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Penilaian kinerja bulanan kepala sales dan timnya
 
 - **Tipe**: [ADDED]

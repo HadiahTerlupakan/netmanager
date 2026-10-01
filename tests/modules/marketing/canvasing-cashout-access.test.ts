@@ -60,7 +60,7 @@ describe("requireEligibleCashoutUser", () => {
     findUnique.mockResolvedValue({ isSales: false, ...AKUMULASI });
 
     await expect(
-      requireEligibleCashoutUser("u-1", { hasCashoutPermission: false }),
+      requireEligibleCashoutUser("u-1", { hasCashoutPermission: false, isKepalaSales: false }),
     ).rejects.toMatchObject({ kind: "forbidden" });
   });
 
@@ -68,15 +68,23 @@ describe("requireEligibleCashoutUser", () => {
     findUnique.mockResolvedValue({ isSales: false, ...AKUMULASI });
 
     await expect(
-      requireEligibleCashoutUser("u-1", { hasCashoutPermission: true }),
+      requireEligibleCashoutUser("u-1", { hasCashoutPermission: true, isKepalaSales: false }),
     ).resolves.toMatchObject({ canvasingTarget: 10 });
+  });
+
+  it("kepala sales (dari role) lolos walau kolom isSales tidak dicentang", async () => {
+    findUnique.mockResolvedValue({ isSales: false, ...AKUMULASI });
+
+    await expect(
+      requireEligibleCashoutUser("u-1", { hasCashoutPermission: false, isKepalaSales: true }),
+    ).resolves.toBeTruthy();
   });
 
   it("sales tetap lolos tanpa izin tambahan", async () => {
     findUnique.mockResolvedValue({ isSales: true, ...AKUMULASI });
 
     await expect(
-      requireEligibleCashoutUser("u-1", { hasCashoutPermission: false }),
+      requireEligibleCashoutUser("u-1", { hasCashoutPermission: false, isKepalaSales: false }),
     ).resolves.toBeTruthy();
   });
 });

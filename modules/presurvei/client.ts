@@ -137,6 +137,9 @@ export type {
   RincianRencanaDto,
 } from "./dto/rencana.dto";
 
+// --- Peran sales (aman untuk klien & alur auth tanpa database) ---
+export { isKepalaSalesDariIzin, isSalesEfektif } from "./domain/peran-sales";
+
 // --- Penilaian kinerja (aman untuk klien) ---
 export {
   BOBOT_PENILAIAN_KEPALA,

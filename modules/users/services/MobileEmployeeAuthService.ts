@@ -7,6 +7,7 @@ import type {
   MobileLoginPayload,
   MobileLoginResult,
 } from "./MobileAuthRouteService";
+import { isSalesPengguna } from "./peran-sales-pengguna";
 import {
   buildVersionUpdate,
   MobileAuthVersionService,
@@ -17,6 +18,7 @@ type EmployeeRoleRecord = {
   isSuperAdmin: boolean;
   accessAdminPanel: boolean;
   accessEmployeePanel: boolean;
+  permission: { resource: string; action: string }[];
 };
 
 type EmployeeRecord = {
@@ -105,7 +107,7 @@ async function buildSuccessfulEmployeeLogin(
         employeeType: user.employeeType,
         workDays: user.workDays,
         workingHourMode: user.workingHourMode,
-        isSales: user.isSales,
+        isSales: isSalesPengguna(user),
         features: await getUserFeaturesWithCanvasing(user.id),
       },
     },

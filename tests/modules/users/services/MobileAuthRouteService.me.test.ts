@@ -18,7 +18,7 @@ vi.mock("@/modules/users/services/MobileAuthVersionService", () => ({
 
 import { getMobileEmployeeMe } from "@/modules/users/services/MobileAuthRouteService";
 
-function karyawan(isSales: boolean) {
+function karyawan(isSales: boolean, permission: { resource: string; action: string }[] = []) {
   return {
     id: "user-1",
     name: "Budi",
@@ -27,6 +27,7 @@ function karyawan(isSales: boolean) {
     employeeType: "KARYAWAN",
     isSales,
     image: null as string | null,
+    role: { isSuperAdmin: false, permission },
   };
 }
 
@@ -50,4 +51,29 @@ describe("getMobileEmployeeMe — isSales", () => {
     expect(me?.isSales).toBe(true);
   });
 
+  it("kepala sales (role lingkup TIM) terbaca sales walau kolom isSales tidak dicentang", async () => {
+    findFirst.mockResolvedValue(
+      karyawan(false, [
+        { resource: "presurvei_rencana", action: "read" },
+        { resource: "presurvei_rencana", action: "create" },
+      ]),
+    );
+
+    const me = await getMobileEmployeeMe("user-1", "KEPALA SALES");
+
+    expect(me?.isSales).toBe(true);
+  });
+
+  it("admin (lingkup SEMUA) tidak berubah jadi sales", async () => {
+    findFirst.mockResolvedValue(
+      karyawan(false, [
+        { resource: "presurvei_rencana", action: "read" },
+        { resource: "presurvei_rencana", action: "view_all" },
+      ]),
+    );
+
+    const me = await getMobileEmployeeMe("user-1", "ADMIN");
+
+    expect(me?.isSales).toBe(false);
+  });
 });

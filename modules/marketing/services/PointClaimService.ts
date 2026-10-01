@@ -151,7 +151,7 @@ export class PointClaimService {
   /** Cash out approved accumulated claims for a sales user or opted-in non-sales. */
   async cashoutAccumulatedClaims(
     userId: string,
-    access: { hasCashoutPermission: boolean },
+    access: { hasCashoutPermission: boolean; isKepalaSales: boolean },
   ): Promise<{ cashedOutCount: number }> {
     const user = await requireEligibleCashoutUser(userId, access);
     const target = resolveCashoutTarget(user.canvasingTarget);
