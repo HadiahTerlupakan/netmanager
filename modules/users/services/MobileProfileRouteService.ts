@@ -1,6 +1,10 @@
 import { getMitraMobileFeatures } from "@/lib/mobile-auth";
 import { prisma, prismaMitra } from "@/modules/database";
-import { extractMobileFeaturesFromPermissions } from "@/modules/marketing";
+import {
+  canCashoutCanvasingBonus,
+  extractMobileFeaturesFromPermissions,
+  hasCanvasingCashoutPermission,
+} from "@/modules/marketing";
 
 type MobileProfileUser = {
   id?: string;
@@ -167,11 +171,14 @@ async function getRegularUserProfile(user: MobileProfileUser) {
     return null;
   }
 
+  const permissions = profile.role?.permission ?? [];
   return {
     ...profile,
-    features: extractMobileFeaturesFromPermissions(
-      profile.role?.permission ?? [],
-    ),
+    features: extractMobileFeaturesFromPermissions(permissions),
+    canCashoutCanvasing: canCashoutCanvasingBonus({
+      isSales: profile.isSales,
+      hasCashoutPermission: hasCanvasingCashoutPermission(permissions),
+    }),
     isOnLeave: await isUserOnLeave(user),
   };
 }

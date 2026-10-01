@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth-helpers";
 import {
   isPointClaimRouteFailure,
   marketingPointClaimRouteService,
@@ -23,12 +24,16 @@ function mapClaimRouteFailure(result: PointClaimRouteFailure) {
   return ApiErrors.internalError(result.error);
 }
 
-/** Cash out accumulated approved point claims for the authenticated sales user. */
+/** Cash out accumulated approved point claims for the authenticated canvasser. */
 export async function POST(req: NextRequest) {
   const session = await verifyAuth(req);
   if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-  const result = await marketingPointClaimRouteService.cashout({ session });
+  const result = await marketingPointClaimRouteService.cashout({
+    session,
+    permissions: await getUserPermissions(session.id),
+    isSuperAdmin: isSuperAdminRole(session.role),
+  });
   if (isPointClaimRouteFailure(result)) return mapClaimRouteFailure(result);
 
   return apiSuccess(result.data, {

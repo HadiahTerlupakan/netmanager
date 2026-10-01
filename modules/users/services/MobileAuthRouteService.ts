@@ -50,6 +50,7 @@ export async function getMobileEmployeeMe(id: string, role?: string) {
       email: true,
       isActive: true,
       employeeType: true,
+      isSales: true,
       image: true,
     },
   });
@@ -230,6 +231,7 @@ function buildEmployeeMePayload(
     name: string;
     email: string;
     employeeType: string | null;
+    isSales: boolean;
     image: string | null;
   },
   role?: string,
@@ -241,7 +243,7 @@ function buildEmployeeMePayload(
     role,
     features: [] as string[],
     employeeType: user.employeeType || DEFAULT_EMPLOYEE_TYPE,
-    isSales: role?.toUpperCase().includes("SALES") ?? false,
+    isSales: user.isSales,
     image: user.image,
     workDays: [] as string[],
     workingHourMode: DEFAULT_WORKING_HOUR_MODE,

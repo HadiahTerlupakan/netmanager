@@ -182,6 +182,7 @@ export const ACTIONS = [
   "correct-missed-checkin",
   "manage",
   "view_all",
+  "cashout",
 ] as const;
 
 /**

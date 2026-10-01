@@ -25,7 +25,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     id: "teknisi",
     name: "Teknisi",
     description:
-      "Teknisi lapangan yang menangani work order, absensi, dan inventory material di mobile app.",
+      "Teknisi lapangan yang menangani work order, absensi, inventory material, dan canvasing di mobile app.",
     icon: "wrench",
     color: "blue",
     accessAdminPanel: false,
@@ -55,6 +55,9 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "m_izin:read",
       "m_izin:create",
       "m_holidays:read",
+      // Mobile - Canvasing (teknisi boleh input calon pelanggan; persona tetap teknisi)
+      "m_canvasing:read",
+      "m_canvasing:create",
       // Mobile - Chat
       "m_chat:read",
       "m_chat:create",

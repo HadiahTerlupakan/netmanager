@@ -27,10 +27,17 @@ vi.mock("@/lib/mobile-auth", () => ({
   getMitraMobileFeatures: mockFns.getMitraMobileFeatures,
 }));
 
-vi.mock("@/modules/marketing", () => ({
-  extractMobileFeaturesFromPermissions: (permissions: { resource: string }[]) =>
-    permissions.map((p) => p.resource).filter((r) => r.startsWith("m_")),
-}));
+vi.mock("@/modules/marketing", async () => {
+  const akses = await vi.importActual<
+    typeof import("@/modules/marketing/services/CanvasingAccessService")
+  >("@/modules/marketing/services/CanvasingAccessService");
+  return {
+    extractMobileFeaturesFromPermissions:
+      akses.extractMobileFeaturesFromPermissions,
+    canCashoutCanvasingBonus: akses.canCashoutCanvasingBonus,
+    hasCanvasingCashoutPermission: akses.hasCanvasingCashoutPermission,
+  };
+});
 
 import {
   getMobileProfileForRoute,
@@ -94,6 +101,7 @@ describe("MobileProfileRouteService", () => {
     ).resolves.toMatchObject({
       id: "user-1",
       features: ["m_attendance"],
+      canCashoutCanvasing: false,
       isOnLeave: true,
     });
   });

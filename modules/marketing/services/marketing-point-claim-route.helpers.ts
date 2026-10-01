@@ -1,5 +1,7 @@
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
 import { hasCapability } from "@/lib/permission-aliases";
+import { hasMobilePermission } from "@/lib/mobile-auth";
+import { CANVASING_CASHOUT_PERMISSION } from "./CanvasingAccessService";
 import {
   isMarketingError,
   type MarketingErrorKind,
@@ -115,6 +117,14 @@ export function canDeletePointClaim(input: PointClaimRoutePolicyInput) {
   return (
     input.isSuperAdmin ||
     hasCapability(input.permissions, "point_claims:delete")
+  );
+}
+
+/** Apakah pemanggil memegang izin opt-in cashout canvasing (non-sales). */
+export function hasCashoutPermission(input: PointClaimRoutePolicyInput) {
+  return (
+    input.isSuperAdmin ||
+    hasMobilePermission(input.permissions, CANVASING_CASHOUT_PERMISSION)
   );
 }
 

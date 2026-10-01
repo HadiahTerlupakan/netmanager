@@ -9,6 +9,7 @@ import {
   canManagePointClaim,
   canReadAllPointClaims,
   forbiddenClaim,
+  hasCashoutPermission,
   FORBIDDEN_DELETE_CLAIM_MESSAGE,
   FORBIDDEN_MANAGE_CLAIM_MESSAGE,
   FORBIDDEN_VIEW_CLAIM_MESSAGE,
@@ -24,6 +25,7 @@ import {
   type PointClaimListResult,
   type PointClaimListRouteInput,
   type PointClaimReviewRouteInput,
+  type PointClaimRoutePolicyInput,
   type PointClaimRouteResult,
   type PointClaimSubmitRouteInput,
   type PointClaimSummaryResult,
@@ -222,13 +224,14 @@ export class MarketingPointClaimRouteService {
     }
   }
 
-  /** Cashout claim akumulatif untuk sales user yang sedang login. */
-  async cashout(input: {
-    session: { id: string };
-  }): Promise<PointClaimCashoutResult> {
+  /** Cashout claim akumulatif milik user yang sedang login. */
+  async cashout(
+    input: PointClaimRoutePolicyInput,
+  ): Promise<PointClaimCashoutResult> {
     try {
       const result = await this.service.cashoutAccumulatedClaims(
         input.session.id,
+        { hasCashoutPermission: hasCashoutPermission(input) },
       );
       return {
         success: true,

@@ -32,7 +32,8 @@ export type ResourceAction =
   | "calculate"
   | "manage"
   | "view_all"
-  | "correct-missed-checkin";
+  | "correct-missed-checkin"
+  | "cashout";
 
 export interface ResourceCapability {
   actions: ResourceAction[];
@@ -551,9 +552,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Topology map jaringan",
   },
   m_canvasing: {
-    actions: ["read", "create"],
+    // `cashout`: izinkan non-sales (mis. teknisi) mencairkan bonus canvasing.
+    // Sales selalu boleh mencairkan tanpa izin ini.
+    actions: ["read", "create", "cashout"],
     displayName: "Canvasing",
-    description: "Marketing & sales canvasing",
+    description: "Marketing & sales canvasing; cashout = boleh cairkan bonus",
   },
   m_presurvei: {
     actions: ["read", "create", "update"],

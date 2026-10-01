@@ -148,11 +148,12 @@ export class PointClaimService {
     });
   }
 
-  /** Cash out approved accumulated claims for a sales user. */
+  /** Cash out approved accumulated claims for a sales user or opted-in non-sales. */
   async cashoutAccumulatedClaims(
     userId: string,
+    access: { hasCashoutPermission: boolean },
   ): Promise<{ cashedOutCount: number }> {
-    const user = await requireEligibleCashoutUser(userId);
+    const user = await requireEligibleCashoutUser(userId, access);
     const target = resolveCashoutTarget(user.canvasingTarget);
     const claims = filterCashoutEligibleClaims(
       await this.repository.findAll({

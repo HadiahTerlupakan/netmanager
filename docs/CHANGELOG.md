@@ -57,6 +57,47 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/tenant-context.ts`, `tests/lib/tenant-context-host-domain.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-09-26] — Pencairan bonus canvasing opsional untuk teknisi
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/marketing` | `app/api/marketing/claims/cashout` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Izin baru `m_canvasing:cashout` (centang "cashout" pada Canvasing di
+  matriks role mobile). Sales tetap selalu boleh mencairkan; non-sales (teknisi) hanya
+  bila role-nya diberi izin ini. Aturan tunggal `canCashoutCanvasingBonus` dipakai route
+  cashout dan profil mobile (`canCashoutCanvasing`), sehingga kartu "Target & Pencairan"
+  di Beranda teknisi ikut tampil sesuai izin. Baris Permission dibuat otomatis saat role
+  disimpan (`findOrCreateMany`), jadi tanpa migration. Default tidak berubah: tanpa
+  centang, teknisi tetap tidak bisa mencairkan.
+- **Files**: `modules/marketing/services/CanvasingAccessService.ts`,
+  `modules/marketing/services/point-claim.service.helpers.ts`,
+  `app/api/marketing/claims/cashout/route.ts`, `lib/resource-capabilities.ts`,
+  `lib/permission-config.ts`, `modules/users/services/MobileProfileRouteService.ts`,
+  `mobile-netmanager/src/components/screens/KaryawanTeknisiDashboardScreen.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Teknisi bisa canvasing tanpa berubah menjadi sales
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/` | `modules/users` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Akses canvasing kini ditentukan permission role `m_canvasing` saja,
+  terpisah dari `User.isSales`. Sebelumnya mobile mensyaratkan `isSales`, sehingga
+  teknisi yang diberi `isSales` agar bisa canvasing berganti persona menjadi sales
+  (tab Work Order/Barang hilang, ikut dijatah prospek presurvei). `isSales` tetap
+  berarti "orangnya sales": persona, target, daftar/dashboard sales, dan presurvei.
+  Template role `teknisi` mendapat
+  `m_canvasing:read/create`. Sekaligus fix `/api/mobile/auth/me` yang menurunkan
+  `isSales` dari nama role (mengandung "SALES") alih-alih flag di database.
+  Sisi mobile (`bolehCanvasing`, QuickMenu, Beranda teknisi, layar canvasing) cukup
+  lewat OTA — tidak ada perubahan native.
+- **Files**: `lib/role-templates.ts`, `modules/users/services/MobileAuthRouteService.ts`,
+  `mobile-netmanager/src/utils/persona.ts`,
+  `mobile-netmanager/src/components/organisms/dashboard/QuickMenu.tsx`,
+  `mobile-netmanager/src/components/screens/KaryawanTeknisiDashboardScreen.tsx`,
+  `mobile-netmanager/app/(app)/marketing/canvasing/index.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-25] — Deploy produksi langsung dari GitHub Actions; Gitea pensiun
 
 - **Tipe**: [INFRA]

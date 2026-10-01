@@ -5,6 +5,7 @@ import {
   COMPLETED_WORK_ORDER_STATUSES,
 } from "../config/marketing-points";
 import { MarketingError } from "../domain/errors/MarketingError";
+import { canCashoutCanvasingBonus } from "./CanvasingAccessService";
 import type {
   CanvasingClaimSubmissionEntity,
   PointClaimEntity,
@@ -103,7 +104,10 @@ export function ensureRejectNotes(notes: string): void {
   throw new MarketingError("validation", "Alasan penolakan wajib diisi");
 }
 
-export async function requireEligibleCashoutUser(userId: string) {
+export async function requireEligibleCashoutUser(
+  userId: string,
+  access: { hasCashoutPermission: boolean },
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { isSales: true, canvasingTarget: true, targetSchema: true },
@@ -113,10 +117,14 @@ export async function requireEligibleCashoutUser(userId: string) {
     throw new MarketingError("not_found", "User tidak ditemukan");
   }
 
-  if (!user.isSales) {
+  const isEligible = canCashoutCanvasingBonus({
+    isSales: user.isSales,
+    hasCashoutPermission: access.hasCashoutPermission,
+  });
+  if (!isEligible) {
     throw new MarketingError(
       "forbidden",
-      "Hanya akun sales yang dapat mencairkan bonus canvasing.",
+      "Pencairan bonus canvasing hanya untuk sales atau role yang diberi izin pencairan.",
     );
   }
 
