@@ -69,6 +69,78 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `app/admin/presurvei/prospek/ProspekFormModal.tsx`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-01] — Kepala layar mobile bersama dan perbaikan navigasi prospek
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager` (presurvei)
+- **Author**: agent
+- **Deskripsi**: Judul dan tombol bertulisan tebal ("Tambah Prospek") terpotong
+  di Android karena kata terakhir pindah ke baris kedua. Kepala layar
+  (kembali + judul) yang tersalin di enam layar disatukan menjadi
+  `KepalaLayar` (judul `flex-1`, satu baris). Layar Rincian Prospek kini
+  punya kepala layar. Setelah simpan prospek, form ditutup lalu rincian dibuka
+  (`back` + `push`), sebab `replace` di Tabs ber-riwayat membuat tombol
+  Kembali membuka form kosong.
+- **Files**: `src/components/molecules/KepalaLayar.tsx`,
+  `app/(app)/presurvei/prospek/baru.tsx`, `app/(app)/presurvei/prospek/[id]/index.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Tambah calon pelanggan (prospek) langsung dari mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager` (presurvei prospek)
+- **Author**: agent
+- **Deskripsi**: Sales dapat mencatat calon pelanggan tanpa harus mencatat
+  kegiatan dulu. Memakai endpoint yang sudah ada `POST /api/presurvei/prospek`
+  (`m_presurvei:create`). Form ramah literasi rendah: nama, nomor HP, alamat
+  pemasangan + "Pakai lokasi saya sekarang" (GPS), "Kenal dari mana?" (tombol
+  besar; IKLAN tidak ditawarkan), paket & catatan opsional. Nomor HP ganda
+  (409 `DUPLIKAT`) ditangani dengan pilihan "Pakai yang sudah ada" (hanya bila
+  milik sendiri) / "Tetap simpan sebagai baru" / "Batal". Jalan masuk: tab
+  Presurvei → Prospek ("Tambah calon pelanggan", layar
+  `/(app)/presurvei/prospek/baru`) dan jendela "Pilih calon pelanggan" di form
+  rencana/catat kegiatan (yang baru langsung terpilih, alamatnya mengisi form).
+  Aturan isian prospek dipindah ke `src/utils/presurvei/isianProspek.ts` dan
+  dipakai bersama Catat Kegiatan (pesan kesalahannya ikut disederhanakan).
+- **Files**: `src/components/organisms/presurvei/FormTambahProspek.tsx`,
+  `src/components/organisms/presurvei/PilihProspekModal.tsx`,
+  `app/(app)/presurvei/prospek/baru.tsx`, `src/services/PresurveiService.ts`,
+  `src/utils/presurvei/isianProspek.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Pilihan tanggal & jam rencana mobile tidak ambigu
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager` (FormRencana, CustomDatePickerModal)
+- **Author**: agent
+- **Deskripsi**: Untuk pengguna yang kurang terbiasa membaca aplikasi:
+  - Tanggal kini tiga tombol besar (Hari ini / Besok / Tanggal lain) dengan
+    tanda centang pada yang terpilih, plus kotak "Kunjungan pada" bertanggal
+    lengkap (mis. "Sabtu, 26 September 2026").
+  - Jam kini tombol "Tanpa jam" / "Pilih jam" dengan penjelasan artinya.
+    "Pilih jam" membuka daftar tombol jam (Pagi/Siang/Sore/Malam, 07.00–21.30
+    per 30 menit) sebagai pengganti jam analog Android yang sulit dipahami.
+    Helper `keJamRencana`/`dariJamRencana` yang tak terpakai dihapus.
+  - Tujuan: tanda "(wajib diisi)", contoh tujuan siap ketuk, kotak 3 baris
+    dengan penghitung huruf.
+  - Calon pelanggan dipindah ke atas alamat; memilihnya mengisi alamat kosong
+    otomatis, plus tombol "Pakai alamat <nama>". Alamat hanya tampil (dan
+    dikirim) untuk Kunjungan/Survei lokasi — Telepon/Chat tidak perlu alamat.
+  - Kalender berbahasa Indonesia (Min–Sab, nama bulan) dan menandai tanggal
+    terpilih; ikut berlaku di form izin.
+  Sebelumnya tanggal terpilih dan tautan "Pilih tanggal lain" menyatu dalam
+  satu teks biru.
+- **Files**: `src/components/organisms/presurvei/FormRencana.tsx`,
+  `src/components/organisms/presurvei/PilihJamModal.tsx`,
+  `src/components/organisms/presurvei/BagianTujuanRencana.tsx`,
+  `src/components/organisms/presurvei/BagianProspekAlamatRencana.tsx`,
+  `src/hooks/presurvei/useFormRencana.ts`, `src/utils/presurvei/formRencana.ts`,
+  `src/components/molecules/TombolPilihanBesar.tsx`,
+  `src/utils/presurvei/pilihanWaktuRencana.ts`,
+  `src/constants/kalenderIndonesia.ts`,
+  `src/components/molecules/CustomDatePickerModal.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Desain persona pengguna (staff, teknisi, sales, dst.)
 
 - **Tipe**: [DOCS]
@@ -149,6 +221,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `modules/users/validators/user.ts`, `modules/users/services/AdminUserRouteService.helpers.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-09-26] — Mobile: rencana kunjungan, laporan, dan kartu Beranda
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Sub-tab Presurvei "Rencana" (agenda per hari + daftar terlewat), buat /
+  ubah / batalkan rencana mandiri, rincian rencana dengan tombol "Laporkan Kunjungan" yang
+  membuka form kegiatan terisi (`rencanaId`, jenis, prospek), status "Menunggu kirim"
+  untuk laporan di antrean offline, kartu "Rencana hari ini" di Beranda sales, dan
+  deep-link notifikasi penugasan (`PRESURVEI_RENCANA`). Fixture kontrak
+  `kontrak-mobile.json` memuat enum & batas rencana (dijaga tes di kedua repo). Cukup OTA.
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Tampilan kepala sales untuk tim besar
 
 - **Tipe**: [CHANGED]
@@ -192,6 +277,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `mobile-netmanager/app/(app)/presurvei/rencana/tugaskan.tsx`
 - **Breaking**: ❌ Tidak (`/api/admin/presurvei/rencana/rekap` belum pernah dirilis)
 
+### [2026-09-26] — Polish agenda rencana mobile & tombol kembali
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Agenda rencana bergaya timeline (kolom jam + garis warna status, nama
+  sales beravatar hanya saat melihat semua anggota), kontrol segmen Saya | Tim, pil filter
+  sales yang tidak lagi terpotong, baris ringkas "n rencana · x selesai" dengan tombol
+  "+ Tugaskan"/"+ Buat Rencana", dan kartu "Tim hari ini" dengan bilah progres. Tab
+  navigator memakai `backBehavior="history"`: sebelumnya kembali dari layar turunan
+  (buat/ubah/rincian/catat) selalu jatuh ke Beranda.
+- **Files**: `mobile-netmanager/app/(app)/_layout.tsx`,
+  `mobile-netmanager/src/components/organisms/presurvei/KartuRencana.tsx`,
+  `mobile-netmanager/src/components/organisms/presurvei/SaringanSalesTim.tsx`,
+  `mobile-netmanager/src/components/molecules/SegmenPilihan.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Jam pada rencana kunjungan
 
 - **Tipe**: [ADDED]
@@ -217,6 +319,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `(salesId, tanggal, jam)`. Hanya penambahan kolom; indeks lama berasal dari migration
   yang juga belum dirilis.
 - **Migration**: `20260926105440_add_jam_to_presurvei_rencana`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Hapus menu Lembur dari Beranda sales
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Sales tidak mengenal lembur, jadi tile "Lembur" dihapus dari menu cepat
+  Beranda sales (tersisa Izin & Cuti, Chat, Kalender Libur). Beranda teknisi tidak berubah.
+  Cukup OTA.
+- **Files**: `mobile-netmanager/src/components/screens/KaryawanSalesDashboardScreen.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Fix tombol Tutup pemilih prospek tak bisa diketuk
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Modal "Pilih Prospek" layar penuh tidak memakai inset safe area; di
+  Android edge-to-edge headernya tergambar di bawah status bar sehingga tombol Tutup tidak
+  bisa diketuk dan sales terjebak di modal. Kini memakai `useSafeAreaInsets` (atas/bawah)
+  dan area sentuh Tutup diperbesar. Cukup OTA.
+- **Files**: `mobile-netmanager/src/components/organisms/presurvei/PilihProspekModal.tsx`
 - **Breaking**: ❌ Tidak
 
 ### [2026-09-26] — Fix target canvasing terkirim sebagai string di form User Baru
@@ -298,6 +423,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `app/api/marketing/claims/cashout/route.ts`, `lib/resource-capabilities.ts`,
   `lib/permission-config.ts`, `modules/users/services/MobileProfileRouteService.ts`,
   `mobile-netmanager/src/components/screens/KaryawanTeknisiDashboardScreen.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Polish tampilan Beranda sales di mobile
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Beranda sales kini selaras dengan Beranda teknisi: sapaan nama, judul
+  bagian (Ringkasan Presurvei, Bonus Canvasing), kartu absen berikon dengan tombol
+  "Buka Absensi", statistik kegiatan hari ini berwarna dengan ikon dan badge "Menunggu
+  kirim", target dengan keadaan kosong yang jelas, serta daftar follow-up beravatar dan
+  badge jumlah. Hanya presentasi; logika dan data tidak berubah. Cukup OTA.
+- **Files**: `mobile-netmanager/src/components/screens/KaryawanSalesDashboardScreen.tsx`,
+  `mobile-netmanager/src/components/organisms/dashboard/{KartuAbsenHariIni,KartuKegiatanHariIni,KartuTargetBulanIni,DaftarPerluFollowUp}.tsx`
 - **Breaking**: ❌ Tidak
 
 ### [2026-09-26] — Teknisi bisa canvasing tanpa berubah menjadi sales

@@ -1,5 +1,71 @@
 # TODO
 
+## Rencana Kunjungan & Penugasan Sales (2026-09-26)
+
+### Tujuan
+Sales bisa membuat rencana kunjungannya sendiri; **admin** dan **kepala sales** bisa
+menugaskan rencana ke sales. Setiap rencana wajib ditutup dengan **laporan** (kegiatan
+presurvei: hasil, catatan, foto, GPS). Admin/kepala sales melihat rekap rencana vs realisasi.
+
+### Keputusan
+- **Tim eksplisit**: `User.kepalaSalesId` (self-relation, nullable, SetNull), diatur admin
+  di form user. Presurvei belum menegakkan `site_only`, jadi lingkup per-site tidak dipakai.
+- **Lingkup akses web** (resource baru `presurvei_rencana`: read, create, update, delete, view_all):
+  - `view_all` (admin): semua rencana/sales di tenant.
+  - tanpa `view_all` (kepala sales): rencana milik sendiri + anggota tim (`kepalaSalesId = saya`).
+  - mobile `m_presurvei:*` saja (sales): hanya rencana miliknya.
+- **Sumber**: `MANDIRI` (salesId = pembuat) / `PENUGASAN` (salesId ≠ pembuat).
+- **Status tersimpan**: DIRENCANAKAN | SELESAI | BATAL. **TERLEWAT dihitung saat baca**
+  (DIRENCANAKAN & tanggal < hari ini WIB) — tanpa cron. Laporan terlambat tetap diterima,
+  ditandai `isTerlambat` (tanggal lapor WIB > tanggal rencana).
+- **Laporan** = `POST /api/presurvei/kegiatan` dengan `rencanaId`; dalam satu transaksi kegiatan
+  dibuat + rencana → SELESAI (`kegiatanId`, `dilaporkanAt`). Hanya sales pemilik rencana; rencana
+  harus DIRENCANAKAN (409 bila sudah selesai/batal). `prospekId` rencana dipakai bila kosong.
+- **Batal**: wajib alasan. Sales hanya boleh membatalkan rencana MANDIRI miliknya; PENUGASAN
+  dibatalkan pembuat/pengelola dalam lingkup. Ubah (tanggal/tujuan/alamat/prospek) hanya saat DIRENCANAKAN.
+- **Notifikasi**: event `presurvei:rencana.ditugaskan` → notifikasi + push ke sales, link
+  `/presurvei/rencana/<id>` (mobile). Tidak dikirim untuk MANDIRI.
+- Kepala sales memakai portal admin web (v1). Penugasan dari mobile di luar cakupan v1.
+
+### Kontrak API
+- `GET  /api/presurvei/rencana?dari&sampai&salesId&status&page&limit` — perm `presurvei_rencana:read` | `m_presurvei:read`
+- `POST /api/presurvei/rencana` — perm `presurvei_rencana:create` | `m_presurvei:create`
+  body `{ salesId?, tanggal: "YYYY-MM-DD", jenis, tujuan, prospekId?, alamat?, latitude?, longitude? }`
+- `GET  /api/presurvei/rencana/[id]` (detail + laporan kegiatan bila ada)
+- `PATCH /api/presurvei/rencana/[id]` `{ tanggal?, jenis?, tujuan?, prospekId?, alamat? }`
+- `POST /api/presurvei/rencana/[id]/batal` `{ alasan }`
+- `GET  /api/presurvei/rencana/sales-tersedia` — sales yang boleh ditugaskan pemanggil
+- `GET  /api/admin/presurvei/rencana/rekap?dari&sampai` — per sales: total, selesai, tepatWaktu,
+  terlambat, terlewat, batal, mendatang, persenRealisasi
+- `GET  /api/admin/presurvei/kepala-sales` — kandidat kepala sales untuk form user
+- `POST /api/presurvei/kegiatan` + field opsional `rencanaId`
+
+DTO rencana: `{ id, salesId, namaSales, dibuatOlehId, namaPembuat, sumber, jenis, tanggal
+("YYYY-MM-DD"), tujuan, alamat, latitude, longitude, prospekId, namaProspek, status,
+statusTampil (DIRENCANAKAN|TERLEWAT|SELESAI|BATAL), isTerlambat, kegiatanId, dilaporkanAt,
+alasanBatal, createdAt, laporan?: KegiatanDetail }`
+
+### Tahapan
+- [x] 1. Skema + migration (`add_presurvei_rencana_and_tim_sales`) + migration grant izin admin
+- [x] 2. Domain/repo/service/validator/DTO rencana + tes service & aturan
+- [x] 3. Route API + tes route; tautan laporan di KegiatanService (transaksi)
+- [x] 4. Event + notifikasi penugasan
+- [x] 5. Izin (permissions, capabilities, role template `kepala_sales`, menu admin)
+- [x] 6. Form user: pilih Kepala Sales
+- [x] 7. Admin web: halaman Rencana (daftar, buat penugasan, detail+laporan, batal, rekap)
+- [x] 8. Mobile: sub-tab Rencana, form buat, detail + Laporkan, kartu "Rencana hari ini", deep-link notifikasi
+- [x] 9. Verifikasi end-to-end di emulator + CHANGELOG
+
+### Review
+- Backend diuji lewat API (kepala sales → tugaskan tim; di luar tim 403; sales tak bisa batalkan
+  penugasan; laporan menutup rencana; laporan ganda 409; notifikasi terkirim; rekap benar).
+- Emulator (sales Ani): kartu Rencana hari ini, sub-tab Rencana, rincian penugasan tanpa
+  Ubah/Batal, Laporkan Kunjungan terisi otomatis + foto + GPS → SELESAI, notifikasi membuka rincian.
+- Tindak lanjut: super admin tanpa tenant sesi belum bisa memilih kepala sales untuk user
+  tenant lain (endpoint kandidat memakai tenant sesi); laporan offline yang disinkron saat
+  rencana sudah ditutup berakhir "Gagal terkirim".
+
+
 ## Pembatasan site menyala tanpa disadari di banyak peran (2026-09-20)
 
 ### Temuan
@@ -3579,3 +3645,27 @@ pekerjaan dan pengujian tersendiri:
   DOWNGRADE dari 7.8.0. Jangan diterapkan mentah-mentah.
 - `typescript 5.9.3 → 7.0.2`, `eslint 9 → 10`, `vitest 4 → 5` — perkakas, ada
   `overrides.typescript 5.9.3` yang mengunci.
+
+## Penilaian kinerja kepala sales & tim (2026-09-26)
+
+- [x] Aturan domain `penilaian-rules.ts` (bobot, predikat, realisasi, cakupan) + tes
+- [x] `TimSalesRepository` + `PenilaianService` (lingkup SEMUA/TIM/SENDIRI) + tes
+- [x] Route `GET /api/presurvei/penilaian` (bulan berjalan default; laporan:read → SEMUA) + tes
+- [x] Halaman admin `/admin/presurvei/penilaian` + menu `PRESURVEI.PENILAIAN` (diverifikasi di browser: kepala & super admin)
+- [x] Mobile: kartu Beranda (sales & kepala) + layar detail `/(app)/presurvei/penilaian`
+- [x] Verifikasi emulator (kepala sales: kartu, detail, rincian anggota)
+- [x] Layar detail bertab (Saya/Tim; Kepala sales/Semua sales) + kartu admin di Beranda non-sales — diverifikasi emulator (kepala & admin)
+
+### Review
+Dihitung langsung (belum dikunci per periode, belum terkait gaji). Bobot masih
+konstanta domain; konfigurasi per tenant menyusul bila dibutuhkan.
+- [x] Kepala sales = sales di mobile (`isSalesEfektif`: kolom isSales ATAU role lingkup TIM) — login, /me, profil, cashout; diverifikasi emulator dengan admin2 isSales=false
+
+## Prospek: calon pelanggan vs perantara (2026-10-01)
+
+- [x] Skema + migration `add_jenis_and_peran_to_presurvei_prospek` (aditif)
+- [x] Domain/validator/service/repo/DTO + tes (5705 tes backend lulus)
+- [x] Admin web: form jenis+peran, badge, filter, konversi disembunyikan (diverifikasi Playwright)
+- [x] Mobile: form "Orang ini siapa?", peran, badge, filter (diverifikasi emulator end-to-end)
+- [x] Perbaikan: judul terpotong (`KepalaLayar`), Kembali setelah simpan, rincian prospek berkepala layar
+- [x] Data uji lokal dibersihkan
