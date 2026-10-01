@@ -32,6 +32,13 @@ interface SelectedSite {
   isPrimary: boolean;
 }
 
+/** Angka dari input form; kosong/tidak valid → undefined supaya default skema API berlaku. */
+function angkaAtauBawaan(nilai: unknown): number | undefined {
+  if (nilai === "" || nilai === null || nilai === undefined) return undefined;
+  const angka = Number(nilai);
+  return Number.isFinite(angka) ? angka : undefined;
+}
+
 export function ClientComponent() {
   const router = useRouter();
   const { hasPermission } = usePermission();
@@ -249,6 +256,8 @@ export function ClientComponent() {
         ...tenantScopedFormData,
         departmentId: formData.departmentId || null,
         phone: formData.phone || null,
+        // Input angka memberi string setelah diedit; skema API menuntut number.
+        canvasingTarget: angkaAtauBawaan(formData.canvasingTarget),
         userSites: selectedSites,
       };
 

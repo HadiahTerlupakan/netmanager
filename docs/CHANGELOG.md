@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Fix target canvasing terkirim sebagai string di form User Baru
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/users/new`
+- **Author**: agent
+- **Deskripsi**: Input angka "Target canvasing" menghasilkan string setelah diedit,
+  sedangkan `createUserSchema` menuntut number, sehingga membuat user sales dengan target
+  non-bawaan ditolak 400. Nilai kini dinormalkan sebelum dikirim (kosong → default skema).
+- **Files**: `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Fix rekursi tenant-context untuk host IP/custom domain
 
 - **Tipe**: [FIXED]
