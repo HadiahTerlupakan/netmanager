@@ -95,6 +95,7 @@ export {
 
 export {
   laporanPeriodeSchema,
+  penilaianPeriodeSchema,
   tetapkanTargetSchema,
 } from "./validators/target.validator";
 
@@ -245,3 +246,18 @@ export {
   SUMBER_NOTIFIKASI_RENCANA,
 } from "./services/event-handlers/rencana-assigned-presurvei.handler";
 export { handleRencanaReportedPresurvei } from "./services/event-handlers/rencana-reported-presurvei.handler";
+
+// --- Penilaian kinerja sales & kepala sales ---
+export {
+  BOBOT_PENILAIAN_KEPALA,
+  BOBOT_PENILAIAN_SALES,
+  PREDIKAT_PENILAIAN,
+  type Indikator,
+  type PredikatPenilaian,
+} from "./domain/penilaian-rules";
+export {
+  PenilaianService,
+  type HasilPenilaian,
+  type PenilaianKepala,
+  type PenilaianSales,
+} from "./services/PenilaianService";

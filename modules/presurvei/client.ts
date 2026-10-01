@@ -136,3 +136,18 @@ export type {
   RencanaDto,
   RincianRencanaDto,
 } from "./dto/rencana.dto";
+
+// --- Penilaian kinerja (aman untuk klien) ---
+export {
+  BOBOT_PENILAIAN_KEPALA,
+  BOBOT_PENILAIAN_SALES,
+  PREDIKAT_PENILAIAN,
+  tentukanPredikat,
+  type Indikator,
+  type PredikatPenilaian,
+} from "./domain/penilaian-rules";
+export type {
+  HasilPenilaian,
+  PenilaianKepala,
+  PenilaianSales,
+} from "./services/PenilaianService";

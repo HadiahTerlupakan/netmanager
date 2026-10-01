@@ -243,6 +243,8 @@ function getPermissionResource(code: string): string {
     "PRESURVEI.RENCANA": "presurvei_rencana",
     "PRESURVEI.TARGET": "presurvei_target",
     "PRESURVEI.LAPORAN": "presurvei_laporan",
+    // Penilaian dibuka kepala sales (rencana) maupun pemegang laporan.
+    "PRESURVEI.PENILAIAN": "presurvei_rencana",
   };
 
   if (specialMappings[code]) {

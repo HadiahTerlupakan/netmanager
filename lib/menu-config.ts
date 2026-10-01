@@ -544,6 +544,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/presurvei/laporan",
         icon: "HiOutlinePresentationChartBar",
       },
+      {
+        code: "PRESURVEI.PENILAIAN",
+        name: "Penilaian Kinerja",
+        path: "/admin/presurvei/penilaian",
+        icon: "HiOutlineTrophy",
+      },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { requireSessionTenantId, type HandlerContext } from "@/lib/api";
 import type {
+  JenisLingkupRencana,
   LingkupRencana,
   PenggunaRencana,
   RencanaService,
@@ -21,14 +22,12 @@ export interface KonteksRencana {
 export async function muatKonteksRencana(
   ctx: Pick<HandlerContext, "session" | "permissions">,
   service: RencanaService,
+  tentukanJenis: (permissions: string[]) => JenisLingkupRencana = jenisLingkupRencana,
 ): Promise<KonteksRencana> {
   const pengguna: PenggunaRencana = {
     id: ctx.session!.user.id,
     tenantId: requireSessionTenantId(ctx),
   };
-  const lingkup = await service.lingkup(
-    pengguna,
-    jenisLingkupRencana(ctx.permissions),
-  );
+  const lingkup = await service.lingkup(pengguna, tentukanJenis(ctx.permissions));
   return { pengguna, lingkup };
 }

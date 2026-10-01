@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Penilaian kinerja bulanan kepala sales dan timnya
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `app/api/presurvei/penilaian` | `app/admin/presurvei/penilaian`
+- **Author**: agent
+- **Deskripsi**: Skor 0–100 + predikat (≥85 sangat baik, ≥70 baik, ≥55 cukup,
+  sisanya perlu pembinaan) dihitung langsung per bulan, belum dikunci dan belum
+  terhubung ke gaji. Sales: aktivitas kunjungan & prospek 40, konversi 30,
+  realisasi rencana 30 (laporan terlambat dihitung separuh, terlewat nol).
+  Kepala sales: aktivitas tim 30, konversi tim 30, realisasi penugasan yang ia
+  berikan 20, cakupan pembinaan 10 (persen anggota×hari kerja Senin–Sabtu yang
+  punya rencana), kinerja pribadi 10. Indikator yang belum terukur, misalnya
+  target belum ditetapkan, dikeluarkan dan bobotnya dibagi ulang. Capaian target
+  memakai `TargetService.laporanPencapaian`. Endpoint
+  `GET /api/presurvei/penilaian?tahun&bulan`, tanpa query berarti bulan
+  berjalan menurut zona waktu tenant. Lingkupnya mengikuti rencana: sales
+  melihat dirinya, kepala sales dirinya dan timnya, admin semua. Pemegang
+  `presurvei_laporan:read` ikut melihat semua. Halaman admin
+  `/admin/presurvei/penilaian`, menu `PRESURVEI.PENILAIAN`: kartu per kepala
+  sales dan tabel anggota dengan filter predikat serta rincian indikator.
+  Mobile (repo `mobile-netmanager`): kartu Beranda "Kinerja saya" untuk sales,
+  "Kinerja tim" untuk kepala sales, dan "Kinerja tim sales" untuk admin (lingkup
+  SEMUA, juga di Beranda non-sales). Layar `/(app)/presurvei/penilaian` bertab:
+  Saya/Tim untuk kepala sales, Kepala sales/Semua sales untuk admin.
+- **Files**: `modules/presurvei/domain/penilaian-rules.ts`,
+  `modules/presurvei/services/PenilaianService.ts`,
+  `modules/presurvei/repositories/TimSalesRepository.ts`,
+  `app/api/presurvei/penilaian/route.ts`, `app/api/presurvei/akses-presurvei.ts`,
+  `app/admin/presurvei/penilaian/*`, `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Halaman admin Rencana & Penugasan dan pilih kepala sales
 
 - **Tipe**: [ADDED]

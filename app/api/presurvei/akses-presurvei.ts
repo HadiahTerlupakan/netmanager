@@ -101,4 +101,22 @@ export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
 }
 
 /** Jenis lingkup rencana pemanggil; definisinya di domain presurvei. */
-export { jenisLingkupDariIzin as jenisLingkupRencana } from "@/modules/presurvei";
+import { jenisLingkupDariIzin as jenisLingkupDariIzinRencana } from "@/modules/presurvei";
+
+export { jenisLingkupDariIzinRencana as jenisLingkupRencana };
+
+/** Permission laporan pencapaian — pemegangnya sudah melihat capaian seluruh sales. */
+const PERMISSION_LAPORAN = "presurvei_laporan:read";
+
+/**
+ * Lingkup penilaian kinerja: sama dengan rencana, kecuali pemegang laporan
+ * pencapaian (tanpa izin rencana) melihat seluruh tenant — ia sudah melihat
+ * angka capaian semua sales di Laporan Pencapaian.
+ */
+export function jenisLingkupPenilaian(
+  permissions: string[],
+): "SEMUA" | "TIM" | "SENDIRI" {
+  const jenis = jenisLingkupDariIzinRencana(permissions);
+  if (jenis === "SENDIRI" && permissions.includes(PERMISSION_LAPORAN)) return "SEMUA";
+  return jenis;
+}

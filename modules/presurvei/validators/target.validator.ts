@@ -22,3 +22,9 @@ export const laporanPeriodeSchema = z.object({
   tahun: z.coerce.number().int().min(TAHUN_MIN).max(TAHUN_MAKS),
   bulan: z.coerce.number().int().min(BULAN_MIN).max(BULAN_MAKS),
 });
+
+/** Periode penilaian: kosong = bulan berjalan (zona waktu tenant). */
+export const penilaianPeriodeSchema = laporanPeriodeSchema.partial().refine(
+  (periode) => (periode.tahun === undefined) === (periode.bulan === undefined),
+  { message: "tahun dan bulan diisi berpasangan" },
+);
