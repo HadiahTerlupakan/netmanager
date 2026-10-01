@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Desain persona pengguna (staff, teknisi, sales, dst.)
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Spesifikasi pemisahan persona. Jenis akun (karyawan, mitra,
+  investor) dibedakan dari persona karyawan (staff, teknisi, sales, finance,
+  direktur); persona karyawan melekat pada Role. Staff punya Beranda sendiri
+  (absen + fitur kepegawaian), bukan tampilan teknisi. Termasuk rencana migrasi
+  bertahap dan kompatibilitas aplikasi lama. Belum diimplementasikan.
+- **Files**: `docs/architecture/persona-pengguna-design.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Kepala sales selalu mendapat tampilan sales di mobile
 
 - **Tipe**: [FIXED]
