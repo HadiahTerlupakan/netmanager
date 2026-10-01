@@ -19,9 +19,17 @@ import type {
   CreateKegiatanInput,
   IKegiatanRepository,
   KegiatanListFilters,
+  LaporanRencana,
 } from "../domain/ports/IKegiatanRepository";
+import type { IRencanaRepository } from "../domain/ports/IRencanaRepository";
+import type { RencanaEntity } from "../domain/entities/Rencana";
+import {
+  isMasihTerbuka,
+  RencanaSudahDitutupError,
+} from "../domain/rencana-rules";
 import type { CreateProspekInput } from "../domain/ports/IProspekRepository";
 import { KegiatanRepository } from "../repositories/KegiatanRepository";
+import { RencanaRepository } from "../repositories/RencanaRepository";
 
 /** Data minimal untuk melahirkan prospek dari sebuah kegiatan. */
 export interface DataProspekBaru {
@@ -34,6 +42,8 @@ export interface DataProspekBaru {
 
 export type CatatKegiatanInput = CreateKegiatanInput & {
   prospekBaru?: DataProspekBaru;
+  /** Rencana kunjungan yang dilaporkan oleh kegiatan ini. */
+  rencanaId?: string | null;
 };
 
 /** Hasil pencatatan kegiatan: prospek terisi hanya bila kegiatan melahirkan satu. */
@@ -70,6 +80,23 @@ export interface MuatanKegiatanDiubah {
   tenantId: string | null;
 }
 
+/** Muatan pengumuman laporan penugasan yang sudah tersimpan. */
+export interface MuatanLaporanPenugasan {
+  rencanaId: string;
+  kegiatanId: string;
+  salesId: string;
+  namaSales: string | null;
+  dibuatOlehId: string;
+  tujuan: string;
+  hasil: string;
+  tenantId: string | null;
+}
+
+/** Mengumumkan bahwa sales melaporkan rencana penugasan. */
+export type PengumumLaporanPenugasan = (
+  muatan: MuatanLaporanPenugasan,
+) => Promise<void>;
+
 /** Mengumumkan perubahan kegiatan yang sudah tersimpan. */
 export type PengumumPerubahanKegiatan = (
   muatan: MuatanKegiatanDiubah,
@@ -79,6 +106,9 @@ const NAMA_EVENT_KEGIATAN_DIUBAH = "presurvei:kegiatan.updated";
 
 const PESAN_HASIL_LINTAS_KELOMPOK =
   "Hasil ini mengubah apakah kegiatan melahirkan prospek; catat kegiatan baru.";
+
+const PESAN_RENCANA_SUDAH_DITUTUP =
+  "Rencana ini sudah dilaporkan atau dibatalkan.";
 
 const PESAN_KEGIATAN_BERUBAH =
   "Kegiatan ini sudah diubah orang lain. Muat ulang lalu coba lagi.";
@@ -92,6 +122,16 @@ const umumkanLewatEventBus: PengumumPerubahanKegiatan = async (muatan) => {
     diubahOlehId: muatan.diubahOlehId,
     medanBerubah: muatan.medanBerubah,
     triggeredBy: muatan.diubahOlehId,
+    tenantId: muatan.tenantId ?? undefined,
+  });
+};
+
+/** Pengumum laporan bawaan: event bus, diimpor dinamis seperti di atas. */
+const umumkanLaporanLewatEventBus: PengumumLaporanPenugasan = async (muatan) => {
+  const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+  await eventBus.publish(EVENT_NAMES.PRESURVEI_RENCANA_REPORTED, {
+    ...muatan,
+    triggeredBy: muatan.salesId,
     tenantId: muatan.tenantId ?? undefined,
   });
 };
@@ -111,6 +151,8 @@ export class KegiatanService {
   constructor(
     private readonly repository: IKegiatanRepository = new KegiatanRepository(),
     private readonly umumkanPerubahan: PengumumPerubahanKegiatan = umumkanLewatEventBus,
+    private readonly rencanaRepository: IRencanaRepository = new RencanaRepository(),
+    private readonly umumkanLaporan: PengumumLaporanPenugasan = umumkanLaporanLewatEventBus,
   ) {}
 
   /** Ambil satu halaman kegiatan sesuai filter. */
@@ -232,31 +274,103 @@ export class KegiatanService {
    * `sumber` eksplisit.
    */
   async catat(input: CatatKegiatanInput): Promise<HasilCatatKegiatan> {
-    const { prospekBaru, ...kegiatan } = input;
+    const { prospekBaru, rencanaId, ...masukan } = input;
+    const rencana = await this.muatRencanaUntukDilaporkan(rencanaId, masukan.userId);
+    const kegiatan: CreateKegiatanInput = {
+      ...masukan,
+      prospekId: masukan.prospekId || rencana?.prospekId || null,
+    };
+    const laporan: LaporanRencana | undefined = rencana
+      ? { rencanaId: rencana.id, dilaporkanAt: new Date() }
+      : undefined;
 
-    if (!prospekBaru || !this.isLayakMelahirkanProspek(input)) {
+    try {
+      const hasil = await this.simpan(kegiatan, prospekBaru, laporan);
+      if (rencana?.sumber === "PENUGASAN") {
+        this.kabarkanLaporanPenugasan(rencana, hasil.kegiatan);
+      }
+      return hasil;
+    } catch (error) {
+      if (error instanceof RencanaSudahDitutupError) {
+        throw new AppError(PESAN_RENCANA_SUDAH_DITUTUP, 409, "CONFLICT");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Laporan sudah tersimpan; gagal mengabari pemberi tugas tidak boleh
+   * membatalkannya, tapi wajib berjejak.
+   */
+  private kabarkanLaporanPenugasan(
+    rencana: RencanaEntity,
+    kegiatan: KegiatanEntity,
+  ): void {
+    this.umumkanLaporan({
+      rencanaId: rencana.id,
+      kegiatanId: kegiatan.id,
+      salesId: rencana.salesId,
+      namaSales: rencana.namaSales,
+      dibuatOlehId: rencana.dibuatOlehId,
+      tujuan: rencana.tujuan,
+      hasil: kegiatan.hasil,
+      tenantId: rencana.tenantId,
+    }).catch((error: unknown) => {
+      logger.error("[KegiatanService] Gagal mengabarkan laporan penugasan:", error);
+    });
+  }
+
+  private async simpan(
+    kegiatan: CreateKegiatanInput,
+    prospekBaru: DataProspekBaru | undefined,
+    laporan: LaporanRencana | undefined,
+  ): Promise<HasilCatatKegiatan> {
+    if (!prospekBaru || !this.isLayakMelahirkanProspek(kegiatan)) {
       return {
-        kegiatan: await this.repository.create(kegiatan),
+        kegiatan: await this.repository.create(kegiatan, laporan),
         prospek: null,
       };
     }
 
     const hasil = await this.repository.createDenganProspek(
       kegiatan,
-      this.bangunProspek(input, prospekBaru),
+      this.bangunProspek(kegiatan, prospekBaru),
+      laporan,
     );
 
     return { kegiatan: hasil.kegiatan, prospek: hasil.prospek };
   }
 
-  private isLayakMelahirkanProspek(input: CatatKegiatanInput): boolean {
+  /**
+   * Rencana yang akan ditutup oleh kegiatan ini — hanya milik pelaku dan
+   * masih DIRENCANAKAN. Rencana TERLEWAT tetap boleh dilaporkan (terlambat).
+   */
+  private async muatRencanaUntukDilaporkan(
+    rencanaId: string | null | undefined,
+    pelakuId: string,
+  ) {
+    if (!rencanaId) return null;
+    const rencana = await this.rencanaRepository.findById(rencanaId);
+    if (!rencana) {
+      throw new AppError("Rencana tidak ditemukan", 404, "NOT_FOUND");
+    }
+    if (rencana.salesId !== pelakuId) {
+      throw new AppError("Rencana ini milik sales lain", 403, "FORBIDDEN");
+    }
+    if (!isMasihTerbuka(rencana.status)) {
+      throw new AppError(PESAN_RENCANA_SUDAH_DITUTUP, 409, "CONFLICT");
+    }
+    return rencana;
+  }
+
+  private isLayakMelahirkanProspek(input: CreateKegiatanInput): boolean {
     if (input.prospekId) return false;
     if (!isButuhLokasi(input.jenis)) return false;
     return isHasilMelahirkanProspek(input.hasil);
   }
 
   private bangunProspek(
-    kegiatan: CatatKegiatanInput,
+    kegiatan: CreateKegiatanInput,
     data: DataProspekBaru,
   ): CreateProspekInput {
     return {

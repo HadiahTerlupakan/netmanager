@@ -29,9 +29,39 @@ export class SalesRepository implements ISalesRepository {
       select: { id: true, name: true },
     });
 
-    return rows
-      .map((row) => ({ id: row.id, nama: tentukanNamaSales(row) }))
-      .sort((a, b) => a.nama.localeCompare(b.nama) || a.id.localeCompare(b.id));
+    return urutkanSales(rows);
+  }
+
+  /** Sales aktif satu tenant dari daftar id (dirinya + anggota tim kepala sales). */
+  async daftarAktifDariIds(
+    tenantId: string,
+    ids: string[],
+  ): Promise<SalesRingkas[]> {
+    pastikanTenantTerisi(tenantId, "Daftar sales tim presurvei");
+    if (ids.length === 0) return [];
+
+    const rows = await prisma.user.findMany({
+      where: { tenantId, isSales: true, isActive: true, id: { in: ids } },
+      select: { id: true, name: true },
+    });
+
+    return urutkanSales(rows);
+  }
+
+  /** User aktif satu tenant yang role-nya boleh memberi rencana (kepala sales). */
+  async daftarKandidatKepalaSales(tenantId: string): Promise<SalesRingkas[]> {
+    pastikanTenantTerisi(tenantId, "Daftar kandidat kepala sales");
+
+    const rows = await prisma.user.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        role: { permission: { some: IZIN_PEMBERI_RENCANA } },
+      },
+      select: { id: true, name: true },
+    });
+
+    return urutkanSales(rows);
   }
 
   /**
@@ -56,4 +86,16 @@ export class SalesRepository implements ISalesRepository {
       isActive: row.isActive,
     };
   }
+}
+
+/** Izin yang menandai seseorang bisa memimpin tim penugasan rencana. */
+const IZIN_PEMBERI_RENCANA = { resource: "presurvei_rencana", action: "create" };
+
+/** Label tampilan + urutan stabil (nama, lalu id) untuk dropdown sales. */
+function urutkanSales(
+  rows: { id: string; name: string | null }[],
+): SalesRingkas[] {
+  return rows
+    .map((row) => ({ id: row.id, nama: tentukanNamaSales(row) }))
+    .sort((a, b) => a.nama.localeCompare(b.nama) || a.id.localeCompare(b.id));
 }

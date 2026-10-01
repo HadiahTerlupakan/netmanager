@@ -42,6 +42,8 @@ const UPDATE_FIELD_SETTERS: UpdateFieldSetter[] = [
   (updateData, data) =>
     assignIfDefined(updateData, "canvasingTarget", data.canvasingTarget),
   (updateData, data) =>
+    assignNullableIfDefined(updateData, "kepalaSalesId", data.kepalaSalesId),
+  (updateData, data) =>
     assignIfDefined(
       updateData,
       "isAttendanceRequired",
@@ -111,6 +113,7 @@ export function buildCreateUserInput(
     shiftId: data.shiftId || null,
     isSales: data.isSales || DEFAULT_IS_SALES,
     canvasingTarget: data.canvasingTarget,
+    kepalaSalesId: data.kepalaSalesId || null,
     targetSchema: data.targetSchema,
     isAttendanceRequired:
       data.isAttendanceRequired ?? DEFAULT_IS_ATTENDANCE_REQUIRED,

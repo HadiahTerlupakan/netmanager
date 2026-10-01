@@ -296,6 +296,43 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     ],
   },
   {
+    id: "kepala_sales",
+    name: "Kepala Sales",
+    description:
+      "Memimpin tim sales: membuat rencana kunjungan & penugasan untuk anggota timnya dan memantau laporannya. Tetap bisa canvasing dan presurvei dari mobile.",
+    icon: "briefcase",
+    color: "rose",
+    accessAdminPanel: true,
+    accessEmployeePanel: true,
+    isTechnical: false,
+    isRestricted: false,
+    isSuperAdmin: false,
+    tags: ["Supervisi", "Marketing", "Mobile"],
+    permissions: [
+      "dashboard:read",
+      // Rencana & penugasan — tanpa `view_all`: hanya dirinya + anggota tim
+      // (`User.kepalaSalesId`). Admin yang perlu melihat semua sales diberi
+      // `presurvei_rencana:view_all` terpisah.
+      "presurvei_rencana:read",
+      "presurvei_rencana:create",
+      "presurvei_rencana:update",
+      // Mobile (sama dengan sales)
+      "m_dashboard:read",
+      "m_canvasing:read",
+      "m_canvasing:create",
+      "m_presurvei:read",
+      "m_presurvei:create",
+      "m_presurvei:update",
+      "m_absensi:read",
+      "m_absensi:create",
+      "m_izin:read",
+      "m_izin:create",
+      "m_holidays:read",
+      "m_chat:read",
+      "m_chat:create",
+    ],
+  },
+  {
     id: "manager",
     name: "Manager / Supervisor",
     description:

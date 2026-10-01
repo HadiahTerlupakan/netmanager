@@ -15,6 +15,30 @@ import { normalizePhone } from "@/lib/utils/phone";
 const hasUniqueUserSites = (sites: Array<{ siteId: string }>) =>
   new Set(sites.map((site) => site.siteId)).size === sites.length;
 
+/**
+ * Kepala sales user (`User.kepalaSalesId`). `null` atau string kosong berarti
+ * melepas user dari tim — berbeda dari `optionalIdSchema` yang mengubah `null`
+ * menjadi `undefined` (tidak mengubah apa pun).
+ */
+const kepalaSalesIdSchema = z.preprocess(
+  (val) => (val === "" ? null : val),
+  z.string().min(1).nullable().optional(),
+);
+
+export const PESAN_KEPALA_SALES_DIRI_SENDIRI =
+  "User tidak dapat menjadi kepala sales bagi dirinya sendiri";
+
+/**
+ * Pesan penolakan penetapan kepala sales, atau null bila sah. Schema update
+ * tidak mengenal id user yang diubah, jadi aturan ini dipanggil service.
+ */
+export function validateKepalaSalesAssignment(
+  userId: string,
+  kepalaSalesId: string | null | undefined,
+): string | null {
+  return kepalaSalesId === userId ? PESAN_KEPALA_SALES_DIRI_SENDIRI : null;
+}
+
 const hasSinglePrimarySite = (sites: Array<{ isPrimary?: boolean }>) => {
   if (sites.length === 0) {
     return true;
@@ -122,6 +146,7 @@ export const createUserSchema = z.object({
   // Sales configuration
   canvasingTarget: z.number().int().min(0).default(50),
   targetSchema: targetSchemaEnum.default("MONTHLY_RESET"),
+  kepalaSalesId: kepalaSalesIdSchema,
 
   // Salary configuration
   basicSalary: z.number().min(0).optional(),
@@ -200,6 +225,7 @@ export const updateUserSchema = z
     // Sales configuration
     canvasingTarget: z.number().int().min(0).optional(),
     targetSchema: targetSchemaEnum.optional(),
+    kepalaSalesId: kepalaSalesIdSchema,
 
     // Salary configuration
     basicSalary: z.number().min(0).optional(),

@@ -167,6 +167,8 @@ describe("TargetService.tetapkan", () => {
     targetRepo = bangunTargetRepo();
     salesRepo = {
       daftarAktif: vi.fn(),
+      daftarAktifDariIds: vi.fn(),
+      daftarKandidatKepalaSales: vi.fn(),
       cariCalonSales: vi.fn().mockResolvedValue(calon()),
     };
   });

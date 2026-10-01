@@ -22,6 +22,7 @@ describe("blok menu presurvei", () => {
       "PRESURVEI.KEGIATAN",
       "PRESURVEI.PROSPEK",
       "PRESURVEI.IKLAN",
+      "PRESURVEI.RENCANA",
       "PRESURVEI.TARGET",
       "PRESURVEI.LAPORAN",
     ]);
@@ -39,6 +40,7 @@ describe("blok menu presurvei", () => {
       "PRESURVEI.KEGIATAN": "/admin/presurvei/kegiatan",
       "PRESURVEI.PROSPEK": "/admin/presurvei/prospek",
       "PRESURVEI.IKLAN": "/admin/presurvei/iklan",
+      "PRESURVEI.RENCANA": "/admin/presurvei/rencana",
       "PRESURVEI.TARGET": "/admin/presurvei/target",
       "PRESURVEI.LAPORAN": "/admin/presurvei/laporan",
     });
@@ -73,6 +75,10 @@ describe("blok menu presurvei", () => {
     // anak dipetakan ke `presurvei` bersama — kesalahan yang paling mungkin
     // — tak satu pun anak lolos dan hasilnya `undefined`.
     expect(tampil("presurvei_iklan:read")).toEqual(["PRESURVEI.IKLAN"]);
+
+    // Kepala sales hanya memegang `presurvei_rencana:*`: ia tetap melihat
+    // blok Presurvei, dengan satu-satunya menu Rencana & Penugasan.
+    expect(tampil("presurvei_rencana:read")).toEqual(["PRESURVEI.RENCANA"]);
   });
 
   it("ditandai featureModule supaya bisa dimatikan per tenant", () => {

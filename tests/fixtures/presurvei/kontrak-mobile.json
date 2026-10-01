@@ -16,5 +16,12 @@
   "jenisBerdataTeknis": ["SURVEI_LOKASI"],
   "hasilMelahirkanProspek": ["TERTARIK", "DEAL"],
   "jumlahFotoMaks": 6,
-  "kabelMeterMaks": 5000
+  "kabelMeterMaks": 5000,
+  "rencanaJenis": ["KUNJUNGAN", "SURVEI_LOKASI", "TELEPON", "CHAT"],
+  "rencanaSumber": ["MANDIRI", "PENUGASAN"],
+  "rencanaStatusTampil": ["DIRENCANAKAN", "TERLEWAT", "SELESAI", "BATAL"],
+  "tujuanRencanaMaks": 500,
+  "alamatRencanaMaks": 300,
+  "alasanBatalRencanaMin": 3,
+  "alasanBatalRencanaMaks": 300
 }

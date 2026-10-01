@@ -8,9 +8,11 @@ import type {
   CreateKegiatanInput,
   IKegiatanRepository,
   KegiatanListFilters,
+  LaporanRencana,
   RentangPeriode,
   UbahKegiatanDenganRiwayatInput,
 } from "../domain/ports/IKegiatanRepository";
+import { RencanaSudahDitutupError } from "../domain/rencana-rules";
 import type { CreateProspekInput } from "../domain/ports/IProspekRepository";
 import { toKegiatanEntity, type KegiatanRow } from "../mappers/kegiatan.mapper";
 import {
@@ -68,12 +70,26 @@ export class KegiatanRepository implements IKegiatanRepository {
   }
 
   /** Simpan kegiatan baru tanpa membuat prospek. */
-  async create(input: CreateKegiatanInput): Promise<KegiatanEntity> {
-    const row = await prisma.presurveiKegiatan.create({
-      data: input,
-      include: SERTAKAN_PELAKU,
+  async create(
+    input: CreateKegiatanInput,
+    laporan?: LaporanRencana,
+  ): Promise<KegiatanEntity> {
+    if (!laporan) {
+      const row = await prisma.presurveiKegiatan.create({
+        data: input,
+        include: SERTAKAN_PELAKU,
+      });
+      return toKegiatanEntity(row as KegiatanRow);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const row = await tx.presurveiKegiatan.create({
+        data: input,
+        include: SERTAKAN_PELAKU,
+      });
+      await tutupRencana(tx, row.id, input.userId, laporan);
+      return toKegiatanEntity(row as KegiatanRow);
     });
-    return toKegiatanEntity(row as KegiatanRow);
   }
 
   /**
@@ -85,6 +101,7 @@ export class KegiatanRepository implements IKegiatanRepository {
   async createDenganProspek(
     kegiatan: CreateKegiatanInput,
     prospek: CreateProspekInput,
+    laporan?: LaporanRencana,
   ): Promise<{ kegiatan: KegiatanEntity; prospek: ProspekEntity }> {
     return prisma.$transaction(async (tx) => {
       const barisProspek = await tx.presurveiProspek.create({
@@ -95,6 +112,9 @@ export class KegiatanRepository implements IKegiatanRepository {
         data: { ...kegiatan, prospekId: barisProspek.id },
         include: SERTAKAN_PELAKU,
       });
+      if (laporan) {
+        await tutupRencana(tx, barisKegiatan.id, kegiatan.userId, laporan);
+      }
 
       return {
         kegiatan: toKegiatanEntity(barisKegiatan as KegiatanRow),
@@ -229,4 +249,33 @@ export class KegiatanRepository implements IKegiatanRepository {
       },
     };
   }
+}
+
+/**
+ * Tutup rencana oleh kegiatan laporannya, di dalam transaksi pemanggil.
+ *
+ * Syarat di `where` (masih DIRENCANAKAN, milik pelaku, belum berlaporan)
+ * menjaga balapan dua laporan untuk satu rencana; bila tidak ada baris yang
+ * cocok, lemparan membatalkan kegiatan yang baru dibuat.
+ */
+async function tutupRencana(
+  tx: Prisma.TransactionClient,
+  kegiatanId: string,
+  pelakuId: string,
+  laporan: LaporanRencana,
+): Promise<void> {
+  const { count } = await tx.presurveiRencana.updateMany({
+    where: {
+      id: laporan.rencanaId,
+      salesId: pelakuId,
+      status: "DIRENCANAKAN",
+      kegiatanId: null,
+    },
+    data: {
+      status: "SELESAI",
+      kegiatanId,
+      dilaporkanAt: laporan.dilaporkanAt,
+    },
+  });
+  if (count === 0) throw new RencanaSudahDitutupError(laporan.rencanaId);
 }

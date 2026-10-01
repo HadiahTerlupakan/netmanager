@@ -16,6 +16,7 @@ export interface CreateUserInput {
   shiftId?: string | null;
   isSales?: boolean;
   canvasingTarget?: number;
+  kepalaSalesId?: string | null;
   targetSchema?: string;
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
@@ -52,6 +53,7 @@ export interface UpdateUserInput {
   shiftId?: string | null;
   isSales?: boolean;
   canvasingTarget?: number;
+  kepalaSalesId?: string | null;
   targetSchema?: string;
   isAttendanceRequired?: boolean;
   basicSalary?: number;

@@ -11,6 +11,13 @@ import {
   KEGIATAN_HASIL,
   KEGIATAN_JENIS,
   PROSPEK_STATUSES,
+  ALAMAT_RENCANA_MAKS,
+  ALASAN_BATAL_MAKS,
+  ALASAN_BATAL_MIN,
+  RENCANA_JENIS,
+  RENCANA_STATUS_TAMPIL,
+  RENCANA_SUMBER,
+  TUJUAN_RENCANA_MAKS,
   type ProspekStatus,
 } from "@/modules/presurvei";
 import { resolveAksiKanban } from "@/modules/presurvei/client";
@@ -38,6 +45,13 @@ interface KontrakMobile {
   hasilMelahirkanProspek: string[];
   jumlahFotoMaks: number;
   kabelMeterMaks: number;
+  rencanaJenis: string[];
+  rencanaSumber: string[];
+  rencanaStatusTampil: string[];
+  tujuanRencanaMaks: number;
+  alamatRencanaMaks: number;
+  alasanBatalRencanaMin: number;
+  alasanBatalRencanaMaks: number;
 }
 
 const kontrak = JSON.parse(
@@ -70,6 +84,16 @@ describe("kontrak presurvei untuk mobile", () => {
     expect(kontrak.kegiatanJenis).toEqual([...KEGIATAN_JENIS]);
     expect(kontrak.kegiatanHasil).toEqual([...KEGIATAN_HASIL]);
     expect(kontrak.prospekStatus).toEqual([...PROSPEK_STATUSES]);
+  });
+
+  it("enum dan batas rencana kunjungan sama dengan domain", () => {
+    expect(kontrak.rencanaJenis).toEqual([...RENCANA_JENIS]);
+    expect(kontrak.rencanaSumber).toEqual([...RENCANA_SUMBER]);
+    expect(kontrak.rencanaStatusTampil).toEqual([...RENCANA_STATUS_TAMPIL]);
+    expect(kontrak.tujuanRencanaMaks).toBe(TUJUAN_RENCANA_MAKS);
+    expect(kontrak.alamatRencanaMaks).toBe(ALAMAT_RENCANA_MAKS);
+    expect(kontrak.alasanBatalRencanaMin).toBe(ALASAN_BATAL_MIN);
+    expect(kontrak.alasanBatalRencanaMaks).toBe(ALASAN_BATAL_MAKS);
   });
 
   it("tabel transisi sama dengan getStatusLanjutan untuk setiap status", () => {

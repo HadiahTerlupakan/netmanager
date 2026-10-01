@@ -23,6 +23,7 @@ import {
 import { UsersDetailView } from "./UsersDetailView";
 import { usePermission } from "@/hooks/use-permission";
 import { StatusAndSalesSection } from "../components/UserFormSections";
+import { kepalaSalesIdUntukDikirim } from "../lib/kepalaSales";
 import { generateStrongPassword } from "../lib/password-generator";
 import { fetchAdminUserDetail, updateAdminUser } from "../lib/userDetailApi";
 import { useUserReferenceData } from "../lib/useUserDetailData";
@@ -89,6 +90,7 @@ export function ClientComponent({
     isSales: false,
     canvasingTarget: 0,
     targetSchema: "REVENUE",
+    kepalaSalesId: "",
     tenantId: "",
   });
 
@@ -118,6 +120,7 @@ export function ClientComponent({
           isSales: usr.isSales ?? false,
           canvasingTarget: usr.canvasingTarget ?? 0,
           targetSchema: usr.targetSchema ?? "REVENUE",
+          kepalaSalesId: usr.kepalaSalesId ?? "",
           tenantId: usr.tenantId ?? usr.tenant?.id ?? "",
         };
         setFormData(loadedFormData);
@@ -226,6 +229,10 @@ export function ClientComponent({
         isSales: formData.isSales,
         canvasingTarget: normalizeNumericField(formData.canvasingTarget),
         targetSchema: formData.targetSchema,
+        kepalaSalesId: kepalaSalesIdUntukDikirim(
+          formData.isSales,
+          formData.kepalaSalesId,
+        ),
         tenantId: formData.tenantId || null,
       };
 
@@ -597,6 +604,12 @@ export function ClientComponent({
         <StatusAndSalesSection
           formData={formData}
           handleChange={handleChange}
+          userIdDiubah={id}
+          kepalaSalesTersimpan={
+            user?.kepalaSalesId
+              ? { id: user.kepalaSalesId, nama: user.kepalaSalesNama }
+              : null
+          }
         />
 
         {/* Error Message */}

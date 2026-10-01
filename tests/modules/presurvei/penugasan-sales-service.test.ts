@@ -24,6 +24,8 @@ const calon = (ubahan: Partial<CalonSales> = {}): CalonSales => ({
 
 const bangunRepo = (hasil: CalonSales | null): ISalesRepository => ({
   daftarAktif: vi.fn(),
+  daftarAktifDariIds: vi.fn(),
+  daftarKandidatKepalaSales: vi.fn(),
   cariCalonSales: vi.fn().mockResolvedValue(hasil),
 });
 

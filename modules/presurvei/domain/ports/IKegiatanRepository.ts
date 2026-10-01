@@ -54,6 +54,12 @@ export interface CreateKegiatanInput {
   siteId?: string | null;
 }
 
+/** Rencana yang ditutup oleh kegiatan yang sedang disimpan. */
+export interface LaporanRencana {
+  rencanaId: string;
+  dilaporkanAt: Date;
+}
+
 /** Rentang waktu tertutup untuk perhitungan laporan. */
 export interface RentangPeriode {
   mulai: Date;
@@ -83,11 +89,20 @@ export interface IKegiatanRepository {
     filters: KegiatanListFilters,
   ): Promise<{ items: KegiatanEntity[]; total: number }>;
   findById(id: string): Promise<KegiatanEntity | null>;
-  create(input: CreateKegiatanInput): Promise<KegiatanEntity>;
+  /**
+   * Simpan kegiatan. Dengan `laporan`, rencana itu ditutup (SELESAI) dalam
+   * transaksi yang sama; melempar `RencanaSudahDitutupError` bila rencana
+   * sudah tidak terbuka, dan tidak ada yang tersimpan.
+   */
+  create(
+    input: CreateKegiatanInput,
+    laporan?: LaporanRencana,
+  ): Promise<KegiatanEntity>;
   /** Simpan kegiatan dan prospek barunya dalam satu transaksi, lalu tautkan. */
   createDenganProspek(
     kegiatan: CreateKegiatanInput,
     prospek: CreateProspekInput,
+    laporan?: LaporanRencana,
   ): Promise<{ kegiatan: KegiatanEntity; prospek: ProspekEntity }>;
   /**
    * Tulis perubahan kegiatan dan baris riwayatnya dalam SATU transaksi.

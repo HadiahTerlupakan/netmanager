@@ -110,6 +110,24 @@ export async function applyTenantChange(options: {
   return { ok: true, data: null };
 }
 
+/**
+ * Memastikan kepala sales yang ditetapkan ada di tenant yang sama dengan
+ * user yang dibawahinya — tim lintas tenant akan membocorkan rencana
+ * kunjungan antartenant. `null`/`undefined` (lepas tim / tidak diubah) lolos.
+ */
+export async function validateKepalaSalesTenant(options: {
+  kepalaSalesId: string | null | undefined;
+  tenantId: string | null | undefined;
+  findUser: (id: string) => Promise<Pick<UserEntity, "tenantId"> | null>;
+}): Promise<UserRouteResult<null>> {
+  if (!options.kepalaSalesId) return { ok: true, data: null };
+  const kepalaSales = await options.findUser(options.kepalaSalesId);
+  if (!kepalaSales || kepalaSales.tenantId !== (options.tenantId ?? null)) {
+    return fail(400, "Kepala sales tidak ditemukan di tenant ini");
+  }
+  return { ok: true, data: null };
+}
+
 /** Menerapkan perubahan email sambil menjaga identifier global. */
 export async function applyEmailChange(options: {
   userId: string;
@@ -174,6 +192,9 @@ function applyCommonFieldUpdates(
   if (isDefined(payload.departmentId)) data.departmentId = payload.departmentId;
   if (isDefined(payload.isActive)) data.isActive = payload.isActive;
   if (isDefined(payload.isSales)) data.isSales = payload.isSales;
+  if (isDefined(payload.kepalaSalesId)) {
+    data.kepalaSalesId = payload.kepalaSalesId;
+  }
   if (isDefined(payload.isAttendanceRequired)) {
     data.isAttendanceRequired = payload.isAttendanceRequired;
   }

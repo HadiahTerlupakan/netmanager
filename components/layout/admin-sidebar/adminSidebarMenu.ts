@@ -240,6 +240,7 @@ function getPermissionResource(code: string): string {
     "PRESURVEI.KEGIATAN": "presurvei",
     "PRESURVEI.PROSPEK": "presurvei",
     "PRESURVEI.IKLAN": "presurvei_iklan",
+    "PRESURVEI.RENCANA": "presurvei_rencana",
     "PRESURVEI.TARGET": "presurvei_target",
     "PRESURVEI.LAPORAN": "presurvei_laporan",
   };

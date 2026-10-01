@@ -92,6 +92,7 @@ export const PERMISSION_GROUPS = {
     "presurvei_iklan",
     "presurvei_target",
     "presurvei_laporan",
+    "presurvei_rencana",
   ],
   CHAT: ["chat", "broadcast"],
   USERS: ["users"],

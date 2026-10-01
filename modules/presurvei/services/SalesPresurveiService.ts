@@ -26,6 +26,11 @@ export class SalesPresurveiService {
     return this.repository.daftarAktif(tenantId);
   }
 
+  /** Kandidat kepala sales (pemegang `presurvei_rencana:create`) di tenant pemanggil. */
+  async daftarKandidatKepalaSales(tenantId: string): Promise<SalesRingkas[]> {
+    return this.repository.daftarKandidatKepalaSales(tenantId);
+  }
+
   /**
    * Sales aktif di tenant PROSPEK — calon pemilik yang akan diterima
    * `ProspekService.ubah`. Tenant diturunkan di server dari barisnya, tidak

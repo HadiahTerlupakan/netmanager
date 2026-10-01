@@ -143,6 +143,12 @@ export const PERMISSIONS = {
     PRESURVEI_LAPORAN: {
       READ: "presurvei_laporan:read",
     },
+    PRESURVEI_RENCANA: {
+      READ: "presurvei_rencana:read",
+      CREATE: "presurvei_rencana:create",
+      UPDATE: "presurvei_rencana:update",
+      VIEW_ALL: "presurvei_rencana:view_all",
+    },
   },
   PLANNING: {
     READ: "planning:read",

@@ -1421,6 +1421,10 @@ model User {
   lastOtaUpdateId                            String?
   canvasingTarget                            Int                         @default(50)
   isSales                                    Boolean                     @default(false)
+  /// Kepala sales yang membawahi user ini (tim penugasan rencana kunjungan).
+  kepalaSalesId                              String?
+  kepalaSales                                User?                       @relation("TimSales", fields: [kepalaSalesId], references: [id], onDelete: SetNull)
+  anggotaTimSales                            User[]                      @relation("TimSales")
   absentDeductionRate                        Float?
   basicSalary                                Float?
   employeeType                               EmployeeType                @default(KARYAWAN)
@@ -1479,6 +1483,9 @@ model User {
   presurveiProspek                           PresurveiProspek[]          @relation("UserPresurveiProspek")
   presurveiIklan                             PresurveiIklan[]            @relation("UserPresurveiIklan")
   presurveiTarget                            PresurveiTarget[]           @relation("UserPresurveiTarget")
+  presurveiRencana                           PresurveiRencana[]          @relation("UserPresurveiRencanaSales")
+  presurveiRencanaDibuat                     PresurveiRencana[]          @relation("UserPresurveiRencanaPembuat")
+  presurveiRencanaDibatalkan                 PresurveiRencana[]          @relation("UserPresurveiRencanaPembatal")
   employeeLoans                              EmployeeLoan[]
   employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
@@ -1538,6 +1545,7 @@ model User {
   @@index([roleId])
   @@index([siteId])
   @@index([shiftId])
+  @@index([kepalaSalesId])
   @@index([tenantId])
 }
 
@@ -2126,41 +2134,41 @@ model ServiceSuspension {
 }
 
 model Sites {
-  id               String           @id
-  code             String           @unique
-  name             String
-  description      String?
-  address          String?
-  latitude         Float?
-  longitude        Float?
-  attendanceRadius Int              @default(100)
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime
-  tenantId         String?
-  bandwidths       Bandwidth[]
-  expenses         Expense[]
-  hargaPakets      HargaPaket[]
-  joinboxes        Joinbox[]
-  kmzFiles         KmzFile[]
-  mikrotikRouter   MikroTikRouter[]
-  accelPppServer   AccelPppServer[]
-  odcs             Odc[]
-  odps             Odp[]
-  otbs             Otb[]
-  pelanggan        Pelanggan[]
-  poles            Pole[]
+  id                String              @id
+  code              String              @unique
+  name              String
+  description       String?
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  attendanceRadius  Int                 @default(100)
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  tenantId          String?
+  bandwidths        Bandwidth[]
+  expenses          Expense[]
+  hargaPakets       HargaPaket[]
+  joinboxes         Joinbox[]
+  kmzFiles          KmzFile[]
+  mikrotikRouter    MikroTikRouter[]
+  accelPppServer    AccelPppServer[]
+  odcs              Odc[]
+  odps              Odp[]
+  otbs              Otb[]
+  pelanggan         Pelanggan[]
+  poles             Pole[]
   presurveiKegiatan PresurveiKegiatan[]
   presurveiProspek  PresurveiProspek[]
-  profilePPPs      ProfilePPP[]
-  user             User[]
-  notifications    Notifications[]
-  rabProjects      RabProject[]
-  tenant           Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  userSites        UserSite[]
-  work_orders      WorkOrders[]
-  gudang           Gudang[]         @relation("GudangToSite")
-  mappingNodes     MappingNode[]
+  profilePPPs       ProfilePPP[]
+  user              User[]
+  notifications     Notifications[]
+  rabProjects       RabProject[]
+  tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userSites         UserSite[]
+  work_orders       WorkOrders[]
+  gudang            Gudang[]            @relation("GudangToSite")
+  mappingNodes      MappingNode[]
 
   @@index([isActive])
   @@index([tenantId])
@@ -2893,6 +2901,7 @@ model PresurveiKegiatan {
   tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   riwayat PresurveiKegiatanRiwayat[]
+  rencana PresurveiRencana?
 
   @@index([userId, waktuMulai])
   @@index([prospekId])
@@ -2958,6 +2967,7 @@ model PresurveiProspek {
   site     Sites?              @relation(fields: [siteId], references: [id])
   tenant   Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   kegiatan PresurveiKegiatan[]
+  rencana  PresurveiRencana[]
 
   @@index([pemilikId, status])
   @@index([sumber])
@@ -3017,6 +3027,55 @@ model PresurveiTarget {
   @@unique([userId, periodeTahun, periodeBulan, tenantId])
   @@index([tenantId])
   @@map("presurvei_target")
+}
+
+/// Rencana kunjungan sales: dibuat sendiri (MANDIRI) atau ditugaskan admin/kepala sales
+/// (PENUGASAN). Ditutup oleh laporan = satu PresurveiKegiatan (`kegiatanId`).
+/// TERLEWAT tidak disimpan: dihitung saat baca dari status DIRENCANAKAN + tanggal lampau.
+model PresurveiRencana {
+  id String @id @default(uuid())
+
+  salesId      String
+  dibuatOlehId String
+  sumber       PresurveiSumberRencana
+
+  jenis   PresurveiJenisKegiatan @default(KUNJUNGAN)
+  tanggal DateTime               @db.Date
+  /// Jam rencana "HH:mm" (waktu lokal tenant), opsional — urutan kunjungan dalam satu hari.
+  jam     String?
+  tujuan  String
+
+  prospekId String?
+  alamat    String?
+  latitude  Float?
+  longitude Float?
+
+  status PresurveiStatusRencana @default(DIRENCANAKAN)
+
+  kegiatanId   String?   @unique
+  dilaporkanAt DateTime?
+
+  alasanBatal      String?
+  dibatalkanOlehId String?
+  dibatalkanAt     DateTime?
+
+  tenantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales          User               @relation("UserPresurveiRencanaSales", fields: [salesId], references: [id])
+  dibuatOleh     User               @relation("UserPresurveiRencanaPembuat", fields: [dibuatOlehId], references: [id])
+  dibatalkanOleh User?              @relation("UserPresurveiRencanaPembatal", fields: [dibatalkanOlehId], references: [id], onDelete: SetNull)
+  prospek        PresurveiProspek?  @relation(fields: [prospekId], references: [id], onDelete: SetNull)
+  kegiatan       PresurveiKegiatan? @relation(fields: [kegiatanId], references: [id], onDelete: SetNull)
+  tenant         Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([salesId, tanggal, jam])
+  @@index([dibuatOlehId])
+  @@index([prospekId])
+  @@index([tenantId, tanggal])
+  @@map("presurvei_rencana")
 }
 
 model PurchaseRequest {
@@ -3193,8 +3252,8 @@ model PurchaseOrder {
 
   @@unique([tenantId, poNumber], name: "tenantId_poNumber")
   @@index([tenantId])
-  @@map("purchase_orders")
   @@index([fakturPajakNo])
+  @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
@@ -4068,6 +4127,7 @@ model Tenant {
   presurveiProspek          PresurveiProspek[]
   presurveiIklan            PresurveiIklan[]
   presurveiTarget           PresurveiTarget[]
+  presurveiRencana          PresurveiRencana[]
   companyBankAccount        CompanyBankAccount[]
   configurationRestores     ConfigurationRestores[]
   customerUsage             CustomerUsage[]
@@ -4681,6 +4741,17 @@ enum PresurveiJenisKegiatan {
   TELEPON
   CHAT
   IKLAN
+}
+
+enum PresurveiSumberRencana {
+  MANDIRI
+  PENUGASAN
+}
+
+enum PresurveiStatusRencana {
+  DIRENCANAKAN
+  SELESAI
+  BATAL
 }
 
 enum PresurveiHasilKegiatan {

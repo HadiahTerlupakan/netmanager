@@ -7,10 +7,13 @@ import {
   applyTenantChange,
   buildBaseUpdateData,
   clearUserScheduleCache,
+  fail,
   publishPermissionUpdate,
+  validateKepalaSalesTenant,
   validateScopedUpdate,
   validateSelfUpdate,
 } from "./AdminUserRouteService.helpers";
+import { validateKepalaSalesAssignment } from "../validators/user";
 import type {
   AdminSession,
   UpdateUserPayload,
@@ -30,6 +33,12 @@ export class AdminUserRouteUpdateService {
     currentUser: Parameters<typeof validateSelfUpdate>[1],
     payload: UpdateUserPayload,
   ) {
+    const pesanKepalaSales = validateKepalaSalesAssignment(
+      userId,
+      payload.kepalaSalesId,
+    );
+    if (pesanKepalaSales) return fail(400, pesanKepalaSales);
+
     const isSelfUpdate = session.user.id === userId;
     const selfValidation = validateSelfUpdate(
       isSelfUpdate,
@@ -67,6 +76,19 @@ export class AdminUserRouteUpdateService {
 
     if (!tenantChange.ok) {
       return tenantChange;
+    }
+
+    const kepalaSalesCheck = await validateKepalaSalesTenant({
+      kepalaSalesId: payload.kepalaSalesId,
+      tenantId:
+        payload.tenantId === undefined
+          ? currentUser.tenantId
+          : payload.tenantId,
+      findUser: (id) => userRepository.findById(id),
+    });
+
+    if (!kepalaSalesCheck.ok) {
+      return kepalaSalesCheck;
     }
 
     const emailChange = await applyEmailChange({

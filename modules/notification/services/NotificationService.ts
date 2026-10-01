@@ -64,6 +64,23 @@ export async function createNotification(data: CreateNotificationData) {
   return notification;
 }
 
+/**
+ * Apakah user sudah punya notifikasi dari sumber ini — penjaga idempotensi
+ * bagi handler event (at-least-once) yang tidak boleh mengirim notifikasi dobel.
+ */
+export async function hasNotificationForSource(input: {
+  userId: string;
+  sourceType: string;
+  sourceId: string;
+}): Promise<boolean> {
+  const existing = await getNotificationRepository().findFirst({
+    userId: input.userId,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+  });
+  return existing !== null;
+}
+
 export async function notifyNewWorkOrder(
   data: WorkOrderNotificationData & { triggeredByUserId?: string },
 ) {

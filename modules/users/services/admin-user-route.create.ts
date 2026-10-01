@@ -7,6 +7,8 @@ import { logger } from "@/lib/logger";
 
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { UserService } from "./UserService";
+import { validateKepalaSalesTenant } from "./AdminUserRouteService.helpers";
+import { AppError } from "@/lib/errors";
 import type {
   AdminSession,
   CreateAdminUserInput,
@@ -28,6 +30,10 @@ export class AdminUserRouteCreateService {
 
     await this.assertScopedSitesBelongToTenant(
       scopedPayload,
+      context.targetTenantId,
+    );
+    await this.assertKepalaSalesBelongsToTenant(
+      scopedPayload.kepalaSalesId,
       context.targetTenantId,
     );
 
@@ -195,6 +201,26 @@ export class AdminUserRouteCreateService {
 
     if (siteCount !== userSiteIds.length) {
       throw new Error("Satu atau lebih site tidak ditemukan di tenant ini");
+    }
+  }
+
+  /** Kepala sales wajib satu tenant dengan user baru (lihat `validateKepalaSalesTenant`). */
+  private async assertKepalaSalesBelongsToTenant(
+    kepalaSalesId: string | null | undefined,
+    tenantId?: string,
+  ) {
+    const result = await validateKepalaSalesTenant({
+      kepalaSalesId,
+      tenantId,
+      findUser: (id) => this.userRepository.findById(id),
+    });
+
+    if (result.ok === false) {
+      throw new AppError(
+        result.error.message,
+        result.error.code,
+        "VALIDATION_ERROR",
+      );
     }
   }
 

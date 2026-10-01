@@ -113,3 +113,26 @@ export {
   daftarKolomMati,
   type TampilanStatus,
 } from "./utils/statusConfig";
+
+// --- Rencana kunjungan & penugasan (aman untuk klien) ---
+export {
+  ALAMAT_RENCANA_MAKS,
+  ALASAN_BATAL_MAKS,
+  ALASAN_BATAL_MIN,
+  RENCANA_JENIS,
+  RENCANA_STATUS_TAMPIL,
+  RENCANA_SUMBER,
+  TUJUAN_RENCANA_MAKS,
+  type RencanaJenis,
+  type RencanaStatusTampil,
+  type RencanaSumber,
+} from "./domain/entities/Rencana";
+export {
+  buatRencanaSchema,
+  RENTANG_REKAP_HARI_MAKS,
+} from "./validators/rencana.validator";
+export type {
+  BarisRekapRencanaDto,
+  RencanaDto,
+  RincianRencanaDto,
+} from "./dto/rencana.dto";

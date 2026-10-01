@@ -49,6 +49,7 @@ type PrismaUserRelations = Pick<
   | "flexibleTargetHour"
   | "shiftId"
   | "canvasingTarget"
+  | "kepalaSalesId"
   | "targetSchema"
   | "createdAt"
   | "updatedAt"
@@ -89,6 +90,7 @@ type PrismaUserRelations = Pick<
   sites?: { id: string; code: string; name: string } | null;
   role?: { id: string; name: string } | null;
   tenant?: { id: string; name: string } | null;
+  kepalaSales?: { id: string; name: string | null } | null;
   shift?: {
     id: string;
     name: string;

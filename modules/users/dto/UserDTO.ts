@@ -63,6 +63,9 @@ export interface UserDetailDTO {
   shiftId: string | null;
   canvasingTarget: number | null;
   targetSchema: string | null;
+  /** Kepala sales yang membawahi user ini; null bila tanpa tim. */
+  kepalaSalesId: string | null;
+  kepalaSalesNama: string | null;
   basicSalary: number | null;
   payPeriodDay: number | null;
   payDay: number | null;

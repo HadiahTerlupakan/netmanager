@@ -89,6 +89,7 @@ export const catatKegiatanSchema = z
     catatanTeknis: z.string().max(PANJANG_CATATAN_MAKS).optional().nullable(),
     siteId: z.string().optional().nullable(),
     prospekBaru: dataProspekBaruSchema.optional(),
+    rencanaId: z.string().min(1).optional().nullable(),
   })
   .refine(
     (kegiatan) =>

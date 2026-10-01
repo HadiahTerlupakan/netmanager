@@ -187,3 +187,61 @@ export { handleRegistrationCreatedPresurvei } from "./services/event-handlers/re
 // NOTE: SalesRepository dan DepartemenRepository sengaja TIDAK diekspor (internal).
 // NOTE: IklanRepository dan iklan.mapper sengaja TIDAK diekspor (internal),
 // konsisten dengan pola repository/mapper Fase 1 di atas.
+
+// --- Rencana kunjungan & penugasan ---
+export {
+  ALAMAT_RENCANA_MAKS,
+  ALASAN_BATAL_MAKS,
+  ALASAN_BATAL_MIN,
+  RENCANA_JENIS,
+  RENCANA_STATUS,
+  RENCANA_STATUS_TAMPIL,
+  RENCANA_SUMBER,
+  TUJUAN_RENCANA_MAKS,
+  type RencanaEntity,
+  type RencanaJenis,
+  type RencanaStatus,
+  type RencanaStatusTampil,
+  type RencanaSumber,
+} from "./domain/entities/Rencana";
+export {
+  hitungRekapRencana,
+  isBolehMengatur,
+  jenisLingkupDariIzin,
+  isDalamLingkup,
+  tanggalLokal,
+  tentukanStatusTampil,
+  type BarisRekapRencana,
+  type JenisLingkupRencana,
+  type LingkupRencana,
+} from "./domain/rencana-rules";
+export {
+  batalRencanaSchema,
+  buatRencanaSchema,
+  daftarRencanaSchema,
+  rekapRencanaSchema,
+  ubahRencanaSchema,
+  RENTANG_REKAP_HARI_MAKS,
+  type BuatRencanaMasukan,
+  type UbahRencanaMasukan,
+} from "./validators/rencana.validator";
+export {
+  RencanaService,
+  type BuatRencanaInput,
+  type DaftarRencanaInput,
+  type KonteksWaktuRencana,
+  type PenggunaRencana,
+  type RincianRencana,
+} from "./services/RencanaService";
+export {
+  toRencanaDto,
+  toRincianRencanaDto,
+  type BarisRekapRencanaDto,
+  type RencanaDto,
+  type RincianRencanaDto,
+} from "./dto/rencana.dto";
+export {
+  handleRencanaAssignedPresurvei,
+  SUMBER_NOTIFIKASI_RENCANA,
+} from "./services/event-handlers/rencana-assigned-presurvei.handler";
+export { handleRencanaReportedPresurvei } from "./services/event-handlers/rencana-reported-presurvei.handler";

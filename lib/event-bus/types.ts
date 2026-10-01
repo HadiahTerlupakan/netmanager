@@ -64,6 +64,8 @@ export const EVENT_NAMES = {
   REGISTRATION_CREATED: "registration:registration.created",
   PRESURVEI_PROSPEK_CONVERTED: "presurvei:prospek.converted",
   PRESURVEI_KEGIATAN_UPDATED: "presurvei:kegiatan.updated",
+  PRESURVEI_RENCANA_ASSIGNED: "presurvei:rencana.assigned",
+  PRESURVEI_RENCANA_REPORTED: "presurvei:rencana.reported",
   INCIDENT_CREATED: "incident:created",
   INCIDENT_RESOLVED: "incident:resolved",
 
@@ -531,6 +533,37 @@ export interface PresurveiKegiatanUpdatedPayload extends BaseEventPayload {
   medanBerubah: string[];
 }
 
+/**
+ * Rencana kunjungan ditugaskan admin/kepala sales ke seorang sales. Tidak
+ * dipublikasikan untuk rencana MANDIRI (sales membuat untuk dirinya sendiri).
+ */
+export interface PresurveiRencanaAssignedPayload extends BaseEventPayload {
+  rencanaId: string;
+  salesId: string;
+  dibuatOlehId: string;
+  namaPembuat: string | null;
+  /** Tanggal kalender "YYYY-MM-DD". */
+  tanggal: string;
+  /** Jam "HH:mm" waktu lokal tenant, atau null. */
+  jam: string | null;
+  tujuan: string;
+}
+
+/**
+ * Sales melaporkan rencana PENUGASAN (kegiatan laporan tersimpan). Pemberi
+ * tugas dikabari; rencana MANDIRI tidak memicu event ini.
+ */
+export interface PresurveiRencanaReportedPayload extends BaseEventPayload {
+  rencanaId: string;
+  kegiatanId: string;
+  salesId: string;
+  namaSales: string | null;
+  /** Pemberi tugas yang dikabari. */
+  dibuatOlehId: string;
+  tujuan: string;
+  hasil: string;
+}
+
 export interface IncidentCreatedPayload extends BaseEventPayload {
   incidentId: string;
   title: string;
@@ -632,6 +665,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.REGISTRATION_CREATED]: RegistrationCreatedPayload;
   [EVENT_NAMES.PRESURVEI_PROSPEK_CONVERTED]: PresurveiProspekConvertedPayload;
   [EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED]: PresurveiKegiatanUpdatedPayload;
+  [EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED]: PresurveiRencanaAssignedPayload;
+  [EVENT_NAMES.PRESURVEI_RENCANA_REPORTED]: PresurveiRencanaReportedPayload;
   [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
   [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
@@ -1051,6 +1086,21 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED,
     category: "marketing",
     priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PRESURVEI_RENCANA_REPORTED]: {
+    name: EVENT_NAMES.PRESURVEI_RENCANA_REPORTED,
+    category: "marketing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED]: {
+    name: EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED,
+    category: "marketing",
+    // Sama dengan penugasan work order: sales perlu tahu segera.
+    priority: JOB_PRIORITIES.HIGH,
     persistent: true,
     async: true,
   },

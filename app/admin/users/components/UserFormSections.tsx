@@ -2,6 +2,9 @@
 
 import { HiOutlineShieldCheck } from "react-icons/hi2";
 
+import type { KepalaSalesTersimpan } from "../lib/kepalaSales";
+import { KepalaSalesField } from "./KepalaSalesField";
+
 export { OrganizationSection } from "@/app/admin/hr/_components/OrganizationSection";
 
 interface StatusAndSalesSectionProps {
@@ -10,7 +13,12 @@ interface StatusAndSalesSectionProps {
     isSales: boolean;
     canvasingTarget: number;
     targetSchema: string;
+    kepalaSalesId: string;
   };
+  /** Id user yang sedang diubah; null pada form tambah user. */
+  userIdDiubah: string | null;
+  /** Kepala sales yang tersimpan pada user yang diubah. */
+  kepalaSalesTersimpan: KepalaSalesTersimpan | null;
   handleChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
@@ -20,6 +28,8 @@ interface StatusAndSalesSectionProps {
 export function StatusAndSalesSection({
   formData,
   handleChange,
+  userIdDiubah,
+  kepalaSalesTersimpan,
 }: StatusAndSalesSectionProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -112,6 +122,12 @@ export function StatusAndSalesSection({
                 <option value="POINTS">Points (Poin Kinerja)</option>
               </select>
             </div>
+            <KepalaSalesField
+              value={formData.kepalaSalesId}
+              handleChange={handleChange}
+              userIdDiubah={userIdDiubah}
+              tersimpan={kepalaSalesTersimpan}
+            />
           </div>
         )}
       </div>

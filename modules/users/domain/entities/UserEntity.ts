@@ -64,6 +64,8 @@ export interface UserEntity {
   shiftId: string | null;
   canvasingTarget: number | null;
   targetSchema: string | null;
+  /** Kepala sales yang membawahi user ini (tim penugasan rencana). */
+  kepalaSalesId?: string | null;
   basicSalary?: number | null;
   payPeriodDay?: number | null;
   payDay?: number | null;
@@ -83,6 +85,7 @@ export interface UserEntity {
   department?: UserRelationEntity | null;
   site?: UserSiteRelationEntity | null;
   tenant?: UserRelationEntity | null;
+  kepalaSales?: { id: string; name: string | null } | null;
   shift?: UserShiftEntity | null;
   userSites?: UserSiteAssignmentEntity[];
 }

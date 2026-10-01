@@ -1,5 +1,6 @@
 export {
   createNotification,
+  hasNotificationForSource,
   getNotificationsForUser,
   getReadableNotificationForUser,
   getUnreadCount,

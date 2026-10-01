@@ -99,3 +99,6 @@ export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
   const { tanpaPemilik: _dibuang, ...sisa } = filters;
   return { ...sisa, pemilikId: idPemanggil };
 }
+
+/** Jenis lingkup rencana pemanggil; definisinya di domain presurvei. */
+export { jenisLingkupDariIzin as jenisLingkupRencana } from "@/modules/presurvei";

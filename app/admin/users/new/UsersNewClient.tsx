@@ -24,6 +24,7 @@ import {
   StatusAndSalesSection,
 } from "../components/UserFormSections";
 import { usePermission } from "@/hooks/use-permission";
+import { kepalaSalesIdUntukDikirim } from "../lib/kepalaSales";
 import { generateStrongPassword } from "../lib/password-generator";
 import { useUserReferenceData } from "../lib/useUserDetailData";
 
@@ -71,6 +72,7 @@ export function ClientComponent() {
     tenantId: "",
     canvasingTarget: 0,
     targetSchema: "REVENUE",
+    kepalaSalesId: "",
   });
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
 
@@ -258,6 +260,10 @@ export function ClientComponent() {
         phone: formData.phone || null,
         // Input angka memberi string setelah diedit; skema API menuntut number.
         canvasingTarget: angkaAtauBawaan(formData.canvasingTarget),
+        kepalaSalesId: kepalaSalesIdUntukDikirim(
+          formData.isSales,
+          formData.kepalaSalesId,
+        ),
         userSites: selectedSites,
       };
 
@@ -628,6 +634,8 @@ export function ClientComponent() {
         <StatusAndSalesSection
           formData={formData}
           handleChange={handleChange}
+          userIdDiubah={null}
+          kepalaSalesTersimpan={null}
         />
 
         {/* Error Message */}

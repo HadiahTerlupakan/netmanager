@@ -28,6 +28,7 @@ export const USER_BASE_SELECT = {
   shiftId: true,
   canvasingTarget: true,
   targetSchema: true,
+  kepalaSalesId: true,
   tenantId: true,
   createdAt: true,
   updatedAt: true,
@@ -71,6 +72,7 @@ export const USER_DETAIL_SELECT = {
   sites: { select: { id: true, code: true, name: true } },
   role: { select: { id: true, name: true } },
   tenant: { select: { id: true, name: true } },
+  kepalaSales: { select: { id: true, name: true } },
   userSites: {
     select: {
       id: true,

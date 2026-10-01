@@ -308,6 +308,7 @@ describe("KegiatanService.catat", () => {
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.not.objectContaining({ prospekBaru: expect.anything() }),
+      undefined,
     );
   });
 });

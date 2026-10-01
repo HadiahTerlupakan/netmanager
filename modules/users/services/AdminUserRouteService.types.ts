@@ -26,6 +26,7 @@ export type CreateAdminUserInput = {
   flexibleTargetHour?: number;
   shiftId?: string | null;
   canvasingTarget?: number;
+  kepalaSalesId?: string | null;
   targetSchema?: string;
   basicSalary?: number;
   payPeriodDay?: number;
@@ -64,6 +65,7 @@ export type UpdateUserPayload = {
   flexibleTargetHour?: number;
   shiftId?: string | null;
   canvasingTarget?: number;
+  kepalaSalesId?: string | null;
   targetSchema?: string;
   basicSalary?: number;
   payPeriodDay?: number;

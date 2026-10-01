@@ -41,6 +41,91 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-09-26] — Halaman admin Rencana & Penugasan dan pilih kepala sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/presurvei/rencana` | `app/admin/users` | `modules/users`
+- **Author**: agent
+- **Deskripsi**: Halaman admin "Rencana & Penugasan": daftar rencana (filter tanggal,
+  sales, status), buat penugasan, rincian beserta laporan kunjungan (hasil, catatan,
+  foto, peta), jadwal ulang/batalkan, dan tab rekap rencana vs realisasi per sales. Form
+  user mendapat pilihan "Kepala Sales" (tampil saat toggle Sales aktif) yang disimpan ke
+  `User.kepalaSalesId`; validator menolak kepala sales diri sendiri dan kepala sales dari
+  tenant lain.
+- **Files**: `app/admin/presurvei/rencana/**`, `app/admin/users/components/KepalaSalesField.tsx`,
+  `modules/users/validators/user.ts`, `modules/users/services/AdminUserRouteService.helpers.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Tampilan kepala sales untuk tim besar
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager` | `modules/presurvei`
+- **Author**: agent
+- **Deskripsi**: Tampilan Tim di mobile dirancang ulang untuk tim 10–30 sales: agenda
+  "Semua" dikelompokkan per anggota (header avatar, x/y selesai, badge terlewat; urut yang
+  terlewat dulu), blok terlewat ringkas (pil per anggota, butir tertutup sampai diminta),
+  bagian "Belum ada rencana" dengan tombol Tugaskan cepat (sales & tanggal terpilih),
+  pemilih anggota bercari (menggantikan chip) yang juga dipakai layar Tugaskan, serta
+  kartu Beranda "Tim hari ini" berupa ringkasan tim + 4 anggota paling perlu perhatian +
+  "Lihat semua". Batas `limit` daftar rencana dinaikkan 100 → 300 supaya agenda satu hari
+  tim besar tidak terpotong.
+- **Files**: `modules/presurvei/validators/rencana.validator.ts`,
+  `mobile-netmanager/src/components/organisms/presurvei/AgendaTimKelompok.tsx`,
+  `mobile-netmanager/src/components/organisms/presurvei/PilihAnggotaTimModal.tsx`,
+  `mobile-netmanager/src/components/organisms/dashboard/KartuTimHariIni.tsx`,
+  `mobile-netmanager/src/utils/presurvei/timRencana.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Kepala sales menugaskan & memantau tim dari mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `modules/users` | `app/api/presurvei/rencana` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Profil mobile kini membawa `lingkupRencana` (SENDIRI/TIM/SEMUA; super
+  admin = SEMUA) dari satu aturan domain `jenisLingkupDariIzin` yang juga dipakai route.
+  Rekap dipindah ke `GET /api/presurvei/rencana/rekap` (web & mobile). Event baru
+  `presurvei:rencana.reported`: saat sales melaporkan rencana PENUGASAN, pemberi tugas
+  menerima notifikasi "Laporan kunjungan masuk" (idempotent, gagal kirim tidak
+  menggagalkan laporan). Di mobile, pemberi tugas mendapat tampilan Saya | Tim pada tab
+  Rencana (filter per anggota), layar Tugaskan (pilih sales, tanggal awal mengikuti agenda
+  yang dilihat), boleh ubah/batalkan penugasan timnya, dan kartu "Tim hari ini" di
+  Beranda. Sales biasa tidak melihat perubahan. Cukup OTA untuk mobile.
+- **Files**: `modules/presurvei/domain/rencana-rules.ts`,
+  `modules/presurvei/services/event-handlers/rencana-reported-presurvei.handler.ts`,
+  `modules/presurvei/services/KegiatanService.ts`,
+  `modules/users/services/MobileProfileRouteService.ts`,
+  `app/api/presurvei/rencana/rekap/route.ts`,
+  `mobile-netmanager/src/components/organisms/presurvei/TabRencana.tsx`,
+  `mobile-netmanager/app/(app)/presurvei/rencana/tugaskan.tsx`
+- **Breaking**: ❌ Tidak (`/api/admin/presurvei/rencana/rekap` belum pernah dirilis)
+
+### [2026-09-26] — Jam pada rencana kunjungan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `app/admin/presurvei/rencana` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Rencana kini punya jam opsional ("HH:mm", waktu lokal tenant) supaya sales
+  bisa mengatur beberapa kunjungan dalam sehari. Agenda diurutkan per tanggal lalu jam
+  (tanpa jam di akhir hari). Jam bisa diisi/diubah/dihapus dari form admin (input jam) dan
+  mobile (pemilih jam 24 jam), tampil di tabel, rincian, kartu rencana, kartu "Rencana hari
+  ini", serta pesan notifikasi penugasan. TERLEWAT tetap dihitung per tanggal.
+- **Files**: `modules/presurvei/validators/rencana.validator.ts`,
+  `modules/presurvei/repositories/RencanaRepository.ts`,
+  `app/admin/presurvei/rencana/rencanaFormState.ts`,
+  `mobile-netmanager/src/components/organisms/presurvei/FormRencana.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Migration kolom jam rencana
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Kolom nullable `presurvei_rencana.jam`; indeks agenda diganti menjadi
+  `(salesId, tanggal, jam)`. Hanya penambahan kolom; indeks lama berasal dari migration
+  yang juga belum dirilis.
+- **Migration**: `20260926105440_add_jam_to_presurvei_rencana`
+- **Breaking**: ❌ Tidak
+
 ### [2026-09-26] — Fix target canvasing terkirim sebagai string di form User Baru
 
 - **Tipe**: [FIXED]
@@ -50,6 +135,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   sedangkan `createUserSchema` menuntut number, sehingga membuat user sales dengan target
   non-bawaan ditolak 400. Nilai kini dinormalkan sebelum dikirim (kosong → default skema).
 - **Files**: `app/admin/users/new/UsersNewClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Tambah rencana kunjungan & penugasan sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei` | `app/api/presurvei/rencana` | `app/api/admin/presurvei`
+- **Author**: agent
+- **Deskripsi**: Sales membuat rencana kunjungan sendiri (MANDIRI); admin dan kepala sales
+  menugaskan rencana ke sales (PENUGASAN). Rencana ditutup oleh laporan — kegiatan
+  presurvei dengan `rencanaId` — dalam satu transaksi (laporan ganda ditolak 409).
+  TERLEWAT/terlambat dihitung saat baca menurut zona tenant, tanpa cron. Lingkup akses:
+  `presurvei_rencana:view_all` = seluruh tenant (admin), permission rencana lain = diri +
+  tim (`User.kepalaSalesId`, kepala sales), mobile = milik sendiri. Sales tidak bisa
+  membatalkan penugasan dari atasan. Penugasan memicu event `presurvei:rencana.assigned`
+  → notifikasi + push ke sales (idempotent lewat `hasNotificationForSource`). Rekap
+  rencana vs realisasi per sales. Template role "Kepala Sales" dan menu admin
+  "Rencana & Penugasan" ditambahkan.
+- **Files**: `modules/presurvei/services/RencanaService.ts`,
+  `modules/presurvei/domain/rencana-rules.ts`, `modules/presurvei/repositories/RencanaRepository.ts`,
+  `modules/presurvei/services/KegiatanService.ts`, `app/api/presurvei/rencana/**`,
+  `app/api/presurvei/rencana/rekap/route.ts`, `app/api/admin/presurvei/kepala-sales/route.ts`,
+  `lib/event-bus/types.ts`, `lib/role-templates.ts`, `lib/resource-capabilities.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-09-26] — Migration tabel rencana, tim sales, dan izin rencana
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/`
+- **Author**: agent
+- **Deskripsi**: Tabel `presurvei_rencana` (enum `PresurveiSumberRencana`,
+  `PresurveiStatusRencana`), kolom `User.kepalaSalesId` (self-relation, SetNull), serta
+  migration data yang memberi `presurvei_rencana:read/create/update/view_all` ke role
+  admin, Super Admin, Branch Manager, KACAB PKP. Hanya penambahan; tidak ada data hilang.
+- **Migration**: `20260926095156_add_presurvei_rencana_and_tim_sales`,
+  `20260926100438_grant_presurvei_rencana_permissions_to_admin_roles`
 - **Breaking**: ❌ Tidak
 
 ### [2026-09-26] — Fix rekursi tenant-context untuk host IP/custom domain

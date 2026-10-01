@@ -2,6 +2,7 @@ export {
   attendanceGeofencePolicyEnum,
   createUserSchema,
   forceLogoutSchema,
+  PESAN_KEPALA_SALES_DIRI_SENDIRI,
   overtimeCalcTypeEnum,
   targetSchemaEnum,
   updateUserSchema,
@@ -9,5 +10,6 @@ export {
   userFilterSchema,
   userIdParamSchema,
   userUpdateSchema,
+  validateKepalaSalesAssignment,
   workingHourModeEnum,
 } from "./validators/user";

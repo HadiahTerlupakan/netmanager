@@ -22,6 +22,15 @@ export interface ISalesRepository {
    */
   daftarAktif(tenantId: string): Promise<SalesRingkas[]>;
 
+  /** Sales aktif di SATU tenant yang id-nya ada di `ids` (tim kepala sales). */
+  daftarAktifDariIds(tenantId: string, ids: string[]): Promise<SalesRingkas[]>;
+
+  /**
+   * User aktif satu tenant yang role-nya memegang `presurvei_rencana:create`
+   * — kandidat kepala sales di form user. Tidak mensyaratkan `isSales`.
+   */
+  daftarKandidatKepalaSales(tenantId: string): Promise<SalesRingkas[]>;
+
   /**
    * Fakta penugasan satu user, null bila tidak ada.
    *

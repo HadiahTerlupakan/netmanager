@@ -499,6 +499,15 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     actions: ["read"],
     description: "Laporan pencapaian target presurvei",
   },
+  presurvei_rencana: {
+    // Tanpa `view_all` = kepala sales: hanya dirinya + anggota timnya
+    // (`User.kepalaSalesId`). Dengan `view_all` = seluruh sales tenant.
+    // Tidak ada `delete`: rencana dibatalkan (tercatat), tidak dihapus.
+    actions: ["read", "create", "update", "view_all"],
+    displayName: "Rencana & Penugasan",
+    description:
+      "Rencana kunjungan & penugasan sales; view_all = semua sales, tanpanya hanya tim sendiri",
+  },
 
   // ====== MOBILE APP RESOURCES (m_*) ======
   m_dashboard: {

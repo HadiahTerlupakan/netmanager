@@ -5,6 +5,7 @@ import {
   extractMobileFeaturesFromPermissions,
   hasCanvasingCashoutPermission,
 } from "@/modules/marketing";
+import { jenisLingkupDariIzin } from "@/modules/presurvei";
 
 type MobileProfileUser = {
   id?: string;
@@ -161,6 +162,7 @@ async function getRegularUserProfile(user: MobileProfileUser) {
         select: {
           id: true,
           name: true,
+          isSuperAdmin: true,
           permission: { select: { resource: true, action: true } },
         },
       },
@@ -179,8 +181,22 @@ async function getRegularUserProfile(user: MobileProfileUser) {
       isSales: profile.isSales,
       hasCashoutPermission: hasCanvasingCashoutPermission(permissions),
     }),
+    // TIM/SEMUA = boleh menugaskan & memantau rencana orang lain (kepala sales/admin).
+    lingkupRencana: jenisLingkupDariIzin(daftarIzinRole(profile.role)),
     isOnLeave: await isUserOnLeave(user),
   };
+}
+
+/** Izin role sebagai `resource:action`; super admin = wildcard, sama dengan `getUserPermissions`. */
+function daftarIzinRole(
+  role: {
+    isSuperAdmin: boolean;
+    permission: { resource: string; action: string }[];
+  } | null,
+): string[] {
+  if (!role) return [];
+  if (role.isSuperAdmin) return ["*"];
+  return role.permission.map((izin) => `${izin.resource}:${izin.action}`);
 }
 
 async function isUserOnLeave(user: MobileProfileUser) {

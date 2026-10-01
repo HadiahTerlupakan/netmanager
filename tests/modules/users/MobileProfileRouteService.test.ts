@@ -102,8 +102,22 @@ describe("MobileProfileRouteService", () => {
       id: "user-1",
       features: ["m_attendance"],
       canCashoutCanvasing: false,
+      lingkupRencana: "SENDIRI",
       isOnLeave: true,
     });
+  });
+
+  it.each([
+    [{ isSuperAdmin: false, permission: [{ resource: "presurvei_rencana", action: "create" }] }, "TIM"],
+    [{ isSuperAdmin: false, permission: [{ resource: "presurvei_rencana", action: "view_all" }] }, "SEMUA"],
+    [{ isSuperAdmin: true, permission: [] }, "SEMUA"],
+  ])("lingkupRencana dari izin role %j → %s (kepala sales/admin boleh menugaskan)", async (role, harapan) => {
+    mockFns.userFindFirst.mockResolvedValue({ id: "user-1", role: { id: "r", name: "X", ...role } });
+    mockFns.leaveFindFirst.mockResolvedValue(null);
+
+    await expect(
+      getMobileProfileForRoute({ id: "user-1", role: "X", tenantId: "tenant-1" }),
+    ).resolves.toMatchObject({ lingkupRencana: harapan });
   });
 
   it("updates regular user mobile profile fields", async () => {

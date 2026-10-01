@@ -54,7 +54,11 @@ import {
   handlePackageChangedMrr,
 } from "@/modules/finance";
 import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
-import { handleRegistrationCreatedPresurvei } from "@/modules/presurvei";
+import {
+  handleRegistrationCreatedPresurvei,
+  handleRencanaAssignedPresurvei,
+  handleRencanaReportedPresurvei,
+} from "@/modules/presurvei";
 
 const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
 const ATTENDANCE_REALTIME_EVENTS = {
@@ -581,5 +585,19 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.REGISTRATION_CREATED,
     handleRegistrationCreatedPresurvei,
+  );
+
+  // --- PRESURVEI: PENUGASAN RENCANA KUNJUNGAN → NOTIFIKASI SALES ---
+
+  registerEventHandler(
+    EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED,
+    handleRencanaAssignedPresurvei,
+  );
+
+  // --- PRESURVEI: LAPORAN PENUGASAN → NOTIFIKASI PEMBERI TUGAS ---
+
+  registerEventHandler(
+    EVENT_NAMES.PRESURVEI_RENCANA_REPORTED,
+    handleRencanaReportedPresurvei,
   );
 }

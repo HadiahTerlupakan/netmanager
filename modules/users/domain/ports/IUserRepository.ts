@@ -35,6 +35,7 @@ export interface CreateUserRepositoryInput {
   shiftId?: string | null;
   isSales?: boolean;
   canvasingTarget?: number;
+  kepalaSalesId?: string | null;
   targetSchema?: string;
   isAttendanceRequired?: boolean;
   tenantId?: string | null;

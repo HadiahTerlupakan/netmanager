@@ -527,6 +527,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineMegaphone",
       },
       {
+        code: "PRESURVEI.RENCANA",
+        name: "Rencana & Penugasan",
+        path: "/admin/presurvei/rencana",
+        icon: "HiOutlineCalendarDays",
+      },
+      {
         code: "PRESURVEI.TARGET",
         name: "Target Sales",
         path: "/admin/presurvei/target",
