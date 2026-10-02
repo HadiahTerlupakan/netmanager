@@ -11,6 +11,16 @@ import {
 } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  periodeSekarang,
+  TAMPILAN_STATUS_SO,
+  type KepatuhanGudang,
+  type LaporanKepatuhanSo,
+} from "./opname/jadwal/jadwalSoTypes";
+import {
+  labelStatusSoGudang,
+  statusSoPerGudang,
+} from "./opname/jadwal/statusSoGudang";
 import { OpnameItemsTable } from "./opname/OpnameItemsTable";
 import { OpnameSummaryCards } from "./opname/OpnameSummaryCards";
 import {
@@ -51,6 +61,11 @@ export function StockOpnameRecorder({
     gudangs?: Gudang[];
   }>("/api/inventory/gudang?view=all");
   const gudangs = gudangData?.gudangs ?? [];
+  const { data: laporanSo, refetch: refetchLaporanSo } =
+    useApi<LaporanKepatuhanSo>(
+      `/api/inventory/opname/kepatuhan?periode=${periodeSekarang()}`,
+    );
+  const statusSo = useMemo(() => statusSoPerGudang(laporanSo), [laporanSo]);
 
   const calculation = useOpnameCalculation(gudangId);
   const submitOpname = useSubmitOpname();
@@ -144,6 +159,7 @@ export function StockOpnameRecorder({
       setEditsByBarang({});
       setDihitungIds(new Set());
       setGudangId("");
+      void refetchLaporanSo();
 
       if (onSuccess) {
         setTimeout(onSuccess, SUCCESS_MESSAGE_DELAY_MS);
@@ -170,6 +186,7 @@ export function StockOpnameRecorder({
           onChange={handleGudangChange}
           disabled={submitOpname.isSubmitting}
           selectedGudangNama={selectedGudang?.nama}
+          statusSo={statusSo}
         />
 
         {calculation.summary && (
@@ -241,6 +258,8 @@ interface GudangSelectorProps {
   onChange: (value: string) => void;
   disabled: boolean;
   selectedGudangNama: string | undefined;
+  /** Status SO bulan ini per gudang (kosong bila laporan belum termuat). */
+  statusSo: Map<string, KepatuhanGudang>;
 }
 
 function GudangSelector({
@@ -249,7 +268,9 @@ function GudangSelector({
   onChange,
   disabled,
   selectedGudangNama,
+  statusSo,
 }: GudangSelectorProps) {
+  const statusTerpilih = statusSo.get(gudangId);
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
       <div className="mb-4">
@@ -271,15 +292,31 @@ function GudangSelector({
           {gudangs.map((g) => (
             <option key={g.id} value={g.id}>
               {g.kode} - {g.nama}
+              {statusSo.has(g.id)
+                ? ` — ${labelStatusSoGudang(statusSo.get(g.id) as KepatuhanGudang)}`
+                : ""}
             </option>
           ))}
         </select>
+        {statusSo.size > 0 && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Status SO bulan ini: ✓ Lengkap · ◐ Sebagian · ! Di luar jadwal · ✗ Belum
+            SO · – Tidak ada stok
+          </p>
+        )}
       </div>
 
       {selectedGudangNama && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
           <p className="text-sm font-medium text-blue-900 dark:text-blue-300 flex items-center gap-2">
             <FiBarChart2 className="w-4 h-4" /> Input Stock Opname - Stok Fisik
+            {statusTerpilih && (
+              <span
+                className={`ml-auto px-2 py-0.5 rounded-full text-xs ${TAMPILAN_STATUS_SO[statusTerpilih.status].kelas}`}
+              >
+                Bulan ini: {labelStatusSoGudang(statusTerpilih)}
+              </span>
+            )}
           </p>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
             Input hasil hitungan stok fisik dan kondisi aktual di{" "}

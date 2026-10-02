@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Status SO bulan ini di dropdown gudang Input SO
+
+- **Tipe**: [ADDED]
+- **Scope**: `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Dropdown "Pilih Gudang" di tab Input Stock Opname menampilkan status
+  kewajiban SO bulan berjalan per gudang (✓ Lengkap, ◐ Sebagian x/y, ! Di luar jadwal,
+  ✗ Belum SO, – Tidak ada stok) dari `/api/inventory/opname/kepatuhan`, plus badge status
+  gudang terpilih. Gudang yang dipakai beberapa site memakai status terburuknya. Status
+  dimuat ulang setelah SO tersimpan.
+- **Files**: `components/inventory/StockOpnameRecorder.tsx`,
+  `components/inventory/opname/jadwal/statusSoGudang.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Input SO menandai barang sudah/belum dihitung
 
 - **Tipe**: [CHANGED]
