@@ -12,6 +12,7 @@ import type {
   RABOpexBufferFundingMode,
 } from "../../rabTypes";
 import type { LocalItem } from "../../ItemDisbursementModal";
+import { hitungBepSederhana } from "../../rabCalculations";
 
 type GrowthType = NonNullable<RABProject["growthType"]>;
 
@@ -104,8 +105,7 @@ export function useRABCalculations(params: UseRABCalculationsParams) {
 
   // Profit Calculation (simple - at full capacity)
   const profitPerMonth = realisticRevenue - totalOpex;
-  const simpleBepMonths =
-    profitPerMonth > 0 ? totalCapex / profitPerMonth : Infinity;
+  const simpleBepMonths = hitungBepSederhana(totalCapex, profitPerMonth, paymentType);
   const margin =
     realisticRevenue > 0 ? (profitPerMonth / realisticRevenue) * 100 : 0;
 
@@ -142,11 +142,13 @@ export function useRABCalculations(params: UseRABCalculationsParams) {
       status: formData.status,
       items: [
         {
+          // Kontingensi adalah cadangan perusahaan, tidak dimodali investor
+          // (sama dengan perhitungan modal investor saat RAB disimpan).
           id: "preview-capex",
           name: "Preview CAPEX",
           quantity: 1,
-          unitPrice: totalInvestment,
-          totalPrice: totalInvestment,
+          unitPrice: totalCapex,
+          totalPrice: totalCapex,
           expenseType: "CAPEX",
         },
       ],
@@ -179,7 +181,7 @@ export function useRABCalculations(params: UseRABCalculationsParams) {
       targetBasis,
       targetHomepass,
       targetTakeUpRatePercent,
-      totalInvestment,
+      totalCapex,
       totalOpex,
     ],
   );

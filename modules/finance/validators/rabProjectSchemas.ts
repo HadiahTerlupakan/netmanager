@@ -112,6 +112,18 @@ function optionalBigInt(value: string | number | undefined) {
     : undefined;
 }
 
+/** Batas capaian bulanan yang bisa diisi (API capaian juga ≤ 120). */
+const DURASI_PROYEK_MAKS_BULAN = 120;
+const PERSEN_PENUH = 100;
+
+function validateRecoveryPercent(data: {
+  investmentRecoveryType?: string;
+  investmentRecoveryValue?: number;
+}) {
+  if (data.investmentRecoveryType !== "PERCENTAGE") return true;
+  return data.investmentRecoveryValue === undefined || data.investmentRecoveryValue <= PERSEN_PENUH;
+}
+
 function validateOpexBufferSharingPercent(data: {
   opexBufferFundingMode?: RabOpexBufferFundingModeInput;
   opexBufferInvestorPercent?: number;
@@ -158,11 +170,11 @@ export const rabProjectCreateSchema = z
       .string()
       .optional()
       .transform((value) => (value ? new Date(value) : undefined)),
-    investmentDurationMonths: z.number().min(1).default(12),
+    investmentDurationMonths: z.number().int().min(1).max(DURASI_PROYEK_MAKS_BULAN).default(12),
     investmentRecoveryType: z
       .enum(["PERCENTAGE", "FIXED"])
       .default("PERCENTAGE"),
-    investmentRecoveryValue: z.number().default(50),
+    investmentRecoveryValue: z.number().min(0).default(50),
     investorProfitSharePercent: z.number().min(0).max(100).default(50),
     investorProfitShareMode: rabInvestorProfitShareModeSchema.default("FLAT"),
     investorProfitShareBeforeBepPercent: z.number().min(0).max(100).default(80),
@@ -191,6 +203,10 @@ export const rabProjectCreateSchema = z
   .refine(validateOpexBufferSharingPercent, {
     message: "Total persentase buffer OPEX investor dan perusahaan harus 100%",
     path: ["opexBufferInvestorPercent"],
+  })
+  .refine(validateRecoveryPercent, {
+    message: "Pengembalian modal dalam persen harus 0–100",
+    path: ["investmentRecoveryValue"],
   });
 
 export const rabProjectUpdateSchema = z
@@ -237,9 +253,9 @@ export const rabProjectUpdateSchema = z
       .string()
       .optional()
       .transform((value) => (value ? new Date(value) : undefined)),
-    investmentDurationMonths: z.number().min(1).optional(),
+    investmentDurationMonths: z.number().int().min(1).max(DURASI_PROYEK_MAKS_BULAN).optional(),
     investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).optional(),
-    investmentRecoveryValue: z.number().optional(),
+    investmentRecoveryValue: z.number().min(0).optional(),
     investorProfitSharePercent: z.number().min(0).max(100).optional(),
     investorProfitShareMode: rabInvestorProfitShareModeSchema.optional(),
     investorProfitShareBeforeBepPercent: z.number().min(0).max(100).optional(),
@@ -266,6 +282,10 @@ export const rabProjectUpdateSchema = z
   .refine(validateOpexBufferSharingPercent, {
     message: "Total persentase buffer OPEX investor dan perusahaan harus 100%",
     path: ["opexBufferInvestorPercent"],
+  })
+  .refine(validateRecoveryPercent, {
+    message: "Pengembalian modal dalam persen harus 0–100",
+    path: ["investmentRecoveryValue"],
   })
   .refine((value) => value.status !== "APPROVED", {
     message: "Perubahan approval harus melalui endpoint approval",

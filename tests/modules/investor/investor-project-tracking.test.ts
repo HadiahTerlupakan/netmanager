@@ -10,7 +10,7 @@ function capaian(month: number, actualRevenue: bigint) {
     year: 2026,
     actualSubscribers: 0,
     actualRevenue,
-    actualOpex: 0n,
+    actualOpex: null as bigint | null,
     manualRecoveryInstallment: null as bigint | null,
     manualInvestorShare: null as bigint | null,
     manualCompanyShare: null as bigint | null,
@@ -62,6 +62,27 @@ describe("hasil proyek untuk investor (mesin tracking RAB)", () => {
 
   it("bulan proyeksi (belum ada capaian) tidak dihitung", () => {
     const hasil = hitungHasilInvestorProyek({ ...PROYEK, actualAchievements: [] }, 6_000_000n);
-    expect(hasil).toEqual({ bulanan: [], totalBagiHasil: 0, totalPengembalianModal: 0 });
+    expect(hasil).toMatchObject({ bulanan: [], totalBagiHasil: 0, totalPengembalianModal: 0 });
+  });
+
+  it("persen berlaku = persen RAB × porsi modal; mode BEP berganti setelah modal lunas", () => {
+    expect(hitungHasilInvestorProyek(PROYEK, 6_000_000n).persenBerlaku).toBe(30);
+
+    const bertingkat = {
+      ...PROYEK,
+      investorProfitShareMode: "TIERED_AFTER_BEP",
+      investorProfitShareBeforeBepPercent: 80,
+      investorProfitShareAfterBepPercent: 60,
+    } as typeof PROYEK;
+    // Modal 10 jt belum lunas (baru kembali 3 jt) → sebelum BEP: 80% × 60% = 48%.
+    expect(hitungHasilInvestorProyek(bertingkat, 6_000_000n).persenBerlaku).toBe(48);
+
+    const lunas = {
+      ...bertingkat,
+      investmentRecoveryValue: 100,
+      actualAchievements: [capaian(1, 11_000_000n)],
+    } as typeof PROYEK;
+    // Bulan ke-1 laba kotor 10 jt → cicilan 100% → modal lunas → sesudah BEP: 60% × 60% = 36%.
+    expect(hitungHasilInvestorProyek(lunas, 6_000_000n).persenBerlaku).toBe(36);
   });
 });

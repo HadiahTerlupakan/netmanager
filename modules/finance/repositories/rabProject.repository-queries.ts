@@ -54,7 +54,8 @@ const PROJECT_LIST_INCLUDE = {
   _count: { select: PROJECT_DETAIL_COUNT_SELECT },
 } satisfies Prisma.RabProjectInclude;
 const PROJECT_STATUS_EVALUATION_INCLUDE = {
-  actualAchievements: { orderBy: { createdAt: "desc" }, take: 1 },
+  // Capaian terakhir menurut bulan ke-n proyek (bukan waktu input).
+  actualAchievements: { orderBy: [{ month: "desc" }, { updatedAt: "desc" }], take: 1 },
 } satisfies Prisma.RabProjectInclude;
 const PROJECT_STATUS_EVALUATION_WHERE = {
   status: { in: ["PENJUALAN", "TARGET_TERCAPAI"] },

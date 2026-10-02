@@ -52,6 +52,7 @@ function createInvestorProject(siteId: string | null) {
       contingencyAmount: 0n,
       targetSubscribers: 100,
       growthType: "LINEAR",
+      investorProfitSharePercent: 50,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       actualAchievements: [] as unknown[],
       items: [{ totalPrice: 10000000n, expenseType: "CAPEX" }],

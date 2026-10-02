@@ -1,6 +1,28 @@
-import { calculateMonthlySubscribers } from "@/modules/finance/client";
+import { buildRABTrackingDataset, calculateMonthlySubscribers } from "@/modules/finance/client";
 import type { RABProject } from "./rabTypes";
 
+/** Penagihan pascabayar baru masuk sebulan setelah pelanggan aktif. */
+const JEDA_TAGIHAN_PASCABAYAR_BULAN = 1;
+
+/**
+ * BEP sederhana (kapasitas penuh): CAPEX ÷ laba per bulan, ditambah jeda
+ * tagihan sebulan untuk pascabayar. Dipakai form dan halaman rincian RAB.
+ */
+export function hitungBepSederhana(
+  totalCapex: number,
+  labaPerBulan: number,
+  paymentType: string | undefined,
+): number {
+  if (labaPerBulan <= 0) return Infinity;
+  const jeda = paymentType === "POSTPAID" ? JEDA_TAGIHAN_PASCABAYAR_BULAN : 0;
+  return totalCapex / labaPerBulan + jeda;
+}
+
+/**
+ * Ringkasan BEP RAB. `bepMonth` = bulan ke-n saat modal investor lunas
+ * menurut mesin tracking RAB (sama dengan tabel tracking & bagi hasil),
+ * Infinity bila tidak lunas dalam durasi proyek.
+ */
 export function calculateRealisticBEP(project: RABProject): {
   bepMonth: number;
   simpleBep: number;
@@ -24,18 +46,13 @@ export function calculateRealisticBEP(project: RABProject): {
   const fullRevenue = grossRevenue * (1 - nplTolerancePercent / 100);
   const simpleProfit = fullRevenue - monthlyOpex;
 
-  let simpleBep = Infinity;
-  if (simpleProfit > 0) {
-    if (paymentType === "POSTPAID") {
-      simpleBep = (totalCapex + fullRevenue) / simpleProfit;
-    } else {
-      simpleBep = totalCapex / simpleProfit;
-    }
-  }
+  const simpleBep = hitungBepSederhana(totalCapex, simpleProfit, paymentType);
+  const bepMesin =
+    buildRABTrackingDataset(project, project.actualAchievements ?? []).totals.bepMonth ?? Infinity;
 
   if (!targetSubscribers || !arpu || !growthSettings) {
     return {
-      bepMonth: Infinity,
+      bepMonth: bepMesin,
       simpleBep,
       monthsToFullCapacity: 0,
       roiPerYear: 0,
@@ -50,28 +67,13 @@ export function calculateRealisticBEP(project: RABProject): {
     maxMonths,
   );
 
-  let cumulativeProfit = 0;
-  let bepMonth = Infinity;
   let monthsToFullCapacity = 0;
-  let previousMonthSubs = 0;
 
   for (let month = 1; month <= maxMonths; month++) {
     const subs = monthlySubsTargets[month - 1];
-    const billingSubs = paymentType === "POSTPAID" ? previousMonthSubs : subs;
-    const grossRev = billingSubs * arpu;
-    const revenue = grossRev * (1 - nplTolerancePercent / 100);
-    const profit = revenue - monthlyOpex;
-    cumulativeProfit += profit;
-
-    if (cumulativeProfit >= totalCapex && bepMonth === Infinity) {
-      bepMonth = month;
-    }
-
     if (subs >= targetSubscribers && monthsToFullCapacity === 0) {
       monthsToFullCapacity = month;
     }
-
-    previousMonthSubs = subs;
   }
 
   const roiPerYear =
@@ -79,7 +81,7 @@ export function calculateRealisticBEP(project: RABProject): {
       ? ((simpleProfit * 12) / totalCapex) * 100
       : 0;
 
-  return { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear };
+  return { bepMonth: bepMesin, simpleBep, monthsToFullCapacity, roiPerYear };
 }
 
 /** Dipindah ke modul finance; diekspor ulang untuk pemakai lama. */

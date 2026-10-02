@@ -32,6 +32,7 @@ import RABVarianceTable from "./RABVarianceTable";
 import RABItemsTable from "./RABItemsTable";
 import RABRejectRevisionModal from "./RABRejectRevisionModal";
 import { getProfitShareDescription, getStatusBadge } from "./rabView.helpers";
+import { keTeksIsian, susunIsianCapaian } from "./rabActualInput";
 
 import type {
   RABRevisionProfitLossSummary,
@@ -62,6 +63,7 @@ export default function RABView({
   const [editForm, setEditForm] = useState({
     actualSubscribers: 0,
     actualRevenue: "",
+    actualOpex: "",
     manualRecoveryInstallment: "",
     manualInvestorShare: "",
     manualCompanyShare: "",
@@ -271,9 +273,6 @@ export default function RABView({
     }
   };
 
-  const startYear = data.startDate
-    ? new Date(data.startDate).getFullYear()
-    : new Date().getFullYear();
   const trackingDataset = buildRABTrackingDataset(data, actuals || []);
   const trackingRows = trackingDataset.rows;
   const trackingTotals = trackingDataset.totals;
@@ -289,47 +288,32 @@ export default function RABView({
       actualSubscribers: existing
         ? Number(existing.actualSubscribers)
         : defaultSubs,
-      actualRevenue: existing
-        ? String(existing.actualRevenue)
-        : String(defaultRev),
-      manualRecoveryInstallment: existing?.manualRecoveryInstallment
-        ? String(existing.manualRecoveryInstallment)
-        : "",
-      manualInvestorShare: existing?.manualInvestorShare
-        ? String(existing.manualInvestorShare)
-        : "",
-      manualCompanyShare: existing?.manualCompanyShare
-        ? String(existing.manualCompanyShare)
-        : "",
-      manualInvestorProfitSharePercent:
-        existing?.manualInvestorProfitSharePercent
-          ? String(existing.manualInvestorProfitSharePercent)
-          : "",
+      actualRevenue: String(
+        Math.round(existing ? Number(existing.actualRevenue) : defaultRev),
+      ),
+      actualOpex: keTeksIsian(existing?.actualOpex),
+      manualRecoveryInstallment: keTeksIsian(existing?.manualRecoveryInstallment),
+      manualInvestorShare: keTeksIsian(existing?.manualInvestorShare),
+      manualCompanyShare: keTeksIsian(existing?.manualCompanyShare),
+      manualInvestorProfitSharePercent: keTeksIsian(
+        existing?.manualInvestorProfitSharePercent,
+      ),
     });
   };
 
   const handleSaveActual = async (monthIndex: number) => {
+    const isian = susunIsianCapaian(editForm);
+    if ("pesan" in isian) {
+      toast.error(isian.pesan);
+      return;
+    }
     setIsSavingActual(true);
     try {
       const res = await fetch(`/api/finance/rab-projects/${data.id}/actuals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: monthIndex,
-          year: startYear + Math.floor((monthIndex - 1) / 12),
-          actualSubscribers: editForm.actualSubscribers,
-          actualRevenue: editForm.actualRevenue.replace(/[^0-9]/g, ""),
-          manualRecoveryInstallment:
-            editForm.manualRecoveryInstallment.replace(/[^0-9]/g, "") || null,
-          manualInvestorShare:
-            editForm.manualInvestorShare.replace(/[^0-9]/g, "") || null,
-          manualCompanyShare:
-            editForm.manualCompanyShare.replace(/[^0-9]/g, "") || null,
-          manualInvestorProfitSharePercent:
-            editForm.manualInvestorProfitSharePercent
-              ? parseFloat(editForm.manualInvestorProfitSharePercent)
-              : null,
-        }),
+        // Tahun dihitung server dari tanggal mulai proyek.
+        body: JSON.stringify({ month: monthIndex, ...isian.data }),
       });
       const json = await res.json();
       if (json.success) {
@@ -666,6 +650,9 @@ export default function RABView({
                       </div>
                       <div className="text-sm font-bold">
                         {formatCurrency(contingencyAmount)}
+                      </div>
+                      <div className="text-[9px] text-blue-100">
+                        Cadangan perusahaan, tidak dimodali investor
                       </div>
                     </div>
                     {data.targetBasis === "HOMEPASS" && (

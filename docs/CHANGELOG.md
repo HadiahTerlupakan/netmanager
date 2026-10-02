@@ -41,6 +41,50 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Perbaikan perhitungan RAB dan bagi hasil investor
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `modules/investor` | `app/admin/pengeluaran` | `app/admin/investors` | `app/api/finance/rab-projects` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Hasil audit RAB 2026-10-02 ("perbaiki semua").
+  - **Isian capaian bulanan**: angka berdesimal dulu tersimpan 10–1000× (titik
+    dibuang) — kini dibaca sebagai angka & dibulatkan; validasi ≥ 0 dan persen
+    0–100 (UI & API); persen manual 0% tidak hilang saat disunting; kolom
+    **OPEX aktual** baru (kosong = OPEX rencana).
+  - **Satu baris per bulan ke-n**: tahun dihitung server dari tanggal mulai
+    (dulu salah untuk proyek yang tidak mulai Januari); baris ganda lama dirapikan
+    saat disimpan; mesin memakai baris terbaru bila masih ganda.
+  - **Mesin tracking**: persen 0% tidak lagi jadi 50/80/60; buffer OPEX (modal
+    investor) dihitung dari proyeksi saja sehingga tidak berubah saat capaian
+    diisi; bulan kosong sebelum capaian terakhir tidak mengurangi modal & tidak
+    dibagi; persen sesudah BEP berlaku mulai bulan setelah modal lunas; isian
+    manual dibatasi (cicilan ≤ laba & sisa modal, bagian perusahaan tak minus);
+    capaian sesudah durasi tetap dihitung; `bepMonth` dari mesin dipakai untuk
+    "Est. BEP" & penanda BEP (dulu rumus terpisah: 13 vs 24 bulan).
+  - **Modal investor**: dasar pendanaan memakai mesin yang sama; investor tidak
+    dihapus-buat ulang bila daftarnya sama; RAB yang sudah punya bagi hasil
+    mengunci daftar investor, modal, dan tanggal mulai (409).
+  - **Bagi hasil**: dicatat per bulan proyek (`projectMonths`) — periode tumpang
+    tindih tidak membayar dua kali; dibulatkan per bulan (sama dengan portal);
+    bulan yang sudah masuk bagi hasil tidak bisa diubah (409); aksi baru
+    **Batalkan** bagi hasil yang belum dibayar.
+  - Kontingensi dijelaskan sebagai cadangan perusahaan (tidak dimodali investor),
+    pratinjau form tidak lagi memasukkannya ke modal; BEP sederhana pascabayar
+    disamakan form & rincian; cron status memilih capaian terakhir menurut bulan;
+    validasi durasi ≤ 120 bulan & pengembalian modal persen ≤ 100.
+  - Portal investor: persen bagi hasil mengikuti mode BEP (sebelum/sesudah lunas)
+    × porsi modal.
+- **Files**: `modules/finance/utils/rab-tracking/tracking.ts`,
+  `app/admin/pengeluaran/rabActualInput.ts`, `RABView.tsx`, `RABTrackingSection.tsx`,
+  `modules/finance/repositories/RabProjectRepository.ts`, `RabProjectUpdateRepository.ts`,
+  `modules/finance/repositories/shared/rabInvestmentCalculator.ts`,
+  `modules/investor/services/InvestorProfitShareService.ts`,
+  `modules/investor/services/investor-project-tracking.helpers.ts`
+- **Migration**: `20261002021356_make_rab_actual_opex_optional_and_track_paid_months`
+  (`actualOpex` boleh kosong + backfill 0 → NULL = "belum diisi"; kolom
+  `projectMonths` di bagi hasil)
+- **Breaking**: ❌ Tidak (perilaku hitungan berubah sesuai keputusan di atas)
+
 ### [2026-10-02] — Proyek target tercapai/selesai tetap ikut bagi hasil investor
 
 - **Tipe**: [FIXED]

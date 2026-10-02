@@ -13,6 +13,8 @@ import type { RABTrackingRow, RABTrackingTotals } from "./rabTracking";
 interface RABTrackingEditForm {
   actualSubscribers: number;
   actualRevenue: string;
+  /** Kosong = memakai OPEX rencana RAB. */
+  actualOpex: string;
   manualRecoveryInstallment: string;
   manualInvestorShare: string;
   manualCompanyShare: string;
@@ -178,6 +180,15 @@ export default function RABTrackingSection({
                           Target: {formatCurrency(row.projectedRevenue)}
                         </span>
                       </div>
+                    ) : row.isBelumDiisi ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-[11px] font-medium text-amber-600">
+                          Belum diisi
+                        </span>
+                        <span className="text-[9px] text-gray-400">
+                          Tidak dihitung
+                        </span>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-end">
                         <span className="text-[11px] font-medium text-emerald-600">
@@ -190,7 +201,28 @@ export default function RABTrackingSection({
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium text-slate-500">
-                    {formatCurrency(row.displayRevenue - row.grossProfit)}
+                    {isEditing ? (
+                      <div className="flex flex-col gap-1 items-end">
+                        <input
+                          type="number"
+                          min="0"
+                          value={editForm.actualOpex}
+                          onChange={(event) =>
+                            onEditFormChange({
+                              ...editForm,
+                              actualOpex: event.target.value,
+                            })
+                          }
+                          className="w-24 text-right text-[11px] border-blue-300 dark:border-blue-700 rounded bg-blue-50/50 dark:bg-blue-900/50"
+                          placeholder="OPEX aktual"
+                        />
+                        <span className="text-[9px] text-gray-400">
+                          Kosong = rencana
+                        </span>
+                      </div>
+                    ) : (
+                      formatCurrency(row.opex)
+                    )}
                   </td>
                   <td
                     className={`px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium ${row.grossProfit >= 0 ? "text-blue-600" : "text-red-500"}`}
@@ -226,14 +258,14 @@ export default function RABTrackingSection({
                     <div className="flex flex-col items-end">
                       <span
                         className={
-                          row.remainingInvestment <= 100
+                          row.remainingInvestment <= 0
                             ? "text-emerald-500 font-bold"
                             : "text-orange-600"
                         }
                       >
                         {formatCurrency(Math.max(0, row.remainingInvestment))}
                       </span>
-                      {row.remainingInvestment <= 100 && (
+                      {row.month === totals.bepMonth && (
                         <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold mt-0.5">
                           BEP!
                         </span>
@@ -345,7 +377,7 @@ export default function RABTrackingSection({
                           onStartEdit(
                             monthIndex,
                             row.targetSubscribers,
-                            row.displayRevenue,
+                            row.isBelumDiisi ? row.projectedRevenue : row.displayRevenue,
                           )
                         }
                         className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -386,7 +418,7 @@ export default function RABTrackingSection({
                   <span className="font-bold">
                     {formatCurrency(Math.max(0, totals.remainingInvestment))}
                   </span>
-                  {totals.remainingInvestment <= 100 && (
+                  {totals.remainingInvestment <= 0 && (
                     <span className="text-[8px] text-emerald-500 font-bold uppercase">
                       LUNAS
                     </span>

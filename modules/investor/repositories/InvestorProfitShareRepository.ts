@@ -9,6 +9,8 @@ export interface CreateProfitShareInput {
   configId?: string | null;
   /** Proyek RAB sumber bagi hasil per proyek. */
   rabProjectId?: string | null;
+  /** Bulan ke-n proyek yang tercakup. */
+  projectMonths?: number[];
   periodStart: Date;
   periodEnd: Date;
   netProfit: number;
@@ -67,6 +69,7 @@ export class InvestorProfitShareRepository {
         investorId: data.investorId,
         configId: data.configId ?? null,
         rabProjectId: data.rabProjectId ?? null,
+        projectMonths: data.projectMonths ?? [],
         periodStart: data.periodStart,
         periodEnd: data.periodEnd,
         netProfit: data.netProfit,
@@ -139,18 +142,13 @@ export class InvestorProfitShareRepository {
     return record !== null;
   }
 
-  /** Cek bagi hasil investor untuk proyek+periode sudah dihitung (cegah ganda). */
-  async existsForInvestorProjectPeriod(
-    investorId: string,
-    rabProjectId: string,
-    periodStart: Date,
-    periodEnd: Date,
-  ): Promise<boolean> {
-    const record = await prisma.investorProfitShare.findFirst({
-      where: { investorId, rabProjectId, periodStart, periodEnd },
-      select: { id: true },
+  /** Bulan ke-n proyek yang sudah pernah dibagikan ke investor (selain yang dibatalkan). */
+  async findPaidProjectMonths(investorId: string, rabProjectId: string): Promise<Set<number>> {
+    const records = await prisma.investorProfitShare.findMany({
+      where: { investorId, rabProjectId, status: { not: "CANCELLED" } },
+      select: { projectMonths: true },
     });
-    return record !== null;
+    return new Set(records.flatMap((record) => record.projectMonths));
   }
 
   /** Proyek RAB tenant yang sudah disetujui dan punya investor. */

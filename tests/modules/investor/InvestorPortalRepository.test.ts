@@ -11,42 +11,36 @@ import { InvestorPortalRepository } from "@/modules/investor/repositories/Invest
 
 const repo = new InvestorPortalRepository();
 
-function baris(modal: bigint, semuaModal: bigint[], persenProyek = 50) {
-  return {
-    investmentAmount: modal,
-    profitSharePercent: persenProyek,
-    rabProject: { investors: semuaModal.map((investmentAmount) => ({ investmentAmount })) },
-  };
-}
-
-describe("InvestorPortalRepository — porsi & status", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("daftar proyek hanya status yang sudah disetujui dan persen dibagi sesuai porsi modal", async () => {
-    mockFindMany.mockResolvedValue([baris(50n, [50n, 50n])]);
-
-    const [proyek] = await repo.findProjectList("inv-1", "t-1");
-
-    expect(proyek.profitSharePercent).toBe(25);
-    const where = mockFindMany.mock.calls[0][0].where;
-    expect(where.investorId).toBe("inv-1");
-    expect(where.rabProject.status.in).not.toContain("DRAFT");
-    expect(where.rabProject.status.in).toContain("APPROVED");
+describe("InvestorPortalRepository — status proyek yang tampil", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindMany.mockResolvedValue([]);
+    mockFindFirst.mockResolvedValue(null);
   });
 
-  it("rincian proyek yang belum disetujui tidak ditemukan; yang ada ikut porsi", async () => {
-    mockFindFirst.mockResolvedValueOnce(null);
+  it("daftar & dashboard hanya proyek yang sudah disetujui ke atas, termasuk target tercapai/selesai", async () => {
+    await repo.findProjectList("inv-1", "t-1");
+    await repo.findDashboardProjects("inv-1");
+
+    for (const [args] of mockFindMany.mock.calls) {
+      expect(args.where.investorId).toBe("inv-1");
+      expect(args.where.rabProject.status.in).not.toContain("DRAFT");
+      expect(args.where.rabProject.status.in).toEqual(
+        expect.arrayContaining(["APPROVED", "PENJUALAN", "TARGET_TERCAPAI", "SELESAI"]),
+      );
+    }
+  });
+
+  it("rincian proyek yang belum disetujui tidak ditemukan", async () => {
     await expect(repo.findProjectDetail("p-1", "inv-1")).resolves.toBeNull();
     expect(mockFindFirst.mock.calls[0][0].where.rabProject.status.in).not.toContain("CANCELLED");
-
-    mockFindFirst.mockResolvedValueOnce(baris(30n, [30n, 70n]));
-    await expect(repo.findProjectDetail("p-1", "inv-1")).resolves.toMatchObject({ profitSharePercent: 15 });
   });
 
-  it("dashboard memakai aturan yang sama", async () => {
-    mockFindMany.mockResolvedValue([baris(10n, [10n])]);
-    const [proyek] = await repo.findDashboardProjects("inv-1");
-    expect(proyek.profitSharePercent).toBe(50);
-    expect(mockFindMany.mock.calls[0][0].where.rabProject.status.in).toContain("PENJUALAN");
+  it("memuat modal semua investor proyek (dasar porsi) beserta item & capaian", async () => {
+    await repo.findProjectList("inv-1");
+    const include = mockFindMany.mock.calls[0][0].include.rabProject.include;
+    expect(include.investors).toEqual({ select: { investmentAmount: true } });
+    expect(include.items).toBeDefined();
+    expect(include.actualAchievements).toBe(true);
   });
 });

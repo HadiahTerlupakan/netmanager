@@ -44,14 +44,16 @@ export function keInputTracking(proyek: ProyekRabUntukTracking): RabTrackingProj
   };
 }
 
-const keAngkaAtauNull = (nilai: bigint | number | null) =>
-  nilai === null ? null : Number(nilai);
+const keAngkaAtauNull = (nilai: bigint | number | null | undefined) =>
+  nilai === null || nilai === undefined ? null : Number(nilai);
 
 /** Capaian aktual bulanan proyek untuk mesin tracking. */
 export function keCapaianTracking(proyek: ProyekRabUntukTracking): RabTrackingAchievement[] {
   return proyek.actualAchievements.map((capaian) => ({
     month: capaian.month,
     actualRevenue: Number(capaian.actualRevenue),
+    actualOpex: keAngkaAtauNull(capaian.actualOpex),
+    updatedAt: capaian.updatedAt,
     manualRecoveryInstallment: keAngkaAtauNull(capaian.manualRecoveryInstallment),
     manualInvestorShare: keAngkaAtauNull(capaian.manualInvestorShare),
     manualCompanyShare: keAngkaAtauNull(capaian.manualCompanyShare),

@@ -107,7 +107,9 @@ describe("rab tracking calculations helpers", () => {
 
     const result = calculateRealisticBEP(project);
 
-    expect(result.bepMonth).toBe(1);
+    // BEP = modal investor lunas lewat cicilan pengembalian (bawaan 50% laba kotor):
+    // bln-1 laba 800rb → cicil 400rb (sisa 100rb); bln-2 lunas.
+    expect(result.bepMonth).toBe(2);
     expect(result.monthsToFullCapacity).toBe(1);
     expect(result.simpleBep).toBeGreaterThan(0);
   });
@@ -140,7 +142,8 @@ describe("rab tracking calculations helpers", () => {
 
     const result = calculateRealisticBEP(project);
 
-    expect(result.bepMonth).toBe(2);
+    // Pascabayar: bln-1 belum ada tagihan; bln-2 laba 900rb → cicil 450rb (sisa 50rb); bln-3 lunas.
+    expect(result.bepMonth).toBe(3);
     expect(result.monthsToFullCapacity).toBe(1);
   });
 
@@ -258,7 +261,7 @@ describe("rab tracking calculations helpers", () => {
     expect(dataset.totals.initialFundingNeed).toBe(1_000_000);
   });
 
-  it("membagi profit bertahap sebelum dan setelah modal balik", () => {
+  it("membagi profit bertahap: bulan modal lunas masih sebelum BEP, sesudah BEP mulai bulan berikutnya", () => {
     const project: RABProject = {
       ...createBaseProject(),
       projectedOpex: 0,
@@ -281,9 +284,10 @@ describe("rab tracking calculations helpers", () => {
     expect(dataset.rows[0].companyShare).toBe(100_000);
 
     expect(dataset.rows[1].remainingInvestment).toBe(0);
-    expect(dataset.rows[1].investorProfitSharePercent).toBe(60);
-    expect(dataset.rows[1].investorShare).toBe(300_000);
-    expect(dataset.rows[1].companyShare).toBe(200_000);
+    expect(dataset.rows[1].investorProfitSharePercent).toBe(80);
+    expect(dataset.rows[1].investorShare).toBe(400_000);
+    expect(dataset.rows[1].companyShare).toBe(100_000);
+    expect(dataset.totals.bepMonth).toBe(2);
 
     expect(dataset.rows[2].investorProfitSharePercent).toBe(60);
     expect(dataset.rows[2].investorShare).toBe(600_000);

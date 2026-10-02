@@ -3669,3 +3669,38 @@ konstanta domain; konfigurasi per tenant menyusul bila dibutuhkan.
 - [x] Mobile: form "Orang ini siapa?", peran, badge, filter (diverifikasi emulator end-to-end)
 - [x] Perbaikan: judul terpotong (`KepalaLayar`), Kembali setelah simpan, rincian prospek berkepala layar
 - [x] Data uji lokal dibersihkan
+
+## Perbaikan Perhitungan RAB & Bagi Hasil Investor (2026-10-02)
+
+Sumber: audit RAB 2026-10-02. User: "perbaiki semua".
+
+### Keputusan (asumsi agent, bisa diubah user)
+- OPEX: pakai `actualOpex` bila diisi, selain itu OPEX rencana RAB.
+- Kontingensi: tidak dimodali investor (selaras server); tampilan diperjelas.
+- Bulan rugi: ditanggung perusahaan (tidak dibawa ke bulan berikut).
+- Modal investor: tetap dibagi rata, dikunci setelah ada bagi hasil.
+- Tier BEP: persen sesudah BEP berlaku mulai bulan SESUDAH modal lunas.
+
+### Tugas
+- [x] Input capaian: angka desimal diparse benar (dibulatkan), validasi ≥0, persen 0–100
+- [x] Capaian kunci per bulan ke-n; tahun diturunkan dari tanggal mulai; duplikat lama dibersihkan
+- [x] Bulan yang sudah masuk bagi hasil tidak bisa diubah; struktur RAB terkunci setelah ada bagi hasil
+- [x] Mesin: `??` untuk persen 0; buffer OPEX hanya dari proyeksi; OPEX aktual
+- [x] Mesin: bulan kosong sebelum capaian terakhir tidak mengurangi modal
+- [x] Mesin: tier BEP berlaku bulan sesudah lunas; override manual dibatasi
+- [x] Mesin: baris sampai max(durasi, bulan capaian terakhir); BEP dari mesin (bukan rumus terpisah)
+- [x] Bagi hasil: dedupe per bulan proyek (bukan per periode), pembulatan per bulan
+- [x] Modal investor: dasar dari mesin; tidak dibuat ulang tiap edit; kunci bila ada bagi hasil
+- [x] Kontingensi: preview & tampilan diperjelas
+- [x] Cron status: capaian terakhir menurut bulan, bukan createdAt
+- [x] Portal: persen berlaku untuk mode BEP
+- [x] Tambahan: aksi Batalkan bagi hasil yang belum dibayar (membuka bulan untuk dikoreksi)
+
+### Review
+- Mesin tracking RAB tunggal (`modules/finance/utils/rab-tracking`) dipakai halaman admin,
+  modal investor saat RAB disimpan, portal investor, dan perhitungan bagi hasil.
+- Verifikasi: 5.877 test backend & 1.381 test mobile lulus; uji nyata lokal — capaian berdesimal,
+  OPEX aktual, hitung Jul–Sep, hitung ulang Agu–Okt (0 baru), bulan dibayar & tanggal mulai
+  terkunci (409), batalkan lalu koreksi berhasil.
+- Migration `make_rab_actual_opex_optional_and_track_paid_months` mengubah data
+  (actualOpex 0 → NULL, artinya "belum diisi") — dilaporkan ke user.

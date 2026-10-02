@@ -133,7 +133,10 @@ function calculateProjectedRevenue(item: DashboardProject): bigint {
       Number(item.rabProject.contingencyAmount),
   );
 
-  return calculateInvestorShare(netProjected, item.profitSharePercent);
+  return calculateInvestorShare(
+    netProjected,
+    hitungHasilInvestorProyek(item.rabProject, item.investmentAmount).persenBerlaku,
+  );
 }
 
 function calculateInvestorShare(amount: number, percent: number): bigint {

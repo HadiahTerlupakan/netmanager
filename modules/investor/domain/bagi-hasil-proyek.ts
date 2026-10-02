@@ -14,15 +14,20 @@ export interface BarisTrackingBagiHasil {
   recoveryInstallment: number;
 }
 
-/** Jumlah untuk SEMUA investor proyek dalam periode. */
-export interface RingkasanPeriodeProyek {
-  jumlahBulan: number;
+/** Bagian seorang investor dari bulan-bulan yang dibagikan. */
+export interface BagianInvestorPeriode {
+  /** Bulan ke-n proyek yang tercakup. */
+  bulan: number[];
+  /** Laba bersih proyek (semua investor + perusahaan) di bulan-bulan itu. */
   labaBersih: number;
-  bagiHasilInvestor: number;
+  bagiHasil: number;
   pengembalianModal: number;
+  /** Bagian investor ini terhadap laba bersih proyek, %. */
+  persenDariLaba: number;
 }
 
 const DESIMAL_RUPIAH = 100;
+const PERSEN_PENUH = 100;
 
 /** Awal bulan kalender (UTC) untuk bulan ke-n proyek. */
 export function awalBulanKalender(tanggalMulai: Date, bulanKe: number): Date {
@@ -35,44 +40,50 @@ function awalBulan(tanggal: Date): Date {
   return new Date(Date.UTC(tanggal.getUTCFullYear(), tanggal.getUTCMonth(), 1));
 }
 
-/** Jumlahkan bulan aktual proyek yang jatuh di dalam periode [mulai, selesai]. */
-export function ringkasPeriodeProyek(
-  baris: readonly BarisTrackingBagiHasil[],
-  tanggalMulaiProyek: Date,
-  periodeMulai: Date,
-  periodeSelesai: Date,
-): RingkasanPeriodeProyek {
-  const batasAwal = awalBulan(periodeMulai).getTime();
-  const batasAkhir = periodeSelesai.getTime();
-  const dalamPeriode = baris.filter((b) => {
-    if (b.isAutoAssumed) return false;
-    const bulan = awalBulanKalender(tanggalMulaiProyek, b.month).getTime();
-    return bulan >= batasAwal && bulan <= batasAkhir;
-  });
-  return dalamPeriode.reduce<RingkasanPeriodeProyek>(
-    (jumlah, b) => ({
-      jumlahBulan: jumlah.jumlahBulan + 1,
-      labaBersih: jumlah.labaBersih + b.netProfit,
-      bagiHasilInvestor: jumlah.bagiHasilInvestor + b.investorShare,
-      pengembalianModal: jumlah.pengembalianModal + b.recoveryInstallment,
-    }),
-    { jumlahBulan: 0, labaBersih: 0, bagiHasilInvestor: 0, pengembalianModal: 0 },
-  );
-}
-
 /** Pembulatan ke sen (Decimal 19,2). */
 export function bulatkanRupiah(nilai: number): number {
   return Math.round(nilai * DESIMAL_RUPIAH) / DESIMAL_RUPIAH;
 }
 
-/** Bagian satu investor dari ringkasan proyek sesuai porsi modalnya. */
-export function bagianInvestor(ringkasan: RingkasanPeriodeProyek, porsiModal: number) {
-  const bagiHasil = bulatkanRupiah(ringkasan.bagiHasilInvestor * porsiModal);
-  const persen =
-    ringkasan.labaBersih > 0 ? (bagiHasil / ringkasan.labaBersih) * 100 : 0;
+/** Bulan aktual proyek yang jatuh di dalam periode [mulai, selesai]. */
+export function barisDalamPeriode<T extends BarisTrackingBagiHasil>(
+  baris: readonly T[],
+  tanggalMulaiProyek: Date,
+  periodeMulai: Date,
+  periodeSelesai: Date,
+): T[] {
+  const batasAwal = awalBulan(periodeMulai).getTime();
+  const batasAkhir = periodeSelesai.getTime();
+  return baris.filter((b) => {
+    if (b.isAutoAssumed) return false;
+    const bulan = awalBulanKalender(tanggalMulaiProyek, b.month).getTime();
+    return bulan >= batasAwal && bulan <= batasAkhir;
+  });
+}
+
+/**
+ * Bagian seorang investor dari baris-baris bulan. Dibulatkan PER BULAN lalu
+ * dijumlah — sama dengan portal investor sehingga angka tampil = angka dibayar.
+ */
+export function bagianInvestor(
+  baris: readonly BarisTrackingBagiHasil[],
+  porsiModal: number,
+): BagianInvestorPeriode {
+  const jumlah = baris.reduce(
+    (total, b) => ({
+      labaBersih: total.labaBersih + b.netProfit,
+      bagiHasil: total.bagiHasil + bulatkanRupiah(b.investorShare * porsiModal),
+      pengembalianModal: total.pengembalianModal + bulatkanRupiah(b.recoveryInstallment * porsiModal),
+    }),
+    { labaBersih: 0, bagiHasil: 0, pengembalianModal: 0 },
+  );
+  const bagiHasil = bulatkanRupiah(jumlah.bagiHasil);
+  const persen = jumlah.labaBersih > 0 ? (bagiHasil / jumlah.labaBersih) * PERSEN_PENUH : 0;
   return {
+    bulan: baris.map((b) => b.month),
+    labaBersih: bulatkanRupiah(jumlah.labaBersih),
     bagiHasil,
-    pengembalianModal: bulatkanRupiah(ringkasan.pengembalianModal * porsiModal),
+    pengembalianModal: bulatkanRupiah(jumlah.pengembalianModal),
     persenDariLaba: Math.round(persen * DESIMAL_RUPIAH) / DESIMAL_RUPIAH,
   };
 }

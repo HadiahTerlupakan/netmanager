@@ -53,6 +53,9 @@ export interface RABActualAchievement {
   month: number;
   actualSubscribers: number;
   actualRevenue: number;
+  /** OPEX aktual; null = belum diisi (hitungan memakai OPEX rencana). */
+  actualOpex?: number | null;
+  updatedAt?: string;
   manualRecoveryInstallment?: number | null;
   manualInvestorShare?: number | null;
   manualCompanyShare?: number | null;

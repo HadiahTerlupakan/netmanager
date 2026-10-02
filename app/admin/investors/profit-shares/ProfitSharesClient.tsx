@@ -15,7 +15,7 @@ import { formatCurrency } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ProfitShareStatus = "CALCULATED" | "APPROVED" | "PAID";
+type ProfitShareStatus = "CALCULATED" | "APPROVED" | "PAID" | "CANCELLED";
 
 interface ProfitShare {
   id: string;
@@ -47,11 +47,13 @@ function StatusBadge({ status }: { status: ProfitShareStatus }) {
     APPROVED:
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     PAID: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   };
   const label: Record<ProfitShareStatus, string> = {
     CALCULATED: "Dihitung",
     APPROVED: "Disetujui",
     PAID: "Dibayar",
+    CANCELLED: "Dibatalkan",
   };
   return (
     <span
@@ -259,6 +261,30 @@ export default function ProfitSharesClient() {
         void refetchShares();
       } else {
         toast.error(data.message || "Gagal menyetujui bagi hasil");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleCancel(shareId: string) {
+    if (!window.confirm("Batalkan bagi hasil ini? Bulan proyeknya bisa dikoreksi lalu dihitung ulang.")) {
+      return;
+    }
+    setActionLoading(shareId + "_cancel");
+    try {
+      const res = await fetch(
+        `/api/admin/investors/profit-shares/${shareId}/cancel`,
+        { method: "POST" },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Bagi hasil dibatalkan");
+        void refetchShares();
+      } else {
+        toast.error(data.error || data.message || "Gagal membatalkan bagi hasil");
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -535,6 +561,15 @@ export default function ProfitSharesClient() {
                             <span className="text-xs text-gray-400 italic">
                               Selesai
                             </span>
+                          )}
+                          {(share.status === "CALCULATED" || share.status === "APPROVED") && (
+                            <button
+                              onClick={() => handleCancel(share.id)}
+                              disabled={actionLoading === share.id + "_cancel"}
+                              className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-xs rounded-lg font-bold transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              {actionLoading === share.id + "_cancel" ? "..." : "Batalkan"}
+                            </button>
                           )}
                         </div>
                       </td>

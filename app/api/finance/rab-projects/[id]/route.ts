@@ -64,6 +64,9 @@ export const PATCH = createHandler(
       if (isRouteServiceError(error) && error.status === 400) {
         return ApiErrors.badRequest(error.message);
       }
+      if (isRouteServiceError(error) && error.status === 409) {
+        return ApiErrors.conflict(error.message);
+      }
 
       throw error;
     }

@@ -15,6 +15,8 @@ export interface RABTrackingRow {
   displayRevenue: number;
   nplAmount: number;
   opexGap: number;
+  /** OPEX yang dipakai bulan ini: OPEX aktual bila diisi, selain itu OPEX rencana. */
+  opex: number;
   grossProfit: number;
   recoveryInstallment: number;
   remainingInvestment: number;
@@ -23,6 +25,12 @@ export interface RABTrackingRow {
   investorShare: number;
   companyShare: number;
   isAutoAssumed: boolean;
+  /**
+   * Bulan lampau tanpa capaian (ada capaian di bulan sesudahnya). Tidak
+   * dihitung sama sekali — tidak mengurangi modal dan tidak menghasilkan
+   * bagi hasil — sampai admin mengisinya.
+   */
+  isBelumDiisi: boolean;
   hasManualRecoveryInstallment: boolean;
   hasManualInvestorShare: boolean;
   hasManualCompanyShare: boolean;
@@ -57,6 +65,8 @@ export interface RABTrackingTotals {
   investorDepositTotal: number;
   investorTotalReceived: number;
   companyTotalReceived: number;
+  /** Bulan ke-n saat modal investor lunas menurut hitungan ini; null bila belum/tidak tercapai. */
+  bepMonth: number | null;
 }
 
 export interface RABTrackingDataset {
@@ -64,12 +74,41 @@ export interface RABTrackingDataset {
   totals: RABTrackingTotals;
 }
 
+/**
+ * Capaian per bulan ke-n. Bila ada lebih dari satu baris untuk bulan yang sama
+ * (data lama), yang terakhir diperbarui dipakai — deterministik.
+ */
 function toAchievementMap(
   actualAchievements: RabTrackingAchievement[] = [],
 ): Map<number, RabTrackingAchievement> {
-  return new Map(
-    actualAchievements.map((achievement) => [achievement.month, achievement]),
-  );
+  const peta = new Map<number, RabTrackingAchievement>();
+  for (const capaian of actualAchievements) {
+    const lama = peta.get(capaian.month);
+    if (!lama || waktuUbah(capaian) >= waktuUbah(lama)) peta.set(capaian.month, capaian);
+  }
+  return peta;
+}
+
+function waktuUbah(capaian: RabTrackingAchievement): number {
+  return capaian.updatedAt ? new Date(capaian.updatedAt).getTime() : 0;
+}
+
+const PERSEN_PENUH = 100;
+const DURASI_BAWAAN_BULAN = 12;
+const PERSEN_BAGI_HASIL_BAWAAN = 50;
+const PERSEN_SEBELUM_BEP_BAWAAN = 80;
+const PERSEN_SESUDAH_BEP_BAWAAN = 60;
+const NILAI_PENGEMBALIAN_BAWAAN = 50;
+
+/** Angka dari field opsional; 0 adalah nilai sah (bukan "kosong"). */
+function angkaAtau(nilai: number | string | null | undefined, bawaan: number): number {
+  if (nilai === null || nilai === undefined || nilai === "") return bawaan;
+  const angka = Number(nilai);
+  return Number.isFinite(angka) ? angka : bawaan;
+}
+
+function batasi(nilai: number, minimum: number, maksimum: number): number {
+  return Math.min(Math.max(nilai, minimum), Math.max(minimum, maksimum));
 }
 
 function getCapexTotal(project: RabTrackingProject): number {
@@ -163,78 +202,122 @@ function calculateProjectedRevenue(
   return billingSubscribers * arpu * (1 - nplTolerancePercent / 100);
 }
 
+/**
+ * Kekurangan OPEX per bulan ramp-up, dari PROYEKSI saja. Modal investor
+ * (yang sudah disetor) tidak boleh berubah karena capaian aktual diisi.
+ */
 function calculateOpexGaps(
   project: RabTrackingProject,
   monthlySubsTargets: number[],
-  achievementByMonth: Map<number, RabTrackingAchievement>,
 ): number[] {
-  const monthlyOpex = Number(project.projectedOpex || 0);
-  const arpu = Number(project.arpu || 0);
-  const nplTolerancePercent = Number(project.nplTolerancePercent || 0);
+  const monthlyOpex = angkaAtau(project.projectedOpex, 0);
+  const arpu = angkaAtau(project.arpu, 0);
+  const nplTolerancePercent = angkaAtau(project.nplTolerancePercent, 0);
 
   return monthlySubsTargets.map((_, index) => {
-    const billingSubscribers = getBillingSubscribers(
-      project,
-      monthlySubsTargets,
-      index,
-    );
-    const projectedRevenue = calculateProjectedRevenue(
-      billingSubscribers,
-      arpu,
-      nplTolerancePercent,
-    );
-    const actualRevenue = achievementByMonth.get(index + 1)?.actualRevenue;
-    const displayRevenue = actualRevenue ?? projectedRevenue;
-
-    return Math.max(0, monthlyOpex - Number(displayRevenue));
+    const billingSubscribers = getBillingSubscribers(project, monthlySubsTargets, index);
+    const projectedRevenue = calculateProjectedRevenue(billingSubscribers, arpu, nplTolerancePercent);
+    return Math.max(0, monthlyOpex - projectedRevenue);
   });
 }
 
+/**
+ * Persen bagian investor. Mode BEP memakai sisa modal SEBELUM cicilan bulan
+ * ini: bulan saat modal lunas masih "sebelum BEP", persen sesudah BEP
+ * berlaku mulai bulan berikutnya.
+ */
 function getInvestorProfitSharePercent(
   project: RabTrackingProject,
-  remainingInvestment: number,
+  remainingBeforeThisMonth: number,
 ): number {
   if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    return Number(project.investorProfitSharePercent || 50);
+    return angkaAtau(project.investorProfitSharePercent, PERSEN_BAGI_HASIL_BAWAAN);
   }
-
-  if (remainingInvestment > 0) {
-    return Number(project.investorProfitShareBeforeBepPercent || 80);
+  if (remainingBeforeThisMonth > 0) {
+    return angkaAtau(project.investorProfitShareBeforeBepPercent, PERSEN_SEBELUM_BEP_BAWAAN);
   }
+  return angkaAtau(project.investorProfitShareAfterBepPercent, PERSEN_SESUDAH_BEP_BAWAAN);
+}
 
-  return Number(project.investorProfitShareAfterBepPercent || 60);
+/** Cicilan pengembalian modal bulan ini (manual dibatasi ke laba & sisa modal). */
+function hitungCicilanModal(
+  project: RabTrackingProject,
+  grossProfit: number,
+  remaining: number,
+  manual: number | null,
+): number {
+  const batasAtas = Math.min(Math.max(0, grossProfit), Math.max(0, remaining));
+  if (manual !== null) return batasi(manual, 0, batasAtas);
+  if (batasAtas <= 0) return 0;
+  const nilai = angkaAtau(project.investmentRecoveryValue, NILAI_PENGEMBALIAN_BAWAAN);
+  const cicilan =
+    (project.investmentRecoveryType ?? "PERCENTAGE") === "PERCENTAGE"
+      ? (batasi(nilai, 0, PERSEN_PENUH) / PERSEN_PENUH) * grossProfit
+      : Math.max(0, nilai);
+  return Math.min(cicilan, batasAtas);
+}
+
+const angkaManual = (nilai: number | null | undefined): number | null =>
+  nilai === null || nilai === undefined ? null : Number(nilai);
+
+/** Pembagian laba bersih bulan ini; isian manual dibatasi agar total tak melebihi laba. */
+function bagiLabaBersih(
+  netProfit: number,
+  persenOtomatis: number,
+  capaian: RabTrackingAchievement | undefined,
+) {
+  const persenManual = angkaManual(capaian?.manualInvestorProfitSharePercent);
+  const persen = batasi(persenManual ?? persenOtomatis, 0, PERSEN_PENUH);
+  const investorManual = angkaManual(capaian?.manualInvestorShare);
+  const investorShare =
+    investorManual !== null ? batasi(investorManual, 0, netProfit) : (persen / PERSEN_PENUH) * netProfit;
+  const perusahaanManual = angkaManual(capaian?.manualCompanyShare);
+  const companyShare =
+    perusahaanManual !== null
+      ? batasi(perusahaanManual, 0, netProfit - investorShare)
+      : netProfit - investorShare;
+  return {
+    investorProfitSharePercent: persen,
+    investorShare,
+    companyShare,
+    hasManualInvestorShare: investorManual !== null,
+    hasManualCompanyShare: perusahaanManual !== null,
+    hasManualInvestorProfitSharePercent: persenManual !== null,
+  };
+}
+
+/** Bulan ke-n terakhir yang punya capaian aktual (0 bila belum ada). */
+function bulanCapaianTerakhir(achievementByMonth: Map<number, RabTrackingAchievement>): number {
+  return Math.max(0, ...achievementByMonth.keys());
 }
 
 export function buildRABTrackingDataset(
   project: RabTrackingProject,
   actualAchievements: RabTrackingAchievement[] = [],
 ): RABTrackingDataset {
-  const maxMonthsToShow = project.investmentDurationMonths || 12;
-  const nplTolerancePercent = Number(project.nplTolerancePercent || 0);
-  const monthlyOpex = Number(project.projectedOpex || 0);
-  const arpu = Number(project.arpu || 0);
+  const durasi = angkaAtau(project.investmentDurationMonths, DURASI_BAWAAN_BULAN) || DURASI_BAWAAN_BULAN;
+  const achievementByMonth = toAchievementMap(actualAchievements);
+  const capaianTerakhir = bulanCapaianTerakhir(achievementByMonth);
+  // Capaian sesudah durasi tetap dihitung (tidak hilang diam-diam).
+  const jumlahBulan = Math.max(durasi, capaianTerakhir);
+  const nplTolerancePercent = angkaAtau(project.nplTolerancePercent, 0);
+  const projectedOpex = angkaAtau(project.projectedOpex, 0);
+  const arpu = angkaAtau(project.arpu, 0);
 
   const monthlySubsTargets = calculateMonthlySubscribers(
     project.targetSubscribers || 0,
     project.growthType || "LINEAR",
     project.growthSettings || null,
-    maxMonthsToShow,
+    jumlahBulan,
   );
 
-  const achievementByMonth = toAchievementMap(actualAchievements);
-
-  const recoveryType = project.investmentRecoveryType || "PERCENTAGE";
-  const recoveryValue = Number(project.investmentRecoveryValue || 50);
-  const opexGaps = calculateOpexGaps(
-    project,
-    monthlySubsTargets,
-    achievementByMonth,
-  );
+  const opexGaps = calculateOpexGaps(project, monthlySubsTargets.slice(0, durasi));
   const opexBuffer = calculateOpexBuffer(project, opexGaps);
   const capexTotal = getCapexTotal(project);
   const initialFundingNeed = capexTotal + opexBuffer.funding.investorShare;
   const investorDepositTotal = initialFundingNeed;
   let remainingInvestment = initialFundingNeed;
+  let bepMonth: number | null = null;
 
   let cumulativeGrossRevenue = 0;
   let cumulativeRevenue = 0;
@@ -245,116 +328,81 @@ export function buildRABTrackingDataset(
   let cumulativeInvestorShare = 0;
   let cumulativeCompanyShare = 0;
 
-  const rows: RABTrackingRow[] = Array.from({ length: maxMonthsToShow }).map(
-    (_, index) => {
-      const month = index + 1;
-      const targetSubscribers = monthlySubsTargets[index] || 0;
-      const billingSubscribers = getBillingSubscribers(
-        project,
-        monthlySubsTargets,
-        index,
-      );
+  const rows: RABTrackingRow[] = Array.from({ length: jumlahBulan }).map((_, index) => {
+    const month = index + 1;
+    const targetSubscribers = monthlySubsTargets[index] || 0;
+    const billingSubscribers = getBillingSubscribers(project, monthlySubsTargets, index);
+    const grossTargetRevenue = billingSubscribers * arpu;
+    const projectedRevenue = calculateProjectedRevenue(billingSubscribers, arpu, nplTolerancePercent);
+    const actualRecord = achievementByMonth.get(month);
+    const actualRevenue = actualRecord ? Number(actualRecord.actualRevenue) : null;
+    const isBelumDiisi = !actualRecord && month < capaianTerakhir;
 
-      const grossTargetRevenue = billingSubscribers * arpu;
-      const projectedRevenue = calculateProjectedRevenue(
-        billingSubscribers,
-        arpu,
-        nplTolerancePercent,
-      );
+    const displayRevenue = isBelumDiisi ? 0 : (actualRevenue ?? projectedRevenue);
+    const nplAmount = isBelumDiisi ? 0 : grossTargetRevenue - projectedRevenue;
+    const opexAktual = angkaManual(actualRecord?.actualOpex);
+    const opex = isBelumDiisi ? 0 : (opexAktual ?? projectedOpex);
+    const grossProfit = displayRevenue - opex;
+    const opexGap = opexGaps[index] || 0;
 
-      const actualRecord = achievementByMonth.get(month);
-      const actualRevenue = actualRecord
-        ? Number(actualRecord.actualRevenue)
-        : null;
-      const displayRevenue = actualRevenue ?? projectedRevenue;
-      const nplAmount = grossTargetRevenue - projectedRevenue;
-      const opexGap = opexGaps[index] || 0;
-      const grossProfit = displayRevenue - monthlyOpex;
+    const sisaSebelum = remainingInvestment;
+    const manualCicilan = angkaManual(actualRecord?.manualRecoveryInstallment);
+    const recoveryInstallment = isBelumDiisi
+      ? 0
+      : hitungCicilanModal(project, grossProfit, sisaSebelum, manualCicilan);
+    remainingInvestment = sisaSebelum - recoveryInstallment;
+    if (bepMonth === null && initialFundingNeed > 0 && sisaSebelum > 0 && remainingInvestment <= 0) {
+      bepMonth = month;
+    }
 
-      const hasManualRecoveryInstallment =
-        actualRecord?.manualRecoveryInstallment !== undefined &&
-        actualRecord?.manualRecoveryInstallment !== null;
-      let recoveryInstallment = 0;
+    const netProfit = Math.max(0, grossProfit - recoveryInstallment);
+    const pembagian = bagiLabaBersih(
+      netProfit,
+      getInvestorProfitSharePercent(project, sisaSebelum),
+      actualRecord,
+    );
 
-      if (hasManualRecoveryInstallment) {
-        recoveryInstallment = Number(actualRecord?.manualRecoveryInstallment);
-      } else if (remainingInvestment > 0 && grossProfit > 0) {
-        recoveryInstallment =
-          recoveryType === "PERCENTAGE"
-            ? (recoveryValue / 100) * grossProfit
-            : recoveryValue;
-        recoveryInstallment = Math.min(
-          recoveryInstallment,
-          remainingInvestment,
-          grossProfit,
-        );
-      }
+    cumulativeGrossRevenue += isBelumDiisi ? 0 : grossTargetRevenue;
+    cumulativeRevenue += displayRevenue;
+    cumulativeNplAmount += nplAmount;
+    cumulativeOpex += opex;
+    cumulativeGrossProfit += grossProfit;
+    cumulativeRecoveryInstallment += recoveryInstallment;
+    cumulativeInvestorShare += pembagian.investorShare;
+    cumulativeCompanyShare += pembagian.companyShare;
 
-      remainingInvestment -= recoveryInstallment;
-      const netProfit = Math.max(0, grossProfit - recoveryInstallment);
-
-      const hasManualInvestorShare =
-        actualRecord?.manualInvestorShare !== undefined &&
-        actualRecord?.manualInvestorShare !== null;
-      const hasManualCompanyShare =
-        actualRecord?.manualCompanyShare !== undefined &&
-        actualRecord?.manualCompanyShare !== null;
-      const hasManualInvestorProfitSharePercent =
-        actualRecord?.manualInvestorProfitSharePercent !== undefined &&
-        actualRecord?.manualInvestorProfitSharePercent !== null;
-
-      const investorProfitSharePercent = hasManualInvestorProfitSharePercent
-        ? Number(actualRecord?.manualInvestorProfitSharePercent)
-        : getInvestorProfitSharePercent(project, remainingInvestment);
-
-      const investorShare = hasManualInvestorShare
-        ? Number(actualRecord?.manualInvestorShare)
-        : (investorProfitSharePercent / 100) * netProfit;
-
-      const companyShare = hasManualCompanyShare
-        ? Number(actualRecord?.manualCompanyShare)
-        : netProfit - investorShare;
-
-      cumulativeGrossRevenue += grossTargetRevenue;
-      cumulativeRevenue += displayRevenue;
-      cumulativeNplAmount += nplAmount;
-      cumulativeOpex += monthlyOpex;
-      cumulativeGrossProfit += grossProfit;
-      cumulativeRecoveryInstallment += recoveryInstallment;
-      cumulativeInvestorShare += investorShare;
-      cumulativeCompanyShare += companyShare;
-
-      return {
-        month,
-        targetSubscribers,
-        billingSubscribers,
-        grossTargetRevenue,
-        projectedRevenue,
-        actualRevenue,
-        displayRevenue,
-        nplAmount,
-        opexGap,
-        grossProfit,
-        recoveryInstallment,
-        remainingInvestment,
-        netProfit,
-        investorProfitSharePercent,
-        investorShare,
-        companyShare,
-        isAutoAssumed: !actualRecord,
-        hasManualRecoveryInstallment,
-        hasManualInvestorShare,
-        hasManualCompanyShare,
-        hasManualInvestorProfitSharePercent,
-        cumulativeRevenue,
-        cumulativeNplAmount,
-        cumulativeGrossProfit,
-        cumulativeRecoveryInstallment,
-        cumulativeInvestorShare,
-        cumulativeCompanyShare,
-      };
-    },
-  );
+    return {
+      month,
+      targetSubscribers,
+      billingSubscribers,
+      grossTargetRevenue,
+      projectedRevenue,
+      actualRevenue,
+      displayRevenue,
+      nplAmount,
+      opexGap,
+      opex,
+      grossProfit,
+      recoveryInstallment,
+      remainingInvestment,
+      netProfit,
+      investorProfitSharePercent: pembagian.investorProfitSharePercent,
+      investorShare: pembagian.investorShare,
+      companyShare: pembagian.companyShare,
+      isAutoAssumed: !actualRecord,
+      isBelumDiisi,
+      hasManualRecoveryInstallment: manualCicilan !== null,
+      hasManualInvestorShare: pembagian.hasManualInvestorShare,
+      hasManualCompanyShare: pembagian.hasManualCompanyShare,
+      hasManualInvestorProfitSharePercent: pembagian.hasManualInvestorProfitSharePercent,
+      cumulativeRevenue,
+      cumulativeNplAmount,
+      cumulativeGrossProfit,
+      cumulativeRecoveryInstallment,
+      cumulativeInvestorShare,
+      cumulativeCompanyShare,
+    };
+  });
 
   return {
     rows,
@@ -378,9 +426,9 @@ export function buildRABTrackingDataset(
       opexBufferDurationLabel: opexBuffer.durationLabel,
       initialFundingNeed,
       investorDepositTotal,
-      investorTotalReceived:
-        cumulativeRecoveryInstallment + cumulativeInvestorShare,
+      investorTotalReceived: cumulativeRecoveryInstallment + cumulativeInvestorShare,
       companyTotalReceived: cumulativeCompanyShare,
+      bepMonth,
     },
   };
 }

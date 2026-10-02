@@ -2,8 +2,23 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient, RabStatus } from "@prisma/client";
 import type { IRabProjectRepository } from "../domain/ports/IRabProjectRepository";
 import { RabProjectUpdateRepository } from "./RabProjectUpdateRepository";
+
+/** Isian capaian bulan ke-n proyek (tahun sudah dihitung dari tanggal mulai). */
+export interface CapaianBulananInput {
+  rabProjectId: string;
+  month: number;
+  year: number;
+  actualSubscribers: number;
+  actualRevenue: bigint;
+  /** null = belum diisi → hitungan memakai OPEX rencana. */
+  actualOpex: bigint | null;
+  manualRecoveryInstallment: bigint | null;
+  manualInvestorShare: bigint | null;
+  manualCompanyShare: bigint | null;
+  manualInvestorProfitSharePercent: number | null;
+  notes?: string;
+}
 import {
-  buildActualAchievementUpsertArgs,
   buildDuplicateProjectCreateArgs,
   createBasicProjectQuery,
   createDraftProjectDeleteTransaction,
@@ -114,27 +129,58 @@ export class RabProjectRepository implements IRabProjectRepository {
   }
 
   /** Upsert actual achievement for a RAB project period. */
-  async upsertActualAchievement(input: {
-    rabProjectId: string;
-    month: number;
-    year: number;
-    actualSubscribers: number;
-    actualRevenue: bigint;
-    actualOpex: bigint;
-    manualRecoveryInstallment: bigint | null;
-    manualInvestorShare: bigint | null;
-    manualCompanyShare: bigint | null;
-    manualInvestorProfitSharePercent: number | null;
-    notes?: string;
-  }) {
-    return this.client.rabActualAchievement.upsert(
-      buildActualAchievementUpsertArgs(input),
-    );
+  async upsertActualAchievement(input: CapaianBulananInput) {
+    const { rabProjectId, month, ...isian } = input;
+    // Satu baris per bulan ke-n. Baris ganda data lama (tahun berbeda) untuk
+    // bulan yang sama dihapus agar hitungan tidak bergantung urutan baris.
+    return this.client.$transaction(async (tx) => {
+      const ada = await tx.rabActualAchievement.findMany({
+        where: { rabProjectId, month },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      });
+      if (ada.length === 0) {
+        return tx.rabActualAchievement.create({ data: { rabProjectId, month, ...isian } });
+      }
+      const [terbaru, ...ganda] = ada;
+      if (ganda.length > 0) {
+        await tx.rabActualAchievement.deleteMany({
+          where: { id: { in: ganda.map((baris) => baris.id) } },
+        });
+      }
+      return tx.rabActualAchievement.update({ where: { id: terbaru.id }, data: isian });
+    });
+  }
+
+  /**
+   * Apakah bulan ke-n proyek sudah masuk bagi hasil investor (selain yang
+   * dibatalkan). Bulan seperti itu tidak boleh diubah lagi — angka yang
+   * sudah dibayar harus tetap sama.
+   */
+  async isBulanSudahDibagikan(rabProjectId: string, month: number): Promise<boolean> {
+    const bagiHasil = await this.client.investorProfitShare.findFirst({
+      where: { rabProjectId, projectMonths: { has: month }, status: { not: "CANCELLED" } },
+      select: { id: true },
+    });
+    return Boolean(bagiHasil);
+  }
+
+  /** Apakah proyek sudah punya bagi hasil investor (selain yang dibatalkan). */
+  async hasBagiHasilInvestor(rabProjectId: string): Promise<boolean> {
+    const bagiHasil = await this.client.investorProfitShare.findFirst({
+      where: { rabProjectId, status: { not: "CANCELLED" } },
+      select: { id: true },
+    });
+    return Boolean(bagiHasil);
   }
 
   /** Update a RAB project and nested relations in one transaction. */
-  async updateProjectWithRelations(id: string, input: RabProjectUpdateInput) {
-    return this.updateRepository.updateProjectWithRelations(id, input);
+  async updateProjectWithRelations(
+    id: string,
+    input: RabProjectUpdateInput,
+    kunciModalInvestor = false,
+  ) {
+    return this.updateRepository.updateProjectWithRelations(id, input, kunciModalInvestor);
   }
 
   /** Create a complete RAB project with nested items and investors. */

@@ -19,6 +19,22 @@ import {
 } from "./rabProject.update-helpers";
 import { splitInvestmentBase } from "./shared/rabInvestmentCalculator";
 
+/** Proyek sudah punya bagi hasil investor; investor & modalnya tidak boleh berubah. */
+export class ModalInvestorTerkunciError extends Error {
+  constructor() {
+    super(
+      "Proyek ini sudah punya bagi hasil investor. Daftar investor dan modalnya tidak bisa diubah lagi.",
+    );
+    this.name = "ModalInvestorTerkunciError";
+  }
+}
+
+function isHimpunanSama(kiri: readonly string[], kanan: readonly string[]): boolean {
+  const a = new Set(kiri);
+  const b = new Set(kanan);
+  return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
 type RabProjectTransactionClient = Parameters<
   Parameters<PrismaClient["$transaction"]>[0]
 >[0];
@@ -34,14 +50,19 @@ export class RabProjectUpdateRepository {
   constructor(private readonly client: PrismaClient) {}
 
   /** Update a RAB project and nested relations in one transaction. */
+  /**
+   * @param kunciModalInvestor true bila proyek sudah punya bagi hasil investor:
+   *   daftar investor & modalnya tidak boleh berubah (seluruh update dibatalkan).
+   */
   async updateProjectWithRelations(
     id: string,
     input: RabProjectUpdateInput,
+    kunciModalInvestor = false,
   ): Promise<UpdatedRabProject> {
     return this.client.$transaction(async (tx) => {
       await tx.rabProject.update(buildProjectUpdateQuery(id, input));
       if (input.items !== undefined) await this.replaceItems(tx, id, input);
-      await this.syncInvestors(tx, id, input);
+      await this.syncInvestors(tx, id, input, kunciModalInvestor);
       return tx.rabProject.findUnique(buildUpdatedProjectQuery(id));
     });
   }
@@ -110,13 +131,25 @@ export class RabProjectUpdateRepository {
     tx: RabProjectTransactionClient,
     projectId: string,
     input: RabProjectUpdateInput,
+    kunciModalInvestor: boolean,
   ) {
-    if (input.investorIds !== undefined) {
+    const existing = await tx.rabInvestor.findMany({
+      where: { rabProjectId: projectId },
+      select: { investorId: true, investmentAmount: true },
+    });
+    const isDaftarBerubah =
+      input.investorIds !== undefined &&
+      !isHimpunanSama(existing.map((investor) => investor.investorId), input.investorIds);
+
+    if (isDaftarBerubah) {
+      if (kunciModalInvestor) throw new ModalInvestorTerkunciError();
       await this.replaceInvestors(tx, projectId, input);
       return;
     }
-    if (hasInvestorFundingBaseChange(input)) {
-      await this.recalculateExistingInvestors(tx, projectId, input);
+    // Daftar sama: baris investor dipertahankan (tidak dihapus-buat ulang),
+    // hanya nominal modal yang disesuaikan bila dasar pendanaan berubah.
+    if (existing.length > 0 && hasInvestorFundingBaseChange(input)) {
+      await this.updateExistingInvestorAmounts(tx, projectId, input, existing, kunciModalInvestor);
     }
   }
 
@@ -142,32 +175,20 @@ export class RabProjectUpdateRepository {
     });
   }
 
-  private async recalculateExistingInvestors(
-    tx: RabProjectTransactionClient,
-    projectId: string,
-    input: RabProjectUpdateInput,
-  ) {
-    const existingInvestors = await tx.rabInvestor.findMany({
-      where: { rabProjectId: projectId },
-    });
-    if (existingInvestors.length === 0) return;
-    await this.updateExistingInvestorAmounts(
-      tx,
-      projectId,
-      input,
-      existingInvestors,
-    );
-  }
-
   private async updateExistingInvestorAmounts(
     tx: RabProjectTransactionClient,
     projectId: string,
     input: RabProjectUpdateInput,
-    investors: Array<{ investorId: string }>,
+    investors: Array<{ investorId: string; investmentAmount: bigint }>,
+    kunciModalInvestor: boolean,
   ) {
     const context = await this.getInvestmentContext(tx, projectId, input);
     const investorIds = investors.map((investor) => investor.investorId);
     const amounts = splitInvestmentBase(context.investmentBase, investorIds);
+    const isModalBerubah = investors.some(
+      (investor, index) => investor.investmentAmount !== BigInt(amounts[index] ?? 0),
+    );
+    if (isModalBerubah && kunciModalInvestor) throw new ModalInvestorTerkunciError();
     for (const [index, investorId] of investorIds.entries()) {
       await tx.rabInvestor.updateMany({
         where: { rabProjectId: projectId, investorId },

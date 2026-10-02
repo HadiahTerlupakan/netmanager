@@ -48,7 +48,7 @@ function proyek(ubah: Record<string, unknown> = {}) {
 
 const repo = {
   findProjectsForProfitShare: vi.fn(),
-  existsForInvestorProjectPeriod: vi.fn(),
+  findPaidProjectMonths: vi.fn(),
   create: vi.fn(async (data: Record<string, unknown>) => data),
 };
 const service = new InvestorProfitShareService(repo as never);
@@ -57,7 +57,7 @@ const AGUSTUS = [new Date("2026-08-01T00:00:00.000Z"), new Date("2026-08-31T00:0
 describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    repo.existsForInvestorProjectPeriod.mockResolvedValue(false);
+    repo.findPaidProjectMonths.mockResolvedValue(new Set());
   });
 
   it("memakai tracking RAB: pengembalian modal + bagi hasil dibagi sesuai porsi modal", async () => {
@@ -76,6 +76,7 @@ describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
         shareAmount: 600_000,
         capitalReturnAmount: 1_200_000,
         sharePercent: 30,
+        projectMonths: [3],
         tenantId: "t-1",
       }),
     );
@@ -100,6 +101,30 @@ describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
     ]);
   });
 
+  it("periode tumpang tindih tidak membayar bulan yang sama dua kali", async () => {
+    repo.findProjectsForProfitShare.mockResolvedValue([
+      proyek({
+        actualAchievements: [2, 3].map((month) => ({
+          month,
+          actualRevenue: 5_000_000n,
+          actualOpex: null as bigint | null,
+          manualRecoveryInstallment: null as bigint | null,
+          manualInvestorShare: null as bigint | null,
+          manualCompanyShare: null as bigint | null,
+          manualInvestorProfitSharePercent: null as number | null,
+        })),
+      }),
+    ]);
+    // Bulan ke-3 (Agustus) sudah dibagikan lewat perhitungan Agustus sebelumnya.
+    repo.findPaidProjectMonths.mockResolvedValue(new Set([3]));
+
+    await service.calculateForPeriod("t-1", new Date("2026-07-01T00:00:00.000Z"), new Date("2026-08-31T00:00:00.000Z"));
+
+    for (const [data] of repo.create.mock.calls) {
+      expect(data).toMatchObject({ projectMonths: [2] });
+    }
+  });
+
   it("aman diulang: investor yang sudah dihitung dan investor nonaktif dilewati", async () => {
     repo.findProjectsForProfitShare.mockResolvedValue([
       proyek({
@@ -109,12 +134,12 @@ describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
         ],
       }),
     ]);
-    repo.existsForInvestorProjectPeriod.mockResolvedValue(true);
+    repo.findPaidProjectMonths.mockResolvedValue(new Set([3]));
 
     const hasil = await service.calculateForPeriod("t-1", ...AGUSTUS);
 
     expect(repo.create).not.toHaveBeenCalled();
     expect(hasil.dibuat).toEqual([]);
-    expect(repo.existsForInvestorProjectPeriod).toHaveBeenCalledTimes(1);
+    expect(repo.findPaidProjectMonths).toHaveBeenCalledTimes(1);
   });
 });

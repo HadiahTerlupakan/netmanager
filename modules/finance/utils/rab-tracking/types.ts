@@ -38,6 +38,10 @@ export type RABInvestorProfitShareMode = "FLAT" | "TIERED_AFTER_BEP";
 export interface RabTrackingAchievement {
   month: number;
   actualRevenue: number;
+  /** OPEX aktual; null/undefined = belum diisi → OPEX rencana dipakai. */
+  actualOpex?: number | null;
+  /** Untuk memilih baris terbaru bila ada duplikat bulan (data lama). */
+  updatedAt?: string | Date;
   manualRecoveryInstallment?: number | null;
   manualInvestorShare?: number | null;
   manualCompanyShare?: number | null;

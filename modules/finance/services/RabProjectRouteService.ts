@@ -1,3 +1,4 @@
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { buildRabBottleneckMetrics } from "../utils/rab-bottleneck-metrics";
 import {
   buildRabRevisionVarianceSummary,
@@ -8,6 +9,7 @@ import {
   type RabProjectUpdateInput,
 } from "../repositories/RabProjectRepository";
 import { ExpenseRepository } from "../repositories/ExpenseRepository";
+import { ModalInvestorTerkunciError } from "../repositories/RabProjectUpdateRepository";
 import {
   buildItemActualTotals,
   getItemActualTotal,
@@ -27,13 +29,33 @@ import {
   pickRabProjectSummary,
 } from "./rab-project-route.helpers";
 
+const HTTP_CONFLICT = 409;
+
+function isTanggalSama(kiri: Date | null, kanan: Date | null): boolean {
+  if (!kiri || !kanan) return kiri === kanan;
+  return kiri.toISOString().slice(0, 10) === kanan.toISOString().slice(0, 10);
+}
+
+/** Tahun kalender bulan ke-n proyek; tanpa tanggal mulai pakai tahun dari klien/sekarang. */
+function tahunBulanProyek(
+  tanggalMulai: Date | null,
+  bulanKe: number,
+  tahunCadangan?: number,
+): number {
+  if (!tanggalMulai) return tahunCadangan ?? new Date().getFullYear();
+  return new Date(
+    Date.UTC(tanggalMulai.getUTCFullYear(), tanggalMulai.getUTCMonth() + bulanKe - 1, 1),
+  ).getUTCFullYear();
+}
+
 type ActualAchievementInput = {
   rabProjectId: string;
   month: number;
-  year: number;
+  /** Dipakai hanya bila proyek belum punya tanggal mulai. */
+  year?: number;
   actualSubscribers: number;
   actualRevenue: bigint;
-  actualOpex: bigint;
+  actualOpex: bigint | null;
   manualRecoveryInstallment: bigint | null;
   manualInvestorShare: bigint | null;
   manualCompanyShare: bigint | null;
@@ -61,12 +83,32 @@ export class RabProjectRouteService {
   async updateProject(id: string, input: RabProjectUpdateInput) {
     assertMutableRabProjectStatus(input.status);
 
-    const project = assertRabProjectExists(
-      await this.rabProjectRepository.updateProjectWithRelations(id, input),
-      "Proyek RAB",
-    );
+    // Proyek yang sudah punya bagi hasil investor: tanggal mulai (penentu bulan
+    // ke-n), daftar investor, dan modalnya dikunci agar bulan yang sudah dibayar
+    // tidak bergeser atau terhitung ulang.
+    const kunciModalInvestor = await this.rabProjectRepository.hasBagiHasilInvestor(id);
+    if (kunciModalInvestor && input.startDate !== undefined) {
+      const sekarang = await this.rabProjectRepository.findById(id);
+      if (!isTanggalSama(sekarang?.startDate ?? null, input.startDate ?? null)) {
+        throw createRouteServiceError(
+          "Proyek ini sudah punya bagi hasil investor. Tanggal mulai tidak bisa diubah lagi.",
+          HTTP_CONFLICT,
+        );
+      }
+    }
 
-    return serializeUpdatedProject(project);
+    try {
+      const project = assertRabProjectExists(
+        await this.rabProjectRepository.updateProjectWithRelations(id, input, kunciModalInvestor),
+        "Proyek RAB",
+      );
+      return serializeUpdatedProject(project);
+    } catch (error) {
+      if (error instanceof ModalInvestorTerkunciError) {
+        throw createRouteServiceError(error.message, HTTP_CONFLICT);
+      }
+      throw error;
+    }
   }
 
   /** Delete a draft RAB project safely. */
@@ -90,15 +132,27 @@ export class RabProjectRouteService {
     return serializeDuplicatedProject(project);
   }
 
-  /** Upsert actual achievement for a RAB project. */
+  /**
+   * Simpan capaian bulan ke-n proyek. Tahun dihitung dari tanggal mulai
+   * proyek (bukan dari klien). Bulan yang sudah masuk bagi hasil investor
+   * dikunci agar angka yang sudah dibayar tidak berubah.
+   */
   async upsertActualAchievement(input: ActualAchievementInput) {
-    assertRabProjectExists(
+    const project = assertRabProjectExists(
       await this.rabProjectRepository.findById(input.rabProjectId),
       "RAB Project",
     );
+    if (await this.rabProjectRepository.isBulanSudahDibagikan(input.rabProjectId, input.month)) {
+      throw createRouteServiceError(
+        `Bulan ke-${input.month} sudah masuk bagi hasil investor dan tidak bisa diubah lagi. Bila bagi hasilnya belum dibayar, batalkan dulu di Investor → Bagi Hasil.`,
+        HTTP_CONFLICT,
+      );
+    }
 
-    const achievement =
-      await this.rabProjectRepository.upsertActualAchievement(input);
+    const achievement = await this.rabProjectRepository.upsertActualAchievement({
+      ...input,
+      year: tahunBulanProyek(project.startDate, input.month, input.year),
+    });
     return serializeAchievement(achievement);
   }
 

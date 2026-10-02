@@ -9,7 +9,7 @@ type ItemWithDisbursements = {
 
 type AchievementRecord = {
   actualRevenue: bigint;
-  actualOpex: bigint;
+  actualOpex: bigint | null;
   manualRecoveryInstallment: bigint | null;
   manualInvestorShare: bigint | null;
   manualCompanyShare: bigint | null;
@@ -52,7 +52,7 @@ function serializeActualAchievements(achievements: AchievementRecord[]) {
   return achievements.map((achievement) => ({
     ...achievement,
     actualRevenue: achievement.actualRevenue.toString(),
-    actualOpex: achievement.actualOpex.toString(),
+    actualOpex: achievement.actualOpex?.toString() ?? null,
     manualRecoveryInstallment:
       achievement.manualRecoveryInstallment?.toString() || null,
     manualInvestorShare: achievement.manualInvestorShare?.toString() || null,
@@ -132,7 +132,7 @@ export function serializeDuplicatedProject(
 export function serializeAchievement(
   achievement: {
     actualRevenue: bigint;
-    actualOpex: bigint;
+    actualOpex: bigint | null;
     manualRecoveryInstallment: bigint | null;
     manualInvestorShare: bigint | null;
     manualCompanyShare: bigint | null;
@@ -142,7 +142,7 @@ export function serializeAchievement(
   return {
     ...achievement,
     actualRevenue: achievement.actualRevenue.toString(),
-    actualOpex: achievement.actualOpex.toString(),
+    actualOpex: achievement.actualOpex?.toString() ?? null,
     manualRecoveryInstallment:
       achievement.manualRecoveryInstallment?.toString() || null,
     manualInvestorShare: achievement.manualInvestorShare?.toString() || null,

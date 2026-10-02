@@ -2,11 +2,7 @@ import { logger } from "@/lib/logger";
 import { buildRABTrackingDataset } from "@/modules/finance/client";
 import type { InvestorProfitShareStatus } from "@prisma/client";
 
-import {
-  bagianInvestor,
-  bulatkanRupiah,
-  ringkasPeriodeProyek,
-} from "../domain/bagi-hasil-proyek";
+import { bagianInvestor, barisDalamPeriode } from "../domain/bagi-hasil-proyek";
 import { hitungPorsiModal } from "../domain/porsi-investor-proyek";
 import {
   InvestorProfitShareRepository,
@@ -35,8 +31,9 @@ export class InvestorProfitShareService {
    * Per proyek RAB yang sudah disetujui: ambil baris tracking RAB (mesin yang
    * sama dengan halaman admin RAB) untuk bulan yang punya capaian aktual di
    * periode; bagian investor (bagi hasil + pengembalian modal) dibagi ke tiap
-   * investor sesuai porsi modalnya. Investor+proyek+periode yang sudah
-   * dihitung dilewati (aman diulang).
+   * investor sesuai porsi modalnya. Bulan proyek yang sudah pernah dibagikan
+   * ke investor itu dilewati — aman diulang dan periode boleh tumpang tindih
+   * tanpa membayar dua kali.
    */
   async calculateForPeriod(tenantId: string, periodStart: Date, periodEnd: Date) {
     const proyekList = await this.profitShareRepo.findProjectsForProfitShare(tenantId);
@@ -65,32 +62,32 @@ export class InvestorProfitShareService {
     if (!proyek.startDate) return lewati(ALASAN_TANPA_TANGGAL_MULAI);
 
     const { rows } = buildRABTrackingDataset(keInputTracking(proyek), keCapaianTracking(proyek));
-    const ringkasan = ringkasPeriodeProyek(rows, proyek.startDate, periodStart, periodEnd);
-    if (ringkasan.jumlahBulan === 0) return lewati(ALASAN_TANPA_CAPAIAN);
+    const barisPeriode = barisDalamPeriode(rows, proyek.startDate, periodStart, periodEnd);
+    if (barisPeriode.length === 0) return lewati(ALASAN_TANPA_CAPAIAN);
 
     const semuaModal = proyek.investors.map((investor) => investor.investmentAmount);
     const dibuat = [];
     for (const anggota of proyek.investors) {
       if (!anggota.investor.isActive) continue;
-      const sudahAda = await this.profitShareRepo.existsForInvestorProjectPeriod(
+      const sudahDibayar = await this.profitShareRepo.findPaidProjectMonths(
         anggota.investorId,
         proyek.id,
-        periodStart,
-        periodEnd,
       );
-      if (sudahAda) continue;
+      const barisBaru = barisPeriode.filter((baris) => !sudahDibayar.has(baris.month));
+      if (barisBaru.length === 0) continue;
 
       const bagian = bagianInvestor(
-        ringkasan,
+        barisBaru,
         hitungPorsiModal(anggota.investmentAmount, semuaModal),
       );
       dibuat.push(
         await this.profitShareRepo.create({
           investorId: anggota.investorId,
           rabProjectId: proyek.id,
+          projectMonths: bagian.bulan,
           periodStart,
           periodEnd,
-          netProfit: bulatkanRupiah(ringkasan.labaBersih),
+          netProfit: bagian.labaBersih,
           sharePercent: bagian.persenDariLaba,
           shareAmount: bagian.bagiHasil,
           capitalReturnAmount: bagian.pengembalianModal,
@@ -137,6 +134,20 @@ export class InvestorProfitShareService {
       );
 
     return approved;
+  }
+
+  /**
+   * Batalkan bagi hasil yang belum dibayar. Yang sudah dibayar tidak bisa
+   * dibatalkan karena uangnya sudah dikirim ke investor.
+   */
+  async cancel(id: string) {
+    const record = await this.profitShareRepo.findById(id);
+    if (!record) throw new Error("Profit share tidak ditemukan");
+    if (record.status === "PAID") {
+      throw new Error("Bagi hasil yang sudah dibayar tidak bisa dibatalkan");
+    }
+    if (record.status === "CANCELLED") return record;
+    return this.profitShareRepo.updateStatus(id, { status: "CANCELLED" });
   }
 
   /** Tandai profit share sebagai dibayar: APPROVED → PAID. */

@@ -32,27 +32,6 @@ export function createDraftProjectDeleteTransaction(
   ] as const;
 }
 
-/** Builds the upsert payload for actual achievement rows. */
-export function buildActualAchievementUpsertArgs(input: {
-  rabProjectId: string;
-  month: number;
-  year: number;
-  actualSubscribers: number;
-  actualRevenue: bigint;
-  actualOpex: bigint;
-  manualRecoveryInstallment: bigint | null;
-  manualInvestorShare: bigint | null;
-  manualCompanyShare: bigint | null;
-  manualInvestorProfitSharePercent: number | null;
-  notes?: string;
-}) {
-  return {
-    where: createActualAchievementWhere(input),
-    create: input,
-    update: createActualAchievementUpdate(input),
-  };
-}
-
 /** Creates a full project inside an open Prisma transaction. */
 export async function createFullProjectInTransaction(
   tx: TransactionClient,
@@ -91,52 +70,6 @@ export function buildDuplicateProjectCreateArgs(
     data: createDuplicateProjectData(sourceProject, userId),
     include: duplicateProjectInclude,
   } satisfies Prisma.RabProjectCreateArgs;
-}
-
-function createActualAchievementWhere(input: {
-  rabProjectId: string;
-  month: number;
-  year: number;
-}) {
-  return {
-    rabProjectId_month_year: {
-      rabProjectId: input.rabProjectId,
-      month: input.month,
-      year: input.year,
-    },
-  };
-}
-
-function createActualAchievementUpdate(input: {
-  actualSubscribers: number;
-  actualRevenue: bigint;
-  actualOpex: bigint;
-  manualRecoveryInstallment: bigint | null;
-  manualInvestorShare: bigint | null;
-  manualCompanyShare: bigint | null;
-  manualInvestorProfitSharePercent: number | null;
-  notes?: string;
-}) {
-  const {
-    actualSubscribers,
-    actualRevenue,
-    actualOpex,
-    manualRecoveryInstallment,
-    manualInvestorShare,
-    manualCompanyShare,
-    manualInvestorProfitSharePercent,
-    notes,
-  } = input;
-  return {
-    actualSubscribers,
-    actualRevenue,
-    actualOpex,
-    manualRecoveryInstallment,
-    manualInvestorShare,
-    manualCompanyShare,
-    manualInvestorProfitSharePercent,
-    notes,
-  };
 }
 
 function createDuplicateProjectData(

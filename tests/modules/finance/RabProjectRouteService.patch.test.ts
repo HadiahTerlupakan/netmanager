@@ -39,6 +39,7 @@ describe("RabProjectRouteService PATCH", () => {
   it("mengupdate proyek dan menserialisasi nilai bigint untuk response route", async () => {
     const repository = {
       updateProjectWithRelations: vi.fn().mockResolvedValue(updatedProject),
+      hasBagiHasilInvestor: vi.fn().mockResolvedValue(false),
     };
     const service = new RabProjectRouteService(repository as never);
 
@@ -49,6 +50,7 @@ describe("RabProjectRouteService PATCH", () => {
       {
         name: "RAB Baru",
       },
+      false,
     );
     expect(result).toEqual({
       ...updatedProject,
@@ -76,11 +78,51 @@ describe("RabProjectRouteService PATCH", () => {
   it("mengembalikan not found ketika proyek yang diupdate tidak ada", async () => {
     const repository = {
       updateProjectWithRelations: vi.fn().mockResolvedValue(null),
+      hasBagiHasilInvestor: vi.fn().mockResolvedValue(false),
     };
     const service = new RabProjectRouteService(repository as never);
 
     await expect(
       service.updateProject("rab-1", { name: "RAB Baru" }),
     ).rejects.toMatchObject({ status: 404, message: "Proyek RAB" });
+  });
+
+  it("RAB yang sudah punya bagi hasil: tanggal mulai tidak bisa diubah (409)", async () => {
+    const repository = {
+      updateProjectWithRelations: vi.fn(),
+      hasBagiHasilInvestor: vi.fn().mockResolvedValue(true),
+      findById: vi.fn().mockResolvedValue({ startDate: new Date("2026-06-01T00:00:00.000Z") }),
+    };
+    const service = new RabProjectRouteService(repository as never);
+
+    await expect(
+      service.updateProject("rab-1", { startDate: new Date("2026-08-01T00:00:00.000Z") }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(repository.updateProjectWithRelations).not.toHaveBeenCalled();
+
+    repository.updateProjectWithRelations.mockResolvedValue(null);
+    await service
+      .updateProject("rab-1", { startDate: new Date("2026-06-01T00:00:00.000Z") })
+      .catch((): undefined => undefined);
+    expect(repository.updateProjectWithRelations).toHaveBeenCalledWith(
+      "rab-1",
+      expect.anything(),
+      true,
+    );
+  });
+
+  it("perubahan investor/modal yang dikunci repository menjadi 409", async () => {
+    const { ModalInvestorTerkunciError } = await import(
+      "@/modules/finance/repositories/RabProjectUpdateRepository"
+    );
+    const repository = {
+      updateProjectWithRelations: vi.fn().mockRejectedValue(new ModalInvestorTerkunciError()),
+      hasBagiHasilInvestor: vi.fn().mockResolvedValue(true),
+    };
+    const service = new RabProjectRouteService(repository as never);
+
+    await expect(service.updateProject("rab-1", { investorIds: ["inv-x"] })).rejects.toMatchObject({
+      status: 409,
+    });
   });
 });

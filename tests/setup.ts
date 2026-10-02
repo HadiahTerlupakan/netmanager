@@ -44,6 +44,7 @@ export type MockPrismaClient = {
   hargaPaket: MockModel;
   holiday: MockModel;
   investor: MockModel;
+  investorProfitShare: MockModel;
   invoice: MockModel;
   leaveRequest: MockModel;
   mitra: MockModel;

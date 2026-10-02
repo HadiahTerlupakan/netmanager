@@ -4016,7 +4016,8 @@ model RabActualAchievement {
   year                             Int
   actualSubscribers                Int
   actualRevenue                    BigInt
-  actualOpex                       BigInt     @default(0)
+  /// OPEX aktual bulan ini; null = belum diisi → hitungan memakai OPEX rencana RAB.
+  actualOpex                       BigInt?
   manualRecoveryInstallment        BigInt?
   manualInvestorShare              BigInt?
   manualCompanyShare               BigInt?
@@ -5581,6 +5582,8 @@ model InvestorProfitShare {
   shareAmount         Decimal                   @db.Decimal(19, 2)
   /// Pengembalian modal (cicilan investasi RAB) untuk investor di periode ini.
   capitalReturnAmount Decimal                   @default(0) @db.Decimal(19, 2)
+  /// Bulan ke-n proyek yang tercakup bagi hasil ini (cegah bulan dibayar dua kali).
+  projectMonths       Int[]                     @default([])
   status              InvestorProfitShareStatus @default(CALCULATED)
   approvedAt          DateTime?
   approvedById        String?

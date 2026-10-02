@@ -6,7 +6,6 @@ import type {
 } from "./rabProject.types";
 
 export {
-  buildActualAchievementUpsertArgs,
   buildDuplicateProjectCreateArgs,
   createDraftProjectDeleteTransaction,
   createFullProjectInTransaction,

@@ -73,7 +73,8 @@ type ProjectDetailResponse = {
     month: number;
     year: number;
     achievedRevenue: string;
-    opex: string;
+    /** OPEX aktual yang diisi admin; null = belum diisi. */
+    opex: string | null;
     /** Biaya operasional yang dipakai hitungan RAB bulan ini. */
     opexUsed: number;
     /** Bagi hasil milik investor ini bulan ini (hitungan RAB). */
@@ -120,7 +121,7 @@ export function toProjectListItem(
     status: item.rabProject.status,
     siteName: item.rabProject.site?.name,
     investmentAmount: item.investmentAmount.toString(),
-    profitSharePercent: item.profitSharePercent,
+    profitSharePercent: hitungHasilInvestorProyek(item.rabProject, item.investmentAmount).persenBerlaku,
     projectedRevenue: item.rabProject.projectedRevenue.toString(),
     projectedOpex: item.rabProject.projectedOpex.toString(),
     contingencyAmount: item.rabProject.contingencyAmount.toString(),
@@ -161,7 +162,7 @@ export function toProjectDetail(
     billingSource: getBillingSource(rabProject.siteId),
     startDate: rabProject.startDate,
     investmentAmount: project.investmentAmount.toString(),
-    profitSharePercent: project.profitSharePercent,
+    profitSharePercent: hasil.persenBerlaku,
     projectedRevenue: rabProject.projectedRevenue.toString(),
     projectedOpex: rabProject.projectedOpex.toString(),
     contingencyAmount: rabProject.contingencyAmount.toString(),
@@ -175,7 +176,7 @@ export function toProjectDetail(
         month: achievement.month,
         year: achievement.year,
         achievedRevenue: achievement.actualRevenue.toString(),
-        opex: achievement.actualOpex.toString(),
+        opex: achievement.actualOpex?.toString() ?? null,
         opexUsed: bulan?.opex ?? ZERO_NUMBER,
         myProfitShare: bulan?.myProfitShare ?? ZERO_NUMBER,
         myCapitalReturn: bulan?.myCapitalReturn ?? ZERO_NUMBER,
