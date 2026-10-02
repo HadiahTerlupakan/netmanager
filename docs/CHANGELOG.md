@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Endpoint mobile "Pelanggan saya" untuk sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan`, `app/api/mobile/pelanggan/saya`
+- **Author**: agent
+- **Deskripsi**: `GET /api/mobile/pelanggan/saya` (izin `m_presurvei:read`) memuat pelanggan yang dipegang
+  sales. Lingkupnya sendiri untuk sales, tim untuk kepala sales, dan seluruh tenant untuk head of sales.
+  Setiap pelanggan membawa status, WO terbuka terbaru, dan jumlah keluhan terbuka. Mendukung cari, filter
+  status, dan paginasi (maks 50). Saringan lingkup kini ada di helper `lib/api/lingkup-sales.ts`,
+  dipakai bersama endpoint tunggakan.
+- **Files**: `app/api/mobile/pelanggan/saya/route.ts`, `lib/api/lingkup-sales.ts`,
+  `modules/pelanggan/services/PelangganSalesService.ts`, `modules/pelanggan/repositories/PelangganSalesRepository.ts`,
+  `modules/pelanggan/validators/pelanggan-saya.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — WO dari tiket keluhan kini menyimpan ticketId
 
 - **Tipe**: [FIXED]

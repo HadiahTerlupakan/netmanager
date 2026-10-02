@@ -84,3 +84,43 @@ describe("PelangganSalesService", () => {
     expect(repo.daftarIsolir).toHaveBeenCalledWith("t1", null);
   });
 });
+
+describe("PelangganSalesService.daftarPelangganSaya", () => {
+  const FILTER = { page: 2, limit: 10, cari: "budi" };
+  const BARIS_SAYA = {
+    ...baris("a", "s-ani", "Ani", "2026-10-10T00:00:00Z"),
+    status: "AKTIF",
+    work_orders: [{ workOrderNumber: "WO-1", status: "ASSIGNED", type: "TROUBLESHOOT" }],
+    _count: { support_tickets: 2 },
+  };
+
+  it("meneruskan saringan & offset halaman, lalu memetakan WO terbuka dan jumlah keluhan", async () => {
+    const daftarPelangganSales = vi.fn(async () => ({ data: [BARIS_SAYA], total: 11 }));
+    const service = new PelangganSalesService(repoPalsu({ daftarPelangganSales }));
+
+    const hasil = await service.daftarPelangganSaya("t1", { salesIds: ["s-ani"] }, FILTER);
+
+    expect(daftarPelangganSales).toHaveBeenCalledWith(
+      "t1",
+      { salesIds: ["s-ani"] },
+      { cari: "budi", status: undefined },
+      { lewati: 10, ambil: 10 },
+    );
+    expect(hasil.total).toBe(11);
+    expect(hasil.data[0]).toMatchObject({
+      namaSales: "Ani",
+      woTerbuka: { nomor: "WO-1", status: "ASSIGNED", jenis: "TROUBLESHOOT" },
+      jumlahKeluhanTerbuka: 2,
+    });
+  });
+
+  it("lingkup tanpa sales sama sekali → kosong tanpa query", async () => {
+    const daftarPelangganSales = vi.fn();
+    const service = new PelangganSalesService(repoPalsu({ daftarPelangganSales }));
+
+    const hasil = await service.daftarPelangganSaya("t1", { salesIds: [] }, FILTER);
+
+    expect(hasil).toEqual({ data: [], total: 0, page: 2, limit: 10 });
+    expect(daftarPelangganSales).not.toHaveBeenCalled();
+  });
+});

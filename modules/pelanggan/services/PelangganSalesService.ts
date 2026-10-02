@@ -2,6 +2,7 @@ import { createRouteServiceError } from "@/lib/api/route-service-error";
 
 import {
   PelangganSalesRepository,
+  type BarisPelangganSaya,
   type BarisPelangganTunggakan,
   type SaringanSales,
 } from "../repositories/PelangganSalesRepository";
@@ -40,7 +41,53 @@ export interface RingkasanTunggakan {
   kelompok: KelompokTunggakan[];
 }
 
+/** Satu pelanggan pada daftar "Pelanggan saya" sales. */
+export interface PelangganSayaDTO {
+  id: string;
+  idPelanggan: string;
+  nama: string;
+  status: string;
+  paket: string | null;
+  alamat: string | null;
+  noTelp: string | null;
+  jatuhTempo: string;
+  siteName: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  namaSales: string | null;
+  /** WO terbuka terbaru (gangguan/pekerjaan yang sedang berjalan), bila ada. */
+  woTerbuka: { nomor: string; status: string; jenis: string } | null;
+  jumlahKeluhanTerbuka: number;
+}
+
+export interface FilterPelangganSaya {
+  cari?: string;
+  status?: "AKTIF" | "ISOLIR" | "NONAKTIF" | "MAINTENANCE";
+  page: number;
+  limit: number;
+}
+
 const NAMA_TANPA_SALES = "Belum ada sales";
+
+function keDtoPelangganSaya(baris: BarisPelangganSaya): PelangganSayaDTO {
+  const wo = baris.work_orders[0];
+  return {
+    id: baris.id,
+    idPelanggan: baris.idPelanggan,
+    nama: baris.nama,
+    status: baris.status,
+    paket: baris.hargaPaket?.name ?? null,
+    alamat: baris.alamat,
+    noTelp: baris.noTelp,
+    jatuhTempo: baris.jatuhTempo.toISOString(),
+    siteName: baris.site?.name ?? null,
+    latitude: baris.latitude,
+    longitude: baris.longitude,
+    namaSales: baris.sales?.name ?? null,
+    woTerbuka: wo ? { nomor: wo.workOrderNumber, status: wo.status, jenis: wo.type } : null,
+    jumlahKeluhanTerbuka: baris._count.support_tickets,
+  };
+}
 
 function hariLewat(jatuhTempo: Date, sekarang: Date): number {
   return Math.max(0, Math.floor((sekarang.getTime() - jatuhTempo.getTime()) / MS_SEHARI));
@@ -117,6 +164,23 @@ export class PelangganSalesService {
     if (!pelanggan) throw createRouteServiceError("Pelanggan tidak ditemukan", HTTP_NOT_FOUND);
     if (salesId) await this.pastikanSalesAktif(tenantId, salesId);
     return this.repository.tetapkanSales(pelangganId, salesId);
+  }
+
+  /**
+   * Pelanggan yang dipegang sales pemanggil (sendiri / tim / seluruh tenant),
+   * lengkap dengan WO terbuka dan jumlah keluhan terbuka. Paginasi wajib.
+   */
+  async daftarPelangganSaya(tenantId: string, saringan: SaringanSales, filter: FilterPelangganSaya) {
+    if (saringan && saringan.salesIds.length === 0) {
+      return { data: [] as PelangganSayaDTO[], total: 0, page: filter.page, limit: filter.limit };
+    }
+    const { data, total } = await this.repository.daftarPelangganSales(
+      tenantId,
+      saringan,
+      { cari: filter.cari, status: filter.status },
+      { lewati: (filter.page - 1) * filter.limit, ambil: filter.limit },
+    );
+    return { data: data.map(keDtoPelangganSaya), total, page: filter.page, limit: filter.limit };
   }
 
   /**

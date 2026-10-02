@@ -21,6 +21,36 @@ const PILIH_PELANGGAN_TUNGGAKAN = {
 
 export type BarisPelangganTunggakan = Prisma.PelangganGetPayload<{ select: typeof PILIH_PELANGGAN_TUNGGAKAN }>;
 
+/** Status WO yang dianggap masih berjalan (ada gangguan/pekerjaan terbuka). */
+export const STATUS_WO_TERBUKA = ["REQUESTED", "PENDING", "ASSIGNED", "IN_PROGRESS", "ON_HOLD"] as const;
+/** Status tiket keluhan yang belum selesai. */
+export const STATUS_TIKET_TERBUKA = ["OPEN", "IN_PROGRESS"] as const;
+
+const PILIH_PELANGGAN_SAYA = {
+  id: true,
+  idPelanggan: true,
+  nama: true,
+  status: true,
+  alamat: true,
+  noTelp: true,
+  jatuhTempo: true,
+  latitude: true,
+  longitude: true,
+  site: { select: { name: true } },
+  hargaPaket: { select: { name: true } },
+  salesId: true,
+  sales: { select: { name: true } },
+  work_orders: {
+    where: { status: { in: [...STATUS_WO_TERBUKA] } },
+    select: { workOrderNumber: true, status: true, type: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
+  _count: { select: { support_tickets: { where: { status: { in: [...STATUS_TIKET_TERBUKA] } } } } },
+} satisfies Prisma.PelangganSelect;
+
+export type BarisPelangganSaya = Prisma.PelangganGetPayload<{ select: typeof PILIH_PELANGGAN_SAYA }>;
+
 /** Saringan sales pada daftar tunggakan; `null` = seluruh tenant. */
 export type SaringanSales = { salesIds: string[] } | null;
 
@@ -63,6 +93,45 @@ export class PelangganSalesRepository {
       data: { salesId },
       select: { id: true, salesId: true, sales: { select: { id: true, name: true } } },
     });
+  }
+
+  /**
+   * Pelanggan per sales penanggung jawab (bukan DISMANTLE) beserta WO terbuka
+   * terbaru dan jumlah keluhan terbuka; dicari di nama/ID/telepon/alamat.
+   */
+  async daftarPelangganSales(
+    tenantId: string,
+    saringan: SaringanSales,
+    filter: { cari?: string; status?: "AKTIF" | "ISOLIR" | "NONAKTIF" | "MAINTENANCE" },
+    halaman: { lewati: number; ambil: number },
+  ): Promise<{ data: BarisPelangganSaya[]; total: number }> {
+    const cari = filter.cari?.trim();
+    const where: Prisma.PelangganWhereInput = {
+      tenantId,
+      status: filter.status ?? { not: "DISMANTLE" },
+      ...(saringan ? { salesId: { in: saringan.salesIds } } : { salesId: { not: null } }),
+      ...(cari
+        ? {
+            OR: [
+              { nama: { contains: cari, mode: "insensitive" } },
+              { idPelanggan: { contains: cari } },
+              { noTelp: { contains: cari } },
+              { alamat: { contains: cari, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+    const [data, total] = await Promise.all([
+      this.client.pelanggan.findMany({
+        where,
+        select: PILIH_PELANGGAN_SAYA,
+        orderBy: [{ nama: "asc" }, { id: "asc" }],
+        skip: halaman.lewati,
+        take: halaman.ambil,
+      }),
+      this.client.pelanggan.count({ where }),
+    ]);
+    return { data, total };
   }
 
   /** Pelanggan ISOLIR tenant, opsional dibatasi sales tertentu; jatuh tempo terlama dulu. */

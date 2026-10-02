@@ -118,7 +118,10 @@ export { handleInvoicePaidActivation } from "./services/event-handlers/invoice-p
 export {
   getPelangganSalesService,
   PelangganSalesService,
+  type FilterPelangganSaya,
   type KelompokTunggakan,
+  type PelangganSayaDTO,
   type PelangganTunggakanDTO,
   type RingkasanTunggakan,
 } from "./services/PelangganSalesService";
+export { pelangganSayaQuerySchema } from "./validators/pelanggan-saya";
