@@ -12,13 +12,26 @@ import type { KegiatanHasil, KegiatanJenis } from "./entities/Kegiatan";
 /** Hasil yang hanya bermakna untuk survei lokasi. */
 const HASIL_KHUSUS_SURVEI: readonly KegiatanHasil[] = ["BISA_DIPASANG", "TIDAK_BISA_DIPASANG"];
 
+/** Pesan penolakan hasil khusus survei pada jenis lain — satu teks untuk validator dan service. */
+export const PESAN_HASIL_KHUSUS_SURVEI =
+  'Hasil "bisa/tidak bisa dipasang" hanya untuk survei lokasi';
+
+/** Pilihan hasil jenis kegiatan selain survei lokasi, dalam urutan tampil. */
+const HASIL_MINAT_PELANGGAN: readonly KegiatanHasil[] = [
+  "TERTARIK",
+  "DEAL",
+  "PERLU_FOLLOWUP",
+  "TIDAK_MINAT",
+  "TIDAK_ADA_ORANG",
+];
+
 /** Pilihan hasil per jenis kegiatan, dalam urutan tampil. */
 export const HASIL_PER_JENIS: Record<KegiatanJenis, readonly KegiatanHasil[]> = {
-  KUNJUNGAN: ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
+  KUNJUNGAN: HASIL_MINAT_PELANGGAN,
   SURVEI_LOKASI: ["BISA_DIPASANG", "TIDAK_BISA_DIPASANG", "PERLU_FOLLOWUP", "TIDAK_ADA_ORANG"],
-  TELEPON: ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
-  CHAT: ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
-  IKLAN: ["TERTARIK", "DEAL", "PERLU_FOLLOWUP", "TIDAK_MINAT", "TIDAK_ADA_ORANG"],
+  TELEPON: HASIL_MINAT_PELANGGAN,
+  CHAT: HASIL_MINAT_PELANGGAN,
+  IKLAN: HASIL_MINAT_PELANGGAN,
 };
 
 /** Label umum, dipakai bila jenis tidak punya label khusus. */

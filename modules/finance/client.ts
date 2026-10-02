@@ -11,6 +11,8 @@ export type { RabTargetBasis } from "./utils/rabTarget";
 export {
   buildRABTrackingDataset,
   calculateMonthlySubscribers,
+  getInvestorProfitSharePercent,
+  PERSEN_BAGI_HASIL_RAB_BAWAAN,
 } from "./utils/rab-tracking";
 export type {
   CustomGrowthSettings,

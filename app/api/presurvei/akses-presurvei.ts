@@ -1,3 +1,5 @@
+import { jenisLingkupDariIzin as jenisLingkupDariIzinRencana } from "@/modules/presurvei";
+
 /**
  * Penurunan kapabilitas pemanggil untuk route presurvei.
  *
@@ -101,8 +103,6 @@ export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
 }
 
 /** Jenis lingkup rencana pemanggil; definisinya di domain presurvei. */
-import { jenisLingkupDariIzin as jenisLingkupDariIzinRencana } from "@/modules/presurvei";
-
 export { jenisLingkupDariIzinRencana as jenisLingkupRencana };
 
 /** Permission laporan pencapaian — pemegangnya sudah melihat capaian seluruh sales. */

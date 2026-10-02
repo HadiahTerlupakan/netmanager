@@ -141,46 +141,42 @@ export class PushTokenRepository implements IPushTokenRepository {
       }),
     ]);
 
-    const userUpdates = users
-      .map((user) => {
-        const filtered = user.fcmTokens.filter((t) => !tokenSet.has(t));
-        const removed = user.fcmTokens.length - filtered.length;
-        if (removed === 0) return null;
-        removedCount += removed;
-        return prisma.user.update({
-          where: { id: user.id },
-          data: { fcmTokens: { set: filtered } },
-        });
-      })
-      .filter(Boolean);
+    const pemilik = [
+      ...users.map((user) => ({
+        fcmTokens: user.fcmTokens,
+        simpan: (sisa: string[]) =>
+          prisma.user.update({
+            where: { id: user.id },
+            data: { fcmTokens: { set: sisa } },
+          }),
+      })),
+      ...mitras.map((mitra) => ({
+        fcmTokens: mitra.fcmTokens,
+        simpan: (sisa: string[]) =>
+          prismaMitra.mitra.update({
+            where: { id: mitra.id },
+            data: { fcmTokens: { set: sisa } },
+          }),
+      })),
+      ...investors.map((investor) => ({
+        fcmTokens: investor.fcmTokens,
+        simpan: (sisa: string[]) =>
+          prisma.investor.update({
+            where: { id: investor.id },
+            data: { fcmTokens: { set: sisa } },
+          }),
+      })),
+    ];
 
-    const mitraUpdates = mitras
-      .map((mitra) => {
-        const filtered = mitra.fcmTokens.filter((t) => !tokenSet.has(t));
-        const removed = mitra.fcmTokens.length - filtered.length;
-        if (removed === 0) return null;
-        removedCount += removed;
-        return prismaMitra.mitra.update({
-          where: { id: mitra.id },
-          data: { fcmTokens: { set: filtered } },
-        });
-      })
-      .filter(Boolean);
+    const updates = pemilik.flatMap(({ fcmTokens, simpan }) => {
+      const sisa = fcmTokens.filter((token) => !tokenSet.has(token));
+      const removed = fcmTokens.length - sisa.length;
+      if (removed === 0) return [];
+      removedCount += removed;
+      return [simpan(sisa)];
+    });
 
-    const investorUpdates = investors
-      .map((investor) => {
-        const filtered = investor.fcmTokens.filter((t) => !tokenSet.has(t));
-        const removed = investor.fcmTokens.length - filtered.length;
-        if (removed === 0) return null;
-        removedCount += removed;
-        return prisma.investor.update({
-          where: { id: investor.id },
-          data: { fcmTokens: { set: filtered } },
-        });
-      })
-      .filter(Boolean);
-
-    await Promise.all([...userUpdates, ...mitraUpdates, ...investorUpdates]);
+    await Promise.all(updates);
     return removedCount;
   }
 

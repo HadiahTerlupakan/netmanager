@@ -41,6 +41,79 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Capaian RAB yang dikosongkan tersimpan sebagai 0
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`, `app/api/finance/rab-projects/[id]/actuals`
+- **Author**: agent
+- **Deskripsi**: Skema `z.union([rupiah, null, ""])` mencoba `z.coerce.number()` lebih dulu, sehingga `null`/`""`
+  dari isian kosong lolos sebagai 0. Akibatnya bulan itu tercatat manual 0 dan bagi hasil, cicilan modal, serta
+  OPEX-nya menjadi nol. Urutan union dibalik, skema dipindah ke
+  `modules/finance/validators/rabProjectSchemas.ts` (`rabActualAchievementSchema`), dan ditambah test.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Nomor tiket harian mengikuti zona waktu tenant
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `formatDailyDocumentNumber` memakai tanggal UTC, sedangkan urutan harian direset menurut tengah
+  malam zona tenant. Pukul 00:00–07:00 WIB, nomor bisa bentrok dengan unique `(tenantId, ticketNumber)` dan
+  lapor keluhan gagal 500. Kini tanggal memakai zona tenant. Daftar tunggakan dibatasi di query (`take`), bukan
+  dipotong di memori. `tetapkanSales` menyaring `tenantId`.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Perbaikan hasil review kepatuhan CLAUDE.md (backend)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`, `modules/presurvei`, `modules/investor`, `modules/notification`, `modules/users`, `app/api/admin/workorders`
+- **Author**: agent
+- **Deskripsi**: Review seluruh commit yang belum di-push terhadap CLAUDE.md.
+  - Isolasi tenant (filter `tenantId` eksplisit):
+    - `StockOpnameJadwalRepository.findSiteIdsPengguna`
+    - `findSoBulanIni`
+    - `RencanaRepository.ubah/batalkanSelagiTerbuka`
+    - token FCM di push investor
+  - Route & error:
+    - galat internal tidak lagi bocor di route batal bagi hasil (`RouteServiceError`);
+    - route `calculate` memakai `schema` createHandler;
+    - `GET /api/admin/workorders` memvalidasi `page`/`limit` dengan Zod, limit maksimal 100.
+  - Profil mobile: `canCashoutCanvasing` kini sejalan dengan route cashout untuk super admin.
+  - DRY:
+    - pesan & konstanta prospek/hasil kegiatan;
+    - persen bagi hasil RAB;
+    - label/format SO;
+    - pembersihan token FCM.
+  - Kerapian: magic number jadi konstanta, komentar fungsi publik, test baru.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Perbaikan hasil review kepatuhan CLAUDE.md (mobile)
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**:
+  - Bug yang diperbaiki:
+    - indikator tarik-untuk-segarkan bisa berputar terus bila muat ulang gagal;
+    - label grafik proyek investor bisa "Invalid Date";
+    - gagal ambil foto keluhan menimbulkan unhandled rejection.
+  - Komponen bersama baru: `KepalaLayarDaftar`, `DaftarKosong`, `BarisAksiPelanggan`, `useMuatHalamanBerikutnya`.
+  - DRY untuk util tanggal/angka/foto.
+  - Konstanta, label aksesibilitas, dan test baru.
+  - Hanya JS, sehingga cukup OTA.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Laporan pra-deploy dipindah ke docs/reports
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: `LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md` dipindah dari `docs/guides/` ke
+  `docs/reports/` sesuai kebijakan dokumentasi. Rujukan di migration (komentar), CHANGELOG, dan desain persona
+  ikut diperbarui. Migration itu belum pernah terpasang di produksi, dan checksum lokal sudah diperbarui.
+  `tasks/lessons.md` ditambah empat pelajaran dari koreksi user.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Foto wajib saat sales lapor keluhan
 
 - **Tipe**: [CHANGED]
@@ -153,7 +226,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   SALES. (2) Sebelum isSales disinkron, role non-SALES ber-`m_canvasing` yang punya user aktif
   ber-isSales diberi `m_canvasing:cashout` agar teknisi/manajer yang kadang canvasing tetap bisa
   mencairkan bonus (produksi: Teknisi & Branch Manager). Kedua migration belum pernah terpasang di
-  produksi. Rincian: `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+  produksi. Rincian: `docs/reports/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
 - **Migration**: `20261001214142_add_persona_to_roles`, `20261001222557_sync_user_is_sales_from_role_persona`
 - **Breaking**: ❌ Tidak
 
@@ -634,7 +707,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - Pencairan bonus canvasing: `user.isSales` (tersinkron) ATAU izin cashout.
     `isSalesEfektif` dihapus.
   - Laporan pra-deploy produksi:
-    `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+    `docs/reports/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
 - **Migration**: `20261001222557_sync_user_is_sales_from_role_persona`
 - **Breaking**: ❌ Tidak
 

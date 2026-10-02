@@ -10,7 +10,10 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { workOrderCreateSchema } from "@/lib/validations/workorder";
+import {
+  workOrderCreateSchema,
+  workOrderListPaginationSchema,
+} from "@/lib/validations/workorder";
 
 /** GET /api/admin/workorders */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -23,8 +26,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { searchParams } = req.nextUrl;
-  const page = Number.parseInt(searchParams.get("page") || "1", 10);
-  const limit = Number.parseInt(searchParams.get("limit") || "20", 10);
+  // ZodError → 400 oleh createHandler; limit tanpa batas bisa memuat seluruh tabel.
+  const { page, limit } = workOrderListPaginationSchema.parse({
+    page: searchParams.get("page") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
+  });
   const access = await getAdminWorkOrderRouteService().buildAccessFilters(
     user,
     ctx.permissions,

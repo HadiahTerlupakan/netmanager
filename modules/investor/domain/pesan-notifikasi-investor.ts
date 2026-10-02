@@ -28,6 +28,8 @@ const FORMAT_RUPIAH = new Intl.NumberFormat("id-ID", {
 /** Pesan push siap kirim. `kunciUnik` mencegah pesan sama terkirim dua kali. */
 export interface PesanNotifikasiInvestor {
   investorId: string;
+  /** Tenant asal event; penerima wajib investor di tenant ini (null = tanpa tenant). */
+  tenantId: string | null;
   kunciUnik: string;
   judul: string;
   isi: string;
@@ -84,7 +86,14 @@ function kalimatBagiHasilDisetujui(payload: PayloadEventInvestor): string {
   return `Bagi hasil${proyek} ${periode} sebesar ${formatRupiahNotifikasi(teks(payload, "shareAmount"))}${tambahan} sudah disetujui dan akan segera dibayar.`;
 }
 
-type PenyusunPesan = (payload: PayloadEventInvestor) => PesanNotifikasiInvestor;
+type PenyusunPesan = (
+  payload: PayloadEventInvestor,
+) => Omit<PesanNotifikasiInvestor, "tenantId">;
+
+/** Publisher mengirim `tenantId: ""` untuk investor tanpa tenant. */
+function tenantDariPayload(payload: PayloadEventInvestor): string | null {
+  return typeof payload.tenantId === "string" && payload.tenantId ? payload.tenantId : null;
+}
 
 /** Penyusun pesan per nama event (`lib/event-bus/types.ts`). */
 export const PENYUSUN_PESAN_INVESTOR: Readonly<Record<string, PenyusunPesan>> = {
@@ -127,5 +136,5 @@ export function susunPesanInvestor(
   payload: PayloadEventInvestor,
 ): PesanNotifikasiInvestor | null {
   const penyusun = PENYUSUN_PESAN_INVESTOR[eventName];
-  return penyusun ? penyusun(payload) : null;
+  return penyusun ? { ...penyusun(payload), tenantId: tenantDariPayload(payload) } : null;
 }

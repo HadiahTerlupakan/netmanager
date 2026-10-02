@@ -9,7 +9,7 @@
 import type { IklanChannel } from "../domain/entities/Iklan";
 import type { KegiatanHasil, KegiatanJenis } from "../domain/entities/Kegiatan";
 import type { PeranPelaku } from "../domain/peran-pelaku";
-import { labelHasilKegiatan } from "../domain/hasil-kegiatan";
+import { LABEL_HASIL_UMUM, labelHasilKegiatan } from "../domain/hasil-kegiatan";
 import {
   PROSPEK_STATUSES,
   type ProspekJenis,
@@ -61,24 +61,16 @@ export const KEGIATAN_JENIS_CONFIG: Record<KegiatanJenis, TampilanStatus> = {
   IKLAN: { label: "Iklan", warna: "bg-violet-100 text-violet-700" },
 };
 
+/** Label umum diambil dari domain (`LABEL_HASIL_UMUM`) supaya tidak ada dua definisi. */
 export const KEGIATAN_HASIL_CONFIG: Record<KegiatanHasil, TampilanStatus> = {
-  TERTARIK: { label: "Tertarik", warna: "bg-amber-100 text-amber-700" },
-  PERLU_FOLLOWUP: {
-    label: "Perlu follow-up",
-    warna: "bg-blue-100 text-blue-700",
-  },
-  TIDAK_MINAT: { label: "Tidak minat", warna: "bg-gray-100 text-gray-600" },
-  TIDAK_ADA_ORANG: {
-    label: "Tidak ada orang",
-    warna: "bg-slate-100 text-slate-600",
-  },
-  DEAL: { label: "Deal", warna: "bg-emerald-100 text-emerald-700" },
-  BISA_DIPASANG: {
-    label: "Bisa dipasang",
-    warna: "bg-teal-100 text-teal-700",
-  },
+  TERTARIK: { label: LABEL_HASIL_UMUM.TERTARIK, warna: "bg-amber-100 text-amber-700" },
+  PERLU_FOLLOWUP: { label: LABEL_HASIL_UMUM.PERLU_FOLLOWUP, warna: "bg-blue-100 text-blue-700" },
+  TIDAK_MINAT: { label: LABEL_HASIL_UMUM.TIDAK_MINAT, warna: "bg-gray-100 text-gray-600" },
+  TIDAK_ADA_ORANG: { label: LABEL_HASIL_UMUM.TIDAK_ADA_ORANG, warna: "bg-slate-100 text-slate-600" },
+  DEAL: { label: LABEL_HASIL_UMUM.DEAL, warna: "bg-emerald-100 text-emerald-700" },
+  BISA_DIPASANG: { label: LABEL_HASIL_UMUM.BISA_DIPASANG, warna: "bg-teal-100 text-teal-700" },
   TIDAK_BISA_DIPASANG: {
-    label: "Tidak bisa dipasang",
+    label: LABEL_HASIL_UMUM.TIDAK_BISA_DIPASANG,
     warna: "bg-rose-100 text-rose-700",
   },
 };

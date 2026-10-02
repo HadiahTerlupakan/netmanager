@@ -2,22 +2,6 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient, RabStatus } from "@prisma/client";
 import type { IRabProjectRepository } from "../domain/ports/IRabProjectRepository";
 import { RabProjectUpdateRepository } from "./RabProjectUpdateRepository";
-
-/** Isian capaian bulan ke-n proyek (tahun sudah dihitung dari tanggal mulai). */
-export interface CapaianBulananInput {
-  rabProjectId: string;
-  month: number;
-  year: number;
-  actualSubscribers: number;
-  actualRevenue: bigint;
-  /** null = belum diisi → hitungan memakai OPEX rencana. */
-  actualOpex: bigint | null;
-  manualRecoveryInstallment: bigint | null;
-  manualInvestorShare: bigint | null;
-  manualCompanyShare: bigint | null;
-  manualInvestorProfitSharePercent: number | null;
-  notes?: string;
-}
 import {
   buildDuplicateProjectCreateArgs,
   createBasicProjectQuery,
@@ -35,6 +19,22 @@ import {
   type RabProjectWithDetails,
 } from "./rabProject.repository-helpers";
 import type { RabProjectUpdateInput } from "./rabProject.types";
+
+/** Isian capaian bulan ke-n proyek (tahun sudah dihitung dari tanggal mulai). */
+export interface CapaianBulananInput {
+  rabProjectId: string;
+  month: number;
+  year: number;
+  actualSubscribers: number;
+  actualRevenue: bigint;
+  /** null = belum diisi → hitungan memakai OPEX rencana. */
+  actualOpex: bigint | null;
+  manualRecoveryInstallment: bigint | null;
+  manualInvestorShare: bigint | null;
+  manualCompanyShare: bigint | null;
+  manualInvestorProfitSharePercent: number | null;
+  notes?: string;
+}
 
 export type {
   RabProjectStatusCandidate,

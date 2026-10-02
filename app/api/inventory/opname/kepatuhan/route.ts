@@ -15,8 +15,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const periode = req.nextUrl.searchParams.get("periode") ?? periodeStockOpnameDari(new Date());
   try {
     const service = getStockOpnameJadwalService();
-    const isSiteOnly = !isSuperAdmin(user as never) && (await hasPermission("opname:site_only"));
-    const siteIds = isSiteOnly ? await service.siteIdsPengguna(user.id) : null;
+    const isSiteOnly = !isSuperAdmin(user) && (await hasPermission("opname:site_only"));
+    const siteIds = isSiteOnly ? await service.getSiteIdsPengguna(user.tenantId, user.id) : null;
     return apiSuccess(await service.getKepatuhan(user.tenantId, periode, siteIds));
   } catch (error) {
     return responsGalatJadwalSo(error, "kepatuhan");

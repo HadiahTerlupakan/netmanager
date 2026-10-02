@@ -291,3 +291,37 @@ export const rabProjectUpdateSchema = z
     message: "Perubahan approval harus melalui endpoint approval",
     path: ["status"],
   });
+
+/** Tahun paling awal yang masuk akal untuk capaian RAB tanpa tanggal mulai. */
+const TAHUN_CAPAIAN_MIN = 2000;
+
+/** Rupiah ≥ 0, desimal dibulatkan ke rupiah utuh. */
+const rupiahCapaian = z.coerce
+  .number()
+  .min(0, "Nilai rupiah tidak boleh negatif")
+  .transform((value) => BigInt(Math.round(value)));
+
+/**
+ * Rupiah opsional; kosong/null = tidak diisi. null & "" dicocokkan LEBIH DULU:
+ * `z.coerce.number()` mengubah null/"" menjadi 0, sehingga isian kosong akan
+ * tersimpan sebagai angka manual 0 (bagi hasil & cicilan modal jadi nol).
+ */
+const rupiahCapaianOpsional = z
+  .union([z.null(), z.literal(""), rupiahCapaian])
+  .optional()
+  .transform((value) => (typeof value === "bigint" ? value : null));
+
+/** Isian capaian bulan ke-n proyek RAB (POST `/rab-projects/[id]/actuals`). */
+export const rabActualAchievementSchema = z.object({
+  month: z.number().int().min(1).max(DURASI_PROYEK_MAKS_BULAN),
+  /** Diabaikan bila proyek punya tanggal mulai (tahun dihitung server). */
+  year: z.number().int().min(TAHUN_CAPAIAN_MIN).optional(),
+  actualSubscribers: z.number().int().min(0),
+  actualRevenue: rupiahCapaian,
+  actualOpex: rupiahCapaianOpsional,
+  manualRecoveryInstallment: rupiahCapaianOpsional,
+  manualInvestorShare: rupiahCapaianOpsional,
+  manualCompanyShare: rupiahCapaianOpsional,
+  manualInvestorProfitSharePercent: z.number().min(0).max(PERSEN_PENUH).nullable().optional(),
+  notes: z.string().optional(),
+});

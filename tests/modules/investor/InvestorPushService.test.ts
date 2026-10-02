@@ -18,6 +18,7 @@ const repo = {
 const service = new InvestorPushService(repo as unknown as InvestorRepository);
 const PESAN = {
   investorId: "inv-1",
+  tenantId: "tenant-1",
   kunciUnik: "uang-dikirim:po-1",
   judul: "Uang sudah dikirim",
   isi: "Rp 2.000.000 sudah dikirim ke rekening Anda.",
@@ -46,6 +47,11 @@ describe("InvestorPushService", () => {
       sourceType: "INVESTOR",
       sourceId: "uang-dikirim:po-1",
     });
+  });
+
+  it("token dicari dengan tenant asal event", async () => {
+    await service.kirim(PESAN);
+    expect(repo.findFcmTokens).toHaveBeenCalledWith("inv-1", "tenant-1");
   });
 
   it("job diulang (kunci sudah ada) tidak mengirim ulang", async () => {

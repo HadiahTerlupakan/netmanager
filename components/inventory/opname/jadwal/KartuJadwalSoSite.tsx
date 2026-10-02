@@ -7,12 +7,17 @@ import { HiOutlineCalendarDays } from "react-icons/hi2";
 import { MonthSelect } from "@/components/ui/MonthSelect";
 import { useApi } from "@/lib/hooks/useApi";
 import {
+  formatBulanSo,
   formatTanggalSo,
   labelJendela,
   periodeSekarang,
   type JadwalSoSite,
 } from "./jadwalSoTypes";
 
+const TANGGAL_MINIMUM = 1;
+const TANGGAL_MAKSIMUM = 31;
+/** Sama dengan batas catatan di API jadwal khusus. */
+const PANJANG_CATATAN_MAKS = 500;
 const KELAS_INPUT =
   "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm";
 
@@ -26,14 +31,6 @@ async function kirim(url: string, method: "PUT" | "DELETE", body?: unknown): Pro
   const data = await res.json().catch(() => ({}));
   toast.error(data.error || data.message || "Gagal menyimpan");
   return false;
-}
-
-function labelBulan(periode: string): string {
-  return new Date(`${periode}-01T00:00:00.000Z`).toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 interface KartuJadwalSoSiteProps {
@@ -89,10 +86,10 @@ export function KartuJadwalSoSite({ siteId, canUbah }: KartuJadwalSoSiteProps) {
             jadwal={data}
             isMenyimpan={isMenyimpan}
             onSimpan={(periode, isian) =>
-              jalankan(() => kirim(`${url}/${periode}`, "PUT", isian), `Jadwal ${labelBulan(periode)} disimpan`)
+              jalankan(() => kirim(`${url}/${periode}`, "PUT", isian), `Jadwal ${formatBulanSo(periode)} disimpan`)
             }
             onHapus={(periode) =>
-              jalankan(() => kirim(`${url}/${periode}`, "DELETE"), `${labelBulan(periode)} kembali ke jadwal bawaan`)
+              jalankan(() => kirim(`${url}/${periode}`, "DELETE"), `${formatBulanSo(periode)} kembali ke jadwal bawaan`)
             }
           />
         </div>
@@ -129,12 +126,12 @@ function FormJadwalBawaan({
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs text-gray-600 dark:text-gray-300">
           Dari tanggal
-          <input type="number" min={1} max={31} value={aturan.tanggalMulai}
+          <input type="number" min={TANGGAL_MINIMUM} max={TANGGAL_MAKSIMUM} value={aturan.tanggalMulai}
             onChange={(e) => setAturan({ ...aturan, tanggalMulai: Number(e.target.value) })} className={KELAS_INPUT} />
         </label>
         <label className="text-xs text-gray-600 dark:text-gray-300">
           Sampai tanggal
-          <input type="number" min={1} max={31} value={aturan.tanggalSelesai}
+          <input type="number" min={TANGGAL_MINIMUM} max={TANGGAL_MAKSIMUM} value={aturan.tanggalSelesai}
             onChange={(e) => setAturan({ ...aturan, tanggalSelesai: Number(e.target.value) })} className={KELAS_INPUT} />
         </label>
       </div>
@@ -178,21 +175,21 @@ function FormJadwalKhusus({
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs text-gray-600 dark:text-gray-300">
           Mulai
-          <input type="date" min={`${periode}-01`} max={`${periode}-31`} value={isian.mulai}
+          <input type="date" min={`${periode}-01`} max={`${periode}-${TANGGAL_MAKSIMUM}`} value={isian.mulai}
             onChange={(e) => setIsian({ ...isian, mulai: e.target.value })} className={KELAS_INPUT} />
         </label>
         <label className="text-xs text-gray-600 dark:text-gray-300">
           Selesai
-          <input type="date" min={`${periode}-01`} max={`${periode}-31`} value={isian.selesai}
+          <input type="date" min={`${periode}-01`} max={`${periode}-${TANGGAL_MAKSIMUM}`} value={isian.selesai}
             onChange={(e) => setIsian({ ...isian, selesai: e.target.value })} className={KELAS_INPUT} />
         </label>
       </div>
-      <input type="text" maxLength={500} placeholder="Catatan (opsional), mis. dimajukan karena libur" value={isian.catatan}
+      <input type="text" maxLength={PANJANG_CATATAN_MAKS} placeholder="Catatan (opsional), mis. dimajukan karena libur" value={isian.catatan}
         onChange={(e) => setIsian({ ...isian, catatan: e.target.value })} className={KELAS_INPUT} />
       <button type="button" disabled={isMenyimpan || !isian.mulai || !isian.selesai}
         onClick={() => onSimpan(periode, isian)}
         className="px-4 py-2 bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
-        Simpan jadwal {labelBulan(periode)}
+        Simpan jadwal {formatBulanSo(periode)}
       </button>
       <DaftarJadwalKhusus jadwal={jadwal} onHapus={onHapus} isMenyimpan={isMenyimpan} />
     </div>
@@ -216,7 +213,7 @@ function DaftarJadwalKhusus({
         {jadwal.jadwalKhusus.map((item) => (
           <li key={item.periode} className="py-2 flex items-center justify-between gap-2">
             <span className="text-gray-700 dark:text-gray-200">
-              {labelBulan(item.periode)}: {formatTanggalSo(item.mulai)} – {formatTanggalSo(item.selesai)}
+              {formatBulanSo(item.periode)}: {formatTanggalSo(item.mulai)} – {formatTanggalSo(item.selesai)}
               {item.catatan ? ` · ${item.catatan}` : ""}
             </span>
             {onHapus && (

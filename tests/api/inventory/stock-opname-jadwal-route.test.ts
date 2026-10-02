@@ -8,7 +8,7 @@ const service = vi.hoisted(() => ({
   simpanAturanSite: vi.fn(),
   simpanJadwalKhususSite: vi.fn(),
   getKepatuhan: vi.fn(),
-  siteIdsPengguna: vi.fn(),
+  getSiteIdsPengguna: vi.fn(),
 }));
 
 vi.mock("@/lib/rbac", () => ({ hasPermission: mockHasPermission }));
@@ -50,9 +50,10 @@ describe("API jadwal SO per site & laporan", () => {
 
   it("laporan: pengguna site_only dibatasi ke site-nya; tanpa opname:read ditolak", async () => {
     mockHasPermission.mockImplementation(async (izin: string) => ["opname:read", "opname:site_only"].includes(izin));
-    service.siteIdsPengguna.mockResolvedValue(["s1"]);
+    service.getSiteIdsPengguna.mockResolvedValue(["s1"]);
     const res = await getKepatuhan(new NextRequest("http://x/api/inventory/opname/kepatuhan?periode=2026-09"), {} as never);
     expect(res.status).toBe(200);
+    expect(service.getSiteIdsPengguna).toHaveBeenCalledWith("t-1", "u-1");
     expect(service.getKepatuhan).toHaveBeenCalledWith("t-1", "2026-09", ["s1"]);
 
     mockHasPermission.mockResolvedValue(false);

@@ -26,6 +26,7 @@ type Penerima = { id: string; siteIds: string[]; isSiteOnly: boolean };
 /** Site yang hari ini berada di sebuah fase, beserta gudang yang perlu disebut. */
 type SiteFase = { site: KepatuhanSite; gudang: KepatuhanGudang[] };
 
+/** Ringkasan satu kali jalan cron: jumlah tenant diperiksa & notifikasi terkirim. */
 export interface HasilPengingatSo {
   tenant: number;
   terkirim: number;
@@ -108,6 +109,7 @@ export class StockOpnamePengingatService {
     private readonly jadwalService = new StockOpnameJadwalService(repository),
   ) {}
 
+  /** Kirim pengingat SO hari ini ke semua tenant; galat satu tenant tidak menghentikan yang lain. */
   async jalankan(sekarang: Date = new Date()): Promise<HasilPengingatSo> {
     const tenantIds = await this.repository.findTenantDenganPengingatAktif();
     let terkirim = 0;

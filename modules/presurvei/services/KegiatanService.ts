@@ -15,7 +15,10 @@ import {
   isHasilMelahirkanProspek,
   isPerubahanHasilSah,
 } from "../domain/kegiatan-rules";
-import { isHasilSesuaiJenis } from "../domain/hasil-kegiatan";
+import {
+  isHasilSesuaiJenis,
+  PESAN_HASIL_KHUSUS_SURVEI,
+} from "../domain/hasil-kegiatan";
 import type {
   CreateKegiatanInput,
   IKegiatanRepository,
@@ -107,9 +110,6 @@ const NAMA_EVENT_KEGIATAN_DIUBAH = "presurvei:kegiatan.updated";
 
 const PESAN_HASIL_LINTAS_KELOMPOK =
   "Hasil ini mengubah apakah kegiatan melahirkan prospek; catat kegiatan baru.";
-/** Hasil khusus survei lokasi dipakai pada jenis lain. */
-const PESAN_HASIL_TIDAK_SESUAI_JENIS =
-  'Hasil "bisa/tidak bisa dipasang" hanya untuk survei lokasi';
 
 const PESAN_RENCANA_SUDAH_DITUTUP =
   "Rencana ini sudah dilaporkan atau dibatalkan.";
@@ -217,7 +217,7 @@ export class KegiatanService {
       throw new AppError(PESAN_HASIL_LINTAS_KELOMPOK, 400, "VALIDATION_ERROR");
     }
     if (input.hasil !== undefined && !isHasilSesuaiJenis(input.hasil, kegiatan.jenis)) {
-      throw new AppError(PESAN_HASIL_TIDAK_SESUAI_JENIS, 400, "VALIDATION_ERROR");
+      throw new AppError(PESAN_HASIL_KHUSUS_SURVEI, 400, "VALIDATION_ERROR");
     }
 
     const perubahan = hitungPerubahanKegiatan(kegiatan, input);

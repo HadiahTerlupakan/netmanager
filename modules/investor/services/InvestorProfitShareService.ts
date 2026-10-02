@@ -1,3 +1,4 @@
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { logger } from "@/lib/logger";
 import { buildRABTrackingDataset } from "@/modules/finance/client";
 import type { InvestorProfitShareStatus } from "@prisma/client";
@@ -19,6 +20,14 @@ export interface ProyekDilewati {
 
 const ALASAN_TANPA_TANGGAL_MULAI = "Tanggal mulai proyek belum diisi di RAB";
 const ALASAN_TANPA_CAPAIAN = "Belum ada capaian bulanan (aktual) di periode ini";
+const PESAN_TIDAK_DITEMUKAN = "Profit share tidak ditemukan";
+const HTTP_NOT_FOUND = 404;
+const HTTP_BAD_REQUEST = 400;
+
+/** Galat domain bagi hasil berstatus HTTP (aman ditampilkan ke admin). */
+function galatBagiHasil(pesan: string, status = HTTP_BAD_REQUEST) {
+  return createRouteServiceError(pesan, status);
+}
 
 export class InvestorProfitShareService {
   constructor(
@@ -101,11 +110,9 @@ export class InvestorProfitShareService {
   /** Approve profit share: CALCULATED → APPROVED, publish event untuk notifikasi investor. */
   async approve(id: string, approvedById: string) {
     const record = await this.profitShareRepo.findById(id);
-    if (!record) throw new Error("Profit share tidak ditemukan");
+    if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status !== "CALCULATED") {
-      throw new Error(
-        `Profit share tidak bisa di-approve, status: ${record.status}`,
-      );
+      throw galatBagiHasil(`Profit share tidak bisa di-approve, status: ${record.status}`);
     }
 
     const approvedAt = new Date();
@@ -142,9 +149,9 @@ export class InvestorProfitShareService {
    */
   async cancel(id: string) {
     const record = await this.profitShareRepo.findById(id);
-    if (!record) throw new Error("Profit share tidak ditemukan");
+    if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status === "PAID") {
-      throw new Error("Bagi hasil yang sudah dibayar tidak bisa dibatalkan");
+      throw galatBagiHasil("Bagi hasil yang sudah dibayar tidak bisa dibatalkan");
     }
     if (record.status === "CANCELLED") return record;
     return this.profitShareRepo.updateStatus(id, { status: "CANCELLED" });
@@ -153,11 +160,9 @@ export class InvestorProfitShareService {
   /** Tandai profit share sebagai dibayar: APPROVED → PAID. */
   async markPaid(id: string, paidById: string, payoutId?: string) {
     const record = await this.profitShareRepo.findById(id);
-    if (!record) throw new Error("Profit share tidak ditemukan");
+    if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status !== "APPROVED") {
-      throw new Error(
-        `Profit share tidak bisa dibayar, status: ${record.status}`,
-      );
+      throw galatBagiHasil(`Profit share tidak bisa dibayar, status: ${record.status}`);
     }
 
     return this.profitShareRepo.updateStatus(id, {

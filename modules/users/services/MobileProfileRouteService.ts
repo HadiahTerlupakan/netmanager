@@ -156,7 +156,6 @@ async function getRegularUserProfile(user: MobileProfileUser) {
       endWorkTime: true,
       workDays: true,
       canvasingTarget: true,
-      isSales: true,
       departments: { select: { id: true, name: true } },
       sites: { select: { id: true, name: true } },
       role: {
@@ -184,7 +183,10 @@ async function getRegularUserProfile(user: MobileProfileUser) {
     features: extractMobileFeaturesFromPermissions(permissions),
     canCashoutCanvasing: canCashoutCanvasingBonus({
       isSales,
-      hasCashoutPermission: hasCanvasingCashoutPermission(permissions),
+      // Super admin boleh mencairkan, sama dengan route cashout (`hasCashoutPermission`).
+      hasCashoutPermission:
+        Boolean(profile.role?.isSuperAdmin) ||
+        hasCanvasingCashoutPermission(permissions),
     }),
     // TIM/SEMUA = boleh menugaskan & memantau rencana orang lain (kepala sales/admin).
     lingkupRencana: jenisLingkupDariIzin(daftarIzinRole(profile.role)),

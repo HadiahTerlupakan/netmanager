@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  BATAS_TUNGGAKAN,
   PelangganSalesService,
   kelompokkanPerSales,
 } from "@/modules/pelanggan/services/PelangganSalesService";
@@ -32,7 +33,7 @@ function repoPalsu(over: Partial<Record<keyof PelangganSalesRepository, unknown>
     daftarSalesAktif: vi.fn(),
     cariSalesAktif: vi.fn(async () => ({ id: "sales-1", name: "Ani" })),
     cariPelanggan: vi.fn(async () => ({ id: "p1", siteId: "s1", salesId: null })),
-    tetapkanSales: vi.fn(async (id: string, salesId: string | null) => ({ id, salesId, sales: null })),
+    tetapkanSales: vi.fn(async (_tenantId: string, id: string, salesId: string | null) => ({ id, salesId, sales: null })),
     daftarIsolir: vi.fn(async () => []),
     ...over,
   } as unknown as PelangganSalesRepository;
@@ -70,7 +71,7 @@ describe("PelangganSalesService", () => {
     const repo = repoPalsu();
     await new PelangganSalesService(repo).tetapkanSales("t1", "p1", null);
     expect(repo.cariSalesAktif).not.toHaveBeenCalled();
-    expect(repo.tetapkanSales).toHaveBeenCalledWith("p1", null);
+    expect(repo.tetapkanSales).toHaveBeenCalledWith("t1", "p1", null);
   });
 
   it("daftar tunggakan: saringan kosong tidak menyentuh database; null = seluruh tenant", async () => {
@@ -81,7 +82,7 @@ describe("PelangganSalesService", () => {
     expect(repo.daftarIsolir).not.toHaveBeenCalled();
 
     await service.daftarTunggakan("t1", null, SEKARANG);
-    expect(repo.daftarIsolir).toHaveBeenCalledWith("t1", null);
+    expect(repo.daftarIsolir).toHaveBeenCalledWith("t1", null, BATAS_TUNGGAKAN);
   });
 });
 

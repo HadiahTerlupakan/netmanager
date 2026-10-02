@@ -43,6 +43,7 @@ export async function calculateInitialOpnameItems(input: {
       db: input.db,
       gudangId: input.gudangId,
       barangIds,
+      tenantFilter: input.tenantFilter,
       sekarang: input.sekarang ?? new Date(),
     }),
   ]);
@@ -58,11 +59,13 @@ async function findSoBulanIni(input: {
   db: PrismaClientLike;
   gudangId: string;
   barangIds: string[];
+  tenantFilter?: { tenantId?: string };
   sekarang: Date;
 }): Promise<Map<string, SoBulanIni>> {
   const bulan = rentangWaktuPeriode(periodeDari(input.sekarang));
   const rows = await input.db.stockOpname.findMany({
     where: {
+      ...input.tenantFilter,
       gudangId: input.gudangId,
       barangId: { in: input.barangIds },
       tanggal: { gte: bulan.dari, lte: bulan.sampai },

@@ -3,15 +3,14 @@
 import Link from "next/link";
 
 import {
-  formatTanggalSo,
-  LABEL_KEADAAN,
-  labelJendela,
+  keteranganJendelaSite,
+  labelSoTerakhir,
   TAMPILAN_STATUS_SO,
+  URUTAN_PRIORITAS_STATUS_SO,
   type LaporanKepatuhanSo,
-  type StatusSoGudang,
 } from "./jadwalSoTypes";
 
-const URUTAN_STATUS: StatusSoGudang[] = ["BELUM", "DI_LUAR_JADWAL", "SEBAGIAN", "LENGKAP", "TANPA_STOK"];
+const PENANDA_KOSONG = "—";
 
 interface TabelKepatuhanSoProps {
   laporan: LaporanKepatuhanSo;
@@ -27,7 +26,7 @@ export function TabelKepatuhanSo({ laporan, canAturJadwal }: TabelKepatuhanSoPro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {URUTAN_STATUS.map((status) => (
+        {URUTAN_PRIORITAS_STATUS_SO.map((status) => (
           <span key={status} className={`px-3 py-1 rounded-full text-xs font-semibold ${TAMPILAN_STATUS_SO[status].kelas}`}>
             {TAMPILAN_STATUS_SO[status].label}: {laporan.jumlahPerStatus[status]}
           </span>
@@ -39,8 +38,7 @@ export function TabelKepatuhanSo({ laporan, canAturJadwal }: TabelKepatuhanSoPro
             <div>
               <div className="font-semibold text-gray-900 dark:text-white">{site.namaSite}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                {labelJendela(site.jendela)} · {LABEL_KEADAAN[site.keadaan]}
-                {site.siteId && !site.isPengingatAktif ? " · Pengingat mati" : ""}
+                {keteranganJendelaSite(site)}
               </div>
             </div>
             {canAturJadwal && site.siteId && (
@@ -77,9 +75,7 @@ export function TabelKepatuhanSo({ laporan, canAturJadwal }: TabelKepatuhanSoPro
                     {gudang.jumlahDihitungDalamJadwal} / {gudang.jumlahBarangBerstok}
                   </td>
                   <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                    {gudang.soTerakhir
-                      ? `${formatTanggalSo(gudang.soTerakhir.tanggal)}${gudang.soTerakhir.pic ? ` · ${gudang.soTerakhir.pic}` : ""}`
-                      : "—"}
+                    {labelSoTerakhir(gudang.soTerakhir, PENANDA_KOSONG)}
                   </td>
                 </tr>
               ))}

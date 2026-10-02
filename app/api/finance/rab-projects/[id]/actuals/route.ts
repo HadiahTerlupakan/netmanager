@@ -1,41 +1,19 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import * as z from "zod";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabProjectRouteService } from "@/modules/finance";
+import {
+  rabActualAchievementSchema,
+  RabProjectRouteService,
+} from "@/modules/finance";
 
 const rabProjectRouteService = new RabProjectRouteService();
 
-/** Rupiah ≥ 0, desimal dibulatkan. */
-const rupiah = z.coerce
-  .number()
-  .min(0, "Nilai rupiah tidak boleh negatif")
-  .transform((v) => BigInt(Math.round(v)));
-/** Rupiah opsional; kosong/null = tidak diisi. */
-const rupiahOpsional = z
-  .union([rupiah, z.null(), z.literal("")])
-  .optional()
-  .transform((v) => (typeof v === "bigint" ? v : null));
-
-const actualSchema = z.object({
-  month: z.number().int().min(1).max(120),
-  /** Diabaikan bila proyek punya tanggal mulai (tahun dihitung server). */
-  year: z.number().int().min(2000).optional(),
-  actualSubscribers: z.number().int().min(0),
-  actualRevenue: rupiah,
-  actualOpex: rupiahOpsional,
-  manualRecoveryInstallment: rupiahOpsional,
-  manualInvestorShare: rupiahOpsional,
-  manualCompanyShare: rupiahOpsional,
-  manualInvestorProfitSharePercent: z.number().min(0).max(100).nullable().optional(),
-  notes: z.string().optional(),
-});
-
+/** POST: simpan capaian bulan ke-n proyek RAB (bulan yang sudah dibagikan → 409). */
 export const POST = createHandler(
   {
     auth: true,
-    schema: actualSchema,
+    schema: rabActualAchievementSchema,
   },
   async (_req, ctx) => {
     const user = ctx.session!.user;

@@ -46,7 +46,6 @@ import type { WorkOrder } from "./types";
 import { unduhWorkOrderPdf } from "./pdf";
 import { getWorkOrderCustomerInfo } from "@/modules/work-order/client";
 
-
 const statusColors: Record<string, string> = {
   REQUESTED:
     "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
@@ -64,7 +63,6 @@ const statusColors: Record<string, string> = {
   CANCELLED: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
   REJECTED: "bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-200",
 };
-
 
 const priorityColors: Record<string, string> = {
   LOW: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",

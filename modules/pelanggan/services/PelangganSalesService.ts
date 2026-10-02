@@ -163,7 +163,7 @@ export class PelangganSalesService {
     const pelanggan = await this.repository.cariPelanggan(tenantId, pelangganId);
     if (!pelanggan) throw createRouteServiceError("Pelanggan tidak ditemukan", HTTP_NOT_FOUND);
     if (salesId) await this.pastikanSalesAktif(tenantId, salesId);
-    return this.repository.tetapkanSales(pelangganId, salesId);
+    return this.repository.tetapkanSales(tenantId, pelangganId, salesId);
   }
 
   /**
@@ -189,7 +189,7 @@ export class PelangganSalesService {
    */
   async daftarTunggakan(tenantId: string, saringan: SaringanSales, sekarang = new Date()): Promise<RingkasanTunggakan> {
     if (saringan && saringan.salesIds.length === 0) return { total: 0, kelompok: [] };
-    const baris = (await this.repository.daftarIsolir(tenantId, saringan)).slice(0, BATAS_TUNGGAKAN);
+    const baris = await this.repository.daftarIsolir(tenantId, saringan, BATAS_TUNGGAKAN);
     return { total: baris.length, kelompok: kelompokkanPerSales(baris, sekarang) };
   }
 }

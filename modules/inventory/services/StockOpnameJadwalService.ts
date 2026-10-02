@@ -190,8 +190,8 @@ export class StockOpnameJadwalService {
   }
 
   /** Site yang boleh dilihat pengguna `opname:site_only`. */
-  async siteIdsPengguna(userId: string): Promise<string[]> {
-    return this.repository.findSiteIdsPengguna(userId);
+  async getSiteIdsPengguna(tenantId: string, userId: string): Promise<string[]> {
+    return this.repository.findSiteIdsPengguna(tenantId, userId);
   }
 
   /**

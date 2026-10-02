@@ -18,6 +18,7 @@ import {
   type LaporanKepatuhanSo,
 } from "./opname/jadwal/jadwalSoTypes";
 import {
+  LEGENDA_STATUS_SO,
   labelStatusSoGudang,
   statusSoPerGudang,
 } from "./opname/jadwal/statusSoGudang";
@@ -289,19 +290,19 @@ function GudangSelector({
           disabled={disabled}
         >
           <option value="">-- Pilih Gudang --</option>
-          {gudangs.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.kode} - {g.nama}
-              {statusSo.has(g.id)
-                ? ` — ${labelStatusSoGudang(statusSo.get(g.id) as KepatuhanGudang)}`
-                : ""}
-            </option>
-          ))}
+          {gudangs.map((g) => {
+            const statusGudang = statusSo.get(g.id);
+            return (
+              <option key={g.id} value={g.id}>
+                {g.kode} - {g.nama}
+                {statusGudang ? ` — ${labelStatusSoGudang(statusGudang)}` : ""}
+              </option>
+            );
+          })}
         </select>
         {statusSo.size > 0 && (
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Status SO bulan ini: ✓ Lengkap · ◐ Sebagian · ! Di luar jadwal · ✗ Belum
-            SO · – Tidak ada stok
+            Status SO bulan ini: {LEGENDA_STATUS_SO}
           </p>
         )}
       </div>

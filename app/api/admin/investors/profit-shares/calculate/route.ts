@@ -18,10 +18,9 @@ const calculateSchema = z
  * dikembalikan di `dilewati` beserta alasannya.
  */
 export const POST = createHandler(
-  { auth: true, permissions: ["investors:manage"] },
-  async (req, ctx) => {
-    const body = await req.json();
-    const data = calculateSchema.parse(body);
+  { auth: true, permissions: ["investors:manage"], schema: calculateSchema },
+  async (_req, ctx) => {
+    const data = ctx.validated!;
     const tenantId = ctx.session?.user.tenantId;
     if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
 

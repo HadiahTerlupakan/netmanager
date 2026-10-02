@@ -1,5 +1,8 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
 import { getInvestorProfitShareService } from "@/modules/investor";
+
+const HTTP_NOT_FOUND = 404;
 
 /**
  * POST: Batalkan bagi hasil yang belum dibayar (CALCULATED/APPROVED →
@@ -13,10 +16,11 @@ export const POST = createHandler(
       const share = await getInvestorProfitShareService().cancel(shareId);
       return apiSuccess(share);
     } catch (error) {
-      if (error instanceof Error) {
-        return ApiErrors.badRequest(error.message);
-      }
-      throw error;
+      // Hanya galat domain yang pesannya aman untuk klien; sisanya ke handler pusat.
+      if (!isRouteServiceError(error)) throw error;
+      return error.status === HTTP_NOT_FOUND
+        ? ApiErrors.notFound("Bagi hasil")
+        : ApiErrors.badRequest(error.message);
     }
   },
 );

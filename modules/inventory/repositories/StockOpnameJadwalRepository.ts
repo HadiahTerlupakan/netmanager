@@ -2,6 +2,11 @@ import type { PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/modules/database";
 
+/** Site pengguna: site utama lama (`User.siteId`) digabung daftar UserSite, tanpa duplikat. */
+function gabungSiteIdsPengguna(user: { siteId: string | null; userSites: { siteId: string }[] }): string[] {
+  return [...new Set([...(user.siteId ? [user.siteId] : []), ...user.userSites.map((s) => s.siteId)])];
+}
+
 /**
  * Data jadwal (per site) & kepatuhan stock opname bulanan. Semua query
  * menyaring `tenantId` secara eksplisit: cron pengingat berjalan tanpa konteks
@@ -137,14 +142,13 @@ export class StockOpnameJadwalRepository {
     return aturan.map((baris) => baris.tenantId).filter((id): id is string => id !== null);
   }
 
-  /** Site pengguna (site utama lama + daftar UserSite). */
-  async findSiteIdsPengguna(userId: string): Promise<string[]> {
-    const user = await this.client.user.findUnique({
-      where: { id: userId },
+  /** Site pengguna tenant (site utama lama + daftar UserSite). */
+  async findSiteIdsPengguna(tenantId: string, userId: string): Promise<string[]> {
+    const user = await this.client.user.findFirst({
+      where: { id: userId, tenantId },
       select: { siteId: true, userSites: { select: { siteId: true } } },
     });
-    if (!user) return [];
-    return [...new Set([...(user.siteId ? [user.siteId] : []), ...user.userSites.map((s) => s.siteId)])];
+    return user ? gabungSiteIdsPengguna(user) : [];
   }
 
   /**
@@ -174,9 +178,7 @@ export class StockOpnameJadwalRepository {
     });
     return users.map((user) => ({
       id: user.id,
-      siteIds: [
-        ...new Set([...(user.siteId ? [user.siteId] : []), ...user.userSites.map((s) => s.siteId)]),
-      ],
+      siteIds: gabungSiteIdsPengguna(user),
       isSiteOnly: (user.role?.permission.length ?? 0) > 0,
     }));
   }

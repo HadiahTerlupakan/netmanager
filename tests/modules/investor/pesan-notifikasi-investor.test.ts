@@ -12,16 +12,28 @@ describe("pesan notifikasi investor", () => {
       susunPesanInvestor("investor:deposit.completed", {
         depositId: "dep-1",
         investorId: "inv-1",
+        tenantId: "tenant-1",
         amount: "50000000",
         depositType: "TAMBAHAN_MODAL",
       }),
     ).toEqual({
       investorId: "inv-1",
+      tenantId: "tenant-1",
       kunciUnik: "setoran-diterima:dep-1",
       judul: "Modal sudah diterima",
       isi: "Setoran tambahan modal Rp 50.000.000 sudah kami terima. Terima kasih.",
       url: "/(investor)/keuangan?bagian=modal",
     });
+  });
+
+  it("tenantId kosong dari publisher dibaca sebagai investor tanpa tenant", () => {
+    const pesan = susunPesanInvestor("investor:payout.completed", {
+      payoutId: "po-9",
+      investorId: "inv-1",
+      tenantId: "",
+      amount: "1000",
+    });
+    expect(pesan?.tenantId).toBeNull();
   });
 
   it("setoran ditolak menyertakan alasan", () => {

@@ -32,7 +32,9 @@ const JARAK_BARIS_KETERANGAN = 5;
 const UKURAN_JUDUL = 14;
 const UKURAN_KETERANGAN = 9;
 const UKURAN_TABEL = 7;
+const JARAK_SEL_TABEL = 1.5;
 const WARNA_HEADER_TABEL: [number, number, number] = [79, 70, 229];
+const FORMAT_WAKTU = "dd MMM yyyy HH:mm";
 
 interface HalamanWorkOrder {
   workOrders?: WorkOrder[];
@@ -71,7 +73,7 @@ export function susunBarisWorkOrderPdf(wo: WorkOrder): string[] {
     WORK_ORDER_STATUS_LABELS[wo.status] ?? wo.status,
     wo.priority,
     formatPenugasan(wo),
-    format(new Date(wo.createdAt), "dd MMM yyyy HH:mm", { locale: localeId }),
+    format(new Date(wo.createdAt), FORMAT_WAKTU, { locale: localeId }),
     formatDurasi(wo),
     wo.createdBy?.name || "-",
   ];
@@ -114,7 +116,7 @@ export async function unduhWorkOrderPdf(
       ? `${hasil.workOrders.length} dari ${hasil.total} work order (dibatasi ${BATAS_BARIS_PDF})`
       : `${hasil.workOrders.length} work order`;
   const keterangan = [
-    `Dicetak ${format(sekarang, "dd MMM yyyy HH:mm", { locale: localeId })} · ${jumlah}`,
+    `Dicetak ${format(sekarang, FORMAT_WAKTU, { locale: localeId })} · ${jumlah}`,
     `Filter: ${keteranganFilter.length > 0 ? keteranganFilter.join(" · ") : "Semua work order"}`,
   ];
 
@@ -129,7 +131,7 @@ export async function unduhWorkOrderPdf(
     body: hasil.workOrders.map(susunBarisWorkOrderPdf),
     startY: Y_KETERANGAN + keterangan.length * JARAK_BARIS_KETERANGAN,
     margin: { left: MARGIN_KIRI, right: MARGIN_KIRI },
-    styles: { fontSize: UKURAN_TABEL, cellPadding: 1.5 },
+    styles: { fontSize: UKURAN_TABEL, cellPadding: JARAK_SEL_TABEL },
     headStyles: { fillColor: WARNA_HEADER_TABEL },
   });
 

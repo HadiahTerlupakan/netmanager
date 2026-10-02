@@ -86,10 +86,10 @@ export class PelangganSalesRepository {
     });
   }
 
-  /** Tetapkan / lepas sales penanggung jawab pelanggan. */
-  async tetapkanSales(pelangganId: string, salesId: string | null) {
+  /** Tetapkan / lepas sales penanggung jawab pelanggan milik tenant. */
+  async tetapkanSales(tenantId: string, pelangganId: string, salesId: string | null) {
     return this.client.pelanggan.update({
-      where: { id: pelangganId },
+      where: { id: pelangganId, tenantId },
       data: { salesId },
       select: { id: true, salesId: true, sales: { select: { id: true, name: true } } },
     });
@@ -134,8 +134,8 @@ export class PelangganSalesRepository {
     return { data, total };
   }
 
-  /** Pelanggan ISOLIR tenant, opsional dibatasi sales tertentu; jatuh tempo terlama dulu. */
-  async daftarIsolir(tenantId: string, saringan: SaringanSales): Promise<BarisPelangganTunggakan[]> {
+  /** Pelanggan ISOLIR tenant (maks. `batas`), opsional dibatasi sales tertentu; jatuh tempo terlama dulu. */
+  async daftarIsolir(tenantId: string, saringan: SaringanSales, batas: number): Promise<BarisPelangganTunggakan[]> {
     return this.client.pelanggan.findMany({
       where: {
         tenantId,
@@ -144,6 +144,7 @@ export class PelangganSalesRepository {
       },
       select: PILIH_PELANGGAN_TUNGGAKAN,
       orderBy: [{ jatuhTempo: "asc" }, { id: "asc" }],
+      take: batas,
     });
   }
 }

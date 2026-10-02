@@ -66,15 +66,17 @@ export interface IRencanaRepository {
 
   create(input: CreateRencanaInput): Promise<RencanaEntity>;
 
-  /** Ubah rencana yang masih DIRENCANAKAN; null bila sudah tidak terbuka. */
+  /** Ubah rencana tenant ini yang masih DIRENCANAKAN; null bila sudah tidak terbuka. */
   ubahSelagiTerbuka(
     id: string,
+    tenantId: string,
     input: UbahRencanaInput,
   ): Promise<RencanaEntity | null>;
 
-  /** Batalkan rencana yang masih DIRENCANAKAN; null bila sudah tidak terbuka. */
+  /** Batalkan rencana tenant ini yang masih DIRENCANAKAN; null bila sudah tidak terbuka. */
   batalkanSelagiTerbuka(
     id: string,
+    tenantId: string,
     input: BatalRencanaInput,
   ): Promise<RencanaEntity | null>;
 

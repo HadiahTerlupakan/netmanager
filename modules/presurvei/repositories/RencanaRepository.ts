@@ -87,11 +87,13 @@ export class RencanaRepository implements IRencanaRepository {
    */
   async ubahSelagiTerbuka(
     id: string,
+    tenantId: string,
     input: UbahRencanaInput,
   ): Promise<RencanaEntity | null> {
+    pastikanTenantTerisi(tenantId, "Ubah rencana presurvei");
     const { tanggal, ...lainnya } = input;
     const { count } = await prisma.presurveiRencana.updateMany({
-      where: { id, status: "DIRENCANAKAN" },
+      where: { id, tenantId, status: "DIRENCANAKAN" },
       data: {
         ...lainnya,
         ...(tanggal !== undefined && { tanggal: tanggalKeKolomDate(tanggal) }),
@@ -102,10 +104,12 @@ export class RencanaRepository implements IRencanaRepository {
 
   async batalkanSelagiTerbuka(
     id: string,
+    tenantId: string,
     input: BatalRencanaInput,
   ): Promise<RencanaEntity | null> {
+    pastikanTenantTerisi(tenantId, "Batalkan rencana presurvei");
     const { count } = await prisma.presurveiRencana.updateMany({
-      where: { id, status: "DIRENCANAKAN" },
+      where: { id, tenantId, status: "DIRENCANAKAN" },
       data: {
         status: "BATAL",
         alasanBatal: input.alasan,

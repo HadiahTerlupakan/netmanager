@@ -69,10 +69,14 @@ export class InvestorRepository {
     });
   }
 
-  /** Token FCM perangkat investor (kosong bila belum pernah login di HP). */
-  async findFcmTokens(id: string): Promise<string[]> {
-    const investor = await this.client.investor.findUnique({
-      where: { id },
+  /**
+   * Token FCM perangkat investor (kosong bila belum pernah login di HP).
+   * Disaring `tenantId` asal event: handler event berjalan di system context
+   * tanpa filter tenant, jadi investor tenant lain tidak pernah menerima push.
+   */
+  async findFcmTokens(id: string, tenantId: string | null): Promise<string[]> {
+    const investor = await this.client.investor.findFirst({
+      where: { id, tenantId },
       select: { fcmTokens: true, isActive: true },
     });
     return investor?.isActive ? investor.fcmTokens : [];

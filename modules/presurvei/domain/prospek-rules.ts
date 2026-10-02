@@ -97,6 +97,13 @@ export function isProspekPerantara(jenis: ProspekJenis): boolean {
   return jenis === "PERANTARA";
 }
 
+/** Jenis prospek bila tidak disebut: calon pemasang. */
+export const JENIS_PROSPEK_BAWAAN: ProspekJenis = "CALON_PELANGGAN";
+
+/** Pesan penolakan perantara tanpa peran — satu teks untuk validator dan service. */
+export const PESAN_PERAN_PERANTARA_WAJIB =
+  "Perantara wajib menyebut perannya, mis. Ketua RT 03";
+
 /** Apakah peran sah untuk jenisnya: perantara wajib menyebut perannya. */
 export function isPeranProspekSah(
   jenis: ProspekJenis,

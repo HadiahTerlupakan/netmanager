@@ -1,3 +1,4 @@
+import { bulatkanRupiah } from "../domain/bagi-hasil-proyek";
 import { InvestorDepositService } from "./InvestorDepositService";
 import { InvestorBalanceService } from "./InvestorBalanceService";
 import { InvestorProfitShareService } from "./InvestorProfitShareService";
@@ -61,9 +62,12 @@ export class InvestorPortalKeuanganService {
       this.balanceService.getBalance(investorId),
       this.profitShareService.listByInvestor(investorId),
     ]);
-    const amountAwaitingPayment = profitShares
-      .filter((share) => share.status === STATUS_BAGI_HASIL_MENUNGGU_BAYAR)
-      .reduce((total, share) => total + share.shareAmount + share.capitalReturnAmount, 0);
+    // Nominal Decimal(19,2) dijumlah sebagai float → bulatkan ke sen agar tidak muncul 0,30000000004.
+    const amountAwaitingPayment = bulatkanRupiah(
+      profitShares
+        .filter((share) => share.status === STATUS_BAGI_HASIL_MENUNGGU_BAYAR)
+        .reduce((total, share) => total + share.shareAmount + share.capitalReturnAmount, 0),
+    );
 
     return { ...dashboard, balance, amountAwaitingPayment };
   }

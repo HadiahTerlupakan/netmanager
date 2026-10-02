@@ -95,10 +95,18 @@ function waktuUbah(capaian: RabTrackingAchievement): number {
 
 const PERSEN_PENUH = 100;
 const DURASI_BAWAAN_BULAN = 12;
-const PERSEN_BAGI_HASIL_BAWAAN = 50;
-const PERSEN_SEBELUM_BEP_BAWAAN = 80;
-const PERSEN_SESUDAH_BEP_BAWAAN = 60;
 const NILAI_PENGEMBALIAN_BAWAAN = 50;
+
+/**
+ * Persen bagian semua investor bawaan bila field RAB kosong: mode tetap
+ * (`flat`) dan mode bertahap sebelum/sesudah modal lunas. Dipakai juga
+ * tampilan RAB & portal investor agar angka bawaan tidak tersebar.
+ */
+export const PERSEN_BAGI_HASIL_RAB_BAWAAN = {
+  flat: 50,
+  sebelumBep: 80,
+  sesudahBep: 60,
+} as const;
 
 /** Angka dari field opsional; 0 adalah nilai sah (bukan "kosong"). */
 function angkaAtau(nilai: number | string | null | undefined, bawaan: number): number {
@@ -118,7 +126,7 @@ function getCapexTotal(project: RabTrackingProject): number {
 }
 
 function getOpexBufferSafety(project: RabTrackingProject, baseAmount: number): number {
-  return baseAmount * (Number(project.opexBufferSafetyPercent || 0) / 100);
+  return baseAmount * (Number(project.opexBufferSafetyPercent || 0) / PERSEN_PENUH);
 }
 
 function clampBufferAmount(value: number, total: number): number {
@@ -136,7 +144,7 @@ function splitOpexBufferFunding(project: RabTrackingProject, total: number) {
   if (mode === "SHARED_PERCENTAGE") {
     const investorPercent = Number(project.opexBufferInvestorPercent || 0);
     const investorShare = clampBufferAmount(
-      (total * investorPercent) / 100,
+      (total * investorPercent) / PERSEN_PENUH,
       total,
     );
     return { investorShare, companyShare: total - investorShare };
@@ -199,7 +207,7 @@ function calculateProjectedRevenue(
   arpu: number,
   nplTolerancePercent: number,
 ): number {
-  return billingSubscribers * arpu * (1 - nplTolerancePercent / 100);
+  return billingSubscribers * arpu * (1 - nplTolerancePercent / PERSEN_PENUH);
 }
 
 /**
@@ -222,21 +230,33 @@ function calculateOpexGaps(
 }
 
 /**
- * Persen bagian investor. Mode BEP memakai sisa modal SEBELUM cicilan bulan
- * ini: bulan saat modal lunas masih "sebelum BEP", persen sesudah BEP
- * berlaku mulai bulan berikutnya.
+ * Persen bagian SEMUA investor proyek untuk satu bulan. Mode BEP memakai sisa
+ * modal SEBELUM cicilan bulan itu: bulan saat modal lunas masih "sebelum
+ * BEP", persen sesudah BEP berlaku mulai bulan berikutnya.
  */
-function getInvestorProfitSharePercent(
-  project: RabTrackingProject,
+export function getInvestorProfitSharePercent(
+  project: Pick<
+    RabTrackingProject,
+    | "investorProfitShareMode"
+    | "investorProfitSharePercent"
+    | "investorProfitShareBeforeBepPercent"
+    | "investorProfitShareAfterBepPercent"
+  >,
   remainingBeforeThisMonth: number,
 ): number {
   if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    return angkaAtau(project.investorProfitSharePercent, PERSEN_BAGI_HASIL_BAWAAN);
+    return angkaAtau(project.investorProfitSharePercent, PERSEN_BAGI_HASIL_RAB_BAWAAN.flat);
   }
   if (remainingBeforeThisMonth > 0) {
-    return angkaAtau(project.investorProfitShareBeforeBepPercent, PERSEN_SEBELUM_BEP_BAWAAN);
+    return angkaAtau(
+      project.investorProfitShareBeforeBepPercent,
+      PERSEN_BAGI_HASIL_RAB_BAWAAN.sebelumBep,
+    );
   }
-  return angkaAtau(project.investorProfitShareAfterBepPercent, PERSEN_SESUDAH_BEP_BAWAAN);
+  return angkaAtau(
+    project.investorProfitShareAfterBepPercent,
+    PERSEN_BAGI_HASIL_RAB_BAWAAN.sesudahBep,
+  );
 }
 
 /** Cicilan pengembalian modal bulan ini (manual dibatasi ke laba & sisa modal). */
@@ -291,6 +311,12 @@ function bulanCapaianTerakhir(achievementByMonth: Map<number, RabTrackingAchieve
   return Math.max(0, ...achievementByMonth.keys());
 }
 
+/**
+ * Tabel tracking RAB per bulan ke-n (proyeksi + capaian aktual) beserta
+ * totalnya: cicilan modal, laba bersih, bagian investor/perusahaan, buffer
+ * OPEX, dan bulan BEP. Fungsi murni — sumber hitungan tunggal halaman admin
+ * RAB, modal investor, dan bagi hasil investor.
+ */
 export function buildRABTrackingDataset(
   project: RabTrackingProject,
   actualAchievements: RabTrackingAchievement[] = [],

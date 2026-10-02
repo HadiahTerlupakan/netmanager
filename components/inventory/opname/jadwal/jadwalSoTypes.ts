@@ -74,8 +74,40 @@ export const LABEL_KEADAAN: Record<KeadaanJendela, string> = {
   DITUTUP: "Sudah lewat",
 };
 
+/** Urutan status dari yang paling perlu ditindaklanjuti (ringkasan & status terburuk). */
+export const URUTAN_PRIORITAS_STATUS_SO: readonly StatusSoGudang[] = [
+  "BELUM",
+  "DI_LUAR_JADWAL",
+  "SEBAGIAN",
+  "LENGKAP",
+  "TANPA_STOK",
+];
+
+/** "Jadwal 25 Okt – 31 Okt 2026 · Sedang berjalan · Pengingat mati" untuk satu site. */
+export function keteranganJendelaSite(site: KepatuhanSite): string {
+  const pengingat = site.siteId && !site.isPengingatAktif ? " · Pengingat mati" : "";
+  return `${labelJendela(site.jendela)} · ${LABEL_KEADAAN[site.keadaan]}${pengingat}`;
+}
+
+/** "26 Okt 2026 · Budi" untuk SO terakhir gudang, atau `penandaKosong` bila belum ada. */
+export function labelSoTerakhir(soTerakhir: KepatuhanGudang["soTerakhir"], penandaKosong: string): string {
+  if (!soTerakhir) return penandaKosong;
+  const pic = soTerakhir.pic ? ` · ${soTerakhir.pic}` : "";
+  return `${formatTanggalSo(soTerakhir.tanggal)}${pic}`;
+}
+
+/** "Oktober 2026" dari periode "YYYY-MM". */
+export function formatBulanSo(periode: string): string {
+  return new Date(`${periode}-01T00:00:00.000Z`).toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 const OFFSET_WIB_MS = 7 * 60 * 60 * 1000;
 const PANJANG_TANGGAL = 10;
+const PANJANG_PERIODE = 7;
 
 /** Tanggal kalender WIB "YYYY-MM-DD" dari tanggal polos atau timestamp ISO. */
 function keTanggalWib(tanggal: string): string {
@@ -96,5 +128,5 @@ export function formatTanggalSo(tanggal: string): string {
 /** Periode "YYYY-MM" bulan berjalan menurut WIB. */
 export function periodeSekarang(): string {
   const wib = new Date(Date.now() + OFFSET_WIB_MS);
-  return wib.toISOString().slice(0, 7);
+  return wib.toISOString().slice(0, PANJANG_PERIODE);
 }

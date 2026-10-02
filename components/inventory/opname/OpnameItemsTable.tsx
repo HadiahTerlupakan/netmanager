@@ -44,12 +44,12 @@ export function OpnameItemsTable({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-start justify-between gap-3">
         <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Input Stock Opname - Hitung Stok Fisik
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Bandingkan stok sistem dengan hasil hitungan fisik di {gudangNama}
-        </p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Input Stock Opname - Hitung Stok Fisik
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Bandingkan stok sistem dengan hasil hitungan fisik di {gudangNama}
+          </p>
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input

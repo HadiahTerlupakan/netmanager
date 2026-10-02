@@ -44,3 +44,13 @@ export const workOrderCreateSchema = z.object({
 });
 
 export type WorkOrderCreateInput = z.infer<typeof workOrderCreateSchema>;
+
+/** Batas baris per halaman daftar WO admin (unduh PDF memakai halaman 100). */
+export const BATAS_HALAMAN_WORK_ORDER = 100;
+const UKURAN_HALAMAN_WORK_ORDER_BAWAAN = 20;
+
+/** Paginasi `GET /api/admin/workorders`: page ≥ 1, limit 1–100. */
+export const workOrderListPaginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(BATAS_HALAMAN_WORK_ORDER).default(UKURAN_HALAMAN_WORK_ORDER_BAWAAN),
+});

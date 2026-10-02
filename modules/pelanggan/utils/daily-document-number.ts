@@ -1,13 +1,24 @@
-const PAD_CHAR = "0";
+import { formatInTimeZone } from "date-fns-tz";
 
-/** Membuat nomor dokumen harian dengan format existing prefix-YYYYMMDD-SEQ. */
+import { getTimezoneSync } from "@/lib/utils/get-timezone";
+
+const PAD_CHAR = "0";
+const FORMAT_TANGGAL_NOMOR = "yyyyMMdd";
+
+/**
+ * Membuat nomor dokumen harian dengan format existing prefix-YYYYMMDD-SEQ.
+ * Tanggal mengikuti zona waktu tenant — sama dengan batas "hari ini" pada
+ * penghitung urutan (`toStartOfDay`) — agar urutan yang direset tengah malam
+ * lokal tidak bentrok dengan nomor kemarin (tanggal UTC tertinggal s.d. 7 jam).
+ */
 export function formatDailyDocumentNumber(params: {
   prefix: string;
   date: Date;
   count: number;
   sequenceWidth: number;
+  timezone?: string;
 }): string {
-  const dateStr = params.date.toISOString().slice(0, 10).replace(/-/g, "");
+  const dateStr = formatInTimeZone(params.date, params.timezone ?? getTimezoneSync(), FORMAT_TANGGAL_NOMOR);
   const sequence = String(params.count + 1).padStart(
     params.sequenceWidth,
     PAD_CHAR,

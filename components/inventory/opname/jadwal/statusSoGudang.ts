@@ -1,15 +1,10 @@
 import {
   TAMPILAN_STATUS_SO,
+  URUTAN_PRIORITAS_STATUS_SO,
   type KepatuhanGudang,
   type LaporanKepatuhanSo,
   type StatusSoGudang,
 } from "./jadwalSoTypes";
-
-/**
- * Urutan dari yang paling perlu ditindaklanjuti. Gudang yang dipakai beberapa
- * site dinilai per site; untuk satu penanda diambil status terburuknya.
- */
-const PRIORITAS_STATUS: StatusSoGudang[] = ["BELUM", "DI_LUAR_JADWAL", "SEBAGIAN", "LENGKAP", "TANPA_STOK"];
 
 /** Ikon teks per status (dropdown native tidak bisa diberi warna). */
 const IKON_STATUS: Record<StatusSoGudang, string> = {
@@ -20,12 +15,20 @@ const IKON_STATUS: Record<StatusSoGudang, string> = {
   TANPA_STOK: "–",
 };
 
-/** Status SO bulan ini per gudang (map gudangId → gudang dengan status terburuk). */
+/** Keterangan ikon status: "✓ Lengkap · ◐ Sebagian · … · – Tidak ada stok". */
+export const LEGENDA_STATUS_SO = (Object.keys(IKON_STATUS) as StatusSoGudang[])
+  .map((status) => `${IKON_STATUS[status]} ${TAMPILAN_STATUS_SO[status].label}`)
+  .join(" · ");
+
+/**
+ * Status SO bulan ini per gudang (map gudangId → gudang dengan status terburuk).
+ * Gudang yang dipakai beberapa site dinilai per site; diambil status terburuknya.
+ */
 export function statusSoPerGudang(laporan: LaporanKepatuhanSo | undefined): Map<string, KepatuhanGudang> {
   const hasil = new Map<string, KepatuhanGudang>();
   for (const gudang of laporan?.site.flatMap((site) => site.gudang) ?? []) {
     const sebelumnya = hasil.get(gudang.id);
-    if (!sebelumnya || PRIORITAS_STATUS.indexOf(gudang.status) < PRIORITAS_STATUS.indexOf(sebelumnya.status)) {
+    if (!sebelumnya || URUTAN_PRIORITAS_STATUS_SO.indexOf(gudang.status) < URUTAN_PRIORITAS_STATUS_SO.indexOf(sebelumnya.status)) {
       hasil.set(gudang.id, gudang);
     }
   }

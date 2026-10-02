@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 import { InvestorRepository } from "@/modules/investor/repositories/InvestorRepository";
 
 const tx = {
-  investor: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  investor: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
 };
 const client = {
   ...tx,
@@ -45,7 +45,15 @@ describe("InvestorRepository — token FCM", () => {
   });
 
   it("investor nonaktif tidak menerima push", async () => {
-    client.investor.findUnique.mockResolvedValueOnce({ fcmTokens: ["a"], isActive: false });
-    await expect(repo.findFcmTokens("inv-1")).resolves.toEqual([]);
+    client.investor.findFirst.mockResolvedValueOnce({ fcmTokens: ["a"], isActive: false });
+    await expect(repo.findFcmTokens("inv-1", "tenant-1")).resolves.toEqual([]);
+  });
+
+  it("token hanya diambil dari investor di tenant asal event", async () => {
+    client.investor.findFirst.mockResolvedValueOnce(null);
+    await expect(repo.findFcmTokens("inv-1", "tenant-lain")).resolves.toEqual([]);
+    expect(client.investor.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "inv-1", tenantId: "tenant-lain" } }),
+    );
   });
 });

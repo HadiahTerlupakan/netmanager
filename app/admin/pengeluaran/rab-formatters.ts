@@ -1,9 +1,13 @@
+import { PERSEN_BAGI_HASIL_RAB_BAWAAN } from "@/modules/finance/client";
+
 import type {
   LinearGrowthSettings,
   PercentageGrowthSettings,
   RABItem,
   RABProject,
 } from "./rabTypes";
+
+const PERSEN_PENUH = 100;
 
 /** Formats RAB item category with parent category when available. */
 export function formatRabItemCategory(
@@ -65,11 +69,12 @@ export function formatRabCompactGrowthModel(project: RABProject) {
 /** Returns profit-share rows for RAB PDF output. */
 export function formatRabProfitSharePdfRows(project: RABProject): string[][] {
   if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    const investorShare = project.investorProfitSharePercent ?? 50;
+    const investorShare =
+      project.investorProfitSharePercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.flat;
     return [
       ["Skema Bagi Hasil", "Tetap"],
       ["Bagi Hasil Investor", `${investorShare}%`],
-      ["Bagi Hasil Perusahaan", `${100 - investorShare}%`],
+      ["Bagi Hasil Perusahaan", `${PERSEN_PENUH - investorShare}%`],
     ];
   }
 
@@ -77,11 +82,11 @@ export function formatRabProfitSharePdfRows(project: RABProject): string[][] {
     ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
     [
       "Investor Sebelum Balik Modal",
-      `${project.investorProfitShareBeforeBepPercent ?? 80}%`,
+      `${project.investorProfitShareBeforeBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sebelumBep}%`,
     ],
     [
       "Investor Setelah Balik Modal",
-      `${project.investorProfitShareAfterBepPercent ?? 60}%`,
+      `${project.investorProfitShareAfterBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sesudahBep}%`,
     ],
   ];
 }
@@ -100,11 +105,13 @@ export function formatRabProfitShareCsvRows(
     ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
     [
       "Investor Share Sebelum Balik Modal (%)",
-      project.investorProfitShareBeforeBepPercent ?? 80,
+      project.investorProfitShareBeforeBepPercent ??
+        PERSEN_BAGI_HASIL_RAB_BAWAAN.sebelumBep,
     ],
     [
       "Investor Share Setelah Balik Modal (%)",
-      project.investorProfitShareAfterBepPercent ?? 60,
+      project.investorProfitShareAfterBepPercent ??
+        PERSEN_BAGI_HASIL_RAB_BAWAAN.sesudahBep,
     ],
   ];
 }
@@ -112,19 +119,21 @@ export function formatRabProfitShareCsvRows(
 /** Returns sentence-form profit-share description for RAB detail. */
 export function formatRabProfitShareDescription(project: RABProject) {
   if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    const investorShare = project.investorProfitSharePercent ?? 50;
-    return `${investorShare}% investor / ${100 - investorShare}% perusahaan`;
+    const investorShare =
+      project.investorProfitSharePercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.flat;
+    return `${investorShare}% investor / ${PERSEN_PENUH - investorShare}% perusahaan`;
   }
 
-  return `${project.investorProfitShareBeforeBepPercent ?? 80}% sebelum balik modal, ${project.investorProfitShareAfterBepPercent ?? 60}% setelah balik modal`;
+  return `${project.investorProfitShareBeforeBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sebelumBep}% sebelum balik modal, ${project.investorProfitShareAfterBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sesudahBep}% setelah balik modal`;
 }
 
 /** Returns compact profit-share description for comparison tables. */
 export function formatRabCompactProfitShare(project: RABProject) {
   if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    const investorShare = project.investorProfitSharePercent ?? 50;
-    return `${investorShare}% : ${100 - investorShare}%`;
+    const investorShare =
+      project.investorProfitSharePercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.flat;
+    return `${investorShare}% : ${PERSEN_PENUH - investorShare}%`;
   }
 
-  return `${project.investorProfitShareBeforeBepPercent ?? 80}% pra-BEP, ${project.investorProfitShareAfterBepPercent ?? 60}% pasca-BEP`;
+  return `${project.investorProfitShareBeforeBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sebelumBep}% pra-BEP, ${project.investorProfitShareAfterBepPercent ?? PERSEN_BAGI_HASIL_RAB_BAWAAN.sesudahBep}% pasca-BEP`;
 }

@@ -3,6 +3,8 @@ import type { ProspekEntity, ProspekStatus } from "../domain/entities/Prospek";
 import {
   isPeranProspekSah,
   isStatusFinal,
+  JENIS_PROSPEK_BAWAAN,
+  PESAN_PERAN_PERANTARA_WAJIB,
   isTransisiStatusSah,
   tentukanPeranProspek,
 } from "../domain/prospek-rules";
@@ -89,7 +91,7 @@ export class ProspekService {
     opsi: OpsiBuatProspek = {},
   ): Promise<ProspekEntity> {
     const data = await this.sertakanTenantPenugasan(
-      { ...input, peran: tentukanPeranProspek(input.jenis ?? "CALON_PELANGGAN", input.peran) },
+      { ...input, peran: tentukanPeranProspek(input.jenis ?? JENIS_PROSPEK_BAWAAN, input.peran) },
       opsi,
     );
 
@@ -195,7 +197,7 @@ export class ProspekService {
     const jenis = input.jenis ?? prospek.jenis;
     const peran = input.peran !== undefined ? input.peran : prospek.peran;
     if (!isPeranProspekSah(jenis, peran)) {
-      throw new AppError("Perantara wajib menyebut perannya, mis. Ketua RT 03", 400, "VALIDATION_ERROR");
+      throw new AppError(PESAN_PERAN_PERANTARA_WAJIB, 400, "VALIDATION_ERROR");
     }
     return { ...input, peran: tentukanPeranProspek(jenis, peran) };
   }

@@ -3,6 +3,8 @@ import { PROSPEK_JENIS, PROSPEK_STATUSES, PROSPEK_SUMBER } from "../domain/entit
 import {
   isPeranProspekSah,
   isSumberButuhIklan,
+  JENIS_PROSPEK_BAWAAN,
+  PESAN_PERAN_PERANTARA_WAJIB,
   isSumberButuhReferral,
 } from "../domain/prospek-rules";
 import { isTerisi } from "./field-terisi";
@@ -24,7 +26,6 @@ const PANJANG_ALAMAT_MIN = 5;
 const PANJANG_ALAMAT_MAKS = 500;
 const PANJANG_CATATAN_MAKS = 1000;
 const PANJANG_PERAN_MAKS = 120;
-const PESAN_PERAN_WAJIB = "Perantara wajib menyebut perannya, mis. Ketua RT 03";
 const BATAS_HALAMAN_MAKS = 100;
 const ISI_HALAMAN_BAWAAN = 20;
 
@@ -40,7 +41,7 @@ export const buatProspekSchema = z
     latitude: z.number().min(-90).max(90).optional().nullable(),
     longitude: z.number().min(-180).max(180).optional().nullable(),
     shareloc: z.string().url("Tautan lokasi tidak valid").optional().nullable(),
-    jenis: z.enum(PROSPEK_JENIS).default("CALON_PELANGGAN"),
+    jenis: z.enum(PROSPEK_JENIS).default(JENIS_PROSPEK_BAWAAN),
     peran: z.string().max(PANJANG_PERAN_MAKS).optional().nullable(),
     sumber: z.enum(PROSPEK_SUMBER),
     iklanId: z.string().optional().nullable(),
@@ -62,7 +63,7 @@ export const buatProspekSchema = z
     { message: "Prospek dari referral wajib mencatat nama perujuknya" },
   )
   .refine((prospek) => isPeranProspekSah(prospek.jenis, prospek.peran), {
-    message: PESAN_PERAN_WAJIB,
+    message: PESAN_PERAN_PERANTARA_WAJIB,
     path: ["peran"],
   });
 

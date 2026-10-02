@@ -143,6 +143,7 @@ export class RencanaService {
     return { hariIni: tanggalLokal(this.sekarang(), zonaWaktu), zonaWaktu };
   }
 
+  /** Agenda rencana dalam lingkup pengguna, berhalaman, beserta konteks waktu tenant. */
   async daftar(
     input: DaftarRencanaInput,
     lingkup: LingkupRencana,
@@ -158,6 +159,7 @@ export class RencanaService {
     return { ...hasil, waktu };
   }
 
+  /** Satu rencana dalam lingkup beserta kegiatan laporannya (bila ada). */
   async rincian(
     id: string,
     lingkup: LingkupRencana,
@@ -170,6 +172,7 @@ export class RencanaService {
     return { rencana, laporan };
   }
 
+  /** Buat rencana MANDIRI (untuk diri sendiri) atau PENUGASAN ke sales dalam lingkup. */
   async buat(
     input: BuatRencanaInput,
     pengguna: PenggunaRencana,
@@ -210,6 +213,7 @@ export class RencanaService {
     return rencana;
   }
 
+  /** Jadwal ulang/ubah rencana yang masih DIRENCANAKAN dan boleh diatur pengguna. */
   async ubah(
     id: string,
     input: UbahRencanaInput,
@@ -222,11 +226,16 @@ export class RencanaService {
     }
     if (input.prospekId) await this.pastikanProspekSah(input.prospekId, tenantId);
 
-    const diubah = await this.repository.ubahSelagiTerbuka(rencana.id, input);
+    const diubah = await this.repository.ubahSelagiTerbuka(
+      rencana.id,
+      tenantId,
+      input,
+    );
     if (!diubah) throw new AppError(PESAN_SUDAH_DITUTUP, 409, "CONFLICT");
     return diubah;
   }
 
+  /** Batalkan rencana yang masih DIRENCANAKAN dengan alasan; jejak pembatalan disimpan. */
   async batalkan(
     id: string,
     alasan: string,
@@ -234,11 +243,11 @@ export class RencanaService {
     lingkup: LingkupRencana,
   ): Promise<RencanaEntity> {
     const rencana = await this.muatUntukDiatur(id, lingkup, pengguna.tenantId);
-    const dibatalkan = await this.repository.batalkanSelagiTerbuka(rencana.id, {
-      alasan,
-      olehId: pengguna.id,
-      pada: this.sekarang(),
-    });
+    const dibatalkan = await this.repository.batalkanSelagiTerbuka(
+      rencana.id,
+      pengguna.tenantId,
+      { alasan, olehId: pengguna.id, pada: this.sekarang() },
+    );
     if (!dibatalkan) throw new AppError(PESAN_SUDAH_DITUTUP, 409, "CONFLICT");
     return dibatalkan;
   }

@@ -36,7 +36,10 @@ export class InvestorPushService {
       logger.info(`[InvestorPushService] Lewati duplikat ${pesan.kunciUnik}`);
       return;
     }
-    const tokens = await this.investorRepository.findFcmTokens(pesan.investorId);
+    const tokens = await this.investorRepository.findFcmTokens(
+      pesan.investorId,
+      pesan.tenantId,
+    );
     if (tokens.length === 0) return;
     await sendFCMNotification(tokens, pesan.judul, pesan.isi, {
       url: pesan.url,

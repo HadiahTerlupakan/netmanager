@@ -164,7 +164,7 @@ describe("RencanaService", () => {
       repo.findById = vi.fn().mockResolvedValue(rencana({ sumber: "MANDIRI", dibuatOlehId: "sales-a" }));
       await service().batalkan("r-1", "hujan deras", SALES_A, SENDIRI_A);
 
-      expect(repo.batalkanSelagiTerbuka).toHaveBeenCalledWith("r-1", { alasan: "hujan deras", olehId: "sales-a", pada: SEKARANG });
+      expect(repo.batalkanSelagiTerbuka).toHaveBeenCalledWith("r-1", TENANT, { alasan: "hujan deras", olehId: "sales-a", pada: SEKARANG });
     });
 
     it("rencana yang sudah dilaporkan tidak bisa dibatalkan (409)", async () => {
