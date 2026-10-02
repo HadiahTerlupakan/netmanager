@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Pelacakan lokasi berhenti di luar jam kerja
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Notifikasi "RADPRO sedang melacak lokasi Anda" bisa tidak
+  pernah hilang. Server sudah benar (check-out termasuk otomatis di akhir
+  shift → `shouldStopTracking`), tetapi perintah berhenti tidak pernah sampai
+  ke HP:
+  - Task background berjalan tanpa token di memori (app ditutup) dan token
+    akses kedaluwarsa tiap 15 menit, sementara request lokasi melewati
+    refresh (`skipGlobalAuthHandler`). Semua kiriman ditolak 401, disimpan ke
+    antrean, dan tracking jalan terus. Kini token diambil dari penyimpanan
+    aman, 401 di-refresh sekali; bila sesi habis tracking dihentikan.
+  - Logout tidak menghentikan tracking → kini `clearLocalSession` memanggil
+    `LocationTrackingService.cleanup()`; tanpa sesi login tracking berhenti.
+  - Batas aman 16 jam per sesi tracking (`batasSesiTracking.ts`) untuk kasus
+    lupa check-out sambil offline.
+- **Files**: `src/services/LocationTrackingService.ts`, `src/services/batasSesiTracking.ts`,
+  `src/context/AuthContext.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Notifikasi push untuk investor di aplikasi mobile
 
 - **Tipe**: [ADDED]
