@@ -377,34 +377,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     ],
   },
   {
-    code: "INVESTORS",
-    name: "Investor",
-    path: "/admin/investors",
-    icon: "HiOutlineBriefcase",
-    featureModule: "investor",
-    children: [
-      {
-        code: "INVESTORS.LIST",
-        name: "Daftar Investor",
-        path: "/admin/investors",
-        icon: "HiOutlineUsers",
-        exact: true,
-      },
-      {
-        code: "INVESTORS.DEPOSITS",
-        name: "Setoran Masuk",
-        path: "/admin/investors/deposits",
-        icon: "HiOutlineBanknotes",
-      },
-      {
-        code: "INVESTORS.PROFIT_SHARES",
-        name: "Bagi Hasil",
-        path: "/admin/investors/profit-shares",
-        icon: "HiOutlineChartPie",
-      },
-    ],
-  },
-  {
     code: "KEHADIRAN",
     name: "Kehadiran",
     path: "/admin/kehadiran",
@@ -659,6 +631,35 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         name: "Manajemen Insiden",
         path: "/admin/incidents",
         icon: "HiOutlineExclamationCircle",
+      },
+    ],
+  },
+  {
+    code: "INVESTORS",
+    // Bagian Keuangan (sebelumnya terselip di SDM di bawah Mitra sehingga sulit ditemukan).
+    name: "Investor",
+    path: "/admin/investors",
+    icon: "HiOutlineBriefcase",
+    featureModule: "investor",
+    children: [
+      {
+        code: "INVESTORS.LIST",
+        name: "Daftar Investor",
+        path: "/admin/investors",
+        icon: "HiOutlineUsers",
+        exact: true,
+      },
+      {
+        code: "INVESTORS.DEPOSITS",
+        name: "Setoran Masuk",
+        path: "/admin/investors/deposits",
+        icon: "HiOutlineBanknotes",
+      },
+      {
+        code: "INVESTORS.PROFIT_SHARES",
+        name: "Bagi Hasil",
+        path: "/admin/investors/profit-shares",
+        icon: "HiOutlineChartPie",
       },
     ],
   },

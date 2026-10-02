@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Menu Investor dipindah ke bagian Keuangan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Grup menu Investor (Daftar Investor, Setoran Masuk, Bagi
+  Hasil) sebelumnya terselip di bagian SDM di bawah Mitra sehingga tidak
+  ditemukan saat dicari di Keuangan. Kini berada di bagian Keuangan, setelah
+  grup Keuangan. Gerbang tetap sama (modul `investor` aktif + izin
+  `investors:read`).
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Bagi hasil investor dihitung per proyek RAB
 
 - **Tipe**: [CHANGED]
