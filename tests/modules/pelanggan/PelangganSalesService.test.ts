@@ -125,3 +125,30 @@ describe("PelangganSalesService.daftarPelangganSaya", () => {
     expect(daftarPelangganSales).not.toHaveBeenCalled();
   });
 });
+
+describe("PelangganSalesService.tentukanSalesPelangganBaru", () => {
+  const SALES_AKTIF = vi.fn(async (_t: string, id: string) => (id === "s-ani" ? { id, name: "Ani" } : null));
+
+  it("pilihan admin dipakai setelah dipastikan sales aktif, tanpa mencari canvasing", async () => {
+    const cari = vi.fn();
+    const service = new PelangganSalesService(repoPalsu({ cariSalesAktif: SALES_AKTIF }), cari);
+    await expect(service.tentukanSalesPelangganBaru("t1", { salesId: "s-ani", noTelp: "0812" })).resolves.toBe("s-ani");
+    expect(cari).not.toHaveBeenCalled();
+    await expect(service.tentukanSalesPelangganBaru("t1", { salesId: "s-lain" })).rejects.toMatchObject({ status: 422 });
+  });
+
+  it("sales kosong → diisi dari canvasing bila tepat satu sales aktif cocok", async () => {
+    const service = new PelangganSalesService(repoPalsu({ cariSalesAktif: SALES_AKTIF }), vi.fn(async () => ["s-ani"]));
+    await expect(service.tentukanSalesPelangganBaru("t1", { salesId: null, noTelp: "0812-3456-7890" })).resolves.toBe("s-ani");
+  });
+
+  it("ambigu (dua sales), sales tidak aktif, atau tanpa nomor HP → dibiarkan kosong", async () => {
+    const dua = new PelangganSalesService(repoPalsu({ cariSalesAktif: SALES_AKTIF }), vi.fn(async () => ["s-ani", "s-budi"]));
+    await expect(dua.tentukanSalesPelangganBaru("t1", { noTelp: "0812" })).resolves.toBeNull();
+    const nonaktif = new PelangganSalesService(repoPalsu({ cariSalesAktif: SALES_AKTIF }), vi.fn(async () => ["s-keluar"]));
+    await expect(nonaktif.tentukanSalesPelangganBaru("t1", { noTelp: "0812" })).resolves.toBeNull();
+    const cari = vi.fn();
+    await expect(new PelangganSalesService(repoPalsu(), cari).tentukanSalesPelangganBaru("t1", {})).resolves.toBeNull();
+    expect(cari).not.toHaveBeenCalled();
+  });
+});

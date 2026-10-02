@@ -41,6 +41,86 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Cegah bagi hasil investor dobel lewat penjaga di DB
+
+- **Tipe**: [FIXED] [MIGRATION]
+- **Scope**: `modules/investor`
+- **Author**: agent
+- **Deskripsi**:
+  - **Masalah:** dua kalkulasi bagi hasil yang berjalan bersamaan bisa sama-sama lolos cek "bulan sudah dibayar", sehingga bagi hasil tercatat dobel.
+  - **Penjaga baru:** tabel `investor_profit_share_bulan` dengan unique (investorId, rabProjectId, month), diisi dalam transaksi yang sama dengan pembuatan bagi hasil.
+    - Kalkulasi kedua ditolak DB (P2002) dan investor itu dilewati.
+    - Saat bagi hasil dibatalkan, status diubah dan baris bulannya dilepas dalam satu transaksi, sehingga bulan bisa dihitung ulang.
+  - **Backfill:** dari bagi hasil per proyek yang belum batal. Di produksi tabelnya masih 0 baris.
+- **Migration**: `20261002135017_add_investor_profit_share_bulan_guard`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Batas modul finance/investor/notification dan N+1 bagi hasil
+
+- **Tipe**: [CHANGED] [REMOVED]
+- **Scope**: `modules/finance`, `modules/investor`, `modules/notification`
+- **Author**: agent
+- **Deskripsi**:
+  - **Akses tabel antar-modul.** Tiap modul kini membaca tabel milik modul lain lewat public query sempit milik pemiliknya:
+    - finance membaca investorProfitShare/investor/payout;
+    - investor membaca tabel RAB;
+    - notification membaca token FCM investor.
+    - Public query ada di `modules/finance/public-queries.ts` dan `modules/investor/public-queries.ts`. Sengaja tidak lewat index, untuk menghindari impor melingkar.
+  - **N+1:** bulan yang sudah dibayar dibaca satu query per proyek, bukan per investor.
+  - **Pembulatan:** total dashboard investor dibulatkan ke sen, sama dengan nilai tersimpan.
+  - **Isolasi tenant:** `findById`/`updateStatus` bagi hasil menyaring `tenantId` eksplisit.
+  - **Dihapus:** `InvestorPaymentBridgeService` di finance, beserta export-nya. Satu-satunya konsumennya modul investor, yang kini memakai repository sendiri.
+- **Breaking**: ✅ Ya — export `InvestorPaymentBridgeService` dari `@/modules/finance` dihapus (internal, konsumen sudah dipindah)
+
+### [2026-10-02] — Logika izin presurvei & poin canvasing pindah ke modules/roles
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/roles`, `modules/presurvei`, `modules/marketing`, `app/api/presurvei`
+- **Author**: agent
+- **Deskripsi**: Sesuai aturan "authorization hanya di lib/rbac.ts & modules/roles", logika izin dipindah ke `modules/roles`:
+  - `modules/roles/domain/lingkup-presurvei.ts`: `jenisLingkupDariIzin`, `isKepalaSalesDariIzin`, `jenisLingkupPenilaian`, `isBolehLihatSemuaPresurvei`;
+  - `modules/roles/domain/izin-canvasing.ts`;
+  - `modules/roles/services/PointClaimAccessPolicy.ts`: `canManagePointClaim`, `hasCashoutPermission`, dan lainnya.
+
+  Query Prisma di `requireEligibleCashoutUser` dipindah ke repository marketing. Perilaku tidak berubah.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Sales penanggung jawab pelanggan diisi otomatis dari canvasing
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan`, `modules/marketing`, `app/api/pelanggan-ppp`, `scripts/`
+- **Author**: agent
+- **Deskripsi**:
+  - **Form pelanggan baru:** bila admin tidak memilih sales, server mencari canvasing APPROVED dengan nomor HP yang sama, dibandingkan 9 digit terakhir sehingga awalan 0/62/+62 diabaikan. Sales itu dipakai hanya bila tepat satu sales aktif yang cocok.
+  - **Skrip backfill:** `scripts/backfill-sales-pelanggan.ts` untuk pelanggan hasil impor. Bawaannya dry-run; perubahan baru ditulis dengan `--apply`. Idempoten.
+  - **Lookup:** lewat public API marketing `cariSalesCanvasingDariTelepon`.
+  - Catatan: produksi saat ini 0 pelanggan.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Migration izin: tautan role tetap jalan untuk tenant kedua
+
+- **Tipe**: [FIXED] [MIGRATION]
+- **Scope**: `prisma/migrations`
+- **Author**: agent
+- **Deskripsi**: Di produksi, unique `Permission` adalah (resource, action) global, sedangkan schema-nya (resource, action, tenantId). Akibatnya INSERT izin per tenant dilewati untuk tenant kedua, dan JOIN per tenantId tidak menautkan apa pun. Penautan role↔izin kini memilih izin tenant yang sama bila ada, selain itu baris yang sudah ada. Ketiga migration ini belum pernah terpasang di produksi, dan checksum lokal sudah diperbarui.
+- **Migration**: `20260926100438_grant_presurvei_rencana_permissions_to_admin_roles`, `20261001222557_sync_user_is_sales_from_role_persona`, `20261002045331_grant_opname_manage_permission_to_admin_roles`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Mobile: layar peta topologi dipecah per tanggung jawab
+
+- **Tipe**: [CHANGED]
+- **Scope**: `mobile-netmanager` (app/(app)/topology-map.tsx)
+- **Author**: agent
+- **Deskripsi**:
+  - Ukuran: 1469 → 142 baris.
+  - Struktur baru:
+    - hook data/KMZ/kamera/peta (`src/hooks/topology/`);
+    - util murni geo/perangkat/KMZ/detail (`src/utils/topology/`);
+    - komponen header, galat, pencarian, daftar perangkat, peta native, dan overlay.
+  - Tanpa `any`, magic number jadi konstanta, ditambah 51 test baru.
+  - Perilaku dan tampilan tidak berubah. Hanya JS, sehingga cukup OTA.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Capaian RAB yang dikosongkan tersimpan sebagai 0
 
 - **Tipe**: [FIXED]

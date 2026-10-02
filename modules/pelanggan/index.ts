@@ -118,6 +118,7 @@ export { handleInvoicePaidActivation } from "./services/event-handlers/invoice-p
 export {
   getPelangganSalesService,
   PelangganSalesService,
+  type CariSalesCanvasing,
   type FilterPelangganSaya,
   type KelompokTunggakan,
   type PelangganSayaDTO,

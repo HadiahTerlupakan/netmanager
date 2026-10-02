@@ -109,12 +109,11 @@ export const POST = createHandler(
     }
 
     const data = validationResult.data;
-    if (data.salesId) {
-      try {
-        await getPelangganSalesService().pastikanSalesAktif(requireSessionTenantId(ctx), data.salesId);
-      } catch (error) {
-        return responsGalatSalesPelanggan(error, "validasi sales pelanggan baru");
-      }
+    try {
+      // Sales kosong → diisi otomatis dari canvasing dengan nomor HP sama (bila tunggal).
+      data.salesId = await getPelangganSalesService().tentukanSalesPelangganBaru(requireSessionTenantId(ctx), data);
+    } catch (error) {
+      return responsGalatSalesPelanggan(error, "validasi sales pelanggan baru");
     }
     const restriction = checkSiteRestriction(
       buildSessionWithPermissions(session, ctx.permissions),

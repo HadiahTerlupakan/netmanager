@@ -7,6 +7,15 @@ import {
   type SaringanSales,
 } from "../repositories/PelangganSalesRepository";
 
+/** Sales (id) canvasing APPROVED dengan nomor HP sama; disuntik agar mudah diuji. */
+export type CariSalesCanvasing = (tenantId: string, noTelp: string) => Promise<string[]>;
+
+const cariSalesCanvasingBawaan: CariSalesCanvasing = async (tenantId, noTelp) => {
+  // Lazy: hindari impor melingkar pelanggan ↔ marketing saat modul dimuat.
+  const { cariSalesCanvasingDariTelepon } = await import("@/modules/marketing");
+  return cariSalesCanvasingDariTelepon(tenantId, noTelp);
+};
+
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNPROCESSABLE = 422;
 /** Batas daftar tunggakan di aplikasi; tunggakan lebih banyak dilihat di web admin. */
@@ -137,7 +146,10 @@ export function kelompokkanPerSales(
  * daftar pelanggan isolir yang perlu ditindaklanjuti pembayarannya.
  */
 export class PelangganSalesService {
-  constructor(private readonly repository = new PelangganSalesRepository()) {}
+  constructor(
+    private readonly repository = new PelangganSalesRepository(),
+    private readonly cariSalesCanvasing: CariSalesCanvasing = cariSalesCanvasingBawaan,
+  ) {}
 
   /** Sales aktif yang bisa dipilih sebagai penanggung jawab. */
   daftarSalesPilihan(tenantId: string) {
@@ -156,6 +168,25 @@ export class PelangganSalesService {
     if (!(await this.repository.cariSalesAktif(tenantId, salesId))) {
       throw createRouteServiceError("Sales tidak ditemukan atau tidak aktif", HTTP_UNPROCESSABLE);
     }
+  }
+
+  /**
+   * Sales penanggung jawab pelanggan baru: pilihan admin (wajib sales aktif), atau
+   * bila dikosongkan, sales canvasing APPROVED dengan nomor HP yang sama — hanya bila
+   * tepat satu sales cocok dan masih aktif (ambigu → dibiarkan kosong).
+   */
+  async tentukanSalesPelangganBaru(
+    tenantId: string,
+    pelanggan: { salesId?: string | null; noTelp?: string | null },
+  ): Promise<string | null> {
+    if (pelanggan.salesId) {
+      await this.pastikanSalesAktif(tenantId, pelanggan.salesId);
+      return pelanggan.salesId;
+    }
+    if (!pelanggan.noTelp) return null;
+    const kandidat = await this.cariSalesCanvasing(tenantId, pelanggan.noTelp);
+    if (kandidat.length !== 1) return null;
+    return (await this.repository.cariSalesAktif(tenantId, kandidat[0])) ? kandidat[0] : null;
   }
 
   /** Tetapkan (atau lepas dengan null) sales penanggung jawab pelanggan. */

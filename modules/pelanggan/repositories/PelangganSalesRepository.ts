@@ -86,6 +86,25 @@ export class PelangganSalesRepository {
     });
   }
 
+  /** Pelanggan tenant (bukan DISMANTLE) yang belum punya sales penanggung jawab, untuk backfill. */
+  async daftarPelangganTanpaSales(tenantId: string) {
+    return this.client.pelanggan.findMany({
+      where: { tenantId, salesId: null, status: { not: "DISMANTLE" } },
+      select: { id: true, nama: true, noTelp: true },
+      orderBy: { id: "asc" },
+    });
+  }
+
+  /** Tenant yang punya pelanggan tanpa sales penanggung jawab. */
+  async daftarTenantPelangganTanpaSales(): Promise<string[]> {
+    const baris = await this.client.pelanggan.findMany({
+      where: { salesId: null, tenantId: { not: null }, status: { not: "DISMANTLE" } },
+      select: { tenantId: true },
+      distinct: ["tenantId"],
+    });
+    return baris.map((item) => item.tenantId as string);
+  }
+
   /** Tetapkan / lepas sales penanggung jawab pelanggan milik tenant. */
   async tetapkanSales(tenantId: string, pelangganId: string, salesId: string | null) {
     return this.client.pelanggan.update({

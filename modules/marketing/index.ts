@@ -65,3 +65,4 @@ export type {
   ClaimPointsDTO,
 } from "./dto/MarketingDTO";
 export type { CreateCanvasingInput } from "./domain/ports/ICanvasingRepository";
+export { cariSalesCanvasingDariTelepon } from "./services/CanvasingSalesLookupService";
