@@ -29,6 +29,7 @@ const STALE_TOKEN_DAYS = 30;
 export async function cleanupStaleFcmTokenArrays(): Promise<{
   usersCleaned: number;
   mitrasCleaned: number;
+  investorsCleaned: number;
   tokensRemoved: number;
 }> {
   const cutoff = new Date();
@@ -46,6 +47,17 @@ export async function cleanupStaleFcmTokenArrays(): Promise<{
   });
 
   const staleMitras = await prismaMitra.mitra.findMany({
+    where: {
+      fcmTokens: { isEmpty: false },
+      OR: [
+        { pushTokenUpdatedAt: { lt: cutoff } },
+        { pushTokenUpdatedAt: null, updatedAt: { lt: cutoff } },
+      ],
+    },
+    select: { id: true, fcmTokens: true },
+  });
+
+  const staleInvestors = await prisma.investor.findMany({
     where: {
       fcmTokens: { isEmpty: false },
       OR: [
@@ -74,11 +86,20 @@ export async function cleanupStaleFcmTokenArrays(): Promise<{
     });
   });
 
-  await Promise.all([...userUpdates, ...mitraUpdates]);
+  const investorUpdates = staleInvestors.map((investor) => {
+    tokensRemoved += investor.fcmTokens.length;
+    return prisma.investor.update({
+      where: { id: investor.id },
+      data: { fcmTokens: { set: [] } },
+    });
+  });
+
+  await Promise.all([...userUpdates, ...mitraUpdates, ...investorUpdates]);
 
   return {
     usersCleaned: staleUsers.length,
     mitrasCleaned: staleMitras.length,
+    investorsCleaned: staleInvestors.length,
     tokensRemoved,
   };
 }

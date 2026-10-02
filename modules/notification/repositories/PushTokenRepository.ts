@@ -116,7 +116,7 @@ export class PushTokenRepository implements IPushTokenRepository {
   }
 
   /**
-   * Hapus token dari array fcmTokens[] di User dan Mitra.
+   * Hapus token dari array fcmTokens[] di User, Mitra, dan Investor.
    * Ini adalah ROOT CAUSE fix — sebelumnya cleanup hanya bersihkan
    * legacy `pushToken` tapi tidak menyentuh array `fcmTokens[]`
    * sehingga stale token terus menumpuk dan gagal di setiap multicast.
@@ -126,12 +126,16 @@ export class PushTokenRepository implements IPushTokenRepository {
     const tokenSet = new Set(tokens);
     let removedCount = 0;
 
-    const [users, mitras] = await Promise.all([
+    const [users, mitras, investors] = await Promise.all([
       prisma.user.findMany({
         where: { fcmTokens: { hasSome: tokens } },
         select: { id: true, fcmTokens: true },
       }),
       prismaMitra.mitra.findMany({
+        where: { fcmTokens: { hasSome: tokens } },
+        select: { id: true, fcmTokens: true },
+      }),
+      prisma.investor.findMany({
         where: { fcmTokens: { hasSome: tokens } },
         select: { id: true, fcmTokens: true },
       }),
@@ -163,7 +167,20 @@ export class PushTokenRepository implements IPushTokenRepository {
       })
       .filter(Boolean);
 
-    await Promise.all([...userUpdates, ...mitraUpdates]);
+    const investorUpdates = investors
+      .map((investor) => {
+        const filtered = investor.fcmTokens.filter((t) => !tokenSet.has(t));
+        const removed = investor.fcmTokens.length - filtered.length;
+        if (removed === 0) return null;
+        removedCount += removed;
+        return prisma.investor.update({
+          where: { id: investor.id },
+          data: { fcmTokens: { set: filtered } },
+        });
+      })
+      .filter(Boolean);
+
+    await Promise.all([...userUpdates, ...mitraUpdates, ...investorUpdates]);
     return removedCount;
   }
 

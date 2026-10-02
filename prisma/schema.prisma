@@ -416,25 +416,28 @@ model HargaPaket {
 }
 
 model Investor {
-  id           String                @id @default(uuid())
-  username     String                @unique
-  passwordHash String?
-  namaLengkap  String
-  perusahaan   String?
-  noTelp       String?
-  email        String?               @unique
-  isActive     Boolean               @default(true)
+  id                 String                @id @default(uuid())
+  username           String                @unique
+  passwordHash       String?
+  namaLengkap        String
+  perusahaan         String?
+  noTelp             String?
+  email              String?               @unique
+  isActive           Boolean               @default(true)
   /// Naik saat logout mobile → refresh token investor lama tidak berlaku.
-  tokenVersion Int                   @default(0)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  tenantId     String?
-  tenant       Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  payouts      InvestorPayout[]
-  rabProjects  RabInvestor[]
-  deposits     InvestorDeposit[]
-  profitShares InvestorProfitShare[]
-  config       InvestorConfig?
+  tokenVersion       Int                   @default(0)
+  /// Token FCM perangkat tempat investor login di aplikasi mobile.
+  fcmTokens          String[]              @default([])
+  pushTokenUpdatedAt DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  tenantId           String?
+  tenant             Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  payouts            InvestorPayout[]
+  rabProjects        RabInvestor[]
+  deposits           InvestorDeposit[]
+  profitShares       InvestorProfitShare[]
+  config             InvestorConfig?
 
   @@index([tenantId])
 }

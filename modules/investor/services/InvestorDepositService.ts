@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { InvestorDepositRepository } from "../repositories/InvestorDepositRepository";
 import type {
   InvestorDepositType,
@@ -88,7 +89,7 @@ export class InvestorDepositService {
     return completed;
   }
 
-  /** Tolak deposit: status → REJECTED. */
+  /** Tolak deposit: status → REJECTED, publish event agar investor diberi tahu. */
   async rejectDeposit(id: string, reason: string) {
     const deposit = await this.depositRepo.findById(id);
     if (!deposit) throw new Error("Deposit tidak ditemukan");
@@ -96,11 +97,28 @@ export class InvestorDepositService {
       throw new Error("Deposit yang sudah COMPLETED tidak bisa ditolak");
     }
 
-    return this.depositRepo.updateStatus(id, {
+    const rejectedAt = new Date();
+    const rejected = await this.depositRepo.updateStatus(id, {
       status: "REJECTED",
-      rejectedAt: new Date(),
+      rejectedAt,
       rejectedReason: reason,
     });
+
+    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+    await eventBus
+      .publish(EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED, {
+        depositId: rejected.id,
+        investorId: rejected.investorId,
+        tenantId: rejected.tenantId ?? "",
+        amount: String(rejected.amount),
+        reason,
+        rejectedAt: rejectedAt.toISOString(),
+      })
+      .catch((error: unknown) =>
+        logger.warn("[InvestorDepositService] Publish deposit.rejected gagal:", error),
+      );
+
+    return rejected;
   }
 
   /** Mengambil daftar deposit berdasarkan investor. */

@@ -59,6 +59,8 @@ export const EVENT_NAMES = {
   MITRA_WITHDRAWAL_COMPLETED: "mitra:withdrawal.completed",
   INVESTOR_PAYOUT_COMPLETED: "investor:payout.completed",
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
+  INVESTOR_DEPOSIT_REJECTED: "investor:deposit.rejected",
+  INVESTOR_PROFIT_SHARE_APPROVED: "investor:profit_share.approved",
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
   REGISTRATION_CREATED: "registration:registration.created",
@@ -468,6 +470,26 @@ export interface InvestorDepositCompletedPayload extends BaseEventPayload {
   completedAt: string;
 }
 
+export interface InvestorDepositRejectedPayload extends BaseEventPayload {
+  depositId: string;
+  investorId: string;
+  tenantId: string;
+  amount: string;
+  reason: string;
+  rejectedAt: string;
+}
+
+export interface InvestorProfitShareApprovedPayload extends BaseEventPayload {
+  profitShareId: string;
+  investorId: string;
+  tenantId: string;
+  shareAmount: string;
+  /** ISO tanggal awal & akhir periode bagi hasil. */
+  periodStart: string;
+  periodEnd: string;
+  approvedAt: string;
+}
+
 export interface MarketingPointClaimApprovedPayload extends BaseEventPayload {
   claimId: string;
   canvasingId: string;
@@ -660,6 +682,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.MITRA_WITHDRAWAL_COMPLETED]: MitraWithdrawalCompletedPayload;
   [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
+  [EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED]: InvestorDepositRejectedPayload;
+  [EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED]: InvestorProfitShareApprovedPayload;
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
   [EVENT_NAMES.REGISTRATION_CREATED]: RegistrationCreatedPayload;
@@ -1049,6 +1073,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: {
     name: EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED]: {
+    name: EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED]: {
+    name: EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

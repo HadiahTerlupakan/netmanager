@@ -148,11 +148,15 @@ Diputuskan: investor login lewat aplikasi mobile yang sama (portal web tetap ada
 - Data: `/api/mobile/investor/*` (baca saja, dibatasi investor dari sesi).
 - Mobile: investor **bukan** `Persona` karyawan; punya grup layar
   `app/(investor)` dan tema sendiri (`PersonaTema = Persona | "INVESTOR"`).
-  Tidak memakai FCM & realtime.
+  Tidak memakai realtime.
+- Push: token FCM di `Investor.fcmTokens` lewat `/api/mobile/investor/fcm-token`.
+  Dikirim untuk modal diterima/ditolak, bagi hasil disetujui, dan uang dikirim
+  (`modules/investor/domain/pesan-notifikasi-investor.ts`). Belum ada kotak
+  masuk notifikasi investor (tabel `notifications` hanya untuk `User`).
+- Endpoint global yang dipanggil aplikasi di semua grup layar (mis. cek versi
+  APK) wajib menerima sesi investor; 401 di sana mengeluarkan investor.
 
 ## 5. Pertanyaan terbuka
 
-- Direktur: apakah butuh aksi (persetujuan) atau murni baca?
-- Finance di mobile: fitur mana yang benar-benar dipakai di lapangan?
-- Investor: perlu notifikasi push (mis. bagi hasil dibayar)? Butuh dukungan
-  token investor di endpoint FCM.
+- Direktur & Finance: tampilan sementara = Staff; dirancang satu per satu
+  setelah sesi brainstorming (keputusan user 2026-10-02).

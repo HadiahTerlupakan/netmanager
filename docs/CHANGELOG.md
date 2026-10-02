@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Notifikasi push untuk investor di aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/investor` | `lib/event-bus` | `modules/notification` | `app/api/mobile` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Investor menerima push di HP untuk empat kejadian: modal
+  diterima (`investor:deposit.completed`), setoran modal ditolak beserta
+  alasannya (`investor:deposit.rejected`, event baru), bagi hasil disetujui
+  & siap dibayar (`investor:profit_share.approved`, event baru), dan uang
+  dikirim (`investor:payout.completed`). Menekan notifikasi membuka bagian
+  yang tepat di layar Uang (`?bagian=`).
+  - Token FCM disimpan di `Investor.fcmTokens` lewat
+    `POST /api/mobile/investor/fcm-token`; token yang sama dilepas dari
+    investor lain (HP bergantian), maksimal 5 perangkat.
+  - Handler `handleInvestorNotification` didaftarkan setelah handler
+    akuntansi/pajak; dedupe Redis per entitas mencegah push ganda saat job
+    diulang (terbukti: event diproses dua kali, push hanya sekali).
+  - Pembersihan token basi/tidak valid kini mencakup investor.
+  - Perbaikan: `/api/mobile/app-version/check` menolak token investor (401)
+    sehingga investor dikeluarkan dari aplikasi — kini menerima sesi investor.
+  - Mobile: endpoint pendaftaran token FCM mengikuti jenis akun; tautan
+    `/(investor)/…` diizinkan saat notifikasi ditekan; push masuk saat app
+    terbuka menyegarkan data investor.
+- **Files**: `modules/investor/domain/pesan-notifikasi-investor.ts`,
+  `modules/investor/services/InvestorPushService.ts`,
+  `modules/investor/services/event-handlers/investor-notification.handler.ts`,
+  `app/api/mobile/investor/fcm-token/route.ts`, `app/api/mobile/app-version/check/route.ts`,
+  `mobile-netmanager: src/services/FirebaseMessagingService.ts`, `src/hooks/useNotificationSetup.ts`
+- **Migration**: `20261002001216_add_fcm_tokens_to_investors`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Investor bisa login dan memantau modal lewat aplikasi mobile
 
 - **Tipe**: [ADDED]

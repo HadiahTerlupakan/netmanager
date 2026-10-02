@@ -2,18 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { getInvestorMobileSession } from "@/lib/mobile-investor-auth";
 import {
   getAppReleaseServices,
   versionCheckQuerySchema,
 } from "@/modules/app-version";
 
+/** Tenant pemanggil: akun investor (token sendiri) atau karyawan/mitra/pelanggan. */
+async function resolveTenantPemanggil(
+  request: NextRequest,
+): Promise<string | undefined | NextResponse> {
+  const investor = await getInvestorMobileSession(request);
+  if (investor) return investor.tenantId ?? undefined;
+  const auth = await getMobileAuthPayload(request);
+  if (auth instanceof NextResponse) return auth;
+  return auth.tenantId as string | undefined;
+}
+
 /** GET /api/mobile/app-version/check — cek apakah versi APK perlu update */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getMobileAuthPayload(request);
-    if (auth instanceof NextResponse) return auth;
-
-    const tenantId = auth.tenantId as string | undefined;
+    const tenantId = await resolveTenantPemanggil(request);
+    if (tenantId instanceof NextResponse) return tenantId;
 
     const url = new URL(request.url);
     const params = Object.fromEntries(url.searchParams.entries());

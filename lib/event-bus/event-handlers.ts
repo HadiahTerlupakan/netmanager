@@ -3,6 +3,7 @@ import { firebaseRealtimeService } from "@/lib/realtime";
 import type { Job } from "bullmq";
 import type { EventJobData } from "./queues";
 import { EVENT_NAMES } from "./types";
+import { handleInvestorNotification } from "@/modules/investor";
 import {
   handleCustomerStatusEvent,
   handlePackageChange,
@@ -570,6 +571,19 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
     handleInvestorPayoutTax,
   );
+
+  // --- INVESTOR → PUSH KE APLIKASI MOBILE INVESTOR ---
+  // Didaftarkan setelah handler akuntansi/pajak: bila jurnal gagal, job diulang
+  // dan push baru terkirim setelahnya (dedupe per entitas mencegah ganda).
+
+  for (const eventInvestor of [
+    EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED,
+    EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED,
+    EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED,
+    EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED,
+  ]) {
+    registerEventHandler(eventInvestor, handleInvestorNotification);
+  }
 
   // --- USER LIFECYCLE → SALARY SYNC ---
 

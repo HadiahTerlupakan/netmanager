@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { InvestorProfitShareRepository } from "../repositories/InvestorProfitShareRepository";
 import { InvestorConfigRepository } from "../repositories/InvestorConfigRepository";
 import { InvestorDepositRepository } from "../repositories/InvestorDepositRepository";
@@ -68,7 +69,7 @@ export class InvestorProfitShareService {
     return results.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 
-  /** Approve profit share: CALCULATED → APPROVED. */
+  /** Approve profit share: CALCULATED → APPROVED, publish event untuk notifikasi investor. */
   async approve(id: string, approvedById: string) {
     const record = await this.profitShareRepo.findById(id);
     if (!record) throw new Error("Profit share tidak ditemukan");
@@ -78,11 +79,30 @@ export class InvestorProfitShareService {
       );
     }
 
-    return this.profitShareRepo.updateStatus(id, {
+    const approvedAt = new Date();
+    const approved = await this.profitShareRepo.updateStatus(id, {
       status: "APPROVED",
-      approvedAt: new Date(),
+      approvedAt,
       approvedById,
     });
+
+    // Investor diberi tahu bagi hasilnya siap dibayar.
+    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+    await eventBus
+      .publish(EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED, {
+        profitShareId: approved.id,
+        investorId: approved.investorId,
+        tenantId: approved.tenantId ?? "",
+        shareAmount: String(approved.shareAmount),
+        periodStart: approved.periodStart.toISOString(),
+        periodEnd: approved.periodEnd.toISOString(),
+        approvedAt: approvedAt.toISOString(),
+      })
+      .catch((error: unknown) =>
+        logger.warn("[InvestorProfitShareService] Publish profit_share.approved gagal:", error),
+      );
+
+    return approved;
   }
 
   /** Tandai profit share sebagai dibayar: APPROVED → PAID. */

@@ -75,6 +75,14 @@ export type {
   MobileInvestorProfile,
 } from "./services/MobileInvestorAuthService";
 
+// Push notifikasi ke aplikasi mobile investor
+export {
+  InvestorPushService,
+  getInvestorPushService,
+} from "./services/InvestorPushService";
+export type { AksiFcmToken } from "./services/InvestorPushService";
+export { handleInvestorNotification } from "./services/event-handlers/investor-notification.handler";
+
 // Services — deposit, balance, profit share, config
 export { InvestorDepositService } from "./services/InvestorDepositService";
 export { InvestorBalanceService } from "./services/InvestorBalanceService";
