@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — SO mencatat semua barang, termasuk yang cocok
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/inventory`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Tab Input Stock Opname dulu hanya mengirim barang yang punya selisih
+  atau rusak/expire. Gudang yang dihitung dan semuanya cocok tidak meninggalkan catatan,
+  sehingga di Laporan SO Bulanan terbaca "Belum SO", dan tombol simpan mati bila
+  tidak ada selisih. Sekarang semua barang gudang dicatat; barang cocok tersimpan dengan
+  selisih 0 tanpa mutasi stok (perilaku server yang sudah ada). Timeout transaksi batch
+  dinaikkan ke 60 detik karena satu SO kini memuat seluruh barang gudang.
+- **Files**: `components/inventory/StockOpnameRecorder.tsx`,
+  `modules/inventory/services/InventoryOpnameService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Pemilih bulan SO tampil benar di semua browser
 
 - **Tipe**: [FIXED]

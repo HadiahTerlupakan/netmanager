@@ -63,7 +63,6 @@ export function StockOpnameRecorder({
   );
 
   const selectedGudang = gudangs.find((g) => g.id === gudangId);
-  const itemsToRecord = useMemo(() => filterItemsToRecord(items), [items]);
   const itemsWithDiscrepancyCount = useMemo(
     () => items.filter((i) => i.stokFisik !== i.stokSistem).length,
     [items],
@@ -75,8 +74,7 @@ export function StockOpnameRecorder({
     calculation.error ||
     (gudangError ? "Gagal memuat data gudang" : "");
 
-  const isSubmitDisabled =
-    submitOpname.isSubmitting || itemsToRecord.length === 0;
+  const isSubmitDisabled = submitOpname.isSubmitting || items.length === 0;
 
   const handleGudangChange = (nextGudangId: string) => {
     setGudangId(nextGudangId);
@@ -105,18 +103,15 @@ export function StockOpnameRecorder({
       return;
     }
 
-    if (itemsToRecord.length === 0) {
-      setRecordingError(
-        "Tidak ada item yang perlu dicatat (tidak ada perbedaan atau kerusakan)",
-      );
+    if (items.length === 0) {
+      setRecordingError("Tidak ada barang di gudang ini untuk dicatat");
       return;
     }
 
     try {
-      const result = await submitOpname.submit({
-        gudangId,
-        items: itemsToRecord,
-      });
+      // Semua barang dicatat, termasuk yang cocok (selisih 0): SO bulanan adalah
+      // bukti seluruh stok gudang sudah dihitung. Selisih 0 tidak membuat mutasi stok.
+      const result = await submitOpname.submit({ gudangId, items });
 
       setSuccess(
         `Stock opname berhasil dicatat untuk ${result.totalItems} item`,
@@ -178,21 +173,13 @@ export function StockOpnameRecorder({
           <ActionButtons
             isSubmitting={submitOpname.isSubmitting}
             isDisabled={isSubmitDisabled}
-            recordableCount={itemsToRecord.length}
+            recordableCount={items.length}
             onClose={onClose}
           />
         )}
       </form>
     </div>
   );
-}
-
-function filterItemsToRecord(items: OpnameCalculationItem[]) {
-  return items.filter((item) => {
-    const hasDiscrepancy = item.stokFisik !== item.stokSistem;
-    const hasDamage = item.kondisiRusak > 0 || item.kondisiExpire > 0;
-    return hasDiscrepancy || hasDamage;
-  });
 }
 
 function ErrorBanner({ message }: { message: string }) {
@@ -264,6 +251,10 @@ function GudangSelector({
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
             Input hasil hitungan stok fisik dan kondisi aktual di{" "}
             {selectedGudangNama}
+          </p>
+          <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+            Semua barang ikut dicatat. Barang yang jumlahnya sudah cocok cukup
+            dibiarkan — tetap tercatat sebagai sudah di-SO (selisih 0).
           </p>
         </div>
       )}

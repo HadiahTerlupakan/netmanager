@@ -23,6 +23,12 @@ import {
   type OpnameHistoryStats,
 } from "./inventory-opname-list.helpers";
 
+/**
+ * SO bulanan mencatat seluruh barang gudang dalam satu transaksi; default
+ * Prisma (5 detik) terlalu pendek untuk gudang dengan ratusan barang.
+ */
+const OPNAME_BATCH_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 60_000 };
+
 type InventoryUserContext = {
   id: string;
   name?: string | null;
@@ -179,7 +185,7 @@ export class InventoryOpnameService {
       }
 
       return results;
-    });
+    }, OPNAME_BATCH_TRANSACTION_OPTIONS);
   }
 }
 

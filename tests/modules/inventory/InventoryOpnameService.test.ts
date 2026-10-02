@@ -151,4 +151,17 @@ describe("InventoryOpnameService", () => {
       "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
     );
   });
+
+  it("runs createOpnameBatch with a long transaction timeout for full-warehouse SO", async () => {
+    await service.createOpnameBatch({
+      user: { id: "user-1", role: "ADMIN", tenantId: "tenant-1", permissions: [] },
+      gudangId: "gudang-1",
+      items: [],
+    });
+
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ timeout: 60_000 }),
+    );
+  });
 });
