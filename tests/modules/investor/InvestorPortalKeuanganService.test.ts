@@ -27,6 +27,8 @@ function bagiHasil(id: string, status: string, shareAmount: number) {
     netProfit: 10_000_000,
     sharePercent: 10,
     shareAmount,
+    capitalReturnAmount: 100,
+    projectName: "Proyek A",
     status,
     paidAt: null as Date | null,
     journalId: "jurnal-rahasia",
@@ -37,7 +39,7 @@ function bagiHasil(id: string, status: string, shareAmount: number) {
 describe("InvestorPortalKeuanganService", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("ringkasan menggabungkan dashboard, saldo, dan bagi hasil APPROVED yang belum dibayar", async () => {
+  it("ringkasan: siap dibayar = bagi hasil APPROVED + pengembalian modalnya", async () => {
     dashboardService.getDashboard.mockResolvedValue({ totalInvestment: "5000", activeProjectsCount: 1 });
     balanceService.getBalance.mockResolvedValue({ totalDeposit: 5000, activeBalance: 4000 });
     profitShareService.listByInvestor.mockResolvedValue([
@@ -55,7 +57,7 @@ describe("InvestorPortalKeuanganService", () => {
       totalInvestment: "5000",
       activeProjectsCount: 1,
       balance: { totalDeposit: 5000, activeBalance: 4000 },
-      profitShareAwaitingPayment: 500,
+      amountAwaitingPayment: 700,
     });
   });
 
@@ -68,6 +70,7 @@ describe("InvestorPortalKeuanganService", () => {
     const hasil = await service.getProfitShares("inv-1");
 
     expect(hasil.map((share) => share.id)).toEqual(["a"]);
+    expect(hasil[0]).toMatchObject({ projectName: "Proyek A", capitalReturnAmount: 100 });
     expect(hasil[0]).not.toHaveProperty("journalId");
     expect(hasil[0]).not.toHaveProperty("approvedById");
   });

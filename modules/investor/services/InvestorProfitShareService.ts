@@ -1,72 +1,104 @@
 import { logger } from "@/lib/logger";
-import { InvestorProfitShareRepository } from "../repositories/InvestorProfitShareRepository";
-import { InvestorConfigRepository } from "../repositories/InvestorConfigRepository";
-import { InvestorDepositRepository } from "../repositories/InvestorDepositRepository";
+import { buildRABTrackingDataset } from "@/modules/finance/client";
 import type { InvestorProfitShareStatus } from "@prisma/client";
+
+import {
+  bagianInvestor,
+  bulatkanRupiah,
+  ringkasPeriodeProyek,
+} from "../domain/bagi-hasil-proyek";
+import { hitungPorsiModal } from "../domain/porsi-investor-proyek";
+import {
+  InvestorProfitShareRepository,
+  type ProyekUntukBagiHasil,
+} from "../repositories/InvestorProfitShareRepository";
+import { keCapaianTracking, keInputTracking } from "./rab-tracking-input";
+
+/** Proyek yang tidak menghasilkan bagi hasil pada periode, beserta alasannya. */
+export interface ProyekDilewati {
+  rabProjectId: string;
+  namaProyek: string;
+  alasan: string;
+}
+
+const ALASAN_TANPA_TANGGAL_MULAI = "Tanggal mulai proyek belum diisi di RAB";
+const ALASAN_TANPA_CAPAIAN = "Belum ada capaian bulanan (aktual) di periode ini";
 
 export class InvestorProfitShareService {
   constructor(
     private readonly profitShareRepo: InvestorProfitShareRepository = new InvestorProfitShareRepository(),
-    private readonly configRepo: InvestorConfigRepository = new InvestorConfigRepository(),
-    private readonly depositRepo: InvestorDepositRepository = new InvestorDepositRepository(),
   ) {}
 
   /**
-   * Menghitung bagi hasil untuk semua investor aktif dalam periode tertentu.
-   * Mode FIXED: gunakan fixedSharePercent dari config.
-   * Mode PROPORTIONAL: hitung berdasarkan proporsi deposit terhadap total.
-   * Skip investor yang sudah punya record periode sama (cegah duplikasi kalkulasi).
+   * Hitung bagi hasil investor PER PROYEK untuk periode kalender.
+   *
+   * Per proyek RAB yang sudah disetujui: ambil baris tracking RAB (mesin yang
+   * sama dengan halaman admin RAB) untuk bulan yang punya capaian aktual di
+   * periode; bagian investor (bagi hasil + pengembalian modal) dibagi ke tiap
+   * investor sesuai porsi modalnya. Investor+proyek+periode yang sudah
+   * dihitung dilewati (aman diulang).
    */
-  async calculateForPeriod(
+  async calculateForPeriod(tenantId: string, periodStart: Date, periodEnd: Date) {
+    const proyekList = await this.profitShareRepo.findProjectsForProfitShare(tenantId);
+    const dibuat: Awaited<ReturnType<InvestorProfitShareRepository["create"]>>[] = [];
+    const dilewati: ProyekDilewati[] = [];
+
+    for (const proyek of proyekList) {
+      const hasil = await this.hitungProyek(proyek, tenantId, periodStart, periodEnd);
+      if ("alasan" in hasil) dilewati.push(hasil);
+      else dibuat.push(...hasil.dibuat);
+    }
+    return { dibuat, dilewati };
+  }
+
+  private async hitungProyek(
+    proyek: ProyekUntukBagiHasil,
     tenantId: string,
     periodStart: Date,
     periodEnd: Date,
-    netProfit: number,
-  ) {
-    const configs = await this.configRepo.listActive(tenantId);
-    if (configs.length === 0) return [];
+  ): Promise<ProyekDilewati | { dibuat: Awaited<ReturnType<InvestorProfitShareRepository["create"]>>[] }> {
+    const lewati = (alasan: string): ProyekDilewati => ({
+      rabProjectId: proyek.id,
+      namaProyek: proyek.name,
+      alasan,
+    });
+    if (!proyek.startDate) return lewati(ALASAN_TANPA_TANGGAL_MULAI);
 
-    const totalDeposits = await this.depositRepo.sumCompletedAll(tenantId);
+    const { rows } = buildRABTrackingDataset(keInputTracking(proyek), keCapaianTracking(proyek));
+    const ringkasan = ringkasPeriodeProyek(rows, proyek.startDate, periodStart, periodEnd);
+    if (ringkasan.jumlahBulan === 0) return lewati(ALASAN_TANPA_CAPAIAN);
 
-    const results = await Promise.all(
-      configs.map(async (config) => {
-        const alreadyCalculated =
-          await this.profitShareRepo.existsForInvestorPeriod(
-            config.investorId,
-            periodStart,
-            periodEnd,
-          );
-        if (alreadyCalculated) return null;
+    const semuaModal = proyek.investors.map((investor) => investor.investmentAmount);
+    const dibuat = [];
+    for (const anggota of proyek.investors) {
+      if (!anggota.investor.isActive) continue;
+      const sudahAda = await this.profitShareRepo.existsForInvestorProjectPeriod(
+        anggota.investorId,
+        proyek.id,
+        periodStart,
+        periodEnd,
+      );
+      if (sudahAda) continue;
 
-        let sharePercent: number;
-
-        if (config.shareMode === "FIXED") {
-          sharePercent = config.fixedSharePercent ?? 0;
-        } else {
-          // PROPORTIONAL: berdasarkan proporsi deposit investor
-          const investorDeposit = await this.depositRepo.sumCompletedByInvestor(
-            config.investorId,
-          );
-          sharePercent =
-            totalDeposits > 0 ? (investorDeposit / totalDeposits) * 100 : 0;
-        }
-
-        const shareAmount = (netProfit * sharePercent) / 100;
-
-        return this.profitShareRepo.create({
-          investorId: config.investorId,
-          configId: config.id,
+      const bagian = bagianInvestor(
+        ringkasan,
+        hitungPorsiModal(anggota.investmentAmount, semuaModal),
+      );
+      dibuat.push(
+        await this.profitShareRepo.create({
+          investorId: anggota.investorId,
+          rabProjectId: proyek.id,
           periodStart,
           periodEnd,
-          netProfit,
-          sharePercent: Math.round(sharePercent * 100) / 100,
-          shareAmount: Math.round(shareAmount * 100) / 100,
+          netProfit: bulatkanRupiah(ringkasan.labaBersih),
+          sharePercent: bagian.persenDariLaba,
+          shareAmount: bagian.bagiHasil,
+          capitalReturnAmount: bagian.pengembalianModal,
           tenantId,
-        });
-      }),
-    );
-
-    return results.filter((r): r is NonNullable<typeof r> => r !== null);
+        }),
+      );
+    }
+    return { dibuat };
   }
 
   /** Approve profit share: CALCULATED → APPROVED, publish event untuk notifikasi investor. */
@@ -94,6 +126,8 @@ export class InvestorProfitShareService {
         investorId: approved.investorId,
         tenantId: approved.tenantId ?? "",
         shareAmount: String(approved.shareAmount),
+        capitalReturnAmount: String(approved.capitalReturnAmount),
+        projectName: approved.projectName,
         periodStart: approved.periodStart.toISOString(),
         periodEnd: approved.periodEnd.toISOString(),
         approvedAt: approvedAt.toISOString(),

@@ -51,6 +51,21 @@ describe("pesan notifikasi investor", () => {
     expect(pesan?.url).toBe("/(investor)/keuangan?bagian=bagi-hasil");
   });
 
+  it("bagi hasil per proyek menyebut nama proyek dan pengembalian modal", () => {
+    const pesan = susunPesanInvestor("investor:profit_share.approved", {
+      profitShareId: "ph-2",
+      investorId: "inv-1",
+      shareAmount: "2500000",
+      capitalReturnAmount: "1000000",
+      projectName: "Jaringan Sukamaju",
+      periodStart: "2026-07-31T17:00:00.000Z",
+      periodEnd: "2026-08-31T16:59:59.000Z",
+    });
+    expect(pesan?.isi).toBe(
+      "Bagi hasil proyek Jaringan Sukamaju Agustus 2026 sebesar Rp 2.500.000 ditambah pengembalian modal Rp 1.000.000 sudah disetujui dan akan segera dibayar.",
+    );
+  });
+
   it("uang dikirim membuka bagian Uang diterima", () => {
     const pesan = susunPesanInvestor("investor:payout.completed", {
       payoutId: "po-1",

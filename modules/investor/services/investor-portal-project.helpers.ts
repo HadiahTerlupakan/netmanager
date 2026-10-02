@@ -1,4 +1,5 @@
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
+import { hitungHasilInvestorProyek } from "./investor-project-tracking.helpers";
 import {
   calculatePaymentRatio,
   collectInternalSiteIds,
@@ -73,7 +74,16 @@ type ProjectDetailResponse = {
     year: number;
     achievedRevenue: string;
     opex: string;
+    /** Biaya operasional yang dipakai hitungan RAB bulan ini. */
+    opexUsed: number;
+    /** Bagi hasil milik investor ini bulan ini (hitungan RAB). */
+    myProfitShare: number;
+    /** Pengembalian modal milik investor ini bulan ini (hitungan RAB). */
+    myCapitalReturn: number;
   }>;
+  /** Total bagi hasil & pengembalian modal milik investor dari bulan aktual. */
+  myTotalProfitShare: number;
+  myTotalCapitalReturn: number;
   estimatedCurrentRevenue: string;
   subscribers: {
     total: number;
@@ -140,6 +150,7 @@ export function toProjectDetail(
   billingMetrics: BillingMetrics,
 ): ProjectDetailResponse {
   const rabProject = project.rabProject;
+  const hasil = hitungHasilInvestorProyek(rabProject, project.investmentAmount);
 
   return {
     id: rabProject.id,
@@ -157,13 +168,21 @@ export function toProjectDetail(
     targetSubscribers: rabProject.targetSubscribers,
     growthType: rabProject.growthType,
     createdAt: rabProject.createdAt,
-    actualAchievements: rabProject.actualAchievements.map((achievement) => ({
-      id: achievement.id,
-      month: achievement.month,
-      year: achievement.year,
-      achievedRevenue: achievement.actualRevenue.toString(),
-      opex: achievement.actualOpex.toString(),
-    })),
+    actualAchievements: rabProject.actualAchievements.map((achievement) => {
+      const bulan = hasil.bulanan.find((b) => b.month === achievement.month);
+      return {
+        id: achievement.id,
+        month: achievement.month,
+        year: achievement.year,
+        achievedRevenue: achievement.actualRevenue.toString(),
+        opex: achievement.actualOpex.toString(),
+        opexUsed: bulan?.opex ?? ZERO_NUMBER,
+        myProfitShare: bulan?.myProfitShare ?? ZERO_NUMBER,
+        myCapitalReturn: bulan?.myCapitalReturn ?? ZERO_NUMBER,
+      };
+    }),
+    myTotalProfitShare: hasil.totalBagiHasil,
+    myTotalCapitalReturn: hasil.totalPengembalianModal,
     estimatedCurrentRevenue: billingMetrics.estimatedRevenue.toString(),
     subscribers: {
       total: billingMetrics.totalSubscribers,

@@ -111,7 +111,7 @@ export default function InvestorDashboard() {
             <HiOutlineCurrencyDollar className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-            Total Profit Aktual (Realisasi)
+            Bagi Hasil Saya (Realisasi)
           </p>
           <p className="text-2xl font-black text-gray-900 dark:text-white mt-1 break-words">
             {formatCurrency(totalActual)}

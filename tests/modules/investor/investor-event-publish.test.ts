@@ -63,11 +63,13 @@ describe("event investor untuk notifikasi", () => {
         investorId: "inv-1",
         tenantId: "t-1",
         shareAmount: 2500000,
+        capitalReturnAmount: 1000000,
+        projectName: "Jaringan Sukamaju",
         periodStart: new Date("2026-08-01T00:00:00.000Z"),
         periodEnd: new Date("2026-08-31T00:00:00.000Z"),
       }),
     };
-    const service = new InvestorProfitShareService(profitShareRepo as never, {} as never, {} as never);
+    const service = new InvestorProfitShareService(profitShareRepo as never);
 
     await service.approve("ph-1", "admin-1");
 
@@ -76,6 +78,8 @@ describe("event investor untuk notifikasi", () => {
       investorId: "inv-1",
       tenantId: "t-1",
       shareAmount: "2500000",
+      capitalReturnAmount: "1000000",
+      projectName: "Jaringan Sukamaju",
       periodStart: "2026-08-01T00:00:00.000Z",
       periodEnd: "2026-08-31T00:00:00.000Z",
       approvedAt: expect.any(String),

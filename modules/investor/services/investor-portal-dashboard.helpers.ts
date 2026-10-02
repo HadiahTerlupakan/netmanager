@@ -2,10 +2,10 @@ import {
   calculatePaymentRatio,
   collectInternalSiteIds,
   summarizeInternalCustomers,
-  summarizeInternalCustomersBySite,
   type InvestorPortalInternalCustomers,
 } from "./investor-portal-customer-metrics.helpers";
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
+import { hitungHasilInvestorProyek } from "./investor-project-tracking.helpers";
 
 export type SubscriberMetrics = {
   total: number;
@@ -27,7 +27,10 @@ export type RevenueSnapshot = {
 type DashboardResponse = {
   totalInvestment: string;
   totalProjectedRevenue: string;
+  /** Bagi hasil milik investor dari bulan-bulan aktual semua proyek (hitungan RAB). */
   totalActualRevenue: string;
+  /** Pengembalian modal milik investor dari bulan-bulan aktual (hitungan RAB). */
+  totalCapitalReturned: string;
   activeProjectsCount: number;
   projects: Array<{
     id: string;
@@ -75,15 +78,15 @@ export function buildDashboardSubscriberMetrics(
 /** Menyusun response dashboard investor beserta total investasi dan revenue. */
 export function buildDashboardResponse(
   projects: DashboardProjects,
-  snapshot: RevenueSnapshot,
   subscribers: SubscriberMetrics,
 ): DashboardResponse {
-  const totals = calculateDashboardTotals(projects, snapshot);
+  const totals = calculateDashboardTotals(projects);
 
   return {
     totalInvestment: totals.totalInvestment.toString(),
     totalProjectedRevenue: totals.totalProjectedRevenue.toString(),
     totalActualRevenue: totals.totalActualRevenue.toString(),
+    totalCapitalReturned: totals.totalCapitalReturned.toString(),
     activeProjectsCount: projects.length,
     projects: projects.map((item) => ({
       id: item.rabProject.id,
@@ -95,29 +98,29 @@ export function buildDashboardResponse(
   };
 }
 
-function calculateDashboardTotals(
-  projects: DashboardProjects,
-  snapshot: RevenueSnapshot,
-) {
-  const now = new Date();
-
+function calculateDashboardTotals(projects: DashboardProjects) {
   return projects.reduce(
     (accumulator, item) => {
       const projected = calculateProjectedRevenue(item);
-      const actual = calculateActualRevenue(item, snapshot, now);
+      const hasil = hitungHasilInvestorProyek(item.rabProject, item.investmentAmount);
 
       return {
         totalInvestment:
           accumulator.totalInvestment +
           BigInt(item.investmentAmount.toString()),
         totalProjectedRevenue: accumulator.totalProjectedRevenue + projected,
-        totalActualRevenue: accumulator.totalActualRevenue + actual,
+        totalActualRevenue:
+          accumulator.totalActualRevenue + BigInt(Math.floor(hasil.totalBagiHasil)),
+        totalCapitalReturned:
+          accumulator.totalCapitalReturned +
+          BigInt(Math.floor(hasil.totalPengembalianModal)),
       };
     },
     {
       totalInvestment: ZERO_BIGINT,
       totalProjectedRevenue: ZERO_BIGINT,
       totalActualRevenue: ZERO_BIGINT,
+      totalCapitalReturned: ZERO_BIGINT,
     },
   );
 }
@@ -131,49 +134,6 @@ function calculateProjectedRevenue(item: DashboardProject): bigint {
   );
 
   return calculateInvestorShare(netProjected, item.profitSharePercent);
-}
-
-function calculateActualRevenue(
-  item: DashboardProject,
-  snapshot: RevenueSnapshot,
-  now: Date,
-): bigint {
-  const currentRevenue = calculateCurrentRevenue(item, snapshot, now);
-  const runningShare = calculateInvestorShare(
-    currentRevenue - Number(item.rabProject.projectedOpex || 0),
-    item.profitSharePercent,
-  );
-  const historyShare = item.rabProject.actualAchievements.reduce(
-    (total, achievement) => {
-      const netRevenue =
-        Number(achievement.actualRevenue) - Number(achievement.actualOpex || 0);
-
-      return (
-        total + calculateInvestorShare(netRevenue, item.profitSharePercent)
-      );
-    },
-    ZERO_BIGINT,
-  );
-
-  return runningShare + historyShare;
-}
-
-function calculateCurrentRevenue(
-  item: DashboardProject,
-  snapshot: RevenueSnapshot,
-  now: Date,
-): number {
-  const siteId = item.rabProject.siteId;
-
-  if (!siteId) {
-    return ZERO_NUMBER;
-  }
-
-  return summarizeInternalCustomersBySite(
-    snapshot.internalCustomers,
-    siteId,
-    now,
-  ).revenue;
 }
 
 function calculateInvestorShare(amount: number, percent: number): bigint {

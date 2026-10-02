@@ -484,6 +484,10 @@ export interface InvestorProfitShareApprovedPayload extends BaseEventPayload {
   investorId: string;
   tenantId: string;
   shareAmount: string;
+  /** Pengembalian modal yang ikut dibayar bersama bagi hasil ini. */
+  capitalReturnAmount?: string;
+  /** Nama proyek RAB sumber bagi hasil (null = bagi hasil lama berbasis setoran). */
+  projectName?: string | null;
   /** ISO tanggal awal & akhir periode bagi hasil. */
   periodStart: string;
   periodEnd: string;

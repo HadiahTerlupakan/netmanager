@@ -27,6 +27,7 @@ const PROJECT_LIST_INCLUDE = {
   rabProject: {
     include: {
       actualAchievements: true,
+      items: { select: { totalPrice: true, expenseType: true } },
       site: { select: { name: true } },
       ...MODAL_SEMUA_INVESTOR,
     },

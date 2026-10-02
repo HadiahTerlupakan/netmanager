@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Bagi hasil investor dihitung per proyek RAB
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/investor` | `app/api/admin/investors/profit-shares` | `app/admin/investors` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Dasar bagi hasil diganti dari total setoran modal (laba
+  diinput manual) menjadi **per proyek** (keputusan user 2026-10-02).
+  - Hitung bagi hasil memakai mesin tracking RAB yang sama dengan halaman
+    admin RAB: untuk bulan yang punya capaian aktual di periode, bagian
+    investor (bagi hasil + pengembalian modal, termasuk mode BEP) dibagi ke
+    tiap investor sesuai porsi modalnya. Tersimpan per investor+proyek+
+    periode (`InvestorProfitShare.rabProjectId`, `capitalReturnAmount`);
+    aman diulang. Proyek tanpa tanggal mulai/tanpa capaian dilaporkan di
+    `dilewati` beserta alasannya.
+  - `POST /api/admin/investors/profit-shares/calculate` kini hanya menerima
+    `periodStart`/`periodEnd` (field `netProfit` dihapus) dan mengembalikan
+    `{ dibuat, dilewati }`. Form admin menyesuaikan; tabel menampilkan proyek
+    dan pengembalian modal. Bagi hasil lama tetap tampil ("Berbasis setoran").
+  - Portal investor (web & mobile): "bagi hasil saya" & "modal kembali" di
+    Beranda dan rincian proyek per bulan kini dari hitungan RAB yang sama,
+    sehingga sama dengan yang dibayarkan (sebelumnya pendapatan × persen
+    tanpa biaya operasional & pengembalian modal). Beranda mobile: "Modal saya
+    di proyek" dan "Siap dibayar ke saya" (bagi hasil + pengembalian modal).
+  - Notifikasi bagi hasil disetujui menyebut nama proyek dan pengembalian modal.
+- **Files**: `modules/investor/domain/bagi-hasil-proyek.ts`,
+  `modules/investor/services/InvestorProfitShareService.ts`,
+  `modules/investor/services/investor-project-tracking.helpers.ts`,
+  `modules/investor/services/rab-tracking-input.ts`,
+  `app/admin/investors/profit-shares/ProfitSharesClient.tsx`
+- **Migration**: `20261002011306_add_rab_project_to_investor_profit_shares`
+  (tambah kolom `rabProjectId`, `capitalReturnAmount`; `configId` boleh kosong;
+  tanpa data hilang)
+- **Breaking**: ✅ Ya — kontrak API kalkulasi bagi hasil admin berubah
+
 ### [2026-10-02] — Proyek investor: porsi bagi hasil dan status yang tampil
 
 - **Tipe**: [FIXED]

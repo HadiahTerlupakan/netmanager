@@ -54,6 +54,9 @@ function createInvestorProject(siteId: string | null) {
       growthType: "LINEAR",
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       actualAchievements: [] as unknown[],
+      items: [{ totalPrice: 10000000n, expenseType: "CAPEX" }],
+      investors: [{ investmentAmount: 10000000n }],
+      startDate: new Date("2026-01-01T00:00:00.000Z"),
     },
   };
 }
@@ -155,6 +158,9 @@ describe("InvestorPortalDashboardService billing metrics", () => {
       paymentRatio: 50,
     });
     expect(result.totalInvestment).toBe("20000000");
-    expect(result.totalActualRevenue).toBe("50000");
+    // Bagi hasil investor kini dari bulan aktual hitungan RAB (sama dengan yang
+    // dibayarkan); tanpa capaian bulanan belum ada bagi hasil.
+    expect(result.totalActualRevenue).toBe("0");
+    expect(result.totalCapitalReturned).toBe("0");
   });
 });

@@ -69,6 +69,21 @@ export function labelPeriodeNotifikasi(mulaiIso: string, selesaiIso: string): st
   return `${bulanAwal}–${akhir}`;
 }
 
+/** "Bagi hasil proyek X Agustus 2026 sebesar Rp A (ditambah pengembalian modal Rp B) …" */
+function kalimatBagiHasilDisetujui(payload: PayloadEventInvestor): string {
+  const proyek =
+    typeof payload.projectName === "string" && payload.projectName
+      ? ` proyek ${payload.projectName}`
+      : "";
+  const periode = labelPeriodeNotifikasi(teks(payload, "periodStart"), teks(payload, "periodEnd"));
+  const pengembalian = Number(payload.capitalReturnAmount ?? 0);
+  const tambahan =
+    pengembalian > 0
+      ? ` ditambah pengembalian modal ${formatRupiahNotifikasi(String(pengembalian))}`
+      : "";
+  return `Bagi hasil${proyek} ${periode} sebesar ${formatRupiahNotifikasi(teks(payload, "shareAmount"))}${tambahan} sudah disetujui dan akan segera dibayar.`;
+}
+
 type PenyusunPesan = (payload: PayloadEventInvestor) => PesanNotifikasiInvestor;
 
 /** Penyusun pesan per nama event (`lib/event-bus/types.ts`). */
@@ -94,7 +109,7 @@ export const PENYUSUN_PESAN_INVESTOR: Readonly<Record<string, PenyusunPesan>> = 
     investorId: teks(payload, "investorId"),
     kunciUnik: `bagi-hasil-disetujui:${teks(payload, "profitShareId")}`,
     judul: "Bagi hasil siap dibayar",
-    isi: `Bagi hasil ${labelPeriodeNotifikasi(teks(payload, "periodStart"), teks(payload, "periodEnd"))} sebesar ${formatRupiahNotifikasi(teks(payload, "shareAmount"))} sudah disetujui dan akan segera dibayar.`,
+    isi: kalimatBagiHasilDisetujui(payload),
     url: TAUTAN_UANG_INVESTOR.bagiHasil,
   }),
   "investor:payout.completed": (payload) => ({

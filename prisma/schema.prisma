@@ -3781,6 +3781,7 @@ model RabProject {
   tenantId                            String?
   expenses                            Expense[]
   investors                           RabInvestor[]
+  investorProfitShares                InvestorProfitShare[]
   actualAchievements                  RabActualAchievement[]
   approvals                           RabApproval[]
   items                               RabItem[]
@@ -5567,32 +5568,39 @@ model InvestorDeposit {
 }
 
 model InvestorProfitShare {
-  id           String                    @id @default(cuid())
-  investorId   String
-  configId     String
-  periodStart  DateTime
-  periodEnd    DateTime
-  netProfit    Decimal                   @db.Decimal(19, 2)
-  sharePercent Float
-  shareAmount  Decimal                   @db.Decimal(19, 2)
-  status       InvestorProfitShareStatus @default(CALCULATED)
-  approvedAt   DateTime?
-  approvedById String?
-  paidAt       DateTime?
-  paidById     String?
-  payoutId     String?
-  journalId    String?
-  notes        String?
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
-  tenantId     String?
-  investor     Investor                  @relation(fields: [investorId], references: [id])
-  config       InvestorConfig            @relation(fields: [configId], references: [id])
+  id                  String                    @id @default(cuid())
+  investorId          String
+  /// Hanya bagi hasil lama berbasis setoran; bagi hasil per proyek tidak memakai config.
+  configId            String?
+  /// Proyek RAB sumber bagi hasil (null = bagi hasil lama berbasis setoran).
+  rabProjectId        String?
+  periodStart         DateTime
+  periodEnd           DateTime
+  netProfit           Decimal                   @db.Decimal(19, 2)
+  sharePercent        Float
+  shareAmount         Decimal                   @db.Decimal(19, 2)
+  /// Pengembalian modal (cicilan investasi RAB) untuk investor di periode ini.
+  capitalReturnAmount Decimal                   @default(0) @db.Decimal(19, 2)
+  status              InvestorProfitShareStatus @default(CALCULATED)
+  approvedAt          DateTime?
+  approvedById        String?
+  paidAt              DateTime?
+  paidById            String?
+  payoutId            String?
+  journalId           String?
+  notes               String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  tenantId            String?
+  investor            Investor                  @relation(fields: [investorId], references: [id])
+  config              InvestorConfig?           @relation(fields: [configId], references: [id], onDelete: Restrict)
+  rabProject          RabProject?               @relation(fields: [rabProjectId], references: [id], onDelete: SetNull)
 
   @@index([investorId])
   @@index([tenantId])
   @@index([status])
   @@index([periodStart, periodEnd])
+  @@index([rabProjectId])
   @@map("investor_profit_shares")
 }
 

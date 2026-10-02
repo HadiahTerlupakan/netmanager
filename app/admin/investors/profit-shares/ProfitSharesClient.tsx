@@ -25,6 +25,10 @@ interface ProfitShare {
   netProfit: number;
   sharePercent: number;
   shareAmount: number;
+  /** Pengembalian modal (cicilan investasi RAB) yang dibayar bersama bagi hasil. */
+  capitalReturnAmount: number;
+  /** Proyek RAB sumber; null untuk bagi hasil lama berbasis setoran. */
+  projectName: string | null;
   status: ProfitShareStatus;
   approvedAt: string | null;
   paidAt: string | null;
@@ -72,6 +76,18 @@ function formatPeriod(start: string, end: string) {
   return `${s} – ${e}`;
 }
 
+/** Proyek yang belum menghasilkan bagi hasil pada periode yang dihitung. */
+interface ProyekDilewati {
+  rabProjectId: string;
+  namaProyek: string;
+  alasan: string;
+}
+
+interface HasilHitung {
+  dibuat: ProfitShare[];
+  dilewati: ProyekDilewati[];
+}
+
 // ─── Calculate Form ───────────────────────────────────────────────────────────
 
 interface CalculateFormProps {
@@ -88,18 +104,13 @@ function CalculateForm({ onSuccess }: CalculateFormProps) {
   const [form, setForm] = useState({
     periodStart: firstOfMonth,
     periodEnd: lastOfMonth,
-    netProfit: "",
   });
   const [calculating, setCalculating] = useState(false);
+  const [dilewati, setDilewati] = useState<ProyekDilewati[]>([]);
 
   async function handleCalculate() {
-    if (!form.periodStart || !form.periodEnd || !form.netProfit) {
-      toast.error("Semua field wajib diisi");
-      return;
-    }
-    const profit = Number(form.netProfit);
-    if (isNaN(profit) || profit <= 0) {
-      toast.error("Laba bersih harus berupa angka positif");
+    if (!form.periodStart || !form.periodEnd) {
+      toast.error("Periode wajib diisi");
       return;
     }
 
@@ -111,13 +122,13 @@ function CalculateForm({ onSuccess }: CalculateFormProps) {
         body: JSON.stringify({
           periodStart: form.periodStart,
           periodEnd: form.periodEnd,
-          netProfit: profit,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        const count = Array.isArray(data.data) ? data.data.length : 0;
-        toast.success(`Bagi hasil berhasil dihitung untuk ${count} investor`);
+        const hasil = data.data as HasilHitung;
+        setDilewati(hasil.dilewati);
+        toast.success(`${hasil.dibuat.length} bagi hasil baru dihitung`);
         onSuccess();
       } else {
         toast.error(data.message || "Gagal menghitung bagi hasil");
@@ -137,7 +148,12 @@ function CalculateForm({ onSuccess }: CalculateFormProps) {
           Hitung Bagi Hasil
         </h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Dihitung per proyek RAB dari capaian bulanan yang sudah diisi di
+        periode ini (pengembalian modal + bagi hasil investor), lalu dibagi ke
+        tiap investor sesuai porsi modalnya di proyek.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Periode Dari
@@ -164,21 +180,6 @@ function CalculateForm({ onSuccess }: CalculateFormProps) {
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Laba Bersih (Rp)
-          </label>
-          <input
-            type="number"
-            value={form.netProfit}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, netProfit: e.target.value }))
-            }
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-            placeholder="0"
-            min="0"
-          />
-        </div>
       </div>
       <div className="mt-4 flex justify-end">
         <button
@@ -190,6 +191,21 @@ function CalculateForm({ onSuccess }: CalculateFormProps) {
           {calculating ? "Menghitung..." : "Hitung Bagi Hasil"}
         </button>
       </div>
+      {dilewati.length > 0 && (
+        <div className="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">
+            Proyek yang belum bisa dihitung:
+          </p>
+          <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-300">
+            {dilewati.map((proyek) => (
+              <li key={proyek.rabProjectId}>
+                <span className="font-medium">{proyek.namaProyek}</span> —{" "}
+                {proyek.alasan}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -418,6 +434,9 @@ export default function ProfitSharesClient() {
                     Investor
                   </th>
                   <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Proyek
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Periode
                   </th>
                   <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -428,6 +447,9 @@ export default function ProfitSharesClient() {
                   </th>
                   <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Jumlah Bagi Hasil
+                  </th>
+                  <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Pengembalian Modal
                   </th>
                   <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
@@ -455,6 +477,11 @@ export default function ProfitSharesClient() {
                         </div>
                       )}
                     </td>
+                    <td className="px-5 py-4 text-gray-700 dark:text-gray-300">
+                      {share.projectName ?? (
+                        <span className="text-gray-400 italic">Berbasis setoran</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-gray-600 dark:text-gray-400 text-xs">
                       {formatPeriod(share.periodStart, share.periodEnd)}
                     </td>
@@ -470,6 +497,9 @@ export default function ProfitSharesClient() {
                       <span className="font-black text-gray-900 dark:text-white">
                         {formatCurrency(share.shareAmount)}
                       </span>
+                    </td>
+                    <td className="px-5 py-4 text-right text-gray-600 dark:text-gray-400">
+                      {formatCurrency(share.capitalReturnAmount)}
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={share.status} />

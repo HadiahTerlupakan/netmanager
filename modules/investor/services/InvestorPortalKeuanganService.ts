@@ -25,11 +25,15 @@ export interface InvestorPortalDeposit {
 /** Bagi hasil per periode yang boleh dilihat investor sendiri. */
 export interface InvestorPortalProfitShare {
   id: string;
+  /** Proyek RAB sumber; null untuk bagi hasil lama berbasis setoran. */
+  projectName: string | null;
   periodStart: Date;
   periodEnd: Date;
   netProfit: number;
   sharePercent: number;
   shareAmount: number;
+  /** Pengembalian modal yang dibayar bersama bagi hasil ini. */
+  capitalReturnAmount: number;
   status: string;
   paidAt: Date | null;
 }
@@ -47,18 +51,21 @@ export class InvestorPortalKeuanganService {
     private readonly dashboardService: InvestorPortalDashboardService = getInvestorPortalDashboardService(),
   ) {}
 
-  /** Ringkasan Beranda: dashboard proyek + saldo modal + bagi hasil menunggu dibayar. */
+  /**
+   * Ringkasan Beranda: dashboard proyek + saldo + uang yang siap dibayar
+   * (bagi hasil disetujui beserta pengembalian modalnya).
+   */
   async getRingkasan(investorId: string, tenantId: string | null) {
     const [dashboard, balance, profitShares] = await Promise.all([
       this.dashboardService.getDashboard(investorId, tenantId),
       this.balanceService.getBalance(investorId),
       this.profitShareService.listByInvestor(investorId),
     ]);
-    const profitShareAwaitingPayment = profitShares
+    const amountAwaitingPayment = profitShares
       .filter((share) => share.status === STATUS_BAGI_HASIL_MENUNGGU_BAYAR)
-      .reduce((total, share) => total + share.shareAmount, 0);
+      .reduce((total, share) => total + share.shareAmount + share.capitalReturnAmount, 0);
 
-    return { ...dashboard, balance, profitShareAwaitingPayment };
+    return { ...dashboard, balance, amountAwaitingPayment };
   }
 
   /** Riwayat setoran modal investor, terbaru dulu. */
@@ -82,11 +89,13 @@ export class InvestorPortalKeuanganService {
       .filter((share) => share.status !== STATUS_BAGI_HASIL_BATAL)
       .map((share) => ({
         id: share.id,
+        projectName: share.projectName,
         periodStart: share.periodStart,
         periodEnd: share.periodEnd,
         netProfit: share.netProfit,
         sharePercent: share.sharePercent,
         shareAmount: share.shareAmount,
+        capitalReturnAmount: share.capitalReturnAmount,
         status: share.status,
         paidAt: share.paidAt,
       }));

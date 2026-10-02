@@ -20,7 +20,7 @@ export class InvestorPortalDashboardService {
     );
     const subscriberMetrics = buildDashboardSubscriberMetrics(revenueSnapshot);
 
-    return buildDashboardResponse(projects, revenueSnapshot, subscriberMetrics);
+    return buildDashboardResponse(projects, subscriberMetrics);
   }
 }
 
