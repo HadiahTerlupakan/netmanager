@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Mobile: Pelanggan saya & Keluhan untuk sales
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager` (app/(app)/pelanggan/saya, app/(app)/keluhan)
+- **Author**: agent
+- **Deskripsi**: Menu cepat sales ditambah "Pelanggan Saya" dan "Keluhan".
+  - Lapor keluhan atas nama pelanggan.
+  - Daftar keluhan berjalan/selesai, dengan chip per sales untuk kepala/head of sales.
+  - Detail dengan linimasa helpdesk → teknisi → selesai, percakapan + balas helpdesk, dan tombol kabari pelanggan via WhatsApp.
+  - Notifikasi KELUHAN membuka detail.
+  - Hanya perubahan JS, jadi cukup OTA (`eas update`) setelah backend dideploy.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Sales lapor & pantau keluhan pelanggan, terintegrasi WO
 
 - **Tipe**: [ADDED] [MIGRATION]

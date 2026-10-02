@@ -1,5 +1,31 @@
 # TODO
 
+## Keluhan pelanggan lewat sales + integrasi WO (2026-10-02)
+
+### Tujuan
+Pelanggan sering mengeluh langsung ke sales. Sales mencatat keluhan atas nama pelanggan dari
+mobile; helpdesk menangani di /admin/support (bisa jadikan WO); sales memantau dan dikabari.
+
+### Rencana
+- [x] 0. Perbaiki bug: WorkOrders.ticketId tidak pernah tersimpan → sinkron WO↔tiket mati
+- [x] 1. Pelanggan saya: GET /api/mobile/pelanggan/saya (lingkup sendiri/tim/semua), status,
+      WO terbuka, jumlah keluhan terbuka; layar mobile
+- [x] 2. Lapor keluhan: kolom SupportTickets.dilaporkanOlehId (migration), POST
+      /api/mobile/keluhan (validasi: pelanggan dalam lingkup sales), nomor tiket
+- [x] 3. Keluhan saya: GET /api/mobile/keluhan (+detail: balasan, WO terhubung & status,
+      teknisi, jadwal); notifikasi ke pelapor saat status tiket berubah / WO dibuat /
+      WO dimulai / WO selesai
+- [x] 4. Head of sales: lingkup SEMUA, kelompok per sales, filter terbuka/selesai
+- [x] Admin web: label "Dilaporkan oleh <sales>" di daftar & detail tiket
+- [x] Test, typecheck, lint, uji emulator, CHANGELOG, commit per bagian
+
+### Review (2026-10-02)
+- Backend: 1de82152 (ticketId WO), 99684539 (pelanggan saya), 04697cfb (keluhan + migration + fix /admin/support).
+- Mobile: 064a726. Diuji end-to-end lokal: lapor (sales & kepala) → balasan admin → WO dari tiket →
+  dimulai/selesai → notifikasi sales (idempoten) → linimasa & percakapan di emulator.
+- Ketergantungan: pelanggan produksi belum punya salesId → fitur kosong sampai backfill/penetapan sales.
+- Tap push notification di aplikasi belum merutekan (perilaku lama untuk semua notifikasi); tap dari daftar Notifikasi sudah.
+
 ## Rencana Kunjungan & Penugasan Sales (2026-09-26)
 
 ### Tujuan
