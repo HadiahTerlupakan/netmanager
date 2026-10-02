@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Persona role & isSales aman untuk data produksi
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/migrations`, `modules/roles`
+- **Author**: agent
+- **Deskripsi**: Hasil simulasi ke data produksi sebelum deploy. (1) Persona SALES kini dari izin
+  `m_presurvei`, bukan "ada user ber-isSales" — aturan lama menjadikan role Teknisi (35 user)
+  SALES. (2) Sebelum isSales disinkron, role non-SALES ber-`m_canvasing` yang punya user aktif
+  ber-isSales diberi `m_canvasing:cashout` agar teknisi/manajer yang kadang canvasing tetap bisa
+  mencairkan bonus (produksi: Teknisi & Branch Manager). Kedua migration belum pernah terpasang di
+  produksi. Rincian: `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+- **Migration**: `20261001214142_add_persona_to_roles`, `20261001222557_sync_user_is_sales_from_role_persona`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Chat global 500 dan loop request halaman chat admin
 
 - **Tipe**: [MIGRATION]

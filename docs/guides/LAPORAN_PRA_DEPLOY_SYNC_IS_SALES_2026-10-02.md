@@ -99,3 +99,21 @@ bukan lewat form user — `isSales` seluruh pengguna role ikut tersinkron otomat
 
 Pengguna tanpa role yang bertanda sales: 0. Setelah migration diterapkan, query B
 mengembalikan 0 baris.
+
+## Pembaruan 2026-10-02 sore — simulasi terhadap data produksi
+
+Simulasi read-only (SELECT) terhadap DB produksi sebelum push menemukan:
+
+- Aturan awal `20261001214142_add_persona_to_roles` ("role → SALES bila ada satu user ber-isSales")
+  akan menjadikan role **Teknisi (35 user)** dan **Branch Manager (5 user)** SALES, karena 5 teknisi
+  dan 2 branch manager ber-isSales warisan. Sync isSales lalu menandai seluruh teknisi sebagai sales.
+  **Diperbaiki:** SALES kini hanya role ber-`m_presurvei` (atau `presurvei_rencana` tanpa `view_all`).
+  Hasil simulasi ulang: Teknisi, THD, Branch Manager, admin, dll. → TEKNISI; SALES → SALES;
+  CEO/CFO/Helpdesk → STAFF.
+- Lima user aktif ber-isSales di role non-sales (teknisi yang kadang canvasing: Tatang Cahyana,
+  Ali Akbar, Budi Akbar; branch manager: ABBAS BASORI, Muhamad Dede Rakhamattulah) kehilangan
+  isSales → tampilan aplikasi mereka menjadi teknisi. Agar tetap bisa **mencairkan bonus
+  canvasing**, migration sync kini lebih dulu memberi `m_canvasing:cashout` ke role non-SALES yang
+  memegang `m_canvasing` dan punya user aktif ber-isSales. Di produksi: **Teknisi (17 user aktif)**
+  dan **Branch Manager (4 user aktif)**. Keputusan pemilik: teknisi tetap teknisi, kadang canvasing.
+- `20261002021356` (actualOpex 0 → NULL) tidak mengenai baris apa pun di produksi.
