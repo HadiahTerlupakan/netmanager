@@ -68,3 +68,20 @@ export {
 // Event handlers
 export { handleGoodsReceiptCreatedInventory } from "./services/event-handlers/goods-receipt-inventory.handler";
 export { handleGoodsReturnSentInventory } from "./services/event-handlers/goods-return-inventory.handler";
+
+// Jadwal & kepatuhan stock opname bulanan
+export {
+  StockOpnameJadwalService,
+  getStockOpnameJadwalService,
+} from "./services/StockOpnameJadwalService";
+export type {
+  JadwalSoBulan,
+  KepatuhanGudang,
+  KepatuhanSite,
+  LaporanKepatuhanSo,
+} from "./services/StockOpnameJadwalService";
+export {
+  StockOpnamePengingatService,
+  runStockOpnameReminderCron,
+} from "./services/StockOpnamePengingatService";
+export { periodeDari as periodeStockOpnameDari } from "./domain/jadwal-stock-opname";

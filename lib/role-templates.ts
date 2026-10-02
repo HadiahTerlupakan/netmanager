@@ -452,6 +452,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
       "opname:read",
       "opname:create",
       "opname:site_only",
+      "opname:manage",
       // Finance (read reports)
       "finance:read",
       "finance:site_only",

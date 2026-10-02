@@ -2212,6 +2212,44 @@ model Sla {
   @@map("sla")
 }
 
+/// Aturan jadwal stock opname bawaan per tenant: rentang tanggal setiap bulan.
+/// Bulan dengan baris `StockOpnameJadwal` memakai jadwal khusus bulan itu.
+model StockOpnameAturan {
+  id             String   @id @default(cuid())
+  /// false = jadwal & pengingat SO tidak dipakai tenant ini.
+  isAktif        Boolean  @default(true)
+  /// Tanggal mulai (1–31) setiap bulan; melebihi akhir bulan = tanggal terakhir.
+  tanggalMulai   Int      @default(25)
+  /// Tanggal selesai (1–31) setiap bulan, ≥ tanggalMulai.
+  tanggalSelesai Int      @default(31)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenantId       String?  @unique
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@map("stock_opname_aturan")
+}
+
+/// Jadwal stock opname khusus untuk satu bulan (menimpa aturan bawaan).
+model StockOpnameJadwal {
+  id             String   @id @default(cuid())
+  /// Bulan "YYYY-MM".
+  periode        String
+  /// Tanggal kalender (WIB) awal & akhir jadwal, inklusif.
+  tanggalMulai   DateTime @db.Date
+  tanggalSelesai DateTime @db.Date
+  catatan        String?
+  diubahOlehId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenantId       String?
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, periode])
+  @@index([tenantId])
+  @@map("stock_opname_jadwal")
+}
+
 model StockOpname {
   id                String    @id
   barangId          String
@@ -4195,6 +4233,8 @@ model Tenant {
   sites                     Sites[]
   sla                       Sla[]
   stockOpname               StockOpname[]
+  stockOpnameAturan         StockOpnameAturan?
+  stockOpnameJadwal         StockOpnameJadwal[]
   supplier                  Supplier[]
   supportTickets            SupportTickets[]
   ticketReplies             TicketReplies[]
