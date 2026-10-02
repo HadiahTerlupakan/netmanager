@@ -343,6 +343,54 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     ],
   },
   {
+    id: "head_of_sales",
+    name: "Head of Sales & Marketing",
+    description:
+      "Memimpin seluruh tim sales & marketing: memantau rencana, kinerja, target, dan tunggakan pelanggan SEMUA sales (bukan hanya satu tim), memverifikasi canvasing, serta tetap bisa canvasing & presurvei dari mobile.",
+    icon: "briefcase",
+    color: "fuchsia",
+    accessAdminPanel: true,
+    accessEmployeePanel: true,
+    isTechnical: false,
+    persona: "SALES",
+    isRestricted: false,
+    isSuperAdmin: false,
+    tags: ["Supervisi", "Marketing", "Mobile"],
+    permissions: [
+      "dashboard:read",
+      // Presurvei: rencana seluruh sales (view_all = lingkup SEMUA, termasuk
+      // daftar tunggakan pelanggan di mobile), target, laporan, data prospek.
+      "presurvei:read",
+      "presurvei_rencana:read",
+      "presurvei_rencana:create",
+      "presurvei_rencana:update",
+      "presurvei_rencana:view_all",
+      "presurvei_target:read",
+      "presurvei_target:create",
+      "presurvei_laporan:read",
+      // Canvasing & penjualan
+      "canvasing:read",
+      "canvasing:verify",
+      "sales:read",
+      // Pelanggan: lihat saja (tindak lanjut tunggakan)
+      "pelanggan:read",
+      // Mobile (sama dengan sales)
+      "m_dashboard:read",
+      "m_canvasing:read",
+      "m_canvasing:create",
+      "m_presurvei:read",
+      "m_presurvei:create",
+      "m_presurvei:update",
+      "m_absensi:read",
+      "m_absensi:create",
+      "m_izin:read",
+      "m_izin:create",
+      "m_holidays:read",
+      "m_chat:read",
+      "m_chat:create",
+    ],
+  },
+  {
     id: "manager",
     name: "Manager / Supervisor",
     description:

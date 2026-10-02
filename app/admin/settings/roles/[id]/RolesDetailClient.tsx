@@ -689,6 +689,20 @@ export function ClientComponent() {
                         tagBg: "bg-orange-100 dark:bg-orange-900/40",
                         tagText: "text-orange-700 dark:text-orange-300",
                       },
+                      fuchsia: {
+                        bg: "bg-fuchsia-50 dark:bg-fuchsia-950/30",
+                        border: "border-fuchsia-300 dark:border-fuchsia-700",
+                        ring: "ring-fuchsia-400",
+                        tagBg: "bg-fuchsia-100 dark:bg-fuchsia-900/40",
+                        tagText: "text-fuchsia-700 dark:text-fuchsia-300",
+                      },
+                      pink: {
+                        bg: "bg-pink-50 dark:bg-pink-950/30",
+                        border: "border-pink-300 dark:border-pink-700",
+                        ring: "ring-pink-400",
+                        tagBg: "bg-pink-100 dark:bg-pink-900/40",
+                        tagText: "text-pink-700 dark:text-pink-300",
+                      },
                     };
                     const colors = colorMap[template.color] || colorMap.blue;
 

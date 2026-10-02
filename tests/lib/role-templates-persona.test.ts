@@ -21,6 +21,7 @@ describe("ROLE_TEMPLATES — persona", () => {
       "staff-keuangan": "FINANCE",
       sales: "SALES",
       kepala_sales: "SALES",
+      head_of_sales: "SALES",
       manager: "STAFF",
       noc: "STAFF",
       "inventory-staff": "TEKNISI",
@@ -45,5 +46,17 @@ describe("ROLE_TEMPLATES — persona", () => {
     )) {
       expect(template.permissions, template.id).toContain("m_presurvei:read");
     }
+  });
+});
+
+describe("template Head of Sales & Marketing", () => {
+  it("melihat SEMUA sales (view_all), kepala sales hanya timnya", async () => {
+    const { ROLE_TEMPLATES } = await import("@/lib/role-templates");
+    const { jenisLingkupDariIzin } = await import("@/modules/presurvei");
+    const ambil = (id: string) => ROLE_TEMPLATES.find((template) => template.id === id)!;
+
+    expect(jenisLingkupDariIzin(ambil("head_of_sales").permissions)).toBe("SEMUA");
+    expect(jenisLingkupDariIzin(ambil("kepala_sales").permissions)).toBe("TIM");
+    expect(ambil("head_of_sales").permissions).not.toContain("pelanggan:update");
   });
 });

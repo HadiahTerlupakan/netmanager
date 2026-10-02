@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Template role Head of Sales & Marketing
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/role-templates.ts`, `app/admin/settings/roles`
+- **Author**: agent
+- **Deskripsi**: Template baru "Head of Sales & Marketing" (persona SALES): izin Kepala Sales
+  ditambah `presurvei_rencana:view_all` (lingkup SEMUA — rencana, kinerja, dan tunggakan
+  pelanggan seluruh sales termasuk "Belum ada sales"), target & laporan presurvei, data
+  prospek, verifikasi canvasing, `sales:read`, dan `pelanggan:read`. Kepala Sales tetap
+  lingkup TIM. Pemilih template kini mengenal warna `fuchsia` dan `pink` (sebelumnya
+  template berwarna pink jatuh ke biru).
+- **Files**: `lib/role-templates.ts`, `app/admin/settings/roles/[id]/RolesDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Sales penanggung jawab pelanggan & tunggakan di mobile
 
 - **Tipe**: [MIGRATION]
