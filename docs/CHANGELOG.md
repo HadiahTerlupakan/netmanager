@@ -118,6 +118,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
     - util murni geo/perangkat/KMZ/detail (`src/utils/topology/`);
     - komponen header, galat, pencarian, daftar perangkat, peta native, dan overlay.
   - Tanpa `any`, magic number jadi konstanta, ditambah 51 test baru.
+  - Query topologi kini hanya berjalan bila pengguna berizin (sebelumnya tetap memanggil API dan kena 403).
   - Perilaku dan tampilan tidak berubah. Hanya JS, sehingga cukup OTA.
 - **Breaking**: ❌ Tidak
 
