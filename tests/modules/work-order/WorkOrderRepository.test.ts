@@ -142,6 +142,22 @@ describe("WorkOrderRepository", () => {
         }),
       );
     });
+
+    it("should persist ticketId so WO status syncs back to the complaint ticket", async () => {
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(null);
+      prismaMock.workOrders.create.mockResolvedValueOnce(createWoMock() as unknown as WorkOrders);
+
+      await repository.create({
+        type: WorkOrderType.TROUBLESHOOT,
+        title: "Gangguan",
+        tenantId: "tenant-test",
+        ticketId: "ticket-1",
+      } as Parameters<WorkOrderRepository["create"]>[0]);
+
+      expect(prismaMock.workOrders.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ticketId: "ticket-1" }) }),
+      );
+    });
   });
 
   describe("updateStatus", () => {

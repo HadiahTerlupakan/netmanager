@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — WO dari tiket keluhan kini menyimpan ticketId
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: `buildDefaultCreatePayload` dan `buildRequestCreatePayload` membuang `ticketId`,
+  sehingga WO yang dibuat dari tiket keluhan tidak pernah tertaut. Akibatnya sinkron status
+  WO → tiket (`syncWoStatusToTicket`) tidak pernah jalan. Kini `ticketId` ikut disimpan.
+- **Files**: `modules/work-order/repositories/work-order-repository-create.ts`,
+  `tests/modules/work-order/WorkOrderRepository.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Persona role & isSales aman untuk data produksi
 
 - **Tipe**: [MIGRATION]

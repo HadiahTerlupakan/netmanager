@@ -118,6 +118,8 @@ function buildDefaultCreatePayload(
     priority: data.priority || "NORMAL",
     createdById: data.createdById ?? null,
     pelangganId: pelangganId || null,
+    // Tautan ke tiket keluhan: dibaca sinkron WO ↔ tiket (WorkOrderSyncService).
+    ticketId: restData.ticketId || null,
     siteId: restData.siteId || null,
     departmentId: restData.departmentId || null,
     assignedToId: restData.assignedToId || null,
@@ -156,6 +158,8 @@ function buildRequestCreatePayload(
     requestedById: requestedById ?? null,
     requestedAt: new Date(),
     pelangganId: pelangganId || null,
+    // Tautan ke tiket keluhan: dibaca sinkron WO ↔ tiket (WorkOrderSyncService).
+    ticketId: restData.ticketId || null,
     siteId: restData.siteId || null,
     departmentId: restData.departmentId || null,
     assignedToId: null,
