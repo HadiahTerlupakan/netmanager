@@ -1,6 +1,7 @@
 "use client";
 
 import { FiAlertTriangle } from "react-icons/fi";
+import { formatTanggalSo } from "./jadwal/jadwalSoTypes";
 import type { OpnameCalculationItem } from "./useOpnameCalculation";
 
 const HIGH_QUALITY_THRESHOLD_PERCENT = 95;
@@ -21,12 +22,17 @@ const ALASAN_SELISIH_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
 
 interface OpnameItemRowProps {
   item: OpnameCalculationItem;
+  /** Barang ditandai sudah dihitung pada sesi ini (akan disimpan). */
+  isDihitung: boolean;
+  onToggleDihitung: (isDihitung: boolean) => void;
   isSubmitting: boolean;
   onChange: (barangId: string, patch: Partial<OpnameCalculationItem>) => void;
 }
 
 export function OpnameItemRow({
   item,
+  isDihitung,
+  onToggleDihitung,
   isSubmitting,
   onChange,
 }: OpnameItemRowProps) {
@@ -38,9 +44,17 @@ export function OpnameItemRow({
   );
 
   return (
-    <tr
-      className={`${hasDiscrepancy ? "bg-yellow-50 dark:bg-yellow-900/10" : ""}`}
-    >
+    <tr className={rowClass(hasDiscrepancy, isDihitung)}>
+      <td className="px-3 py-3 text-center">
+        <input
+          type="checkbox"
+          aria-label={`${item.barangNama} sudah dihitung`}
+          checked={isDihitung}
+          disabled={isSubmitting}
+          onChange={(e) => onToggleDihitung(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+      </td>
       <td className="px-4 py-3">
         <div className="text-sm font-medium text-gray-900 dark:text-white">
           {item.barangKode}
@@ -48,6 +62,7 @@ export function OpnameItemRow({
         <div className="text-sm text-gray-500 dark:text-gray-400">
           {item.barangNama}
         </div>
+        <SoBulanIniBadge soBulanIni={item.soBulanIni} />
       </td>
 
       <SystemStockCell stokSistem={item.stokSistem} />
@@ -151,6 +166,34 @@ export function OpnameItemRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function rowClass(hasDiscrepancy: boolean, isDihitung: boolean): string {
+  if (hasDiscrepancy) return "bg-yellow-50 dark:bg-yellow-900/10";
+  if (isDihitung) return "bg-green-50 dark:bg-green-900/10";
+  return "";
+}
+
+/** Penanda apakah barang sudah di-SO bulan ini. */
+function SoBulanIniBadge({
+  soBulanIni,
+}: {
+  soBulanIni: OpnameCalculationItem["soBulanIni"];
+}) {
+  if (!soBulanIni) {
+    return (
+      <span className="mt-1 inline-flex px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+        Belum di-SO bulan ini
+      </span>
+    );
+  }
+  const pic = soBulanIni.pic ? ` · ${soBulanIni.pic}` : "";
+  return (
+    <span className="mt-1 inline-flex px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+      Sudah SO {formatTanggalSo(soBulanIni.tanggal)}
+      {pic}
+    </span>
   );
 }
 

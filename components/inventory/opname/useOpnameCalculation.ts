@@ -16,6 +16,8 @@ export interface OpnameCalculationItem {
   nomorRak?: string;
   nomorBox?: string;
   catatanDetail?: string;
+  /** SO terakhir barang ini di bulan berjalan; null = belum di-SO bulan ini. */
+  soBulanIni?: { tanggal: string; pic: string | null } | null;
 }
 
 export interface OpnameCalculationSummary {

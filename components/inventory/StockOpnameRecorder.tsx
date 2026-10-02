@@ -42,6 +42,8 @@ export function StockOpnameRecorder({
   const router = useRouter();
   const [gudangId, setGudangId] = useState("");
   const [editsByBarang, setEditsByBarang] = useState<ItemPatchMap>({});
+  const [dihitungIds, setDihitungIds] = useState<ReadonlySet<string>>(new Set());
+  const [isHanyaBelumSo, setIsHanyaBelumSo] = useState(false);
   const [success, setSuccess] = useState("");
   const [recordingError, setRecordingError] = useState("");
 
@@ -63,6 +65,14 @@ export function StockOpnameRecorder({
   );
 
   const selectedGudang = gudangs.find((g) => g.id === gudangId);
+  const itemsToRecord = useMemo(
+    () => items.filter((item) => dihitungIds.has(item.barangId)),
+    [items, dihitungIds],
+  );
+  const visibleItems = useMemo(
+    () => (isHanyaBelumSo ? items.filter((item) => !item.soBulanIni) : items),
+    [items, isHanyaBelumSo],
+  );
   const itemsWithDiscrepancyCount = useMemo(
     () => items.filter((i) => i.stokFisik !== i.stokSistem).length,
     [items],
@@ -74,13 +84,26 @@ export function StockOpnameRecorder({
     calculation.error ||
     (gudangError ? "Gagal memuat data gudang" : "");
 
-  const isSubmitDisabled = submitOpname.isSubmitting || items.length === 0;
+  const isSubmitDisabled =
+    submitOpname.isSubmitting || itemsToRecord.length === 0;
 
   const handleGudangChange = (nextGudangId: string) => {
     setGudangId(nextGudangId);
     setEditsByBarang({});
+    setDihitungIds(new Set());
     setRecordingError("");
     setSuccess("");
+  };
+
+  const handleToggleDihitung = (barangIds: string[], isDihitung: boolean) => {
+    setDihitungIds((prev) => {
+      const next = new Set(prev);
+      for (const barangId of barangIds) {
+        if (isDihitung) next.add(barangId);
+        else next.delete(barangId);
+      }
+      return next;
+    });
   };
 
   const handleItemChange = (
@@ -91,6 +114,8 @@ export function StockOpnameRecorder({
       ...prev,
       [barangId]: { ...(prev[barangId] ?? {}), ...patch },
     }));
+    // Mengubah angka berarti barang ini sudah dihitung.
+    handleToggleDihitung([barangId], true);
   };
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -103,20 +128,21 @@ export function StockOpnameRecorder({
       return;
     }
 
-    if (items.length === 0) {
-      setRecordingError("Tidak ada barang di gudang ini untuk dicatat");
+    if (itemsToRecord.length === 0) {
+      setRecordingError("Centang barang yang sudah dihitung terlebih dahulu");
       return;
     }
 
     try {
-      // Semua barang dicatat, termasuk yang cocok (selisih 0): SO bulanan adalah
-      // bukti seluruh stok gudang sudah dihitung. Selisih 0 tidak membuat mutasi stok.
-      const result = await submitOpname.submit({ gudangId, items });
+      // Hanya barang yang ditandai sudah dihitung; yang cocok tersimpan dengan
+      // selisih 0 sebagai bukti SO (tanpa mutasi stok).
+      const result = await submitOpname.submit({ gudangId, items: itemsToRecord });
 
       setSuccess(
         `Stock opname berhasil dicatat untuk ${result.totalItems} item`,
       );
       setEditsByBarang({});
+      setDihitungIds(new Set());
       setGudangId("");
 
       if (onSuccess) {
@@ -157,7 +183,14 @@ export function StockOpnameRecorder({
 
         {!calculation.isLoading && gudangId && items.length > 0 && (
           <OpnameItemsTable
-            items={items}
+            items={visibleItems}
+            totalItems={items.length}
+            dihitungIds={dihitungIds}
+            dihitungCount={itemsToRecord.length}
+            soBulanIniCount={items.filter((item) => item.soBulanIni).length}
+            isHanyaBelumSo={isHanyaBelumSo}
+            onHanyaBelumSoChange={setIsHanyaBelumSo}
+            onToggleDihitung={handleToggleDihitung}
             itemsWithDiscrepancyCount={itemsWithDiscrepancyCount}
             gudangNama={selectedGudang?.nama}
             isSubmitting={submitOpname.isSubmitting}
@@ -173,7 +206,7 @@ export function StockOpnameRecorder({
           <ActionButtons
             isSubmitting={submitOpname.isSubmitting}
             isDisabled={isSubmitDisabled}
-            recordableCount={items.length}
+            recordableCount={itemsToRecord.length}
             onClose={onClose}
           />
         )}
@@ -253,8 +286,9 @@ function GudangSelector({
             {selectedGudangNama}
           </p>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-            Semua barang ikut dicatat. Barang yang jumlahnya sudah cocok cukup
-            dibiarkan — tetap tercatat sebagai sudah di-SO (selisih 0).
+            Centang &quot;Dihitung&quot; untuk barang yang sudah dihitung (otomatis
+            tercentang bila angkanya diubah). Barang yang cocok cukup dicentang dan
+            tercatat dengan selisih 0. Hanya barang yang dicentang yang disimpan.
           </p>
         </div>
       )}

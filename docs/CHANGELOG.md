@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Input SO menandai barang sudah/belum dihitung
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/inventory`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Melanjutkan perbaikan "SO mencatat semua barang": supaya barang yang belum
+  dihitung tidak ikut tercatat cocok, tiap barang kini punya centang "Dihitung" (otomatis
+  tercentang saat angkanya diubah, plus centang semua di header). Hanya barang yang dicentang
+  yang disimpan, jadi SO boleh dicicil. Endpoint `/api/inventory/opname/calculate` menambah
+  `soBulanIni` (SO terakhir per barang bulan berjalan, WIB); form menampilkan label
+  "Sudah SO <tanggal> · PIC" / "Belum di-SO bulan ini", filter "Hanya yang belum di-SO bulan
+  ini", dan ringkasan progres di footer.
+- **Files**: `components/inventory/StockOpnameRecorder.tsx`,
+  `components/inventory/opname/OpnameItemsTable.tsx`,
+  `components/inventory/opname/OpnameItemRow.tsx`,
+  `modules/inventory/repositories/inventory-opname-api-calculation.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Tanggal SO terakhir dibaca menurut WIB
 
 - **Tipe**: [FIXED]
