@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { LaporanKepatuhanSo } from "@/components/inventory/opname/jadwal/jadwalSoTypes";
+import { formatTanggalSo, type LaporanKepatuhanSo } from "@/components/inventory/opname/jadwal/jadwalSoTypes";
 import { susunIsiLaporanSoPdf } from "@/components/inventory/opname/jadwal/laporanSoPdf";
 
 const LAPORAN: LaporanKepatuhanSo = {
@@ -79,5 +79,12 @@ describe("susunIsiLaporanSoPdf", () => {
       ["Gudang Cabang", "GD-02", "Belum SO", "0/3", "-"],
     ]);
     expect(isi.bagian[1].baris[0][3]).toBe("-");
+  });
+});
+
+describe("formatTanggalSo", () => {
+  it("membaca timestamp menurut tanggal WIB", () => {
+    expect(formatTanggalSo("2026-10-01T19:00:00.000Z")).toBe("2 Okt 2026");
+    expect(formatTanggalSo("2026-10-25")).toBe("25 Okt 2026");
   });
 });

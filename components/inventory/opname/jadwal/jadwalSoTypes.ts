@@ -74,9 +74,18 @@ export const LABEL_KEADAAN: Record<KeadaanJendela, string> = {
   DITUTUP: "Sudah lewat",
 };
 
-/** "25 Okt 2026" dari "YYYY-MM-DD". */
+const OFFSET_WIB_MS = 7 * 60 * 60 * 1000;
+const PANJANG_TANGGAL = 10;
+
+/** Tanggal kalender WIB "YYYY-MM-DD" dari tanggal polos atau timestamp ISO. */
+function keTanggalWib(tanggal: string): string {
+  if (tanggal.length === PANJANG_TANGGAL) return tanggal;
+  return new Date(new Date(tanggal).getTime() + OFFSET_WIB_MS).toISOString().slice(0, PANJANG_TANGGAL);
+}
+
+/** "25 Okt 2026" dari "YYYY-MM-DD" atau timestamp ISO (dibaca menurut WIB). */
 export function formatTanggalSo(tanggal: string): string {
-  return new Date(`${tanggal.slice(0, 10)}T00:00:00.000Z`).toLocaleDateString("id-ID", {
+  return new Date(`${keTanggalWib(tanggal)}T00:00:00.000Z`).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -86,6 +95,6 @@ export function formatTanggalSo(tanggal: string): string {
 
 /** Periode "YYYY-MM" bulan berjalan menurut WIB. */
 export function periodeSekarang(): string {
-  const wib = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const wib = new Date(Date.now() + OFFSET_WIB_MS);
   return wib.toISOString().slice(0, 7);
 }

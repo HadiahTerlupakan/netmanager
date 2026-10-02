@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Tanggal SO terakhir dibaca menurut WIB
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/inventory/opname/jadwal`
+- **Author**: agent
+- **Deskripsi**: `formatTanggalSo` memotong timestamp UTC, sehingga SO pukul 00.00–06.59 WIB
+  tampil sehari lebih awal di kolom "SO terakhir" Laporan SO Bulanan dan PDF-nya. Timestamp
+  kini dikonversi ke tanggal WIB lebih dulu.
+- **Files**: `components/inventory/opname/jadwal/jadwalSoTypes.ts`,
+  `components/inventory/opname/jadwal/laporanSoPdf.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — SO mencatat semua barang, termasuk yang cocok
 
 - **Tipe**: [FIXED]

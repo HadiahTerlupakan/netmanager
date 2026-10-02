@@ -10,8 +10,6 @@ import {
 /** Kolom tabel gudang per site di PDF. */
 export const KOLOM_LAPORAN_SO = ["Gudang", "Kode", "Status", "Barang dihitung (dalam jadwal)", "SO terakhir bulan ini"];
 
-/** Tanggal cetak ditampilkan menurut kalender WIB. */
-const OFFSET_WIB_MS = 7 * 60 * 60 * 1000;
 const URUTAN_STATUS: StatusSoGudang[] = ["LENGKAP", "SEBAGIAN", "DI_LUAR_JADWAL", "BELUM", "TANPA_STOK"];
 const MARGIN_KIRI = 14;
 const Y_JUDUL = 15;
@@ -58,7 +56,7 @@ export function susunIsiLaporanSoPdf(laporan: LaporanKepatuhanSo, dicetakPada: D
   const ringkasan = URUTAN_STATUS.map(
     (status) => `${TAMPILAN_STATUS_SO[status].label}: ${laporan.jumlahPerStatus[status] ?? 0}`,
   ).join("   ");
-  const dicetak = formatTanggalSo(new Date(dicetakPada.getTime() + OFFSET_WIB_MS).toISOString());
+  const dicetak = formatTanggalSo(dicetakPada.toISOString());
 
   return {
     judul: `Laporan Stock Opname ${labelBulan(laporan.periode)}`,
