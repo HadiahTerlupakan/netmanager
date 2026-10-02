@@ -19,6 +19,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { buttonVariants } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { clientLogger } from "@/lib/client-logger";
+import { KartuJadwalSoSite } from "@/components/inventory/opname/jadwal/KartuJadwalSoSite";
 
 interface Site {
   id: string;
@@ -354,6 +355,11 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
           </div>
         )}
       </div>
+
+      {/* Jadwal stock opname gudang-gudang site ini */}
+      {site.gudangs.length > 0 && (
+        <KartuJadwalSoSite siteId={site.id} canUbah={hasPermission("site:update")} />
+      )}
 
       {/* Gudang List */}
       {site.gudangs.length > 0 && (

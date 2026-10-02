@@ -5,93 +5,110 @@ vi.mock("@/modules/database", () => ({ prisma: {} }));
 import { StockOpnameJadwalService } from "@/modules/inventory/services/StockOpnameJadwalService";
 
 const repo = {
-  findAturan: vi.fn(),
-  findJadwal: vi.fn(),
+  findSite: vi.fn(),
+  findAturanSites: vi.fn(),
+  findJadwalSites: vi.fn(),
+  findJadwalKhususSite: vi.fn(),
   upsertAturan: vi.fn(),
   upsertJadwal: vi.fn(),
   deleteJadwal: vi.fn(),
+  findSitesAktif: vi.fn(),
   findGudangAktif: vi.fn(),
   findBarangBerstok: vi.fn(),
   findOpnameDalamRentang: vi.fn(),
-  findSiteIdsPengguna: vi.fn(),
 };
 const service = new StockOpnameJadwalService(repo as never);
-const DALAM_JADWAL = new Date("2026-10-26T03:00:00.000Z");
-const LUAR_JADWAL = new Date("2026-10-05T03:00:00.000Z");
+const SITE_A = { id: "s1", name: "Site A" };
+const SITE_B = { id: "s2", name: "Site B" };
 
-describe("StockOpnameJadwalService", () => {
+describe("StockOpnameJadwalService — jadwal per site", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    repo.findAturan.mockResolvedValue({ isAktif: true, tanggalMulai: 25, tanggalSelesai: 30 });
-    repo.findJadwal.mockResolvedValue(null);
+    repo.findSite.mockResolvedValue(SITE_A);
+    repo.findAturanSites.mockResolvedValue([]);
+    repo.findJadwalSites.mockResolvedValue([]);
+    repo.findJadwalKhususSite.mockResolvedValue([]);
+    repo.findBarangBerstok.mockResolvedValue([]);
+    repo.findOpnameDalamRentang.mockResolvedValue([]);
   });
 
-  it("jadwal khusus bulan itu menimpa aturan bawaan", async () => {
-    repo.findJadwal.mockResolvedValue({
-      tanggalMulai: new Date("2026-10-20T00:00:00.000Z"),
-      tanggalSelesai: new Date("2026-10-23T00:00:00.000Z"),
-      catatan: "Maju karena libur",
-    });
-    const jadwal = await service.getJadwal("t-1", "2026-10");
-    expect(jadwal.jendela).toEqual({ periode: "2026-10", mulai: "2026-10-20", selesai: "2026-10-23", sumber: "KHUSUS" });
-    expect(jadwal.catatan).toBe("Maju karena libur");
+  it("tiap site memakai jadwalnya: bawaan, khusus bulan itu, atau sebulan penuh bila belum diatur", async () => {
+    repo.findAturanSites.mockResolvedValue([
+      { siteId: "s1", isAktif: true, tanggalMulai: 25, tanggalSelesai: 31 },
+      { siteId: "s2", isAktif: false, tanggalMulai: 10, tanggalSelesai: 15 },
+    ]);
+    repo.findJadwalSites.mockResolvedValue([
+      { siteId: "s2", tanggalMulai: new Date("2026-10-05T00:00:00.000Z"), tanggalSelesai: new Date("2026-10-08T00:00:00.000Z"), catatan: "Maju" },
+    ]);
+
+    const jadwal = await service.getJadwalSites("t-1", [SITE_A, SITE_B, { id: "s3", name: "Site C" }], "2026-10");
+
+    expect(jadwal.get("s1")?.jendela).toMatchObject({ mulai: "2026-10-25", selesai: "2026-10-31", sumber: "BAWAAN" });
+    expect(jadwal.get("s2")?.jendela).toMatchObject({ mulai: "2026-10-05", selesai: "2026-10-08", sumber: "KHUSUS" });
+    expect(jadwal.get("s2")?.catatan).toBe("Maju");
+    expect(jadwal.get("s3")?.jendela).toMatchObject({ mulai: "2026-10-01", selesai: "2026-10-31", sumber: "TANPA_JADWAL" });
+    expect(jadwal.get("s3")?.aturan.isDiatur).toBe(false);
   });
 
-  it("tenant yang belum mengatur memakai bawaan 25–akhir bulan dengan pengingat mati", async () => {
-    repo.findAturan.mockResolvedValue(null);
-    const jadwal = await service.getJadwal("t-1", "2026-11");
-    expect(jadwal.aturan).toMatchObject({ isAktif: false, isDiatur: false });
-    expect(jadwal.jendela).toMatchObject({ mulai: "2026-11-25", selesai: "2026-11-30" });
-  });
+  it("site milik tenant lain ditolak 404; validasi ditolak 400", async () => {
+    repo.findSite.mockResolvedValueOnce(null);
+    await expect(service.simpanAturanSite("t-1", "s-lain", { isAktif: true, tanggalMulai: 1, tanggalSelesai: 5 })).rejects.toMatchObject({ status: 404 });
 
-  it("validasi ditolak sebagai 400", async () => {
-    await expect(service.simpanAturan("t-1", { isAktif: true, tanggalMulai: 30, tanggalSelesai: 2 })).rejects.toMatchObject({ status: 400 });
+    await expect(service.simpanAturanSite("t-1", "s1", { isAktif: true, tanggalMulai: 30, tanggalSelesai: 2 })).rejects.toMatchObject({ status: 400 });
     await expect(
-      service.simpanJadwalKhusus("t-1", "2026-10", { mulai: "2026-10-28", selesai: "2026-11-01" }, "u-1"),
+      service.simpanJadwalKhususSite("t-1", "s1", "2026-10", { mulai: "2026-10-28", selesai: "2026-11-01" }, "u-1"),
     ).rejects.toMatchObject({ status: 400 });
+    expect(repo.upsertAturan).not.toHaveBeenCalled();
     expect(repo.upsertJadwal).not.toHaveBeenCalled();
   });
 
-  it("kepatuhan dikelompokkan per site; gudang tanpa site di kelompok sendiri; status per gudang", async () => {
+  it("gudang lintas site dinilai dengan jadwal masing-masing site", async () => {
+    repo.findSitesAktif.mockResolvedValue([SITE_A, SITE_B]);
+    repo.findAturanSites.mockResolvedValue([
+      { siteId: "s1", isAktif: true, tanggalMulai: 1, tanggalSelesai: 5 },
+      { siteId: "s2", isAktif: true, tanggalMulai: 20, tanggalSelesai: 25 },
+    ]);
     repo.findGudangAktif.mockResolvedValue([
-      { id: "g1", kode: "G1", nama: "Gudang Utara", sites: [{ id: "s1", name: "Site A" }] },
-      { id: "g2", kode: "G2", nama: "Gudang Selatan", sites: [{ id: "s1", name: "Site A" }, { id: "s2", name: "Site B" }] },
-      { id: "g3", kode: "G3", nama: "Gudang Lepas", sites: [] },
+      { id: "g1", kode: "G1", nama: "Gudang Bersama", sites: [{ id: "s1" }, { id: "s2" }] },
+      { id: "g9", kode: "G9", nama: "Gudang Lepas", sites: [] },
     ]);
-    repo.findBarangBerstok.mockResolvedValue([
-      { gudangId: "g1", barangId: "kabel" },
-      { gudangId: "g1", barangId: "odp" },
-      { gudangId: "g2", barangId: "kabel" },
-      { gudangId: "g3", barangId: "kabel" },
-    ]);
+    repo.findBarangBerstok.mockResolvedValue([{ gudangId: "g1", barangId: "kabel" }, { gudangId: "g9", barangId: "kabel" }]);
     repo.findOpnameDalamRentang.mockResolvedValue([
-      { gudangId: "g1", barangId: "kabel", tanggal: DALAM_JADWAL, pic: "Budi" },
-      { gudangId: "g1", barangId: "odp", tanggal: DALAM_JADWAL, pic: "Budi" },
-      { gudangId: "g2", barangId: "kabel", tanggal: LUAR_JADWAL, pic: "Ani" },
+      { gudangId: "g1", barangId: "kabel", tanggal: new Date("2026-10-03T03:00:00.000Z"), pic: "Budi" },
     ]);
 
-    const laporan = await service.getKepatuhan("t-1", "2026-10", null, new Date("2026-10-31T03:00:00.000Z"));
+    const laporan = await service.getKepatuhan("t-1", "2026-10", null, new Date("2026-10-28T03:00:00.000Z"));
 
-    expect(laporan.keadaan).toBe("DITUTUP");
+    const ringkas = laporan.site.map((s) => [s.namaSite, s.jendela.sumber, s.gudang.map((g) => g.status)]);
+    expect(ringkas).toEqual([
+      ["Site A", "BAWAAN", ["LENGKAP"]],
+      ["Site B", "BAWAAN", ["DI_LUAR_JADWAL"]],
+      ["Tanpa site", "TANPA_JADWAL", ["BELUM"]],
+    ]);
+    expect(laporan.site[0].isPengingatAktif).toBe(true);
     expect(laporan.jumlahPerStatus).toMatchObject({ LENGKAP: 1, DI_LUAR_JADWAL: 1, BELUM: 1 });
-    expect(laporan.site.map((s) => [s.namaSite, s.gudang.map((g) => `${g.kode}:${g.status}`)])).toEqual([
-      ["Site A", ["G1:LENGKAP", "G2:DI_LUAR_JADWAL"]],
-      ["Site B", ["G2:DI_LUAR_JADWAL"]],
-      ["Tanpa site", ["G3:BELUM"]],
-    ]);
-    expect(laporan.site[0].gudang[0].soTerakhir).toEqual({ tanggal: DALAM_JADWAL, pic: "Budi" });
   });
 
-  it("pengguna site_only hanya melihat site-nya walau gudang melayani site lain", async () => {
-    repo.findGudangAktif.mockResolvedValue([
-      { id: "g2", kode: "G2", nama: "Gudang Selatan", sites: [{ id: "s1", name: "Site A" }, { id: "s2", name: "Site B" }] },
-    ]);
-    repo.findBarangBerstok.mockResolvedValue([]);
-    repo.findOpnameDalamRentang.mockResolvedValue([]);
+  it("pengguna site_only: hanya site-nya, tanpa kelompok 'Tanpa site'; site tanpa gudang disembunyikan", async () => {
+    repo.findSitesAktif.mockResolvedValue([SITE_B]);
+    repo.findGudangAktif.mockResolvedValue([]);
 
     const laporan = await service.getKepatuhan("t-1", "2026-10", ["s2"]);
 
-    expect(repo.findGudangAktif).toHaveBeenCalledWith("t-1", ["s2"]);
-    expect(laporan.site.map((s) => s.namaSite)).toEqual(["Site B"]);
+    expect(repo.findSitesAktif).toHaveBeenCalledWith("t-1", ["s2"]);
+    expect(laporan.site).toEqual([]);
+  });
+
+  it("halaman site menampilkan jadwal bulan ini dan jadwal khusus mendatang", async () => {
+    repo.findJadwalKhususSite.mockResolvedValue([
+      { periode: "2026-12", tanggalMulai: new Date("2026-12-15T00:00:00.000Z"), tanggalSelesai: new Date("2026-12-18T00:00:00.000Z"), catatan: "Libur akhir tahun" },
+    ]);
+
+    const jadwal = await service.getJadwalSite("t-1", "s1", "2026-10");
+
+    expect(repo.findJadwalKhususSite).toHaveBeenCalledWith("t-1", "s1", "2026-10");
+    expect(jadwal.jadwalKhusus).toEqual([
+      { periode: "2026-12", mulai: "2026-12-15", selesai: "2026-12-18", catatan: "Libur akhir tahun" },
+    ]);
   });
 });

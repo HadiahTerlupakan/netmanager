@@ -1,8 +1,8 @@
--- Migration data: izin `opname:manage` (atur jadwal stock opname bulanan) untuk role admin.
+-- Migration data: izin `opname:manage` (pengelola stock opname) untuk role admin.
 --
--- Latar: fitur jadwal & kepatuhan SO (migration add_stock_opname_schedule) memakai
--- action baru `manage` pada resource `opname`. Role pengelola diberi izin ini; role
--- lain (mis. Staff Gudang) tetap bisa melihat jadwal lewat `opname:read`.
+-- Latar: fitur jadwal SO per site (migration add_stock_opname_schedule_per_site)
+-- mengirim ringkasan gudang yang tidak tuntas SO ke pemegang action baru `manage`
+-- pada resource `opname`. Jadwal sendiri diatur lewat izin `site:update`.
 --
 -- Pola sama dengan 20260926100438_grant_presurvei_rencana_permissions_to_admin_roles:
 --   * NOT EXISTS per tenant + ON CONFLICT DO NOTHING tanpa target (unique "Permission"

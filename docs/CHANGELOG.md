@@ -41,39 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
-### [2026-10-02] — Jadwal stock opname bulanan dan kepatuhan per site
+### [2026-10-02] — Jadwal stock opname per site dan laporan SO bulanan
 
 - **Tipe**: [ADDED]
-- **Scope**: `modules/inventory` | `app/api/inventory/opname` | `app/admin/inventory/opname` | `cron/`
+- **Scope**: `modules/inventory` | `app/api/admin/sites` | `app/api/inventory/opname` | `app/admin/workorders/sites` | `app/admin/inventory/opname` | `cron/`
 - **Author**: agent
-- **Deskripsi**: Stock opname (SO) kini punya jadwal per bulan agar terlihat
-  gudang/site mana yang tidak di-SO di bulan itu.
-  - **Jadwal**: aturan bawaan per tenant "tanggal X–Y setiap bulan"
-    (`stock_opname_aturan`) dan jadwal khusus untuk bulan tertentu yang
-    menimpa aturan bawaan (`stock_opname_jadwal`). Tanggal mengikuti kalender
-    WIB; tanggal di atas akhir bulan = tanggal terakhir.
-  - **Kepatuhan**: per gudang dinilai dari barang yang punya stok — Lengkap
-    (semua dihitung di dalam jadwal), Sebagian, Di luar jadwal, Belum SO,
-    Tidak ada stok — dikelompokkan per site (gudang lintas site tampil di tiap
-    site, gudang tanpa site di kelompok sendiri), dengan SO terakhir & PIC.
-    Pengguna `opname:site_only` hanya melihat site-nya. SO di luar jadwal tetap
-    boleh (hanya ditandai).
-  - **Pengingat** (cron harian 08.00 WIB, hanya bila diaktifkan): hari pertama
-    jadwal & hari terakhir ke petugas (`opname:create`, sesuai site), dan sehari
-    sesudah jadwal ringkasan gudang tidak tuntas ke pengelola (`opname:manage`).
-    Idempotent per pengguna+fase.
-  - Admin: tab baru **Jadwal & Kepatuhan** di Stock Opname (pilih bulan, ubah
-    jadwal bulan itu, atur jadwal bawaan & pengingat). Izin baru
-    `opname:manage` untuk mengatur jadwal.
-  - API: `GET/PUT /api/inventory/opname/jadwal`, `PUT/DELETE /api/inventory/opname/jadwal/[periode]`,
+- **Deskripsi**: Stock opname (SO) kini punya jadwal bulanan **per site**
+  agar terlihat site/gudang mana yang tidak di-SO di bulan itu.
+  - **Jadwal diatur di halaman Site** (kartu "Jadwal Stock Opname", izin
+    `site:update`): jadwal bawaan site "tanggal X–Y setiap bulan"
+    (`stock_opname_aturan`), jadwal khusus bulan tertentu yang menimpa jadwal
+    bawaan (`stock_opname_jadwal`), dan saklar pengingat. Tanggal mengikuti
+    kalender WIB; tanggal di atas akhir bulan = tanggal terakhir. Site tanpa
+    jadwal dinilai sebulan penuh.
+  - **Menu SO hanya laporan**: tab "Laporan SO Bulanan" — per site, jadwal yang
+    berlaku dan status tiap gudang dari barang yang punya stok: Lengkap,
+    Sebagian, Di luar jadwal, Belum SO, Tidak ada stok (+ SO terakhir & PIC).
+    Gudang lintas site dinilai dengan jadwal tiap site; gudang tanpa site di
+    kelompok "Tanpa site". Pengguna `opname:site_only` hanya melihat site-nya.
+    SO di luar jadwal tetap boleh (hanya ditandai).
+  - **Pengingat** (cron harian 08.00 WIB, per site yang pengingatnya aktif):
+    hari pertama & hari terakhir jadwal ke petugas (`opname:create`, sesuai
+    site), dan sehari sesudah jadwal ringkasan gudang tidak tuntas ke pengelola
+    (`opname:manage`, izin baru). Satu notifikasi per pengguna per fase per
+    hari; idempotent.
+  - API: `GET/PUT /api/admin/sites/[id]/jadwal-so`,
+    `PUT/DELETE /api/admin/sites/[id]/jadwal-so/[periode]`,
     `GET /api/inventory/opname/kepatuhan`, `GET /api/cron/stock-opname-reminder`.
 - **Files**: `modules/inventory/domain/jadwal-stock-opname.ts`,
   `modules/inventory/services/StockOpnameJadwalService.ts`,
   `modules/inventory/services/StockOpnamePengingatService.ts`,
   `components/inventory/opname/jadwal/`, `cron/entrypoint.sh`
-- **Migration**: `20261002045311_add_stock_opname_schedule`,
-  `20261002045331_grant_opname_manage_permission_to_admin_roles` (tambah izin
-  ke role admin; tidak menghapus apa pun)
+- **Migration**: `20261002052142_add_stock_opname_schedule_per_site`,
+  `20261002045331_grant_opname_manage_permission_to_admin_roles` (tambah tabel
+  & izin; tidak menghapus apa pun)
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-02] — Perbaikan perhitungan RAB dan bagi hasil investor

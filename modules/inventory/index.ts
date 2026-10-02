@@ -75,7 +75,8 @@ export {
   getStockOpnameJadwalService,
 } from "./services/StockOpnameJadwalService";
 export type {
-  JadwalSoBulan,
+  JadwalKhususSite,
+  JadwalSoSite,
   KepatuhanGudang,
   KepatuhanSite,
   LaporanKepatuhanSo,

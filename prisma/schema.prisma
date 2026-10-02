@@ -2177,6 +2177,8 @@ model Sites {
   work_orders       WorkOrders[]
   gudang            Gudang[]            @relation("GudangToSite")
   mappingNodes      MappingNode[]
+  stockOpnameAturan StockOpnameAturan?
+  stockOpnameJadwal StockOpnameJadwal[]
 
   @@index([isActive])
   @@index([tenantId])
@@ -2212,11 +2214,12 @@ model Sla {
   @@map("sla")
 }
 
-/// Aturan jadwal stock opname bawaan per tenant: rentang tanggal setiap bulan.
+/// Jadwal stock opname bawaan satu site: rentang tanggal setiap bulan.
 /// Bulan dengan baris `StockOpnameJadwal` memakai jadwal khusus bulan itu.
 model StockOpnameAturan {
   id             String   @id @default(cuid())
-  /// false = jadwal & pengingat SO tidak dipakai tenant ini.
+  siteId         String   @unique
+  /// false = pengingat SO site ini tidak dikirim (jadwal tetap dipakai laporan).
   isAktif        Boolean  @default(true)
   /// Tanggal mulai (1–31) setiap bulan; melebihi akhir bulan = tanggal terakhir.
   tanggalMulai   Int      @default(25)
@@ -2224,15 +2227,18 @@ model StockOpnameAturan {
   tanggalSelesai Int      @default(31)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  tenantId       String?  @unique
+  tenantId       String?
+  site           Sites    @relation(fields: [siteId], references: [id], onDelete: Cascade)
   tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@index([tenantId])
   @@map("stock_opname_aturan")
 }
 
-/// Jadwal stock opname khusus untuk satu bulan (menimpa aturan bawaan).
+/// Jadwal stock opname khusus satu site untuk satu bulan (menimpa jadwal bawaan site).
 model StockOpnameJadwal {
   id             String   @id @default(cuid())
+  siteId         String
   /// Bulan "YYYY-MM".
   periode        String
   /// Tanggal kalender (WIB) awal & akhir jadwal, inklusif.
@@ -2243,9 +2249,10 @@ model StockOpnameJadwal {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   tenantId       String?
+  site           Sites    @relation(fields: [siteId], references: [id], onDelete: Cascade)
   tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@unique([tenantId, periode])
+  @@unique([siteId, periode])
   @@index([tenantId])
   @@map("stock_opname_jadwal")
 }
@@ -4233,7 +4240,7 @@ model Tenant {
   sites                     Sites[]
   sla                       Sla[]
   stockOpname               StockOpname[]
-  stockOpnameAturan         StockOpnameAturan?
+  stockOpnameAturan         StockOpnameAturan[]
   stockOpnameJadwal         StockOpnameJadwal[]
   supplier                  Supplier[]
   supportTickets            SupportTickets[]

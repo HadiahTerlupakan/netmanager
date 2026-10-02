@@ -7,13 +7,24 @@ export interface JendelaSo {
   periode: string;
   mulai: string;
   selesai: string;
-  sumber: "KHUSUS" | "BAWAAN";
+  sumber: "KHUSUS" | "BAWAAN" | "TANPA_JADWAL";
 }
 
-export interface JadwalSoBulan {
+export interface JadwalKhususSite {
+  periode: string;
+  mulai: string;
+  selesai: string;
+  catatan: string | null;
+}
+
+/** GET /api/admin/sites/:id/jadwal-so */
+export interface JadwalSoSite {
+  siteId: string;
+  namaSite: string;
   aturan: { isAktif: boolean; tanggalMulai: number; tanggalSelesai: number; isDiatur: boolean };
   jendela: JendelaSo;
   catatan: string | null;
+  jadwalKhusus: JadwalKhususSite[];
 }
 
 export interface KepatuhanGudang {
@@ -26,11 +37,19 @@ export interface KepatuhanGudang {
   soTerakhir: { tanggal: string; pic: string | null } | null;
 }
 
-export interface LaporanKepatuhanSo {
+export interface KepatuhanSite {
+  siteId: string | null;
+  namaSite: string;
   jendela: JendelaSo;
   keadaan: KeadaanJendela;
+  isPengingatAktif: boolean;
+  gudang: KepatuhanGudang[];
+}
+
+export interface LaporanKepatuhanSo {
+  periode: string;
   jumlahPerStatus: Record<StatusSoGudang, number>;
-  site: { siteId: string | null; namaSite: string; gudang: KepatuhanGudang[] }[];
+  site: KepatuhanSite[];
 }
 
 /** Label & warna (makna) tiap status gudang. */
@@ -41,6 +60,13 @@ export const TAMPILAN_STATUS_SO: Record<StatusSoGudang, { label: string; kelas: 
   BELUM: { label: "Belum SO", kelas: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
   TANPA_STOK: { label: "Tidak ada stok", kelas: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
 };
+
+/** "Jadwal 25 Okt – 31 Okt 2026" / "Belum ada jadwal (dinilai sebulan penuh)". */
+export function labelJendela(jendela: JendelaSo): string {
+  if (jendela.sumber === "TANPA_JADWAL") return "Belum ada jadwal (dinilai sebulan penuh)";
+  const khusus = jendela.sumber === "KHUSUS" ? " (khusus bulan ini)" : "";
+  return `Jadwal ${formatTanggalSo(jendela.mulai)} – ${formatTanggalSo(jendela.selesai)}${khusus}`;
+}
 
 export const LABEL_KEADAAN: Record<KeadaanJendela, string> = {
   BELUM_DIBUKA: "Belum dimulai",

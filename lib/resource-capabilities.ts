@@ -228,7 +228,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
       "delete",
       "site_only",
       "department_only",
-      // Atur jadwal SO bulanan & menerima ringkasan gudang yang tidak di-SO.
+      // Pengelola SO: menerima ringkasan gudang yang tidak tuntas SO per bulan.
       "manage",
     ],
     description: "Stock opname",

@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FiClipboard, FiList, FiPieChart, FiBarChart2, FiCalendar } from "react-icons/fi";
-import { TabJadwalSo } from "@/components/inventory/opname/jadwal/TabJadwalSo";
+import { TabLaporanSo } from "@/components/inventory/opname/jadwal/TabLaporanSo";
 import { StockOpnameRecorder } from "@/components/inventory/StockOpnameRecorder";
 import { OpnameReportTable } from "@/components/inventory/OpnameReportTable";
 import { OpnameForm } from "@/components/inventory/OpnameForm";
@@ -23,9 +23,9 @@ export default function StockOpnamePage() {
   const canUpdate = hasPermission("opname:update");
 
   const searchParams = useSearchParams();
-  // Tautan notifikasi pengingat SO membuka tab jadwal untuk bulan tertentu.
-  const [activeTab, setActiveTab] = useState<"report" | "input" | "history" | "jadwal">(
-    searchParams.get("tab") === "jadwal" ? "jadwal" : "report",
+  // Tautan notifikasi pengingat SO membuka laporan SO bulanan bulan tertentu.
+  const [activeTab, setActiveTab] = useState<"report" | "input" | "history" | "laporan">(
+    searchParams.get("tab") === "laporan" ? "laporan" : "report",
   );
   const [showForm, setShowForm] = useState(false);
   const [editingOpname, setEditingOpname] = useState<StockOpnameRecord | null>(
@@ -114,15 +114,15 @@ export default function StockOpnamePage() {
             Riwayat Opname
           </button>
           <button
-            onClick={() => setActiveTab("jadwal")}
+            onClick={() => setActiveTab("laporan")}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === "jadwal"
+              activeTab === "laporan"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
             }`}
           >
             <FiCalendar className="inline mr-2 h-4 w-4" />
-            Jadwal & Kepatuhan
+            Laporan SO Bulanan
           </button>
         </nav>
       </div>
@@ -194,7 +194,7 @@ export default function StockOpnamePage() {
         </div>
       )}
 
-      {activeTab === "jadwal" && <TabJadwalSo periodeAwal={searchParams.get("periode")} />}
+      {activeTab === "laporan" && <TabLaporanSo periodeAwal={searchParams.get("periode")} />}
 
       {/* Form Modal */}
       <Modal

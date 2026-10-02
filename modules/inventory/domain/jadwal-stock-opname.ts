@@ -1,10 +1,11 @@
 /**
  * Jadwal & kepatuhan stock opname (SO) bulanan — fungsi murni.
  *
- * Setiap bulan punya jendela SO (rentang tanggal kalender WIB, inklusif):
- * jadwal khusus bulan itu bila ada, selain itu aturan bawaan tenant
- * ("tanggal X–Y setiap bulan"). Sebuah gudang dinilai dari barang yang
- * punya stok di gudang itu: berapa yang sudah dihitung di dalam jendela.
+ * Jadwal diatur per SITE. Setiap bulan site punya jendela SO (rentang tanggal
+ * kalender WIB, inklusif): jadwal khusus bulan itu bila ada, selain itu jadwal
+ * bawaan site ("tanggal X–Y setiap bulan"). Site tanpa jadwal dinilai sebulan
+ * penuh. Gudang dinilai dari barang yang punya stok di gudang itu: berapa yang
+ * sudah dihitung di dalam jendela site-nya.
  */
 
 /** Indonesia tidak memakai DST; tanggal kalender tenant = WIB. */
@@ -15,16 +16,16 @@ const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
 export const TANGGAL_MINIMUM = 1;
 export const TANGGAL_MAKSIMUM = 31;
 
-/** Aturan bawaan: tanggal mulai–selesai setiap bulan. */
+/** Jadwal bawaan site: tanggal mulai–selesai setiap bulan. */
 export interface AturanJadwalSo {
   isAktif: boolean;
   tanggalMulai: number;
   tanggalSelesai: number;
 }
 
-/** Aturan bila tenant belum pernah mengatur: 25 s.d. akhir bulan, pengingat mati. */
-export const ATURAN_JADWAL_BAWAAN: AturanJadwalSo = {
-  isAktif: false,
+/** Isian awal form jadwal site yang belum pernah diatur. */
+export const ATURAN_JADWAL_AWAL: AturanJadwalSo = {
+  isAktif: true,
   tanggalMulai: 25,
   tanggalSelesai: TANGGAL_MAKSIMUM,
 };
@@ -34,7 +35,8 @@ export interface JendelaSo {
   periode: string;
   mulai: string;
   selesai: string;
-  sumber: "KHUSUS" | "BAWAAN";
+  /** KHUSUS = jadwal bulan itu; BAWAAN = jadwal bawaan site; TANPA_JADWAL = site belum diatur (sebulan penuh). */
+  sumber: "KHUSUS" | "BAWAAN" | "TANPA_JADWAL";
 }
 
 export type KeadaanJendela = "BELUM_DIBUKA" | "TERBUKA" | "DITUTUP";
@@ -90,6 +92,16 @@ export function jendelaDariAturan(periode: string, aturan: AturanJadwalSo): Jend
     mulai: tanggalPeriode(periode, aturan.tanggalMulai),
     selesai: tanggalPeriode(periode, aturan.tanggalSelesai),
     sumber: "BAWAAN",
+  };
+}
+
+/** Jendela sebulan penuh untuk site yang belum punya jadwal. */
+export function jendelaSebulanPenuh(periode: string): JendelaSo {
+  return {
+    periode,
+    mulai: tanggalPeriode(periode, TANGGAL_MINIMUM),
+    selesai: tanggalPeriode(periode, TANGGAL_MAKSIMUM),
+    sumber: "TANPA_JADWAL",
   };
 }
 
