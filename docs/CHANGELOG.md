@@ -50,9 +50,12 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - Semua job kedua repo memakai `runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}`.
     - Variabel repo `CI_RUNS_ON=["self-hosted","radpro-ci"]` mengarahkan job ke VM `cicd` (16 vCPU / 24 GB / 150 GB).
     - Menghapus variabel itu mengembalikan job ke runner GitHub.
-  - VM berisi 4 runner untuk netmanager dan 2 untuk mobile. Keamanannya: SSH hanya dengan kunci, ufw, dan fail2ban.
+  - VM berisi 6 runner untuk netmanager dan 2 untuk mobile. Keamanannya: SSH hanya dengan kunci, ufw, dan fail2ban.
   - Skrip pembangunan ulang ada di `scripts/ci-runner/`, panduan di `docs/guides/CI_SELF_HOSTED_RUNNER.md`.
   - Tes kontrak workflow mobile diperbarui.
+  - **Status akhir:** uji jalan di VM ±2× lebih lambat per job (CPU 2016, per core lambat), sehingga CI/CD dikembalikan ke runner GitHub.
+    - `CI_RUNS_ON` dihapus dan runner dicabut.
+    - Ekspresi `runs-on` dan skrip tetap disimpan untuk opsi masa depan.
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-02] — Cegah bagi hasil investor dobel lewat penjaga di DB

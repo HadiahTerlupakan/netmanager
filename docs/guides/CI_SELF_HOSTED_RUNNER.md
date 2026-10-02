@@ -1,5 +1,17 @@
 # Self-hosted runner GitHub Actions (VM Proxmox)
 
+> **Status (2026-10-03): TIDAK AKTIF.** Uji jalan menunjukkan VM (Xeon E5-2690 v4, 2016)
+> sekitar 2× lebih lambat per job daripada runner GitHub, karena lint/typecheck/`next build`
+> bergantung pada kecepatan per core, bukan jumlah core. CI/CD kembali ke runner GitHub:
+> variabel `CI_RUNS_ON` dihapus dan runner sudah dicabut dari kedua repo. Panduan ini
+> disimpan bila kelak memakai mesin per-core lebih cepat.
+>
+> | Job backend | Runner GitHub | VM Proxmox |
+> |---|---|---|
+> | quality | 3,5 mnt | 7,4 mnt |
+> | tes per shard | 2,5–3,3 mnt | ±5 mnt |
+> | build image | 9,5 mnt | >17 mnt (cache kosong) |
+
 Semua job CI/CD `netmanager` dan `mobile-netmanager` dapat berjalan di VM sendiri.
 GitHub tetap menjadi orkestrator (workflow, secret, environment, log); VM hanya
 mengerjakan job-nya dan cukup membuka koneksi **keluar** ke GitHub.
@@ -12,7 +24,7 @@ mengerjakan job-nya dan cukup membuka koneksi **keluar** ke GitHub.
 | IP | `31.56.30.51` (publik) |
 | Akses | SSH kunci saja (`~/.ssh/id_ed25519_ci`), root dilarang, `ufw` hanya 22/tcp, `fail2ban`, `qemu-guest-agent` |
 | Runner | user `runner`, service systemd `actions.runner.*`, label `radpro-ci` |
-| Jumlah | 4 untuk `netmanager` (shard tes paralel), 2 untuk `mobile-netmanager` |
+| Jumlah (saat aktif) | 6 untuk `netmanager` (job quality + 4 shard tes + build berjalan paralel), 2 untuk `mobile-netmanager` |
 
 Runner akun personal hanya bisa didaftarkan per repo, karena itu ada dua kelompok.
 
@@ -39,7 +51,8 @@ gh variable delete CI_RUNS_ON --repo HadiahTerlupakan/mobile-netmanager
 ```
 
 Tes kontrak (`mobile-netmanager/__tests__/ci/github-workflow-security.test.ts`) menjaga
-semua job memakai ekspresi yang sama.
+semua job memakai ekspresi yang sama. Jest dijalankan `--maxWorkers=50%` supaya runner
+bercore banyak yang dipakai bersama tidak membuat tes ber-timeout tumbang.
 
 ## Membangun ulang host
 
@@ -47,7 +60,7 @@ semua job memakai ekspresi yang sama.
 scp scripts/ci-runner/*.sh ci-runner:/tmp/
 ssh ci-runner 'sudo bash /tmp/pasang-host-runner.sh'
 T=$(gh api -X POST repos/HadiahTerlupakan/netmanager/actions/runners/registration-token --jq .token)
-ssh ci-runner "sudo bash /tmp/daftarkan-runner.sh HadiahTerlupakan/netmanager 4 $T"
+ssh ci-runner "sudo bash /tmp/daftarkan-runner.sh HadiahTerlupakan/netmanager 6 $T"
 T=$(gh api -X POST repos/HadiahTerlupakan/mobile-netmanager/actions/runners/registration-token --jq .token)
 ssh ci-runner "sudo bash /tmp/daftarkan-runner.sh HadiahTerlupakan/mobile-netmanager 2 $T"
 ```

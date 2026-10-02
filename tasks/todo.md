@@ -7,9 +7,14 @@ GitHub tetap sebagai orkestrator. Bisa kembali ke runner GitHub dengan menghapus
 ### Rencana
 - [x] VM: SSH kunci saja, root dilarang, ufw (22), fail2ban, qemu-guest-agent
 - [x] Host: user `runner` (sudo NOPASSWD, grup docker), Docker+buildx, Android cmdline-tools, swap 8 GB
-- [x] Runner: 4 untuk netmanager (shard tes paralel), 2 untuk mobile-netmanager; label `radpro-ci`; service systemd
+- [x] Runner: 6 untuk netmanager (quality + 4 shard tes paralel), 2 untuk mobile-netmanager; label `radpro-ci`; service systemd
 - [x] Workflow: `runs-on: ${{ fromJSON(vars.CI_RUNS_ON || "\"ubuntu-24.04\"") }}`; variabel repo CI_RUNS_ON
-- [ ] Uji: CI backend + deploy, CI mobile + OTA (build-android tetap manual; runtime bergeser bila dibangun di VM)
+- [x] Uji: tes backend & CI mobile lulus di VM, tapi ±2× lebih lambat (quality 7,4 vs 3,5 mnt; build >17 vs 9,5 mnt)
+- [x] Keputusan user: kembali penuh ke runner GitHub — CI_RUNS_ON dihapus, 8 runner dicabut, VM dimatikan
+
+### Review
+Mekanisme `CI_RUNS_ON` dipertahankan (tanpa variabel = ubuntu-24.04). Pelajaran: jumlah core tidak
+menggantikan kecepatan per core untuk lint/typecheck/next build; ukur satu run sebelum memindahkan semua.
 - [x] Docs: docs/guides/CI_SELF_HOSTED_RUNNER.md, CHANGELOG [INFRA]
 
 # TODO
