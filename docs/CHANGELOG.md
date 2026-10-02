@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Investor bisa login dan memantau modal lewat aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/investor` | `app/api/mobile/investor` | `app/api/mobile/auth` | `lib/` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Akun investor (username atau email) kini bisa login di
+  aplikasi mobile yang sama, dicoba terakhir di rantai login mobile.
+  - Token investor memakai audience sendiri (`netmanager-investor-mobile`,
+    `lib/mobile-investor-auth.ts`); verifier karyawan/mitra/pelanggan
+    menolaknya (termasuk klaim `role: INVESTOR` di jalur legacy), jadi token
+    investor tidak bisa membuka endpoint karyawan walau tenant sama.
+  - Refresh, `/me`, dan logout menangani investor; logout menaikkan
+    `Investor.tokenVersion` sehingga refresh token lama tidak berlaku.
+    Tenant context mengenali Bearer token investor.
+  - Endpoint baca baru `/api/mobile/investor/{dashboard,projects,projects/[id],payouts,deposits,profit-shares}`;
+    semua dibatasi investor dari sesi. `InvestorPortalKeuanganService` baru
+    (ringkasan + setoran modal + bagi hasil tanpa field internal). Payout
+    portal kini dibatasi maksimal 50 per halaman.
+  - Mobile: grup layar `app/(investor)` — Beranda (modal, bagian kepemilikan,
+    uang diterima, bagi hasil siap dibayar, proyek), Proyek + rincian, Uang
+    (bagi hasil / uang diterima / modal), Profil. Tema zamrud. Investor tidak
+    mendaftar FCM dan tidak tersambung realtime (keduanya menolak token
+    investor dan 401-nya menutup sesi).
+- **Files**: `lib/mobile-investor-auth.ts`, `lib/mobile-investor-route.ts`,
+  `modules/investor/services/MobileInvestorAuthService.ts`,
+  `modules/investor/services/InvestorPortalKeuanganService.ts`,
+  `mobile-netmanager: app/(investor)/`, `src/services/InvestorService.ts`
+- **Migration**: `20261001234152_add_token_version_to_investors`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Warna aplikasi mobile mengikuti persona pengguna
 
 - **Tipe**: [ADDED]

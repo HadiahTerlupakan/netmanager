@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tryMobileInvestorLogin } from "@/modules/investor";
 import { tryMobileMitraLogin } from "@/modules/mitra";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -196,24 +197,55 @@ async function persistMobileVersionReport(
   }
 }
 
-/** Menentukan urutan fallback login berdasarkan tipe login yang diminta. */
+/**
+ * Menentukan urutan fallback login berdasarkan tipe login yang diminta.
+ * Investor dicoba terakhir: aplikasi tidak mengirim loginType, dan identitas
+ * investor (username/email) jarang bertabrakan dengan akun lain.
+ */
 async function resolveRouteLoginResult(input: MobileLoginRouteInput) {
   if (input.loginType === "MITRA") {
     return tryPriorityLogins(
-      [tryMobileMitraLogin, tryMobileEmployeeLogin, tryMobileCustomerLogin],
+      [
+        tryMobileMitraLogin,
+        tryMobileEmployeeLogin,
+        tryMobileCustomerLogin,
+        tryMobileInvestorLogin,
+      ],
       input,
     );
   }
 
   if (input.loginType === "CUSTOMER") {
     return tryPriorityLogins(
-      [tryMobileCustomerLogin, tryMobileEmployeeLogin, tryMobileMitraLogin],
+      [
+        tryMobileCustomerLogin,
+        tryMobileEmployeeLogin,
+        tryMobileMitraLogin,
+        tryMobileInvestorLogin,
+      ],
+      input,
+    );
+  }
+
+  if (input.loginType === "INVESTOR") {
+    return tryPriorityLogins(
+      [
+        tryMobileInvestorLogin,
+        tryMobileEmployeeLogin,
+        tryMobileMitraLogin,
+        tryMobileCustomerLogin,
+      ],
       input,
     );
   }
 
   return tryPriorityLogins(
-    [tryMobileEmployeeLogin, tryMobileMitraLogin, tryMobileCustomerLogin],
+    [
+      tryMobileEmployeeLogin,
+      tryMobileMitraLogin,
+      tryMobileCustomerLogin,
+      tryMobileInvestorLogin,
+    ],
     input,
   );
 }

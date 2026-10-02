@@ -2,6 +2,8 @@ import { InvestorPaymentBridgeService } from "@/modules/finance";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
+/** Batas atas per halaman agar klien tidak bisa meminta seluruh riwayat sekaligus. */
+const MAX_LIMIT = 50;
 
 function normalizePositiveNumber(value: string | null, fallback: number) {
   const parsedValue = Number.parseInt(value || "", 10);
@@ -20,7 +22,10 @@ export class InvestorPortalPayoutService {
   /** Mengambil daftar payout investor dengan pagination ter-normalisasi. */
   async getPayouts(investorId: string, query: URLSearchParams) {
     const page = normalizePositiveNumber(query.get("page"), DEFAULT_PAGE);
-    const limit = normalizePositiveNumber(query.get("limit"), DEFAULT_LIMIT);
+    const limit = Math.min(
+      normalizePositiveNumber(query.get("limit"), DEFAULT_LIMIT),
+      MAX_LIMIT,
+    );
     const skip = (page - 1) * limit;
     const [payouts, total] = await Promise.all([
       this.paymentBridge.findManyInvestorPayouts({

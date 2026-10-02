@@ -54,6 +54,27 @@ export {
   getInvestorPortalPayoutService,
 } from "./services/InvestorPortalPayoutService";
 
+export {
+  InvestorPortalKeuanganService,
+  getInvestorPortalKeuanganService,
+} from "./services/InvestorPortalKeuanganService";
+export type {
+  InvestorPortalDeposit,
+  InvestorPortalProfitShare,
+} from "./services/InvestorPortalKeuanganService";
+
+// Services — autentikasi aplikasi mobile
+export {
+  MobileInvestorAuthService,
+  getMobileInvestorAuthService,
+  tryMobileInvestorLogin,
+} from "./services/MobileInvestorAuthService";
+export type {
+  MobileInvestorLoginInput,
+  MobileInvestorLoginResult,
+  MobileInvestorProfile,
+} from "./services/MobileInvestorAuthService";
+
 // Services — deposit, balance, profit share, config
 export { InvestorDepositService } from "./services/InvestorDepositService";
 export { InvestorBalanceService } from "./services/InvestorBalanceService";

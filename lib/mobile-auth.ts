@@ -80,7 +80,7 @@ function buildMobileJwtPayload(
   };
 }
 
-const MOBILE_JWT_ISSUER = "netmanager";
+export const MOBILE_JWT_ISSUER = "netmanager";
 const MOBILE_JWT_AUDIENCE = "netmanager-mobile";
 
 export async function signMobileToken(payload: Record<string, unknown>) {
@@ -399,6 +399,11 @@ async function verifyValidatedMobileToken(
     if (claimedRole === "MITRA") {
       return verifyMitraToken(userId, payload);
     }
+    // Token investor hanya sah di endpoint investor (`lib/mobile-investor-auth.ts`);
+    // jangan pernah jatuh ke fallback legacy user/pelanggan/mitra.
+    if (claimedRole === "INVESTOR") {
+      return null;
+    }
 
     const dbUser = await prismaAuth.user.findUnique({
       where: { id: userId },
@@ -488,3 +493,6 @@ export async function verifyMobileRefreshToken(
     preloadedDetails,
   );
 }
+
+/** Kunci HMAC token mobile; dipakai juga token investor mobile. */
+export { getSecret as getMobileJwtSecret };

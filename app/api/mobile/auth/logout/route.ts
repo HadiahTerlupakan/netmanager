@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { getInvestorMobileSession } from "@/lib/mobile-investor-auth";
+import { getMobileInvestorAuthService } from "@/modules/investor";
 import { performMobileLogout } from "@/modules/users";
 
 /**
@@ -14,6 +16,12 @@ import { performMobileLogout } from "@/modules/users";
  */
 export async function POST(request: NextRequest) {
   try {
+    const investorSession = await getInvestorMobileSession(request);
+    if (investorSession) {
+      await getMobileInvestorAuthService().logout(investorSession.id);
+      return apiSuccess({ message: "Logout berhasil" });
+    }
+
     const authResult = await getMobileAuthPayload(request);
     if (authResult instanceof Response) return authResult;
 

@@ -45,6 +45,27 @@ export class InvestorRepository {
     });
   }
 
+  /** Akun investor untuk login mobile: cocok username atau email, abaikan huruf besar. */
+  async findByLoginIdentifier(identifier: string) {
+    return this.client.investor.findFirst({
+      where: {
+        OR: [
+          { username: { equals: identifier, mode: "insensitive" } },
+          { email: { equals: identifier, mode: "insensitive" } },
+        ],
+      },
+    });
+  }
+
+  /** Mencabut semua token mobile investor (logout) dengan menaikkan tokenVersion. */
+  async incrementTokenVersion(id: string) {
+    return this.client.investor.update({
+      where: { id },
+      data: { tokenVersion: { increment: 1 } },
+      select: { id: true },
+    });
+  }
+
   async findByEmail(email: string) {
     return this.client.investor.findUnique({ where: { email } });
   }

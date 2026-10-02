@@ -424,6 +424,8 @@ model Investor {
   noTelp       String?
   email        String?               @unique
   isActive     Boolean               @default(true)
+  /// Naik saat logout mobile → refresh token investor lama tidak berlaku.
+  tokenVersion Int                   @default(0)
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
   tenantId     String?

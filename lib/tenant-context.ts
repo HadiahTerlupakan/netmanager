@@ -377,6 +377,21 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
             await enforceSessionHostMatch(sessionContext, requestHeaders),
           );
         }
+
+        // 1c. Token investor aplikasi mobile (audience terpisah dari token karyawan).
+        const { verifyInvestorMobileToken } = await import(
+          "./mobile-investor-auth"
+        );
+        const investorSession = await verifyInvestorMobileToken(token, "access");
+        if (investorSession?.tenantId) {
+          return cacheTenantContextForRequest(
+            requestHeaders,
+            await enforceSessionHostMatch(
+              { tenantId: investorSession.tenantId, isSuperAdmin: false },
+              requestHeaders,
+            ),
+          );
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileRequestVersionReport } from "@/lib/mobile-api-auth";
+import { getMobileInvestorAuthService } from "@/modules/investor";
 import {
   tryRefreshCustomerToken,
   tryRefreshMobileToken,
@@ -41,6 +42,14 @@ export async function POST(request: NextRequest) {
         token: customerTokens.token,
         refreshToken: customerTokens.refreshToken,
       });
+    }
+
+    const investorTokens = await getMobileInvestorAuthService().refresh(
+      refreshToken,
+      versionReport,
+    );
+    if (investorTokens) {
+      return NextResponse.json({ success: true, ...investorTokens });
     }
 
     const mobileTokens = await tryRefreshMobileToken(

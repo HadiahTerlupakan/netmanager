@@ -6,6 +6,7 @@ vi.mock("@/modules/database", () => ({
   prismaAuth: { user: { findFirst } },
 }));
 vi.mock("@/modules/mitra", () => ({ tryMobileMitraLogin: vi.fn() }));
+vi.mock("@/modules/investor", () => ({ tryMobileInvestorLogin: vi.fn() }));
 vi.mock("@/modules/users/services/MobileCustomerAuthService", () => ({
   MobileCustomerAuthService: vi.fn(),
 }));

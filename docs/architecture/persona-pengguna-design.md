@@ -136,8 +136,23 @@ Staff **bukan** teknisi. Beranda staff minimal:
 - Klien lama yang masih mengirim `isSales` di payload user tidak ditolak —
   nilainya diabaikan server.
 
+## 4a. Investor di aplikasi mobile (2026-10-02)
+
+Diputuskan: investor login lewat aplikasi mobile yang sama (portal web tetap ada).
+
+- Login: identitas investor (username/email) dicoba terakhir di rantai login
+  mobile; respons `user.role = "INVESTOR"`.
+- Token: audience `netmanager-investor-mobile` (`lib/mobile-investor-auth.ts`),
+  terpisah dari token karyawan — endpoint karyawan menolaknya. Logout menaikkan
+  `Investor.tokenVersion`.
+- Data: `/api/mobile/investor/*` (baca saja, dibatasi investor dari sesi).
+- Mobile: investor **bukan** `Persona` karyawan; punya grup layar
+  `app/(investor)` dan tema sendiri (`PersonaTema = Persona | "INVESTOR"`).
+  Tidak memakai FCM & realtime.
+
 ## 5. Pertanyaan terbuka
 
 - Direktur: apakah butuh aksi (persetujuan) atau murni baca?
-- Investor: login lewat aplikasi mobile yang sama, atau portal web saja dulu?
 - Finance di mobile: fitur mana yang benar-benar dipakai di lapangan?
+- Investor: perlu notifikasi push (mis. bagi hasil dibayar)? Butuh dukungan
+  token investor di endpoint FCM.
