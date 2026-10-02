@@ -4,12 +4,18 @@
  * porsi modalnya. Fungsi murni — dipakai portal & perhitungan bagi hasil.
  */
 
-/** Status RAB yang boleh dilihat investor: sudah disetujui dan berjalan/selesai. */
+/**
+ * Status RAB yang boleh dilihat investor dan ikut bagi hasil: sudah disetujui,
+ * berjalan, atau selesai. TARGET_TERCAPAI & SELESAI diisi otomatis oleh cron
+ * evaluasi status RAB — proyek tetap menghasilkan untuk investor.
+ */
 export const STATUS_PROYEK_TERLIHAT_INVESTOR = [
   "APPROVED",
   "PENGADAAN",
   "PENGGELARAN_JARINGAN",
   "PENJUALAN",
+  "TARGET_TERCAPAI",
+  "SELESAI",
   "IN_PROGRESS",
   "COMPLETED",
 ] as const;

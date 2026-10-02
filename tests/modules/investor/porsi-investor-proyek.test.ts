@@ -34,4 +34,9 @@ describe("porsi investor di proyek", () => {
     expect(STATUS_PROYEK_TERLIHAT_INVESTOR).not.toContain("CANCELLED");
     expect(STATUS_PROYEK_TERLIHAT_INVESTOR).toContain("PENJUALAN");
   });
+
+  it("proyek yang targetnya tercapai atau selesai (status otomatis cron) tetap tampil & ikut bagi hasil", () => {
+    expect(STATUS_PROYEK_TERLIHAT_INVESTOR).toContain("TARGET_TERCAPAI");
+    expect(STATUS_PROYEK_TERLIHAT_INVESTOR).toContain("SELESAI");
+  });
 });

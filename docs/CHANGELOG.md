@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Proyek target tercapai/selesai tetap ikut bagi hasil investor
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/investor`
+- **Author**: agent
+- **Deskripsi**: Filter status proyek investor (perubahan hari ini) belum
+  memuat `TARGET_TERCAPAI` dan `SELESAI` — status yang diisi otomatis oleh
+  cron evaluasi RAB. Proyek seperti itu hilang dari portal investor dan
+  dilewati saat menghitung bagi hasil. Kini ikut.
+- **Files**: `modules/investor/domain/porsi-investor-proyek.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Menu Investor dipindah ke bagian Keuangan
 
 - **Tipe**: [CHANGED]
