@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Unduh daftar work order sebagai PDF
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/workorders/list`
+- **Author**: agent
+- **Deskripsi**: Tombol "Unduh PDF" di halaman Work Orders. PDF (landscape) memuat semua WO
+  sesuai filter aktif — bukan hanya halaman yang tampil — diambil per 100 lewat
+  `GET /api/admin/workorders` sehingga RBAC & batas site/departemen tetap berlaku, maksimal
+  5.000 baris. Kolom mengikuti tabel (No. WO, judul/tipe, customer/dept, site, status,
+  prioritas, penugasan, tanggal dibuat, durasi, pembuat) dan keterangan filter dicantumkan.
+  Tipe `WorkOrder` & label status dipindah ke `types.ts`/`constants.ts` agar dipakai
+  bersama tabel dan PDF.
+- **Files**: `app/admin/workorders/list/pdf.ts`, `app/admin/workorders/list/WoListClient.tsx`,
+  `app/admin/workorders/list/types.ts`, `app/admin/workorders/list/constants.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Status SO bulan ini di dropdown gudang Input SO
 
 - **Tipe**: [ADDED]

@@ -19,6 +19,7 @@ import {
   HiXCircle,
   HiBellAlert,
   HiWrenchScrewdriver,
+  HiArrowDownTray,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { useToast } from "@/hooks/use-toast";
@@ -38,54 +39,13 @@ import {
   EMPTY_WORK_ORDER_SUMMARY,
   WORK_ORDER_PAGE_SIZE,
   WORK_ORDER_SEARCH_DEBOUNCE_MS,
+  WORK_ORDER_STATUS_LABELS as statusLabels,
 } from "./constants";
 import { WorkOrderSummarySection } from "./WorkOrderSummarySection";
+import type { WorkOrder } from "./types";
+import { unduhWorkOrderPdf } from "./pdf";
 import { getWorkOrderCustomerInfo } from "@/modules/work-order/client";
 
-interface WorkOrder {
-  id: string;
-  workOrderNumber: string;
-  title: string;
-  description?: string | null;
-  type: string;
-  status: string;
-  priority: string;
-  scheduledDate: string | null;
-  contactName?: string | null;
-  contactPhone?: string | null;
-  locationAddress?: string | null;
-  isInternal: boolean;
-  requestedById: string | null; // Added requestedById
-  pelanggan?: {
-    nama: string;
-    idPelanggan: string;
-    noTelp?: string | null;
-  } | null;
-  assignedTo?: {
-    name: string;
-    role?: {
-      isTechnical: boolean;
-    } | null;
-  } | null;
-  assignedMitra?: {
-    name: string;
-  } | null;
-  department?: {
-    name: string;
-  } | null;
-  site?: {
-    name: string;
-  } | null;
-  createdBy?: {
-    name: string | null;
-    role?: {
-      isTechnical: boolean;
-    } | null;
-  } | null;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-}
 
 const statusColors: Record<string, string> = {
   REQUESTED:
@@ -105,18 +65,6 @@ const statusColors: Record<string, string> = {
   REJECTED: "bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-200",
 };
 
-const statusLabels: Record<string, string> = {
-  REQUESTED: "Request",
-  PENDING: "Pending",
-  ASSIGNED: "Assigned",
-  IN_PROGRESS: "In Progress",
-  ON_HOLD: "On Hold",
-  COMPLETED: "Completed",
-  VERIFIED: "Verified",
-  CLOSED: "Closed",
-  CANCELLED: "Cancelled",
-  REJECTED: "Rejected",
-};
 
 const priorityColors: Record<string, string> = {
   LOW: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
@@ -166,12 +114,9 @@ export function ClientComponent() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
-  // Build URL untuk fetch work orders via TanStack Query
-  const workOrdersUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: WORK_ORDER_PAGE_SIZE.toString(),
-    });
+  // Filter aktif (tanpa paginasi) — dipakai daftar di layar dan unduhan PDF
+  const filterParams = useMemo(() => {
+    const params = new URLSearchParams();
     if (debouncedSearch) params.append("search", debouncedSearch);
     if (filterStatus) params.append("status", filterStatus);
     if (filterPriority) params.append("priority", filterPriority);
@@ -181,9 +126,8 @@ export function ClientComponent() {
     if (unassignedOnly) params.append("unassignedOnly", "true");
     if (filterDateFrom) params.append("dateFrom", filterDateFrom);
     if (filterDateTo) params.append("dateTo", filterDateTo);
-    return `/api/admin/workorders?${params}`;
+    return params;
   }, [
-    page,
     debouncedSearch,
     filterStatus,
     filterPriority,
@@ -194,6 +138,45 @@ export function ClientComponent() {
     filterDateFrom,
     filterDateTo,
   ]);
+
+  // Build URL untuk fetch work orders via TanStack Query
+  const workOrdersUrl = useMemo(() => {
+    const params = new URLSearchParams(filterParams);
+    params.set("page", page.toString());
+    params.set("limit", WORK_ORDER_PAGE_SIZE.toString());
+    return `/api/admin/workorders?${params}`;
+  }, [filterParams, page]);
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  /** Keterangan filter aktif untuk dicantumkan di PDF. */
+  const describeActiveFilters = (): string[] => {
+    const keterangan: string[] = [];
+    if (debouncedSearch) keterangan.push(`Cari "${debouncedSearch}"`);
+    if (filterStatus) keterangan.push(`Status ${statusLabels[filterStatus] ?? filterStatus}`);
+    if (filterPriority) keterangan.push(`Prioritas ${filterPriority}`);
+    if (filterType) keterangan.push(`Tipe ${filterType}`);
+    if (filterSite) {
+      keterangan.push(`Site ${sites.find((site) => site.id === filterSite)?.name ?? filterSite}`);
+    }
+    if (filterWoType) keterangan.push(filterWoType === "internal" ? "Internal (FOC)" : "Customer");
+    if (unassignedOnly) keterangan.push("Belum ditugaskan");
+    if (filterDateFrom || filterDateTo) {
+      keterangan.push(`Tanggal ${filterDateFrom || "…"} s.d. ${filterDateTo || "…"}`);
+    }
+    return keterangan;
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await unduhWorkOrderPdf(filterParams, describeActiveFilters());
+    } catch {
+      showToast("error", "Gagal membuat PDF work order");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   interface WorkOrderListData {
     workOrders?: WorkOrder[];
@@ -991,6 +974,16 @@ export function ClientComponent() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf || total === 0}
+            title="Unduh semua work order sesuai filter sebagai PDF"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            <HiArrowDownTray className="w-5 h-5" />
+            <span>{isDownloadingPdf ? "Menyiapkan…" : "Unduh PDF"}</span>
+          </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"

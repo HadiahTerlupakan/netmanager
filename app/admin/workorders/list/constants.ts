@@ -23,3 +23,17 @@ export const summaryToneClasses: Record<WorkOrderSummaryCard["tone"], string> =
     indigo:
       "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300",
   };
+
+/** Label status work order untuk tampilan (tabel & PDF). */
+export const WORK_ORDER_STATUS_LABELS: Record<string, string> = {
+  REQUESTED: "Request",
+  PENDING: "Pending",
+  ASSIGNED: "Assigned",
+  IN_PROGRESS: "In Progress",
+  ON_HOLD: "On Hold",
+  COMPLETED: "Completed",
+  VERIFIED: "Verified",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+  REJECTED: "Rejected",
+};
