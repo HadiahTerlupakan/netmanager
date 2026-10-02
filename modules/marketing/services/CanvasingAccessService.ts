@@ -1,10 +1,8 @@
 import { prismaAuth } from "@/lib/prisma";
+import { CANVASING_CASHOUT_PERMISSION } from "@/modules/roles/client";
 
 type PermissionWithResource = { resource: string };
 type PermissionPair = { resource: string; action: string };
-
-/** Izin opt-in bagi non-sales (mis. teknisi) untuk mencairkan bonus canvasing. */
-export const CANVASING_CASHOUT_PERMISSION = "m_canvasing:cashout";
 
 /**
  * Siapa yang boleh mencairkan bonus canvasing: sales selalu boleh; non-sales

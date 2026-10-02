@@ -5,7 +5,7 @@ import type {
   PenggunaRencana,
   RencanaService,
 } from "@/modules/presurvei";
-import { jenisLingkupRencana } from "../akses-presurvei";
+import { jenisLingkupDariIzin } from "@/modules/roles";
 
 /** Pemanggil route rencana beserta lingkup aksesnya. */
 export interface KonteksRencana {
@@ -16,13 +16,13 @@ export interface KonteksRencana {
 /**
  * Turunkan pengguna (tenant HANYA dari sesi) dan lingkup rencananya.
  *
- * Jenis lingkup diputuskan dari permission (`jenisLingkupRencana`); service
- * hanya memuat anggota tim untuk lingkup TIM.
+ * Jenis lingkup diputuskan dari permission (`jenisLingkupDariIzin` di modul
+ * roles); service hanya memuat anggota tim untuk lingkup TIM.
  */
 export async function muatKonteksRencana(
   ctx: Pick<HandlerContext, "session" | "permissions">,
   service: RencanaService,
-  tentukanJenis: (permissions: string[]) => JenisLingkupRencana = jenisLingkupRencana,
+  tentukanJenis: (permissions: string[]) => JenisLingkupRencana = jenisLingkupDariIzin,
 ): Promise<KonteksRencana> {
   const pengguna: PenggunaRencana = {
     id: ctx.session!.user.id,

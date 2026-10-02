@@ -4,7 +4,7 @@ import {
   penilaianPeriodeSchema,
   RencanaService,
 } from "@/modules/presurvei";
-import { jenisLingkupPenilaian } from "../akses-presurvei";
+import { jenisLingkupPenilaian } from "@/modules/roles";
 import { muatKonteksRencana } from "../rencana/konteks-rencana";
 
 const penilaian = new PenilaianService();

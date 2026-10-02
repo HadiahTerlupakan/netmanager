@@ -153,7 +153,11 @@ export class PointClaimService {
     userId: string,
     access: { hasCashoutPermission: boolean },
   ): Promise<{ cashedOutCount: number }> {
-    const user = await requireEligibleCashoutUser(userId, access);
+    const user = await requireEligibleCashoutUser(
+      this.repository,
+      userId,
+      access,
+    );
     const target = resolveCashoutTarget(user.canvasingTarget);
     const claims = filterCashoutEligibleClaims(
       await this.repository.findAll({

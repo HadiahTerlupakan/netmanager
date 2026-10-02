@@ -66,3 +66,10 @@ export interface CanvasingClaimSubmissionEntity {
   userName: string | null;
   userSiteId: string | null;
 }
+
+/** Data pengguna yang dibutuhkan untuk memeriksa kelayakan pencairan bonus. */
+export interface CashoutUserEntity {
+  isSales: boolean;
+  canvasingTarget: number;
+  targetSchema: string;
+}

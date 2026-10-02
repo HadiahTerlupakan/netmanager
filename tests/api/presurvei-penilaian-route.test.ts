@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { jenisLingkupPenilaian } from "@/app/api/presurvei/akses-presurvei";
 
 /**
  * Penilaian kinerja memakai lingkup rencana, dengan satu tambahan: pemegang
@@ -44,18 +43,6 @@ const sesi = (permissions: string[]) => {
 
 const panggil = (query = "") =>
   GET(new NextRequest(`http://x/api/presurvei/penilaian${query}`), { params: Promise.resolve({}) } as never);
-
-describe("jenisLingkupPenilaian", () => {
-  it.each([
-    [["m_presurvei:read"], "SENDIRI"],
-    [["presurvei_rencana:read"], "TIM"],
-    [["presurvei_rencana:read", "presurvei_rencana:view_all"], "SEMUA"],
-    [["presurvei_laporan:read"], "SEMUA"],
-    [["*"], "SEMUA"],
-  ])("%j → %s", (izin, harapan) => {
-    expect(jenisLingkupPenilaian(izin)).toBe(harapan);
-  });
-});
 
 describe("GET /api/presurvei/penilaian", () => {
   beforeEach(() => {

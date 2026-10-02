@@ -1,5 +1,6 @@
 import type {
   CanvasingClaimSubmissionEntity,
+  CashoutUserEntity,
   PointClaimDashboardSummaryEntity,
   PointClaimEntity,
   PointSummaryEntity,
@@ -80,4 +81,7 @@ export interface IPointClaimRepository {
 
   /** Return point summary for a sales user. */
   getPointSummaryBySales(salesId: string): Promise<PointSummaryEntity>;
+
+  /** Find the user data needed to check cashout eligibility. */
+  findCashoutUser(userId: string): Promise<CashoutUserEntity | null>;
 }

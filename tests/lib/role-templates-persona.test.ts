@@ -52,7 +52,7 @@ describe("ROLE_TEMPLATES — persona", () => {
 describe("template Head of Sales & Marketing", () => {
   it("melihat SEMUA sales (view_all), kepala sales hanya timnya", async () => {
     const { ROLE_TEMPLATES } = await import("@/lib/role-templates");
-    const { jenisLingkupDariIzin } = await import("@/modules/presurvei");
+    const { jenisLingkupDariIzin } = await import("@/modules/roles/client");
     const ambil = (id: string) => ROLE_TEMPLATES.find((template) => template.id === id)!;
 
     expect(jenisLingkupDariIzin(ambil("head_of_sales").permissions)).toBe("SEMUA");

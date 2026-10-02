@@ -13,9 +13,9 @@ import {
   toProspekDetail,
   toProspekListItem,
 } from "@/modules/presurvei";
+import { isBolehLihatSemuaPresurvei } from "@/modules/roles";
 import {
   ikatFilterProspekKePemanggil,
-  isBolehLihatSemuaPresurvei,
   isMenugaskanPemilik,
   tentukanPemilikProspek,
 } from "../akses-presurvei";

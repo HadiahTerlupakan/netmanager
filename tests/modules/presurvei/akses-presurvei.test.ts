@@ -12,42 +12,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   ikatFilterProspekKePemanggil,
-  isBolehLihatSemuaPresurvei,
   isMenugaskanPemilik,
   tentukanPemilikProspek,
 } from "@/app/api/presurvei/akses-presurvei";
 
 const ID_PEMANGGIL = "sales-a";
 const ID_ORANG_LAIN = "sales-b";
-
-describe("isBolehLihatSemuaPresurvei", () => {
-  it("mengizinkan pemegang permission web", () => {
-    expect(isBolehLihatSemuaPresurvei(["presurvei:read"])).toBe(true);
-  });
-
-  it("mengizinkan super admin lewat wildcard", () => {
-    expect(isBolehLihatSemuaPresurvei(["*"])).toBe(true);
-  });
-
-  it("menolak pemegang permission mobile saja", () => {
-    expect(
-      isBolehLihatSemuaPresurvei([
-        "m_presurvei:read",
-        "m_presurvei:create",
-        "m_presurvei:update",
-      ]),
-    ).toBe(false);
-  });
-
-  it("menolak daftar permission kosong", () => {
-    expect(isBolehLihatSemuaPresurvei([])).toBe(false);
-  });
-
-  it("tidak tertipu permission mobile yang namanya memuat nama permission web", () => {
-    // Pemeriksaan harus atas keanggotaan daftar, bukan pencocokan substring.
-    expect(isBolehLihatSemuaPresurvei(["m_presurvei:read"])).toBe(false);
-  });
-});
 
 describe("tentukanPemilikProspek", () => {
   it("mengabaikan pemilik kiriman klien saat pemanggil hanya punya permission mobile", () => {

@@ -33,9 +33,9 @@ import {
 import { ROLE_TEMPLATES, type RoleTemplate } from "@/lib/role-templates";
 import {
   PERSONA_KARYAWAN_DEFAULT,
+  isKepalaSalesDariIzin,
   toPersonaKaryawan,
 } from "@/modules/roles/client";
-import { isKepalaSalesDariIzin } from "@/modules/presurvei/client";
 import { PersonaSelector } from "./PersonaSelector";
 import { PermissionGroupCard } from "./PermissionGroupCard";
 import { MobilePermissionMatrix } from "./MobilePermissionMatrix";

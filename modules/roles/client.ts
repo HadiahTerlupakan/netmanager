@@ -35,3 +35,13 @@ export {
   type IzinIntiMobile,
   type ResourceMobileMatriks,
 } from "./domain/izin-mobile-persona";
+
+export {
+  isBolehLihatSemuaPresurvei,
+  isKepalaSalesDariIzin,
+  jenisLingkupDariIzin,
+  jenisLingkupPenilaian,
+  type JenisLingkupPresurvei,
+} from "./domain/lingkup-presurvei";
+
+export { CANVASING_CASHOUT_PERMISSION } from "./domain/izin-canvasing";

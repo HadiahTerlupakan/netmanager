@@ -226,30 +226,3 @@ export class RencanaSudahDitutupError extends Error {
     this.name = "RencanaSudahDitutupError";
   }
 }
-
-/** Permission web rencana yang membuka seluruh tenant (admin). */
-const IZIN_RENCANA_SEMUA = "presurvei_rencana:view_all";
-/** Awalan permission web rencana; pemegangnya minimal kepala sales (lingkup tim). */
-const AWALAN_IZIN_RENCANA = "presurvei_rencana:";
-const IZIN_WILDCARD = "*";
-
-/**
- * Jenis lingkup rencana dari daftar permission `resource:action`.
- *
- * - SEMUA: `presurvei_rencana:view_all` atau wildcard (admin).
- * - TIM: permission web rencana lain tanpa `view_all` (kepala sales).
- * - SENDIRI: hanya permission mobile (sales).
- *
- * String diperiksa apa adanya (bukan lewat alias): resolusi alias bisa suatu
- * saat memetakan permission mobile ke web dan diam-diam melonggarkan lingkup.
- * Satu definisi untuk route API dan profil mobile.
- */
-export function jenisLingkupDariIzin(permissions: string[]): JenisLingkupRencana {
-  if (permissions.includes(IZIN_WILDCARD) || permissions.includes(IZIN_RENCANA_SEMUA)) {
-    return "SEMUA";
-  }
-  if (permissions.some((izin) => izin.startsWith(AWALAN_IZIN_RENCANA))) {
-    return "TIM";
-  }
-  return "SENDIRI";
-}

@@ -1,5 +1,6 @@
 import { requireSessionTenantId, type HandlerContext } from "@/lib/api";
-import { jenisLingkupDariIzin, RencanaService, type LingkupRencana } from "@/modules/presurvei";
+import { RencanaService, type LingkupRencana } from "@/modules/presurvei";
+import { jenisLingkupDariIzin } from "@/modules/roles";
 
 /** Sales yang datanya boleh dilihat pemanggil; `null` = seluruh tenant. */
 export type SaringanSalesPemanggil = { salesIds: string[] } | null;

@@ -1,7 +1,4 @@
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
-import { hasCapability } from "@/lib/permission-aliases";
-import { hasMobilePermission } from "@/lib/mobile-auth";
-import { CANVASING_CASHOUT_PERMISSION } from "./CanvasingAccessService";
 import {
   isMarketingError,
   type MarketingErrorKind,
@@ -95,38 +92,6 @@ export type PointClaimByCanvasingResult = PointClaimRouteResult<{
   claim: PointClaimDTO | null;
 }>;
 export type PointClaimDeleteResult = PointClaimRouteResult<null>;
-
-export function canReadAllPointClaims(input: PointClaimRoutePolicyInput) {
-  return (
-    input.isSuperAdmin ||
-    hasCapability(input.permissions, "canvasing:read") ||
-    hasCapability(input.permissions, "point_claims:read")
-  );
-}
-
-export function canManagePointClaim(input: PointClaimRoutePolicyInput) {
-  return (
-    input.isSuperAdmin ||
-    hasCapability(input.permissions, "point_claims:update") ||
-    hasCapability(input.permissions, "canvasing:update") ||
-    hasCapability(input.permissions, "marketing:update")
-  );
-}
-
-export function canDeletePointClaim(input: PointClaimRoutePolicyInput) {
-  return (
-    input.isSuperAdmin ||
-    hasCapability(input.permissions, "point_claims:delete")
-  );
-}
-
-/** Apakah pemanggil memegang izin opt-in cashout canvasing (non-sales). */
-export function hasCashoutPermission(input: PointClaimRoutePolicyInput) {
-  return (
-    input.isSuperAdmin ||
-    hasMobilePermission(input.permissions, CANVASING_CASHOUT_PERMISSION)
-  );
-}
 
 export function isPointClaimOwner(
   input: PointClaimRoutePolicyInput,

@@ -5,7 +5,7 @@ import {
   extractMobileFeaturesFromPermissions,
   hasCanvasingCashoutPermission,
 } from "@/modules/marketing";
-import { jenisLingkupDariIzin } from "@/modules/presurvei";
+import { jenisLingkupDariIzin } from "@/modules/roles";
 import { daftarIzinRole, isSalesPengguna, personaPengguna } from "./peran-sales-pengguna";
 
 type MobileProfileUser = {

@@ -55,3 +55,10 @@ export {
   validateSiteAccess,
 } from "./services/SiteRestrictionService";
 export type { SiteRestrictionResult } from "./services/SiteRestrictionService";
+export {
+  canDeletePointClaim,
+  canManagePointClaim,
+  canReadAllPointClaims,
+  hasCashoutPermission,
+  type PointClaimAccessInput,
+} from "./services/PointClaimAccessPolicy";

@@ -149,9 +149,6 @@ export type {
   RincianRencanaDto,
 } from "./dto/rencana.dto";
 
-// --- Penanda kepala sales dari izin (aman untuk klien) ---
-export { isKepalaSalesDariIzin } from "./domain/peran-sales";
-
 // --- Penilaian kinerja (aman untuk klien) ---
 export {
   BOBOT_PENILAIAN_KEPALA,

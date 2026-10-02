@@ -4,12 +4,14 @@ import type { PointClaimFilters } from "../domain/ports/IPointClaimRepository";
 import { createPointClaimService } from "./marketing-service-factories";
 import type { PointClaimService } from "./PointClaimService";
 import {
-  badRequestClaim,
   canDeletePointClaim,
   canManagePointClaim,
   canReadAllPointClaims,
-  forbiddenClaim,
   hasCashoutPermission,
+} from "@/modules/roles";
+import {
+  badRequestClaim,
+  forbiddenClaim,
   FORBIDDEN_DELETE_CLAIM_MESSAGE,
   FORBIDDEN_MANAGE_CLAIM_MESSAGE,
   FORBIDDEN_VIEW_CLAIM_MESSAGE,

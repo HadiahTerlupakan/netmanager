@@ -4,10 +4,8 @@ import {
   toProspekDetail,
   ubahProspekSchema,
 } from "@/modules/presurvei";
-import {
-  isBolehLihatSemuaPresurvei,
-  pemilikWajibUntuk,
-} from "../../akses-presurvei";
+import { isBolehLihatSemuaPresurvei } from "@/modules/roles";
+import { pemilikWajibUntuk } from "../../akses-presurvei";
 
 const service = new ProspekService();
 

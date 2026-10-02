@@ -1,4 +1,3 @@
-import { prisma } from "@/modules/database";
 import {
   ACCUMULATED_TARGET_SCHEMA,
   CASHOUT_DEFAULT_TARGET,
@@ -8,6 +7,7 @@ import { MarketingError } from "../domain/errors/MarketingError";
 import { canCashoutCanvasingBonus } from "./CanvasingAccessService";
 import type {
   CanvasingClaimSubmissionEntity,
+  CashoutUserEntity,
   PointClaimEntity,
 } from "../domain/entities/PointClaimEntity";
 import type {
@@ -104,14 +104,13 @@ export function ensureRejectNotes(notes: string): void {
   throw new MarketingError("validation", "Alasan penolakan wajib diisi");
 }
 
+/** Muat pengguna dan pastikan ia layak mencairkan bonus canvasing akumulasi. */
 export async function requireEligibleCashoutUser(
+  repository: IPointClaimRepository,
   userId: string,
   access: { hasCashoutPermission: boolean },
-) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isSales: true, canvasingTarget: true, targetSchema: true },
-  });
+): Promise<CashoutUserEntity> {
+  const user = await repository.findCashoutUser(userId);
 
   if (!user) {
     throw new MarketingError("not_found", "User tidak ditemukan");

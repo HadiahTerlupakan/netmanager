@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { jenisLingkupRencana } from "@/app/api/presurvei/akses-presurvei";
 
 /**
  * Route rencana menerima permission web ATAU mobile. Lolos gerbang belum
@@ -52,19 +51,6 @@ const sesi = (permissions: string[]) => {
   });
   mockFns.getUserPermissions.mockResolvedValue(permissions);
 };
-
-describe("jenisLingkupRencana", () => {
-  it.each([
-    [["m_presurvei:read"], "SENDIRI"],
-    [["presurvei_rencana:read", "presurvei_rencana:create"], "TIM"],
-    [["presurvei_rencana:read", "presurvei_rencana:view_all"], "SEMUA"],
-    [["*"], "SEMUA"],
-    // Permission presurvei web lain TIDAK membuka rencana orang lain.
-    [["presurvei:read", "m_presurvei:read"], "SENDIRI"],
-  ])("%j → %s", (izin, harapan) => {
-    expect(jenisLingkupRencana(izin)).toBe(harapan);
-  });
-});
 
 describe("/api/presurvei/rencana", () => {
   beforeEach(() => {

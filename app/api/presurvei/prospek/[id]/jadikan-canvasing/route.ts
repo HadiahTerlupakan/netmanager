@@ -4,7 +4,7 @@ import {
   ProspekKonversiService,
   toProspekDetail,
 } from "@/modules/presurvei";
-import { isBolehLihatSemuaPresurvei } from "../../../akses-presurvei";
+import { isBolehLihatSemuaPresurvei } from "@/modules/roles";
 
 const service = new ProspekKonversiService();
 

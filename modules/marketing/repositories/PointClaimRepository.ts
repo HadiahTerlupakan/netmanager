@@ -231,6 +231,14 @@ export class PointClaimRepository implements IPointClaimRepository {
     });
   }
 
+  /** Find the user data needed to check cashout eligibility. */
+  async findCashoutUser(userId: string) {
+    return this.db.user.findUnique({
+      where: { id: userId },
+      select: { isSales: true, canvasingTarget: true, targetSchema: true },
+    });
+  }
+
   /** Return point summary for a sales user. */
   async getPointSummaryBySales(salesId: string) {
     const canvasings = await this.db.canvasing.findMany({
