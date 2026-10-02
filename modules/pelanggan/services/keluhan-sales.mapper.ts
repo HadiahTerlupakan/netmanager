@@ -1,6 +1,5 @@
-import type { Prisma } from "@prisma/client";
-
 import type { BarisKeluhanDetail, BarisKeluhanRingkas } from "../repositories/KeluhanSalesRepository";
+import { bacaLampiranTiket } from "../utils/lampiran-tiket";
 
 /** WO terbaru yang menangani keluhan (ringkas). */
 export interface WoKeluhanRingkasDTO {
@@ -60,19 +59,6 @@ export interface KeluhanDetailDTO extends Omit<KeluhanRingkasDTO, "pelanggan" | 
 
 const keIso = (tanggal: Date | null) => tanggal?.toISOString() ?? null;
 
-/** Lampiran balasan tersimpan sebagai array JSON atau string JSON berisi array URL. */
-export function bacaLampiran(nilai: Prisma.JsonValue | null): string[] {
-  let isi: unknown = nilai;
-  if (typeof nilai === "string") {
-    try {
-      isi = JSON.parse(nilai);
-    } catch {
-      return [];
-    }
-  }
-  return Array.isArray(isi) ? isi.filter((item): item is string => typeof item === "string") : [];
-}
-
 function petaKepala(baris: BarisKeluhanRingkas | BarisKeluhanDetail) {
   return {
     id: baris.id,
@@ -120,7 +106,7 @@ export function keKeluhanDetailDto(baris: BarisKeluhanDetail): KeluhanDetailDTO 
       dariHelpdesk: balasan.isFromAdmin,
       namaPengirim: balasan.user?.name ?? null,
       waktu: balasan.createdAt.toISOString(),
-      lampiran: bacaLampiran(balasan.attachments),
+      lampiran: bacaLampiranTiket(balasan.attachments),
     })),
     workOrders: baris.workOrders.map((wo) => ({
       id: wo.id,

@@ -160,6 +160,7 @@ export class KeluhanSalesService {
           priority: input.prioritas,
           subject: input.subjek,
           description: input.deskripsi,
+          foto: input.foto,
         });
       } catch (error) {
         if (!isBentrokUnik(error) || percobaan + 1 >= PERCOBAAN_NOMOR_MAKS) throw error;

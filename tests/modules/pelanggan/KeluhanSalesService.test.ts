@@ -9,7 +9,8 @@ vi.mock("@/modules/events", () => ({ TicketEventDispatcher: { onCreated, onReply
 
 import type { KeluhanSalesRepository } from "@/modules/pelanggan/repositories/KeluhanSalesRepository";
 import { KeluhanSalesService } from "@/modules/pelanggan/services/KeluhanSalesService";
-import { bacaLampiran } from "@/modules/pelanggan/services/keluhan-sales.mapper";
+import { laporKeluhanSchema } from "@/modules/pelanggan/validators/keluhan-sales";
+import { bacaLampiranTiket as bacaLampiran } from "@/modules/pelanggan/utils/lampiran-tiket";
 
 const PELAPOR = { id: "sales-1", tenantId: "t1" };
 const SENDIRI = { salesIds: ["sales-1"] };
@@ -19,6 +20,7 @@ const INPUT = {
   prioritas: "HIGH" as const,
   subjek: "Internet mati",
   deskripsi: "Lampu LOS merah sejak pagi",
+  foto: ["https://isp.example/uploads/tickets/a.webp"],
 };
 
 function repoPalsu(over: Partial<Record<keyof KeluhanSalesRepository, unknown>> = {}) {
@@ -51,7 +53,13 @@ describe("KeluhanSalesService.lapor", () => {
 
     expect(repo.cariPelangganDalamLingkup).toHaveBeenCalledWith("t1", "p1", SENDIRI);
     expect(repo.buat).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: "t1", pelangganId: "p1", dilaporkanOlehId: "sales-1", category: "TECHNICAL" }),
+      expect.objectContaining({
+        tenantId: "t1",
+        pelangganId: "p1",
+        dilaporkanOlehId: "sales-1",
+        category: "TECHNICAL",
+        foto: ["https://isp.example/uploads/tickets/a.webp"],
+      }),
     );
     expect(hasil.nomor).toMatch(/^TKT-\d{8}-00005$/);
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ ticketId: "tk1", pelangganNama: "Bu Sari", siteId: "s1" }));
@@ -135,5 +143,22 @@ describe("bacaLampiran", () => {
     expect(bacaLampiran('["/b.jpg"]')).toEqual(["/b.jpg"]);
     expect(bacaLampiran("bukan json")).toEqual([]);
     expect(bacaLampiran(null)).toEqual([]);
+  });
+});
+
+describe("laporKeluhanSchema.foto", () => {
+  const { foto: _foto, ...tanpaFoto } = INPUT;
+
+  it("wajib minimal satu foto hasil unggahan aplikasi", () => {
+    expect(laporKeluhanSchema.safeParse(tanpaFoto).success).toBe(false);
+    expect(laporKeluhanSchema.safeParse({ ...INPUT, foto: [] }).success).toBe(false);
+    expect(laporKeluhanSchema.safeParse(INPUT).success).toBe(true);
+  });
+
+  it("menolak URL di luar /uploads/, skema non-http, dan lebih dari 5 foto", () => {
+    expect(laporKeluhanSchema.safeParse({ ...INPUT, foto: ["https://evil.example/x.jpg"] }).success).toBe(false);
+    expect(laporKeluhanSchema.safeParse({ ...INPUT, foto: ["javascript:alert(1)//uploads/"] }).success).toBe(false);
+    const enam = Array.from({ length: 6 }, (_, i) => `https://isp.example/uploads/tickets/${i}.webp`);
+    expect(laporKeluhanSchema.safeParse({ ...INPUT, foto: enam }).success).toBe(false);
   });
 });

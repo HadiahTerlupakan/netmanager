@@ -8,6 +8,16 @@ const DESKRIPSI_MAKS = 5000;
 const BALASAN_MAKS = 5000;
 const BATAS_HALAMAN_MAKS = 50;
 const BATAS_HALAMAN_BAKU = 20;
+const FOTO_MIN = 1;
+const FOTO_MAKS = 5;
+const URL_MAKS = 1000;
+const JALUR_UNGGAHAN = "/uploads/";
+
+/** URL hasil `POST /api/mobile/upload` (lokal atau R2): http(s) dengan jalur /uploads/. */
+const urlFotoUnggahan = z
+  .url({ protocol: /^https?$/ })
+  .max(URL_MAKS)
+  .refine((nilai) => new URL(nilai).pathname.includes(JALUR_UNGGAHAN), "Foto harus hasil unggahan aplikasi");
 
 /** Body `POST /api/mobile/keluhan`: sales mencatat keluhan atas nama pelanggan. */
 export const laporKeluhanSchema = z.object({
@@ -16,6 +26,8 @@ export const laporKeluhanSchema = z.object({
   prioritas: z.enum(TicketPriority).default("MEDIUM"),
   subjek: z.string().trim().min(3).max(SUBJEK_MAKS),
   deskripsi: z.string().trim().min(5).max(DESKRIPSI_MAKS),
+  /** Bukti kondisi di lokasi (modem, lampu, layar speedtest, dsb.), wajib minimal satu. */
+  foto: z.array(urlFotoUnggahan).min(FOTO_MIN, "Lampirkan minimal satu foto").max(FOTO_MAKS),
 });
 
 /** Query `GET /api/mobile/keluhan`: kelompok status, saringan sales, paginasi. */

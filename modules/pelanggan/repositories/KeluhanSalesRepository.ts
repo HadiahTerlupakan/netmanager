@@ -79,7 +79,11 @@ export interface DataKeluhanBaru {
   priority: TicketPriority;
   subject: string;
   description: string;
+  /** Foto dari lapangan; disimpan sebagai balasan pertama pelapor agar tampil di percakapan. */
+  foto: string[];
 }
+
+const PESAN_FOTO_KELUHAN = "Foto kondisi di lokasi pelanggan.";
 
 /**
  * Tiket keluhan yang dilihat sales: dicatat olehnya, atau milik pelanggan yang
@@ -122,11 +126,25 @@ export class KeluhanSalesRepository {
     return this.client.supportTickets.count({ where: { tenantId, createdAt: { gte: toStartOfDay(new Date()) } } });
   }
 
-  /** Simpan tiket keluhan baru atas nama pelanggan. */
-  async buat(data: DataKeluhanBaru) {
-    return this.client.supportTickets.create({
-      data: { id: randomUUID(), ...data, status: "OPEN", updatedAt: new Date() },
-      select: { id: true, ticketNumber: true, subject: true, priority: true },
+  /** Simpan tiket keluhan baru atas nama pelanggan beserta balasan berisi fotonya (satu transaksi). */
+  async buat({ foto, ...data }: DataKeluhanBaru) {
+    return this.client.$transaction(async (tx) => {
+      const tiket = await tx.supportTickets.create({
+        data: { id: randomUUID(), ...data, status: "OPEN", updatedAt: new Date() },
+        select: { id: true, ticketNumber: true, subject: true, priority: true },
+      });
+      await tx.ticketReplies.create({
+        data: {
+          id: randomUUID(),
+          ticketId: tiket.id,
+          senderId: data.dilaporkanOlehId,
+          isFromAdmin: false,
+          message: PESAN_FOTO_KELUHAN,
+          attachments: foto,
+          tenantId: data.tenantId,
+        },
+      });
+      return tiket;
     });
   }
 

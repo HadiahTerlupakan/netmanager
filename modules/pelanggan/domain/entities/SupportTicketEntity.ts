@@ -7,6 +7,8 @@ export interface SupportTicketReplyEntity {
   createdAt: Date;
   message: string;
   isFromAdmin: boolean;
+  /** URL gambar lampiran balasan (foto keluhan, foto penyelesaian WO). */
+  attachments?: string[];
   user?: {
     id?: string;
     name?: string | null;

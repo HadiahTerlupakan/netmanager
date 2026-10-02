@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Foto wajib saat sales lapor keluhan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/pelanggan`, `app/api/mobile/keluhan`, `app/api/mobile/upload`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: `POST /api/mobile/keluhan` kini mewajibkan `foto` (1–5 URL hasil `/api/mobile/upload` tipe
+  `tickets`, jalur /uploads/). Foto disimpan sebagai balasan pertama sales dalam transaksi yang sama dengan
+  tiket, sehingga tampil di percakapan /admin/support dan aplikasi. Mobile: blok foto Kamera/Galeri di form lapor.
+  Upload mobile tipe `tickets` kini disimpan di `public/uploads/tickets` (fallback lokal bila R2 mati).
+- **Files**: `modules/pelanggan/validators/keluhan-sales.ts`, `repositories/KeluhanSalesRepository.ts`,
+  `app/api/mobile/upload/route-handlers-impl.ts`
+- **Breaking**: ✅ Ya — klien lama tanpa `foto` ditolak 400 (fitur belum dirilis, tidak ada klien lama).
+
+### [2026-10-02] — Lampiran balasan tiket tidak tampil di /admin/support
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `mapReplyEntities` membuang `attachments`, sehingga foto di percakapan tiket (termasuk foto
+  penyelesaian WO dari sinkron WO → tiket) tidak pernah tampil di detail tiket admin. Kini lampiran dibawa,
+  baik yang tersimpan sebagai array JSON maupun string JSON (`utils/lampiran-tiket.ts`).
+- **Files**: `modules/pelanggan/mappers/support-ticket-mapper.helpers.ts`, `modules/pelanggan/utils/lampiran-tiket.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Mobile: Pelanggan saya & Keluhan untuk sales
 
 - **Tipe**: [ADDED]

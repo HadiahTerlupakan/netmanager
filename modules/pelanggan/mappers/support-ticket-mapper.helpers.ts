@@ -1,5 +1,7 @@
 import type { TicketReplies } from "@prisma/client";
 
+import { bacaLampiranTiket } from "../utils/lampiran-tiket";
+
 import type {
   TicketAttachmentDTO,
   TicketMessageDTO,
@@ -35,6 +37,7 @@ export function mapReplyEntities(
     createdAt: reply.createdAt,
     message: reply.message,
     isFromAdmin: reply.isFromAdmin,
+    attachments: bacaLampiranTiket(reply.attachments),
     user: reply.sender ?? reply.user ?? null,
   }));
 }
