@@ -34,7 +34,9 @@ export interface Ticket {
     nama: string;
     noTelp: string | null;
     email: string | null;
-  };
+  } | null;
+  /** Sales yang mencatat keluhan atas nama pelanggan dari aplikasi. */
+  dilaporkanOleh?: { id: string; name: string | null } | null;
   assignedTo: {
     id: string;
     name: string;
@@ -141,11 +143,16 @@ export function TicketTable({
             render: (ticket: Ticket) => (
               <div>
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {ticket.pelanggan.nama}
+                  {ticket.pelanggan?.nama ?? "-"}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {ticket.pelanggan.idPelanggan}
+                  {ticket.pelanggan?.idPelanggan}
                 </div>
+                {ticket.dilaporkanOleh && (
+                  <div className="text-xs text-fuchsia-600 dark:text-fuchsia-400">
+                    via sales {ticket.dilaporkanOleh.name || "-"}
+                  </div>
+                )}
               </div>
             ),
           },

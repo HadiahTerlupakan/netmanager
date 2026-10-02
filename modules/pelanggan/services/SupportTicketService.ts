@@ -14,7 +14,7 @@ import {
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import { SupportTicketMapper } from "../mappers/SupportTicketMapper";
 import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
-import { formatDailyDocumentNumber } from "../utils/daily-document-number";
+import { formatNomorTiket } from "../utils/daily-document-number";
 
 /** Service for customer support ticket business logic. */
 const CLOSED_TICKET_MESSAGE = "Tiket sudah ditutup";
@@ -144,14 +144,7 @@ export class SupportTicketService {
 
   /** Generate the next daily ticket number. */
   private async generateTicketNumber() {
-    const today = new Date();
-    const count = await this.repository.getCountForToday();
-    return formatDailyDocumentNumber({
-      prefix: "TKT",
-      date: today,
-      count,
-      sequenceWidth: 5,
-    });
+    return formatNomorTiket(await this.repository.getCountForToday());
   }
 
   /** Validate create ticket payload. */

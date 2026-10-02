@@ -182,6 +182,9 @@ function resolveMobileNotificationLink(notification: {
     return normalizeMarketingLink(notification.link);
   }
   if (notification.sourceType === "INVENTORY") return "/(app)/barang";
+  if (notification.sourceType === "KELUHAN" && notification.sourceId) {
+    return `/(app)/keluhan/${notification.sourceId}`;
+  }
   return notification.link;
 }
 

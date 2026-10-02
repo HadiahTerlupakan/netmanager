@@ -71,4 +71,17 @@ export class TicketEventDispatcher {
       triggeredBy: data.triggeredBy,
     });
   }
+
+  /**
+   * Dipanggil saat WO yang menangani tiket dibuat, dimulai, atau selesai.
+   */
+  static async onWoProgress(data: {
+    ticketId: string
+    workOrderNumber: string
+    tahap: "DIBUAT" | "DIMULAI" | "SELESAI"
+    scheduledDate?: string | null
+    triggeredBy?: string
+  }) {
+    await eventBus.publish(EVENT_NAMES.TICKET_WO_PROGRESS, data);
+  }
 }

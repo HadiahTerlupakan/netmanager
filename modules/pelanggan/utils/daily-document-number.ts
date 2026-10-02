@@ -15,3 +15,11 @@ export function formatDailyDocumentNumber(params: {
 
   return `${params.prefix}-${dateStr}-${sequence}`;
 }
+
+const PREFIX_TIKET = "TKT";
+const LEBAR_URUTAN_TIKET = 5;
+
+/** Nomor tiket keluhan harian (TKT-YYYYMMDD-00001); `count` = tiket hari ini sejauh ini. */
+export function formatNomorTiket(count: number, date = new Date()): string {
+  return formatDailyDocumentNumber({ prefix: PREFIX_TIKET, date, count, sequenceWidth: LEBAR_URUTAN_TIKET });
+}

@@ -161,6 +161,13 @@ function TicketInfoSection({
             </span>
           </InfoRow>
         )}
+        {ticket.dilaporkanOleh && (
+          <InfoRow label="Dilaporkan oleh">
+            <span className="text-sm text-gray-900 dark:text-white">
+              {ticket.dilaporkanOleh.name || "Sales"} (sales)
+            </span>
+          </InfoRow>
+        )}
       </div>
     </div>
   );

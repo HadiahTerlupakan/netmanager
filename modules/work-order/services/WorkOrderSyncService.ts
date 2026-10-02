@@ -4,6 +4,7 @@ import { WorkOrderStatus } from "../types/work-order.enums";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { TicketRepository } from "../repositories/TicketRepository";
 import {
+  publishTicketWoProgress,
   syncCompletedTicket,
   syncInProgressTicket,
 } from "./work-order-sync.helpers";
@@ -42,12 +43,19 @@ export async function syncWoStatusToTicket(
     }
 
     const ticketRepository = getTicketRepository();
+    const kabar = {
+      ticketId: workOrder.ticketId,
+      workOrderNumber: workOrder.workOrderNumber,
+      triggeredBy: workOrder.assignedToId ?? undefined,
+    };
     if (status === "IN_PROGRESS") {
       await syncInProgressTicket(ticketRepository, workOrder.ticketId);
+      await publishTicketWoProgress({ ...kabar, tahap: "DIMULAI" });
       return;
     }
     if (status === "COMPLETED") {
       await syncCompletedTicket(ticketRepository, workOrder);
+      await publishTicketWoProgress({ ...kabar, tahap: "SELESAI" });
     }
   } catch (error) {
     logger.error("Error syncing WO to Ticket:", error);

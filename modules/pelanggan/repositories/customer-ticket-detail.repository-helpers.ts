@@ -32,6 +32,7 @@ function buildAdminTicketDetailInclude() {
   return {
     pelanggan: { select: buildAdminTicketCustomerSelect() },
     user: { select: { id: true, name: true, email: true } },
+    dilaporkanOleh: { select: { id: true, name: true } },
     replies: buildReplyInclude(),
   };
 }

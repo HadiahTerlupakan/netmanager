@@ -5,6 +5,8 @@ import {
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { randomUUID } from "crypto";
+import { logger } from "@/lib/logger";
+import { TicketEventDispatcher } from "@/modules/events";
 import type { TicketRepository } from "../repositories/TicketRepository";
 
 type WorkOrderWithTicket = Awaited<
@@ -12,6 +14,18 @@ type WorkOrderWithTicket = Awaited<
     typeof import("../repositories/WorkOrderRepository").WorkOrderRepository.prototype.findByIdWithTicketAndAttachments
   >
 >;
+
+/**
+ * Kabarkan progres WO ke pihak tiket (sales pelapor) lewat event. Tidak pernah
+ * melempar: kegagalan publish tidak boleh menggagalkan alur WO.
+ */
+export async function publishTicketWoProgress(
+  data: Parameters<typeof TicketEventDispatcher.onWoProgress>[0],
+): Promise<void> {
+  await TicketEventDispatcher.onWoProgress(data).catch((error) =>
+    logger.error("Failed to publish TICKET_WO_PROGRESS event:", error),
+  );
+}
 
 export async function syncInProgressTicket(
   ticketRepository: TicketRepository,

@@ -3,7 +3,8 @@ import { isSuperAdmin } from "@/lib/auth";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { Prisma, TicketStatus } from "@prisma/client";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
-import type { CustomerTicketListItem } from "../domain/ports/ICustomerTicketRepository";
+import type { SupportTicketEntity } from "../domain/entities/SupportTicketEntity";
+import { SupportTicketMapper, type AdminTicketListItemDTO } from "../mappers/SupportTicketMapper";
 import type {
   ServiceResult,
   TicketFilterOptions,
@@ -112,9 +113,7 @@ function buildTicketListResult(input: TicketListResultInput) {
   return {
     success: true,
     data: {
-      tickets: input.ticketRepo.mapCustomerTicketResponses(
-        input.tickets as never[],
-      ),
+      tickets: SupportTicketMapper.toAdminList(input.tickets as SupportTicketEntity[]),
       pagination: buildPaginationMeta(input),
       stats: buildTicketListStats(input.statusSummary, input.rating),
     },
@@ -184,8 +183,8 @@ type AdminTicketListInput = {
   ticketRepo: ICustomerTicketRepository;
 };
 
-type AdminTicketListResponse = {
-  tickets: CustomerTicketListItem[];
+export type AdminTicketListResponse = {
+  tickets: AdminTicketListItemDTO[];
   pagination: {
     page: number;
     limit: number;

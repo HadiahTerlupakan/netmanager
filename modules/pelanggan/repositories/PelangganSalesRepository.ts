@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/modules/database";
 
+import { STATUS_KELUHAN_TERBUKA } from "./KeluhanSalesRepository";
+
 const PILIH_PELANGGAN_TUNGGAKAN = {
   id: true,
   idPelanggan: true,
@@ -23,8 +25,6 @@ export type BarisPelangganTunggakan = Prisma.PelangganGetPayload<{ select: typeo
 
 /** Status WO yang dianggap masih berjalan (ada gangguan/pekerjaan terbuka). */
 export const STATUS_WO_TERBUKA = ["REQUESTED", "PENDING", "ASSIGNED", "IN_PROGRESS", "ON_HOLD"] as const;
-/** Status tiket keluhan yang belum selesai. */
-export const STATUS_TIKET_TERBUKA = ["OPEN", "IN_PROGRESS"] as const;
 
 const PILIH_PELANGGAN_SAYA = {
   id: true,
@@ -46,7 +46,7 @@ const PILIH_PELANGGAN_SAYA = {
     orderBy: { createdAt: "desc" },
     take: 1,
   },
-  _count: { select: { support_tickets: { where: { status: { in: [...STATUS_TIKET_TERBUKA] } } } } },
+  _count: { select: { support_tickets: { where: { status: { in: STATUS_KELUHAN_TERBUKA } } } } },
 } satisfies Prisma.PelangganSelect;
 
 export type BarisPelangganSaya = Prisma.PelangganGetPayload<{ select: typeof PILIH_PELANGGAN_SAYA }>;

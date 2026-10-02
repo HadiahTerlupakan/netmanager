@@ -13,6 +13,7 @@ import { Prisma } from "@prisma/client";
 import { TicketStatus, type TicketPriority } from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import type { ServiceResult, UserContext } from "./AdminSupportTicketService";
+import { kabariSalesKeluhan } from "./KeluhanNotifikasiService";
 
 /** Update ticket status, priority, assignee, and side effects. */
 export async function updateAdminTicket(input: UpdateAdminTicketInput) {
@@ -165,6 +166,7 @@ async function publishStatusChange(
   }).catch((err) =>
     logger.error("Failed to publish TICKET_STATUS_CHANGED event:", err),
   );
+  await kabariSalesKeluhan(ticket.id, { jenis: "STATUS", status: input.data.status }, input.user.id);
 }
 
 function isForbidden(

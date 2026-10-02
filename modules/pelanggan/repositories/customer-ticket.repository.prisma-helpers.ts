@@ -122,6 +122,9 @@ export async function findAllAdminTickets(
       user: {
         select: { id: true, name: true },
       },
+      dilaporkanOleh: {
+        select: { id: true, name: true },
+      },
       replies: {
         orderBy: { createdAt: "desc" },
         take: 1,

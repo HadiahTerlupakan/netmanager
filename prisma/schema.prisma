@@ -1519,6 +1519,7 @@ model User {
   salaries                                   Salary[]
   sla                                        Sla[]
   support_tickets                            SupportTickets[]
+  keluhanDilaporkan                          SupportTickets[]            @relation("PelaporKeluhan")
   ticket_replies                             TicketReplies[]
   transferAntarGudangs                       TransferAntarGudang[]       @relation("TransferCreatedBy")
   userSalaryComponents                       UserSalaryComponent[]
@@ -2298,30 +2299,34 @@ model StockOpname {
 }
 
 model SupportTickets {
-  id           String          @id
-  ticketNumber String
-  pelangganId  String
-  category     TicketCategory
-  priority     TicketPriority  @default(MEDIUM)
-  subject      String
-  description  String
-  status       TicketStatus    @default(OPEN)
-  assignedToId String?
-  resolvedAt   DateTime?
-  closedAt     DateTime?
-  rating       Int?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime
-  tenantId     String?
-  user         User?           @relation(fields: [assignedToId], references: [id])
-  pelanggan    Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  tenant       Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  replies      TicketReplies[]
-  workOrders   WorkOrders[]
+  id               String          @id
+  ticketNumber     String
+  pelangganId      String
+  category         TicketCategory
+  priority         TicketPriority  @default(MEDIUM)
+  subject          String
+  description      String
+  status           TicketStatus    @default(OPEN)
+  assignedToId     String?
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  rating           Int?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  tenantId         String?
+  /// Sales/karyawan yang mencatat keluhan atas nama pelanggan (null = pelanggan sendiri / admin).
+  dilaporkanOlehId String?
+  user             User?           @relation(fields: [assignedToId], references: [id])
+  dilaporkanOleh   User?           @relation("PelaporKeluhan", fields: [dilaporkanOlehId], references: [id], onDelete: SetNull)
+  pelanggan        Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  tenant           Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  replies          TicketReplies[]
+  workOrders       WorkOrders[]
 
   @@unique([tenantId, ticketNumber], name: "tenantId_ticketNumber")
   @@index([category])
   @@index([createdAt])
+  @@index([dilaporkanOlehId, status])
   @@index([pelangganId])
   @@index([priority])
   @@index([status])

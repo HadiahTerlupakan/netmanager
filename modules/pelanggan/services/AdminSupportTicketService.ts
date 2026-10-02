@@ -14,12 +14,14 @@ import {
   getAdminTicketById,
   getAdminTickets,
   getAdminUnreadCount,
+  type AdminTicketListResponse,
 } from "./admin-support-ticket-query.helpers";
 import {
   buildReplyPayload,
   emitReplyEvent,
   sendReplyWhatsapp,
 } from "./admin-support-ticket-reply.helpers";
+import { kabariSalesKeluhan } from "./KeluhanNotifikasiService";
 
 /**
  * Service Result type for consistent API responses
@@ -94,18 +96,7 @@ export class AdminSupportTicketService {
     filters: TicketFilterOptions,
     user: UserContext,
     hasSiteRestriction: boolean,
-  ): Promise<
-    ServiceResult<{
-      tickets: import("../domain/ports/ICustomerTicketRepository").CustomerTicketListItem[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-      };
-      stats: Record<string, unknown>;
-    }>
-  > {
+  ): Promise<ServiceResult<AdminTicketListResponse>> {
     return getAdminTickets({
       filters,
       user,
@@ -214,6 +205,7 @@ export class AdminSupportTicketService {
       });
 
       emitReplyEvent(input.ticketId, reply);
+      void kabariSalesKeluhan(input.ticketId, { jenis: "BALASAN_HELPDESK" }, input.senderId);
       const whatsappSent = await sendReplyWhatsapp(ticket, input);
       return {
         success: true,

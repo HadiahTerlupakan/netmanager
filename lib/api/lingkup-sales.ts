@@ -12,6 +12,11 @@ function saringanDariLingkup(lingkup: LingkupRencana): SaringanSalesPemanggil {
   return { salesIds: [lingkup.penggunaId] };
 }
 
+/** Pengguna pemanggil (id + tenant wajib) dari konteks handler. */
+export function penggunaPemanggil(ctx: Pick<HandlerContext, "session">) {
+  return { id: ctx.session!.user.id, tenantId: requireSessionTenantId(ctx) };
+}
+
 /**
  * Lingkup data sales pemanggil, mengikuti lingkup rencana presurvei: sales =
  * dirinya, kepala sales = dirinya + anggota tim, head of sales/admin
@@ -21,7 +26,6 @@ function saringanDariLingkup(lingkup: LingkupRencana): SaringanSalesPemanggil {
 export async function muatSaringanSales(
   ctx: Pick<HandlerContext, "session" | "permissions">,
 ): Promise<SaringanSalesPemanggil> {
-  const pengguna = { id: ctx.session!.user.id, tenantId: requireSessionTenantId(ctx) };
-  const lingkup = await rencanaService.lingkup(pengguna, jenisLingkupDariIzin(ctx.permissions));
+  const lingkup = await rencanaService.lingkup(penggunaPemanggil(ctx), jenisLingkupDariIzin(ctx.permissions));
   return saringanDariLingkup(lingkup);
 }

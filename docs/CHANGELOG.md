@@ -41,6 +41,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Sales lapor & pantau keluhan pelanggan, terintegrasi WO
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/pelanggan`, `app/api/mobile/keluhan`, `modules/work-order`, `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Sales mencatat keluhan atas nama pelanggannya dari aplikasi. Keluhan menjadi
+  SupportTicket biasa yang ditangani helpdesk di /admin/support, dan helpdesk tetap bisa menjadikannya WO.
+  Kolom baru `SupportTickets.dilaporkanOlehId` mencatat sales pelapor.
+  - Endpoint (izin `m_presurvei:*`, lingkup sendiri / tim / seluruh tenant):
+    - `GET|POST /api/mobile/keluhan` (terbuka/selesai, per sales, ringkasan per sales untuk kepala/head of sales)
+    - `GET /api/mobile/keluhan/[id]` (percakapan helpdesk, WO, teknisi, jadwal)
+    - `POST /api/mobile/keluhan/[id]/balasan`
+  - Notifikasi in-app + push ke sales pelapor dan sales penanggung jawab:
+    - status tiket diubah admin;
+    - helpdesk membalas;
+    - WO dibuat (dengan jadwal), dimulai teknisi, dan selesai.
+  - Progres WO dikirim lewat event baru `ticket:wo_progress`, yang juga menutup jalur mobile teknisi
+    (jalur itu tidak publish event WO). Handler-nya idempotent.
+  - Admin melihat label "via sales" di daftar dan detail tiket.
+- **Files**: `modules/pelanggan/services/KeluhanSalesService.ts`, `KeluhanNotifikasiService.ts`,
+  `repositories/KeluhanSalesRepository.ts`, `app/api/mobile/keluhan/**`, `lib/event-bus/types.ts`,
+  `modules/work-order/services/WorkOrderSyncService.ts`, `work-order-side-effects.ts`
+- **Migration**: `20261002113130_add_dilaporkan_oleh_to_support_tickets` (kolom nullable + index + FK SET NULL; tanpa ubah data)
+- **Breaking**: ❌ Tidak
+
+### [2026-10-02] — Daftar tiket /admin/support kehilangan data pelanggan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan`, `app/admin/support`
+- **Author**: agent
+- **Deskripsi**: Daftar tiket admin dipetakan dengan mapper portal pelanggan, yang membuang `pelanggan`
+  dan petugas. Padahal `TicketTable` membaca `ticket.pelanggan.nama`, sehingga halaman error begitu ada
+  tiket. Kini dipakai `SupportTicketMapper.toAdminList` (pelanggan, petugas, sales pelapor), dan tabel
+  dibuat aman bila pelanggan kosong.
+- **Files**: `modules/pelanggan/mappers/SupportTicketMapper.ts`, `modules/pelanggan/services/admin-support-ticket-query.helpers.ts`,
+  `app/admin/support/_components/TicketTable.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Endpoint mobile "Pelanggan saya" untuk sales
 
 - **Tipe**: [ADDED]

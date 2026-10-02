@@ -9,6 +9,7 @@ import type {
   WorkOrderStatus,
 } from "../types/work-order.enums";
 import type { TicketRepository } from "../repositories/WorkOrderSupportRepositories";
+import { publishTicketWoProgress } from "./work-order-sync.helpers";
 import { workOrderCacheService } from "./WorkOrderCacheService";
 import {
   onWorkOrderCreated,
@@ -150,6 +151,13 @@ export async function linkWorkOrderToTicketSafely(params: {
 }): Promise<void> {
   try {
     await createTicketReplyAndStartTicket(params);
+    await publishTicketWoProgress({
+      ticketId: params.ticketId,
+      workOrderNumber: params.workOrder.workOrderNumber,
+      tahap: "DIBUAT",
+      scheduledDate: params.workOrder.scheduledDate ? new Date(params.workOrder.scheduledDate).toISOString() : null,
+      triggeredBy: params.userId,
+    });
   } catch (err) {
     logger.error(
       "Failed to link work order to ticket",

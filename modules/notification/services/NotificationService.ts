@@ -72,11 +72,14 @@ export async function hasNotificationForSource(input: {
   userId: string;
   sourceType: string;
   sourceId: string;
+  /** Opsional: bedakan beberapa kabar dari sumber yang sama lewat isi pesannya. */
+  message?: string;
 }): Promise<boolean> {
   const existing = await getNotificationRepository().findFirst({
     userId: input.userId,
     sourceType: input.sourceType,
     sourceId: input.sourceId,
+    ...(input.message === undefined ? {} : { message: input.message }),
   });
   return existing !== null;
 }

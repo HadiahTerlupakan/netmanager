@@ -6,6 +6,12 @@ vi.mock("@/modules/work-order/services/WorkOrderNotificationService", () => ({
   notifyWorkOrderUpdate: vi.fn(),
 }));
 
+const { onWoProgress } = vi.hoisted(() => ({ onWoProgress: vi.fn(async () => undefined) }));
+vi.mock("@/modules/events", async (importOriginal) => {
+  const asli = await importOriginal<typeof import("@/modules/events")>();
+  return { ...asli, TicketEventDispatcher: { ...asli.TicketEventDispatcher, onWoProgress } };
+});
+
 import { describe, it, expect, vi } from "vitest";
 import { prismaMock } from "../../setup";
 import {
@@ -65,6 +71,10 @@ describe("WorkOrderSyncService", () => {
         where: { id: "ticket-1" },
         data: { status: TicketStatus.IN_PROGRESS },
       });
+      // Sales pelapor dikabari lewat event (jalur mobile teknisi tidak publish event WO).
+      expect(onWoProgress).toHaveBeenCalledWith(
+        expect.objectContaining({ ticketId: "ticket-1", workOrderNumber: "WO-001", tahap: "DIMULAI" }),
+      );
     });
 
     it("should update ticket to RESOLVED and create report when WO is COMPLETED", async () => {

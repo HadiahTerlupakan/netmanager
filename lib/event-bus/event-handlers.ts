@@ -434,6 +434,22 @@ export function registerDefaultHandlers(): void {
     }
   });
 
+  // Kabari sales pelapor / penanggung jawab. Penerima & tenant diambil dari tiket
+  // itu sendiri (bukan konteks worker), jadi aman lintas-tenant.
+  registerEventHandler(EVENT_NAMES.TICKET_WO_PROGRESS, async (job) => {
+    const { payload } = job.data;
+    try {
+      const { kabariSalesKeluhan } = await import("@/modules/pelanggan");
+      const kabar =
+        payload.tahap === "DIBUAT"
+          ? { jenis: "WO_DIBUAT" as const, nomorWo: payload.workOrderNumber, jadwal: payload.scheduledDate }
+          : { jenis: payload.tahap === "DIMULAI" ? ("WO_DIMULAI" as const) : ("WO_SELESAI" as const), nomorWo: payload.workOrderNumber };
+      await kabariSalesKeluhan(payload.ticketId, kabar, payload.triggeredBy);
+    } catch (error) {
+      logger.error("[Worker] Ticket WO progress handler error:", error);
+    }
+  });
+
   // --- ATTENDANCE EVENTS ---
 
   registerEventHandler(EVENT_NAMES.ATTENDANCE_CHECKIN, async (job) => {

@@ -43,6 +43,8 @@ export interface TicketDetail {
     name: string;
     email: string;
   } | null;
+  /** Sales yang mencatat keluhan atas nama pelanggan dari aplikasi. */
+  dilaporkanOleh?: { id: string; name: string | null } | null;
   replies: Reply[];
 }
 

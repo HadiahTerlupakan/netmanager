@@ -63,6 +63,8 @@ export interface SupportTicketEntity {
   pelanggan?: SupportTicketCustomerEntity | null;
   user?: SupportTicketAssigneeEntity | null;
   assignedTo?: SupportTicketAssigneeEntity | null;
+  /** Sales yang mencatat keluhan atas nama pelanggan (null = pelanggan / admin). */
+  dilaporkanOleh?: { id: string; name: string | null } | null;
   attachments?: SupportTicketAttachmentEntity[];
   replyCount?: number;
 }

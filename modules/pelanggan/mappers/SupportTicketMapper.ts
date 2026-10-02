@@ -36,6 +36,21 @@ export type CustomerTicketListItemDTO = {
   replyCount: number;
 };
 
+/** Baris daftar tiket di /admin/support: data pelanggan, petugas, dan sales pelapor. */
+export type AdminTicketListItemDTO = CustomerTicketListItemDTO & {
+  description: string | null;
+  rating: number | null;
+  pelanggan: {
+    id: string;
+    idPelanggan: string;
+    nama: string;
+    noTelp: string | null;
+    email: string | null;
+  } | null;
+  assignedTo: { id: string; name: string | null } | null;
+  dilaporkanOleh: { id: string; name: string | null } | null;
+};
+
 type TicketWithRelations = SupportTickets & {
   pelanggan?: {
     id?: string;
@@ -60,6 +75,7 @@ type TicketWithRelations = SupportTickets & {
     email?: string;
     image?: string | null;
   } | null;
+  dilaporkanOleh?: { id: string; name: string | null } | null;
   replies?: Parameters<typeof mapReplyEntities>[0];
   _count?: {
     replies: number;
@@ -119,6 +135,7 @@ export class SupportTicketMapper {
             email: entity.assignedTo.email,
           }
         : null,
+      dilaporkanOleh: entity.dilaporkanOleh ? { id: entity.dilaporkanOleh.id, name: entity.dilaporkanOleh.name } : null,
       replies: mapReplyEntities(entity.replies),
       attachments: mapAttachments(entity.attachments ?? []),
       replyCount: entity._count?.replies ?? 0,
@@ -237,6 +254,27 @@ export class SupportTicketMapper {
           }
         : null,
       replyCount: entity.replyCount ?? 0,
+    }));
+  }
+
+  /** Map daftar tiket admin; relasi "user" pada tiket = petugas yang ditugaskan. */
+  static toAdminList(entities: SupportTicketEntity[]): AdminTicketListItemDTO[] {
+    const ringkas = this.toCustomerList(entities);
+    return entities.map((entity, indeks) => ({
+      ...ringkas[indeks],
+      description: entity.description ?? null,
+      rating: entity.rating ?? null,
+      pelanggan: entity.pelanggan
+        ? {
+            id: entity.pelanggan.id ?? "",
+            idPelanggan: entity.pelanggan.idPelanggan ?? "",
+            nama: entity.pelanggan.nama,
+            noTelp: entity.pelanggan.noTelp ?? null,
+            email: entity.pelanggan.email ?? null,
+          }
+        : null,
+      assignedTo: entity.user ? { id: entity.user.id ?? "", name: entity.user.name ?? null } : null,
+      dilaporkanOleh: entity.dilaporkanOleh ?? null,
     }));
   }
 }

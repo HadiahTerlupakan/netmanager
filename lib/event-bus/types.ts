@@ -90,6 +90,8 @@ export const EVENT_NAMES = {
   TICKET_CREATED: "ticket:created",
   TICKET_REPLY: "ticket:reply",
   TICKET_STATUS_CHANGED: "ticket:status_changed",
+  /** Progres WO yang menangani tiket keluhan (dibuat / dimulai / selesai). */
+  TICKET_WO_PROGRESS: "ticket:wo_progress",
 
   // Inventory Events
   INVENTORY_STOCK_IN: "inventory:stock_in",
@@ -248,6 +250,14 @@ export interface TicketCreatedPayload extends BaseEventPayload {
   priority: string;
   pelangganNama?: string;
   siteId?: string;
+}
+
+export interface TicketWoProgressPayload extends BaseEventPayload {
+  ticketId: string;
+  workOrderNumber: string;
+  tahap: "DIBUAT" | "DIMULAI" | "SELESAI";
+  /** ISO; hanya untuk tahap DIBUAT. */
+  scheduledDate?: string | null;
 }
 
 export interface TicketReplyPayload extends BaseEventPayload {
@@ -659,6 +669,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.TICKET_CREATED]: TicketCreatedPayload;
   [EVENT_NAMES.TICKET_REPLY]: TicketReplyPayload;
   [EVENT_NAMES.TICKET_STATUS_CHANGED]: TicketCreatedPayload;
+  [EVENT_NAMES.TICKET_WO_PROGRESS]: TicketWoProgressPayload;
   [EVENT_NAMES.INVENTORY_STOCK_IN]: InventoryPayload;
   [EVENT_NAMES.INVENTORY_STOCK_OUT]: InventoryPayload;
   [EVENT_NAMES.INVENTORY_LOW_STOCK]: InventoryPayload;
@@ -883,6 +894,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.TICKET_STATUS_CHANGED]: {
     name: EVENT_NAMES.TICKET_STATUS_CHANGED,
+    category: "ticket",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.TICKET_WO_PROGRESS]: {
+    name: EVENT_NAMES.TICKET_WO_PROGRESS,
     category: "ticket",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
