@@ -10,6 +10,8 @@
 -- Teknisi & Branch Manager punya user ber-isSales) akan kehilangan isSales di
 -- bawah. Role non-SALES yang memegang m_canvasing dan punya user AKTIF
 -- ber-isSales diberi izin m_canvasing:cashout lebih dulu. Idempoten.
+-- Penautan memilih izin tenant yang sama bila ada, selain itu baris global yang
+-- sudah ada (unique "Permission" di produksi = (resource, action) global).
 WITH role_sasaran AS (
   SELECT DISTINCT r."id", r."tenantId"
   FROM "roles" r
@@ -34,7 +36,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO "_PermissionToRole" ("A", "B")
 SELECT p."id", r."id"
 FROM "roles" r
-JOIN "Permission" p ON p."tenantId" = r."tenantId" AND p."resource" = 'm_canvasing' AND p."action" = 'cashout'
+JOIN LATERAL (
+  SELECT q."id" FROM "Permission" q
+  WHERE q."resource" = 'm_canvasing' AND q."action" = 'cashout'
+  ORDER BY (q."tenantId" = r."tenantId") DESC NULLS LAST, q."createdAt"
+  LIMIT 1
+) p ON true
 WHERE r."persona" <> 'SALES'
   AND r."tenantId" IS NOT NULL
   AND EXISTS (SELECT 1 FROM "User" u WHERE u."roleId" = r."id" AND u."isSales" = true AND u."isActive" = true)

@@ -14,6 +14,9 @@
 --   * Role dicocokkan lewat trim(name) dan "tenantId" IS NOT NULL. Role yang tidak ada
 --     = tidak ada yang ditulis.
 --   * Relasi role↔permission memakai ON CONFLICT pada primary key ("A","B").
+--   * Penautan role↔izin memilih izin tenant yang sama bila ada, selain itu baris
+--     (resource, action) yang sudah ada — di produksi unique-nya global sehingga tenant
+--     kedua tidak punya baris sendiri (INSERT di atas dilewati ON CONFLICT).
 -- Aman dijalankan berulang. Tidak menghapus apa pun.
 
 WITH role_sasaran AS (
@@ -52,13 +55,16 @@ ON CONFLICT DO NOTHING;
 INSERT INTO "_PermissionToRole" ("A", "B")
 SELECT p.id, r.id
 FROM roles r
-JOIN "Permission" p ON p."tenantId" = r."tenantId"
+CROSS JOIN (
+  VALUES ('presurvei_rencana', 'read'), ('presurvei_rencana', 'create'),
+         ('presurvei_rencana', 'update'), ('presurvei_rencana', 'view_all')
+) AS izin(resource, action)
+JOIN LATERAL (
+  SELECT q.id FROM "Permission" q
+  WHERE q.resource = izin.resource AND q.action = izin.action
+  ORDER BY (q."tenantId" = r."tenantId") DESC NULLS LAST, q."createdAt"
+  LIMIT 1
+) p ON true
 WHERE trim(r.name) IN ('admin', 'Super Admin', 'Branch Manager', 'KACAB PKP')
   AND r."tenantId" IS NOT NULL
-  AND (p.resource, p.action) IN (
-    ('presurvei_rencana', 'read'),
-    ('presurvei_rencana', 'create'),
-    ('presurvei_rencana', 'update'),
-    ('presurvei_rencana', 'view_all')
-  )
 ON CONFLICT ("A", "B") DO NOTHING;

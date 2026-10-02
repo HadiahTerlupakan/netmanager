@@ -8,6 +8,9 @@
 --   * NOT EXISTS per tenant + ON CONFLICT DO NOTHING tanpa target (unique "Permission"
 --     berbeda antar-lingkungan).
 --   * Role dicocokkan lewat trim(name) dan "tenantId" IS NOT NULL.
+--   * Penautan role↔izin memilih izin tenant yang sama bila ada, selain itu baris
+--     (resource, action) yang sudah ada — di produksi unique-nya global sehingga tenant
+--     kedua tidak punya baris sendiri (INSERT di atas dilewati ON CONFLICT).
 -- Aman dijalankan berulang. Tidak menghapus apa pun.
 
 WITH role_sasaran AS (
@@ -38,9 +41,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO "_PermissionToRole" ("A", "B")
 SELECT p.id, r.id
 FROM roles r
-JOIN "Permission" p ON p."tenantId" = r."tenantId"
+JOIN LATERAL (
+  SELECT q.id FROM "Permission" q
+  WHERE q.resource = 'opname' AND q.action = 'manage'
+  ORDER BY (q."tenantId" = r."tenantId") DESC NULLS LAST, q."createdAt"
+  LIMIT 1
+) p ON true
 WHERE trim(r.name) IN ('admin', 'Super Admin', 'Branch Manager', 'KACAB PKP')
   AND r."tenantId" IS NOT NULL
-  AND p.resource = 'opname'
-  AND p.action = 'manage'
 ON CONFLICT ("A", "B") DO NOTHING;
