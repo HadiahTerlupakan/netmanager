@@ -32,36 +32,21 @@ export interface RABDisbursement {
   isPaid: boolean;
 }
 
-export interface LinearGrowthSettings {
-  subscribersPerMonth: number;
-}
+import type {
+  GrowthSettings,
+  RABInvestorProfitShareMode,
+  RABOpexBufferFundingMode,
+} from "@/modules/finance/client";
 
-export interface PercentageGrowthSettings {
-  initialPercent: number;
-  monthlyGrowthPercent: number;
-}
-
-export interface CustomMilestone {
-  month: number;
-  percent: number;
-}
-
-export interface CustomGrowthSettings {
-  milestones: CustomMilestone[];
-}
-
-export type GrowthSettings =
-  | LinearGrowthSettings
-  | PercentageGrowthSettings
-  | CustomGrowthSettings;
-
-export type RABOpexBufferFundingMode =
-  | "INVESTOR"
-  | "COMPANY"
-  | "SHARED_PERCENTAGE"
-  | "FIXED";
-
-export type RABInvestorProfitShareMode = "FLAT" | "TIERED_AFTER_BEP";
+export type {
+  CustomGrowthSettings,
+  CustomMilestone,
+  GrowthSettings,
+  LinearGrowthSettings,
+  PercentageGrowthSettings,
+  RABInvestorProfitShareMode,
+  RABOpexBufferFundingMode,
+} from "@/modules/finance/client";
 
 export interface RABActualAchievement {
   id: string;
