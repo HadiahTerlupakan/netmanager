@@ -1,3 +1,17 @@
+## Self-hosted runner GitHub Actions di VM Proxmox (2026-10-03)
+
+### Tujuan
+Semua job CI/CD kedua repo jalan di VM sendiri (ci-runner, 16 vCPU / 24 GB / 150 GB),
+GitHub tetap sebagai orkestrator. Bisa kembali ke runner GitHub dengan menghapus satu variabel repo.
+
+### Rencana
+- [x] VM: SSH kunci saja, root dilarang, ufw (22), fail2ban, qemu-guest-agent
+- [x] Host: user `runner` (sudo NOPASSWD, grup docker), Docker+buildx, Android cmdline-tools, swap 8 GB
+- [x] Runner: 4 untuk netmanager (shard tes paralel), 2 untuk mobile-netmanager; label `radpro-ci`; service systemd
+- [x] Workflow: `runs-on: ${{ fromJSON(vars.CI_RUNS_ON || "\"ubuntu-24.04\"") }}`; variabel repo CI_RUNS_ON
+- [ ] Uji: CI backend + deploy, CI mobile + OTA (build-android tetap manual; runtime bergeser bila dibangun di VM)
+- [x] Docs: docs/guides/CI_SELF_HOSTED_RUNNER.md, CHANGELOG [INFRA]
+
 # TODO
 
 ## Keluhan pelanggan lewat sales + integrasi WO (2026-10-02)

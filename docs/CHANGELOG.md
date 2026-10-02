@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — CI/CD bisa berjalan di self-hosted runner VM Proxmox
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/` (.github/workflows, scripts/ci-runner), `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**:
+  - Semua job kedua repo memakai `runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}`.
+    - Variabel repo `CI_RUNS_ON=["self-hosted","radpro-ci"]` mengarahkan job ke VM `cicd` (16 vCPU / 24 GB / 150 GB).
+    - Menghapus variabel itu mengembalikan job ke runner GitHub.
+  - VM berisi 4 runner untuk netmanager dan 2 untuk mobile. Keamanannya: SSH hanya dengan kunci, ufw, dan fail2ban.
+  - Skrip pembangunan ulang ada di `scripts/ci-runner/`, panduan di `docs/guides/CI_SELF_HOSTED_RUNNER.md`.
+  - Tes kontrak workflow mobile diperbarui.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Cegah bagi hasil investor dobel lewat penjaga di DB
 
 - **Tipe**: [FIXED] [MIGRATION]

@@ -37,7 +37,7 @@ env:
 
 jobs:
   quality:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -95,7 +95,7 @@ jobs:
   # menambah worker di satu mesin tidak banyak membantu — membagi berkas ke
   # beberapa mesin yang membantu.
   tes:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -138,7 +138,7 @@ jobs:
 
   build:
     needs: [quality, tes]
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     timeout-minutes: 90
     permissions:
       contents: read
@@ -230,7 +230,7 @@ jobs:
   # satu-satunya secret sensitif di workflow ini (DEPLOY_SSH_KEY).
   deploy:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     # Di atas waktu terburuk skrip: tunggu migrasi 3900 dtk + rollout 4x420 dtk
     # + cadangan. Kalaupun job diputus, skrip di host tetap berjalan sampai
     # selesai (lihat bagian "terlepas" di netmanager-deploy.sh).
