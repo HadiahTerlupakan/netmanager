@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Unduh laporan SO bulanan sebagai PDF
+
+- **Tipe**: [ADDED]
+- **Scope**: `components/inventory/opname/jadwal`
+- **Author**: agent
+- **Deskripsi**: Tombol "Unduh PDF" di tab Laporan SO Bulanan (menu Stock Opname).
+  PDF landscape berisi ringkasan status, lalu satu tabel per site (jadwal & keadaannya,
+  gudang, status, barang dihitung dalam jadwal, SO terakhir). Dibuat di sisi klien
+  dari data laporan yang sedang tampil (jspdf + jspdf-autotable, dimuat dinamis);
+  nama file `laporan-so_<YYYY-MM>.pdf`.
+- **Files**: `components/inventory/opname/jadwal/laporanSoPdf.ts`,
+  `components/inventory/opname/jadwal/TabLaporanSo.tsx`,
+  `tests/components/inventory/laporan-so-pdf.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Jadwal stock opname per site dan laporan SO bulanan
 
 - **Tipe**: [ADDED]
