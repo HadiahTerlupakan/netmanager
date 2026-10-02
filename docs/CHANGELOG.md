@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Pemilih bulan SO tampil benar di semua browser
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/ui`, `components/inventory/opname/jadwal`
+- **Author**: agent
+- **Deskripsi**: `<input type="month">` di Safari/Firefox hanya tampil sebagai kotak teks
+  "2026-10". Diganti komponen baru `MonthSelect` (dropdown nama bulan + tahun) di tab
+  Laporan SO Bulanan dan form jadwal khusus di halaman Site.
+- **Files**: `components/ui/MonthSelect.tsx`,
+  `components/inventory/opname/jadwal/TabLaporanSo.tsx`,
+  `components/inventory/opname/jadwal/KartuJadwalSoSite.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Unduh laporan SO bulanan sebagai PDF
 
 - **Tipe**: [ADDED]

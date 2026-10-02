@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { HiOutlineCalendarDays } from "react-icons/hi2";
 
+import { MonthSelect } from "@/components/ui/MonthSelect";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   formatTanggalSo,
@@ -170,10 +171,10 @@ function FormJadwalKhusus({
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Jadwal khusus bulan tertentu</h3>
-      <label className="text-xs text-gray-600 dark:text-gray-300 block">
+      <div className="text-xs text-gray-600 dark:text-gray-300">
         Bulan
-        <input type="month" value={periode} onChange={(e) => e.target.value && setPeriode(e.target.value)} className={KELAS_INPUT} />
-      </label>
+        <MonthSelect value={periode} onChange={setPeriode} className={KELAS_INPUT} />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs text-gray-600 dark:text-gray-300">
           Mulai
