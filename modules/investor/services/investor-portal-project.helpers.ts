@@ -57,6 +57,8 @@ type ProjectDetailResponse = {
   status: string;
   siteName: string | undefined;
   billingSource: ProjectBillingSource;
+  /** Awal bulan ke-1 proyek; capaian bulanan bernomor relatif terhadapnya. */
+  startDate: Date | null;
   investmentAmount: string;
   profitSharePercent: number;
   projectedRevenue: string;
@@ -146,6 +148,7 @@ export function toProjectDetail(
     status: rabProject.status,
     siteName: rabProject.site?.name,
     billingSource: getBillingSource(rabProject.siteId),
+    startDate: rabProject.startDate,
     investmentAmount: project.investmentAmount.toString(),
     profitSharePercent: project.profitSharePercent,
     projectedRevenue: rabProject.projectedRevenue.toString(),

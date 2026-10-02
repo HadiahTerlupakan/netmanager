@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Proyek investor: porsi bagi hasil dan status yang tampil
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/investor` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**:
+  - Persen bagi hasil di RAB adalah bagian SEMUA investor proyek, tetapi
+    portal menampilkannya utuh ke tiap investor (2 investor × 50% = 100%
+    laba) dan "pendapatan bagian saya" ikut berlipat. Kini persen tiap
+    investor = persen RAB × porsi modalnya (`porsi-investor-proyek.ts`).
+  - Investor hanya melihat proyek berstatus Disetujui ke atas; Rancangan,
+    Menunggu persetujuan, Ditolak, dan Dibatalkan disembunyikan (daftar,
+    dashboard, dan rincian).
+  - Mobile: capaian bulanan diberi label "Bulan ke-n · Bln Tahun" dari tanggal
+    mulai proyek (sebelumnya nomor bulan proyek dibaca sebagai bulan kalender).
+- **Files**: `modules/investor/domain/porsi-investor-proyek.ts`,
+  `modules/investor/repositories/InvestorPortalRepository.ts`,
+  `mobile-netmanager: app/(investor)/proyek/[id].tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Pelacakan lokasi berhenti di luar jam kerja
 
 - **Tipe**: [FIXED]
