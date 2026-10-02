@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Sales penanggung jawab pelanggan & tunggakan di mobile
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/pelanggan`, `app/api/mobile/pelanggan`, `app/api/pelanggan-ppp`
+- **Author**: agent
+- **Deskripsi**: Pelanggan kini menyimpan sales penanggung jawab (`Pelanggan.salesId`, FK User,
+  ON DELETE SET NULL). Sebelumnya tidak ada hubungan data sales ↔ pelanggan sama sekali.
+  Admin memilihnya di form pelanggan baru (ikut validasi: sales aktif tenant yang sama) dan
+  di halaman edit (`GET/PUT /api/pelanggan-ppp/[id]/sales`, pilihan dari
+  `/api/pelanggan-ppp/sales-pilihan`). Endpoint mobile baru
+  `GET /api/mobile/pelanggan/tunggakan` mengembalikan pelanggan ISOLIR per sales dengan
+  lingkup rencana presurvei: sales = miliknya, kepala sales = tim, head of sales/admin =
+  seluruh tenant (termasuk "Belum ada sales"). Layar Isolir teknisi tidak berubah.
+  Pengisian salesId pelanggan lama BELUM dilakukan (perlu keputusan pencocokan data).
+- **Files**: `modules/pelanggan/services/PelangganSalesService.ts`,
+  `modules/pelanggan/repositories/PelangganSalesRepository.ts`,
+  `app/api/mobile/pelanggan/tunggakan/route.ts`,
+  `app/admin/pelanggan/ppp/components/info/PppClientSalesSection.tsx`
+- **Migration**: `20261002093726_add_sales_id_to_pelanggan` (tambah kolom nullable + index + FK; tanpa ubah data)
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Unduh daftar work order sebagai PDF
 
 - **Tipe**: [ADDED]

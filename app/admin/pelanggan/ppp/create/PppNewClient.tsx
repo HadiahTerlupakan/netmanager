@@ -8,6 +8,7 @@ import { useApi } from "@/lib/hooks/useApi";
 import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
 import { PppClientFormActions } from "@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions";
 import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection";
+import { PppClientSalesSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSalesSection";
 import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
 import { PppClientMapPickerModal } from "@/app/admin/pelanggan/ppp/components/modal/PppClientMapPickerModal";
 import { PppClientBillingPreferencesSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientBillingPreferencesSection";
@@ -122,6 +123,7 @@ export function PppClientCreateForm() {
     resellerId: "",
     resellerOutletId: "",
     siteId: undefined as string | undefined,
+    salesId: undefined as string | undefined,
     billingAction: "DO_NOTHING" as
       | "CREATE_PAID_INVOICE"
       | "CREATE_UNPAID_INVOICE"
@@ -420,6 +422,11 @@ export function PppClientCreateForm() {
                       }));
                     }}
                     roundedClassName="rounded-xl"
+                  />
+
+                  <PppClientSalesSection
+                    salesId={formData.salesId}
+                    onSalesChange={(salesId) => setFormData((prev) => ({ ...prev, salesId }))}
                   />
 
                   <PppClientStatusTypeSection

@@ -951,6 +951,8 @@ model Pelanggan {
   passwordHash                  String?
   tokenVersion                  Int                 @default(1)
   userId                        String?
+  /// Sales penanggung jawab: yang menjual & ikut menindaklanjuti tunggakan pelanggan.
+  salesId                       String?
   autoIsolir                    Boolean             @default(true)
   siteId                        String?
   lastSyncedAt                  DateTime?
@@ -977,6 +979,7 @@ model Pelanggan {
   reseller                      Reseller?           @relation(fields: [resellerId], references: [id])
   resellerOutlet                ResellerOutlet?     @relation(fields: [resellerOutletId], references: [id])
   user                          User?               @relation(fields: [userId], references: [id])
+  sales                         User?               @relation("SalesPelanggan", fields: [salesId], references: [id], onDelete: SetNull)
   customer_usage                CustomerUsage[]
   service_suspension            ServiceSuspension[]
   support_tickets               SupportTickets[]
@@ -985,6 +988,7 @@ model Pelanggan {
   @@unique([tenantId, idPelanggan], name: "tenantId_idPelanggan")
   @@index([email])
   @@index([siteId])
+  @@index([salesId])
   @@index([hargaPaketId])
   @@index([idPelanggan])
   @@index([jatuhTempo])
@@ -1433,6 +1437,7 @@ model User {
   kepalaSalesId                              String?
   kepalaSales                                User?                       @relation("TimSales", fields: [kepalaSalesId], references: [id], onDelete: SetNull)
   anggotaTimSales                            User[]                      @relation("TimSales")
+  pelangganDitangani                         Pelanggan[]                 @relation("SalesPelanggan")
   absentDeductionRate                        Float?
   basicSalary                                Float?
   employeeType                               EmployeeType                @default(KARYAWAN)

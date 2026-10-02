@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useApi } from "@/lib/hooks/useApi";
 import { PppClientFormActions } from "@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions";
 import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection";
+import { PppClientSalesEditor } from "@/app/admin/pelanggan/ppp/components/info/PppClientSalesSection";
 import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
 import { PppClientMapPickerModal } from "@/app/admin/pelanggan/ppp/components/modal/PppClientMapPickerModal";
 import { PppClientBillingPreferencesSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientBillingPreferencesSection";
@@ -541,6 +542,8 @@ export function PppClientEditForm() {
                     }}
                     roundedClassName="rounded-xl"
                   />
+
+                  <PppClientSalesEditor pelangganId={id} />
 
                   <PppClientStatusTypeSection
                     status={formData.status}

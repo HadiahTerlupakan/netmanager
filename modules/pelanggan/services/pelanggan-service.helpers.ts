@@ -94,6 +94,7 @@ export async function buildCreatePelangganData(
     keteranganBiayaLainnya: trimNullable(data.keteranganBiayaLainnya),
     odpId: trimNullable(data.odpId),
     siteId: data.siteId,
+    salesId: data.salesId || null,
   };
 }
 

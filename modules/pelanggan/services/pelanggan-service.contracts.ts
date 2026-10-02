@@ -54,6 +54,7 @@ export interface CreatePelangganInput {
   keteranganBiayaLainnya?: string | null;
   odpId?: string | null;
   siteId?: string | null;
+  salesId?: string | null;
   billingAction?:
     | "CREATE_PAID_INVOICE"
     | "CREATE_UNPAID_INVOICE"

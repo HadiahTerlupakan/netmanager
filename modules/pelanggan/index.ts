@@ -115,3 +115,10 @@ export {
 // import path internal services/.
 export { handleInvoiceAutoIsolate } from "./services/event-handlers/invoice-auto-isolate.handler";
 export { handleInvoicePaidActivation } from "./services/event-handlers/invoice-paid-activation.handler";
+export {
+  getPelangganSalesService,
+  PelangganSalesService,
+  type KelompokTunggakan,
+  type PelangganTunggakanDTO,
+  type RingkasanTunggakan,
+} from "./services/PelangganSalesService";

@@ -64,6 +64,7 @@ export interface CreatePelangganDTO {
   keteranganBiayaLainnya?: string | null;
   odpId?: string | null;
   siteId?: string | null;
+  salesId?: string | null;
 }
 
 export type FilterOptions = {

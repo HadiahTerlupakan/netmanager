@@ -81,6 +81,7 @@ export const buildCreatePelangganData = (
   keteranganBiayaLainnya: data.keteranganBiayaLainnya,
   odpId: data.odpId,
   siteId: data.siteId,
+  salesId: data.salesId ?? null,
 });
 
 /** Build pelanggan create query args with relation include. */

@@ -97,6 +97,7 @@ export interface CreatePelangganDTO {
   keteranganBiayaLainnya?: string | null;
   odpId?: string | null;
   siteId?: string | null;
+  salesId?: string | null;
 }
 
 const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({

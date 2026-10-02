@@ -1,4 +1,6 @@
 import path from "path";
+import { responsGalatSalesPelanggan } from "@/lib/api/pelanggan-sales-route";
+import { getPelangganSalesService } from "@/modules/pelanggan";
 import { Status } from "@prisma/client";
 import {
   getPelangganService,
@@ -13,6 +15,7 @@ import {
   createHandler,
   apiError,
   buildSessionWithPermissions,
+  requireSessionTenantId,
 } from "@/lib/api";
 import { createPelangganSchema } from "@/lib/validations/pelanggan";
 import { logger } from "@/lib/logger";
@@ -89,6 +92,7 @@ export const POST = createHandler(
     const rawData = Object.fromEntries(formData.entries());
     if (rawData.siteId === "") rawData.siteId = null;
     if (rawData.odpId === "") rawData.odpId = null;
+    if (rawData.salesId === "") rawData.salesId = null;
     if (rawData.resellerId === "") rawData.resellerId = null;
     if (rawData.resellerOutletId === "") rawData.resellerOutletId = null;
 
@@ -105,6 +109,13 @@ export const POST = createHandler(
     }
 
     const data = validationResult.data;
+    if (data.salesId) {
+      try {
+        await getPelangganSalesService().pastikanSalesAktif(requireSessionTenantId(ctx), data.salesId);
+      } catch (error) {
+        return responsGalatSalesPelanggan(error, "validasi sales pelanggan baru");
+      }
+    }
     const restriction = checkSiteRestriction(
       buildSessionWithPermissions(session, ctx.permissions),
       "pelanggan",
