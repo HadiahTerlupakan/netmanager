@@ -572,3 +572,40 @@
   - Penjaga rule-shaped yang sudah ada bisa menangkap cacat yang uji fungsional
     saya lewatkan. Jalankan `npm test` penuh SEBELUM percaya pada uji tiruan
     sendiri.
+
+## Migration yang mengubah data wajib disimulasikan ke data produksi sebelum push
+
+- **Konteks (2026-10-02):** migration `add_persona_to_roles` lolos semua test dan
+  benar di data seed, tetapi aturan "role SALES bila ada user ber-`isSales`" akan
+  menjadikan role Teknisi (35 user) SALES di produksi — seluruh teknisi berganti
+  tampilan sales. Ketahuan hanya karena user meminta cek produksi dulu.
+- **Why:** data seed tidak memuat warisan lapangan (teknisi yang kadang canvasing
+  ber-`isSales`). Test hanya membuktikan SQL benar terhadap data yang saya bayangkan.
+- **How to apply:** sebelum push, untuk setiap UPDATE/INSERT di migration yang belum
+  terpasang, tulis SELECT padanannya dan jalankan read-only di DB produksi; laporkan
+  jumlah baris/role/user yang berubah. Cek juga `CREATE UNIQUE INDEX` terhadap duplikat.
+
+## Tampilan per persona: jangan mewarisi bagian persona lain
+
+- **Konteks (2026-10-01):** beranda Staff menampilkan "Kinerja sales bulan ini" karena
+  komponen beranda sales dipakai ulang apa adanya. User: "staf ya staf saja".
+- **Why:** memakai ulang layar utuh ikut membawa bagian yang tidak relevan bagi persona itu.
+- **How to apply:** saat membuat/mengubah beranda persona, daftar dulu bagian yang memang
+  dibutuhkan persona itu; pakai ulang komponen kecil, bukan layar utuh. Uji visual setiap
+  persona (staff, teknisi, sales, kepala sales, investor) di emulator.
+
+## Beranda ringkas; daftar panjang pindah ke menu
+
+- **Konteks (2026-10-02):** kartu tunggakan/isolir di beranda memanjang ke bawah. User:
+  "kenapa tidak dibuatkan menu saja … di halaman depan dibatasi hanya beberapa".
+- **How to apply:** beranda hanya pratinjau (2–3 item + "Lihat semua"); daftar lengkap di
+  layar sendiri yang dibuka dari menu cepat.
+
+## Uji visual layar baru dengan data terisi, bukan hanya keadaan kosong
+
+- **Konteks (2026-10-02):** chip saringan sales di daftar Keluhan memanjang setinggi layar
+  (ScrollView horizontal tanpa `flex-grow-0`). Saat saya uji, daftar sedang kosong untuk
+  persona itu sehingga chip tidak tampil; user yang menemukannya.
+- **How to apply:** untuk setiap layar baru, siapkan data yang membuat SEMUA bagian kondisional
+  tampil (chip, badge, ringkasan per sales) lalu screenshot. ScrollView horizontal di dalam
+  kolom flex selalu diberi `flex-grow-0`.

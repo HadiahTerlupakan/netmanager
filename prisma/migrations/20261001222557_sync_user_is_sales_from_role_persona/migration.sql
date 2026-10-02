@@ -3,7 +3,7 @@
 -- komentar `///` kolom isSales di schema.prisma tidak menghasilkan diff.
 -- Idempoten: hanya menyentuh baris yang nilainya berbeda.
 -- Tinjau dulu dengan laporan pra-deploy:
--- docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md
+-- docs/reports/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md
 
 -- Pertahankan hak cairkan bonus canvasing. Sebelumnya hak itu datang dari
 -- isSales per user; teknisi/manajer yang kadang canvasing (contoh produksi: role

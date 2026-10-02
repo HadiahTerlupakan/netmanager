@@ -121,7 +121,7 @@ Staff **bukan** teknisi. Beranda staff minimal:
 6. **Satukan penentu sales** — migration data
    `20261001222557_sync_user_is_sales_from_role_persona`: `User.isSales` =
    `role.persona = SALES` (user tanpa role → `false`). Tinjau dulu dengan
-   laporan pra-deploy `docs/guides/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
+   laporan pra-deploy `docs/reports/LAPORAN_PRA_DEPLOY_SYNC_IS_SALES_2026-10-02.md`.
    Sejak langkah ini `isSales` adalah salinan tersinkron, bukan masukan.
 7. **Deprecate** `User.isSales` setelah semua klien & query memakai `persona`;
    hapus di migration berikutnya (drop column) setelah dilaporkan ke user.
