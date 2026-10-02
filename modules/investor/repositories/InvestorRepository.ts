@@ -3,6 +3,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 /** Batas perangkat per investor; token tertua dibuang lebih dulu. */
 const MAKS_FCM_TOKEN_INVESTOR = 5;
+/** Jumlah payout terbaru yang ikut dimuat di detail investor admin. */
+const JUMLAH_PAYOUT_TERBARU = 5;
 
 export class InvestorRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
@@ -128,6 +130,50 @@ export class InvestorRepository {
     await this.client.investor.update({
       where: { id },
       data: { fcmTokens: { set: investor.fcmTokens.filter((t) => t !== token) } },
+    });
+  }
+
+  /** Investor yang memegang salah satu token FCM (untuk membersihkan token mati). */
+  async findFcmTokenOwners(tokens: string[]) {
+    return this.client.investor.findMany({
+      where: { fcmTokens: { hasSome: tokens } },
+      select: { id: true, fcmTokens: true },
+    });
+  }
+
+  /** Investor bertoken FCM yang tidak diperbarui sejak `cutoff`. */
+  async findWithStaleFcmTokens(cutoff: Date) {
+    return this.client.investor.findMany({
+      where: {
+        fcmTokens: { isEmpty: false },
+        OR: [
+          { pushTokenUpdatedAt: { lt: cutoff } },
+          { pushTokenUpdatedAt: null, updatedAt: { lt: cutoff } },
+        ],
+      },
+      select: { id: true, fcmTokens: true },
+    });
+  }
+
+  /** Mengganti seluruh daftar token FCM investor. */
+  async replaceFcmTokens(id: string, tokens: string[]) {
+    return this.client.investor.update({
+      where: { id },
+      data: { fcmTokens: { set: tokens } },
+      select: { id: true },
+    });
+  }
+
+  /** Investor beserta 5 payout terbarunya untuk halaman detail admin. */
+  async findByIdWithRecentPayouts(id: string) {
+    return this.client.investor.findUnique({
+      where: { id },
+      include: {
+        payouts: {
+          orderBy: { date: "desc" },
+          take: JUMLAH_PAYOUT_TERBARU,
+        },
+      },
     });
   }
 

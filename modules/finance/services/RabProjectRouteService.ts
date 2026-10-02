@@ -1,4 +1,8 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import {
+  hasActiveInvestorProfitShare,
+  isRabProjectMonthShared,
+} from "@/modules/investor/public-queries";
 import { buildRabBottleneckMetrics } from "../utils/rab-bottleneck-metrics";
 import {
   buildRabRevisionVarianceSummary,
@@ -63,10 +67,22 @@ type ActualAchievementInput = {
   notes?: string;
 };
 
+/** Status bagi hasil investor atas proyek RAB (data milik module investor). */
+export interface RabInvestorProfitShareLookup {
+  hasActiveProfitShare(rabProjectId: string): Promise<boolean>;
+  isProjectMonthShared(rabProjectId: string, month: number): Promise<boolean>;
+}
+
+const investorProfitShareLookup: RabInvestorProfitShareLookup = {
+  hasActiveProfitShare: hasActiveInvestorProfitShare,
+  isProjectMonthShared: isRabProjectMonthShared,
+};
+
 export class RabProjectRouteService {
   constructor(
     private readonly rabProjectRepository = new RabProjectRepository(),
     private readonly expenseRepository = new ExpenseRepository(),
+    private readonly profitShareLookup: RabInvestorProfitShareLookup = investorProfitShareLookup,
   ) {}
 
   /** Get a serialized RAB project detail. */
@@ -86,7 +102,7 @@ export class RabProjectRouteService {
     // Proyek yang sudah punya bagi hasil investor: tanggal mulai (penentu bulan
     // ke-n), daftar investor, dan modalnya dikunci agar bulan yang sudah dibayar
     // tidak bergeser atau terhitung ulang.
-    const kunciModalInvestor = await this.rabProjectRepository.hasBagiHasilInvestor(id);
+    const kunciModalInvestor = await this.profitShareLookup.hasActiveProfitShare(id);
     if (kunciModalInvestor && input.startDate !== undefined) {
       const sekarang = await this.rabProjectRepository.findById(id);
       if (!isTanggalSama(sekarang?.startDate ?? null, input.startDate ?? null)) {
@@ -142,7 +158,7 @@ export class RabProjectRouteService {
       await this.rabProjectRepository.findById(input.rabProjectId),
       "RAB Project",
     );
-    if (await this.rabProjectRepository.isBulanSudahDibagikan(input.rabProjectId, input.month)) {
+    if (await this.profitShareLookup.isProjectMonthShared(input.rabProjectId, input.month)) {
       throw createRouteServiceError(
         `Bulan ke-${input.month} sudah masuk bagi hasil investor dan tidak bisa diubah lagi. Bila bagi hasilnya belum dibayar, batalkan dulu di Investor → Bagi Hasil.`,
         HTTP_CONFLICT,

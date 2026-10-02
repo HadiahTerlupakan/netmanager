@@ -71,7 +71,14 @@ describe("event investor untuk notifikasi", () => {
     };
     const service = new InvestorProfitShareService(profitShareRepo as never);
 
-    await service.approve("ph-1", "admin-1");
+    await service.approve("ph-1", "t-1", "admin-1");
+
+    expect(profitShareRepo.findById).toHaveBeenCalledWith("ph-1", "t-1");
+    expect(profitShareRepo.updateStatus).toHaveBeenCalledWith(
+      "ph-1",
+      "t-1",
+      expect.objectContaining({ status: "APPROVED", approvedById: "admin-1" }),
+    );
 
     expect(mockPublish).toHaveBeenCalledWith("investor:profit_share.approved", {
       profitShareId: "ph-1",

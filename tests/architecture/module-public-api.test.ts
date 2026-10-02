@@ -124,7 +124,6 @@ const dependencyInversionBaseline = new Set([
   "modules/finance/services/UnmatchedMutationService.ts",
   "modules/finance/services/ManualPaymentAdminRouteService.ts",
   "modules/finance/services/FinanceExpenseBridgeService.ts",
-  "modules/finance/services/InvestorPaymentBridgeService.ts",
   "modules/finance/services/InvoicePaymentStateService.ts",
   "modules/investor/services/InvestorAdminService.ts",
   "modules/investor/services/InvestorPortalAuthService.ts",

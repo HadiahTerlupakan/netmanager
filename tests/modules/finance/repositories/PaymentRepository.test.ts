@@ -22,11 +22,6 @@ vi.mock(
     mapPaymentEntity: vi.fn((payment) => payment),
     createCustomerPaymentsForInvoices: vi.fn(),
     findFirstAuthPayment: vi.fn(),
-    findInvestorById: vi.fn(),
-    findInvestorDetail: vi.fn(),
-    findManyInvestorPayouts: vi.fn(),
-    countInvestorPayouts: vi.fn(),
-    createInvestorPayout: vi.fn(),
   }),
 );
 

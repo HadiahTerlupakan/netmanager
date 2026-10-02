@@ -40,7 +40,6 @@ export * from "./services/InvoiceRouteService";
 export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";
 export * from "./services/ManualPaymentAdminRouteService";
-export * from "./services/InvestorPaymentBridgeService";
 export * from "./services/CustomerPaymentFinanceService";
 export * from "./services/CustomerPaymentMethodService";
 export * from "./services/FinanceExpenseBridgeService";

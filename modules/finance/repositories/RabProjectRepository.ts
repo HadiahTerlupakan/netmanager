@@ -152,28 +152,6 @@ export class RabProjectRepository implements IRabProjectRepository {
     });
   }
 
-  /**
-   * Apakah bulan ke-n proyek sudah masuk bagi hasil investor (selain yang
-   * dibatalkan). Bulan seperti itu tidak boleh diubah lagi — angka yang
-   * sudah dibayar harus tetap sama.
-   */
-  async isBulanSudahDibagikan(rabProjectId: string, month: number): Promise<boolean> {
-    const bagiHasil = await this.client.investorProfitShare.findFirst({
-      where: { rabProjectId, projectMonths: { has: month }, status: { not: "CANCELLED" } },
-      select: { id: true },
-    });
-    return Boolean(bagiHasil);
-  }
-
-  /** Apakah proyek sudah punya bagi hasil investor (selain yang dibatalkan). */
-  async hasBagiHasilInvestor(rabProjectId: string): Promise<boolean> {
-    const bagiHasil = await this.client.investorProfitShare.findFirst({
-      where: { rabProjectId, status: { not: "CANCELLED" } },
-      select: { id: true },
-    });
-    return Boolean(bagiHasil);
-  }
-
   /** Update a RAB project and nested relations in one transaction. */
   async updateProjectWithRelations(
     id: string,

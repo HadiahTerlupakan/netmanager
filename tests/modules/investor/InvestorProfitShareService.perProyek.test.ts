@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
@@ -48,7 +49,7 @@ function proyek(ubah: Record<string, unknown> = {}) {
 
 const repo = {
   findProjectsForProfitShare: vi.fn(),
-  findPaidProjectMonths: vi.fn(),
+  findPaidProjectMonthsByInvestor: vi.fn(),
   create: vi.fn(async (data: Record<string, unknown>) => data),
 };
 const service = new InvestorProfitShareService(repo as never);
@@ -57,7 +58,7 @@ const AGUSTUS = [new Date("2026-08-01T00:00:00.000Z"), new Date("2026-08-31T00:0
 describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    repo.findPaidProjectMonths.mockResolvedValue(new Set());
+    repo.findPaidProjectMonthsByInvestor.mockResolvedValue(new Map());
   });
 
   it("memakai tracking RAB: pengembalian modal + bagi hasil dibagi sesuai porsi modal", async () => {
@@ -116,7 +117,12 @@ describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
       }),
     ]);
     // Bulan ke-3 (Agustus) sudah dibagikan lewat perhitungan Agustus sebelumnya.
-    repo.findPaidProjectMonths.mockResolvedValue(new Set([3]));
+    repo.findPaidProjectMonthsByInvestor.mockResolvedValue(
+      new Map([
+        ["inv-a", new Set([3])],
+        ["inv-b", new Set([3])],
+      ]),
+    );
 
     await service.calculateForPeriod("t-1", new Date("2026-07-01T00:00:00.000Z"), new Date("2026-08-31T00:00:00.000Z"));
 
@@ -134,12 +140,46 @@ describe("InvestorProfitShareService.calculateForPeriod — per proyek", () => {
         ],
       }),
     ]);
-    repo.findPaidProjectMonths.mockResolvedValue(new Set([3]));
+    repo.findPaidProjectMonthsByInvestor.mockResolvedValue(new Map([["inv-a", new Set([3])]]));
 
     const hasil = await service.calculateForPeriod("t-1", ...AGUSTUS);
 
     expect(repo.create).not.toHaveBeenCalled();
     expect(hasil.dibuat).toEqual([]);
-    expect(repo.findPaidProjectMonths).toHaveBeenCalledTimes(1);
+    // Satu query per proyek, hanya untuk investor aktif (bukan per investor).
+    expect(repo.findPaidProjectMonthsByInvestor).toHaveBeenCalledTimes(1);
+    expect(repo.findPaidProjectMonthsByInvestor).toHaveBeenCalledWith("rab-1", ["inv-a"]);
+  });
+
+  it("bulan dibayar dibaca per investor: investor lain tetap dapat bulannya", async () => {
+    repo.findProjectsForProfitShare.mockResolvedValue([proyek()]);
+    repo.findPaidProjectMonthsByInvestor.mockResolvedValue(new Map([["inv-a", new Set([3])]]));
+
+    await service.calculateForPeriod("t-1", ...AGUSTUS);
+
+    expect(repo.findPaidProjectMonthsByInvestor).toHaveBeenCalledTimes(1);
+    expect(repo.create).toHaveBeenCalledTimes(1);
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ investorId: "inv-b", projectMonths: [3] }),
+    );
+  });
+
+  it("kalkulasi bersamaan: bulan yang sudah dibagikan proses lain (P2002) dilewati, investor lain tetap dibuat", async () => {
+    repo.findProjectsForProfitShare.mockResolvedValue([proyek()]);
+    repo.create
+      .mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("unique", { code: "P2002", clientVersion: "test" }))
+      .mockImplementationOnce(async (data: Record<string, unknown>) => data);
+
+    const hasil = await service.calculateForPeriod("t-1", ...AGUSTUS);
+
+    expect(hasil.dibuat).toHaveLength(1);
+    expect(hasil.dibuat[0]).toMatchObject({ investorId: "inv-b" });
+  });
+
+  it("galat selain bentrok unique tetap dilempar", async () => {
+    repo.findProjectsForProfitShare.mockResolvedValue([proyek()]);
+    repo.create.mockRejectedValueOnce(new Error("koneksi putus"));
+
+    await expect(service.calculateForPeriod("t-1", ...AGUSTUS)).rejects.toThrow("koneksi putus");
   });
 });

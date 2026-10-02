@@ -8,10 +8,12 @@ export const POST = createHandler(
     const { shareId } = ctx.params;
     const userId = ctx.session?.user.id;
     if (!userId) return ApiErrors.unauthorized();
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
 
     try {
       const service = getInvestorProfitShareService();
-      const share = await service.approve(shareId, userId);
+      const share = await service.approve(shareId, tenantId, userId);
       return apiSuccess(share);
     } catch (error) {
       if (error instanceof Error) {

@@ -1,4 +1,8 @@
 import { prisma, prismaMitra } from "@/modules/database";
+import {
+  findInvestorsWithStaleFcmTokens,
+  replaceInvestorFcmTokens,
+} from "@/modules/investor/public-queries";
 import { PushTokenRepository } from "../repositories/PushTokenRepository";
 
 /**
@@ -57,16 +61,7 @@ export async function cleanupStaleFcmTokenArrays(): Promise<{
     select: { id: true, fcmTokens: true },
   });
 
-  const staleInvestors = await prisma.investor.findMany({
-    where: {
-      fcmTokens: { isEmpty: false },
-      OR: [
-        { pushTokenUpdatedAt: { lt: cutoff } },
-        { pushTokenUpdatedAt: null, updatedAt: { lt: cutoff } },
-      ],
-    },
-    select: { id: true, fcmTokens: true },
-  });
+  const staleInvestors = await findInvestorsWithStaleFcmTokens(cutoff);
 
   let tokensRemoved = 0;
 
@@ -88,10 +83,7 @@ export async function cleanupStaleFcmTokenArrays(): Promise<{
 
   const investorUpdates = staleInvestors.map((investor) => {
     tokensRemoved += investor.fcmTokens.length;
-    return prisma.investor.update({
-      where: { id: investor.id },
-      data: { fcmTokens: { set: [] } },
-    });
+    return replaceInvestorFcmTokens(investor.id, []);
   });
 
   await Promise.all([...userUpdates, ...mitraUpdates, ...investorUpdates]);

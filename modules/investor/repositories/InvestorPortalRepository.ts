@@ -1,41 +1,16 @@
 import { prisma } from "@/modules/database";
+import {
+  findRabInvestmentDetail,
+  findRabInvestmentList,
+  findRabInvestmentSummaries,
+  type RabInvestmentFilter,
+} from "@/modules/finance/public-queries";
 import { type Prisma, type RabStatus, type Status } from "@prisma/client";
 
 import { STATUS_PROYEK_TERLIHAT_INVESTOR } from "../domain/porsi-investor-proyek";
 
-/** Modal semua investor proyek — dasar porsi bagi hasil tiap investor. */
-const MODAL_SEMUA_INVESTOR = {
-  investors: { select: { investmentAmount: true } },
-} as const;
-
-const PROJECT_SUMMARY_INCLUDE = {
-  rabProject: {
-    include: {
-      actualAchievements: true,
-      items: true,
-      site: { select: { name: true } },
-      ...MODAL_SEMUA_INVESTOR,
-    },
-  },
-} satisfies Prisma.RabInvestorInclude;
-
-const PROJECT_LIST_INCLUDE = {
-  rabProject: {
-    include: {
-      actualAchievements: true,
-      items: { select: { totalPrice: true, expenseType: true } },
-      site: { select: { name: true } },
-      ...MODAL_SEMUA_INVESTOR,
-    },
-  },
-} satisfies Prisma.RabInvestorInclude;
-
 /** Proyek yang belum disetujui, ditolak, atau dibatalkan tidak tampil ke investor. */
-const PROYEK_TERLIHAT = {
-  rabProject: {
-    status: { in: [...STATUS_PROYEK_TERLIHAT_INVESTOR] as RabStatus[] },
-  },
-} satisfies Prisma.RabInvestorWhereInput;
+const STATUS_PROYEK_TERLIHAT = [...STATUS_PROYEK_TERLIHAT_INVESTOR] as RabStatus[];
 
 const INTERNAL_CUSTOMER_SELECT = {
   siteId: true,
@@ -53,26 +28,23 @@ export type InvestorPortalInternalCustomer = {
   hargaPaket: { harga: Prisma.Decimal | number | bigint | string } | null;
 };
 
-function tenantScopedInvestor(tenantId?: string) {
-  return tenantId ? { investor: { tenantId } } : {};
+function filterInvestasi(investorId: string, tenantId?: string): RabInvestmentFilter {
+  return { investorId, tenantId, visibleStatuses: STATUS_PROYEK_TERLIHAT };
 }
 
+/**
+ * Data portal investor. Proyek RAB milik module finance, jadi dibaca lewat
+ * `@/modules/finance/public-queries` — bukan query tabel RAB langsung.
+ */
 export class InvestorPortalRepository {
   /** Mengambil proyek investor untuk halaman dashboard. */
   async findDashboardProjects(investorId: string, tenantId?: string) {
-    return prisma.rabInvestor.findMany({
-      where: { investorId, ...tenantScopedInvestor(tenantId), ...PROYEK_TERLIHAT },
-      include: PROJECT_SUMMARY_INCLUDE,
-    });
+    return findRabInvestmentSummaries(filterInvestasi(investorId, tenantId));
   }
 
   /** Mengambil daftar proyek investor untuk halaman list. */
   async findProjectList(investorId: string, tenantId?: string) {
-    return prisma.rabInvestor.findMany({
-      where: { investorId, ...tenantScopedInvestor(tenantId), ...PROYEK_TERLIHAT },
-      include: PROJECT_LIST_INCLUDE,
-      orderBy: { rabProject: { createdAt: "desc" } },
-    });
+    return findRabInvestmentList(filterInvestasi(investorId, tenantId));
   }
 
   /** Mengambil detail proyek investor berdasarkan akses investor. */
@@ -81,15 +53,7 @@ export class InvestorPortalRepository {
     investorId: string,
     tenantId?: string,
   ) {
-    return prisma.rabInvestor.findFirst({
-      where: {
-        rabProjectId: projectId,
-        investorId,
-        ...tenantScopedInvestor(tenantId),
-        ...PROYEK_TERLIHAT,
-      },
-      include: PROJECT_LIST_INCLUDE,
-    });
+    return findRabInvestmentDetail(projectId, filterInvestasi(investorId, tenantId));
   }
 
   /** Mengambil pelanggan internal berdasarkan site. */

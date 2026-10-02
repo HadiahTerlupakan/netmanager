@@ -3,13 +3,8 @@ import { type Prisma } from "@prisma/client-billing";
 import type { IPaymentRepository } from "../domain/ports/IPaymentRepository";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
 import {
-  countInvestorPayouts,
   createCustomerPaymentsForInvoices,
-  createInvestorPayout,
   findFirstAuthPayment,
-  findInvestorById,
-  findInvestorDetail,
-  findManyInvestorPayouts,
   mapPaymentEntity,
 } from "./paymentRepository.customer-payments";
 
@@ -196,44 +191,5 @@ export class PaymentRepository implements IPaymentRepository {
   /** Memperbarui pembayaran berdasarkan id. */
   async updatePaymentById(paymentId: string, data: Prisma.PaymentUpdateInput) {
     return prismaBilling.payment.update({ where: { id: paymentId }, data });
-  }
-
-  /** Mengambil daftar payout investor dengan pagination. */
-  async findManyInvestorPayouts(options: {
-    investorId: string;
-    skip: number;
-    take: number;
-  }) {
-    return findManyInvestorPayouts(options);
-  }
-
-  /** Menghitung total payout investor. */
-  async countInvestorPayouts(investorId: string) {
-    return countInvestorPayouts(investorId);
-  }
-
-  /** Mengambil investor sederhana berdasarkan id. */
-  async findInvestorById(investorId: string) {
-    return findInvestorById(investorId);
-  }
-
-  /** Membuat payout investor baru. */
-  async createInvestorPayout(data: {
-    investorId: string;
-    amount: bigint;
-    date: Date;
-    bankName?: string;
-    accountNumber?: string;
-    accountName?: string;
-    reference?: string;
-    notes?: string;
-    status: string;
-  }) {
-    return createInvestorPayout(data);
-  }
-
-  /** Mengambil detail investor lengkap untuk admin route. */
-  async findInvestorDetail(investorId: string) {
-    return findInvestorDetail(investorId);
   }
 }

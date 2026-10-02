@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {}, prismaAuth: {} }));
-vi.mock("@/modules/finance", () => ({ InvestorPaymentBridgeService: vi.fn() }));
 
 import { InvestorPortalKeuanganService } from "@/modules/investor/services/InvestorPortalKeuanganService";
 

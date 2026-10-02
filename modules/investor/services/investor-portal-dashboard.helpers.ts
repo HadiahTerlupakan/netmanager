@@ -4,6 +4,7 @@ import {
   summarizeInternalCustomers,
   type InvestorPortalInternalCustomers,
 } from "./investor-portal-customer-metrics.helpers";
+import { bulatkanRupiah } from "../domain/bagi-hasil-proyek";
 import { InvestorPortalRepository } from "../repositories/InvestorPortalRepository";
 import { hitungHasilInvestorProyek } from "./investor-project-tracking.helpers";
 
@@ -27,9 +28,12 @@ export type RevenueSnapshot = {
 type DashboardResponse = {
   totalInvestment: string;
   totalProjectedRevenue: string;
-  /** Bagi hasil milik investor dari bulan-bulan aktual semua proyek (hitungan RAB). */
+  /**
+   * Bagi hasil milik investor dari bulan-bulan aktual semua proyek (hitungan
+   * RAB), dibulatkan ke sen seperti record bagi hasil yang disimpan.
+   */
   totalActualRevenue: string;
-  /** Pengembalian modal milik investor dari bulan-bulan aktual (hitungan RAB). */
+  /** Pengembalian modal milik investor dari bulan-bulan aktual, dibulatkan ke sen. */
   totalCapitalReturned: string;
   activeProjectsCount: number;
   projects: Array<{
@@ -85,8 +89,8 @@ export function buildDashboardResponse(
   return {
     totalInvestment: totals.totalInvestment.toString(),
     totalProjectedRevenue: totals.totalProjectedRevenue.toString(),
-    totalActualRevenue: totals.totalActualRevenue.toString(),
-    totalCapitalReturned: totals.totalCapitalReturned.toString(),
+    totalActualRevenue: String(totals.totalActualRevenue),
+    totalCapitalReturned: String(totals.totalCapitalReturned),
     activeProjectsCount: projects.length,
     projects: projects.map((item) => ({
       id: item.rabProject.id,
@@ -109,18 +113,21 @@ function calculateDashboardTotals(projects: DashboardProjects) {
           accumulator.totalInvestment +
           BigInt(item.investmentAmount.toString()),
         totalProjectedRevenue: accumulator.totalProjectedRevenue + projected,
-        totalActualRevenue:
-          accumulator.totalActualRevenue + BigInt(Math.floor(hasil.totalBagiHasil)),
-        totalCapitalReturned:
-          accumulator.totalCapitalReturned +
-          BigInt(Math.floor(hasil.totalPengembalianModal)),
+        // Per proyek sudah dibulatkan ke sen; jumlahnya dibulatkan lagi agar
+        // galat floating point tidak memunculkan pecahan di bawah sen.
+        totalActualRevenue: bulatkanRupiah(
+          accumulator.totalActualRevenue + hasil.totalBagiHasil,
+        ),
+        totalCapitalReturned: bulatkanRupiah(
+          accumulator.totalCapitalReturned + hasil.totalPengembalianModal,
+        ),
       };
     },
     {
       totalInvestment: ZERO_BIGINT,
       totalProjectedRevenue: ZERO_BIGINT,
-      totalActualRevenue: ZERO_BIGINT,
-      totalCapitalReturned: ZERO_BIGINT,
+      totalActualRevenue: ZERO_NUMBER,
+      totalCapitalReturned: ZERO_NUMBER,
     },
   );
 }

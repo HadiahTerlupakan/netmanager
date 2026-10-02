@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RabProjectRouteService } from "@/modules/finance";
 
+/** Lookup bagi hasil investor (milik module investor) untuk proyek RAB. */
+function bagiHasil(sudahAda: boolean) {
+  return {
+    hasActiveProfitShare: vi.fn().mockResolvedValue(sudahAda),
+    isProjectMonthShared: vi.fn().mockResolvedValue(false),
+  };
+}
+
 const updatedProject = {
   id: "rab-1",
   projectedRevenue: 1000n,
@@ -39,9 +47,8 @@ describe("RabProjectRouteService PATCH", () => {
   it("mengupdate proyek dan menserialisasi nilai bigint untuk response route", async () => {
     const repository = {
       updateProjectWithRelations: vi.fn().mockResolvedValue(updatedProject),
-      hasBagiHasilInvestor: vi.fn().mockResolvedValue(false),
     };
-    const service = new RabProjectRouteService(repository as never);
+    const service = new RabProjectRouteService(repository as never, undefined, bagiHasil(false));
 
     const result = await service.updateProject("rab-1", { name: "RAB Baru" });
 
@@ -78,9 +85,8 @@ describe("RabProjectRouteService PATCH", () => {
   it("mengembalikan not found ketika proyek yang diupdate tidak ada", async () => {
     const repository = {
       updateProjectWithRelations: vi.fn().mockResolvedValue(null),
-      hasBagiHasilInvestor: vi.fn().mockResolvedValue(false),
     };
-    const service = new RabProjectRouteService(repository as never);
+    const service = new RabProjectRouteService(repository as never, undefined, bagiHasil(false));
 
     await expect(
       service.updateProject("rab-1", { name: "RAB Baru" }),
@@ -90,10 +96,9 @@ describe("RabProjectRouteService PATCH", () => {
   it("RAB yang sudah punya bagi hasil: tanggal mulai tidak bisa diubah (409)", async () => {
     const repository = {
       updateProjectWithRelations: vi.fn(),
-      hasBagiHasilInvestor: vi.fn().mockResolvedValue(true),
       findById: vi.fn().mockResolvedValue({ startDate: new Date("2026-06-01T00:00:00.000Z") }),
     };
-    const service = new RabProjectRouteService(repository as never);
+    const service = new RabProjectRouteService(repository as never, undefined, bagiHasil(true));
 
     await expect(
       service.updateProject("rab-1", { startDate: new Date("2026-08-01T00:00:00.000Z") }),
@@ -117,9 +122,8 @@ describe("RabProjectRouteService PATCH", () => {
     );
     const repository = {
       updateProjectWithRelations: vi.fn().mockRejectedValue(new ModalInvestorTerkunciError()),
-      hasBagiHasilInvestor: vi.fn().mockResolvedValue(true),
     };
-    const service = new RabProjectRouteService(repository as never);
+    const service = new RabProjectRouteService(repository as never, undefined, bagiHasil(true));
 
     await expect(service.updateProject("rab-1", { investorIds: ["inv-x"] })).rejects.toMatchObject({
       status: 409,

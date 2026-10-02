@@ -12,8 +12,10 @@ export const POST = createHandler(
   { auth: true, permissions: ["investors:manage"] },
   async (_req, ctx) => {
     const { shareId } = ctx.params;
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
     try {
-      const share = await getInvestorProfitShareService().cancel(shareId);
+      const share = await getInvestorProfitShareService().cancel(shareId, tenantId);
       return apiSuccess(share);
     } catch (error) {
       // Hanya galat domain yang pesannya aman untuk klien; sisanya ke handler pusat.

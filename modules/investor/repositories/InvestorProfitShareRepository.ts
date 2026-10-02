@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import type { InvestorProfitShareStatus, Prisma, RabStatus } from "@prisma/client";
+import {
+  findRabProjectsForProfitShare,
+  type RabProjectForProfitShare,
+} from "@/modules/finance/public-queries";
+import type {
+  InvestorProfitShareStatus,
+  Prisma,
+  RabStatus,
+} from "@prisma/client";
 
 import { STATUS_PROYEK_TERLIHAT_INVESTOR } from "../domain/porsi-investor-proyek";
 
@@ -44,50 +52,75 @@ function keDto<T extends RecordBagiHasil>(record: T) {
   };
 }
 
-/** Data proyek RAB lengkap untuk menghitung bagi hasil per proyek. */
-const PROYEK_UNTUK_BAGI_HASIL = {
-  items: { select: { totalPrice: true, expenseType: true } },
-  actualAchievements: true,
-  investors: {
-    select: {
-      investorId: true,
-      investmentAmount: true,
-      investor: { select: { isActive: true } },
-    },
-  },
-} satisfies Prisma.RabProjectInclude;
-
-export type ProyekUntukBagiHasil = Prisma.RabProjectGetPayload<{
-  include: typeof PROYEK_UNTUK_BAGI_HASIL;
-}>;
+/** Proyek RAB (dari finance) lengkap dengan status aktif tiap investornya. */
+export type ProyekUntukBagiHasil = Omit<
+  RabProjectForProfitShare,
+  "investors"
+> & {
+  investors: Array<
+    RabProjectForProfitShare["investors"][number] & {
+      investor: { isActive: boolean };
+    }
+  >;
+};
 
 export class InvestorProfitShareRepository {
   /** Membuat record profit share baru. */
   async create(data: CreateProfitShareInput) {
-    const record = await prisma.investorProfitShare.create({
-      data: {
-        investorId: data.investorId,
-        configId: data.configId ?? null,
-        rabProjectId: data.rabProjectId ?? null,
-        projectMonths: data.projectMonths ?? [],
-        periodStart: data.periodStart,
-        periodEnd: data.periodEnd,
-        netProfit: data.netProfit,
-        sharePercent: data.sharePercent,
-        shareAmount: data.shareAmount,
-        capitalReturnAmount: data.capitalReturnAmount ?? 0,
-        tenantId: data.tenantId,
-        notes: data.notes,
-      },
-      include: NAMA_PROYEK,
+    return prisma.$transaction(async (tx) => {
+      const record = await tx.investorProfitShare.create({
+        data: {
+          investorId: data.investorId,
+          configId: data.configId ?? null,
+          rabProjectId: data.rabProjectId ?? null,
+          projectMonths: data.projectMonths ?? [],
+          periodStart: data.periodStart,
+          periodEnd: data.periodEnd,
+          netProfit: data.netProfit,
+          sharePercent: data.sharePercent,
+          shareAmount: data.shareAmount,
+          capitalReturnAmount: data.capitalReturnAmount ?? 0,
+          tenantId: data.tenantId,
+          notes: data.notes,
+        },
+        include: NAMA_PROYEK,
+      });
+      // Penjaga unique (investor, proyek, bulan): kalkulasi bersamaan yang membagikan
+      // bulan yang sama gagal P2002 dan seluruh transaksi dibatalkan.
+      if (data.rabProjectId && data.projectMonths?.length) {
+        await tx.investorProfitShareBulan.createMany({
+          data: data.projectMonths.map((month) => ({
+            profitShareId: record.id,
+            investorId: data.investorId,
+            rabProjectId: data.rabProjectId as string,
+            month,
+            tenantId: data.tenantId,
+          })),
+        });
+      }
+      return keDto(record);
     });
-    return keDto(record);
   }
 
-  /** Mengambil profit share berdasarkan ID. */
-  async findById(id: string) {
-    const record = await prisma.investorProfitShare.findUnique({
-      where: { id },
+  /** Batalkan bagi hasil dan lepas bulan-bulannya agar bisa dihitung ulang (satu transaksi). */
+  async batalkan(id: string, tenantId: string) {
+    return prisma.$transaction(async (tx) => {
+      const record = await tx.investorProfitShare.update({
+        where: { id, tenantId },
+        data: { status: "CANCELLED" },
+        include: NAMA_PROYEK,
+      });
+      await tx.investorProfitShareBulan.deleteMany({
+        where: { profitShareId: id, tenantId },
+      });
+      return keDto(record);
+    });
+  }
+
+  /** Mengambil profit share berdasarkan ID, disaring tenant secara eksplisit. */
+  async findById(id: string, tenantId: string) {
+    const record = await prisma.investorProfitShare.findFirst({
+      where: { id, tenantId },
       include: NAMA_PROYEK,
     });
     return record ? keDto(record) : null;
@@ -142,31 +175,74 @@ export class InvestorProfitShareRepository {
     return record !== null;
   }
 
-  /** Bulan ke-n proyek yang sudah pernah dibagikan ke investor (selain yang dibatalkan). */
-  async findPaidProjectMonths(investorId: string, rabProjectId: string): Promise<Set<number>> {
+  /**
+   * Bulan ke-n proyek yang sudah pernah dibagikan (selain yang dibatalkan),
+   * per investor — satu query untuk semua investor proyek. Investor tanpa
+   * riwayat tidak muncul di map.
+   */
+  async findPaidProjectMonthsByInvestor(
+    rabProjectId: string,
+    investorIds: string[],
+  ): Promise<Map<string, Set<number>>> {
+    const bulanPerInvestor = new Map<string, Set<number>>();
+    if (investorIds.length === 0) return bulanPerInvestor;
+
     const records = await prisma.investorProfitShare.findMany({
-      where: { investorId, rabProjectId, status: { not: "CANCELLED" } },
-      select: { projectMonths: true },
-    });
-    return new Set(records.flatMap((record) => record.projectMonths));
-  }
-
-  /** Proyek RAB tenant yang sudah disetujui dan punya investor. */
-  async findProjectsForProfitShare(tenantId: string): Promise<ProyekUntukBagiHasil[]> {
-    return prisma.rabProject.findMany({
       where: {
-        tenantId,
-        status: { in: [...STATUS_PROYEK_TERLIHAT_INVESTOR] as RabStatus[] },
-        investors: { some: {} },
+        rabProjectId,
+        investorId: { in: investorIds },
+        status: { not: "CANCELLED" },
       },
-      include: PROYEK_UNTUK_BAGI_HASIL,
-      orderBy: { createdAt: "asc" },
+      select: { investorId: true, projectMonths: true },
     });
+    for (const record of records) {
+      const bulan =
+        bulanPerInvestor.get(record.investorId) ?? new Set<number>();
+      record.projectMonths.forEach((bulanKe) => bulan.add(bulanKe));
+      bulanPerInvestor.set(record.investorId, bulan);
+    }
+    return bulanPerInvestor;
   }
 
-  /** Update status profit share. */
+  /**
+   * Proyek RAB tenant yang sudah disetujui dan punya investor. Data RAB dibaca
+   * lewat public query finance; status aktif investor dari tabel investor sendiri.
+   */
+  async findProjectsForProfitShare(
+    tenantId: string,
+  ): Promise<ProyekUntukBagiHasil[]> {
+    const proyekList = await findRabProjectsForProfitShare(tenantId, [
+      ...STATUS_PROYEK_TERLIHAT_INVESTOR,
+    ] as RabStatus[]);
+    const investorAktif = await this.findActiveInvestorIds(
+      proyekList.flatMap((proyek) =>
+        proyek.investors.map((anggota) => anggota.investorId),
+      ),
+    );
+    return proyekList.map((proyek) => ({
+      ...proyek,
+      investors: proyek.investors.map((anggota) => ({
+        ...anggota,
+        investor: { isActive: investorAktif.has(anggota.investorId) },
+      })),
+    }));
+  }
+
+  private async findActiveInvestorIds(
+    investorIds: string[],
+  ): Promise<Set<string>> {
+    if (investorIds.length === 0) return new Set();
+    const investors = await prisma.investor.findMany({
+      where: { id: { in: [...new Set(investorIds)] }, isActive: true },
+      select: { id: true },
+    });
+    return new Set(investors.map((investor) => investor.id));
+  }
+
+  /** Update status profit share, disaring tenant secara eksplisit. */
   async updateStatus(
     id: string,
+    tenantId: string,
     data: {
       status?: InvestorProfitShareStatus;
       approvedAt?: Date;
@@ -177,7 +253,7 @@ export class InvestorProfitShareRepository {
     },
   ) {
     const record = await prisma.investorProfitShare.update({
-      where: { id },
+      where: { id, tenantId },
       data,
       include: NAMA_PROYEK,
     });

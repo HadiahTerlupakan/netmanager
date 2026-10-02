@@ -5626,7 +5626,7 @@ model InvestorDeposit {
 }
 
 model InvestorProfitShare {
-  id                  String                    @id @default(cuid())
+  id                  String                     @id @default(cuid())
   investorId          String
   /// Hanya bagi hasil lama berbasis setoran; bagi hasil per proyek tidak memakai config.
   configId            String?
@@ -5634,14 +5634,14 @@ model InvestorProfitShare {
   rabProjectId        String?
   periodStart         DateTime
   periodEnd           DateTime
-  netProfit           Decimal                   @db.Decimal(19, 2)
+  netProfit           Decimal                    @db.Decimal(19, 2)
   sharePercent        Float
-  shareAmount         Decimal                   @db.Decimal(19, 2)
+  shareAmount         Decimal                    @db.Decimal(19, 2)
   /// Pengembalian modal (cicilan investasi RAB) untuk investor di periode ini.
-  capitalReturnAmount Decimal                   @default(0) @db.Decimal(19, 2)
+  capitalReturnAmount Decimal                    @default(0) @db.Decimal(19, 2)
   /// Bulan ke-n proyek yang tercakup bagi hasil ini (cegah bulan dibayar dua kali).
-  projectMonths       Int[]                     @default([])
-  status              InvestorProfitShareStatus @default(CALCULATED)
+  projectMonths       Int[]                      @default([])
+  status              InvestorProfitShareStatus  @default(CALCULATED)
   approvedAt          DateTime?
   approvedById        String?
   paidAt              DateTime?
@@ -5649,12 +5649,13 @@ model InvestorProfitShare {
   payoutId            String?
   journalId           String?
   notes               String?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   tenantId            String?
-  investor            Investor                  @relation(fields: [investorId], references: [id])
-  config              InvestorConfig?           @relation(fields: [configId], references: [id], onDelete: Restrict)
-  rabProject          RabProject?               @relation(fields: [rabProjectId], references: [id], onDelete: SetNull)
+  investor            Investor                   @relation(fields: [investorId], references: [id])
+  config              InvestorConfig?            @relation(fields: [configId], references: [id], onDelete: Restrict)
+  rabProject          RabProject?                @relation(fields: [rabProjectId], references: [id], onDelete: SetNull)
+  bulanDibagikan      InvestorProfitShareBulan[]
 
   @@index([investorId])
   @@index([tenantId])
@@ -5662,6 +5663,25 @@ model InvestorProfitShare {
   @@index([periodStart, periodEnd])
   @@index([rabProjectId])
   @@map("investor_profit_shares")
+}
+
+/// Penjaga bulan proyek yang sudah dibagikan: satu baris per (investor, proyek, bulan).
+/// Unique mencegah bagi hasil dobel saat dua kalkulasi berjalan bersamaan; baris dihapus
+/// saat bagi hasilnya dibatalkan agar bulan itu bisa dihitung ulang.
+model InvestorProfitShareBulan {
+  id            String              @id @default(cuid())
+  profitShareId String
+  investorId    String
+  rabProjectId  String
+  month         Int
+  tenantId      String?
+  createdAt     DateTime            @default(now())
+  profitShare   InvestorProfitShare @relation(fields: [profitShareId], references: [id], onDelete: Cascade)
+
+  @@unique([investorId, rabProjectId, month])
+  @@index([profitShareId])
+  @@index([tenantId])
+  @@map("investor_profit_share_bulan")
 }
 
 model InvestorConfig {

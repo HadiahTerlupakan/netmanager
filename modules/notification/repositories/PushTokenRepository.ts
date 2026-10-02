@@ -1,4 +1,8 @@
 import { prisma, prismaMitra } from "@/modules/database";
+import {
+  findInvestorFcmTokenOwners,
+  replaceInvestorFcmTokens,
+} from "@/modules/investor/public-queries";
 import type {
   IMobileFcmSession,
   IPushTokenRepository,
@@ -135,10 +139,7 @@ export class PushTokenRepository implements IPushTokenRepository {
         where: { fcmTokens: { hasSome: tokens } },
         select: { id: true, fcmTokens: true },
       }),
-      prisma.investor.findMany({
-        where: { fcmTokens: { hasSome: tokens } },
-        select: { id: true, fcmTokens: true },
-      }),
+      findInvestorFcmTokenOwners(tokens),
     ]);
 
     const pemilik = [
@@ -160,11 +161,7 @@ export class PushTokenRepository implements IPushTokenRepository {
       })),
       ...investors.map((investor) => ({
         fcmTokens: investor.fcmTokens,
-        simpan: (sisa: string[]) =>
-          prisma.investor.update({
-            where: { id: investor.id },
-            data: { fcmTokens: { set: sisa } },
-          }),
+        simpan: (sisa: string[]) => replaceInvestorFcmTokens(investor.id, sisa),
       })),
     ];
 

@@ -2,10 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => {
   const model = () => ({ findMany: vi.fn(), update: vi.fn() });
-  return { prisma: { user: model(), investor: model() }, prismaMitra: { mitra: model() } };
+  return { prisma: { user: model() }, prismaMitra: { mitra: model() } };
 });
+const investorQueries = vi.hoisted(() => ({
+  findInvestorFcmTokenOwners: vi.fn(),
+  replaceInvestorFcmTokens: vi.fn(),
+}));
 
 vi.mock("@/modules/database", () => db);
+vi.mock("@/modules/investor/public-queries", () => investorQueries);
 
 import { PushTokenRepository } from "@/modules/notification/repositories/PushTokenRepository";
 
@@ -14,7 +19,7 @@ describe("PushTokenRepository.clearFcmTokensFromArrays", () => {
     vi.clearAllMocks();
     db.prisma.user.findMany.mockResolvedValue([{ id: "u-1", fcmTokens: ["mati", "hidup"] }]);
     db.prismaMitra.mitra.findMany.mockResolvedValue([{ id: "m-1", fcmTokens: ["hidup"] }]);
-    db.prisma.investor.findMany.mockResolvedValue([{ id: "i-1", fcmTokens: ["mati"] }]);
+    investorQueries.findInvestorFcmTokenOwners.mockResolvedValue([{ id: "i-1", fcmTokens: ["mati"] }]);
   });
 
   it("melepas token mati dari user, mitra, dan investor; yang tak berubah tidak di-update", async () => {
@@ -25,10 +30,8 @@ describe("PushTokenRepository.clearFcmTokensFromArrays", () => {
       where: { id: "u-1" },
       data: { fcmTokens: { set: ["hidup"] } },
     });
-    expect(db.prisma.investor.update).toHaveBeenCalledWith({
-      where: { id: "i-1" },
-      data: { fcmTokens: { set: [] } },
-    });
+    expect(investorQueries.findInvestorFcmTokenOwners).toHaveBeenCalledWith(["mati"]);
+    expect(investorQueries.replaceInvestorFcmTokens).toHaveBeenCalledWith("i-1", []);
     expect(db.prismaMitra.mitra.update).not.toHaveBeenCalled();
   });
 

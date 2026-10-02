@@ -13,13 +13,15 @@ export const POST = createHandler(
     const { shareId } = ctx.params;
     const userId = ctx.session?.user.id;
     if (!userId) return ApiErrors.unauthorized();
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
 
     const body = await req.json().catch(() => ({}));
     const data = paySchema.parse(body);
 
     try {
       const service = getInvestorProfitShareService();
-      const share = await service.markPaid(shareId, userId, data.payoutId);
+      const share = await service.markPaid(shareId, tenantId, userId, data.payoutId);
       return apiSuccess(share);
     } catch (error) {
       if (error instanceof Error) {

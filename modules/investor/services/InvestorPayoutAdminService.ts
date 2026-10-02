@@ -1,4 +1,7 @@
-import { InvestorPaymentBridgeService } from "@/modules/finance";
+import { findRabInvestmentsWithSite } from "@/modules/finance/public-queries";
+
+import { InvestorPayoutRepository } from "../repositories/InvestorPayoutRepository";
+import { InvestorRepository } from "../repositories/InvestorRepository";
 
 export interface InvestorPayoutListInput {
   investorId: string;
@@ -23,19 +26,21 @@ const DEFAULT_STATUS = "COMPLETED";
 
 export class InvestorPayoutAdminService {
   constructor(
-    private readonly paymentBridge = new InvestorPaymentBridgeService(),
+    private readonly payoutRepository = new InvestorPayoutRepository(),
+    private readonly investorRepository = new InvestorRepository(),
+    private readonly findInvestorRabProjects = findRabInvestmentsWithSite,
   ) {}
 
   /** Mengambil daftar payout investor dengan pagination. */
   async getInvestorPayouts(input: InvestorPayoutListInput) {
     const skip = (input.page - 1) * input.limit;
     const [payouts, total] = await Promise.all([
-      this.paymentBridge.findManyInvestorPayouts({
+      this.payoutRepository.findManyByInvestor({
         investorId: input.investorId,
         skip,
         take: input.limit,
       }),
-      this.paymentBridge.countInvestorPayouts(input.investorId),
+      this.payoutRepository.countByInvestor(input.investorId),
     ]);
 
     return { payouts, total };
@@ -43,15 +48,13 @@ export class InvestorPayoutAdminService {
 
   /** Membuat payout investor baru. */
   async createInvestorPayout(input: InvestorPayoutCreateInput) {
-    const investor = await this.paymentBridge.findInvestorById(
-      input.investorId,
-    );
+    const investor = await this.investorRepository.findById(input.investorId);
 
     if (!investor) {
       return null;
     }
 
-    const payout = await this.paymentBridge.createInvestorPayout({
+    const payout = await this.payoutRepository.create({
       investorId: input.investorId,
       amount: BigInt(input.amount),
       date: input.date || new Date(),
@@ -79,16 +82,20 @@ export class InvestorPayoutAdminService {
     return payout;
   }
 
-  /** Mengambil detail investor beserta histori payout dan proyek. */
+  /**
+   * Mengambil detail investor beserta histori payout dan proyek. Proyek RAB
+   * milik module finance, jadi dibaca lewat public query finance.
+   */
   async getInvestorDetail(investorId: string) {
-    const investor = await this.paymentBridge.findInvestorDetail(investorId);
+    const investor = await this.investorRepository.findByIdWithRecentPayouts(investorId);
 
     if (!investor) {
       return null;
     }
 
+    const rabProjects = await this.findInvestorRabProjects(investorId);
     const { passwordHash: _passwordHash, ...safeInvestor } = investor;
-    return safeInvestor;
+    return { ...safeInvestor, rabProjects };
   }
 }
 
