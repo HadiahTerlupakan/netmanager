@@ -444,10 +444,7 @@ export default function ChatPageClient() {
     }
   };
 
-  // Effects
-  useEffect(() => {
-    void loadConversations();
-  }, [loadConversations]);
+  // Daftar percakapan & chat global dimuat otomatis oleh useApi saat halaman dibuka.
 
   // Pattern C: load messages when selected conversation changes (render-time)
   // setLoadingMessages(true) sync via comparator agar UI loading langsung muncul

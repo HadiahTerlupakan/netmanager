@@ -9,7 +9,7 @@
  * (analog dengan SWR) untuk migrasi yang minimal disruption.
  */
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import {
   useQuery,
   useQueryClient,
@@ -112,13 +112,18 @@ export function useApi<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data]);
 
-  const refetch: UseApiResult<T>["refetch"] = async () => {
+  // `refetch`/`mutate` stabil antar-render (hanya berubah bila `key` berubah):
+  // pemakai sering menaruhnya di dependency useEffect/useCallback, dan fungsi
+  // baru tiap render membuat efek refetch berulang tanpa henti (halaman chat
+  // admin sempat mengirim ±100 request/detik).
+  const queryRefetch = query.refetch;
+  const refetch = useCallback<UseApiResult<T>["refetch"]>(async () => {
     if (!key) return undefined;
-    const result = await query.refetch({ cancelRefetch: false });
+    const result = await queryRefetch({ cancelRefetch: false });
     return result.data;
-  };
+  }, [key, queryRefetch]);
 
-  const mutate: UseApiResult<T>["mutate"] = async (updater, opts) => {
+  const mutate = useCallback<UseApiResult<T>["mutate"]>(async (updater, opts) => {
     if (!key) return undefined;
     const queryKey = [key] as const;
 
@@ -136,7 +141,7 @@ export function useApi<T>(
 
     await queryClient.refetchQueries({ queryKey, type: "active" });
     return queryClient.getQueryData<T>(queryKey);
-  };
+  }, [key, queryClient]);
 
   return {
     data: query.data,

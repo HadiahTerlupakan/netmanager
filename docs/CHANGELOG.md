@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-02] — Chat global 500 dan loop request halaman chat admin
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/chat`, `lib/hooks`, `app/admin/chat`
+- **Author**: agent
+- **Deskripsi**: Dua bug di /admin/chat (dan chat global mobile):
+  1. `GET /api/admin/chat/global` & `/api/mobile/chat/global` selalu 500 (Postgres 42P10):
+     unique index `ConversationParticipant(conversationId, actorType, actorId)` dibuat PARSIAL
+     (`WHERE "actorId" IS NOT NULL`) sehingga `upsert` Prisma (`ON CONFLICT`) tak punya index
+     yang cocok. Diganti unique index penuh — perilaku NULL sama, tanpa ubah data.
+  2. Halaman chat admin mengirim ±100 request/detik: `refetch`/`mutate` dari `useApi` dibuat
+     ulang tiap render, dan efek muat awal bergantung padanya. Keduanya kini stabil
+     (`useCallback`), efek redundan dihapus (useApi sudah memuat sendiri). Perbaikan di
+     `useApi` juga melindungi pemakai lain yang menaruh `mutate` di dependency efek.
+- **Files**: `lib/hooks/useApi.ts`, `app/admin/chat/ChatPageClient.tsx`
+- **Migration**: `20261002104404_fix_conversation_participant_unique_index`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-02] — Template role Head of Sales & Marketing
 
 - **Tipe**: [ADDED]
