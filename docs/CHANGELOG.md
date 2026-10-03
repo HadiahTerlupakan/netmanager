@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — Menu Manajemen Insiden pindah ke Komunikasi, izin diperbaiki
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/menu-config.ts`, `components/layout/admin-sidebar`
+- **Author**: agent
+- **Deskripsi**:
+  - `/admin/incidents` (gangguan layanan & pengumuman ke pelanggan) dulu terselip di grup Keuangan (`FINANCE.INCIDENTS`) dengan gerbang `finance:read`, padahal halamannya mewajibkan `incidents:read`.
+    - Staf NOC/helpdesk ber-izin insiden tidak melihat menunya.
+    - Staf keuangan tanpa izin insiden melihat menu lalu terkena 403.
+  - Kini menu utama `INCIDENTS` di section Komunikasi, di bawah Tiket Support, dengan gerbang `incidents:read`.
+  - Tidak di grup Network, karena grup itu terikat feature module `network`.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-03] — Banner "Aktifkan Notifikasi" admin tidak lagi tertimpa navbar
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/layout.tsx`, `components/notifications`
+- **Author**: agent
+- **Deskripsi**:
+  - Banner dirender di atas Navbar yang `sticky top-0 z-30`, sehingga saat digulir navbar menimpa banner. Kini banner di bawah navbar.
+  - Tombol "Aktifkan Notifikasi" memakai varian `primary` dan "Nanti saja" memakai `ghost` (sebelumnya keduanya sama).
+  - Tombol tutup diberi `aria-label`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — CI/CD bisa berjalan di self-hosted runner VM Proxmox
 
 - **Tipe**: [INFRA]

@@ -119,15 +119,18 @@ export function PushNotificationManager({
           </p>
           <div className="flex items-center gap-3 mt-3">
             <Button
+              variant="primary"
               onClick={() => void enableNotifications()}
               disabled={isLoading}
             >
               {isLoading ? "Mengaktifkan..." : "Aktifkan Notifikasi"}
             </Button>
-            <Button onClick={dismissBanner}>Nanti saja</Button>
+            <Button variant="ghost" onClick={dismissBanner}>
+              Nanti saja
+            </Button>
           </div>
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={dismissBanner}>
+        <Button variant="ghost" size="icon-sm" onClick={dismissBanner} aria-label="Tutup">
           <HiXMark className="w-5 h-5 text-gray-500" />
         </Button>
       </div>

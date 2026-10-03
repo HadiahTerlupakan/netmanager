@@ -221,7 +221,8 @@ function getPermissionResource(code: string): string {
     "FINANCE.AR_AGING": "finance",
     "FINANCE.EXECUTIVE": "finance",
     "FINANCE.COHORT": "finance",
-    "FINANCE.INCIDENTS": "finance",
+    // Halaman /admin/incidents mewajibkan incidents:read (bukan finance:read).
+    INCIDENTS: "incidents",
     // HR menu: surface kepegawaian reuse permission users (fase 1 PRD)
     HR: "users",
     "HR.EMPLOYEES": "users",

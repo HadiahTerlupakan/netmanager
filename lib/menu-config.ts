@@ -626,12 +626,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: "/admin/finance/cohort",
         icon: "HiOutlineUserGroup",
       },
-      {
-        code: "FINANCE.INCIDENTS",
-        name: "Manajemen Insiden",
-        path: "/admin/incidents",
-        icon: "HiOutlineExclamationCircle",
-      },
     ],
   },
   {
@@ -752,6 +746,14 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     path: "/admin/support",
     icon: "HiOutlineChatBubbleLeftRight",
     section: "Komunikasi",
+  },
+  {
+    // Gangguan layanan & pengumuman ke pelanggan (bukan urusan keuangan; dulu
+    // terselip di Keuangan dengan gerbang finance:read padahal halamannya incidents:read).
+    code: "INCIDENTS",
+    name: "Manajemen Insiden",
+    path: "/admin/incidents",
+    icon: "HiOutlineExclamationCircle",
   },
   {
     code: "CHAT",
