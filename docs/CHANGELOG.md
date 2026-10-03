@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — Literal API key Firebase dihapus dari test dan docs
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/firebase`, `tests/lib/firebase`, `docs/`
+- **Author**: agent
+- **Deskripsi**:
+  - GitHub secret scanning menandai API key Firebase Web (`Public leak`, repo publik) di `tests/lib/firebase/config.test.ts`.
+  - Test kini membandingkan dengan `firebaseBrowserDefaults` yang diekspor dari `lib/firebase/browserConfig.ts`; docs memakai placeholder `<firebase-web-api-key>`. Satu-satunya salinan tersisa ada di `browserConfig.ts`, tempat kunci itu memang dibutuhkan (dan publik karena ikut ter-bundle ke browser).
+  - Kunci tetap ada di riwayat git; mitigasi sesungguhnya adalah restriksi referrer/API di Google Cloud Console dan Security Rules Firebase.
+- **Files**: `lib/firebase/browserConfig.ts`, `tests/lib/firebase/config.test.ts`, `docs/guides/setup.md`, `docs/reports/mobile-deep-review-2026-05-18/04-cross-cutting.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — WhatsApp belum di-pair tidak lagi dicatat sebagai error
 
 - **Tipe**: [FIXED]

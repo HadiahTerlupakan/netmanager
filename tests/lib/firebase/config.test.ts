@@ -54,16 +54,9 @@ describe("firebase browser config", () => {
     const firebaseConfigModule = await import("@/lib/firebase/config");
 
     expect(firebaseConfigModule.isFirebaseMessagingConfigured).toBe(true);
-    expect(initializeAppMock).toHaveBeenCalledWith({
-      apiKey: "AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc",
-      authDomain: "netmanager-96742.firebaseapp.com",
-      databaseURL:
-        "https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "netmanager-96742",
-      storageBucket: "netmanager-96742.firebasestorage.app",
-      messagingSenderId: "43187781340",
-      appId: "1:43187781340:web:461fc10875b35538e67e19",
-    });
+    const { firebaseBrowserDefaults } =
+      await import("@/lib/firebase/browserConfig");
+    expect(initializeAppMock).toHaveBeenCalledWith(firebaseBrowserDefaults);
   });
 
   it("prefers explicit database URL from env over the bundled default", async () => {

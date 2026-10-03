@@ -1,5 +1,6 @@
 import { clientLogger } from "@/lib/client-logger";
-const firebaseBrowserDefaults = {
+/** Konfigurasi Firebase Web bawaan; nilainya memang publik (ikut ter-bundle ke browser). */
+export const firebaseBrowserDefaults = {
   apiKey: "AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc",
   authDomain: "netmanager-96742.firebaseapp.com",
   databaseURL:

@@ -434,7 +434,7 @@ Kebalikan, fingerprint *bisa* lolos perubahan yang seharusnya butuh native rebui
 **File:** `/Users/rohadimraja/Documents/radpro/mobile-netmanager/eas.json:11-49`
 
 ```json
-"EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc",
+"EXPO_PUBLIC_FIREBASE_API_KEY": "<firebase-web-api-key>",
 ```
 
 Web Firebase API key, sama untuk dev/staging/prod (tunggal). Walaupun Firebase API key publik secara desain, sharing antar environment menyatukan blast-radius — bila staging RTDB dipakai abuse, prod database juga kena.

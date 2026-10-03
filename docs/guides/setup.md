@@ -58,7 +58,7 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-min-16-characters"
 
 # Firebase browser (build-time / client)
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc"
+NEXT_PUBLIC_FIREBASE_API_KEY="<firebase-web-api-key>"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="netmanager-96742.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="netmanager-96742"
 NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -117,7 +117,7 @@ Flow-nya seperti ini:
 Referensi nilai browser yang saat ini dipakai:
 
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc"
+NEXT_PUBLIC_FIREBASE_API_KEY="<firebase-web-api-key>"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="netmanager-96742.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="netmanager-96742"
 NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
