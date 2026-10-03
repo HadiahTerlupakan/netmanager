@@ -11,6 +11,7 @@ import {
 import { createNotification } from "./NotificationService";
 import { sendCustomerPushNotification } from "./ExpoPushService";
 import { WhatsAppSenderService } from "./whatsapp-sender.service";
+import { isWhatsAppNotConfigured } from "./whatsapp/whatsapp-send-result";
 import { EmailService } from "./email-service";
 import { NotificationDeadLetterRepository } from "../repositories/NotificationDeadLetterRepository";
 
@@ -247,8 +248,9 @@ export class NotificationDispatcher {
 
     // Sender mengembalikan hasil, bukan melempar. Tanpa pemeriksaan ini
     // kegagalan kirim tidak pernah sampai ke blok catch, sehingga tidak
-    // pernah tercatat di DLQ dan tidak terlihat admin.
-    if (!result.success) {
+    // pernah tercatat di DLQ dan tidak terlihat admin. Tenant yang belum
+    // mem-pair WhatsApp dilewati: retry dari DLQ tidak akan pernah berhasil.
+    if (!result.success && !isWhatsAppNotConfigured(result)) {
       throw new Error(result.error ?? "Pengiriman WhatsApp gagal");
     }
   }

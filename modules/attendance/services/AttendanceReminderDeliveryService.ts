@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import {
+  isWhatsAppNotConfigured,
   sendPushNotification,
   WhatsAppSenderService,
 } from "@/modules/notification";
@@ -258,7 +259,7 @@ async function sendWhatsAppReminder(
       message: `*${reminder.title}*\n\n${reminder.message}`,
       accountType: "INTERNAL",
     });
-    if (!result.success) {
+    if (!result.success && !isWhatsAppNotConfigured(result)) {
       logger.warn(
         `[AttendanceAlert] WA failed for ${phone}: ${result.error ?? "unknown"}`,
       );

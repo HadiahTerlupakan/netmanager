@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { WhatsAppSenderService } from "./whatsapp-sender.service";
+import { isWhatsAppNotConfigured } from "./whatsapp/whatsapp-send-result";
 
 const APPROVAL_FOOTER = "NetManager Approval";
 const APPROVAL_BUTTON_TEXT = "Buka Approval";
@@ -34,7 +35,7 @@ export class WhatsAppApprovalButtonService {
       tenantId: input.tenantId,
     });
 
-    if (!result.success) {
+    if (!result.success && !isWhatsAppNotConfigured(result)) {
       logger.error("[WhatsApp Approval] Failed to send message", result.error);
     }
 

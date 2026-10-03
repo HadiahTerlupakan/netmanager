@@ -128,6 +128,7 @@ export type {
 // Multi-WhatsApp Support - Services only (no repository exports)
 export { WhatsAppAccountService } from "./services/whatsapp-account.service";
 export { WhatsAppSenderService } from "./services/whatsapp-sender.service";
+export { isWhatsAppNotConfigured } from "./services/whatsapp/whatsapp-send-result";
 
 // Domain types
 export type {

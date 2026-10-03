@@ -12,6 +12,7 @@ import type {
   SendResult,
   WhatsAppConfig,
 } from "./whatsapp/whatsapp-provider-interface";
+import { NO_ACCOUNT_RESULT } from "./whatsapp/whatsapp-send-result";
 
 export interface SendOptions {
   phone: string;
@@ -67,12 +68,9 @@ export class WhatsAppSenderService {
           );
 
       if (!account) {
-        return {
-          success: false,
-          error: options.accountId
-            ? "Akun tidak ditemukan"
-            : "Tidak ada akun WhatsApp yang tersedia",
-        };
+        return options.accountId
+          ? { success: false, error: "Akun tidak ditemukan" }
+          : { ...NO_ACCOUNT_RESULT };
       }
 
       if (!this.accountRoutingService.isAccountAvailable(account)) {
@@ -108,10 +106,7 @@ export class WhatsAppSenderService {
         : await this.accountRepo.findAvailable(options.tenantId);
 
       if (accounts.length === 0) {
-        return options.phones.map(() => ({
-          success: false,
-          error: "Tidak ada akun WhatsApp yang tersedia",
-        }));
+        return options.phones.map(() => ({ ...NO_ACCOUNT_RESULT }));
       }
 
       let accountIndex = 0;

@@ -43,10 +43,18 @@ export interface SendButtonParams {
   mediaUrl?: string;
 }
 
+/**
+ * Kode kegagalan yang bisa dibedakan pemanggil. `NO_ACCOUNT_CONFIGURED`
+ * berarti tenant belum mem-pair akun WhatsApp — kondisi konfigurasi yang
+ * disengaja, bukan kegagalan kirim, jadi tidak perlu dicatat sebagai error.
+ */
+export type SendErrorCode = "NO_ACCOUNT_CONFIGURED";
+
 export interface SendResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  errorCode?: SendErrorCode;
   response?: Record<string, unknown>; // Raw response from provider
 }
 

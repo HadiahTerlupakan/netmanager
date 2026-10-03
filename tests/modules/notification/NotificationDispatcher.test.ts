@@ -276,6 +276,22 @@ describe("kegagalan kanal masuk DLQ", () => {
     );
   });
 
+  // Tenant yang belum mem-pair WhatsApp: retry dari DLQ mustahil berhasil,
+  // jadi tidak boleh mengotori halaman dead-letter.
+  it("tidak mencatat WhatsApp yang belum di-pair ke DLQ", async () => {
+    mockSendWA.mockResolvedValue({
+      success: false,
+      error: "Tidak ada akun WhatsApp yang tersedia",
+      errorCode: "NO_ACCOUNT_CONFIGURED",
+    });
+
+    await new NotificationDispatcher().dispatch(dispatchInput);
+
+    expect(dlqEntries().some((entry) => entry.channel === "whatsapp")).toBe(
+      false,
+    );
+  });
+
   it("mencatat kegagalan email ke DLQ", async () => {
     mockSendEmail.mockResolvedValue({ success: false, error: "SMTP timeout" });
 

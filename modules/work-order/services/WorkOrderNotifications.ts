@@ -14,7 +14,10 @@ import {
   createNotification,
   sendPushToUsers,
 } from "@/modules/notification";
-import { WhatsAppSenderService } from "@/modules/notification";
+import {
+  isWhatsAppNotConfigured,
+  WhatsAppSenderService,
+} from "@/modules/notification";
 import { CanvasingRepository } from "../repositories/CanvasingRepository";
 import { UserLookupService } from "@/modules/users";
 
@@ -423,7 +426,7 @@ async function sendWhatsAppReminderToUser(
       accountType: "INTERNAL",
     });
 
-    if (!result.success) {
+    if (!result.success && !isWhatsAppNotConfigured(result)) {
       logger.warn(
         `[WO Reminder] WA failed for user ${userId}: ${result.error}`,
       );

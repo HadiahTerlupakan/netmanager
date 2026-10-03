@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — WhatsApp belum di-pair tidak lagi dicatat sebagai error
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `modules/work-order`, `modules/attendance`
+- **Author**: agent
+- **Deskripsi**:
+  - Tenant tanpa akun WhatsApp aktif membuat setiap pengingat WO, peringatan absensi, dan approval lembur/cuti mencatat WARN/ERROR "Tidak ada akun WhatsApp yang tersedia" di log produksi, padahal itu kondisi konfigurasi yang disengaja.
+  - `SendResult` kini punya `errorCode`; `WhatsAppSenderService` menandai `NO_ACCOUNT_CONFIGURED` saat tidak ada akun (bukan saat `accountId` eksplisit tidak ditemukan). Helper `isWhatsAppNotConfigured()` diekspor lewat public API `modules/notification`.
+  - Pemanggil internal melewati log untuk kondisi ini; `NotificationDispatcher` tidak lagi memasukkannya ke DLQ karena retry mustahil berhasil. Kegagalan kirim sungguhan tetap dicatat seperti sebelumnya.
+- **Files**: `modules/notification/services/whatsapp/whatsapp-send-result.ts`, `modules/notification/services/whatsapp-sender.service.ts`, `modules/notification/services/NotificationDispatcher.ts`, `modules/notification/services/WhatsAppApprovalButtonService.ts`, `modules/work-order/services/WorkOrderNotifications.ts`, `modules/attendance/services/AttendanceReminderDeliveryService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — Status publik di domain tanpa tenant dibalas 404, bukan 500
 
 - **Tipe**: [FIXED]

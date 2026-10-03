@@ -286,3 +286,80 @@ describe("WhatsApp gateway", () => {
     expect(body.get("number")).toBeNull();
   });
 });
+
+class EmptyAccountRepository extends FakeAccountRepository {
+  constructor() {
+    super(baseAccount);
+  }
+
+  override async findById(): Promise<WhatsAppAccount | null> {
+    return null;
+  }
+
+  override async findDefault(): Promise<WhatsAppAccount | null> {
+    return null;
+  }
+
+  override async findAvailable(): Promise<WhatsAppAccount[]> {
+    return [];
+  }
+
+  override async findDefaultByAccountType(): Promise<WhatsAppAccount | null> {
+    return null;
+  }
+
+  override async findByAccountType(): Promise<WhatsAppAccount[]> {
+    return [];
+  }
+}
+
+/**
+ * Tenant yang belum mem-pair WhatsApp harus bisa dibedakan dari kegagalan
+ * kirim sungguhan, supaya pemanggil tidak mencatatnya sebagai error.
+ */
+describe("WhatsApp belum di-pair", () => {
+  it("send tanpa akun menandai NO_ACCOUNT_CONFIGURED", async () => {
+    const { WhatsAppSenderService } =
+      await import("../modules/notification/services/whatsapp-sender.service");
+    const { isWhatsAppNotConfigured } =
+      await import("../modules/notification/services/whatsapp/whatsapp-send-result");
+
+    const result = await new WhatsAppSenderService(
+      new EmptyAccountRepository(),
+      new FakeMessageRepository(),
+    ).send({ phone: "08123456789", message: "halo", accountType: "INTERNAL" });
+
+    expect(result.success).toBe(false);
+    expect(isWhatsAppNotConfigured(result)).toBe(true);
+  });
+
+  it("accountId eksplisit yang tidak ditemukan tetap kegagalan biasa", async () => {
+    const { WhatsAppSenderService } =
+      await import("../modules/notification/services/whatsapp-sender.service");
+    const { isWhatsAppNotConfigured } =
+      await import("../modules/notification/services/whatsapp/whatsapp-send-result");
+
+    const result = await new WhatsAppSenderService(
+      new EmptyAccountRepository(),
+      new FakeMessageRepository(),
+    ).send({ phone: "08123456789", message: "halo", accountId: "wa-hilang" });
+
+    expect(result.success).toBe(false);
+    expect(isWhatsAppNotConfigured(result)).toBe(false);
+  });
+
+  it("broadcast load-balance tanpa akun menandai setiap hasil", async () => {
+    const { WhatsAppSenderService } =
+      await import("../modules/notification/services/whatsapp-sender.service");
+    const { isWhatsAppNotConfigured } =
+      await import("../modules/notification/services/whatsapp/whatsapp-send-result");
+
+    const results = await new WhatsAppSenderService(
+      new EmptyAccountRepository(),
+      new FakeMessageRepository(),
+    ).broadcast({ phones: ["0811", "0812"], message: "halo", loadBalance: true });
+
+    expect(results).toHaveLength(2);
+    expect(results.every(isWhatsAppNotConfigured)).toBe(true);
+  });
+});
