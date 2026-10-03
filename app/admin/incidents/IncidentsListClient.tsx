@@ -98,7 +98,7 @@ export function IncidentsListClient() {
             Manajemen Insiden
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Pencatatan, eskalasi, dan broadcast gangguan layanan ke pelanggan.
+            Pencatatan dan pemantauan gangguan layanan; insiden publik tampil di halaman status.
           </p>
         </div>
         {canCreate && (

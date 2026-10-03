@@ -1,36 +1,23 @@
-import { hasPermission } from "@/lib/rbac";
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getIncidentService } from "@/modules/incident";
-import { logger } from "@/lib/logger";
+import { apiSuccess, createHandler, requireSessionTenantId } from "@/lib/api";
+import { responsGalatInsiden } from "@/lib/api/incident-route";
+import { parseQuery } from "@/lib/api/query-parser";
+import { getIncidentService, incidentAnalyticsQuerySchema } from "@/modules/incident";
 
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/admin/incidents/analytics?days=<n>
- * MTTR & severity breakdown untuk N hari terakhir (default 30).
- */
-export const GET = createHandler({ auth: true }, async (req) => {
-  if (!(await hasPermission("incidents:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat analytics incident",
-    );
-  }
-
+/** GET /api/admin/incidents/analytics?days=<1–365> — MTTR & sebaran severity (bawaan 30 hari). */
+export const GET = createHandler({ auth: true, permissions: ["incidents:read"] }, async (req, ctx) => {
+  const { days } = incidentAnalyticsQuerySchema.parse(parseQuery(new URL(req.url).searchParams));
   try {
-    const days = Number(req.nextUrl.searchParams.get("days") ?? 30);
-    const result = await getIncidentService().getAnalytics(days);
-
+    const result = await getIncidentService().getAnalytics(requireSessionTenantId(ctx), days);
     return apiSuccess({
       ...result,
-      recentlyResolved: result.recentlyResolved.map((r) => ({
-        ...r,
-        resolvedAt: r.resolvedAt.toISOString(),
+      recentlyResolved: result.recentlyResolved.map((item) => ({
+        ...item,
+        resolvedAt: item.resolvedAt.toISOString(),
       })),
     });
-  } catch (error: unknown) {
-    logger.error("[Incident Analytics] Error:", error);
-    return ApiErrors.internalError(
-      error instanceof Error ? error.message : "Gagal mengambil analytics",
-    );
+  } catch (error) {
+    return responsGalatInsiden(error, "analytics");
   }
 });

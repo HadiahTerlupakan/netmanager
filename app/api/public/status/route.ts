@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/public/status — status page publik (no auth).
  * Return active incidents (belum RESOLVED) + 10 incident terakhir
- * yang sudah RESOLVED. Hanya yang isPublic=true.
+ * yang sudah RESOLVED. Hanya yang isPublic=true. Tanpa sesi: tenant diturunkan dari
+ * host oleh ekstensi isolasi Prisma (fail-closed), jadi tidak ada tenantId eksplisit.
  */
 export async function GET(_req: NextRequest) {
   try {
@@ -21,8 +22,6 @@ export async function GET(_req: NextRequest) {
     return apiSuccess({ active, recent });
   } catch (error: unknown) {
     logger.error("[Public Status] Error:", error);
-    return ApiErrors.internalError(
-      error instanceof Error ? error.message : "Gagal mengambil status",
-    );
+    return ApiErrors.internalError("Gagal mengambil status");
   }
 }

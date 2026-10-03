@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — Perbaikan logika Manajemen Insiden
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/incident`, `app/api/admin/incidents`, `app/api/public/status`, `app/admin/incidents`
+- **Author**: agent
+- **Deskripsi**:
+  - **Insiden selesai kini final (409).** Menyelesaikan ulang dulu menimpa `resolvedAt` (durasi & MTTR salah) dan mengirim event selesai ganda. Penjaga di `updateMany where status != RESOLVED` juga aman terhadap dua penyelesaian bersamaan.
+  - **Analytics:**
+    - "aktif" mencakup semua insiden yang belum selesai, termasuk yang mulai sebelum jendela;
+    - data jendela difilter di query, tidak lagi 500 baris terakhir lalu disaring di memori;
+    - `days` divalidasi 1–365.
+  - **Kode error:** validasi gagal → 400 (dulu 500), tidak ditemukan → 404 (dulu 500), sudah selesai → 409. Pesan error internal tidak lagi dikirim ke klien.
+  - **Publish event:** gagal publish `incident:*` tidak lagi membuat request gagal setelah data tersimpan.
+  - **Repository:** menyaring `tenantId` eksplisit; insiden + update awal dibuat dalam satu transaksi. Halaman status publik tetap memakai tenant dari host.
+  - **Route:** memakai `permissions` & `schema` createHandler; validator di `modules/incident/validators`.
+  - **Teks:** "broadcast ke pelanggan" diganti sesuai perilaku sebenarnya (tampil di halaman status). Event `incident:*` belum punya handler.
+- **Files**: `modules/incident/services/IncidentService.ts`, `repositories/IncidentRepository.ts`, `validators/incident.ts`,
+  `lib/api/incident-route.ts`, `app/api/admin/incidents/**`, `tests/modules/incident/IncidentService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — Menu Manajemen Insiden pindah ke Komunikasi, izin diperbaiki
 
 - **Tipe**: [FIXED]

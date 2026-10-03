@@ -1,77 +1,38 @@
-import { hasPermission } from "@/lib/rbac";
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getIncidentService } from "@/modules/incident";
-import { logger } from "@/lib/logger";
-import * as z from "zod";
+import { apiSuccess, createHandler, requireSessionTenantId } from "@/lib/api";
+import { responsGalatInsiden } from "@/lib/api/incident-route";
+import { parseQuery } from "@/lib/api/query-parser";
+import { createIncidentSchema, getIncidentService, listIncidentQuerySchema } from "@/modules/incident";
 
 export const dynamic = "force-dynamic";
 
-const SEVERITY_VALUES = ["CRITICAL", "MAJOR", "MINOR"] as const;
-const STATUS_FILTER_VALUES = [
-  "ACTIVE",
-  "INVESTIGATING",
-  "IDENTIFIED",
-  "MONITORING",
-  "RESOLVED",
-] as const;
+const HTTP_CREATED = 201;
+const BATAS_DAFTAR_ADMIN = 100;
 
-const createSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().min(1),
-  severity: z.enum(SEVERITY_VALUES),
-  affectedAreas: z.array(z.string().trim().min(1)).default([]),
-  isPublic: z.boolean().optional(),
-});
-
-/** GET /api/admin/incidents — list dengan filter status */
-export const GET = createHandler({ auth: true }, async (req) => {
-  if (!(await hasPermission("incidents:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat incident",
-    );
-  }
-
+/** GET /api/admin/incidents?status= — daftar insiden tenant (ACTIVE = belum selesai). */
+export const GET = createHandler({ auth: true, permissions: ["incidents:read"] }, async (req, ctx) => {
+  const { status } = listIncidentQuerySchema.parse(parseQuery(new URL(req.url).searchParams));
   try {
-    const filterRaw = req.nextUrl.searchParams.get("status");
-    const status = STATUS_FILTER_VALUES.includes(
-      filterRaw as (typeof STATUS_FILTER_VALUES)[number],
-    )
-      ? (filterRaw as (typeof STATUS_FILTER_VALUES)[number])
-      : undefined;
-
-    const incidents = await getIncidentService().list({ status, limit: 100 });
-    return apiSuccess(incidents);
-  } catch (error: unknown) {
-    logger.error("[Admin Incidents] List error:", error);
-    return ApiErrors.internalError(
-      error instanceof Error ? error.message : "Gagal mengambil incident",
+    return apiSuccess(
+      await getIncidentService().list({ tenantId: requireSessionTenantId(ctx), status, limit: BATAS_DAFTAR_ADMIN }),
     );
+  } catch (error) {
+    return responsGalatInsiden(error, "daftar");
   }
 });
 
-/** POST /api/admin/incidents — create incident baru */
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  if (!(await hasPermission("incidents:create"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk membuat incident",
-    );
-  }
-
-  try {
-    const body = await req.json();
-    const parsed = createSchema.parse(body);
-    const incident = await getIncidentService().create(
-      parsed,
-      ctx.session!.user.id,
-    );
-    return apiSuccess(incident, {
-      status: 201,
-      message: "Incident berhasil dibuat",
-    });
-  } catch (error: unknown) {
-    logger.error("[Admin Incidents] Create error:", error);
-    return ApiErrors.internalError(
-      error instanceof Error ? error.message : "Gagal membuat incident",
-    );
-  }
-});
+/** POST /api/admin/incidents — buat insiden baru (update awal INVESTIGATING ikut dibuat). */
+export const POST = createHandler(
+  { auth: true, permissions: ["incidents:create"], schema: createIncidentSchema },
+  async (_req, ctx) => {
+    try {
+      const incident = await getIncidentService().create(
+        requireSessionTenantId(ctx),
+        ctx.validated!,
+        ctx.session!.user.id,
+      );
+      return apiSuccess(incident, { status: HTTP_CREATED, message: "Insiden berhasil dibuat" });
+    } catch (error) {
+      return responsGalatInsiden(error, "buat");
+    }
+  },
+);
