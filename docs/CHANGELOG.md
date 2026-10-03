@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — Status publik di domain tanpa tenant dibalas 404, bukan 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/public/status`, `modules/incident`
+- **Author**: agent
+- **Deskripsi**:
+  - `/api/public/status` yang dibuka dari domain yang bukan milik tenant (mis. `admin.radpro.id`, IP) dulu membalas 500 dan mencatat ERROR (`TenantContextError`) di log tiap kunjungan.
+  - Kini `IncidentService.statusPublik()` menerjemahkan `missing-context` menjadi 404 "Halaman status tidak tersedia di domain ini" tanpa log error.
+  - Lookup tenant yang gagal (`resolution-failed`, mis. DB) tetap 500.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — Perbaikan logika Manajemen Insiden
 
 - **Tipe**: [FIXED]

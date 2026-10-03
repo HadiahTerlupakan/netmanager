@@ -1,26 +1,26 @@
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { NextRequest } from "next/server";
-import { getIncidentService } from "@/modules/incident";
+
+import { apiError, apiSuccess, ApiErrors, ErrorCodes } from "@/lib/api-response";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
 import { logger } from "@/lib/logger";
+import { getIncidentService } from "@/modules/incident";
 
 export const dynamic = "force-dynamic";
 
+const HTTP_NOT_FOUND = 404;
+
 /**
- * GET /api/public/status — status page publik (no auth).
- * Return active incidents (belum RESOLVED) + 10 incident terakhir
- * yang sudah RESOLVED. Hanya yang isPublic=true. Tanpa sesi: tenant diturunkan dari
- * host oleh ekstensi isolasi Prisma (fail-closed), jadi tidak ada tenantId eksplisit.
+ * GET /api/public/status — status page publik (no auth): insiden publik yang belum
+ * selesai + 10 terakhir yang selesai. Tenant diturunkan dari host (fail-closed);
+ * domain yang bukan milik tenant mana pun dibalas 404 dan tidak dicatat sebagai ERROR.
  */
 export async function GET(_req: NextRequest) {
   try {
-    const service = getIncidentService();
-    const [active, recent] = await Promise.all([
-      service.list({ status: "ACTIVE", publicOnly: true, limit: 50 }),
-      service.list({ status: "RESOLVED", publicOnly: true, limit: 10 }),
-    ]);
-
-    return apiSuccess({ active, recent });
+    return apiSuccess(await getIncidentService().statusPublik());
   } catch (error: unknown) {
+    if (isRouteServiceError(error) && error.status === HTTP_NOT_FOUND) {
+      return apiError(error.message, ErrorCodes.NOT_FOUND, { status: HTTP_NOT_FOUND });
+    }
     logger.error("[Public Status] Error:", error);
     return ApiErrors.internalError("Gagal mengambil status");
   }

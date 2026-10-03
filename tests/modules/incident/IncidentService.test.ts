@@ -114,3 +114,22 @@ describe("IncidentService.delete", () => {
     });
   });
 });
+
+describe("IncidentService.statusPublik", () => {
+  it("domain tanpa tenant (missing-context) → 404; lookup tenant gagal tetap dilempar apa adanya", async () => {
+    const { TenantContextError } = await import("@/lib/prisma-extension");
+    const tanpaTenant = repoPalsu({ findMany: vi.fn(async () => { throw new TenantContextError("missing-context", "Incident.findMany"); }) });
+    await expect(new IncidentService(tanpaTenant).statusPublik()).rejects.toMatchObject({ status: 404 });
+
+    const lookupGagal = new TenantContextError("resolution-failed", "lookup host gagal");
+    const gagal = repoPalsu({ findMany: vi.fn(async () => { throw lookupGagal; }) });
+    await expect(new IncidentService(gagal).statusPublik()).rejects.toBe(lookupGagal);
+  });
+
+  it("hanya insiden publik: aktif & 10 terakhir yang selesai", async () => {
+    const findMany = vi.fn(async () => []);
+    await new IncidentService(repoPalsu({ findMany })).statusPublik();
+    expect(findMany).toHaveBeenCalledWith({ status: "ACTIVE", publicOnly: true, limit: 50 });
+    expect(findMany).toHaveBeenCalledWith({ status: "RESOLVED", publicOnly: true, limit: 10 });
+  });
+});

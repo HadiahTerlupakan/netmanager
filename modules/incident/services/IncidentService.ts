@@ -2,6 +2,7 @@ import type { IncidentStatus } from "@prisma/client";
 
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { logger } from "@/lib/logger";
+import { TenantContextError } from "@/lib/prisma-extension";
 
 import {
   getIncidentRepository,
@@ -43,6 +44,9 @@ const JUMLAH_BARU_SELESAI = 10;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
 const PESAN_TIDAK_DITEMUKAN = "Insiden tidak ditemukan";
+const PESAN_DOMAIN_TANPA_TENANT = "Halaman status tidak tersedia di domain ini";
+const BATAS_STATUS_AKTIF = 50;
+const BATAS_STATUS_SELESAI = 10;
 const PESAN_SUDAH_SELESAI =
   "Insiden sudah selesai dan tidak bisa diubah. Buat insiden baru bila gangguan terjadi lagi.";
 
@@ -73,6 +77,26 @@ export class IncidentService {
     limit?: number;
   }): Promise<IncidentEntity[]> {
     return this.repo.findMany(filters);
+  }
+
+  /**
+   * Data halaman status publik (tanpa sesi): insiden publik yang belum selesai dan
+   * yang terakhir selesai. Tenant diturunkan dari host; domain yang bukan milik tenant
+   * (mis. admin.*, IP) → 404, bukan galat server. Lookup tenant yang gagal tetap dilempar.
+   */
+  async statusPublik(): Promise<{ active: IncidentEntity[]; recent: IncidentEntity[] }> {
+    try {
+      const [active, recent] = await Promise.all([
+        this.repo.findMany({ status: "ACTIVE", publicOnly: true, limit: BATAS_STATUS_AKTIF }),
+        this.repo.findMany({ status: "RESOLVED", publicOnly: true, limit: BATAS_STATUS_SELESAI }),
+      ]);
+      return { active, recent };
+    } catch (error) {
+      if (error instanceof TenantContextError && error.kind === "missing-context") {
+        throw createRouteServiceError(PESAN_DOMAIN_TANPA_TENANT, HTTP_NOT_FOUND);
+      }
+      throw error;
+    }
   }
 
   /** Detail insiden beserta riwayat update; 404 bila tidak ada di tenant ini. */
