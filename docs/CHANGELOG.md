@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-03] — Input SO: tombol tandai semua dihitung untuk stok cocok
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/inventory`
+- **Author**: agent
+- **Deskripsi**:
+  - Tombol "Catat Stock Opname (0 item)" nonaktif sampai barang dicentang "Dihitung", tetapi satu-satunya cara mencentang semua adalah checkbox tanpa label di header tabel — admin mengira SO tanpa perubahan stok tidak bisa dicatat, padahal SO bulanan wajib.
+  - Ditambah tombol "Tandai semua dihitung (stok cocok)" di header tabel, label kolom "Dihitung", dan petunjuk di samping tombol catat saat belum ada yang dicentang. Barang cocok tetap tersimpan dengan selisih 0 tanpa mutasi stok (perilaku backend tidak berubah).
+- **Files**: `components/inventory/opname/OpnameItemsTable.tsx`, `components/inventory/StockOpnameRecorder.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-03] — Literal API key Firebase dihapus dari test dan docs
 
 - **Tipe**: [SECURITY]

@@ -370,7 +370,14 @@ function ActionButtons({
   onClose,
 }: ActionButtonsProps) {
   return (
-    <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+    <div className="flex flex-wrap items-center justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+      {recordableCount === 0 && !isSubmitting && (
+        <p className="mr-auto text-sm text-amber-700 dark:text-amber-400">
+          Belum ada barang dicentang. Bila stok fisik sama dengan sistem, klik
+          &quot;Tandai semua dihitung (stok cocok)&quot; lalu catat — tersimpan
+          dengan selisih 0 sebagai bukti SO.
+        </p>
+      )}
       {onClose && (
         <Button
           variant="outline"

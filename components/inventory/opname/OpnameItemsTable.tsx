@@ -1,5 +1,7 @@
 "use client";
 
+import { FiCheckSquare } from "react-icons/fi";
+import { Button } from "@/components/ui/Button";
 import { OpnameItemRow } from "./OpnameItemRow";
 import type { OpnameCalculationItem } from "./useOpnameCalculation";
 
@@ -51,15 +53,29 @@ export function OpnameItemsTable({
             Bandingkan stok sistem dengan hasil hitungan fisik di {gudangNama}
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={isHanyaBelumSo}
-            onChange={(e) => onHanyaBelumSoChange(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          Hanya yang belum di-SO bulan ini
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={isHanyaBelumSo}
+              onChange={(e) => onHanyaBelumSoChange(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Hanya yang belum di-SO bulan ini
+          </label>
+          {/* SO bulanan tetap wajib walau stok tidak berubah: barang yang cocok
+              dicatat dengan selisih 0 sebagai bukti hitung. */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSubmitting || isSemuaDihitung}
+            onClick={() => onToggleDihitung(visibleIds, true)}
+          >
+            <FiCheckSquare />
+            Tandai semua dihitung (stok cocok)
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -67,6 +83,9 @@ export function OpnameItemsTable({
           <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
               <th className="px-3 py-3 text-center">
+                <span className="block mb-1 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Dihitung
+                </span>
                 <input
                   type="checkbox"
                   aria-label="Tandai semua barang yang tampil sudah dihitung"
