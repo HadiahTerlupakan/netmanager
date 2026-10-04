@@ -37,6 +37,22 @@ if (process.env.NODE_ENV !== "production") {
   globalForRedis.redis = redis;
 }
 
+// `lazyConnect` + `enableOfflineQueue: false` berarti koneksi baru dimulai oleh
+// command pertama — dan command pertama itu langsung ditolak ("Stream isn't
+// writeable") karena belum tersambung. Gejalanya: login pertama setelah pod
+// restart selalu gagal "Layanan login sementara tidak tersedia". Koneksi karena
+// itu dimulai saat modul dimuat; saat `next build` dan test tetap lazy supaya
+// tidak membuka koneksi yang tidak perlu.
+const isBuildOrTest =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.env.NODE_ENV === "test";
+if (!isBuildOrTest && redis.status === "wait") {
+  redis.connect().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`[Redis] Koneksi awal gagal, akan dicoba ulang: ${message}`);
+  });
+}
+
 // Silence noisy build-time errors (Redis belum siap / NOAUTH) sambil tetap
 // melaporkan masalah runtime via logger.
 redis.on("error", (err) => {
