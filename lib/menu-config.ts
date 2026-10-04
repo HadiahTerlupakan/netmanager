@@ -756,6 +756,14 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     icon: "HiOutlineExclamationCircle",
   },
   {
+    // Kirim dokumen ke pihak dalam/luar untuk ditandatangani lewat tautan
+    // privat. Kode PENGESAHAN → gerbang pengesahan:read (permission-config).
+    code: "PENGESAHAN",
+    name: "Surat Pengesahan",
+    path: "/admin/pengesahan",
+    icon: "HiOutlineDocumentText",
+  },
+  {
     code: "CHAT",
     name: "Chat",
     path: "/admin/chat",

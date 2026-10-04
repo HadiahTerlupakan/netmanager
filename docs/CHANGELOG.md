@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Menu Surat Pengesahan di sidebar admin
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Halaman `/admin/pengesahan` hanya bisa dibuka lewat URL langsung karena entri menunya tidak pernah ditambahkan, padahal `permission-config` sudah memetakan `PENGESAHAN`. Kini ada menu "Surat Pengesahan" di section Komunikasi, digerbang `pengesahan:read` (di produksi sudah dimiliki peran admin).
+- **Files**: `lib/menu-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Pengesahan: dokumen surat gugur tak bisa dibuka lagi
 
 - **Tipe**: [SECURITY]
