@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Unduh daftar insiden sebagai CSV
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/incidents`, `lib/download.ts`, `app/admin/pengeluaran`
+- **Author**: agent
+- **Deskripsi**: Tombol "Unduh CSV" di Manajemen Insiden mengunduh insiden sesuai filter aktif (Berlangsung/Selesai/Semua) dengan kolom judul, tingkat, status, area terdampak, mulai, selesai, tampil publik, deskripsi; nama berkas `insiden-<filter>-<tanggal WIB>.csv`. Helper bersama `lib/download.ts` (`downloadTextFile` + BOM UTF-8 agar Excel membaca huruf non-ASCII, object URL dilepas) kini juga dipakai ekspor pengeluaran menggantikan kode unduh salinannya.
+- **Files**: `app/admin/incidents/incident-csv.ts`, `app/admin/incidents/IncidentsListClient.tsx`, `lib/download.ts`, `app/admin/pengeluaran/ExpensesClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Area terdampak insiden dipilih dari daftar site
 
 - **Tipe**: [CHANGED]

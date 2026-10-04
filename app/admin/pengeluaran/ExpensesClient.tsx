@@ -36,6 +36,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { buildDailyExpenseIndicators } from "@/modules/finance/client";
 import { useApi } from "@/lib/hooks/useApi";
 import { buildExpenseCsvContent } from "./expense-csv";
+import { CSV_MIME_TYPE, downloadTextFile } from "@/lib/download";
 import {
   buildExpenseIdempotencyKey,
   buildHierarchicalCategoryOptions,
@@ -723,19 +724,11 @@ export default function ExpensesClient() {
       toast.success(`Export ${filteredData.length} data hasil filter berhasil`);
     }
 
-    // Download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
+    downloadTextFile(
+      csvContent,
       `laporan-pengeluaran-${startDate}-to-${endDate}.csv`,
+      CSV_MIME_TYPE,
     );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // RAB Handlers
