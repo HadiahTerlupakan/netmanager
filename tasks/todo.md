@@ -15,10 +15,17 @@
 - Push: data.url=/pengesahan/:id, sourceType=ENDORSEMENT
 
 ### Rencana
-- [ ] Backend: repository query per user, service sign/decline sebagai user, rute mobile, notifikasi in-app/push
-- [ ] Admin web: endpoint opsi penanda tangan (pengesahan:create) + pemilih karyawan di modal
-- [ ] Mobile: service/hooks, layar daftar/detail/tanda tangan/tolak, menu cepat, deep link push
-- [ ] Tes, typecheck, lint kedua repo; changelog; commit; deploy backend; OTA mobile
+- [x] Backend: repository query per user, service sign/decline sebagai user, rute mobile, notifikasi in-app/push
+- [x] Admin web: endpoint opsi penanda tangan (pengesahan:create) + pemilih karyawan di modal
+- [x] Mobile: service/hooks, layar daftar/detail/tanda tangan/tolak, menu cepat, deep link push
+- [x] Tes, typecheck, lint kedua repo; changelog; commit; deploy backend
+- [x] Uji emulator (temuan: tombol dokumen di surat batal, 404 memajang cache lama — diperbaiki) → OTA terbit ke build 48 (2b3c5e6)
+
+### Review
+Agen mobile awalnya memakai react-native-signature-canvas ("aman OTA" menurut fingerprint Expo), tapi gerbang
+CI repo mobile (scripts/native-state.js) menganggap package.json/lock sebagai berkas native → OTA ditahan & APK
+terpicu. Diganti papan tanda tangan dari react-native-svg + view-shot yang sudah terpasang.
+Pelajaran: untuk mobile, "aman OTA" = tidak menyentuh NATIVE_PATHS, bukan sekadar fingerprint sama.
 
 ## Review modul surat pengesahan (endorsement) (2026-10-04)
 
