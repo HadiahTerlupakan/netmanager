@@ -10,19 +10,23 @@ import { usePermission } from "@/hooks/use-permission";
 import { toast } from "react-hot-toast";
 import {
   HiOutlineArrowLeft,
-  HiOutlineFire,
-  HiOutlineExclamationCircle,
-  HiOutlineExclamationTriangle,
   HiOutlineCheckCircle,
+  HiOutlineExclamationCircle,
   HiOutlineTrash,
 } from "react-icons/hi2";
-
-type Severity = "CRITICAL" | "MAJOR" | "MINOR";
-type Status = "INVESTIGATING" | "IDENTIFIED" | "MONITORING" | "RESOLVED";
+import { SeverityIcon } from "../IncidentBadges";
+import {
+  INCIDENT_SEVERITY_ICON_COLOR,
+  INCIDENT_SEVERITY_LABEL,
+  INCIDENT_STATUS_LABEL,
+  formatIncidentDateTime,
+  type IncidentSeverity,
+  type IncidentStatus,
+} from "../incident-format";
 
 interface IncidentUpdate {
   id: string;
-  status: Status;
+  status: IncidentStatus;
   message: string;
   createdAt: string;
   user?: { id: string; name: string | null } | null;
@@ -32,45 +36,14 @@ interface IncidentDetail {
   id: string;
   title: string;
   description: string;
-  severity: Severity;
-  status: Status;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
   affectedAreas: string[];
   startedAt: string;
   resolvedAt: string | null;
   isPublic: boolean;
   updates: IncidentUpdate[];
   user?: { id: string; name: string | null } | null;
-}
-
-const STATUS_LABEL: Record<Status, string> = {
-  INVESTIGATING: "Investigasi",
-  IDENTIFIED: "Teridentifikasi",
-  MONITORING: "Dimonitor",
-  RESOLVED: "Selesai",
-};
-
-const SEVERITY_LABEL: Record<Severity, string> = {
-  CRITICAL: "Kritis",
-  MAJOR: "Besar",
-  MINOR: "Kecil",
-};
-
-function severityIcon(s: Severity) {
-  if (s === "CRITICAL")
-    return <HiOutlineFire className="w-5 h-5 text-red-600" />;
-  if (s === "MAJOR")
-    return <HiOutlineExclamationCircle className="w-5 h-5 text-orange-600" />;
-  return <HiOutlineExclamationTriangle className="w-5 h-5 text-yellow-600" />;
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export function IncidentDetailClient({
@@ -125,9 +98,9 @@ export function IncidentDetailClient({
               {incident.title}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Mulai {formatDateTime(incident.startedAt)}
+              Mulai {formatIncidentDateTime(incident.startedAt)}
               {incident.resolvedAt &&
-                ` • Selesai ${formatDateTime(incident.resolvedAt)}`}
+                ` • Selesai ${formatIncidentDateTime(incident.resolvedAt)}`}
             </p>
           </div>
         </div>
@@ -141,13 +114,16 @@ export function IncidentDetailClient({
 
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex items-center gap-3 mb-4">
-          {severityIcon(incident.severity)}
+          <SeverityIcon
+            severity={incident.severity}
+            className={`h-5 w-5 ${INCIDENT_SEVERITY_ICON_COLOR[incident.severity]}`}
+          />
           <span className="font-semibold text-gray-900 dark:text-white">
-            {SEVERITY_LABEL[incident.severity]}
+            {INCIDENT_SEVERITY_LABEL[incident.severity]}
           </span>
           <span className="text-gray-400">•</span>
           <span className="text-gray-700 dark:text-gray-300">
-            Status: {STATUS_LABEL[incident.status]}
+            Status: {INCIDENT_STATUS_LABEL[incident.status]}
           </span>
           {!incident.isPublic && (
             <span className="ml-auto px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 rounded">
@@ -202,10 +178,10 @@ export function IncidentDetailClient({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 dark:text-white text-sm">
-                    {STATUS_LABEL[u.status]}
+                    {INCIDENT_STATUS_LABEL[u.status]}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {formatDateTime(u.createdAt)}
+                    {formatIncidentDateTime(u.createdAt)}
                   </span>
                   {u.user?.name && (
                     <span className="text-xs text-gray-400">
@@ -236,10 +212,10 @@ function AddUpdateForm({
   onAdded,
 }: {
   incidentId: string;
-  currentStatus: Status;
+  currentStatus: IncidentStatus;
   onAdded: () => void;
 }) {
-  const [status, setStatus] = useState<Status>(currentStatus);
+  const [status, setStatus] = useState<IncidentStatus>(currentStatus);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -280,7 +256,7 @@ function AddUpdateForm({
         </label>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value as Status)}
+          onChange={(e) => setStatus(e.target.value as IncidentStatus)}
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
         >
           <option value="INVESTIGATING">Investigasi</option>

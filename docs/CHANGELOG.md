@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Form insiden baru dipindah ke modal
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/incidents`
+- **Author**: agent
+- **Deskripsi**: Form "Insiden Baru" tidak lagi menyisip di atas daftar — kini modal `CreateIncidentModal` (pola sama dengan halaman kategori legal). Tingkat gangguan dipilih lewat kartu berpenjelasan (Kecil/Besar/Kritis), opsi halaman status publik diberi keterangan. Tipe, label, lencana, format tanggal, dan ikon tingkat gangguan yang terduplikasi di halaman daftar & detail disatukan ke `incident-format.ts` + `IncidentBadges.tsx`; kartu insiden dipisah ke `IncidentListItem.tsx`. Galat server kini selalu tampil sebagai teks (sebelumnya bisa "[object Object]").
+- **Files**: `app/admin/incidents/IncidentsListClient.tsx`, `app/admin/incidents/CreateIncidentModal.tsx`, `app/admin/incidents/IncidentListItem.tsx`, `app/admin/incidents/incident-format.ts`, `app/admin/incidents/IncidentBadges.tsx`, `app/admin/incidents/[id]/IncidentDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Ikon menu Template Dokumen, Kanban, Template Planning tampil
 
 - **Tipe**: [FIXED]
