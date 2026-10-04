@@ -115,6 +115,20 @@ describe("EndorsementInboxService", () => {
     expect(JSON.stringify(detail)).not.toContain("0899");
   });
 
+  // Tombol "Lihat dokumen" mengikuti aturan yang sama dengan endpoint berkas,
+  // supaya surat yang gugur tidak menawarkan unduhan yang pasti ditolak.
+  it("detail menandai dokumen tidak bisa dibuka pada surat yang dibatalkan", async () => {
+    const { endorsements, service } = buildDeps();
+    endorsements.resolveForUser.mockResolvedValue({
+      endorsement: endorsement({ status: "CANCELLED" }),
+      signer: signer(),
+    });
+
+    const detail = await service.detail("end-1", "user-9", {});
+
+    expect(detail.canViewDocument).toBe(false);
+  });
+
   it("tanda tangan memakai penanda tangan hasil resolusi sesi user", async () => {
     const { endorsements, service } = buildDeps();
 

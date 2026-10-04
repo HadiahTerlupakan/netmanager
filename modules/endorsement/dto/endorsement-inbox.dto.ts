@@ -1,4 +1,8 @@
-import { canSign, countSigned } from "../domain/endorsement-rules";
+import {
+  canAccessDocument,
+  canSign,
+  countSigned,
+} from "../domain/endorsement-rules";
 import type {
   EndorsementEntity,
   EndorsementSignerEntity,
@@ -34,6 +38,8 @@ export interface InboxItemDto {
 }
 
 export interface InboxDetailDto extends InboxItemDto {
+  /** Dokumen masih boleh dibuka (sama dengan aturan endpoint berkas). */
+  canViewDocument: boolean;
   description: string | null;
   sourceFileName: string;
   hasSignedFile: boolean;
@@ -67,6 +73,7 @@ export function toInboxDetail(
 ): InboxDetailDto {
   return {
     ...toInboxItem(endorsement, me),
+    canViewDocument: canAccessDocument(endorsement),
     description: endorsement.description,
     sourceFileName: endorsement.sourceFileName,
     hasSignedFile: Boolean(endorsement.signedFileKey),
