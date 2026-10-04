@@ -72,10 +72,12 @@ const buildRepository = () => ({
   findByTokenHash: vi.fn(),
   findLastNumber: vi.fn().mockResolvedValue(null),
   create: vi.fn(),
-  updateStatus: vi.fn(),
-  updateSigner: vi.fn(),
+  transitionStatus: vi.fn().mockResolvedValue(true),
+  transitionSigner: vi.fn().mockResolvedValue(true),
+  updateSignerTokenHash: vi.fn(),
   recordEvent: vi.fn(),
-  findExpiredIds: vi.fn().mockResolvedValue([]),
+  findExpired: vi.fn().mockResolvedValue([]),
+  findFullySignedOpenIds: vi.fn().mockResolvedValue([]),
 });
 
 const buildPdf = () => ({
@@ -195,12 +197,13 @@ describe("sign", () => {
     );
   });
 
-  it("menyimpan tanda tangan dan menandai penanda tangan", async () => {
+  it("menyimpan tanda tangan dan menandai penanda tangan secara bersyarat", async () => {
     await service.sign("token-uji", Buffer.from("png"), {});
 
     expect(storage.saveSignature).toHaveBeenCalled();
-    expect(repository.updateSigner).toHaveBeenCalledWith(
+    expect(repository.transitionSigner).toHaveBeenCalledWith(
       "signer-1",
+      ["PENDING", "VIEWED"],
       expect.objectContaining({ status: "SIGNED", signatureKey: "kunci-ttd" }),
     );
   });
@@ -209,8 +212,9 @@ describe("sign", () => {
     const result = await service.sign("token-uji", Buffer.from("png"), {});
 
     expect(result.completed).toBe(true);
-    expect(repository.updateStatus).toHaveBeenCalledWith(
+    expect(repository.transitionStatus).toHaveBeenCalledWith(
       "end-1",
+      ["SENT"],
       "COMPLETED",
       expect.objectContaining({
         completedAt: expect.any(Date),
@@ -225,11 +229,11 @@ describe("sign", () => {
     await service.sign("token-uji", Buffer.from("png"), {});
 
     const pdfOrder = pdf.buildSignedPdf.mock.invocationCallOrder[0]!;
-    const completedCall = repository.updateStatus.mock.calls.findIndex(
-      ([, status]) => status === "COMPLETED",
+    const completedCall = repository.transitionStatus.mock.calls.findIndex(
+      ([, , status]) => status === "COMPLETED",
     );
     const statusOrder =
-      repository.updateStatus.mock.invocationCallOrder[completedCall]!;
+      repository.transitionStatus.mock.invocationCallOrder[completedCall]!;
 
     expect(pdfOrder).toBeLessThan(statusOrder);
   });
@@ -241,20 +245,9 @@ describe("sign", () => {
       }),
     );
 
-    await service.sign("token-uji", Buffer.from("png"), {});
-
-    expect(pdf.buildSignedPdf).not.toHaveBeenCalled();
-  });
-
-  it("belum selesai bila masih ada yang menunggu", async () => {
-    repository.findById.mockResolvedValue(
-      endorsement({
-        signers: [signer({ status: "SIGNED" }), signer({ id: "s2" })],
-      }),
-    );
-
     const result = await service.sign("token-uji", Buffer.from("png"), {});
 
+    expect(pdf.buildSignedPdf).not.toHaveBeenCalled();
     expect(result.completed).toBe(false);
   });
 
@@ -268,6 +261,43 @@ describe("sign", () => {
       service.sign("token-uji", Buffer.from("png"), {}),
     ).rejects.toThrow(/tidak bisa dipakai/i);
     expect(storage.saveSignature).not.toHaveBeenCalled();
+  });
+
+  // Klik ganda: dua permintaan lolos pemeriksaan awal, tapi hanya satu yang
+  // boleh berhasil mengubah status penanda tangan.
+  it("menolak permintaan yang kalah balapan", async () => {
+    repository.transitionSigner.mockResolvedValue(false);
+
+    await expect(
+      service.sign("token-uji", Buffer.from("png"), {}),
+    ).rejects.toThrow(/tidak bisa dipakai/i);
+    expect(repository.recordEvent).not.toHaveBeenCalled();
+    expect(pdf.buildSignedPdf).not.toHaveBeenCalled();
+  });
+
+  // Dua penanda tangan terakhir bersamaan: yang kalah membuang PDF-nya supaya
+  // sidik jari tersimpan selalu cocok dengan berkas yang dirujuk.
+  it("membuang PDF gabungan bila finalisasi kalah balapan", async () => {
+    repository.transitionStatus.mockResolvedValue(false);
+
+    const result = await service.sign("token-uji", Buffer.from("png"), {});
+
+    expect(result.completed).toBe(false);
+    expect(storage.removeAll).toHaveBeenCalledWith(["kunci-final"]);
+    expect(repository.recordEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "COMPLETED" }),
+    );
+  });
+
+  // Tanda tangan sudah tersimpan; gagal menyusun PDF tidak boleh membuat
+  // penanda tangan melihat galat — cron mengulang finalisasinya.
+  it("tetap berhasil walau PDF gabungan gagal disusun", async () => {
+    pdf.buildSignedPdf.mockRejectedValue(new Error("R2 mati"));
+
+    const result = await service.sign("token-uji", Buffer.from("png"), {});
+
+    expect(result.completed).toBe(false);
+    expect(repository.transitionSigner).toHaveBeenCalled();
   });
 
   it("menolak setelah masa berlaku habis", async () => {
@@ -302,19 +332,124 @@ describe("decline", () => {
   it("satu penolakan menggugurkan surat", async () => {
     await service.decline("token-uji", "data salah", {});
 
-    expect(repository.updateStatus).toHaveBeenCalledWith(
+    expect(repository.transitionStatus).toHaveBeenCalledWith(
       "end-1",
+      ["SENT"],
       "CANCELLED",
       expect.objectContaining({
         cancelReason: expect.stringContaining("Budi"),
       }),
     );
   });
+
+  it("menolak penolakan yang kalah balapan", async () => {
+    repository.transitionSigner.mockResolvedValue(false);
+
+    await expect(service.decline("token-uji", "data salah", {})).rejects.toThrow(
+      /tidak bisa dipakai/i,
+    );
+    expect(repository.transitionStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe("markViewed", () => {
+  it("tidak menandai dibuka pada surat yang sudah gugur", async () => {
+    repository.findByTokenHash.mockResolvedValue({
+      endorsement: endorsement({ status: "CANCELLED" }),
+      signerId: "signer-1",
+    });
+
+    await service.markViewed("token-uji", {});
+
+    expect(repository.transitionSigner).not.toHaveBeenCalled();
+  });
+});
+
+describe("getDocumentForSigner", () => {
+  beforeEach(() => {
+    storage.read.mockResolvedValue(Buffer.from("isi"));
+  });
+
+  it.each(["CANCELLED", "EXPIRED", "DRAFT"])(
+    "menolak membuka dokumen surat berstatus %s",
+    async (status) => {
+      repository.findByTokenHash.mockResolvedValue({
+        endorsement: endorsement({ status }),
+        signerId: "signer-1",
+      });
+
+      await expect(service.getDocumentForSigner("token-uji")).rejects.toThrow(
+        /tidak dikenali/i,
+      );
+      expect(storage.read).not.toHaveBeenCalled();
+    },
+  );
+
+  it("menolak surat terkirim yang sudah lewat masa berlaku", async () => {
+    repository.findByTokenHash.mockResolvedValue({
+      endorsement: endorsement({ expiresAt: new Date("2020-01-01") }),
+      signerId: "signer-1",
+    });
+
+    await expect(service.getDocumentForSigner("token-uji")).rejects.toThrow(
+      /tidak dikenali/i,
+    );
+  });
+
+  it("menyajikan PDF gabungan setelah surat sah", async () => {
+    repository.findByTokenHash.mockResolvedValue({
+      endorsement: endorsement({
+        status: "COMPLETED",
+        signedFileKey: "kunci-final",
+      }),
+      signerId: "signer-1",
+    });
+
+    await service.getDocumentForSigner("token-uji");
+
+    expect(storage.read).toHaveBeenCalledWith("kunci-final");
+  });
+});
+
+describe("reissueSignerLink", () => {
+  it("menimpa sidik jari token dengan yang baru", async () => {
+    repository.findById.mockResolvedValue(endorsement());
+
+    const link = await service.reissueSignerLink("end-1", "signer-1");
+
+    expect(repository.updateSignerTokenHash).toHaveBeenCalledWith(
+      "signer-1",
+      hashSignerToken(link.token),
+    );
+    expect(repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "LINK_REISSUED", signerId: "signer-1" }),
+    );
+  });
+
+  it("menolak penanda tangan yang sudah tanda tangan", async () => {
+    repository.findById.mockResolvedValue(
+      endorsement({ signers: [signer({ status: "SIGNED" })] }),
+    );
+
+    await expect(
+      service.reissueSignerLink("end-1", "signer-1"),
+    ).rejects.toThrow(/belum memutuskan/i);
+    expect(repository.updateSignerTokenHash).not.toHaveBeenCalled();
+  });
+
+  it("menolak penanda tangan yang bukan milik surat", async () => {
+    repository.findById.mockResolvedValue(endorsement());
+
+    await expect(
+      service.reissueSignerLink("end-1", "signer-asing"),
+    ).rejects.toThrow(/tidak ditemukan/i);
+  });
 });
 
 describe("markSent", () => {
   it("hanya boleh dari draf", async () => {
     repository.findById.mockResolvedValue(endorsement({ status: "SENT" }));
+    repository.transitionStatus.mockResolvedValue(false);
 
     await expect(service.markSent("end-1")).rejects.toThrow(/draf/i);
   });
@@ -328,14 +463,72 @@ describe("cancel", () => {
       /sudah sah/i,
     );
   });
+
+  // Alasan pembatalan sebelumnya (mis. penolakan penanda tangan) tidak boleh
+  // tertimpa oleh pembatalan kedua.
+  it.each(["CANCELLED", "EXPIRED"])(
+    "menolak membatalkan ulang surat berstatus %s",
+    async (status) => {
+      repository.findById.mockResolvedValue(endorsement({ status }));
+
+      await expect(service.cancel("end-1", "alasan")).rejects.toThrow(
+        /tidak aktif/i,
+      );
+      expect(repository.transitionStatus).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("finalizePending", () => {
+  it("mengesahkan ulang surat yang sudah ditandatangani semua", async () => {
+    repository.findFullySignedOpenIds.mockResolvedValue(["end-1"]);
+    repository.findById.mockResolvedValue(
+      endorsement({ signers: [signer({ status: "SIGNED" })] }),
+    );
+
+    expect(await service.finalizePending()).toBe(1);
+    expect(pdf.buildSignedPdf).toHaveBeenCalled();
+  });
+
+  it("kegagalan satu surat tidak menghentikan yang lain", async () => {
+    repository.findFullySignedOpenIds.mockResolvedValue(["end-1", "end-2"]);
+    repository.findById.mockResolvedValue(
+      endorsement({ signers: [signer({ status: "SIGNED" })] }),
+    );
+    pdf.buildSignedPdf
+      .mockRejectedValueOnce(new Error("rusak"))
+      .mockResolvedValue({ key: "kunci-final", hash: "c".repeat(64) });
+
+    expect(await service.finalizePending()).toBe(1);
+  });
 });
 
 describe("expireOverdue", () => {
-  it("menandai surat yang lewat masa berlaku", async () => {
-    repository.findExpiredIds.mockResolvedValue(["end-1", "end-2"]);
-    repository.findById.mockResolvedValue(endorsement());
+  it("menandai surat yang lewat masa berlaku tanpa memuat ulang tiap surat", async () => {
+    repository.findExpired.mockResolvedValue([
+      { id: "end-1", tenantId: "tenant-1" },
+      { id: "end-2", tenantId: "tenant-2" },
+    ]);
 
     expect(await service.expireOverdue()).toBe(2);
-    expect(repository.updateStatus).toHaveBeenCalledWith("end-1", "EXPIRED");
+    expect(repository.transitionStatus).toHaveBeenCalledWith(
+      "end-1",
+      ["SENT"],
+      "EXPIRED",
+    );
+    expect(repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ endorsementId: "end-2", tenantId: "tenant-2" }),
+    );
+    expect(repository.findById).not.toHaveBeenCalled();
+  });
+
+  it("tidak menghitung surat yang statusnya sudah berubah duluan", async () => {
+    repository.findExpired.mockResolvedValue([
+      { id: "end-1", tenantId: "tenant-1" },
+    ]);
+    repository.transitionStatus.mockResolvedValue(false);
+
+    expect(await service.expireOverdue()).toBe(0);
+    expect(repository.recordEvent).not.toHaveBeenCalled();
   });
 });

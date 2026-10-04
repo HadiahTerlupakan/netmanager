@@ -14,6 +14,15 @@ import type {
 /** Status yang berarti surat masih menunggu tanda tangan. */
 const OPEN_STATUSES: EndorsementStatus[] = ["SENT"];
 
+/** Status yang masih boleh dibatalkan admin; status akhir tidak boleh ditimpa. */
+const CANCELLABLE_STATUSES: EndorsementStatus[] = ["DRAFT", "SENT"];
+
+/** Status penanda tangan yang belum mengambil keputusan. */
+export const UNDECIDED_SIGNER_STATUSES: EndorsementSignerEntity["status"][] = [
+  "PENDING",
+  "VIEWED",
+];
+
 /** Apakah semua penanda tangan sudah membubuhkan tanda tangan? */
 export function isFullySigned(signers: EndorsementSignerEntity[]): boolean {
   if (signers.length === 0) return false;
@@ -50,7 +59,27 @@ export function canSign(
   if (!OPEN_STATUSES.includes(endorsement.status)) return false;
   if (isExpired(endorsement, now)) return false;
 
-  return signer.status === "PENDING" || signer.status === "VIEWED";
+  return UNDECIDED_SIGNER_STATUSES.includes(signer.status);
+}
+
+/** Apakah admin masih boleh membatalkan surat ini? */
+export function canCancel(status: EndorsementStatus): boolean {
+  return CANCELLABLE_STATUSES.includes(status);
+}
+
+/**
+ * Apakah pemegang tautan masih boleh membuka dokumen?
+ *
+ * Akses berhenti begitu surat dibatalkan atau kedaluwarsa; surat yang sudah sah
+ * tetap bisa dibuka supaya penanda tangan bisa mengunduh hasil akhirnya.
+ */
+export function canAccessDocument(
+  endorsement: Pick<EndorsementEntity, "status" | "expiresAt">,
+  now: Date = new Date(),
+): boolean {
+  if (endorsement.status === "COMPLETED") return true;
+
+  return OPEN_STATUSES.includes(endorsement.status) && !isExpired(endorsement, now);
 }
 
 /** Status surat setelah satu perubahan pada daftar penanda tangan. */

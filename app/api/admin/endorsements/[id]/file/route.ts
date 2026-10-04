@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHandler, ApiErrors } from "@/lib/api";
+import { buildContentDisposition } from "@/lib/utils/content-disposition";
 import { EndorsementService } from "@/modules/endorsement";
 
 const service = new EndorsementService();
@@ -35,7 +36,7 @@ export const GET = createHandler(
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": `inline; filename="${fileName}"`,
+        "content-disposition": buildContentDisposition(fileName),
         // Dokumen rahasia tidak boleh mengendap di cache bersama.
         "cache-control": "private, no-store",
         "x-robots-tag": "noindex, nofollow",

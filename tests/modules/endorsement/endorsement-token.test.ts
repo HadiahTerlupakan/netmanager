@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   generateSignerToken,
   hashSignerToken,
-  isSameTokenHash,
   isValidTokenFormat,
 } from "@/modules/endorsement/services/endorsement-token";
 
@@ -71,20 +70,3 @@ describe("isValidTokenFormat", () => {
   );
 });
 
-describe("isSameTokenHash", () => {
-  it("benar untuk hash identik", () => {
-    const hash = hashSignerToken("token-uji");
-
-    expect(isSameTokenHash(hash, hash)).toBe(true);
-  });
-
-  it("salah untuk hash berbeda", () => {
-    expect(isSameTokenHash(hashSignerToken("a"), hashSignerToken("b"))).toBe(
-      false,
-    );
-  });
-
-  it("salah untuk panjang berbeda tanpa melempar", () => {
-    expect(isSameTokenHash("abc", hashSignerToken("a"))).toBe(false);
-  });
-});

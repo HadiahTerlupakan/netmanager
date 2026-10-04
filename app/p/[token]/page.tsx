@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { getClientInfoFromHeaders } from "@/lib/request-helpers";
 import { runAsSystemContext } from "@/lib/tenant-context";
-import { EndorsementService, isValidTokenFormat } from "@/modules/endorsement";
+import {
+  countSigned,
+  EndorsementService,
+  isValidTokenFormat,
+} from "@/modules/endorsement";
 import EndorsementSignClient from "./EndorsementSignClient";
 
 /**
@@ -32,11 +37,7 @@ export default async function EndorsementSignPage({ params }: PageProps) {
   const { token } = await params;
   if (!isValidTokenFormat(token)) notFound();
 
-  const headerStore = await headers();
-  const context = {
-    ipAddress: headerStore.get("x-forwarded-for")?.split(",")[0]?.trim(),
-    userAgent: headerStore.get("user-agent") ?? undefined,
-  };
+  const context = getClientInfoFromHeaders(await headers());
 
   const view = await runAsSystemContext(
     "endorsement: buka tautan tanda tangan",
@@ -66,9 +67,7 @@ export default async function EndorsementSignPage({ params }: PageProps) {
       signerName={signer.name}
       signerRole={signer.role}
       signerStatus={signer.status}
-      signedCount={
-        endorsement.signers.filter((item) => item.status === "SIGNED").length
-      }
+      signedCount={countSigned(endorsement.signers)}
       signerCount={endorsement.signers.length}
     />
   );

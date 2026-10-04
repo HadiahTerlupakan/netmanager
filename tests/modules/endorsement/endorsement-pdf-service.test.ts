@@ -175,4 +175,37 @@ describe("buildSignedPdf", () => {
       expect.objectContaining({ tenantId: "tenant-1", endorsementId: "end-1" }),
     );
   });
+
+  // Lembar pengesahan dulu hanya satu halaman: penanda tangan kesembilan dst.
+  // tergambar di luar halaman dan hilang dari berkas.
+  it("menambah halaman pengesahan bila penanda tangan banyak", async () => {
+    const signers = Array.from({ length: 20 }, (_, index) =>
+      signer({ id: `signer-${index}`, signatureKey: `kunci-ttd-${index}` }),
+    );
+
+    await buildService().buildSignedPdf(endorsement({ signers }));
+
+    expect((await savedPdf()).getPageCount()).toBeGreaterThan(3);
+  });
+
+  // Helvetica hanya mengenal WinAnsi; emoji atau aksara non-Latin dulu membuat
+  // finalisasi melempar galat dan surat tidak pernah sah.
+  it("tetap tersusun walau nama dan judul berisi karakter di luar WinAnsi", async () => {
+    await buildService().buildSignedPdf(
+      endorsement({
+        title: "Serah terima 📄 — جهاز",
+        signers: [signer({ name: "Budi 😀 李", role: "Direktur ✓" })],
+      }),
+    );
+
+    expect((await savedPdf()).getPageCount()).toBe(3);
+  });
+
+  it("membungkus judul panjang tanpa galat", async () => {
+    await buildService().buildSignedPdf(
+      endorsement({ title: "Berita Acara ".repeat(30) }),
+    );
+
+    expect((await savedPdf()).getPageCount()).toBe(3);
+  });
 });

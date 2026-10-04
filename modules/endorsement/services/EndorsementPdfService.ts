@@ -6,30 +6,44 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import { logger } from "@/lib/logger";
-import type { EndorsementEntity } from "../domain/entities/Endorsement";
+import type {
+  EndorsementEntity,
+  EndorsementSignerEntity,
+} from "../domain/entities/Endorsement";
 import { EndorsementStorageService } from "./EndorsementStorageService";
 
 /**
  * Penyusunan PDF hasil pengesahan.
  *
  * Hasil akhirnya satu berkas: seluruh halaman dokumen asal apa adanya, lalu
- * satu halaman pengesahan berisi tanda tangan, nama, jabatan, waktu, dan sidik
- * jari dokumen asal. Dokumen asal tidak pernah diubah isinya — halaman baru
+ * lembar pengesahan berisi tanda tangan, nama, jabatan, waktu, dan sidik jari
+ * dokumen asal. Dokumen asal tidak pernah diubah isinya — halaman baru
  * ditambahkan di belakang — supaya sidik jari yang tercetak tetap bisa
  * dicocokkan dengan berkas yang ditandatangani.
+ *
+ * Lembar pengesahan bisa lebih dari satu halaman bila penanda tangannya banyak.
  */
 
 const PAGE_WIDTH = 595.28; // A4 potret dalam titik
 const PAGE_HEIGHT = 841.89;
 const MARGIN = 56;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const TITLE_SIZE = 16;
 const TEXT_SIZE = 10;
+const HEADING_SIZE = TEXT_SIZE + 2;
 const SMALL_SIZE = 8;
 const LINE_HEIGHT = 14;
 const SIGNATURE_BOX_WIDTH = 220;
 const SIGNATURE_BOX_HEIGHT = 70;
 const SIGNATURE_COLUMNS = 2;
 const COLUMN_GAP = 24;
+/** Tinggi satu baris kotak tanda tangan beserta nama, jabatan, dan waktu. */
+const SIGNATURE_ROW_HEIGHT = SIGNATURE_BOX_HEIGHT + LINE_HEIGHT * 4;
+/** Ruang di dasar halaman terakhir untuk sidik jari dokumen. */
+const FOOTER_HEIGHT = LINE_HEIGHT * 3;
+/** Pengganti karakter yang tidak bisa dicetak font standar PDF. */
+const REPLACEMENT_CHAR = "?";
+const ELLIPSIS = "...";
 
 const INK = rgb(0.07, 0.09, 0.15);
 const MUTED = rgb(0.42, 0.45, 0.5);
@@ -48,26 +62,110 @@ function formatDateTime(value: Date | null): string {
   });
 }
 
-interface TextOptions {
-  size?: number;
+/**
+ * Font standar PDF (Helvetica) hanya mengenal WinAnsi. Karakter di luar itu —
+ * emoji, aksara non-Latin — membuat pdf-lib melempar galat, yang berarti surat
+ * gagal disahkan hanya karena nama penanda tangan. Karakter seperti itu diganti.
+ */
+function toPrintableText(font: PDFFont, text: string): string {
+  const supported = new Set(font.getCharacterSet());
+
+  return Array.from(text.replace(/\s+/g, " "))
+    .map((char) => (supported.has(char.codePointAt(0)!) ? char : REPLACEMENT_CHAR))
+    .join("");
+}
+
+/** Potong teks dengan elipsis supaya muat di lebar tertentu. */
+function fitText(font: PDFFont, text: string, size: number, maxWidth: number) {
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+
+  let fitted = text;
+  while (
+    fitted.length > 0 &&
+    font.widthOfTextAtSize(fitted + ELLIPSIS, size) > maxWidth
+  ) {
+    fitted = fitted.slice(0, -1);
+  }
+
+  return fitted + ELLIPSIS;
+}
+
+/** Bungkus teks per kata menjadi beberapa baris yang muat di lebar tertentu. */
+function wrapText(
+  font: PDFFont,
+  text: string,
+  size: number,
+  maxWidth: number,
+): string[] {
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of text.split(" ")) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) lines.push(current);
+    current = fitText(font, word, size, maxWidth);
+  }
+
+  if (current) lines.push(current);
+
+  return lines;
+}
+
+interface Fonts {
+  regular: PDFFont;
+  bold: PDFFont;
+}
+
+interface TextStyle {
   font: PDFFont;
+  size?: number;
   color?: ReturnType<typeof rgb>;
 }
 
-function drawText(
-  page: PDFPage,
-  text: string,
-  x: number,
-  y: number,
-  options: TextOptions,
-) {
-  page.drawText(text, {
-    x,
-    y,
-    size: options.size ?? TEXT_SIZE,
-    font: options.font,
-    color: options.color ?? INK,
-  });
+/**
+ * Kursor penulisan lembar pengesahan: halaman aktif dan posisi vertikalnya.
+ * Membuka halaman baru otomatis bila ruang yang diminta tidak cukup.
+ */
+class SheetCursor {
+  page: PDFPage;
+  y: number;
+
+  constructor(private readonly output: PDFDocument) {
+    this.page = output.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    this.y = PAGE_HEIGHT - MARGIN;
+  }
+
+  /** Pastikan ada ruang setinggi `height` di atas footer; bila tidak, pindah halaman. */
+  ensureSpace(height: number): void {
+    if (this.y - height >= MARGIN + FOOTER_HEIGHT) return;
+
+    this.page = this.output.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    this.y = PAGE_HEIGHT - MARGIN;
+  }
+
+  text(content: string, x: number, y: number, style: TextStyle): void {
+    this.page.drawText(toPrintableText(style.font, content), {
+      x,
+      y,
+      size: style.size ?? TEXT_SIZE,
+      font: style.font,
+      color: style.color ?? INK,
+    });
+  }
+
+  rule(y: number, fromX = MARGIN, toX = PAGE_WIDTH - MARGIN): void {
+    this.page.drawLine({
+      start: { x: fromX, y },
+      end: { x: toX, y },
+      thickness: 0.75,
+      color: LINE,
+    });
+  }
 }
 
 export class EndorsementPdfService {
@@ -76,7 +174,7 @@ export class EndorsementPdfService {
   ) {}
 
   /**
-   * Gabungkan dokumen asal dengan halaman pengesahan lalu simpan hasilnya.
+   * Gabungkan dokumen asal dengan lembar pengesahan lalu simpan hasilnya.
    *
    * Mengembalikan kunci objek dan sidik jari berkas final.
    */
@@ -90,10 +188,9 @@ export class EndorsementPdfService {
     const pages = await output.copyPages(source, source.getPageIndices());
     for (const page of pages) output.addPage(page);
 
-    await this.appendEndorsementPage(output, endorsement);
+    await this.appendEndorsementSheet(output, endorsement);
 
-    const bytes = await output.save();
-    const buffer = Buffer.from(bytes);
+    const buffer = Buffer.from(await output.save());
 
     logger.info(
       `[EndorsementPdf] Menyusun berkas pengesahan ${endorsement.number} (${pages.length} halaman asal)`,
@@ -106,124 +203,130 @@ export class EndorsementPdfService {
     });
   }
 
-  private async appendEndorsementPage(
+  private async appendEndorsementSheet(
     output: PDFDocument,
     endorsement: EndorsementEntity,
   ): Promise<void> {
-    const page = output.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    const font = await output.embedFont(StandardFonts.Helvetica);
-    const boldFont = await output.embedFont(StandardFonts.HelveticaBold);
+    const fonts: Fonts = {
+      regular: await output.embedFont(StandardFonts.Helvetica),
+      bold: await output.embedFont(StandardFonts.HelveticaBold),
+    };
+    const cursor = new SheetCursor(output);
 
-    let cursorY = PAGE_HEIGHT - MARGIN;
+    this.drawHeader(cursor, endorsement, fonts);
+    await this.drawSignatures(output, cursor, endorsement.signers, fonts);
+    this.drawFooter(cursor, endorsement, fonts.regular);
+  }
 
-    drawText(page, "LEMBAR PENGESAHAN", MARGIN, cursorY, {
-      font: boldFont,
+  private drawHeader(
+    cursor: SheetCursor,
+    endorsement: EndorsementEntity,
+    fonts: Fonts,
+  ): void {
+    cursor.text("LEMBAR PENGESAHAN", MARGIN, cursor.y, {
+      font: fonts.bold,
       size: TITLE_SIZE,
     });
-    cursorY -= LINE_HEIGHT * 1.6;
+    cursor.y -= LINE_HEIGHT * 1.6;
 
-    drawText(page, endorsement.number, MARGIN, cursorY, {
-      font,
-      size: TEXT_SIZE,
+    cursor.text(endorsement.number, MARGIN, cursor.y, {
+      font: fonts.regular,
       color: MUTED,
     });
-    cursorY -= LINE_HEIGHT * 1.4;
+    cursor.y -= LINE_HEIGHT * 1.4;
 
-    drawText(page, endorsement.title, MARGIN, cursorY, {
-      font: boldFont,
-      size: TEXT_SIZE + 2,
-    });
-    cursorY -= LINE_HEIGHT * 1.6;
+    const titleLines = wrapText(
+      fonts.bold,
+      toPrintableText(fonts.bold, endorsement.title),
+      HEADING_SIZE,
+      CONTENT_WIDTH,
+    );
+    for (const line of titleLines) {
+      cursor.text(line, MARGIN, cursor.y, { font: fonts.bold, size: HEADING_SIZE });
+      cursor.y -= LINE_HEIGHT * 1.2;
+    }
+    cursor.y -= LINE_HEIGHT * 0.4;
 
-    page.drawLine({
-      start: { x: MARGIN, y: cursorY },
-      end: { x: PAGE_WIDTH - MARGIN, y: cursorY },
-      thickness: 0.75,
-      color: LINE,
-    });
-    cursorY -= LINE_HEIGHT * 1.6;
+    cursor.rule(cursor.y);
+    cursor.y -= LINE_HEIGHT * 1.6;
 
-    drawText(
-      page,
+    cursor.text(
       "Dokumen berikut telah disahkan secara elektronik oleh pihak-pihak di bawah ini.",
       MARGIN,
-      cursorY,
-      { font, size: TEXT_SIZE, color: MUTED },
+      cursor.y,
+      { font: fonts.regular, color: MUTED },
     );
-    cursorY -= LINE_HEIGHT * 2;
-
-    cursorY = await this.drawSignatures(
-      output,
-      page,
-      endorsement,
-      font,
-      boldFont,
-      cursorY,
-    );
-
-    this.drawFooter(page, endorsement, font, cursorY);
+    cursor.y -= LINE_HEIGHT * 2;
   }
 
   private async drawSignatures(
     output: PDFDocument,
-    page: PDFPage,
-    endorsement: EndorsementEntity,
-    font: PDFFont,
-    boldFont: PDFFont,
-    startY: number,
-  ): Promise<number> {
-    let cursorY = startY;
+    cursor: SheetCursor,
+    signers: EndorsementSignerEntity[],
+    fonts: Fonts,
+  ): Promise<void> {
     const columnWidth = SIGNATURE_BOX_WIDTH + COLUMN_GAP;
 
-    for (const [index, signer] of endorsement.signers.entries()) {
+    for (const [index, signer] of signers.entries()) {
       const column = index % SIGNATURE_COLUMNS;
+      if (column === 0) {
+        if (index > 0) cursor.y -= SIGNATURE_ROW_HEIGHT;
+        cursor.ensureSpace(SIGNATURE_ROW_HEIGHT);
+      }
+
       const x = MARGIN + column * columnWidth;
+      await this.drawSignatureBlock(output, cursor, signer, x, fonts);
+    }
 
-      if (column === 0 && index > 0) {
-        cursorY -= SIGNATURE_BOX_HEIGHT + LINE_HEIGHT * 4;
-      }
+    cursor.y -= SIGNATURE_ROW_HEIGHT + LINE_HEIGHT;
+  }
 
-      const boxBottom = cursorY - SIGNATURE_BOX_HEIGHT;
+  private async drawSignatureBlock(
+    output: PDFDocument,
+    cursor: SheetCursor,
+    signer: EndorsementSignerEntity,
+    x: number,
+    fonts: Fonts,
+  ): Promise<void> {
+    const boxBottom = cursor.y - SIGNATURE_BOX_HEIGHT;
 
-      if (signer.signatureKey) {
-        await this.drawSignatureImage(
-          output,
-          page,
-          signer.signatureKey,
-          x,
-          boxBottom,
-        );
-      }
-
-      page.drawLine({
-        start: { x, y: boxBottom - 4 },
-        end: { x: x + SIGNATURE_BOX_WIDTH, y: boxBottom - 4 },
-        thickness: 0.75,
-        color: LINE,
-      });
-
-      drawText(page, signer.name, x, boxBottom - LINE_HEIGHT - 4, {
-        font: boldFont,
-      });
-
-      if (signer.role) {
-        drawText(page, signer.role, x, boxBottom - LINE_HEIGHT * 2 - 2, {
-          font,
-          size: SMALL_SIZE,
-          color: MUTED,
-        });
-      }
-
-      drawText(
-        page,
-        `Ditandatangani ${formatDateTime(signer.signedAt)} WIB`,
+    if (signer.signatureKey) {
+      await this.drawSignatureImage(
+        output,
+        cursor.page,
+        signer.signatureKey,
         x,
-        boxBottom - LINE_HEIGHT * 3,
-        { font, size: SMALL_SIZE, color: MUTED },
+        boxBottom,
       );
     }
 
-    return cursorY - SIGNATURE_BOX_HEIGHT - LINE_HEIGHT * 5;
+    cursor.rule(boxBottom - 4, x, x + SIGNATURE_BOX_WIDTH);
+
+    const fit = (font: PDFFont, text: string, size: number) =>
+      fitText(font, toPrintableText(font, text), size, SIGNATURE_BOX_WIDTH);
+
+    cursor.text(
+      fit(fonts.bold, signer.name, TEXT_SIZE),
+      x,
+      boxBottom - LINE_HEIGHT - 4,
+      { font: fonts.bold },
+    );
+
+    if (signer.role) {
+      cursor.text(
+        fit(fonts.regular, signer.role, SMALL_SIZE),
+        x,
+        boxBottom - LINE_HEIGHT * 2 - 2,
+        { font: fonts.regular, size: SMALL_SIZE, color: MUTED },
+      );
+    }
+
+    cursor.text(
+      `Ditandatangani ${formatDateTime(signer.signedAt)} WIB`,
+      x,
+      boxBottom - LINE_HEIGHT * 3,
+      { font: fonts.regular, size: SMALL_SIZE, color: MUTED },
+    );
   }
 
   /**
@@ -263,34 +366,25 @@ export class EndorsementPdfService {
   }
 
   private drawFooter(
-    page: PDFPage,
+    cursor: SheetCursor,
     endorsement: EndorsementEntity,
     font: PDFFont,
-    startY: number,
   ): void {
-    const y = Math.max(startY, MARGIN + LINE_HEIGHT * 3);
+    const y = MARGIN + LINE_HEIGHT;
+    const style = { font, size: SMALL_SIZE, color: MUTED };
 
-    page.drawLine({
-      start: { x: MARGIN, y: y + LINE_HEIGHT },
-      end: { x: PAGE_WIDTH - MARGIN, y: y + LINE_HEIGHT },
-      thickness: 0.75,
-      color: LINE,
-    });
-
-    drawText(
-      page,
+    cursor.rule(y + LINE_HEIGHT);
+    cursor.text(
       `Sidik jari dokumen asal (SHA-256): ${endorsement.sourceFileHash}`,
       MARGIN,
       y,
-      { font, size: SMALL_SIZE, color: MUTED },
+      style,
     );
-
-    drawText(
-      page,
+    cursor.text(
       "Lembar ini dihasilkan otomatis; keaslian dokumen dapat diperiksa lewat sidik jari di atas.",
       MARGIN,
       y - LINE_HEIGHT,
-      { font, size: SMALL_SIZE, color: MUTED },
+      style,
     );
   }
 }

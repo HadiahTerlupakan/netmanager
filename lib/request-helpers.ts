@@ -27,3 +27,21 @@ export function getClientIp(request: NextRequest): string {
 export function getUserAgent(request: NextRequest): string {
   return request.headers.get("user-agent") || "unknown";
 }
+
+/**
+ * IP dan User-Agent pengunjung untuk jejak audit, dari objek `Headers` mana
+ * pun — rute API (`request.headers`) maupun server component (`headers()`).
+ * Nilai yang tidak ada dibiarkan `undefined`, bukan diisi "unknown".
+ */
+export function getClientInfoFromHeaders(headers: Headers): {
+  ipAddress?: string;
+  userAgent?: string;
+} {
+  return {
+    ipAddress:
+      headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      headers.get("x-real-ip") ||
+      undefined,
+    userAgent: headers.get("user-agent") ?? undefined,
+  };
+}

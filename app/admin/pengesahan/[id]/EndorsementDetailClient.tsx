@@ -8,8 +8,14 @@ import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { clientLogger } from "@/lib/client-logger";
+import SignerReissueButton from "./SignerReissueButton";
 
 /** Detail surat: kemajuan tanda tangan, jejak berkas, dan aksi pembatalan. */
+
+/** Status penanda tangan yang tautannya masih boleh diterbitkan ulang. */
+const REISSUABLE_SIGNER_STATUSES = ["PENDING", "VIEWED"];
+/** Status surat yang masih bisa dibatalkan (sejalan dengan aturan domain). */
+const CANCELLABLE_STATUSES = ["DRAFT", "SENT"];
 
 interface SignerDto {
   id: string;
@@ -201,6 +207,13 @@ export default function EndorsementDetailClient({
                     Alasan menolak: {signer.declineReason}
                   </p>
                 )}
+                {detail.status === "SENT" &&
+                  REISSUABLE_SIGNER_STATUSES.includes(signer.status) && (
+                    <SignerReissueButton
+                      endorsementId={detail.id}
+                      signerId={signer.id}
+                    />
+                  )}
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-700 dark:text-gray-200">
@@ -228,7 +241,7 @@ export default function EndorsementDetailClient({
         )}
       </div>
 
-      {detail.status !== "COMPLETED" && detail.status !== "CANCELLED" && (
+      {CANCELLABLE_STATUSES.includes(detail.status) && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           {isCancelling ? (
             <div className="space-y-2">

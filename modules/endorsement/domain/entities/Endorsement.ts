@@ -41,6 +41,7 @@ export const ENDORSEMENT_EVENT_TYPES = [
   "COMPLETED",
   "CANCELLED",
   "EXPIRED",
+  "LINK_REISSUED",
 ] as const;
 
 export type EndorsementEventType = (typeof ENDORSEMENT_EVENT_TYPES)[number];

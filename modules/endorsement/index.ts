@@ -18,6 +18,8 @@ export {
 } from "./domain/entities/Endorsement";
 
 export {
+  canAccessDocument,
+  canCancel,
   canSign,
   countSigned,
   hasDecline,
@@ -29,7 +31,6 @@ export {
 export {
   generateSignerToken,
   hashSignerToken,
-  isSameTokenHash,
   isValidTokenFormat,
 } from "./services/endorsement-token";
 
@@ -42,16 +43,20 @@ export {
 
 export {
   cancelEndorsementSchema,
+  createEndorsementPayloadSchema,
   createEndorsementSchema,
   declineEndorsementSchema,
   endorsementSignerInputSchema,
   listEndorsementSchema,
   signEndorsementSchema,
-  signerStatusSchema,
-  updateEndorsementSchema,
 } from "./validators/endorsement.validator";
 
 export { EndorsementService } from "./services/EndorsementService";
+export {
+  EndorsementIssueService,
+  type IssuedLink,
+  type IssueResult,
+} from "./services/EndorsementIssueService";
 export { EndorsementPdfService } from "./services/EndorsementPdfService";
 export { EndorsementStorageService } from "./services/EndorsementStorageService";
 
@@ -71,4 +76,7 @@ export {
   EndorsementNotificationService,
   type DeliveryOutcome,
 } from "./services/EndorsementNotificationService";
-export type { SignerLink } from "./services/EndorsementService";
+export type {
+  SignerLink,
+  SignerRequestContext,
+} from "./services/EndorsementService";

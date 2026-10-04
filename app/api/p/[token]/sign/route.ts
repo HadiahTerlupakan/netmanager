@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { getClientInfoFromHeaders } from "@/lib/request-helpers";
 import { runAsSystemContext } from "@/lib/tenant-context";
 import { checkRateLimit } from "../rate-limit";
 import {
@@ -32,13 +33,7 @@ export const POST = createHandler(
     const result = await runAsSystemContext(
       "endorsement: tanda tangan pihak luar",
       () =>
-        new EndorsementService().sign(token, signature, {
-          ipAddress: request.headers
-            .get("x-forwarded-for")
-            ?.split(",")[0]
-            ?.trim(),
-          userAgent: request.headers.get("user-agent") ?? undefined,
-        }),
+        new EndorsementService().sign(token, signature, getClientInfoFromHeaders(request.headers)),
       { silent: true },
     );
 

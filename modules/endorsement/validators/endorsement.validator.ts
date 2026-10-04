@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   ENDORSEMENT_SOURCE_TYPES,
-  SIGNER_STATUSES,
+  ENDORSEMENT_STATUSES,
 } from "../domain/entities/Endorsement";
 
 /**
@@ -40,14 +40,18 @@ export const createEndorsementSchema = z.object({
   signers: z.array(endorsementSignerInputSchema).min(1).max(MAX_SIGNERS),
 });
 
-export const updateEndorsementSchema = z.object({
-  title: z.string().min(3).max(MAX_TITLE_LENGTH).optional(),
-  description: z.string().max(2000).optional(),
-  expiresAt: z.coerce.date().optional(),
+/**
+ * Isian formulir multipart pembuatan surat. Berkasnya dikirim terpisah, jadi
+ * kunci, nama, dan sidik jari berkas dihitung server, bukan dari klien.
+ */
+export const createEndorsementPayloadSchema = createEndorsementSchema.omit({
+  sourceFileKey: true,
+  sourceFileName: true,
+  sourceFileHash: true,
 });
 
 export const listEndorsementSchema = z.object({
-  status: z.string().optional(),
+  status: z.enum(ENDORSEMENT_STATUSES).optional(),
   search: z.string().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -77,5 +81,3 @@ export const signEndorsementSchema = z.object({
 export const declineEndorsementSchema = z.object({
   reason: z.string().min(3).max(500),
 });
-
-export const signerStatusSchema = z.enum(SIGNER_STATUSES);

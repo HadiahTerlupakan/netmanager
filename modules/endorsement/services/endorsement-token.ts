@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes } from "crypto";
 
 /**
  * Token short link untuk penanda tangan.
@@ -27,17 +27,3 @@ export function isValidTokenFormat(token: string): boolean {
   return TOKEN_PATTERN.test(token);
 }
 
-/**
- * Bandingkan dua hash tanpa membocorkan posisi perbedaan lewat waktu eksekusi.
- *
- * Pencarian di database memakai indeks unik pada hash, tetapi perbandingan
- * tambahan tetap dilakukan konstan-waktu agar tidak menjadi oracle.
- */
-export function isSameTokenHash(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left, "utf8");
-  const rightBuffer = Buffer.from(right, "utf8");
-
-  if (leftBuffer.length !== rightBuffer.length) return false;
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
-}

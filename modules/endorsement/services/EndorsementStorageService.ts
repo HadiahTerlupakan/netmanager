@@ -60,11 +60,17 @@ export function buildSignatureKey(
   return `${buildTenantPrefix(tenantId)}/${endorsementId}/ttd-${signerId}.png`;
 }
 
+/**
+ * Kunci PDF gabungan memuat id penyusunan supaya dua finalisasi yang
+ * berbarengan tidak saling menimpa berkas — sidik jari yang tersimpan harus
+ * selalu cocok dengan berkas yang dirujuk.
+ */
 export function buildSignedKey(
   tenantId: string | null,
   endorsementId: string,
+  buildId: string,
 ): string {
-  return `${buildTenantPrefix(tenantId)}/${endorsementId}/pengesahan.pdf`;
+  return `${buildTenantPrefix(tenantId)}/${endorsementId}/pengesahan-${buildId}.pdf`;
 }
 
 /** sha256 berkas, dicetak di halaman pengesahan sebagai bukti dokumen utuh. */
@@ -123,7 +129,11 @@ export class EndorsementStorageService {
   }): Promise<{ key: string; hash: string }> {
     assertR2Configured(await isR2Enabled());
 
-    const key = buildSignedKey(input.tenantId, input.endorsementId);
+    const key = buildSignedKey(
+      input.tenantId,
+      input.endorsementId,
+      crypto.randomUUID(),
+    );
     await uploadToR2(input.buffer, key, PDF_CONTENT_TYPE);
 
     return { key, hash: hashFile(input.buffer) };
@@ -139,7 +149,7 @@ export class EndorsementStorageService {
     return buffer;
   }
 
-  /** Hapus seluruh berkas milik satu surat. */
+  /** Hapus berkas-berkas berdasarkan kuncinya; kunci kosong dilewati. */
   async removeAll(keys: Array<string | null | undefined>): Promise<void> {
     for (const key of keys) {
       if (key) await deleteFromR2(key);

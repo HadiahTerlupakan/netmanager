@@ -41,6 +41,50 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Pengesahan: dokumen surat gugur tak bisa dibuka lagi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/endorsement`, `app/api/p`
+- **Author**: agent
+- **Deskripsi**:
+  - `GET /api/p/[token]/file` tetap menyajikan dokumen rahasia walau surat sudah CANCELLED/EXPIRED, berlawanan dengan komentarnya sendiri. Aturan akses kini di domain (`canAccessDocument`: SENT belum kedaluwarsa atau COMPLETED) dan ditegakkan `EndorsementService.getDocumentForSigner()`.
+  - `recordEvent` mengabaikan `tenantId`; event dari penanda tangan pihak luar (konteks sistem) tersimpan tanpa tenant. Kini diisi eksplisit.
+- **Files**: `modules/endorsement/domain/endorsement-rules.ts`, `modules/endorsement/services/EndorsementService.ts`, `modules/endorsement/repositories/EndorsementRepository.ts`, `app/api/p/[token]/file/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Pengesahan: race, surat tersangkut, PDF, dan notifikasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/endorsement`, `app/api/admin/endorsements`, `app/api/cron/endorsement-expire`, `lib/`
+- **Author**: agent
+- **Deskripsi**:
+  - Transisi status surat & penanda tangan kini bersyarat (`updateMany ... where status in`): klik ganda atau dua penanda tangan terakhir bersamaan tidak lagi menghasilkan SIGNED/COMPLETED ganda. Kunci PDF gabungan unik per penyusunan; yang kalah balapan dibuang supaya sidik jari selalu cocok.
+  - PDF gabungan yang gagal disusun tidak lagi membuat penanda tangan melihat 500, dan surat tidak lagi tersangkut lalu di-EXPIRE: cron `endorsement-expire` kini memanggil `finalizePending()` dulu dan mengecualikan surat yang sudah ditandatangani semua dari kedaluwarsa.
+  - `cancel()` tidak lagi menimpa surat CANCELLED/EXPIRED (alasan penolakan hilang).
+  - Notifikasi: nomor HP dulu berarti WhatsApp saja; kini beralih ke email bila WhatsApp gagal/belum tersambung.
+  - Lembar pengesahan: lebih dari ±8 penanda tangan kini pindah halaman (dulu tergambar di luar halaman), judul panjang dibungkus, karakter di luar WinAnsi diganti (dulu membuat finalisasi gagal).
+  - Unduhan berkas dengan nama non-ASCII tidak lagi 500 (helper `lib/utils/content-disposition.ts`). Payload JSON rusak di POST pembuatan surat kini 400, bukan 500.
+  - Orkestrasi buat→kirim→tandai terkirim dipindah dari route ke `EndorsementIssueService`; ekstraksi IP/UA yang terduplikasi 3× diganti `getClientInfoFromHeaders`; filter status daftar divalidasi enum; N+1 di `expireOverdue` dihapus. Kode mati dihapus: `isSameTokenHash` (tak pernah dipakai, komentarnya menyesatkan), `updateEndorsementSchema`, `signerStatusSchema`.
+- **Files**: `modules/endorsement/services/EndorsementService.ts`, `modules/endorsement/services/EndorsementIssueService.ts`, `modules/endorsement/services/EndorsementPdfService.ts`, `modules/endorsement/services/EndorsementNotificationService.ts`, `modules/endorsement/repositories/EndorsementRepository.ts`, `lib/request-helpers.ts`, `lib/utils/content-disposition.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Pengesahan: kirim ulang tautan per penanda tangan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/endorsement`, `app/api/admin/endorsements`, `app/admin/pengesahan`
+- **Author**: agent
+- **Deskripsi**: Tautan hanya tampil sekali saat surat dibuat dan tidak ada cara memperolehnya lagi, jadi penanda tangan yang tautannya tidak sampai (mis. WhatsApp belum tersambung) tidak bisa menandatangani. Kini ada `POST /api/admin/endorsements/[id]/signers/[signerId]/reissue` (izin `pengesahan:update`) yang menerbitkan token baru, menggugurkan yang lama, mengirimkannya, dan mencatat event `LINK_REISSUED`. Halaman detail punya tombol "Kirim ulang tautan"; URL di modal pembuatan dan hasil reissue punya tombol salin.
+- **Files**: `app/api/admin/endorsements/[id]/signers/[signerId]/reissue/route.ts`, `app/admin/pengesahan/[id]/SignerReissueButton.tsx`, `app/admin/pengesahan/SignerLinkCopy.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Hapus endpoint mati POST endorsements/[id]/send
+
+- **Tipe**: [REMOVED]
+- **Scope**: `app/api/admin/endorsements`
+- **Author**: agent
+- **Deskripsi**: Surat sudah ditandai terkirim saat dibuat, sehingga endpoint ini selalu 409 dan tidak dipakai UI mana pun.
+- **Breaking**: ✅ Ya
+
 ### [2026-10-03] — Input SO: tombol tandai semua dihitung untuk stok cocok
 
 - **Tipe**: [CHANGED]

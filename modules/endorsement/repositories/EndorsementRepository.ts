@@ -3,8 +3,10 @@ import type { Prisma } from "@prisma/client";
 import type {
   CreateEndorsementInput,
   EndorsementListFilters,
+  EndorsementStatusExtra,
   IEndorsementRepository,
   RecordEventInput,
+  SignerUpdateData,
 } from "../domain/ports/IEndorsementRepository";
 import type {
   EndorsementEntity,
@@ -75,9 +77,8 @@ export class EndorsementRepository implements IEndorsementRepository {
   /**
    * Cari surat lewat sidik jari token penanda tangan.
    *
-   * Memakai `prismaUnsafe`? Tidak — pencarian ini tetap lewat klien yang sama;
-   * penanda tangan pihak luar tidak punya konteks tenant, jadi rutenya berjalan
-   * dalam konteks sistem yang ditetapkan pemanggil.
+   * Penanda tangan pihak luar tidak punya konteks tenant, jadi pemanggil wajib
+   * menjalankannya dalam konteks sistem; tenant surat ditentukan oleh token.
    */
   async findByTokenHash(tokenHash: string) {
     const signer = await prisma.endorsementSigner.findUnique({
@@ -135,42 +136,52 @@ export class EndorsementRepository implements IEndorsementRepository {
     return toEndorsementEntity(row as EndorsementRow);
   }
 
-  async updateStatus(
+  async transitionStatus(
     id: string,
+    fromStatuses: EndorsementStatus[],
     status: EndorsementStatus,
-    extra?: {
-      completedAt?: Date;
-      cancelledAt?: Date;
-      cancelReason?: string;
-      signedFileKey?: string;
-      signedFileHash?: string;
-    },
-  ): Promise<void> {
-    await prisma.endorsement.update({
-      where: { id },
+    extra?: EndorsementStatusExtra,
+  ): Promise<boolean> {
+    const { count } = await prisma.endorsement.updateMany({
+      where: { id, status: { in: fromStatuses } },
       data: { status, ...extra },
+    });
+
+    return count > 0;
+  }
+
+  async transitionSigner(
+    signerId: string,
+    fromStatuses: SignerStatus[],
+    data: SignerUpdateData,
+  ): Promise<boolean> {
+    const { count } = await prisma.endorsementSigner.updateMany({
+      where: { id: signerId, status: { in: fromStatuses } },
+      data,
+    });
+
+    return count > 0;
+  }
+
+  async updateSignerTokenHash(
+    signerId: string,
+    tokenHash: string,
+  ): Promise<void> {
+    await prisma.endorsementSigner.update({
+      where: { id: signerId },
+      data: { tokenHash },
     });
   }
 
-  async updateSigner(
-    signerId: string,
-    data: {
-      status?: SignerStatus;
-      signatureKey?: string;
-      viewedAt?: Date;
-      signedAt?: Date;
-      declinedAt?: Date;
-      declineReason?: string;
-      ipAddress?: string;
-      userAgent?: string;
-    },
-  ): Promise<void> {
-    await prisma.endorsementSigner.update({ where: { id: signerId }, data });
-  }
-
+  /**
+   * Catat jejak audit. `tenantId` diisi eksplisit: jalur penanda tangan pihak
+   * luar berjalan dalam konteks sistem, sehingga ekstensi tenant tidak
+   * menyuntikkannya dan event akan tersimpan tanpa tenant.
+   */
   async recordEvent(input: RecordEventInput): Promise<void> {
     await prisma.endorsementEvent.create({
       data: {
+        tenantId: input.tenantId,
         endorsementId: input.endorsementId,
         signerId: input.signerId,
         type: input.type,
@@ -181,9 +192,25 @@ export class EndorsementRepository implements IEndorsementRepository {
     });
   }
 
-  async findExpiredIds(now: Date): Promise<string[]> {
+  async findExpired(now: Date) {
+    return prisma.endorsement.findMany({
+      where: {
+        status: "SENT",
+        expiresAt: { lt: now },
+        // Surat yang sudah ditandatangani semua menunggu finalisasi, bukan
+        // kedaluwarsa — menggugurkannya membuang tanda tangan yang sah.
+        signers: { some: { status: { not: "SIGNED" } } },
+      },
+      select: { id: true, tenantId: true },
+    });
+  }
+
+  async findFullySignedOpenIds(): Promise<string[]> {
     const rows = await prisma.endorsement.findMany({
-      where: { status: "SENT", expiresAt: { lt: now } },
+      where: {
+        status: "SENT",
+        signers: { some: {}, every: { status: "SIGNED" } },
+      },
       select: { id: true },
     });
 

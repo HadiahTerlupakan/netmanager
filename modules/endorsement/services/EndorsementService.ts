@@ -3,12 +3,16 @@ import { logger } from "@/lib/logger";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type {
   EndorsementEntity,
+  EndorsementSignerEntity,
   EndorsementSourceType,
 } from "../domain/entities/Endorsement";
 import {
+  canAccessDocument,
+  canCancel,
   canSign,
   isExpired,
-  resolveEndorsementStatus,
+  isFullySigned,
+  UNDECIDED_SIGNER_STATUSES,
 } from "../domain/endorsement-rules";
 import type {
   EndorsementListFilters,
@@ -26,7 +30,11 @@ import { EndorsementStorageService } from "./EndorsementStorageService";
  * Token short link dibuat di sini dan **hanya dikembalikan sekali** — yang
  * tersimpan cuma sidik jarinya. Karena itu link tidak bisa "dilihat lagi"
  * belakangan; mengirim ulang berarti menerbitkan token baru sekaligus
- * menggugurkan yang lama.
+ * menggugurkan yang lama (`reissueSignerLink`).
+ *
+ * Setiap perubahan status memakai transisi bersyarat di repository: dua
+ * permintaan yang berbarengan (klik ganda, dua penanda tangan terakhir
+ * menandatangani bersamaan) tidak bisa sama-sama lolos.
  */
 
 /** Masa berlaku bawaan bila pembuat surat tidak menentukannya. */
@@ -69,6 +77,23 @@ function buildDefaultExpiry(now: Date = new Date()): Date {
   return expiry;
 }
 
+function toSignerLink(
+  signer: EndorsementSignerEntity,
+  token: string,
+): SignerLink {
+  return {
+    signerId: signer.id,
+    name: signer.name,
+    email: signer.email,
+    phone: signer.phone,
+    token,
+  };
+}
+
+function invalidState(message: string): AppError {
+  return new AppError(message, 409, "INVALID_STATE");
+}
+
 export class EndorsementService {
   constructor(
     private readonly repository: IEndorsementRepository = new EndorsementRepository(),
@@ -76,10 +101,12 @@ export class EndorsementService {
     private readonly pdf: EndorsementPdfService = new EndorsementPdfService(),
   ) {}
 
+  /** Daftar surat untuk halaman admin. */
   list(filters: EndorsementListFilters) {
     return this.repository.findMany(filters);
   }
 
+  /** Ambil satu surat; 404 bila tidak ada (atau milik tenant lain). */
   async getById(id: string): Promise<EndorsementEntity> {
     const endorsement = await this.repository.findById(id);
     if (!endorsement) {
@@ -142,13 +169,9 @@ export class EndorsementService {
 
       return {
         endorsement,
-        links: endorsement.signers.map((signer, index) => ({
-          signerId: signer.id,
-          name: signer.name,
-          email: signer.email,
-          phone: signer.phone,
-          token: tokens[index]!,
-        })),
+        links: endorsement.signers.map((signer, index) =>
+          toSignerLink(signer, tokens[index]!),
+        ),
       };
     } catch (error) {
       await this.storage.removeAll([key]);
@@ -159,15 +182,15 @@ export class EndorsementService {
   /** Tandai surat sudah dikirim ke para penanda tangan. */
   async markSent(id: string): Promise<void> {
     const endorsement = await this.getById(id);
-    if (endorsement.status !== "DRAFT") {
-      throw new AppError(
-        "Hanya surat berstatus draf yang bisa dikirim",
-        409,
-        "INVALID_STATE",
-      );
+    const isSent = await this.repository.transitionStatus(
+      id,
+      ["DRAFT"],
+      "SENT",
+    );
+    if (!isSent) {
+      throw invalidState("Hanya surat berstatus draf yang bisa dikirim");
     }
 
-    await this.repository.updateStatus(id, "SENT");
     await this.repository.recordEvent({
       endorsementId: id,
       type: "SENT",
@@ -175,26 +198,67 @@ export class EndorsementService {
     });
   }
 
+  /** Batalkan surat yang belum mencapai status akhir. */
   async cancel(id: string, reason: string): Promise<void> {
     const endorsement = await this.getById(id);
-    if (endorsement.status === "COMPLETED") {
-      throw new AppError(
-        "Surat yang sudah sah tidak bisa dibatalkan",
-        409,
-        "INVALID_STATE",
-      );
-    }
+    const cancelError = invalidState(
+      endorsement.status === "COMPLETED"
+        ? "Surat yang sudah sah tidak bisa dibatalkan"
+        : "Surat ini sudah tidak aktif",
+    );
+    if (!canCancel(endorsement.status)) throw cancelError;
 
-    await this.repository.updateStatus(id, "CANCELLED", {
-      cancelledAt: new Date(),
-      cancelReason: reason,
-    });
+    const isCancelled = await this.repository.transitionStatus(
+      id,
+      ["DRAFT", "SENT"],
+      "CANCELLED",
+      { cancelledAt: new Date(), cancelReason: reason },
+    );
+    if (!isCancelled) throw cancelError;
+
     await this.repository.recordEvent({
       endorsementId: id,
       type: "CANCELLED",
       metadata: { reason },
       tenantId: endorsement.tenantId,
     });
+  }
+
+  /**
+   * Terbitkan tautan baru untuk satu penanda tangan.
+   *
+   * Token lama langsung gugur karena sidik jarinya ditimpa. Dipakai saat
+   * tautan awal tidak sampai (mis. WhatsApp belum tersambung) atau hilang.
+   */
+  async reissueSignerLink(
+    endorsementId: string,
+    signerId: string,
+  ): Promise<SignerLink> {
+    const endorsement = await this.getById(endorsementId);
+    const signer = endorsement.signers.find((item) => item.id === signerId);
+    if (!signer) {
+      throw new AppError("Penanda tangan tidak ditemukan", 404, "NOT_FOUND");
+    }
+
+    if (!canSign(endorsement, signer)) {
+      throw invalidState(
+        "Tautan hanya bisa diterbitkan ulang untuk penanda tangan yang belum memutuskan pada surat yang masih berjalan",
+      );
+    }
+
+    const token = generateSignerToken();
+    await this.repository.updateSignerTokenHash(
+      signer.id,
+      hashSignerToken(token),
+    );
+    await this.repository.recordEvent({
+      endorsementId,
+      signerId: signer.id,
+      type: "LINK_REISSUED",
+      tenantId: endorsement.tenantId,
+    });
+
+    return toSignerLink(signer, token);
   }
 
   /** Ambil surat berdasarkan token short link. */
@@ -214,34 +278,58 @@ export class EndorsementService {
     return { endorsement: found.endorsement, signer };
   }
 
+  /** Catat bahwa penanda tangan membuka tautannya (sekali, selama surat berjalan). */
   async markViewed(token: string, context: SignerRequestContext) {
     const { endorsement, signer } = await this.resolveByToken(token);
-    if (signer.status !== "PENDING") return { endorsement, signer };
+    if (signer.status !== "PENDING" || endorsement.status !== "SENT") {
+      return { endorsement, signer };
+    }
 
-    await this.repository.updateSigner(signer.id, {
-      status: "VIEWED",
-      viewedAt: new Date(),
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-    });
-    await this.repository.recordEvent({
-      endorsementId: endorsement.id,
-      signerId: signer.id,
-      type: "VIEWED",
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-      tenantId: endorsement.tenantId,
-    });
+    const isViewed = await this.repository.transitionSigner(
+      signer.id,
+      ["PENDING"],
+      { status: "VIEWED", viewedAt: new Date(), ...context },
+    );
+    if (isViewed) {
+      await this.repository.recordEvent({
+        endorsementId: endorsement.id,
+        signerId: signer.id,
+        type: "VIEWED",
+        ...context,
+        tenantId: endorsement.tenantId,
+      });
+    }
 
     return { endorsement, signer };
   }
 
   /**
+   * Dokumen untuk pemegang tautan: PDF gabungan bila sudah sah, dokumen asal
+   * selama surat berjalan. Surat yang dibatalkan atau kedaluwarsa tidak lagi
+   * bisa dibuka.
+   */
+  async getDocumentForSigner(
+    token: string,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const { endorsement } = await this.resolveByToken(token);
+    if (!canAccessDocument(endorsement)) {
+      throw new AppError("Tautan tidak dikenali", 404, "NOT_FOUND");
+    }
+
+    const key = endorsement.signedFileKey ?? endorsement.sourceFileKey;
+
+    return {
+      buffer: await this.storage.read(key),
+      fileName: endorsement.sourceFileName,
+    };
+  }
+
+  /**
    * Bubuhkan tanda tangan.
    *
-   * Mengembalikan `completed` supaya pemanggil tahu kapan harus merangkai PDF
-   * gabungan — perangkaian ditaruh di luar agar service ini tidak bergantung
-   * pada pustaka PDF.
+   * Mengembalikan `completed` supaya klien tahu surat sudah sah. Penanda
+   * tangan terakhir sekaligus memicu penyusunan PDF gabungan; kalau langkah
+   * itu gagal, tanda tangannya tetap tersimpan dan cron mengulang finalisasi.
    */
   async sign(
     token: string,
@@ -251,12 +339,10 @@ export class EndorsementService {
     const { endorsement, signer } = await this.resolveByToken(token);
 
     if (!canSign(endorsement, signer)) {
-      throw new AppError(
+      throw invalidState(
         isExpired(endorsement)
           ? "Masa berlaku surat sudah habis"
           : "Tautan ini sudah tidak bisa dipakai menandatangani",
-        409,
-        "INVALID_STATE",
       );
     }
 
@@ -267,52 +353,29 @@ export class EndorsementService {
       buffer: signatureBuffer,
     });
 
-    await this.repository.updateSigner(signer.id, {
-      status: "SIGNED",
-      signatureKey,
-      signedAt: new Date(),
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-    });
+    const isSigned = await this.repository.transitionSigner(
+      signer.id,
+      UNDECIDED_SIGNER_STATUSES,
+      { status: "SIGNED", signatureKey, signedAt: new Date(), ...context },
+    );
+    if (!isSigned) {
+      throw invalidState("Tautan ini sudah tidak bisa dipakai menandatangani");
+    }
+
     await this.repository.recordEvent({
       endorsementId: endorsement.id,
       signerId: signer.id,
       type: "SIGNED",
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
+      ...context,
       tenantId: endorsement.tenantId,
     });
 
-    const updated = await this.getById(endorsement.id);
-    const nextStatus = resolveEndorsementStatus(
-      updated.status,
-      updated.signers,
-    );
+    const completed = await this.tryFinalize(endorsement.id);
 
-    if (nextStatus !== "COMPLETED") {
-      return { endorsement: updated, completed: false };
-    }
-
-    // Berkas gabungan disusun sebelum status naik ke COMPLETED. Kalau urutannya
-    // dibalik, surat sempat terlihat sah padahal PDF finalnya belum ada, dan
-    // pemegang tautan menerima dokumen asal tanpa lembar pengesahan.
-    const signed = await this.pdf.buildSignedPdf(updated);
-
-    await this.repository.updateStatus(updated.id, "COMPLETED", {
-      completedAt: new Date(),
-      signedFileKey: signed.key,
-      signedFileHash: signed.hash,
-    });
-    await this.repository.recordEvent({
-      endorsementId: updated.id,
-      type: "COMPLETED",
-      metadata: { signedFileHash: signed.hash },
-      tenantId: updated.tenantId,
-    });
-
-    return { endorsement: await this.getById(updated.id), completed: true };
+    return { endorsement: await this.getById(endorsement.id), completed };
   }
 
+  /** Tolak mengesahkan; satu penolakan menggugurkan surat. */
   async decline(
     token: string,
     reason: string,
@@ -321,32 +384,34 @@ export class EndorsementService {
     const { endorsement, signer } = await this.resolveByToken(token);
 
     if (!canSign(endorsement, signer)) {
-      throw new AppError(
-        "Tautan ini sudah tidak bisa dipakai",
-        409,
-        "INVALID_STATE",
-      );
+      throw invalidState("Tautan ini sudah tidak bisa dipakai");
     }
 
-    await this.repository.updateSigner(signer.id, {
-      status: "DECLINED",
-      declinedAt: new Date(),
-      declineReason: reason,
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-    });
+    const isDeclined = await this.repository.transitionSigner(
+      signer.id,
+      UNDECIDED_SIGNER_STATUSES,
+      {
+        status: "DECLINED",
+        declinedAt: new Date(),
+        declineReason: reason,
+        ...context,
+      },
+    );
+    if (!isDeclined) {
+      throw invalidState("Tautan ini sudah tidak bisa dipakai");
+    }
+
     await this.repository.recordEvent({
       endorsementId: endorsement.id,
       signerId: signer.id,
       type: "DECLINED",
       metadata: { reason },
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
+      ...context,
       tenantId: endorsement.tenantId,
     });
 
-    // Satu penolakan menggugurkan surat: menandatangani sebagian tidak berarti.
-    await this.repository.updateStatus(endorsement.id, "CANCELLED", {
+    // Menandatangani sebagian tidak berarti apa-apa, jadi surat langsung gugur.
+    await this.repository.transitionStatus(endorsement.id, ["SENT"], "CANCELLED", {
       cancelledAt: new Date(),
       cancelReason: `Ditolak oleh ${signer.name}: ${reason}`,
     });
@@ -354,29 +419,106 @@ export class EndorsementService {
     return this.getById(endorsement.id);
   }
 
-  /** Tandai surat yang lewat masa berlaku; dipanggil cron. */
-  async expireOverdue(now: Date = new Date()): Promise<number> {
-    const ids = await this.repository.findExpiredIds(now);
+  /**
+   * Ulangi finalisasi surat yang sudah ditandatangani semua tetapi belum
+   * berstatus sah — mis. penyusunan PDF gagal saat tanda tangan terakhir.
+   * Dipanggil cron; kegagalan satu surat tidak menghentikan yang lain.
+   */
+  async finalizePending(): Promise<number> {
+    const ids = await this.repository.findFullySignedOpenIds();
+    let finalizedCount = 0;
 
     for (const id of ids) {
-      await this.repository.updateStatus(id, "EXPIRED");
-      const endorsement = await this.repository.findById(id);
+      if (await this.tryFinalize(id)) finalizedCount++;
+    }
+
+    return finalizedCount;
+  }
+
+  /** Tandai surat yang lewat masa berlaku; dipanggil cron. */
+  async expireOverdue(now: Date = new Date()): Promise<number> {
+    const overdue = await this.repository.findExpired(now);
+    let expiredCount = 0;
+
+    for (const { id, tenantId } of overdue) {
+      const isExpiredNow = await this.repository.transitionStatus(
+        id,
+        ["SENT"],
+        "EXPIRED",
+      );
+      if (!isExpiredNow) continue;
+
+      expiredCount++;
       await this.repository.recordEvent({
         endorsementId: id,
         type: "EXPIRED",
-        tenantId: endorsement?.tenantId ?? null,
+        tenantId,
       });
     }
 
-    if (ids.length > 0) {
-      logger.info(`[Endorsement] ${ids.length} surat ditandai kedaluwarsa`);
+    if (expiredCount > 0) {
+      logger.info(`[Endorsement] ${expiredCount} surat ditandai kedaluwarsa`);
     }
 
-    return ids.length;
+    return expiredCount;
   }
 
   /** Isi berkas untuk disajikan lewat rute server. */
   readFile(key: string) {
     return this.storage.read(key);
+  }
+
+  /**
+   * Finalisasi yang tidak pernah melempar: tanda tangan yang sudah tersimpan
+   * tidak boleh tampak gagal hanya karena PDF gabungan belum bisa disusun.
+   */
+  private async tryFinalize(id: string): Promise<boolean> {
+    try {
+      return await this.finalizeIfComplete(id);
+    } catch (error) {
+      logger.error(`[Endorsement] Finalisasi ${id} gagal, diulang cron:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Naikkan surat ke COMPLETED bila semua penanda tangan sudah tanda tangan.
+   *
+   * Berkas gabungan disusun sebelum status naik: kalau dibalik, surat sempat
+   * terlihat sah padahal PDF finalnya belum ada. Bila permintaan lain menang
+   * lebih dulu, berkas yang baru disusun dibuang supaya sidik jari yang
+   * tersimpan selalu cocok dengan berkas yang dirujuk.
+   */
+  private async finalizeIfComplete(id: string): Promise<boolean> {
+    const endorsement = await this.getById(id);
+    if (endorsement.status !== "SENT" || !isFullySigned(endorsement.signers)) {
+      return false;
+    }
+
+    const signed = await this.pdf.buildSignedPdf(endorsement);
+    const isCompleted = await this.repository.transitionStatus(
+      id,
+      ["SENT"],
+      "COMPLETED",
+      {
+        completedAt: new Date(),
+        signedFileKey: signed.key,
+        signedFileHash: signed.hash,
+      },
+    );
+
+    if (!isCompleted) {
+      await this.storage.removeAll([signed.key]);
+      return false;
+    }
+
+    await this.repository.recordEvent({
+      endorsementId: id,
+      type: "COMPLETED",
+      metadata: { signedFileHash: signed.hash },
+      tenantId: endorsement.tenantId,
+    });
+
+    return true;
   }
 }

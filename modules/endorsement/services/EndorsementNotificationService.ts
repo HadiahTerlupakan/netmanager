@@ -10,7 +10,10 @@ import type { SignerLink } from "./EndorsementService";
  * Token hanya ada sekali di memori saat surat dibuat — tidak pernah tersimpan
  * mentah — sehingga pengiriman wajib terjadi pada momen itu juga. Kegagalan
  * satu penerima tidak menghentikan yang lain: yang gagal dilaporkan balik agar
- * pembuat surat bisa mengirim ulang.
+ * pembuat surat bisa menyalin tautannya atau menerbitkan ulang.
+ *
+ * WhatsApp dicoba lebih dulu, lalu email bila WhatsApp gagal — termasuk saat
+ * tenant belum menyambungkan akun WhatsApp.
  */
 
 const LINK_PATH = "/p";
@@ -95,7 +98,13 @@ export class EndorsementNotificationService {
     const url = buildSignerUrl(link.token);
 
     if (link.phone) {
-      return this.sendWhatsApp(endorsementTitle, tenantId, link, url);
+      const whatsAppOutcome = await this.sendWhatsApp(
+        endorsementTitle,
+        tenantId,
+        link,
+        url,
+      );
+      if (whatsAppOutcome.delivered || !link.email) return whatsAppOutcome;
     }
 
     if (link.email) {

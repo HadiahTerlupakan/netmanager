@@ -6,6 +6,7 @@ import { HiOutlineTrash } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import SignerLinkCopy from "./SignerLinkCopy";
 
 /**
  * Pembuatan surat pengesahan.
@@ -128,7 +129,8 @@ export default function EndorsementCreateModal({
         <div className="space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Tautan di bawah hanya ditampilkan sekali. Salin bila ada penerima
-            yang perlu dikirimi manual.
+            yang perlu dikirimi manual; tautan yang hilang bisa diterbitkan
+            ulang dari halaman detail surat.
           </p>
           <ul className="space-y-3">
             {result.links.map((link) => {
@@ -144,9 +146,7 @@ export default function EndorsementCreateModal({
                   <p className="font-medium text-gray-900 dark:text-white">
                     {link.name}
                   </p>
-                  <p className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-300">
-                    {link.url}
-                  </p>
+                  <SignerLinkCopy url={link.url} />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {delivery?.delivered
                       ? `Terkirim lewat ${delivery.channel}`

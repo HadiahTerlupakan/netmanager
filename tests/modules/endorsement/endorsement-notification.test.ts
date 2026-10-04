@@ -146,4 +146,36 @@ describe("pemilihan kanal", () => {
     expect(sendEmail).not.toHaveBeenCalled();
     expect(sendWhatsApp).not.toHaveBeenCalled();
   });
+
+  // WhatsApp yang belum tersambung tidak boleh membuat tautan hilang begitu
+  // saja kalau penanda tangan juga punya email.
+  it("beralih ke email bila WhatsApp gagal dan email tersedia", async () => {
+    sendWhatsApp.mockResolvedValue({
+      success: false,
+      error: "Tidak ada akun WhatsApp yang tersedia",
+      errorCode: "NO_ACCOUNT_CONFIGURED",
+    });
+
+    const [outcome] =
+      await new EndorsementNotificationService().sendInvitations({
+        endorsementTitle: "Berita Acara",
+        tenantId: "tenant-1",
+        links: [link({ phone: "08123" })],
+      });
+
+    expect(sendWhatsApp).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ delivered: true, channel: "email" });
+  });
+
+  it("tidak mengirim email bila WhatsApp berhasil", async () => {
+    const [outcome] =
+      await new EndorsementNotificationService().sendInvitations({
+        endorsementTitle: "Berita Acara",
+        tenantId: "tenant-1",
+        links: [link({ phone: "08123" })],
+      });
+
+    expect(outcome).toMatchObject({ delivered: true, channel: "whatsapp" });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
 });

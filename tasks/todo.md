@@ -1,3 +1,23 @@
+## Review modul surat pengesahan (endorsement) (2026-10-04)
+
+### Temuan & rencana
+- [x] Keamanan: /api/p/[token]/file tetap menyajikan dokumen saat surat CANCELLED/EXPIRED
+- [x] Race: tanda tangan ganda / dua penanda tangan terakhir bersamaan → COMPLETED & PDF ganda (update bersyarat)
+- [x] Surat tersangkut: PDF gagal disusun → SENT selamanya lalu di-EXPIRE cron (retry finalisasi di cron)
+- [x] cancel() menimpa surat yang sudah CANCELLED/EXPIRED
+- [x] Notifikasi: nomor HP → hanya WA, tanpa cadangan email (WA belum di-pair = tautan tidak sampai)
+- [x] Content-Disposition nama berkas non-ASCII → 500
+- [x] PDF: >8 penanda tangan keluar halaman, judul panjang meluber, karakter non-WinAnsi bikin finalisasi gagal
+- [x] Route POST: orkestrasi di route + JSON.parse → 500; pindah ke EndorsementIssueService
+- [x] Tidak ada cara kirim ulang tautan (token hanya tampil sekali) → reissue per penanda tangan + tombol salin
+- [x] Smell: ekstraksi IP/UA duplikat 3×, countSigned duplikat di page, N+1 di expireOverdue, route /send mati, filter status tak tervalidasi
+- [x] Tambahan saat pengerjaan: recordEvent mengabaikan tenantId (event pihak luar tanpa tenant)
+
+### Review
+Data produksi kosong (0 surat) — tanpa migration, tanpa risiko data. 105 tes modul, seluruh suite lulus.
+Pelajaran: jalur publik yang berjalan di `runAsSystemContext` tidak mendapat injeksi tenantId otomatis —
+setiap `create` di jalur itu wajib mengisi tenantId eksplisit.
+
 ## Self-hosted runner GitHub Actions di VM Proxmox (2026-10-03)
 
 ### Tujuan

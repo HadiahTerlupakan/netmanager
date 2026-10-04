@@ -13,7 +13,7 @@ import type {
  */
 
 export interface EndorsementListFilters {
-  status?: string;
+  status?: EndorsementStatus;
   search?: string;
   page: number;
   limit: number;
@@ -52,6 +52,25 @@ export interface RecordEventInput {
   tenantId: string | null;
 }
 
+export interface EndorsementStatusExtra {
+  completedAt?: Date;
+  cancelledAt?: Date;
+  cancelReason?: string;
+  signedFileKey?: string;
+  signedFileHash?: string;
+}
+
+export interface SignerUpdateData {
+  status?: SignerStatus;
+  signatureKey?: string;
+  viewedAt?: Date;
+  signedAt?: Date;
+  declinedAt?: Date;
+  declineReason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 export interface IEndorsementRepository {
   findMany(
     filters: EndorsementListFilters,
@@ -62,30 +81,29 @@ export interface IEndorsementRepository {
   ): Promise<{ endorsement: EndorsementEntity; signerId: string } | null>;
   findLastNumber(tenantId: string | null): Promise<string | null>;
   create(input: CreateEndorsementInput): Promise<EndorsementEntity>;
-  updateStatus(
+  /**
+   * Ubah status surat hanya bila statusnya masih salah satu dari `fromStatuses`.
+   * Mengembalikan false bila permintaan lain sudah lebih dulu mengubahnya —
+   * pemeriksaan dan penulisan terjadi dalam satu pernyataan, jadi aman dari race.
+   */
+  transitionStatus(
     id: string,
+    fromStatuses: EndorsementStatus[],
     status: EndorsementStatus,
-    extra?: {
-      completedAt?: Date;
-      cancelledAt?: Date;
-      cancelReason?: string;
-      signedFileKey?: string;
-      signedFileHash?: string;
-    },
-  ): Promise<void>;
-  updateSigner(
+    extra?: EndorsementStatusExtra,
+  ): Promise<boolean>;
+  /** Ubah penanda tangan hanya bila statusnya masih salah satu dari `fromStatuses`. */
+  transitionSigner(
     signerId: string,
-    data: {
-      status?: SignerStatus;
-      signatureKey?: string;
-      viewedAt?: Date;
-      signedAt?: Date;
-      declinedAt?: Date;
-      declineReason?: string;
-      ipAddress?: string;
-      userAgent?: string;
-    },
-  ): Promise<void>;
+    fromStatuses: SignerStatus[],
+    data: SignerUpdateData,
+  ): Promise<boolean>;
+  updateSignerTokenHash(signerId: string, tokenHash: string): Promise<void>;
   recordEvent(input: RecordEventInput): Promise<void>;
-  findExpiredIds(now: Date): Promise<string[]>;
+  /** Surat terkirim yang lewat masa berlaku dan belum ditandatangani semua. */
+  findExpired(
+    now: Date,
+  ): Promise<Array<{ id: string; tenantId: string | null }>>;
+  /** Surat terkirim yang semua penanda tangannya sudah tanda tangan, tapi belum final. */
+  findFullySignedOpenIds(): Promise<string[]>;
 }
