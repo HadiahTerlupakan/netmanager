@@ -48,12 +48,36 @@ export function formatIncidentDateTime(iso: string): string {
   });
 }
 
-/** Area terdampak dari teks dipisah koma; butir kosong dibuang. */
-export function parseAffectedAreas(text: string): string[] {
-  return text
-    .split(",")
-    .map((area) => area.trim())
-    .filter(Boolean);
+/** Batas area terdampak, sama dengan validasi server. */
+export const MAX_AFFECTED_AREAS = 50;
+export const MAX_AREA_NAME_LENGTH = 100;
+
+const isSameArea = (left: string, right: string) =>
+  left.localeCompare(right, "id", { sensitivity: "base" }) === 0;
+
+/** Pilih/lepas satu area (mis. site yang dicentang). */
+export function toggleAffectedArea(areas: string[], area: string): string[] {
+  if (areas.some((existing) => isSameArea(existing, area))) {
+    return areas.filter((existing) => !isSameArea(existing, area));
+  }
+  return areas.length < MAX_AFFECTED_AREAS ? [...areas, area] : areas;
+}
+
+/** Tambah area ketikan bebas; kosong, kepanjangan, ganda, atau melebihi batas diabaikan. */
+export function addCustomArea(areas: string[], input: string): string[] {
+  const area = input.trim();
+  const isAcceptable =
+    area.length > 0 &&
+    area.length <= MAX_AREA_NAME_LENGTH &&
+    areas.length < MAX_AFFECTED_AREAS &&
+    !areas.some((existing) => isSameArea(existing, area));
+
+  return isAcceptable ? [...areas, area] : areas;
+}
+
+/** Apakah area sudah dipilih (tanpa membedakan huruf besar/kecil). */
+export function hasAffectedArea(areas: string[], area: string): boolean {
+  return areas.some((existing) => isSameArea(existing, area));
 }
 
 export const INCIDENT_SEVERITY_ICON_COLOR: Record<IncidentSeverity, string> = {

@@ -5,11 +5,11 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { clientLogger } from "@/lib/client-logger";
+import { AffectedAreaPicker } from "./AffectedAreaPicker";
 import {
   INCIDENT_SEVERITIES,
   INCIDENT_SEVERITY_HINT,
   INCIDENT_SEVERITY_LABEL,
-  parseAffectedAreas,
   type IncidentSeverity,
 } from "./incident-format";
 
@@ -56,7 +56,7 @@ export function CreateIncidentModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<IncidentSeverity>(DEFAULT_SEVERITY);
-  const [areas, setAreas] = useState("");
+  const [areas, setAreas] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -67,7 +67,7 @@ export function CreateIncidentModal({
       title: title.trim(),
       description: description.trim(),
       severity,
-      affectedAreas: parseAffectedAreas(areas),
+      affectedAreas: areas,
       isPublic,
     });
     setIsSaving(false);
@@ -146,20 +146,10 @@ export function CreateIncidentModal({
           </div>
         </fieldset>
 
-        <div>
-          <label htmlFor="incident-areas" className={LABEL_CLASS}>
-            Area terdampak
-          </label>
-          <input
-            id="incident-areas"
-            type="text"
-            value={areas}
-            onChange={(event) => setAreas(event.target.value)}
-            placeholder="Site A, Site B"
-            className={INPUT_CLASS}
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pisahkan dengan koma.</p>
-        </div>
+        <fieldset>
+          <legend className={LABEL_CLASS}>Area terdampak</legend>
+          <AffectedAreaPicker value={areas} onChange={setAreas} />
+        </fieldset>
 
         <label className="flex items-start gap-2">
           <input

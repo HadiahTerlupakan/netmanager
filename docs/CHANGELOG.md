@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Area terdampak insiden dipilih dari daftar site
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/incidents`
+- **Author**: agent
+- **Deskripsi**: Isian "Area terdampak" di modal insiden baru tidak lagi teks dipisah koma — site yang bisa diakses pengguna (`/api/sites`) tampil sebagai daftar centang (dengan pencarian bila site banyak), ditambah kolom "Area lain" untuk area di luar daftar site (mis. nama desa). Area terpilih tampil sebagai chip yang bisa dihapus. Yang disimpan tetap nama area, jadi API, halaman status publik, dan skema DB tidak berubah. Batas jumlah & panjang area mengikuti validasi server.
+- **Files**: `app/admin/incidents/AffectedAreaPicker.tsx`, `app/admin/incidents/CreateIncidentModal.tsx`, `app/admin/incidents/incident-format.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Form insiden baru dipindah ke modal
 
 - **Tipe**: [CHANGED]
