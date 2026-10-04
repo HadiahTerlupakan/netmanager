@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Ikon menu Template Dokumen, Kanban, Template Planning tampil
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/layout/admin-sidebar`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Ikon `HiOutlineDocumentDuplicate` (Legal → Template Dokumen, Planning → Template) belum terdaftar di registri ikon sidebar, dan Planning → Kanban Board memakai nama salah ketik `HiOutlineSquares2x2` (seharusnya `HiOutlineSquares2X2`) — ketiganya tampil tanpa ikon. Ditambah test yang memastikan setiap ikon di `ADMIN_MENU_CONFIG` terdaftar.
+- **Files**: `components/layout/admin-sidebar/adminSidebarIcons.tsx`, `lib/menu-config.ts`, `tests/components/layout/admin-sidebar-icons.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Template dokumen legal dengan isian otomatis dan pratinjau PDF
 
 - **Tipe**: [ADDED] [MIGRATION]

@@ -970,7 +970,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         code: "PLANNING.KANBAN",
         name: "Kanban Board",
         path: "/admin/planning/kanban",
-        icon: "HiOutlineSquares2x2",
+        icon: "HiOutlineSquares2X2",
       },
       {
         code: "PLANNING.TEMPLATES",

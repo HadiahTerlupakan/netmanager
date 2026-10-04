@@ -34,6 +34,7 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineDevicePhoneMobile,
   HiOutlineDocument,
+  HiOutlineDocumentDuplicate,
   HiOutlineDocumentText,
   HiOutlineEnvelope,
   HiOutlineGlobeAlt,
@@ -161,6 +162,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineReceiptPercent,
   HiOutlineIdentification,
   HiOutlinePencilSquare,
+  HiOutlineDocumentDuplicate,
 };
 
 /** Tujuan: merender ikon sidebar admin berdasarkan nama ikon konfigurasi. */
