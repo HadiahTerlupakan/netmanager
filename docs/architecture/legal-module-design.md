@@ -1,7 +1,7 @@
 # Desain Modul Legal
 
 **Tanggal**: 2026-10-04
-**Status**: Draft — menunggu review
+**Status**: Disetujui arah — keputusan §8 dari user 2026-10-04
 **Scope**: `modules/legal` (baru), `modules/endorsement`, `modules/notification`, admin web
 
 ---
@@ -72,9 +72,20 @@ berlaku + tindakan saat mendekati habis**. Satu entitas `LegalDocument` dengan
 | `SEWA_LAHAN` | Sewa lahan POP/tower, izin pemilik gedung | Pemilik lahan; dirujukkan ke site jaringan |
 | `KORPORAT` | Akta pendirian/perubahan, notulen RUPS, surat kuasa | — (umumnya tanpa masa berlaku) |
 
-**Kategori** (mis. "Izin Pemda — Tiang", "PKS Reseller") dapat diatur tiap tenant,
-karena izin dan praktik tiap daerah berbeda. Disediakan kategori bawaan saat
-modul diaktifkan.
+**Kategori** dapat diatur tiap tenant, karena izin dan praktik tiap daerah
+berbeda. Kategori bawaan saat modul diaktifkan:
+
+| Jenis | Kategori bawaan |
+|---|---|
+| `KONTRAK` | PKS Reseller, PKS Mitra, Kontrak Pelanggan Korporat, Kontrak Vendor, Perjanjian Upstream/Bandwidth, NDA |
+| `SEWA_LAHAN` | Sewa Lahan/Tower, Izin Pemilik Gedung |
+| `IZIN` | NIB, Izin Penyelenggaraan (Komdigi), Izin Tiang/Galian Pemda, PBG, PSE |
+| `KORPORAT` | Akta Perusahaan, Notulen RUPS, Surat Kuasa |
+
+Tiap kategori punya **tingkat kerahasiaan**: `BIASA` (izin `legal:read`) atau
+`RAHASIA` (izin tambahan `legal_rahasia:read`). Akta dan notulen RUPS bawaan
+`RAHASIA`. Dokumen kategori rahasia tidak tampil sama sekali — di daftar, dasbor,
+pencarian, maupun pengingat — bagi yang tidak memegang izinnya.
 
 ### 4.2 Data minimal
 
@@ -85,6 +96,17 @@ Wajib: judul, jenis, berkas (PDF/gambar). Sisanya opsional:
 - tanggal mulai, **tanggal berakhir**, nilai (Rp), catatan
 - PIC (karyawan yang bertanggung jawab memperpanjang)
 - tautan ke surat pengesahan bila ditandatangani lewat sistem
+
+**Atribut legal** (opsional, untuk kontrak & sewa lahan) — dicatat sebagai hak,
+kewajiban, dan tenggat, **bukan** data akuntansi:
+
+- nilai, mata uang, skema pembayaran (sekali / bulanan / tahunan)
+- jaminan (deposit, bank garansi) + tanggal pengembalian/berakhir jaminan
+- **perpanjangan otomatis** (ya/tidak) dan **masa pemberitahuan** dalam hari
+  (mis. 60 hari sebelum berakhir bila tidak ingin memperpanjang)
+- **kewajiban berkala**: daftar `{deskripsi, tanggal jatuh tempo, berulang?}` —
+  mis. bayar sewa tahunan, laporan ke Komdigi, perpanjangan bank garansi
+- denda/penalti dan cara penyelesaian sengketa (pengadilan/arbitrase) — teks
 
 ### 4.3 Status — diturunkan, tidak diinput
 
@@ -101,9 +123,13 @@ versi kontrak/izin tetap utuh.
 
 ### 4.4 Pengingat
 
-- Cron harian memindai dokumen dengan tanggal berakhir.
-- Pengingat pada **H-90, H-30, H-7, dan H-0**, plus mingguan selama kedaluwarsa
-  dan belum diperpanjang.
+- Cron harian memindai **tenggat**: tanggal berakhir, batas pemberitahuan, jatuh
+  tempo kewajiban berkala, dan berakhirnya jaminan.
+- **Batas pemberitahuan** = tanggal berakhir − masa pemberitahuan. Untuk kontrak
+  yang diperpanjang otomatis, inilah tenggat yang menentukan: lewat dari sini,
+  kontrak terkunci satu periode lagi. Pengingatnya diprioritaskan di dasbor.
+- Pengingat pada **H-90, H-30, H-7, dan H-0** tiap tenggat, plus mingguan selama
+  kedaluwarsa dan belum diperpanjang.
 - Penerima: PIC dokumen + pemegang izin `legal:update` di tenant.
 - Kanal: notifikasi in-app + push (aplikasi mobile) + email. WhatsApp opsional,
   dan tenant tanpa WA tersambung dilewati tanpa error.
@@ -123,8 +149,16 @@ versi kontrak/izin tetap utuh.
 
 ## 5. Fase 2 — Template dokumen
 
-- Template per tenant: judul, isi dengan placeholder (`{{mitra.nama}}`,
-  `{{pelanggan.alamat}}`, `{{tanggal}}`, `{{nilai}}` …).
+- **Format: editor di web**, bukan unggah Word. Format sengaja terbatas pada yang
+  dipakai dokumen legal — judul, pasal bernomor, paragraf, tebal/miring, daftar,
+  blok tanda tangan. Placeholder disisipkan lewat tombol (`{{mitra.nama}}`,
+  `{{pelanggan.alamat}}`, `{{tanggal}}`, `{{nilai}}` …), tanpa mengetik sintaks.
+- Alasan: admin yang merangkap tidak perlu paham placeholder Word; hasil seragam;
+  PDF disusun dengan `pdf-lib` yang sudah dipakai pengesahan — tanpa LibreOffice
+  di server (konversi .docx → PDF berat dan rawan di kontainer).
+- **Kop surat** (logo, nama, alamat perusahaan) diatur sekali per tenant dan
+  tercetak otomatis. Ada pratinjau PDF sebelum dikirim.
+- Dokumen rumit buatan notaris/pihak luar tetap bisa diunggah sebagai PDF jadi.
 - Disediakan template bawaan: PKS reseller, surat kuasa, kontrak pelanggan korporat.
 - Alur: pilih template → pilih pihak → isian terisi otomatis, admin melengkapi →
   PDF dibuat → **dikirim ke pengesahan** → saat sah, PDF final otomatis tercatat
@@ -147,16 +181,19 @@ modules/legal/
 
 - **Feature flag**: entri `legal` di `lib/feature-modules.ts` (group `lainnya`);
   menu dan API digerbang `featureModule: "legal"`.
-- **Izin**: `legal:read|create|update|delete` — grup baru `LEGAL` di
-  `lib/permission-config.ts`.
+- **Izin**: `legal:read|create|update|delete` dan `legal_rahasia:read` untuk
+  kategori rahasia — grup baru `LEGAL` di `lib/permission-config.ts`. Penyaringan
+  kategori rahasia dilakukan di repository (seperti isolasi tenant), bukan di UI.
 - **Penyimpanan**: berkas di R2 dengan prefix `legal/<tenant>/…`, disajikan lewat
   rute server (pola yang sama dengan pengesahan). Tanpa jalur disk lokal.
 - **Antar-modul**: tautan ke pelanggan/mitra/vendor/site disimpan sebagai
   `(partyType, partyId)` dan di-resolve lewat public API modul masing-masing —
   tanpa foreign key lintas modul. Integrasi pengesahan lewat event
   `endorsement:endorsement.completed` (Fase 2).
-- **Skema**: tabel baru `LegalDocument`, `LegalCategory`, `LegalReminderLog`
-  (idempotensi pengingat), (Fase 2) `LegalTemplate`. Migration aditif.
+- **Skema**: tabel baru `LegalDocument`, `LegalCategory` (dengan tingkat
+  kerahasiaan), `LegalObligation` (kewajiban berkala), `LegalReminderLog`
+  (idempotensi pengingat), (Fase 2) `LegalTemplate` dan kop surat di pengaturan
+  tenant. Migration aditif.
 
 ---
 
@@ -170,15 +207,12 @@ modules/legal/
 
 ---
 
-## 8. Pertanyaan terbuka
+## 8. Keputusan (2026-10-04)
 
-1. **Ambang pengingat**: apakah H-90/30/7/0 cocok, atau perlu bisa diatur per
-   kategori (izin Pemda sering butuh waktu proses lebih lama)?
-2. **Kategori bawaan**: daftar izin apa yang umum di semua tenant ISP, dan mana
-   yang biarkan tenant menambah sendiri?
-3. **Format template (Fase 2)**: editor teks kaya di web → PDF, atau unggah
-   template `.docx` dengan placeholder?
-4. **Akses berkas**: apakah dokumen korporat (akta, RUPS) perlu izin terpisah yang
-   lebih ketat daripada kontrak biasa?
-5. **Nilai kontrak**: perlu disambungkan ke akuntansi (mis. beban sewa lahan
-   berulang), atau cukup dicatat sebagai informasi?
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | Ambang pengingat | H-90/30/7/0 cukup, berlaku untuk semua tenggat |
+| 2 | Kategori bawaan | PKS dan lainnya — daftar di §4.1; tenant bisa menambah |
+| 3 | Format template | Editor web terbatas + kop surat tenant, PDF via pdf-lib; unggah PDF jadi tetap ada |
+| 4 | Akses dokumen korporat | Dibedakan peran: kategori `RAHASIA` butuh `legal_rahasia:read` |
+| 5 | Nilai kontrak | Dicatat sebagai atribut legal (hak, kewajiban, tenggat, masa pemberitahuan), bukan akuntansi; integrasi akuntansi bisa ditambah kelak |
