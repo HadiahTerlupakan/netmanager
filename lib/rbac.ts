@@ -204,3 +204,19 @@ export async function ensureMainTenant(
     );
   }
 }
+
+/**
+ * Periksa izin dari daftar izin yang sudah dimuat (mis. `ctx.permissions` di
+ * route handler), tanpa query ulang. Aturannya sama dengan `hasPermission`:
+ * super admin dan wildcard `*` selalu lolos, alias izin ikut diperhitungkan.
+ */
+export function permissionListAllows(
+  holder: { permissions: string[]; isSuperAdmin?: boolean },
+  requiredPermission: string,
+): boolean {
+  if (holder.isSuperAdmin || holder.permissions.includes("*")) return true;
+
+  return expandPermissionsWithAliases([requiredPermission]).some((permission) =>
+    holder.permissions.includes(permission),
+  );
+}

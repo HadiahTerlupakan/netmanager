@@ -764,6 +764,15 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     icon: "HiOutlineDocumentText",
   },
   {
+    // Kontrak, izin, sewa lahan & dokumen korporat + pengingat masa berlaku.
+    // Kode LEGAL → gerbang legal:read (permission-config).
+    code: "LEGAL",
+    name: "Legal",
+    path: "/admin/legal",
+    icon: "HiOutlineScale",
+    featureModule: "legal",
+  },
+  {
     code: "CHAT",
     name: "Chat",
     path: "/admin/chat",

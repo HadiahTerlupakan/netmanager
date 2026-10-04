@@ -116,6 +116,8 @@ export const PERMISSION_GROUPS = {
   INCIDENT: ["incidents"],
   PLANNING: ["planning"],
   PENGESAHAN: ["pengesahan"],
+  /** legal_rahasia: membuka dokumen berkategori RAHASIA (akta, RUPS, …). */
+  LEGAL: ["legal", "legal_rahasia"],
 } as const;
 
 /**

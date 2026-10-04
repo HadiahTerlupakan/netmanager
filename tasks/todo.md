@@ -1,3 +1,17 @@
+## Modul Legal Fase 1 (2026-10-04)
+
+- [x] Skema + migration aditif `20261004023612_add_legal_module`
+- [x] Domain (status turunan WIB, tenggat termasuk batas pemberitahuan, ambang H-90/30/7/0, mingguan kedaluwarsa)
+- [x] Repository (filter kerahasiaan di query) — diuji integrasi ke DB lokal
+- [x] Service: kategori (bawaan), dokumen (buat/ubah/perpanjang/akhiri/berkas), dasbor, pengingat (idempoten)
+- [x] Route API + cron 08:00 WIB; izin `legal:*` + `legal_rahasia:read`; feature flag; menu
+- [x] UI admin (agen) — diuji di Chrome: dasbor, daftar, detail, ubah, perpanjang, akhiri, kategori
+- [x] Temuan saat uji: `useApi` double-unwrap (juga merusak detail pengesahan di produksi), Redis lazyConnect (login pertama gagal)
+
+### Review
+Pelajaran: `useApi`/`fetchWithHandling` sudah membuka amplop — jangan baca `data?.data` kecuali API memang mengirim data bersarang.
+Agen yang meniru pola dari kode yang ada ikut mewarisi bug-nya; uji browser yang menangkapnya, bukan typecheck.
+
 ## Pengesahan di aplikasi mobile untuk penanda tangan internal (2026-10-04)
 
 ### Keputusan

@@ -47,6 +47,9 @@ cat > /etc/crontabs/root <<CRON_EOF
 
 # Surat Pengesahan - tandai surat yang lewat masa berlaku, sekali sehari jam 03:00
 0 3 * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/endorsement-expire" >> /var/log/cron.log 2>&1
+
+# Legal - pengingat tenggat kontrak/izin (H-90/30/7/0 + mingguan bila kedaluwarsa), jam 08:00 agar terbaca di jam kerja
+0 8 * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/legal-reminders" >> /var/log/cron.log 2>&1
 CRON_EOF
 
 echo "Cron jobs configured:"

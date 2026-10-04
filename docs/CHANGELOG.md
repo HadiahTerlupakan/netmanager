@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Modul Legal: arsip kontrak, izin, dan pengingat masa berlaku
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/legal`, `app/api/admin/legal`, `app/admin/legal`, `app/api/cron/legal-reminders`, `lib/`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Fase 1 modul legal (desain: `docs/architecture/legal-module-design.md`), untuk semua tenant (feature flag `legal`).
+  - Register dokumen berjenis KONTRAK / IZIN / SEWA_LAHAN / KORPORAT; wajib hanya judul, jenis, berkas. Atribut legal opsional: nilai & skema bayar, jaminan, perpanjangan otomatis + masa pemberitahuan, kewajiban berkala, denda, penyelesaian sengketa.
+  - Status diturunkan dari tanggal (Aktif / Segera berakhir ≤90 hari / Kedaluwarsa / Diperpanjang / Diakhiri), dihitung per tanggal kalender WIB. Perpanjangan membuat dokumen baru yang menautkan versi lama.
+  - Pengingat cron harian 08:00 WIB pada H-90/30/7/0 untuk masa berlaku, **batas pemberitahuan**, jaminan, dan kewajiban berkala, plus mingguan selama kedaluwarsa; idempoten lewat `LegalReminderLog`. Penerima: PIC dan pembuat dokumen.
+  - Kategori per tenant (16 bawaan) dengan tingkat kerahasiaan; kategori RAHASIA (akta, RUPS) butuh `legal_rahasia:read` dan disaring di repository. Izin baru grup `LEGAL`: `legal:*`, `legal_rahasia:read` — diberikan lewat pengaturan peran.
+  - Berkas di R2 (prefix `legal/<tenant>/`), disajikan lewat rute server. Halaman: dasbor "perlu tindakan", daftar, detail (ubah/perpanjang/akhiri), kategori; menu "Legal" di section Komunikasi.
+  - Pencarian karyawan untuk pemilih (PIC legal, penanda tangan pengesahan) dikonsolidasi ke `UserLookupService.searchEmployeeOptions`; helper `permissionListAllows` di `lib/rbac.ts`.
+- **Files**: `modules/legal/**`, `app/api/admin/legal/**`, `app/admin/legal/**`, `app/api/cron/legal-reminders/route.ts`, `cron/entrypoint.sh`, `lib/permission-config.ts`, `lib/feature-modules.ts`, `lib/menu-config.ts`
+- **Migration**: `20261004023612_add_legal_module` (aditif: tabel LegalCategory, LegalDocument, LegalObligation, LegalReminderLog)
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Detail surat pengesahan dan pemilih karyawan tidak memuat data
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pengesahan`
+- **Author**: agent
+- **Deskripsi**: `useApi` sudah membuka amplop `{ success, data }`, tetapi halaman detail surat pengesahan dan `SignerEmployeePicker` membaca `data?.data` lagi — detail selalu "Gagal memuat" dan pencarian karyawan penanda tangan selalu kosong di produksi. Ditemukan saat uji browser modul legal yang meniru pola yang sama.
+- **Files**: `app/admin/pengesahan/[id]/EndorsementDetailClient.tsx`, `app/admin/pengesahan/SignerEmployeePicker.tsx`, `app/admin/pengesahan/EndorsementListClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Login pertama setelah restart pod tidak lagi gagal
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Klien Redis bersama memakai `lazyConnect` + `enableOfflineQueue: false`, sehingga command pertama (rate limit login) ditolak "Stream isn't writeable" sebelum koneksi terbentuk — login pertama setelah setiap restart gagal "Layanan login sementara tidak tersedia". Koneksi kini dimulai saat modul dimuat (kecuali saat `next build` dan test); perilaku fail-fast saat Redis mati tetap.
+- **Files**: `lib/redis.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Rancangan modul Legal (kontrak, izin, template)
 
 - **Tipe**: [DOCS]

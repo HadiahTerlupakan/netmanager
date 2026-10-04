@@ -1552,6 +1552,8 @@ model User {
   planningAuditLogsPerformed                 PlanningAuditLog[]          @relation("planning_audit_performedByIdToUser")
   planningTemplatesCreated                   PlanningTemplate[]          @relation("planning_template_createdByIdToUser")
   endorsementsCreated                        Endorsement[]               @relation("EndorsementCreatedBy")
+  legalDocumentsCreated                      LegalDocument[]             @relation("LegalDocumentCreatedBy")
+  legalDocumentsPic                          LegalDocument[]             @relation("LegalDocumentPic")
   endorsementSignatures                      EndorsementSigner[]         @relation("EndorsementSigner")
 
   @@index([departmentId])
@@ -4304,6 +4306,10 @@ model Tenant {
   planningTemplateItems     PlanningTemplateItem[]
   endorsements              Endorsement[]
   endorsementSigners        EndorsementSigner[]
+  legalCategories           LegalCategory[]
+  legalDocuments            LegalDocument[]
+  legalObligations          LegalObligation[]
+  legalReminderLogs         LegalReminderLog[]
   endorsementEvents         EndorsementEvent[]
 }
 
@@ -6528,5 +6534,123 @@ model PlanningTemplateItem {
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([templateId])
+  @@index([tenantId])
+}
+
+/// Kategori dokumen legal per tenant (mis. "PKS Reseller", "Izin Tiang Pemda").
+/// Tingkat kerahasiaan menentukan siapa yang boleh melihat dokumennya.
+model LegalCategory {
+  id              String          @id @default(uuid())
+  name            String
+  /// KONTRAK | IZIN | SEWA_LAHAN | KORPORAT
+  documentType    String
+  /// BIASA (izin legal:read) | RAHASIA (butuh legal_rahasia:read)
+  confidentiality String          @default("BIASA")
+  /// Kategori bawaan yang dibuat saat modul pertama dipakai tenant.
+  isBuiltIn       Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  tenantId        String?
+  tenant          Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  documents       LegalDocument[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Kontrak, izin, sewa lahan, atau dokumen korporat beserta masa berlaku dan
+/// atribut legalnya (hak, kewajiban, tenggat) — bukan data akuntansi.
+model LegalDocument {
+  id                   String             @id @default(uuid())
+  title                String
+  /// KONTRAK | IZIN | SEWA_LAHAN | KORPORAT
+  documentType         String
+  categoryId           String?
+  category             LegalCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  documentNumber       String?
+  /// Pihak/penerbit sebagai teks; partyType+partyId opsional untuk tautan ke modul lain.
+  partyName            String?
+  /// MITRA | PELANGGAN | RESELLER | VENDOR | SITE
+  partyType            String?
+  partyId              String?
+  startDate            DateTime?
+  endDate              DateTime?
+  terminatedAt         DateTime?
+  terminationReason    String?
+  value                Decimal?           @db.Decimal(18, 2)
+  currency             String             @default("IDR")
+  /// SEKALI | BULANAN | TAHUNAN
+  paymentScheme        String?
+  guaranteeDescription String?
+  guaranteeEndDate     DateTime?
+  isAutoRenew          Boolean            @default(false)
+  /// Hari sebelum endDate untuk memberi tahu pihak lain bila tidak memperpanjang.
+  noticePeriodDays     Int?
+  penaltyNotes         String?
+  disputeResolution    String?
+  notes                String?
+  /// Object key R2; berkas disajikan lewat rute server, tidak pernah URL publik.
+  fileKey              String
+  fileName             String
+  fileHash             String
+  fileContentType      String
+  picUserId            String?
+  pic                  User?              @relation("LegalDocumentPic", fields: [picUserId], references: [id], onDelete: SetNull)
+  /// Surat pengesahan asal bila ditandatangani lewat sistem (tanpa FK lintas modul).
+  endorsementId        String?
+  /// Versi sebelumnya bila dokumen ini perpanjangan.
+  previousDocumentId   String?            @unique
+  previousDocument     LegalDocument?     @relation("LegalDocumentRenewal", fields: [previousDocumentId], references: [id], onDelete: SetNull)
+  renewedBy            LegalDocument?     @relation("LegalDocumentRenewal")
+  createdById          String
+  createdBy            User               @relation("LegalDocumentCreatedBy", fields: [createdById], references: [id])
+  tenantId             String?
+  tenant               Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  obligations          LegalObligation[]
+  reminderLogs         LegalReminderLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, documentType])
+  @@index([categoryId])
+  @@index([endDate])
+  @@index([picUserId])
+}
+
+/// Kewajiban bertenggat dalam satu dokumen (bayar sewa tahunan, laporan Komdigi, …).
+model LegalObligation {
+  id          String        @id @default(uuid())
+  documentId  String
+  document    LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  description String
+  dueDate     DateTime
+  /// NONE | MONTHLY | YEARLY
+  recurrence  String        @default("NONE")
+  tenantId    String?
+  tenant      Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([documentId])
+  @@index([tenantId])
+}
+
+/// Jejak pengingat yang sudah terkirim — menjamin satu pengingat per tenggat
+/// per ambang walau cron berjalan ulang.
+model LegalReminderLog {
+  id          String        @id @default(uuid())
+  documentId  String
+  document    LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  /// Jenis + tanggal tenggat, mis. "END:2026-12-31" atau "OBLIGATION:<id>:2027-01-15".
+  deadlineKey String
+  /// H90 | H30 | H7 | H0 | OVERDUE:<YYYY-Www>
+  threshold   String
+  tenantId    String?
+  tenant      Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sentAt      DateTime      @default(now())
+
+  @@unique([documentId, deadlineKey, threshold])
   @@index([tenantId])
 }

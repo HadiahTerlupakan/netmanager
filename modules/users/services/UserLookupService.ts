@@ -1,6 +1,16 @@
 import { UserRepository } from "../repositories/UserRepository";
 import { UserLookupRepository } from "../repositories/UserLookupRepository";
 
+/** Karyawan dalam bentuk siap pilih untuk formulir modul lain. */
+export interface EmployeeOption {
+  userId: string;
+  name: string;
+  /** Jabatan bawaan: nama peran, atau departemen bila tanpa peran. */
+  role: string | null;
+  email: string;
+  phone: string | null;
+}
+
 /** Menyediakan facade lookup user lintas modul tanpa memuat CRUD inti. */
 export class UserLookupService {
   constructor(
@@ -82,6 +92,22 @@ export class UserLookupService {
   /** Cari karyawan aktif (nama/email/telepon) untuk pemilih orang di modul lain. */
   searchActiveEmployees(search: string, limit: number) {
     return this.lookupRepository.searchActiveEmployees(search, limit);
+  }
+
+  /** Karyawan aktif yang cocok dengan kata kunci, dalam bentuk siap pilih. */
+  async searchEmployeeOptions(
+    keyword: string,
+    limit: number,
+  ): Promise<EmployeeOption[]> {
+    const employees = await this.searchActiveEmployees(keyword, limit);
+
+    return employees.map((employee) => ({
+      userId: employee.id,
+      name: employee.name ?? employee.email,
+      role: employee.role?.name ?? employee.departments?.name ?? null,
+      email: employee.email,
+      phone: employee.phone,
+    }));
   }
 
   /** Id karyawan aktif dari daftar id; untuk memvalidasi pilihan dari klien. */

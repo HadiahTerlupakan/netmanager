@@ -200,6 +200,13 @@ export const FEATURE_MODULES = [
       "Perencanaan ekspansi jaringan ISP (Outside Plant) dengan approval workflow.",
     group: "lainnya",
   },
+  {
+    code: "legal",
+    label: "Legal",
+    description:
+      "Arsip kontrak, izin usaha, sewa lahan, dan dokumen korporat beserta pengingat masa berlaku.",
+    group: "lainnya",
+  },
 ] as const satisfies readonly FeatureModule[];
 
 export type FeatureModuleCode = (typeof FEATURE_MODULES)[number]["code"];
