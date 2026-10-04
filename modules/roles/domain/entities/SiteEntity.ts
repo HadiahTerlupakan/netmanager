@@ -28,6 +28,7 @@ export interface SiteEntity {
   name: string;
   description: string | null;
   address: string | null;
+  kabupatenKota: string | null;
   isActive: boolean;
   location: SiteLocationEntity;
   gudangs: SiteGudangEntity[];

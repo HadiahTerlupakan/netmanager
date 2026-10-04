@@ -118,6 +118,8 @@ export const PERMISSION_GROUPS = {
   PENGESAHAN: ["pengesahan"],
   /** legal_rahasia: membuka dokumen berkategori RAHASIA (akta, RUPS, …). */
   LEGAL: ["legal", "legal_rahasia"],
+  /** regulasi: laporan kepatuhan regulator (Self-Assessment Komdigi). */
+  REGULASI: ["regulasi"],
 } as const;
 
 /**

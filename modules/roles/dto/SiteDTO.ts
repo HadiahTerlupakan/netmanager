@@ -12,6 +12,7 @@ export interface SiteListItemDTO {
   code: string;
   name: string;
   address: string | null;
+  kabupatenKota: string | null;
   isActive: boolean;
   userCount: number;
   workOrderCount: number;
@@ -26,6 +27,7 @@ export interface SiteDetailDTO {
   name: string;
   description: string | null;
   address: string | null;
+  kabupatenKota: string | null;
   isActive: boolean;
   // Geolocation
   location: {
@@ -74,6 +76,7 @@ export interface CreateSiteDTO {
   name: string;
   description?: string;
   address?: string;
+  kabupatenKota?: string | null;
   latitude?: number;
   longitude?: number;
   attendanceRadius?: number;
@@ -88,6 +91,7 @@ export interface UpdateSiteDTO {
   name?: string;
   description?: string;
   address?: string;
+  kabupatenKota?: string | null;
   latitude?: number;
   longitude?: number;
   attendanceRadius?: number;

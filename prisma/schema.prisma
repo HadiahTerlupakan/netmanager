@@ -2155,6 +2155,8 @@ model Sites {
   name              String
   description       String?
   address           String?
+  /// Kabupaten/kota wilayah layanan — pengelompokan laporan regulasi (Komdigi).
+  kabupatenKota     String?
   latitude          Float?
   longitude         Float?
   attendanceRadius  Int                 @default(100)

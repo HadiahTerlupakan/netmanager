@@ -14,6 +14,7 @@ interface Site {
   name: string;
   description: string | null;
   address: string | null;
+  kabupatenKota: string | null;
   location: {
     latitude: number | null;
     longitude: number | null;
@@ -38,6 +39,7 @@ export function ClientComponent({
     name: "",
     description: "",
     address: "",
+    kabupatenKota: "",
     latitude: "",
     longitude: "",
     attendanceRadius: "100",
@@ -70,6 +72,7 @@ export function ClientComponent({
       name: site.name,
       description: site.description || "",
       address: site.address || "",
+      kabupatenKota: site.kabupatenKota || "",
       latitude: site.location.latitude?.toString() || "",
       longitude: site.location.longitude?.toString() || "",
       attendanceRadius: site.location.attendanceRadius?.toString() || "100",
@@ -99,6 +102,7 @@ export function ClientComponent({
         },
         body: JSON.stringify({
           ...formData,
+          kabupatenKota: formData.kabupatenKota.trim() || null,
           latitude: formData.latitude || null,
           longitude: formData.longitude || null,
           attendanceRadius: parseInt(formData.attendanceRadius) || 100,

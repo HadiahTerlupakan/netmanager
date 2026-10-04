@@ -27,6 +27,7 @@ interface Site {
   name: string;
   description: string | null;
   address: string | null;
+  kabupatenKota: string | null;
   isActive: boolean;
   location: {
     latitude: number | null;
@@ -233,6 +234,17 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
               </label>
               <p className="text-gray-900 dark:text-white mt-1">
                 {site.address || (
+                  <span className="text-gray-400 italic">Belum diisi</span>
+                )}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Kabupaten/Kota
+              </label>
+              <p className="text-gray-900 dark:text-white mt-1">
+                {site.kabupatenKota || (
                   <span className="text-gray-400 italic">Belum diisi</span>
                 )}
               </p>

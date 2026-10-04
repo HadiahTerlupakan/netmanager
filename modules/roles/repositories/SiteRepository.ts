@@ -83,6 +83,7 @@ export class SiteRepository implements ISiteRepository {
           name: data.name,
           description: data.description,
           address: data.address,
+          kabupatenKota: data.kabupatenKota,
           latitude: data.latitude,
           longitude: data.longitude,
           attendanceRadius: data.attendanceRadius ?? DEFAULT_ATTENDANCE_RADIUS,
@@ -116,6 +117,7 @@ export class SiteRepository implements ISiteRepository {
             description: data.description,
           }),
           ...(data.address !== undefined && { address: data.address }),
+          ...(data.kabupatenKota !== undefined && { kabupatenKota: data.kabupatenKota }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.attendanceRadius !== undefined && {

@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Laporan Self-Assessment Komdigi tahap 1
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/regulatory`, `app/api/admin/regulatory`, `app/admin/regulasi`, `modules/work-order`, `modules/roles`, `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Modul baru `regulatory` untuk laporan mandiri standar mutu layanan Komdigi. Tahap 1 menghitung pasang baru (≤ 7 hari kalender sejak disetujui, dari WO instalasi) dan pemulihan layanan (≤ 2 hari kerja, dari WO troubleshoot, hari libur tenant dikecualikan), dengan agregasi tertimbang bulanan → kuartal → tahunan (Σ(Ni×Si)/ΣNi) dan rincian per kabupaten/kota. Halaman menu *Self-Assessment Komdigi* (izin baru `regulasi:read`) menampilkan capaian, permohonan yang tidak memenuhi, peringatan data (site tanpa kabupaten/kota, kalender libur belum lengkap), dan parameter yang menyusul; tombol *Unduh Excel* menghasilkan berkas Lampiran I + Agregasi + Catatan (dependensi baru `exceljs`). Tombol *Dokumen Word* mengisi template Word Komdigi asli (formulir pelaporan + surat hasil pengukuran) dari profil penyelenggara yang tersimpan di pengaturan tenant (`REGULASI_*`), capaian hitungan sistem, isian manual untuk parameter yang belum direkam, dan link dokumen pendukung (dependensi baru `docxtemplater`, `pizzip`; izin simpan `regulasi:update`). Site kini punya isian *Kabupaten/Kota*. API publik baru: `WorkOrderServiceLevelQueryService` (work-order, lewat port `IWorkOrderServiceLevelRepository`) dan `HolidayLookupService.listHolidayDates` (attendance). Desain: `docs/architecture/komdigi-self-assessment.md`.
+- **Files**: `modules/regulatory/**` (termasuk `templates/self-assessment-komdigi.docx`), `app/admin/regulasi/self-assessment/**`, `app/api/admin/regulatory/self-assessment/**`, `app/admin/workorders/sites/components/SiteForm.tsx`, `lib/permission-config.ts`, `lib/menu-config.ts`
+- **Migration**: `20261004111101_add_kabupaten_kota_to_sites`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Unduh daftar insiden sebagai CSV
 
 - **Tipe**: [ADDED]

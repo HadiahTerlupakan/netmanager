@@ -5,6 +5,7 @@ export interface SiteCreateRepositoryInput {
   name: string;
   description?: string | null;
   address?: string | null;
+  kabupatenKota?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   attendanceRadius?: number;
@@ -16,6 +17,7 @@ export interface SiteUpdateRepositoryInput {
   name?: string;
   description?: string | null;
   address?: string | null;
+  kabupatenKota?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   attendanceRadius?: number;

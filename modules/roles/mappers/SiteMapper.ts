@@ -48,6 +48,7 @@ export class SiteMapper {
       name: entity.name,
       description: entity.description,
       address: entity.address,
+      kabupatenKota: entity.kabupatenKota,
       isActive: entity.isActive,
       location: {
         latitude: entity.latitude,
@@ -83,6 +84,7 @@ export class SiteMapper {
       code: entity.code,
       name: entity.name,
       address: entity.address,
+      kabupatenKota: entity.kabupatenKota,
       isActive: entity.isActive,
       userCount: entity.counts.users,
       workOrderCount: entity.counts.workOrders,
@@ -102,6 +104,7 @@ export class SiteMapper {
       name: entity.name,
       description: entity.description,
       address: entity.address,
+      kabupatenKota: entity.kabupatenKota,
       isActive: entity.isActive,
       location: {
         latitude: entity.location.latitude,

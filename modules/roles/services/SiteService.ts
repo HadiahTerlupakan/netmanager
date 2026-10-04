@@ -19,6 +19,7 @@ interface SiteCreateInput {
   name: string;
   description?: string | null;
   address?: string | null;
+  kabupatenKota?: string | null;
   latitude?: string | number | null;
   longitude?: string | number | null;
   attendanceRadius?: string | number;
@@ -30,6 +31,7 @@ interface SiteUpdateInput {
   name?: string;
   description?: string | null;
   address?: string | null;
+  kabupatenKota?: string | null;
   latitude?: string | number | null;
   longitude?: string | number | null;
   attendanceRadius?: string | number;
@@ -250,6 +252,7 @@ export class SiteService {
       name: data.name,
       description: data.description,
       address: data.address,
+      kabupatenKota: data.kabupatenKota,
       latitude: this.parseNullableNumber(data.latitude),
       longitude: this.parseNullableNumber(data.longitude),
       attendanceRadius: this.parseAttendanceRadius(data.attendanceRadius),
@@ -263,6 +266,7 @@ export class SiteService {
       name: data.name,
       description: data.description,
       address: data.address,
+      kabupatenKota: data.kabupatenKota,
       latitude: this.parseOptionalNullableNumber(data.latitude),
       longitude: this.parseOptionalNullableNumber(data.longitude),
       attendanceRadius: this.parseOptionalAttendanceRadius(

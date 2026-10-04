@@ -10,6 +10,7 @@ interface SiteFormData {
   name: string;
   description: string;
   address: string;
+  kabupatenKota: string;
   latitude: string;
   longitude: string;
   attendanceRadius: string;
@@ -115,6 +116,27 @@ export default function SiteForm({
                   placeholder="Alamat lengkap site..."
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="site-kabupaten-kota"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Kabupaten/Kota
+                </label>
+                <input
+                  id="site-kabupaten-kota"
+                  type="text"
+                  name="kabupatenKota"
+                  value={formData.kabupatenKota}
+                  onChange={onChange}
+                  placeholder="Kabupaten Bogor"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Wilayah layanan site ini — dipakai mengelompokkan laporan Self-Assessment Komdigi.
+                </p>
               </div>
 
               {showIsActive && (

@@ -14,6 +14,7 @@ export * from "./services/MobileWorkOrderPartnerService";
 export * from "./services/MobileWorkOrderActionService";
 export * from "./services/AdminWorkOrderDashboardService";
 export * from "./services/WorkOrderQueryService";
+export * from "./services/WorkOrderServiceLevelQueryService";
 export * from "./services/partner-invite-availability";
 export {
   WorkOrderValidationError,

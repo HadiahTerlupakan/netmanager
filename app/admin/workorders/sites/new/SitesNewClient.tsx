@@ -17,6 +17,7 @@ export function ClientComponent() {
     name: "",
     description: "",
     address: "",
+    kabupatenKota: "",
     latitude: "",
     longitude: "",
     attendanceRadius: "100",
@@ -44,6 +45,7 @@ export function ClientComponent() {
         },
         body: JSON.stringify({
           ...formData,
+          kabupatenKota: formData.kabupatenKota.trim() || null,
           latitude: formData.latitude || null,
           longitude: formData.longitude || null,
           attendanceRadius: parseInt(formData.attendanceRadius) || 100,

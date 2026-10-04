@@ -804,6 +804,14 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     ],
   },
   {
+    // Laporan kepatuhan ke regulator. Tahap 1: pasang baru & pemulihan layanan
+    // dari work order; parameter jaringan & keluhan menyusul.
+    code: "REGULASI",
+    name: "Self-Assessment Komdigi",
+    path: "/admin/regulasi/self-assessment",
+    icon: "HiOutlineClipboardDocumentCheck",
+  },
+  {
     code: "CHAT",
     name: "Chat",
     path: "/admin/chat",
