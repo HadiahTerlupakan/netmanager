@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Rancangan modul Legal (kontrak, izin, template)
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Draf desain modul legal untuk semua tenant: register kontrak/izin/sewa lahan dengan status turunan dan pengingat otomatis (Fase 1), template dokumen yang terhubung ke pengesahan (Fase 2); perkara & kepatuhan ditunda. Dirancang untuk admin yang merangkap legal.
+- **Files**: `docs/architecture/legal-module-design.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Pengesahan: penanda tangan karyawan internal lewat aplikasi mobile
 
 - **Tipe**: [ADDED]
