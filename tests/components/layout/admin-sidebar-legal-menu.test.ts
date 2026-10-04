@@ -29,6 +29,7 @@ describe("menu Legal", () => {
     expect(visibleChildren(["legal:read", "pengesahan:read"])).toEqual([
       "LEGAL.DASHBOARD",
       "LEGAL.DOKUMEN",
+      "LEGAL.TEMPLATE",
       "LEGAL.PENGESAHAN",
       "LEGAL.KATEGORI",
     ]);
@@ -42,6 +43,7 @@ describe("menu Legal", () => {
     expect(visibleChildren(["legal:read"])).toEqual([
       "LEGAL.DASHBOARD",
       "LEGAL.DOKUMEN",
+      "LEGAL.TEMPLATE",
       "LEGAL.KATEGORI",
     ]);
   });

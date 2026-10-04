@@ -78,7 +78,7 @@ describe("proxy admin auth redirect", () => {
 
     expect(csp).toContain("https://*.asia-southeast1.firebasedatabase.app");
     expect(csp).toContain(
-      "frame-src 'self' https://*.asia-southeast1.firebasedatabase.app",
+      "frame-src 'self' blob: https://*.asia-southeast1.firebasedatabase.app",
     );
   });
 });

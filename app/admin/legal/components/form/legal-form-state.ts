@@ -206,20 +206,44 @@ export function validateLegalFile(file: File): string | null {
   return file.size > MAX_FILE_BYTES ? `Ukuran berkas maksimal ${MAX_FILE_MEGABYTES} MB` : null;
 }
 
+function validateTitle(values: LegalFormValues): string | null {
+  return values.title.trim().length < MIN_TITLE_LENGTH
+    ? `Judul minimal ${MIN_TITLE_LENGTH} karakter`
+    : null;
+}
+
+function validateFileChoice(mode: LegalFormMode, file: File | null): string | null {
+  if (mode === "create" && !file) return "Pilih berkas dokumen";
+
+  return file ? validateLegalFile(file) : null;
+}
+
 /** Pesan galat pertama pada formulir, atau null bila siap dikirim. */
 export function validateLegalForm(
   values: LegalFormValues,
   mode: LegalFormMode,
   file: File | null,
 ): string | null {
-  if (values.title.trim().length < MIN_TITLE_LENGTH) {
-    return `Judul minimal ${MIN_TITLE_LENGTH} karakter`;
-  }
-  if (mode === "create" && !file) return "Pilih berkas dokumen";
-  if (file) {
-    const fileError = validateLegalFile(file);
-    if (fileError) return fileError;
-  }
+  return (
+    validateTitle(values) ??
+    validateFileChoice(mode, file) ??
+    validateDocumentDetails(values, mode)
+  );
+}
+
+/**
+ * Validasi dokumen baru yang berkasnya disusun sistem (dari template), jadi
+ * tidak ada berkas unggahan yang perlu diperiksa.
+ */
+export function validateGeneratedDocumentForm(values: LegalFormValues): string | null {
+  return validateTitle(values) ?? validateDocumentDetails(values, "create");
+}
+
+/** Aturan isian selain judul & berkas: masa berlaku, pihak, tanggal, kewajiban. */
+function validateDocumentDetails(
+  values: LegalFormValues,
+  mode: LegalFormMode,
+): string | null {
   if (mode === "renew" && !values.endDate) {
     return "Tanggal berakhir baru wajib diisi";
   }

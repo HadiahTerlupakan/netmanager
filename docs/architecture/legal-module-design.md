@@ -149,25 +149,33 @@ versi kontrak/izin tetap utuh.
 
 ## 5. Fase 2 — Template dokumen
 
-> **Sudah tersedia (2026-10-04):** sambungan Legal ↔ Pengesahan — dokumen legal PDF bisa
-> dikirim untuk ditandatangani dan otomatis memakai PDF sah; surat sah bisa diarsipkan ke
-> Legal. Template di bawah tinggal memakai jalur ini.
+> **Sudah tersedia (2026-10-04).** Menu Legal → Template Dokumen.
 
-- **Format: editor di web**, bukan unggah Word. Format sengaja terbatas pada yang
-  dipakai dokumen legal — judul, pasal bernomor, paragraf, tebal/miring, daftar,
-  blok tanda tangan. Placeholder disisipkan lewat tombol (`{{mitra.nama}}`,
-  `{{pelanggan.alamat}}`, `{{tanggal}}`, `{{nilai}}` …), tanpa mengetik sintaks.
+- **Format: editor blok di web**, bukan unggah Word. Blok sengaja terbatas pada yang
+  dipakai dokumen legal: judul, paragraf, pasal (nomor "Pasal N" otomatis), daftar
+  bernomor, dan blok tanda tangan dua kolom. Format sebaris hanya `**tebal**`.
+  Isian disisipkan lewat tombol "Sisipkan isian" (`{{tanggal}}`, `{{nomor}}`,
+  `{{tanggal_mulai}}`, `{{tanggal_berakhir}}`, `{{nilai}}`, `{{perusahaan.*}}`,
+  `{{pihak.nama|alamat|telepon}}`). Isian yang belum diketahui tercetak
+  "........................" supaya terlihat untuk dilengkapi.
 - Alasan: admin yang merangkap tidak perlu paham placeholder Word; hasil seragam;
-  PDF disusun dengan `pdf-lib` yang sudah dipakai pengesahan — tanpa LibreOffice
-  di server (konversi .docx → PDF berat dan rawan di kontainer).
-- **Kop surat** (logo, nama, alamat perusahaan) diatur sekali per tenant dan
-  tercetak otomatis. Ada pratinjau PDF sebelum dikirim.
-- Dokumen rumit buatan notaris/pihak luar tetap bisa diunggah sebagai PDF jadi.
-- Disediakan template bawaan: PKS reseller, surat kuasa, kontrak pelanggan korporat.
-- Alur: pilih template → pilih pihak → isian terisi otomatis, admin melengkapi →
-  PDF dibuat → **dikirim ke pengesahan** → saat sah, PDF final otomatis tercatat
-  di register sebagai `KONTRAK` dengan tautan ke surat pengesahannya.
-- Format isi template perlu diputuskan (lihat §8).
+  PDF disusun dengan `pdf-lib` (font standar, WinAnsi) — tanpa LibreOffice di server.
+- **Kop surat** tidak punya pengaturan baru: diambil dari Pengaturan Umum tenant
+  (nama perusahaan, alamat, nomor HP, email) dan logo invoice. Logo yang gagal
+  dimuat tidak menggagalkan dokumen.
+- Template bawaan dibuat saat tenant pertama membuka daftar: PKS Reseller, Kontrak
+  Pelanggan Korporat, Surat Kuasa. Template bawaan boleh diubah/dinonaktifkan.
+- Alur: pilih template → "Pakai" → isi data dokumen (pihak tertaut mengisi alamat &
+  telepon otomatis) → isi boleh disesuaikan khusus dokumen ini → pratinjau PDF →
+  **Simpan sebagai dokumen legal** (melewati `LegalDocumentService.create`, jadi
+  validasi & penyimpanan R2 sama dengan unggahan) → dari detail dokumen,
+  **Kirim untuk ditandatangani**; saat sah, berkas diganti PDF bertanda tangan.
+- Dokumen rumit buatan notaris/pihak luar tetap diunggah sebagai PDF jadi.
+- Komponen: `LegalTemplateService` (CRUD + bawaan), `LegalTemplateDocumentService`
+  (isian + render + simpan), `LegalTemplateRenderer` (PDF), `SettingsLetterheadSource`,
+  fungsi murni `domain/template-content.ts` & `domain/template-values.ts`.
+  API: `/api/admin/legal/templates`, `/templates/[id]`, `/templates/preview` (PDF,
+  tidak disimpan), `/documents/from-template`.
 
 ---
 
@@ -178,7 +186,7 @@ modules/legal/
 ├── domain/        # LegalDocument, jenis, aturan status & ambang pengingat (fungsi murni)
 ├── dto/
 ├── repositories/  # Prisma, isolasi tenant lewat ekstensi
-├── services/      # LegalDocumentService, LegalReminderService, (Fase 2) LegalTemplateService
+├── services/      # LegalDocumentService, LegalReminderService, LegalTemplateService, LegalTemplateRenderer
 ├── validators/    # Zod
 └── index.ts
 ```
@@ -196,8 +204,8 @@ modules/legal/
   `endorsement:endorsement.completed` (Fase 2).
 - **Skema**: tabel baru `LegalDocument`, `LegalCategory` (dengan tingkat
   kerahasiaan), `LegalObligation` (kewajiban berkala), `LegalReminderLog`
-  (idempotensi pengingat), (Fase 2) `LegalTemplate` dan kop surat di pengaturan
-  tenant. Migration aditif.
+  (idempotensi pengingat), `LegalTemplate` (isi blok JSON, unik per nama per
+  tenant). Kop surat memakai Pengaturan Umum yang sudah ada. Migration aditif.
 
 ---
 

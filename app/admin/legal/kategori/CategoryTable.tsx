@@ -7,7 +7,7 @@ import { ConfidentialBadge, NeutralBadge } from "../components/LegalBadges";
 import { jsonRequest, sendLegalRequest } from "../components/legal-request";
 import { LEGAL_CATEGORIES_URL } from "../components/useLegalCategories";
 import type { LegalCategory } from "../components/legal-types";
-import ActiveSwitch from "./ActiveSwitch";
+import ActiveSwitch from "../components/ActiveSwitch";
 
 /** Tabel kategori satu jenis dokumen: nama, kerahasiaan, status aktif, ubah. */
 export default function CategoryTable({

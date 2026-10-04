@@ -1,4 +1,3 @@
-import { useLegalCategories } from "../useLegalCategories";
 import type { LegalFormValues } from "./legal-form-state";
 import {
   CollapsibleSection,
@@ -6,6 +5,7 @@ import {
   INPUT_CLASS,
   type UpdateLegalField,
 } from "./form-fields";
+import CategorySelect from "./CategorySelect";
 import PartyField from "./PartyField";
 import PicPicker from "./PicPicker";
 
@@ -13,19 +13,14 @@ import PicPicker from "./PicPicker";
 export default function DetailFields({
   values,
   onChange,
+  isInitiallyOpen = false,
 }: {
   values: LegalFormValues;
   onChange: UpdateLegalField;
+  isInitiallyOpen?: boolean;
 }) {
-  const { categories } = useLegalCategories();
-  const categoryOptions = categories.filter(
-    (category) =>
-      category.documentType === values.documentType &&
-      (category.isActive || category.id === values.categoryId),
-  );
-
   return (
-    <CollapsibleSection title="Detail tambahan">
+    <CollapsibleSection title="Detail tambahan" isInitiallyOpen={isInitiallyOpen}>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Nomor dokumen">
           <input
@@ -36,18 +31,11 @@ export default function DetailFields({
           />
         </FormField>
         <FormField label="Kategori">
-          <select
+          <CategorySelect
+            documentType={values.documentType}
             value={values.categoryId}
-            onChange={(event) => onChange("categoryId", event.target.value)}
-            className={INPUT_CLASS}
-          >
-            <option value="">Tanpa kategori</option>
-            {categoryOptions.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+            onChange={(categoryId) => onChange("categoryId", categoryId)}
+          />
         </FormField>
       </div>
 

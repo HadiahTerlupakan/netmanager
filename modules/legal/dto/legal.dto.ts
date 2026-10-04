@@ -1,7 +1,10 @@
 import type {
   LegalCategoryEntity,
   LegalDocumentEntity,
+  LegalDocumentType,
 } from "../domain/entities/LegalDocument";
+import type { LegalTemplateEntity } from "../domain/entities/LegalTemplate";
+import type { TemplateBlock } from "../domain/template-content";
 import {
   deriveStatus,
   isActionable,
@@ -178,5 +181,29 @@ export function toLegalCategoryDto(category: LegalCategoryEntity): LegalCategory
     confidentiality: category.confidentiality,
     isBuiltIn: category.isBuiltIn,
     isActive: category.isActive,
+  };
+}
+
+export interface LegalTemplateDto {
+  id: string;
+  name: string;
+  documentType: LegalDocumentType;
+  category: { id: string; name: string } | null;
+  content: TemplateBlock[];
+  isBuiltIn: boolean;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export function toLegalTemplateDto(template: LegalTemplateEntity): LegalTemplateDto {
+  return {
+    id: template.id,
+    name: template.name,
+    documentType: template.documentType,
+    category: template.category,
+    content: template.content,
+    isBuiltIn: template.isBuiltIn,
+    isActive: template.isActive,
+    updatedAt: template.updatedAt.toISOString(),
   };
 }

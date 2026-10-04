@@ -6,6 +6,7 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import { logger } from "@/lib/logger";
+import { fitText, toPrintableText, wrapText } from "@/lib/pdf/pdf-text";
 import type {
   EndorsementEntity,
   EndorsementSignerEntity,
@@ -41,9 +42,6 @@ const COLUMN_GAP = 24;
 const SIGNATURE_ROW_HEIGHT = SIGNATURE_BOX_HEIGHT + LINE_HEIGHT * 4;
 /** Ruang di dasar halaman terakhir untuk sidik jari dokumen. */
 const FOOTER_HEIGHT = LINE_HEIGHT * 3;
-/** Pengganti karakter yang tidak bisa dicetak font standar PDF. */
-const REPLACEMENT_CHAR = "?";
-const ELLIPSIS = "...";
 
 const INK = rgb(0.07, 0.09, 0.15);
 const MUTED = rgb(0.42, 0.45, 0.5);
@@ -60,60 +58,6 @@ function formatDateTime(value: Date | null): string {
     minute: "2-digit",
     timeZone: "Asia/Jakarta",
   });
-}
-
-/**
- * Font standar PDF (Helvetica) hanya mengenal WinAnsi. Karakter di luar itu —
- * emoji, aksara non-Latin — membuat pdf-lib melempar galat, yang berarti surat
- * gagal disahkan hanya karena nama penanda tangan. Karakter seperti itu diganti.
- */
-function toPrintableText(font: PDFFont, text: string): string {
-  const supported = new Set(font.getCharacterSet());
-
-  return Array.from(text.replace(/\s+/g, " "))
-    .map((char) => (supported.has(char.codePointAt(0)!) ? char : REPLACEMENT_CHAR))
-    .join("");
-}
-
-/** Potong teks dengan elipsis supaya muat di lebar tertentu. */
-function fitText(font: PDFFont, text: string, size: number, maxWidth: number) {
-  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
-
-  let fitted = text;
-  while (
-    fitted.length > 0 &&
-    font.widthOfTextAtSize(fitted + ELLIPSIS, size) > maxWidth
-  ) {
-    fitted = fitted.slice(0, -1);
-  }
-
-  return fitted + ELLIPSIS;
-}
-
-/** Bungkus teks per kata menjadi beberapa baris yang muat di lebar tertentu. */
-function wrapText(
-  font: PDFFont,
-  text: string,
-  size: number,
-  maxWidth: number,
-): string[] {
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of text.split(" ")) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      current = candidate;
-      continue;
-    }
-
-    if (current) lines.push(current);
-    current = fitText(font, word, size, maxWidth);
-  }
-
-  if (current) lines.push(current);
-
-  return lines;
 }
 
 interface Fonts {

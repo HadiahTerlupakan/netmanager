@@ -782,6 +782,13 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         featureModule: "legal",
       },
       {
+        code: "LEGAL.TEMPLATE",
+        name: "Template Dokumen",
+        path: "/admin/legal/template",
+        icon: "HiOutlineDocumentDuplicate",
+        featureModule: "legal",
+      },
+      {
         code: "LEGAL.PENGESAHAN",
         name: "Surat Pengesahan",
         path: "/admin/pengesahan",

@@ -15,7 +15,8 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: https: blob:",
   "media-src 'self' blob: data:",
   `connect-src 'self' https: http: ws: wss: capacitor: ${FIREBASE_RTDB_HOST_PATTERN}`,
-  `frame-src 'self' ${FIREBASE_RTDB_HOST_PATTERN}`,
+  // blob: untuk pratinjau PDF yang disusun di klien (mis. template dokumen legal).
+  `frame-src 'self' blob: ${FIREBASE_RTDB_HOST_PATTERN}`,
   "worker-src 'self' blob:",
 ].join("; ");
 

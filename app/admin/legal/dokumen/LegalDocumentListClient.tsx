@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { HiOutlineArrowLeft, HiOutlineDocumentText } from "react-icons/hi2";
+import {
+  HiOutlineArrowLeft,
+  HiOutlineDocumentDuplicate,
+  HiOutlineDocumentText,
+} from "react-icons/hi2";
+import { buttonVariants } from "@/components/ui/Button";
 import PageLoader from "@/components/ui/PageLoader";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useApi } from "@/lib/hooks/useApi";
@@ -71,7 +76,16 @@ export default function LegalDocumentListClient({
             Dokumen Legal
           </h1>
         </div>
-        <AddLegalDocumentButton />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/legal/template"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <HiOutlineDocumentDuplicate />
+            Buat dari template
+          </Link>
+          <AddLegalDocumentButton />
+        </div>
       </div>
 
       <LegalDocumentFilterBar filters={filters} onChange={changeFilters} />

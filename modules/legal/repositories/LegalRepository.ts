@@ -1,5 +1,4 @@
-import { Prisma } from "@prisma/client";
-import { AppError } from "@/lib/errors";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import type {
   LegalCategoryEntity,
@@ -21,13 +20,12 @@ import {
   toLegalCategoryEntity,
   toLegalDocumentEntity,
 } from "../mappers/legal.mapper";
+import { isUniqueViolation, withDuplicateNameGuard } from "./prisma-errors";
 
 /**
  * Akses data modul legal lewat klien Prisma ber-ekstensi isolasi tenant.
  * Kategori rahasia disaring di sini untuk setiap jalur baca dokumen.
  */
-
-const PRISMA_UNIQUE_VIOLATION = "P2002";
 
 function confidentialityWhere(access: LegalAccess): Prisma.LegalDocumentWhereInput {
   if (access.canViewConfidential) return {};
@@ -74,24 +72,8 @@ function searchWhere(search: string | undefined): Prisma.LegalDocumentWhereInput
   };
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === PRISMA_UNIQUE_VIOLATION
-  );
-}
-
-/** Nama kategori unik per tenant; bentrok diterjemahkan ke 409, bukan 500. */
-async function withDuplicateCategoryGuard<T>(write: () => Promise<T>): Promise<T> {
-  try {
-    return await write();
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new AppError("Nama kategori sudah dipakai", 409, "DUPLICATE");
-    }
-    throw error;
-  }
-}
+const withDuplicateCategoryGuard = <T>(write: () => Promise<T>) =>
+  withDuplicateNameGuard("Nama kategori sudah dipakai", write);
 
 function toObligationRows(obligations: LegalObligationInput[], tenantId: string | null) {
   return obligations.map((obligation) => ({ ...obligation, tenantId }));

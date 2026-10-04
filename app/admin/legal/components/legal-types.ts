@@ -135,3 +135,39 @@ export interface ApiEnvelope<T> {
   error?: string;
   details?: Record<string, string>;
 }
+
+/** Satu blok isi template; teks mendukung **tebal** dan isian {{kunci}}. */
+export type TemplateBlock =
+  | { type: "heading"; text: string }
+  | { type: "paragraph"; text: string }
+  | { type: "article"; title: string; text: string }
+  | { type: "list"; items: string[] }
+  | {
+      type: "signatures";
+      left: TemplateSignatureSide;
+      right: TemplateSignatureSide;
+    };
+
+export interface TemplateSignatureSide {
+  label: string;
+  name: string;
+}
+
+export type TemplateBlockType = TemplateBlock["type"];
+
+/** Isian otomatis {{kunci}} yang bisa disisipkan ke teks template. */
+export interface TemplatePlaceholder {
+  key: string;
+  label: string;
+}
+
+export interface LegalTemplate {
+  id: string;
+  name: string;
+  documentType: string;
+  category: { id: string; name: string } | null;
+  content: TemplateBlock[];
+  isBuiltIn: boolean;
+  isActive: boolean;
+  updatedAt: string;
+}

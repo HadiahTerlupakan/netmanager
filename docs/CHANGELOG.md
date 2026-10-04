@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Template dokumen legal dengan isian otomatis dan pratinjau PDF
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/legal`, `app/api/admin/legal/templates`, `app/api/admin/legal/documents/from-template`, `app/admin/legal/template`, `lib/pdf`
+- **Author**: agent
+- **Deskripsi**: Fase 2 modul Legal. Menu baru Legal → Template Dokumen: editor blok terbatas (judul, paragraf, pasal bernomor otomatis, daftar bernomor, tanda tangan dua kolom, `**tebal**`) dengan tombol "Sisipkan isian" (`{{tanggal}}`, `{{nomor}}`, `{{nilai}}`, `{{perusahaan.*}}`, `{{pihak.nama|alamat|telepon}}`, dll.). PDF disusun dengan pdf-lib (`LegalTemplateRenderer`), kop surat dari Pengaturan Umum + logo invoice (`SettingsLetterheadSource`); isian kosong tercetak titik-titik. Template bawaan (PKS Reseller, Kontrak Pelanggan Korporat, Surat Kuasa) dibuat saat tenant pertama membuka daftar. "Pakai template" mengisi data dokumen (pihak tertaut memberi alamat & telepon — `PartyOption` kini membawa `address`/`phone`), isi bisa disesuaikan per dokumen, pratinjau PDF (`POST /templates/preview`, tidak disimpan), lalu disimpan lewat `LegalDocumentService.create` sehingga bisa langsung "Kirim untuk ditandatangani". Pendukung: utilitas teks PDF dipindah ke `lib/pdf/pdf-text.ts` (dipakai juga `EndorsementPdfService`, keluaran identik); guard nama ganda Prisma dipusatkan di `modules/legal/repositories/prisma-errors.ts`; CSP `frame-src` mengizinkan `blob:` (di `proxy.ts` dan `next.config.ts`, duplikat `frame-src` dihapus) agar pratinjau PDF bisa tampil di iframe; komponen form legal dipakai ulang (`CategorySelect` diekstrak, `ActiveSwitch` dipindah ke `app/admin/legal/components`).
+- **Files**: `modules/legal/services/LegalTemplateService.ts`, `modules/legal/services/LegalTemplateDocumentService.ts`, `modules/legal/services/LegalTemplateRenderer.ts`, `modules/legal/domain/template-content.ts`, `modules/legal/domain/template-values.ts`, `modules/legal/repositories/LegalTemplateRepository.ts`, `app/admin/legal/template/**`, `lib/pdf/pdf-text.ts`, `proxy.ts`, `next.config.ts`
+- **Migration**: `20261004090830_add_legal_templates`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Pihak kontrak legal tertaut ke mitra, reseller, pelanggan, vendor, site
 
 - **Tipe**: [ADDED]

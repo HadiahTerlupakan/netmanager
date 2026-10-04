@@ -229,6 +229,7 @@ function getPermissionResource(code: string): string {
     "LEGAL.DASHBOARD": "legal",
     "LEGAL.DOKUMEN": "legal",
     "LEGAL.KATEGORI": "legal",
+    "LEGAL.TEMPLATE": "legal",
     "LEGAL.PENGESAHAN": "pengesahan",
     // HR menu: surface kepegawaian reuse permission users (fase 1 PRD)
     HR: "users",

@@ -10,17 +10,24 @@ import {
 import { FormField, INPUT_CLASS, type UpdateLegalField } from "./form-fields";
 import ValidityField from "./ValidityField";
 
-/** Isian inti: judul, jenis (terkunci saat ubah/perpanjang), masa berlaku, dan berkas. */
+/**
+ * Isian inti: judul, jenis (terkunci saat ubah/perpanjang atau bila dikunci
+ * pemanggil), masa berlaku, dan berkas (hanya bila `onFileChange` diberikan).
+ */
 export default function RequiredFields({
   mode,
   values,
   onChange,
   onFileChange,
+  isTypeLocked = false,
 }: {
   mode: LegalFormMode;
   values: LegalFormValues;
   onChange: UpdateLegalField;
-  onFileChange: (file: File | null) => void;
+  /** Kosong = berkas disusun sistem (mis. dari template), tanpa unggahan. */
+  onFileChange?: (file: File | null) => void;
+  /** Jenis mengikuti sumber lain (mis. template) meski dokumen baru. */
+  isTypeLocked?: boolean;
 }) {
   const fileHint =
     mode === "renew"
@@ -49,7 +56,7 @@ export default function RequiredFields({
               onChange("isIndefinite", isIndefiniteByDefault(event.target.value));
             }
           }}
-          disabled={mode !== "create"}
+          disabled={mode !== "create" || isTypeLocked}
           className={INPUT_CLASS}
         >
           {LEGAL_DOCUMENT_TYPES.map((type) => (
@@ -62,7 +69,7 @@ export default function RequiredFields({
 
       <ValidityField mode={mode} values={values} onChange={onChange} />
 
-      {mode !== "edit" && (
+      {mode !== "edit" && onFileChange && (
         <FormField
           label={mode === "renew" ? "Berkas baru (opsional)" : "Berkas"}
           hint={fileHint}

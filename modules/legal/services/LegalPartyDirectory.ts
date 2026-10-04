@@ -21,6 +21,9 @@ export interface PartyOption {
   name: string;
   /** Keterangan pembeda di pemilih: kode, alamat, atau telepon. */
   description: string | null;
+  /** Alamat & telepon untuk isian template {{pihak.alamat}} / {{pihak.telepon}}. */
+  address: string | null;
+  phone: string | null;
   detailUrl: string | null;
 }
 
@@ -32,24 +35,55 @@ interface PartySource {
 const joinParts = (...parts: Array<string | null | undefined>) =>
   parts.filter(Boolean).join(" · ") || null;
 
-function option(
-  type: LegalPartyType,
-  record: { id: string; name: string; description: string | null },
-): PartyOption {
-  return { type, ...record, detailUrl: partyDetailUrl(type, record.id) };
+interface PartyRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  address?: string | null;
+  phone?: string | null;
 }
+
+function option(type: LegalPartyType, record: PartyRecord): PartyOption {
+  return {
+    type,
+    id: record.id,
+    name: record.name,
+    description: record.description,
+    address: record.address ?? null,
+    phone: record.phone ?? null,
+    detailUrl: partyDetailUrl(type, record.id),
+  };
+}
+
+type MitraRecord = { id: string; name: string | null; email: string; phone: string | null };
+const mitraOption = (mitra: MitraRecord) =>
+  option("MITRA", { id: mitra.id, name: mitra.name ?? mitra.email, description: joinParts(mitra.phone, mitra.email), phone: mitra.phone });
+
+type CodedRecord = { id: string; name: string; code: string | null; address?: string | null; phone?: string | null };
+const codedOption = (type: LegalPartyType, record: CodedRecord) =>
+  option(type, { ...record, description: joinParts(record.code, record.address) });
+
+type PelangganRecord = { id: string; nama: string; idPelanggan: string | null; alamat: string | null; noTelp?: string | null };
+const pelangganOption = (pelanggan: PelangganRecord) =>
+  option("PELANGGAN", {
+    id: pelanggan.id,
+    name: pelanggan.nama,
+    description: joinParts(pelanggan.idPelanggan, pelanggan.alamat),
+    address: pelanggan.alamat,
+    phone: pelanggan.noTelp,
+  });
 
 const mitraSource: PartySource = {
   async search(keyword, limit) {
     const mitras = await getMitraLookupService().searchForPicker(keyword, limit);
     return mitras.map((mitra) =>
-      option("MITRA", { id: mitra.id, name: mitra.name ?? mitra.email, description: joinParts(mitra.phone, mitra.email) }),
+      mitraOption(mitra),
     );
   },
   async findById(id) {
     const mitra = await getMitraLookupService().findById(id);
     return mitra
-      ? option("MITRA", { id: mitra.id, name: mitra.name ?? mitra.email, description: joinParts(mitra.phone, mitra.email) })
+      ? mitraOption(mitra)
       : null;
   },
 };
@@ -59,14 +93,14 @@ const resellerSource: PartySource = {
     const { tenantId } = await getTenantIdFromContext();
     const result = await getResellerService().listResellers({ tenantId, search: keyword, limit });
     return result.items.map((reseller) =>
-      option("RESELLER", { id: reseller.id, name: reseller.name, description: joinParts(reseller.code, reseller.address) }),
+      codedOption("RESELLER", reseller),
     );
   },
   async findById(id) {
     const { tenantId } = await getTenantIdFromContext();
     const reseller = await getResellerService().getResellerById(tenantId, id);
     return reseller
-      ? option("RESELLER", { id: reseller.id, name: reseller.name, description: joinParts(reseller.code, reseller.address) })
+      ? codedOption("RESELLER", reseller)
       : null;
   },
 };
@@ -75,13 +109,13 @@ const pelangganSource: PartySource = {
   async search(keyword, limit) {
     const result = await getPelangganService().getAllPelangganPaginated({ search: keyword }, 1, limit);
     return result.data.map((pelanggan) =>
-      option("PELANGGAN", { id: pelanggan.id, name: pelanggan.nama, description: joinParts(pelanggan.idPelanggan, pelanggan.alamat) }),
+      pelangganOption(pelanggan),
     );
   },
   async findById(id) {
     const pelanggan = await getPelangganService().getPelanggan(id);
     return pelanggan
-      ? option("PELANGGAN", { id: pelanggan.id, name: pelanggan.nama, description: joinParts(pelanggan.idPelanggan, pelanggan.alamat) })
+      ? pelangganOption(pelanggan)
       : null;
   },
 };
@@ -104,13 +138,13 @@ const vendorSource: PartySource = {
     const { tenantId } = await getTenantIdFromContext();
     const result = await getSupplierService().list({ tenantId, search: keyword, page: 1, limit });
     return result.items.map((supplier) =>
-      option("VENDOR", { id: supplier.id, name: supplier.name, description: joinParts(supplier.code, supplier.address) }),
+      codedOption("VENDOR", supplier),
     );
   },
   async findById(id) {
     const supplier = await findSupplierOrNull(id);
     return supplier
-      ? option("VENDOR", { id: supplier.id, name: supplier.name, description: joinParts(supplier.code, supplier.address) })
+      ? codedOption("VENDOR", supplier)
       : null;
   },
 };
@@ -120,12 +154,12 @@ const siteSource: PartySource = {
     const result = await new SiteService().getSites({ search: keyword || undefined, activeOnly: true });
     return (result.success ? result.data : [])
       .slice(0, limit)
-      .map((site) => option("SITE", { id: site.id, name: site.name, description: joinParts(site.code, site.address) }));
+      .map((site) => codedOption("SITE", site));
   },
   async findById(id) {
     const result = await new SiteService().getSiteById(id);
     return result.success
-      ? option("SITE", { id: result.data.id, name: result.data.name, description: joinParts(result.data.code, result.data.address) })
+      ? codedOption("SITE", result.data)
       : null;
   },
 };

@@ -4310,6 +4310,7 @@ model Tenant {
   legalDocuments            LegalDocument[]
   legalObligations          LegalObligation[]
   legalReminderLogs         LegalReminderLog[]
+  legalTemplates            LegalTemplate[]
   endorsementEvents         EndorsementEvent[]
 }
 
@@ -6554,6 +6555,7 @@ model LegalCategory {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   documents       LegalDocument[]
+  templates       LegalTemplate[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -6652,5 +6654,28 @@ model LegalReminderLog {
   sentAt      DateTime      @default(now())
 
   @@unique([documentId, deadlineKey, threshold])
+  @@index([tenantId])
+}
+
+/// Template dokumen legal per tenant (PKS, surat kuasa, kontrak). Isinya blok
+/// terbatas (judul, paragraf, pasal, daftar, tanda tangan) dengan isian
+/// otomatis {{...}}; hasilnya PDF berkop surat yang dicatat sebagai dokumen.
+model LegalTemplate {
+  id           String         @id @default(uuid())
+  name         String
+  /// KONTRAK | IZIN | SEWA_LAHAN | KORPORAT — jenis dokumen yang dihasilkan.
+  documentType String
+  categoryId   String?
+  category     LegalCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  /// Array blok: { type: "heading"|"paragraph"|"article"|"list"|"signatures", ... }
+  content      Json
+  isBuiltIn    Boolean        @default(false)
+  isActive     Boolean        @default(true)
+  tenantId     String?
+  tenant       Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([tenantId, name])
   @@index([tenantId])
 }

@@ -389,7 +389,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src 'self' https: ws: wss: localhost:* 127.0.0.1:* ${firebaseRtdbHostPattern}`,
-              `frame-src 'self' ${firebaseRtdbHostPattern}`,
+              `frame-src 'self' blob: ${firebaseRtdbHostPattern}`,
               "frame-ancestors 'self'",
               "base-uri 'self'",
               "form-action 'self'",
@@ -397,7 +397,6 @@ const nextConfig: NextConfig = {
               "media-src 'self' blob: data:",
               "manifest-src 'self'",
               "worker-src 'self' blob:",
-              "frame-src 'self'",
               "child-src 'self'",
             ]
               .filter(Boolean)

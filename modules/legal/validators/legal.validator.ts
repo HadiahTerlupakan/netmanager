@@ -29,7 +29,7 @@ export const legalObligationSchema = z.object({
   recurrence: z.enum(LEGAL_RECURRENCES).default("NONE"),
 });
 
-const documentFieldsSchema = z.object({
+export const documentFieldsSchema = z.object({
   title: z.string().trim().min(3).max(MAX_SHORT_TEXT),
   documentType: z.enum(LEGAL_DOCUMENT_TYPES),
   categoryId: z.string().min(1).optional().nullable(),

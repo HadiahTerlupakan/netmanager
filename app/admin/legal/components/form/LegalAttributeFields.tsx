@@ -12,12 +12,14 @@ import {
 export default function LegalAttributeFields({
   values,
   onChange,
+  isInitiallyOpen = false,
 }: {
   values: LegalFormValues;
   onChange: UpdateLegalField;
+  isInitiallyOpen?: boolean;
 }) {
   return (
-    <CollapsibleSection title="Atribut legal">
+    <CollapsibleSection title="Atribut legal" isInitiallyOpen={isInitiallyOpen}>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Nilai (Rp)">
           <input

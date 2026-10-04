@@ -21,6 +21,11 @@ export {
   reminderThresholdFor,
 } from "./domain/legal-rules";
 export type { LegalAccess } from "./domain/ports/ILegalRepository";
+export {
+  TEMPLATE_BLOCK_TYPES,
+  TEMPLATE_PLACEHOLDERS,
+  type TemplateBlock,
+} from "./domain/template-content";
 
 export {
   archiveEndorsementSchema,
@@ -42,7 +47,15 @@ export {
   type LegalCategoryDto,
   type LegalDocumentDetailDto,
   type LegalDocumentListItemDto,
+  toLegalTemplateDto,
+  type LegalTemplateDto,
 } from "./dto/legal.dto";
+export {
+  createDocumentFromTemplateSchema,
+  createLegalTemplateSchema,
+  previewLegalTemplateSchema,
+  updateLegalTemplateSchema,
+} from "./validators/legal-template.validator";
 
 export { LegalCategoryService } from "./services/LegalCategoryService";
 export { LegalDocumentService } from "./services/LegalDocumentService";
@@ -51,6 +64,8 @@ export {
   type LegalDashboardDto,
 } from "./services/LegalDashboardService";
 export { LegalReminderService } from "./services/LegalReminderService";
+export { LegalTemplateService } from "./services/LegalTemplateService";
+export { LegalTemplateDocumentService } from "./services/LegalTemplateDocumentService";
 export {
   LegalPartyDirectory,
   type PartyOption,
