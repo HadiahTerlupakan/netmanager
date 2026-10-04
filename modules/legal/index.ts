@@ -24,6 +24,7 @@ export type { LegalAccess } from "./domain/ports/ILegalRepository";
 
 export {
   archiveEndorsementSchema,
+  partyOptionsQuerySchema,
   sendForSignatureSchema,
   createLegalCategorySchema,
   createLegalDocumentSchema,
@@ -50,6 +51,10 @@ export {
   type LegalDashboardDto,
 } from "./services/LegalDashboardService";
 export { LegalReminderService } from "./services/LegalReminderService";
+export {
+  LegalPartyDirectory,
+  type PartyOption,
+} from "./services/LegalPartyDirectory";
 export {
   LegalSigningService,
   type SendForSignatureInput,

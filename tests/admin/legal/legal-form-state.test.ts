@@ -6,6 +6,7 @@ import {
   formValuesFromDetail,
   isIndefiniteByDefault,
   MAX_FILE_BYTES,
+  MISSING_PARTY_MESSAGE,
   MISSING_VALIDITY_MESSAGE,
   normalizeMoneyInput,
   validateLegalForm,
@@ -53,6 +54,9 @@ const DETAIL: LegalDocumentDetail = {
   disputeResolution: null,
   notes: null,
   fileName: "izin.pdf",
+  partyType: null,
+  partyId: null,
+  partyDetailUrl: null,
   fileContentType: "application/pdf",
   picUserId: "user-1",
   endorsementId: null,
@@ -215,5 +219,28 @@ describe("masa berlaku tanpa batas waktu", () => {
   it("jenis korporat bawaannya tanpa batas waktu", () => {
     expect(isIndefiniteByDefault("KORPORAT")).toBe(true);
     expect(isIndefiniteByDefault("IZIN")).toBe(false);
+  });
+});
+
+describe("pihak tertaut", () => {
+  it("mengirim jenis dan id pihak tertaut", () => {
+    const payload = buildLegalPayload(
+      buildValues({ partyType: "MITRA", partyId: "mitra-1", partyName: "CV Maju" }),
+      "create",
+    );
+
+    expect(payload).toMatchObject({ partyType: "MITRA", partyId: "mitra-1", partyName: "CV Maju" });
+  });
+
+  it("pihak teks bebas tidak mengirim id", () => {
+    const payload = buildLegalPayload(buildValues({ partyName: "Dinas PMPTSP" }), "create");
+
+    expect(payload).toMatchObject({ partyType: null, partyId: null, partyName: "Dinas PMPTSP" });
+  });
+
+  it("menolak jenis pihak tanpa pilihan dari daftar", () => {
+    expect(
+      validateLegalForm(buildValues({ partyType: "VENDOR", partyId: "" }), "create", buildFile()),
+    ).toBe(MISSING_PARTY_MESSAGE);
   });
 });

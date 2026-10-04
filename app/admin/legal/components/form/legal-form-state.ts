@@ -30,6 +30,9 @@ export interface LegalFormValues {
   categoryId: string;
   documentNumber: string;
   partyName: string;
+  /** "" = pihak teks bebas; selain itu jenis pihak tertaut. */
+  partyType: string;
+  partyId: string;
   startDate: string;
   endDate: string;
   /** Dokumen tanpa masa habis (NIB, akta, …): tanggal berakhir dikosongkan dengan sengaja. */
@@ -62,6 +65,9 @@ export const EMPTY_OBLIGATION: ObligationDraft = {
 export const MISSING_VALIDITY_MESSAGE =
   "Isi tanggal berakhir, atau centang \"Berlaku tanpa batas waktu\"";
 
+export const MISSING_PARTY_MESSAGE =
+  "Pilih pihak dari daftar, atau ubah jenis pihak ke teks bebas";
+
 /** Dokumen korporat (akta, RUPS, surat kuasa) umumnya tidak kedaluwarsa. */
 export function isIndefiniteByDefault(documentType: string): boolean {
   return documentType === "KORPORAT";
@@ -75,6 +81,8 @@ export function createEmptyFormValues(): LegalFormValues {
     categoryId: "",
     documentNumber: "",
     partyName: "",
+    partyType: "",
+    partyId: "",
     startDate: "",
     endDate: "",
     isIndefinite: false,
@@ -109,6 +117,8 @@ export function formValuesFromDetail(
     categoryId: detail.categoryId ?? "",
     documentNumber: detail.documentNumber ?? "",
     partyName: detail.partyName ?? "",
+    partyType: detail.partyType ?? "",
+    partyId: detail.partyId ?? "",
     startDate: isRenewal ? "" : toDateInput(detail.startDate),
     endDate: isRenewal ? "" : toDateInput(detail.endDate),
     isIndefinite: !isRenewal && !detail.endDate,
@@ -163,6 +173,8 @@ export function buildLegalPayload(
     categoryId: values.categoryId || null,
     documentNumber: textOrNull(values.documentNumber),
     partyName: textOrNull(values.partyName),
+    partyType: values.partyType || null,
+    partyId: values.partyType ? values.partyId || null : null,
     startDate: values.startDate || null,
     endDate: values.isIndefinite ? null : values.endDate || null,
     picUserId: values.picUserId || null,
@@ -213,6 +225,9 @@ export function validateLegalForm(
   }
   if (mode !== "renew" && !values.isIndefinite && !values.endDate) {
     return MISSING_VALIDITY_MESSAGE;
+  }
+  if (values.partyType && !values.partyId) {
+    return MISSING_PARTY_MESSAGE;
   }
   if (values.startDate && values.endDate && values.endDate < values.startDate) {
     return "Tanggal berakhir tidak boleh sebelum tanggal mulai";

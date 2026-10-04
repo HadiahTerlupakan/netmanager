@@ -1,7 +1,10 @@
 import { AppError } from "@/lib/errors";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { UserLookupService } from "@/modules/users";
-import type { LegalDocumentEntity } from "../domain/entities/LegalDocument";
+import type {
+  LegalDocumentEntity,
+  LegalPartyType,
+} from "../domain/entities/LegalDocument";
 import { isMonitored } from "../domain/legal-rules";
 import type {
   ILegalRepository,
@@ -16,6 +19,7 @@ import type {
   UpdateLegalDocumentPayload,
 } from "../validators/legal.validator";
 import { LegalCategoryService } from "./LegalCategoryService";
+import { LegalPartyDirectory, type PartyOption } from "./LegalPartyDirectory";
 import { LegalStorageService, type LegalUpload } from "./LegalStorageService";
 
 /**
@@ -31,12 +35,24 @@ export interface PicDirectory {
   filterActiveEmployeeIds(userIds: string[]): Promise<string[]>;
 }
 
+/** Pemeriksa pihak kontrak dari modul lain (mitra, reseller, pelanggan, vendor, site). */
+export interface PartyResolver {
+  findById(type: LegalPartyType, id: string): Promise<PartyOption | null>;
+}
+
+interface PartyFields {
+  partyType?: LegalPartyType | null;
+  partyId?: string | null;
+  partyName?: string | null;
+}
+
 export class LegalDocumentService {
   constructor(
     private readonly repository: ILegalRepository = new LegalRepository(),
     private readonly storage: LegalStorageService = new LegalStorageService(),
     private readonly categories: LegalCategoryService = new LegalCategoryService(repository),
     private readonly directory: PicDirectory = new UserLookupService(),
+    private readonly parties: PartyResolver = new LegalPartyDirectory(),
   ) {}
 
   /** Daftar dokumen sesuai filter; kategori rahasia tersaring sesuai akses. */
@@ -64,7 +80,11 @@ export class LegalDocumentService {
     const { obligations, ...fields } = payload;
 
     return this.storeNewDocument({
-      fields: { ...fields, endorsementId: context.endorsementId ?? null },
+      fields: {
+        ...fields,
+        ...(await this.resolveParty(fields)),
+        endorsementId: context.endorsementId ?? null,
+      },
       obligations,
       upload,
       createdById: context.userId,
@@ -80,8 +100,14 @@ export class LegalDocumentService {
     const document = await this.getById(id, access);
     await this.assertReferencesValid(payload, document.documentType, access);
     const { obligations, ...fields } = payload;
+    const partyPatch = await this.resolveParty(fields);
 
-    return this.repository.updateDocument(id, fields, obligations, document.tenantId);
+    return this.repository.updateDocument(
+      id,
+      { ...fields, ...partyPatch },
+      obligations,
+      document.tenantId,
+    );
   }
 
   /**
@@ -102,8 +128,9 @@ export class LegalDocumentService {
     await this.assertReferencesValid(payload, previous.documentType, context.access);
 
     const { obligations, ...changes } = payload;
+    const fields = { ...this.carryOverFields(previous), ...changes };
     return this.storeNewDocument({
-      fields: { ...this.carryOverFields(previous), ...changes },
+      fields: { ...fields, ...(await this.resolveParty(fields)) },
       obligations: obligations ?? previous.obligations,
       upload,
       createdById: context.userId,
@@ -195,6 +222,26 @@ export class LegalDocumentService {
       notes: previous.notes,
       picUserId: previous.pic?.id ?? null,
     };
+  }
+
+  /**
+   * Pihak tertaut (jenis + id) harus ada di tenant ini; nama pihak diisi dari
+   * datanya bila admin tidak menulis sendiri. Pihak teks bebas dibiarkan.
+   * Hanya diperiksa bila field pihak ikut dikirim (perubahan sebagian).
+   */
+  private async resolveParty(fields: PartyFields): Promise<PartyFields> {
+    if (fields.partyType === undefined && fields.partyId === undefined) return {};
+    if (!fields.partyType && !fields.partyId) return { partyType: null, partyId: null };
+    if (!fields.partyType || !fields.partyId) {
+      throw new AppError("Jenis dan pilihan pihak harus diisi bersamaan", 400, "VALIDATION_ERROR");
+    }
+
+    const party = await this.parties.findById(fields.partyType, fields.partyId);
+    if (!party) {
+      throw new AppError("Pihak yang dipilih tidak ditemukan", 400, "VALIDATION_ERROR");
+    }
+
+    return { partyName: fields.partyName || party.name };
   }
 
   /** Kategori harus milik tenant & cocok jenisnya; PIC harus karyawan aktif. */

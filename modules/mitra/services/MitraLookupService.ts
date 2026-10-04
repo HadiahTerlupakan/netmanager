@@ -31,6 +31,24 @@ export class MitraLookupService {
     return this.repository.findIdsBySite(siteId);
   }
 
+  /**
+   * Cari mitra aktif untuk pemilih di modul lain (mis. pihak kontrak legal).
+   * Ringan: tanpa statistik yang dihitung `getMitras`.
+   */
+  async searchForPicker(keyword: string, limit: number) {
+    const result = await this.repository.findAll(
+      { search: keyword || undefined, isActive: true },
+      1,
+      limit,
+    );
+    return result.mitras;
+  }
+
+  /** Mengambil satu mitra berdasarkan id (isolasi tenant oleh ekstensi Prisma). */
+  async findById(id: string) {
+    return this.repository.findById(id);
+  }
+
   /** Mengambil ringkasan mitra untuk kebutuhan canvasing. */
   async findCanvasingSummary(id: string) {
     return this.repository.findCanvasingSummary(id);

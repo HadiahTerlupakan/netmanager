@@ -73,6 +73,10 @@ export interface LegalObligation {
 }
 
 export interface LegalDocumentDetail extends LegalDocumentListItem {
+  /** Jenis pihak tertaut (MITRA/RESELLER/PELANGGAN/VENDOR/SITE), null = teks bebas. */
+  partyType: string | null;
+  partyId: string | null;
+  partyDetailUrl: string | null;
   startDate: string | null;
   terminatedAt: string | null;
   terminationReason: string | null;
@@ -116,6 +120,15 @@ export interface LegalPicOption {
 }
 
 /** Amplop respons sukses API (`{ success, data }`). */
+/** Pihak kontrak dari modul lain, hasil pencarian pemilih. */
+export interface LegalPartyOption {
+  type: string;
+  id: string;
+  name: string;
+  description: string | null;
+  detailUrl: string | null;
+}
+
 export interface ApiEnvelope<T> {
   success?: boolean;
   data?: T;

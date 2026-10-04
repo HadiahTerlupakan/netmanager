@@ -6,9 +6,10 @@ import {
   INPUT_CLASS,
   type UpdateLegalField,
 } from "./form-fields";
+import PartyField from "./PartyField";
 import PicPicker from "./PicPicker";
 
-/** Seksi "Detail tambahan": nomor, kategori, pihak, tanggal mulai, PIC. */
+/** Seksi "Detail tambahan": nomor, kategori, pihak (teks atau tertaut), tanggal mulai, PIC. */
 export default function DetailFields({
   values,
   onChange,
@@ -50,15 +51,7 @@ export default function DetailFields({
         </FormField>
       </div>
 
-      <FormField label="Pihak / penerbit">
-        <input
-          type="text"
-          value={values.partyName}
-          onChange={(event) => onChange("partyName", event.target.value)}
-          className={INPUT_CLASS}
-          placeholder="PT Mitra Tower / Dinas PMPTSP"
-        />
-      </FormField>
+      <PartyField values={values} onChange={onChange} />
 
       <FormField label="Tanggal mulai">
         <input

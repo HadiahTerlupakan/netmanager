@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   formatDate,
   formatValidity,
@@ -24,7 +25,17 @@ export function InformationSection({
         emptyText="Belum ada informasi tambahan."
         rows={[
           { label: "Nomor", value: document.documentNumber },
-          { label: "Pihak / penerbit", value: document.partyName },
+          {
+            label: "Pihak / penerbit",
+            value:
+              document.partyName && document.partyDetailUrl ? (
+                <Link href={document.partyDetailUrl} className="text-indigo-600 hover:underline dark:text-indigo-400">
+                  {document.partyName}
+                </Link>
+              ) : (
+                document.partyName
+              ),
+          },
           { label: "Tanggal mulai", value: dateOrNull(document.startDate) },
           { label: "Berlaku sampai", value: formatValidity(document.endDate) },
           { label: "PIC", value: document.picName },

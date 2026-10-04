@@ -9,6 +9,7 @@ import {
   nextObligationDate,
   type LegalDeadline,
 } from "../domain/legal-rules";
+import { partyDetailUrl } from "../domain/party-links";
 
 /**
  * Bentuk data modul legal untuk klien. Kunci objek penyimpanan tidak pernah
@@ -43,6 +44,8 @@ export interface LegalDocumentListItemDto {
 export interface LegalDocumentDetailDto extends LegalDocumentListItemDto {
   partyType: string | null;
   partyId: string | null;
+  /** Halaman pihak di admin bila pihak tertaut ke data modul lain. */
+  partyDetailUrl: string | null;
   startDate: string | null;
   terminatedAt: string | null;
   terminationReason: string | null;
@@ -123,6 +126,7 @@ export function toLegalDocumentDetail(
     ...toLegalDocumentListItem(document, now),
     partyType: document.partyType,
     partyId: document.partyId,
+    partyDetailUrl: partyDetailUrl(document.partyType, document.partyId),
     startDate: toIso(document.startDate),
     terminatedAt: toIso(document.terminatedAt),
     terminationReason: document.terminationReason,

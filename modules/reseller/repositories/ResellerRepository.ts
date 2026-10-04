@@ -46,15 +46,26 @@ export class ResellerRepository implements IResellerRepository {
   /** List resellers within tenant scope. */
   async findAll(params: {
     readonly tenantId: string | null;
+    readonly search?: string;
     readonly skip?: number;
     readonly take?: number;
   }): Promise<{
     readonly items: readonly ResellerEntity[];
     readonly total: number;
   }> {
+    const keyword = params.search?.trim();
     const where: Prisma.ResellerWhereInput = {
       tenantId: params.tenantId,
       deletedAt: null,
+      ...(keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: "insensitive" } },
+              { code: { contains: keyword, mode: "insensitive" } },
+              { phone: { contains: keyword } },
+            ],
+          }
+        : {}),
     };
     const [items, total] = await Promise.all([
       this.db.reseller.findMany({

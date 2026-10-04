@@ -28,6 +28,8 @@ export class ResellerService {
     readonly tenantId: string | null;
     readonly page?: number;
     readonly limit?: number;
+    /** Kata kunci nama, kode, atau telepon. */
+    readonly search?: string;
   }): Promise<{
     readonly items: readonly ResellerDTO[];
     readonly total: number;
@@ -36,6 +38,7 @@ export class ResellerService {
     const limit = params.limit ?? 20;
     const result = await this.repository.findAll({
       tenantId: params.tenantId,
+      search: params.search,
       skip: (page - 1) * limit,
       take: limit,
     });

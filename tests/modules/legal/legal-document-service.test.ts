@@ -14,6 +14,7 @@ let repository: ReturnType<typeof buildLegalRepository>;
 let storage: { save: ReturnType<typeof vi.fn>; read: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> };
 let categories: { assertUsable: ReturnType<typeof vi.fn> };
 let directory: { filterActiveEmployeeIds: ReturnType<typeof vi.fn<(ids: string[]) => Promise<string[]>>> };
+let parties: { findById: ReturnType<typeof vi.fn> };
 let service: LegalDocumentService;
 
 beforeEach(() => {
@@ -30,11 +31,13 @@ beforeEach(() => {
   };
   categories = { assertUsable: vi.fn() };
   directory = { filterActiveEmployeeIds: vi.fn<(ids: string[]) => Promise<string[]>>(async (ids) => ids) };
+  parties = { findById: vi.fn() };
   service = new LegalDocumentService(
     repository as never,
     storage as never,
     categories as never,
     directory,
+    parties as never,
   );
 });
 
@@ -202,5 +205,43 @@ describe("update", () => {
       obligations,
       "tenant-1",
     );
+  });
+});
+
+describe("pihak tertaut", () => {
+  const upload = { buffer: Buffer.from("%PDF"), fileName: "pks.pdf", contentType: "application/pdf" };
+  const payload = (over: Record<string, unknown>) =>
+    ({ title: "PKS", documentType: "KONTRAK", currency: "IDR", isAutoRenew: false, obligations: [], ...over }) as never;
+
+  it("mengisi nama pihak dari data modul asal", async () => {
+    parties.findById.mockResolvedValue({ type: "MITRA", id: "mitra-1", name: "CV Maju", description: null, detailUrl: null });
+
+    await service.create(payload({ partyType: "MITRA", partyId: "mitra-1" }), upload, { userId: "admin-1", access: ACCESS });
+
+    expect(parties.findById).toHaveBeenCalledWith("MITRA", "mitra-1");
+    expect(repository.createDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ partyType: "MITRA", partyId: "mitra-1", partyName: "CV Maju" }),
+    );
+  });
+
+  it("menolak pihak yang tidak ada atau milik tenant lain", async () => {
+    parties.findById.mockResolvedValue(null);
+
+    await expect(
+      service.create(payload({ partyType: "VENDOR", partyId: "vendor-asing" }), upload, { userId: "admin-1", access: ACCESS }),
+    ).rejects.toThrow(/tidak ditemukan/);
+    expect(storage.save).not.toHaveBeenCalled();
+  });
+
+  it("menolak jenis tanpa id", async () => {
+    await expect(
+      service.create(payload({ partyType: "SITE", partyId: null }), upload, { userId: "admin-1", access: ACCESS }),
+    ).rejects.toThrow(/bersamaan/);
+  });
+
+  it("pihak teks bebas tidak diperiksa ke modul lain", async () => {
+    await service.create(payload({ partyName: "Dinas PMPTSP" }), upload, { userId: "admin-1", access: ACCESS });
+
+    expect(parties.findById).not.toHaveBeenCalled();
   });
 });

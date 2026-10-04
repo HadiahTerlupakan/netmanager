@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Pihak kontrak legal tertaut ke mitra, reseller, pelanggan, vendor, site
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/legal`, `modules/mitra`, `modules/reseller`, `app/api/admin/legal/party-options`, `app/admin/legal`
+- **Author**: agent
+- **Deskripsi**: Isian "Pihak / penerbit" kini bisa teks bebas (mis. instansi penerbit izin) atau tertaut ke data mitra, reseller, pelanggan, vendor (supplier), atau site lewat pencarian. Dokumen menyimpan jenis + id + salinan nama (tanpa foreign key — mitra di database terpisah); keberadaan pihak di tenant diperiksa lewat API publik tiap modul (`LegalPartyDirectory`), nama terisi otomatis. Detail dokumen menautkan ke halaman pihak. Tambahan kecil: `MitraLookupService.searchForPicker`/`findById` (tanpa statistik berat) dan parameter `search` di `ResellerService.listResellers`. Tanpa migration (kolom `partyType`/`partyId` sudah ada).
+- **Files**: `modules/legal/services/LegalPartyDirectory.ts`, `modules/legal/domain/party-links.ts`, `modules/legal/services/LegalDocumentService.ts`, `app/admin/legal/components/form/PartyField.tsx`, `app/admin/legal/components/form/PartyPicker.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-04] — Notifikasi pengesahan dari lonceng web tidak lagi 404
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/notifications`, `components/notifications`, `app/admin/notifications`
+- **Author**: agent
+- **Deskripsi**: Notifikasi "Permintaan pengesahan" untuk karyawan memakai rute aplikasi mobile (`/pengesahan/<id>`), yang 404 bila dibuka dari lonceng web. `toAdminNotificationLink` menerjemahkan rute mobile ke halaman admin (`/admin/pengesahan/<id>`) di lonceng admin, lonceng work order, dan halaman notifikasi.
+- **Files**: `lib/notifications/toAdminNotificationLink.ts`, `components/notifications/AdminNotificationBell.tsx`, `components/notifications/WorkOrderBell.tsx`, `app/admin/notifications/NotificationsClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Legal ↔ Pengesahan: kirim untuk ditandatangani & arsipkan surat sah
 
 - **Tipe**: [ADDED]

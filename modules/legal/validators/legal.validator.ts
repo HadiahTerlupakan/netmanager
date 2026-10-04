@@ -90,6 +90,12 @@ export const terminateLegalDocumentSchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 
+/** Pencarian pihak kontrak dari modul lain untuk pemilih di formulir. */
+export const partyOptionsQuerySchema = z.object({
+  type: z.enum(LEGAL_PARTY_TYPES),
+  search: z.string().trim().max(120).default(""),
+});
+
 export const listLegalDocumentsSchema = z.object({
   documentType: z.enum(LEGAL_DOCUMENT_TYPES).optional(),
   categoryId: z.string().min(1).optional(),

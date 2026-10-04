@@ -62,6 +62,8 @@ export interface IResellerRepository {
   /** List resellers within tenant scope. */
   findAll(params: {
     readonly tenantId: string | null;
+    /** Kata kunci nama, kode, atau telepon. */
+    readonly search?: string;
     readonly skip?: number;
     readonly take?: number;
   }): Promise<{
