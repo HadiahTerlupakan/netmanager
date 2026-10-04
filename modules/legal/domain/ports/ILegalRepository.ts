@@ -110,6 +110,12 @@ export interface ILegalRepository {
   terminateDocument(id: string, reason: string, at: Date): Promise<void>;
   /** Dokumen yang masih dipantau dan punya tenggat — untuk dasbor dan cron. */
   findMonitoredDocuments(access: LegalAccess): Promise<LegalDocumentEntity[]>;
+  /** Tautkan dokumen ke surat pengesahan yang sedang/telah menandatanganinya. */
+  linkEndorsement(documentId: string, endorsementId: string): Promise<void>;
+  /** Ganti berkas dokumen dengan versi yang sudah disahkan. */
+  replaceFile(documentId: string, file: LegalFileFields): Promise<void>;
+  /** Id dokumen yang tertaut ke surat pengesahan ini, bila ada. */
+  findDocumentIdByEndorsement(endorsementId: string): Promise<string | null>;
   /** Catat pengingat; false bila pengingat yang sama sudah pernah tercatat. */
   recordReminder(input: {
     documentId: string;

@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Legal ↔ Pengesahan: kirim untuk ditandatangani & arsipkan surat sah
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/legal`, `modules/endorsement`, `lib/event-bus`, `app/api/admin/legal/documents`, `app/admin/legal`, `app/admin/pengesahan`
+- **Author**: agent
+- **Deskripsi**:
+  - Detail dokumen legal (PDF) punya tombol "Kirim untuk ditandatangani": berkasnya dipakai langsung untuk surat pengesahan (`sourceType=LEGAL_DOCUMENT`). Saat surat sah, berkas dokumen legal otomatis diganti PDF bertanda tangan (`<nama>-sah.pdf`). Ditolak bila bukan PDF, dokumen sudah ditutup, atau masih ada surat yang sedang ditandatangani. Butuh `legal:update` + `pengesahan:create`.
+  - Surat pengesahan yang dibuat langsung dan sudah sah bisa diarsipkan ke Legal sekali klik (jenis, kategori, masa berlaku); arsip ganda ditolak. Detail surat menampilkan asal dokumen legal / status arsip; bagian ini tersembunyi bagi pengguna tanpa izin Legal.
+  - Event baru `endorsement:endorsement.completed` dipublikasikan saat surat sah; handler legal mewajibkan `tenantId` (tanpa itu dilewati, bukan di-retry) dan idempoten (berkas yang sudah versi sah tidak diganti ulang).
+  - Endpoint: `POST /api/admin/legal/documents/[id]/send-for-signature`, `POST /api/admin/legal/documents/from-endorsement`, `GET /api/admin/legal/documents/by-endorsement/[endorsementId]`.
+- **Files**: `modules/legal/services/LegalSigningService.ts`, `modules/legal/services/event-handlers/endorsement-completed-legal.handler.ts`, `modules/endorsement/services/EndorsementService.ts`, `lib/event-bus/types.ts`, `lib/event-bus/event-handlers.ts`, `app/admin/legal/dokumen/[id]/SendForSignatureModal.tsx`, `app/admin/pengesahan/[id]/LegalArchiveSection.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Dokumen legal: pilihan "Berlaku tanpa batas waktu"
 
 - **Tipe**: [CHANGED]

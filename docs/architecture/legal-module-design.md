@@ -149,6 +149,10 @@ versi kontrak/izin tetap utuh.
 
 ## 5. Fase 2 — Template dokumen
 
+> **Sudah tersedia (2026-10-04):** sambungan Legal ↔ Pengesahan — dokumen legal PDF bisa
+> dikirim untuk ditandatangani dan otomatis memakai PDF sah; surat sah bisa diarsipkan ke
+> Legal. Template di bawah tinggal memakai jalur ini.
+
 - **Format: editor di web**, bukan unggah Word. Format sengaja terbatas pada yang
   dipakai dokumen legal — judul, pasal bernomor, paragraf, tebal/miring, daftar,
   blok tanda tangan. Placeholder disisipkan lewat tombol (`{{mitra.nama}}`,

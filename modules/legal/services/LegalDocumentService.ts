@@ -58,13 +58,13 @@ export class LegalDocumentService {
   async create(
     payload: CreateLegalDocumentPayload,
     upload: LegalUpload,
-    context: { userId: string; access: LegalAccess },
+    context: { userId: string; access: LegalAccess; endorsementId?: string },
   ): Promise<LegalDocumentEntity> {
     await this.assertReferencesValid(payload, payload.documentType, context.access);
     const { obligations, ...fields } = payload;
 
     return this.storeNewDocument({
-      fields,
+      fields: { ...fields, endorsementId: context.endorsementId ?? null },
       obligations,
       upload,
       createdById: context.userId,

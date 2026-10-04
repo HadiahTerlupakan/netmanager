@@ -53,6 +53,7 @@ const DETAIL: LegalDocumentDetail = {
   disputeResolution: null,
   notes: null,
   fileName: "izin.pdf",
+  fileContentType: "application/pdf",
   picUserId: "user-1",
   endorsementId: null,
   previousDocumentId: null,

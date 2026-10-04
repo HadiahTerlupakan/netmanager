@@ -20,6 +20,22 @@ export function legalAccessFrom(ctx: {
   };
 }
 
+/**
+ * Pastikan sesi juga memegang izin lain yang dibutuhkan aksi lintas modul
+ * (gerbang `createHandler` bersifat "salah satu dari", bukan "semua").
+ */
+export function assertAlsoPermitted(
+  ctx: { permissions: string[]; session?: { user: { isSuperAdmin?: boolean } } | null },
+  permission: string,
+  message: string,
+): void {
+  const isAllowed = permissionListAllows(
+    { permissions: ctx.permissions, isSuperAdmin: ctx.session?.user.isSuperAdmin },
+    permission,
+  );
+  if (!isAllowed) throw new AppError(message, 403, "FORBIDDEN");
+}
+
 /** Berkas dari form; null bila tidak diunggah dan tidak wajib. */
 export async function readLegalUpload(
   formData: FormData,

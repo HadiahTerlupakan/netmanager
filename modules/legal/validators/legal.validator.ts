@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { endorsementSignerInputSchema } from "@/modules/endorsement";
 import {
   LEGAL_CONFIDENTIALITY_LEVELS,
   LEGAL_DOCUMENT_STATUSES,
@@ -111,6 +112,23 @@ export const updateLegalCategorySchema = z
     isActive: z.boolean(),
   })
   .partial();
+
+const MAX_SIGNERS = 20;
+
+/** Kirim dokumen legal untuk ditandatangani lewat surat pengesahan. */
+export const sendForSignatureSchema = z.object({
+  title: z.string().trim().min(3).max(MAX_SHORT_TEXT).optional(),
+  expiresAt: z.coerce.date().optional(),
+  signers: z.array(endorsementSignerInputSchema).min(1).max(MAX_SIGNERS),
+});
+
+/** Arsipkan surat pengesahan yang sudah sah sebagai dokumen legal. */
+export const archiveEndorsementSchema = documentFieldsSchema
+  .extend({ endorsementId: z.string().min(1) })
+  .refine(datesInOrder, {
+    message: "Tanggal berakhir tidak boleh sebelum tanggal mulai",
+    path: ["endDate"],
+  });
 
 export type CreateLegalDocumentPayload = z.infer<typeof createLegalDocumentSchema>;
 export type UpdateLegalDocumentPayload = z.infer<typeof updateLegalDocumentSchema>;

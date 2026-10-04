@@ -23,6 +23,8 @@ export {
 export type { LegalAccess } from "./domain/ports/ILegalRepository";
 
 export {
+  archiveEndorsementSchema,
+  sendForSignatureSchema,
   createLegalCategorySchema,
   createLegalDocumentSchema,
   listLegalDocumentsSchema,
@@ -48,6 +50,11 @@ export {
   type LegalDashboardDto,
 } from "./services/LegalDashboardService";
 export { LegalReminderService } from "./services/LegalReminderService";
+export {
+  LegalSigningService,
+  type SendForSignatureInput,
+} from "./services/LegalSigningService";
+export { handleEndorsementCompletedLegal } from "./services/event-handlers/endorsement-completed-legal.handler";
 export {
   ALLOWED_LEGAL_CONTENT_TYPES,
   MAX_LEGAL_FILE_BYTES,

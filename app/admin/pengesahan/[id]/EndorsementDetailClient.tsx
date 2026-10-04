@@ -8,6 +8,7 @@ import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { clientLogger } from "@/lib/client-logger";
+import LegalArchiveSection from "./LegalArchiveSection";
 import SignerReissueButton from "./SignerReissueButton";
 
 /** Detail surat: kemajuan tanda tangan, jejak berkas, dan aksi pembatalan. */
@@ -39,6 +40,8 @@ interface DetailDto {
   signedCount: number;
   expiresAt: string | null;
   completedAt: string | null;
+  sourceType: string;
+  sourceId: string | null;
   sourceFileName: string;
   sourceFileHash: string;
   signedFileHash: string | null;
@@ -232,6 +235,8 @@ export default function EndorsementDetailClient({
           ))}
         </ul>
       </div>
+
+      <LegalArchiveSection endorsement={detail} />
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
         <p className="break-all">

@@ -55,6 +55,7 @@ import {
   handlePackageChangedMrr,
 } from "@/modules/finance";
 import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
+import { handleEndorsementCompletedLegal } from "@/modules/legal";
 import {
   handleRegistrationCreatedPresurvei,
   handleRencanaAssignedPresurvei,
@@ -622,6 +623,13 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED,
     handleRencanaAssignedPresurvei,
+  );
+
+  // --- LEGAL: SURAT PENGESAHAN SAH → DOKUMEN LEGAL MEMAKAI VERSI BERTANDA TANGAN ---
+
+  registerEventHandler(
+    EVENT_NAMES.ENDORSEMENT_COMPLETED,
+    handleEndorsementCompletedLegal,
   );
 
   // --- PRESURVEI: LAPORAN PENUGASAN → NOTIFIKASI PEMBERI TUGAS ---

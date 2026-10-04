@@ -13,6 +13,12 @@ vi.mock("@/lib/tenant-context", () => ({
   }),
 }));
 
+const publish = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/event-bus", () => ({
+  eventBus: { publish },
+  EVENT_NAMES: { ENDORSEMENT_COMPLETED: "endorsement:endorsement.completed" },
+}));
+
 import { EndorsementService } from "@/modules/endorsement/services/EndorsementService";
 import { hashSignerToken } from "@/modules/endorsement/services/endorsement-token";
 import type { IEndorsementRepository } from "@/modules/endorsement/domain/ports/IEndorsementRepository";
@@ -221,6 +227,21 @@ describe("sign", () => {
       expect.objectContaining({
         completedAt: expect.any(Date),
         signedFileKey: "kunci-final",
+      }),
+    );
+  });
+
+  // Modul lain (legal) menindaklanjuti surat sah lewat event, bukan panggilan langsung.
+  it("mengumumkan surat sah lewat event beserta sumbernya", async () => {
+    await service.sign("token-uji", Buffer.from("png"), {});
+
+    expect(publish).toHaveBeenCalledWith(
+      "endorsement:endorsement.completed",
+      expect.objectContaining({
+        endorsementId: "end-1",
+        sourceType: "UPLOAD",
+        signedFileHash: "c".repeat(64),
+        tenantId: "tenant-1",
       }),
     );
   });

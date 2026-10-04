@@ -19,6 +19,7 @@ export const ENDORSEMENT_SOURCE_TYPES = [
   "PLANNING",
   "PURCHASE_ORDER",
   "WORK_ORDER",
+  "LEGAL_DOCUMENT",
 ] as const;
 
 export type EndorsementSourceType = (typeof ENDORSEMENT_SOURCE_TYPES)[number];

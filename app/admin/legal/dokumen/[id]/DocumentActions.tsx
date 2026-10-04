@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/Button";
 import LegalDocumentFormModal from "../../components/form/LegalDocumentFormModal";
 import { CLOSED_STATUSES } from "../../components/legal-format";
 import type { LegalDocumentDetail } from "../../components/legal-types";
+import SendForSignatureModal from "./SendForSignatureModal";
 import TerminateDocumentModal from "./TerminateDocumentModal";
 
-/** Aksi Ubah/Perpanjang/Akhiri; disembunyikan bila dokumen sudah ditutup. */
+/**
+ * Aksi Kirim untuk ditandatangani (PDF saja), Ubah, Perpanjang, Akhiri;
+ * disembunyikan bila dokumen sudah ditutup.
+ */
 
-type OpenDialog = "edit" | "renew" | "terminate" | null;
+type OpenDialog = "sign" | "edit" | "renew" | "terminate" | null;
+
+const PDF_CONTENT_TYPE = "application/pdf";
 
 export default function DocumentActions({
   document,
@@ -26,7 +32,10 @@ export default function DocumentActions({
   if (CLOSED_STATUSES.includes(document.status)) return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
+      {document.fileContentType === PDF_CONTENT_TYPE && (
+        <Button onClick={() => setOpenDialog("sign")}>Kirim untuk ditandatangani</Button>
+      )}
       <Button variant="outline" onClick={() => setOpenDialog("edit")}>
         Ubah
       </Button>
@@ -37,6 +46,16 @@ export default function DocumentActions({
         Akhiri
       </Button>
 
+      {openDialog === "sign" && (
+        <SendForSignatureModal
+          document={document}
+          onClose={closeDialog}
+          onSent={() => {
+            closeDialog();
+            onChanged();
+          }}
+        />
+      )}
       {openDialog === "edit" && (
         <LegalDocumentFormModal
           mode="edit"

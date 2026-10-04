@@ -102,6 +102,28 @@ function toSignerLink(
   };
 }
 
+/**
+ * Umumkan bahwa surat sah agar modul lain (mis. legal) bisa menindaklanjuti.
+ * Kegagalan publish tidak boleh menggagalkan finalisasi yang sudah tersimpan.
+ */
+async function publishCompleted(
+  endorsement: EndorsementEntity,
+  signedFileHash: string,
+): Promise<void> {
+  try {
+    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
+    await eventBus.publish(EVENT_NAMES.ENDORSEMENT_COMPLETED, {
+      endorsementId: endorsement.id,
+      sourceType: endorsement.sourceType,
+      sourceId: endorsement.sourceId,
+      signedFileHash,
+      tenantId: endorsement.tenantId ?? undefined,
+    });
+  } catch (error) {
+    logger.error(`[Endorsement] Gagal publish surat sah ${endorsement.id}:`, error);
+  }
+}
+
 function invalidState(message: string): AppError {
   return new AppError(message, 409, "INVALID_STATE");
 }
@@ -579,6 +601,7 @@ export class EndorsementService {
       metadata: { signedFileHash: signed.hash },
       tenantId: endorsement.tenantId,
     });
+    await publishCompleted(endorsement, signed.hash);
 
     return true;
   }

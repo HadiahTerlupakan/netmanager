@@ -23,6 +23,7 @@ export const EVENT_CATEGORIES = {
   USERS: "users",
   MARKETING: "marketing",
   INCIDENT: "incident",
+  LEGAL: "legal",
 } as const;
 
 export type EventCategory =
@@ -68,6 +69,7 @@ export const EVENT_NAMES = {
   PRESURVEI_KEGIATAN_UPDATED: "presurvei:kegiatan.updated",
   PRESURVEI_RENCANA_ASSIGNED: "presurvei:rencana.assigned",
   PRESURVEI_RENCANA_REPORTED: "presurvei:rencana.reported",
+  ENDORSEMENT_COMPLETED: "endorsement:endorsement.completed",
   INCIDENT_CREATED: "incident:created",
   INCIDENT_RESOLVED: "incident:resolved",
 
@@ -600,6 +602,18 @@ export interface PresurveiRencanaReportedPayload extends BaseEventPayload {
   hasil: string;
 }
 
+/**
+ * Surat pengesahan sah (semua pihak menandatangani, PDF gabungan tersusun).
+ * `sourceType`/`sourceId` menunjuk asal surat, mis. dokumen legal yang
+ * dikirim untuk ditandatangani.
+ */
+export interface EndorsementCompletedPayload extends BaseEventPayload {
+  endorsementId: string;
+  sourceType: string;
+  sourceId: string | null;
+  signedFileHash: string;
+}
+
 export interface IncidentCreatedPayload extends BaseEventPayload {
   incidentId: string;
   title: string;
@@ -706,6 +720,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.PRESURVEI_KEGIATAN_UPDATED]: PresurveiKegiatanUpdatedPayload;
   [EVENT_NAMES.PRESURVEI_RENCANA_ASSIGNED]: PresurveiRencanaAssignedPayload;
   [EVENT_NAMES.PRESURVEI_RENCANA_REPORTED]: PresurveiRencanaReportedPayload;
+  [EVENT_NAMES.ENDORSEMENT_COMPLETED]: EndorsementCompletedPayload;
   [EVENT_NAMES.INCIDENT_CREATED]: IncidentCreatedPayload;
   [EVENT_NAMES.INCIDENT_RESOLVED]: IncidentResolvedPayload;
   [EVENT_NAMES.USER_CREATED]: UserCreatedPayload;
@@ -1161,6 +1176,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     category: "marketing",
     // Sama dengan penugasan work order: sales perlu tahu segera.
     priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.ENDORSEMENT_COMPLETED]: {
+    name: EVENT_NAMES.ENDORSEMENT_COMPLETED,
+    category: "legal",
+    priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,
   },

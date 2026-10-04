@@ -87,6 +87,8 @@ export interface LegalDocumentDetail extends LegalDocumentListItem {
   disputeResolution: string | null;
   notes: string | null;
   fileName: string;
+  /** Hanya PDF yang bisa dikirim untuk ditandatangani. */
+  fileContentType: string;
   picUserId: string | null;
   endorsementId: string | null;
   previousDocumentId: string | null;

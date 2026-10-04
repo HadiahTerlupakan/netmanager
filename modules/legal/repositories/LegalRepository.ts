@@ -13,6 +13,7 @@ import type {
   LegalCategoryInput,
   LegalDocumentFields,
   LegalDocumentFilters,
+  LegalFileFields,
   LegalObligationInput,
 } from "../domain/ports/ILegalRepository";
 import {
@@ -239,6 +240,26 @@ export class LegalRepository implements ILegalRepository {
     });
 
     return rows.map(toLegalDocumentEntity);
+  }
+
+  async linkEndorsement(documentId: string, endorsementId: string): Promise<void> {
+    await prisma.legalDocument.update({
+      where: { id: documentId },
+      data: { endorsementId },
+    });
+  }
+
+  async replaceFile(documentId: string, file: LegalFileFields): Promise<void> {
+    await prisma.legalDocument.update({ where: { id: documentId }, data: file });
+  }
+
+  async findDocumentIdByEndorsement(endorsementId: string): Promise<string | null> {
+    const row = await prisma.legalDocument.findFirst({
+      where: { endorsementId },
+      select: { id: true },
+    });
+
+    return row?.id ?? null;
   }
 
   async recordReminder(input: {
