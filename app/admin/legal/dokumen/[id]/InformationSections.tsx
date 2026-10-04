@@ -1,5 +1,6 @@
 import {
   formatDate,
+  formatValidity,
   formatMoney,
   labelOf,
   PAYMENT_SCHEME_LABEL,
@@ -25,7 +26,7 @@ export function InformationSection({
           { label: "Nomor", value: document.documentNumber },
           { label: "Pihak / penerbit", value: document.partyName },
           { label: "Tanggal mulai", value: dateOrNull(document.startDate) },
-          { label: "Tanggal berakhir", value: dateOrNull(document.endDate) },
+          { label: "Berlaku sampai", value: formatValidity(document.endDate) },
           { label: "PIC", value: document.picName },
           { label: "Dicatat", value: formatDate(document.createdAt) },
         ]}

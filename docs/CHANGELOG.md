@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Dokumen legal: pilihan "Berlaku tanpa batas waktu"
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/legal`
+- **Author**: agent
+- **Deskripsi**: Dokumen tanpa masa habis (NIB, akta, RUPS) sebelumnya hanya dibedakan dengan tanggal berakhir yang kosong — sama dengan lupa mengisi. Isian "Berlaku sampai" kini di bagian utama formulir dengan centang "Berlaku tanpa batas waktu"; salah satunya wajib dipilih. Jenis Korporat tercentang otomatis. Daftar dan detail menampilkan "Tanpa batas waktu" alih-alih "—". Pengingat kewajiban berkala tetap berjalan untuk dokumen tanpa batas waktu. Tanpa perubahan API/skema (tanpa batas = `endDate` null).
+- **Files**: `app/admin/legal/components/form/ValidityField.tsx`, `app/admin/legal/components/form/legal-form-state.ts`, `app/admin/legal/components/legal-format.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Halaman kategori legal: tambah & ubah lewat modal
 
 - **Tipe**: [CHANGED]

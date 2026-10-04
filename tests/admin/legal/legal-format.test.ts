@@ -4,6 +4,7 @@ import {
   describeApiError,
   describeTiming,
   formatDate,
+  formatValidity,
   formatMoney,
   isUrgent,
   labelOf,
@@ -78,5 +79,12 @@ describe("document-list-query", () => {
   it("menghitung jumlah halaman minimal satu", () => {
     expect(countPages(0, 20)).toBe(1);
     expect(countPages(41, 20)).toBe(3);
+  });
+});
+
+describe("formatValidity", () => {
+  it("dokumen tanpa tanggal berakhir tertulis tanpa batas waktu, bukan tanda strip", () => {
+    expect(formatValidity(null)).toBe("Tanpa batas waktu");
+    expect(formatValidity("2026-10-04T00:00:00.000Z")).toMatch(/4 Okt 2026/);
   });
 });

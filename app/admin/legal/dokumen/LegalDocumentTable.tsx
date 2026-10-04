@@ -7,6 +7,7 @@ import {
 import {
   DOCUMENT_TYPE_LABEL,
   formatDate,
+  formatValidity,
   labelOf,
 } from "../components/legal-format";
 import type { LegalDocumentListItem } from "../components/legal-types";
@@ -66,7 +67,7 @@ export default function LegalDocumentTable({
                 <LegalStatusBadge status={item.status} />
               </td>
               <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                {formatDate(item.endDate)}
+                {formatValidity(item.endDate)}
               </td>
               <td className="px-4 py-3">
                 {item.nextDeadline ? (

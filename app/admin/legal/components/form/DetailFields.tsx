@@ -1,5 +1,5 @@
 import { useLegalCategories } from "../useLegalCategories";
-import type { LegalFormMode, LegalFormValues } from "./legal-form-state";
+import type { LegalFormValues } from "./legal-form-state";
 import {
   CollapsibleSection,
   FormField,
@@ -8,13 +8,11 @@ import {
 } from "./form-fields";
 import PicPicker from "./PicPicker";
 
-/** Seksi "Detail tambahan": nomor, kategori, pihak, masa berlaku, PIC. */
+/** Seksi "Detail tambahan": nomor, kategori, pihak, tanggal mulai, PIC. */
 export default function DetailFields({
-  mode,
   values,
   onChange,
 }: {
-  mode: LegalFormMode;
   values: LegalFormValues;
   onChange: UpdateLegalField;
 }) {
@@ -24,10 +22,9 @@ export default function DetailFields({
       category.documentType === values.documentType &&
       (category.isActive || category.id === values.categoryId),
   );
-  const isRenewal = mode === "renew";
 
   return (
-    <CollapsibleSection title="Detail tambahan" isInitiallyOpen={isRenewal}>
+    <CollapsibleSection title="Detail tambahan">
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Nomor dokumen">
           <input
@@ -63,26 +60,14 @@ export default function DetailFields({
         />
       </FormField>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Tanggal mulai">
-          <input
-            type="date"
-            value={values.startDate}
-            onChange={(event) => onChange("startDate", event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </FormField>
-        <FormField
-          label={isRenewal ? "Tanggal berakhir baru (wajib)" : "Tanggal berakhir"}
-        >
-          <input
-            type="date"
-            value={values.endDate}
-            onChange={(event) => onChange("endDate", event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </FormField>
-      </div>
+      <FormField label="Tanggal mulai">
+        <input
+          type="date"
+          value={values.startDate}
+          onChange={(event) => onChange("startDate", event.target.value)}
+          className={`${INPUT_CLASS} sm:max-w-xs`}
+        />
+      </FormField>
 
       <FormField label="PIC">
         <PicPicker

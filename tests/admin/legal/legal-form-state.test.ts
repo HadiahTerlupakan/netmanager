@@ -4,7 +4,9 @@ import {
   buildLegalPayload,
   createEmptyFormValues,
   formValuesFromDetail,
+  isIndefiniteByDefault,
   MAX_FILE_BYTES,
+  MISSING_VALIDITY_MESSAGE,
   normalizeMoneyInput,
   validateLegalForm,
   type LegalFormValues,
@@ -12,7 +14,12 @@ import {
 import type { LegalDocumentDetail } from "@/app/admin/legal/components/legal-types";
 
 function buildValues(overrides: Partial<LegalFormValues> = {}): LegalFormValues {
-  return { ...createEmptyFormValues(), title: "Kontrak sewa tower", ...overrides };
+  return {
+    ...createEmptyFormValues(),
+    title: "Kontrak sewa tower",
+    endDate: "2027-01-01",
+    ...overrides,
+  };
 }
 
 function buildFile(type = "application/pdf", size = 10): File {
@@ -152,7 +159,7 @@ describe("validateLegalForm", () => {
   });
 
   it("mewajibkan tanggal berakhir saat perpanjang tanpa berkas baru", () => {
-    expect(validateLegalForm(buildValues(), "renew", null)).toMatch(/Tanggal berakhir/);
+    expect(validateLegalForm(buildValues({ endDate: "" }), "renew", null)).toMatch(/Tanggal berakhir/);
     expect(validateLegalForm(buildValues({ endDate: "2027-12-31" }), "renew", null)).toBeNull();
   });
 
@@ -173,5 +180,39 @@ describe("validateLegalForm", () => {
         null,
       ),
     ).toMatch(/kewajiban/);
+  });
+});
+
+describe("masa berlaku tanpa batas waktu", () => {
+  // Lupa mengisi tanggal tidak boleh sama dengan "memang tidak kedaluwarsa".
+  it("menolak dokumen tanpa tanggal berakhir yang tidak dicentang tanpa batas", () => {
+    expect(
+      validateLegalForm(buildValues({ endDate: "" }), "create", buildFile()),
+    ).toBe(MISSING_VALIDITY_MESSAGE);
+  });
+
+  it("menerima dokumen tanpa batas waktu dan mengirim endDate null", () => {
+    const values = buildValues({ endDate: "2027-01-01", isIndefinite: true });
+
+    expect(validateLegalForm(values, "create", buildFile())).toBeNull();
+    expect(buildLegalPayload(values, "create").endDate).toBeNull();
+  });
+
+  it("dokumen lama tanpa tanggal berakhir terbaca sebagai tanpa batas saat diubah", () => {
+    const values = formValuesFromDetail({ ...DETAIL, endDate: null }, "edit");
+
+    expect(values.isIndefinite).toBe(true);
+  });
+
+  it("perpanjangan selalu wajib bertanggal", () => {
+    const values = formValuesFromDetail({ ...DETAIL, endDate: null }, "renew");
+
+    expect(values.isIndefinite).toBe(false);
+    expect(validateLegalForm(values, "renew", null)).toMatch(/Tanggal berakhir baru/);
+  });
+
+  it("jenis korporat bawaannya tanpa batas waktu", () => {
+    expect(isIndefiniteByDefault("KORPORAT")).toBe(true);
+    expect(isIndefiniteByDefault("IZIN")).toBe(false);
   });
 });

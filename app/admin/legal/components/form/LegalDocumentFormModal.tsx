@@ -132,7 +132,7 @@ export default function LegalDocumentFormModal({
           onChange={updateField}
           onFileChange={setFile}
         />
-        <DetailFields mode={mode} values={values} onChange={updateField} />
+        <DetailFields values={values} onChange={updateField} />
         <LegalAttributeFields values={values} onChange={updateField} />
         <ObligationRows
           obligations={values.obligations}

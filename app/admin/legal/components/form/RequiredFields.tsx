@@ -2,13 +2,15 @@ import { DOCUMENT_TYPE_LABEL } from "../legal-format";
 import { LEGAL_DOCUMENT_TYPES } from "../legal-types";
 import {
   ACCEPTED_FILE_TYPES,
+  isIndefiniteByDefault,
   MAX_FILE_MEGABYTES,
   type LegalFormMode,
   type LegalFormValues,
 } from "./legal-form-state";
 import { FormField, INPUT_CLASS, type UpdateLegalField } from "./form-fields";
+import ValidityField from "./ValidityField";
 
-/** Isian inti: judul, jenis (terkunci saat ubah/perpanjang), dan berkas. */
+/** Isian inti: judul, jenis (terkunci saat ubah/perpanjang), masa berlaku, dan berkas. */
 export default function RequiredFields({
   mode,
   values,
@@ -43,6 +45,9 @@ export default function RequiredFields({
           onChange={(event) => {
             onChange("documentType", event.target.value);
             onChange("categoryId", "");
+            if (!values.endDate) {
+              onChange("isIndefinite", isIndefiniteByDefault(event.target.value));
+            }
           }}
           disabled={mode !== "create"}
           className={INPUT_CLASS}
@@ -54,6 +59,8 @@ export default function RequiredFields({
           ))}
         </select>
       </FormField>
+
+      <ValidityField mode={mode} values={values} onChange={onChange} />
 
       {mode !== "edit" && (
         <FormField

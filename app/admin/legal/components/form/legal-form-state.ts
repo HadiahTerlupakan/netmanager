@@ -32,6 +32,8 @@ export interface LegalFormValues {
   partyName: string;
   startDate: string;
   endDate: string;
+  /** Dokumen tanpa masa habis (NIB, akta, …): tanggal berakhir dikosongkan dengan sengaja. */
+  isIndefinite: boolean;
   picUserId: string;
   picName: string;
   value: string;
@@ -52,6 +54,19 @@ export const EMPTY_OBLIGATION: ObligationDraft = {
   recurrence: "NONE",
 };
 
+/**
+ * Masa berlaku wajib dipilih secara sadar: lupa tanggal adalah masalah yang
+ * diselesaikan modul ini, jadi "kosong karena lupa" tidak boleh sama dengan
+ * "memang tanpa batas waktu".
+ */
+export const MISSING_VALIDITY_MESSAGE =
+  "Isi tanggal berakhir, atau centang \"Berlaku tanpa batas waktu\"";
+
+/** Dokumen korporat (akta, RUPS, surat kuasa) umumnya tidak kedaluwarsa. */
+export function isIndefiniteByDefault(documentType: string): boolean {
+  return documentType === "KORPORAT";
+}
+
 /** Formulir kosong untuk dokumen baru. */
 export function createEmptyFormValues(): LegalFormValues {
   return {
@@ -62,6 +77,7 @@ export function createEmptyFormValues(): LegalFormValues {
     partyName: "",
     startDate: "",
     endDate: "",
+    isIndefinite: false,
     picUserId: "",
     picName: "",
     value: "",
@@ -95,6 +111,7 @@ export function formValuesFromDetail(
     partyName: detail.partyName ?? "",
     startDate: isRenewal ? "" : toDateInput(detail.startDate),
     endDate: isRenewal ? "" : toDateInput(detail.endDate),
+    isIndefinite: !isRenewal && !detail.endDate,
     picUserId: detail.picUserId ?? "",
     picName: detail.picName ?? "",
     value: detail.value ?? "",
@@ -147,7 +164,7 @@ export function buildLegalPayload(
     documentNumber: textOrNull(values.documentNumber),
     partyName: textOrNull(values.partyName),
     startDate: values.startDate || null,
-    endDate: values.endDate || null,
+    endDate: values.isIndefinite ? null : values.endDate || null,
     picUserId: values.picUserId || null,
     value: normalizeMoneyInput(values.value),
     paymentScheme: values.paymentScheme || null,
@@ -193,6 +210,9 @@ export function validateLegalForm(
   }
   if (mode === "renew" && !values.endDate) {
     return "Tanggal berakhir baru wajib diisi";
+  }
+  if (mode !== "renew" && !values.isIndefinite && !values.endDate) {
+    return MISSING_VALIDITY_MESSAGE;
   }
   if (values.startDate && values.endDate && values.endDate < values.startDate) {
     return "Tanggal berakhir tidak boleh sebelum tanggal mulai";

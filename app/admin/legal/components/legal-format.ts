@@ -101,3 +101,10 @@ export function describeApiError(
 
   return firstDetail ? `${message}: ${firstDetail}` : message;
 }
+
+export const INDEFINITE_VALIDITY_LABEL = "Tanpa batas waktu";
+
+/** Masa berlaku untuk ditampilkan: tanggal, atau "Tanpa batas waktu" bila kosong. */
+export function formatValidity(endDate: string | null): string {
+  return endDate ? formatDate(endDate) : INDEFINITE_VALIDITY_LABEL;
+}
