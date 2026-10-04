@@ -53,6 +53,7 @@ import {
   HiOutlineServer,
   HiOutlineServerStack,
   HiOutlineShieldCheck,
+  HiOutlinePencilSquare,
   HiOutlineShoppingBag,
   HiOutlineShoppingCart,
   HiOutlineSpeakerWave,
@@ -159,6 +160,7 @@ const adminSidebarIconMap: Record<string, ElementType> = {
   HiOutlineInbox,
   HiOutlineReceiptPercent,
   HiOutlineIdentification,
+  HiOutlinePencilSquare,
 };
 
 /** Tujuan: merender ikon sidebar admin berdasarkan nama ikon konfigurasi. */

@@ -756,21 +756,45 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     icon: "HiOutlineExclamationCircle",
   },
   {
-    // Kirim dokumen ke pihak dalam/luar untuk ditandatangani lewat tautan
-    // privat. Kode PENGESAHAN → gerbang pengesahan:read (permission-config).
-    code: "PENGESAHAN",
-    name: "Surat Pengesahan",
-    path: "/admin/pengesahan",
-    icon: "HiOutlineDocumentText",
-  },
-  {
-    // Kontrak, izin, sewa lahan & dokumen korporat + pengingat masa berlaku.
-    // Kode LEGAL → gerbang legal:read (permission-config).
+    // Urusan legal dalam satu menu. Tiap submenu punya gerbang izinnya sendiri
+    // (pemetaan di adminSidebarMenu): LEGAL.* → legal:read, LEGAL.PENGESAHAN →
+    // pengesahan:read. Menu induk tampil bila minimal satu submenu lolos.
+    // Feature flag `legal` dipasang di submenu legal saja — tenant yang
+    // mematikan modul Legal tetap bisa memakai Surat Pengesahan.
     code: "LEGAL",
     name: "Legal",
     path: "/admin/legal",
     icon: "HiOutlineScale",
-    featureModule: "legal",
+    children: [
+      {
+        code: "LEGAL.DASHBOARD",
+        name: "Dasbor Legal",
+        path: "/admin/legal",
+        icon: "HiOutlineChartBar",
+        exact: true,
+        featureModule: "legal",
+      },
+      {
+        code: "LEGAL.DOKUMEN",
+        name: "Dokumen Legal",
+        path: "/admin/legal/dokumen",
+        icon: "HiOutlineDocumentText",
+        featureModule: "legal",
+      },
+      {
+        code: "LEGAL.PENGESAHAN",
+        name: "Surat Pengesahan",
+        path: "/admin/pengesahan",
+        icon: "HiOutlinePencilSquare",
+      },
+      {
+        code: "LEGAL.KATEGORI",
+        name: "Kategori",
+        path: "/admin/legal/kategori",
+        icon: "HiOutlineTag",
+        featureModule: "legal",
+      },
+    ],
   },
   {
     code: "CHAT",

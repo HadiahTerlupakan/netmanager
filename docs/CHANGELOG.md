@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Surat Pengesahan digabung ke menu Legal
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/`, `components/layout/admin-sidebar`
+- **Author**: agent
+- **Deskripsi**: Menu "Legal" kini satu grup berisi Dasbor Legal, Dokumen Legal, Surat Pengesahan, dan Kategori. Tiap submenu digerbang izinnya sendiri (`legal:read` / `pengesahan:read`) lewat pemetaan eksplisit; menu induk tampil bila minimal satu submenu lolos. Feature flag `legal` dipasang di submenu legal saja sehingga tenant yang mematikan modul Legal tetap bisa memakai Surat Pengesahan. URL halaman tidak berubah.
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `components/layout/admin-sidebar/adminSidebarIcons.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Modul Legal: arsip kontrak, izin, dan pengingat masa berlaku
 
 - **Tipe**: [ADDED] [MIGRATION]

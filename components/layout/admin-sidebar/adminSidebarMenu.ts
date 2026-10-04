@@ -223,6 +223,13 @@ function getPermissionResource(code: string): string {
     "FINANCE.COHORT": "finance",
     // Halaman /admin/incidents mewajibkan incidents:read (bukan finance:read).
     INCIDENTS: "incidents",
+    // Menu Legal: submenu legal → `legal`, submenu pengesahan → `pengesahan`
+    // (tanpa pemetaan ini kode "LEGAL.DOKUMEN" jatuh ke resource "dokumen").
+    LEGAL: "legal",
+    "LEGAL.DASHBOARD": "legal",
+    "LEGAL.DOKUMEN": "legal",
+    "LEGAL.KATEGORI": "legal",
+    "LEGAL.PENGESAHAN": "pengesahan",
     // HR menu: surface kepegawaian reuse permission users (fase 1 PRD)
     HR: "users",
     "HR.EMPLOYEES": "users",
