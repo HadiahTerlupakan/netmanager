@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Halaman kategori legal: tambah & ubah lewat modal
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/legal/kategori`
+- **Author**: agent
+- **Deskripsi**: Form tambah tidak lagi menempel di atas daftar dan baris tidak lagi penuh tombol teks. Kini tombol "Tambah kategori" membuka modal (nama, jenis, kerahasiaan dengan penjelasan); daftar berupa tabel per jenis dengan kolom sejajar (Nama, Kerahasiaan, Aktif, Aksi), status aktif lewat sakelar, dan "Ubah" membuka modal yang sama (jenis terkunci).
+- **Files**: `app/admin/legal/kategori/CategoryFormModal.tsx`, `app/admin/legal/kategori/CategoryTable.tsx`, `app/admin/legal/kategori/ActiveSwitch.tsx`, `app/admin/legal/kategori/LegalCategoryClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Surat Pengesahan digabung ke menu Legal
 
 - **Tipe**: [CHANGED]
