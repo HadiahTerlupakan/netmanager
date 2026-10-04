@@ -17,6 +17,7 @@ import { id } from "date-fns/locale";
 import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifications";
 import { getPriorityColor } from "@/lib/utils/priority-helpers";
 import { usePushNotificationState } from "@/components/notifications/PushNotificationContext";
+import { toAdminNotificationLink } from "@/lib/notifications/toAdminNotificationLink";
 
 interface AdminNotificationBellProps {
   defaultOpen?: boolean;
@@ -190,7 +191,7 @@ export function AdminNotificationBell({
                           </span>
                           {notification.link && (
                             <Link
-                              href={notification.link}
+                              href={toAdminNotificationLink(notification.link)}
                               onClick={() => {
                                 markAsRead(notification.id);
                                 setIsOpen(false);

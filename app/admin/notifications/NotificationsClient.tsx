@@ -17,6 +17,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
+import { toAdminNotificationLink } from "@/lib/notifications/toAdminNotificationLink";
 
 interface Notification {
   id: string;
@@ -348,7 +349,7 @@ export function ClientComponent() {
                     {notification.link && (
                       <div className="mt-3 flex items-center">
                         <Link
-                          href={notification.link}
+                          href={toAdminNotificationLink(notification.link)}
                           onClick={() =>
                             !notification.isRead && markAsRead(notification.id)
                           }

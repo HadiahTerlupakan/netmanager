@@ -14,6 +14,7 @@ import { useRealtimeWorkOrders } from "@/lib/websocket/hooks/useRealtimeWorkOrde
 import { usePermission } from "@/hooks/use-permission";
 import { getPriorityColor } from "@/lib/utils/priority-helpers";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { toAdminNotificationLink } from "@/lib/notifications/toAdminNotificationLink";
 
 export function WorkOrderBell() {
   const { hasPermission } = usePermission();
@@ -157,7 +158,7 @@ export function WorkOrderBell() {
                           </span>
                           {notification.link && (
                             <Link
-                              href={notification.link}
+                              href={toAdminNotificationLink(notification.link)}
                               onClick={() => {
                                 markAsRead(notification.id);
                                 setIsOpen(false);
