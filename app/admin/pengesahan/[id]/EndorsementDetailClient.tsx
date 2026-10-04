@@ -71,13 +71,14 @@ export default function EndorsementDetailClient({
 }: {
   endorsementId: string;
 }) {
-  const { data, error, isLoading, mutate } = useApi<{ data?: DetailDto }>(
+  const { data, error, isLoading, mutate } = useApi<DetailDto>(
     `/api/admin/endorsements/${endorsementId}`,
   );
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  const detail = data?.data;
+  // useApi sudah membuka amplop { success, data }.
+  const detail = data;
 
   const cancel = async () => {
     if (cancelReason.trim().length < 3) {

@@ -34,14 +34,12 @@ export default function SignerEmployeePicker({
   const debouncedKeyword = useDebounce(keyword.trim(), SEARCH_DEBOUNCE_MS);
   const isSearchable = debouncedKeyword.length >= MIN_SEARCH_LENGTH;
 
-  const { data, isLoading } = useApi<{
-    data?: { options: SignerEmployeeOption[] };
-  }>(
+  const { data, isLoading } = useApi<{ options: SignerEmployeeOption[] }>(
     isSearchable
       ? `/api/admin/endorsements/signer-options?search=${encodeURIComponent(debouncedKeyword)}`
       : null,
   );
-  const options = (data?.data?.options ?? []).filter(
+  const options = (data?.options ?? []).filter(
     (option) => !excludedUserIds.includes(option.userId),
   );
 

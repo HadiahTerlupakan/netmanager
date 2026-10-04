@@ -21,9 +21,10 @@ interface EndorsementListItem {
   createdAt: string;
 }
 
+/** Payload daftar; useApi sudah membuka amplop { success, data }. */
 interface ListResponse {
-  data?: { items: EndorsementListItem[]; total: number };
-  items?: EndorsementListItem[];
+  items: EndorsementListItem[];
+  total: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -62,7 +63,7 @@ export default function EndorsementListClient() {
   );
   const [isCreating, setIsCreating] = useState(false);
 
-  const items = data?.data?.items ?? data?.items ?? [];
+  const items = data?.items ?? [];
 
   if (isLoading) return <PageLoader />;
 
