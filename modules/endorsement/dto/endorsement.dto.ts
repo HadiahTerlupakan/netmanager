@@ -17,6 +17,8 @@ export interface EndorsementSignerDto {
   role: string | null;
   email: string | null;
   phone: string | null;
+  /** Karyawan internal yang menandatangani lewat aplikasi mobile. */
+  isInternal: boolean;
   status: string;
   signedAt: string | null;
   declinedAt: string | null;
@@ -56,6 +58,7 @@ export function toSignerDto(
     role: signer.role,
     email: signer.email,
     phone: signer.phone,
+    isInternal: Boolean(signer.userId),
     status: signer.status,
     signedAt: signer.signedAt?.toISOString() ?? null,
     declinedAt: signer.declinedAt?.toISOString() ?? null,

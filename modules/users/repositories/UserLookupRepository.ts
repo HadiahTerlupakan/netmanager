@@ -24,12 +24,14 @@ import {
   getGeofencePolicy,
 } from "./user-lookup.attendance";
 import {
+  findActiveEmployeesByIds,
   findByIdWithDepartment,
   findByIdWithSite,
   findManyWithBasicInfo,
   findManyWithCustomWhere,
   findManyWithFullDetails,
   findManyWithWorkConfig,
+  searchActiveEmployees,
 } from "./user-lookup.profile";
 import {
   findManyByDepartmentAndSite,
@@ -167,5 +169,13 @@ export class UserLookupRepository {
 
   findAllActiveInTenant(tenantId: string) {
     return findAllActiveInTenant(tenantId);
+  }
+
+  searchActiveEmployees(search: string, limit: number) {
+    return searchActiveEmployees(search, limit);
+  }
+
+  findActiveEmployeesByIds(userIds: string[]) {
+    return findActiveEmployeesByIds(userIds);
   }
 }

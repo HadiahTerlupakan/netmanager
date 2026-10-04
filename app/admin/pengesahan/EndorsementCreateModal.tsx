@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { HiOutlineTrash } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
+import SignerDraftCard, { EMPTY_SIGNER, type SignerDraft } from "./SignerDraftCard";
 import SignerLinkCopy from "./SignerLinkCopy";
 
 /**
@@ -15,13 +15,6 @@ import SignerLinkCopy from "./SignerLinkCopy";
  * tidak pernah tersimpan mentah — jadi hasilnya ditampilkan sekali di sini agar
  * admin bisa meneruskannya manual bila pengiriman otomatis gagal.
  */
-
-interface SignerDraft {
-  name: string;
-  role: string;
-  email: string;
-  phone: string;
-}
 
 interface DeliveryResult {
   signerId: string;
@@ -36,7 +29,6 @@ interface CreatedLink {
   url: string;
 }
 
-const EMPTY_SIGNER: SignerDraft = { name: "", role: "", email: "", phone: "" };
 const INPUT_CLASS =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white";
 
@@ -57,13 +49,14 @@ export default function EndorsementCreateModal({
     links: CreatedLink[];
   } | null>(null);
 
-  const updateSigner = (index: number, patch: Partial<SignerDraft>) => {
+  const replaceSigner = (index: number, next: SignerDraft) => {
     setSigners((current) =>
-      current.map((signer, position) =>
-        position === index ? { ...signer, ...patch } : signer,
-      ),
+      current.map((signer, position) => (position === index ? next : signer)),
     );
   };
+  const selectedUserIds = signers
+    .map((signer) => signer.userId)
+    .filter((userId): userId is string => Boolean(userId));
 
   const submit = async () => {
     if (!file) {
@@ -73,6 +66,7 @@ export default function EndorsementCreateModal({
 
     const cleanedSigners = signers
       .map((signer) => ({
+        userId: signer.userId,
         name: signer.name.trim(),
         role: signer.role.trim() || undefined,
         email: signer.email.trim() || undefined,
@@ -146,13 +140,21 @@ export default function EndorsementCreateModal({
                   <p className="font-medium text-gray-900 dark:text-white">
                     {link.name}
                   </p>
-                  <SignerLinkCopy url={link.url} />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {delivery?.delivered
-                      ? `Terkirim lewat ${delivery.channel}`
-                      : (delivery?.error ??
-                        "Belum terkirim otomatis — bagikan tautan manual")}
-                  </p>
+                  {delivery?.channel === "app" && delivery.delivered ? (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Notifikasi terkirim ke aplikasi mobile — tanda tangan di aplikasi
+                    </p>
+                  ) : (
+                    <>
+                      <SignerLinkCopy url={link.url} />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {delivery?.delivered
+                          ? `Terkirim lewat ${delivery.channel}`
+                          : (delivery?.error ??
+                            "Belum terkirim otomatis — bagikan tautan manual")}
+                      </p>
+                    </>
+                  )}
                 </li>
               );
             })}
@@ -210,64 +212,18 @@ export default function EndorsementCreateModal({
             Penanda tangan
           </p>
           {signers.map((signer, index) => (
-            <div
+            <SignerDraftCard
               key={index}
-              className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={signer.name}
-                  onChange={(event) =>
-                    updateSigner(index, { name: event.target.value })
-                  }
-                  className={INPUT_CLASS}
-                  placeholder="Nama lengkap"
-                />
-                {signers.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      setSigners((current) =>
-                        current.filter((_, position) => position !== index),
-                      )
-                    }
-                    className="text-red-600 dark:text-red-400"
-                  >
-                    <HiOutlineTrash className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              <input
-                type="text"
-                value={signer.role}
-                onChange={(event) =>
-                  updateSigner(index, { role: event.target.value })
-                }
-                className={INPUT_CLASS}
-                placeholder="Jabatan (dicetak di bawah tanda tangan)"
-              />
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  type="tel"
-                  value={signer.phone}
-                  onChange={(event) =>
-                    updateSigner(index, { phone: event.target.value })
-                  }
-                  className={INPUT_CLASS}
-                  placeholder="Nomor WhatsApp"
-                />
-                <input
-                  type="email"
-                  value={signer.email}
-                  onChange={(event) =>
-                    updateSigner(index, { email: event.target.value })
-                  }
-                  className={INPUT_CLASS}
-                  placeholder="Email"
-                />
-              </div>
-            </div>
+              signer={signer}
+              excludedUserIds={selectedUserIds}
+              isRemovable={signers.length > 1}
+              onChange={(next) => replaceSigner(index, next)}
+              onRemove={() =>
+                setSigners((current) =>
+                  current.filter((_, position) => position !== index),
+                )
+              }
+            />
           ))}
           <Button
             variant="ghost"

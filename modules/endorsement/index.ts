@@ -49,9 +49,24 @@ export {
   endorsementSignerInputSchema,
   listEndorsementSchema,
   signEndorsementSchema,
+  signerInboxQuerySchema,
+  signerOptionsQuerySchema,
 } from "./validators/endorsement.validator";
 
 export { EndorsementService } from "./services/EndorsementService";
+export {
+  EndorsementInboxService,
+  type InboxQuery,
+} from "./services/EndorsementInboxService";
+export {
+  EndorsementSignerOptionsService,
+  type SignerOption,
+} from "./services/EndorsementSignerOptionsService";
+export type {
+  InboxDetailDto,
+  InboxItemDto,
+  InboxSignerDto,
+} from "./dto/endorsement-inbox.dto";
 export {
   EndorsementIssueService,
   type IssuedLink,

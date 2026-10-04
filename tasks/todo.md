@@ -1,3 +1,25 @@
+## Pengesahan di aplikasi mobile untuk penanda tangan internal (2026-10-04)
+
+### Keputusan
+- Penanda tangan internal (userId) → push + notifikasi in-app, tanda tangan di aplikasi; pihak luar tetap tautan WA/email
+- Akses mobile tanpa izin baru: dibatasi signer.userId = user sesi; menu tampil bila pernah ditunjuk
+- Tanda tangan: react-native-signature-canvas (JS di atas react-native-webview yang sudah ada) → OTA
+
+### Kontrak API mobile
+- GET  /api/mobile/pengesahan/ringkasan → { menungguCount, totalCount }
+- GET  /api/mobile/pengesahan?status=MENUNGGU|SELESAI&page&limit → { items, total, page, limit }
+- GET  /api/mobile/pengesahan/:id → detail (+ tandai VIEWED)
+- GET  /api/mobile/pengesahan/:id/file → PDF (Bearer)
+- POST /api/mobile/pengesahan/:id/sign { signatureDataUrl } → { completed }
+- POST /api/mobile/pengesahan/:id/decline { reason } → { declined: true }
+- Push: data.url=/pengesahan/:id, sourceType=ENDORSEMENT
+
+### Rencana
+- [ ] Backend: repository query per user, service sign/decline sebagai user, rute mobile, notifikasi in-app/push
+- [ ] Admin web: endpoint opsi penanda tangan (pengesahan:create) + pemilih karyawan di modal
+- [ ] Mobile: service/hooks, layar daftar/detail/tanda tangan/tolak, menu cepat, deep link push
+- [ ] Tes, typecheck, lint kedua repo; changelog; commit; deploy backend; OTA mobile
+
 ## Review modul surat pengesahan (endorsement) (2026-10-04)
 
 ### Temuan & rencana

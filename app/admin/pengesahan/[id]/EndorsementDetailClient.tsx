@@ -23,6 +23,7 @@ interface SignerDto {
   role: string | null;
   email: string | null;
   phone: string | null;
+  isInternal: boolean;
   status: string;
   signedAt: string | null;
   declineReason: string | null;
@@ -200,7 +201,9 @@ export default function EndorsementDetailClient({
                   ) : null}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {signer.phone || signer.email || "Tanpa kontak"}
+                  {signer.isInternal
+                    ? "Karyawan — tanda tangan lewat aplikasi mobile"
+                    : signer.phone || signer.email || "Tanpa kontak"}
                 </p>
                 {signer.declineReason && (
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">
@@ -212,6 +215,7 @@ export default function EndorsementDetailClient({
                     <SignerReissueButton
                       endorsementId={detail.id}
                       signerId={signer.id}
+                      isInternal={signer.isInternal}
                     />
                   )}
               </div>

@@ -66,3 +66,46 @@ export function findManyWithCustomWhere(
 ) {
   return prisma.user.findMany({ where, select: { id: true } });
 }
+
+/**
+ * Cari karyawan aktif berdasarkan nama, email, atau telepon — untuk pemilih
+ * orang di formulir modul lain (mis. penanda tangan surat pengesahan).
+ * Isolasi tenant ditegakkan ekstensi Prisma.
+ */
+export function searchActiveEmployees(search: string, limit: number) {
+  const keyword = search.trim();
+
+  return prisma.user.findMany({
+    where: {
+      isActive: true,
+      employeeType: "KARYAWAN",
+      ...(keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: "insensitive" } },
+              { email: { contains: keyword, mode: "insensitive" } },
+              { phone: { contains: keyword } },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: { select: { name: true } },
+      departments: { select: { name: true } },
+    },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
+}
+
+/** Ambil karyawan aktif dari daftar id; dipakai memvalidasi pilihan dari klien. */
+export function findActiveEmployeesByIds(userIds: string[]) {
+  return prisma.user.findMany({
+    where: { id: { in: userIds }, isActive: true, employeeType: "KARYAWAN" },
+    select: { id: true },
+  });
+}

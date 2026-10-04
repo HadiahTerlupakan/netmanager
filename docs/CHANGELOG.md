@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-04] — Pengesahan: penanda tangan karyawan internal lewat aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/endorsement`, `modules/users`, `app/api/mobile/pengesahan`, `app/api/admin/endorsements`, `app/admin/pengesahan`
+- **Author**: agent
+- **Deskripsi**:
+  - Pembuat surat (mis. staf legal) kini bisa memilih karyawan sebagai penanda tangan lewat pencarian (`GET /api/admin/endorsements/signer-options`, gerbang `pengesahan:create`, bukan `users:read`). Pihak luar tetap diisi manual dan menerima tautan WA/email.
+  - Penanda tangan internal menerima notifikasi aplikasi (in-app + push, `link=/pengesahan/:id`, `sourceType=ENDORSEMENT`) alih-alih tautan, dan menandatangani/menolak di aplikasi mobile. Id karyawan divalidasi aktif & se-tenant sebelum surat dibuat.
+  - Endpoint mobile baru (auth sesi, tanpa izin khusus — hak aksesnya "ditunjuk di surat ini", 404 untuk surat lain): `GET /api/mobile/pengesahan` (MENUNGGU/SELESAI, paginasi), `/ringkasan`, `/:id` (mencatat sudah dibuka), `/:id/file`, `POST /:id/sign`, `POST /:id/decline`.
+  - `EndorsementService` dipecah: aturan tanda tangan/tolak/dibuka kini menerima penanda tangan yang sudah teridentifikasi (`signAs`/`declineAs`/`markSignerViewed`), dipakai jalur token maupun sesi; `EndorsementInboxService` baru untuk kotak masuk per user. Halaman detail admin menandai penanda tangan internal; tombolnya menjadi "Ingatkan lewat aplikasi".
+- **Files**: `modules/endorsement/services/EndorsementInboxService.ts`, `modules/endorsement/services/EndorsementSignerOptionsService.ts`, `modules/endorsement/dto/endorsement-inbox.dto.ts`, `modules/endorsement/services/EndorsementNotificationService.ts`, `modules/users/repositories/user-lookup.profile.ts`, `app/admin/pengesahan/SignerEmployeePicker.tsx`, `app/admin/pengesahan/SignerDraftCard.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Menu Surat Pengesahan di sidebar admin
 
 - **Tipe**: [FIXED]

@@ -10,9 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SignerLink } from "@/modules/endorsement";
 
 const sendEmail = vi.hoisted(() => vi.fn());
+const createNotification = vi.hoisted(() => vi.fn());
 const sendWhatsApp = vi.hoisted(() => vi.fn());
 
 vi.mock("@/modules/notification", () => ({
+  createNotification,
   EmailService: class {
     sendEmail = sendEmail;
   },
@@ -33,6 +35,7 @@ const link = (over: Partial<SignerLink> = {}): SignerLink => ({
   name: "Budi",
   email: "budi@contoh.id",
   phone: null,
+  userId: null,
   token: "a".repeat(43),
   ...over,
 });
@@ -54,6 +57,7 @@ describe("buildSignerUrl", () => {
 describe("email undangan", () => {
   it("meng-escape nama penanda tangan", async () => {
     await new EndorsementNotificationService().sendInvitations({
+      endorsementId: "end-1",
       endorsementTitle: "Berita Acara",
       tenantId: "tenant-1",
       links: [link({ name: '<script>alert("x")</script>' })],
@@ -65,6 +69,7 @@ describe("email undangan", () => {
 
   it("meng-escape judul surat", async () => {
     await new EndorsementNotificationService().sendInvitations({
+      endorsementId: "end-1",
       endorsementTitle: '<img src=x onerror="alert(1)">',
       tenantId: "tenant-1",
       links: [link()],
@@ -78,6 +83,7 @@ describe("email undangan", () => {
   // lain pada tautan.
   it("meng-escape tanda kutip supaya atribut tautan tidak bisa diputus", async () => {
     await new EndorsementNotificationService().sendInvitations({
+      endorsementId: "end-1",
       endorsementTitle: 'Judul" onmouseover="alert(1)',
       tenantId: "tenant-1",
       links: [link()],
@@ -89,6 +95,7 @@ describe("email undangan", () => {
 
   it("tetap memuat tautan yang benar", async () => {
     await new EndorsementNotificationService().sendInvitations({
+      endorsementId: "end-1",
       endorsementTitle: "Berita Acara",
       tenantId: "tenant-1",
       links: [link({ token: "b".repeat(43) })],
@@ -102,6 +109,7 @@ describe("pemilihan kanal", () => {
   it("memakai WhatsApp bila ada nomor telepon", async () => {
     const [outcome] =
       await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
         endorsementTitle: "Berita Acara",
         tenantId: "tenant-1",
         links: [link({ phone: "08123", email: null })],
@@ -116,6 +124,7 @@ describe("pemilihan kanal", () => {
 
     const outcomes = await new EndorsementNotificationService().sendInvitations(
       {
+        endorsementId: "end-1",
         endorsementTitle: "Berita Acara",
         tenantId: "tenant-1",
         links: [
@@ -137,6 +146,7 @@ describe("pemilihan kanal", () => {
   it("menandai tanpa kanal bila tidak ada kontak", async () => {
     const [outcome] =
       await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
         endorsementTitle: "Berita Acara",
         tenantId: "tenant-1",
         links: [link({ email: null, phone: null })],
@@ -158,6 +168,7 @@ describe("pemilihan kanal", () => {
 
     const [outcome] =
       await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
         endorsementTitle: "Berita Acara",
         tenantId: "tenant-1",
         links: [link({ phone: "08123" })],
@@ -170,6 +181,7 @@ describe("pemilihan kanal", () => {
   it("tidak mengirim email bila WhatsApp berhasil", async () => {
     const [outcome] =
       await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
         endorsementTitle: "Berita Acara",
         tenantId: "tenant-1",
         links: [link({ phone: "08123" })],
@@ -177,5 +189,44 @@ describe("pemilihan kanal", () => {
 
     expect(outcome).toMatchObject({ delivered: true, channel: "whatsapp" });
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  // Karyawan internal menandatangani di aplikasi: cukup notifikasi aplikasi
+  // yang membuka layar pengesahan, tanpa tautan WhatsApp/email.
+  it("mengirim notifikasi aplikasi ke penanda tangan internal", async () => {
+    const [outcome] =
+      await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
+        endorsementTitle: "Berita Acara",
+        tenantId: "tenant-1",
+        links: [link({ userId: "user-9", phone: "08123" })],
+      });
+
+    expect(outcome).toMatchObject({ channel: "app", delivered: true });
+    expect(createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-9",
+        link: "/pengesahan/end-1",
+        sourceType: "ENDORSEMENT",
+        sourceId: "end-1",
+        tenantId: "tenant-1",
+      }),
+    );
+    expect(sendWhatsApp).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("melaporkan gagal bila notifikasi aplikasi gagal dibuat", async () => {
+    createNotification.mockRejectedValueOnce(new Error("db mati"));
+
+    const [outcome] =
+      await new EndorsementNotificationService().sendInvitations({
+        endorsementId: "end-1",
+        endorsementTitle: "Berita Acara",
+        tenantId: "tenant-1",
+        links: [link({ userId: "user-9" })],
+      });
+
+    expect(outcome).toMatchObject({ channel: "app", delivered: false });
   });
 });

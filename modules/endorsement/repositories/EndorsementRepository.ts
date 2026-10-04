@@ -6,6 +6,8 @@ import type {
   EndorsementStatusExtra,
   IEndorsementRepository,
   RecordEventInput,
+  SignerInboxFilters,
+  SignerInboxScope,
   SignerUpdateData,
 } from "../domain/ports/IEndorsementRepository";
 import type {
@@ -33,6 +35,31 @@ const SIGNER_ORDER: Prisma.EndorsementSignerOrderByWithRelationInput[] = [
 const withSigners = {
   signers: { orderBy: SIGNER_ORDER },
 } satisfies Prisma.EndorsementInclude;
+
+const UNDECIDED_SIGNER_STATUSES = ["PENDING", "VIEWED"];
+
+/** Surat yang masih menunggu tanda tangan user ini dan masih bisa ditandatangani. */
+function buildWaitingForUserWhere(
+  userId: string,
+  now: Date,
+): Prisma.EndorsementWhereInput {
+  return {
+    status: "SENT",
+    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    signers: { some: { userId, status: { in: UNDECIDED_SIGNER_STATUSES } } },
+  };
+}
+
+function buildSignerInboxWhere(
+  userId: string,
+  scope: SignerInboxScope,
+  now: Date,
+): Prisma.EndorsementWhereInput {
+  const waiting = buildWaitingForUserWhere(userId, now);
+  if (scope === "MENUNGGU") return waiting;
+
+  return { signers: { some: { userId } }, NOT: waiting };
+}
 
 export class EndorsementRepository implements IEndorsementRepository {
   async findMany(filters: EndorsementListFilters) {
@@ -203,6 +230,38 @@ export class EndorsementRepository implements IEndorsementRepository {
       },
       select: { id: true, tenantId: true },
     });
+  }
+
+  async findManyForSignerUser(filters: SignerInboxFilters) {
+    const where = buildSignerInboxWhere(
+      filters.userId,
+      filters.scope,
+      filters.now,
+    );
+    const [rows, total] = await Promise.all([
+      prisma.endorsement.findMany({
+        where,
+        include: withSigners,
+        orderBy: { createdAt: "desc" },
+        skip: (filters.page - 1) * filters.limit,
+        take: filters.limit,
+      }),
+      prisma.endorsement.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((row) => toEndorsementEntity(row as EndorsementRow)),
+      total,
+    };
+  }
+
+  async countForSignerUser(userId: string, now: Date) {
+    const [waitingCount, totalCount] = await Promise.all([
+      prisma.endorsement.count({ where: buildWaitingForUserWhere(userId, now) }),
+      prisma.endorsement.count({ where: { signers: { some: { userId } } } }),
+    ]);
+
+    return { waitingCount, totalCount };
   }
 
   async findFullySignedOpenIds(): Promise<string[]> {

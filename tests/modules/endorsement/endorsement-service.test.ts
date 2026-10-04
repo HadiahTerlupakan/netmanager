@@ -78,6 +78,8 @@ const buildRepository = () => ({
   recordEvent: vi.fn(),
   findExpired: vi.fn().mockResolvedValue([]),
   findFullySignedOpenIds: vi.fn().mockResolvedValue([]),
+  findManyForSignerUser: vi.fn(),
+  countForSignerUser: vi.fn(),
 });
 
 const buildPdf = () => ({
@@ -379,7 +381,7 @@ describe("getDocumentForSigner", () => {
       });
 
       await expect(service.getDocumentForSigner("token-uji")).rejects.toThrow(
-        /tidak dikenali/i,
+        /tidak ditemukan/i,
       );
       expect(storage.read).not.toHaveBeenCalled();
     },
@@ -392,7 +394,7 @@ describe("getDocumentForSigner", () => {
     });
 
     await expect(service.getDocumentForSigner("token-uji")).rejects.toThrow(
-      /tidak dikenali/i,
+      /tidak ditemukan/i,
     );
   });
 
@@ -530,5 +532,41 @@ describe("expireOverdue", () => {
 
     expect(await service.expireOverdue()).toBe(0);
     expect(repository.recordEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveForUser", () => {
+  it("mengembalikan penanda tangan milik user", async () => {
+    repository.findById.mockResolvedValue(
+      endorsement({ signers: [signer({ userId: "user-9" })] }),
+    );
+
+    const { signer: me } = await service.resolveForUser("end-1", "user-9");
+
+    expect(me.id).toBe("signer-1");
+  });
+
+  // Surat yang tidak menunjuk user diperlakukan seperti tidak ada, supaya
+  // keberadaan surat orang lain tidak bocor.
+  it("404 bila user bukan penanda tangan surat", async () => {
+    repository.findById.mockResolvedValue(
+      endorsement({ signers: [signer({ userId: "user-lain" })] }),
+    );
+
+    await expect(service.resolveForUser("end-1", "user-9")).rejects.toThrow(
+      /tidak ditemukan/i,
+    );
+  });
+
+  it("menandatangani lewat sesi aplikasi memakai aturan yang sama", async () => {
+    const resolved = {
+      endorsement: endorsement({ status: "CANCELLED" }),
+      signer: signer({ userId: "user-9" }),
+    };
+
+    await expect(
+      service.signAs(resolved, Buffer.from("png"), {}),
+    ).rejects.toThrow(/tidak bisa dipakai/i);
+    expect(storage.saveSignature).not.toHaveBeenCalled();
   });
 });

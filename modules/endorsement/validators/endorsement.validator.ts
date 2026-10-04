@@ -57,6 +57,18 @@ export const listEndorsementSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+/** Kotak masuk penanda tangan di aplikasi mobile. */
+export const signerInboxQuerySchema = z.object({
+  status: z.enum(["MENUNGGU", "SELESAI"]).default("MENUNGGU"),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+/** Pencarian karyawan untuk dipilih sebagai penanda tangan internal. */
+export const signerOptionsQuerySchema = z.object({
+  search: z.string().trim().max(120).default(""),
+});
+
 export const cancelEndorsementSchema = z.object({
   reason: z.string().min(3).max(500),
 });

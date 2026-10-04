@@ -79,6 +79,18 @@ export class UserLookupService {
     return this.lookupRepository.findManyWithBasicInfo(userIds);
   }
 
+  /** Cari karyawan aktif (nama/email/telepon) untuk pemilih orang di modul lain. */
+  searchActiveEmployees(search: string, limit: number) {
+    return this.lookupRepository.searchActiveEmployees(search, limit);
+  }
+
+  /** Id karyawan aktif dari daftar id; untuk memvalidasi pilihan dari klien. */
+  async filterActiveEmployeeIds(userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.lookupRepository.findActiveEmployeesByIds(userIds);
+    return rows.map((row) => row.id);
+  }
+
   /** Find multiple users with full attendance details. */
   findManyWithFullDetails(userIds: string[], tenantId?: string) {
     return this.lookupRepository.findManyWithFullDetails(userIds, tenantId);

@@ -19,6 +19,7 @@ const signerLink: SignerLink = {
   name: "Budi",
   email: "budi@contoh.id",
   phone: null,
+  userId: null,
   token: "t".repeat(43),
 };
 
@@ -39,19 +40,23 @@ const buildDeps = () => {
       .fn()
       .mockResolvedValue([{ signerId: "signer-1", channel: "email", delivered: true }]),
   };
+  const directory = {
+    filterActiveEmployeeIds: vi.fn(async (ids: string[]) => ids),
+  };
   const service = new EndorsementIssueService(
     endorsements as never,
     notifications as never,
+    directory,
   );
 
-  return { endorsements, notifications, service };
+  return { endorsements, notifications, directory, service };
 };
 
 describe("issue", () => {
   it("membuat, mengirim, lalu menandai terkirim — berurutan", async () => {
     const { endorsements, notifications, service } = buildDeps();
 
-    const result = await service.issue({} as never, "user-1");
+    const result = await service.issue({ signers: [] } as never, "user-1");
 
     expect(
       notifications.sendInvitations.mock.invocationCallOrder[0]!,
@@ -65,9 +70,42 @@ describe("issue", () => {
   it("tidak mengembalikan token mentah", async () => {
     const { service } = buildDeps();
 
-    const result = await service.issue({} as never, "user-1");
+    const result = await service.issue({ signers: [] } as never, "user-1");
 
     expect(result.links[0]).not.toHaveProperty("token");
+  });
+});
+
+describe("issue — penanda tangan internal", () => {
+  const command = (userIds: string[]) =>
+    ({ signers: userIds.map((userId) => ({ name: "X", userId })) }) as never;
+
+  it("menolak karyawan yang tidak aktif atau milik tenant lain", async () => {
+    const { directory, endorsements, service } = buildDeps();
+    directory.filterActiveEmployeeIds.mockResolvedValue(["user-1"]);
+
+    await expect(
+      service.issue(command(["user-1", "user-asing"]), "admin-1"),
+    ).rejects.toThrow(/tidak valid atau nonaktif/i);
+    expect(endorsements.create).not.toHaveBeenCalled();
+  });
+
+  it("menolak karyawan yang dipilih dua kali", async () => {
+    const { service } = buildDeps();
+
+    await expect(
+      service.issue(command(["user-1", "user-1"]), "admin-1"),
+    ).rejects.toThrow(/lebih dari sekali/i);
+  });
+
+  it("meneruskan id surat ke pengiriman undangan", async () => {
+    const { notifications, service } = buildDeps();
+
+    await service.issue(command(["user-1"]), "admin-1");
+
+    expect(notifications.sendInvitations).toHaveBeenCalledWith(
+      expect.objectContaining({ endorsementId: "end-1" }),
+    );
   });
 });
 

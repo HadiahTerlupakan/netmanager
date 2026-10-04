@@ -18,13 +18,16 @@ interface ReissueResponse {
 /**
  * Terbitkan ulang tautan satu penanda tangan. Tautan lama gugur; tautan baru
  * dikirim otomatis dan juga ditampilkan untuk disalin bila pengiriman gagal.
+ * Untuk karyawan internal, ini berarti mengirim ulang notifikasi aplikasi.
  */
 export default function SignerReissueButton({
   endorsementId,
   signerId,
+  isInternal,
 }: {
   endorsementId: string;
   signerId: string;
+  isInternal: boolean;
 }) {
   const [isReissuing, setIsReissuing] = useState(false);
   const [issuedUrl, setIssuedUrl] = useState<string | null>(null);
@@ -44,6 +47,10 @@ export default function SignerReissueButton({
       }
 
       const { delivery, link } = payload.data;
+      if (delivery.channel === "app" && delivery.delivered) {
+        toast.success("Pengingat terkirim ke aplikasi mobile");
+        return;
+      }
       setIssuedUrl(link.url);
       if (delivery.delivered) {
         toast.success(`Tautan baru terkirim lewat ${delivery.channel}`);
@@ -68,7 +75,11 @@ export default function SignerReissueButton({
         disabled={isReissuing}
       >
         <HiOutlineArrowPath />
-        {isReissuing ? "Menerbitkan..." : "Kirim ulang tautan"}
+        {isReissuing
+          ? "Mengirim..."
+          : isInternal
+            ? "Ingatkan lewat aplikasi"
+            : "Kirim ulang tautan"}
       </Button>
       {issuedUrl && <SignerLinkCopy url={issuedUrl} />}
     </div>

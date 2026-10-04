@@ -19,6 +19,20 @@ export interface EndorsementListFilters {
   limit: number;
 }
 
+/**
+ * Kotak masuk penanda tangan internal: MENUNGGU = masih perlu tanda tangan
+ * dia dan surat masih bisa ditandatangani; SELESAI = sisanya.
+ */
+export type SignerInboxScope = "MENUNGGU" | "SELESAI";
+
+export interface SignerInboxFilters {
+  userId: string;
+  scope: SignerInboxScope;
+  page: number;
+  limit: number;
+  now: Date;
+}
+
 export interface CreateEndorsementInput {
   number: string;
   title: string;
@@ -106,4 +120,13 @@ export interface IEndorsementRepository {
   ): Promise<Array<{ id: string; tenantId: string | null }>>;
   /** Surat terkirim yang semua penanda tangannya sudah tanda tangan, tapi belum final. */
   findFullySignedOpenIds(): Promise<string[]>;
+  /** Surat yang menunjuk user internal ini sebagai penanda tangan. */
+  findManyForSignerUser(
+    filters: SignerInboxFilters,
+  ): Promise<{ items: EndorsementEntity[]; total: number }>;
+  /** Jumlah surat yang menunggu tanda tangan user ini, dan seluruh surat untuknya. */
+  countForSignerUser(
+    userId: string,
+    now: Date,
+  ): Promise<{ waitingCount: number; totalCount: number }>;
 }

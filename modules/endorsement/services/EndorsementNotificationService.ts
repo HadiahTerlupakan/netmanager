@@ -1,7 +1,11 @@
 import { logger } from "@/lib/logger";
 import { getPublicSiteUrl } from "@/lib/utils/portal-url";
 import { escapeHtml } from "@/lib/utils/sanitize";
-import { EmailService, WhatsAppSenderService } from "@/modules/notification";
+import {
+  createNotification,
+  EmailService,
+  WhatsAppSenderService,
+} from "@/modules/notification";
 import type { SignerLink } from "./EndorsementService";
 
 /**
@@ -12,17 +16,29 @@ import type { SignerLink } from "./EndorsementService";
  * satu penerima tidak menghentikan yang lain: yang gagal dilaporkan balik agar
  * pembuat surat bisa menyalin tautannya atau menerbitkan ulang.
  *
- * WhatsApp dicoba lebih dulu, lalu email bila WhatsApp gagal — termasuk saat
- * tenant belum menyambungkan akun WhatsApp.
+ * Karyawan internal (punya `userId`) menerima notifikasi aplikasi dan
+ * menandatangani di aplikasi mobile — tidak perlu tautan. Pihak luar menerima
+ * tautan: WhatsApp dicoba lebih dulu, lalu email bila WhatsApp gagal —
+ * termasuk saat tenant belum menyambungkan akun WhatsApp.
  */
 
 const LINK_PATH = "/p";
+/** Rute layar pengesahan di aplikasi mobile, dipakai deep link notifikasi. */
+const MOBILE_ENDORSEMENT_PATH = "/pengesahan";
+const NOTIFICATION_SOURCE_TYPE = "ENDORSEMENT";
 
 export interface DeliveryOutcome {
   signerId: string;
-  channel: "whatsapp" | "email" | "none";
+  channel: "app" | "whatsapp" | "email" | "none";
   delivered: boolean;
   error?: string;
+}
+
+export interface InvitationInput {
+  endorsementId: string;
+  endorsementTitle: string;
+  tenantId: string | null;
+  links: SignerLink[];
 }
 
 export function buildSignerUrl(token: string): string {
@@ -73,28 +89,24 @@ function buildEmailHtml(
 }
 
 export class EndorsementNotificationService {
-  /** Kirim tautan ke seluruh penanda tangan; laporkan hasil per orang. */
-  async sendInvitations(input: {
-    endorsementTitle: string;
-    tenantId: string | null;
-    links: SignerLink[];
-  }): Promise<DeliveryOutcome[]> {
+  /** Kirim undangan ke seluruh penanda tangan; laporkan hasil per orang. */
+  async sendInvitations(input: InvitationInput): Promise<DeliveryOutcome[]> {
     const outcomes: DeliveryOutcome[] = [];
 
     for (const link of input.links) {
-      outcomes.push(
-        await this.sendOne(input.endorsementTitle, input.tenantId, link),
-      );
+      outcomes.push(await this.sendOne(input, link));
     }
 
     return outcomes;
   }
 
   private async sendOne(
-    endorsementTitle: string,
-    tenantId: string | null,
+    input: InvitationInput,
     link: SignerLink,
   ): Promise<DeliveryOutcome> {
+    if (link.userId) return this.sendInApp(input, link);
+
+    const { endorsementTitle, tenantId } = input;
     const url = buildSignerUrl(link.token);
 
     if (link.phone) {
@@ -111,9 +123,39 @@ export class EndorsementNotificationService {
       return this.sendEmail(endorsementTitle, tenantId, link, url);
     }
 
-    // Penanda tangan internal tanpa kontak tetap bisa membuka tautan dari
-    // halaman detail surat; bukan kegagalan, hanya tidak ada kanal keluar.
+    // Tanpa kontak tidak ada kanal keluar; admin menyalin tautan secara manual.
     return { signerId: link.signerId, channel: "none", delivered: false };
+  }
+
+  /** Notifikasi aplikasi (in-app + push) untuk penanda tangan karyawan internal. */
+  private async sendInApp(
+    input: InvitationInput,
+    link: SignerLink,
+  ): Promise<DeliveryOutcome> {
+    try {
+      await createNotification({
+        type: "SYSTEM",
+        priority: "HIGH",
+        title: "Permintaan pengesahan",
+        message: `Anda diminta menandatangani: ${input.endorsementTitle}`,
+        link: `${MOBILE_ENDORSEMENT_PATH}/${input.endorsementId}`,
+        userId: link.userId!,
+        sourceType: NOTIFICATION_SOURCE_TYPE,
+        sourceId: input.endorsementId,
+        tenantId: input.tenantId ?? undefined,
+      });
+
+      return { signerId: link.signerId, channel: "app", delivered: true };
+    } catch (error) {
+      logger.error("[Endorsement] Gagal mengirim notifikasi aplikasi:", error);
+
+      return {
+        signerId: link.signerId,
+        channel: "app",
+        delivered: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private async sendWhatsApp(
