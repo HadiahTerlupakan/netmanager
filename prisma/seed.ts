@@ -136,6 +136,49 @@ async function main() {
   // ========================================================================
   logger.info("\n👥 STEP 2: Creating Roles...");
 
+  // Resource mobile untuk role SALES. Ditulis eksplisit, bukan dicocokkan
+  // sebagian dari nama resource: pencocokan substring mudah salah kena saat
+  // resource baru bertambah, dan pola "marketing" sebelumnya memang tidak
+  // pernah cocok dengan apa pun.
+  //
+  // Empat pertama menopang tab bar sales (`tabKaryawanSales.ts`); tiga
+  // terakhir adalah fitur kepegawaian dasar yang juga dipegang Teknisi —
+  // tanpa itu menu cepat Chat, Izin & Cuti, serta Kalender Libur tampil
+  // terkunci bagi sales.
+  const RESOURCE_MOBILE_SALES = [
+    "m_dashboard",
+    "m_canvasing",
+    "m_presurvei",
+    "m_absensi",
+    "m_chat",
+    "m_izin",
+    "m_holidays",
+  ];
+
+  // Role bawaan peninggalan sebelum multi-tenant ber-`tenantId` NULL, sedangkan
+  // upsert di bawah mencari `(name, MAIN_TENANT_ID)`. Pencarian itu tak pernah
+  // cocok, sehingga blok `update` tidak pernah terpakai — persona dan permission
+  // role lama tak pernah ikut diperbarui — dan setiap seed justru membuat baris
+  // duplikat baru. Samakan dulu tenantId-nya supaya upsert mengenai baris yang
+  // benar. Aman dilakukan di sini: seed hanya untuk dev/CI, karena ekstensi
+  // Prisma menolak `IS_SEEDING` di production.
+  const NAMA_ROLE_BAWAAN = [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "TEKNISI",
+    "SALES",
+    "FINANCE",
+  ];
+  const roleDisamakan = await prisma.role.updateMany({
+    where: { name: { in: NAMA_ROLE_BAWAAN }, tenantId: null },
+    data: { tenantId: MAIN_TENANT_ID },
+  });
+  if (roleDisamakan.count > 0) {
+    logger.info(
+      `   ↻ ${roleDisamakan.count} role bawaan lama disamakan ke tenant utama`,
+    );
+  }
+
   // 2.1 SUPER_ADMIN Role - Full access to everything
   const superAdminRole = await prisma.role.upsert({
     where: {
@@ -173,6 +216,7 @@ async function main() {
   const adminRole = await prisma.role.upsert({
     where: { name_tenantId: { name: "ADMIN", tenantId: MAIN_TENANT_ID } },
     update: {
+      persona: "STAFF",
       accessAdminPanel: true,
       accessEmployeePanel: false,
       permission: {
@@ -189,6 +233,8 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: "ADMIN",
+      tenantId: MAIN_TENANT_ID,
+      persona: "STAFF",
       description: "Administrator - Admin Panel Access Only",
       accessAdminPanel: true,
       accessEmployeePanel: false,
@@ -215,6 +261,7 @@ async function main() {
       },
     },
     update: {
+      persona: "TEKNISI",
       accessAdminPanel: false,
       accessEmployeePanel: true,
       permission: {
@@ -226,6 +273,8 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: "TEKNISI",
+      tenantId: MAIN_TENANT_ID,
+      persona: "TEKNISI",
       description: "Field Technician - Employee Portal Access",
       accessAdminPanel: false,
       accessEmployeePanel: true,
@@ -254,12 +303,7 @@ async function main() {
       permission: {
         set: [], // Clear existing
         connect: karyawanPermissions
-          .filter(
-            (p) =>
-              p.resource.includes("marketing") ||
-              p.resource.includes("canvasing") ||
-              p.resource.includes("dashboard"),
-          )
+          .filter((p) => RESOURCE_MOBILE_SALES.includes(p.resource))
           .map((p) => ({ id: p.id })),
       },
     },
@@ -267,23 +311,21 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: "SALES",
+      tenantId: MAIN_TENANT_ID,
       description: "Sales Representative - Employee Portal Access",
       accessAdminPanel: false,
       accessEmployeePanel: true,
       persona: "SALES",
       permission: {
         connect: karyawanPermissions
-          .filter(
-            (p) =>
-              p.resource.includes("marketing") ||
-              p.resource.includes("canvasing") ||
-              p.resource.includes("dashboard"),
-          )
+          .filter((p) => RESOURCE_MOBILE_SALES.includes(p.resource))
           .map((p) => ({ id: p.id })),
       },
     },
   });
-  logger.info(`   ✅ Role: SALES (marketing/canvasing permissions)`);
+  logger.info(
+    `   ✅ Role: SALES (${RESOURCE_MOBILE_SALES.length} resource mobile)`,
+  );
 
   // 2.5 FINANCE Role - Admin panel only (finance permissions)
   const FINANCE_RESOURCES = [
@@ -314,6 +356,7 @@ async function main() {
       },
     },
     update: {
+      persona: "STAFF",
       accessAdminPanel: true,
       accessEmployeePanel: false,
       permission: {
@@ -325,6 +368,8 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: "FINANCE",
+      tenantId: MAIN_TENANT_ID,
+      persona: "STAFF",
       description: "Finance Officer - Admin Panel Access",
       accessAdminPanel: true,
       accessEmployeePanel: false,
@@ -792,6 +837,36 @@ async function main() {
     },
   });
   logger.info("   ✅ User: finance@example.com (Role: FINANCE)");
+
+  // `User.isSales` adalah turunan persona role, bukan saklar mandiri. Aplikasi
+  // menjaganya lewat `RoleRepository.syncUserIsSales`, tetapi seed menulis role
+  // langsung dengan `prisma.role.upsert` sehingga melewati sinkronisasi itu —
+  // dan blok `update` pada upsert user sengaja kosong, jadi pengguna lama tidak
+  // pernah ikut dibetulkan. Tanpa penyelarasan di sini kolomnya tertinggal saat
+  // persona role berubah, dan akibatnya tidak kelihatan: `SalesRepository`
+  // menyaring kolom ini, sehingga sales hilang dari daftar tim kepala sales dan
+  // tidak bisa ditugasi rencana meskipun aplikasinya tampil normal.
+  const idRolePersonaSales = (
+    await prisma.role.findMany({
+      where: { persona: "SALES" },
+      select: { id: true },
+    })
+  ).map((role) => role.id);
+
+  const [jadiSales, bukanSales] = await Promise.all([
+    prisma.user.updateMany({
+      where: { roleId: { in: idRolePersonaSales }, isSales: false },
+      data: { isSales: true },
+    }),
+    prisma.user.updateMany({
+      where: { roleId: { notIn: idRolePersonaSales }, isSales: true },
+      data: { isSales: false },
+    }),
+  ]);
+  logger.info(
+    `   ↻ isSales diselaraskan dengan persona role: +${jadiSales.count} sales, -${bukanSales.count} non-sales`,
+  );
+
   // ========================================================================
   // STEP 8.5: MITRA PARTNERS
   // ========================================================================
@@ -1206,6 +1281,20 @@ async function main() {
   logger.info("   ✅ Profile PPP: Profile-Premium");
 
   // 11.3 Harga Paket
+  // Paket warisan sebelum multi-tenant ber-`tenantId` NULL, sedangkan upsert di
+  // bawah mencari `(tenantId, name, siteId)` dengan tenant utama. Postgres
+  // menganggap NULL selalu berbeda, jadi unique index tidak pernah menahan dan
+  // tiap seed menambah satu set paket baru tanpa gejala. Samakan dulu.
+  const paketDisamakan = await prisma.hargaPaket.updateMany({
+    where: { tenantId: null },
+    data: { tenantId: MAIN_TENANT_ID },
+  });
+  if (paketDisamakan.count > 0) {
+    logger.info(
+      `   ↻ ${paketDisamakan.count} harga paket lama disamakan ke tenant utama`,
+    );
+  }
+
   const pkgBasicData = {
     bandwidthId: band10Mbps.id,
     profilePPPId: pppBasic.id,
@@ -1232,6 +1321,7 @@ async function main() {
     create: {
       id: randomUUID(),
       name: "Paket Basic 10 Mbps",
+      tenantId: MAIN_TENANT_ID,
       ...pkgBasicData,
     },
   });
@@ -1263,6 +1353,7 @@ async function main() {
     create: {
       id: randomUUID(),
       name: "Paket Standard 20 Mbps",
+      tenantId: MAIN_TENANT_ID,
       ...pkgStandardData,
     },
   });
@@ -1294,6 +1385,7 @@ async function main() {
     create: {
       id: randomUUID(),
       name: "Paket Premium 50 Mbps",
+      tenantId: MAIN_TENANT_ID,
       ...pkgPremiumData,
     },
   });
@@ -1420,21 +1512,14 @@ async function main() {
   // ========================================================================
   // STEP 14: RADIUS (NAS)
   // ========================================================================
-  logger.info("\n📡 STEP 14: Seeding Radius (NAS)...");
-
-  await prismaRadius.nas.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      id: 1,
-      nasname: "127.0.0.1",
-      shortname: "localhost",
-      type: "other",
-      secret: "testing123",
-      description: "Default Local NAS",
-    },
-  });
-  logger.info("   ✅ Radius: Default NAS created");
+  // Sengaja kosong: client `localhost` didefinisikan statis di
+  // `config/radius/clients.conf` (dengan secret dari env `RADIUS_SECRET`),
+  // karena ia kebutuhan infrastruktur untuk health check dan radclient.
+  // Men-seed baris `nas` yang sama bikin FreeRADIUS menolaknya saat boot
+  // ("Failed to add duplicate client localhost") dan — lebih menyesatkan —
+  // membuat secret di database tidak pernah terpakai padahal terlihat bisa
+  // diubah. Tabel `nas` khusus untuk NAS yang dikelola aplikasi lewat
+  // `RadiusNasRepository`.
 }
 
 main()
