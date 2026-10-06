@@ -41,6 +41,196 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-06] — Tutup lingkup fail-open pada prospek dan canvasing
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/presurvei`, `modules/marketing`, `app/api/presurvei/prospek`
+- **Author**: agent
+- **Deskripsi**: Cacat yang diperkenalkan entri "Kepala sales melihat prospek dan canvasing
+  timnya" di bawah, ditemukan tinjauan keamanan otomatis sebelum sempat di-commit. Izin
+  "lihat semua" tiap modul berdiri sendiri — canvasing `canvasing:read`/`verify`, prospek
+  `presurvei:read` — sedangkan `LingkupSalesService` menilai dari `presurvei_rencana:view_all`.
+  `idSalesTerlihat` menjawab `undefined` ("tanpa batas") untuk lingkup SEMUA, dan jawaban itu
+  dipakai justru di cabang yang modulnya **baru saja menolak** melihat milik orang lain:
+  akibatnya filter sales hilang sama sekali. Pemegang `presurvei_rencana:view_all` tanpa
+  `canvasing:read` melihat seluruh canvasing tenant, dan tanpa `presurvei:read` melihat
+  seluruh prospek tenant — padahal sebelum perubahan itu keduanya terkunci ke miliknya
+  sendiri. Ditambahkan `idSalesTerlihatTanpaMelebarkan` yang selalu mengembalikan daftar:
+  "tanpa batas", "kosong", dan tenant yang tidak diketahui sama-sama dikerucutkan ke milik
+  sendiri, sehingga lingkup sales hanya bisa mempersempit dan tak pernah membatalkan
+  penolakan modul pemanggil. Terverifikasi di server berjalan dengan role bermuatan persis
+  `presurvei_rencana:view_all` tanpa izin lihat-semua modulnya: prospek 0, canvasing 0,
+  sementara pemiliknya tetap melihat datanya.
+- **Files**: `modules/presurvei/services/LingkupSalesService.ts`,
+  `modules/marketing/services/MarketingCanvasingListRouteService.ts`,
+  `app/api/presurvei/prospek/route.ts`,
+  `tests/modules/presurvei/lingkup-sales-service.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Kepala sales melihat prospek dan canvasing timnya
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/presurvei`, `modules/marketing`, `app/api/presurvei/prospek`
+- **Author**: agent
+- **Deskripsi**: Hanya rencana yang mengenal tingkat lingkup TIM; prospek dan canvasing
+  bersifat biner — milik sendiri atau seluruh tenant. Akibatnya kepala sales bisa menugaskan
+  dan mengatur agenda timnya, tapi tidak melihat prospek maupun canvasing anggotanya sendiri
+  (terbukti: daftar hanya memuat miliknya, dan membaca detail canvasing anak buah dibalas
+  403). Ditambahkan `LingkupSalesService` sebagai satu definisi "sales mana yang boleh saya
+  lihat" bagi ketiga modul, memakai aturan `jenisLingkupDariIzin` yang sudah ada. Filter
+  repository diperluas dengan `pemilikIds` (prospek) dan `salesIds` (canvasing); keduanya
+  batas yang ditetapkan server dan menang atas filter pilihan pengguna, sehingga `pemilikId`
+  atau `salesId` kiriman klien hanya bisa mempersempit ke dalam tim, tidak pernah keluar
+  darinya. Terverifikasi di server berjalan: kepala sales melihat 2 prospek dan 2 canvasing
+  (miliknya + anggota), sales tetap 1, dan sales yang menyisipkan filter milik atasannya
+  tetap hanya menerima miliknya sendiri. Persetujuan canvasing tidak diubah — tetap
+  kewenangan `canvasing:verify` (admin).
+- **Files**: `modules/presurvei/services/LingkupSalesService.ts`,
+  `modules/presurvei/repositories/ProspekRepository.ts`,
+  `modules/presurvei/domain/ports/IProspekRepository.ts`,
+  `modules/marketing/services/MarketingCanvasingListRouteService.ts`,
+  `modules/marketing/repositories/canvasing.repository.helpers.ts`,
+  `modules/marketing/domain/ports/ICanvasingRepository.ts`,
+  `app/api/presurvei/prospek/route.ts`, `app/api/presurvei/akses-presurvei.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Seed harga paket tidak lagi menggandakan tiap run
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed.ts`
+- **Author**: agent
+- **Deskripsi**: Pola yang sama dengan role: `hargaPaket.upsert` mencari
+  `(tenantId, name, siteId)` dengan tenant utama, sedangkan baris warisan sebelum
+  multi-tenant ber-`tenantId` NULL, dan blok `create`-nya tidak menyetel `tenantId`.
+  Postgres memperlakukan NULL sebagai selalu berbeda, sehingga unique index
+  `HargaPaket_tenantId_name_siteId_key` tidak pernah menahan dan setiap seed menambah satu
+  set paket baru tanpa gejala apa pun — ditemukan 7 salinan tiap paket, sejumlah seed yang
+  pernah dijalankan. Duplikat membuat pilihan paket berulang di form canvasing dan
+  pendaftaran. Diperbaiki dengan menyamakan `tenantId` baris warisan sebelum upsert dan
+  menyetelnya di tiap blok `create`. Terverifikasi: seed dua kali tetap 3 baris.
+- **Files**: `prisma/seed.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Lingkup TIM presurvei menuntut wewenang menugaskan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/roles/domain/lingkup-presurvei.ts`
+- **Author**: agent
+- **Deskripsi**: `jenisLingkupDariIzin` menghitung lingkup TIM dari awalan `presurvei_rencana:`
+  apa pun, sehingga role yang hanya memegang `:read` ikut diperlakukan sebagai kepala sales —
+  mendapat tema khusus, kartu tim, dan tombol "Buat Rencana" — padahal penugasannya pasti
+  dibalas 403 karena `sales-tersedia` dan POST penugasan menuntut `presurvei_rencana:create`.
+  Lingkup TIM kini ditentukan oleh `presurvei_rencana:create`, sehingga diperlakukan sebagai
+  pemberi tugas berarti memang berwenang menugaskan. `view_all` tetap mengungguli dan
+  menghasilkan SEMUA. Terverifikasi di server berjalan: role ber-`:read` saja turun ke
+  `lingkupRencana: SENDIRI`, dan kembali `TIM` begitu `:create` diberikan.
+- **Files**: `modules/roles/domain/lingkup-presurvei.ts`,
+  `tests/modules/roles/lingkup-presurvei.test.ts`
+- **Breaking**: ✅ Ya — role yang mengandalkan izin rencana selain `create` untuk melihat
+  agenda tim akan turun ke lingkup SENDIRI; beri `presurvei_rencana:create` bila memang
+  dimaksudkan sebagai kepala sales.
+
+### [2026-10-06] — Selaraskan `User.isSales` dengan persona role di seed
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed.ts`
+- **Author**: agent
+- **Deskripsi**: `User.isSales` adalah kolom turunan dari persona role, dijaga aplikasi lewat
+  `RoleRepository.syncUserIsSales`. Seed menulis role langsung dengan `prisma.role.upsert`
+  sehingga melewati sinkronisasi itu, dan blok `update` pada upsert user memang kosong —
+  pengguna lama tak pernah dibetulkan. Akibatnya kolom tertinggal saat persona role berubah,
+  dan kegagalannya tidak kelihatan: aplikasi menurunkan `isSales` dari persona saat runtime
+  (UI sales tampil normal), sedangkan `SalesRepository` menyaring kolom basi di database.
+  Sales karena itu hilang dari daftar anggota tim kepala sales dan tidak bisa ditugasi
+  rencana sama sekali. Ditemukan lewat uji alur Kepala Sales → Sales: endpoint
+  `/api/presurvei/rencana/sales-tersedia` membalas `200 []` padahal `kepalaSalesId` sudah
+  tertaut. Seed kini menyelaraskan kolom itu dengan persona role setelah pengguna dibuat.
+- **Files**: `prisma/seed.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Seed role jadi idempoten; persona Sales & Teknisi dibetulkan
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed.ts`
+- **Author**: agent
+- **Deskripsi**: Upsert role memakai `where: (name, MAIN_TENANT_ID)`, sedangkan role bawaan
+  peninggalan sebelum multi-tenant ber-`tenantId` NULL. Pencarian itu tak pernah cocok,
+  sehingga blok `update` tidak pernah terpakai — persona dan permission role lama tak pernah
+  ikut diperbarui — dan setiap `npm run prisma:seed` justru menambah satu set role duplikat
+  (terbukti: 5 role menjadi 13 setelah dua kali seed). `SUPER_ADMIN` lolos karena blok
+  `create`-nya satu-satunya yang menyetel `tenantId`. Seed melewati ekstensi Prisma lewat
+  `IS_SEEDING`, jadi `tenantId` tidak ikut disuntikkan seperti pada role yang dibuat dari
+  aplikasi. Diperbaiki dengan menyamakan `tenantId` role bawaan lama ke tenant utama sebelum
+  upsert, menyetel `tenantId` di tiap blok `create`, dan mendeklarasikan `persona` secara
+  eksplisit alih-alih bergantung pada default plus backfill migration. Efek sampingnya:
+  inversi persona hilang — role SALES kembali berpersona `SALES` (sebelumnya `STAFF`) dan
+  TEKNISI berpersona `TEKNISI` (sebelumnya `SALES`, karena backfill menilai dari izin
+  `m_presurvei`). Izin role SALES juga diperluas dengan `m_presurvei` dan `m_absensi`, dua
+  izin yang tab Presurvei dan Absensi pada tampilan sales bergantung padanya; tanpa itu
+  seorang sales melihat Presurvei terkunci dan Absensi hilang. Terverifikasi: seed dijalankan
+  dua kali tetap 5 role, dan user sales masuk ke tampilan Sales lengkap di emulator.
+- **Files**: `prisma/seed.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Canvasing bisa dijangkau persona staff
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager` (`src/utils/menuCepatStaff.ts`, `KaryawanStaffDashboardScreen`)
+- **Author**: agent
+- **Deskripsi**: Permukaan persona staff ditentukan dua daftar rute yang di-hardcode — whitelist
+  tab (`RUTE_TAB_KARYAWAN_STAFF`) dan menu cepat beranda — dan `canvasing` tidak ada di
+  keduanya. Role yang memegang `m_canvasing` tapi berpersona STAFF karena itu tidak punya
+  jalan masuk sama sekali ke fitur yang izinnya sudah diberikan. Daftar menu cepat dipindah ke
+  `src/utils/menuCepatStaff.ts` agar bertetangga dengan `tabKaryawanStaff.ts`, dan `canvasing`
+  ditambahkan. Test `__tests__/persona/jalurMasukStaff.test.ts` mengunci tiap entri menu staff
+  agar benar-benar terbuka saat izinnya dimiliki, supaya kasus "izin tanpa pintu" tidak
+  terulang diam-diam untuk fitur lain.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Laporan QA mobile: matriks role dan kasus autentikasi
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/reports/`
+- **Author**: agent
+- **Deskripsi**: Hasil QA aplikasi mobile di emulator Android terhadap 5 role seed.
+  Mencakup 2 temuan keamanan yang terbukti dieksploitasi (bypass rate limit lewat
+  `X-Forwarded-For`, user enumeration dari pesan login), 3 cacat fungsional (seed
+  menggandakan role tiap run, seed gagal karena unique ganda di `ProfilePPP`, gerbang
+  UI memakai persona sehingga izin `m_canvasing` tak terpakai), inversi persona
+  TEKNISI↔SALES, matriks otorisasi 15 endpoint, dan 7 kasus negatif autentikasi yang
+  semuanya benar. Perbaikan kode belum diterapkan untuk temuan yang butuh keputusan
+  arsitektur.
+- **Files**: `docs/reports/qa-mobile-role-matrix-2026-10-06.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Hapus seed NAS localhost yang dibayangi clients.conf
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed.ts`, `config/radius`
+- **Author**: agent
+- **Deskripsi**: Seed membuat baris `nas` untuk `127.0.0.1`/`localhost` dengan secret
+  hardcoded `testing123`, padahal client yang sama sudah didefinisikan statis di
+  `config/radius/clients.conf` dengan secret dari env `RADIUS_SECRET`. FreeRADIUS
+  memuat file lebih dulu lalu menolak entri SQL-nya — setiap boot mencatat
+  `Error: Failed to add duplicate client localhost`. Lebih menyesatkan lagi, secret
+  di database tidak pernah terpakai meski terlihat bisa diubah, sehingga perubahan
+  di sana gagal tanpa gejala. Baris seed dihapus; `localhost` tetap dilayani dari
+  `clients.conf` sebagai kebutuhan infrastruktur (health check & radclient), dan
+  tabel `nas` kembali murni untuk NAS yang dikelola aplikasi lewat
+  `RadiusNasRepository`. Terverifikasi: setelah restart, FreeRADIUS `Ready to
+  process requests` dengan 0 Error.
+- **Files**: `prisma/seed.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-06] — Landing page tidak lagi 500 untuk host tak terpetakan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/tenant`, `app/page.tsx`
+- **Author**: agent
+- **Deskripsi**: `HomePage` meresolusi host → tenant lewat client `prisma` (ber-ekstensi isolasi tenant), padahal `TenantDomain` adalah data bootstrap lintas-tenant yang dibaca justru sebelum konteks tenant ada. Akibatnya setiap host yang bukan apex domain dan belum terpetakan ke tenant — termasuk `127.0.0.1` yang dipakai dev server dan akses lewat IP seperti health probe — membalas 500 `TenantContextError` alih-alih menampilkan landing page umum. Logika resolusi dipindah ke `modules/tenant` sebagai `resolveTenantByPublicHost()` yang memakai `prismaAuth` (tanpa ekstensi), sesuai pola yang sudah dicatat di `lib/tenant-context.ts`. Sekalian: query Prisma mentah hilang dari layer page, duplikasi logika host dengan `lib/tenant-context.ts` berkurang, non-null assertion `tenantSlug!` hilang, dan pemotongan port tidak lagi merusak alamat IPv6 berkurung (`[::1]` sebelumnya jadi `[`).
+- **Files**: `modules/tenant/services/public-tenant-host.ts`, `modules/tenant/index.ts`, `app/page.tsx`, `tests/modules/tenant/public-tenant-host.test.ts`, `tests/app/home-page.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-04] — Laporan Self-Assessment Komdigi tahap 1
 
 - **Tipe**: [ADDED] [MIGRATION]
